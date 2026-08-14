@@ -47,26 +47,35 @@ CMAKE_ARGS+=-DCMAKE_BUILD_TYPE=Release
 UNAME_M := $(shell uname -m)
 
 ifeq ($(BUILD_TYPE),cublas)
-	# Blackwell-family targets only: other CUDA arches are build-supported
-	# upstream but have no runtime-proven fast path. amd64 gets the consumer
-	# (120a) + GB10 (121a) fat binary; arm64 CUDA (l4t-style images, DGX
-	# Spark) is GB10 only. Triton-AOT GDN cubins are vendored per-arch, no
-	# Python needed to consume them.
+	# Every CUDA architecture upstream builds that the platform can actually
+	# host, split by where the silicon exists: Jetson (87 Orin, 110 Thor) is
+	# arm64-only, desktop 120a is amd64-only, and 90a/100a appear on both
+	# because of the SBSA parts (GH200, GB200).
+	#
+	# This deliberately matches vllm.cpp's own release archive rather than
+	# narrowing to the boxes we benchmark on. A narrower list does not degrade
+	# on an unlisted card, it dies at the first request with "no kernel image
+	# is available for execution on the device", long after `backends install`
+	# reported success -- so an arch we merely lack numbers for still belongs
+	# in the binary.
+	#
+	# Triton-AOT stays ON for both. A fat build is supported on the BUILDER
+	# path: it embeds every vendored cubin tree (sm_80/86/89/90a/100a/121a) and
+	# selects by exact SM at runtime, so the arches with no tree (87, 103a,
+	# 110, 120a) take the portable CUDA kernels and can never load a
+	# neighbouring cubin. Only maintainer REGEN needs a single pinned arch.
+	# See vllm.cpp cmake/TritonAOT.cmake `_triton_aot_arch_names`.
+	#
+	# CUDA builds REQUIRE the CUDA 13 toolchain: 12.x nvcc lacks compute_121a
+	# (GB10) and its ptxas rejects the sm_120a NVFP4 MMA kernels ("Vector type
+	# too large"), so no cuda-12 variant is shipped.
+	ifeq ($(CUDA_MAJOR_VERSION),12)
+    $(error vllm.cpp needs the CUDA 13 toolchain: CUDA 12.x cannot compile the Blackwell fp4 kernels)
+	endif
 	ifeq ($(UNAME_M),x86_64)
-		# NO -DVLLM_CPP_TRITON on fat builds: the vendored Triton-AOT cubin
-		# trees are per-arch and the engine refuses a multi-arch build unless
-		# pinned to one tree (unsound for the other arch). The non-AOT GDN
-		# path serves the fat binary; single-arch builds keep the cubins.
-		#
-		# CUDA builds REQUIRE the CUDA 13 toolchain: 12.x nvcc lacks
-		# compute_121a (GB10) and its ptxas rejects the sm_120a NVFP4 MMA
-		# kernels ("Vector type too large"), so no cuda-12 variant is shipped.
-		ifeq ($(CUDA_MAJOR_VERSION),12)
-      $(error vllm.cpp needs the CUDA 13 toolchain: CUDA 12.x cannot compile the Blackwell fp4 kernels)
-		endif
-		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=120a;121a"
+		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=80;86;89;90a;100a;103a;120a;121a" -DVLLM_CPP_TRITON=ON
 	else
-		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON -DVLLM_CPP_CUDA_ARCHITECTURES=121a -DVLLM_CPP_TRITON=ON
+		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=87;90a;100a;110;121a" -DVLLM_CPP_TRITON=ON
 	endif
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DVLLM_CPP_VULKAN=ON -DVLLM_CPP_CUDA=OFF
