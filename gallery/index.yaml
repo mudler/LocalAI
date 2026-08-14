@@ -1,4 +1,163 @@
 ---
+- &qwen3-8-27b
+  name: "qwen3.8-27b-q4"
+  variants:
+    - model: qwen3.8-27b-q4-mtp
+    - model: qwen3.8-27b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/ggml-org/Qwen3.8-27B-GGUF
+  description: |
+    Qwen3.8-27B is Qwen's dense 27B vision-language model for reasoning,
+    coding, tool use, and long-running agent tasks. It accepts text, images,
+    and video, and it supports a native context window of 262K tokens.
+
+    This default entry uses the official Q4_K_M GGUF and Q8_0 vision
+    projector. The linked variants add MTP speculative decoding or use the
+    higher-quality Q8_0 model.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-08-14"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
+      uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_K_M.gguf
+      sha256: 31629f53165ab6a7dad8c9847dcfd1fdf55829dac1e6e748f4a68581b0033d34
+    - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
+      uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
+- !!merge <<: *qwen3-8-27b
+  name: "qwen3.8-27b-q4-mtp"
+  variants: []
+  description: |
+    Qwen3.8-27B with the official Q4_K_M model and Q4_0 MTP draft model.
+    MTP speculative decoding can increase generation speed by proposing
+    multiple tokens for the target model to verify.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+    - mtp
+    - speculative
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    draft_model: llama-cpp/models/qwen3.8-27b/mtp-Qwen3.8-27B-Q4_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
+      uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_K_M.gguf
+      sha256: 31629f53165ab6a7dad8c9847dcfd1fdf55829dac1e6e748f4a68581b0033d34
+    - filename: llama-cpp/models/qwen3.8-27b/mtp-Qwen3.8-27B-Q4_0.gguf
+      uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mtp-Qwen3.8-27B-Q4_0.gguf
+      sha256: 051a1764cff8c4f3ee6ae8b00593a0364c7539c67fa50ffc58f3f96509fca38e
+    - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
+      uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
+- !!merge <<: *qwen3-8-27b
+  name: "qwen3.8-27b-q8"
+  variants: []
+  description: |
+    Qwen3.8-27B in the official Q8_0 GGUF format. This variant provides higher
+    model fidelity for hosts with enough memory.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q8_0.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q8_0.gguf
+      uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q8_0.gguf
+      sha256: f5c702d8820d36fb55985bb238fc83ee3a313e920f4b752a437c3a6a9e14e4c8
+    - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
+      uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
 - &twil-lm3
   name: "twil-lm3-q4"
   variants:
