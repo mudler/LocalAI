@@ -642,8 +642,14 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	// Verify the backend process is still alive via gRPC health check
 	if !r.probeHealth(ctx, node, modelAddr) {
 		// Stale — roll back the increment, remove the specific replica row, fall through
-		r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx)
-		r.registry.RemoveNodeModel(ctx, node.ID, att.trackingKey, replicaIdx)
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release stale routing reservation",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		if err := r.registry.RemoveNodeModel(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to remove stale model from registry",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
 		xlog.Warn("Backend not reachable for cached model, falling through to reload",
 			"node", node.Name, "model", att.modelName, "replica", replicaIdx)
 		return nil
@@ -651,7 +657,10 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 
 	// Verify node still matches scheduling constraints
 	if !r.nodeMatchesScheduling(ctx, node, att.sched) {
-		r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx)
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release unmatched routing reservation",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
 		xlog.Info("Cached model on node that no longer matches selector, falling through",
 			"node", node.Name, "model", att.trackingKey, "replica", replicaIdx)
 		return nil
