@@ -3594,6 +3594,81 @@
     - filename: llama-cpp/models/LFM2.5-1.2B-Instruct-GGUF/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
       sha256: b1b3de114215d9507409a662a501a631095a479a419584e8a2ded6304b19b4f5
       uri: https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf
+- &lfm2-5-230m
+  name: "lfm2.5-230m"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-230M
+    - https://huggingface.co/LiquidAI/LFM2.5-230M-GGUF
+  description: |
+    LFM2.5-230M is LiquidAI's compact text model for edge and on-device use.
+    It has 230M parameters, a 128K-token context window, and support for ten
+    languages. This entry uses the recommended Q4_K_M GGUF quantization from
+    LiquidAI's official repository.
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - edge
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
+  variants:
+    - model: lfm2.5-230m-q8
+  overrides:
+    backend: llama-cpp
+    context_size: 128000
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-230M-GGUF/LFM2.5-230M-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-230M-GGUF/LFM2.5-230M-Q4_K_M.gguf
+      sha256: 7bbd90384d3deffe4c646ec9643b212802d32d4ce417c90a1ec9282100650062
+      uri: https://huggingface.co/LiquidAI/LFM2.5-230M-GGUF/resolve/main/LFM2.5-230M-Q4_K_M.gguf
+- !!merge <<: *lfm2-5-230m
+  name: "lfm2.5-230m-q8"
+  description: |
+    LFM2.5-230M is LiquidAI's compact text model for edge and on-device use.
+    It has 230M parameters, a 128K-token context window, and support for ten
+    languages. This entry uses the higher-quality Q8_0 GGUF quantization from
+    LiquidAI's official repository.
+  variants: null
+  overrides:
+    backend: llama-cpp
+    context_size: 128000
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM2.5-230M-GGUF/LFM2.5-230M-Q8_0.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-230M-GGUF/LFM2.5-230M-Q8_0.gguf
+      sha256: 855be85429300602eda72958547614703541b7d6dd965a8f8f6052b85a7aa935
+      uri: https://huggingface.co/LiquidAI/LFM2.5-230M-GGUF/resolve/main/LFM2.5-230M-Q8_0.gguf
 - &lfm2-5-2-6b
   name: "lfm2.5-2.6b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
