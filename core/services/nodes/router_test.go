@@ -60,6 +60,8 @@ func (f *fakeFileStager) ListRemoteDir(_ context.Context, _, _ string) ([]string
 
 // fakeModelRouter implements ModelRouter with configurable return values.
 type fakeModelRouter struct {
+	fakeLoadJobStore
+
 	// FindAndLockNodeWithModel returns
 	findAndLockNode *BackendNode
 	findAndLockNM   *NodeModel
@@ -146,6 +148,86 @@ func (f *fakeModelRouter) LoadedReplicaStats(_ context.Context, modelName string
 		return nil, f.loadedReplicaStatsErr
 	}
 	return f.loadedReplicaStatsByName[modelName], nil
+}
+
+// fakeLoadJobStore is an in-memory LoadJobStore so tests that build a
+// SmartRouter over a fake registry get the real claim/wait semantics without a
+// database.
+type fakeLoadJobStore struct {
+	mu   sync.Mutex
+	jobs map[string]*ModelLoadJob
+}
+
+func (s *fakeLoadJobStore) ClaimLoadJob(_ context.Context, trackingKey, owner string) (*ModelLoadJob, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.jobs == nil {
+		s.jobs = map[string]*ModelLoadJob{}
+	}
+	if existing, ok := s.jobs[trackingKey]; ok && !existing.IsOrphaned(time.Now()) {
+		cp := *existing
+		return &cp, false, nil
+	}
+	now := time.Now()
+	job := &ModelLoadJob{TrackingKey: trackingKey, State: LoadJobStatePending, OwnerReplica: owner, CreatedAt: now, UpdatedAt: now, LastProgress: now}
+	s.jobs[trackingKey] = job
+	cp := *job
+	return &cp, true, nil
+}
+
+func (s *fakeLoadJobStore) GetLoadJob(_ context.Context, trackingKey string) (*ModelLoadJob, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job, ok := s.jobs[trackingKey]
+	if !ok {
+		return nil, nil
+	}
+	cp := *job
+	return &cp, nil
+}
+
+func (s *fakeLoadJobStore) UpdateLoadJob(_ context.Context, trackingKey string, u LoadJobUpdate) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	job, ok := s.jobs[trackingKey]
+	if !ok {
+		return nil
+	}
+	if u.State != "" {
+		job.State = u.State
+	}
+	if u.NodeID != "" {
+		job.NodeID = u.NodeID
+		job.ReplicaIndex = u.ReplicaIndex
+	}
+	if u.NodeName != "" {
+		job.NodeName = u.NodeName
+	}
+	if !u.StartedAt.IsZero() {
+		job.StartedAt = u.StartedAt
+	}
+	job.BytesSent, job.TotalBytes = u.BytesSent, u.TotalBytes
+	job.FileIndex, job.TotalFiles = u.FileIndex, u.TotalFiles
+	job.LastProgress = time.Now()
+	return nil
+}
+
+func (s *fakeLoadJobStore) FailLoadJob(_ context.Context, trackingKey, msg string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if job, ok := s.jobs[trackingKey]; ok {
+		job.State = LoadJobStateFailed
+		job.LastError = msg
+		job.LastProgress = time.Now()
+	}
+	return nil
+}
+
+func (s *fakeLoadJobStore) DeleteLoadJob(_ context.Context, trackingKey string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.jobs, trackingKey)
+	return nil
 }
 
 func (f *fakeModelRouter) DecrementInFlight(_ context.Context, nodeID, modelName string, _ int) error {

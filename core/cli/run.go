@@ -179,6 +179,7 @@ type RunCMD struct {
 	BackendInstallTimeout        string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
 	BackendUpgradeTimeout        string `env:"LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT" help:"NATS round-trip timeout for backend.upgrade requests (default 15m)." group:"distributed"`
 	ModelLoadTimeout             string `env:"LOCALAI_NATS_MODEL_LOAD_TIMEOUT" help:"Fixed gRPC deadline for the remote LoadModel call sent to a worker node once its backend is installed and model files are staged. Unset (the default), the deadline is derived from the checkpoint size instead: 5m plus 20s per GiB, capped at 6h, so multi-tens-of-GB diffusion/video checkpoints get the minutes they need without a fixed cliff. Set this only to pin a specific budget; the value is used verbatim, including when it is shorter than the derived one." group:"distributed"`
+	ModelLoadWait                string `env:"LOCALAI_MODEL_LOAD_WAIT" help:"How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with 503, a Retry-After header and live staging progress (default 60s). The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to 0 to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front." group:"distributed"`
 	NatsAccountSeed              string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
 	NatsServiceJWT               string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
 	NatsServiceSeed              string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
@@ -385,6 +386,13 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return err
 		}
 		opts = append(opts, config.WithModelLoadTimeout(d))
+	}
+	if r.ModelLoadWait != "" {
+		d, err := parseDistributedDuration("LOCALAI_MODEL_LOAD_WAIT", r.ModelLoadWait)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithModelLoadWait(d))
 	}
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))

@@ -81,7 +81,15 @@
   },
   "streaming": {
     "transferring": "Transferring model...",
-    "transferringTo": "Transferring model to {{node}}..."
+    "transferringTo": "Transferring model to {{node}}...",
+    "onNode": "on {{node}}",
+    "eta": "~{{value}} left",
+    "modelState": {
+      "pending": "Preparing to load the model...",
+      "installing": "Installing the backend...",
+      "staging": "Staging model files...",
+      "loading": "Loading the model..."
+    }
   },
   "tokens": {
     "perSec": "{{count}} tok/s",

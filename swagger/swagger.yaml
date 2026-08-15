@@ -1583,6 +1583,31 @@ definitions:
           an error).
         type: string
     type: object
+  schema.ModelLoadingStatus:
+    properties:
+      bytes_sent:
+        type: integer
+      eta_seconds:
+        description: |-
+          ETASeconds is omitted rather than guessed until enough bytes have moved
+          for the observed rate to mean anything. A confidently wrong ETA on a
+          twenty-minute wait is worse than none.
+        type: integer
+      file_index:
+        type: integer
+      model:
+        type: string
+      node:
+        type: string
+      progress:
+        type: number
+      state:
+        type: string
+      total_bytes:
+        type: integer
+      total_files:
+        type: integer
+    type: object
   schema.ModelsDataResponse:
     properties:
       data:
@@ -3454,6 +3479,32 @@ paths:
       summary: Get an instruction's API guide or OpenAPI fragment
       tags:
       - instructions
+  /api/models/{id}/load-status:
+    get:
+      description: Returns the live state of a distributed cold load — phase, node,
+        byte progress and ETA — or 404 when no load is running for the model. This
+        is the same `loading` object the 503 response carries while a model is still
+        staging.
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Live load progress
+          schema:
+            $ref: '#/definitions/schema.ModelLoadingStatus'
+        "404":
+          description: No load is running for this model
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Report the progress of an in-flight model load.
+      tags:
+      - models
   /api/models/{name}/{action}:
     put:
       description: Enable or disable a model from being loaded on demand. Disabled

@@ -180,6 +180,16 @@ func WithLockCtx(ctx context.Context, db *gorm.DB, key int64, fn func() error) e
 	// Restore the session default before this pooled connection is reused.
 	defer func() { _, _ = conn.ExecContext(context.Background(), "RESET lock_timeout") }()
 
+	// statement_timeout aborts the same blocking pg_advisory_lock() call
+	// independently of lock_timeout, with SQLSTATE 57014. Deployments that set a
+	// short statement_timeout on the role (60s is a common default) would
+	// otherwise kill every waiter regardless of the lock_timeout override above.
+	if _, err := conn.ExecContext(ctx,
+		fmt.Sprintf("SET statement_timeout = %d", waitBudget.Milliseconds())); err != nil {
+		return fmt.Errorf("advisorylock: setting statement_timeout: %w", err)
+	}
+	defer func() { _, _ = conn.ExecContext(context.Background(), "RESET statement_timeout") }()
+
 	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", key); err != nil {
 		return fmt.Errorf("advisorylock: acquiring lock %d: %w", key, err)
 	}

@@ -1097,6 +1097,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/{id}/load-status": {
+            "get": {
+                "description": "Returns the live state of a distributed cold load — phase, node, byte progress and ETA — or 404 when no load is running for the model. This is the same ` + "`" + `loading` + "`" + ` object the 503 response carries while a model is still staging.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Report the progress of an in-flight model load.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Live load progress",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadingStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "No load is running for this model",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/{name}/{action}": {
             "put": {
                 "description": "Enable or disable a model from being loaded on demand. Disabled models remain installed but cannot be loaded.",
@@ -6061,6 +6096,39 @@ const docTemplate = `{
                 "message": {
                     "description": "Message is a short human-readable status (\"model loaded\", or an error).",
                     "type": "string"
+                }
+            }
+        },
+        "schema.ModelLoadingStatus": {
+            "type": "object",
+            "properties": {
+                "bytes_sent": {
+                    "type": "integer"
+                },
+                "eta_seconds": {
+                    "description": "ETASeconds is omitted rather than guessed until enough bytes have moved\nfor the observed rate to mean anything. A confidently wrong ETA on a\ntwenty-minute wait is worse than none.",
+                    "type": "integer"
+                },
+                "file_index": {
+                    "type": "integer"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "node": {
+                    "type": "string"
+                },
+                "progress": {
+                    "type": "number"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "total_bytes": {
+                    "type": "integer"
+                },
+                "total_files": {
+                    "type": "integer"
                 }
             }
         },
