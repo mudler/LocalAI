@@ -926,6 +926,10 @@ with no Python at inference time. It consumes either a HuggingFace safetensors
 model directory or a `.gguf` file, and applies the model's chat template,
 tool-call parsing and reasoning split engine-side.
 
+This section is the configuration reference. For installing the backend and the
+ready-made models the gallery ships for it, see the
+[vllm.cpp backend page]({{% relref "features/vllm-cpp" %}}).
+
 #### Setup
 
 ```yaml
