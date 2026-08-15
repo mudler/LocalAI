@@ -179,6 +179,37 @@ var _ = Describe("DownloadFilesWithContext retries", func() {
 		}
 	})
 
+	It("retries a checksum mismatch", func() {
+		wrongPayload := []byte("stale model bytes")
+		requests := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests++
+			body := payload
+			if requests == 1 {
+				body = wrongPayload
+			}
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(body)
+		}))
+		DeferCleanup(server.Close)
+
+		err := downloader.DownloadFilesWithContext(context.Background(), []downloader.FileTask{{
+			URI:         downloader.URI(server.URL),
+			Destination: destPath,
+			SHA256:      payloadSHA,
+			FileIndex:   1,
+			TotalFiles:  1,
+		}}, nil)
+		Expect(requests).To(Equal(2), "the checksum failure must trigger one retry")
+		Expect(err).ToNot(HaveOccurred())
+
+		got, err := os.ReadFile(destPath)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal(payload))
+		Expect(destPath + downloader.PartialFileSuffix).ToNot(BeAnExistingFile())
+	})
+
 	It("does not retry a permanent failure", func() {
 		attempts := 0
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
