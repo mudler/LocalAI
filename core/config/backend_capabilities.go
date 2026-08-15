@@ -271,12 +271,18 @@ func referenceVoiceCloning() *VoiceCloningCapability {
 // Use NormalizeBackendName() for names with dots (e.g., "llama.cpp").
 var BackendCapabilities = map[string]BackendCapability{
 	// --- LLM / text generation backends ---
+	// llama.cpp also serves Qwen3-TTS, so TTS is in the union below. It is NOT
+	// in DefaultUsecases: a bare GGUF served by llama.cpp is a chat model, and
+	// the TTS models declare known_usecases: [tts]. VoiceCloning is likewise
+	// narrowed per model in VoiceCloningForModel, since the vast majority of
+	// llama-cpp models in the gallery are text LLMs that clone nothing.
 	"llama-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding, MethodTokenizeString, MethodScore},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision, UsecaseScore},
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodEmbedding, MethodTokenizeString, MethodScore, MethodTTS, MethodTTSStream},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseEdit, UsecaseEmbeddings, UsecaseTokenize, UsecaseVision, UsecaseScore, UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true, // requires mmproj
-		Description:      "llama.cpp GGUF models — LLM inference with optional vision via mmproj",
+		VoiceCloning:     referenceVoiceCloning(),
+		Description:      "llama.cpp GGUF models: LLM inference with optional vision via mmproj, and Qwen3-TTS speech with reference-audio cloning",
 	},
 	// privacy-filter is the standalone GGML engine (backend/cpp/privacy-filter,
 	// wrapping privacy-filter.cpp) for the openai-privacy-filter PII/NER token
@@ -303,6 +309,20 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true,
 		Description:      "SGLang — fast LLM inference with structured generation and optional vision",
+	},
+	// vllm-cpp serves two mutually exclusive engine handles from one backend:
+	// a text engine, and MiniMax-H3's video+audio engine when the model config
+	// declares the H3 checkpoint set. Both usecases are possible, and chat is
+	// the default because a config that says nothing is a text model.
+	//
+	// AcceptsImages is the fl2va keyframe (start_image/end_image), the same
+	// reason longcat-video declares it; the text path takes no image input.
+	"vllm-cpp": {
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateVideo},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVideo},
+		DefaultUsecases:  []string{UsecaseChat},
+		AcceptsImages:    true,
+		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation plus MiniMax-H3 video+audio generation",
 	},
 	"vllm-omni": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateImage, MethodGenerateVideo, MethodTTS},
@@ -419,6 +439,47 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseTranscript},
 		DefaultUsecases:  []string{UsecaseTranscript},
 		Description:      "NVIDIA NeMo Parakeet ASR (parakeet.cpp)",
+	},
+	// nemo-speech-cpp is one gRPC server in front of four NeMo-Speech.cpp model
+	// families, picked at load time from the GGUF general.architecture key, so
+	// PossibleUsecases is their UNION and no single model serves all of it: an
+	// asr model transcribes (and diarizes, when a Sortformer model is attached
+	// through options), a sortformer model only diarizes, a magpietts model only
+	// synthesizes, and a Riva-Translate model only answers Predict.
+	//
+	// UsecaseChat sits alongside UsecaseCompletion for the translation family
+	// because Predict and PredictStream are exactly the RPCs /v1/chat/completions
+	// drives, and chat is what a translation model is useful through: each turn
+	// goes in as the prompt and comes back translated. The flag is not a gate on
+	// any endpoint (a request naming the model explicitly is served either way);
+	// what it buys is being eligible as the default chat model when a request
+	// names none (core/http/routes/openai.go) and appearing in the React UI's
+	// chat model picker (CAP_CHAT in react-ui/src/utils/capabilities.js).
+	//
+	// Leaving it out is not neutral: chat is a gallery filter key and completion
+	// is not (usecaseFilters in core/http/routes/ui_api.go), so
+	// GET /api/backends/usecases would grey the Chat filter out and hide a
+	// Riva-Translate gallery entry from the one filter that fits it.
+	//
+	// DefaultUsecases is transcript alone because that is the only family whose
+	// weights a bare `backend: nemo-speech-cpp` config is likely to name; a model
+	// of any other family should pin its own known_usecases.
+	//
+	// No VoiceCloning key: MagpieTTS synthesizes from baked speaker ids, not from
+	// a reference clip, so advertising cloning would accept a `voice:
+	// "profile:<id>"` request the backend cannot serve.
+	"nemo-speech-cpp": {
+		GRPCMethods: []GRPCMethod{
+			MethodAudioTranscription, MethodDiarize,
+			MethodTTS, MethodTTSStream,
+			MethodPredict, MethodPredictStream,
+		},
+		PossibleUsecases: []string{
+			UsecaseTranscript, UsecaseDiarization, UsecaseTTS,
+			UsecaseCompletion, UsecaseChat,
+		},
+		DefaultUsecases: []string{UsecaseTranscript},
+		Description:     "NVIDIA NeMo-Speech.cpp: one server for Nemotron ASR (offline, streaming and live), Sortformer diarization, MagpieTTS synthesis and Riva-Translate translation; the model's GGUF architecture decides which",
 	},
 	"qwen-asr": {
 		GRPCMethods:      []GRPCMethod{MethodAudioTranscription},
@@ -966,6 +1027,20 @@ func VoiceCloningForModel(cfg *ModelConfig) *VoiceCloningCapability {
 		supported = strings.Contains(identity, "xtts") || strings.Contains(identity, "your_tts")
 	case "crispasr":
 		supported = strings.Contains(identity, "f5-tts") || strings.Contains(identity, "f5_tts")
+	case "llama-cpp":
+		// llama.cpp is overwhelmingly a text-LLM backend that happens to also
+		// serve Qwen3-TTS, so the permissive default below would advertise
+		// reference-audio cloning on every GGUF chat model in the gallery.
+		// Narrow on the declared usecase rather than the model name: the TTS
+		// checkpoints are the only llama-cpp models that carry
+		// known_usecases: [tts], name matching would have to guess at
+		// third-party GGUF repacks, and "base" (the substring the Qwen and
+		// vLLM cases key on) is a routine word in text-model names.
+		//
+		// Deliberately reads the declared bit instead of HasUsecases, which
+		// falls through to GuessUsecases and would hand the decision to a
+		// heuristic that never had a llama.cpp TTS model in mind.
+		supported = cfg.KnownUsecases != nil && (*cfg.KnownUsecases&FLAG_TTS) == FLAG_TTS
 	default:
 		supported = true
 	}

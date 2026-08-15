@@ -1,0 +1,203 @@
+{
+  "activity": {
+    "title": "Atividade",
+    "supporting": "Instalações, downloads e remoções nesta instância.",
+    "hide": "Ocultar",
+    "moveToHistory": "Mover para o histórico",
+    "moreCount": "mais {{count}}",
+    "waitingForInstaller": "aguardando o instalador",
+    "progressLabel": "Progresso de {{name}}",
+    "toNode": "para {{node}}",
+    "nodesDone": "{{done}} de {{total}} nós concluídos",
+    "timeLeft": "restam {{value}}",
+    "cancel": "Cancelar",
+    "cancelLabel": "Cancelar {{name}}",
+    "pause": "Pausar",
+    "pauseLabel": "Pausar {{name}} e manter os dados baixados",
+    "retry": "Tentar novamente",
+    "retryLabel": "Tentar novamente {{name}}",
+    "nodeCount": "{{count}} nós",
+    "showNodes": "Mostrar {{count}} nós",
+    "hideNodes": "Ocultar detalhes por nó",
+    "node": {
+      "done": "Concluído",
+      "failed": "Falhou",
+      "queued": "Na fila",
+      "workerBusy": "Worker ocupado",
+      "downloading": "Baixando"
+    },
+    "kind": {
+      "model": "modelo",
+      "backend": "backend"
+    },
+    "verb": {
+      "installing": "Instalando {{kind}}",
+      "installed": "{{kind}} instalado",
+      "removed": "{{kind}} removido",
+      "staged": "Modelo preparado",
+      "failed": "Não foi possível instalar {{kind}}",
+      "queued": "Na fila",
+      "staging": "Preparando modelo",
+      "removing": "Removendo {{kind}}",
+      "failedRemoval": "Não foi possível remover {{kind}}",
+      "failedStaging": "Não foi possível preparar o modelo"
+    },
+    "phase": {
+      "resolving": "Resolvendo arquivos",
+      "downloading": "Baixando",
+      "verifying": "Verificando",
+      "committing": "Finalizando",
+      "persisting": "Salvando configuração"
+    },
+    "clearHistory": "Limpar histórico",
+    "inProgress": "Em andamento",
+    "needsAttention": "Requer atenção",
+    "record": "Registro",
+    "historyNote": "Mantém as últimas 50 operações. O histórico fica na memória e é reiniciado quando o LocalAI reinicia.",
+    "emptyTitle": "Nenhuma operação desde a inicialização",
+    "emptyBody": "Instalações de modelos e backends aparecem aqui enquanto são executadas e permanecem como registro após a conclusão. O histórico fica na memória, portanto é reiniciado quando o LocalAI reinicia.",
+    "browseModels": "Procurar modelos",
+    "viewInModels": "Ver em Modelos",
+    "viewInBackends": "Ver em Backends",
+    "rowInstalled": "instalado em {{duration}}",
+    "rowFailed": "falhou: {{error}}",
+    "rowCancelled": "cancelado",
+    "rowRemoved": "removido",
+    "retryFailed": "Falha ao tentar novamente: {{message}}",
+    "filter": {
+      "all": "Todas",
+      "models": "Modelos",
+      "backends": "Backends",
+      "cluster": "Cluster"
+    },
+    "summaryRunning_one": "{{count}} operação em andamento.",
+    "summaryRunning_other": "{{count}} operações em andamento.",
+    "summaryFailed_one": "{{count}} operação requer atenção.",
+    "summaryFailed_other": "{{count}} operações requerem atenção.",
+    "summaryQuiet_one": "Nada em execução. {{count}} operação desde a inicialização.",
+    "summaryQuiet_other": "Nada em execução. {{count}} operações desde a inicialização.",
+    "summaryIdle": "Nada em execução.",
+    "emptyFiltered": "Nenhuma operação corresponde a este filtro.",
+    "showAll": "Mostrar tudo",
+    "rowInstalledPlain": "instalado"
+  },
+  "manage": {
+    "title": "Sistema",
+    "subtitle": "Gerenciar modelos e backends instalados"
+  },
+  "settings": {
+    "title": "Configurações",
+    "subtitle": "Configurar as configurações de runtime do LocalAI",
+    "saved": "Configurações salvas com sucesso",
+    "saveFailed": "Falha ao salvar: {{message}}",
+    "loadFailed": "Falha ao carregar as configurações: {{message}}",
+    "sections": {
+      "branding": "Identidade visual",
+      "watchdog": "Watchdog",
+      "memory": "Memória",
+      "backends": "Backends",
+      "performance": "Desempenho",
+      "tracing": "Rastreamento",
+      "api": "API e CORS",
+      "p2p": "P2P",
+      "galleries": "Galerias",
+      "apikeys": "Chaves de API",
+      "agents": "Trabalhos de Agentes",
+      "agentpool": "Pool de Agentes",
+      "assistant": "Assistente LocalAI",
+      "distributed": "Distribuído",
+      "responses": "Respostas"
+    }
+  },
+  "backends": {
+    "title": "Gerenciamento de Backends",
+    "subtitle": "Descubra e instale backends de IA para potencializar seus modelos"
+  },
+  "backendLogs": {
+    "title": "Logs de Backends",
+    "subtitle": "Ver logs dos backends em execução",
+    "empty": "Nenhum log disponível"
+  },
+  "traces": {
+    "title": "Rastreamentos",
+    "subtitle": "Ver requisições, respostas e operações de backend registradas"
+  },
+  "nodes": {
+    "title": "Nós Distribuídos",
+    "subtitle": "Gerenciar nós workers de backend e de agentes"
+  },
+  "scheduling": {
+    "title": "Agendamento",
+    "subtitle": "Regras de posicionamento de modelos e réplicas no cluster"
+  },
+  "p2p": {
+    "title": "Computação de IA Distribuída",
+    "subtitle": "Escale suas cargas de trabalho de IA por vários dispositivos com distribuição ponto a ponto"
+  },
+  "users": {
+    "title": "Usuários",
+    "subtitle": "Gerenciar usuários registrados, funções e convites"
+  },
+  "usage": {
+    "title": "Uso",
+    "subtitle": "Estatísticas de uso de tokens da API",
+    "sources": {
+      "tab": "Origens",
+      "mixTitle": "Mix de origens",
+      "ribbonAria": "{{apikey}}% chaves de API, {{web}}% Web UI, {{legacy}}% Legado",
+      "topSources": "Principais origens ao longo do tempo",
+      "searchPlaceholder": "Buscar por nome ou prefixo",
+      "sortBy": "Ordenar",
+      "sortTokens": "Tokens",
+      "sortRequests": "Requisições",
+      "sortLastUsed": "Último uso",
+      "sortName": "Nome",
+      "sortUser": "Usuário",
+      "webUI": "Web UI",
+      "legacy": "Legado",
+      "revoked": "revogada",
+      "filteredTo": "Filtrado por: {{name}}",
+      "clearFilter": "Limpar filtro",
+      "other": "Outros ({{count}})",
+      "noTrafficShort": "Nenhuma requisição neste período.",
+      "noKeysYet": "Assim que houver requisições, você as verá detalhadas aqui.",
+      "createKey": "Criar sua primeira chave de API",
+      "truncatedWarning": "Mostrando as 200 principais chaves. Aplique um filtro para reduzir ainda mais."
+    }
+  },
+  "explorer": {
+    "title": "Explorador",
+    "subtitle": "Navegar por arquivos e configurações"
+  },
+  "operate": {
+    "overview": {
+      "title": "Visão geral",
+      "subtitle": "Tudo o que está em execução nesta instalação e tudo o que precisa de uma decisão.",
+      "attention": {
+        "heading": "Requer atenção",
+        "clear": "Nada requer atenção. Os backends estão atualizados, nenhuma operação falhou e todos os nós estão saudáveis.",
+        "backendUpdate": "Atualização disponível: {{from}} → {{to}}"
+      },
+      "sections": {
+        "heading": "Seções",
+        "runtime": "Runtime",
+        "runtimeSummary": "{{backends}} backends · {{models}} modelos · {{updates}} atualizações · {{running}} em execução",
+        "cluster": "Cluster",
+        "clusterSummary": "{{nodes}} nós",
+        "observability": "Observabilidade",
+        "observabilitySummary": "Uso e rastreamentos",
+        "administration": "Administração",
+        "administrationSummary": "Usuários, middleware e configurações · {{memory}} de memória em uso",
+        "clusterSingle": "Nó único",
+        "observabilityCounted": "{{requests}} requisições · {{errors}} falhas · p95 {{p95}} ms"
+      },
+      "headline": {
+        "requests": "Requisições · {{hours}}h",
+        "errors": "Requisições com falha",
+        "p95": "latência p95",
+        "quiet": "Nenhuma requisição atendida nesta janela ainda.",
+        "host": "Memória do host"
+      }
+    }
+  }
+}

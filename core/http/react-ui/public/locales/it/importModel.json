@@ -1,27 +1,29 @@
 {
-  "title": "Importa nuovo modello",
+  "title": "Importa un modello",
   "subtitle": {
-    "simple": "Importa un modello da un URI — l'auto-detect sceglie il backend.",
-    "powerYaml": "Scrivi la configurazione YAML completa del modello.",
-    "powerPrefs": "Preferenze di importazione dettagliate."
+    "source": "Incolla un riferimento Hugging Face, un URL o un percorso su questo host.",
+    "yaml": "Scrivi a mano la configurazione del modello. Non viene rilevato nulla."
+  },
+  "tabs": {
+    "ariaLabel": "Tipo di importazione",
+    "source": "Da un'origine",
+    "yaml": "Scrivi YAML"
   },
   "actions": {
-    "import": "Importa modello",
-    "importing": "Importazione...",
+    "import": "Importa",
+    "importing": "Importazione…",
     "create": "Crea",
     "saving": "Salvataggio...",
-    "browseHF": "Sfoglia modelli su HF",
-    "addCustom": "Aggiungi personalizzato",
+    "browseHF": "Sfoglia i modelli su Hugging Face",
+    "addCustom": "Aggiungi personalizzata",
     "copy": "Copia"
   },
   "form": {
-    "modelUri": "URI modello",
+    "modelUri": "Origine",
     "uriPlaceholder": "huggingface://TheBloke/Llama-2-7B-Chat-GGUF o https://example.com/model.gguf",
-    "uriHint": "Inserisci l'URI o il percorso del file modello da importare",
-    "supportedFormats": "Formati URI supportati",
-    "options": "Opzioni",
-    "preferences": "Preferenze (opzionali)",
-    "commonPreferences": "Preferenze comuni",
+    "uriHint": "Premi Invio per importare. LocalAI sceglie il backend dall'origine se non ne selezioni uno.",
+    "supportedFormats": "Cosa puoi incollare",
+    "options": "Opzioni di importazione",
     "customPreferences": "Preferenze personalizzate",
     "customKeyValueHint": "Aggiungi coppie chiave-valore personalizzate per configurazioni avanzate.",
     "preferenceKey": "Chiave preferenza per la riga {{index}}",
@@ -33,10 +35,10 @@
     "backendAuto": "Auto-detect (basato sull'URI)",
     "backendLoading": "Caricamento backend…",
     "backendSearch": "Cerca backend...",
-    "backendHint": "Forza un backend specifico. Lascia vuoto per auto-rilevare dall'URI. Le voci segnate \"manual pick\" non sono auto-rilevabili — selezionale tu se sai cosa serve al modello.",
-    "backendErrorHint": "Impossibile caricare la lista dei backend — solo auto-detect.",
+    "backendHint": "Restringi l'elenco in base a ciò che fa il modello, poi scegline uno. Lasciandolo sul rilevamento automatico decide LocalAI. Le voci contrassegnate come «scelta manuale» non vengono mai rilevate automaticamente.",
+    "backendErrorHint": "Impossibile caricare l'elenco dei backend. Solo rilevamento automatico.",
     "backendNotInstalled": "Questo backend non è ancora installato. L'invio dell'importazione lo scaricherà prima.",
-    "modelName": "Nome modello",
+    "modelName": "Nome",
     "modelNamePlaceholder": "Lascia vuoto per usare il nome file",
     "modelNameHint": "Nome personalizzato per il modello. Se vuoto, verrà usato il nome del file.",
     "description": "Descrizione",
@@ -63,9 +65,12 @@
     "enableParametersHint": "Parametri abilitati per il backend diffusers (separati da virgola).",
     "cuda": "CUDA",
     "cudaHint": "Abilita il supporto CUDA per l'accelerazione GPU.",
-    "yamlEditor": "Editor configurazione YAML",
+    "yamlEditor": "Configurazione del modello",
     "manualPick": "selezione manuale",
-    "manualPickTooltip": "L'auto-detect non instraderà a questo backend. Selezionalo qui se sai che è quello che vuoi."
+    "manualPickTooltip": "L'auto-detect non instraderà a questo backend. Selezionalo qui se sai che è quello che vuoi.",
+    "optionsSummary": "backend, nome, descrizione, quantizzazioni…",
+    "modalityAny": "Tutte",
+    "modalityFilter": "Filtra i backend per modalità"
   },
   "modality": {
     "text": "LLM testuale",
@@ -79,28 +84,18 @@
     "vad": "Rilevamento attività vocale",
     "other": "Altro"
   },
-  "powerTabs": {
-    "ariaLabel": "Tab modalità avanzata",
-    "preferences": "Preferenze",
-    "yaml": "YAML"
-  },
-  "switchDialog": {
-    "title": "Mantenere le preferenze personalizzate?",
-    "body": "Passando alla modalità Semplice si nascondono le preferenze oltre a backend, nome e descrizione. Saranno comunque inviate all'importazione.",
-    "cancel": "Annulla",
-    "discard": "Scarta e cambia",
-    "keep": "Mantieni e cambia"
-  },
   "estimate": {
-    "title": "Requisiti stimati",
-    "download": "Download: {{size}}",
-    "vram": "VRAM: {{vram}}"
+    "downloadLabel": "Download",
+    "vramLabel": "VRAM al caricamento"
+  },
+  "progress": {
+    "label": "Avanzamento dell'importazione",
+    "working": "In corso…"
   },
   "toasts": {
     "noUri": "Inserisci un URI del modello",
     "noYaml": "Inserisci la configurazione YAML",
-    "started": "Importazione avviata! Tracciamento dei progressi...",
-    "startedWithMeta": "Importazione avviata! Tracciamento dei progressi... ({{meta}})",
+    "started": "Importazione avviata. L'avanzamento è mostrato qui sotto.",
     "imported": "Modello importato con successo!",
     "importedYaml": "Configurazione del modello importata con successo!",
     "importFailed": "Importazione fallita: {{message}}",
@@ -111,33 +106,19 @@
   },
   "uriFormats": {
     "huggingface": {
-      "title": "HuggingFace",
-      "standard": "Formato HuggingFace standard",
-      "short": "Formato HuggingFace breve",
-      "fullUrl": "URL HuggingFace completo"
+      "title": "Hugging Face"
     },
     "http": {
-      "title": "URL HTTP/HTTPS",
-      "direct": "Download diretto da qualsiasi URL HTTPS"
+      "title": "URL diretto"
     },
     "local": {
-      "title": "File locali",
-      "filePath": "Percorso file locale (assoluto)",
-      "directYaml": "File di configurazione YAML locale diretto"
+      "title": "Su questo host"
     },
     "oci": {
-      "title": "Registry OCI",
-      "registry": "Registry container OCI",
-      "tarball": "File tarball OCI locale"
+      "title": "Registro OCI"
     },
     "ollama": {
-      "title": "Ollama",
-      "model": "Formato modello Ollama"
-    },
-    "yaml": {
-      "title": "File di configurazione YAML",
-      "remote": "File di configurazione YAML remoto",
-      "local": "File di configurazione YAML locale"
+      "title": "Ollama"
     }
   }
 }

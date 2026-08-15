@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 )
 
@@ -517,6 +518,28 @@ var _ = Describe("gallery/index.yaml variant invariants", Ordered, func() {
 	})
 })
 
+var _ = Describe("gallery/index.yaml Higgs Audio entry", func() {
+	It("installs the validated Q8 model through audio-cpp for TTS", func() {
+		entries, err := loadGalleryIndex()
+		Expect(err).ToNot(HaveOccurred())
+
+		models := make([]*gallery.GalleryModel, 0, len(entries))
+		for i := range entries {
+			models = append(models, &entries[i])
+		}
+		entry := gallery.FindGalleryElement(models, "audio-cpp-higgs-audio-v3")
+		Expect(entry).ToNot(BeNil())
+		Expect(entry.Overrides).To(HaveKeyWithValue("backend", "audio-cpp"))
+		Expect(entry.GetKnownUsecases()).ToNot(BeNil())
+		Expect(*entry.GetKnownUsecases() & config.FLAG_TTS).To(Equal(config.FLAG_TTS))
+		Expect(entry.AdditionalFiles).To(ConsistOf(gallery.File{
+			Filename: "audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf",
+			SHA256:   "79746822045b5bf8f9ab2bda87b16cd3f8ea3d9e319cbcf887a87aa1b537a74a",
+			URI:      "huggingface://audio-cpp/audio.cpp-gguf/Higgs-Audio-v3-TTS-4B-GGUF/higgs-audio-v3-tts-4b-q8_0.gguf",
+		}))
+	})
+})
+
 // The lint rules above check the catalog as text. This drives the real
 // resolution path for the entry a user actually clicked and failed to install,
 // so the fix is proven at the layer that broke and not only at the layer that
@@ -567,6 +590,11 @@ var _ = Describe("gallery/index.yaml deepseek-v4-flash resolution", Ordered, fun
 		Expect(entryInstallsSomething(*resolved)).To(BeTrue(),
 			"resolved entry %q (variant %q) carries no payload, so InstallModelFromGallery would refuse it",
 			resolved.Name, selected.Model)
+		Expect(resolved.AdditionalFiles).To(ContainElement(gallery.File{
+			Filename: "ds4flash.gguf",
+			SHA256:   "31598c67c8b8744d3bcebcd19aa62253c6dc43cef3b8adf9f593656c9e86fd8c",
+			URI:      "huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2.gguf",
+		}), "the base fallback must download the GGUF referenced by parameters.model")
 	})
 
 	// Pinning reaches each target directly, which is what actually proves all

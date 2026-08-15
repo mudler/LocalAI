@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=0757cac231ecd571a83c4fd2f50805c9251fc225
+VLLM_CPP_VERSION?=9fd9e8f34408d5dd21d7f9385e96fc755708950b
 
 # MLX GEMM provider (darwin/metal only; see the metal branch below for why).
 # Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
@@ -47,26 +47,35 @@ CMAKE_ARGS+=-DCMAKE_BUILD_TYPE=Release
 UNAME_M := $(shell uname -m)
 
 ifeq ($(BUILD_TYPE),cublas)
-	# Blackwell-family targets only: other CUDA arches are build-supported
-	# upstream but have no runtime-proven fast path. amd64 gets the consumer
-	# (120a) + GB10 (121a) fat binary; arm64 CUDA (l4t-style images, DGX
-	# Spark) is GB10 only. Triton-AOT GDN cubins are vendored per-arch, no
-	# Python needed to consume them.
+	# Every CUDA architecture upstream builds that the platform can actually
+	# host, split by where the silicon exists: Jetson (87 Orin, 110 Thor) is
+	# arm64-only, desktop 120a is amd64-only, and 90a/100a appear on both
+	# because of the SBSA parts (GH200, GB200).
+	#
+	# This deliberately matches vllm.cpp's own release archive rather than
+	# narrowing to the boxes we benchmark on. A narrower list does not degrade
+	# on an unlisted card, it dies at the first request with "no kernel image
+	# is available for execution on the device", long after `backends install`
+	# reported success -- so an arch we merely lack numbers for still belongs
+	# in the binary.
+	#
+	# Triton-AOT stays ON for both. A fat build is supported on the BUILDER
+	# path: it embeds every vendored cubin tree (sm_80/86/89/90a/100a/121a) and
+	# selects by exact SM at runtime, so the arches with no tree (87, 103a,
+	# 110, 120a) take the portable CUDA kernels and can never load a
+	# neighbouring cubin. Only maintainer REGEN needs a single pinned arch.
+	# See vllm.cpp cmake/TritonAOT.cmake `_triton_aot_arch_names`.
+	#
+	# CUDA builds REQUIRE the CUDA 13 toolchain: 12.x nvcc lacks compute_121a
+	# (GB10) and its ptxas rejects the sm_120a NVFP4 MMA kernels ("Vector type
+	# too large"), so no cuda-12 variant is shipped.
+	ifeq ($(CUDA_MAJOR_VERSION),12)
+    $(error vllm.cpp needs the CUDA 13 toolchain: CUDA 12.x cannot compile the Blackwell fp4 kernels)
+	endif
 	ifeq ($(UNAME_M),x86_64)
-		# NO -DVLLM_CPP_TRITON on fat builds: the vendored Triton-AOT cubin
-		# trees are per-arch and the engine refuses a multi-arch build unless
-		# pinned to one tree (unsound for the other arch). The non-AOT GDN
-		# path serves the fat binary; single-arch builds keep the cubins.
-		#
-		# CUDA builds REQUIRE the CUDA 13 toolchain: 12.x nvcc lacks
-		# compute_121a (GB10) and its ptxas rejects the sm_120a NVFP4 MMA
-		# kernels ("Vector type too large"), so no cuda-12 variant is shipped.
-		ifeq ($(CUDA_MAJOR_VERSION),12)
-      $(error vllm.cpp needs the CUDA 13 toolchain: CUDA 12.x cannot compile the Blackwell fp4 kernels)
-		endif
-		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=120a;121a"
+		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=80;86;89;90a;100a;103a;120a;121a" -DVLLM_CPP_TRITON=ON
 	else
-		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON -DVLLM_CPP_CUDA_ARCHITECTURES=121a -DVLLM_CPP_TRITON=ON
+		CMAKE_ARGS+=-DVLLM_CPP_CUDA=ON "-DVLLM_CPP_CUDA_ARCHITECTURES=87;90a;100a;110;121a" -DVLLM_CPP_TRITON=ON
 	endif
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DVLLM_CPP_VULKAN=ON -DVLLM_CPP_CUDA=OFF
@@ -106,13 +115,24 @@ else
 	LIB=libvllm.so
 endif
 
-sources/vllm.cpp:
+# patches/ carries fixes the pinned engine SHA does not have yet. `git apply`
+# is deliberately unguarded: a patch that no longer applies must FAIL the clone
+# loudly, because the alternative is a pin that silently ships without a fix it
+# is documented to carry. Each patch header says which pin retires it.
+VLLM_CPP_PATCHES=$(wildcard patches/*.patch)
+
+sources/vllm.cpp: $(VLLM_CPP_PATCHES)
+	rm -rf sources/vllm.cpp
 	mkdir -p sources/vllm.cpp
 	cd sources/vllm.cpp && \
 	git init && \
 	git remote add origin $(VLLM_CPP_REPO) && \
 	git fetch --depth 1 origin $(VLLM_CPP_VERSION) && \
-	git checkout FETCH_HEAD
+	git checkout FETCH_HEAD && \
+	for p in $(VLLM_CPP_PATCHES); do \
+		echo "==> applying $$p"; \
+		git apply ../../$$p || exit 1; \
+	done
 
 ifeq ($(MLX_ENABLED),1)
 # A stamp FILE, not a phony target: a phony prerequisite is always "newer" than
@@ -165,7 +185,7 @@ $(LIB): sources/vllm.cpp $(MLX_STAMP)
 	cmake --build . --config Release -j$(JOBS) --target vllm_shared
 	cp -fL build/$(LIB) ./$(LIB)
 
-vllm-cpp: main.go govllmcpp.go backend.go options.go $(LIB)
+vllm-cpp: main.go govllmcpp.go backend.go chat.go options.go video.go $(LIB)
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o vllm-cpp ./
 
 package: vllm-cpp

@@ -1,0 +1,119 @@
+{
+  "cluster": {
+    "vram": "VRAM do cluster",
+    "ram": "RAM do cluster",
+    "nodesOnline": "{{healthy}}/{{total}} nós online"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Bom dia",
+    "afternoon": "Boa tarde",
+    "evening": "Boa noite",
+    "night": "Trabalhando até tarde"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} modelo carregado",
+    "modelsLoaded_other": "{{count}} modelos carregados",
+    "noModelsLoaded": "Nenhum modelo carregado",
+    "nodes_one": "{{count}} nó",
+    "nodes_other": "{{count}} nós",
+    "loadedLabel": "Carregados",
+    "nodesLabel": "Nós"
+  },
+  "assistant": {
+    "title": "Gerencie o LocalAI conversando",
+    "description": "Instale modelos, alterne backends, edite configurações e verifique o status conversando com o LocalAI.",
+    "open": "Abrir assistente",
+    "tooltip": "Gerencie o LocalAI conversando"
+  },
+  "input": {
+    "placeholder": "Mensagem...",
+    "attachImage": "Anexar imagem",
+    "attachAudio": "Anexar áudio",
+    "attachFile": "Anexar arquivo",
+    "enterToSend": "Enter para enviar",
+    "selectModelFirst": "Selecione um modelo primeiro",
+    "sendMessage": "Enviar mensagem",
+    "selectModelToast": "Selecione um modelo primeiro"
+  },
+  "quickLinks": {
+    "manageByChat": "Gerenciar por chat",
+    "installedModels": "Modelos Instalados",
+    "browseGallery": "Explorar Galeria",
+    "importModel": "Importar Modelo",
+    "documentation": "Documentação"
+  },
+  "loadedModels": {
+    "heading": "Modelos ativos",
+    "count_one": "{{count}} modelo carregado",
+    "count_other": "{{count}} modelos carregados",
+    "stop": "Parar modelo",
+    "stopAll": "Parar todos",
+    "serving": "Servindo"
+  },
+  "stopDialog": {
+    "title": "Parar Modelo",
+    "message": "Parar o modelo {{model}}?",
+    "confirm": "Parar {{model}}",
+    "stopAllTitle": "Parar Todos os Modelos",
+    "stopAllMessage": "Parar todos os {{count}} modelos carregados?",
+    "stopAllConfirm": "Parar todos",
+    "stoppedToast": "Modelo {{model}} parado",
+    "allStoppedToast": "Todos os modelos parados",
+    "stopFailed": "Falha ao parar: {{message}}"
+  },
+  "wizard": {
+    "getStarted": "Comece com {{name}}",
+    "intro": "Instale seu primeiro modelo para começar. Explore a galeria ou importe o seu próprio.",
+    "steps": {
+      "step1Title": "Explore a Galeria de Modelos",
+      "step1Body": "Encontre o modelo certo para suas necessidades em nossa coleção selecionada.",
+      "step2Title": "Instale um Modelo",
+      "step2Body": "Clique em instalar para baixar e configurá-lo automaticamente.",
+      "step3Title": "Comece a Conversar",
+      "step3Body": "Converse com seu modelo direto do navegador ou use a API."
+    },
+    "browseGallery": "Explorar Galeria de Modelos",
+    "importModel": "Importar Modelo",
+    "docs": "Documentação",
+    "noModelsTitle": "Nenhum Modelo Disponível",
+    "noModelsBody": "Ainda não há modelos instalados. Peça ao administrador para configurar modelos para você poder começar a conversar."
+  },
+  "starters": {
+    "title": "Recomendados para o seu hardware",
+    "tier": {
+      "cpu": "Somente CPU",
+      "gpu-small": "GPU",
+      "gpu-mid": "GPU",
+      "gpu-large": "GPU"
+    },
+    "cpuNote": "Nenhuma GPU detectada — estes modelos pequenos permanecem responsivos na CPU.",
+    "gpuNote": "Selecionados para caber na sua VRAM disponível com espaço para o contexto.",
+    "install": "Instalar",
+    "installing": "Instalando",
+    "installStarted": "Instalando {{model}}…",
+    "installFailed": "Falha na instalação: {{message}}"
+  },
+  "connect": {
+    "title": "Um endpoint, toda API",
+    "subtitle": "O LocalAI oferece sua própria API completa — geração de imagem e vídeo, profundidade, detecção de objetos, reranking, áudio, reconhecimento facial e de voz, e voz em tempo real via WebRTC e WebSocket. Além disso, uma camada de compatibilidade permite que qualquer aplicativo criado para OpenAI, Anthropic, Ollama ou OpenAI Responses se comunique sem alterações.",
+    "nativeTitle": "API nativa",
+    "compatTitle": "Compatibilidade total",
+    "apiReference": "Referência completa da API",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "browse": "Explorar a API",
+    "hide": "Ocultar endpoints",
+    "dismiss": "Dispensar"
+  },
+  "jump": {
+    "heading": "Continue de onde parou",
+    "discover": "Descobrir",
+    "discoverSummary": "Explore a galeria e instale modelos",
+    "create": "Criar",
+    "createSummary": "Abra uma sessão de chat, imagem ou voz",
+    "operate": "Operar",
+    "operateSummary": "{{models}} modelos configurados · nós, atividade e rastreamentos"
+  }
+}

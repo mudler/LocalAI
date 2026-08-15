@@ -67,7 +67,9 @@ entry (`backend/index.yaml`):
 
 ```yaml
 - name: localai
-  url: github:mudler/LocalAI/backend/index.yaml@master
+  url: https://index.localai.io/backends
+  mirrors:
+    - github:mudler/LocalAI/backend/index.yaml@master
   verification:
     issuer: "https://token.actions.githubusercontent.com"
     identity_regex: "^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"

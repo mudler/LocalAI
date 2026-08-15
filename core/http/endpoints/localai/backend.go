@@ -37,6 +37,17 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	// ASR
 	{Name: "whisperx", Modality: "asr", AutoDetect: false, Description: "WhisperX transcription (preference-only)"},
 	{Name: "crispasr", Modality: "asr", AutoDetect: false, Description: "CrispASR multi-architecture transcription (preference-only)"},
+	// nemo-speech-cpp serves four families from one backend, picked at load time
+	// from the GGUF general.architecture key. Modality is a single string and the
+	// import form chips on a fixed key set
+	// (core/http/react-ui/src/components/ModalityChips.jsx), so "asr" is the one
+	// it carries and the other three are named in the description rather than in
+	// a key the UI would bucket as "other".
+	// No importer: general.architecture lives inside the GGUF and cannot be read
+	// from a remote HuggingFace repo, and the NMT family carries an ordinary LLM
+	// architecture (qwen3), so even a local probe has no NeMo-specific string to
+	// match on.
+	{Name: "nemo-speech-cpp", Modality: "asr", AutoDetect: false, Description: "NVIDIA NeMo-Speech.cpp: Nemotron ASR (offline, streaming and live), Sortformer diarization, MagpieTTS speech synthesis and Riva-Translate translation, chosen from the model's GGUF architecture (preference-only)"},
 	// TTS
 	{Name: "mlx-audio", Modality: "tts", AutoDetect: false, Description: "MLX-Audio text-to-speech models (auto-detected; pref-only fallback)"},
 	{Name: "kokoros", Modality: "tts", AutoDetect: false, Description: "Kokoros TTS (preference-only)"},

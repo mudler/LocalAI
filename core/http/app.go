@@ -78,6 +78,53 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 	return http.StatusServiceUnavailable
 }
 
+// respondModelLoading answers a request whose model is still cold-loading with
+// 503, a Retry-After header and the live `loading` object, reporting true when
+// it handled the error.
+//
+// The distinction from applyModelLoadCooldown matters: a cooldown means "the
+// last load FAILED, back off", this means "the load is progressing, here is how
+// far it got". Both used to look like the same anonymous error, so an operator
+// watching a 35 GB model stage normally onto a new worker saw only failures.
+func respondModelLoading(err error, c echo.Context) bool {
+	var loadErr *nodes.ModelLoadingError
+	if !errors.As(err, &loadErr) {
+		return false
+	}
+	setModelLoadingRetryAfter(loadErr, c)
+	status := loadErr.Status
+	if jerr := c.JSON(http.StatusServiceUnavailable, schema.ModelLoadingResponse{
+		Error: &schema.APIError{
+			Message: loadErr.Error(),
+			Code:    "model_loading",
+			Type:    "model_loading",
+		},
+		Loading: &status,
+	}); jerr != nil {
+		xlog.Debug("Failed to write model-loading response", "error", jerr)
+	}
+	return true
+}
+
+// applyModelLoading is the body-less half of respondModelLoading, for the
+// opaque-errors handler: status and Retry-After only.
+func applyModelLoading(err error, code int, c echo.Context) int {
+	var loadErr *nodes.ModelLoadingError
+	if !errors.As(err, &loadErr) {
+		return code
+	}
+	setModelLoadingRetryAfter(loadErr, c)
+	return http.StatusServiceUnavailable
+}
+
+func setModelLoadingRetryAfter(loadErr *nodes.ModelLoadingError, c echo.Context) {
+	secs := int(math.Ceil(loadErr.RetryAfter.Seconds()))
+	if secs < 1 {
+		secs = 1
+	}
+	c.Response().Header().Set("Retry-After", strconv.Itoa(secs))
+}
+
 // @title LocalAI API
 // @version 2.0.0
 // @description The LocalAI Rest API.
@@ -141,6 +188,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// Set error handler
 	if !application.ApplicationConfig().OpaqueErrors {
 		e.HTTPErrorHandler = func(err error, c echo.Context) {
+			if respondModelLoading(err, c) {
+				return
+			}
 			code := http.StatusInternalServerError
 			var he *echo.HTTPError
 			if errors.As(err, &he) {
@@ -175,6 +225,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 				code = he.Code
 			}
 			code = applyModelLoadCooldown(err, code, c)
+			// Opaque errors deliberately withhold the body, so a still-loading
+			// model gets the status and Retry-After but no progress detail.
+			code = applyModelLoading(err, code, c)
 			c.NoContent(code)
 		}
 	}

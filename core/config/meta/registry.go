@@ -752,6 +752,24 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       72,
 		},
 
+		// --- MCP ---
+		"mcp.remote": {
+			Section:     "mcp",
+			Label:       "Remote MCP Servers",
+			Description: "YAML or JSON string containing an mcpServers map of named remote Streamable HTTP endpoints. Each entry requires url; token optionally enables Bearer authentication.",
+			Component:   "code-editor",
+			Language:    "yaml",
+			Order:       130,
+		},
+		"mcp.stdio": {
+			Section:     "mcp",
+			Label:       "MCP STDIO Servers",
+			Description: "YAML or JSON string containing an mcpServers map of named local commands. Each entry requires command and may include args and env.",
+			Component:   "code-editor",
+			Language:    "yaml",
+			Order:       131,
+		},
+
 		// --- TTS ---
 		"tts.voice_cloning": {
 			Section:     "tts",
@@ -815,6 +833,25 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:            "model-multi-select",
 			AutocompleteProvider: "models:token_classify",
 			Order:                201,
+		},
+		"pii.reversible_redactions": {
+			Section:     "pii",
+			Label:       "Reversible Redactions",
+			Description: "Replace masked values with wrapped request-scoped tokens and restore them when the model returns those tokens. Supports streaming responses and never persists the substitution map.",
+			Component:   "toggle",
+			Order:       202,
+		},
+		"pii.reversible_token_prefix": {
+			Section:     "pii",
+			Label:       "Reversible Token Prefix",
+			Description: "Prefix for reversible redaction tokens. Defaults to [REDACTED:.",
+			Order:       203,
+		},
+		"pii.reversible_token_suffix": {
+			Section:     "pii",
+			Label:       "Reversible Token Suffix",
+			Description: "Suffix for reversible redaction tokens. Defaults to ].",
+			Order:       204,
 		},
 
 		// --- PII detection policy (on a token_classify detector model) ---

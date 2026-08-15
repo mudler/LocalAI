@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=c6beeef35526c6dc94b74a7fb69f9d2e6a2a7a12
+STABLEDIFFUSION_GGML_VERSION?=de298c225bed97c3f9026b73cd7b71e7879bd41b
 
 CMAKE_ARGS+=-DGGML_MAX_NAME=128
 
@@ -42,13 +42,9 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DSD_HIPBLAS=ON -DGGML_HIPBLAS=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DSD_VULKAN=ON -DGGML_VULKAN=ON
-else ifeq ($(OS),Darwin)
-	ifneq ($(BUILD_TYPE),metal)
-		CMAKE_ARGS+=-DSD_METAL=OFF -DGGML_METAL=OFF
-	else
-		CMAKE_ARGS+=-DSD_METAL=ON -DGGML_METAL=ON
-		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
-	endif
+else ifeq ($(BUILD_TYPE),metal)
+	CMAKE_ARGS+=-DSD_METAL=ON -DGGML_METAL=ON
+	CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
@@ -72,7 +68,6 @@ sources/stablediffusion-ggml.cpp:
 	git checkout $(STABLEDIFFUSION_GGML_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 
-# Detect OS
 UNAME_S := $(shell uname -s)
 
 # Only build CPU variants on Linux

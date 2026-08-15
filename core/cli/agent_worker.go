@@ -351,6 +351,7 @@ func handleMCPDiscoveryRequest(data []byte, reply func([]byte)) {
 			Tools:     s.Tools,
 			Prompts:   s.Prompts,
 			Resources: s.Resources,
+			Error:     s.Error,
 		})
 	}
 

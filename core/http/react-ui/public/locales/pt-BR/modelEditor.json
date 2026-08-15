@@ -1,0 +1,38 @@
+{
+  "title": {
+    "add": "Adicionar Modelo",
+    "edit": "Editor de Modelo"
+  },
+  "subtitle": {
+    "chooseModelType": "Escolha um tipo de modelo para começar",
+    "newModel": "Novo modelo"
+  },
+  "actions": {
+    "backTo": "Voltar para {{page}}",
+    "system": "Sistema",
+    "templates": "Modelos",
+    "createModel": "Criar Modelo",
+    "saveChanges": "Salvar Alterações",
+    "saving": "Salvando...",
+    "saved": "Salvo",
+    "switchWarning": "Salve ou descarte as alterações antes de alternar as abas.",
+    "discardAndSwitch": "Descartar e Alternar"
+  },
+  "tabs": {
+    "interactive": "Interativo",
+    "yaml": "YAML",
+    "yamlDescription": "Edite o YAML diretamente. O nome do modelo deve ser definido no YAML para que a criação funcione."
+  },
+  "forms": {
+    "modelName": {
+      "label": "Nome do Modelo",
+      "placeholder": "meu-nome-de-modelo",
+      "hint": "Use apenas letras, números, hifens, sublinhados e pontos."
+    },
+    "empty": {
+      "nav": "Use a barra de busca acima para adicionar campos",
+      "title": "Nenhum campo configurado",
+      "text": "Use a barra de busca acima para encontrar e adicionar campos de configuração."
+    }
+  }
+}

@@ -350,6 +350,9 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		} else {
 			// A stop we didn't initiate — a SIGSEGV from a missing shared
 			// library, a Python ImportError, an OOM kill, an unexpected self-exit.
+			if diagnostic := lastNonEmptyLine(grpcControlProcess.StderrPath(), startupStderrTailBytes); diagnostic != "" {
+				fields = append(fields, "stderr", diagnostic)
+			}
 			xlog.Warn("Backend process exited unexpectedly", fields...)
 		}
 	}()

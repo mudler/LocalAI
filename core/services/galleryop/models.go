@@ -230,7 +230,10 @@ func ApplyGalleryFromString(systemState *system.SystemState, modelLoader *model.
 	var requests []galleryModel
 	err := json.Unmarshal([]byte(s), &requests)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid PRELOAD_MODELS/--preload-models value: expected a JSON array of model requests: %w", err)
+	}
+	if requests == nil {
+		return fmt.Errorf("invalid PRELOAD_MODELS/--preload-models value: expected a JSON array of model requests")
 	}
 
 	return processRequests(systemState, modelLoader, enforceScan, automaticallyInstallBackend, galleries, backendGalleries, requests, requireBackendIntegrity, options...)

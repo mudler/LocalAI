@@ -49,6 +49,8 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DPARAKEET_GGML_HIP=ON
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DPARAKEET_GGML_VULKAN=ON
+else ifeq ($(BUILD_TYPE),metal)
+	CMAKE_ARGS+=-DPARAKEET_GGML_METAL=ON
 endif
 
 .PHONY: parakeet-cpp-grpc package build clean purge test all

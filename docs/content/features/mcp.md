@@ -87,11 +87,15 @@ agent:
 
 ### Configuration Options
 
+In the interactive model editor, **Remote MCP Servers** and **MCP STDIO Servers** are YAML editors. Enter only the embedded `mcpServers` document shown inside the `remote: |` or `stdio: |` block above; the editor supplies the outer model configuration keys.
+
 #### Remote Servers (`remote`)
 Configure HTTP-based MCP servers:
 
 - **`url`**: The MCP server endpoint URL
 - **`token`**: Bearer token for authentication (optional)
+
+Remote model MCP connections originate from the LocalAI process. If LocalAI runs in Docker, the URL must therefore resolve and be reachable **from the LocalAI container**, not only from the host browser. For another service in the same Compose project, use its Compose service name and container port. Host-only DNS names, VPN DNS, and private routes must also be made available inside the container.
 
 #### STDIO Servers (`stdio`)
 Configure local command-based MCP servers:
@@ -180,22 +184,28 @@ You can list available MCP servers and their tools for a given model:
 curl http://localhost:8080/v1/mcp/servers/my-mcp-model
 ```
 
-Returns:
+Returns a model wrapper and one status entry for every configured server:
 
 ```json
-[
-  {
-    "name": "weather-api",
-    "type": "remote",
-    "tools": ["get_weather", "get_forecast"]
-  },
-  {
-    "name": "search-engine",
-    "type": "remote",
-    "tools": ["web_search", "image_search"]
-  }
-]
+{
+  "model": "my-mcp-model",
+  "servers": [
+    {
+      "name": "weather-api",
+      "type": "remote",
+      "tools": ["get_weather", "get_forecast"]
+    },
+    {
+      "name": "search-engine",
+      "type": "remote",
+      "tools": [],
+      "error": "connection failed: ..."
+    }
+  ]
+}
 ```
+
+The Chat **MCP → Servers** tab uses this endpoint. A configured server remains listed when it is unavailable, shows the discovery error, and cannot be selected until a later discovery attempt succeeds. Reopening the dropdown or returning to the Servers tab retries discovery.
 
 ### MCP Prompts
 
@@ -548,7 +558,7 @@ In addition to server-side MCP (where the backend connects to MCP servers), Loca
 
 ### How It Works
 
-1. **Add servers in the UI**: Click the "Client MCP" button in the chat header and add MCP server URLs
+1. **Add servers in the UI**: Click **MCP** in the chat header, open the **Client** tab, and add MCP server URLs
 2. **Browser connects directly**: The browser uses the MCP TypeScript SDK (`StreamableHTTPClientTransport` or `SSEClientTransport`) to connect to MCP servers
 3. **Tool discovery**: Connected servers' tools are sent as `tools` in the chat request body
 4. **Browser-side execution**: When the LLM calls a client-side tool, the browser executes it against the MCP server and sends the result back in a follow-up request

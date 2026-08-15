@@ -245,7 +245,7 @@ export default function P2P() {
   return (
     <div className="page page--narrow">
       <PageHeader
-        title={<><i className="fas fa-circle-nodes fa-circle-info" /> {t('p2p.title')}</>}
+        title={<><i className="fas fa-circle-nodes" aria-hidden="true" /> {t('p2p.title')}</>}
         supporting={
           <>
             {t('p2p.subtitle')}

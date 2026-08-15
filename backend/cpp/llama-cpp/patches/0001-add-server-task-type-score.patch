@@ -1,8 +1,21 @@
+From 75220a0d74892e3315f4042274b1efa6195868d8 Mon Sep 17 00:00:00 2001
+From: Codex <codex@local>
+Date: Mon, 10 Aug 2026 23:05:52 +0000
+Subject: [PATCH 1/2] score-patch
+
+---
+ common/common.cpp               |   6 +-
+ common/common.h                 |   3 +
+ tools/CMakeLists.txt            |   1 +
+ tools/server/server-context.cpp | 358 +++++++++++++++++++++++++++++++-
+ tools/server/server-task.h      |  47 +++++
+ 5 files changed, 406 insertions(+), 9 deletions(-)
+
 diff --git a/common/common.cpp b/common/common.cpp
-index 8f13217..fc584e1 100644
+index 2e3f14c..0cec0dc 100644
 --- a/common/common.cpp
 +++ b/common/common.cpp
-@@ -1591,8 +1591,10 @@ struct llama_context_params common_context_params_to_llama(const common_params &
+@@ -1636,8 +1636,10 @@ struct llama_context_params common_context_params_to_llama(const common_params &
      auto cparams = llama_context_default_params();
 
      cparams.n_ctx             = params.n_ctx;
@@ -13,13 +26,13 @@ index 8f13217..fc584e1 100644
 +    cparams.n_seq_max         = params.n_parallel + params.n_seq_score_forks;
 +    cparams.n_rs_seq          = std::max(params.speculative.need_n_rs_seq(), (uint32_t) std::max(0, params.n_rs_seq));
      cparams.n_outputs_max     = std::max(params.n_outputs_max, 0);
+     cparams.n_outputs_max_per_seq = std::max(params.n_outputs_max_per_seq, 0);
      cparams.n_batch           = params.n_batch;
-     cparams.n_ubatch          = params.n_ubatch;
 diff --git a/common/common.h b/common/common.h
-index bffc176..e313bd6 100644
+index 878534d..4001df2 100644
 --- a/common/common.h
 +++ b/common/common.h
-@@ -455,6 +455,9 @@ struct common_params {
+@@ -445,6 +445,9 @@ struct common_params {
      int32_t n_keep                =     0; // number of tokens to keep from initial prompt
      int32_t n_chunks              =    -1; // max number of chunks to process (-1 = unlimited)
      int32_t n_parallel            =     1; // number of parallel sequences to decode
@@ -28,7 +41,7 @@ index bffc176..e313bd6 100644
 +    bool    score_enabled          = false; // reserve server resources for the Score task type
      int32_t n_sequences           =     1; // number of sequences to decode
      int32_t n_outputs_max         =     0; // max outputs in a batch (0 = n_batch)
-     int32_t grp_attn_n            =     1; // group-attention factor
+     int32_t n_outputs_max_per_seq =     1; // max outputs per sequence
 diff --git a/tools/CMakeLists.txt b/tools/CMakeLists.txt
 index 780df32..1d2fe8f 100644
 --- a/tools/CMakeLists.txt
@@ -39,28 +52,24 @@ index 780df32..1d2fe8f 100644
  endif()
 +add_subdirectory(grpc-server)
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 715477e..de5bed8 100644
+index 3b5f6a1..d0e18e6 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -49,7 +49,16 @@ static uint32_t server_n_outputs_max(const common_params & params) {
+@@ -48,6 +48,13 @@ static common_speculative_output_limits server_output_limits(const common_params
+     auto result = common_speculative_get_output_limits(
+             params.n_batch, params.n_parallel, common_speculative_n_max(&params.speculative));
 
-     const uint32_t n_outputs_per_seq = 1 + common_speculative_n_max(&params.speculative);
-
--    const uint64_t n_outputs = (uint64_t) params.n_parallel * n_outputs_per_seq;
-+    // score tasks (SERVER_TASK_TYPE_SCORE) output logits for every candidate
-+    // token, so reserve room for a bounded candidate tail per parallel slot
-+    if (!params.score_enabled) {
-+        return std::max<uint32_t>(1, std::min<uint64_t>(n_batch,
-+            (uint64_t) params.n_parallel * n_outputs_per_seq));
++    // Score tasks output logits for every candidate token, so reserve room
++    // for a bounded candidate tail per parallel slot.
++    if (params.score_enabled) {
++        result.per_seq = std::max<int32_t>(result.per_seq, 1 + SERVER_SCORE_MAX_CAND_TOKENS);
++        result.total   = std::min<int32_t>(params.n_batch, params.n_parallel * result.per_seq);
 +    }
 +
-+    const uint32_t n_outputs_score_seq = 1 + SERVER_SCORE_MAX_CAND_TOKENS;
-+
-+    const uint64_t n_outputs = (uint64_t) params.n_parallel * std::max(n_outputs_per_seq, n_outputs_score_seq);
-
-     return std::max<uint32_t>(1, std::min<uint64_t>(n_batch, n_outputs));
- }
-@@ -202,6 +211,26 @@ struct server_slot {
+     result.total   = std::max<int32_t>(1, result.total);
+     result.per_seq = std::max<int32_t>(1, result.per_seq);
+     return result;
+@@ -239,6 +246,26 @@ struct server_slot {
 
      std::vector<completion_token_output> generated_token_probs;
 
@@ -87,7 +96,7 @@ index 715477e..de5bed8 100644
      bool has_next_token = true;
      bool has_new_line   = false;
      bool truncated      = false;
-@@ -311,6 +340,10 @@ struct server_slot {
+@@ -351,6 +378,10 @@ struct server_slot {
          }
          generated_tokens.clear();
          generated_token_probs.clear();
@@ -98,7 +107,7 @@ index 715477e..de5bed8 100644
          json_schema = json();
 
          // clear speculative decoding stats
-@@ -2205,6 +2238,229 @@ private:
+@@ -2271,6 +2302,229 @@ private:
          queue_results.send(std::move(res));
      }
 
@@ -328,7 +337,7 @@ index 715477e..de5bed8 100644
      //
      // Functions to process the task
      //
-@@ -2341,6 +2597,7 @@ private:
+@@ -2407,6 +2661,7 @@ private:
              case SERVER_TASK_TYPE_INFILL:
              case SERVER_TASK_TYPE_EMBEDDING:
              case SERVER_TASK_TYPE_RERANK:
@@ -336,7 +345,7 @@ index 715477e..de5bed8 100644
                  {
                      // special case: if input is provided via CLI, tokenize it first
                      // otherwise, no need to tokenize as it's already done inside the HTTP thread
-@@ -2832,6 +3089,13 @@ private:
+@@ -2903,6 +3158,13 @@ private:
                  break; // stop any further processing
              }
          }
@@ -350,7 +359,7 @@ index 715477e..de5bed8 100644
      }
 
      void pre_decode() {
-@@ -3154,6 +3418,16 @@ private:
+@@ -3222,6 +3484,16 @@ private:
                                      n_past = std::min(n_past, slot.alora_invocation_start - 1);
                                  }
 
@@ -367,7 +376,7 @@ index 715477e..de5bed8 100644
                                  const auto n_cache_reuse = slot.task->params.n_cache_reuse;
 
                                  const bool can_cache_reuse =
-@@ -3395,8 +3669,12 @@ private:
+@@ -3455,8 +3727,12 @@ private:
 
                      bool do_checkpoint = params_base.n_ctx_checkpoints > 0;
 
@@ -382,7 +391,7 @@ index 715477e..de5bed8 100644
 
                      // make a checkpoint of the parts of the memory that cannot be rolled back.
                      // checkpoints are created only if:
-@@ -3463,10 +3741,17 @@ private:
+@@ -3523,10 +3799,17 @@ private:
                          // embedding requires all tokens in the batch to be output;
                          // MTP also wants logits at every prompt position so the
                          // streaming hook can mirror t_h_nextn into ctx_dft.
@@ -401,7 +410,7 @@ index 715477e..de5bed8 100644
                          slot.prompt.tokens.push_back(cur_tok);
 
                          slot.n_prompt_tokens_processed++;
-@@ -3481,6 +3766,32 @@ private:
+@@ -3541,6 +3824,32 @@ private:
                              }
                          }
 
@@ -434,7 +443,7 @@ index 715477e..de5bed8 100644
                          // process the last few tokens of the prompt separately in order to allow for a checkpoint to be created.
                          // create checkpoints that many tokens before the end of the prompt:
                          //  - 4 + n_ubatch
-@@ -3513,6 +3824,15 @@ private:
+@@ -3573,6 +3882,15 @@ private:
                      const bool is_user_start = spans.is_user_start(n_tokens_start);
                      const bool is_last_user_message = n_tokens_start == last_user_pos;
 
@@ -450,7 +459,7 @@ index 715477e..de5bed8 100644
                      // entire prompt has been processed
                      if (slot.prompt.n_tokens() == slot.task->n_tokens()) {
                          slot.state = SLOT_STATE_DONE_PROMPT;
-@@ -3528,8 +3848,8 @@ private:
+@@ -3588,8 +3906,8 @@ private:
                          slot.init_sampler();
                      } else {
                          // skip ordinary mid-prompt checkpoints, unless the batch starts a user
@@ -461,7 +470,7 @@ index 715477e..de5bed8 100644
                              do_checkpoint = false;
                          }
                      }
-@@ -3546,10 +3866,10 @@ private:
+@@ -3606,10 +3924,10 @@ private:
                      // do not checkpoint after mtmd chunks
                      do_checkpoint = do_checkpoint && !has_mtmd;
 
@@ -474,7 +483,7 @@ index 715477e..de5bed8 100644
                              n_tokens_start > slot.prompt.checkpoints.back().n_tokens + params_base.checkpoint_min_step);
                      SLT_DBG(slot, "main/do_checkpoint = %s, pos_min = %d, pos_max = %d\n", do_checkpoint ? "yes" : "no", pos_min, pos_max);
 
-@@ -3703,6 +4023,13 @@ private:
+@@ -3772,6 +4090,13 @@ private:
                  }
              }
 
@@ -488,7 +497,7 @@ index 715477e..de5bed8 100644
              if (!is_inside_view(slot.i_batch)) {
                  // the required token not in this sub-batch, skip
                  return;
-@@ -3724,6 +4051,25 @@ private:
+@@ -3793,6 +4118,25 @@ private:
                      return;
                  }
 
@@ -515,7 +524,7 @@ index 715477e..de5bed8 100644
 
                  // prompt evaluated for next-token prediction
 diff --git a/tools/server/server-task.h b/tools/server/server-task.h
-index c3eea2e..fb3c178 100644
+index 6275ec7..5bedf19 100644
 --- a/tools/server/server-task.h
 +++ b/tools/server/server-task.h
 @@ -13,10 +13,25 @@
@@ -597,3 +606,5 @@ index c3eea2e..fb3c178 100644
  struct server_task_result_error : server_task_result {
      error_type err_type = ERROR_TYPE_SERVER;
      std::string err_msg;
+--
+2.39.5

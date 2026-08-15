@@ -440,7 +440,17 @@ type PIIConfig struct {
 	// model just opts in by listing detectors. Multiple detectors union
 	// their hits; overlapping spans resolve to the strongest action.
 	Detectors []string `yaml:"detectors,omitempty" json:"detectors,omitempty"`
+
+	// ReversibleRedactions replaces request PII with stable, request-scoped
+	// tokens and restores those values when the wrapped tokens appear in the response.
+	ReversibleRedactions  bool   `yaml:"reversible_redactions,omitempty" json:"reversible_redactions,omitempty"`
+	ReversibleTokenPrefix string `yaml:"reversible_token_prefix,omitempty" json:"reversible_token_prefix,omitempty"`
+	ReversibleTokenSuffix string `yaml:"reversible_token_suffix,omitempty" json:"reversible_token_suffix,omitempty"`
 }
+
+func (c ModelConfig) PIIReversibleRedactions() bool    { return c.PII.ReversibleRedactions }
+func (c ModelConfig) PIIReversibleTokenPrefix() string { return c.PII.ReversibleTokenPrefix }
+func (c ModelConfig) PIIReversibleTokenSuffix() string { return c.PII.ReversibleTokenSuffix }
 
 // @Description Detection policy for a token-classification (NER) model
 // used as a PII detector. Lives on the detector model's own config so the
@@ -1872,6 +1882,20 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	if (u & FLAG_TTS) == FLAG_TTS {
 		ttsBackends := []string{"piper", "transformers-musicgen", "kokoro"}
 		if !slices.Contains(ttsBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_VISION) == FLAG_VISION {
+		// Without a branch here the function falls through to true, which paints
+		// vision onto every chat model. That is not just a cosmetic wrong answer:
+		// syncKnownUsecasesFromString rewrites KnownUsecaseStrings from
+		// HasUsecases, so a guessed FLAG_VISION is written back and the next sync
+		// parses it into KnownUsecases as if the operator had declared it,
+		// defeating the explicit-signal checks in VisionSupported. Defer to the
+		// same explicit signals here; VisionSupported never calls back into
+		// HasUsecases, so this does not recurse.
+		if !c.VisionSupported() {
 			return false
 		}
 	}

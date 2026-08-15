@@ -394,6 +394,9 @@ export default function Settings() {
               <SettingRow label="Default Context Size" description="Default context window size for models">
                 <input className="input col-w-120" type="number" value={settings.context_size ?? ''} onChange={(e) => update('context_size', parseInt(e.target.value) || 0)} placeholder="2048" />
               </SettingRow>
+              <SettingRow label="Artifact Download Concurrency" description="Maximum artifact files downloaded at once. 1 downloads sequentially.">
+                <input aria-label="Artifact Download Concurrency" className="input" type="number" min="1" style={{ width: 120 }} value={settings.artifact_download_concurrency ?? 1} onChange={(e) => update('artifact_download_concurrency', Math.max(1, parseInt(e.target.value) || 1))} />
+              </SettingRow>
               <SettingRow label="VRAM Budget" description="Cap VRAM used for model allocation on this node. Percentage (e.g. 80%) or absolute (e.g. 12GB). Empty uses all detected VRAM.">
                 <input className="input col-w-120" type="text" value={settings.vram_budget ?? ''} onChange={(e) => update('vram_budget', e.target.value)} placeholder="e.g. 80% or 12GB" />
               </SettingRow>

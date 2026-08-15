@@ -185,8 +185,6 @@ var grandfatheredUnregistered = []string{
 	"lora_scales",
 	"main_gpu",
 	"max_model_len",
-	"mcp.remote",
-	"mcp.stdio",
 	"mirostat",
 	"mirostat_eta",
 	"mirostat_tau",

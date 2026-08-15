@@ -29,7 +29,15 @@ type RealtimeCallResponse struct {
 
 // RealtimeCalls handles POST /v1/realtime/calls for WebRTC signaling.
 func RealtimeCalls(application *application.Application) echo.HandlerFunc {
+	se, settingEngineErr := webRTCSettingEngine(application.ApplicationConfig())
+	if settingEngineErr != nil {
+		xlog.Error("failed to configure realtime WebRTC UDP listener", "error", settingEngineErr)
+	}
+
 	return func(c echo.Context) error {
+		if settingEngineErr != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": settingEngineErr.Error()})
+		}
 		var req RealtimeCallRequest
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
@@ -48,7 +56,6 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "codec registration failed"})
 		}
 
-		se := webRTCSettingEngine(application.ApplicationConfig())
 		api := webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithSettingEngine(se))
 
 		pc, err := api.NewPeerConnection(webrtc.Configuration{})

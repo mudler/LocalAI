@@ -1,6 +1,6 @@
 package main
 
-// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v10).
+// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v16).
 //
 // The structs below are hand-mirrored PODs of the C declarations, with
 // explicit padding so the Go layout matches the C layout on linux/darwin
@@ -21,7 +21,7 @@ import (
 // the header of the VLLM_CPP_VERSION pinned in the Makefile: the build checks
 // the two against each other, because a mismatch is only caught at runtime by
 // registerLib, where it takes the backend down on every load (issue #11379).
-const abiVersion = 10
+const abiVersion = 17
 
 // The ABI's tri-state toggles (enable_prefix_caching ABI v7,
 // enable_jump_forward ABI v10) share one encoding: 0 is NOT "off", it is
@@ -70,7 +70,15 @@ type cModelParams struct {
 	SchedulingPolicy    uintptr // const char*; NULL = "fcfs" (ABI v9)
 	KVTransferConfig    uintptr // const char* JSON; NULL = no connector (ABI v9)
 	EnableJumpForward   int32   // tri-state 0/1/2 (ABI v10)
-	_                   [4]byte // trailing pad to the struct's 8-byte alignment
+	// v14/v16 tail. LocalAI sets none of these (0 is "auto" for the device and
+	// "unset" for both sizing knobs, i.e. the pre-v14 engine byte for byte), but
+	// the fields MUST be mirrored: the C side reads sizeof(vllm_model_params)
+	// bytes off the pointer we hand it, so a Go struct that stopped at
+	// EnableJumpForward would have vllm_engine_load read 24 bytes past our
+	// allocation and size the KV pool from whatever sat there.
+	Device             int32   // 0 auto, 1 cpu, 2 cuda (ABI v14)
+	GPUMemoryUtil      float64 // 0 => 0.92 (ABI v16)
+	KVCacheMemoryBytes int64   // 0 => unset (ABI v16)
 }
 
 // cSamplingParams mirrors vllm_sampling_params (structured fields included).
@@ -117,6 +125,79 @@ type cCompletion struct {
 	CompletionTokens int32
 }
 
+// ── Video+audio generation (ABI v12, MiniMax-H3) ────────────────────────────
+//
+// A video engine is a SEPARATE handle from vllm_engine: H3 is a checkpoint SET
+// (DiT + text encoder + two VAEs), not one model directory, and the two loaders
+// refuse each other's checkpoints on purpose. Offsets are asserted in
+// video_test.go the same way the text PODs are in vllmcpp_test.go.
+
+// cVideoModelParams mirrors vllm_video_model_params. Nine pointers then three
+// int32s, so only the trailing pad is implicit.
+type cVideoModelParams struct {
+	DitPath            uintptr // const char*
+	EncoderPath        uintptr // const char*
+	TokenizerPath      uintptr // const char*
+	VideoVaePath       uintptr // const char*
+	VideoVaeConfigPath uintptr // const char*
+	AudioVaePath       uintptr // const char*
+	AudioVaeConfigPath uintptr // const char*
+	PromptEmbedsPath   uintptr // const char*
+	Partition          uintptr // const char*; "fl2va" | "ref2va", REQUIRED
+	Device             int32   // 0 cpu, 1 cuda
+	DequantBf16        int32   // 0 keep-quant, 1 dequant/stream bf16
+	Fp4Resident        int32   // NVFP4+cuda: keep FP4 packed, Marlin W4A16
+	_                  [4]byte // trailing pad to the struct's 8-byte alignment
+}
+
+// cVideoParams mirrors vllm_video_params. `width`/`height` and `num_frames`/
+// `steps` pair up into 8-byte slots; the uint64 seed forces the alignment after
+// them, and the float noise_aug leaves a pad before output_dir.
+type cVideoParams struct {
+	Prompt     uintptr // const char*
+	Width      int32
+	Height     int32
+	NumFrames  int32 // <= 1 => per-task default (124 for t2va/fl2va)
+	Steps      int32 // <= 0 => the H3 default (50)
+	Seed       uint64
+	HasSeed    int32
+	_          [4]byte
+	FirstFrame uintptr // const char*; fl2va keyframe, binary PPM (P6)
+	LastFrame  uintptr // const char*
+	RefImage   uintptr // const char*; ref2va only
+	RefVideo   uintptr // const char*; ref2va only, a frame_%06d.ppm DIRECTORY
+	RefAudio   uintptr // const char*; ref2va only, 16-bit PCM WAV
+	NoiseAug   float32 // <= 0 => 1.0
+	_          [4]byte
+	OutputDir  uintptr // const char*; REQUIRED
+}
+
+// cVideoResult mirrors vllm_video_result. Every member is library-allocated and
+// released together by vllm_video_result_free.
+type cVideoResult struct {
+	FrameDir   uintptr // char*, holds frame_%06d.ppm
+	AudioPath  uintptr // char*, 16-bit PCM WAV
+	FrameCount int32
+	Width      int32
+	Height     int32
+	Fps        int32
+	SampleRate int32
+	_          [4]byte
+	MuxArgv    uintptr // char**, NULL-terminated at MuxArgc
+	MuxArgc    int32
+	_          [4]byte
+}
+
+// cVideoMuxParams mirrors vllm_video_mux_params. The library composes the argv;
+// spawning it is the CALLER's job, which is why no ffmpeg lives in libvllm.
+type cVideoMuxParams struct {
+	Frames     uintptr // const char*; printf pattern, dir/frame_%06d.ppm
+	AudioPath  uintptr // const char*; NULL/empty => a silent clip
+	OutputPath uintptr // const char*; the .mp4 to write
+	Fps        int32   // <= 0 => the H3 default (24)
+	Crf        int32   // <= 0 => the library default (18)
+}
+
 // defaultSamplingParams mirrors vllm_sampling_params_default().
 func defaultSamplingParams() cSamplingParams {
 	return cSamplingParams{
@@ -148,6 +229,14 @@ var (
 	vllmLastError      func() string
 	vllmVersion        func() string
 	vllmABIVersion     func() int32
+
+	// Video+audio generation (ABI v12).
+	vllmVideoEngineLoad func(params, out unsafe.Pointer) int32
+	vllmVideoEngineFree func(engine uintptr)
+	vllmVideoGenerate   func(engine uintptr, params, out unsafe.Pointer) int32
+	vllmVideoResultFree func(out unsafe.Pointer)
+	vllmVideoMuxArgv    func(params, outArgv, outArgc unsafe.Pointer) int32
+	vllmVideoMuxArgvFre func(argv uintptr, argc int32)
 )
 
 type libFunc struct {
@@ -175,6 +264,12 @@ func registerLib(libName string) error {
 		{&vllmLastError, "vllm_last_error"},
 		{&vllmVersion, "vllm_version"},
 		{&vllmABIVersion, "vllm_abi_version"},
+		{&vllmVideoEngineLoad, "vllm_video_engine_load"},
+		{&vllmVideoEngineFree, "vllm_video_engine_free"},
+		{&vllmVideoGenerate, "vllm_video_generate"},
+		{&vllmVideoResultFree, "vllm_video_result_free"},
+		{&vllmVideoMuxArgv, "vllm_video_mux_argv"},
+		{&vllmVideoMuxArgvFre, "vllm_video_mux_argv_free"},
 	} {
 		purego.RegisterLibFunc(lf.ptr, lib, lf.name)
 	}
@@ -221,4 +316,20 @@ func goString(p uintptr) string {
 		return ""
 	}
 	return string(unsafe.Slice((*byte)(base), n))
+}
+
+// goStringSlice copies a C `char*` array of n entries. Used for the ffmpeg argv
+// the library composes: it is copied out immediately so the caller can free the
+// C allocation before ever spawning the process.
+func goStringSlice(p uintptr, n int32) []string {
+	if p == 0 || n <= 0 {
+		return nil
+	}
+	//nolint:govet // C-owned pointer handed over by purego, valid for this call
+	entries := unsafe.Slice((**byte)(unsafe.Pointer(p)), int(n)) // #nosec G103 -- C-owned, copied out immediately
+	out := make([]string, 0, n)
+	for _, e := range entries {
+		out = append(out, goString(uintptr(unsafe.Pointer(e)))) // #nosec G103 -- ditto
+	}
+	return out
 }

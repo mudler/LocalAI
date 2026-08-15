@@ -24,7 +24,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) | Hard fork of llama.cpp optimized for CPU/hybrid CPU+GPU with IQK quants, custom quant mixes, and MLA for DeepSeek | GPT | yes | yes | CPU (AVX2+) |
 | [turboquant](https://github.com/TheTom/llama-cpp-turboquant) | llama.cpp fork adding the TurboQuant KV-cache quantization scheme | GPT | yes | yes | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Jetson L4T |
 | [ds4](https://github.com/antirez/ds4) | DeepSeek V4 Flash single-model inference engine, optimized for Metal and CUDA | GPT | no | yes | CPU, CUDA 12/13, Metal, Jetson L4T |
-| [vllm.cpp](https://github.com/mudler/vllm.cpp) | From-scratch C++20 port of vLLM by the LocalAI team: paged KV cache, continuous batching, prefix caching, safetensors + GGUF, engine-enforced structured output, no Python at inference | GPT, Functions | no | yes | CPU, CUDA 12/13 (Blackwell-family), Vulkan, Metal, Jetson L4T (GB10) |
+| [vllm.cpp](https://github.com/mudler/vllm.cpp) | From-scratch C++20 port of vLLM by the LocalAI team: paged KV cache, continuous batching, prefix caching, safetensors + GGUF, engine-enforced structured output, no Python at inference | GPT, Functions | no | yes | CPU, CUDA 13 (Ampere through Blackwell), Vulkan, Metal, Jetson L4T (Orin, Thor, GB10) |
 | [vLLM](https://github.com/vllm-project/vllm) | Fast LLM serving with PagedAttention; GPTQ/AWQ/FP8 quantization | GPT, Functions, Multimodal | no | yes | CUDA 12/13, ROCm, Intel SYCL, Jetson L4T |
 | [vLLM Omni](https://github.com/vllm-project/vllm-omni) | Unified multimodal generation (text, image, video, audio) on top of vLLM | Multimodal GPT, Functions | no | yes | CUDA 12/13, ROCm, Jetson L4T |
 | [SGLang](https://github.com/sgl-project/sglang) | Fast serving framework for LLMs and vision-language models with speculative decoding | GPT, Functions, Multimodal | no | yes | CUDA 12/13, ROCm, Intel SYCL, Jetson L4T |
@@ -49,6 +49,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [NeMo](https://github.com/NVIDIA/NeMo) | NVIDIA NeMo ASR toolkit | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal |
 | [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/) | Sherpa-ONNX ASR (Whisper, Paraformer, SenseVoice) and TTS | CPU, CUDA 12, Metal |
 | [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: transcription, forced alignment and speaker diarization (`nemotron_asr`, `qwen3_asr`, `voxtral_realtime`, `sortformer_diar` and more). See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
+| [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA C++/GGML runtime for Nemotron Speech: offline, streaming and live transcription, Sortformer diarization, MagpieTTS synthesis and Riva-Translate translation from one backend. See [NeMo-Speech.cpp backend](/features/nemo-speech-cpp/) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
 
 ## Text-to-Speech
 
@@ -77,6 +78,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [MLX-Audio](https://github.com/Blaizzy/mlx-audio) | Audio models on Apple Silicon | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [liquid-audio](https://github.com/Liquid4All/liquid-audio) | LFM2 end-to-end speech-to-speech, ASR, and TTS | CPU, CUDA 12/13, ROCm, Intel SYCL, Jetson L4T |
 | [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: TTS, voice cloning and voice design (`supertonic`, `vibevoice`, `qwen3_tts`, `chatterbox` and more). See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
+| [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA MagpieTTS over NanoCodec, served by the same backend as Nemotron ASR. See [NeMo-Speech.cpp backend](/features/nemo-speech-cpp/) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
 
 ## Music & Sound Generation
 

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -106,6 +105,11 @@ type SmartRouterOptions struct {
 	// arriving, so a peer trickling bytes forever cannot pin the advisory lock
 	// indefinitely. Zero selects modelLoadAbsoluteMax (24h).
 	ModelLoadAbsoluteMax time.Duration
+	// ModelLoadWait bounds how long a REQUEST waits for a cold load that is
+	// already running before it is answered with live progress. It bounds the
+	// caller, never the load: the job keeps running either way. Zero selects
+	// config.DefaultModelLoadWait; config.ModelLoadWaitUnbounded waits forever.
+	ModelLoadWait time.Duration
 }
 
 // modelLoadStagingMargin is the slack ModelLoadCeilingFor adds on top of the
@@ -188,6 +192,15 @@ type SmartRouter struct {
 	// hard countdown into a progress-extended hold (see load_deadline.go).
 	stagingStallWindow   time.Duration
 	modelLoadAbsoluteMax time.Duration
+	// modelLoadWait bounds the REQUEST's wait for a running cold load, not the
+	// load itself (see SmartRouterOptions.ModelLoadWait).
+	modelLoadWait time.Duration
+	// loadWaiters is one broadcast channel per model being cold-loaded, closed
+	// when the job reaches a terminal state. Same-model waiters all want the
+	// identical outcome, so they share one wait instead of queueing. See
+	// load_job_runner.go.
+	loadWaitersMu sync.Mutex
+	loadWaiters   map[string]chan struct{}
 }
 
 // probeCacheTTL is how long a successful gRPC HealthCheck on a backend is
@@ -239,6 +252,8 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		// ceiling, so nothing to normalize here.
 		stagingStallWindow:   opts.StagingStallWindow,
 		modelLoadAbsoluteMax: opts.ModelLoadAbsoluteMax,
+		modelLoadWait:        opts.ModelLoadWait,
+		loadWaiters:          map[string]chan struct{}{},
 	}
 }
 
@@ -329,6 +344,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "staging", backendAddr, 0); err != nil {
 		xlog.Warn("Failed to record staging state", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
 	}
+	reportLoadPhase(ctx, LoadJobStateStaging, node, replicaIndex)
 	lifecycleSettled := false
 	defer func() {
 		if lifecycleSettled {
@@ -367,6 +383,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "loading", backendAddr, 0); err != nil {
 			xlog.Warn("Failed to record loading state", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
 		}
+		reportLoadPhase(ctx, LoadJobStateLoading, node, replicaIndex)
 
 		// The cold-load hold above this call extends on STAGING progress, and
 		// the remote LoadModel reports none — so once the last byte lands the
@@ -555,138 +572,149 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// below. Both are nil (no-op) when prefix-cache routing is disabled.
 	pref, observeChain := r.buildPreference(ctx, trackingKey, candidateNodeIDs, sched)
 
+	att := &routeAttempt{
+		trackingKey:      trackingKey,
+		modelName:        modelName,
+		backendType:      backendType,
+		modelOpts:        modelOpts,
+		parallel:         parallel,
+		sched:            sched,
+		candidateNodeIDs: candidateNodeIDs,
+		pref:             pref,
+		observeChain:     observeChain,
+	}
+
 	// Step 1: Find and atomically lock a node with this model loaded
-	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, pref)
-	if err == nil && node != nil {
-		modelAddr := node.Address
-		if nm.Address != "" {
-			modelAddr = nm.Address
-		}
-		replicaIdx := nm.ReplicaIndex
-
-		// Verify the backend process is still alive via gRPC health check
-		if !r.probeHealth(ctx, node, modelAddr) {
-			// Stale — roll back the increment, remove the specific replica row, fall through
-			r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
-			r.registry.RemoveNodeModel(ctx, node.ID, trackingKey, replicaIdx)
-			xlog.Warn("Backend not reachable for cached model, falling through to reload",
-				"node", node.Name, "model", modelName, "replica", replicaIdx)
-		} else {
-			// Verify node still matches scheduling constraints
-			if !r.nodeMatchesScheduling(ctx, node, sched) {
-				r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
-				xlog.Info("Cached model on node that no longer matches selector, falling through",
-					"node", node.Name, "model", trackingKey, "replica", replicaIdx)
-				// Fall through to step 2 (scheduleNewModel)
-			} else {
-				// Node is alive — FindAndLockNodeWithModel already incremented in-flight as a
-				// reservation. InFlightTrackingClient handles per-inference tracking, and its
-				// onFirstComplete callback releases the reservation after the first inference
-				// call finishes, so in-flight returns to 0 when idle.
-				r.registry.TouchNodeModel(ctx, node.ID, trackingKey, replicaIdx)
-				r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
-				grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
-				tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
-				return r.newRouteResult(node, trackingKey, replicaIdx, grpcClient, tracked), nil
-			}
-		}
-	}
-
-	// Step 2: Model not loaded — schedule loading with distributed lock to prevent duplicates.
-	//
-	// Detach the cold-load from the caller's context. Staging a model can
-	// transfer multiple GB to a worker, which takes far longer than any client
-	// keeps its HTTP request open — a browser refresh, an ingress/LB idle
-	// timeout, or a round-robined retry landing on another replica all cancel
-	// the request context. If staging were bound to it, the multi-GB upload
-	// aborts with "context canceled" mid-transfer and large models can never
-	// finish staging (the model-load outage). WithoutCancel keeps the request's
-	// values (prefix chain, etc.) but drops its cancellation/deadline.
-	//
-	// Detaching from the caller is necessary, but it must not be unbounded: the
-	// load runs while holding the per-model advisory lock, and a worker that
-	// dies mid-install (its backend.install never replies) would otherwise pin
-	// that lock (and every other replica's request for the same model) until
-	// the NATS install deadline alone expires. Re-impose a single hard ceiling
-	// over the whole sequence so the lock is always released in bounded time,
-	// even if a sub-step wedges. Each long step still has its own (tighter)
-	// bound; this only backstops them. The per-model advisory lock below
-	// de-dupes concurrent loaders across replicas.
-	// The backstop is progress-based, not wall-clock: staging time is bytes over
-	// bandwidth, so a fixed ceiling is a model-size cliff (a 70 GB checkpoint
-	// transferring healthily at 26 MB/s needs ~45m and was killed at exactly
-	// 25m00s). The hold instead extends while the transfer reports bytes and
-	// expires a stall window after they stop. See load_deadline.go.
-	loadCtx, cancelLoad := newLoadDeadlineContext(context.WithoutCancel(ctx),
-		r.modelLoadCeiling, r.stagingStallWindow, r.modelLoadAbsoluteMax)
-	defer cancelLoad()
-	loadModel := func(ctx context.Context) (*RouteResult, error) {
-		// Re-check after acquiring lock — another request may have loaded it
-		node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, trackingKey, candidateNodeIDs, pref)
-		if err == nil && node != nil {
-			modelAddr := node.Address
-			if nm.Address != "" {
-				modelAddr = nm.Address
-			}
-			replicaIdx := nm.ReplicaIndex
-
-			// Verify the backend process is still alive via gRPC health check
-			if !r.probeHealth(ctx, node, modelAddr) {
-				// Stale — roll back the increment, remove the specific replica row, continue loading
-				r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
-				r.registry.RemoveNodeModel(ctx, node.ID, trackingKey, replicaIdx)
-				xlog.Warn("Backend not reachable for cached model inside lock, proceeding to load",
-					"node", node.Name, "model", modelName, "replica", replicaIdx)
-			} else {
-				// Verify node still matches scheduling constraints
-				if !r.nodeMatchesScheduling(ctx, node, sched) {
-					r.registry.DecrementInFlight(ctx, node.ID, trackingKey, replicaIdx)
-					xlog.Info("Cached model on node that no longer matches selector, falling through",
-						"node", node.Name, "model", trackingKey, "replica", replicaIdx)
-					// Fall through to scheduling below
-				} else {
-					// Model loaded while we waited — FindAndLockNodeWithModel already incremented
-					// in-flight as a reservation. Release it after the first inference completes.
-					r.registry.TouchNodeModel(ctx, node.ID, trackingKey, replicaIdx)
-					r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
-					grpcClient := r.buildClientForAddr(node, modelAddr, parallel)
-					tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, trackingKey, replicaIdx)
-					return r.newRouteResult(node, trackingKey, replicaIdx, grpcClient, tracked), nil
-				}
-			}
-		}
-
-		// Still not loaded — use shared schedule-and-load logic, which picks
-		// both the node and the replica slot.
-		result, err := r.scheduleAndLoad(ctx, backendType, trackingKey, modelName, modelOpts, parallel, 1)
-		if err != nil {
-			return nil, err
-		}
-
-		// Cold load landed on result.Node replica result.ReplicaIndex: record the
-		// assignment so subsequent requests with the same prefix prefer it.
-		r.observePrefix(trackingKey, observeChain, prefixcache.ReplicaKey{NodeID: result.Node.ID, Replica: result.ReplicaIndex})
-
-		replicaIdx := result.ReplicaIndex
-		tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, trackingKey, replicaIdx)
-		return r.newRouteResult(result.Node, trackingKey, replicaIdx, result.Client, tracked), nil
-	}
-
-	if r.db != nil {
-		lockKey := advisorylock.KeyFromString("model-load:" + trackingKey)
-		var result *RouteResult
-		lockErr := advisorylock.WithLockCtx(loadCtx, r.db, lockKey, func() error {
-			var err error
-			result, err = loadModel(loadCtx)
-			return err
-		})
-		if lockErr != nil {
-			return nil, fmt.Errorf("loading model %s: %w", trackingKey, lockErr)
-		}
+	if result := r.tryWarmPath(ctx, att); result != nil {
 		return result, nil
 	}
-	// No DB (non-distributed) — proceed without lock
-	return loadModel(loadCtx)
+
+	// Step 2: model not loaded — it has to be cold-loaded.
+	//
+	// In distributed mode that runs as a durable job (see load_job_runner.go):
+	// the per-model advisory lock now guards only the claim, and the transfer
+	// itself runs unlocked so a concurrent request for the same model never
+	// blocks on pg_advisory_lock for the tens of minutes a multi-GB stage takes.
+	if r.db != nil {
+		return r.routeViaLoadJob(ctx, att)
+	}
+
+	// No DB (non-distributed): there is no other replica to coordinate with, so
+	// the load stays inline on the request exactly as before.
+	loadCtx, cancelLoad := r.newColdLoadContext(context.WithoutCancel(ctx))
+	defer cancelLoad()
+	if result := r.tryWarmPath(loadCtx, att); result != nil {
+		return result, nil
+	}
+	return r.coldLoad(loadCtx, att, 1)
+}
+
+// routeAttempt is the per-request routing state shared by the warm path, the
+// cold-load job runner, and the waiter loop. Bundling it keeps those from
+// drifting apart on which candidate set or preference they used.
+type routeAttempt struct {
+	trackingKey      string
+	modelName        string
+	backendType      string
+	modelOpts        *pb.ModelOptions
+	parallel         bool
+	sched            *ModelSchedulingConfig
+	candidateNodeIDs []string
+	pref             *RoutePreference
+	observeChain     []uint64
+}
+
+// tryWarmPath returns a route to an already-loaded, reachable replica, or nil
+// when the model has to be cold-loaded. It is the authority on readiness: a
+// waiter woken by a finished job re-runs it rather than trusting the signal,
+// because the model may have been evicted between ready and wake.
+func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *RouteResult {
+	node, nm, err := r.registry.FindAndLockNodeWithModel(ctx, att.trackingKey, att.candidateNodeIDs, att.pref)
+	if err != nil || node == nil {
+		return nil
+	}
+	modelAddr := node.Address
+	if nm.Address != "" {
+		modelAddr = nm.Address
+	}
+	replicaIdx := nm.ReplicaIndex
+
+	// Verify the backend process is still alive via gRPC health check
+	if !r.probeHealth(ctx, node, modelAddr) {
+		// Stale — roll back the increment, remove the specific replica row, fall through
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release stale routing reservation",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		if err := r.registry.RemoveNodeModel(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to remove stale model from registry",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		xlog.Warn("Backend not reachable for cached model, falling through to reload",
+			"node", node.Name, "model", att.modelName, "replica", replicaIdx)
+		return nil
+	}
+
+	// Verify node still matches scheduling constraints
+	if !r.nodeMatchesScheduling(ctx, node, att.sched) {
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release unmatched routing reservation",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		xlog.Info("Cached model on node that no longer matches selector, falling through",
+			"node", node.Name, "model", att.trackingKey, "replica", replicaIdx)
+		return nil
+	}
+
+	// Node is alive — FindAndLockNodeWithModel already incremented in-flight as a
+	// reservation. InFlightTrackingClient handles per-inference tracking, and its
+	// onFirstComplete callback releases the reservation after the first inference
+	// call finishes, so in-flight returns to 0 when idle.
+	r.registry.TouchNodeModel(ctx, node.ID, att.trackingKey, replicaIdx)
+	r.observePrefix(att.trackingKey, att.observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
+	grpcClient := r.buildClientForAddr(node, modelAddr, att.parallel)
+	tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, att.trackingKey, replicaIdx)
+	return r.newRouteResult(node, att.trackingKey, replicaIdx, grpcClient, tracked)
+}
+
+// coldLoad schedules the model onto a node and loads it, returning a route to
+// the replica it landed on. initialInFlight reserves the slot for the calling
+// request; the job runner passes 0 because it is loading on nobody's behalf.
+func (r *SmartRouter) coldLoad(ctx context.Context, att *routeAttempt, initialInFlight int) (*RouteResult, error) {
+	result, err := r.scheduleAndLoad(ctx, att.backendType, att.trackingKey, att.modelName, att.modelOpts, att.parallel, initialInFlight)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cold load landed on result.Node replica result.ReplicaIndex: record the
+	// assignment so subsequent requests with the same prefix prefer it.
+	r.observePrefix(att.trackingKey, att.observeChain, prefixcache.ReplicaKey{NodeID: result.Node.ID, Replica: result.ReplicaIndex})
+
+	tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, att.trackingKey, result.ReplicaIndex)
+	return r.newRouteResult(result.Node, att.trackingKey, result.ReplicaIndex, result.Client, tracked), nil
+}
+
+// newColdLoadContext builds the detached, progress-extended context a cold load
+// runs under.
+//
+// Detach the cold load from the caller's context. Staging a model can transfer
+// multiple GB to a worker, which takes far longer than any client keeps its
+// HTTP request open — a browser refresh, an ingress/LB idle timeout, or a
+// round-robined retry landing on another replica all cancel the request
+// context. If staging were bound to it, the multi-GB upload aborts with
+// "context canceled" mid-transfer and large models can never finish staging
+// (the model-load outage). The caller passes context.WithoutCancel, which keeps
+// the request's values (prefix chain, etc.) but drops its cancellation.
+//
+// Detaching must not be unbounded either: a worker that dies mid-install (its
+// backend.install never replies) would otherwise leave the job wedged until the
+// NATS install deadline alone expires. The backstop is progress-based, not
+// wall-clock: staging time is bytes over bandwidth, so a fixed ceiling is a
+// model-size cliff (a 70 GB checkpoint transferring healthily at 26 MB/s needs
+// ~45m and was killed at exactly 25m00s). The hold extends while the transfer
+// reports bytes and expires a stall window after they stop. See load_deadline.go.
+func (r *SmartRouter) newColdLoadContext(parent context.Context) (context.Context, context.CancelFunc) {
+	return newLoadDeadlineContext(parent, r.modelLoadCeiling, r.stagingStallWindow, r.modelLoadAbsoluteMax)
 }
 
 // parseSelectorJSON decodes a JSON node selector string into a map.
@@ -1188,6 +1216,7 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	if r.unloader == nil {
 		return "", fmt.Errorf("no NATS connection for backend installation")
 	}
+	reportLoadPhase(ctx, LoadJobStateInstalling, node, replicaIndex)
 
 	key := fmt.Sprintf("%s|%s|%s|%d", node.ID, backendType, modelID, replicaIndex)
 	// DoChan rather than Do so this wait honors ctx cancellation. InstallBackend

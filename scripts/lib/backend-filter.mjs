@@ -50,6 +50,14 @@ export function inferBackendPath(item) {
   if (item.backend === "magpie-tts-cpp") {
     return `backend/go/magpie-tts-cpp/`;
   }
+  // nemo-speech-cpp is a Go backend (Dockerfile.golang) wrapping NVIDIA's
+  // NeMo-Speech.cpp ggml runtime via purego, living in
+  // backend/go/nemo-speech-cpp/. Same explicit-branch rationale as its siblings
+  // above: the generic golang fallthrough would also resolve it, but this
+  // documents the mapping and guards a future dockerfile-suffix change.
+  if (item.backend === "nemo-speech-cpp") {
+    return `backend/go/nemo-speech-cpp/`;
+  }
   // trellis2cpp is a Go backend (Dockerfile.golang) wrapping the trellis2.cpp
   // ggml port via purego, living in backend/go/trellis2cpp/. Keep the mapping
   // explicit so a future dockerfile-suffix change cannot break path filtering.

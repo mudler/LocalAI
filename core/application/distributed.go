@@ -378,6 +378,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			cfg.Distributed.BackendInstallTimeoutOrDefault(),
 			cfg.Distributed.ModelLoadTimeoutOrDefault(),
 		),
+		// Bounds the REQUEST, not the load: a caller out of budget gets 503 with
+		// live staging progress while the job keeps running underneath.
+		ModelLoadWait: cfg.Distributed.ModelLoadWait,
 	})
 
 	// Wire staging-progress broadcasting so file-staging shows up on every

@@ -241,6 +241,46 @@ type PendingBackendOp struct {
 	NextRetryAt time.Time `gorm:"index" json:"next_retry_at"`
 }
 
+// ModelLoadJob is one in-flight cold load of a model. Exactly one row per
+// trackingKey may be active at a time; that uniqueness — not the lifetime of an
+// advisory lock — is what de-duplicates concurrent loaders across replicas.
+//
+// Before this table the whole cold load (backend install, multi-GB staging,
+// checkpoint load) ran inside the per-model advisory lock, so every other
+// replica's request for the model blocked on pg_advisory_lock for tens of
+// minutes and was killed by the role's statement_timeout. The job row lets the
+// lock shrink to the claim while the work itself runs unlocked and observable.
+//
+// Terminal rows are deleted rather than retained: NodeModel is already the
+// record of what is loaded, and keeping finished jobs would create a second
+// source of truth about it.
+type ModelLoadJob struct {
+	TrackingKey  string `gorm:"primaryKey;size:255" json:"tracking_key"`
+	State        string `gorm:"size:16;not null;index" json:"state"`
+	OwnerReplica string `gorm:"size:64" json:"owner_replica"`
+	NodeID       string `gorm:"size:36" json:"node_id"`
+	NodeName     string `gorm:"size:255" json:"node_name"`
+	ReplicaIndex int    `json:"replica_index"`
+	BytesSent    int64  `json:"bytes_sent"`
+	TotalBytes   int64  `json:"total_bytes"`
+	FileIndex    int    `json:"file_index"`
+	TotalFiles   int    `json:"total_files"`
+	LastError    string `gorm:"type:text" json:"last_error,omitempty"`
+	// StartedAt is when the job first reported bytes, and is what the ETA rate
+	// is measured from. Distinct from CreatedAt, which also covers node
+	// selection and backend install — phases that move no bytes and would skew
+	// the derived rate low.
+	StartedAt time.Time `json:"started_at"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	// LastProgress is a heartbeat, not a byte counter: the runner touches it on
+	// a fixed interval for as long as it is alive, whether or not bytes are
+	// moving. A checkpoint load legitimately transfers zero bytes for many
+	// minutes, so a reaper keyed on byte movement would reclaim a healthy job
+	// mid-load. Byte progress is measured separately, by load_deadline.go.
+	LastProgress time.Time `gorm:"index" json:"last_progress_at"`
+}
+
 // Op constants mirror the operation names used by DistributedBackendManager
 // so callers don't repeat stringly-typed values.
 const (
@@ -343,7 +383,7 @@ func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID s
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{})
+		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}

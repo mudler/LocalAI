@@ -49,6 +49,7 @@ You can configure these settings via the web UI or through environment variables
 
 - **Threads**: Number of threads used for parallel computation (recommended: number of physical cores)
 - **Context Size**: Default context size for models (default: `512`)
+- **Artifact Download Concurrency**: Maximum number of artifact files downloaded at once. `1` downloads sequentially (default: `1`)
 - **F16**: Enable GPU acceleration using 16-bit floating point
 - **VRAM Budget**: Cap on VRAM used for model allocation (for example `80%` or `12GB`; empty means no cap). See [VRAM Management]({{%relref "advanced/vram-management" %}})
 
@@ -138,6 +139,7 @@ The `runtime_settings.json` file follows this structure:
   "lru_eviction_retry_interval": "1s",
   "threads": 8,
   "context_size": 2048,
+  "artifact_download_concurrency": 4,
   "f16": false,
   "debug": false,
   "cors": true,
@@ -148,13 +150,15 @@ The `runtime_settings.json` file follows this structure:
   "federated": false,
   "galleries": [
     {
-      "url": "github:mudler/LocalAI/gallery/index.yaml@master",
+      "url": "https://index.localai.io/models",
+      "mirrors": ["github:mudler/LocalAI/gallery/index.yaml@master"],
       "name": "localai"
     }
   ],
   "backend_galleries": [
     {
-      "url": "github:mudler/LocalAI/backend/index.yaml@master",
+      "url": "https://index.localai.io/backends",
+      "mirrors": ["github:mudler/LocalAI/backend/index.yaml@master"],
       "name": "localai"
     }
   ],
@@ -221,4 +225,3 @@ If P2P is not starting:
 2. Check network connectivity
 3. Ensure the P2P network ID matches across nodes (if using federated mode)
 4. Review logs for P2P-related errors
-
