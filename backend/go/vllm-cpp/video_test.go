@@ -28,7 +28,11 @@ var _ = Describe("C ABI video struct mirrors", func() {
 		Expect(unsafe.Offsetof(p.Device)).To(Equal(uintptr(72)))
 		Expect(unsafe.Offsetof(p.DequantBf16)).To(Equal(uintptr(76)))
 		Expect(unsafe.Offsetof(p.Fp4Resident)).To(Equal(uintptr(80)))
-		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(88)))
+		Expect(unsafe.Offsetof(p.Family)).To(Equal(uintptr(88)))
+		Expect(unsafe.Offsetof(p.ExtraKeys)).To(Equal(uintptr(96)))
+		Expect(unsafe.Offsetof(p.ExtraValues)).To(Equal(uintptr(104)))
+		Expect(unsafe.Offsetof(p.NExtras)).To(Equal(uintptr(112)))
+		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(120)))
 	})
 
 	It("cVideoParams matches vllm_video_params", func() {
@@ -47,7 +51,10 @@ var _ = Describe("C ABI video struct mirrors", func() {
 		Expect(unsafe.Offsetof(p.RefAudio)).To(Equal(uintptr(72)))
 		Expect(unsafe.Offsetof(p.NoiseAug)).To(Equal(uintptr(80)))
 		Expect(unsafe.Offsetof(p.OutputDir)).To(Equal(uintptr(88)))
-		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(96)))
+		Expect(unsafe.Offsetof(p.ExtraKeys)).To(Equal(uintptr(96)))
+		Expect(unsafe.Offsetof(p.ExtraValues)).To(Equal(uintptr(104)))
+		Expect(unsafe.Offsetof(p.NExtras)).To(Equal(uintptr(112)))
+		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(120)))
 	})
 
 	It("cVideoResult matches vllm_video_result", func() {

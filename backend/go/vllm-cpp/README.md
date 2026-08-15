@@ -9,7 +9,7 @@ It serves two things: text generation, and MiniMax-H3 joint video+audio
 generation.
 
 The backend dlopens the engine's stable C ABI (`libvllm`, `include/vllm.h`,
-ABI v16) through purego:
+ABI v20) through purego:
 
 - `Load` -> `vllm_engine_load`: accepts a `.gguf` file or a HF-style model
   directory (`config.json` + safetensors). `context_size` maps to
