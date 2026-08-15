@@ -864,6 +864,103 @@
     - filename: DeepSeek-V4-Flash-0731-MXFP4.gguf
       uri: huggingface://ggml-org/DeepSeek-V4-Flash-0731-GGUF/DeepSeek-V4-Flash-0731-MXFP4.gguf
       sha256: 65f73494afaf27d3add0751a5b716dd2d3e012c66ae0dbbcc1bf8477f92b3ab7
+- name: "deepseek-v4-pro-0813"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813
+    - https://huggingface.co/unsloth/DeepSeek-V4-Pro-0813-GGUF
+  description: |
+    DeepSeek V4 Pro 0813 is DeepSeek's MIT-licensed flagship mixture-of-experts
+    model for agentic coding, reasoning, and long-horizon tool use. This entry
+    uses Unsloth's UD-Q4_K_XL GGUF build, split into 20 shards for llama.cpp.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - deepseek
+    - moe
+    - reasoning
+    - coding
+    - cpu
+    - gpu
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - reasoning_format:deepseek
+    parameters:
+      model: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00001-of-00020.gguf
+      temperature: 1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00001-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00001-of-00020.gguf
+      sha256: 0c6e411bf23282b5f149b3f0d7e0ae37f26bd23c6a3fbe52841437a4016736be
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00002-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00002-of-00020.gguf
+      sha256: aeb64ef378a3632ef938a32995b744e4935bcb2a73a6f4d4ac5a1dd8ed6fb467
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00003-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00003-of-00020.gguf
+      sha256: 440d5d735679f120baac875242c1a353cc37b87ecc41502052609c2bc90e725d
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00004-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00004-of-00020.gguf
+      sha256: 140fb3dc53d6bd908799044c8e83a71fa72b092c0232648837ab99bfbd60b6a8
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00005-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00005-of-00020.gguf
+      sha256: 82a295f7d1e5198cf004ac2ed2251a3f1eab76a99f1c17cebae3b5a2020d373e
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00006-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00006-of-00020.gguf
+      sha256: f4ae46e760ad3b73ed2f99c8cf1f7e1f45d9013609ac7e8e5d8d040a6dec7f98
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00007-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00007-of-00020.gguf
+      sha256: 9bd015cbe215ae720f6e4a1708924da10fbc55bff5c9039b044f815abcf9aa77
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00008-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00008-of-00020.gguf
+      sha256: f4534f1618f970b21e0585155c6fe3b432be3a54c604edb4bafff8198a161475
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00009-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00009-of-00020.gguf
+      sha256: 88a0868c24cff08ddb236fd10bba28916604a214d40a9d5c3038bfc61cf3fe21
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00010-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00010-of-00020.gguf
+      sha256: ea34c36b38d90fe53d323e76f720ca8de8bd5c9e67ca4490499653b65ffe37fc
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00011-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00011-of-00020.gguf
+      sha256: 31eea9aebe4dd925cabad9a323813f164bc4728f653fadb7529c3ae350efda0b
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00012-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00012-of-00020.gguf
+      sha256: d2cd296b4722733671669b0647d0b034353392fe62cfde819e3fc694cbf683d7
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00013-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00013-of-00020.gguf
+      sha256: dd0f7c98b34f1a873ad61c22e0c78f8b85da56b2e2fe6a92016cfc5587bbf317
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00014-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00014-of-00020.gguf
+      sha256: 9a530b4ceb6231b5fe9a52f9cfd89caece00244089f94125c1081e41be134253
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00015-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00015-of-00020.gguf
+      sha256: 4983ff25d96c5bc89b111ac6560bef3cdbc6823c19ae3b48a2beef0e0fb90e39
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00016-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00016-of-00020.gguf
+      sha256: b466c173037d16dd6e8bdd66cdcd5f0fefa22fa19d73b09a8271340ff8da0274
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00017-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00017-of-00020.gguf
+      sha256: a3d408224bae3102de30d66c06efcf4f2ad1d9e6cf7c0f96e8f923e46b581d49
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00018-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00018-of-00020.gguf
+      sha256: e8d837147dfc345a56de32f70575d5db708350894dac344a94adc85e4839f291
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00019-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00019-of-00020.gguf
+      sha256: bd14f611c85332e42ab737167aefa0034f757b4e5c163fe4134395a585633661
+    - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00020-of-00020.gguf
+      uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00020-of-00020.gguf
+      sha256: 5978999836fd1fe7ad7da6232a70981bd7f98274ed71d3b06652ba42c7b46031
 - name: instella-moe-16b-a3b-think
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
