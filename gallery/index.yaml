@@ -1,4 +1,43 @@
 ---
+- name: "nl2sh-1.5b-q4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct
+    - https://huggingface.co/ThorOdinson246/nl2sh-1.5b-Q4_K_M
+  description: |
+    nl2sh-1.5b is a 1.5B Qwen2.5-Coder fine-tune that converts plain-English
+    requests into single POSIX or Bash commands. This Q4_K_M GGUF is 941 MB
+    and is designed for fast CPU inference.
+
+    Use the system prompt from the model card and review every generated
+    command before execution. The model can produce destructive commands and
+    cannot inspect the local filesystem.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - shell
+    - command-generation
+  last_checked: "2026-08-15"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: nl2sh-1.5b-Q4_K_M.gguf
+      temperature: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: nl2sh-1.5b-Q4_K_M.gguf
+      uri: huggingface://ThorOdinson246/nl2sh-1.5b-Q4_K_M/nl2sh-1.5b-Q4_K_M.gguf
+      sha256: 6f8a17a11129a31074c944f4c2602453fafd9de43bdaeb1630a8f511ec820f71
 - name: "glm-5.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
