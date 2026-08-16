@@ -52,6 +52,30 @@ parameters:
 		Expect(valid).To(BeTrue())
 	})
 
+	It("round-trips context compression settings", func() {
+		raw := []byte(`
+name: compressed-chat
+backend: llama-cpp
+parameters:
+  model: chat.gguf
+compression:
+  enabled: true
+  trigger_at_ratio: 0.75
+  keep_tail_tokens: 8000
+  max_summary_tokens: 2048
+  compressor_model: fast-summarizer
+  on_post_compression_overflow: error
+`)
+		var cfg ModelConfig
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.Compression.Enabled).To(BeTrue())
+		Expect(cfg.Compression.TriggerAtRatio).To(Equal(0.75))
+		Expect(cfg.Compression.KeepTailTokens).To(Equal(8000))
+		Expect(cfg.Compression.MaxSummaryTokens).To(Equal(2048))
+		Expect(cfg.Compression.CompressorModel).To(Equal("fast-summarizer"))
+		Expect(cfg.Compression.OnPostCompressionOverflow).To(Equal("error"))
+	})
+
 	It("derives a managed snapshot filename without replacing the logical model", func() {
 		const cacheKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 		cfg := ModelConfig{
