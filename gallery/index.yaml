@@ -13285,6 +13285,71 @@
     - filename: mmproj-GLM-OCR-Q8_0.gguf
       sha256: 9c4b58e33e316ed142eb5dcb41abec3844d3e6e5dc361ffb782c3fa9d175141f
       uri: huggingface://ggml-org/GLM-OCR-GGUF/mmproj-GLM-OCR-Q8_0.gguf
+- &hunyuan-ocr
+  name: hunyuan-ocr-q8
+  variants:
+    - model: hunyuan-ocr-bf16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/tencent/HunyuanOCR/tree/main/v1.0
+    - https://huggingface.co/ggml-org/HunyuanOCR-GGUF
+  description: |
+    HunyuanOCR is Tencent's lightweight vision-language model for document parsing, text spotting, information extraction, and text-image translation. This Q8_0 GGUF build runs on llama.cpp with its bundled vision projector.
+  license: tencent-hunyuan-community
+  icon: https://huggingface.co/tencent.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - image-to-text
+    - ocr
+    - multimodal
+    - cpu
+    - hunyuan
+  last_checked: "2026-08-15"
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-HunyuanOCR-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: HunyuanOCR-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: HunyuanOCR-Q8_0.gguf
+      sha256: cdafc794cafeae377868d7a40a70e282a737e39abe77c0d8b73614447b364a21
+      uri: huggingface://ggml-org/HunyuanOCR-GGUF/HunyuanOCR-Q8_0.gguf
+    - filename: mmproj-HunyuanOCR-Q8_0.gguf
+      sha256: b77913164ff73d4c0dc4d994e236ed72bacbbe5c5db1ec9b2828627b46c32804
+      uri: huggingface://ggml-org/HunyuanOCR-GGUF/mmproj-HunyuanOCR-Q8_0.gguf
+- !!merge <<: *hunyuan-ocr
+  name: hunyuan-ocr-bf16
+  description: |
+    HunyuanOCR in BF16 GGUF format for maximum model and vision-projector fidelity. It runs on llama.cpp and supports document parsing, text spotting, information extraction, and text-image translation.
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-HunyuanOCR-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: HunyuanOCR-bf16.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: HunyuanOCR-bf16.gguf
+      sha256: a160215620dbd0ab43ec6faa28259654fd24c929953aa97c765176f7c0363217
+      uri: huggingface://ggml-org/HunyuanOCR-GGUF/HunyuanOCR-bf16.gguf
+    - filename: mmproj-HunyuanOCR-bf16.gguf
+      sha256: 46401739a91d0778d86369bb952db685b215512d61a941c3b859f337f6014fcd
+      uri: huggingface://ggml-org/HunyuanOCR-GGUF/mmproj-HunyuanOCR-bf16.gguf
+  variants: []
 - name: deepseek-ocr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
