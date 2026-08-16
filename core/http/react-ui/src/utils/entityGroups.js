@@ -1,4 +1,4 @@
-// Grouping for the rails on Discover and Backends.
+// Grouping for the rails on Models Explore and Backends Catalog.
 //
 // The gallery does not tag entries with the use-case keys the filter chips
 // send. Those keys (`chat`, `tts`, `transcript`, …) are a server-side

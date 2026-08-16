@@ -87,6 +87,16 @@ export default function OperateOverview() {
           loadingText={t('operate.overview.capacity.loading')}
           unavailableText={t('operate.overview.capacity.unavailable')}
           emptyText={t('operate.overview.capacity.empty')}
+          copy={{
+            gpuCount: count => t('operate.overview.capacity.gpus', { count }),
+            reclaimer: t('operate.overview.capacity.reclaimer'),
+            used: t('operate.overview.capacity.used'),
+            total: t('operate.overview.capacity.total'),
+            systemRam: t('operate.overview.capacity.systemRam'),
+            memory: t('operate.overview.capacity.memory'),
+            totalVram: t('operate.overview.capacity.totalVram'),
+            storage: t('operate.overview.capacity.storage'),
+          }}
           testId="operate-capacity"
         />
       </section>

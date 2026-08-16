@@ -4,7 +4,7 @@ const installedModels = [
   {
     id: 'alpha',
     backend: 'llama-cpp',
-    capabilities: ['chat'],
+    capabilities: ['FLAG_CHAT'],
     pinned: true,
   },
   {
@@ -119,6 +119,20 @@ test.describe('Models lifecycle', () => {
     await page.goto('/app/models?view=not-a-view')
     await expect(explore).toHaveAttribute('aria-current', 'page')
     await expect(page.locator('[data-testid="discover"]')).toBeVisible()
+  })
+
+  test('an installed Explore model opens or moves to management without destructive actions', async ({ page }) => {
+    await page.goto('/app/models?model=alpha')
+
+    await expect(page.getByRole('button', { name: 'Open Chat' })).toBeVisible()
+    const manage = page.getByRole('button', { name: 'Manage installation' })
+    await expect(manage).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Reinstall', exact: true })).toHaveCount(0)
+
+    await manage.click()
+    await expect(page).toHaveURL(/[?&]view=installed/)
+    await expect(page).toHaveURL(/[?&]model=alpha/)
   })
 
   test('switches to Installed and restores URL state through history', async ({ page }) => {
@@ -241,5 +255,20 @@ test.describe('Models lifecycle', () => {
     await expect(installedPane(page).getByRole('heading', { name: 'all', exact: true })).toBeVisible()
     await expect(page).toHaveURL(/[?&]q=all(?:&|$)/)
     await expect(page).toHaveURL(/[?&]model=all(?:&|$)/)
+  })
+
+  test('narrow detail Back restores focus to the originating model', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/app/models?view=installed')
+
+    const model = page.locator('[data-entity="beta"]')
+    await model.click()
+    await expect(page.locator('[data-testid="installed-models-pane"]')).toContainText('beta')
+    await expect(model).not.toBeVisible()
+
+    await page.locator('[data-testid="installed-models-back"]').click()
+
+    await expect(model).toBeVisible()
+    await expect(model).toBeFocused()
   })
 })

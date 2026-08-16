@@ -29,7 +29,19 @@ GPT and text generation models might have a license which is not permissive for 
 
 ## How it works
 
-Navigate the WebUI interface in the "Models" section from the navbar at the top. Here you can find a list of models that can be installed, and you can install them by clicking the "Install" button.
+Open **Models** in the WebUI. It is the canonical page for a model's complete
+lifecycle and has two views:
+
+- **Explore** browses configured galleries, compares hardware fit and variants,
+  and installs models. This is the default view.
+- **Installed** lists local model configurations and their running, idle,
+  disabled, pinned, and distributed state. Select a model to load or stop it,
+  edit its configuration, open a supported use case, inspect backend logs, or
+  remove it.
+
+Both views use the same model selection and store the view, search, filter, and
+selection in the URL. Installing from Explore does not move you away from the
+catalog; the entry updates in place when the operation finishes.
 
 ## VRAM and download size estimates
 

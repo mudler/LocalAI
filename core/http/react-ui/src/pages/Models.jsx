@@ -9,13 +9,12 @@ import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
 import SearchableSelect from '../components/SearchableSelect'
 import PageHeader from '../components/PageHeader'
-import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
 import RecommendedModels from '../components/RecommendedModels'
 import SplitView from '../components/split/SplitView'
 import EntityRail from '../components/split/EntityRail'
-import InstalledModels, { ModelLifecycleDetailShell } from './InstalledModels'
+import InstalledModels, { ModelLifecycleDetailShell, modelUseCases } from './InstalledModels'
 import { formatBytes } from '../utils/format'
 import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
@@ -158,6 +157,7 @@ export default function Models() {
   const [sort, setSort] = useState('')
   const [order, setOrder] = useState('asc')
   const [installing, setInstalling] = useState(new Map())
+  const [installedProfiles, setInstalledProfiles] = useState({})
   const [expandedFiles, setExpandedFiles] = useState(false)
   // Which model the pane is showing, or null for the discovery shelves. It
   // lives in the URL so a model is linkable and so Back steps out of the detail
@@ -180,7 +180,6 @@ export default function Models() {
   // True once any listing has come back. Distinguishes a cold start, which has
   // nothing to keep on screen, from a refetch, which does.
   const loadedOnce = useRef(false)
-  const [confirmDialog, setConfirmDialog] = useState(null)
   // Variant descriptions, keyed by model name. The listing only tells us
   // whether an entry declares any; describing them costs the server a network
   // probe per variant, so we ask for one entry at a time and keep the answer
@@ -285,6 +284,26 @@ export default function Models() {
   useEffect(() => {
     if (!loading) fetchModels()
   }, [operations.length])
+
+  // Gallery entries only say whether a model is installed. The capabilities
+  // endpoint is authoritative about what that installation can open, so the
+  // Explore detail uses it for a useful primary action without duplicating
+  // destructive lifecycle controls from Installed.
+  useEffect(() => {
+    if (activeView !== 'explore') return undefined
+    let cancelled = false
+    modelsApi.listCapabilities()
+      .then(data => {
+        if (cancelled) return
+        setInstalledProfiles(Object.fromEntries(
+          (data?.data || []).map(profile => [profile.id, profile])
+        ))
+      })
+      // A background refresh should not remove an action that was already
+      // resolved successfully earlier in this page session.
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [activeView, operations.length])
 
   const debouncedFetch = useDebouncedCallback((value) => {
     setPage(1)
@@ -446,26 +465,6 @@ export default function Models() {
     } catch (err) {
       addToast(t('errors.installFailed', { message: err.message }), 'error')
     }
-  }
-
-  const handleDelete = (modelId) => {
-    setConfirmDialog({
-      title: t('deleteDialog.title'),
-      message: t('deleteDialog.message', { model: modelId }),
-      confirmLabel: t('deleteDialog.confirm', { model: modelId }),
-      danger: true,
-      onConfirm: async () => {
-        setConfirmDialog(null)
-        try {
-          await modelsApi.delete(modelId)
-          addToast(t('deleteDialog.deletingToast', { model: modelId }), 'info')
-          fetchModels()
-        } catch (err) {
-          addToast(t('errors.deleteFailed', { message: err.message }), 'error')
-        }
-      },
-    })
-    return
   }
 
   // Clear local installing flags when operations finish (success or error)
@@ -869,7 +868,14 @@ export default function Models() {
                 installing={isInstalling(selectedName)}
                 progress={getOperationProgress(selectedName)}
                 onInstall={handleInstall}
-                onDelete={handleDelete}
+                installedProfile={installedProfiles[selectedName]}
+                onOpen={route => navigate(route)}
+                onManage={name => setSearchParams(previous => {
+                  const next = new URLSearchParams(previous)
+                  next.set('view', 'installed')
+                  next.set('model', name)
+                  return next
+                })}
                 onBack={() => selectModel(null)}
                 expandedFiles={expandedFiles}
                 setExpandedFiles={setExpandedFiles}
@@ -935,15 +941,6 @@ export default function Models() {
         />
       )}
 
-      <ConfirmDialog
-        open={!!confirmDialog}
-        title={confirmDialog?.title}
-        message={confirmDialog?.message}
-        confirmLabel={confirmDialog?.confirmLabel}
-        danger={confirmDialog?.danger}
-        onConfirm={confirmDialog?.onConfirm}
-        onCancel={() => setConfirmDialog(null)}
-      />
     </div>
   )
 }
@@ -1265,7 +1262,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
 
 // railItemFor maps a gallery entry onto the shape EntityRail speaks. Keeping
 // the vocabulary translation here, rather than teaching the rail about models,
-// is what lets Backends and Host reuse the same component without three
+// is what lets Models and Backends reuse the same component without two
 // slightly different rails growing out of it.
 //
 // The rail line gets exactly one fact beyond the name, and it is spent on
@@ -1417,7 +1414,7 @@ function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t
 // entry's fields and is shared with the per-variant panel.
 function DiscoverDetail({
   model, estimate, contextSize, onPickContext, totalGpuMemory, fitsGpu,
-  installing, progress, onInstall, onDelete, onBack,
+  installing, progress, onInstall, installedProfile, onOpen, onManage, onBack,
   expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, t,
 }) {
   const name = model.name || model.id
@@ -1426,6 +1423,7 @@ function DiscoverDetail({
   const fit = fitsGpu(vramBytes)
   const contextLabel = CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]
   const headroom = totalGpuMemory > 0 && vramBytes ? totalGpuMemory * 0.95 - vramBytes : null
+  const openUseCase = modelUseCases(installedProfile).find(useCase => useCase.route)
 
   return (
     <ModelLifecycleDetailShell
@@ -1454,11 +1452,14 @@ function DiscoverDetail({
             </div>
           ) : model.installed ? (
             <>
-              <button className="btn btn-secondary btn-sm" onClick={() => onInstall(name)}>
-                <i className="fas fa-rotate" /> {t('actions.reinstall')}
-              </button>
-              <button className="btn btn-danger btn-sm" onClick={() => onDelete(name)}>
-                <i className="fas fa-trash" /> {t('actions.delete')}
+              {openUseCase && (
+                <button className="btn btn-primary btn-sm" onClick={() => onOpen(openUseCase.route(name))}>
+                  <i className="fas fa-arrow-up-right-from-square" aria-hidden="true" />
+                  {t('lifecycle.actions.open', { useCase: t(`lifecycle.open.${openUseCase.labelKey}`) })}
+                </button>
+              )}
+              <button className="btn btn-secondary btn-sm" onClick={() => onManage(name)}>
+                <i className="fas fa-sliders" aria-hidden="true" /> {t('lifecycle.actions.manageInstallation')}
               </button>
             </>
           ) : (

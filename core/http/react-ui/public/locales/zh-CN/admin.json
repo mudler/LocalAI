@@ -223,7 +223,15 @@
         "title": "主机容量",
         "loading": "正在加载主机容量...",
         "unavailable": "主机容量不可用",
-        "empty": "未报告容量数据"
+        "empty": "未报告容量数据",
+        "gpus": "{{count}} GPUs",
+        "reclaimer": "Reclaimer active",
+        "used": "Used",
+        "total": "Total",
+        "systemRam": "System RAM",
+        "memory": "Memory",
+        "totalVram": "Total VRAM",
+        "storage": "Models storage"
       },
       "sections": {
         "heading": "Sections",

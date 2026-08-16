@@ -69,7 +69,7 @@ test.describe('Home resident models', () => {
     await page.goto('/app')
     const lanes = page.locator('.lanes--jump .lane')
     await expect(lanes).toHaveCount(3)
-    await expect(lanes.first()).toContainText('Discover')
+    await expect(lanes.first()).toContainText('Models')
   })
 
   test('nothing resident still says so', async ({ page }) => {

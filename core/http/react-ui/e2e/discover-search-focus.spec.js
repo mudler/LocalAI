@@ -12,7 +12,7 @@ const MOCK = {
   availableModels: 2, installedModels: 0, totalPages: 1, currentPage: 1,
 }
 
-test.describe('Discover - searching keeps the view', () => {
+test.describe('Models Explore - searching keeps the view', () => {
   test('a refetch keeps the search box, its focus and its value', async ({ page }) => {
     let calls = 0
     await page.route('**/api/models*', async (route) => {

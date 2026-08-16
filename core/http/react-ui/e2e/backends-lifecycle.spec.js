@@ -277,4 +277,19 @@ test.describe('Backends lifecycle page', () => {
     await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await expect.poll(() => deleteRequests).toBe(1)
   })
+
+  test('narrow detail Back restores focus to the originating backend', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.goto('/app/backends?view=installed')
+
+    const backend = backendRow(page, 'llama-cpp')
+    await backend.click()
+    await expect(page.locator('[data-testid="backends-installed-pane"]')).toContainText('llama-cpp')
+    await expect(backend).not.toBeVisible()
+
+    await page.locator('[data-testid="backends-installed-back"]').click()
+
+    await expect(backend).toBeVisible()
+    await expect(backend).toBeFocused()
+  })
 })

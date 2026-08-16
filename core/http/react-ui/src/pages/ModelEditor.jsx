@@ -426,7 +426,7 @@ export default function ModelEditor() {
 
   const backPage = isCreateMode && selectedTemplate ? t('actions.templates')
     : backState ? backState.fromLabel
-    : isCreateMode ? t('actions.models') : t('actions.system')
+    : t('actions.models')
 
   return (
     <FormContextProvider formData={values}>

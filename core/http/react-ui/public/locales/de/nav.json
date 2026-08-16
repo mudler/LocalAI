@@ -30,7 +30,6 @@
   },
   "items": {
     "home": "Start",
-    "discover": "Entdecken",
     "models": "Models",
     "chat": "Chat",
     "studio": "Studio",
@@ -41,7 +40,6 @@
     "voices": "Stimmen",
     "jobs": "Aufgaben",
     "operate": "Verwaltung",
-    "host": "Host",
     "audioTransform": "Audio transformieren",
     "faceRecognition": "Gesichtserkennung",
     "voiceRecognition": "Spracherkennung",

@@ -17,7 +17,8 @@
       "load": "Load", "loading": "Loading…", "stop": "Stop", "update": "Update", "updating": "Updating…",
       "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
       "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
-      "delete": "Delete model", "forModel": "Actions for {{model}}"
+      "delete": "Delete model", "forModel": "Actions for {{model}}",
+      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
     },
     "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "update": "update" },
     "toasts": {
@@ -52,7 +53,7 @@
       "clear": "Clear filters"
     }
   },
-  "title": "둘러보기",
+  "title": "Models",
   "subtitle": "갤러리에서 AI 모델을 둘러보고 설치합니다",
   "recommended": {
     "title": "하드웨어에 맞는 추천",

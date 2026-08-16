@@ -45,7 +45,7 @@ export default function Backends() {
   const [manualName, setManualName] = useState('')
   const [manualAlias, setManualAlias] = useState('')
   // Which backend the pane is showing, or null for the host page. In the URL
-  // for the same reasons as Discover: a backend is linkable, and Back leaves
+  // for the same reasons as Models Explore: a backend is linkable, and Back leaves
   // the detail rather than the page.
   // True once any listing has come back. Distinguishes a cold start, which has
   // nothing to keep on screen, from a refetch, which does.
@@ -526,7 +526,7 @@ export default function Backends() {
         </form>
       )}
 
-      {/* The gallery, as a rail and a pane. Same shell as Discover, because it
+      {/* The gallery, as a rail and a pane. Same shell as Models Explore, because it
           is the same defect: a seven-column table whose expand-row was the
           only place the repository, licence, tags and links could go. */}
       {loading && !loadedOnce.current ? (

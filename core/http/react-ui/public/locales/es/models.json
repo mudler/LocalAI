@@ -17,7 +17,8 @@
       "load": "Load", "loading": "Loading…", "stop": "Stop", "update": "Update", "updating": "Updating…",
       "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
       "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
-      "delete": "Delete model", "forModel": "Actions for {{model}}"
+      "delete": "Delete model", "forModel": "Actions for {{model}}",
+      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
     },
     "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "update": "update" },
     "toasts": {
@@ -52,7 +53,7 @@
       "clear": "Clear filters"
     }
   },
-  "title": "Descubrir",
+  "title": "Models",
   "subtitle": "Explora e instala modelos de IA desde la galería",
   "recommended": {
     "title": "Recomendado para tu hardware",

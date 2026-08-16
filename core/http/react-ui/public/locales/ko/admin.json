@@ -246,7 +246,15 @@
         "title": "호스트 용량",
         "loading": "호스트 용량 불러오는 중...",
         "unavailable": "호스트 용량을 사용할 수 없습니다",
-        "empty": "보고된 용량 데이터가 없습니다"
+        "empty": "보고된 용량 데이터가 없습니다",
+        "gpus": "{{count}} GPUs",
+        "reclaimer": "Reclaimer active",
+        "used": "Used",
+        "total": "Total",
+        "systemRam": "System RAM",
+        "memory": "Memory",
+        "totalVram": "Total VRAM",
+        "storage": "Models storage"
       },
       "sections": {
         "heading": "Sections",

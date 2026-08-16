@@ -44,21 +44,20 @@ test.describe('Model Editor — Back navigation', () => {
     await mockEditorEndpoints(page)
   })
 
-  test('Back returns to Manage with a "Back to System" caption', async ({ page }) => {
-    await page.goto('/app/manage')
-    // Actions live in the pane now, so select something first.
-    await page.locator('[data-testid="host-rail-item"]').first().click()
+  test('Back returns to Installed Models with a "Back to Models" caption', async ({ page }) => {
+    await page.goto('/app/models?view=installed')
+    await page.locator('[data-testid="installed-models-rail-item"]').first().click()
     const trigger = page.locator('button.action-menu__trigger').first()
     await expect(trigger).toBeVisible()
     await trigger.click()
     await page.getByRole('menuitem', { name: 'Edit configuration' }).click()
 
     await expect(page).toHaveURL(/\/app\/model-editor\//)
-    const back = page.getByRole('button', { name: /Back to System/ })
+    const back = page.getByRole('button', { name: /Back to Models/ })
     await expect(back).toBeVisible({ timeout: 10_000 })
 
     await back.click()
-    await expect(page).toHaveURL(/\/app\/manage/)
+    await expect(page).toHaveURL(/\/app\/models\?view=installed/)
   })
 
   test('returns to the originating Middleware tab (?tab=routing) it was opened from', async ({ page }) => {
@@ -86,8 +85,8 @@ test.describe('Model Editor — Back navigation', () => {
     await expect(page.getByText('smart-router').first()).toBeVisible()
   })
 
-  test('falls back to "Back to Manage" on a direct visit with no origin state', async ({ page }) => {
+  test('falls back to Installed Models on a direct visit with no origin state', async ({ page }) => {
     await page.goto('/app/model-editor/mock-model')
-    await expect(page.getByRole('button', { name: /Back to System/ })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: /Back to Models/ })).toBeVisible({ timeout: 10_000 })
   })
 })

@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 // EntityRail is the scannable half of SplitView: one line per entity, grouped
 // while browsing and flat while searching.
@@ -33,6 +33,25 @@ export default function EntityRail({
   busy = false,
 }) {
   const railRef = useRef(null)
+  const lastSelectedIdRef = useRef(null)
+
+  // Narrow layouts hide the rail while detail is selected. When Back (or the
+  // browser Back button) clears URL-owned selection, return keyboard focus to
+  // the row that opened the detail instead of dropping it on <body>.
+  useEffect(() => {
+    if (selectedId) {
+      lastSelectedIdRef.current = selectedId
+      return undefined
+    }
+    const id = lastSelectedIdRef.current
+    if (!id) return undefined
+    const frame = window.requestAnimationFrame(() => {
+      const item = railRef.current?.querySelector(`[data-entity="${CSS.escape(id)}"]`)
+      item?.scrollIntoView({ block: 'nearest' })
+      item?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [selectedId])
 
   // Up/Down moves the selection so the pane can be stepped through without
   // going back to the mouse.
@@ -68,7 +87,12 @@ export default function EntityRail({
   // Without this every entry is its own stop, so tabbing past a forty-entry
   // rail to reach the pane is forty keystrokes.
   const firstId = items[0]?.id
-  const tabbableId = items.some(i => i.id === selectedId) ? selectedId : firstId
+  const lastSelectedId = lastSelectedIdRef.current
+  const tabbableId = items.some(i => i.id === selectedId)
+    ? selectedId
+    : items.some(i => i.id === lastSelectedId)
+      ? lastSelectedId
+      : firstId
 
   const renderItem = (item) => (
     <RailItem

@@ -1677,7 +1677,7 @@ const MOCK_MULTI_CONTEXT_ESTIMATES = {
   },
 };
 
-test.describe("Models Gallery - Discover split view", () => {
+test.describe("Models Gallery - Explore split view", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/models*", (route) => {
       route.fulfill({

@@ -40,6 +40,13 @@ const USE_CASES = [
   { cap: CAP_SCORE, labelKey: 'score' },
 ]
 
+export function modelUseCases(model) {
+  const capabilities = Array.isArray(model?.capabilities) ? model.capabilities : []
+  return USE_CASES.filter(item => (
+    capabilities.includes(item.cap) && !(item.hideIf && capabilities.includes(item.hideIf))
+  ))
+}
+
 const MODEL_STATE_GROUPS = [
   { id: 'running', labelKey: 'running', icon: 'fa-circle-play' },
   { id: 'idle', labelKey: 'idle', icon: 'fa-pause' },
@@ -328,10 +335,7 @@ export default function InstalledModels({
 
   const selectedPane = selectedModel ? (() => {
     const enriched = enrichModel(selectedModel.id)
-    const capabilities = Array.isArray(selectedModel.capabilities) ? selectedModel.capabilities : []
-    const useCases = USE_CASES.filter(item => (
-      capabilities.includes(item.cap) && !(item.hideIf && capabilities.includes(item.hideIf))
-    ))
+    const useCases = modelUseCases(selectedModel)
     const running = isRunning(selectedModel)
     const pending = pendingActions.has(selectedModel.id)
     return (

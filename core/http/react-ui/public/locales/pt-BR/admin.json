@@ -246,7 +246,15 @@
         "title": "Capacidade do host",
         "loading": "Carregando a capacidade do host...",
         "unavailable": "Capacidade do host indisponível",
-        "empty": "Nenhum dado de capacidade informado"
+        "empty": "Nenhum dado de capacidade informado",
+        "gpus": "{{count}} GPUs",
+        "reclaimer": "Recuperador ativo",
+        "used": "Usado",
+        "total": "Total",
+        "systemRam": "RAM do sistema",
+        "memory": "Memória",
+        "totalVram": "VRAM total",
+        "storage": "Armazenamento de modelos"
       },
       "sections": {
         "heading": "Seções",

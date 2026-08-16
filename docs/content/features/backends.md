@@ -16,26 +16,32 @@ For the complete list of backends, the model families they support, and their ac
 
 ## Managing Backends in the UI
 
-The LocalAI web interface provides an intuitive way to manage your backends:
+The **Operate → Backends** page is the canonical home for the complete backend
+lifecycle:
 
-1. Navigate to the "Backends" section in the navigation menu
-2. Browse available backends from configured galleries
-3. Use the search bar to find specific backends by name, description, or type
-4. Filter backends by type using the quick filter buttons (LLM, Diffusion, TTS, Whisper)
-5. Install or delete backends with a single click
-6. Monitor installation progress in real-time
+1. **Catalog** browses configured galleries, searches by name or description,
+   filters by capability, and installs a backend. Catalog is the default view.
+2. **Installed** shows the runtimes present on the host or cluster. Search and
+   filter by user, system, update, or offline-node state, then select a backend
+   to inspect its version, source, node placement, and lifecycle actions.
+3. Variant and development builds remain opt-in refinements. Target-node links
+   compose with the current view and selection instead of opening a separate
+   management page.
+
+The current view, search, filter, selected backend, and target node are stored
+in the URL. Browser Back and shared links therefore restore the same state.
 
 Installs run in the background. The strip at the top of the app follows the
 current one, and **Operate → Activity** lists everything in flight, what needs
 attention, and what has finished, and is where a running install is cancelled
 or a failed one retried. See [Activity]({{% relref "operations/activity" %}}).
 
-Each backend card displays:
+Each selected backend displays:
 - Backend name and description
 - Type of models it supports
 - Installation status
-- Action buttons (Install/Delete)
-- Additional information via the info button
+- Install, reinstall, upgrade, or delete actions as appropriate
+- Version, source, digest, placement, and catalog information
 
 ## Backend Galleries
 

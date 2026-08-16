@@ -246,7 +246,15 @@
         "title": "Kapasitas host",
         "loading": "Memuat kapasitas host...",
         "unavailable": "Kapasitas host tidak tersedia",
-        "empty": "Tidak ada data kapasitas yang dilaporkan"
+        "empty": "Tidak ada data kapasitas yang dilaporkan",
+        "gpus": "{{count}} GPU",
+        "reclaimer": "Reclaimer aktif",
+        "used": "Terpakai",
+        "total": "Total",
+        "systemRam": "RAM sistem",
+        "memory": "Memori",
+        "totalVram": "Total VRAM",
+        "storage": "Penyimpanan model"
       },
       "sections": {
         "heading": "Bagian-bagian",
