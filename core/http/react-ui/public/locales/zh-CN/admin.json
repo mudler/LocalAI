@@ -219,6 +219,12 @@
         "clear": "Nothing needs attention. Backends are current, no operation has failed, and every node is healthy.",
         "backendUpdate": "Update available: {{from}} → {{to}}"
       },
+      "capacity": {
+        "title": "主机容量",
+        "loading": "正在加载主机容量...",
+        "unavailable": "主机容量不可用",
+        "empty": "未报告容量数据"
+      },
       "sections": {
         "heading": "Sections",
         "runtime": "Runtime",

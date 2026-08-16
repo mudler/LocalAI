@@ -242,6 +242,12 @@
         "clear": "Nada requer atenção. Os backends estão atualizados, nenhuma operação falhou e todos os nós estão saudáveis.",
         "backendUpdate": "Atualização disponível: {{from}} → {{to}}"
       },
+      "capacity": {
+        "title": "Capacidade do host",
+        "loading": "Carregando a capacidade do host...",
+        "unavailable": "Capacidade do host indisponível",
+        "empty": "Nenhum dado de capacidade informado"
+      },
       "sections": {
         "heading": "Seções",
         "runtime": "Runtime",

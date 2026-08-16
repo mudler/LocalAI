@@ -243,7 +243,7 @@ export default function ImportModel() {
           setIsSubmitting(false)
           setJob(null)
           addToast(t('toasts.imported'), 'success')
-          navigate('/app/manage')
+          navigate('/app/models?view=installed')
           return
         }
         if (data.error || (data.message && data.message.startsWith('error:'))) {
@@ -375,7 +375,7 @@ export default function ImportModel() {
     try {
       await modelsApi.importConfig(yamlContent, 'application/x-yaml')
       addToast(t('toasts.importedYaml'), 'success')
-      navigate('/app/manage')
+      navigate('/app/models?view=installed')
     } catch (err) {
       addToast(t('toasts.importFailed', { message: err.message }), 'error')
     } finally {

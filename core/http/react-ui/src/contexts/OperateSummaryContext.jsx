@@ -40,6 +40,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   const [upgrades, setUpgrades] = useState({})
   const [nodes, setNodes] = useState([])
   const [resources, setResources] = useState(null)
+  const [resourcesLoaded, setResourcesLoaded] = useState(false)
   const [traces, setTraces] = useState(null)
   const [installed, setInstalled] = useState({ backends: null, models: null })
   const { operations } = useOperations()
@@ -63,6 +64,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
     setUpgrades(u && typeof u === 'object' ? u : {})
     setNodes(Array.isArray(n) ? n : (n?.nodes || []))
     setResources(r)
+    setResourcesLoaded(true)
     setTraces(tr)
     setInstalled({
       backends: Array.isArray(bi) ? bi.length : (bi?.backends?.length ?? null),
@@ -106,6 +108,8 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       upgrades,
       nodes,
       resources,
+      resourcesLoading: !resourcesLoaded,
+      resourcesUnavailable: resourcesLoaded && !resources,
       operations,
       traces,
       installed,
@@ -120,7 +124,7 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
         usage: traces?.total ? compact(traces.total) : null,
       },
     }
-  }, [upgrades, nodes, resources, operations, traces, installed])
+  }, [upgrades, nodes, resources, resourcesLoaded, operations, traces, installed])
 
   return (
     <OperateSummaryContext.Provider value={value}>

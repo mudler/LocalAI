@@ -169,4 +169,47 @@ test.describe('Operate overview headline', () => {
     await expect(runtime).toContainText('backends')
     await expect(runtime).toContainText('running')
   })
+
+  test('shows host capacity from the shared Operate summary', async ({ page }) => {
+    await page.route('**/api/resources', route => route.fulfill({
+      json: {
+        type: 'gpu',
+        gpus: [{ name: 'NVIDIA L40S', vendor: 'NVIDIA', usage_percent: 42, used_vram: 10_000, total_vram: 24_000 }],
+        aggregate: { gpu_count: 1 },
+        storage_size: 12_000,
+      },
+    }))
+    await mockQuiet(page)
+
+    await page.goto('/app/operate')
+
+    const capacity = page.locator('[data-testid="operate-capacity"]')
+    await expect(capacity).toBeVisible()
+    await expect(capacity).toContainText('Host capacity')
+    await expect(capacity).toContainText('NVIDIA L40S')
+    await expect(capacity).toContainText('42%')
+  })
+
+  test('states when host capacity is unavailable', async ({ page }) => {
+    await page.route('**/api/resources', route => route.fulfill({
+      status: 503,
+      json: { error: 'resource monitor disabled' },
+    }))
+    await mockQuiet(page)
+
+    await page.goto('/app/operate')
+
+    const capacity = page.locator('[data-testid="operate-capacity"]')
+    await expect(capacity).toContainText('Host capacity unavailable')
+  })
+
+  test('states when the host reports no capacity fields', async ({ page }) => {
+    await page.route('**/api/resources', route => route.fulfill({ json: {} }))
+    await mockQuiet(page)
+
+    await page.goto('/app/operate')
+
+    const capacity = page.locator('[data-testid="operate-capacity"]')
+    await expect(capacity).toContainText('No capacity data reported')
+  })
 })

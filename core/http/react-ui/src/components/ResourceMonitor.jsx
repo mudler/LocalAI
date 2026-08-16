@@ -2,22 +2,51 @@ import { useResources } from '../hooks/useResources'
 import { formatBytes, percentColor, vendorColor } from '../utils/format'
 
 export default function ResourceMonitor() {
-  const { resources, loading } = useResources()
+  const { resources, loading, error } = useResources()
 
-  if (loading || !resources) {
-    return <div className="resource-monitor text-note">Loading resources...</div>
+  return (
+    <ResourceMonitorView
+      resources={resources}
+      loading={loading}
+      unavailable={Boolean(error)}
+    />
+  )
+}
+
+export function ResourceMonitorView({
+  resources,
+  loading = false,
+  unavailable = false,
+  title = 'System Resources',
+  loadingText = 'Loading resources...',
+  unavailableText = 'Resource data unavailable',
+  emptyText = 'No resource data reported',
+  testId,
+}) {
+  if (loading) {
+    return <div className="resource-monitor text-note" data-testid={testId}>{loadingText}</div>
+  }
+
+  if (unavailable || !resources) {
+    return <div className="resource-monitor text-note" data-testid={testId}>{unavailableText}</div>
   }
 
   const gpus = resources.gpus || []
-  const ram = resources.ram || {}
   const aggregate = resources.aggregate || {}
+  const ram = resources.ram || aggregate.ram || {}
   const isGpu = resources.type === 'gpu' && gpus.length > 0
+  const hasRam = ram.total != null || ram.total_bytes != null || ram.used != null || ram.used_bytes != null || ram.usage_percent != null
+  const hasStorage = resources.storage_size != null
+
+  if (!isGpu && !hasRam && !hasStorage) {
+    return <div className="resource-monitor text-note" data-testid={testId}>{emptyText}</div>
+  }
 
   return (
-    <div className="resource-monitor">
+    <div className="resource-monitor" data-testid={testId}>
       <div className="hstack hstack--between mb-sm">
         <h3 className="resource-monitor-title m-0">
-          <i className="fas fa-chart-bar" /> System Resources
+          <i className="fas fa-chart-bar" aria-hidden="true" /> {title}
         </h3>
         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
           {isGpu && gpus.length > 1 && (
@@ -63,7 +92,7 @@ export default function ResourceMonitor() {
             )
           })}
         </div>
-      ) : (
+      ) : hasRam ? (
         /* RAM display */
         <div className="resource-gpu-card">
           <div className="resource-gpu-header">
@@ -85,7 +114,7 @@ export default function ResourceMonitor() {
             <span>Total: {formatBytes(ram.total || 0)}</span>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Aggregate for multi-GPU */}
       {isGpu && aggregate.gpu_count > 1 && (

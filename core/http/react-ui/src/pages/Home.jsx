@@ -442,7 +442,7 @@ export default function Home() {
                 <button className="btn btn-primary" onClick={() => navigate('/app/models')}>
                   <i className="fas fa-download" aria-hidden="true" /> {t('quickLinks.browseGallery')}
                 </button>
-                <button className="home-link-btn" onClick={() => navigate('/app/manage')}>
+                <button className="home-link-btn" onClick={() => navigate('/app/models?view=installed')}>
                   <i className="fas fa-desktop" aria-hidden="true" /> {t('quickLinks.installedModels')}
                 </button>
                 <button className="home-link-btn" onClick={() => navigate('/app/import-model')}>

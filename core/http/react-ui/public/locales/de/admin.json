@@ -219,6 +219,12 @@
         "clear": "Nothing needs attention. Backends are current, no operation has failed, and every node is healthy.",
         "backendUpdate": "Update available: {{from}} → {{to}}"
       },
+      "capacity": {
+        "title": "Host-Kapazität",
+        "loading": "Host-Kapazität wird geladen...",
+        "unavailable": "Host-Kapazität nicht verfügbar",
+        "empty": "Keine Kapazitätsdaten gemeldet"
+      },
       "sections": {
         "heading": "Sections",
         "runtime": "Runtime",

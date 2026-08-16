@@ -242,6 +242,12 @@
         "clear": "Nothing needs attention. Backends are current, no operation has failed, and every node is healthy.",
         "backendUpdate": "Update available: {{from}} → {{to}}"
       },
+      "capacity": {
+        "title": "호스트 용량",
+        "loading": "호스트 용량 불러오는 중...",
+        "unavailable": "호스트 용량을 사용할 수 없습니다",
+        "empty": "보고된 용량 데이터가 없습니다"
+      },
       "sections": {
         "heading": "Sections",
         "runtime": "Runtime",

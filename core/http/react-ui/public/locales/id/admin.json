@@ -242,6 +242,12 @@
         "clear": "Tidak ada yang membutuhkan perhatian. Backend sudah terbaru, tidak ada operasi yang gagal, dan setiap node sehat.",
         "backendUpdate": "Pembaruan tersedia: {{from}} → {{to}}"
       },
+      "capacity": {
+        "title": "Kapasitas host",
+        "loading": "Memuat kapasitas host...",
+        "unavailable": "Kapasitas host tidak tersedia",
+        "empty": "Tidak ada data kapasitas yang dilaporkan"
+      },
       "sections": {
         "heading": "Bagian-bagian",
         "runtime": "Runtime",
