@@ -468,8 +468,12 @@ index 9069463fe..b7fa1e534 100644
                  {
                      // special case: if input is provided via CLI, tokenize it first
                      // otherwise, no need to tokenize as it's already done inside the HTTP thread
-@@ -3092,6 +3174,14 @@ private:
+@@ -3082,10 +3164,18 @@ private:
+             SRV_ERR("pre_decode() failed: %s\n", e.what());
              abort_all_slots("pre_decode() failed: " + std::string(e.what()));
+
+             // the batch is half-built and not rendered, skip now to avoid UB
+             return;
          }
 
 +        // note: TTS slots bypass the shared batch entirely
