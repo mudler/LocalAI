@@ -1,6 +1,6 @@
 package main
 
-// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v16).
+// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v20).
 //
 // The structs below are hand-mirrored PODs of the C declarations, with
 // explicit padding so the Go layout matches the C layout on linux/darwin
@@ -21,7 +21,7 @@ import (
 // the header of the VLLM_CPP_VERSION pinned in the Makefile: the build checks
 // the two against each other, because a mismatch is only caught at runtime by
 // registerLib, where it takes the backend down on every load (issue #11379).
-const abiVersion = 17
+const abiVersion = 20
 
 // The ABI's tri-state toggles (enable_prefix_caching ABI v7,
 // enable_jump_forward ABI v10) share one encoding: 0 is NOT "off", it is
@@ -69,6 +69,7 @@ type cModelParams struct {
 	MaxNumBatchedTokens int32   // <= 0 = per-arch default (ABI v9)
 	SchedulingPolicy    uintptr // const char*; NULL = "fcfs" (ABI v9)
 	KVTransferConfig    uintptr // const char* JSON; NULL = no connector (ABI v9)
+	OffloadConfig       uintptr // const char* JSON; NULL = no weight offload
 	EnableJumpForward   int32   // tri-state 0/1/2 (ABI v10)
 	// v14/v16 tail. LocalAI sets none of these (0 is "auto" for the device and
 	// "unset" for both sizing knobs, i.e. the pre-v14 engine byte for byte), but
@@ -79,6 +80,9 @@ type cModelParams struct {
 	Device             int32   // 0 auto, 1 cpu, 2 cuda (ABI v14)
 	GPUMemoryUtil      float64 // 0 => 0.92 (ABI v16)
 	KVCacheMemoryBytes int64   // 0 => unset (ABI v16)
+	LanguageModelOnly  int32   // 0 = multimodal inputs enabled (ABI v19)
+	_                  [4]byte
+	LimitMMPerPrompt   uintptr // const char* JSON; NULL = default limits (ABI v19)
 }
 
 // cSamplingParams mirrors vllm_sampling_params (structured fields included).
@@ -147,6 +151,11 @@ type cVideoModelParams struct {
 	Device             int32   // 0 cpu, 1 cuda
 	DequantBf16        int32   // 0 keep-quant, 1 dequant/stream bf16
 	Fp4Resident        int32   // NVFP4+cuda: keep FP4 packed, Marlin W4A16
+	_                  [4]byte
+	Family             uintptr // const char*; NULL = detect (ABI v18)
+	ExtraKeys          uintptr // const char* const* (ABI v18)
+	ExtraValues        uintptr // const char* const* (ABI v18)
+	NExtras            int32   // 0 = none (ABI v18)
 	_                  [4]byte // trailing pad to the struct's 8-byte alignment
 }
 
@@ -154,22 +163,26 @@ type cVideoModelParams struct {
 // `steps` pair up into 8-byte slots; the uint64 seed forces the alignment after
 // them, and the float noise_aug leaves a pad before output_dir.
 type cVideoParams struct {
-	Prompt     uintptr // const char*
-	Width      int32
-	Height     int32
-	NumFrames  int32 // <= 1 => per-task default (124 for t2va/fl2va)
-	Steps      int32 // <= 0 => the H3 default (50)
-	Seed       uint64
-	HasSeed    int32
-	_          [4]byte
-	FirstFrame uintptr // const char*; fl2va keyframe, binary PPM (P6)
-	LastFrame  uintptr // const char*
-	RefImage   uintptr // const char*; ref2va only
-	RefVideo   uintptr // const char*; ref2va only, a frame_%06d.ppm DIRECTORY
-	RefAudio   uintptr // const char*; ref2va only, 16-bit PCM WAV
-	NoiseAug   float32 // <= 0 => 1.0
-	_          [4]byte
-	OutputDir  uintptr // const char*; REQUIRED
+	Prompt      uintptr // const char*
+	Width       int32
+	Height      int32
+	NumFrames   int32 // <= 1 => per-task default (124 for t2va/fl2va)
+	Steps       int32 // <= 0 => the H3 default (50)
+	Seed        uint64
+	HasSeed     int32
+	_           [4]byte
+	FirstFrame  uintptr // const char*; fl2va keyframe, binary PPM (P6)
+	LastFrame   uintptr // const char*
+	RefImage    uintptr // const char*; ref2va only
+	RefVideo    uintptr // const char*; ref2va only, a frame_%06d.ppm DIRECTORY
+	RefAudio    uintptr // const char*; ref2va only, 16-bit PCM WAV
+	NoiseAug    float32 // <= 0 => 1.0
+	_           [4]byte
+	OutputDir   uintptr // const char*; REQUIRED
+	ExtraKeys   uintptr // const char* const* (ABI v18)
+	ExtraValues uintptr // const char* const* (ABI v18)
+	NExtras     int32   // 0 = none (ABI v18)
+	_           [4]byte
 }
 
 // cVideoResult mirrors vllm_video_result. Every member is library-allocated and

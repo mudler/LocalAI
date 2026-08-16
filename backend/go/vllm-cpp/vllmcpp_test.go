@@ -16,7 +16,7 @@ func TestVllmCpp(t *testing.T) {
 	RunSpecs(t, "vllm-cpp suite")
 }
 
-// The Go POD mirrors must match the C struct layout of vllm.h (ABI v16)
+// The Go POD mirrors must match the C struct layout of vllm.h (ABI v20)
 // byte-for-byte: these offsets are the C offsets on LP64 (linux/darwin
 // amd64+arm64). A failure here means govllmcpp.go drifted from vllm.h.
 var _ = Describe("C ABI struct mirrors", func() {
@@ -24,7 +24,7 @@ var _ = Describe("C ABI struct mirrors", func() {
 		// VLLM_ABI_VERSION in the vllm.h of VLLM_CPP_VERSION (Makefile).
 		// Moving the pin past this without growing the mirrors below ships a
 		// backend that refuses every load at startup (issue #11379).
-		Expect(abiVersion).To(Equal(16))
+		Expect(abiVersion).To(Equal(20))
 	})
 
 	It("cModelParams matches vllm_model_params", func() {
@@ -42,13 +42,16 @@ var _ = Describe("C ABI struct mirrors", func() {
 		Expect(unsafe.Offsetof(p.MaxNumBatchedTokens)).To(Equal(uintptr(60)))
 		Expect(unsafe.Offsetof(p.SchedulingPolicy)).To(Equal(uintptr(64)))
 		Expect(unsafe.Offsetof(p.KVTransferConfig)).To(Equal(uintptr(72)))
-		Expect(unsafe.Offsetof(p.EnableJumpForward)).To(Equal(uintptr(80)))
-		Expect(unsafe.Offsetof(p.Device)).To(Equal(uintptr(84)))
-		// 88, not 92: gpu_memory_utilization is a double, so it takes the next
+		Expect(unsafe.Offsetof(p.OffloadConfig)).To(Equal(uintptr(80)))
+		Expect(unsafe.Offsetof(p.EnableJumpForward)).To(Equal(uintptr(88)))
+		Expect(unsafe.Offsetof(p.Device)).To(Equal(uintptr(92)))
+		// 96: gpu_memory_utilization is a double, so it takes the next
 		// 8-aligned slot after the int32 pair. Go pads identically.
-		Expect(unsafe.Offsetof(p.GPUMemoryUtil)).To(Equal(uintptr(88)))
-		Expect(unsafe.Offsetof(p.KVCacheMemoryBytes)).To(Equal(uintptr(96)))
-		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(104)))
+		Expect(unsafe.Offsetof(p.GPUMemoryUtil)).To(Equal(uintptr(96)))
+		Expect(unsafe.Offsetof(p.KVCacheMemoryBytes)).To(Equal(uintptr(104)))
+		Expect(unsafe.Offsetof(p.LanguageModelOnly)).To(Equal(uintptr(112)))
+		Expect(unsafe.Offsetof(p.LimitMMPerPrompt)).To(Equal(uintptr(120)))
+		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(128)))
 	})
 
 	It("cSamplingParams matches vllm_sampling_params (ABI v8)", func() {

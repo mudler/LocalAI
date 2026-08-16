@@ -1,0 +1,26 @@
+From: LocalAI maintainers
+Subject: [PATCH] fix(qwen3.5): drop redundant kRequired capture
+
+Apple Clang diagnoses the capture of this namespace-scope reference as unused,
+and vllm.cpp promotes that warning to an error. The lambda can access the name
+without a capture.
+
+Retire this patch when the pinned vllm.cpp revision no longer captures
+kRequired in the qwen3.5 refusal lambda.
+---
+ src/vllm/model_executor/models/qwen3_5_weights.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/vllm/model_executor/models/qwen3_5_weights.cpp b/src/vllm/model_executor/models/qwen3_5_weights.cpp
+index 7150443..7de1b9d 100644
+--- a/src/vllm/model_executor/models/qwen3_5_weights.cpp
++++ b/src/vllm/model_executor/models/qwen3_5_weights.cpp
+@@ -950,7 +950,7 @@ void CheckMoeQuantLayoutSupported(const std::vector<std::string>& names,
+   // ...and the three NON-routed components, refused by the dtype the probe
+   // RESOLVED rather than discovered as a complaint from inside a reader (#490).
+   // Each of these already failed before #864; naming it is the whole change.
+-  const auto refuse = [&kRequired](const char* what, MoeProjDtype got,
++  const auto refuse = [](const char* what, MoeProjDtype got,
+                                    const char* supported) {
+     VT_CHECK(false, std::string("qwen3_5 weights: a ") +
+                         MoeProjDtypeName(got) + " " + what +
