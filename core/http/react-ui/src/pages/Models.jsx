@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { modelsApi } from '../utils/api'
@@ -15,8 +15,7 @@ import Toggle from '../components/Toggle'
 import RecommendedModels from '../components/RecommendedModels'
 import SplitView from '../components/split/SplitView'
 import EntityRail from '../components/split/EntityRail'
-import DetailHeader from '../components/split/DetailHeader'
-import StatGrid from '../components/split/StatGrid'
+import InstalledModels, { ModelLifecycleDetailShell } from './InstalledModels'
 import { formatBytes } from '../utils/format'
 import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
@@ -109,6 +108,35 @@ const FILTER_SECTIONS = [
     keys: ['image', 'video', '3d'] },
 ]
 
+function ModelsLifecycleNav({ activeView, searchParams, t }) {
+  const hrefFor = view => {
+    const next = new URLSearchParams(searchParams)
+    if (view === 'installed') next.set('view', 'installed')
+    else next.delete('view')
+    const query = next.toString()
+    return `/app/models${query ? `?${query}` : ''}`
+  }
+
+  return (
+    <nav className="tabs mb-md" aria-label={t('lifecycle.navLabel')}>
+      <Link
+        className={`tab ${activeView === 'explore' ? 'tab-active' : ''}`}
+        to={hrefFor('explore')}
+        aria-current={activeView === 'explore' ? 'page' : undefined}
+      >
+        <i className="fas fa-compass" aria-hidden="true" /> {t('lifecycle.views.explore')}
+      </Link>
+      <Link
+        className={`tab ${activeView === 'installed' ? 'tab-active' : ''}`}
+        to={hrefFor('installed')}
+        aria-current={activeView === 'installed' ? 'page' : undefined}
+      >
+        <i className="fas fa-hard-drive" aria-hidden="true" /> {t('lifecycle.views.installed')}
+      </Link>
+    </nav>
+  )
+}
+
 export default function Models() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
@@ -116,11 +144,16 @@ export default function Models() {
   const { t } = useTranslation('models')
   const { operations } = useOperations()
   const { resources } = useResources()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeView = searchParams.get('view') === 'installed' ? 'installed' : 'explore'
+  const installedState = ['running', 'idle', 'disabled', 'pinned', 'distributed'].includes(searchParams.get('state'))
+    ? searchParams.get('state')
+    : 'all'
   const [models, setModels] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => searchParams.get('q') || '')
   const [filters, setFilters] = useState([])
   const [sort, setSort] = useState('')
   const [order, setOrder] = useState('asc')
@@ -130,8 +163,8 @@ export default function Models() {
   // lives in the URL so a model is linkable and so Back steps out of the detail
   // rather than off the page, which is the one thing the expanded row could
   // never do.
-  const [searchParams, setSearchParams] = useSearchParams()
   const selectedName = searchParams.get('model')
+  const urlSearch = searchParams.get('q') || ''
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
   // Distinguishes "nothing installed" from "not asked yet". The recommendations
   // panel defaults off the installed count, so it must not read the initial 0.
@@ -318,8 +351,27 @@ export default function Models() {
 
   const handleSearch = (value) => {
     setSearch(value)
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      if (value) next.set('q', value)
+      else next.delete('q')
+      return next
+    }, { replace: true })
     debouncedFetch(value)
   }
+
+  // Search is URL-owned. Popstate changes therefore update the controlled
+  // field and refetch the gallery instead of leaving the previous term on
+  // screen after Back or Forward.
+  useEffect(() => {
+    if (urlSearch === search) return
+    setSearch(urlSearch)
+    setPage(1)
+    debouncedFetch(urlSearch)
+    // debouncedFetch intentionally follows the URL value only. Depending on
+    // the callback itself would restart this effect whenever fetch state moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSearch])
 
   const toggleFilter = (key) => {
     if (key === '') { setFilters([]); setPage(1); return }
@@ -512,11 +564,60 @@ export default function Models() {
     setExpandedFiles(false)
   }, [setSearchParams])
 
+  const setInstalledQuery = useCallback(value => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      // `all` is a valid search term. Only an empty string clears q.
+      if (value) next.set('q', value)
+      else next.delete('q')
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const setInstalledState = useCallback(value => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      // State alone reserves `all` as its default sentinel. q and model may
+      // both name a literal installed model called "all".
+      if (value && value !== 'all') next.set('state', value)
+      else next.delete('state')
+      return next
+    })
+  }, [setSearchParams])
+
   // The detail pane lists variants, so opening a model is the ask that pays for
   // the describe call. loadVariants is idempotent per name.
   useEffect(() => {
     if (selectedModel?.has_variants) loadVariants(selectedName)
   }, [selectedName, selectedModel, loadVariants])
+
+  if (activeView === 'installed') {
+    return (
+      <div className="page page--wide page--app">
+        <div className="view-bar">
+          <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
+          <div className="view-bar__actions">
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('lifecycle.title')) })}>
+              <i className="fas fa-plus" /> {t('actions.addModel')}
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
+              <i className="fas fa-upload" /> {t('actions.importModel')}
+            </button>
+          </div>
+        </div>
+        <ModelsLifecycleNav activeView={activeView} searchParams={searchParams} t={t} />
+        <InstalledModels
+          addToast={addToast}
+          query={urlSearch}
+          state={installedState}
+          selectedName={selectedName}
+          onQueryChange={setInstalledQuery}
+          onStateChange={setInstalledState}
+          onSelect={selectModel}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="page page--wide page--app">
@@ -526,7 +627,7 @@ export default function Models() {
           rail and the pane are describing what you are looking at; the header
           was just repeating them from a distance. */}
       <div className="view-bar">
-        <h1 className="view-bar__title">{t('title')}</h1>
+        <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
         <span className="view-bar__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
         <div className="view-bar__actions">
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
@@ -537,6 +638,8 @@ export default function Models() {
           </button>
         </div>
       </div>
+
+      <ModelsLifecycleNav activeView={activeView} searchParams={searchParams} t={t} />
 
       {/* Filters, in three deliberate bands.
           1. Query scope: free-text search plus the backend select. The backend
@@ -1325,17 +1428,16 @@ function DiscoverDetail({
   const headroom = totalGpuMemory > 0 && vramBytes ? totalGpuMemory * 0.95 - vramBytes : null
 
   return (
-    <div className="detail-pane">
-      <DetailHeader
-        testId="discover"
-        icon={groupForEntity(model).icon}
-        name={name}
-        lede={model.description ? stripMarkdown(model.description).slice(0, 220) : null}
-        ledeTitle={model.description ? stripMarkdown(model.description) : null}
-        onBack={onBack}
-        backLabel={t('detail.backToAll')}
-        warning={model.trustRemoteCode ? t('detail.requiresTrustRemoteCode') : null}
-        actions={
+    <ModelLifecycleDetailShell
+      testId="discover"
+      icon={groupForEntity(model).icon}
+      name={name}
+      lede={model.description ? stripMarkdown(model.description).slice(0, 220) : null}
+      ledeTitle={model.description ? stripMarkdown(model.description) : null}
+      onBack={onBack}
+      backLabel={t('detail.backToAll')}
+      warning={model.trustRemoteCode ? t('detail.requiresTrustRemoteCode') : null}
+      actions={
           installing ? (
             <div className="inline-install">
               <div className="inline-install__row">
@@ -1364,20 +1466,17 @@ function DiscoverDetail({
               <i className="fas fa-download" /> {t('actions.install')}
             </button>
           )
-        }
-      />
-
-      <StatGrid
-        stats={[
-          { label: t('detail.size'), value: sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—' },
-          { label: t('detail.vramAt', { context: contextLabel }), value: vramBytes ? formatBytes(vramBytes) : '—' },
-          {
-            label: t('detail.headroom'),
-            value: headroom === null ? '—' : (headroom < 0 ? '−' : '') + formatBytes(Math.abs(headroom)),
-            tone: headroom === null ? undefined : headroom < 0 ? 'bad' : 'ok',
-          },
-        ]}
-      />
+      }
+      stats={[
+        { label: t('detail.size'), value: sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—' },
+        { label: t('detail.vramAt', { context: contextLabel }), value: vramBytes ? formatBytes(vramBytes) : '—' },
+        {
+          label: t('detail.headroom'),
+          value: headroom === null ? '—' : (headroom < 0 ? '−' : '') + formatBytes(Math.abs(headroom)),
+          tone: headroom === null ? undefined : headroom < 0 ? 'bad' : 'ok',
+        },
+      ]}
+    >
 
       <VramByContext
         estimate={estimate}
@@ -1402,6 +1501,6 @@ function DiscoverDetail({
         nested
         t={t}
       />
-    </div>
+    </ModelLifecycleDetailShell>
   )
 }
