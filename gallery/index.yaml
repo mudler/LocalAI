@@ -13322,6 +13322,90 @@
     - filename: mmproj-DeepSeek-OCR-Q8_0.gguf
       sha256: 786c9b5159898de3d1d94a102836df559fed0bcf09f41a32f62c3219b0e278e0
       uri: huggingface://ggml-org/DeepSeek-OCR-GGUF/mmproj-DeepSeek-OCR-Q8_0.gguf
+- name: ovisocr2
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: ovisocr2-q8
+  urls:
+    - https://huggingface.co/ATH-MaaS/OvisOCR2
+    - https://huggingface.co/Abiray/OvisOCR2-GGUF
+  description: |
+    OvisOCR2 is ATH-MaaS's compact 0.8B vision-language model for page-level
+    document parsing. It converts document images into Markdown while preserving
+    formulas as LaTeX, tables as HTML, and the original reading order. This
+    default entry uses the Q4_K_M GGUF with the F16 vision projector.
+  license: apache-2.0
+  icon: https://huggingface.co/ATH-MaaS.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - image-to-text
+    - ocr
+    - document-parsing
+    - multimodal
+    - cpu
+    - qwen3.5
+  last_checked: "2026-08-16"
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: OvisOCR2-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: OvisOCR2-Q4_K_M.gguf
+      sha256: 4ae54c66bfe1efb2882854ff642c3d137aa082dbd0699bc9234ff39874a492a1
+      uri: huggingface://Abiray/OvisOCR2-GGUF/OvisOCR2-Q4_K_M.gguf
+    - filename: mmproj-F16.gguf
+      sha256: 7e371704e8f3c88638830e52866dfa88b2fd383155e3a0f9484e4ce037fdd42f
+      uri: huggingface://Abiray/OvisOCR2-GGUF/mmproj-F16.gguf
+- name: ovisocr2-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ATH-MaaS/OvisOCR2
+    - https://huggingface.co/Abiray/OvisOCR2-GGUF
+  description: |
+    OvisOCR2 in the higher-fidelity Q8_0 GGUF format with the F16 vision
+    projector.
+  license: apache-2.0
+  icon: https://huggingface.co/ATH-MaaS.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - image-to-text
+    - ocr
+    - document-parsing
+    - multimodal
+    - cpu
+    - qwen3.5
+  last_checked: "2026-08-16"
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: OvisOCR2-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: OvisOCR2-Q8_0.gguf
+      sha256: 3fba6d94312e550575a92d55cffb8d75997bf68a9f133c92ab6ad7f0bf2bc93e
+      uri: huggingface://Abiray/OvisOCR2-GGUF/OvisOCR2-Q8_0.gguf
+    - filename: mmproj-F16.gguf
+      sha256: 7e371704e8f3c88638830e52866dfa88b2fd383155e3a0f9484e4ce037fdd42f
+      uri: huggingface://Abiray/OvisOCR2-GGUF/mmproj-F16.gguf
 - name: ai21labs_ai21-jamba-reasoning-3b
   url: github:mudler/LocalAI/gallery/jamba.yaml@master
   urls:
