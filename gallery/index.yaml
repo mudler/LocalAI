@@ -1,4 +1,54 @@
 ---
+- name: "qwen3.8-27b-uncensored"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/JonathanColetti/Qwen3.8-27B-Uncensored-GGUF
+  description: |
+    # Qwen3.8-27B
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, TokenSpeed, etc.
+
+    > [!Tip]
+    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
+    > In particular, **Qwen3.8-27B** will be available as a hosted version with more production features, e.g., 1M context length by default, official built-in tools. For more information, please refer to the Qwen3.8-27B Overview. The service is coming soon. Stay tuned for updates.
+
+    Following the widespread community adoption of the Qwen3.5 and Qwen3.6 series, we are pleased to introduce Qwen3.8, the most capable generation in the Qwen open-model family to date.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-27B-Uncensored-Q4_K_M/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-27B-Uncensored-Q4_K_M/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
+      sha256: 4c5e2db039e9325ac7724c8846c71356a24ad1cdfa28002d73ecb6be645f9675
+      uri: https://huggingface.co/JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/resolve/main/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
 - name: "huihui-qwen3.8-27b-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
