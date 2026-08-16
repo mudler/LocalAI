@@ -3597,9 +3597,15 @@ public:
         // Populate the response with metrics
         response->set_slot_id(0);
         response->set_prompt_json_for_slot("");
+#if LOCALAI_HAS_SERVER_METRICS
+        response->set_tokens_per_second(res_metrics->metrics.prompt_bucket.n_per_second());
+        response->set_tokens_generated(res_metrics->metrics.predict.count);
+        response->set_prompt_tokens_processed(res_metrics->metrics.prompt.count);
+#else
         response->set_tokens_per_second(res_metrics->n_prompt_tokens_processed ? 1.e3 / res_metrics->t_prompt_processing * res_metrics->n_prompt_tokens_processed : 0.);
         response->set_tokens_generated(res_metrics->n_tokens_predicted_total);
         response->set_prompt_tokens_processed(res_metrics->n_prompt_tokens_processed_total);
+#endif
 
 
         return grpc::Status::OK;
