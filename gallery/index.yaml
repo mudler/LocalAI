@@ -1,4 +1,99 @@
 ---
+- &ornith-1-0-9b
+  name: "ornith-1.0-9b-q4"
+  variants:
+    - model: ornith-1.0-9b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ornith-ai/Ornith-1.0-9B
+    - https://huggingface.co/unsloth/Ornith-1.0-9B-GGUF
+  description: |
+    Ornith-1.0-9B is an MIT-licensed Qwen3.5 model from Ornith AI for
+    agentic coding, reasoning, repository-level software tasks, and tool use.
+    It supports text and image input with a context window of 262K tokens.
+
+    This default entry uses the Q4_K_M GGUF and F16 vision projector. A
+    higher-quality Q8_0 model is available as a variant.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+  last_checked: "2026-08-16"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.0-9b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.0-9b/Ornith-1.0-9B-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.0-9b/Ornith-1.0-9B-Q4_K_M.gguf
+      uri: huggingface://unsloth/Ornith-1.0-9B-GGUF/Ornith-1.0-9B-Q4_K_M.gguf
+      sha256: 641675b356a4463677a02a0d703f7b571b39f0b747fbd270b379c848edc29e84
+    - filename: llama-cpp/mmproj/ornith-1.0-9b/mmproj-F16.gguf
+      uri: huggingface://unsloth/Ornith-1.0-9B-GGUF/mmproj-F16.gguf
+      sha256: 013638437d619467b92412e6efa281f706132f05ba6d0f4733e50f812c7e32fa
+- !!merge <<: *ornith-1-0-9b
+  name: "ornith-1.0-9b-q8"
+  variants: []
+  description: |
+    Ornith-1.0-9B in the higher-quality Q8_0 GGUF format, with the shared F16
+    vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.0-9b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.0-9b/Ornith-1.0-9B-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.0-9b/Ornith-1.0-9B-Q8_0.gguf
+      uri: huggingface://unsloth/Ornith-1.0-9B-GGUF/Ornith-1.0-9B-Q8_0.gguf
+      sha256: 4d469c15b1ef0e494c4a756acc8b2eec9eabcc6572986e9cb89efa87444c2d72
+    - filename: llama-cpp/mmproj/ornith-1.0-9b/mmproj-F16.gguf
+      uri: huggingface://unsloth/Ornith-1.0-9B-GGUF/mmproj-F16.gguf
+      sha256: 013638437d619467b92412e6efa281f706132f05ba6d0f4733e50f812c7e32fa
 - &qwen3-8-27b
   name: "qwen3.8-27b-q4"
   variants:
