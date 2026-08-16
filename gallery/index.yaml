@@ -7612,6 +7612,92 @@
     - filename: llama-cpp/models/Qwen3.5-35B-A3B-APEX-GGUF/Qwen3.5-35B-A3B-APEX-Quality.gguf
       sha256: 50887b60c77ee5c95bc3657814ae993abcab7b2d71868b9af1e84d6badd09a57
       uri: https://huggingface.co/mudler/Qwen3.5-35B-A3B-APEX-GGUF/resolve/main/Qwen3.5-35B-A3B-APEX-Quality.gguf
+- &arex-turbo
+  name: arex-turbo
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: arex-turbo-q8
+  urls:
+    - https://huggingface.co/BAAI/AREX-Turbo
+    - https://huggingface.co/bartowski/BAAI_AREX-Turbo-GGUF
+  description: |
+    AREX-Turbo is BAAI's compact 4B deep-research agent, fine-tuned from
+    Qwen3.5-4B for long-horizon search, evidence aggregation, constraint
+    verification, and tool-assisted reasoning. It supports text and image
+    input with a 262K-token context window. This entry uses the recommended
+    Q4_K_M GGUF quantization.
+  license: apache-2.0
+  tags:
+    - arex
+    - qwen
+    - qwen3.5
+    - 4b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - vision
+    - multimodal
+    - agent
+    - deep-research
+    - reasoning
+    - tool-use
+    - gpu
+    - cpu
+  last_checked: "2026-08-16"
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/BAAI_AREX-Turbo-GGUF/mmproj-BAAI_AREX-Turbo-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/BAAI_AREX-Turbo-GGUF/BAAI_AREX-Turbo-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/BAAI_AREX-Turbo-GGUF/BAAI_AREX-Turbo-Q4_K_M.gguf
+      sha256: ccd279d110601b17e2015dfe99df7496d23eeb6704c08925bff7181bd0db0e2b
+      uri: huggingface://bartowski/BAAI_AREX-Turbo-GGUF/BAAI_AREX-Turbo-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/BAAI_AREX-Turbo-GGUF/mmproj-BAAI_AREX-Turbo-f16.gguf
+      sha256: 815184b9c47cac7d882b4b68aed98d610121c4ff38ce7ee0d015bdf3280f68a5
+      uri: huggingface://bartowski/BAAI_AREX-Turbo-GGUF/mmproj-BAAI_AREX-Turbo-f16.gguf
+- !!merge <<: *arex-turbo
+  name: arex-turbo-q8
+  variants: []
+  description: |
+    AREX-Turbo is BAAI's compact 4B deep-research agent, fine-tuned from
+    Qwen3.5-4B for long-horizon search, evidence aggregation, constraint
+    verification, and tool-assisted reasoning. It supports text and image
+    input with a 262K-token context window. This entry uses the higher-quality
+    Q8_0 GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/BAAI_AREX-Turbo-GGUF/mmproj-BAAI_AREX-Turbo-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/BAAI_AREX-Turbo-GGUF/BAAI_AREX-Turbo-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/BAAI_AREX-Turbo-GGUF/BAAI_AREX-Turbo-Q8_0.gguf
+      sha256: 5a52af3836245498639dd2ece69f0b1bffc983a659caec1bd7017cec61608dd4
+      uri: huggingface://bartowski/BAAI_AREX-Turbo-GGUF/BAAI_AREX-Turbo-Q8_0.gguf
+    - filename: llama-cpp/mmproj/BAAI_AREX-Turbo-GGUF/mmproj-BAAI_AREX-Turbo-f16.gguf
+      sha256: 815184b9c47cac7d882b4b68aed98d610121c4ff38ce7ee0d015bdf3280f68a5
+      uri: huggingface://bartowski/BAAI_AREX-Turbo-GGUF/mmproj-BAAI_AREX-Turbo-f16.gguf
 - &fara1-5-4b
   name: fara1.5-4b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
