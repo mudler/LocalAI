@@ -160,13 +160,17 @@ export default function InstalledBackends({
     setUpgradingAll(true)
     setGlobalError('')
     try {
+      const failures = []
       for (const name of names) {
         try {
           await backendsApi.upgrade(name)
         } catch (err) {
-          setGlobalError(t('backends.lifecycle.upgradeAllFailed', { name, message: err.message }))
-          return
+          failures.push(t('backends.lifecycle.upgradeAllFailed', { name, message: err.message }))
         }
+      }
+      if (failures.length > 0) {
+        setGlobalError(failures.join(' '))
+        return
       }
       addToast(t('backends.lifecycle.upgradeAllStarted', { count: names.length }), 'info')
     } finally {

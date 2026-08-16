@@ -136,6 +136,15 @@ export default function InstalledModels({
   }, [fetchAliases, fetchLoadedModels])
 
   useEffect(() => {
+    if (!distributedMode) return
+    const interval = setInterval(() => {
+      refetch()
+      fetchLoadedModels()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [distributedMode, fetchLoadedModels, refetch])
+
+  useEffect(() => {
     if (!loading) loadedOnce.current = true
   }, [loading])
 
@@ -233,7 +242,7 @@ export default function InstalledModels({
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
-        const deleted = await runAction(
+        await runAction(
           modelName,
           t('lifecycle.actionNames.stop'),
           () => backendControlApi.shutdown({ model: modelName }),
@@ -271,7 +280,7 @@ export default function InstalledModels({
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
-        await runAction(
+        const deleted = await runAction(
           modelName,
           t('lifecycle.actionNames.delete'),
           () => modelsApi.deleteByName(modelName),

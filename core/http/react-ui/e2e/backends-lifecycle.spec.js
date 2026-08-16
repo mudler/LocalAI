@@ -177,6 +177,77 @@ test.describe('Backends lifecycle page', () => {
     await expect(page.getByRole('alert')).toContainText('upgrade registry unavailable')
   })
 
+  test('continues Upgrade All after an earlier backend fails', async ({ page }) => {
+    let laterUpgradeRequests = 0
+    await page.route('**/api/backends/upgrades', route => route.fulfill({
+      json: {
+        ...upgrades,
+        'llama-cpp-cuda12': {
+          backend_name: 'llama-cpp-cuda12',
+          installed_version: '1.0.0',
+          available_version: '1.1.0',
+        },
+      },
+    }))
+    await page.route('**/api/backends/upgrade/llama-cpp', route => route.fulfill({
+      status: 500,
+      json: { error: 'first registry unavailable' },
+    }))
+    await page.route('**/api/backends/upgrade/llama-cpp-cuda12', route => {
+      laterUpgradeRequests += 1
+      return route.fulfill({ json: { status: 'ok' } })
+    })
+    await page.goto('/app/backends?view=installed')
+
+    await page.getByRole('button', { name: /upgrade all/i }).click()
+
+    await expect(page.getByRole('alert')).toContainText('first registry unavailable')
+    await expect.poll(() => laterUpgradeRequests).toBe(1)
+  })
+
+  test('refetches term-sensitive Catalog results after Installed changes and browser history', async ({ page }) => {
+    const requestedTerms = []
+    const visionBackend = {
+      id: 'vision-cpp',
+      name: 'vision-cpp',
+      description: 'Vision inference',
+      installed: false,
+      isMeta: true,
+      isAlias: false,
+      isDevelopment: false,
+      tags: ['vision'],
+    }
+    await page.route('**/api/backends?*', route => {
+      const term = new URL(route.request().url()).searchParams.get('term') || ''
+      requestedTerms.push(term)
+      const backends = term === 'vision'
+        ? [visionBackend]
+        : term === 'llama'
+          ? [catalogBackends[0]]
+          : catalogBackends
+      return route.fulfill({ json: { backends } })
+    })
+
+    await page.goto('/app/backends?view=catalog&q=llama')
+    await expect.poll(() => requestedTerms.at(-1)).toBe('llama')
+    await expect(backendRow(page, 'llama-cpp')).toBeVisible()
+
+    await page.getByRole('link', { name: 'Installed', exact: true }).click()
+    await page.getByRole('textbox', { name: /search installed backends/i }).fill('vision')
+    await page.getByRole('link', { name: 'Catalog', exact: true }).click()
+    await expect.poll(() => requestedTerms.at(-1)).toBe('vision')
+    await expect(backendRow(page, 'vision-cpp')).toBeVisible()
+
+    await page.goBack()
+    await expect(page.getByRole('link', { name: 'Installed', exact: true })).toHaveAttribute('aria-current', 'page')
+    await page.goBack()
+    await expect(page.getByRole('link', { name: 'Catalog', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByPlaceholder(/search backends/i)).toHaveValue('llama')
+    await expect.poll(() => requestedTerms.at(-1)).toBe('llama')
+    await expect(backendRow(page, 'llama-cpp')).toBeVisible()
+    await expect(backendRow(page, 'vision-cpp')).toHaveCount(0)
+  })
+
   test('keeps variants and development builds opt-in', async ({ page }) => {
     await page.goto('/app/backends?view=installed')
 

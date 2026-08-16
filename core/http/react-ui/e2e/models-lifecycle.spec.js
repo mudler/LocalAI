@@ -203,6 +203,37 @@ test.describe('Models lifecycle', () => {
     await expect(installedPane(page).getByRole('alert')).toContainText('Could not delete beta: model is busy')
   })
 
+  test('clears selection after deleting an installed model', async ({ page }) => {
+    await page.route('**/models/delete/beta', route => route.fulfill({
+      contentType: 'application/json',
+      body: '{}',
+    }))
+    await page.goto('/app/models?view=installed&model=beta')
+
+    await page.getByRole('button', { name: 'Actions for beta' }).click()
+    await page.getByRole('menuitem', { name: 'Delete model' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete model' }).click()
+
+    await expect(page).not.toHaveURL(/[?&]model=beta(?:&|$)/)
+    await expect(installedPane(page).getByRole('heading', { name: 'beta', exact: true })).toHaveCount(0)
+  })
+
+  test('refreshes distributed runtime state every ten seconds', async ({ page }) => {
+    let runtimeRequests = 0
+    await page.route('**/system', route => {
+      runtimeRequests += 1
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ loaded_models: [{ id: 'alpha' }] }),
+      })
+    })
+    await page.goto('/app/models?view=installed')
+
+    await expect.poll(() => runtimeRequests).toBeGreaterThan(0)
+    const initialRequests = runtimeRequests
+    await expect.poll(() => runtimeRequests, { timeout: 12_000 }).toBeGreaterThan(initialRequests)
+  })
+
   test('preserves literal all values for search and model selection', async ({ page }) => {
     await page.goto('/app/models?view=installed&q=all&model=all')
 

@@ -144,7 +144,7 @@ export default function Backends() {
     try {
       setLoading(true)
       const params = { page: 1, items: 9999, sort: sortBy, order: sortOrder }
-      if (search) params.term = search
+      if (activeView === 'catalog' && search) params.term = search
       const data = await backendsApi.list(params)
       const list = Array.isArray(data?.backends) ? data.backends : Array.isArray(data) ? data : []
       setAllBackends(list)
@@ -160,11 +160,13 @@ export default function Backends() {
       loadedOnce.current = true
       setLoading(false)
     }
-  }, [search, sortBy, sortOrder, addToast])
+  }, [activeView, search, sortBy, sortOrder, addToast])
+
+  const debouncedFetch = useDebouncedCallback(fetchBackends)
 
   useEffect(() => {
-    fetchBackends()
-  }, [sortBy, sortOrder])
+    debouncedFetch()
+  }, [debouncedFetch, fetchBackends])
 
   // Re-fetch when operations change (install/delete completion)
   useEffect(() => {
@@ -213,13 +215,10 @@ export default function Backends() {
   const totalPages = Math.max(1, Math.ceil(filteredBackends.length / ITEMS_PER_PAGE))
   const backends = filteredBackends.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
-  const debouncedFetch = useDebouncedCallback(() => fetchBackends())
-
   const handleSearch = (value) => {
     setSearch(value)
     updateUrlParam('q', value)
     setPage(1)
-    debouncedFetch()
   }
 
   const handleSort = (col) => {
