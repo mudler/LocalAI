@@ -42,6 +42,7 @@ type ApplicationConfig struct {
 	F16                                 bool
 	Debug                               bool
 	EnableTracing                       bool
+	MaxConcurrentBackendRequests        int
 	TracingMaxItems                     int
 	TracingMaxBodyBytes                 int // Per-body cap for captured request/response bodies; 0 disables the cap
 	EnableBackendLogging                bool
@@ -212,6 +213,8 @@ type ApplicationConfig struct {
 	Branding BrandingConfig
 }
 
+const DefaultMaxConcurrentBackendRequests = 1024
+
 // BrandingConfig holds the whitelabel/branding configuration of the instance.
 // Text fields are exposed via the public GET /api/branding endpoint so the
 // login page can read them before authentication. Binary asset filenames
@@ -294,8 +297,9 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		// Interval to the default on every restart (#10601). The effective
 		// 500ms default is supplied at the watchdog layer (DefaultWatchdogInterval)
 		// when the value is still 0.
-		TracingMaxItems:     1024,
-		TracingMaxBodyBytes: 64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
+		MaxConcurrentBackendRequests: DefaultMaxConcurrentBackendRequests,
+		TracingMaxItems:              1024,
+		TracingMaxBodyBytes:          64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
 		AgentPool: AgentPoolConfig{
 			Enabled:         true,
 			Timeout:         "5m",
@@ -782,6 +786,15 @@ func WithDebug(debug bool) AppOption {
 func WithTracingMaxItems(items int) AppOption {
 	return func(o *ApplicationConfig) {
 		o.TracingMaxItems = items
+	}
+}
+
+func WithMaxConcurrentBackendRequests(requests int) AppOption {
+	return func(o *ApplicationConfig) {
+		if requests <= 0 {
+			requests = DefaultMaxConcurrentBackendRequests
+		}
+		o.MaxConcurrentBackendRequests = requests
 	}
 }
 

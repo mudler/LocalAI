@@ -91,12 +91,20 @@ func ModelAudioTransform(
 			return AudioTransformOutputs{}, nil, fmt.Errorf("persist reference: %w", err)
 		}
 	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return AudioTransformOutputs{}, nil, err
+	}
+	defer release()
 
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceAudioTransform, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(filepath.Base(audioPath), 200)})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	res, err := transformModel.AudioTransform(ctx, &proto.AudioTransformRequest{
 		ModelIdentity: modelConfig.Model,
@@ -126,6 +134,7 @@ func ModelAudioTransform(
 			}
 		}
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceAudioTransform,
@@ -198,7 +207,17 @@ func ModelAudioTransformStream(
 	if transformModel == nil {
 		return nil, fmt.Errorf("could not load audio-transform model %q", modelConfig.Model)
 	}
-	return transformModel.AudioTransformStream(ctx)
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	stream, err := transformModel.AudioTransformStream(ctx)
+	if err != nil {
+		release()
+		return nil, err
+	}
+	stream.AddCleanup(release)
+	return stream, nil
 }
 
 // persistAudioInput copies a transient input file (typically a multipart

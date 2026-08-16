@@ -19,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/model"
 
+	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 
@@ -75,6 +76,15 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 		secs = 1
 	}
 	c.Response().Header().Set("Retry-After", strconv.Itoa(secs))
+	return http.StatusServiceUnavailable
+}
+
+func applyBackendAdmission(err error, code int, c echo.Context) int {
+	var capacityErr *corebackend.BackendAdmissionError
+	if !errors.As(err, &capacityErr) {
+		return code
+	}
+	c.Response().Header().Set("Retry-After", strconv.Itoa(int(capacityErr.RetryAfter.Seconds())))
 	return http.StatusServiceUnavailable
 }
 
@@ -197,6 +207,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 				code = he.Code
 			}
 			code = applyModelLoadCooldown(err, code, c)
+			code = applyBackendAdmission(err, code, c)
 
 			// Handle 404 errors: serve React SPA for HTML requests, JSON otherwise
 			if code == http.StatusNotFound {
@@ -225,6 +236,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 				code = he.Code
 			}
 			code = applyModelLoadCooldown(err, code, c)
+			code = applyBackendAdmission(err, code, c)
 			// Opaque errors deliberately withhold the body, so a still-loading
 			// model gets the status and Retry-After but no progress detail.
 			code = applyModelLoading(err, code, c)

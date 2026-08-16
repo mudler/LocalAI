@@ -246,11 +246,12 @@ function DataFields({ data, nested }) {
 
 // Expanded detail for a backend trace row
 function BackendTraceDetail({ trace }) {
+  const running = trace.status === 'running'
   const infoItems = [
     { label: 'Type', value: trace.type },
     { label: 'Model', value: trace.model_name || '-' },
     { label: 'Backend', value: trace.backend || '-' },
-    { label: 'Duration', value: formatDuration(trace.duration) },
+    { label: 'Duration', value: running ? `${formatDuration(trace.duration)} (running)` : formatDuration(trace.duration) },
   ]
 
   return (
@@ -717,7 +718,9 @@ export default function Traces() {
                     </td>
                     <td className="text-sub">{formatDuration(trace.duration)}</td>
                     <td className="text-center">
-                      {trace.error
+                      {trace.status === 'running'
+                        ? <i className="fas fa-spinner fa-spin text-primary" title="Running" />
+                        : trace.error
                         ? <i className="fas fa-times-circle text-error" title={trace.error} />
                         : <i className="fas fa-check-circle text-success" />}
                     </td>

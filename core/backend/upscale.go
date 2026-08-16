@@ -19,7 +19,12 @@ func ImageUpscale(ctx context.Context, src, dst string, scale int, loader *model
 	}
 
 	fn := func() error {
-		_, err := inferenceModel.UpscaleImage(
+		release, err := AcquireGlobalBackendSlot()
+		if err != nil {
+			return err
+		}
+		defer release()
+		_, err = inferenceModel.UpscaleImage(
 			ctx,
 			&proto.UpscaleImageRequest{
 				Src:   src,

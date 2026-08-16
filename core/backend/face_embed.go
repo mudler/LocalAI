@@ -32,6 +32,11 @@ func FaceEmbed(
 
 	predictOpts := gRPCPredictOpts(modelConfig, loader.ModelPath)
 	predictOpts.Images = []string{imgBase64}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 
 	res, err := faceModel.Embeddings(ctx, predictOpts)
 	if err != nil {

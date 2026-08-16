@@ -81,9 +81,11 @@ func VideoGeneration(options VideoGenerationOptions, loader *model.ModelLoader, 
 			"has_audio":       options.Audio != "",
 		}
 
-		startTime := time.Now()
 		originalFn := fn
 		fn = func() error {
+			startTime := time.Now()
+			traceID := trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceVideoGeneration, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(options.Prompt, 200)})
+			defer trace.CancelBackendTrace(traceID)
 			err := originalFn()
 			duration := time.Since(startTime)
 
@@ -93,6 +95,7 @@ func VideoGeneration(options VideoGenerationOptions, loader *model.ModelLoader, 
 			}
 
 			trace.RecordBackendTrace(trace.BackendTrace{
+				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  duration,
 				Type:      trace.BackendTraceVideoGeneration,
@@ -105,6 +108,15 @@ func VideoGeneration(options VideoGenerationOptions, loader *model.ModelLoader, 
 
 			return err
 		}
+	}
+	originalFn := fn
+	fn = func() error {
+		release, err := AcquireGlobalBackendSlot()
+		if err != nil {
+			return err
+		}
+		defer release()
+		return originalFn()
 	}
 
 	return fn, nil

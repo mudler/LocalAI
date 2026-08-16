@@ -74,9 +74,11 @@ func Model3DGeneration(options Model3DGenerationOptions, loader *model.ModelLoad
 			}
 		}
 
-		startTime := time.Now()
 		originalFn := fn
 		fn = func() error {
+			startTime := time.Now()
+			traceID := trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: traceType, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(traceSummary, 200)})
+			defer trace.CancelBackendTrace(traceID)
 			err := originalFn()
 			duration := time.Since(startTime)
 
@@ -86,6 +88,7 @@ func Model3DGeneration(options Model3DGenerationOptions, loader *model.ModelLoad
 			}
 
 			trace.RecordBackendTrace(trace.BackendTrace{
+				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  duration,
 				Type:      traceType,
@@ -98,6 +101,15 @@ func Model3DGeneration(options Model3DGenerationOptions, loader *model.ModelLoad
 
 			return err
 		}
+	}
+	originalFn := fn
+	fn = func() error {
+		release, err := AcquireGlobalBackendSlot()
+		if err != nil {
+			return err
+		}
+		defer release()
+		return originalFn()
 	}
 
 	return fn, nil

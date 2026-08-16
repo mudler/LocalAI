@@ -33,11 +33,19 @@ func Detection(
 		return nil, fmt.Errorf("could not load detection model")
 	}
 
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceDetection, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(sourceFile, 200)})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	res, err := detectionModel.Detect(ctx, &proto.DetectOptions{
 		ModelIdentity: modelConfig.Model,
@@ -55,6 +63,7 @@ func Detection(
 		}
 
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceDetection,

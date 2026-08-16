@@ -29,11 +29,19 @@ func VoiceAnalyze(
 		return nil, fmt.Errorf("could not load voice recognition model")
 	}
 
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceVoiceAnalyze, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "voice analysis"})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	res, err := voiceModel.VoiceAnalyze(ctx, &proto.VoiceAnalyzeRequest{
 		ModelIdentity: modelConfig.Model,
@@ -47,6 +55,7 @@ func VoiceAnalyze(
 			errStr = err.Error()
 		}
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceVoiceAnalyze,

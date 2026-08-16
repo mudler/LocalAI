@@ -23,11 +23,19 @@ func ModelDetokenize(tokens []int32, loader *model.ModelLoader, modelConfig conf
 		return schema.DetokenizeResponse{}, err
 	}
 
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return schema.DetokenizeResponse{}, err
+	}
+	defer release()
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTokenize, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "detokenize"})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	resp, err := inferenceModel.Detokenize(appConfig.Context, &pb.DetokenizeRequest{Tokens: tokens})
 
@@ -43,6 +51,7 @@ func ModelDetokenize(tokens []int32, loader *model.ModelLoader, modelConfig conf
 		}
 
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceTokenize,
