@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/PageHeader'
+import { ResourceMonitorView } from '../components/ResourceMonitor'
 import Sparkline from '../components/Sparkline'
 import { useOperateSummary } from '../contexts/OperateSummaryContext'
 import { staggerStyle } from '../hooks/useStagger'
@@ -78,6 +79,29 @@ export default function OperateOverview() {
       )}
 
       <section>
+        <ResourceMonitorView
+          resources={summary?.resources}
+          loading={summary?.resourcesLoading}
+          unavailable={summary?.resourcesUnavailable}
+          title={t('operate.overview.capacity.title')}
+          loadingText={t('operate.overview.capacity.loading')}
+          unavailableText={t('operate.overview.capacity.unavailable')}
+          emptyText={t('operate.overview.capacity.empty')}
+          copy={{
+            gpuCount: count => t('operate.overview.capacity.gpus', { count }),
+            reclaimer: t('operate.overview.capacity.reclaimer'),
+            used: t('operate.overview.capacity.used'),
+            total: t('operate.overview.capacity.total'),
+            systemRam: t('operate.overview.capacity.systemRam'),
+            memory: t('operate.overview.capacity.memory'),
+            totalVram: t('operate.overview.capacity.totalVram'),
+            storage: t('operate.overview.capacity.storage'),
+          }}
+          testId="operate-capacity"
+        />
+      </section>
+
+      <section>
         <div className="lane-head"><h2>{t('operate.overview.attention.heading')}</h2></div>
         {attention.length === 0 ? (
           // One line, not a panel. A green reassurance card would make "fine"
@@ -142,7 +166,7 @@ export default function OperateOverview() {
           />
           <OperateSection
             index={3}
-            to="/app/manage"
+            to="/app/settings"
             label={t('operate.overview.sections.administration')}
             summary={t('operate.overview.sections.administrationSummary', {
               memory: summary?.signals?.host || '—',

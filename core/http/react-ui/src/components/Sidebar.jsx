@@ -15,11 +15,7 @@ const SECTIONS_KEY = 'localai_sidebar_sections'
 
 const topItems = [
   { path: '/app', icon: 'fas fa-home', labelKey: 'items.home' },
-  // "Discover" rather than "Models": the installed-models view lives under
-  // Host, so a bare "Models" here would name two different pages. The compass
-  // replaces a download arrow because the page is now browsed before it is
-  // installed from.
-  { path: '/app/models', icon: 'fas fa-compass', labelKey: 'items.discover', adminOnly: true },
+  { path: '/app/models', icon: 'fas fa-cubes', labelKey: 'items.models', adminOnly: true },
 ]
 
 // Create stays inline (frequent, one-click creative destinations). The Build
@@ -57,7 +53,7 @@ function NavItem({ item, onClose, collapsed }) {
       onTouchStart={preload}
       title={collapsed ? label : undefined}
     >
-      <i className={`${item.icon} nav-icon`} />
+      <i className={`${item.icon} nav-icon`} aria-hidden="true" />
       <span className="nav-label">{label}</span>
     </NavLink>
   )
@@ -259,7 +255,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   onTouchStart={() => preloadRoute(target)}
                   title={collapsed ? label : undefined}
                 >
-                  <i className={`${config.icon} nav-icon`} />
+                  <i className={`${config.icon} nav-icon`} aria-hidden="true" />
                   <span className="nav-label">{label}</span>
                   {config.groups.some(g => g.items.some(i => i.badge === 'operations')) && activeOps > 0 && (
                     <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>

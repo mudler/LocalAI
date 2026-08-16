@@ -1125,6 +1125,12 @@
   margin-bottom: var(--spacing-sm);
 }
 
+.resource-monitor-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
 .resource-gpu-list {
   display: flex;
   flex-direction: column;
@@ -1150,12 +1156,45 @@
   color: var(--color-text-primary);
 }
 
+.resource-gpu-name--truncate {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .resource-gpu-vendor {
   font-size: 0.6875rem;
   padding: 2px 6px;
   background: var(--color-accent-light);
   color: var(--color-accent);
   border-radius: var(--radius-sm);
+}
+
+.resource-gpu-vendor--dynamic {
+  color: var(--resource-vendor-color);
+  background: color-mix(in srgb, var(--resource-vendor-color) 12%, transparent);
+}
+
+.resource-gpu-vendor--memory {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+.resource-meter {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.resource-meter__value {
+  min-width: 3em;
+  color: var(--resource-color);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: right;
 }
 
 .resource-gpu-stats {
@@ -1175,9 +1214,24 @@
 
 .resource-bar {
   height: 100%;
-  background: var(--color-primary);
+  width: var(--resource-width, 0%);
+  background: var(--resource-color, var(--color-primary));
   border-radius: 2px;
   transition: width 500ms ease;
+}
+
+.resource-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.resource-summary-row__value {
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
 }
 
 .resource-bar-ram {
@@ -8795,23 +8849,6 @@ button.collapsible-header:focus-visible {
   outline-offset: 2px;
 }
 
-/* Manage summary marker — same .stat-cards layout. Top margin separates the
-   cards from the System Resources card above (otherwise they sit too close
-   to the RAM bar) and bottom margin tightens the gap to the tabs below. */
-/* Two class names, so this beats the shared .stat-strip shorthand regardless
-   of which rule the file happens to declare later. The single-class version
-   was silently losing its top margin to `margin: 0 0 …`, leaving the strip
-   flush against the resources card above it. */
-.stat-strip.manage-summary {
-  margin-top: var(--spacing-xl);
-  margin-bottom: var(--spacing-lg);
-  /* .page--app is a flex column whose split view takes flex:1, so a child with
-     no intrinsic minimum gets shrunk to nothing. The old cards survived only
-     because .stat-card carried min-height:96px; the figure cells do not, so the
-     strip has to decline to shrink. */
-  flex: none;
-}
-
 /* Screen-reader-only label, used for table headers whose visual cell needs
    no label (kebab-only Actions column, toggle-only Enabled column). The
    header still announces correctly to assistive tech without making the
@@ -11945,7 +11982,7 @@ button.collapsible-header:focus-visible {
 .ajd-code--error { background: var(--color-error-light); color: var(--color-error); max-height: none; }
 
 /* ==========================================================================
-   SplitView: the shell shared by Discover, Backends and Host.
+   SplitView: the shell shared by Models and Backends.
 
    The rail is scanned, the pane answers. The pane has exactly two states -
    a zero state with nothing selected and one entity's detail with something
@@ -12485,9 +12522,7 @@ button.collapsible-header:focus-visible {
   .split-view--detail .split-view__rail-col { display: none; }
 }
 
-/* Compact list rows inside a pane: a state chip, a name, and one number. Used
-   by the Host status page for "loaded now" and by detail panes for anything
-   that is a list of facts rather than a table. */
+/* Compact list rows inside a pane: a state chip, a name, and one number. */
 .rowlist { display: flex; flex-direction: column; gap: 4px; }
 
 .rowline {
@@ -12581,11 +12616,7 @@ button.collapsible-header:focus-visible {
      pushes the page taller instead of scrolling inside it. */
   min-height: 0;
   padding-bottom: var(--spacing-lg);
-  /* The shell above is overflow:hidden so the document cannot grow, which left
-     anything taller than the viewport simply unreachable — Host has a
-     resources card, four stat cards and a tab bar above its split, and at any
-     window height the bottom of the pane fell off with nothing to scroll.
-     The page scrolls inside the pinned shell; the rail and pane keep their own
+  /* The page scrolls inside the pinned shell; the rail and pane keep their own
      inner scrollers for long lists and long details. */
   overflow-y: auto;
 }
@@ -12741,7 +12772,7 @@ button.collapsible-header:focus-visible {
   }
 }
 
-/* Backends: the filters stack in the rail column the way Discover's do. Seven
+/* Backends: the filters stack in the rail column the way Models' do. Seven
    chips fit at this width, so they need no disclosure. */
 .bk-filters {
   display: flex;
@@ -12760,9 +12791,6 @@ button.collapsible-header:focus-visible {
   gap: 2px;
 }
 
-/* Host keeps its resource monitor, summary cards and tabs above the split, so
-   only what is left after them is pinned. Those are the page's own chrome and
-   they are read once, unlike the rail and the pane, which are worked in. */
 .page--app > .tabs { flex: none; }
 .page--app > .view-bar { flex: none; }
 
@@ -12868,7 +12896,7 @@ button.collapsible-header:focus-visible {
 
 /* Pills are gone. A capsule radius reads as a tag floating on the surface,
    which fights a system whose structure is hairlines and square corners — and
-   with chips on Discover, Host, Activity and the biometrics pages, "some pages
+   with chips on Models, Activity and the biometrics pages, "some pages
    have pills" was the actual inconsistency. Round buttons keep their radius:
    .lightbox__nav and .home-send-btn are circles, not capsules. */
 
@@ -13032,11 +13060,7 @@ button.lane:hover {
 /* Headline figures on the Operate overview, and the sparklines under them.
    Hairline-gridded cells rather than cards: the same 1px grid the split-view
    StatGrid uses, so the two read as one system. */
-/* A row of headline figures on a hairline grid. Shared by the Operate overview
-   and the Host page so the two read as one system: same cell, same figure
-   scale, same tone vocabulary. Replaces Host's shadowed clickable cards, which
-   were a second dashboard language on a page that already had one. */
-.stat-strip,
+/* A row of headline figures on a hairline grid. */
 .operate-headline {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -13048,7 +13072,6 @@ button.lane:hover {
   overflow: hidden;
 }
 
-.stat-strip__cell,
 .operate-headline__cell {
   background: var(--color-bg-primary);
   padding: var(--spacing-sm) var(--spacing-md);
@@ -13056,8 +13079,6 @@ button.lane:hover {
   gap: 2px;
 }
 
-.stat-strip__label,
-.stat-strip__cell dt,
 .operate-headline__cell dt {
   color: var(--color-text-muted);
   font-size: 0.625rem;
@@ -13066,7 +13087,6 @@ button.lane:hover {
   text-transform: uppercase;
 }
 
-.stat-strip__value,
 .operate-headline__value {
   margin: 0;
   font-family: var(--font-mono);
@@ -13077,26 +13097,10 @@ button.lane:hover {
   font-variant-numeric: tabular-nums;
 }
 
-.stat-strip__value--primary,
 .operate-headline__value--primary { color: var(--color-text-primary); }
-.stat-strip__value--success,
 .operate-headline__value--success { color: var(--color-success); }
-.stat-strip__value--warning,
 .operate-headline__value--warning { color: var(--color-warning); }
-.stat-strip__value--muted,
 .operate-headline__value--muted { color: var(--color-text-tertiary); }
-
-button.stat-strip__cell {
-  border: 0;
-  color: inherit;
-  text-align: left;
-  font: inherit;
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-default);
-}
-
-button.stat-strip__cell:hover { background: var(--color-bg-hover); }
-button.stat-strip__cell:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
 
 .sparkline { display: block; width: 100%; height: 28px; margin-top: 2px; }
 .sparkline polyline { stroke: currentColor; }

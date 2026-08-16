@@ -48,12 +48,29 @@ The endpoint exists so a dashboard wanting three numbers does not fetch the
 whole trace list to count it. An installation that has served nothing yet says
 so rather than showing three zeroes dressed as telemetry.
 
+## Host capacity
+
+The overview also shows the host's current RAM or GPU capacity, utilization,
+and model storage. Loading, unavailable, and empty states are explicit. This
+uses the same 15-second Operate summary poll as the rail and attention data, so
+opening the overview does not start a second resource poller.
+
+Models and backends no longer live under a nested Host page. Use **Models →
+Installed** for model runtime and configuration actions, and **Operate →
+Backends → Installed** for installed backend actions. The overview links into
+the canonical Operate sections rather than duplicating those inventories.
+
+Old `/app/manage` bookmarks remain supported. They redirect with replace
+semantics to the matching Installed Models or Installed Backends view while
+preserving legacy search, filter, selection, variant, and development flags.
+
 ## The rail
 
-The Operate rail groups its thirteen destinations under four headings —
+The Operate rail groups its destinations under four headings —
 Runtime, Cluster, Observability and Administration — and shows a live value
 beside several of them: pending backend updates, running operations, healthy
-node count, host memory, request volume and error count.
+node count, request volume and error count. Host capacity lives on the overview
+instead of appearing as a separate destination.
 
 Those values are **orientation, not an alarm**. The rail only exists on Operate
 routes and can be collapsed, so anything urgent also appears in Needs attention

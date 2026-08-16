@@ -19,7 +19,7 @@ const MOCK = {
   availableModels: 2, installedModels: 0, totalPages: 1, currentPage: 1,
 }
 
-test.describe('Discover - the view scrolls, not the page', () => {
+test.describe('Models Explore - the view scrolls, not the page', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/api/models*', (route) =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify(MOCK) }))

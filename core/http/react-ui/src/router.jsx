@@ -35,7 +35,7 @@ export function preloadRoute(path) {
 const Home = page('', () => import('./pages/Home'))
 const Chat = page('chat', () => import('./pages/Chat'))
 const Models = page('models', () => import('./pages/Models'))
-const Manage = page('manage', () => import('./pages/Manage'))
+const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
 const ImageGen = page('image', () => import('./pages/ImageGen'))
 const VideoGen = page('video', () => import('./pages/VideoGen'))
 const ThreeDGen = page('3d', () => import('./pages/ThreeDGen'))
@@ -179,12 +179,12 @@ const appChildren = [
       { path: 'usage', element: <Usage /> },
       { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
       { path: 'middleware', element: <Admin><Middleware /></Admin> },
-      { path: 'manage', element: <Admin><Manage /></Admin> },
     ],
   },
 
-  // Model gallery (Discover) — top-level destination, full-width.
+  // Canonical resource pages and legacy management compatibility.
   { path: 'models', element: <Admin><Models /></Admin> },
+  { path: 'manage', element: <Admin><ManageRedirect /></Admin> },
   { path: 'voice-library/new', element: <Admin><VoiceProfileCreate /></Admin> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },

@@ -109,8 +109,8 @@
   },
   "jump": {
     "heading": "Jump back in",
-    "discover": "Discover",
-    "discoverSummary": "Browse the gallery and install models",
+    "models": "Models",
+    "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
     "operate": "Operate",

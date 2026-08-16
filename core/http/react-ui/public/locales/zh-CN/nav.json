@@ -30,7 +30,7 @@
   },
   "items": {
     "home": "首页",
-    "discover": "发现",
+    "models": "Models",
     "chat": "聊天",
     "studio": "工作室",
     "talk": "通话",
@@ -40,7 +40,6 @@
     "voices": "声音",
     "jobs": "任务",
     "operate": "管理",
-    "host": "主机",
     "audioTransform": "音频变换",
     "faceRecognition": "人脸识别",
     "voiceRecognition": "语音识别",

@@ -426,7 +426,7 @@ export default function BackendLogs() {
         <h2 className="empty-state-title">No model selected</h2>
         <p className="empty-state-text">
           View backend logs for a specific model from the{' '}
-          <Link to="/app/manage" className="text-primary">System page</Link>.
+          <Link to="/app/models?view=installed" className="text-primary">Installed Models page</Link>.
         </p>
       </div>
     </div>

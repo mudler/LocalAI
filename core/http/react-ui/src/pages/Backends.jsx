@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { backendsApi, nodesApi } from '../utils/api'
 import { useDebouncedCallback } from '../hooks/useDebounce'
@@ -7,7 +7,6 @@ import React from 'react'
 import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 import LoadingSpinner from '../components/LoadingSpinner'
-import PageHeader from '../components/PageHeader'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -21,18 +20,22 @@ import DetailHeader from '../components/split/DetailHeader'
 import StatGrid from '../components/split/StatGrid'
 import { useResources } from '../hooks/useResources'
 import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
+import InstalledBackends from './InstalledBackends'
 
 export default function Backends() {
   const { addToast } = useOutletContext()
-  const navigate = useNavigate()
   const { t } = useTranslation('admin')
   const [searchParams, setSearchParams] = useSearchParams()
+  const activeView = searchParams.get('view') === 'installed' ? 'installed' : 'catalog'
   const { operations } = useOperations()
   const { resources } = useResources()
   const { enabled: distributedEnabled, nodes: clusterNodes, refetch: refetchNodes } = useDistributedMode()
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('')
+  const [search, setSearch] = useState(() => searchParams.get('q') || '')
+  const [filter, setFilter] = useState(() => {
+    const state = searchParams.get('state') || ''
+    return ['', 'chat', 'image', 'video', 'tts', 'transcript', 'vision'].includes(state) ? state : ''
+  })
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState('asc')
   const [page, setPage] = useState(1)
@@ -42,7 +45,7 @@ export default function Backends() {
   const [manualName, setManualName] = useState('')
   const [manualAlias, setManualAlias] = useState('')
   // Which backend the pane is showing, or null for the host page. In the URL
-  // for the same reasons as Discover: a backend is linkable, and Back leaves
+  // for the same reasons as Models Explore: a backend is linkable, and Back leaves
   // the detail rather than the page.
   // True once any listing has come back. Distinguishes a cold start, which has
   // nothing to keep on screen, from a refetch, which does.
@@ -51,12 +54,15 @@ export default function Backends() {
   const [allBackends, setAllBackends] = useState([])
   const [upgrades, setUpgrades] = useState({})
   const [upgradingAll, setUpgradingAll] = useState(false)
-  const [showAllBackends, setShowAllBackends] = useState(false)
-  const [showDevelopment, setShowDevelopment] = useState(false)
+  const [showAllBackends, setShowAllBackends] = useState(() => searchParams.get('show_all') === '1')
+  const [showDevelopment, setShowDevelopment] = useState(() => searchParams.get('development') === '1')
   const [preferDevLoaded, setPreferDevLoaded] = useState(false)
   const [pickerBackend, setPickerBackend] = useState(null)
   const [pickerInitialSelection, setPickerInitialSelection] = useState([])
   const [splitMenuOpen, setSplitMenuOpen] = useState(false)
+  const [catalogErrors, setCatalogErrors] = useState({})
+  const [catalogGlobalError, setCatalogGlobalError] = useState('')
+  const [manualError, setManualError] = useState('')
   // Anchor for the split-button chevron. One pane, so one anchor.
   const splitMenuAnchorRef = useRef(null)
 
@@ -65,6 +71,34 @@ export default function Backends() {
   // to a single Install-on-this-node action; manual install posts to the
   // per-node endpoint.
   const selectedName = searchParams.get('backend')
+
+  const hrefForView = (view) => {
+    const next = new URLSearchParams(searchParams)
+    next.set('view', view)
+    return `/app/backends?${next.toString()}`
+  }
+
+  const updateUrlParam = useCallback((key, value, defaultValue = '') => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (!value || value === defaultValue) next.delete(key)
+      else next.set(key, value)
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  useEffect(() => {
+    if (activeView !== 'catalog') return
+    const nextSearch = searchParams.get('q') || ''
+    const requestedState = searchParams.get('state') || ''
+    const nextFilter = ['', 'chat', 'image', 'video', 'tts', 'transcript', 'vision'].includes(requestedState)
+      ? requestedState
+      : ''
+    setSearch(nextSearch)
+    setFilter(nextFilter)
+    setShowAllBackends(searchParams.get('show_all') === '1')
+    setShowDevelopment(searchParams.get('development') === '1')
+  }, [activeView, searchParams])
 
   // Selection is a URL edit that preserves everything else in the query, so it
   // composes with the target-node scope rather than clobbering it.
@@ -110,7 +144,7 @@ export default function Backends() {
     try {
       setLoading(true)
       const params = { page: 1, items: 9999, sort: sortBy, order: sortOrder }
-      if (search) params.term = search
+      if (activeView === 'catalog' && search) params.term = search
       const data = await backendsApi.list(params)
       const list = Array.isArray(data?.backends) ? data.backends : Array.isArray(data) ? data : []
       setAllBackends(list)
@@ -126,11 +160,13 @@ export default function Backends() {
       loadedOnce.current = true
       setLoading(false)
     }
-  }, [search, sortBy, sortOrder, addToast])
+  }, [activeView, search, sortBy, sortOrder, addToast])
+
+  const debouncedFetch = useDebouncedCallback(fetchBackends)
 
   useEffect(() => {
-    fetchBackends()
-  }, [sortBy, sortOrder])
+    debouncedFetch()
+  }, [debouncedFetch, fetchBackends])
 
   // Re-fetch when operations change (install/delete completion)
   useEffect(() => {
@@ -179,12 +215,10 @@ export default function Backends() {
   const totalPages = Math.max(1, Math.ceil(filteredBackends.length / ITEMS_PER_PAGE))
   const backends = filteredBackends.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
-  const debouncedFetch = useDebouncedCallback(() => fetchBackends())
-
   const handleSearch = (value) => {
     setSearch(value)
+    updateUrlParam('q', value)
     setPage(1)
-    debouncedFetch()
   }
 
   const handleSort = (col) => {
@@ -198,6 +232,7 @@ export default function Backends() {
   }
 
   const handleInstall = async (id) => {
+    setCatalogErrors(current => ({ ...current, [id]: '' }))
     try {
       await backendsApi.install(id)
     } catch (err) {
@@ -213,7 +248,7 @@ export default function Backends() {
           return
         }
       }
-      addToast(`Install failed: ${err.message}`, 'error')
+      setCatalogErrors(current => ({ ...current, [id]: `Install failed: ${err.message}` }))
     }
   }
 
@@ -223,6 +258,7 @@ export default function Backends() {
   // surface progress; no need to await completion here.
   const handleInstallOnTarget = async (id) => {
     if (!targetNode) return
+    setCatalogErrors(current => ({ ...current, [id]: '' }))
     try {
       await nodesApi.installBackend(targetNode.id, id)
       addToast(`Installing ${id} on ${targetNode.name}...`, 'info')
@@ -231,14 +267,17 @@ export default function Backends() {
       // tracks the actual progress until completion.
       setTimeout(() => { fetchBackends(); refetchNodes() }, 1200)
     } catch (err) {
-      addToast(`Install dispatch failed on ${targetNode.name}: ${err.message}`, 'error')
+      setCatalogErrors(current => ({
+        ...current,
+        [id]: `Install dispatch failed on ${targetNode.name}: ${err.message}`,
+      }))
     }
   }
 
   const openPicker = (b, initialSelection = []) => {
     setPickerBackend(b)
     setPickerInitialSelection(initialSelection)
-    setSplitMenuFor(null)
+    setSplitMenuOpen(false)
   }
 
   // Returns the IDs of nodes that don't yet have this backend installed.
@@ -260,23 +299,25 @@ export default function Backends() {
       danger: true,
       onConfirm: async () => {
         setConfirmDialog(null)
+        setCatalogErrors(current => ({ ...current, [id]: '' }))
         try {
           await backendsApi.delete(id)
           addToast(`Deleting ${id}...`, 'info')
           setTimeout(fetchBackends, 1000)
         } catch (err) {
-          addToast(`Delete failed: ${err.message}`, 'error')
+          setCatalogErrors(current => ({ ...current, [id]: `Delete failed: ${err.message}` }))
         }
       },
     })
   }
 
   const handleUpgrade = async (id) => {
+    setCatalogErrors(current => ({ ...current, [id]: '' }))
     try {
       await backendsApi.upgrade(id)
       addToast(`Upgrading ${id}...`, 'info')
     } catch (err) {
-      addToast(`Upgrade failed: ${err.message}`, 'error')
+      setCatalogErrors(current => ({ ...current, [id]: `Upgrade failed: ${err.message}` }))
     }
   }
 
@@ -284,13 +325,14 @@ export default function Backends() {
     const names = Object.keys(upgrades)
     if (names.length === 0) return
     setUpgradingAll(true)
+    setCatalogGlobalError('')
     try {
       for (const name of names) {
         await backendsApi.upgrade(name)
       }
       addToast(`Upgrading ${names.length} backend${names.length > 1 ? 's' : ''}...`, 'info')
     } catch (err) {
-      addToast(`Upgrade failed: ${err.message}`, 'error')
+      setCatalogGlobalError(`Upgrade failed: ${err.message}`)
     } finally {
       setUpgradingAll(false)
     }
@@ -298,7 +340,8 @@ export default function Backends() {
 
   const handleManualInstall = async (e) => {
     e.preventDefault()
-    if (!manualUri.trim()) { addToast('Please enter a URI', 'warning'); return }
+    setManualError('')
+    if (!manualUri.trim()) { setManualError('Please enter a URI'); return }
     try {
       if (targetNode) {
         // Target-node mode: route the manual install to the per-node endpoint
@@ -325,7 +368,7 @@ export default function Backends() {
       setManualAlias('')
       setShowManualInstall(false)
     } catch (err) {
-      addToast(`Install failed: ${err.message}`, 'error')
+      setManualError(`Install failed: ${err.message}`)
     }
   }
 
@@ -335,8 +378,20 @@ export default function Backends() {
     return operations.find(op => op.name === backend.name || op.name === backend.id) || null
   }
 
-  const handleToggleAllBackends = () => { setShowAllBackends(v => !v); setPage(1) }
-  const handleToggleDev = () => { setShowDevelopment(v => !v); setPage(1) }
+  const handleToggleAllBackends = () => {
+    setShowAllBackends(value => {
+      updateUrlParam('show_all', value ? '' : '1')
+      return !value
+    })
+    setPage(1)
+  }
+  const handleToggleDev = () => {
+    setShowDevelopment(value => {
+      updateUrlParam('development', value ? '' : '1')
+      return !value
+    })
+    setPage(1)
+  }
 
   const FILTERS = [
     { key: '', label: 'All', icon: 'fa-layer-group' },
@@ -350,11 +405,49 @@ export default function Backends() {
 
   return (
     <div className="page page--wide page--app">
+      <div className="view-bar">
+        <h1 className="view-bar__title">{t('backends.title')}</h1>
+        {activeView === 'catalog' && (
+          <span className="view-bar__count">{backends.length} of {allBackends.length}</span>
+        )}
+        {activeView === 'catalog' && (
+          <div className="view-bar__actions">
+            {Object.keys(upgrades).length > 0 && (
+              <button className="btn btn-primary btn-sm" onClick={handleUpgradeAll} disabled={upgradingAll}>
+                <i className={`fas ${upgradingAll ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} /> Upgrade all ({Object.keys(upgrades).length})
+              </button>
+            )}
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowManualInstall(!showManualInstall)}>
+              <i className={`fas ${showManualInstall ? 'fa-chevron-up' : 'fa-plus'}`} /> Manual Install
+            </button>
+          </div>
+        )}
+      </div>
+
+      <nav className="tabs" aria-label={t('backends.lifecycle.navigation')}>
+        <Link
+          className={`tab ${activeView === 'catalog' ? 'tab-active' : ''}`}
+          to={hrefForView('catalog')}
+          aria-current={activeView === 'catalog' ? 'page' : undefined}
+        >
+          <i className="fas fa-layer-group icon-before" aria-hidden="true" />
+          {t('backends.lifecycle.catalog')}
+        </Link>
+        <Link
+          className={`tab ${activeView === 'installed' ? 'tab-active' : ''}`}
+          to={hrefForView('installed')}
+          aria-current={activeView === 'installed' ? 'page' : undefined}
+        >
+          <i className="fas fa-server icon-before" aria-hidden="true" />
+          {t('backends.lifecycle.installed')}
+        </Link>
+      </nav>
+
       {/* Target-node banner: when this gallery is scoped to one node via
           ?target=<id> (entered from /app/nodes), show the scope clearly and
           give a fast way to clear it. Visually a primary-tinted strip so the
           user knows they're in a special mode without it feeling alarming. */}
-      {targetNode && (
+      {activeView === 'catalog' && targetNode && (
         <div className="card bk-notice tone-primary mb-md">
           <i className="fas fa-bullseye" style={{ color: 'var(--color-primary)' }} />
           <span className="bk-notice__text">
@@ -367,21 +460,24 @@ export default function Backends() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="view-bar">
-        <h1 className="view-bar__title">{t('backends.title')}</h1>
-        <span className="view-bar__count">{backends.length} of {allBackends.length}</span>
-        <div className="view-bar__actions">
-          {Object.keys(upgrades).length > 0 && (
-            <button className="btn btn-primary btn-sm" onClick={handleUpgradeAll} disabled={upgradingAll}>
-              <i className={`fas ${upgradingAll ? 'fa-spinner fa-spin' : 'fa-arrow-up'}`} /> Upgrade all ({Object.keys(upgrades).length})
-            </button>
-          )}
-          <button className="btn btn-secondary btn-sm" onClick={() => setShowManualInstall(!showManualInstall)}>
-            <i className={`fas ${showManualInstall ? 'fa-chevron-up' : 'fa-plus'}`} /> Manual Install
-          </button>
+      {activeView === 'installed' ? (
+        <InstalledBackends
+          addToast={addToast}
+          catalogBackends={allBackends}
+          distributedEnabled={distributedEnabled}
+          operations={operations}
+          upgrades={upgrades}
+          selectedName={selectedName}
+          onSelect={selectBackend}
+        />
+      ) : (
+        <>
+      {catalogGlobalError && (
+        <div className="attention-callout attention-callout--error mb-md" role="alert">
+          <i className="fas fa-circle-exclamation" aria-hidden="true" />
+          <span>{catalogGlobalError}</span>
         </div>
-      </div>
+      )}
 
       {/* Upgrade Banner */}
       {Object.keys(upgrades).length > 0 && (
@@ -426,10 +522,11 @@ export default function Backends() {
               <i className="fas fa-download" /> Install
             </button>
           </div>
+          {manualError && <p className="form-error" role="alert">{manualError}</p>}
         </form>
       )}
 
-      {/* The gallery, as a rail and a pane. Same shell as Discover, because it
+      {/* The gallery, as a rail and a pane. Same shell as Models Explore, because it
           is the same defect: a seven-column table whose expand-row was the
           only place the repository, licence, tags and links could go. */}
       {loading && !loadedOnce.current ? (
@@ -454,7 +551,7 @@ export default function Backends() {
                   <button
                     key={f.key}
                     className={`filter-btn ${filter === f.key ? 'active' : ''}`}
-                    onClick={() => { setFilter(f.key); setPage(1) }}
+                    onClick={() => { setFilter(f.key); updateUrlParam('state', f.key); setPage(1) }}
                   >
                   <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />
                   {f.label}
@@ -558,12 +655,13 @@ export default function Backends() {
                             <i className="fas fa-rotate" /> Reinstall
                           </button>
                           <button className="btn btn-danger btn-sm" onClick={async () => {
+                            setCatalogErrors(current => ({ ...current, [name]: '' }))
                             try {
                               await nodesApi.deleteBackend(targetNode.id, name)
                               addToast(`Removed ${b.name} from ${targetNode.name}`, 'success')
                               setTimeout(() => { fetchBackends(); refetchNodes() }, 600)
                             } catch (err) {
-                              addToast(`Remove failed: ${err.message}`, 'error')
+                              setCatalogErrors(current => ({ ...current, [name]: `Remove failed: ${err.message}` }))
                             }
                           }} title={`Remove from ${targetNode.name}`}>
                             <i className="fas fa-trash" /> Remove
@@ -576,15 +674,14 @@ export default function Backends() {
                       )
                     ) : b.installed ? (
                       <>
-                        {upgrade ? (
+                        {upgrade && (
                           <button className="btn btn-primary btn-sm" onClick={() => handleUpgrade(name)} title={`Upgrade to ${upgrade.available_version ? 'v' + upgrade.available_version : 'latest'}`}>
                             <i className="fas fa-arrow-up" /> Upgrade
                           </button>
-                        ) : (
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleInstall(name)} title="Reinstall">
-                            <i className="fas fa-rotate" /> Reinstall
-                          </button>
                         )}
+                        <button className="btn btn-secondary btn-sm" onClick={() => handleInstall(name)} title="Reinstall">
+                          <i className="fas fa-rotate" /> Reinstall
+                        </button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(name)} title="Delete">
                           <i className="fas fa-trash" /> Delete
                         </button>
@@ -622,6 +719,13 @@ export default function Backends() {
                     )
                   }
                 />
+
+                {catalogErrors[name] && (
+                  <div className="attention-callout attention-callout--error" role="alert">
+                    <i className="fas fa-circle-exclamation" aria-hidden="true" />
+                    <span>{catalogErrors[name]}</span>
+                  </div>
+                )}
 
                 <StatGrid
                   stats={[
@@ -720,6 +824,8 @@ export default function Backends() {
         initialSelection={pickerInitialSelection}
         addToast={addToast}
       />
+        </>
+      )}
     </div>
   )
 }

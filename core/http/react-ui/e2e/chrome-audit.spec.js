@@ -8,7 +8,7 @@ const ROUTES = [
   '/app', '/app/chat', '/app/models', '/app/studio', '/app/talk',
   '/app/agents', '/app/skills', '/app/collections', '/app/agent-jobs',
   '/app/fine-tune', '/app/quantize', '/app/face', '/app/voice',
-  '/app/manage', '/app/backends', '/app/activity', '/app/operate',
+  '/app/models?view=installed', '/app/backends', '/app/activity', '/app/operate',
   '/app/settings', '/app/traces', '/app/usage', '/app/nodes', '/app/p2p',
   '/app/voice-library', '/app/voice-library/new', '/app/account',
 ]

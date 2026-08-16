@@ -30,7 +30,7 @@
   },
   "items": {
     "home": "Inicio",
-    "discover": "Descubrir",
+    "models": "Models",
     "chat": "Chat",
     "studio": "Studio",
     "talk": "Hablar",
@@ -40,7 +40,6 @@
     "voices": "Voces",
     "jobs": "Trabajos",
     "operate": "Administración",
-    "host": "Host",
     "audioTransform": "Transformar audio",
     "faceRecognition": "Reconocimiento facial",
     "voiceRecognition": "Reconocimiento de voz",

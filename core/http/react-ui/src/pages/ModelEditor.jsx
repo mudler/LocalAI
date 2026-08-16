@@ -332,8 +332,8 @@ export default function ModelEditor() {
         try {
           const parsed = YAML.parse(yamlText)
           if (parsed?.name) navigate(`/app/model-editor/${encodeURIComponent(parsed.name)}`, { replace: true, state: backState })
-          else navigate(backState ? backState.from : '/app/manage')
-        } catch { navigate(backState ? backState.from : '/app/manage') }
+          else navigate(backState ? backState.from : '/app/models?view=installed')
+        } catch { navigate(backState ? backState.from : '/app/models?view=installed') }
       } else {
         const response = await fetch(apiUrl(`/models/edit/${encodeURIComponent(name)}`), {
           method: 'POST',
@@ -426,7 +426,7 @@ export default function ModelEditor() {
 
   const backPage = isCreateMode && selectedTemplate ? t('actions.templates')
     : backState ? backState.fromLabel
-    : isCreateMode ? t('actions.models') : t('actions.system')
+    : t('actions.models')
 
   return (
     <FormContextProvider formData={values}>
@@ -445,7 +445,7 @@ export default function ModelEditor() {
           <button className="btn btn-secondary" onClick={() => {
             if (isCreateMode && selectedTemplate) { setSelectedTemplate(null); setValues({}); setActiveFieldPaths(new Set()) }
             else if (backState) navigate(backState.from)
-            else navigate(isCreateMode ? '/app/models' : '/app/manage')
+            else navigate(isCreateMode ? '/app/models' : '/app/models?view=installed')
           }}>
             <i className="fas fa-arrow-left" /> {t('actions.backTo', {page: backPage})}
           </button>

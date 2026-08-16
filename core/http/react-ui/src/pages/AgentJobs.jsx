@@ -257,7 +257,7 @@ export default function AgentJobs() {
       args: ["--flag"]`}</pre>
           </div>
           <div className="hstack hstack--center">
-            <button className="btn btn-primary" onClick={() => navigate('/app/manage')}>
+            <button className="btn btn-primary" onClick={() => navigate('/app/models?view=installed')}>
               <i className="fas fa-cog" /> Manage Models
             </button>
             <a className="btn btn-secondary" href="https://localai.io/features/agents/" target="_blank" rel="noopener noreferrer">

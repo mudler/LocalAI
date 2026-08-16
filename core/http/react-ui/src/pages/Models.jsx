@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { modelsApi } from '../utils/api'
@@ -9,14 +9,12 @@ import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
 import SearchableSelect from '../components/SearchableSelect'
 import PageHeader from '../components/PageHeader'
-import ConfirmDialog from '../components/ConfirmDialog'
 import GalleryLoader from '../components/GalleryLoader'
 import Toggle from '../components/Toggle'
 import RecommendedModels from '../components/RecommendedModels'
 import SplitView from '../components/split/SplitView'
 import EntityRail from '../components/split/EntityRail'
-import DetailHeader from '../components/split/DetailHeader'
-import StatGrid from '../components/split/StatGrid'
+import InstalledModels, { ModelLifecycleDetailShell, modelUseCases } from './InstalledModels'
 import { formatBytes } from '../utils/format'
 import { ENTITY_GROUPS, groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
@@ -109,6 +107,35 @@ const FILTER_SECTIONS = [
     keys: ['image', 'video', '3d'] },
 ]
 
+function ModelsLifecycleNav({ activeView, searchParams, t }) {
+  const hrefFor = view => {
+    const next = new URLSearchParams(searchParams)
+    if (view === 'installed') next.set('view', 'installed')
+    else next.delete('view')
+    const query = next.toString()
+    return `/app/models${query ? `?${query}` : ''}`
+  }
+
+  return (
+    <nav className="tabs mb-md" aria-label={t('lifecycle.navLabel')}>
+      <Link
+        className={`tab ${activeView === 'explore' ? 'tab-active' : ''}`}
+        to={hrefFor('explore')}
+        aria-current={activeView === 'explore' ? 'page' : undefined}
+      >
+        <i className="fas fa-compass" aria-hidden="true" /> {t('lifecycle.views.explore')}
+      </Link>
+      <Link
+        className={`tab ${activeView === 'installed' ? 'tab-active' : ''}`}
+        to={hrefFor('installed')}
+        aria-current={activeView === 'installed' ? 'page' : undefined}
+      >
+        <i className="fas fa-hard-drive" aria-hidden="true" /> {t('lifecycle.views.installed')}
+      </Link>
+    </nav>
+  )
+}
+
 export default function Models() {
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
@@ -116,22 +143,28 @@ export default function Models() {
   const { t } = useTranslation('models')
   const { operations } = useOperations()
   const { resources } = useResources()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeView = searchParams.get('view') === 'installed' ? 'installed' : 'explore'
+  const installedState = ['running', 'idle', 'disabled', 'pinned', 'distributed'].includes(searchParams.get('state'))
+    ? searchParams.get('state')
+    : 'all'
   const [models, setModels] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => searchParams.get('q') || '')
   const [filters, setFilters] = useState([])
   const [sort, setSort] = useState('')
   const [order, setOrder] = useState('asc')
   const [installing, setInstalling] = useState(new Map())
+  const [installedProfiles, setInstalledProfiles] = useState({})
   const [expandedFiles, setExpandedFiles] = useState(false)
   // Which model the pane is showing, or null for the discovery shelves. It
   // lives in the URL so a model is linkable and so Back steps out of the detail
   // rather than off the page, which is the one thing the expanded row could
   // never do.
-  const [searchParams, setSearchParams] = useSearchParams()
   const selectedName = searchParams.get('model')
+  const urlSearch = searchParams.get('q') || ''
   const [stats, setStats] = useState({ total: 0, installed: 0, repositories: 0 })
   // Distinguishes "nothing installed" from "not asked yet". The recommendations
   // panel defaults off the installed count, so it must not read the initial 0.
@@ -147,7 +180,6 @@ export default function Models() {
   // True once any listing has come back. Distinguishes a cold start, which has
   // nothing to keep on screen, from a refetch, which does.
   const loadedOnce = useRef(false)
-  const [confirmDialog, setConfirmDialog] = useState(null)
   // Variant descriptions, keyed by model name. The listing only tells us
   // whether an entry declares any; describing them costs the server a network
   // probe per variant, so we ask for one entry at a time and keep the answer
@@ -253,6 +285,26 @@ export default function Models() {
     if (!loading) fetchModels()
   }, [operations.length])
 
+  // Gallery entries only say whether a model is installed. The capabilities
+  // endpoint is authoritative about what that installation can open, so the
+  // Explore detail uses it for a useful primary action without duplicating
+  // destructive lifecycle controls from Installed.
+  useEffect(() => {
+    if (activeView !== 'explore') return undefined
+    let cancelled = false
+    modelsApi.listCapabilities()
+      .then(data => {
+        if (cancelled) return
+        setInstalledProfiles(Object.fromEntries(
+          (data?.data || []).map(profile => [profile.id, profile])
+        ))
+      })
+      // A background refresh should not remove an action that was already
+      // resolved successfully earlier in this page session.
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [activeView, operations.length])
+
   const debouncedFetch = useDebouncedCallback((value) => {
     setPage(1)
     fetchModels({ search: value, page: 1 })
@@ -318,8 +370,27 @@ export default function Models() {
 
   const handleSearch = (value) => {
     setSearch(value)
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      if (value) next.set('q', value)
+      else next.delete('q')
+      return next
+    }, { replace: true })
     debouncedFetch(value)
   }
+
+  // Search is URL-owned. Popstate changes therefore update the controlled
+  // field and refetch the gallery instead of leaving the previous term on
+  // screen after Back or Forward.
+  useEffect(() => {
+    if (urlSearch === search) return
+    setSearch(urlSearch)
+    setPage(1)
+    debouncedFetch(urlSearch)
+    // debouncedFetch intentionally follows the URL value only. Depending on
+    // the callback itself would restart this effect whenever fetch state moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSearch])
 
   const toggleFilter = (key) => {
     if (key === '') { setFilters([]); setPage(1); return }
@@ -394,26 +465,6 @@ export default function Models() {
     } catch (err) {
       addToast(t('errors.installFailed', { message: err.message }), 'error')
     }
-  }
-
-  const handleDelete = (modelId) => {
-    setConfirmDialog({
-      title: t('deleteDialog.title'),
-      message: t('deleteDialog.message', { model: modelId }),
-      confirmLabel: t('deleteDialog.confirm', { model: modelId }),
-      danger: true,
-      onConfirm: async () => {
-        setConfirmDialog(null)
-        try {
-          await modelsApi.delete(modelId)
-          addToast(t('deleteDialog.deletingToast', { model: modelId }), 'info')
-          fetchModels()
-        } catch (err) {
-          addToast(t('errors.deleteFailed', { message: err.message }), 'error')
-        }
-      },
-    })
-    return
   }
 
   // Clear local installing flags when operations finish (success or error)
@@ -512,11 +563,60 @@ export default function Models() {
     setExpandedFiles(false)
   }, [setSearchParams])
 
+  const setInstalledQuery = useCallback(value => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      // `all` is a valid search term. Only an empty string clears q.
+      if (value) next.set('q', value)
+      else next.delete('q')
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const setInstalledState = useCallback(value => {
+    setSearchParams(previous => {
+      const next = new URLSearchParams(previous)
+      // State alone reserves `all` as its default sentinel. q and model may
+      // both name a literal installed model called "all".
+      if (value && value !== 'all') next.set('state', value)
+      else next.delete('state')
+      return next
+    })
+  }, [setSearchParams])
+
   // The detail pane lists variants, so opening a model is the ask that pays for
   // the describe call. loadVariants is idempotent per name.
   useEffect(() => {
     if (selectedModel?.has_variants) loadVariants(selectedName)
   }, [selectedName, selectedModel, loadVariants])
+
+  if (activeView === 'installed') {
+    return (
+      <div className="page page--wide page--app">
+        <div className="view-bar">
+          <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
+          <div className="view-bar__actions">
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('lifecycle.title')) })}>
+              <i className="fas fa-plus" /> {t('actions.addModel')}
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/import-model')}>
+              <i className="fas fa-upload" /> {t('actions.importModel')}
+            </button>
+          </div>
+        </div>
+        <ModelsLifecycleNav activeView={activeView} searchParams={searchParams} t={t} />
+        <InstalledModels
+          addToast={addToast}
+          query={urlSearch}
+          state={installedState}
+          selectedName={selectedName}
+          onQueryChange={setInstalledQuery}
+          onStateChange={setInstalledState}
+          onSelect={selectModel}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="page page--wide page--app">
@@ -526,7 +626,7 @@ export default function Models() {
           rail and the pane are describing what you are looking at; the header
           was just repeating them from a distance. */}
       <div className="view-bar">
-        <h1 className="view-bar__title">{t('title')}</h1>
+        <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
         <span className="view-bar__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
         <div className="view-bar__actions">
           <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
@@ -537,6 +637,8 @@ export default function Models() {
           </button>
         </div>
       </div>
+
+      <ModelsLifecycleNav activeView={activeView} searchParams={searchParams} t={t} />
 
       {/* Filters, in three deliberate bands.
           1. Query scope: free-text search plus the backend select. The backend
@@ -766,7 +868,14 @@ export default function Models() {
                 installing={isInstalling(selectedName)}
                 progress={getOperationProgress(selectedName)}
                 onInstall={handleInstall}
-                onDelete={handleDelete}
+                installedProfile={installedProfiles[selectedName]}
+                onOpen={route => navigate(route)}
+                onManage={name => setSearchParams(previous => {
+                  const next = new URLSearchParams(previous)
+                  next.set('view', 'installed')
+                  next.set('model', name)
+                  return next
+                })}
                 onBack={() => selectModel(null)}
                 expandedFiles={expandedFiles}
                 setExpandedFiles={setExpandedFiles}
@@ -832,15 +941,6 @@ export default function Models() {
         />
       )}
 
-      <ConfirmDialog
-        open={!!confirmDialog}
-        title={confirmDialog?.title}
-        message={confirmDialog?.message}
-        confirmLabel={confirmDialog?.confirmLabel}
-        danger={confirmDialog?.danger}
-        onConfirm={confirmDialog?.onConfirm}
-        onCancel={() => setConfirmDialog(null)}
-      />
     </div>
   )
 }
@@ -1162,7 +1262,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
 
 // railItemFor maps a gallery entry onto the shape EntityRail speaks. Keeping
 // the vocabulary translation here, rather than teaching the rail about models,
-// is what lets Backends and Host reuse the same component without three
+// is what lets Models and Backends reuse the same component without two
 // slightly different rails growing out of it.
 //
 // The rail line gets exactly one fact beyond the name, and it is spent on
@@ -1314,7 +1414,7 @@ function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t
 // entry's fields and is shared with the per-variant panel.
 function DiscoverDetail({
   model, estimate, contextSize, onPickContext, totalGpuMemory, fitsGpu,
-  installing, progress, onInstall, onDelete, onBack,
+  installing, progress, onInstall, installedProfile, onOpen, onManage, onBack,
   expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, t,
 }) {
   const name = model.name || model.id
@@ -1323,19 +1423,19 @@ function DiscoverDetail({
   const fit = fitsGpu(vramBytes)
   const contextLabel = CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]
   const headroom = totalGpuMemory > 0 && vramBytes ? totalGpuMemory * 0.95 - vramBytes : null
+  const openUseCase = modelUseCases(installedProfile).find(useCase => useCase.route)
 
   return (
-    <div className="detail-pane">
-      <DetailHeader
-        testId="discover"
-        icon={groupForEntity(model).icon}
-        name={name}
-        lede={model.description ? stripMarkdown(model.description).slice(0, 220) : null}
-        ledeTitle={model.description ? stripMarkdown(model.description) : null}
-        onBack={onBack}
-        backLabel={t('detail.backToAll')}
-        warning={model.trustRemoteCode ? t('detail.requiresTrustRemoteCode') : null}
-        actions={
+    <ModelLifecycleDetailShell
+      testId="discover"
+      icon={groupForEntity(model).icon}
+      name={name}
+      lede={model.description ? stripMarkdown(model.description).slice(0, 220) : null}
+      ledeTitle={model.description ? stripMarkdown(model.description) : null}
+      onBack={onBack}
+      backLabel={t('detail.backToAll')}
+      warning={model.trustRemoteCode ? t('detail.requiresTrustRemoteCode') : null}
+      actions={
           installing ? (
             <div className="inline-install">
               <div className="inline-install__row">
@@ -1352,11 +1452,14 @@ function DiscoverDetail({
             </div>
           ) : model.installed ? (
             <>
-              <button className="btn btn-secondary btn-sm" onClick={() => onInstall(name)}>
-                <i className="fas fa-rotate" /> {t('actions.reinstall')}
-              </button>
-              <button className="btn btn-danger btn-sm" onClick={() => onDelete(name)}>
-                <i className="fas fa-trash" /> {t('actions.delete')}
+              {openUseCase && (
+                <button className="btn btn-primary btn-sm" onClick={() => onOpen(openUseCase.route(name))}>
+                  <i className="fas fa-arrow-up-right-from-square" aria-hidden="true" />
+                  {t('lifecycle.actions.open', { useCase: t(`lifecycle.open.${openUseCase.labelKey}`) })}
+                </button>
+              )}
+              <button className="btn btn-secondary btn-sm" onClick={() => onManage(name)}>
+                <i className="fas fa-sliders" aria-hidden="true" /> {t('lifecycle.actions.manageInstallation')}
               </button>
             </>
           ) : (
@@ -1364,20 +1467,17 @@ function DiscoverDetail({
               <i className="fas fa-download" /> {t('actions.install')}
             </button>
           )
-        }
-      />
-
-      <StatGrid
-        stats={[
-          { label: t('detail.size'), value: sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—' },
-          { label: t('detail.vramAt', { context: contextLabel }), value: vramBytes ? formatBytes(vramBytes) : '—' },
-          {
-            label: t('detail.headroom'),
-            value: headroom === null ? '—' : (headroom < 0 ? '−' : '') + formatBytes(Math.abs(headroom)),
-            tone: headroom === null ? undefined : headroom < 0 ? 'bad' : 'ok',
-          },
-        ]}
-      />
+      }
+      stats={[
+        { label: t('detail.size'), value: sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—' },
+        { label: t('detail.vramAt', { context: contextLabel }), value: vramBytes ? formatBytes(vramBytes) : '—' },
+        {
+          label: t('detail.headroom'),
+          value: headroom === null ? '—' : (headroom < 0 ? '−' : '') + formatBytes(Math.abs(headroom)),
+          tone: headroom === null ? undefined : headroom < 0 ? 'bad' : 'ok',
+        },
+      ]}
+    >
 
       <VramByContext
         estimate={estimate}
@@ -1402,6 +1502,6 @@ function DiscoverDetail({
         nested
         t={t}
       />
-    </div>
+    </ModelLifecycleDetailShell>
   )
 }

@@ -1,5 +1,59 @@
 {
-  "title": "Discover",
+  "lifecycle": {
+    "title": "Models",
+    "navLabel": "Model lifecycle",
+    "views": { "explore": "Explore", "installed": "Installed" },
+    "filters": { "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
+    "installed": {
+      "searchPlaceholder": "Search installed models",
+      "count": "{{shown}} of {{total}}",
+      "backToAll": "All installed models",
+      "eyebrow": "Installed on this host",
+      "summary": "{{count}} models ready to serve.",
+      "summaryHint": "Select a model to inspect its runtime state and controls."
+    },
+    "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
+    "actions": {
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "update": "Update", "updating": "Updating…",
+      "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
+      "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
+      "delete": "Delete model", "forModel": "Actions for {{model}}",
+      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
+    },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "update": "update" },
+    "toasts": {
+      "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
+      "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
+      "deleted": "Deleted {{model}}", "updated": "Models updated"
+    },
+    "confirm": {
+      "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",
+      "deleteTitle": "Delete Model", "deleteMessage": "Delete model {{model}}? This cannot be undone."
+    },
+    "errors": {
+      "action": "Could not {{action}} {{model}}: {{message}}",
+      "loadList": "Could not load installed models: {{message}}"
+    },
+    "detail": {
+      "title": "Details", "state": "State", "backend": "Backend", "auto": "Auto", "pinned": "Pinned", "yes": "yes",
+      "description": "Description", "noDescription": "No gallery description is available for this model.",
+      "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
+      "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
+      "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+    },
+    "open": {
+      "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
+      "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
+      "rerank": "Rerank", "vad": "VAD", "score": "Score"
+    },
+    "empty": {
+      "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
+      "explore": "Explore models", "import": "Import model", "noMatches": "No installed models match these filters.",
+      "clear": "Clear filters"
+    }
+  },
+  "title": "Models",
   "subtitle": "Browse and install AI models from the gallery",
   "models": "Models",
   "recommended": {
