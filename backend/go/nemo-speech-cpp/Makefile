@@ -279,6 +279,14 @@ patch-itn-headers:
 itn: $(ITN_MARKER)
 
 $(SENTENCEPIECE_MARKER): | sources/NeMo-Speech.cpp
+	# Upstream's license copies use GNU install's -D flag, which BSD install
+	# does not support. Create the one missing directory and use the portable
+	# spelling before running the otherwise platform-independent script.
+	@if [ "$(shell uname -s)" = Darwin ]; then \
+		cd sources/NeMo-Speech.cpp && \
+		mkdir -p .deps/sentencepiece/share/licenses/nemo-speech/third_party/sentencepiece && \
+		perl -pi -e 's/install -Dm0644/install -m 0644/g' scripts/build_sentencepiece_static.sh; \
+	fi
 	cd sources/NeMo-Speech.cpp && JOBS=$(JOBS) scripts/build_sentencepiece_static.sh
 
 sentencepiece: $(SENTENCEPIECE_MARKER)
