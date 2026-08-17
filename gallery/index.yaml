@@ -1367,6 +1367,74 @@
     - filename: llama-cpp/models/Parable-Qwen3-8B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
       uri: https://huggingface.co/AnkitAI/Parable-Qwen3-8B-Claude-Fable-5-GGUF/resolve/main/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
       sha256: 4532d2379d38a37279866a030e51d419561f9d4d22fee00d2a33647d66f05065
+- &north-mini-code-1-0
+  name: "north-mini-code-1.0"
+  variants:
+    - model: north-mini-code-1.0-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/CohereLabs/North-Mini-Code-1.0
+    - https://huggingface.co/unsloth/North-Mini-Code-1.0-GGUF
+  description: |
+    North Mini Code 1.0 is Cohere Labs' Apache-2.0 sparse mixture-of-experts
+    coding model with 30B total parameters and 3B active parameters. It targets
+    code generation, agentic software engineering, terminal tasks, tool use,
+    and interleaved reasoning with a 256K-token context window. This entry uses
+    the UD-Q4_K_M GGUF quantization.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - coding
+    - agent
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/North-Mini-Code-1.0-GGUF/North-Mini-Code-1.0-UD-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/North-Mini-Code-1.0-GGUF/North-Mini-Code-1.0-UD-Q4_K_M.gguf
+      sha256: d59f4cb3abec1bd3e5e185b99cdd811e3be3402cbc2bab8223081a460d5724bf
+      uri: huggingface://unsloth/North-Mini-Code-1.0-GGUF/North-Mini-Code-1.0-UD-Q4_K_M.gguf
+- !!merge <<: *north-mini-code-1-0
+  name: "north-mini-code-1.0-q8"
+  variants: []
+  description: |
+    North Mini Code 1.0 is Cohere Labs' Apache-2.0 sparse mixture-of-experts
+    coding model with 30B total parameters and 3B active parameters. It targets
+    code generation, agentic software engineering, terminal tasks, tool use,
+    and interleaved reasoning with a 256K-token context window. This entry uses
+    the Q8_0 GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/North-Mini-Code-1.0-GGUF/North-Mini-Code-1.0-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/North-Mini-Code-1.0-GGUF/North-Mini-Code-1.0-Q8_0.gguf
+      sha256: 652eeb9932e8020ef7b35374189411848187fa58796ded0ceee258bd9d36426b
+      uri: huggingface://unsloth/North-Mini-Code-1.0-GGUF/North-Mini-Code-1.0-Q8_0.gguf
 - &pocket-35b
   name: "pocket-35b"
   variants:
