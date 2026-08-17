@@ -639,6 +639,31 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	}
 	replicaIdx := nm.ReplicaIndex
 
+	// Load-time options cannot be changed on a running backend. Retire an idle
+	// replica whose context no longer matches the model config so the cold path
+	// recreates it with the options supplied by this request. Older registry
+	// rows without stored options remain usable for rolling-upgrade safety.
+	if nm.InFlight == 0 && !sameLoadContext(nm.ModelOptsBlob, att.modelOpts) && r.unloader != nil {
+		processKey := model.BackendProcessKey(att.trackingKey, replicaIdx)
+		if err := r.unloader.StopBackend(node.ID, processKey); err != nil {
+			xlog.Warn("Failed to retire model replica with stale context",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		} else {
+			if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+				xlog.Warn("Failed to release stale-context routing reservation",
+					"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+			}
+			if err := r.registry.RemoveNodeModel(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+				xlog.Warn("Failed to remove model replica with stale context",
+					"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+			}
+			xlog.Info("Retired model replica after context size changed",
+				"node", node.Name, "model", att.trackingKey, "replica", replicaIdx,
+				"context", att.modelOpts.ContextSize)
+			return nil
+		}
+	}
+
 	// Verify the backend process is still alive via gRPC health check
 	if !r.probeHealth(ctx, node, modelAddr) {
 		// Stale — roll back the increment, remove the specific replica row, fall through
@@ -675,6 +700,18 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	grpcClient := r.buildClientForAddr(node, modelAddr, att.parallel)
 	tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, att.trackingKey, replicaIdx)
 	return r.newRouteResult(node, att.trackingKey, replicaIdx, grpcClient, tracked)
+}
+
+func sameLoadContext(stored []byte, current *pb.ModelOptions) bool {
+	if len(stored) == 0 || current == nil {
+		return true
+	}
+	var loaded pb.ModelOptions
+	if err := proto.Unmarshal(stored, &loaded); err != nil {
+		xlog.Warn("Failed to read stored model options while checking context", "error", err)
+		return true
+	}
+	return loaded.ContextSize == current.ContextSize
 }
 
 // coldLoad schedules the model onto a node and loads it, returning a route to

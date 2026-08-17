@@ -18,6 +18,7 @@ import (
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	ggrpc "google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -520,8 +521,10 @@ var _ = Describe("SmartRouter", func() {
 
 		Context("model already loaded on a healthy node", func() {
 			It("returns the client and a release function", func() {
+				loadedOpts, err := proto.Marshal(&pb.ModelOptions{ContextSize: 32768})
+				Expect(err).ToNot(HaveOccurred())
 				node := &BackendNode{ID: "n1", Name: "node-1", Address: "10.0.0.1:50051"}
-				nm := &NodeModel{NodeID: "n1", ModelName: "my-model", Address: "10.0.0.1:9001"}
+				nm := &NodeModel{NodeID: "n1", ModelName: "my-model", Address: "10.0.0.1:9001", ModelOptsBlob: loadedOpts}
 				reg.findAndLockNode = node
 				reg.findAndLockNM = nm
 				backend.healthResult = true
@@ -531,7 +534,8 @@ var _ = Describe("SmartRouter", func() {
 					ClientFactory: factory,
 				})
 
-				result, err := router.Route(context.Background(), "my-model", "models/my-model.gguf", "llama-cpp", nil, false)
+				result, err := router.Route(context.Background(), "my-model", "models/my-model.gguf", "llama-cpp",
+					&pb.ModelOptions{ContextSize: 32768}, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).ToNot(BeNil())
 				Expect(result.Node.ID).To(Equal("n1"))
@@ -550,6 +554,41 @@ var _ = Describe("SmartRouter", func() {
 				// Exactly once, however many times teardown runs.
 				result.Release()
 				Expect(reg.decrementCalls).To(HaveLen(1))
+			})
+
+			It("retires a replica loaded with a different context size", func() {
+				loadedOpts, err := proto.Marshal(&pb.ModelOptions{ContextSize: 8192})
+				Expect(err).ToNot(HaveOccurred())
+
+				node := &BackendNode{ID: "n1", Name: "node-1", Address: "10.0.0.1:50051"}
+				nm := &NodeModel{
+					NodeID:        "n1",
+					ModelName:     "my-model",
+					ReplicaIndex:  2,
+					Address:       "10.0.0.1:9001",
+					ModelOptsBlob: loadedOpts,
+				}
+				reg.findAndLockNode = node
+				reg.findAndLockNM = nm
+				backend.healthResult = true
+
+				router := NewSmartRouter(reg, SmartRouterOptions{
+					Unloader:      unloader,
+					ClientFactory: factory,
+				})
+
+				result := router.tryWarmPath(context.Background(), &routeAttempt{
+					trackingKey: "my-model",
+					modelName:   "models/my-model.gguf",
+					backendType: "llama-cpp",
+					modelOpts:   &pb.ModelOptions{ContextSize: 32768},
+				})
+
+				Expect(result).To(BeNil())
+				Expect(reg.decrementCalls).To(ConsistOf("n1:my-model"))
+				Expect(reg.removeCalls).To(ConsistOf("n1:my-model"))
+				Expect(unloader.stopCalls).To(ConsistOf("n1:my-model#2"))
+				Expect(reg.touchCalls).To(BeEmpty())
 			})
 		})
 
