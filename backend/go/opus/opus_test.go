@@ -543,6 +543,112 @@ var _ = Describe("Opus", func() {
 		Expect(result.Frames).To(HaveLen(3))
 	})
 
+	It("buffers partial frames for a stateful stream", func() {
+		first := generateSineWave(440, 48000, 500)
+		result, err := o.AudioEncode(&pb.AudioEncodeRequest{
+			PcmData:    sound.Int16toBytesLE(first),
+			SampleRate: 48000,
+			Channels:   1,
+			Options:    map[string]string{"stream_id": "partial"},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.Frames).To(BeEmpty())
+
+		second := generateSineWave(440, 48000, 460)
+		result, err = o.AudioEncode(&pb.AudioEncodeRequest{
+			PcmData:    sound.Int16toBytesLE(second),
+			SampleRate: 48000,
+			Channels:   1,
+			Options:    map[string]string{"stream_id": "partial"},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.Frames).To(HaveLen(1))
+	})
+
+	It("drains a partial frame without resetting the encoder", func() {
+		const streamID = "drain"
+		result, err := o.AudioEncode(&pb.AudioEncodeRequest{
+			PcmData:    sound.Int16toBytesLE(generateSineWave(440, 48000, 500)),
+			SampleRate: 48000,
+			Channels:   1,
+			Options:    map[string]string{"stream_id": streamID},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.Frames).To(BeEmpty())
+		encoder := o.encoders[streamID].enc
+
+		result, err = o.AudioEncode(&pb.AudioEncodeRequest{
+			Options: map[string]string{"stream_id": streamID, "drain": "true"},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.Frames).To(HaveLen(1))
+		Expect(o.encoders[streamID].enc).To(BeIdenticalTo(encoder))
+
+		result, err = o.AudioEncode(&pb.AudioEncodeRequest{
+			PcmData:    sound.Int16toBytesLE(generateSineWave(440, 48000, 960)),
+			SampleRate: 48000,
+			Channels:   1,
+			Options:    map[string]string{"stream_id": streamID},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.Frames).To(HaveLen(1))
+		Expect(o.encoders[streamID].enc).To(BeIdenticalTo(encoder))
+	})
+
+	It("produces identical stateful output across arbitrary TTS chunks", func() {
+		pcm := generateSineWave(440, 24000, 24000+137)
+		encode := func(streamID string, chunks ...[]int16) [][]byte {
+			var frames [][]byte
+			for _, chunk := range chunks {
+				result, err := o.AudioEncode(&pb.AudioEncodeRequest{
+					PcmData:    sound.Int16toBytesLE(chunk),
+					SampleRate: 24000,
+					Channels:   1,
+					Options:    map[string]string{"stream_id": streamID},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				frames = append(frames, result.Frames...)
+			}
+			result, err := o.AudioEncode(&pb.AudioEncodeRequest{
+				Options: map[string]string{"stream_id": streamID, "drain": "true"},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			return append(frames, result.Frames...)
+		}
+
+		whole := encode("whole", pcm)
+		partitioned := encode("partitioned", pcm[:17], pcm[17:911], pcm[911:7023], pcm[7023:])
+		Expect(partitioned).To(Equal(whole))
+		expectedSamples := sound.ResampleInt16(pcm, 24000, 48000)
+		Expect(whole).To(HaveLen((len(expectedSamples) + opusFrameSize - 1) / opusFrameSize))
+	})
+
+	It("aborts buffered PCM and closes stream state explicitly", func() {
+		const streamID = "abort-close"
+		_, err := o.AudioEncode(&pb.AudioEncodeRequest{
+			PcmData:    sound.Int16toBytesLE(generateSineWave(440, 48000, 500)),
+			SampleRate: 48000,
+			Channels:   1,
+			Options:    map[string]string{"stream_id": streamID},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		encoder := o.encoders[streamID].enc
+
+		result, err := o.AudioEncode(&pb.AudioEncodeRequest{
+			Options: map[string]string{"stream_id": streamID, "abort": "true"},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.Frames).To(BeEmpty())
+		Expect(o.encoders[streamID].enc).To(BeIdenticalTo(encoder))
+		Expect(o.encoders[streamID].pcmRemainder).To(BeEmpty())
+
+		_, err = o.AudioEncode(&pb.AudioEncodeRequest{
+			Options: map[string]string{"stream_id": streamID, "close": "true"},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(o.encoders).ToNot(HaveKey(streamID))
+	})
+
 	It("produces expected decoded frame size", func() {
 		sine := generateSineWave(440, 48000, 960)
 		pcmBytes := sound.Int16toBytesLE(sine)

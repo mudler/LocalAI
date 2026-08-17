@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/reasoning"
+	"github.com/mudler/xlog"
 )
 
 // transcriptStreamer turns streamed LLM tokens into the assistant's spoken
@@ -190,6 +191,9 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	// fail reports a mid-stream failure. A cancelled context means the client
 	// interrupted (barge-in), so roll the turn back instead of erroring.
 	fail := func(code, msg string, err error) bool {
+		if abortErr := t.AbortAudio(context.Background()); abortErr != nil {
+			xlog.Debug("failed to abort response audio", "error", abortErr)
+		}
 		if ctx.Err() != nil {
 			cancel()
 		} else {
@@ -258,6 +262,9 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		return fail("prediction_failed", "backend error", err)
 	}
 	if ctx.Err() != nil {
+		if abortErr := t.AbortAudio(context.Background()); abortErr != nil {
+			xlog.Debug("failed to abort cancelled response audio", "error", abortErr)
+		}
 		cancel()
 		return true
 	}
@@ -286,6 +293,9 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 			if ttsErr != nil {
 				return fail("tts_error", "TTS generation failed", ttsErr)
 			}
+		}
+		if err := t.DrainAudio(ctx); err != nil {
+			return fail("tts_error", "Audio output failed", err)
 		}
 
 		_, isWebRTC := t.(*WebRTCTransport)

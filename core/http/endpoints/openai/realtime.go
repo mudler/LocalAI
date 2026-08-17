@@ -1107,6 +1107,10 @@ func sendTestTone(t Transport) {
 	xlog.Debug("Sending test tone", "samples", numSamples, "sample_rate", sampleRate, "freq", freq)
 	if err := t.SendAudio(context.Background(), pcm, sampleRate); err != nil {
 		xlog.Error("test tone send failed", "error", err)
+		return
+	}
+	if err := t.DrainAudio(context.Background()); err != nil {
+		xlog.Error("test tone drain failed", "error", err)
 	}
 }
 
@@ -2671,6 +2675,9 @@ func emitAssistantMessage(ctx context.Context, session *Session, conv *Conversat
 			// Check for cancellation before TTS
 			if ctx.Err() != nil {
 				xlog.Debug("Response cancelled before TTS (barge-in)")
+				if abortErr := t.AbortAudio(context.Background()); abortErr != nil {
+					xlog.Debug("failed to abort cancelled response audio", "error", abortErr)
+				}
 				sendCancelledResponse()
 				return false
 			}
@@ -2701,11 +2708,26 @@ func emitAssistantMessage(ctx context.Context, session *Session, conv *Conversat
 			if err != nil {
 				if ctx.Err() != nil {
 					xlog.Debug("TTS cancelled (barge-in)")
+					if abortErr := t.AbortAudio(context.Background()); abortErr != nil {
+						xlog.Debug("failed to abort cancelled response audio", "error", abortErr)
+					}
 					sendCancelledResponse()
 					return false
 				}
+				if abortErr := t.AbortAudio(context.Background()); abortErr != nil {
+					xlog.Debug("failed to abort response audio after TTS error", "error", abortErr)
+				}
 				xlog.Error("TTS failed", "error", err)
 				sendError(t, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.Assistant.ID)
+				r.outcome = outcomeFailed
+				return false
+			}
+			if err := t.DrainAudio(ctx); err != nil {
+				if abortErr := t.AbortAudio(context.Background()); abortErr != nil {
+					xlog.Debug("failed to abort response audio after drain error", "error", abortErr)
+				}
+				xlog.Error("audio output failed", "error", err)
+				sendError(t, "tts_error", fmt.Sprintf("Audio output failed: %v", err), "", item.Assistant.ID)
 				r.outcome = outcomeFailed
 				return false
 			}

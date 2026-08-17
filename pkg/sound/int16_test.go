@@ -185,6 +185,72 @@ var _ = Describe("Int16 utilities", func() {
 		})
 	})
 
+	Describe("StreamingResampler", func() {
+		It("matches one-shot 24kHz to 48kHz output across arbitrary partitions", func() {
+			input := generateSineWave(440, 24000, 24000+137)
+			expected := ResampleInt16(input, 24000, 48000)
+			resampler, err := NewStreamingResampler(24000, 48000)
+			Expect(err).ToNot(HaveOccurred())
+
+			partitions := []int{1, 479, 3, 960, 17, 2048, 511}
+			var actual []int16
+			for offset, partition := 0, 0; offset < len(input); partition++ {
+				size := partitions[partition%len(partitions)]
+				end := min(offset+size, len(input))
+				chunk, err := resampler.Push(input[offset:end])
+				Expect(err).ToNot(HaveOccurred())
+				actual = append(actual, chunk...)
+				offset = end
+			}
+			actual = append(actual, resampler.Flush()...)
+
+			Expect(actual).To(Equal(expected))
+		})
+
+		It("matches one-shot 48kHz to 16kHz output one sample at a time", func() {
+			input := generateSineWave(880, 48000, 4807)
+			expected := ResampleInt16(input, 48000, 16000)
+			resampler, err := NewStreamingResampler(48000, 16000)
+			Expect(err).ToNot(HaveOccurred())
+
+			var actual []int16
+			for _, sample := range input {
+				chunk, err := resampler.Push([]int16{sample})
+				Expect(err).ToNot(HaveOccurred())
+				actual = append(actual, chunk...)
+			}
+			actual = append(actual, resampler.Flush()...)
+
+			Expect(actual).To(Equal(expected))
+		})
+
+		It("can be reset for a discontinuous talkspurt", func() {
+			resampler, err := NewStreamingResampler(24000, 48000)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = resampler.Push([]int16{1, 2, 3})
+			Expect(err).ToNot(HaveOccurred())
+			resampler.Reset()
+
+			input := []int16{100, 200, 300, 400}
+			actual, err := resampler.Push(input)
+			Expect(err).ToNot(HaveOccurred())
+			actual = append(actual, resampler.Flush()...)
+
+			Expect(actual).To(Equal(ResampleInt16(input, 24000, 48000)))
+		})
+
+		It("rejects invalid rates and writes after flush", func() {
+			_, err := NewStreamingResampler(0, 48000)
+			Expect(err).To(MatchError("streaming resampler rates must be positive"))
+
+			resampler, err := NewStreamingResampler(24000, 48000)
+			Expect(err).ToNot(HaveOccurred())
+			resampler.Flush()
+			_, err = resampler.Push([]int16{1})
+			Expect(err).To(MatchError("streaming resampler is already flushed"))
+		})
+	})
+
 	Describe("CalculateRMS16", func() {
 		It("computes correct RMS for constant signal", func() {
 			buf := make([]int16, 1000)

@@ -17,8 +17,11 @@ import (
 // so streaming behaviour can be asserted without a real WebSocket/WebRTC peer.
 // It is not a *WebRTCTransport, so handler code takes the WebSocket path.
 type fakeTransport struct {
-	events []types.ServerEvent
-	audio  []fakeAudioChunk
+	mu         sync.Mutex
+	events     []types.ServerEvent
+	audio      []fakeAudioChunk
+	drainCount int
+	abortCount int
 }
 
 type fakeAudioChunk struct {
@@ -27,6 +30,8 @@ type fakeAudioChunk struct {
 }
 
 func (f *fakeTransport) SendEvent(e types.ServerEvent) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.events = append(f.events, e)
 	return nil
 }
@@ -34,7 +39,23 @@ func (f *fakeTransport) SendEvent(e types.ServerEvent) error {
 func (f *fakeTransport) ReadEvent() ([]byte, error) { return nil, nil }
 
 func (f *fakeTransport) SendAudio(_ context.Context, pcm []byte, sampleRate int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.audio = append(f.audio, fakeAudioChunk{pcm: pcm, sampleRate: sampleRate})
+	return nil
+}
+
+func (f *fakeTransport) DrainAudio(_ context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.drainCount++
+	return nil
+}
+
+func (f *fakeTransport) AbortAudio(_ context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.abortCount++
 	return nil
 }
 
@@ -42,6 +63,8 @@ func (f *fakeTransport) Close() error { return nil }
 
 // countEvents returns how many recorded events have the given type.
 func (f *fakeTransport) countEvents(et types.ServerEventType) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	n := 0
 	for _, e := range f.events {
 		if e.ServerEventType() == et {
@@ -54,6 +77,8 @@ func (f *fakeTransport) countEvents(et types.ServerEventType) int {
 // transcriptDeltaText concatenates the Delta of every recorded transcript
 // delta event — i.e. the text streamed to the client as it is generated.
 func (f *fakeTransport) transcriptDeltaText() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	var b strings.Builder
 	for _, e := range f.events {
 		if d, ok := e.(types.ResponseOutputAudioTranscriptDeltaEvent); ok {

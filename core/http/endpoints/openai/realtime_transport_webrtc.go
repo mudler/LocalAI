@@ -3,16 +3,13 @@ package openai
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"math/rand/v2"
 	"sync"
-	"time"
 
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/pkg/grpc"
-	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
-	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -21,41 +18,32 @@ import (
 type WebRTCTransport struct {
 	pc          *webrtc.PeerConnection
 	dc          *webrtc.DataChannel
-	audioTrack  *webrtc.TrackLocalStaticRTP
 	opusBackend grpc.Backend
 	inEvents    chan []byte
 	outEvents   chan []byte // buffered outbound event queue
-	closed    chan struct{}
-	closeDone func() // sync.OnceFunc that closes t.closed
-	flushed   chan struct{} // closed when sender goroutine has drained outEvents
-	dcReady   chan struct{} // closed when data channel is open
-	dcDone    func() // sync.OnceFunc that closes t.dcReady
-	sessionCh chan *Session // delivers session from runRealtimeSession to handleIncomingAudioTrack
-
-	// RTP state for outbound audio — protected by rtpMu
-	rtpMu        sync.Mutex
-	rtpSeqNum    uint16
-	rtpTimestamp uint32
-	rtpMarker    bool // true → next packet gets marker bit set
+	closed      chan struct{}
+	closeDone   func()        // sync.OnceFunc that closes t.closed
+	flushed     chan struct{} // closed when sender goroutine has drained outEvents
+	dcReady     chan struct{} // closed when data channel is open
+	dcDone      func()        // sync.OnceFunc that closes t.dcReady
+	sessionCh   chan *Session // delivers session from runRealtimeSession to handleIncomingAudioTrack
+	audio       *webRTCAudioSender
 }
 
 func NewWebRTCTransport(pc *webrtc.PeerConnection, audioTrack *webrtc.TrackLocalStaticRTP, opusBackend grpc.Backend) *WebRTCTransport {
 	t := &WebRTCTransport{
-		pc:           pc,
-		audioTrack:   audioTrack,
-		opusBackend:  opusBackend,
-		inEvents:     make(chan []byte, 256),
-		outEvents:    make(chan []byte, 256),
-		closed:       make(chan struct{}),
-		flushed:      make(chan struct{}),
-		dcReady:      make(chan struct{}),
-		sessionCh:    make(chan *Session, 1),
-		rtpSeqNum:    uint16(rand.UintN(65536)),
-		rtpTimestamp: rand.Uint32(),
-		rtpMarker:    true, // first packet of the stream gets marker
+		pc:          pc,
+		opusBackend: opusBackend,
+		inEvents:    make(chan []byte, 256),
+		outEvents:   make(chan []byte, 256),
+		closed:      make(chan struct{}),
+		flushed:     make(chan struct{}),
+		dcReady:     make(chan struct{}),
+		sessionCh:   make(chan *Session, 1),
 	}
 	t.closeDone = sync.OnceFunc(func() { close(t.closed) })
 	t.dcDone = sync.OnceFunc(func() { close(t.dcReady) })
+	t.audio = newWebRTCAudioSender(opusBackend, audioTrack, t.closed)
 
 	// The client creates the "oai-events" data channel (so m=application is
 	// included in the SDP offer). We receive it here via OnDataChannel.
@@ -161,76 +149,16 @@ func (t *WebRTCTransport) ReadEvent() ([]byte, error) {
 	}
 }
 
-// SendAudio encodes raw PCM int16 LE to Opus and writes RTP packets to the
-// audio track. The encoder resamples from the given sampleRate to 48kHz
-// internally. Frames are paced at real-time intervals (20ms per frame) to
-// avoid overwhelming the browser's jitter buffer with a burst of packets.
-//
-// The context allows callers to cancel mid-stream for barge-in support.
-// When cancelled, the marker bit is set so the next audio segment starts
-// cleanly in the browser's jitter buffer.
-//
-// RTP packets are constructed manually (rather than via WriteSample) so we
-// can control the marker bit. pion's WriteSample sets the marker bit on
-// every Opus packet, which causes Chrome's NetEq jitter buffer to reset
-// its timing estimation for each frame, producing severe audio distortion.
+// SendAudio admits PCM into the bounded media queue. A transport-scoped worker
+// owns the Opus encoder, pacing clock, sequence number, timestamp, and RTP
+// writer so independent TTS callbacks cannot create packet bursts.
 func (t *WebRTCTransport) SendAudio(ctx context.Context, pcmData []byte, sampleRate int) error {
-	result, err := t.opusBackend.AudioEncode(ctx, &pb.AudioEncodeRequest{
-		PcmData:    pcmData,
-		SampleRate: int32(sampleRate),
-		Channels:   1,
-	})
-	if err != nil {
-		return fmt.Errorf("opus encode: %w", err)
-	}
-
-	frames := result.Frames
-	const frameDuration = 20 * time.Millisecond
-	const samplesPerFrame = 960 // 20ms at 48kHz
-
-	ticker := time.NewTicker(frameDuration)
-	defer ticker.Stop()
-
-	for i, frame := range frames {
-		t.rtpMu.Lock()
-		pkt := &rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         t.rtpMarker,
-				SequenceNumber: t.rtpSeqNum,
-				Timestamp:      t.rtpTimestamp,
-				// SSRC and PayloadType are overridden by pion's writeRTP
-			},
-			Payload: frame,
-		}
-		t.rtpSeqNum++
-		t.rtpTimestamp += samplesPerFrame
-		t.rtpMarker = false // only the first packet gets marker
-		t.rtpMu.Unlock()
-
-		if err := t.audioTrack.WriteRTP(pkt); err != nil {
-			return fmt.Errorf("write rtp: %w", err)
-		}
-
-		// Pace output at ~real-time so the browser's jitter buffer
-		// receives packets at the expected rate. Skip wait after last frame.
-		if i < len(frames)-1 {
-			select {
-			case <-ticker.C:
-			case <-ctx.Done():
-				// Barge-in: mark the next packet so the browser knows
-				// a new audio segment is starting after the interruption.
-				t.rtpMu.Lock()
-				t.rtpMarker = true
-				t.rtpMu.Unlock()
-				return ctx.Err()
-			case <-t.closed:
-				return fmt.Errorf("transport closed during audio send")
-			}
-		}
-	}
-	return nil
+	return t.audio.Enqueue(ctx, pcmData, sampleRate)
 }
+
+func (t *WebRTCTransport) DrainAudio(ctx context.Context) error { return t.audio.Drain(ctx) }
+
+func (t *WebRTCTransport) AbortAudio(ctx context.Context) error { return t.audio.Abort(ctx) }
 
 // SetSession delivers the session to any goroutine waiting in WaitForSession.
 func (t *WebRTCTransport) SetSession(s *Session) {
@@ -251,9 +179,12 @@ func (t *WebRTCTransport) WaitForSession() *Session {
 }
 
 func (t *WebRTCTransport) Close() error {
+	// Close the codec stream before signalling the connection closed; the
+	// worker otherwise observes t.closed and can only perform best-effort cleanup.
+	audioErr := t.audio.Close(context.Background())
 	// Signal no more events and unblock the sender if it's waiting
 	t.closeDone()
 	// Wait for the sender to drain any remaining queued events
 	<-t.flushed
-	return t.pc.Close()
+	return errors.Join(audioErr, t.pc.Close())
 }

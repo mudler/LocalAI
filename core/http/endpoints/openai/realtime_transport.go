@@ -18,6 +18,11 @@ type Transport interface {
 	// For WebRTC this encodes to Opus and writes to the media track.
 	// The context allows cancellation for barge-in support.
 	SendAudio(ctx context.Context, pcmData []byte, sampleRate int) error
+	// DrainAudio waits until all accepted audio has been encoded and written.
+	DrainAudio(ctx context.Context) error
+	// AbortAudio discards queued audio and waits until the old response can no
+	// longer write media. This is the barge-in acknowledgement boundary.
+	AbortAudio(ctx context.Context) error
 	// Close tears down the underlying connection.
 	Close() error
 }

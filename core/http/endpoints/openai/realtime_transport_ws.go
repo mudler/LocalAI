@@ -42,6 +42,10 @@ func (t *WebSocketTransport) SendAudio(_ context.Context, _ []byte, _ int) error
 	return nil
 }
 
+func (t *WebSocketTransport) DrainAudio(_ context.Context) error { return nil }
+
+func (t *WebSocketTransport) AbortAudio(_ context.Context) error { return nil }
+
 func (t *WebSocketTransport) Close() error {
 	return t.conn.Close()
 }
