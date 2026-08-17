@@ -20198,7 +20198,8 @@
     - filename: minicpm-v-4_6-mmproj-f16.gguf
       sha256: ca931d861d0801d9003e50697cd764721a334107c0e0415a51168ee1938462de
       uri: huggingface://openbmb/MiniCPM-V-4.6-gguf/mmproj-model-f16.gguf
-- name: minicpm5-1b
+- &minicpm5-1b
+  name: minicpm5-1b
   url: github:mudler/LocalAI/gallery/chatml.yaml@master
   urls:
     - https://huggingface.co/openbmb/MiniCPM5-1B-GGUF
@@ -20212,6 +20213,8 @@
     - gguf
     - gpu
     - cpu
+  variants:
+    - model: minicpm5-1b-q8
   overrides:
     parameters:
       model: MiniCPM5-1B-Q4_K_M.gguf
@@ -20219,6 +20222,18 @@
     - filename: MiniCPM5-1B-Q4_K_M.gguf
       sha256: 81b64d05a23b17b34c475f42b3e72fbde62d4b92cc34541f7a8031d0752deafa
       uri: huggingface://openbmb/MiniCPM5-1B-GGUF/MiniCPM5-1B-Q4_K_M.gguf
+- !!merge <<: *minicpm5-1b
+  name: minicpm5-1b-q8
+  description: |
+    MiniCPM5-1B is a compact 1B-parameter language model based on the LLaMA architecture. This entry uses the higher-quality Q8_0 GGUF quantization for edge deployment and resource-constrained environments.
+  variants: null
+  overrides:
+    parameters:
+      model: MiniCPM5-1B-Q8_0.gguf
+  files:
+    - filename: MiniCPM5-1B-Q8_0.gguf
+      sha256: 0dc7638539067268774c275a14a6ec9c7e01f7eeb2cff606c8590361fa527e4c
+      uri: huggingface://openbmb/MiniCPM5-1B-GGUF/MiniCPM5-1B-Q8_0.gguf
 - name: minicpm-o-4_5
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
   urls:
