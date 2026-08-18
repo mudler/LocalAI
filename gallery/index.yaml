@@ -338,6 +338,169 @@
     - filename: llama-cpp/models/qwen3.8-9b/Qwen3.8-9B-Q8_0.gguf
       uri: huggingface://empero-ai/Qwen3.8-9B-GGUF/Qwen3.8-9B-Q8_0.gguf
       sha256: 79ca5d342a07922f2bbf38c8d892a79a3c8620c65feaf4b1c66b7830ae724db8
+- &qwen3-8-4b
+  name: "qwen3.8-4b-q4"
+  variants:
+    - model: qwen3.8-4b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/empero-ai/Qwen3.8-4B
+    - https://huggingface.co/empero-ai/Qwen3.8-4B-GGUF
+  description: |
+    Qwen3.8-4B is Empero AI's full-parameter distillation of Qwen3.8 2.4T
+    A95B into the Qwen3.5-4B architecture. It targets mathematics, reasoning,
+    instruction following, and tool use with a native 262K-token context
+    window. This default entry uses Q4_K_M weights; a higher-quality Q8_0
+    build is available as a variant.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - tools
+    - long-context
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-08-18"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-4b/Qwen3.8-4B-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-4b/Qwen3.8-4B-Q4_K_M.gguf
+      uri: huggingface://empero-ai/Qwen3.8-4B-GGUF/Qwen3.8-4B-Q4_K_M.gguf
+      sha256: dec96e8cf2e11b613bb46513dec485377f9ca5a351e71712ee0e244f287c6790
+- !!merge <<: *qwen3-8-4b
+  name: "qwen3.8-4b-q8"
+  variants: []
+  description: |
+    Qwen3.8-4B in the higher-quality Q8_0 GGUF format. This variant preserves
+    more model fidelity for hosts with enough memory.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-4b/Qwen3.8-4B-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-4b/Qwen3.8-4B-Q8_0.gguf
+      uri: huggingface://empero-ai/Qwen3.8-4B-GGUF/Qwen3.8-4B-Q8_0.gguf
+      sha256: 770b780d6754a4954d1caf395c9239eaeb394f15c7a7ea34039883377c93c9c3
+- &qwen3-8-2b
+  name: "qwen3.8-2b-q4"
+  variants:
+    - model: qwen3.8-2b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/empero-ai/Qwen3.8-2B
+    - https://huggingface.co/empero-ai/Qwen3.8-2B-GGUF
+  description: |
+    Qwen3.8-2B is Empero AI's smallest Qwen3.8 reasoning distillation. It uses
+    the Qwen3.5-2B architecture and targets mathematics, instruction
+    following, tool use, and edge deployment with a native 262K-token context
+    window. This default entry uses Q4_K_M weights; a higher-quality Q8_0
+    build is available as a variant.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - edge
+    - qwen
+    - reasoning
+    - thinking
+    - tools
+    - long-context
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-08-18"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-2b/Qwen3.8-2B-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-2b/Qwen3.8-2B-Q4_K_M.gguf
+      uri: huggingface://empero-ai/Qwen3.8-2B-GGUF/Qwen3.8-2B-Q4_K_M.gguf
+      sha256: 4aa0fb13c431514262f259d420ecc95a8714df58ac2a2384514e20b93983f0ff
+- !!merge <<: *qwen3-8-2b
+  name: "qwen3.8-2b-q8"
+  variants: []
+  description: |
+    Qwen3.8-2B in the higher-quality Q8_0 GGUF format. This variant preserves
+    more model fidelity while remaining suitable for compact hosts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-2b/Qwen3.8-2B-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-2b/Qwen3.8-2B-Q8_0.gguf
+      uri: huggingface://empero-ai/Qwen3.8-2B-GGUF/Qwen3.8-2B-Q8_0.gguf
+      sha256: 866773b0d68f09a1db9733555e92daff85b617f9a2e601773dff494c5ca2bbf2
 - &twil-lm3
   name: "twil-lm3-q4"
   variants:
