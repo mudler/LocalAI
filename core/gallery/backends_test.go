@@ -68,6 +68,49 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		Expect(cpuArchitectures).To(ConsistOf("linux/amd64/amd64", "linux/arm64/arm64"))
 	})
 
+	It("keeps the audio.cpp ROCm image connected to the AMD capability", func() {
+		backends, err := ReadConfigFile[[]*GalleryBackend](filepath.Join("..", "..", "backend", "index.yaml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		byName := make(map[string]*GalleryBackend, len(*backends))
+		for _, backend := range *backends {
+			byName[backend.Name] = backend
+		}
+
+		Expect(byName).To(HaveKey("audio-cpp"))
+		Expect(byName["audio-cpp"].CapabilitiesMap).To(HaveKeyWithValue("amd", "rocm-audio-cpp"))
+		Expect(byName).To(HaveKey("rocm-audio-cpp"))
+		Expect(byName["rocm-audio-cpp"].URI).To(Equal("quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-audio-cpp"))
+
+		type matrixEntry struct {
+			Backend   string `yaml:"backend"`
+			BuildType string `yaml:"build-type"`
+			Platforms string `yaml:"platforms"`
+			TagSuffix string `yaml:"tag-suffix"`
+			BaseImage string `yaml:"base-image"`
+		}
+		type backendMatrix struct {
+			Include []matrixEntry `yaml:"include"`
+		}
+
+		matrix, err := ReadConfigFile[backendMatrix](filepath.Join("..", "..", ".github", "backend-matrix.yml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		var rocmEntries []matrixEntry
+		for _, entry := range matrix.Include {
+			if entry.Backend == "audio-cpp" && entry.BuildType == "hipblas" {
+				rocmEntries = append(rocmEntries, entry)
+			}
+		}
+		Expect(rocmEntries).To(ConsistOf(matrixEntry{
+			Backend:   "audio-cpp",
+			BuildType: "hipblas",
+			Platforms: "linux/amd64",
+			TagSuffix: "-gpu-rocm-hipblas-audio-cpp",
+			BaseImage: "rocm/dev-ubuntu-24.04:7.2.1",
+		}))
+	})
+
 	It("ListSystemBackends prefers optimal alias candidate", func() {
 		// Arrange two installed backends sharing the same alias
 		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }

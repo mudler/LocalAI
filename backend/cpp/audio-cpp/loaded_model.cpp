@@ -103,6 +103,9 @@ engine::core::BackendType parse_backend_type(const std::string &value) {
     if (value == "cuda") {
         return engine::core::BackendType::Cuda;
     }
+    if (value == "hip" || value == "rocm") {
+        return engine::core::BackendType::Hip;
+    }
     if (value == "vulkan") {
         return engine::core::BackendType::Vulkan;
     }
@@ -116,7 +119,7 @@ engine::core::BackendType parse_backend_type(const std::string &value) {
         return engine::core::BackendType::Cpu;
     }
     throw ConfigError("audio-cpp: unknown backend option '" + value +
-                      "'. Known backends: cpu, cuda, vulkan, metal, best");
+                      "'. Known backends: cpu, cuda, hip, rocm, vulkan, metal, best");
 }
 
 std::filesystem::path executable_directory() {
