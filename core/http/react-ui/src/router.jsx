@@ -20,9 +20,53 @@ import RequireFeature from './components/RequireFeature'
 // actually navigates. Pages with `key: null` aren't sidebar-reachable; they
 // still code-split, they just won't be preloaded from the nav.
 const preloaders = {}
+
+// A deploy swaps the whole content-hashed asset set at once, so a tab holding
+// an older index.html (or one whose request lands on a replica that hasn't
+// been swapped yet, the normal state during a rolling update) asks for a page
+// chunk the server no longer has. The import rejects and React Router's default
+// error boundary replaces the app with "Unexpected Application Error!" until
+// someone thinks to reload. Reloading is what fixes it, so do it automatically:
+// index.html is served no-cache, so the reload lands on a self-consistent set.
+//
+// The timestamp guard bounds that to one reload per RELOAD_WINDOW_MS. Without
+// it, a chunk that is genuinely gone rather than merely stale would reload the
+// app forever, which is worse than the error screen: it never settles and never
+// says why. The failure isn't narrowed to fetch errors: the message differs per
+// browser and a missed match costs the recovery, while a module that throws
+// while evaluating costs one wasted reload before the error surfaces anyway.
+const RELOAD_KEY = 'localai.chunkReloadedAt'
+const RELOAD_WINDOW_MS = 10_000
+let reloading = false
+
+function claimReload() {
+  try {
+    const last = Number(window.sessionStorage.getItem(RELOAD_KEY)) || 0
+    if (Date.now() - last < RELOAD_WINDOW_MS) return false
+    window.sessionStorage.setItem(RELOAD_KEY, String(Date.now()))
+    return true
+  } catch {
+    // No usable sessionStorage means no way to bound the reloads.
+    return false
+  }
+}
+
 function page(key, loader) {
   if (key !== null) preloaders[key] = loader
-  return lazy(loader)
+  // preloadRoute keeps the raw loader: a hover that fails must stay silent
+  // rather than reload the page out from under the pointer. The click that
+  // follows goes through this wrapper and recovers there.
+  return lazy(() => loader().catch(err => {
+    // A reload is already committing: a second chunk failing in the same
+    // document must wait for it, not throw and flash the error boundary.
+    if (reloading) return new Promise(() => {})
+    if (!claimReload()) throw err
+    reloading = true
+    window.location.reload()
+    // Stay pending. Resolving or rejecting here would flash the error boundary
+    // in the frames before the reload commits.
+    return new Promise(() => {})
+  }))
 }
 
 export function preloadRoute(path) {
