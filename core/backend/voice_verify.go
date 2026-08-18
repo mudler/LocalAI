@@ -30,11 +30,19 @@ func VoiceVerify(
 		return nil, fmt.Errorf("could not load voice recognition model")
 	}
 
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceVoiceVerify, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "voice verification"})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	res, err := voiceModel.VoiceVerify(ctx, &proto.VoiceVerifyRequest{
 		ModelIdentity: modelConfig.Model,
@@ -50,6 +58,7 @@ func VoiceVerify(
 			errStr = err.Error()
 		}
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceVoiceVerify,

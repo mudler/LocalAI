@@ -46,16 +46,24 @@ func (s *localVectorStore) backend(_ context.Context) (grpc.Backend, error) {
 }
 
 func (s *localVectorStore) Search(ctx context.Context, vec []float32) (sim float64, payload []byte, ok bool, err error) {
-	start := time.Now()
 	outcome := "hit"
-	defer func() {
-		s.recordTrace(start, "search", len(vec), sim, outcome, err)
-	}()
 	be, berr := s.backend(ctx)
 	if berr != nil {
 		outcome = "backend_load_error"
-		return 0, nil, false, fmt.Errorf("vector store load: %w", berr)
+		err = fmt.Errorf("vector store load: %w", berr)
+		s.recordTrace("", time.Now(), "search", len(vec), 0, outcome, err)
+		return 0, nil, false, err
 	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return 0, nil, false, err
+	}
+	defer release()
+	start := time.Now()
+	traceID := s.beginTrace(start, "search")
+	defer func() {
+		s.recordTrace(traceID, start, "search", len(vec), sim, outcome, err)
+	}()
 	_, values, similarities, ferr := store.Find(ctx, be, vec, 1)
 	if ferr != nil {
 		outcome = "find_error"
@@ -69,16 +77,24 @@ func (s *localVectorStore) Search(ctx context.Context, vec []float32) (sim float
 }
 
 func (s *localVectorStore) Insert(ctx context.Context, vec []float32, payload []byte) (err error) {
-	start := time.Now()
 	outcome := "ok"
-	defer func() {
-		s.recordTrace(start, "insert", len(vec), 0, outcome, err)
-	}()
 	be, berr := s.backend(ctx)
 	if berr != nil {
 		outcome = "backend_load_error"
-		return fmt.Errorf("vector store load: %w", berr)
+		err = fmt.Errorf("vector store load: %w", berr)
+		s.recordTrace("", time.Now(), "insert", len(vec), 0, outcome, err)
+		return err
 	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return err
+	}
+	defer release()
+	start := time.Now()
+	traceID := s.beginTrace(start, "insert")
+	defer func() {
+		s.recordTrace(traceID, start, "insert", len(vec), 0, outcome, err)
+	}()
 	if serr := store.SetSingle(ctx, be, vec, payload); serr != nil {
 		outcome = "insert_error"
 		return serr
@@ -91,7 +107,15 @@ func (s *localVectorStore) Insert(ctx context.Context, vec []float32, payload []
 // modelName uses the store namespace (e.g. "router-cache-smart-router") so
 // admins can tell which router's cache misbehaved; the backend is always
 // "local-store" and can't disambiguate.
-func (s *localVectorStore) recordTrace(start time.Time, op string, vecDim int, sim float64, outcome string, err error) {
+func (s *localVectorStore) beginTrace(start time.Time, op string) string {
+	if s.appConfig == nil || !s.appConfig.EnableTracing {
+		return ""
+	}
+	trace.InitBackendTracingIfEnabled(s.appConfig.TracingMaxItems, s.appConfig.TracingMaxBodyBytes)
+	return trace.BeginBackendTrace(trace.BackendTrace{Timestamp: start, Type: trace.BackendTraceVectorStore, ModelName: s.storeName, Backend: model.LocalStoreBackend, Summary: op})
+}
+
+func (s *localVectorStore) recordTrace(traceID string, start time.Time, op string, vecDim int, sim float64, outcome string, err error) {
 	if s.appConfig == nil || !s.appConfig.EnableTracing {
 		return
 	}
@@ -115,6 +139,7 @@ func (s *localVectorStore) recordTrace(start time.Time, op string, vecDim int, s
 		data["similarity"] = sim
 	}
 	trace.RecordBackendTrace(trace.BackendTrace{
+		ID:        traceID,
 		Timestamp: start,
 		Duration:  time.Since(start),
 		Type:      trace.BackendTraceVectorStore,

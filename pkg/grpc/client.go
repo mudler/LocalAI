@@ -913,14 +913,76 @@ func (c *Client) Forward(ctx context.Context, opts ...grpc.CallOption) (ForwardC
 	}, nil
 }
 
+// LifecycleStream lets callers attach resource ownership to a stream's true
+// terminal state without wrapping Recv themselves.
+type LifecycleStream interface {
+	Context() context.Context
+	AddCleanup(func())
+}
+
 // AudioTransformStreamClient is the duplex interface returned by
 // (*Client).AudioTransformStream. Wraps the generated bidi client without
 // leaking the proto package across the public boundary.
 type AudioTransformStreamClient interface {
+	LifecycleStream
 	Send(*pb.AudioTransformFrameRequest) error
 	Recv() (*pb.AudioTransformFrameResponse, error)
 	CloseSend() error
-	Context() context.Context
+}
+
+// streamCleanup owns callbacks whose lifetime follows the receive side of a
+// stream. CloseSend is intentionally not terminal: bidi backends may continue
+// producing their response tail after the caller finishes sending.
+type streamCleanup struct {
+	mu        sync.Mutex
+	done      bool
+	doneCh    chan struct{}
+	callbacks []func()
+}
+
+func newStreamCleanup(ctx context.Context, initial func()) *streamCleanup {
+	l := &streamCleanup{doneCh: make(chan struct{})}
+	if initial != nil {
+		l.callbacks = append(l.callbacks, initial)
+	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			l.finish()
+		case <-l.doneCh:
+		}
+	}()
+	return l
+}
+
+func (l *streamCleanup) add(fn func()) {
+	if fn == nil {
+		return
+	}
+	l.mu.Lock()
+	if !l.done {
+		l.callbacks = append(l.callbacks, fn)
+		l.mu.Unlock()
+		return
+	}
+	l.mu.Unlock()
+	fn()
+}
+
+func (l *streamCleanup) finish() {
+	l.mu.Lock()
+	if l.done {
+		l.mu.Unlock()
+		return
+	}
+	l.done = true
+	callbacks := l.callbacks
+	l.callbacks = nil
+	close(l.doneCh)
+	l.mu.Unlock()
+	for _, fn := range callbacks {
+		fn()
+	}
 }
 
 // audioTransformStreamClient is the concrete wrapper. It also owns the
@@ -930,14 +992,15 @@ type AudioTransformStreamClient interface {
 // forwardClient.
 type audioTransformStreamClient struct {
 	pb.Backend_AudioTransformStreamClient
-	closeOnce sync.Once
-	closer    func()
+	lifecycle *streamCleanup
 }
+
+func (s *audioTransformStreamClient) AddCleanup(fn func()) { s.lifecycle.add(fn) }
 
 func (s *audioTransformStreamClient) Recv() (*pb.AudioTransformFrameResponse, error) {
 	resp, err := s.Backend_AudioTransformStreamClient.Recv()
-	if err != nil && s.closer != nil {
-		s.closeOnce.Do(s.closer)
+	if err != nil {
+		s.lifecycle.finish()
 	}
 	return resp, err
 }
@@ -971,10 +1034,10 @@ func (c *Client) AudioTransformStream(ctx context.Context, opts ...grpc.CallOpti
 	}
 	return &audioTransformStreamClient{
 		Backend_AudioTransformStreamClient: stream,
-		closer: func() {
+		lifecycle: newStreamCleanup(ctx, func() {
 			_ = conn.Close()
 			cleanup()
-		},
+		}),
 	}, nil
 }
 

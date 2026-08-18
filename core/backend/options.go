@@ -33,24 +33,38 @@ import (
 // backend's launcher path, which names the variant directory) — that is what
 // identifies WHICH build served the load. A stale installed backend is
 // invisible in the model config but obvious here.
-func ModelLoadTraceObserver(appConfig *config.ApplicationConfig) func(model.BackendLoadEvent) {
-	return func(ev model.BackendLoadEvent) {
-		if ev.Err != nil || !appConfig.EnableTracing {
-			return
+func ModelLoadTraceObserver(appConfig *config.ApplicationConfig) func(model.BackendLoadEvent) (func(model.BackendLoadEvent), error) {
+	return func(ev model.BackendLoadEvent) (func(model.BackendLoadEvent), error) {
+		release, err := AcquireGlobalBackendSlot()
+		if err != nil {
+			return nil, err
+		}
+		if !appConfig.EnableTracing {
+			return func(model.BackendLoadEvent) { release() }, nil
 		}
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
-		trace.RecordBackendTrace(trace.BackendTrace{
-			Timestamp: time.Now(),
-			Duration:  ev.Duration,
-			Type:      trace.BackendTraceModelLoad,
-			ModelName: ev.ModelID,
-			Backend:   ev.Backend,
-			Summary:   "Model loaded",
-			Data: map[string]any{
-				"model_file":      ev.ModelName,
-				"backend_runtime": ev.BackendURI,
-			},
-		})
+		started := time.Now()
+		id := trace.BeginBackendTrace(trace.BackendTrace{Timestamp: started, Type: trace.BackendTraceModelLoad, ModelName: ev.ModelID, Backend: ev.Backend, Summary: "Loading model"})
+		return func(done model.BackendLoadEvent) {
+			defer release()
+			if done.Err != nil {
+				trace.CancelBackendTrace(id)
+				return
+			}
+			trace.RecordBackendTrace(trace.BackendTrace{
+				ID:        id,
+				Timestamp: started,
+				Duration:  done.Duration,
+				Type:      trace.BackendTraceModelLoad,
+				ModelName: done.ModelID,
+				Backend:   done.Backend,
+				Summary:   "Model loaded",
+				Data: map[string]any{
+					"model_file":      done.ModelName,
+					"backend_runtime": done.BackendURI,
+				},
+			})
+		}, nil
 	}
 }
 

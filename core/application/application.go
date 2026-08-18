@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
+	"github.com/mudler/LocalAI/core/trace"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	localaiInproc "github.com/mudler/LocalAI/pkg/mcp/localaitools/inproc"
@@ -119,6 +120,8 @@ func (a *Application) Ready() bool { return a.startupComplete.Load() }
 func (a *Application) markStartupComplete() { a.startupComplete.Store(true) }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
+	corebackend.ConfigureGlobalBackendAdmission(appConfig.MaxConcurrentBackendRequests)
+	trace.ConfigureBackendTraceMaxInFlight(appConfig.MaxConcurrentBackendRequests)
 	ml := model.NewModelLoader(appConfig.SystemState)
 
 	// Apply the per-model load-failure cooldown (0 disables). Set here rather
@@ -134,7 +137,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	// Record a model_load backend trace for every real backend load, so the
 	// Traces UI shows which backend runtime served each model and how long
 	// the load took. Load failures are traced by the modality wrappers.
-	ml.SetLoadObserver(corebackend.ModelLoadTraceObserver(appConfig))
+	ml.SetLoadLifecycleObserver(corebackend.ModelLoadTraceObserver(appConfig))
 
 	app := &Application{
 		backendLoader: config.NewModelConfigLoader(

@@ -94,6 +94,7 @@ type ModelLoader struct {
 	lruEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models
 	onUnloadHooks            []ModelUnloadHook
 	loadObserver             func(BackendLoadEvent)
+	loadLifecycleObserver    func(BackendLoadEvent) (func(BackendLoadEvent), error)
 	remoteUnloader           RemoteModelUnloader
 	modelRouter              ModelRouter // distributed mode: route to remote node
 	backendLogs              *BackendLogStore
@@ -254,6 +255,24 @@ func (ml *ModelLoader) notifyLoadObserver(ev BackendLoadEvent) {
 	if obs != nil {
 		obs(ev)
 	}
+}
+
+// SetLoadLifecycleObserver registers a begin callback whose returned function
+// is invoked when the same real backend load attempt finishes.
+func (ml *ModelLoader) SetLoadLifecycleObserver(obs func(BackendLoadEvent) (func(BackendLoadEvent), error)) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.loadLifecycleObserver = obs
+}
+
+func (ml *ModelLoader) notifyLoadStarted(ev BackendLoadEvent) (func(BackendLoadEvent), error) {
+	ml.mu.Lock()
+	obs := ml.loadLifecycleObserver
+	ml.mu.Unlock()
+	if obs == nil {
+		return nil, nil
+	}
+	return obs(ev)
 }
 
 // SetRemoteUnloader sets the handler for unloading models on remote nodes.

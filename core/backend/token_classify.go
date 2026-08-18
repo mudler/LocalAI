@@ -81,11 +81,19 @@ func ModelTokenClassify(text string, opts TokenClassifyOptions, loader *model.Mo
 		return nil, err
 	}
 	return func(ctx context.Context) ([]TokenEntity, error) {
+		release, err := AcquireGlobalBackendSlot()
+		if err != nil {
+			return nil, err
+		}
+		defer release()
 		var startTime time.Time
+		var traceID string
 		if appConfig.EnableTracing {
 			trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 			startTime = time.Now()
+			traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTokenClassify, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(text, 200)})
 		}
+		defer trace.CancelBackendTrace(traceID)
 		resp, err := inferenceModel.TokenClassify(ctx, &pb.TokenClassifyRequest{
 			ModelIdentity: modelConfig.Model,
 			Text:          text,
@@ -93,7 +101,9 @@ func ModelTokenClassify(text string, opts TokenClassifyOptions, loader *model.Mo
 		})
 		entities := tokenClassifyResponseToEntities(resp)
 		if appConfig.EnableTracing {
-			trace.RecordBackendTrace(tokenClassifyTrace(modelConfig, text, opts.Threshold, entities, startTime, err))
+			bt := tokenClassifyTrace(modelConfig, text, opts.Threshold, entities, startTime, err)
+			bt.ID = traceID
+			trace.RecordBackendTrace(bt)
 		}
 		if err != nil {
 			return nil, err

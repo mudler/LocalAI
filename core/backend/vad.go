@@ -28,6 +28,11 @@ func VAD(request *schema.VADRequest,
 		ModelIdentity: modelConfig.Model,
 		Audio:         request.Audio,
 	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	resp, err := vadModel.VAD(ctx, &req)
 	if err != nil {
 		return nil, err

@@ -101,11 +101,23 @@ func SoundGeneration(
 		req.Instrumental = instrumental
 	}
 
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return "", nil, err
+	}
+	defer release()
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		summary := trace.TruncateString(text, 200)
+		if summary == "" && caption != "" {
+			summary = trace.TruncateString(caption, 200)
+		}
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceSoundGeneration, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: summary})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	res, err := soundGenModel.SoundGeneration(ctx, req)
 
@@ -135,6 +147,7 @@ func SoundGeneration(
 		}
 
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceSoundGeneration,
