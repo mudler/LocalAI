@@ -1,27 +1,23 @@
 #!/bin/bash
-# SPDX-License-Identifier: MIT
 set -euo pipefail
 
-backend_dir=$(cd "$(dirname "$0")" && pwd)
-work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
+WORK_DIR=$(mktemp -d)
+trap 'rm -rf "$WORK_DIR"' EXIT
 
-mkdir -p "$work/backend/common" "$work/backend/fish-speech-src"
-cp "$backend_dir/run.sh" "$work/backend/run.sh"
+mkdir -p "$WORK_DIR/runtime/common" "$WORK_DIR/runtime/fish-speech-src/fish_speech"
+cp "$SCRIPT_DIR/run.sh" "$WORK_DIR/runtime/run.sh"
 
-cat > "$work/backend/common/libbackend.sh" <<'EOF'
-EDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cat > "$WORK_DIR/runtime/fish-speech-src/fish_speech/inference_engine.py" <<'PY'
+IMPORT_OK = True
+PY
+
+cat > "$WORK_DIR/runtime/common/libbackend.sh" <<'SH'
 startBackend() {
-    printf '%s\n' "$PYTHONPATH"
+    python3 -c 'from fish_speech.inference_engine import IMPORT_OK; assert IMPORT_OK'
 }
-EOF
+SH
 
-actual=$(PYTHONPATH=/existing/path bash "$work/backend/run.sh")
-expected="$work/backend/fish-speech-src:/existing/path"
+bash "$WORK_DIR/runtime/run.sh"
 
-if [ "$actual" != "$expected" ]; then
-    printf 'expected PYTHONPATH %s, got %s\n' "$expected" "$actual" >&2
-    exit 1
-fi
-
-echo "PASS: relocated fish-speech source is importable"
+echo "PASS: runtime launcher imports relocated fish-speech source"
