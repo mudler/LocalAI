@@ -2565,6 +2565,7 @@ public:
     grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) {
         auto identity = checkModelIdentity(request);
         if (!identity.ok()) return identity;
+        embeddingResult->set_layout(backend::EMBEDDING_LAYOUT_FINAL);
         json data = parse_options(false, request, llama);
         const int task_id = llama.queue_tasks.get_new_id();
         llama.queue_results.add_waiting_task_id(task_id);

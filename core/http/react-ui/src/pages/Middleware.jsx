@@ -461,7 +461,9 @@ function DecisionDetail({ d }) {
       <div className="text-meta text-italic">
         {d.cached
           ? 'Cached decision — per-label scores not recorded (the cache stores only the resulting label set).'
-          : 'No per-label scores recorded for this decision (likely a fallback row).'}
+          : d.nearest_similarity
+            ? `Out-of-corpus fallback — the nearest labelled corpus entry was at similarity ${d.nearest_similarity.toFixed(2)}, below the router's gate. Seed exemplars near this kind of prompt to route it.`
+            : 'No per-label scores recorded for this decision (likely a fallback row).'}
       </div>
     )
   }
@@ -559,7 +561,7 @@ function RoutingTab({ status, decisions }) {
                 <th className="w-160">Model</th>
                 <th className="col-w-110">Classifier</th>
                 <th>Candidates</th>
-                <th className="col-w-200">Embedding cache</th>
+                <th className="col-w-200">Cache / corpus</th>
                 <th className="col-w-140">Fallback</th>
               </tr>
             </thead>
@@ -580,7 +582,7 @@ function RoutingTab({ status, decisions }) {
                     ))}
                   </td>
                   <td className="text-xs">
-                    <RouterCacheCell cache={m.embedding_cache} />
+                    {m.knn ? <RouterKNNCell knn={m.knn} /> : <RouterCacheCell cache={m.embedding_cache} />}
                   </td>
                   <td className="text-mono text-meta">
                     {m.fallback || '—'}
@@ -1040,6 +1042,47 @@ function EventsTab({ events }) {
 // for configured caches, shows hit/miss/near-miss counters plus a
 // similarity histogram with a marker at the configured threshold so
 // admins can tell at a glance whether the threshold is well-placed.
+// RouterKNNCell summarises a knn router's corpus for the Active
+// routers table: embedding model, corpus size, per-label exemplar
+// counts, and the epistemic-gate threshold. Counts only — corpus
+// texts never reach the UI (the status endpoint doesn't send them,
+// by design; seeding/curation is API-only).
+function RouterKNNCell({ knn }) {
+  if (!knn) {
+    return <span className="text-muted">—</span>
+  }
+  const corpus = knn.corpus || {}
+  const total = corpus.total || 0
+  const counts = corpus.label_counts || {}
+  const k = knn.k || 3
+  const sim = knn.similarity_threshold || 0.80
+  return (
+    <div className="mw-knn">
+      <div className="mw-knn__model">{knn.embedding_model}</div>
+      <div className="mw-knn__meta">
+        {total === 0 ? (
+          <span title="Seed labelled example prompts via POST /api/router/{name}/corpus — every request falls back until the corpus has entries near it">
+            empty corpus — seed via API
+          </span>
+        ) : (
+          <span title={`${total} labelled exemplars; ${k} nearest vote; entries below similarity ${sim} cannot vote (out-of-corpus prompts use the fallback)`}>
+            {total} exemplars · k={k} · sim ≥ {sim}
+          </span>
+        )}
+      </div>
+      {total > 0 && (
+        <div className="mw-knn__labels">
+          {Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([label, n]) => (
+            <span key={label}>
+              <span className="mw-knn__label">{label}</span>: {n}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function RouterCacheCell({ cache }) {
   if (!cache) {
     return <span className="text-muted">—</span>

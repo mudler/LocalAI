@@ -526,6 +526,7 @@ jobs:
       - name: Build llama-cpp backend image and run gRPC e2e tests
         run: |
           make test-extra-backend-llama-cpp
+          make test-extra-backend-llama-cpp-embeddings
   tests-llama-cpp-grpc-transcription:
     needs: detect-changes
     if: needs.detect-changes.outputs.llama-cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'

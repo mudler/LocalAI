@@ -65,6 +65,12 @@ jobs:
       - name: Test (with coverage gate)
         run: |
           PATH="$PATH:/root/go/bin" make --jobs 5 --output-sync=target test-coverage-check
+      # tests/integration is outside the coverage roots because its store specs
+      # need a live backend. test-stores builds and installs local-store before
+      # running the complete suite, so new local-store specs are collected
+      # automatically without adding another workflow entry.
+      - name: Test local-store integration
+        run: PATH="$PATH:$HOME/go/bin" make test-stores
       - name: Upload coverage report
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
