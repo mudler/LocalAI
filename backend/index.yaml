@@ -150,6 +150,7 @@
     - audio-transcription
     - CPU
     - CUDA
+    - HIP
     - Metal
   # No vulkan key: the vulkan image would carry a Vulkan loader with no Mesa ICD
   # (see the audio-cpp block in .github/backend-matrix.yml). Pointing a
@@ -161,6 +162,7 @@
     nvidia: "cuda12-audio-cpp"
     nvidia-cuda-12: "cuda12-audio-cpp"
     nvidia-cuda-13: "cuda13-audio-cpp"
+    amd: "rocm-audio-cpp"
     metal: "metal-audio-cpp"
     metal-darwin-arm64: "metal-audio-cpp"
 - &whispercpp
@@ -2101,6 +2103,7 @@
     nvidia: "cuda12-audio-cpp-development"
     nvidia-cuda-12: "cuda12-audio-cpp-development"
     nvidia-cuda-13: "cuda13-audio-cpp-development"
+    amd: "rocm-audio-cpp-development"
     metal: "metal-audio-cpp-development"
     metal-darwin-arm64: "metal-audio-cpp-development"
 - !!merge <<: *stablediffusionggml
@@ -7044,6 +7047,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-audio-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-audio-cpp
+- !!merge <<: *audiocpp
+  name: "rocm-audio-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-audio-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-audio-cpp
+- !!merge <<: *audiocpp
+  name: "rocm-audio-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-audio-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-audio-cpp
 - !!merge <<: *audiocpp
   name: "metal-audio-cpp"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-audio-cpp"
