@@ -25,6 +25,7 @@ enum class Task {
     VoiceDesign,
     SpeakerRecognition,
     Svc,
+    Midi,
 };
 
 // Mirrors engine::runtime::RunMode.
