@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -27,6 +28,7 @@ type transcriptStreamer struct {
 	responseID string
 	itemID     string
 	extractor  *reasoning.ReasoningExtractor
+	transcript strings.Builder
 
 	// announce, if set, is invoked once just before the first transcript delta.
 	// It lets the caller create the assistant item lazily, so a content-less
@@ -52,10 +54,19 @@ func newTranscriptStreamer(ctx context.Context, t Transport, responseID, itemID,
 // the text and delivers content via ChatDeltas, so the caller passes that
 // content here. Returns "" when the token produced no new spoken content.
 func (s *transcriptStreamer) onToken(token string) string {
+	return s.emitText(s.cleanToken(token))
+}
+
+func (s *transcriptStreamer) cleanToken(token string) string {
 	_, content := s.extractor.ProcessToken(token)
+	return content
+}
+
+func (s *transcriptStreamer) emitText(content string) string {
 	if content == "" {
 		return ""
 	}
+	s.transcript.WriteString(content)
 	if !s.announced {
 		s.announced = true
 		if s.announce != nil {
@@ -75,7 +86,7 @@ func (s *transcriptStreamer) onToken(token string) string {
 
 // content returns the full transcript so far with reasoning stripped.
 func (s *transcriptStreamer) content() string {
-	return s.extractor.CleanedContent()
+	return s.transcript.String()
 }
 
 // streamLLMResponse drives a streamed realtime reply. It streams the assistant
@@ -160,6 +171,11 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 
 	streamer := newTranscriptStreamer(ctx, t, responseID, itemID, thinkingStartToken, reasoningCfg)
 	streamer.announce = announce
+	deliveryEnabled := session.ModelConfig != nil && session.ModelConfig.Pipeline.SpeechDeliveryEnabled()
+	var envelopeParser *speechEnvelopeParser
+	if deliveryEnabled {
+		envelopeParser = &speechEnvelopeParser{}
+	}
 
 	// Clause chunking (opt-in): synthesize each clause as soon as it completes
 	// instead of buffering the whole reply. Synthesis runs on a worker goroutine
@@ -171,14 +187,17 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	// and the transcript stream keep flowing while audio is produced behind them.
 	var chunker *clauseChunker
 	var ttsPipe *ttsPipeline
-	if session.ModelConfig != nil && session.ModelConfig.Pipeline.ChunkClauses() {
-		chunker = newClauseChunker(defaultClauseMinRunes, defaultClauseMaxRunes)
-		ttsPipe = newTTSPipeline(func(clause string) ([]byte, error) {
-			return emitSpeech(ctx, t, session, responseID, itemID, clause)
+	if deliveryEnabled || (session.ModelConfig != nil && session.ModelConfig.Pipeline.ChunkClauses()) {
+		if !deliveryEnabled {
+			chunker = newClauseChunker(defaultClauseMinRunes, defaultClauseMaxRunes)
+		}
+		ttsPipe = newTTSPipeline(func(segment speechSegment) ([]byte, error) {
+			return emitSpeechWithInstructions(ctx, t, session, responseID, itemID, segment.Text, segment.Instructions)
 		})
 	}
 	var streamedAudio []byte
 	var ttsErr error
+	var envelopeErr error
 
 	// Backstop: always join the TTS worker, even on an unexpected early return.
 	// wait() is idempotent, so the explicit drain below (which captures the
@@ -203,8 +222,22 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		return true
 	}
 
+	enqueueDeliveryClauses := func(clauses []speechClause) bool {
+		for _, clause := range clauses {
+			delta := speechTranscriptDelta(streamer.content(), clause.Text)
+			streamer.emitText(delta)
+			if !ttsPipe.enqueue(speechSegment{
+				Text:         clause.Text,
+				Instructions: renderSpeechInstructions(clause.Delivery),
+			}) {
+				return false
+			}
+		}
+		return true
+	}
+
 	cb := func(token string, usage backend.TokenUsage) bool {
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || envelopeErr != nil {
 			return false
 		}
 		// Plain-content models stream text via the token; autoparser tool turns
@@ -215,14 +248,23 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		if len(usage.ChatDeltas) > 0 {
 			text = functions.ContentFromChatDeltas(usage.ChatDeltas)
 		}
-		delta := streamer.onToken(text)
+		cleaned := streamer.cleanToken(text)
+		if envelopeParser != nil {
+			var clauses []speechClause
+			clauses, envelopeErr = envelopeParser.push(cleaned)
+			if envelopeErr != nil {
+				return false
+			}
+			return enqueueDeliveryClauses(clauses)
+		}
+		delta := streamer.emitText(cleaned)
 		if chunker != nil && delta != "" {
 			for _, clause := range chunker.push(delta) {
 				// Hand the clause to the worker and keep going — never block the
 				// recv loop on synthesis. A false return means a prior clause
 				// already failed; stop the prediction (the error is collected
 				// from the pipeline after predFunc returns).
-				if !ttsPipe.enqueue(clause) {
+				if !ttsPipe.enqueue(speechSegment{Text: clause}) {
 					return false
 				}
 			}
@@ -237,15 +279,22 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		return true
 	}
 	pred, err := predFunc()
+	if envelopeParser != nil && err == nil && ctx.Err() == nil && envelopeErr == nil {
+		var clauses []speechClause
+		clauses, envelopeErr = envelopeParser.flush()
+		if envelopeErr == nil {
+			enqueueDeliveryClauses(clauses)
+		}
+	}
 
 	// Drain the TTS worker. On a clean finish, enqueue the trailing clause(s) the
 	// chunker was still holding; on an error or barge-in, stop synthesizing.
 	// wait() runs on every path so the worker goroutine never leaks, and it
 	// returns the audio streamed so far plus the first synthesis failure.
 	if ttsPipe != nil {
-		if err == nil && ctx.Err() == nil {
+		if err == nil && ctx.Err() == nil && envelopeErr == nil && chunker != nil {
 			for _, clause := range chunker.flush() {
-				if !ttsPipe.enqueue(clause) {
+				if !ttsPipe.enqueue(speechSegment{Text: clause}) {
 					break
 				}
 			}
@@ -257,6 +306,9 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 	// report it as a TTS error rather than a prediction error.
 	if ttsErr != nil {
 		return fail("tts_error", "TTS generation failed", ttsErr)
+	}
+	if envelopeErr != nil {
+		return fail("invalid_speech_delivery", "LLM returned an invalid speech delivery envelope", envelopeErr)
 	}
 	if err != nil {
 		return fail("prediction_failed", "backend error", err)
@@ -286,7 +338,7 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		// synthesize it once now — emitSpeech streams the audio chunks when the
 		// TTS backend supports TTSStream, otherwise it sends a single unary delta.
 		var audio []byte
-		if chunker != nil {
+		if ttsPipe != nil {
 			audio = streamedAudio
 		} else {
 			audio, ttsErr = emitSpeech(ctx, t, session, responseID, itemID, content)

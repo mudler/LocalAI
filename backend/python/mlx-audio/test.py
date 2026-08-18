@@ -418,6 +418,24 @@ class MLXAudioRuntimeTests(unittest.TestCase):
             }],
         )
 
+    def test_tts_forwards_delivery_instructions_to_custom_voice(self):
+        self.load("tts")
+        destination = self.root / "instructed.wav"
+
+        self.runtime.synthesize(
+            "hello",
+            "Ryan",
+            "English",
+            str(destination),
+            instructions="Convey relief. Speak slowly.",
+        )
+
+        self.assertEqual(
+            self.models["tts"].calls[-1]["instruct"],
+            "Convey relief. Speak slowly.",
+        )
+        self.assertTrue(destination.is_file())
+
     def test_unary_tts_closes_results_and_clears_cache(self):
         results = ClosingResults(
             [SimpleNamespace(audio=[0.25, -0.25], sample_rate=24000)]
@@ -483,6 +501,22 @@ class MLXAudioRuntimeTests(unittest.TestCase):
         self.assertEqual(list(self.root.glob("*.wav")), [])
         self.assertEqual(list(stream), [struct.pack("<h", -8191)])
 
+    def test_stream_forwards_delivery_instructions_to_custom_voice(self):
+        self.load("tts")
+        stream = self.runtime.synthesize_stream(
+            "hello",
+            "Ryan",
+            "English",
+            instructions="Convey amusement. Use high expressiveness.",
+        )
+
+        self.assertTrue(next(stream))
+        stream.close()
+        self.assertEqual(
+            self.models["tts"].calls[-1]["instruct"],
+            "Convey amusement. Use high expressiveness.",
+        )
+
     def test_stream_cancellation_before_and_after_results_closes_generator(self):
         results = ClosingResults([
             SimpleNamespace(audio=[0.25], sample_rate=24000),
@@ -543,7 +577,13 @@ class MLXAudioRuntimeTests(unittest.TestCase):
         ]
         self.load("tts")
         context = FakeStreamContext()
-        request = SimpleNamespace(text="hello", voice="Ryan", language="English", params={})
+        request = SimpleNamespace(
+            text="hello",
+            voice="Ryan",
+            language="English",
+            params={},
+            instructions="Convey relief.",
+        )
 
         replies = list(backend_module.BackendServicer(self.runtime).TTSStream(request, context))
 
@@ -553,6 +593,7 @@ class MLXAudioRuntimeTests(unittest.TestCase):
         self.assertEqual([reply.audio for reply in replies[1:]], [
             struct.pack("<h", 8191), struct.pack("<h", -8191),
         ])
+        self.assertEqual(self.models["tts"].calls[-1]["instruct"], "Convey relief.")
         self.assertIsNone(context.code)
 
     def test_tts_stream_uses_typed_cancellation_without_error_frames(self):

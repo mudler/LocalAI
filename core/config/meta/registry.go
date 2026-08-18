@@ -426,6 +426,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       69,
 		},
+		"pipeline.speech_delivery.enabled": {
+			Section:     "pipeline",
+			Label:       "LLM Speech Delivery",
+			Description: "Ask the streamed pipeline LLM for private per-clause delivery metadata (emotion, style, speed, pitch, expressiveness), expose only spoken text to Realtime clients, and forward validated controls to expressive TTS backends. Requires Stream LLM; off by default.",
+			Component:   "toggle",
+			Order:       69,
+		},
 		"pipeline.voice_recognition.model": {
 			Section:              "pipeline",
 			Label:                "Voice Recognition Model",

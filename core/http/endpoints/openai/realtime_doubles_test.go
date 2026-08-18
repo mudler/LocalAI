@@ -99,6 +99,7 @@ type fakeModel struct {
 	ttsStreamRate   int
 	ttsStreamErr    error
 	ttsStreamAfter  func(int)
+	ttsInstructions []string
 
 	transcribeDeltas []string
 	transcribeFinal  *schema.TranscriptionResult
@@ -236,11 +237,13 @@ func (m *fakeModel) Predict(_ context.Context, msgs schema.Messages, _, _, _ []s
 	}, nil
 }
 
-func (m *fakeModel) TTS(context.Context, string, string, string) (string, *proto.Result, error) {
+func (m *fakeModel) TTS(_ context.Context, _, _, _, instructions string) (string, *proto.Result, error) {
+	m.ttsInstructions = append(m.ttsInstructions, instructions)
 	return m.ttsFile, &proto.Result{Success: true}, nil
 }
 
-func (m *fakeModel) TTSStream(_ context.Context, _, _, _ string, onAudio func(pcm []byte, sampleRate int) error) error {
+func (m *fakeModel) TTSStream(_ context.Context, _, _, _, instructions string, onAudio func(pcm []byte, sampleRate int) error) error {
+	m.ttsInstructions = append(m.ttsInstructions, instructions)
 	if m.ttsStreamErr != nil {
 		return m.ttsStreamErr
 	}

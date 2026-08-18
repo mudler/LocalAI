@@ -131,11 +131,11 @@ func (m *transcriptOnlyModel) FillToolArguments(ctx context.Context, messages sc
 func (m *transcriptOnlyModel) PrewarmClassifier(ctx context.Context, options []types.ClassifierOption, normalization string) {
 }
 
-func (m *transcriptOnlyModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
+func (m *transcriptOnlyModel) TTS(ctx context.Context, text, voice, language, instructions string) (string, *proto.Result, error) {
 	return "", nil, fmt.Errorf("TTS not supported in transcript-only mode")
 }
 
-func (m *transcriptOnlyModel) TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
+func (m *transcriptOnlyModel) TTSStream(ctx context.Context, text, voice, language, instructions string, onAudio func(pcm []byte, sampleRate int) error) error {
 	return fmt.Errorf("TTS not supported in transcript-only mode")
 }
 
@@ -390,12 +390,12 @@ func newRealtimeDecisionID() string {
 	return "rd_" + hex.EncodeToString(b[:])
 }
 
-func (m *wrappedModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
-	return backend.ModelTTS(ctx, text, voice, language, "", nil, m.modelLoader, m.appConfig, *m.TTSConfig)
+func (m *wrappedModel) TTS(ctx context.Context, text, voice, language, instructions string) (string, *proto.Result, error) {
+	return backend.ModelTTS(ctx, text, voice, language, instructions, nil, m.modelLoader, m.appConfig, *m.TTSConfig)
 }
 
-func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
-	return ttsStream(ctx, m.modelLoader, m.appConfig, *m.TTSConfig, text, voice, language, onAudio)
+func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language, instructions string, onAudio func(pcm []byte, sampleRate int) error) error {
+	return ttsStream(ctx, m.modelLoader, m.appConfig, *m.TTSConfig, text, voice, language, instructions, onAudio)
 }
 
 func (m *wrappedModel) TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
@@ -674,11 +674,11 @@ const wavStreamHeaderBytes = 44
 // callback, which wants raw PCM plus the sample rate. The header is buffered
 // until complete, the sample rate is read from it, and subsequent bytes are
 // forwarded as PCM.
-func ttsStream(ctx context.Context, ml *model.ModelLoader, appConfig *config.ApplicationConfig, ttsConfig config.ModelConfig, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
+func ttsStream(ctx context.Context, ml *model.ModelLoader, appConfig *config.ApplicationConfig, ttsConfig config.ModelConfig, text, voice, language, instructions string, onAudio func(pcm []byte, sampleRate int) error) error {
 	var header []byte
 	headerDone := false
 	sampleRate := 0
-	return backend.ModelTTSStream(ctx, text, voice, language, "", nil, ml, appConfig, ttsConfig, func(b []byte) error {
+	return backend.ModelTTSStream(ctx, text, voice, language, instructions, nil, ml, appConfig, ttsConfig, func(b []byte) error {
 		if headerDone {
 			if len(b) == 0 {
 				return nil

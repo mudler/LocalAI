@@ -24,10 +24,10 @@ import (
 // and the transcript streams to the client at generation speed while audio is
 // produced behind it.
 type ttsPipeline struct {
-	speak func(clause string) ([]byte, error)
+	speak func(segment speechSegment) ([]byte, error)
 
 	mu    sync.Mutex
-	queue []string
+	queue []speechSegment
 	wake  chan struct{} // buffered(1) wakeup signal for the worker
 
 	// coord owns the open->closing->closed lifecycle (machine M5). It replaces the
@@ -44,10 +44,15 @@ type ttsPipeline struct {
 	firstErr error
 }
 
+type speechSegment struct {
+	Text         string
+	Instructions string
+}
+
 // newTTSPipeline starts the worker. speak performs the actual synthesis and
 // returns the PCM accumulated for the conversation-item record (empty for
 // transports that stream audio out-of-band, e.g. WebRTC).
-func newTTSPipeline(speak func(clause string) ([]byte, error)) *ttsPipeline {
+func newTTSPipeline(speak func(segment speechSegment) ([]byte, error)) *ttsPipeline {
 	p := &ttsPipeline{
 		speak: speak,
 		wake:  make(chan struct{}, 1),
@@ -89,7 +94,7 @@ func (p *ttsPipeline) run() {
 			_ = p.coord.Apply(ttscoord.WorkerExited{})
 			return
 		}
-		clause := p.queue[0]
+		segment := p.queue[0]
 		p.queue = p.queue[1:]
 		p.mu.Unlock()
 
@@ -98,7 +103,7 @@ func (p *ttsPipeline) run() {
 		if p.failed.Load() {
 			continue
 		}
-		a, err := p.speak(clause)
+		a, err := p.speak(segment)
 		if err != nil {
 			p.firstErr = err
 			p.failed.Store(true)
@@ -110,7 +115,7 @@ func (p *ttsPipeline) run() {
 
 // enqueue offers a clause for synthesis. It never blocks; it returns false once
 // synthesis has failed, signalling the caller to stop the prediction.
-func (p *ttsPipeline) enqueue(clause string) bool {
+func (p *ttsPipeline) enqueue(segment speechSegment) bool {
 	if p.failed.Load() {
 		return false
 	}
@@ -123,7 +128,7 @@ func (p *ttsPipeline) enqueue(clause string) bool {
 		p.mu.Unlock()
 		return false
 	}
-	p.queue = append(p.queue, clause)
+	p.queue = append(p.queue, segment)
 	p.mu.Unlock()
 	p.signal()
 	return true

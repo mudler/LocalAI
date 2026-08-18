@@ -402,7 +402,16 @@ class MLXAudioRuntime:
                 raise BackendFailure("INTERNAL", "MLX-Audio transcription returned empty text")
             return text.strip(), normalized_language
 
-    def synthesize(self, text, voice, language, destination, params=None, cancelled=None):
+    def synthesize(
+        self,
+        text,
+        voice,
+        language,
+        destination,
+        params=None,
+        cancelled=None,
+        instructions=None,
+    ):
         with self._state_lock:
             self._require_role("tts")
             if not isinstance(text, str) or not text.strip():
@@ -412,6 +421,8 @@ class MLXAudioRuntime:
             normalized_language = normalize_language(language)
             speaker = normalize_voice(voice, normalized_language)
             generation_options = self._tts_options(params)
+            if instructions:
+                generation_options["instruct"] = instructions
             output = Path(destination)
             results = None
             audio_segments = []
@@ -463,7 +474,15 @@ class MLXAudioRuntime:
             # LocalAI owns the successful staged file and removes it after reading.
             return str(output)
 
-    def synthesize_stream(self, text, voice, language, params=None, cancelled=None):
+    def synthesize_stream(
+        self,
+        text,
+        voice,
+        language,
+        params=None,
+        cancelled=None,
+        instructions=None,
+    ):
         """Yield validated PCM16LE chunks without staging a WAV file."""
         results = None
         with self._state_lock:
@@ -473,6 +492,8 @@ class MLXAudioRuntime:
             normalized_language = normalize_language(language)
             speaker = normalize_voice(voice, normalized_language)
             generation_options = self._tts_options(params)
+            if instructions:
+                generation_options["instruct"] = instructions
             try:
                 results = self.model.generate_custom_voice(
                     text=text,

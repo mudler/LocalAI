@@ -25,6 +25,10 @@ import (
 // chunks, which the caller base64-encodes onto the conversation item. For WebRTC
 // the audio goes over the RTP track instead, so the returned slice is empty.
 func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, itemID, text string) ([]byte, error) {
+	return emitSpeechWithInstructions(ctx, t, session, responseID, itemID, text, "")
+}
+
+func emitSpeechWithInstructions(ctx context.Context, t Transport, session *Session, responseID, itemID, text, instructions string) ([]byte, error) {
 	if text == "" {
 		return nil, nil
 	}
@@ -75,14 +79,14 @@ func emitSpeech(ctx context.Context, t Transport, session *Session, responseID, 
 	}
 
 	if session.ModelConfig != nil && session.ModelConfig.Pipeline.StreamTTS() {
-		if err := session.ModelInterface.TTSStream(ctx, text, session.Voice, language, sendChunk); err != nil {
+		if err := session.ModelInterface.TTSStream(ctx, text, session.Voice, language, instructions, sendChunk); err != nil {
 			return nil, err
 		}
 		return wsAudio, nil
 	}
 
 	// Unary fallback: synthesize the whole utterance to a file, then emit once.
-	audioFilePath, res, err := session.ModelInterface.TTS(ctx, text, session.Voice, language)
+	audioFilePath, res, err := session.ModelInterface.TTS(ctx, text, session.Voice, language, instructions)
 	if err != nil {
 		return nil, err
 	}

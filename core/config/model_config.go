@@ -650,6 +650,12 @@ type Pipeline struct {
 	// unary path, so existing configs are unaffected.
 	Streaming PipelineStreaming `yaml:"streaming,omitempty" json:"streaming,omitempty"`
 
+	// SpeechDelivery asks the pipeline LLM to return one private, structured
+	// speech envelope per clause. Realtime exposes only each envelope's text to
+	// clients and forwards its validated delivery controls to expressive TTS
+	// backends as natural-language instructions. Nil means disabled.
+	SpeechDelivery *PipelineSpeechDelivery `yaml:"speech_delivery,omitempty" json:"speech_delivery,omitempty"`
+
 	// DisableThinking suppresses reasoning/thinking for the pipeline LLM (maps
 	// to enable_thinking=false backend metadata) without editing the underlying
 	// LLM model config. Unset leaves the LLM model config in charge.
@@ -699,6 +705,13 @@ type Pipeline struct {
 	// load errors surface on first use instead (e.g. to keep idle sessions from
 	// holding model memory they may never use).
 	DisableWarmup bool `yaml:"disable_warmup,omitempty" json:"disable_warmup,omitempty"`
+}
+
+// PipelineSpeechDelivery configures LLM-selected delivery controls for streamed
+// Realtime speech. The wire transcript remains ordinary spoken text; the
+// envelope is an internal contract between the pipeline LLM and TTS stage.
+type PipelineSpeechDelivery struct {
+	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
 }
 
 // PipelineClassifier is the YAML mirror of the realtime API's
@@ -870,6 +883,12 @@ func (p Pipeline) StreamTranscription() bool {
 // script-aware clauses and synthesized incrementally rather than buffered whole.
 func (p Pipeline) ChunkClauses() bool {
 	return p.Streaming.ClauseChunking != nil && *p.Streaming.ClauseChunking
+}
+
+// SpeechDeliveryEnabled reports whether streamed LLM output should use private
+// speech envelopes carrying per-clause TTS delivery controls.
+func (p Pipeline) SpeechDeliveryEnabled() bool {
+	return p.SpeechDelivery != nil && p.SpeechDelivery.Enabled
 }
 
 // ThinkingDisabled reports whether the pipeline forces the LLM's thinking off.

@@ -17,6 +17,7 @@ var _ = Describe("Pipeline streaming config", func() {
 		Expect(p.StreamTTS()).To(BeFalse())
 		Expect(p.StreamTranscription()).To(BeFalse())
 		Expect(p.ChunkClauses()).To(BeFalse())
+		Expect(p.SpeechDeliveryEnabled()).To(BeFalse())
 		Expect(p.ThinkingDisabled()).To(BeFalse())
 	})
 
@@ -33,6 +34,8 @@ pipeline:
     tts: true
     transcription: true
     clause_chunking: true
+  speech_delivery:
+    enabled: true
   disable_thinking: true
 `), &c)
 		Expect(err).ToNot(HaveOccurred())
@@ -40,6 +43,7 @@ pipeline:
 		Expect(c.Pipeline.StreamTTS()).To(BeTrue())
 		Expect(c.Pipeline.StreamTranscription()).To(BeTrue())
 		Expect(c.Pipeline.ChunkClauses()).To(BeTrue())
+		Expect(c.Pipeline.SpeechDeliveryEnabled()).To(BeTrue())
 		Expect(c.Pipeline.ThinkingDisabled()).To(BeTrue())
 	})
 

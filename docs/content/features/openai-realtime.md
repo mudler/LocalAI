@@ -100,10 +100,13 @@ pipeline:
   # Keep the qualified remote model from spending the spoken-response budget
   # on hidden reasoning before it emits text.
   reasoning_effort: none
+  # Let the LLM select bounded per-clause delivery controls. LocalAI keeps the
+  # private JSON envelope out of Realtime transcripts and conversation history.
+  speech_delivery:
+    enabled: true
   streaming:
     llm: true
     tts: true
-    clause_chunking: true
 ```
 
 This pinned MLX-Audio profile exposes `Ryan`, `Sohee`, and `Ono_Anna`. Each
@@ -117,7 +120,31 @@ and transcription language in the Talk session settings before connecting.
 
 Bind LocalAI to loopback for this topology and connect the native client to `ws://127.0.0.1:8080/v1/realtime?model=private-apple-voice`. This profile is Darwin/arm64-specific; installing the backend or downloading the three model snapshots is a separate, networked operation.
 
-Start this private runtime with `--load-to-memory=mlx-vad,mlx-asr,mlx-tts,remote-voice-llm`. LocalAI loads that list sequentially, which removes the first-turn MLX load delay without the pipeline warm-up's concurrent VAD, ASR, and TTS loads. The three streaming switches let synthesis start at the first completed clause and forward each MLX-Audio PCM chunk immediately.
+Start this private runtime with `--load-to-memory=mlx-vad,mlx-asr,mlx-tts,remote-voice-llm`. LocalAI loads that list sequentially, which removes the first-turn MLX load delay without the pipeline warm-up's concurrent VAD, ASR, and TTS loads. Speech-delivery envelopes let synthesis start at the first completed clause, while TTS streaming forwards each MLX-Audio PCM chunk immediately.
+
+With `pipeline.speech_delivery.enabled`, LocalAI appends a private output
+contract to the effective LLM system instructions for streamed audio responses.
+The application-provided `session.instructions` value is not modified or echoed
+with that contract. The LLM returns one newline-delimited JSON object per spoken
+clause containing `text` plus optional `emotion`, `style`, `speed`, `pitch`, and
+`expressiveness` controls. LocalAI emits only `text` through Realtime transcript
+events and conversation history, validates every control, renders the controls
+as a natural-language TTS instruction, and starts synthesis as soon as that
+clause object is complete. The envelope becomes the clause boundary, so
+punctuation-based `clause_chunking` is bypassed while speech delivery is active.
+
+The emotion vocabulary is `elation`, `amusement`, `enthusiasm`,
+`determination`, `pride`, `contentment`, `affection`, `relief`, `contemplation`,
+`confusion`, `surprise`, `awe`, `longing`, `arousal`, `anger`, `fear`, `disgust`,
+`bitterness`, `sadness`, `shame`, and `helplessness`. An omitted emotion means
+neutral delivery. The other accepted values are `normal`, `whispering`, or
+`shouting` for style; `very_slow`, `slow`, `normal`, `fast`, or `very_fast` for
+speed; and `low`, `normal`, or `high` for pitch and expressiveness. The labels
+are LocalAI's backend-neutral vocabulary, not model-specific control tokens.
+
+Speech delivery is off by default and currently applies to the streamed LLM
+audio path (`pipeline.streaming.llm: true`). Text-only responses and pipelines
+without the feature continue to receive and expose ordinary model text.
 
 The private MLX-Audio TTS profile keeps the qualified Qwen sampling defaults (temperature `0.7`, top-k `50`, top-p `1.0`, repetition penalty `1.05`) but selects a 192-token ceiling and 0.16-second generator interval. The ceiling bounds one clause to about 15.36 seconds of generated speech; Realtime clause chunking handles longer replies. The interval provides cancellation checkpoints during generation; the unary TTS RPC still returns the completed audio file. Requests may lower the token ceiling or override the sampling values through `params`; values outside the backend's bounds are rejected.
 
@@ -147,6 +174,7 @@ pipeline:
 - **streaming.transcription**: stream `conversation.item.input_audio_transcription.delta` events as the transcript is produced (requires a transcription backend that supports streaming).
 - **streaming.llm**: stream the LLM reply token-by-token as `response.output_audio_transcript.delta` events. The full reply is buffered and synthesized once it is complete - streamed as audio chunks when `streaming.tts` is enabled (and the TTS backend supports it), otherwise as a single unary delta. Reasoning/thinking is always stripped from the spoken transcript. Tool calls are supported while streaming when the LLM uses its tokenizer template (`use_tokenizer_template: true`): the backend's autoparser then delivers content and tool calls separately, so the spoken transcript never leaks tool-call tokens. Grammar-based function calling keeps the buffered path.
 - **streaming.clause_chunking**: instead of buffering the whole reply before TTS, split it into speakable clauses and synthesize each as soon as it completes, lowering the time-to-first-audio. The splitter is script-aware: it uses Unicode sentence segmentation (so it handles CJK `。！？` with no whitespace), CJK clause punctuation (`，、；：`), and Thai/Lao spaces - it does **not** rely on whitespace sentence boundaries, so it works for languages such as Chinese, Japanese and Thai where the old per-sentence approach degraded to whole-message buffering. Requires `streaming.llm`; scripts that genuinely need a dictionary (e.g. Khmer, Burmese) simply stay buffered until a space or end-of-message. Off by default.
+- **speech_delivery.enabled**: append LocalAI's private clause-envelope contract to the effective LLM instructions for streamed audio replies. Each completed, validated envelope immediately supplies both the public transcript text and a backend-neutral TTS instruction. Delivery JSON is never exposed to the Realtime client or saved in conversation history. Envelopes define their own clause boundaries, so this takes precedence over `streaming.clause_chunking`. Requires `streaming.llm`; off by default.
 
 All streaming flags are off by default, so existing pipelines are unaffected.
 

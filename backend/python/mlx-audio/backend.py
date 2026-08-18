@@ -78,6 +78,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 request.language,
                 request.dst,
                 params=request.params,
+                instructions=getattr(request, "instructions", ""),
                 cancelled=lambda: request_cancelled(context),
             )
         except BackendFailure as failure:
@@ -95,6 +96,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 request.voice,
                 request.language,
                 params=request.params,
+                instructions=getattr(request, "instructions", ""),
                 cancelled=lambda: request_cancelled(context),
             )
             iterator = iter(stream)

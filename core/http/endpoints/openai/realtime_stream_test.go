@@ -148,6 +148,47 @@ var _ = Describe("streamLLMResponse", func() {
 		Expect(r.outcome).To(Equal(outcomeCompleted))
 	})
 
+	It("keeps delivery envelopes private and forwards per-clause TTS instructions", func() {
+		on := true
+		m := &fakeModel{
+			predictTokens: []string{
+				`{"delivery":{"emotion":"relief"},"text":"I found it."}` + "\n",
+				`{"delivery":{"emotion":"amusement","expressiveness":"high"},`,
+				`"text":"It was under the couch."}`,
+			},
+			predictResp:     backend.LLMResponse{Response: "private envelope output"},
+			ttsStreamChunks: [][]byte{{9}},
+			ttsStreamRate:   24000,
+		}
+		session := &Session{
+			OutputSampleRate: 24000,
+			ModelInterface:   m,
+			ModelConfig: &config.ModelConfig{
+				Pipeline: config.Pipeline{
+					SpeechDelivery: &config.PipelineSpeechDelivery{Enabled: true},
+					Streaming:      config.PipelineStreaming{LLM: &on, TTS: &on},
+				},
+			},
+		}
+		conv := &Conversation{}
+		t := &fakeTransport{}
+		r := &liveResponse{id: "resp1"}
+
+		handled := streamLLMResponse(context.Background(), session, conv, t, r, nil, nil, &config.ModelConfig{}, nil, nil, 0)
+
+		Expect(handled).To(BeTrue())
+		Expect(t.transcriptDeltaText()).To(Equal("I found it. It was under the couch."))
+		Expect(t.transcriptDeltaText()).NotTo(ContainSubstring("delivery"))
+		Expect(t.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(2))
+		Expect(m.ttsInstructions).To(Equal([]string{
+			"Convey relief.",
+			"Convey amusement. Use high expressiveness.",
+		}))
+		Expect(conv.Items).To(HaveLen(1))
+		Expect(conv.Items[0].Assistant.Content[0].Transcript).To(Equal("I found it. It was under the couch."))
+		Expect(r.outcome).To(Equal(outcomeCompleted))
+	})
+
 	It("streams content deltas and emits tool-call items (autoparser tool turn)", func() {
 		on := true
 		// Autoparser path: reply.Message is empty; content + tool calls arrive via

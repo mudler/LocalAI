@@ -11,12 +11,12 @@ import (
 
 var _ = Describe("ttsPipeline", func() {
 	It("synthesizes clauses in order and accumulates their audio", func() {
-		p := newTTSPipeline(func(clause string) ([]byte, error) {
-			return []byte(clause), nil
+		p := newTTSPipeline(func(segment speechSegment) ([]byte, error) {
+			return []byte(segment.Text), nil
 		})
-		Expect(p.enqueue("a")).To(BeTrue())
-		Expect(p.enqueue("b")).To(BeTrue())
-		Expect(p.enqueue("c")).To(BeTrue())
+		Expect(p.enqueue(speechSegment{Text: "a"})).To(BeTrue())
+		Expect(p.enqueue(speechSegment{Text: "b"})).To(BeTrue())
+		Expect(p.enqueue(speechSegment{Text: "c"})).To(BeTrue())
 
 		audio, err := p.wait()
 		Expect(err).NotTo(HaveOccurred())
@@ -28,16 +28,16 @@ var _ = Describe("ttsPipeline", func() {
 		started.Add(1)
 		release := make(chan struct{})
 		first := true
-		p := newTTSPipeline(func(clause string) ([]byte, error) {
+		p := newTTSPipeline(func(segment speechSegment) ([]byte, error) {
 			if first {
 				first = false
 				started.Done()
 				<-release // hold the worker on the first clause
 			}
-			return []byte(clause), nil
+			return []byte(segment.Text), nil
 		})
 
-		Expect(p.enqueue("1")).To(BeTrue())
+		Expect(p.enqueue(speechSegment{Text: "1"})).To(BeTrue())
 		started.Wait() // worker is now blocked synthesizing the first clause
 
 		// Enqueuing many more clauses must return immediately, not block on the
@@ -46,7 +46,7 @@ var _ = Describe("ttsPipeline", func() {
 		go func() {
 			defer close(done)
 			for _, c := range []string{"2", "3", "4", "5"} {
-				p.enqueue(c)
+				p.enqueue(speechSegment{Text: c})
 			}
 		}()
 		Eventually(done, time.Second).Should(BeClosed())
@@ -61,22 +61,22 @@ var _ = Describe("ttsPipeline", func() {
 		boom := errors.New("backend gone")
 		var spoken []string
 		var mu sync.Mutex
-		p := newTTSPipeline(func(clause string) ([]byte, error) {
+		p := newTTSPipeline(func(segment speechSegment) ([]byte, error) {
 			mu.Lock()
-			spoken = append(spoken, clause)
+			spoken = append(spoken, segment.Text)
 			mu.Unlock()
-			if clause == "b" {
+			if segment.Text == "b" {
 				return nil, boom
 			}
-			return []byte(clause), nil
+			return []byte(segment.Text), nil
 		})
 
-		Expect(p.enqueue("a")).To(BeTrue())
-		Expect(p.enqueue("b")).To(BeTrue())
+		Expect(p.enqueue(speechSegment{Text: "a"})).To(BeTrue())
+		Expect(p.enqueue(speechSegment{Text: "b"})).To(BeTrue())
 
 		// Once the failure is observed, enqueue reports it so the caller stops
 		// the prediction; any further clauses are dropped, not spoken.
-		Eventually(func() bool { return !p.enqueue("c") }, time.Second).Should(BeTrue())
+		Eventually(func() bool { return !p.enqueue(speechSegment{Text: "c"}) }, time.Second).Should(BeTrue())
 
 		_, err := p.wait()
 		Expect(err).To(MatchError(boom))
@@ -87,10 +87,10 @@ var _ = Describe("ttsPipeline", func() {
 	})
 
 	It("is idempotent: a second wait returns the same result without blocking", func() {
-		p := newTTSPipeline(func(clause string) ([]byte, error) {
-			return []byte(clause), nil
+		p := newTTSPipeline(func(segment speechSegment) ([]byte, error) {
+			return []byte(segment.Text), nil
 		})
-		Expect(p.enqueue("x")).To(BeTrue())
+		Expect(p.enqueue(speechSegment{Text: "x"})).To(BeTrue())
 
 		audio1, err1 := p.wait()
 		// A deferred backstop wait() in the caller runs after the explicit one;
@@ -104,8 +104,8 @@ var _ = Describe("ttsPipeline", func() {
 	})
 
 	It("returns cleanly when no clause was ever enqueued", func() {
-		p := newTTSPipeline(func(clause string) ([]byte, error) {
-			return []byte(clause), nil
+		p := newTTSPipeline(func(segment speechSegment) ([]byte, error) {
+			return []byte(segment.Text), nil
 		})
 		audio, err := p.wait()
 		Expect(err).NotTo(HaveOccurred())
