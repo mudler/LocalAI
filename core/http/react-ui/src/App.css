@@ -13194,6 +13194,7 @@ button.lane:hover {
   font-size: 0.6875rem;
   line-height: 1.6;
   color: var(--color-text-secondary);
+  text-wrap: auto;
 }
 
 .request-panel__method { color: var(--color-text-tertiary); }
