@@ -33,8 +33,18 @@ type OpenAIUsage struct {
 	OutputTokens       int                 `json:"output_tokens,omitempty"`
 	InputTokensDetails *InputTokensDetails `json:"input_tokens_details,omitempty"`
 	// Extra timing data, disabled by default as is't not a part of OpenAI specification
-	TimingPromptProcessing float64 `json:"timing_prompt_processing,omitempty"`
-	TimingTokenGeneration  float64 `json:"timing_token_generation,omitempty"`
+	TimingPromptProcessing float64              `json:"timing_prompt_processing,omitempty"`
+	TimingTokenGeneration  float64              `json:"timing_token_generation,omitempty"`
+	CompressionMeta        *CompressionMetadata `json:"compression_meta,omitempty"`
+}
+
+type CompressionMetadata struct {
+	OriginalTokens     int    `json:"original_tokens"`
+	CompressedTokens   int    `json:"compressed_tokens"`
+	DroppedTurns       int    `json:"dropped_turns"`
+	Compressor         string `json:"compressor"`
+	SummaryTokens      int    `json:"summary_tokens"`
+	OverflowRecoveries int    `json:"overflow_recoveries"`
 }
 
 type Item struct {

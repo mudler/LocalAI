@@ -76,6 +76,30 @@ compression:
 		Expect(cfg.Compression.OnPostCompressionOverflow).To(Equal("error"))
 	})
 
+	It("rejects invalid context compression policies", func() {
+		cfg := ModelConfig{Compression: CompressionConfig{Enabled: true, TriggerAtRatio: 1.1}}
+		valid, err := cfg.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("trigger_at_ratio")))
+
+		cfg.Compression.TriggerAtRatio = 0.75
+		cfg.Compression.OnPostCompressionOverflow = "truncate_anything"
+		valid, err = cfg.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("on_post_compression_overflow")))
+	})
+
+	It("rejects context compression for cloud proxy passthrough", func() {
+		cfg := ModelConfig{
+			Backend:     "cloud-proxy",
+			Proxy:       ProxyConfig{Mode: ProxyModePassthrough},
+			Compression: CompressionConfig{Enabled: true},
+		}
+		valid, err := cfg.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("cloud-proxy passthrough")))
+	})
+
 	It("derives a managed snapshot filename without replacing the logical model", func() {
 		const cacheKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 		cfg := ModelConfig{

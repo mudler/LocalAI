@@ -1551,6 +1551,22 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	if c.Compression.Enabled {
+		if c.IsCloudProxyBackendPassthrough() {
+			return false, fmt.Errorf("compression: cloud-proxy passthrough is unsupported; configure proxy mode translate")
+		}
+		if c.Compression.TriggerAtRatio < 0 || c.Compression.TriggerAtRatio > 1 {
+			return false, fmt.Errorf("compression: trigger_at_ratio must be between 0 and 1")
+		}
+		if c.Compression.KeepTailTokens < 0 || c.Compression.MaxSummaryTokens < 0 {
+			return false, fmt.Errorf("compression: token limits cannot be negative")
+		}
+		switch c.Compression.OnPostCompressionOverflow {
+		case "", "error", "drop_oldest_summary":
+		default:
+			return false, fmt.Errorf("compression: unknown on_post_compression_overflow %q", c.Compression.OnPostCompressionOverflow)
+		}
+	}
 	if c.IsAlias() && len(c.Artifacts) > 0 {
 		return false, fmt.Errorf("alias model %q cannot declare artifacts", c.Name)
 	}
