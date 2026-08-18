@@ -98,6 +98,7 @@
   name: "qwen3.8-27b-q4"
   variants:
     - model: qwen3.8-27b-q4-mtp
+    - model: qwen3.8-27b-ridge
     - model: qwen3.8-27b-q8
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -253,6 +254,66 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
+- !!merge <<: *qwen3-8-27b
+  name: "qwen3.8-27b-ridge"
+  variants: []
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/empero-ai/Qwen3.8-27B-Ridge-GGUF
+  description: |
+    Qwen3.8-27B Ridge is a 3.69-bit mixed quantization that keeps the
+    Gated-DeltaNet state path at Q8_0 and preserves the embedded MTP head.
+    It reduces the model weights to 12.59 GB while retaining multimodal,
+    reasoning, coding, tool-use, and long-context capabilities.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+    - mtp
+    - speculative
+  last_checked: "2026-08-18"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-ridge/mmproj-Qwen3.8-27B-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-27b-ridge/Qwen3.8-27B-Ridge-3.7bpw.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-ridge/Qwen3.8-27B-Ridge-3.7bpw.gguf
+      uri: huggingface://empero-ai/Qwen3.8-27B-Ridge-GGUF/Qwen3.8-27B-Ridge-3.7bpw.gguf
+      sha256: 95580dbdaad579582ee898257116abc18d7f3625a00c16a15735d41444a09f5e
+    - filename: llama-cpp/mmproj/qwen3.8-27b-ridge/mmproj-Qwen3.8-27B-BF16.gguf
+      uri: huggingface://empero-ai/Qwen3.8-27B-Ridge-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
+      sha256: 52228402ce4823f10705d901813cd43ced71859524cf2d8bf83305ad6b7dcbc2
 - &qwen3-8-9b
   name: "qwen3.8-9b-q4"
   variants:
