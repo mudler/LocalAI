@@ -96,7 +96,7 @@ index 3b5f6a1..d0e18e6 100644
      bool has_next_token = true;
      bool has_new_line   = false;
      bool truncated      = false;
-@@ -351,6 +378,10 @@ struct server_slot {
+@@ -341,6 +368,10 @@ struct server_slot {
          }
          generated_tokens.clear();
          generated_token_probs.clear();
@@ -106,7 +106,7 @@ index 3b5f6a1..d0e18e6 100644
 +        score_divergence = -1;
          json_schema = json();
 
-         // clear speculative decoding stats
+         task_prev = std::move(task);
 @@ -2271,6 +2302,229 @@ private:
          queue_results.send(std::move(res));
      }
@@ -391,7 +391,7 @@ index 3b5f6a1..d0e18e6 100644
 
                      // make a checkpoint of the parts of the memory that cannot be rolled back.
                      // checkpoints are created only if:
-@@ -3523,10 +3799,17 @@ private:
+@@ -3444,9 +3720,16 @@ private:
                          // embedding requires all tokens in the batch to be output;
                          // MTP also wants logits at every prompt position so the
                          // streaming hook can mirror t_h_nextn into ctx_dft.
@@ -404,16 +404,12 @@ index 3b5f6a1..d0e18e6 100644
 +                            slot.prompt.n_tokens() + 1 <  slot.task->n_tokens();
                          add_ok &= batch.add(slot.id,
                              cur_tok,
-                             slot.prompt.tokens.pos_next(),
--                            slot.need_embd());
-+                            slot.need_embd() || need_score_logit);
+                             /* pos       = */ slot.prompt.tokens.pos_next(),
+-                            /* output    = */ slot.need_embd(),
++                            /* output    = */ slot.need_embd() || need_score_logit,
+                             /* is_prompt = */ true);
                          slot.prompt.tokens.push_back(cur_tok);
-
-                         slot.n_prompt_tokens_processed++;
-@@ -3541,6 +3824,32 @@ private:
-                             }
-                         }
-
+@@ -3454,2 +3737,28 @@ private:
 +                        // score tasks: break at the shared-prompt boundary so the checkpoint
 +                        // below lands exactly there — the other candidates of the same
 +                        // scoring call re-process only their own tokens. Also break at the
@@ -440,9 +436,8 @@ index 3b5f6a1..d0e18e6 100644
 +                            }
 +                        }
 +
-                         // process the last few tokens of the prompt separately in order to allow for a checkpoint to be created.
-                         // create checkpoints that many tokens before the end of the prompt:
-                         //  - 4 + n_ubatch
+                         // break at the last user message, or at user messages at least min step past the last checkpoint
+                         if (do_checkpoint && spans.is_user_start(slot.prompt.n_tokens())) {
 @@ -3573,6 +3882,15 @@ private:
                      const bool is_user_start = spans.is_user_start(n_tokens_start);
                      const bool is_last_user_message = n_tokens_start == last_user_pos;

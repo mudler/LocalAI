@@ -319,7 +319,7 @@ index 9069463fe..b7fa1e534 100644
      }
 
      auto result = common_speculative_get_output_limits(
-@@ -211,6 +213,30 @@ struct server_slot {
+@@ -212,6 +214,30 @@ struct server_slot {
      mtmd_context * mctx = nullptr;
      mtmd::batch_ptr mbatch = nullptr;
 
@@ -350,7 +350,7 @@ index 9069463fe..b7fa1e534 100644
      // speculative decoding
      common_speculative * spec;
 
-@@ -400,6 +426,8 @@ struct server_slot {
+@@ -391,6 +417,8 @@ struct server_slot {
 
          // clear multimodal state
          mbatch.reset();
@@ -359,7 +359,7 @@ index 9069463fe..b7fa1e534 100644
      }
 
      void init_sampler() const {
-@@ -941,6 +969,14 @@ public:
+@@ -829,6 +857,14 @@ public:
      mtmd_context * mctx = nullptr;
      const llama_vocab * vocab = nullptr;
 
@@ -374,7 +374,7 @@ index 9069463fe..b7fa1e534 100644
      server_queue    queue_tasks;
      server_response queue_results;
 
-@@ -1394,6 +1430,10 @@ private:
+@@ -1288,6 +1324,10 @@ private:
              slot.mctx                   = mctx;
              slot.prompt.tokens.has_mtmd = mctx != nullptr;
 
@@ -385,7 +385,7 @@ index 9069463fe..b7fa1e534 100644
              SLT_TRC(slot, "new slot, n_ctx = %d\n", slot.n_ctx);
 
              slot.callback_on_release = [this](int id_slot) {
-@@ -1847,6 +1887,28 @@ private:
+@@ -1748,6 +1788,28 @@ private:
 
          SLT_DBG(slot, "launching slot : %s\n", safe_json_to_str(slot.to_json()).c_str());
 
@@ -414,7 +414,7 @@ index 9069463fe..b7fa1e534 100644
          // initialize samplers
          if (task.need_sampling()) {
              try {
-@@ -1864,6 +1926,9 @@ private:
+@@ -1765,6 +1827,9 @@ private:
              // TODO: getting pre sampling logits is not yet supported with backend sampling
              use_backend_sampling &= !need_pre_sample_logits;
 
@@ -424,7 +424,7 @@ index 9069463fe..b7fa1e534 100644
              // TODO: tmp until backend sampling is fully implemented
              if (use_backend_sampling) {
                  llama_set_sampler(ctx_tgt, slot.id, common_sampler_get(slot.smpl.get()));
-@@ -1879,9 +1944,13 @@ private:
+@@ -1783,9 +1848,13 @@ private:
 
          slot.task = std::make_unique<const server_task>(std::move(task));
 
@@ -441,7 +441,7 @@ index 9069463fe..b7fa1e534 100644
 
          // reset server kill-switch counter
          n_empty_consecutive = 0;
-@@ -2158,6 +2227,18 @@ private:
+@@ -2050,6 +2119,18 @@ private:
          queue_results.send(std::move(res));
      }
 
@@ -460,7 +460,7 @@ index 9069463fe..b7fa1e534 100644
      void send_final_response(server_slot & slot) {
          auto res = std::make_unique<server_task_result_cmpl_final>();
 
-@@ -2657,6 +2738,7 @@ private:
+@@ -2556,6 +2637,7 @@ private:
              case SERVER_TASK_TYPE_EMBEDDING:
              case SERVER_TASK_TYPE_RERANK:
              case SERVER_TASK_TYPE_SCORE:
@@ -468,10 +468,7 @@ index 9069463fe..b7fa1e534 100644
                  {
                      // special case: if input is provided via CLI, tokenize it first
                      // otherwise, no need to tokenize as it's already done inside the HTTP thread
-@@ -3092,6 +3174,14 @@ private:
-             abort_all_slots("pre_decode() failed: " + std::string(e.what()));
-         }
-
+@@ -3007,1 +3089,9 @@ private:
 +        // note: TTS slots bypass the shared batch entirely
 +        try {
 +            process_tts_slots();
@@ -481,9 +478,7 @@ index 9069463fe..b7fa1e534 100644
 +        }
 +
          GGML_ASSERT(batch.slot_batched || batch.size() == 0);
-
-         if (batch.slot_batched) {
-@@ -3162,10 +3252,77 @@ private:
+@@ -3074,10 +3164,77 @@ private:
          }
      }
 
@@ -561,7 +556,7 @@ index 9069463fe..b7fa1e534 100644
              if (slot.state == SLOT_STATE_GENERATING && slot.prompt.n_tokens() + 1 >= slot.n_ctx) {
                  if (!params_base.ctx_shift) {
                      // this check is redundant (for good)
-@@ -3238,7 +3395,7 @@ private:
+@@ -3150,7 +3307,7 @@ private:
 
          // determine which slots are generating and drafting
          iterate(slots, [&](server_slot & slot) {
@@ -570,7 +565,7 @@ index 9069463fe..b7fa1e534 100644
                  return;
              }
 
-@@ -3370,7 +3527,7 @@ private:
+@@ -3284,7 +3441,7 @@ private:
                      return; // batch is full, skip remaining slots
                  }
 
@@ -579,7 +574,7 @@ index 9069463fe..b7fa1e534 100644
                      return;
                  }
 
-@@ -4379,6 +4536,8 @@ server_context_meta server_context::get_meta() const {
+@@ -4433,6 +4590,8 @@ server_context_meta server_context::get_meta() const {
          /* has_inp_image          */ impl->chat_params.allow_image,
          /* has_inp_audio          */ impl->chat_params.allow_audio,
          /* has_inp_video          */ impl->chat_params.allow_video,
@@ -588,7 +583,7 @@ index 9069463fe..b7fa1e534 100644
          /* json_ui_settings       */ impl->json_ui_settings,
          /* slot_n_ctx             */ impl->get_slot_n_ctx(),
          /* pooling_type           */ llama_pooling_type(impl->ctx_tgt),
-@@ -4458,6 +4617,11 @@ std::unique_ptr<server_res_generator> server_routes::handle_completions_impl(
+@@ -4512,6 +4671,11 @@ std::unique_ptr<server_res_generator> server_routes::handle_completions_impl(
 
      res->set_req(&req); // will also set spipe if needed
 
@@ -600,7 +595,7 @@ index 9069463fe..b7fa1e534 100644
      int32_t sse_ping_interval = params.sse_ping_interval;
 
      try {
-@@ -5435,6 +5599,150 @@ void server_routes::init_routes() {
+@@ -5399,6 +5563,150 @@ void server_routes::init_routes() {
          return res;
      };
 
@@ -776,7 +771,7 @@ diff --git a/tools/server/server-task.cpp b/tools/server/server-task.cpp
 index 1ee677553..939630b8b 100644
 --- a/tools/server/server-task.cpp
 +++ b/tools/server/server-task.cpp
-@@ -1523,6 +1523,17 @@ json server_task_result_rerank::to_json() {
+@@ -1497,6 +1497,17 @@ json server_task_result_rerank::to_json() {
      };
  }
 
@@ -832,7 +827,7 @@ index 5bedf1987..e6ca67a65 100644
                  return true;
              default:
                  return false;
-@@ -514,5 +520,15 @@ struct server_task_result_embd : server_task_result {
+@@ -494,5 +500,15 @@ struct server_task_result_embd : server_task_result {
      json to_json_oaicompat();
  };
 
