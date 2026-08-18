@@ -27,6 +27,7 @@ To be removed, open a pull request deleting your row, or email
 
 | Organisation | What they use it for | Status |
 |---|---|---|
+| [walcz.de](https://walcz.de) | Self-hosted appliance for a German B2B consultancy: local-only inference on AMD Strix Halo (gfx1151/ROCm), agents with MCP tools, RAG over an internal knowledge base, and a document/bookkeeping pipeline. | Production |
 | _Your organisation here_ | | |
 
 ## What this list is not
