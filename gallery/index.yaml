@@ -8102,6 +8102,94 @@
     - filename: llama-cpp/mmproj/BAAI_AREX-Turbo-GGUF/mmproj-BAAI_AREX-Turbo-f16.gguf
       sha256: 815184b9c47cac7d882b4b68aed98d610121c4ff38ce7ee0d015bdf3280f68a5
       uri: huggingface://bartowski/BAAI_AREX-Turbo-GGUF/mmproj-BAAI_AREX-Turbo-f16.gguf
+- &ui-mate-9b
+  name: ui-mate-9b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: ui-mate-9b-q8
+  urls:
+    - https://huggingface.co/tencent/UI-Mate-9B
+    - https://huggingface.co/bartowski/tencent_UI-Mate-9B-GGUF
+  description: |
+    UI-Mate-9B is Tencent's 9B-parameter multimodal computer-use agent,
+    fine-tuned from Qwen3.5-9B. It accepts task instructions, screenshots,
+    and interaction history, then emits reasoning and structured mouse and
+    keyboard actions for long-running desktop tasks. The model requires an
+    external runtime to execute its actions and should run with human
+    confirmation for sensitive operations. This entry uses the recommended
+    Q4_K_M GGUF quantization.
+  license: apache-2.0
+  tags:
+    - ui-mate
+    - qwen
+    - qwen3.5
+    - 9b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - vision
+    - multimodal
+    - agent
+    - computer-use
+    - gpu
+    - cpu
+  last_checked: "2026-08-18"
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/tencent_UI-Mate-9B-GGUF/mmproj-tencent_UI-Mate-9B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/tencent_UI-Mate-9B-GGUF/tencent_UI-Mate-9B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/tencent_UI-Mate-9B-GGUF/tencent_UI-Mate-9B-Q4_K_M.gguf
+      sha256: a54257eb4caa664dc1d2654b1aaed31767e3e6b01b4c7ecce9f239c00af23e2c
+      uri: huggingface://bartowski/tencent_UI-Mate-9B-GGUF/tencent_UI-Mate-9B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/tencent_UI-Mate-9B-GGUF/mmproj-tencent_UI-Mate-9B-f16.gguf
+      sha256: 5a8380c4637dddceed9dbc28fffcdfa8601909c0ece9fe218fbd6888ec5d2c16
+      uri: huggingface://bartowski/tencent_UI-Mate-9B-GGUF/mmproj-tencent_UI-Mate-9B-f16.gguf
+- !!merge <<: *ui-mate-9b
+  name: ui-mate-9b-q8
+  variants: []
+  description: |
+    UI-Mate-9B is Tencent's 9B-parameter multimodal computer-use agent,
+    fine-tuned from Qwen3.5-9B. It accepts task instructions, screenshots,
+    and interaction history, then emits reasoning and structured mouse and
+    keyboard actions for long-running desktop tasks. The model requires an
+    external runtime to execute its actions and should run with human
+    confirmation for sensitive operations. This entry uses the higher-quality
+    Q8_0 GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/tencent_UI-Mate-9B-GGUF/mmproj-tencent_UI-Mate-9B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/tencent_UI-Mate-9B-GGUF/tencent_UI-Mate-9B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/tencent_UI-Mate-9B-GGUF/tencent_UI-Mate-9B-Q8_0.gguf
+      sha256: 36f444d939188c904f4ce4449e9d3a690a081d26a828ada36b41df34ed5ad770
+      uri: huggingface://bartowski/tencent_UI-Mate-9B-GGUF/tencent_UI-Mate-9B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/tencent_UI-Mate-9B-GGUF/mmproj-tencent_UI-Mate-9B-f16.gguf
+      sha256: 5a8380c4637dddceed9dbc28fffcdfa8601909c0ece9fe218fbd6888ec5d2c16
+      uri: huggingface://bartowski/tencent_UI-Mate-9B-GGUF/mmproj-tencent_UI-Mate-9B-f16.gguf
 - &fara1-5-4b
   name: fara1.5-4b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
