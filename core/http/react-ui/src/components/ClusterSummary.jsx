@@ -35,7 +35,7 @@ export default function ClusterSummary({ distributedEnabled, p2pEnabled }) {
   }, [distributedEnabled, p2pEnabled])
 
   return (
-    <div className="stat-grid" style={{ marginBottom: 'var(--spacing-lg)' }}>
+    <div className="stat-cards" style={{ marginBottom: 'var(--spacing-lg)' }}>
       {distributedEnabled && <StatCard icon="fas fa-network-wired" label={t('cluster.summary.nodes', 'Distributed nodes')} value={nats.nodes} />}
       {distributedEnabled && <StatCard icon="fas fa-bolt" label={t('cluster.summary.inFlight', 'In-flight requests')} value={nats.inFlight} />}
       {p2pEnabled && <StatCard icon="fas fa-circle-nodes" label={t('cluster.summary.peers', 'Swarm peers online')} value={`${swarm.online}/${swarm.total}`} />}
