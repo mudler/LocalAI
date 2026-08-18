@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: refresh-site-counters
@@ -30,15 +31,25 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./.github/ci/refresh-site-counters.sh
 
-      - name: Commit only if something moved
+      - name: Show changes
         run: |
           if git diff --quiet -- website/data/stats.yaml; then
-            echo "counters unchanged, nothing to commit"
-            exit 0
+            echo "counters unchanged"
+          else
+            git diff --unified=0 -- website/data/stats.yaml
           fi
-          git diff --unified=0 -- website/data/stats.yaml
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add website/data/stats.yaml
-          git commit -m "chore(website): refresh the counters"
-          git push
+
+      - name: Create pull request when counters moved
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: "chore(website): refresh the counters"
+          title: "chore(website): refresh the counters"
+          body: |
+            Weekly refresh of the landing-page counters from the GitHub API.
+
+            This PR was created automatically by the `refresh-site-counters` workflow.
+          branch: update/site-counters
+          delete-branch: true
+          labels: automated
