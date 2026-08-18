@@ -59,6 +59,12 @@ bool starts_with(const std::string &value, const std::string &prefix) {
            value.compare(0, prefix.size(), prefix) == 0;
 }
 
+bool is_known_backend(const std::string &value) {
+    return value == "cpu" || value == "cuda" || value == "hip" ||
+           value == "rocm" || value == "vulkan" || value == "metal" ||
+           value == "best";
+}
+
 } // namespace
 
 ParsedOptions parse_model_options(const std::vector<std::string> &entries) {
@@ -107,6 +113,12 @@ ParsedOptions parse_model_options(const std::vector<std::string> &entries) {
         } else if (key == "task") {
             parsed.options.task = value;
         } else if (key == "backend") {
+            if (!is_known_backend(value)) {
+                parsed.error = "audio-cpp: unknown backend option '" + value +
+                               "'. Known backends: cpu, cuda, hip, rocm, "
+                               "vulkan, metal, best";
+                return parsed;
+            }
             parsed.options.backend = value;
         } else if (key == "model_spec_override") {
             parsed.options.model_spec_override = value;

@@ -6,13 +6,14 @@ ARG APT_PORTS_MIRROR=""
 # ASR, VAD, diarization, source separation and music generation, wrapped as a
 # LocalAI gRPC backend.
 #
-# BASE_IMAGE is ubuntu:24.04 for cpu and vulkan builds, or
-# nvidia/cuda:<ver>-devel-ubuntu24.04 for cublas builds; both ship apt and
-# Ubuntu Noble packages, and the CUDA base additionally provides
-# /usr/local/cuda. BUILD_TYPE selects the engine backend in the Makefile:
-# "" = portable CPU with all ggml CPU variants, "cublas" ->
-# -DENGINE_ENABLE_CUDA=ON, "vulkan" -> -DENGINE_ENABLE_VULKAN=ON. Darwin
-# (Metal) builds bypass this Dockerfile entirely.
+# BASE_IMAGE is ubuntu:24.04 for cpu and vulkan builds,
+# nvidia/cuda:<ver>-devel-ubuntu24.04 for cublas builds, or
+# rocm/dev-ubuntu-24.04:<ver> for hipblas builds. All ship apt and Ubuntu Noble
+# packages; the GPU bases also provide their toolkits. BUILD_TYPE selects the
+# engine backend in the Makefile: "" = portable CPU with all ggml CPU variants,
+# "cublas" -> -DENGINE_ENABLE_CUDA=ON, "hipblas" -> -DENGINE_ENABLE_HIP=ON,
+# and "vulkan" -> -DENGINE_ENABLE_VULKAN=ON. Darwin (Metal) builds bypass this
+# Dockerfile entirely.
 #
 # Upstream needs GCC 13 or newer, which ubuntu:24.04 and the CUDA 12/13
 # devel-ubuntu24.04 images all provide.
@@ -62,7 +63,7 @@ ENV BUILD_TYPE=${BUILD_TYPE} \
     APT_MIRROR=${APT_MIRROR} \
     APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
     DEBIAN_FRONTEND=noninteractive \
-    PATH=/usr/local/cuda/bin:${PATH}
+    PATH=/opt/rocm/bin:/usr/local/cuda/bin:${PATH}
 
 WORKDIR /build
 
@@ -73,7 +74,7 @@ WORKDIR /build
 # fallback of its own.
 #
 # BUILD_TYPE=vulkan additionally needs the loader headers and glslc; both are in
-# Noble. The CUDA toolkit for BUILD_TYPE=cublas comes from BASE_IMAGE.
+# Noble. The CUDA and ROCm toolkits come from their matching BASE_IMAGE.
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     sh /usr/local/sbin/apt-mirror && \
     apt-get update && \

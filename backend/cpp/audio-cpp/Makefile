@@ -77,6 +77,13 @@ endif
 
 ifeq ($(BUILD_TYPE),cublas)
     CMAKE_ARGS += -DENGINE_ENABLE_CUDA=ON "-DCMAKE_CUDA_ARCHITECTURES=$(CUDA_ARCHITECTURES)"
+else ifeq ($(BUILD_TYPE),hipblas)
+    ROCM_HOME ?= /opt/rocm
+    ROCM_PATH ?= /opt/rocm
+    export CXX=$(ROCM_HOME)/llvm/bin/clang++
+    export CC=$(ROCM_HOME)/llvm/bin/clang
+    AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+    CMAKE_ARGS += -DENGINE_ENABLE_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
     CMAKE_ARGS += -DENGINE_ENABLE_VULKAN=ON
 else ifeq ($(UNAME_S),Darwin)
