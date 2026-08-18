@@ -9,12 +9,16 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	compressionservice "github.com/mudler/LocalAI/core/services/compression"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/routing/pii"
+	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/tokens"
 	echoswagger "github.com/swaggo/echo-swagger"
 )
 
@@ -447,11 +451,15 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// MCP endpoint - supports both streaming and non-streaming modes
 	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
 	if evaluator != nil && !appConfig.DisableMCP {
+		chatCompressor := compressionservice.New(
+			compressionservice.CounterFunc(tokens.CountMessages),
+			compressionservice.NewInferenceSummarizer(cl, ml, appConfig),
+		)
 		var mcpNATS mcpTools.MCPNATSClient
 		if d := app.Distributed(); d != nil {
 			mcpNATS = d.Nats
 		}
-		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig, mcpNATS)
+		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig, mcpNATS, chatCompressor)
 		mcpStreamMiddleware := []echo.MiddlewareFunc{
 			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 			requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
@@ -463,6 +471,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					return next(c)
 				}
 			},
+			pii.RequestMiddleware(app.PIIRedactor(), app.PIIEvents(), piiadapter.OpenAI(), app.FallbackUser(), pii.WithNERResolver(app.PIINERResolver()), pii.WithPolicyResolver(app.PIIPolicyResolver())),
 		}
 		router.POST("/v1/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 		router.POST("/mcp/v1/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)

@@ -84,6 +84,7 @@ type ModelConfig struct {
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function,omitempty" json:"function,omitempty"`
 	ReasoningConfig reasoning.Config          `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
+	Compression     CompressionConfig         `yaml:"compression,omitempty" json:"compression,omitempty"`
 
 	// ReasoningEffort is the default reasoning effort (none|minimal|low|medium|high)
 	// for this model. A per-request reasoning_effort overrides it. It is forwarded
@@ -150,6 +151,18 @@ type ModelConfig struct {
 	Proxy        ProxyConfig        `yaml:"proxy,omitempty" json:"proxy,omitempty"`
 	MITM         MITMModelConfig    `yaml:"mitm,omitempty" json:"mitm,omitempty"`
 	Limits       LimitsConfig       `yaml:"limits,omitempty" json:"limits,omitempty"`
+}
+
+// CompressionConfig controls opt-in compression of chat history before inference.
+// The request middleware consumes this configuration; keeping it on ModelConfig
+// lets operators select a policy per context window and model workload.
+type CompressionConfig struct {
+	Enabled                   bool    `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	TriggerAtRatio            float64 `yaml:"trigger_at_ratio,omitempty" json:"trigger_at_ratio,omitempty"`
+	KeepTailTokens            int     `yaml:"keep_tail_tokens,omitempty" json:"keep_tail_tokens,omitempty"`
+	MaxSummaryTokens          int     `yaml:"max_summary_tokens,omitempty" json:"max_summary_tokens,omitempty"`
+	CompressorModel           string  `yaml:"compressor_model,omitempty" json:"compressor_model,omitempty"`
+	OnPostCompressionOverflow string  `yaml:"on_post_compression_overflow,omitempty" json:"on_post_compression_overflow,omitempty"`
 }
 
 // @Description Admission-control limits applied per request. The
@@ -1538,6 +1551,22 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	if c.Compression.Enabled {
+		if c.IsCloudProxyBackendPassthrough() {
+			return false, fmt.Errorf("compression: cloud-proxy passthrough is unsupported; configure proxy mode translate")
+		}
+		if c.Compression.TriggerAtRatio < 0 || c.Compression.TriggerAtRatio > 1 {
+			return false, fmt.Errorf("compression: trigger_at_ratio must be between 0 and 1")
+		}
+		if c.Compression.KeepTailTokens < 0 || c.Compression.MaxSummaryTokens < 0 {
+			return false, fmt.Errorf("compression: token limits cannot be negative")
+		}
+		switch c.Compression.OnPostCompressionOverflow {
+		case "", "error", "drop_oldest_summary":
+		default:
+			return false, fmt.Errorf("compression: unknown on_post_compression_overflow %q", c.Compression.OnPostCompressionOverflow)
+		}
+	}
 	if c.IsAlias() && len(c.Artifacts) > 0 {
 		return false, fmt.Errorf("alias model %q cannot declare artifacts", c.Name)
 	}

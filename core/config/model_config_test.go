@@ -52,6 +52,54 @@ parameters:
 		Expect(valid).To(BeTrue())
 	})
 
+	It("round-trips context compression settings", func() {
+		raw := []byte(`
+name: compressed-chat
+backend: llama-cpp
+parameters:
+  model: chat.gguf
+compression:
+  enabled: true
+  trigger_at_ratio: 0.75
+  keep_tail_tokens: 8000
+  max_summary_tokens: 2048
+  compressor_model: fast-summarizer
+  on_post_compression_overflow: error
+`)
+		var cfg ModelConfig
+		Expect(yaml.Unmarshal(raw, &cfg)).To(Succeed())
+		Expect(cfg.Compression.Enabled).To(BeTrue())
+		Expect(cfg.Compression.TriggerAtRatio).To(Equal(0.75))
+		Expect(cfg.Compression.KeepTailTokens).To(Equal(8000))
+		Expect(cfg.Compression.MaxSummaryTokens).To(Equal(2048))
+		Expect(cfg.Compression.CompressorModel).To(Equal("fast-summarizer"))
+		Expect(cfg.Compression.OnPostCompressionOverflow).To(Equal("error"))
+	})
+
+	It("rejects invalid context compression policies", func() {
+		cfg := ModelConfig{Compression: CompressionConfig{Enabled: true, TriggerAtRatio: 1.1}}
+		valid, err := cfg.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("trigger_at_ratio")))
+
+		cfg.Compression.TriggerAtRatio = 0.75
+		cfg.Compression.OnPostCompressionOverflow = "truncate_anything"
+		valid, err = cfg.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("on_post_compression_overflow")))
+	})
+
+	It("rejects context compression for cloud proxy passthrough", func() {
+		cfg := ModelConfig{
+			Backend:     "cloud-proxy",
+			Proxy:       ProxyConfig{Mode: ProxyModePassthrough},
+			Compression: CompressionConfig{Enabled: true},
+		}
+		valid, err := cfg.Validate()
+		Expect(valid).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("cloud-proxy passthrough")))
+	})
+
 	It("derives a managed snapshot filename without replacing the logical model", func() {
 		const cacheKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 		cfg := ModelConfig{
