@@ -83,7 +83,10 @@ else ifeq ($(BUILD_TYPE),hipblas)
     export CXX=$(ROCM_HOME)/llvm/bin/clang++
     export CC=$(ROCM_HOME)/llvm/bin/clang
     AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
-    CMAKE_ARGS += -DENGINE_ENABLE_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
+    # audio.cpp forwards GPU_TARGETS to CMake's semicolon-delimited HIP list.
+    comma := ,
+    HIP_TARGETS := $(subst $(comma),;,$(AMDGPU_TARGETS))
+    CMAKE_ARGS += -DENGINE_ENABLE_HIP=ON "-DGPU_TARGETS=$(HIP_TARGETS)"
 else ifeq ($(BUILD_TYPE),vulkan)
     CMAKE_ARGS += -DENGINE_ENABLE_VULKAN=ON
 else ifeq ($(UNAME_S),Darwin)
