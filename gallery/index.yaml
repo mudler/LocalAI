@@ -1,4 +1,73 @@
 ---
+- &hy-mt2-1-8b
+  name: "hy-mt2-1.8b-q4"
+  variants:
+    - model: hy-mt2-1.8b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/tencent/Hy-MT2-1.8B
+    - https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF
+  description: |
+    Hy-MT2-1.8B is Tencent's compact multilingual translation model. It
+    follows translation instructions across 33 languages and supports tasks
+    such as terminology control, style transfer, and structure-preserving
+    translation.
+
+    This default entry uses the 1.1 GB Q4_K_M GGUF. A higher-quality Q8_0
+    model is available as a variant.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - multilingual
+    - translation
+  last_checked: "2026-08-19"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/hy-mt2-1.8b/Hy-MT2-1.8B-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.6
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/hy-mt2-1.8b/Hy-MT2-1.8B-Q4_K_M.gguf
+      uri: huggingface://tencent/Hy-MT2-1.8B-GGUF/Hy-MT2-1.8B-Q4_K_M.gguf
+      sha256: dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699
+- !!merge <<: *hy-mt2-1-8b
+  name: "hy-mt2-1.8b-q8"
+  variants: []
+  description: |
+    Hy-MT2-1.8B in the higher-quality 1.9 GB Q8_0 GGUF format. This variant
+    preserves more model fidelity for hosts with enough memory.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/hy-mt2-1.8b/Hy-MT2-1.8B-Q8_0.gguf
+      repeat_penalty: 1.05
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.6
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/hy-mt2-1.8b/Hy-MT2-1.8B-Q8_0.gguf
+      uri: huggingface://tencent/Hy-MT2-1.8B-GGUF/Hy-MT2-1.8B-Q8_0.gguf
+      sha256: 5c3fe0b1408a5ceb0143184ef247b11b579c525f4b02b060e6c851bb76fef1a4
 - &ling-3-0-flash
   name: "ling-3.0-flash-iq1"
   variants:
