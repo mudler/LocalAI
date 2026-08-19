@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/internal/backoff"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
@@ -2201,15 +2200,20 @@ func (r *NodeRegistry) RecordPendingBackendOpInFlight(ctx context.Context, id ui
 // backoffForAttempt is exponential from 30s doubling up to a 15m cap. The
 // reconciler tick is 30s so anything shorter would just re-fire immediately.
 func backoffForAttempt(attempts int) time.Duration {
-	const (
-		base    = 30 * time.Second
-		maximum = 15 * time.Minute
-	)
-	exponent := 0
-	if attempts > 1 {
-		exponent = attempts - 1
+	const cap = 15 * time.Minute
+	base := 30 * time.Second
+	shift := attempts - 1
+	if shift < 0 {
+		shift = 0
 	}
-	return backoff.Exponential(base, maximum, uint(exponent))
+	if shift > 10 { // 2^10 * 30s already exceeds the cap
+		shift = 10
+	}
+	d := base << shift
+	if d > cap {
+		return cap
+	}
+	return d
 }
 
 // CountPendingBackendOpsByBackend returns a map of backend name to the count

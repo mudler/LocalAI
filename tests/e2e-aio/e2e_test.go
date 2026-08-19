@@ -3,13 +3,11 @@ package e2e_test
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
@@ -259,9 +257,6 @@ var _ = Describe("E2E test", func() {
 
 		Context("vision", func() {
 			It("correctly", func() {
-				image, err := os.ReadFile(filepath.Join("..", "..", "core", "http", "static", "logo.png"))
-				Expect(err).NotTo(HaveOccurred())
-				imageURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(image)
 				model := "gpt-4o"
 				resp, err := client.Chat.Completions.New(context.TODO(),
 					openai.ChatCompletionNewParams{
@@ -281,7 +276,7 @@ var _ = Describe("E2E test", func() {
 											{
 												OfImageURL: &openai.ChatCompletionContentPartImageParam{
 													ImageURL: openai.ChatCompletionContentPartImageImageURLParam{
-														URL:    imageURI,
+														URL:    "https://picsum.photos/id/22/4434/3729",
 														Detail: "low",
 													},
 												},
@@ -294,7 +289,7 @@ var _ = Describe("E2E test", func() {
 					})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices)).To(Equal(1), fmt.Sprint(resp))
-				Expect(resp.Choices[0].Message.Content).NotTo(BeEmpty())
+				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("man"), ContainSubstring("road")), fmt.Sprint(resp.Choices[0].Message.Content))
 			})
 		})
 
@@ -315,7 +310,11 @@ var _ = Describe("E2E test", func() {
 
 		Context("audio to text", func() {
 			It("correctly", func() {
-				fileHandle, err := os.Open(preparedAudioFixture())
+				downloadURL := "https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav"
+				file, err := downloadHttpFile(downloadURL)
+				Expect(err).ToNot(HaveOccurred())
+
+				fileHandle, err := os.Open(file)
 				Expect(err).ToNot(HaveOccurred())
 				defer fileHandle.Close()
 
@@ -329,7 +328,11 @@ var _ = Describe("E2E test", func() {
 			})
 
 			It("with VTT format", func() {
-				fileHandle, err := os.Open(preparedAudioFixture())
+				downloadURL := "https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav"
+				file, err := downloadHttpFile(downloadURL)
+				Expect(err).ToNot(HaveOccurred())
+
+				fileHandle, err := os.Open(file)
 				Expect(err).ToNot(HaveOccurred())
 				defer fileHandle.Close()
 
@@ -440,10 +443,25 @@ var _ = Describe("E2E test", func() {
 	})
 })
 
-func preparedAudioFixture() string {
-	path := os.Getenv("AIO_AUDIO_FIXTURE")
-	Expect(path).NotTo(BeEmpty(), "run `make prepare-offline-test-cache TEST_RESOURCE_SET=aio` before the AIO suite")
-	return path
+func downloadHttpFile(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	tmpfile, err := os.CreateTemp("", "example")
+	if err != nil {
+		return "", err
+	}
+	defer tmpfile.Close()
+
+	_, err = io.Copy(tmpfile, resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return tmpfile.Name(), nil
 }
 
 func requestRerank(modelName, query string, documents []string, topN *int, apiEndpoint string) (*http.Response, []byte) {

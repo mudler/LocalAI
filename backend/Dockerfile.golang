@@ -2,10 +2,7 @@ ARG BASE_IMAGE=ubuntu:24.04
 ARG APT_MIRROR=""
 ARG APT_PORTS_MIRROR=""
 
-FROM alpine:3.22 AS ca-certificates
-
 FROM ${BASE_IMAGE} AS builder
-COPY --from=ca-certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG BACKEND=rerankers
 ARG BUILD_TYPE
 ENV BUILD_TYPE=${BUILD_TYPE}
@@ -30,7 +27,7 @@ ARG APT_PORTS_MIRROR
 # build-essential. So: try gcc-14 from the configured repos, fall back
 # gracefully when it's not available so jammy-based builds don't fail
 # at the apt step.
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -58,7 +55,7 @@ ENV PATH=/opt/rocm/bin:${PATH}
 
 
 # Vulkan requirements
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
@@ -113,7 +110,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
 EOT
 
 # CuBLAS requirements
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "l4t" ] ) && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
@@ -149,7 +146,7 @@ EOT
 
 
 # https://github.com/NVIDIA/Isaac-GR00T/issues/343
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
         wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
         dpkg -i cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
@@ -163,7 +160,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
 EOT
 
 # If we are building with clblas support, we need the libraries for the builds
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             libclblast-dev && \
@@ -171,7 +168,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
         rm -rf /var/lib/apt/lists/* \
     ; fi
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             hipblas-dev \
@@ -185,18 +182,18 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
     ; fi
 
 # Install Go
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
+RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
 ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin:/usr/local/bin
 
 # Install grpc compilers
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 echo "TARGETARCH: $TARGETARCH"
+RUN echo "TARGETARCH: $TARGETARCH"
 
 # We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
 # but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
 # here so that we can generate the grpc code for the stablediffusion build
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if [ "amd64" = "$TARGETARCH" ]; then
         curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protoc-27.1-linux-x86_64.zip -o protoc.zip && \
         unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
@@ -209,7 +206,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
     fi
 EOT
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BACKEND}" = "opus" ]; then \
+RUN if [ "${BACKEND}" = "opus" ]; then \
     apt-get update && apt-get install -y --no-install-recommends libopus-dev pkg-config && \
     apt-get clean && rm -rf /var/lib/apt/lists/*; \
 fi
@@ -218,7 +215,7 @@ fi
 # non-English text (the MIT-clean path; English uses a built-in G2P). Install
 # the espeak-ng runtime + its libpcaudio/libsonic deps + voice data so
 # package.sh can bundle them into the FROM scratch image.
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BACKEND}" = "crispasr" ]; then \
+RUN if [ "${BACKEND}" = "crispasr" ]; then \
     apt-get update && apt-get install -y --no-install-recommends \
         espeak-ng-data libespeak-ng1 libpcaudio0 libsonic0 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*; \
@@ -240,7 +237,7 @@ fi
 # CUDA provider and never compiles against cuDNN headers. libcudnn9-cuda-N
 # carries the dispatcher plus all seven dlopen()ed sublibraries, which is what
 # complete_cudnn_family needs to assemble a whole bundle.
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if [ "${BACKEND}" = "sherpa-onnx" ] && [ "${BUILD_TYPE}" = "cublas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y --no-install-recommends \
@@ -326,7 +323,7 @@ EOT
 # backend image gets /opt/cmake or the symlink. Inside this image the only
 # other cmake consumers, the base apt layer and the Vulkan SDK build, both run
 # in layers above this one and have already finished.
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if [ "${BACKEND}" = "nemo-speech-cpp" ]; then
         set -e
         apt-get update
@@ -379,7 +376,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
     fi
 EOT
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 git config --global --add safe.directory /LocalAI
+RUN git config --global --add safe.directory /LocalAI
 
 # Prebuild the native engine from a layer that depends on this backend's own
 # directory and nothing else.
@@ -408,7 +405,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
 # Backends whose Makefile has no `engine` target are unaffected: the guard skips
 # the prebuild and their engine still compiles in the `build` step below.
 COPY backend/go/${BACKEND}/ /LocalAI/backend/go/${BACKEND}/
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 cd /LocalAI/backend/go/${BACKEND} && \
+RUN cd /LocalAI/backend/go/${BACKEND} && \
     if make -n engine >/dev/null 2>&1; then \
         echo "==> prebuilding engine for ${BACKEND} (cacheable layer)" && \
         make engine; \
@@ -421,7 +418,7 @@ COPY . /LocalAI
 # The engine variants built above survive this COPY (they are build outputs, not
 # tracked files) and are newer than the pinned clone, so make treats them as up
 # to date and goes straight to the Go binary.
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 cd /LocalAI && make protogen-go && make -C /LocalAI/backend/go/${BACKEND} build
+RUN cd /LocalAI && make protogen-go && make -C /LocalAI/backend/go/${BACKEND} build
 
 FROM scratch
 ARG BACKEND=rerankers

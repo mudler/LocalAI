@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/internal/backoff"
 	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/xlog"
 )
@@ -121,23 +120,23 @@ func (m *NATSCredentialManager) HasCredentials() bool {
 // credentials are minted. Without requireCreds it returns the first successful
 // response (the historical one-shot behavior, preserved for anonymous NATS).
 func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse, error) {
+	backoff := m.initialBackoff
 	var lastReason error
 	for attempt := 1; m.maxAttempts <= 0 || attempt <= m.maxAttempts; attempt++ {
-		delay := backoff.Exponential(m.initialBackoff, m.maxBackoff, uint(attempt-1))
 		res, err := m.register(ctx)
 		switch {
 		case err != nil:
 			lastReason = err
-			xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", delay, "error", err)
+			xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
 		case !m.requireCreds:
 			m.store(res)
 			return res, nil
 		case res.Status == statusPending:
 			lastReason = fmt.Errorf("node %s still pending admin approval", res.ID)
-			xlog.Info("Node pending admin approval; waiting", "node", res.ID, "attempt", attempt, "next_retry", delay)
+			xlog.Info("Node pending admin approval; waiting", "node", res.ID, "attempt", attempt, "next_retry", backoff)
 		case res.NatsJWT == "" || res.NatsUserSeed == "":
 			lastReason = fmt.Errorf("node %s approved but NATS credentials not minted", res.ID)
-			xlog.Info("Node approved but NATS credentials not yet minted; waiting", "node", res.ID, "attempt", attempt, "next_retry", delay)
+			xlog.Info("Node approved but NATS credentials not yet minted; waiting", "node", res.ID, "attempt", attempt, "next_retry", backoff)
 		default:
 			m.store(res)
 			return res, nil
@@ -145,8 +144,9 @@ func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse,
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(delay):
+		case <-time.After(backoff):
 		}
+		backoff = min(backoff*2, m.maxBackoff)
 	}
 	return nil, fmt.Errorf("giving up acquiring NATS credentials after %d attempts: %w", m.maxAttempts, lastReason)
 }

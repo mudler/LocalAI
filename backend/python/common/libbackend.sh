@@ -475,62 +475,6 @@ function runProtogen() {
 }
 
 
-# When JETSON_WHEELS_DIR points at a directory of wheels mirrored from
-# pypi.jetson-ai-lab.io (CI bind-mounts the jetson-wheels OCI image there —
-# see backend/Dockerfile.python and .github/workflows/jetson-wheels.yml),
-# installRequirements serves it on localhost as a PEP 503 index and swaps the
-# jetson index host in the requirements files for the local one.
-#
-# The upstream index has a history of multi-hour 502 outages, and a 502 on
-# any project page aborts the whole uv resolution — uv consults every
-# configured index for every requirement, so even PyPI-hosted packages die
-# with it. The local index instead 404s for anything it doesn't carry, which
-# resolvers cleanly follow up on PyPI; only the jetson-built wheels (torch
-# and friends) resolve locally. When JETSON_WHEELS_DIR is unset — the
-# default, e.g. building on a real Jetson — nothing changes and the upstream
-# index is used as written in the requirements files.
-JETSON_PYPI_HOST="pypi.jetson-ai-lab.io"
-_JETSON_MIRROR_PID=""
-_JETSON_MIRROR_URL=""
-
-function _stopJetsonMirror() {
-    if [ -n "${_JETSON_MIRROR_PID}" ]; then
-        kill "${_JETSON_MIRROR_PID}" 2>/dev/null || true
-        _JETSON_MIRROR_PID=""
-        _JETSON_MIRROR_URL=""
-    fi
-}
-
-function _startJetsonMirror() {
-    local script_dir port_file port tries
-    # An empty dir is the JETSON_WHEELS_IMAGE=scratch default in
-    # Dockerfile.python: no mirror was provided, use upstream as-is.
-    if [ -z "$(find "${JETSON_WHEELS_DIR}" -name '*.whl' -print -quit 2>/dev/null)" ]; then
-        echo "jetson wheels dir ${JETSON_WHEELS_DIR} has no wheels, using upstream ${JETSON_PYPI_HOST}"
-        return 0
-    fi
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    port_file="$(mktemp)"
-    rm -f "${port_file}"
-    python3 "${script_dir}/pypi_mirror_server.py" --root "${JETSON_WHEELS_DIR}" --port-file "${port_file}" &
-    _JETSON_MIRROR_PID=$!
-    trap _stopJetsonMirror EXIT
-    tries=0
-    until [ -s "${port_file}" ]; do
-        tries=$((tries + 1))
-        if [ ${tries} -gt 50 ] || ! kill -0 "${_JETSON_MIRROR_PID}" 2>/dev/null; then
-            echo "WARNING: local jetson wheel mirror failed to start, using upstream ${JETSON_PYPI_HOST}"
-            _stopJetsonMirror
-            return 0
-        fi
-        sleep 0.2
-    done
-    port="$(cat "${port_file}")"
-    rm -f "${port_file}"
-    _JETSON_MIRROR_URL="http://127.0.0.1:${port}"
-    echo "serving jetson wheels from ${JETSON_WHEELS_DIR} at ${_JETSON_MIRROR_URL}"
-}
-
 # installRequirements looks for several requirements files and if they exist runs the install for them in order
 #
 #  - requirements-install.txt
@@ -576,30 +520,17 @@ function installRequirements() {
         export C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:$(_portable_dir)/include/python${PYTHON_VERSION}"
     fi
 
-    if [ -n "${JETSON_WHEELS_DIR:-}" ] && [ -d "${JETSON_WHEELS_DIR}" ]; then
-        _startJetsonMirror
-    fi
-
-    local installFile
     for reqFile in ${requirementFiles[@]}; do
         if [ -f "${reqFile}" ]; then
-            installFile="${reqFile}"
-            if [ -n "${_JETSON_MIRROR_URL}" ] && grep -q "${JETSON_PYPI_HOST}" "${reqFile}"; then
-                installFile="$(mktemp)"
-                sed "s,https://${JETSON_PYPI_HOST},${_JETSON_MIRROR_URL},g" "${reqFile}" > "${installFile}"
-                echo "rewrote ${JETSON_PYPI_HOST} in ${reqFile} to the local wheel mirror (${installFile})"
-            fi
             echo "starting requirements install for ${reqFile}"
             if [ "x${USE_PIP}" == "xtrue" ]; then
-                pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement "${installFile}"
+                pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement "${reqFile}"
             else
-                uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement "${installFile}"
+                uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} --requirement "${reqFile}"
             fi
             echo "finished requirements install for ${reqFile}"
         fi
     done
-
-    _stopJetsonMirror
 
     runProtogen
 }

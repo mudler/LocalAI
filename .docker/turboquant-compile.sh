@@ -4,8 +4,6 @@
 
 set -euxo pipefail
 
-sh /LocalAI/.docker/install-build-proxy-ca.sh
-
 export CCACHE_DIR=/root/.ccache
 ccache --max-size=5G || true
 ccache -z || true

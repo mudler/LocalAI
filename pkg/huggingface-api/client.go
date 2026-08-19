@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mudler/LocalAI/internal/backoff"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
@@ -97,49 +96,21 @@ type Client struct {
 	maxRetries   int
 	retryBackoff time.Duration
 	maxBackoff   time.Duration
-	clock        Clock
-}
-
-// Clock is the small portion of wall-clock time used by retry handling.
-// Supplying a fake clock lets tests verify backoff behavior without sleeping.
-type Clock interface {
-	Now() time.Time
-	Sleep(time.Duration)
-}
-
-type realClock struct{}
-
-func (realClock) Now() time.Time        { return time.Now() }
-func (realClock) Sleep(d time.Duration) { time.Sleep(d) }
-
-// ClientOption configures a Hugging Face API client.
-type ClientOption func(*Client)
-
-// WithClock replaces the clock used for retry delays.
-func WithClock(clock Clock) ClientOption {
-	return func(client *Client) {
-		if clock != nil {
-			client.clock = clock
-		}
-	}
+	sleepFn      func(time.Duration)
 }
 
 var ErrRateLimited = errors.New("huggingface API rate limited")
 
 // NewClient creates a new Hugging Face API client
-func NewClient(options ...ClientOption) *Client {
-	client := &Client{
+func NewClient() *Client {
+	return &Client{
 		baseURL:      "https://huggingface.co/api/models",
 		client:       httpclient.New(httpclient.WithFollowRedirects()),
 		maxRetries:   5,
 		retryBackoff: 1 * time.Second,
 		maxBackoff:   30 * time.Second,
-		clock:        realClock{},
+		sleepFn:      time.Sleep,
 	}
-	for _, option := range options {
-		option(client)
-	}
-	return client
 }
 
 func (c *Client) newRequest(ctx context.Context, method, rawURL, token string) (*http.Request, error) {
@@ -172,7 +143,7 @@ func (c *Client) SearchModels(params SearchParams) ([]Model, error) {
 		resp, err := c.client.Do(req)
 		if err != nil {
 			if attempt < c.maxRetries {
-				c.clock.Sleep(c.exponentialBackoff(attempt))
+				c.sleepFn(c.exponentialBackoff(attempt))
 				continue
 			}
 			return nil, fmt.Errorf("failed to make request: %w", err)
@@ -183,7 +154,7 @@ func (c *Client) SearchModels(params SearchParams) ([]Model, error) {
 				return nil, fmt.Errorf("failed to close response body: %w", err)
 			}
 			if c.isRetryableStatus(resp.StatusCode) && attempt < c.maxRetries {
-				c.clock.Sleep(c.retryDelay(resp, attempt))
+				c.sleepFn(c.retryDelay(resp, attempt))
 				continue
 			}
 			if resp.StatusCode == http.StatusTooManyRequests {
@@ -228,7 +199,7 @@ func (c *Client) retryDelay(resp *http.Response, attempt int) time.Duration {
 			return delay
 		}
 		if at, err := http.ParseTime(retryAfter); err == nil {
-			delay := at.Sub(c.clock.Now())
+			delay := time.Until(at)
 			if delay > 0 {
 				if delay > c.maxBackoff {
 					return c.maxBackoff
@@ -242,11 +213,17 @@ func (c *Client) retryDelay(resp *http.Response, attempt int) time.Duration {
 }
 
 func (c *Client) exponentialBackoff(attempt int) time.Duration {
-	exponent := 0
-	if attempt > 1 {
-		exponent = attempt - 1
+	delay := c.retryBackoff
+	for i := 1; i < attempt; i++ {
+		delay *= 2
+		if delay >= c.maxBackoff {
+			return c.maxBackoff
+		}
 	}
-	return backoff.Exponential(c.retryBackoff, c.maxBackoff, uint(exponent))
+	if delay > c.maxBackoff {
+		return c.maxBackoff
+	}
+	return delay
 }
 
 // GetLatest fetches the latest GGUF models

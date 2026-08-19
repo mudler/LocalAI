@@ -21,7 +21,6 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/storage"
-	"github.com/mudler/LocalAI/internal/backoff"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
@@ -221,7 +220,15 @@ func nextBackoff(attempt int) time.Duration {
 		base    = 1 * time.Second
 		ceiling = 30 * time.Second
 	)
-	return backoff.Exponential(base, ceiling, uint(attempt-2))
+	shift := uint(attempt - 2)
+	if shift > 30 {
+		shift = 30 // saturate before time.Duration overflows
+	}
+	b := base << shift
+	if b > ceiling || b < 0 {
+		b = ceiling
+	}
+	return b
 }
 
 // resumeOffset asks the server (via HEAD) how many bytes of the current upload

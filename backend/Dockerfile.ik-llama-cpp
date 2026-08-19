@@ -24,10 +24,7 @@ ARG APT_PORTS_MIRROR=""
 # runs, so the result is bit-equivalent to the prebuilt-base path
 # (builder-prebuilt below).
 # ============================================================================
-FROM alpine:3.22 AS ca-certificates
-
 FROM ${BASE_IMAGE} AS builder-fromsource
-COPY --from=ca-certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION
 ARG CUDA_MINOR_VERSION
@@ -76,14 +73,13 @@ WORKDIR /build
 # Install everything via the shared script — the same one that
 # backend/Dockerfile.base-grpc-builder runs, so the prebuilt CI base and
 # this from-source path are bit-equivalent.
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
+RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
     --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
-    --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca \
     bash /usr/local/sbin/install-base-deps
 
 # Mirror builder-prebuilt: copy gRPC from /opt/grpc to /usr/local so
 # CMake's find_package finds it at the canonical prefix the Makefile expects.
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 cp -a /opt/grpc/. /usr/local/
+RUN cp -a /opt/grpc/. /usr/local/
 
 COPY . /LocalAI
 
@@ -93,13 +89,13 @@ COPY . /LocalAI
 # different source.
 #
 # The compile body is shared with builder-prebuilt via .docker/ik-llama-cpp-compile.sh.
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/ik-llama-cpp-compile.sh,target=/usr/local/sbin/compile.sh \
+RUN --mount=type=bind,source=.docker/ik-llama-cpp-compile.sh,target=/usr/local/sbin/compile.sh \
     --mount=type=cache,target=/root/.ccache,id=ik-llama-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
     bash /usr/local/sbin/compile.sh
 
 
 # Copy libraries using a script to handle architecture differences
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 make -BC /LocalAI/backend/cpp/ik-llama-cpp package
+RUN make -BC /LocalAI/backend/cpp/ik-llama-cpp package
 
 
 # ============================================================================
@@ -124,15 +120,15 @@ ARG TARGETVARIANT
 # The base-grpc-* image installs gRPC to /opt/grpc but doesn't copy it to
 # /usr/local. Mirror what the from-source path does so the compile step
 # can find gRPC at the canonical prefix the Makefile expects.
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 cp -a /opt/grpc/. /usr/local/
+RUN cp -a /opt/grpc/. /usr/local/
 
 COPY . /LocalAI
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/ik-llama-cpp-compile.sh,target=/usr/local/sbin/compile.sh \
+RUN --mount=type=bind,source=.docker/ik-llama-cpp-compile.sh,target=/usr/local/sbin/compile.sh \
     --mount=type=cache,target=/root/.ccache,id=ik-llama-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
     bash /usr/local/sbin/compile.sh
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 make -BC /LocalAI/backend/cpp/ik-llama-cpp package
+RUN make -BC /LocalAI/backend/cpp/ik-llama-cpp package
 
 
 # ============================================================================

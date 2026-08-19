@@ -65,13 +65,19 @@ var _ = Describe("ModelLoader", func() {
 
 	BeforeEach(func() {
 		// Setup the model loader with a test directory
-		modelPath = GinkgoT().TempDir()
+		modelPath = "/tmp/test_model_path"
+		os.Mkdir(modelPath, 0755)
 
 		systemState, err := system.GetSystemState(
 			system.WithModelPath(modelPath),
 		)
 		Expect(err).ToNot(HaveOccurred())
 		modelLoader = model.NewModelLoader(systemState)
+	})
+
+	AfterEach(func() {
+		// Cleanup test directory
+		os.RemoveAll(modelPath)
 	})
 
 	Context("NewModelLoader", func() {

@@ -18,7 +18,9 @@ var _ = Describe("Download stall timeout", func() {
 	var savedTimeout time.Duration
 
 	BeforeEach(func() {
-		filePath = GinkgoT().TempDir() + "/stall_model"
+		dir, err := os.Getwd()
+		Expect(err).ToNot(HaveOccurred())
+		filePath = dir + "/stall_model"
 		savedTimeout = DownloadStallTimeout
 	})
 
