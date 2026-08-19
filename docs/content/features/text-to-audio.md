@@ -30,6 +30,37 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 
 Returns an `audio/wav` file.
 
+## List available voices
+
+Use `GET /v1/audio/voices` to list named voices for installed TTS models:
+
+```bash
+curl http://localhost:8080/v1/audio/voices
+```
+
+Add the `model` query parameter to return one installed model:
+
+```bash
+curl 'http://localhost:8080/v1/audio/voices?model=pocket-tts'
+```
+
+Each voice can include `language` and `gender` metadata. LocalAI supplies the
+built-in Pocket TTS catalog. Other models can declare their catalog in YAML:
+
+```yaml
+name: custom-tts
+backend: custom
+known_usecases: [tts]
+tts:
+  voices:
+    - name: narrator
+      language: en_GB
+      gender: female
+```
+
+LocalAI returns `404` when the requested model is not installed. Models without
+voice metadata do not appear in the unfiltered response.
+
 ## Voice Library
 
 Administrators can manage reusable voice-cloning references from **Operate → Voice Library** in the LocalAI WebUI. The library replaces per-model filesystem and YAML setup for supported cloning backends:

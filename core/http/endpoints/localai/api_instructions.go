@@ -40,7 +40,7 @@ var instructionDefs = []instructionDef{
 		Name:        "audio",
 		Description: "Text-to-speech, voice activity detection, transcription, speaker diarization, sound classification, and sound generation",
 		Tags:        []string{"audio"},
-		Intro:       "Diarization (/v1/audio/diarization) returns speaker-labelled time segments. Backends with native ASR-diarization (vibevoice-cpp) can also emit per-segment text via include_text=true; backends with a dedicated pipeline (sherpa-onnx + pyannote) emit segmentation only. Response formats: json (default), verbose_json (adds speakers summary + text), rttm (NIST format). Sound classification (/v1/audio/classification) returns scored AudioSet sound-event tags (audio tagging via the ced backend); top_k and threshold control the returned set.",
+		Intro:       "GET /v1/audio/voices lists named voices for installed TTS models and accepts an optional model filter. Diarization (/v1/audio/diarization) returns speaker-labelled time segments. Backends with native ASR-diarization (vibevoice-cpp) can also emit per-segment text via include_text=true; backends with a dedicated pipeline (sherpa-onnx + pyannote) emit segmentation only. Response formats: json (default), verbose_json (adds speakers summary + text), rttm (NIST format). Sound classification (/v1/audio/classification) returns scored AudioSet sound-event tags (audio tagging via the ced backend); top_k and threshold control the returned set.",
 	},
 	{
 		Name:        "voice-library",
