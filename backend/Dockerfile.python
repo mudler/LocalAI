@@ -1,23 +1,8 @@
 ARG BASE_IMAGE=ubuntu:24.04
 ARG APT_MIRROR=""
 ARG APT_PORTS_MIRROR=""
-# CI mirror of the CUDA aarch64 wheels from pypi.jetson-ai-lab.io, kept warm
-# by .github/workflows/jetson-wheels.yml so l4t builds survive the upstream
-# index's recurring multi-hour outages. The default (scratch) mounts an empty
-# directory, which makes installRequirements fall through to the upstream
-# index unchanged — local and Jetson-native builds are unaffected.
-ARG JETSON_WHEELS_IMAGE=scratch
-
-FROM ${JETSON_WHEELS_IMAGE} AS jetson-wheels
-FROM alpine:3.22 AS ca-certificates
 
 FROM ${BASE_IMAGE} AS builder
-COPY --from=ca-certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-
-ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
-    CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
-    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
-    PIP_CERT=/etc/ssl/certs/ca-certificates.crt
 ARG BACKEND=rerankers
 ARG BUILD_TYPE
 ENV BUILD_TYPE=${BUILD_TYPE}
@@ -33,7 +18,7 @@ ARG UBUNTU_VERSION=2404
 ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -55,7 +40,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if [ "${UBUNTU_VERSION}" = "2404" ]; then
         pip install --break-system-packages --user --upgrade pip
     else
@@ -71,7 +56,7 @@ ENV PATH=/usr/local/cuda/bin:${PATH}
 ENV PATH=/opt/rocm/bin:${PATH}
 
 # Vulkan requirements
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
@@ -126,7 +111,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
 EOT
 
 # CuBLAS requirements
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "l4t" ] ) && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
@@ -163,7 +148,7 @@ EOT
 
 
 # https://github.com/NVIDIA/Isaac-GR00T/issues/343
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
         wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
         dpkg -i cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
@@ -177,7 +162,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
 EOT
 
 # If we are building with clblas support, we need the libraries for the builds
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             libclblast-dev && \
@@ -185,7 +170,7 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
         rm -rf /var/lib/apt/lists/* \
     ; fi
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             hipblas-dev \
@@ -198,19 +183,19 @@ RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mod
         ldconfig \
     ; fi
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
     ln -s /opt/rocm-**/lib/llvm/lib/libomp.so /usr/lib/libomp.so \
     ; fi
 
 # Install uv as a system package
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/bin sh
+RUN curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/bin sh
 ENV PATH="/root/.cargo/bin:${PATH}"
 # Increase timeout for uv installs behind slow networks
 ENV UV_HTTP_TIMEOUT=180
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Install grpcio-tools (the version in 22.04 is too old)
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
+RUN <<EOT bash
     if [ "${UBUNTU_VERSION}" = "2404" ]; then
         pip install --break-system-packages --user grpcio-tools==1.71.0 grpcio==1.71.0
     else
@@ -237,20 +222,19 @@ ENV FROM_SOURCE=${FROM_SOURCE}
 # and picks up newer wheels from PyPI / nightly indexes.
 ARG DEPS_REFRESH=initial
 
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,from=jetson-wheels,target=/jetson-wheels \
-    cd /${BACKEND} && PORTABLE_PYTHON=true JETSON_WHEELS_DIR=/jetson-wheels make
+RUN cd /${BACKEND} && PORTABLE_PYTHON=true make
 
 # Package GPU libraries into the backend's lib directory.
 #
 # Must stay after the venv is built above: package-gpu-libs.sh inspects
 # /${BACKEND}/venv to decide whether this backend already carries a complete
 # cuDNN from pip, and bundles one only when it does not (issue #10905).
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 mkdir -p /${BACKEND}/lib && \
+RUN mkdir -p /${BACKEND}/lib && \
     TARGET_LIB_DIR="/${BACKEND}/lib" BUILD_TYPE="${BUILD_TYPE}" CUDA_MAJOR_VERSION="${CUDA_MAJOR_VERSION}" \
     bash /package-gpu-libs.sh "/${BACKEND}/lib"
 
 # Run backend-specific packaging if a package.sh exists
-RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ -f "/${BACKEND}/package.sh" ]; then \
+RUN if [ -f "/${BACKEND}/package.sh" ]; then \
         cd /${BACKEND} && bash package.sh; \
     fi
 

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -315,7 +317,17 @@ parameters:
 			Expect(valid).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 
-			configs, err = readModelConfigsFromFile(filepath.Join("testdata", "hermes-2-pro-mistral.yaml"))
+			// download https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml
+			httpClient := http.Client{}
+			resp, err := httpClient.Get("https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml")
+			Expect(err).To(BeNil())
+			defer resp.Body.Close()
+			tmp, err = os.CreateTemp("", "config.yaml")
+			Expect(err).To(BeNil())
+			defer os.Remove(tmp.Name())
+			_, err = io.Copy(tmp, resp.Body)
+			Expect(err).To(BeNil())
+			configs, err = readModelConfigsFromFile(tmp.Name())
 			config = configs[0]
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())

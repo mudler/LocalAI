@@ -12,7 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mudler/LocalAI/internal/backoff"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -202,8 +201,17 @@ func (ml *ModelLoader) recordLoadFailure(modelID string) {
 		ml.loadFailures[modelID] = st
 	}
 	st.consecutive++
-	delay := backoff.Exponential(ml.loadFailureBaseCooldown, ml.loadFailureMaxCooldown, uint(st.consecutive-1))
-	st.cooldownUntil = time.Now().Add(delay)
+	// base * 2^(consecutive-1), clamped. Cap the shift to avoid overflowing
+	// the Duration; anything past the cap collapses to loadFailureMaxCooldown.
+	shift := st.consecutive - 1
+	if shift > 20 {
+		shift = 20
+	}
+	backoff := ml.loadFailureBaseCooldown * (1 << shift)
+	if backoff <= 0 || backoff > ml.loadFailureMaxCooldown {
+		backoff = ml.loadFailureMaxCooldown
+	}
+	st.cooldownUntil = time.Now().Add(backoff)
 }
 
 // clearLoadFailure resets the modelID's failure state after a successful load.

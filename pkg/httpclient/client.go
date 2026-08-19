@@ -28,11 +28,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
-
-	"github.com/mudler/LocalAI/pkg/testnetwork"
 )
 
 const (
@@ -108,20 +105,12 @@ func sameOrigin(a, b *url.URL) bool {
 // (e.g. a credential-injecting RoundTripper) should base it on this rather than
 // http.DefaultTransport so the TLS floor and timeouts are preserved.
 func HardenedTransport() *http.Transport {
-	dialContext := (&net.Dialer{
-		Timeout:   dialTimeout,
-		KeepAlive: dialKeepAlive,
-	}).DialContext
-	// This is set only by the test-resource supervisor before it starts the
-	// child process; production configuration does not cross this boundary.
-	if os.Getenv("LOCALAI_TEST_OFFLINE") == "1" { //nolint:forbidigo
-		guard := testnetwork.LocalGuard()
-		guard.Dial = dialContext
-		dialContext = guard.DialContext
-	}
 	return &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           dialContext,
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   dialTimeout,
+			KeepAlive: dialKeepAlive,
+		}).DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          maxIdleConns,
 		IdleConnTimeout:       idleConnTimeout,

@@ -35,10 +35,6 @@ type LayerDetail struct {
 }
 
 func OllamaModelManifest(image string) (*Manifest, error) {
-	return ollamaModelManifest("https", "registry.ollama.ai", image)
-}
-
-func ollamaModelManifest(scheme, registry, image string) (*Manifest, error) {
 	// parse the repository and tag from `image`. `image` should be for e.g. gemma:2b, or foobar/gemma:2b
 
 	// if there is a : in the image, then split it
@@ -46,7 +42,7 @@ func ollamaModelManifest(scheme, registry, image string) (*Manifest, error) {
 	tag, repository, image := ParseImageParts(image)
 
 	// get e.g. https://registry.ollama.ai/v2/library/llama3/manifests/latest
-	req, err := http.NewRequest("GET", scheme+"://"+registry+"/v2/"+repository+"/"+image+"/manifests/"+tag, nil)
+	req, err := http.NewRequest("GET", "https://registry.ollama.ai/v2/"+repository+"/"+image+"/manifests/"+tag, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -69,11 +65,7 @@ func ollamaModelManifest(scheme, registry, image string) (*Manifest, error) {
 }
 
 func OllamaModelBlob(image string) (string, error) {
-	return ollamaModelBlob("https", "registry.ollama.ai", image)
-}
-
-func ollamaModelBlob(scheme, registry, image string) (string, error) {
-	manifest, err := ollamaModelManifest(scheme, registry, image)
+	manifest, err := OllamaModelManifest(image)
 	if err != nil {
 		return "", err
 	}
@@ -89,16 +81,12 @@ func ollamaModelBlob(scheme, registry, image string) (string, error) {
 }
 
 func OllamaFetchModel(ctx context.Context, image string, output string, statusWriter func(ocispec.Descriptor) io.Writer) error {
-	return ollamaFetchModel(ctx, "https", "registry.ollama.ai", image, output, statusWriter)
-}
-
-func ollamaFetchModel(ctx context.Context, scheme, registry, image string, output string, statusWriter func(ocispec.Descriptor) io.Writer) error {
 	_, repository, imageNoTag := ParseImageParts(image)
 
-	blobID, err := ollamaModelBlob(scheme, registry, image)
+	blobID, err := OllamaModelBlob(image)
 	if err != nil {
 		return err
 	}
 
-	return fetchImageBlob(ctx, fmt.Sprintf("%s/%s/%s", registry, repository, imageNoTag), blobID, output, statusWriter, scheme == "http")
+	return FetchImageBlob(ctx, fmt.Sprintf("registry.ollama.ai/%s/%s", repository, imageNoTag), blobID, output, statusWriter)
 }

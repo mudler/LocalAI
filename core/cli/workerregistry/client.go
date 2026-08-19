@@ -16,7 +16,6 @@ import (
 
 	"github.com/mudler/xlog"
 
-	"github.com/mudler/LocalAI/internal/backoff"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
@@ -110,10 +109,8 @@ func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) 
 
 // RegisterWithRetry retries registration with exponential backoff.
 func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
-	const (
-		baseBackoff = 2 * time.Second
-		maxBackoff  = 30 * time.Second
-	)
+	backoff := 2 * time.Second
+	maxBackoff := 30 * time.Second
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		nodeID, apiToken, natsJWT, natsSeed, err = c.Register(ctx, body)
@@ -123,13 +120,13 @@ func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[str
 		if attempt == maxRetries {
 			return "", "", "", "", fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
 		}
-		delay := backoff.Exponential(baseBackoff, maxBackoff, uint(attempt-1))
-		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", delay, "error", err)
+		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
 		select {
 		case <-ctx.Done():
 			return "", "", "", "", ctx.Err()
-		case <-time.After(delay):
+		case <-time.After(backoff):
 		}
+		backoff = min(backoff*2, maxBackoff)
 	}
 	return nodeID, apiToken, natsJWT, natsSeed, err
 }

@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 
 	. "github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/pkg/downloader"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -19,8 +18,9 @@ var _ = Describe("Gallery API tests", func() {
 					URL: "github:go-skynet/model-gallery/gpt4all-j.yaml@main",
 				},
 			}
-			resolved := downloader.URI(req.URL).ResolveURL()
-			Expect(resolved).To(Equal("https://raw.githubusercontent.com/go-skynet/model-gallery/main/gpt4all-j.yaml"))
+			e, err := GetGalleryConfigFromURL[ModelConfig](req.URL, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(e.Name).To(Equal("gpt4all-j"))
 		})
 	})
 
