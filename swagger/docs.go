@@ -2110,7 +2110,7 @@ const docTemplate = `{
         },
         "/audio/transformations/stream": {
             "get": {
-                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The first message must be a JSON ` + "`" + `session.update` + "`" + ` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
+                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The model must support the audio_transform use case. Any-to-any models such as liquid-audio use the OpenAI Realtime API instead. The first message must be a JSON ` + "`" + `session.update` + "`" + ` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
                 "tags": [
                     "audio"
                 ],
@@ -5080,6 +5080,29 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.CompressionMetadata": {
+            "type": "object",
+            "properties": {
+                "compressed_tokens": {
+                    "type": "integer"
+                },
+                "compressor": {
+                    "type": "string"
+                },
+                "dropped_turns": {
+                    "type": "integer"
+                },
+                "original_tokens": {
+                    "type": "integer"
+                },
+                "overflow_recoveries": {
+                    "type": "integer"
+                },
+                "summary_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.DepthRequest": {
             "type": "object",
             "properties": {
@@ -6992,6 +7015,14 @@ const docTemplate = `{
                 "negative_prompt_scale": {
                     "type": "number"
                 },
+                "pooling": {
+                    "description": "Pooling is a LocalAI extension for /v1/embeddings: how the backend's\nper-token vectors are reduced to a single embedding. \"\" or \"backend\"\nleaves pooling to the inference backend (the pre-existing behavior);\n\"mean\", \"last\" and \"decayed_mean\" pool Go-side from raw per-token\nvectors (the backend must run with the \"pooling:none\" option, which\nmodel configs get automatically when this is set).",
+                    "type": "string"
+                },
+                "pooling_half_life_tokens": {
+                    "description": "PoolingHalfLifeTokens is a LocalAI extension for /v1/embeddings: the\nhalf-life (in tokens) of the \"decayed_mean\" pooling scheme — a token's\nweight halves every this-many positions counting back from the end of\nthe conversation. Defaults to 256 when unset.",
+                    "type": "integer"
+                },
                 "presence_penalty": {
                     "type": "number"
                 },
@@ -7128,6 +7159,9 @@ const docTemplate = `{
             "properties": {
                 "completion_tokens": {
                     "type": "integer"
+                },
+                "compression_meta": {
+                    "$ref": "#/definitions/schema.CompressionMetadata"
                 },
                 "input_tokens": {
                     "description": "Fields for image generation API compatibility",
