@@ -308,35 +308,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 			MaxChunkingSize: 400,
 			AgentHubURL:     "https://agenthub.localai.io",
 		},
-		PathWithoutAuth: []string{
-			"/static/",
-			"/generated-audio/",
-			"/generated-images/",
-			"/generated-videos/",
-			"/favicon.svg",
-			"/readyz",
-			"/healthz",
-			"/api/auth/",
-			"/assets/",
-			// Branding read endpoint + public asset server. The login
-			// screen renders before authentication completes, so it has
-			// to be able to GET /api/branding and the configured logo.
-			//
-			// IMPORTANT: PathWithoutAuth uses a prefix match (see
-			// auth.isExemptPath). The "/api/branding" entry therefore
-			// also exempts POST/DELETE /api/branding/asset/:kind from
-			// the *global* auth middleware. Those routes are still
-			// admin-gated because they are registered with the
-			// route-level adminMiddleware (auth.RequireAdmin) in
-			// core/http/routes/ui_api.go — that's what keeps anonymous
-			// uploads/deletes returning 401. Any new admin-only sub-route
-			// added under /api/branding/* MUST also carry adminMiddleware
-			// at the route registration site, otherwise it ships
-			// unauthenticated. The TestBrandingRoutes_AdminGatingHolds
-			// integration test in core/http/auth pins this contract.
-			"/api/branding",
-			"/branding/",
-		},
+		PathWithoutAuth: []string{},
 	}
 	for _, oo := range o {
 		oo(opt)
