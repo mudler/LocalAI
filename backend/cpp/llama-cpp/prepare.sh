@@ -21,6 +21,10 @@ done
 
 cp -r CMakeLists.txt llama.cpp/tools/grpc-server/
 cp -r grpc-server.cpp llama.cpp/tools/grpc-server/
+# Model-load diagnostics (included by grpc-server.cpp) and their standalone
+# regression test.
+cp -r model_load_error.h llama.cpp/tools/grpc-server/
+cp -r model_load_error_test.cpp llama.cpp/tools/grpc-server/
 # Shared message-reconstruction helpers (included by grpc-server.cpp) and their
 # unit test (compiled only when -DLLAMA_GRPC_BUILD_TESTS=ON).
 cp -r message_content.h llama.cpp/tools/grpc-server/
