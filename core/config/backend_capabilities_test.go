@@ -291,6 +291,28 @@ var _ = Describe("VoiceCloningForModel", func() {
 	)
 })
 
+var _ = Describe("TTSVoicesForModel", func() {
+	It("returns the built-in Pocket TTS voice catalog", func() {
+		voices := TTSVoicesForModel(&ModelConfig{Name: "pocket", Backend: "pocket-tts"})
+		Expect(voices).To(ContainElement(TTSVoice{Name: "alba", Language: "en_US", Gender: "female"}))
+		Expect(voices).To(ContainElement(TTSVoice{Name: "giovanni", Language: "it_IT", Gender: "male"}))
+	})
+
+	It("resolves the catalog for pinned backend variants", func() {
+		voices := TTSVoicesForModel(&ModelConfig{Name: "pocket", Backend: "cuda12-pocket-tts"})
+		Expect(voices).To(ContainElement(TTSVoice{Name: "alba", Language: "en_US", Gender: "female"}))
+	})
+
+	It("prefers model-specific voice metadata", func() {
+		configured := []TTSVoice{{Name: "custom", Language: "en_GB"}}
+		voices := TTSVoicesForModel(&ModelConfig{
+			Backend:   "pocket-tts",
+			TTSConfig: TTSConfig{Voices: configured},
+		})
+		Expect(voices).To(Equal(configured))
+	})
+})
+
 // llama.cpp serves Qwen3-TTS as well as the text LLMs it is known for, so the
 // backend has to advertise TTS. That advertisement is what makes narrowing
 // mandatory: the per-backend switch in VoiceCloningForModel ends in a
