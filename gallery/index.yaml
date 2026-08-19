@@ -1,4 +1,84 @@
 ---
+- &ling-3-0-flash
+  name: "ling-3.0-flash-iq1"
+  variants:
+    - model: ling-3.0-flash-iq2
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/inclusionAI/Ling-3.0-flash
+    - https://huggingface.co/AtomicChat/Ling-3.0-flash-GGUF
+  description: |
+    Ling-3.0-flash is InclusionAI's MIT-licensed hybrid reasoning MoE model
+    with 124B total parameters and 5.5B active parameters per token. It targets
+    coding, deep research, instruction following, and agentic workflows with a
+    native 256K-token context window.
+
+    This default entry uses the 36.5 GB AD-IQ1_M GGUF. A higher-quality
+    44.7 GB AD-IQ2_XS model is available as a variant.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - long-context
+  last_checked: "2026-08-19"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ling-3.0-flash/Ling-3.0-flash-AD-IQ1_M.gguf
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ling-3.0-flash/Ling-3.0-flash-AD-IQ1_M.gguf
+      uri: huggingface://AtomicChat/Ling-3.0-flash-GGUF/AD-IQ1_M/Ling-3.0-flash-AD-IQ1_M.gguf
+      sha256: 6ea4a12d38f2e43c3e2c053001f6ea45352d22749b333ffecd3f62ea69b773f1
+- !!merge <<: *ling-3-0-flash
+  name: "ling-3.0-flash-iq2"
+  variants: []
+  description: |
+    Ling-3.0-flash in the higher-quality 44.7 GB AD-IQ2_XS GGUF format. This
+    variant preserves more model fidelity for hosts with enough memory.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ling-3.0-flash/Ling-3.0-flash-AD-IQ2_XS.gguf
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ling-3.0-flash/Ling-3.0-flash-AD-IQ2_XS.gguf
+      uri: huggingface://AtomicChat/Ling-3.0-flash-GGUF/AD-IQ2_XS/Ling-3.0-flash-AD-IQ2_XS.gguf
+      sha256: 0099aa53d65b458b03a453327a06baffd981ba5bcffbab56adf49ce85e17e554
 - name: "qwen3.8-27b-heretic-abliterated-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
