@@ -30,6 +30,55 @@ Legacy API keys grant **full admin access** - there is no role separation. For m
 
 API keys can also be managed at runtime through the [Runtime Settings]({{%relref "features/runtime-settings" %}}) interface.
 
+## Protected and anonymous HTTP routes
+
+When you configure database authentication or legacy API keys, LocalAI makes the HTTP surface **private by default**. An anonymous request succeeds only for an approved method and path or an explicit deployment override. If you configure neither authentication mode, the authentication middleware does not restrict requests.
+
+### Public discovery APIs
+
+The following discovery requests are available anonymously:
+
+- `GET /.well-known/localai.json`
+- `GET /api/instructions`
+- `GET /api/instructions/{name}`
+- Swagger `GET` requests at `/swagger` and under `/swagger/`
+
+These discovery APIs describe the server's API surface. The endpoints that they advertise still require credentials unless this section lists them as public or bootstrap routes.
+
+### Anonymous bootstrap routes
+
+LocalAI also permits the requests needed for health checks, credential acquisition, and the login UI. These routes do not make the rest of the API public.
+
+- Health checks: `GET /healthz` and `GET /readyz`.
+- Authentication status and token login: `GET /api/auth/status` and `POST /api/auth/token-login`.
+- Local registration and login: `POST /api/auth/register` and `POST /api/auth/login`.
+- GitHub OAuth: `GET /api/auth/github/login` and `GET /api/auth/github/callback`.
+- OIDC: `GET /api/auth/oidc/login` and `GET /api/auth/oidc/callback`.
+- Authentication preflight requests: `OPTIONS` under `/api/auth/`.
+- SPA shell routes: `GET /`, `HEAD /`, and `GET` requests at `/app`, `/browse`, `/login`, `/invite/*`, and `/explorer`. Subpaths under `/app/` and `/browse/` are also available through `GET`.
+- SPA assets: `GET /favicon.svg` and `GET` requests under `/assets/`, `/locales/`, and `/static/`.
+- Branding reads: `GET /api/branding` and `GET` requests under `/branding/asset/`. Branding mutations still require admin credentials.
+
+### Routes that require credentials
+
+Without an explicit deployment override, every other route requires credentials. This includes `GET /version`, all model and backend API routes, and all inference routes. MCP and moderation aliases are also private:
+
+- `POST /v1/mcp/chat/completions`, `POST /mcp/v1/chat/completions`, and `POST /mcp/chat/completions`
+- `POST /v1/moderations` and `POST /moderations`
+
+Generated output URLs also require credentials. This applies to every URL under `/generated-audio/`, `/generated-images/`, `/generated-videos/`, and `/generated-3d/`.
+
+### Explicit deployment overrides
+
+Embedded deployments can add path prefixes to `ApplicationConfig.PathWithoutAuth`. Each prefix bypasses global authentication for every HTTP method below that prefix. Route-specific authorization still applies when the route registers it. Keep these overrides as narrow as possible; the default list is empty.
+
+Two legacy flags provide a separate `GET`-only compatibility override when legacy API keys are configured:
+
+- `LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET=true` enables the override.
+- `LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS` sets the regular expressions for the exempt `GET` routes.
+
+The endpoint expressions have no effect unless you enable `LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET`. Review custom expressions carefully because they can expose protected reads.
+
 ## User Authentication System
 
 The user authentication system provides:
@@ -141,12 +190,9 @@ curl http://localhost:8080/api/auth/admin/invites \
 # Revoke an unused invite
 curl -X DELETE http://localhost:8080/api/auth/admin/invites/<invite-id> \
   -H "Authorization: Bearer <admin-key>"
-
-# Check if an invite code is valid (public, no auth required)
-curl http://localhost:8080/api/auth/invite/<code>/check
 ```
 
-Share the invite URL (`/invite/<code>`) with the user. When they open it, the registration form is pre-filled with the invite code. Invite codes are single-use - once consumed, they cannot be reused. Expired or used invites are rejected.
+Share the invite URL (`/invite/<code>`) with the user. When they open it, the registration form is pre-filled with the invite code. LocalAI validates the code only when the user submits registration. Invite codes are single-use - once consumed, they cannot be reused. Expired or used invites are rejected.
 
 For GitHub OAuth, the invite code is passed as a query parameter to the login URL (`/api/auth/github/login?invite_code=<code>`) and stored in a cookie during the OAuth flow.
 
@@ -182,7 +228,7 @@ When authentication is enabled, the following endpoints require admin role:
 - `GET /v1/models`, `POST /v1/tokenize`, `POST /v1/detokenize`, `POST /v1/detection`
 - `POST /v1/mcp/chat/completions`, `POST /v1/messages`, `POST /v1/responses`
 - `POST /stores/*`, `GET /api/cors-proxy`
-- `GET /version`, `GET /api/features`, `GET /swagger/*`, `GET /metrics`
+- `GET /version`, `GET /api/features`, `GET /metrics`
 - `GET /api/auth/usage` (own usage data)
 
 ### Web UI Access Control
@@ -250,6 +296,13 @@ User API keys inherit the creating user's role. Admin keys grant admin access; u
 | Method | Endpoint | Description | Auth Required |
 |---|---|---|---|
 | `GET` | `/api/auth/status` | Auth state, current user, providers | No |
+| `POST` | `/api/auth/token-login` | Exchange a user or legacy API key for a browser session | No |
+| `POST` | `/api/auth/register` | Register with email and password | No |
+| `POST` | `/api/auth/login` | Log in with email and password | No |
+| `GET` | `/api/auth/github/login` | Start GitHub OAuth | No |
+| `GET` | `/api/auth/github/callback` | GitHub OAuth callback (internal) | No |
+| `GET` | `/api/auth/oidc/login` | Start OIDC login | No |
+| `GET` | `/api/auth/oidc/callback` | OIDC callback (internal) | No |
 | `POST` | `/api/auth/logout` | End session | Yes |
 | `GET` | `/api/auth/me` | Current user info | Yes |
 | `POST` | `/api/auth/api-keys` | Create API key | Yes |
@@ -265,11 +318,6 @@ User API keys inherit the creating user's role. Admin keys grant admin access; u
 | `POST` | `/api/auth/admin/invites` | Create invite link | Admin |
 | `GET` | `/api/auth/admin/invites` | List all invites | Admin |
 | `DELETE` | `/api/auth/admin/invites/:id` | Revoke unused invite | Admin |
-| `GET` | `/api/auth/invite/:code/check` | Check if invite code is valid | No |
-| `GET` | `/api/auth/github/login` | Start GitHub OAuth | No |
-| `GET` | `/api/auth/github/callback` | GitHub OAuth callback (internal) | No |
-| `GET` | `/api/auth/oidc/login` | Start OIDC login | No |
-| `GET` | `/api/auth/oidc/callback` | OIDC callback (internal) | No |
 
 ## Usage Tracking
 
