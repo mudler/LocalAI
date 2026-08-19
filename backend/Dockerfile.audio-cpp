@@ -84,6 +84,9 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
     if [ "${BUILD_TYPE}" = "vulkan" ]; then \
         apt-get install -y --no-install-recommends libvulkan-dev glslc; \
     fi && \
+    if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        apt-get install -y --no-install-recommends hipblas-dev; \
+    fi && \
     if [ "${TARGETARCH}" = "arm64" ]; then \
         apt-get install -y --no-install-recommends gcc-14 g++-14; \
     fi && \
