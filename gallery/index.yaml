@@ -1,4 +1,55 @@
 ---
+- name: "qwen3.8-27b-heretic-abliterated-uncensored"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF
+  description: |
+    # Qwen3.8-27B
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, TokenSpeed, etc.
+
+    > [!Tip]
+    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
+    > In particular, **Qwen3.8-27B** will be available as a hosted version with more production features, e.g., 1M context length by default, official built-in tools. For more information, please refer to the Qwen3.8-27B Overview. The service is coming soon. Stay tuned for updates.
+
+    Following the widespread community adoption of the Qwen3.5 and Qwen3.6 series, we are pleased to introduce Qwen3.8, the most capable generation in the Qwen open-model family to date.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.8-27B-Heretic-Q4_K_M/mmproj-Qwen3.8-27B-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-27B-Heretic-Q4_K_M/Qwen3.8-27B-Heretic-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-27B-Heretic-Q4_K_M/Qwen3.8-27B-Heretic-Q4_K_M.gguf
+      sha256: 5ae89d6720ba0a27f643e6fbb0d1b557870d17aeff23156e5981e863ec16985c
+      uri: https://huggingface.co/0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF/resolve/main/Qwen3.8-27B-Heretic-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.8-27B-Heretic-Q4_K_M/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
+      uri: https://huggingface.co/0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF/resolve/main/mmproj-Qwen3.8-27B-Q8_0.gguf
 - &ornith-1-0-9b
   name: "ornith-1.0-9b-q4"
   variants:
