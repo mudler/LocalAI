@@ -12,7 +12,7 @@ import { test, expect } from './coverage-fixtures.js'
 // error instead of reloading forever.
 const HOME_CHUNK = /\/assets\/Home-[^/]*\.js(\?.*)?$/
 
-test.describe('Stale chunk recovery', () => {
+test.describe('@production-chunks Stale chunk recovery', () => {
   test('a 404 on a page chunk recovers on its own', async ({ page }) => {
     let served404 = 0
     await page.route(HOME_CHUNK, route => {
