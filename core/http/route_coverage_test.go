@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -22,10 +21,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// Every API-prefixed route registered by API() must either reject anonymous
-// traffic with 401 or appear on the explicit public allowlist below. The
-// test fails on routes that ship without an auth decision; adding a new
-// public surface should be deliberate, not a side effect.
+// Every route registered by API() must either reject anonymous traffic with
+// 401 or appear on the explicit public allowlist below. The test fails on
+// routes that ship without an auth decision; adding a new public surface
+// should be deliberate, not a side effect.
 var _ = Describe("Route auth coverage", func() {
 	var (
 		app     *echo.Echo
@@ -74,53 +73,61 @@ var _ = Describe("Route auth coverage", func() {
 		Expect(os.RemoveAll(tmpdir)).To(Succeed())
 	})
 
-	It("rejects anonymous traffic on every API route except the explicit allowlist", func() {
-		// Routes that are intentionally reachable without authentication.
-		// Each entry needs a justification comment.
-		expectedPublicPrefixes := []string{
-			// Auth flow itself — login, registration, OAuth callbacks
-			"/api/auth/",
-
-			// Distributed-mode node self-service: authenticated by a
-			// registration token presented in the request body, not by the
-			// global auth middleware. Verified separately in node tests.
-			"/api/node/register",
-
-			// Branding read for login screen + public branding asset server.
-			// Mutating /api/branding/asset/* routes are exempt from global
-			// auth but admin-gated by route-level middleware
-			// (TestBrandingRoutes_AdminGatingHolds pins that contract).
-			"/api/branding",
-			"/branding/",
-
-			// Health and metadata used by orchestrators / load balancers
-			"/healthz",
-			"/readyz",
-
-			// Static asset surfaces used by the UI before login
-			"/favicon.svg",
-			"/static/",
-			"/assets/",
-			"/locales/",
-			"/generated-audio/",
-			"/generated-images/",
-			"/generated-videos/",
-		}
-		expectedPublicExact := map[string]bool{
-			// SPA shell + redirects — UI handles login client-side
-			"/":            true,
-			"/app":         true,
-			"/browse":      true,
-			"/swagger":     true,
-			"/swagger/":    true,
-			"/swagger/*":   true,
-			"/oauth/start": true,
+	It("enforces the anonymous-access decision for every registered route", func() {
+		type routePattern struct {
+			method string
+			path   string
 		}
 
-		// Per-route exemptions for distributed-mode node endpoints whose
-		// pattern carries a path param (so they don't fit a flat prefix).
-		// These authenticate via registration token at the handler layer.
-		nodeSelfPattern := regexp.MustCompile(`^/api/node/[^/]+/(heartbeat|drain|deregister)$`)
+		// This allowlist deliberately restates the public contract instead of
+		// importing the production registry, so drift in either direction fails.
+		expectedPublicRoutes := map[routePattern]struct{}{
+			// Discovery used before clients have credentials.
+			{method: http.MethodGet, path: "/.well-known/localai.json"}: {},
+			{method: http.MethodGet, path: "/api/instructions"}:         {},
+			{method: http.MethodGet, path: "/api/instructions/:name"}:   {},
+			{method: http.MethodGet, path: "/swagger"}:                  {},
+			{method: http.MethodGet, path: "/swagger/"}:                 {},
+			{method: http.MethodGet, path: "/swagger/index.html"}:       {},
+			{method: http.MethodGet, path: "/swagger/*"}:                {},
+
+			// Orchestrator health probes.
+			{method: http.MethodGet, path: "/healthz"}: {},
+			{method: http.MethodGet, path: "/readyz"}:  {},
+
+			// Authentication bootstrap endpoints only; authenticated account and
+			// admin operations under /api/auth/ remain protected.
+			{method: http.MethodGet, path: "/api/auth/status"}:          {},
+			{method: http.MethodPost, path: "/api/auth/token-login"}:    {},
+			{method: http.MethodPost, path: "/api/auth/register"}:       {},
+			{method: http.MethodPost, path: "/api/auth/login"}:          {},
+			{method: http.MethodGet, path: "/api/auth/github/login"}:    {},
+			{method: http.MethodGet, path: "/api/auth/github/callback"}: {},
+			{method: http.MethodGet, path: "/api/auth/oidc/login"}:      {},
+			{method: http.MethodGet, path: "/api/auth/oidc/callback"}:   {},
+
+			// SPA shell and client-side navigation before login.
+			{method: http.MethodGet, path: "/"}:             {},
+			{method: http.MethodHead, path: "/"}:            {},
+			{method: http.MethodGet, path: "/app"}:          {},
+			{method: http.MethodGet, path: "/app/*"}:        {},
+			{method: http.MethodGet, path: "/browse"}:       {},
+			{method: http.MethodGet, path: "/browse/*"}:     {},
+			{method: http.MethodGet, path: "/login"}:        {},
+			{method: http.MethodGet, path: "/invite/:code"}: {},
+			{method: http.MethodGet, path: "/explorer"}:     {},
+
+			// Static assets needed to render the pre-authentication UI.
+			{method: http.MethodGet, path: "/favicon.svg"}: {},
+			{method: http.MethodGet, path: "/assets/*"}:    {},
+			{method: http.MethodGet, path: "/locales/*"}:   {},
+			{method: http.MethodGet, path: "/static/*"}:    {},
+
+			// Branding reads used by the login screen. Branding mutations are
+			// intentionally absent and must receive 401.
+			{method: http.MethodGet, path: "/api/branding"}:         {},
+			{method: http.MethodGet, path: "/branding/asset/:kind"}: {},
+		}
 
 		// Concretize a route pattern into a URL suitable for httptest.
 		// Echo path params come back as ":name" and wildcards as "*".
@@ -136,41 +143,20 @@ var _ = Describe("Route auth coverage", func() {
 			return strings.Join(parts, "/")
 		}
 
-		isAPI := func(p string) bool {
-			apiPrefixes := []string{
-				"/api/", "/v1/", "/models/", "/backends/", "/backend/",
-				"/tts", "/vad", "/video", "/stores/", "/system",
-				"/ws/", "/generated-", "/chat/", "/completions",
-				"/edits", "/embeddings", "/audio/", "/images/",
-				"/messages", "/responses",
-			}
-			if p == "/metrics" {
+		isAllowlisted := func(method, path string) bool {
+			_, ok := expectedPublicRoutes[routePattern{method: method, path: path}]
+			if ok {
 				return true
 			}
-			for _, pre := range apiPrefixes {
-				if strings.HasPrefix(p, pre) {
-					return true
-				}
-			}
-			return false
+
+			// CORS preflight may be represented as a route by some Echo
+			// configurations. The method restriction keeps the rest of the auth
+			// namespace private.
+			return method == http.MethodOptions && strings.HasPrefix(path, "/api/auth/")
 		}
 
-		isAllowlisted := func(p string) bool {
-			if expectedPublicExact[p] {
-				return true
-			}
-			for _, pre := range expectedPublicPrefixes {
-				if strings.HasPrefix(p, pre) {
-					return true
-				}
-			}
-			if nodeSelfPattern.MatchString(p) {
-				return true
-			}
-			return false
-		}
-
-		var leaks []string
+		leaks := []string{}
+		blockedPublicRoutes := []string{}
 		seen := map[string]bool{}
 		for _, r := range app.Routes() {
 			// Echo registers automatic HEAD routes for GETs; auth check is
@@ -181,28 +167,19 @@ var _ = Describe("Route auth coverage", func() {
 			}
 			seen[key] = true
 
-			// Only inspect API surface — UI/static paths are intentionally
-			// reachable for SPA hydration before login.
-			if !isAPI(r.Path) {
-				continue
-			}
-			if isAllowlisted(r.Path) {
-				continue
-			}
-
 			req := httptest.NewRequest(r.Method, concretize(r.Path), nil)
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			app.ServeHTTP(rec, req)
 
-			// We accept:
-			//   401: middleware rejected — the desired outcome
-			//   404: route not actually reachable in this minimal config
-			//        (e.g. distributed-only routes); not an auth leak
-			//   405: method not allowed; auth never ran but isn't a leak
-			if rec.Code == http.StatusUnauthorized ||
-				rec.Code == http.StatusNotFound ||
-				rec.Code == http.StatusMethodNotAllowed {
+			if isAllowlisted(r.Method, r.Path) {
+				if rec.Code == http.StatusUnauthorized {
+					blockedPublicRoutes = append(blockedPublicRoutes, "  "+r.Method+" "+r.Path)
+				}
+				continue
+			}
+
+			if rec.Code == http.StatusUnauthorized {
 				continue
 			}
 
@@ -211,15 +188,15 @@ var _ = Describe("Route auth coverage", func() {
 				" (got "+strconv.Itoa(rec.Code)+")")
 		}
 
-		if len(leaks) > 0 {
+		if len(leaks) > 0 || len(blockedPublicRoutes) > 0 {
 			Fail("Routes reachable without authentication:\n" +
 				strings.Join(leaks, "\n") +
-				"\n\nIf the route is intentionally public, add it to " +
-				"expectedPublicPrefixes or expectedPublicExact in " +
-				"core/http/route_coverage_test.go with a justification " +
-				"comment. Otherwise, gate it behind the auth middleware " +
-				"(automatic for /api/, /v1/, /models/, /backends/, etc.) " +
-				"or RequireAdmin / RequireFeature.")
+				"\n\nPublic routes unexpectedly requiring authentication:\n" +
+				strings.Join(blockedPublicRoutes, "\n") +
+				"\n\nIf a route is intentionally public, add its exact method and Echo " +
+				"pattern to expectedPublicRoutes in core/http/route_coverage_test.go " +
+				"with a justification comment. Otherwise, keep it behind the " +
+				"global auth middleware or RequireAdmin / RequireFeature.")
 		}
 	})
 })

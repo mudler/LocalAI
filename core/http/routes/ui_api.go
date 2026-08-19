@@ -1835,8 +1835,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// Branding / whitelabeling. The read endpoint and the asset server are
 	// public so the login screen can render the configured logo and instance
-	// name before authentication. Mutations are admin-only. See app.go where
-	// "/api/branding" and "/branding/" are added to PathWithoutAuth.
+	// name before authentication. Mutations are admin-only. Keep these method-
+	// aware exemptions in sync with core/http/auth/public_routes.go.
 	app.GET("/api/branding", localai.GetBrandingEndpoint(appConfig))
 	app.GET("/branding/asset/:kind", localai.ServeBrandingAssetEndpoint(appConfig))
 	app.POST("/api/branding/asset/:kind", localai.UploadBrandingAssetEndpoint(appConfig), adminMiddleware)
