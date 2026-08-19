@@ -44,6 +44,16 @@ func (lc *lockedConn) writeJSON(v any) error {
 	return lc.Conn.WriteJSON(v)
 }
 
+// writeTerminalJSON atomically hands the connection to the next response: the
+// in-flight guard is released while the write lock is held, so a newly accepted
+// response cannot write an event ahead of this terminal event.
+func (lc *lockedConn) writeTerminalJSON(v any, release func()) error {
+	lc.Lock()
+	defer lc.Unlock()
+	release()
+	return lc.Conn.WriteJSON(v)
+}
+
 // WebSocketEndpoint handles WebSocket mode for the Responses API.
 // Clients connect via ws://<host>:<port>/v1/responses and send response.create messages.
 // Events are streamed back over the WebSocket connection instead of SSE.
@@ -82,6 +92,16 @@ func WebSocketEndpoint(application *application.Application) echo.HandlerFunc {
 
 // handleWebSocketConnection runs the read loop for a single WebSocket connection.
 func handleWebSocketConnection(connCtx context.Context, conn *lockedConn, cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) {
+	// Responses created with store=false remain available only to this WebSocket
+	// connection, matching the Responses WebSocket continuation contract without
+	// leaking zero-data-retention state into the process-wide response store.
+	connectionStore := NewResponseStore(0)
+	defer func() {
+		if err := connectionStore.Close(); err != nil {
+			xlog.Warn("WebSocket Responses: failed to close connection-local response store", "error", err)
+		}
+	}()
+
 	// Track in-flight response to enforce one-at-a-time
 	var inflight sync.Mutex
 
@@ -130,8 +150,12 @@ func handleWebSocketConnection(connCtx context.Context, conn *lockedConn, cl *co
 		}
 
 		go func() {
-			defer inflight.Unlock()
-			handleWSResponseCreate(connCtx, conn, &wsMsg.OpenResponsesRequest, cl, ml, evaluator, appConfig)
+			var releaseOnce sync.Once
+			release := func() {
+				releaseOnce.Do(inflight.Unlock)
+			}
+			defer release()
+			handleWSResponseCreate(connCtx, conn, connectionStore, release, wsMsg.Generate, &wsMsg.OpenResponsesRequest, cl, ml, evaluator, appConfig)
 		}()
 	}
 }
@@ -140,12 +164,18 @@ func handleWebSocketConnection(connCtx context.Context, conn *lockedConn, cl *co
 // It reuses the existing background stream infrastructure: the request is processed via
 // handleBackgroundStream which buffers events into the store, and a forwarder goroutine
 // reads those events and sends them over the WebSocket.
-func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *schema.OpenResponsesRequest, cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) {
+func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectionStore *ResponseStore, release func(), generate *bool, input *schema.OpenResponsesRequest, cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) {
 	createdAt := time.Now().Unix()
 	responseID := fmt.Sprintf("resp_%s", uuid.New().String())
+	fail := func(errType, message, param string) {
+		sendWSErrorAndRelease(conn, release, errType, message, param)
+	}
+	failEvent := func(code, message, param string) {
+		sendWSErrorEventAndRelease(conn, release, code, message, param)
+	}
 
 	if input.Model == "" {
-		sendWSError(conn, "invalid_request", "model is required", "model")
+		fail("invalid_request", "model is required", "model")
 		return
 	}
 
@@ -153,7 +183,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *sc
 	cfg, err := cl.LoadModelConfigFileByNameDefaultOptions(input.Model, appConfig)
 	if err != nil {
 		xlog.Warn("WebSocket Responses: model config not found", "model", input.Model, "error", err)
-		sendWSError(conn, "invalid_request", fmt.Sprintf("model not found: %s", input.Model), "model")
+		fail("invalid_request", fmt.Sprintf("model not found: %s", input.Model), "model")
 		return
 	}
 	if cfg.Model == "" {
@@ -162,7 +192,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *sc
 
 	// Merge request params into config (same as mergeOpenResponsesRequestAndModelConfig)
 	if err := middleware.MergeOpenResponsesConfig(cfg, input); err != nil {
-		sendWSError(conn, "invalid_request", fmt.Sprintf("invalid configuration: %v", err), "")
+		fail("invalid_request", fmt.Sprintf("invalid configuration: %v", err), "")
 		return
 	}
 
@@ -173,9 +203,9 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *sc
 	input.Context = reqCtx
 	input.Cancel = reqCancel
 
-	store := GetGlobalStore()
+	globalStore := GetGlobalStore()
 	if appConfig.OpenResponsesStoreTTL > 0 {
-		store.SetTTL(appConfig.OpenResponsesStoreTTL)
+		globalStore.SetTTL(appConfig.OpenResponsesStoreTTL)
 	}
 
 	shouldStore := true
@@ -183,36 +213,64 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *sc
 		shouldStore = false
 	}
 
-	// Handle previous_response_id
+	store := globalStore
+	if !shouldStore {
+		store = connectionStore
+	}
+
+	// Codex uses generate=false to prewarm the Responses WebSocket with the
+	// exact request it may send next. Persist the request and return a terminal
+	// response ID, but do not build a prompt or invoke the model backend.
+	if generate != nil && !*generate {
+		responseCreated := buildORResponse(responseID, createdAt, nil, schema.ORStatusInProgress, input, []schema.ORItemField{}, nil, shouldStore)
+		store.StoreBackground(responseID, input, responseCreated, reqCancel, true)
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.created",
+			SequenceNumber: 0,
+			Response:       responseCreated,
+		})
+
+		now := time.Now().Unix()
+		responseCompleted := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, []schema.ORItemField{}, nil, shouldStore)
+		if err := store.UpdateResponse(responseID, responseCompleted); err != nil {
+			fail("server_error", fmt.Sprintf("failed to complete prewarm response: %v", err), "")
+			if !shouldStore {
+				store.Delete(responseID)
+			}
+			return
+		}
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.completed",
+			SequenceNumber: 1,
+			Response:       responseCompleted,
+		})
+
+		processDone := make(chan struct{})
+		close(processDone)
+		forwardEvents(reqCtx, conn, store, responseID, processDone, release)
+		return
+	}
+
+	// Handle previous_response_id. WebSocket continuations may refer to either
+	// connection-local store=false responses or process-wide stored responses.
 	var messages []schema.Message
 	if input.PreviousResponseID != "" {
-		stored, err := store.Get(input.PreviousResponseID)
+		previousMessages, err := resolvePreviousResponseMessagesFromStores([]*ResponseStore{connectionStore, globalStore}, input.PreviousResponseID, cfg)
 		if err != nil {
-			sendWSErrorEvent(conn, "previous_response_not_found",
-				fmt.Sprintf("previous response not found: %s", input.PreviousResponseID), "previous_response_id")
+			if notFound, ok := err.(*previousResponseNotFoundError); ok {
+				failEvent("previous_response_not_found", notFound.Error(), "previous_response_id")
+				return
+			}
+			fail("invalid_request", err.Error(), "")
 			return
 		}
-
-		previousInputMessages, err := convertORInputToMessages(stored.Request.Input, cfg)
-		if err != nil {
-			sendWSError(conn, "invalid_request", fmt.Sprintf("failed to convert previous input: %v", err), "")
-			return
-		}
-
-		previousOutputMessages, err := convertOROutputItemsToMessages(stored.Response.Output)
-		if err != nil {
-			sendWSError(conn, "invalid_request", fmt.Sprintf("failed to convert previous response: %v", err), "")
-			return
-		}
-
-		messages = previousInputMessages
-		messages = append(messages, previousOutputMessages...)
+		messages = previousMessages
 	}
 
 	// Convert current input to messages
 	newMessages, err := convertORInputToMessages(input.Input, cfg)
 	if err != nil {
-		sendWSError(conn, "invalid_request", fmt.Sprintf("failed to parse input: %v", err), "")
+		fail("invalid_request", fmt.Sprintf("failed to parse input: %v", err), "")
 		return
 	}
 	messages = append(messages, newMessages...)
@@ -308,7 +366,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *sc
 		defer close(processDone)
 		store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)
 
-		finalResponse, bgErr := handleBackgroundStream(reqCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, nil, nil)
+		finalResponse, bgErr := handleBackgroundStream(reqCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, shouldStore, nil, nil)
 		if bgErr != nil {
 			xlog.Error("WebSocket Responses: processing failed", "response_id", responseID, "error", bgErr)
 			now := time.Now().Unix()
@@ -332,21 +390,37 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *sc
 	}()
 
 	// Forward events from the store to the WebSocket connection
-	forwardEvents(reqCtx, conn, store, responseID, processDone, shouldStore)
+	forwardEvents(reqCtx, conn, store, responseID, processDone, release)
 }
 
 // forwardEvents subscribes to events for a response and sends them over the WebSocket.
 // This mirrors handleStreamResume but writes JSON to WebSocket instead of SSE.
-func forwardEvents(ctx context.Context, conn *lockedConn, store *ResponseStore, responseID string, done <-chan struct{}, shouldStore bool) {
+func forwardEvents(ctx context.Context, conn *lockedConn, store *ResponseStore, responseID string, done <-chan struct{}, release func()) {
 	eventsChan, err := store.GetEventsChan(responseID)
 	if err != nil {
 		return
 	}
 
-	lastSeq := -1
+	writeEvent := func(parsed *schema.ORStreamEvent) (terminal bool, err error) {
+		switch parsed.Type {
+		case "response.completed", "response.failed", "error":
+			// A terminal event is the protocol boundary for accepting the next
+			// response.create. Wait until processing has fully stopped, then
+			// release the in-flight guard before making that event visible.
+			select {
+			case <-ctx.Done():
+				return true, ctx.Err()
+			case <-done:
+			}
+			return true, conn.writeTerminalJSON(parsed, release)
+		default:
+			return false, conn.writeJSON(parsed)
+		}
+	}
 
+	lastSeq := -1
 	for {
-		// Drain all available events
+		// Drain all available events.
 		events, err := store.GetEventsAfter(responseID, lastSeq)
 		if err != nil {
 			return
@@ -356,16 +430,16 @@ func forwardEvents(ctx context.Context, conn *lockedConn, store *ResponseStore, 
 			if err := json.Unmarshal(event.Data, &parsed); err != nil {
 				continue
 			}
-			if err := conn.writeJSON(&parsed); err != nil {
+			terminal, err := writeEvent(&parsed)
+			if err != nil || terminal {
 				return
 			}
 			lastSeq = event.SequenceNumber
 		}
 
-		// Check if processing is done and all events have been sent
+		// Check if processing is done and all events have been sent.
 		select {
 		case <-done:
-			// Drain any final events
 			finalEvents, err := store.GetEventsAfter(responseID, lastSeq)
 			if err == nil {
 				for _, event := range finalEvents {
@@ -373,27 +447,24 @@ func forwardEvents(ctx context.Context, conn *lockedConn, store *ResponseStore, 
 					if err := json.Unmarshal(event.Data, &parsed); err != nil {
 						continue
 					}
-					if err := conn.writeJSON(&parsed); err != nil {
+					terminal, err := writeEvent(&parsed)
+					if err != nil || terminal {
 						return
 					}
 				}
-			}
-			// Clean up non-stored responses from the cache
-			if !shouldStore {
-				store.Delete(responseID)
 			}
 			return
 		default:
 		}
 
-		// Wait for new events, completion, or context cancellation
+		// Wait for new events, completion, or context cancellation.
 		select {
 		case <-ctx.Done():
 			return
 		case <-done:
-			// Will drain in next iteration
+			// Will drain in next iteration.
 		case <-eventsChan:
-			// New events available
+			// New events available.
 		}
 	}
 }
@@ -410,6 +481,20 @@ func sendWSError(conn *lockedConn, errType, message, param string) {
 	conn.writeJSON(&event)
 }
 
+func sendWSErrorAndRelease(conn *lockedConn, release func(), errType, message, param string) {
+	event := schema.ORStreamEvent{
+		Type: "error",
+		Error: &schema.ORErrorPayload{
+			Type:    errType,
+			Message: message,
+			Param:   param,
+		},
+	}
+	if err := conn.writeTerminalJSON(&event, release); err != nil {
+		xlog.Debug("WebSocket Responses: failed to write terminal error", "error", err)
+	}
+}
+
 func sendWSErrorEvent(conn *lockedConn, code, message, param string) {
 	event := schema.ORStreamEvent{
 		Type: "error",
@@ -421,4 +506,19 @@ func sendWSErrorEvent(conn *lockedConn, code, message, param string) {
 		},
 	}
 	conn.writeJSON(&event)
+}
+
+func sendWSErrorEventAndRelease(conn *lockedConn, release func(), code, message, param string) {
+	event := schema.ORStreamEvent{
+		Type: "error",
+		Error: &schema.ORErrorPayload{
+			Type:    "invalid_request_error",
+			Code:    code,
+			Message: message,
+			Param:   param,
+		},
+	}
+	if err := conn.writeTerminalJSON(&event, release); err != nil {
+		xlog.Debug("WebSocket Responses: failed to write terminal error", "error", err)
+	}
 }
