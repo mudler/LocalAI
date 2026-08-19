@@ -6,7 +6,10 @@ ARG APT_PORTS_MIRROR=""
 # (for cublas builds). Both ship apt + Ubuntu Noble packages; the nvidia/cuda base
 # additionally provides /usr/local/cuda. Darwin (Metal) builds bypass this Dockerfile
 # entirely via scripts/build/ds4-darwin.sh.
+FROM alpine:3.22 AS ca-certificates
+
 FROM ${BASE_IMAGE} AS builder
+COPY --from=ca-certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG BUILD_TYPE
 ARG TARGETARCH
 ARG TARGETVARIANT
@@ -24,7 +27,9 @@ WORKDIR /build
 #   - gRPC/Protobuf: system apt packages are sufficient; ds4's wrapper only links
 #     against them, it doesn't ship the gRPC source tree.
 #   - nlohmann-json: dsml_renderer's only third-party dep.
-RUN apt-get update && \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         git cmake build-essential pkg-config ca-certificates \
         libgrpc++-dev libprotobuf-dev protobuf-compiler protobuf-compiler-grpc \
@@ -34,7 +39,7 @@ RUN apt-get update && \
 
 COPY . /LocalAI
 
-RUN --mount=type=cache,target=/root/.ccache,id=ds4-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=cache,target=/root/.ccache,id=ds4-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
     make -C /LocalAI/backend/cpp/ds4 BUILD_TYPE=${BUILD_TYPE} NATIVE=false grpc-server package
 
 FROM scratch

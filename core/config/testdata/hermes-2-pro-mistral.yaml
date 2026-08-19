@@ -1,0 +1,7 @@
+name: hermes-2-pro-mistral
+backend: llama-cpp
+context_size: 4096
+parameters:
+  model: hermes-2-pro-mistral.Q4_K_M.gguf
+template:
+  chat: chatml

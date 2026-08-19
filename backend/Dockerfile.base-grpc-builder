@@ -47,7 +47,10 @@
 
 ARG BASE_IMAGE=ubuntu:24.04
 
+FROM alpine:3.22 AS ca-certificates
+
 FROM ${BASE_IMAGE}
+COPY --from=ca-certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 ARG BASE_IMAGE=ubuntu:24.04
 ARG BUILD_TYPE=""
@@ -91,8 +94,9 @@ WORKDIR /build
 
 # Single RUN that delegates to .docker/install-base-deps.sh — the same
 # script the variant Dockerfiles' builder-fromsource stage runs.
-RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin/install-base-deps \
     --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca \
     bash /usr/local/sbin/install-base-deps
 
 WORKDIR /

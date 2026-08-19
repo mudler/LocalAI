@@ -45,7 +45,10 @@ ARG APT_PORTS_MIRROR=""
 # The install-base-deps path is additionally unsafe because it drops protoc 27.1
 # into /usr/local/bin, which shadows apt's protoc on PATH and would generate
 # protobuf-27 sources to be compiled against 3.21 headers.
+FROM alpine:3.22 AS ca-certificates
+
 FROM ${BASE_IMAGE} AS builder
+COPY --from=ca-certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG BUILD_TYPE
 ARG TARGETARCH
 ARG TARGETVARIANT
@@ -74,7 +77,7 @@ WORKDIR /build
 #
 # BUILD_TYPE=vulkan additionally needs the loader headers and glslc; both are in
 # Noble. The CUDA toolkit for BUILD_TYPE=cublas comes from BASE_IMAGE.
-RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -106,7 +109,7 @@ COPY . /LocalAI
 # so an arm64 GPU image would hit the identical compile error. Gating this on an
 # empty BUILD_TYPE would leave that trap armed for the first arm64 GPU entry
 # added to the matrix, which today has none.
-RUN --mount=type=cache,target=/root/.ccache,id=audio-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=cache,target=/root/.ccache,id=audio-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
     if [ "${TARGETARCH}" = "arm64" ]; then \
         export CC=gcc-14 CXX=g++-14; \
     fi && \

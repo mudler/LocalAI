@@ -13,10 +13,16 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/internal/backoff"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
+)
+
+const (
+	modelImportPollInterval    = 50 * time.Millisecond
+	modelImportMaxPollInterval = 500 * time.Millisecond
 )
 
 // InstallModels will preload models from the given list of URLs and galleries
@@ -75,13 +81,21 @@ func InstallModelsWithOptions(ctx context.Context, galleryService *galleryop.Gal
 			}
 
 			var status *galleryop.OpStatus
-			// wait for op to finish
+			pollInterval := modelImportPollInterval
+			poll := time.NewTimer(pollInterval)
+			defer poll.Stop()
 			for {
 				status = galleryService.GetStatus(uuid.String())
 				if status != nil && status.Processed {
 					break
 				}
-				time.Sleep(1 * time.Second)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-poll.C:
+					pollInterval = backoff.Exponential(pollInterval, modelImportMaxPollInterval, 1)
+					poll.Reset(pollInterval)
+				}
 			}
 
 			if status.Error != nil {

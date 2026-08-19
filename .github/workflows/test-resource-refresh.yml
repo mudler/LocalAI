@@ -1,0 +1,76 @@
+---
+name: refresh offline test resources
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+  issues: write
+  packages: write
+
+jobs:
+  refresh:
+    strategy:
+      fail-fast: false
+      matrix:
+        resource-set: [default, distributed-e2e, aio]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+      - uses: oras-project/setup-oras@v1
+      - name: Verify upstream resources and build compressed cache
+        id: refresh
+        continue-on-error: true
+        env:
+          LOCALAI_TEST_RESOURCES_ONLINE: '1'
+        run: |
+          set -o pipefail
+          make update-offline-test-cache TEST_RESOURCE_SET=${{ matrix.resource-set }} 2>&1 | tee resource-refresh.log
+      - name: Upload investigation evidence
+        if: steps.refresh.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-resource-investigation-${{ matrix.resource-set }}-${{ github.run_id }}
+          path: resource-refresh.log
+      - name: Open or update investigation issue
+        if: steps.refresh.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.LOCALAI_BOT_TOKEN || github.token }}
+          RESOURCE_SET: ${{ matrix.resource-set }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="test resource integrity investigation: ${RESOURCE_SET}"
+          body=$(printf '%s\n\n%s\n' \
+            "The scheduled offline-resource refresh failed for \`${RESOURCE_SET}\`." \
+            "Do not update the manifest digest blindly. Download the evidence artifact from ${RUN_URL}, compare upstream checksums/signatures and release notes, inspect redirects, and search the [GitHub Advisory Database](https://github.com/advisories) and [OSV](https://osv.dev). Retry from a declared mirror to distinguish source drift from corruption.")
+          existing=$(gh issue list --state open --search "${title} in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+      - name: Log in to GHCR
+        if: steps.refresh.outcome == 'success'
+        run: echo "${{ github.token }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Publish compressed cache as an OCI artifact
+        if: steps.refresh.outcome == 'success'
+        env:
+          RESOURCE_SET: ${{ matrix.resource-set }}
+        run: |
+          repository=$(printf '%s' "ghcr.io/${GITHUB_REPOSITORY}/localai-test-resources" | tr '[:upper:]' '[:lower:]')
+          digest=$(jq -r --arg set "$RESOURCE_SET" '.bundles[$set] | sub("sha256:"; "sha256-")' test-resources/manifests/lock.json)
+          oras push \
+            --artifact-type application/vnd.localai.test-resources.v1 \
+            "${repository}:${RESOURCE_SET},${RESOURCE_SET}-${digest}" \
+            ".cache/test-resources/bundles/${RESOURCE_SET}.tar.zst:application/vnd.localai.test-resources.bundle.v1+zstd" \
+            "test-resources/manifests/${RESOURCE_SET}.json:application/vnd.localai.test-resources.manifest.v1+json"
+      - name: Fail after preserving evidence
+        if: steps.refresh.outcome == 'failure'
+        run: exit 1

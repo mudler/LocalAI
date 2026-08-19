@@ -4,6 +4,8 @@
 
 set -euxo pipefail
 
+sh /LocalAI/.docker/install-build-proxy-ca.sh
+
 export CCACHE_DIR=/root/.ccache
 ccache --max-size=5G || true
 ccache -z || true
@@ -23,7 +25,11 @@ if [ -z "${BUILD_TYPE:-}" ]; then
   # Pure CPU image: one ggml CPU_ALL_VARIANTS build replaces the per-microarch binaries.
   # arm64: the armv9.2 SME variants need gcc-14 (gcc-13 rejects +sme).
   if [ "${TARGETARCH}" = "arm64" ]; then
-    apt-get update -qq && apt-get install -y -qq gcc-14 g++-14
+    APT_MIRROR="${APT_MIRROR:-https://azure.archive.ubuntu.com}" \
+      APT_PORTS_MIRROR="${APT_PORTS_MIRROR:-https://azure.ports.ubuntu.com}" \
+      sh /LocalAI/.docker/apt-mirror.sh
+    apt-get update -qq
+    apt-get install -y -qq gcc-14 g++-14
     export CC=gcc-14 CXX=g++-14
   fi
   make bonsai-cpu-all

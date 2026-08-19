@@ -28,7 +28,7 @@ import (
 // the registered model is "Qwen3-VL-2B-Instruct-Q4_K_M", not the repo name.
 const testModel = "Qwen3-VL-2B-Instruct-Q4_K_M"
 
-var _ = Describe("Open Responses API", func() {
+var _ = Describe("Open Responses API", Serial, func() {
 	var app *echo.Echo
 	var localApp *application.Application
 	var localModelDir string

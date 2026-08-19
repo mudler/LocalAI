@@ -129,9 +129,27 @@ jobs:
         with:
           platforms: all
 
+      - name: Set up Go for build proxy
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Start build network proxy
+        run: .github/scripts/start-build-proxy.sh
+
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
+        with:
+          driver-opts: |
+            network=host
+            env.http_proxy=${{ env.LOCALAI_BUILD_PROXY }}
+            env.https_proxy=${{ env.LOCALAI_BUILD_PROXY }}
+
+      - name: Trust build proxy CA in BuildKit
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: .github/scripts/inject-build-proxy-ca.sh
 
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
@@ -155,6 +173,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
+            HTTP_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            HTTPS_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            NO_PROXY=localhost,127.0.0.1
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
@@ -165,6 +186,8 @@ jobs:
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
+          secret-files: |
+            build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: .
           file: ./Dockerfile
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
@@ -218,6 +241,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
+            HTTP_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            HTTPS_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            NO_PROXY=localhost,127.0.0.1
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
@@ -228,6 +254,8 @@ jobs:
             UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
+          secret-files: |
+            build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: .
           file: ./Dockerfile
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
@@ -239,3 +267,18 @@ jobs:
       - name: job summary
         run: |
           echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Stop build network proxy
+        if: ${{ always() && env.LOCALAI_BUILD_PROXY_OUTPUT != '' }}
+        env:
+          LOCALAI_BUILD_JOB_STATUS: ${{ job.status }}
+        run: .github/scripts/stop-build-proxy.sh
+
+      - name: Upload build network inventory
+        if: ${{ always() && env.LOCALAI_BUILD_PROXY_OUTPUT != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-network-localai-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}-${{ inputs.platform-tag || 'single' }}
+          path: ${{ env.LOCALAI_BUILD_PROXY_OUTPUT }}
+          if-no-files-found: warn
+          retention-days: 14

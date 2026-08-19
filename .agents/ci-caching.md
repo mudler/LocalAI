@@ -1,5 +1,20 @@
 # CI Build Caching
 
+## Build network inventory and defensive proxy
+
+Backend and main-image builds use `cmd/build-proxy` as a strict HTTPS-intercepting
+proxy through the host network. Its short-lived CA is injected into the running
+BuildKit daemon and mounted over the conventional CA bundle during every
+Dockerfile `RUN`. Plain HTTP and opaque CONNECT traffic fail the job. Every
+destination is retained for 14 days as JSONL plus an aggregate host/method/byte
+summary. Responses are spooled and checked against `Content-Length`; GET/HEAD
+requests retry transient status codes or incomplete responses with exponential
+backoff capped at 500ms. Request headers, bodies, credentials and query strings
+are never recorded.
+
+The inventory is intended to size a future content-addressed cache and identify
+hosts worth adding to curated OCI mirrors, such as the Jetson wheels mirror.
+
 Container builds — both the root LocalAI image (`Dockerfile`) and the per-backend images (`backend/Dockerfile.*`) — share a registry-backed BuildKit cache plus a layered set of prebuilt base images. This file explains how the cache is laid out, what invalidates it, and how to bypass it.
 
 ## Workflow surfaces
@@ -230,6 +245,20 @@ This applies only to `Dockerfile.python` because:
 ### Adjusting the cadence
 
 Bump the format to daily (`+%Y-%m-%d`) or hourly (`+%Y-%m-%d-%H`) for faster refreshes. For one-shot rebuilds without changing the schedule, append a marker to the tag-suffix in the matrix or temporarily delete that backend's cache tag in quay.
+
+## The jetson wheels mirror (l4t builds)
+
+The `requirements-l4t12.txt` / `-l4t13.txt` files pull CUDA aarch64 torch wheels from `pypi.jetson-ai-lab.io` via `--extra-index-url`. That index has a history of multi-hour 502 outages, and a 502 on **any** project page aborts the whole uv resolution — uv consults every configured index for every requirement, so even PyPI-hosted packages die with it. To keep l4t builds green through outages, CI serves those wheels from a mirror it controls:
+
+- **Storage**: `ghcr.io/mudler/localai/jetson-wheels:{jp6-cu129,jp7-cu130}` — scratch OCI images holding the wheel subset, laid out like the upstream index (`/jp6/cu129/torch/<wheel>`).
+- **Sync**: `.github/workflows/jetson-wheels.yml` (Saturdays 03:00 UTC, ahead of the weekly `DEPS_REFRESH` re-resolve; also `workflow_dispatch` and master pushes touching its inputs) runs `scripts/jetson-wheels-sync.py` against the package list in `.github/jetson-wheels.json`. During an upstream outage the sync keeps the last-known-good wheels and exits green.
+- **Consumption**: `backend_build.yml` resolves the matching tag for `build-type: l4t` entries (cuda 12 → `jp6-cu129`, 13 → `jp7-cu130`) and passes it as the `JETSON_WHEELS_IMAGE` build-arg; `Dockerfile.python` bind-mounts it at `/jetson-wheels`; `installRequirements` in `backend/python/common/libbackend.sh` serves that directory on localhost as a PEP 503 index (`backend/python/common/pypi_mirror_server.py`) and rewrites the jetson index host in the requirements files to it. The local index 404s for anything it doesn't carry, which uv follows up on PyPI — only the jetson-built wheels resolve locally.
+- **Fallbacks**: if the mirror tag doesn't exist (bootstrap) `backend_build.yml` passes `scratch`, the mount is empty, and the build talks to the upstream index exactly as before. Builds outside CI (local, real Jetsons) never set `JETSON_WHEELS_IMAGE` and are unaffected.
+- **Cache interaction**: the bind mount's content is part of the `RUN ... make` layer's BuildKit hash, so a refreshed wheels image invalidates the install layer on the next build — no extra cache-buster needed.
+
+**Extending the package list**: a package a build needs from the jetson index but missing from `.github/jetson-wheels.json` resolves from PyPI instead — for compiled CUDA packages that silently means a CPU build. When adding an l4t backend with new compiled deps, add them to the list and dispatch `jetson-wheels.yml`.
+
+**Bootstrap** (one-time): `gh workflow run jetson-wheels.yml --ref master`, then make the `jetson-wheels` ghcr package public so anonymous pulls work (Settings → Packages).
 
 ## ccache for C++ backend builds
 

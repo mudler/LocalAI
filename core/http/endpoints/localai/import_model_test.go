@@ -10,13 +10,21 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery/importers"
 	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+type ambiguityMetadata struct{}
+
+func (ambiguityMetadata) GetModelDetails(repo string) (*hfapi.ModelDetails, error) {
+	return &hfapi.ModelDetails{ModelID: repo, Author: "nari-labs", PipelineTag: "text-to-speech"}, nil
+}
 
 var _ = Describe("ImportModelURIEndpoint ambiguity handling", func() {
 
@@ -26,6 +34,9 @@ var _ = Describe("ImportModelURIEndpoint ambiguity handling", func() {
 	)
 
 	BeforeEach(func() {
+		restore := importers.SetHuggingFaceMetadataFactoryForTest(func() importers.HuggingFaceMetadata { return ambiguityMetadata{} })
+		DeferCleanup(restore)
+
 		var err error
 		tempDir, err = os.MkdirTemp("", "import-model-test")
 		Expect(err).ToNot(HaveOccurred())

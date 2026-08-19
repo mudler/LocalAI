@@ -153,9 +153,27 @@ jobs:
         with:
           platforms: all
 
+      - name: Set up Go for build proxy
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Start build network proxy
+        run: .github/scripts/start-build-proxy.sh
+
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
+        with:
+          driver-opts: |
+            network=host
+            env.http_proxy=${{ env.LOCALAI_BUILD_PROXY }}
+            env.https_proxy=${{ env.LOCALAI_BUILD_PROXY }}
+
+      - name: Trust build proxy CA in BuildKit
+        env:
+          BUILDER_NAME: ${{ steps.buildx.outputs.name }}
+        run: .github/scripts/inject-build-proxy-ca.sh
 
       - name: Login to DockerHub
         if: github.event_name != 'pull_request'
@@ -181,6 +199,41 @@ jobs:
         id: deps_refresh
         run: echo "key=$(date -u +%Y-W%V)" >> "$GITHUB_OUTPUT"
 
+      - name: Login to ghcr.io (jetson wheels mirror)
+        if: inputs.build-type == 'l4t'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # l4t builds pull their CUDA aarch64 torch wheels from
+      # pypi.jetson-ai-lab.io, which has a history of multi-hour 502 outages
+      # that fail every l4t job. jetson-wheels.yml mirrors those wheels into
+      # ghcr weekly; here we hand the mirror image to Dockerfile.python,
+      # which serves it as a local package index during pip install (see
+      # installRequirements in backend/python/common/libbackend.sh). Falls
+      # back to scratch — i.e. building straight against the upstream index —
+      # when the mirror tag doesn't exist yet, so the mirror can bootstrap
+      # without a chicken-and-egg failure.
+      - name: Resolve jetson wheels mirror image
+        id: jetson_wheels
+        if: inputs.build-type == 'l4t'
+        run: |
+          repo="ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')/jetson-wheels"
+          case "${{ inputs.cuda-major-version }}" in
+            12) tag="jp6-cu129" ;;
+            13) tag="jp7-cu130" ;;
+            *) tag="" ;;
+          esac
+          img=""
+          if [ -n "$tag" ] && docker buildx imagetools inspect "$repo:$tag" >/dev/null 2>&1; then
+            img="$repo:$tag"
+          else
+            echo "jetson wheels image $repo:$tag not found; building against the upstream index"
+          fi
+          echo "image=$img" >> "$GITHUB_OUTPUT"
+
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v7
@@ -188,6 +241,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
+            HTTP_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            HTTPS_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            NO_PROXY=localhost,127.0.0.1
             BUILD_TYPE=${{ inputs.build-type }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
@@ -201,6 +257,9 @@ jobs:
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
             BUILDER_BASE_IMAGE=${{ inputs.builder-base-image }}
             BUILDER_TARGET=${{ inputs.builder-base-image != '' && 'builder-prebuilt' || 'builder-fromsource' }}
+            JETSON_WHEELS_IMAGE=${{ steps.jetson_wheels.outputs.image || 'scratch' }}
+          secret-files: |
+            build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
@@ -260,6 +319,9 @@ jobs:
         with:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
+            HTTP_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            HTTPS_PROXY=${{ env.LOCALAI_BUILD_PROXY }}
+            NO_PROXY=localhost,127.0.0.1
             BUILD_TYPE=${{ inputs.build-type }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
@@ -273,6 +335,9 @@ jobs:
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
             BUILDER_BASE_IMAGE=${{ inputs.builder-base-image }}
             BUILDER_TARGET=${{ inputs.builder-base-image != '' && 'builder-prebuilt' || 'builder-fromsource' }}
+            JETSON_WHEELS_IMAGE=${{ steps.jetson_wheels.outputs.image || 'scratch' }}
+          secret-files: |
+            build_proxy_ca=${{ env.LOCALAI_BUILD_PROXY_CA }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache${{ inputs.tag-suffix }}-${{ inputs.platform-tag }}
@@ -286,3 +351,18 @@ jobs:
       - name: job summary
         run: |
           echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Stop build network proxy
+        if: ${{ always() && env.LOCALAI_BUILD_PROXY_OUTPUT != '' }}
+        env:
+          LOCALAI_BUILD_JOB_STATUS: ${{ job.status }}
+        run: .github/scripts/stop-build-proxy.sh
+
+      - name: Upload build network inventory
+        if: ${{ always() && env.LOCALAI_BUILD_PROXY_OUTPUT != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-network-${{ inputs.backend }}-${{ inputs.tag-suffix }}-${{ inputs.platform-tag || 'single' }}
+          path: ${{ env.LOCALAI_BUILD_PROXY_OUTPUT }}
+          if-no-files-found: warn
+          retention-days: 14

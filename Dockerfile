@@ -6,7 +6,15 @@ ARG UBUNTU_CODENAME=noble
 ARG APT_MIRROR=""
 ARG APT_PORTS_MIRROR=""
 
+FROM alpine:3.22 AS ca-certificates
+
 FROM ${BASE_IMAGE} AS requirements
+COPY --from=ca-certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    PIP_CERT=/etc/ssl/certs/ca-certificates.crt
 
 ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
@@ -15,7 +23,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # hwdata ships /usr/share/hwdata/pci.ids. Without it, the ghw library we use
 # for hardware detection cannot resolve PCI vendor IDs and fails to enumerate
 # GPUs at all, so the image reports "No GPU detected" (see issue #10941).
-RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -37,11 +45,11 @@ ARG TARGETVARIANT
 ENV BUILD_TYPE=${BUILD_TYPE}
 ARG UBUNTU_VERSION=2404
 
-RUN mkdir -p /run/localai
-RUN echo "default" > /run/localai/capability
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 mkdir -p /run/localai
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 echo "default" > /run/localai/capability
 
 # Vulkan requirements
-RUN <<EOT bash
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
     if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
@@ -92,7 +100,7 @@ RUN <<EOT bash
 EOT
 
 # CuBLAS requirements
-RUN <<EOT bash
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
     if ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "l4t" ] ) && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
@@ -128,14 +136,14 @@ RUN <<EOT bash
     fi
 EOT
 
-RUN <<EOT bash
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
     if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
         echo "nvidia-l4t-cuda-${CUDA_MAJOR_VERSION}" > /run/localai/capability
     fi
 EOT
 
 # https://github.com/NVIDIA/Isaac-GR00T/issues/343
-RUN <<EOT bash
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
     if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
         wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
         dpkg -i cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
@@ -149,7 +157,7 @@ RUN <<EOT bash
 EOT
 
 # If we are building with clblas support, we need the libraries for the builds
-RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             libclblast-dev && \
@@ -157,7 +165,7 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         rm -rf /var/lib/apt/lists/* \
     ; fi
 
-RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
         apt-get install -y --no-install-recommends \
             hipblas-dev \
@@ -171,7 +179,7 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         ldconfig \
     ; fi
 
-RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BUILD_TYPE}" = "hipblas" ]; then \
     ln -s /opt/rocm-**/lib/llvm/lib/libomp.so /usr/lib/libomp.so \
     ; fi
 
@@ -181,12 +189,12 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
 # doesn't have it, so hipblas/rocBLAS log "No such file or directory" on every
 # model load and can fail to identify the GPU. Point it at the equivalent file
 # Ubuntu's libdrm-common package already ships.
-RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ -f /usr/share/libdrm/amdgpu.ids ] && [ ! -e /opt/amdgpu/share/libdrm/amdgpu.ids ]; then \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 if [ "${BUILD_TYPE}" = "hipblas" ] && [ -f /usr/share/libdrm/amdgpu.ids ] && [ ! -e /opt/amdgpu/share/libdrm/amdgpu.ids ]; then \
     mkdir -p /opt/amdgpu/share/libdrm && \
     ln -s /usr/share/libdrm/amdgpu.ids /opt/amdgpu/share/libdrm/amdgpu.ids \
     ; fi
 
-RUN expr "${BUILD_TYPE}" = intel && echo "intel" > /run/localai/capability || echo "not intel"
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 expr "${BUILD_TYPE}" = intel && echo "intel" > /run/localai/capability || echo "not intel"
 
 # Cuda
 ENV PATH=/usr/local/cuda/bin:${PATH}
@@ -206,7 +214,7 @@ ARG CMAKE_FROM_SOURCE=false
 ARG TARGETARCH
 ARG TARGETVARIANT
 
-RUN apt-get update && \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         ccache \
@@ -220,7 +228,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install CMake (the version in 22.04 is too old)
-RUN <<EOT bash
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
     if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
         curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
     else
@@ -233,22 +241,22 @@ RUN <<EOT bash
 EOT
 
 # Install Go
-RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
 ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin
 
 # Install grpc compilers
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
-RUN update-ca-certificates
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 update-ca-certificates
 
-RUN test -n "$TARGETARCH" \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 test -n "$TARGETARCH" \
     || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
 
 # Use the variables in subsequent instructions
-RUN echo "Target Architecture: $TARGETARCH"
-RUN echo "Target Variant: $TARGETVARIANT"
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 echo "Target Architecture: $TARGETARCH"
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 echo "Target Variant: $TARGETVARIANT"
 
 
 
@@ -263,13 +271,14 @@ WORKDIR /build
 # https://community.intel.com/t5/Intel-oneAPI-Math-Kernel-Library/APT-Repository-not-working-signatures-invalid/m-p/1599436/highlight/true#M36143
 # This is a temporary workaround until Intel fixes their repository
 FROM ${INTEL_BASE_IMAGE} AS intel
+COPY --from=ca-certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 ARG UBUNTU_CODENAME=noble
 ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
-RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
 gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu ${UBUNTU_CODENAME}/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
-RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu ${UBUNTU_CODENAME}/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -298,13 +307,13 @@ ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV LD_FLAGS=${LD_FLAGS}
 
-RUN echo "GO_TAGS: $GO_TAGS" && echo "TARGETARCH: $TARGETARCH"
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 echo "GO_TAGS: $GO_TAGS" && echo "TARGETARCH: $TARGETARCH"
 
 WORKDIR /build
 
 
 # We need protoc installed, and the version in 22.04 is too old.
-RUN <<EOT bash
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 <<EOT bash
     if [ "amd64" = "$TARGETARCH" ]; then
         curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protoc-27.1-linux-x86_64.zip -o protoc.zip && \
         unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
@@ -322,11 +331,13 @@ EOT
 
 # Build React UI
 FROM node:26-slim AS react-ui-builder
+
+ENV NODE_EXTRA_CA_CERTS=/run/secrets/build_proxy_ca
 WORKDIR /app
 COPY core/http/react-ui/package*.json ./
-RUN npm install
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 npm install
 COPY core/http/react-ui/ ./
-RUN npm run build
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 npm run build
 
 ###################################
 ###################################
@@ -348,8 +359,8 @@ COPY ./.git ./.git
 COPY ./pkg/grpc ./pkg/grpc
 COPY ./pkg/utils ./pkg/utils
 
-RUN ls -l ./
-RUN make protogen-go
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 ls -l ./
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 make protogen-go
 
 # The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
 # Adjustments to the build process should likely be made here.
@@ -365,7 +376,7 @@ COPY --from=react-ui-builder /app/dist ./core/http/react-ui/dist
 ## Build the binary
 ## If we're on arm64 AND using cublas/hipblas, skip some of the llama-compat backends to save space
 ## Otherwise just run the normal build
-RUN make build
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 make build
 
 ###################################
 ###################################
@@ -377,14 +388,14 @@ FROM builder-base AS devcontainer
 
 COPY .devcontainer-scripts /.devcontainer-scripts
 
-RUN apt-get update && \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 apt-get update && \
     apt-get install -y --no-install-recommends \
         ssh less
 # For the devcontainer, leave apt functional in case additional devtools are needed at runtime.
 
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 go install github.com/go-delve/delve/cmd/dlv@latest
 
-RUN go install github.com/mikefarah/yq/v4@latest
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 go install github.com/mikefarah/yq/v4@latest
 
 ###################################
 ###################################
@@ -413,11 +424,11 @@ COPY ./scripts/build/healthcheck.sh .
 # Copy the binary
 COPY --from=builder /build/local-ai ./
 # Copy the opus shim if it was built
-RUN --mount=from=builder,src=/build/,dst=/mnt/build \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=from=builder,src=/build/,dst=/mnt/build \
     if [ -f /mnt/build/libopusshim.so ]; then cp /mnt/build/libopusshim.so ./; fi
 
 # Make sure the models directory exists
-RUN mkdir -p /models /backends /data
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 mkdir -p /models /backends /data
 
 # Define the health check command.
 #

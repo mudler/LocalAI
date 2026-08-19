@@ -2,7 +2,13 @@ ARG BASE_IMAGE=ubuntu:24.04
 ARG APT_MIRROR=""
 ARG APT_PORTS_MIRROR=""
 
+FROM alpine:3.22 AS ca-certificates
+
 FROM ${BASE_IMAGE} AS builder
+COPY --from=ca-certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    CARGO_HTTP_CAINFO=/etc/ssl/certs/ca-certificates.crt
 ARG BACKEND=kokoros
 ENV DEBIAN_FRONTEND=noninteractive
 ARG TARGETARCH
@@ -10,7 +16,7 @@ ARG TARGETVARIANT
 ARG APT_MIRROR
 ARG APT_PORTS_MIRROR
 
-RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 --mount=type=bind,source=.docker/install-build-proxy-ca.sh,target=/usr/local/sbin/install-build-proxy-ca --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
     APT_MIRROR="${APT_MIRROR}" APT_PORTS_MIRROR="${APT_PORTS_MIRROR}" sh /usr/local/sbin/apt-mirror && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -30,14 +36,14 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
     rm -rf /var/lib/apt/lists/*
 
 # Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 COPY . /LocalAI
 
-RUN git config --global --add safe.directory /LocalAI
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 git config --global --add safe.directory /LocalAI
 
-RUN make -C /LocalAI/backend/rust/${BACKEND} build
+RUN --mount=type=secret,id=build_proxy_ca,target=/run/secrets/build_proxy_ca,mode=0444 make -C /LocalAI/backend/rust/${BACKEND} build
 
 FROM scratch
 ARG BACKEND=kokoros
