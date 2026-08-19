@@ -199,6 +199,110 @@
     - filename: llama-cpp/mmproj/Qwen3.8-27B-Heretic-Q4_K_M/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
       uri: https://huggingface.co/0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF/resolve/main/mmproj-Qwen3.8-27B-Q8_0.gguf
+- &carbon-3b
+  name: "carbon-3b-q4"
+  variants:
+    - model: carbon-3b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/HuggingFaceBio/Carbon-3B
+    - https://huggingface.co/HuggingFaceBio/Carbon-3B-GGUF
+  description: |
+    Carbon-3B is Hugging Face's 3B-parameter genomic foundation model for DNA
+    and RNA sequence generation, recovery, variant-effect prediction, and
+    motif-perturbation analysis. It supports 32,768 tokens natively and uses a
+    hybrid tokenizer with 6-mer DNA tokens.
+
+    This default entry uses the Q4_K_M GGUF. A higher-quality Q8_0 build is
+    available as a variant. Prefix DNA sequences with `<dna>` and use uppercase
+    A, C, G, and T characters in groups of six.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - biology
+    - genomics
+    - dna
+    - long-context
+  last_checked: "2026-08-19"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    parameters:
+      model: carbon-3b-q4_k_m.gguf
+  files:
+    - filename: carbon-3b-q4_k_m.gguf
+      uri: huggingface://HuggingFaceBio/Carbon-3B-GGUF/carbon-3b-q4_k_m.gguf
+      sha256: a639a57be601faecbc04f095015bad2bd35cd251f8994b11976f425ab55009e0
+- !!merge <<: *carbon-3b
+  name: "carbon-3b-q8"
+  variants: []
+  description: |
+    Carbon-3B in the higher-quality Q8_0 GGUF format for genomic sequence
+    generation and analysis.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    parameters:
+      model: carbon-3b-q8_0.gguf
+  files:
+    - filename: carbon-3b-q8_0.gguf
+      uri: huggingface://HuggingFaceBio/Carbon-3B-GGUF/carbon-3b-q8_0.gguf
+      sha256: 3a2b2239e8d91bd45fe6452c011f9691657829c08625b239044ebf974f272694
+- &carbon-8b
+  name: "carbon-8b-q4"
+  variants:
+    - model: carbon-8b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/HuggingFaceBio/Carbon-8B
+    - https://huggingface.co/HuggingFaceBio/Carbon-8B-GGUF
+  description: |
+    Carbon-8B is the largest model in Hugging Face's Carbon family of genomic
+    foundation models. It targets DNA and RNA sequence generation, recovery,
+    variant-effect prediction, and motif-perturbation analysis with a native
+    context length of 32,768 hybrid 6-mer DNA tokens.
+
+    This default entry uses the Q4_K_M GGUF. A higher-quality Q8_0 build is
+    available as a variant. Prefix DNA sequences with `<dna>` and use uppercase
+    A, C, G, and T characters in groups of six.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - biology
+    - genomics
+    - dna
+    - long-context
+  last_checked: "2026-08-19"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    parameters:
+      model: carbon-8b-q4_k_m.gguf
+  files:
+    - filename: carbon-8b-q4_k_m.gguf
+      uri: huggingface://HuggingFaceBio/Carbon-8B-GGUF/carbon-8b-q4_k_m.gguf
+      sha256: b4fa68a7722b446a55198d1eceb6f00899af12b47e23fab11dc7d7b6a34e905c
+- !!merge <<: *carbon-8b
+  name: "carbon-8b-q8"
+  variants: []
+  description: |
+    Carbon-8B in the higher-quality Q8_0 GGUF format for genomic sequence
+    generation and analysis.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    parameters:
+      model: carbon-8b-q8_0.gguf
+  files:
+    - filename: carbon-8b-q8_0.gguf
+      uri: huggingface://HuggingFaceBio/Carbon-8B-GGUF/carbon-8b-q8_0.gguf
+      sha256: ba5f7794d0768e639fcb0fe860ff7340b09bfaad5e0e2f2c021a4f49029352dd
 - &ornith-1-0-9b
   name: "ornith-1.0-9b-q4"
   variants:
