@@ -48,6 +48,13 @@ podman run -ti --name local-ai -p 8080:8080 localai/localai:latest
 
 #### GPU Images
 
+Choose the image that matches your hardware and installed drivers:
+
+- **NVIDIA CUDA 12** is the compatibility choice for systems with CUDA 12 drivers. Use **CUDA 13** when your NVIDIA driver and toolkit support CUDA 13.
+- **AMD ROCm** is for supported AMD GPUs, while **Intel** is for Intel GPUs with the required device runtime.
+- **Jetson** uses the L4T ARM64 image. Choose its CUDA 12 image for Jetson AGX Orin-class devices or CUDA 13 for DGX Spark.
+- **Vulkan** works across vendors and is the fallback when no matching CUDA, ROCm, or Intel image is available.
+
 **NVIDIA CUDA 13:**
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-13

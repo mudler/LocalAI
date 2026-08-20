@@ -9,11 +9,12 @@
         <p class="kicker fd" style="margin-top:0">Open source · MIT · v4.8.0</p>
         <h1><u><b>Make AI run on</b></u><u><b><s>every machine.</s></b></u></h1>
         <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-        <p class="lede fd mt2">Text, voice, vision, images, video, 3D and agents, from one open runtime. It works on the laptop you already own, and scales to a room full of GPUs when you have one. When the engine we need is too heavy, too closed, or does not exist, we write it.</p>
+        <p class="lede fd mt2">Run text, voice, vision, image, video, 3D and agent workloads through one open runtime. Start on the laptop you already own, keep your data on your hardware, and scale to a room full of GPUs when you need more capacity.</p>
         <div class="acts fd">
           <a class="btn" href="#start">Install LocalAI <span>→</span></a>
           <a class="btn btn--o" href="/docs/">Read the docs</a>
           <a class="btn btn--o" href="{{ .Site.Params.github }}">&#9733; Star on GitHub</a>
+          <a class="btn btn--o" href="mailto:contact@localai.io">Talk to us about your business</a>
         </div>
         <div class="figures fd">
           <div><b class="tnum" data-count="{{ .Site.Data.stats.stars }}">0</b><span>GitHub stars</span></div>
@@ -37,7 +38,7 @@
   <div class="shell">
     <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <p class="kicker rv">The runtime</p>
-    <h2 class="rv mt1" style="max-width:21ch">Everything else plugs into LocalAI.</h2>
+    <h2 class="rv mt1" style="max-width:21ch">Drop-in replacement for most upstream APIs.</h2>
     <p class="lede rv mt2">One binary with an OpenAI-compatible API in front of it. Point an existing client at it and the calls keep working, except now the model is on your machine. It also speaks the Anthropic, Ollama and ElevenLabs APIs, so most tools need a URL change and nothing else.</p>
     <p class="lede rv mt2">The engine behind that API is swappable. One model can run on llama.cpp while the next loads on vLLM, SGLang or MLX, and the client never notices: same endpoint, same request, different engine underneath. Switching is one line in the model's config.</p>
     <p class="lede rv mt2">A small core pulls each engine in as a separate backend, only when a model asks for it. That is why one install covers this much ground without becoming a 9 GB download.</p>
@@ -62,6 +63,27 @@
           <video src="/media/gallery.mp4" muted loop playsinline preload="none" data-lazy aria-label="Installing a model from the LocalAI gallery"></video>
         </figure>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- HEADLINE TESTIMONIALS -->
+<section class="navy" id="proof-quotes">
+  <div class="shell">
+    <p class="kicker rv">What other people say</p>
+    <div class="headline">
+      <a class="hq rv" href="https://x.com/ggerganov/status/2065447087311917459">
+        <blockquote>&ldquo;Some cool ggml-based work by @mudler_it recently, make sure to check it out.&rdquo;</blockquote>
+        <p class="hq__w">@ggerganov<b>Georgi Gerganov, author of llama.cpp and ggml</b></p>
+        <span class="hq__go">On X, 2026 &#8599;</span></a>
+      <a class="hq rv" href="https://x.com/badlogicgames/status/2061201400059531729">
+        <blockquote>&ldquo;What a wonderful project: parakeet.cpp. A ggml based parakeet inference pipeline that is 2x faster than my ONNX parakeet pipeline on Apple Silicon.&rdquo;</blockquote>
+        <p class="hq__w">@badlogicgames<b>Mario Zechner, author of pi.agent</b></p>
+        <span class="hq__go">On X, 2026 &#8599;</span></a>
+      <a class="hq rv" href="https://www.linkedin.com/posts/adimargolink_spinoza-saw-all-things-straining-to-become-activity-7468135820076634113-u3Hc">
+        <blockquote>&ldquo;Build something good enough that the community chooses to carry it beyond your reach. This week, Ettore Di Giacinto brought NVIDIA Parakeet to the CPU.&rdquo;</blockquote>
+        <p class="hq__w">Adi Margolin<b>On LinkedIn</b></p>
+        <span class="hq__go">Read the post &#8599;</span></a>
     </div>
   </div>
 </section>
@@ -105,28 +127,28 @@
     <div class="senses">
       <div class="sn rv"><p class="sn__v">Hear <u>words</u></p>
         <p>Live transcription with speaker labels and timestamps, fast enough to keep up with a meeting while it is still happening.</p>
-        <div class="sn__e"><span>parakeet.cpp</span><span>moss-transcribe.cpp</span></div></div>
+        <div class="sn__e"><a href="https://github.com/mudler/parakeet.cpp">parakeet.cpp</a><a href="https://github.com/localai-org/moss-transcribe.cpp">moss-transcribe.cpp</a></div></div>
       <div class="sn rv"><p class="sn__v">Hear <u>the room</u></p>
         <p>527 kinds of sound event: a door, a dog, breaking glass, a smoke alarm. The model notices things nobody thought to type.</p>
-        <div class="sn__e"><span>ced.cpp</span></div></div>
+        <div class="sn__e"><a href="https://github.com/localai-org/ced.cpp">ced.cpp</a></div></div>
       <div class="sn rv"><p class="sn__v">Know <u>who</u></p>
         <p>Recognise a voice, recognise a face, and tell a live person from a photo held up to the camera.</p>
-        <div class="sn__e"><span>voice-detect.cpp</span><span>face-detect.cpp</span></div></div>
+        <div class="sn__e"><a href="https://github.com/localai-org/voice-detect.cpp">voice-detect.cpp</a><a href="https://github.com/mudler/face-detect.cpp">face-detect.cpp</a></div></div>
       <div class="sn rv"><p class="sn__v">See <u>things</u></p>
         <p>Ask for "the red mug on the left" in plain language and get back coordinates, not a caption.</p>
-        <div class="sn__e"><span>locate-anything.cpp</span><span>rf-detr.cpp</span></div></div>
+        <div class="sn__e"><a href="https://github.com/mudler/locate-anything.cpp">locate-anything.cpp</a><a href="https://github.com/localai-org/rf-detr.cpp">rf-detr.cpp</a></div></div>
       <div class="sn rv"><p class="sn__v">See <u>space</u></p>
         <p>Distance in metres from one ordinary photo, and a full 3D reconstruction from a handful of them. No rig, no camera poses, no GPU.</p>
-        <div class="sn__e"><span>depth-anything.cpp</span><span>free-splatter.cpp</span><span>trellis2.cpp</span></div></div>
+        <div class="sn__e"><a href="https://github.com/localai-org/depth-anything.cpp">depth-anything.cpp</a><a href="https://github.com/localai-org/free-splatter.cpp">free-splatter.cpp</a><a href="https://github.com/localai-org/trellis2cpp">trellis2.cpp</a></div></div>
       <div class="sn rv"><p class="sn__v">Speak</p>
         <p>Long-form speech in a cloned voice, across dozens of languages, up to 48 kHz.</p>
-        <div class="sn__e"><span>moss-tts.cpp</span><span>magpie-tts.cpp</span><span>vibevoice.cpp</span><span>voxtral-tts.c</span></div></div>
+        <div class="sn__e"><a href="https://github.com/mudler/moss-tts.cpp">moss-tts.cpp</a><a href="https://github.com/mudler/magpie-tts.cpp">magpie-tts.cpp</a><a href="https://github.com/localai-org/vibevoice.cpp">vibevoice.cpp</a><a href="/engines/">voxtral-tts.c</a></div></div>
       <div class="sn rv"><p class="sn__v">Hear <u>clearly</u></p>
         <p>Echo cancellation, noise suppression and dereverberation, so a voice loop survives a real room with a real speaker in it.</p>
-        <div class="sn__e"><span>LocalVQE</span></div></div>
+        <div class="sn__e"><a href="https://github.com/localai-org/LocalVQE">LocalVQE</a></div></div>
       <div class="sn rv"><p class="sn__v">Forget <u>on purpose</u></p>
         <p>Names, addresses and card numbers get caught and redacted on the machine, before anything is sent anywhere.</p>
-        <div class="sn__e"><span>privacy-filter.cpp</span></div></div>
+        <div class="sn__e"><a href="https://github.com/localai-org/privacy-filter.cpp">privacy-filter.cpp</a></div></div>
     </div>
     <p class="lede rv mt3" style="max-width:74ch;color:var(--ink)">One session can do all of it at once: hear the room, work out who is talking, read what is on the desk, call a tool, and answer out loud. One API, one machine, nothing leaves the building.</p>
   </div>
@@ -157,101 +179,6 @@
         <p class="rv mt2"><a class="btn btn--o" href="/docs/features/text-to-audio/">How the voice pipeline works &#8594;</a></p>
       </div>
     </div>
-  </div>
-</section>
-
-<!-- ENGINES -->
-<section class="navy" id="engines">
-  <div class="shell">
-    <div class="bars rv" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-    <p class="kicker rv">Engines we build</p>
-    <h2 class="rv mt1" style="max-width:22ch">{{ len .Site.Data.engines.engines }} engines, written from scratch.</h2>
-    {{/* Names the link back to the runtime section explicitly. Readers were
-         arriving here and taking these for unrelated side projects, because
-         nothing on the page said they are the backends the core loads. */}}
-    <p class="lede rv mt2">Those backends the core pulls in on demand are mostly ours. Most projects wrap somebody else's engine. We wrote ours, because the thing we needed came as a 9 GB Python install, or was closed, or did not exist. Each one is a binary and a GGUF file, checked against the reference implementation in CI.</p>
-
-    <div class="spot rv">
-      <div>
-        <h3>parakeet.cpp</h3>
-        <p class="spot__h">Twenty-seven times faster than whisper.cpp, on a CPU.</p>
-        <p>NVIDIA NeMo Parakeet, ported to C++ and ggml. Ten checkpoints, all of them verified at WER 0 against NeMo, which means the transcript is identical to NeMo's while finishing first. Cache-aware streaming with end-of-utterance detection handles live audio, and the multilingual streaming model covers 40 or more locales.</p>
-        <div class="facts">
-          <div><b>27x</b><span>vs whisper.cpp, CPU</span></div>
-          <div><b>1.40x</b><span>vs NeMo, CPU median</span></div>
-          <div><b>WER 0</b><span>Parity with NeMo</span></div>
-          <div><b>37%</b><span>Size at q8_0</span></div>
-        </div>
-        <p class="mt2"><a class="btn btn--o" href="https://github.com/mudler/parakeet.cpp">parakeet.cpp on GitHub ↗</a></p>
-      </div>
-      <div class="spot__m">
-        <figure><video src="/media/parakeet-duel.mp4" muted loop playsinline preload="none" data-lazy aria-label="parakeet.cpp finishing ahead of NeMo on the same audio"></video>
-          <figcaption>Same audio, same words, ours finishes first</figcaption></figure>
-        <figure><img src="/img/parakeet-speedup.jpg" alt="Bar chart of parakeet.cpp CPU speedup over NeMo per dtype" loading="lazy">
-          <figcaption>CPU speedup over NeMo, by dtype</figcaption></figure>
-      </div>
-    </div>
-
-    <div class="spot spot--r rv">
-      <div>
-        <h3>depth-anything.cpp</h3>
-        <p class="spot__h">Beats PyTorch on CPU, in half the memory.</p>
-        <p>Depth Anything 3 as a 99 MB file. It gives you metric depth, per-pixel confidence, camera intrinsics and extrinsics, and a back-projected point cloud you can export to glb or COLMAP. Output correlates 1.0 with the reference implementation, component by component, and there is no Python or CUDA toolkit anywhere at inference.</p>
-        <div class="facts">
-          <div><b>1.31x</b><span>vs PyTorch, CPU</span></div>
-          <div><b>363 MB</b><span>Peak RAM, q8_0</span></div>
-          <div><b>6.7x</b><span>Faster to load</span></div>
-          <div><b>99 MB</b><span>Smallest build</span></div>
-        </div>
-        <p class="mt2"><a class="btn btn--o" href="https://github.com/mudler/depth-anything.cpp">depth-anything.cpp on GitHub ↗</a></p>
-      </div>
-      <div class="spot__m">
-        <figure><video src="/media/depth-race.mp4" muted loop playsinline preload="none" data-lazy aria-label="depth-anything.cpp finishing ahead of PyTorch on CPU"></video>
-          <figcaption>One photo in, distance in metres out, ahead of PyTorch on the same CPU</figcaption></figure>
-      </div>
-    </div>
-
-    <div class="wallhead rv">
-      <h3>And the rest of them, running.</h3>
-      <p>Every clip comes out of the benchmark suite that runs in CI on that engine. Where you see two panes, ours is racing the reference implementation on the same machine, on the same input.</p>
-    </div>
-<div class="wall">
-      <a class="wi rv" href="https://github.com/mudler/parakeet.cpp"><video src="/media/parakeet-long.mp4" muted loop playsinline preload="none" data-lazy aria-label="parakeet.cpp racing NeMo on long audio"></video>
-        <div class="wi__c"><em>parakeet.cpp</em> long-form transcription <b>vs NeMo</b></div></a>
-      <a class="wi rv" href="https://github.com/localai-org/ced.cpp"><video src="/media/ced.mp4" muted loop playsinline preload="none" data-lazy aria-label="ced.cpp tagging sound events live"></video>
-        <div class="wi__c"><em>ced.cpp</em> sound events, live <b>527 classes</b></div></a>
-      <a class="wi rv" href="https://github.com/mudler/face-detect.cpp"><video src="/media/face.mp4" muted loop playsinline preload="none" data-lazy aria-label="face-detect.cpp detecting, landmarking and recognising faces"></video>
-        <div class="wi__c"><em>face-detect.cpp</em> detect, landmark, recognise <b>no Python</b></div></a>
-      <a class="wi rv" href="https://github.com/mudler/face-detect.cpp"><video src="/media/face-id.mp4" muted loop playsinline preload="none" data-lazy aria-label="face-detect.cpp finding the same person in a lineup"></video>
-        <div class="wi__c"><em>face-detect.cpp</em> same person, different photo <b>1 to N</b></div></a>
-      <a class="wi rv" href="https://github.com/localai-org/voice-detect.cpp"><video src="/media/voice.mp4" muted loop playsinline preload="none" data-lazy aria-label="voice-detect.cpp speaker recognition benchmark"></video>
-        <div class="wi__c"><em>voice-detect.cpp</em> who is speaking <b>vs reference</b></div></a>
-      <a class="wi rv" href="https://github.com/mudler/depth-anything.cpp"><video src="/media/depth.mp4" muted loop playsinline preload="none" data-lazy aria-label="depth-anything.cpp racing PyTorch on CPU"></video>
-        <div class="wi__c"><em>depth-anything.cpp</em> metric depth <b>vs PyTorch, CPU</b></div></a>
-      <a class="wi rv" href="https://github.com/mudler/locate-anything.cpp"><video src="/media/locate.mp4" muted loop playsinline preload="none" data-lazy aria-label="locate-anything.cpp open vocabulary detection race"></video>
-        <div class="wi__c"><em>locate-anything.cpp</em> say it, find it <b>open vocabulary</b></div></a>
-      <a class="wi rv" href="https://github.com/mudler/moss-tts.cpp"><video src="/media/moss.mp4" muted loop playsinline preload="none" data-lazy aria-label="moss-tts.cpp synthesis benchmark"></video>
-        <div class="wi__c"><em>moss-tts.cpp</em> 48 kHz voice cloning <b>vs reference</b></div></a>
-      <a class="wi rv" href="https://github.com/mudler/magpie-tts.cpp"><video src="/media/magpie.mp4" muted loop playsinline preload="none" data-lazy aria-label="magpie-tts.cpp synthesis benchmark"></video>
-        <div class="wi__c"><em>magpie-tts.cpp</em> 9 languages, 5 voices <b>vs reference</b></div></a>
-    </div>
-
-    <div class="reel rv" aria-hidden="true">
-      <div class="reel__t">
-        <span>vllm.cpp</span><span>parakeet.cpp</span><span>moss-transcribe.cpp</span><span>moss-tts.cpp</span><span>magpie-tts.cpp</span><span>ced.cpp</span><span>voice-detect.cpp</span><span>voxtral-tts.c</span><span>vibevoice.cpp</span><span>rf-detr.cpp</span><span>locate-anything.cpp</span><span>depth-anything.cpp</span><span>face-detect.cpp</span><span>free-splatter.cpp</span><span>trellis2.cpp</span><span>privacy-filter.cpp</span><span>LocalVQE</span><span>local-store</span><span>apex-quant</span>
-        <span>vllm.cpp</span><span>parakeet.cpp</span><span>moss-transcribe.cpp</span><span>moss-tts.cpp</span><span>magpie-tts.cpp</span><span>ced.cpp</span><span>voice-detect.cpp</span><span>voxtral-tts.c</span><span>vibevoice.cpp</span><span>rf-detr.cpp</span><span>locate-anything.cpp</span><span>depth-anything.cpp</span><span>face-detect.cpp</span><span>free-splatter.cpp</span><span>trellis2.cpp</span><span>privacy-filter.cpp</span><span>LocalVQE</span><span>local-store</span><span>apex-quant</span>
-      </div>
-    </div>
-    <div class="quiet rv">
-      <div>
-        <p class="quiet__tag">In development, not announced yet</p>
-        <h4>vllm.cpp</h4>
-        <p>vLLM ported to C++20, with paged attention, continuous batching and prefix caching, on CPU, CUDA, Metal and Vulkan. It installs as 66 MB instead of a 9.1 GB virtualenv, and it stays ahead of vLLM at every concurrency level we have measured so far. Still being finished, so treat the numbers as provisional.</p>
-      </div>
-      <video src="/media/vllm-race.mp4" muted loop playsinline preload="none" data-lazy aria-label="vllm.cpp ahead of vLLM at every concurrency level"></video>
-    </div>
-
-    <p class="rv mt2"><a class="btn btn--o" href="/engines/">All {{ len .Site.Data.engines.engines }} engines →</a></p>
   </div>
 </section>
 
@@ -409,24 +336,6 @@
       <span>Deutsch</span><span>Español</span><span>français</span><span>日本語</span>
       <span>한국어</span><span>Português</span><span>Русский</span><span>中文</span>
     </div>
-    {{/* The strongest sentence in this section is somebody else's, so it opens
-         the section rather than closing it. Everything below is supporting
-         evidence for what these three people already said. */}}
-    <p class="kicker rv mt3">What other people say</p>
-    <div class="headline">
-      <a class="hq rv" href="https://x.com/ggerganov/status/2065447087311917459">
-        <blockquote>&ldquo;Some cool ggml-based work by @mudler_it recently, make sure to check it out.&rdquo;</blockquote>
-        <p class="hq__w">@ggerganov<b>Georgi Gerganov, author of llama.cpp and ggml</b></p>
-        <span class="hq__go">On X, 2026 &#8599;</span></a>
-      <a class="hq rv" href="https://x.com/badlogicgames/status/2061201400059531729">
-        <blockquote>&ldquo;What a wonderful project: parakeet.cpp. A ggml based parakeet inference pipeline that is 2x faster than my ONNX parakeet pipeline on Apple Silicon.&rdquo;</blockquote>
-        <p class="hq__w">@badlogicgames<b>Mario Zechner, author of pi.agent</b></p>
-        <span class="hq__go">On X, 2026 &#8599;</span></a>
-      <a class="hq rv" href="https://www.linkedin.com/posts/adimargolink_spinoza-saw-all-things-straining-to-become-activity-7468135820076634113-u3Hc">
-        <blockquote>&ldquo;Build something good enough that the community chooses to carry it beyond your reach. This week, Ettore Di Giacinto brought NVIDIA Parakeet to the CPU.&rdquo;</blockquote>
-        <p class="hq__w">Adi Margolin<b>On LinkedIn</b></p>
-        <span class="hq__go">Read the post &#8599;</span></a>
-    </div>
 
     {{/* Names run as a sentence rather than a grid of pills. A pill wall of
          employers reads as a customer logo wall, which is a claim we are not
@@ -535,7 +444,7 @@
         <h2 class="rv mt1" style="max-width:14ch">Running in about a minute.</h2>
         <p class="lede rv mt2">A container on any platform, a DMG on macOS, a binary on Linux, or a chart on Kubernetes. Backends download themselves the first time a model asks for one, so the base install stays small.</p>
         <div class="acts rv">
-          <a class="btn" href="/docs/getting-started/">Installation guide →</a>
+          <a class="btn" href="/docs/installation/index.html">Installation guide →</a>
           <a class="btn btn--o" href="https://discord.gg/uJAeKSAGDy">Join the Discord</a>
         </div>
       </div>
