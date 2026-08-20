@@ -4,6 +4,12 @@
 
 set -euxo pipefail
 
+# Docker ARG defaults arrive as empty strings, and an empty-but-defined variable
+# still beats Make's ?= assignment. Drop them so the Makefile's pin wins unless a
+# local build genuinely overrides it.
+[ -n "${LLAMA_REPO:-}" ] || unset LLAMA_REPO || true
+[ -n "${ROCMFP4_VERSION:-}" ] || unset ROCMFP4_VERSION || true
+
 export CCACHE_DIR=/root/.ccache
 ccache --max-size=5G || true
 ccache -z || true
