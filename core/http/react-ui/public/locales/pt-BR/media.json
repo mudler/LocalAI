@@ -157,7 +157,10 @@
       "voice": "Voz",
       "voicePlaceholder": "Falante opcional ou ID de voz",
       "input": "Texto",
-      "inputPlaceholder": "Digite o texto para sintetizar..."
+      "inputPlaceholder": "Digite o texto para sintetizar...",
+      "instructions": "Instruções",
+      "instructionsPlaceholder": "Por exemplo: Fale devagar e com calor",
+      "instructionsHint": "Orientações opcionais de interpretação. O suporte depende do backend."
     },
     "actions": {
       "generate": "Gerar",

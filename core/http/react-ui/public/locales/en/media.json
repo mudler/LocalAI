@@ -157,7 +157,10 @@
       "voice": "Voice",
       "voicePlaceholder": "Optional speaker or voice ID",
       "input": "Text",
-      "inputPlaceholder": "Enter text to synthesize..."
+      "inputPlaceholder": "Enter text to synthesize...",
+      "instructions": "Instructions",
+      "instructionsPlaceholder": "For example: Speak slowly and warmly",
+      "instructionsHint": "Optional delivery guidance. Support depends on the backend."
     },
     "actions": {
       "generate": "Generate",

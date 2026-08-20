@@ -103,7 +103,10 @@
       "voice": "음성",
       "voicePlaceholder": "음성 ID (선택 사항)",
       "input": "텍스트",
-      "inputPlaceholder": "합성할 텍스트를 입력하세요..."
+      "inputPlaceholder": "합성할 텍스트를 입력하세요...",
+      "instructions": "지침",
+      "instructionsPlaceholder": "예: 천천히 따뜻한 어조로 말하기",
+      "instructionsHint": "선택 사항인 말하기 지침입니다. 지원 여부는 백엔드에 따라 다릅니다."
     },
     "actions": {
       "generate": "생성",

@@ -103,7 +103,10 @@
       "voice": "Suara",
       "voicePlaceholder": "ID suara opsional",
       "input": "Teks",
-      "inputPlaceholder": "Masukkan teks untuk disintesis..."
+      "inputPlaceholder": "Masukkan teks untuk disintesis...",
+      "instructions": "Instruksi",
+      "instructionsPlaceholder": "Contoh: Ucapkan perlahan dan hangat",
+      "instructionsHint": "Panduan penyampaian opsional. Dukungan bergantung pada backend."
     },
     "actions": {
       "generate": "Hasilkan",
