@@ -172,25 +172,25 @@
     },
     "voiceLibrary": {
       "cloningReady": "Voice cloning",
-      "loading": "Loading saved voices…",
+      "loading": "Loading saved personalities…",
       "modelDefault": "Use model default",
-      "empty": "No saved voices yet.",
+      "empty": "No saved personalities yet.",
       "create": "Create one",
-      "manage": "Manage Voice Library",
+      "manage": "Manage Personality Library",
       "namedVoiceHint": "This model does not accept reference-audio profiles. You can still enter a named speaker supported by its backend."
     }
   },
   "voiceLibrary": {
-    "title": "Voice Library",
-    "subtitle": "Create and manage reusable reference voices for every installed model that supports voice cloning.",
-    "loading": "Loading saved voices…",
-    "listLabel": "Saved voice profiles",
+    "title": "Personality Library",
+    "subtitle": "Create and manage reusable voice personalities with one or more reference recordings.",
+    "loading": "Loading saved personalities…",
+    "listLabel": "Saved voice personalities",
     "status": {
       "ready": "Ready"
     },
     "summary": {
       "label": "Voice library status",
-      "profiles": "saved voices",
+      "profiles": "saved personalities",
       "modelsReady_one": "{{count}} compatible model ready",
       "modelsReady_other": "{{count}} compatible models ready",
       "noModels": "No compatible model installed"
@@ -204,8 +204,8 @@
       "allLanguages": "All languages"
     },
     "empty": {
-      "title": "Your voice library is empty",
-      "body": "Record or upload one consented reference clip, add its exact transcript, and reuse it across compatible TTS models."
+      "title": "Your personality library is empty",
+      "body": "Record or upload consented reference clips, add their exact transcripts, and reuse the personality across compatible TTS models."
     },
     "noResults": {
       "title": "No voices match these filters",
@@ -251,12 +251,12 @@
       "endpointNote": "The same model, input, and voice fields also work with POST /tts."
     },
     "actions": {
-      "create": "Create voice",
-      "createFirst": "Create your first voice",
+      "create": "Create personality",
+      "createFirst": "Create your first personality",
       "retry": "Try again",
       "clearFilters": "Clear filters",
       "useInTTS": "Use in Text to Speech",
-      "delete": "Delete voice",
+      "delete": "Delete personality",
       "installModel": "Install a compatible model",
       "browseModels": "Browse all models"
     },
@@ -274,9 +274,14 @@
     }
   },
   "voiceCreate": {
-    "eyebrow": "Voice Library",
-    "title": "Create a reusable voice",
-    "subtitle": "Add one clean reference clip and its exact transcript. LocalAI handles the backend-specific cloning parameters at generation time.",
+    "eyebrow": "Personality Library",
+    "title": "Create a reusable personality",
+    "subtitle": "Create a reusable personality from one or more clean reference clips and their exact transcripts.",
+    "references": {
+      "add": "Add another reference",
+      "additional": "Reference {{number}}",
+      "remove": "Remove"
+    },
     "sections": {
       "reference": {
         "title": "Reference audio",
