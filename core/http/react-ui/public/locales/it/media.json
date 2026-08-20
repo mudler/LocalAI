@@ -103,7 +103,10 @@
       "voice": "Voce",
       "voicePlaceholder": "ID voce opzionale",
       "input": "Testo",
-      "inputPlaceholder": "Inserisci il testo da convertire in voce..."
+      "inputPlaceholder": "Inserisci il testo da convertire in voce...",
+      "instructions": "Istruzioni",
+      "instructionsPlaceholder": "Ad esempio: Parla lentamente e con calore",
+      "instructionsHint": "Indicazioni facoltative sullo stile. Il supporto dipende dal backend."
     },
     "actions": {
       "generate": "Genera audio",
