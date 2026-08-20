@@ -1,6 +1,6 @@
 # Pinned to the HEAD of the `rocmfp4` branch on https://github.com/walcz-de/llama.cpp-ROCmFP4.
 # Auto-bumped nightly by .github/workflows/bump_deps.yaml.
-ROCMFP4_VERSION?=0b8c6fbda8c18f7ae4bd30811996c24f04ddc0dc
+ROCMFP4_VERSION?=0b6afd26bfa64f51c14794b4dfbe3da8946076d3
 LLAMA_REPO?=https://github.com/walcz-de/llama.cpp-ROCmFP4
 
 CMAKE_ARGS?=
@@ -81,10 +81,13 @@ rocmfp4-cpu-all:
 	@echo "Collected ggml shared backends:" && ls -la ggml-shared-libs/
 
 rocmfp4-grpc:
-	$(call rocmfp4-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target rpc-server)
+	$(call rocmfp4-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target ggml-rpc-server)
 
+# Upstream renamed the RPC binary rpc-server -> ggml-rpc-server. The bonsai wrapper
+# this was modelled on still uses the old name because its fork predates the rename;
+# ours is based on a current tree, so it must use the new one.
 rocmfp4-rpc-server: rocmfp4-grpc
-	cp -rf $(CURRENT_MAKEFILE_DIR)/../rocmfp4-grpc-build/llama.cpp/build/bin/rpc-server rocmfp4-rpc-server
+	cp -rf $(CURRENT_MAKEFILE_DIR)/../rocmfp4-grpc-build/llama.cpp/build/bin/ggml-rpc-server rocmfp4-rpc-server
 
 package:
 	bash package.sh
