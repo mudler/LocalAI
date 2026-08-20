@@ -1,4 +1,84 @@
 ---
+- &s1-mini
+  name: "s1-mini-q4"
+  variants:
+    - model: s1-mini-f16
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/superwhisper/s1-mini
+    - https://huggingface.co/superwhisper/s1-mini-GGUF
+  description: |
+    S1-mini by Superwhisper is a 0.6B English text normalizer for raw speech
+    transcripts. It removes fillers and false starts, restores punctuation and
+    capitalization, and formats spoken numbers, dates, currency, and email
+    addresses as written text.
+
+    This default entry uses the publisher's 462 MB Q4_K_M GGUF and greedy
+    decoding. A higher-fidelity F16 model is available as a variant. Prefix the
+    transcript with the styling, structure, and context control line documented
+    on the model page.
+  license: "s1-mini-license"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3
+    - english
+    - text-normalization
+    - asr-post-processing
+  icon: https://huggingface.co/superwhisper/s1-mini/resolve/main/banner.jpg
+  last_checked: "2026-08-20"
+  overrides:
+    backend: llama-cpp
+    chat_template_kwargs:
+      enable_thinking: false
+    context_size: 4096
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/s1-mini/s1-mini-q4_k_m.gguf
+      temperature: 0
+    system_prompt: >-
+      You are a text normalizer for speech-to-text transcripts. The input begins
+      with a control line specifying the styling, structure, and context settings;
+      clean the transcript to match those settings and output only the cleaned text.
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/s1-mini/s1-mini-q4_k_m.gguf
+      uri: huggingface://superwhisper/s1-mini-GGUF/s1-mini-q4_k_m.gguf
+      sha256: 3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634
+- !!merge <<: *s1-mini
+  name: "s1-mini-f16"
+  variants: []
+  description: |
+    S1-mini by Superwhisper in the publisher's 1.4 GB F16 GGUF format. This
+    variant preserves full model fidelity for hosts with enough memory.
+  overrides:
+    backend: llama-cpp
+    chat_template_kwargs:
+      enable_thinking: false
+    context_size: 4096
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/s1-mini/s1-mini-f16.gguf
+      temperature: 0
+    system_prompt: >-
+      You are a text normalizer for speech-to-text transcripts. The input begins
+      with a control line specifying the styling, structure, and context settings;
+      clean the transcript to match those settings and output only the cleaned text.
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/s1-mini/s1-mini-f16.gguf
+      uri: huggingface://superwhisper/s1-mini-GGUF/s1-mini-f16.gguf
+      sha256: 0370da4f1bae19e3150bcafa33c5d396c15f97bf25519540a3e013db5cc00af4
 - name: "glm-5.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
