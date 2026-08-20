@@ -750,6 +750,16 @@ test-extra-backend-turboquant: docker-build-turboquant
 	BACKEND_TEST_CACHE_TYPE_V=turbo3 \
 	$(MAKE) test-extra-backend
 
+## rocmfp4: exercises the llama.cpp-fork backend with a real ROCmFP4 model — the
+## published Strix Halo build of Qwen3.8-27B, whose weight quants (ggml types
+## 100/103) are *only* decodable by this fork. Loading it is what makes the
+## backend distinct from stock llama-cpp. Note the artifact is 13.75 GiB; this
+## target is meant for a workstation with the weights cached, not for slim CI.
+test-extra-backend-rocmfp4: docker-build-rocmfp4
+	BACKEND_IMAGE=local-ai-backend:rocmfp4 \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/kingjones777/Qwen3.8-27B-ROCmFP4-STRIX-MTP-GGUF/resolve/main/Qwen3.8-27B-Q4_0_ROCMFP4_STRIX.gguf \
+	$(MAKE) test-extra-backend
+
 ## bonsai: exercises the llama.cpp-fork backend with a real Q1_0 (1-bit) model —
 ## the PrismML Bonsai-8B GGUF, whose weight quant is *only* decodable by the fork's
 ## Q1_0 kernels. Loading it is what makes this backend distinct from stock llama-cpp;
