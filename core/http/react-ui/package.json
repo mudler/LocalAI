@@ -19,7 +19,8 @@
     "coverage:report": "nyc report"
   },
   "overrides": {
-    "hono": "4.12.34"
+    "hono": "4.12.34",
+    "ip-address": "10.3.1"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",
