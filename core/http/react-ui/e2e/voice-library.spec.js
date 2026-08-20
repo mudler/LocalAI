@@ -60,7 +60,7 @@ async function mockVoiceAPIs(page) {
   return state
 }
 
-test.describe('Voice Library', () => {
+test.describe('Personality Library', () => {
   let apiState
 
   test.beforeEach(async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe('Voice Library', () => {
 
   test('renders the library-first master/detail view', async ({ page }) => {
     await page.goto('/app/voice-library')
-    await expect(page.getByRole('heading', { name: /Voice Library/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Personality Library/i })).toBeVisible()
     await expect(page.locator('.voice-row', { hasText: 'Documentary narrator' })).toBeVisible()
     await expect(page.locator('.voice-library-detail')).toContainText('The exact words spoken in this reference.')
     await expect(page.locator('.voice-library-detail')).toContainText('Consent confirmed')
