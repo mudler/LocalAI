@@ -2,7 +2,7 @@
 torch
 optimum[openvino]
 llvmlite==0.43.0
-numba==0.60.0
+numba==0.67.0
 transformers>=5.15.0
 bitsandbytes
 sentence-transformers==5.7.0
