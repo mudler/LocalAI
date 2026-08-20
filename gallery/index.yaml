@@ -2044,7 +2044,7 @@
   files:
     - filename: llama-cpp/models/Parable-Qwen3-8B-Claude-Fable-5-Q4_K_M/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
       uri: https://huggingface.co/AnkitAI/Parable-Qwen3-8B-Claude-Fable-5-GGUF/resolve/main/Parable-Qwen3-8B-Claude-Fable-5-GGUF-Q4_K_M.gguf
-      sha256: 4532d2379d38a37279866a030e51d419561f9d4d22fee00d2a33647d66f05065
+      sha256: d25c4c1f4f009fe4c155ae841d6b63df4f6f3dd4502fc3263f2fcf5194855ebf
 - &north-mini-code-1-0
   name: "north-mini-code-1.0"
   variants:
