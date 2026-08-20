@@ -130,6 +130,14 @@ static void test_tts_shape() {
     }
     {
         backend::TTSRequest request;
+        (*request.mutable_params())["multi_reference_cond"] =
+            R"([{"audio":"one.wav","text":"one"}])";
+        const auto shape = build_tts_shape(request);
+        check(shape.has_voice_reference,
+              "shape: multi-reference conditioning is a voice reference");
+    }
+    {
+        backend::TTSRequest request;
         request.set_voice(dir.string());
         const auto shape = build_tts_shape(request);
         check(!shape.has_voice_reference,
