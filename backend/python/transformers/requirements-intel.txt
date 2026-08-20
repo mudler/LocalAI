@@ -1,7 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/xpu
 torch
 optimum[openvino]
-llvmlite==0.43.0
+llvmlite==0.49.0
 numba==0.60.0
 transformers>=5.15.0
 bitsandbytes
