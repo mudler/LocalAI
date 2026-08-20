@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -39,6 +40,38 @@ type FileStagingClient struct {
 
 	mu              sync.RWMutex
 	remoteModelPath string // set during LoadModel from staged ModelPath
+}
+
+type ttsReference struct {
+	Audio string `json:"audio"`
+	Text  string `json:"text"`
+}
+
+func (f *FileStagingClient) stageTTSReferences(ctx context.Context, lifecycle *stagedInputLifecycle, in *pb.TTSRequest) error {
+	raw := in.Params["multi_reference_cond"]
+	if raw == "" {
+		return nil
+	}
+	var references []ttsReference
+	if err := json.Unmarshal([]byte(raw), &references); err != nil {
+		return fmt.Errorf("decode TTS references: %w", err)
+	}
+	for index := range references {
+		if !isFilePath(references[index].Audio) {
+			continue
+		}
+		backendPath, err := f.stageInputFile(ctx, lifecycle, references[index].Audio, "inputs")
+		if err != nil {
+			return fmt.Errorf("staging TTS reference %d: %w", index+1, err)
+		}
+		references[index].Audio = backendPath
+	}
+	encoded, err := json.Marshal(references)
+	if err != nil {
+		return fmt.Errorf("encode TTS references: %w", err)
+	}
+	in.Params["multi_reference_cond"] = string(encoded)
+	return nil
 }
 
 // NewFileStagingClient creates a new file staging wrapper.
@@ -336,6 +369,9 @@ func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...
 		}
 		in.Voice = backendPath
 	}
+	if err := f.stageTTSReferences(ctx, lifecycle, in); err != nil {
+		return nil, err
+	}
 
 	// Handle output destination
 	frontendDst := in.Dst
@@ -376,6 +412,9 @@ func (f *FileStagingClient) TTSStream(ctx context.Context, in *pb.TTSRequest, fn
 			return fmt.Errorf("staging streaming TTS voice reference: %w", err)
 		}
 		in.Voice = backendPath
+	}
+	if err := f.stageTTSReferences(ctx, lifecycle, in); err != nil {
+		return err
 	}
 
 	return f.Backend.TTSStream(ctx, in, fn, opts...)

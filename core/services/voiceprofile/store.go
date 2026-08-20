@@ -30,6 +30,7 @@ const (
 	// MaxAudioBytes caps a stored reference clip at 50 MiB. The HTTP and MCP
 	// surfaces share this service-level limit so neither can bypass it.
 	MaxAudioBytes int64 = 50 * 1024 * 1024
+	MaxReferences       = 10
 
 	MinAudioDuration = time.Second
 	MaxAudioDuration = 2 * time.Minute
@@ -63,18 +64,25 @@ type AudioMetadata struct {
 	MIMEType             string `json:"mime_type"`
 }
 
+// ReferenceMetadata describes one ordered audio/transcript pair in a profile.
+type ReferenceMetadata struct {
+	Transcript string        `json:"transcript"`
+	Audio      AudioMetadata `json:"audio"`
+}
+
 // Profile is the public, path-free representation of a saved cloned voice.
 type Profile struct {
-	ID                 string        `json:"id"`
-	Name               string        `json:"name"`
-	Description        string        `json:"description,omitempty"`
-	Language           string        `json:"language,omitempty"`
-	Transcript         string        `json:"transcript"`
-	Voice              string        `json:"voice"`
-	ConsentConfirmedAt time.Time     `json:"consent_confirmed_at"`
-	CreatedAt          time.Time     `json:"created_at"`
-	UpdatedAt          time.Time     `json:"updated_at"`
-	Audio              AudioMetadata `json:"audio"`
+	ID                 string              `json:"id"`
+	Name               string              `json:"name"`
+	Description        string              `json:"description,omitempty"`
+	Language           string              `json:"language,omitempty"`
+	Transcript         string              `json:"transcript"`
+	Voice              string              `json:"voice"`
+	ConsentConfirmedAt time.Time           `json:"consent_confirmed_at"`
+	CreatedAt          time.Time           `json:"created_at"`
+	UpdatedAt          time.Time           `json:"updated_at"`
+	Audio              AudioMetadata       `json:"audio"`
+	References         []ReferenceMetadata `json:"references,omitempty"`
 }
 
 // CreateInput contains the administrator-provided profile metadata.
@@ -84,6 +92,12 @@ type CreateInput struct {
 	Language         string
 	Transcript       string
 	ConsentConfirmed bool
+}
+
+// ReferenceInput contains one reference clip and its exact transcript.
+type ReferenceInput struct {
+	Transcript string
+	Audio      io.Reader
 }
 
 // Store persists voice profiles below one root-confined directory. A Store is
@@ -179,12 +193,31 @@ func (s *Store) openRoot() (*os.Root, error) {
 
 // Create validates and atomically persists a profile and its WAV clip.
 func (s *Store) Create(ctx context.Context, input CreateInput, audio io.Reader) (Profile, error) {
+	return s.CreateWithReferences(ctx, input, []ReferenceInput{{Transcript: input.Transcript, Audio: audio}})
+}
+
+// CreateWithReferences validates and atomically persists an ordered set of
+// reference clips. The first pair also populates the legacy Transcript and
+// Audio fields so existing clients keep working.
+func (s *Store) CreateWithReferences(ctx context.Context, input CreateInput, references []ReferenceInput) (Profile, error) {
 	input = normalizeInput(input)
+	if len(references) == 0 || len(references) > MaxReferences {
+		return Profile{}, fmt.Errorf("%w: between 1 and %d references are required", ErrInvalidInput, MaxReferences)
+	}
+	for index := range references {
+		references[index].Transcript = strings.TrimSpace(references[index].Transcript)
+	}
+	input.Transcript = references[0].Transcript
 	if err := validateInput(input); err != nil {
 		return Profile{}, err
 	}
-	if audio == nil {
-		return Profile{}, fmt.Errorf("%w: audio is required", ErrInvalidInput)
+	for _, reference := range references {
+		if reference.Audio == nil {
+			return Profile{}, fmt.Errorf("%w: audio is required", ErrInvalidInput)
+		}
+		if reference.Transcript == "" || !utf8.ValidString(reference.Transcript) || utf8.RuneCountInString(reference.Transcript) > maxTranscriptRunes {
+			return Profile{}, fmt.Errorf("%w: each transcript must be valid UTF-8, non-empty, and at most %d characters", ErrInvalidInput, maxTranscriptRunes)
+		}
 	}
 
 	s.mu.Lock()
@@ -208,34 +241,36 @@ func (s *Store) Create(ctx context.Context, input CreateInput, audio io.Reader) 
 		}
 	}()
 
-	audioPath := filepath.Join(tempDir, audioFileName)
-	dst, err := root.OpenFile(audioPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return Profile{}, fmt.Errorf("voiceprofile: create reference audio: %w", err)
-	}
-
-	written, copyErr := copyWithContext(ctx, dst, io.LimitReader(audio, MaxAudioBytes+1))
-	if syncErr := dst.Sync(); copyErr == nil && syncErr != nil {
-		copyErr = syncErr
-	}
-	if closeErr := dst.Close(); copyErr == nil && closeErr != nil {
-		copyErr = closeErr
-	}
-	if copyErr != nil {
-		return Profile{}, fmt.Errorf("voiceprofile: store reference audio: %w", copyErr)
-	}
-	if written > MaxAudioBytes {
-		return Profile{}, ErrAudioTooLarge
-	}
-
-	storedAudio, err := root.Open(audioPath)
-	if err != nil {
-		return Profile{}, fmt.Errorf("voiceprofile: reopen reference audio: %w", err)
-	}
-	audioMeta, validateErr := validateWAV(storedAudio, written)
-	_ = storedAudio.Close()
-	if validateErr != nil {
-		return Profile{}, validateErr
+	referenceMetadata := make([]ReferenceMetadata, 0, len(references))
+	for index, reference := range references {
+		audioPath := filepath.Join(tempDir, referenceAudioFileName(index))
+		dst, err := root.OpenFile(audioPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if err != nil {
+			return Profile{}, fmt.Errorf("voiceprofile: create reference audio: %w", err)
+		}
+		written, copyErr := copyWithContext(ctx, dst, io.LimitReader(reference.Audio, MaxAudioBytes+1))
+		if syncErr := dst.Sync(); copyErr == nil && syncErr != nil {
+			copyErr = syncErr
+		}
+		if closeErr := dst.Close(); copyErr == nil && closeErr != nil {
+			copyErr = closeErr
+		}
+		if copyErr != nil {
+			return Profile{}, fmt.Errorf("voiceprofile: store reference audio: %w", copyErr)
+		}
+		if written > MaxAudioBytes {
+			return Profile{}, ErrAudioTooLarge
+		}
+		storedAudio, err := root.Open(audioPath)
+		if err != nil {
+			return Profile{}, fmt.Errorf("voiceprofile: reopen reference audio: %w", err)
+		}
+		audioMeta, validateErr := validateWAV(storedAudio, written)
+		_ = storedAudio.Close()
+		if validateErr != nil {
+			return Profile{}, validateErr
+		}
+		referenceMetadata = append(referenceMetadata, ReferenceMetadata{Transcript: reference.Transcript, Audio: audioMeta})
 	}
 
 	now := s.now().UTC()
@@ -249,7 +284,8 @@ func (s *Store) Create(ctx context.Context, input CreateInput, audio io.Reader) 
 		ConsentConfirmedAt: now,
 		CreatedAt:          now,
 		UpdatedAt:          now,
-		Audio:              audioMeta,
+		Audio:              referenceMetadata[0].Audio,
+		References:         referenceMetadata,
 	}
 	if err := writeJSON(root, filepath.Join(tempDir, metadataFileName), profile); err != nil {
 		return Profile{}, err
@@ -260,6 +296,13 @@ func (s *Store) Create(ctx context.Context, input CreateInput, audio io.Reader) 
 	committed = true
 	_ = syncDirectory(root)
 	return profile, nil
+}
+
+func referenceAudioFileName(index int) string {
+	if index == 0 {
+		return audioFileName
+	}
+	return fmt.Sprintf("reference-%d.wav", index+1)
 }
 
 // List returns every readable profile, newest first. One damaged entry is
@@ -345,29 +388,47 @@ func (s *Store) OpenAudio(_ context.Context, id string) (*os.File, Profile, erro
 // LeaseAudio creates a request-scoped hard link to the immutable clip. This
 // keeps an in-flight local or remote-worker synthesis safe if an administrator
 // deletes the library entry concurrently. The caller must invoke release.
-func (s *Store) LeaseAudio(_ context.Context, id string) (Profile, string, func(), error) {
-	if err := validateID(id); err != nil {
+func (s *Store) LeaseAudio(ctx context.Context, id string) (Profile, string, func(), error) {
+	profile, paths, release, err := s.LeaseAudios(ctx, id)
+	if err != nil {
 		return Profile{}, "", nil, err
+	}
+	return profile, paths[0], release, nil
+}
+
+// LeaseAudios creates request-scoped links for every ordered profile reference.
+func (s *Store) LeaseAudios(_ context.Context, id string) (Profile, []string, func(), error) {
+	if err := validateID(id); err != nil {
+		return Profile{}, nil, nil, err
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	root, err := s.openRoot()
 	if err != nil {
-		return Profile{}, "", nil, err
+		return Profile{}, nil, nil, err
 	}
 	defer func() { _ = root.Close() }()
 
 	profile, err := readProfile(root, id)
 	if err != nil {
-		return Profile{}, "", nil, err
+		return Profile{}, nil, nil, err
 	}
-	source := filepath.Join(id, audioFileName)
-	lease := filepath.Join(s.leaseDir, uuid.NewString()+".wav")
-	if err := root.Link(source, lease); err != nil {
-		if err := copyWithinRoot(root, source, lease); err != nil {
-			return Profile{}, "", nil, fmt.Errorf("voiceprofile: lease reference audio: %w", err)
+	leases := make([]string, 0, len(profile.References))
+	paths := make([]string, 0, len(profile.References))
+	for index := range profile.References {
+		source := filepath.Join(id, referenceAudioFileName(index))
+		lease := filepath.Join(s.leaseDir, uuid.NewString()+".wav")
+		if err := root.Link(source, lease); err != nil {
+			if err := copyWithinRoot(root, source, lease); err != nil {
+				for _, created := range leases {
+					_ = root.Remove(created)
+				}
+				return Profile{}, nil, nil, fmt.Errorf("voiceprofile: lease reference audio: %w", err)
+			}
 		}
+		leases = append(leases, lease)
+		paths = append(paths, filepath.Join(s.baseDir, lease))
 	}
 
 	var once sync.Once
@@ -379,12 +440,14 @@ func (s *Store) LeaseAudio(_ context.Context, id string) (Profile, string, func(
 				return
 			}
 			defer func() { _ = leaseRoot.Close() }()
-			if removeErr := leaseRoot.Remove(lease); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
-				xlog.Warn("Failed to release voice profile audio", "error", removeErr)
+			for _, lease := range leases {
+				if removeErr := leaseRoot.Remove(lease); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+					xlog.Warn("Failed to release voice profile audio", "error", removeErr)
+				}
 			}
 		})
 	}
-	return profile, filepath.Join(s.baseDir, lease), release, nil
+	return profile, paths, release, nil
 }
 
 // Delete removes one profile. Existing audio leases remain valid until their
@@ -518,6 +581,9 @@ func readProfile(root *os.Root, id string) (Profile, error) {
 		return Profile{}, errors.New("voiceprofile: metadata id does not match directory")
 	}
 	profile.Voice = Reference(id)
+	if len(profile.References) == 0 {
+		profile.References = []ReferenceMetadata{{Transcript: profile.Transcript, Audio: profile.Audio}}
+	}
 	return profile, nil
 }
 

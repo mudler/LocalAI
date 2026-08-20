@@ -751,23 +751,30 @@ func (c *Client) ListVoiceProfiles(ctx context.Context) ([]localaitools.VoicePro
 }
 
 func (c *Client) CreateVoiceProfile(ctx context.Context, req localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
-	if req.AudioBase64 == "" {
-		return nil, errors.New("audio_base64 is required")
+	referenceRequests := req.References
+	if len(referenceRequests) == 0 {
+		referenceRequests = []localaitools.CreateVoiceProfileReferenceRequest{{Transcript: req.Transcript, AudioBase64: req.AudioBase64}}
 	}
-	if base64.StdEncoding.DecodedLen(len(req.AudioBase64)) > int(voiceprofile.MaxAudioBytes) {
-		return nil, voiceprofile.ErrAudioTooLarge
+	references := make([]voiceprofile.ReferenceInput, 0, len(referenceRequests))
+	for _, reference := range referenceRequests {
+		if reference.AudioBase64 == "" {
+			return nil, errors.New("audio_base64 is required")
+		}
+		if base64.StdEncoding.DecodedLen(len(reference.AudioBase64)) > int(voiceprofile.MaxAudioBytes) {
+			return nil, voiceprofile.ErrAudioTooLarge
+		}
+		references = append(references, voiceprofile.ReferenceInput{Transcript: reference.Transcript, Audio: base64.NewDecoder(base64.StdEncoding, strings.NewReader(reference.AudioBase64))})
 	}
 	store, err := c.voiceProfileStore()
 	if err != nil {
 		return nil, err
 	}
-	profile, err := store.Create(ctx, voiceprofile.CreateInput{
+	profile, err := store.CreateWithReferences(ctx, voiceprofile.CreateInput{
 		Name:             req.Name,
 		Description:      req.Description,
 		Language:         req.Language,
-		Transcript:       req.Transcript,
 		ConsentConfirmed: req.ConsentConfirmed,
-	}, base64.NewDecoder(base64.StdEncoding, strings.NewReader(req.AudioBase64)))
+	}, references)
 	if err != nil {
 		return nil, err
 	}
