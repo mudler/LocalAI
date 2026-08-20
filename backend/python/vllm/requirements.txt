@@ -3,5 +3,5 @@ protobuf
 certifi
 setuptools
 pillow
-charset-normalizer>=3.4.9
+charset-normalizer>=3.5.1
 chardet
