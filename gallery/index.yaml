@@ -1682,6 +1682,85 @@
     - filename: llama-cpp/models/qwen3.8-4b-distill/Qwen3.8-4B-Q8_0.gguf
       uri: huggingface://empero-ai/Qwen3.8-4B-Distill-GGUF/Qwen3.8-4B-Q8_0.gguf
       sha256: 770b780d6754a4954d1caf395c9239eaeb394f15c7a7ea34039883377c93c9c3
+- &qwen3-8-9b-distill
+  name: "qwen3.8-9b-distill-q4"
+  variants:
+    - model: qwen3.8-9b-distill-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/empero-ai/Qwen3.8-9B-Distill
+    - https://huggingface.co/empero-ai/Qwen3.8-9B-Distill-GGUF
+  description: |
+    Qwen3.8 9B Distill is an Apache-2.0, text-only Qwen3.5 9B fine-tune
+    distilled from Qwen3.8 2.4T A95B reasoning traces. It targets mathematics,
+    coding, instruction following, and function calling with a 262K native
+    context window. This entry uses the balanced Q4_K_M GGUF quantization; the
+    Q8_0 variant offers higher fidelity.
+  license: apache-2.0
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3.5
+    - reasoning
+    - coding
+    - tool-use
+  last_checked: "2026-08-20"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - reasoning_format:deepseek
+    parameters:
+      model: llama-cpp/models/qwen3.8-9b-distill/Qwen3.8-9B-Q4_K_M.gguf
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-9b-distill/Qwen3.8-9B-Q4_K_M.gguf
+      uri: huggingface://empero-ai/Qwen3.8-9B-Distill-GGUF/Qwen3.8-9B-Q4_K_M.gguf
+      sha256: df13d66021cef676f82be74053220fd75af6bf2a6a7fb77f5222ab9e50744a7a
+- !!merge <<: *qwen3-8-9b-distill
+  name: "qwen3.8-9b-distill-q8"
+  variants: []
+  description: |
+    Qwen3.8 9B Distill in the higher-fidelity Q8_0 GGUF format. This text-only
+    Qwen3.5 9B fine-tune targets reasoning, coding, instruction following, and
+    function calling with a 262K native context window.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - reasoning_format:deepseek
+    parameters:
+      model: llama-cpp/models/qwen3.8-9b-distill/Qwen3.8-9B-Q8_0.gguf
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-9b-distill/Qwen3.8-9B-Q8_0.gguf
+      uri: huggingface://empero-ai/Qwen3.8-9B-Distill-GGUF/Qwen3.8-9B-Q8_0.gguf
+      sha256: 79ca5d342a07922f2bbf38c8d892a79a3c8620c65feaf4b1c66b7830ae724db8
 - name: "btl-4-compact"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
