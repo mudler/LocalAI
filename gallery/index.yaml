@@ -5863,7 +5863,11 @@
     - filename: llama-cpp/mmproj/kai-os_Grug-12B-Q8_0/mmproj-kai-os_Grug-12B-f16.gguf
       sha256: 0d59c7571a593b8d11c8104ed90250656efec0abbed9b4a737e7247eae149378
       uri: huggingface://bartowski/kai-os_Grug-12B-GGUF/mmproj-kai-os_Grug-12B-f16.gguf
-- name: "gemma-4-12b-agentic-fable5-composer2.5-v2-3.5x-tau2"
+- &gemma-4-12b-agentic-tau2
+  name: "gemma-4-12b-agentic-fable5-composer2.5-v2-3.5x-tau2"
+  variants:
+    - model: gemma-4-12b-agentic-fable5-composer2.5-v2-3.5x-tau2-mtp
+    - model: gemma-4-12b-agentic-fable5-composer2.5-v2-3.5x-tau2-q8
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF
@@ -5911,6 +5915,79 @@
     - filename: llama-cpp/models/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma4-v2-Q4_K_M.gguf
       sha256: 0b9506cab36f7f818e34f9c0f5a3d6568d0b37100f3a3e1092e2eec3c4c96791
       uri: https://huggingface.co/yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/resolve/main/gemma4-v2-Q4_K_M.gguf
+- !!merge <<: *gemma-4-12b-agentic-tau2
+  name: "gemma-4-12b-agentic-fable5-composer2.5-v2-3.5x-tau2-mtp"
+  variants: []
+  description: |
+    Gemma 4 12B Agentic v2 is an Apache-2.0 fine-tune for coding, terminal
+    work, multi-step tool use, and reasoning. This variant pairs the Q4_K_M
+    target with the upstream Q8_0 Gemma 4 MTP drafter for faster lossless
+    generation through llama.cpp speculative decoding.
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+    - mtp
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:4
+    draft_model: llama-cpp/models/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma-4-12B-it-MTP-Q8_0.gguf
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma4-v2-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma4-v2-Q4_K_M.gguf
+      sha256: 0b9506cab36f7f818e34f9c0f5a3d6568d0b37100f3a3e1092e2eec3c4c96791
+      uri: huggingface://yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma4-v2-Q4_K_M.gguf
+    - filename: llama-cpp/models/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma-4-12B-it-MTP-Q8_0.gguf
+      sha256: 145db9094bc0f85f1701e255a2ed216dcc9800fc8bc8631ad00905b456bd451b
+      uri: huggingface://yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/MTP/gemma-4-12B-it-MTP-Q8_0.gguf
+- !!merge <<: *gemma-4-12b-agentic-tau2
+  name: "gemma-4-12b-agentic-fable5-composer2.5-v2-3.5x-tau2-q8"
+  variants: []
+  description: |
+    Gemma 4 12B Agentic v2 is an Apache-2.0 fine-tune for coding, terminal
+    work, multi-step tool use, and reasoning. This variant uses the
+    near-lossless Q8_0 GGUF quantization for higher output fidelity.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma4-v2-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma4-v2-Q8_0.gguf
+      sha256: 2c20a496baf3e9a3ead59d37c7afe228a863662d58155f360d44eb8b2465cb7f
+      uri: huggingface://yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF/gemma4-v2-Q8_0.gguf
 - name: "qwen3.6-27b-mtp-pi-tune"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
