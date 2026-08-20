@@ -4869,8 +4869,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q4_K_M.gguf
-      sha256: 79fdf00351b46cf26f020aead28d01889886be87c55fa0eb907e6f9b00bfee14
       uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-Q4_K_M.gguf
+      sha256: 02a8b7e17487d326e46d68ce0ba24211e1b80a14c4cd0597fa73c1cd697f52ed
 - !!merge <<: *lfm2-5-2-6b
   name: "lfm2.5-2.6b-q8"
   description: |
@@ -4901,8 +4901,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q8_0.gguf
-      sha256: 36587fdf27bdfc69caf2637273679a0870ec155162161bde6fd16e8c70bdb757
       uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-Q8_0.gguf
+      sha256: 1e22128dfa128bdfb684da167e74e072d0a056baa7d06d9f280291e2839b0fc9
 - &bigbang-v1
   name: "bigbang-v1-q4-k-m"
   variants:
