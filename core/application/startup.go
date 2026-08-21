@@ -298,6 +298,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if distSvc.Reconciler != nil {
 			go distSvc.Reconciler.Run(options.Context)
 		}
+		go nodes.NewModelCleanupService(distSvc.Registry, distSvc.Unloader).Run(options.Context)
 		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
 		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
 		// The dispatcher still subscribes to jobs.new for persistence (result/progress subs)

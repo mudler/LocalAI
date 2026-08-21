@@ -1695,6 +1695,31 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(retries[0].CleanupError).To(Equal("worker unavailable"))
 		})
 
+		It("preserves a replacement registered in the same slot after cleanup was claimed", func() {
+			ctx := context.Background()
+			node := makeNode("cleanup-replacement", "10.0.2.20:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "cleanup-race", 0, "unloading", "10.0.2.20:6001", 0, "rev-old", "hash-old")).To(Succeed())
+
+			claimed, err := registry.ClaimModelCleanupRetries(ctx, time.Now(), time.Now().Add(time.Minute), 1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(HaveLen(1))
+
+			Expect(db.Where("id = ?", claimed[0].ID).Delete(&NodeModel{}).Error).To(Succeed())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "cleanup-race", 0, "loaded", "10.0.2.20:7001", 0, "rev-new", "hash-new")).To(Succeed())
+
+			deleted, err := registry.RemoveClaimedModelCleanup(ctx, claimed[0])
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deleted).To(BeFalse())
+			models, err := registry.GetNodeModels(ctx, node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(ConsistOf(And(
+				HaveField("ConfigRevision", "rev-new"),
+				HaveField("Address", "10.0.2.20:7001"),
+				HaveField("State", "loaded"),
+			)))
+		})
+
 		It("preserves revision state and replay info across worker re-registration", func() {
 			ctx := context.Background()
 			node := makeNode("revision-reregister", "10.0.2.3:50051", 8_000_000_000)

@@ -81,7 +81,47 @@ var (
 	_ model.RemoteModelUnloader        = (*RemoteUnloaderAdapter)(nil)
 	_ model.RemoteModelContextUnloader = (*RemoteUnloaderAdapter)(nil)
 	_ model.RemoteModelPresenceChecker = (*RemoteUnloaderAdapter)(nil)
+	_ ExactModelStopper                = (*RemoteUnloaderAdapter)(nil)
 )
+
+const exactModelStopTimeout = 10 * time.Second
+
+// StopModelReplica stops only the process represented by replica. Configuration
+// cleanup intentionally has no backend.stop fallback: an old worker that does
+// not understand this request leaves the quarantine row for a later retry.
+func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (messaging.ModelStopReply, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, exactModelStopTimeout)
+	defer cancel()
+
+	type result struct {
+		reply *messaging.ModelStopReply
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		reply, err := messaging.RequestJSON[messaging.ModelStopRequest, messaging.ModelStopReply](a.nats, messaging.SubjectNodeModelStop(nodeID), messaging.ModelStopRequest{
+			ModelName:       replica.ModelName,
+			ProcessKey:      model.BackendProcessKey(replica.ModelName, replica.ReplicaIndex),
+			ExpectedAddress: replica.Address,
+			Force:           force,
+			ConfigRevision:  replica.ConfigRevision,
+		}, exactModelStopTimeout)
+		done <- result{reply: reply, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return messaging.ModelStopReply{}, ctx.Err()
+	case result := <-done:
+		if result.err != nil {
+			return messaging.ModelStopReply{}, result.err
+		}
+		return *result.reply, nil
+	}
+}
 
 // UnloadRemoteModel finds the node(s) hosting the given model and tells them
 // to stop their backend process via NATS backend.stop event.

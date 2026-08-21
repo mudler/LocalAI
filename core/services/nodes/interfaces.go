@@ -4,8 +4,19 @@ import (
 	"context"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
+
+type ExactModelStopper interface {
+	StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (messaging.ModelStopReply, error)
+}
+
+type ModelCleanupRegistry interface {
+	ClaimModelCleanupRetries(ctx context.Context, now, leaseUntil time.Time, limit int) ([]NodeModel, error)
+	RecordModelCleanupFailure(ctx context.Context, nodeID, modelName string, replicaIndex int, cleanupErr string, nextRetry time.Time) error
+	RemoveClaimedModelCleanup(ctx context.Context, replica NodeModel) (bool, error)
+}
 
 // ModelRouter is used by SmartRouter for routing decisions and model lifecycle.
 type ModelRouter interface {

@@ -1274,6 +1274,49 @@ func (r *NodeRegistry) ListModelCleanupRetries(ctx context.Context, now time.Tim
 	return models, err
 }
 
+// ClaimModelCleanupRetries leases due quarantine rows in one transaction. The
+// row locks prevent two frontends from sending the same exact-stop request,
+// while SKIP LOCKED lets each frontend take different work without waiting.
+func (r *NodeRegistry) ClaimModelCleanupRetries(ctx context.Context, now, leaseUntil time.Time, limit int) ([]NodeModel, error) {
+	var models []NodeModel
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		q := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("state = ? AND (cleanup_next_retry_at IS NULL OR cleanup_next_retry_at <= ?)", "unloading", now).
+			Order("cleanup_next_retry_at ASC")
+		if limit > 0 {
+			q = q.Limit(limit)
+		}
+		if err := q.Find(&models).Error; err != nil || len(models) == 0 {
+			return err
+		}
+		ids := make([]string, len(models))
+		for i := range models {
+			ids[i] = models[i].ID
+		}
+		return tx.Model(&NodeModel{}).Where("id IN ?", ids).Update("cleanup_next_retry_at", leaseUntil).Error
+	})
+	return models, err
+}
+
+// RemoveClaimedModelCleanup deletes only the exact quarantine row that was
+// stopped. A worker may re-register a replacement in the same logical slot
+// while the stop request is in flight; matching the immutable row identity and
+// stop inputs prevents cleanup from deleting that replacement.
+func (r *NodeRegistry) RemoveClaimedModelCleanup(ctx context.Context, replica NodeModel) (bool, error) {
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND node_id = ? AND model_name = ? AND replica_index = ? AND state = ? AND address = ? AND config_revision = ?",
+			replica.ID, replica.NodeID, replica.ModelName, replica.ReplicaIndex, "unloading", replica.Address, replica.ConfigRevision).
+		Delete(&NodeModel{})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return false, nil
+	}
+	r.fireReplicaRemoved(replica.ModelName, replica.NodeID, replica.ReplicaIndex)
+	return true, nil
+}
+
 // RemoveNodeModel removes a single replica of a model from a node.
 // replicaIndex must match the row to delete; passing 0 for single-replica
 // scheduling preserves historical behavior. Removing siblings requires
