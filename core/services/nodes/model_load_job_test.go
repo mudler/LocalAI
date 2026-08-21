@@ -118,6 +118,21 @@ var _ = Describe("ModelLoadJob", func() {
 	})
 
 	Describe("lifecycle", func() {
+		It("lists every active job in stable tracking-key order", func() {
+			for _, trackingKey := range []string{"zeta-model", "alpha-model", "middle-model"} {
+				_, claimed, err := registry.ClaimLoadJob(ctx, trackingKey, "replica-a")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(claimed).To(BeTrue())
+			}
+
+			jobs, err := registry.ListActiveLoadJobs(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(jobs).To(HaveLen(3))
+			Expect([]string{jobs[0].TrackingKey, jobs[1].TrackingKey, jobs[2].TrackingKey}).To(Equal(
+				[]string{"alpha-model", "middle-model", "zeta-model"},
+			))
+		})
+
 		It("records progress and clears the row on completion", func() {
 			_, _, err := registry.ClaimLoadJob(ctx, "m1", "replica-a")
 			Expect(err).ToNot(HaveOccurred())

@@ -197,6 +197,15 @@ func (r *NodeRegistry) GetLoadJob(ctx context.Context, trackingKey string) (*Mod
 	return &job, nil
 }
 
+// ListActiveLoadJobs returns every in-flight load in stable tracking-key order.
+func (r *NodeRegistry) ListActiveLoadJobs(ctx context.Context) ([]ModelLoadJob, error) {
+	jobs := []ModelLoadJob{}
+	if err := r.db.WithContext(ctx).Order("tracking_key ASC").Find(&jobs).Error; err != nil {
+		return nil, fmt.Errorf("listing model load jobs: %w", err)
+	}
+	return jobs, nil
+}
+
 // UpdateLoadJob applies a phase transition or heartbeat. LastProgress is always
 // touched: it is the liveness signal the orphan check reads, and it must tick
 // even during phases that move no bytes at all.
