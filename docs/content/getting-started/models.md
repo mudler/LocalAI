@@ -293,7 +293,7 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 For other Docker images, please refer to the table in [Getting Started](https://localai.io/basics/getting_started/#container-images).
  {{% /notice %}}
 
-Note: If you are on Windows, ensure the project is on the Linux filesystem to avoid slow model loading. For more information, see the [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
+Note: When running LocalAI under Docker/WSL2 on Windows, ensure the project is on the Linux filesystem to avoid slow model loading. For more information, see the [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
 
 {{% /tab %}}
 {{% tab title="Kubernetes" %}}

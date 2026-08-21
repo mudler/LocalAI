@@ -1,10 +1,28 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/cloud-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/cloud-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin backends/llama-cpp-windows
+
+# Native GNU make for Windows (e.g. ezwinports) only behaves like the Unix
+# make when it can find sh.exe: otherwise recipe lines run under cmd.exe and
+# $(shell ...) degrades to bare CreateProcess, which breaks every POSIX
+# recipe and the uname/tput expansion below. Seed the exported PATH with the
+# sh directories from the standard Git-for-Windows / MSYS2 installs (missing
+# entries are harmless in a Windows PATH) and force SHELL to sh, mirroring
+# what CI does. Detection uses the cmd environment OS variable (Windows_NT);
+# OS is re-derived from uname further down. Nothing matches on
+# Linux/macOS/WSL, so the block is inert there.
+ifeq ($(findstring Windows,$(OS)),Windows)
+  export PATH := C:/Program Files/Git/usr/bin;$(if $(LOCALAPPDATA),$(LOCALAPPDATA)/Programs/Git/usr/bin,);C:/msys64/usr/bin;$(PATH)
+  export SHELL := sh
+endif
 
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
-BINARY_NAME=local-ai
+# Windows builds get the .exe suffix so the artifact is runnable from cmd /
+# PowerShell (an extensionless PE needs a POSIX shell to launch it). OS is
+# assigned below via uname; this is a recursive = so the suffix is expanded
+# at use time, after OS exists. Empty on Linux/macOS, so nothing else changes.
+BINARY_NAME=local-ai$(if $(findstring NT,$(OS)),.exe)
 LAUNCHER_BINARY_NAME=local-ai-launcher
 
 UBUNTU_VERSION?=2404
@@ -532,10 +550,18 @@ help: ## Show this help.
 .PHONY: protogen
 protogen: protogen-go
 
+# The win64 protoc zip ships bin/protoc.exe while the unix zips ship
+# bin/protoc. protogen-go invokes a bare ./protoc, and the protoc target must
+# stay up-to-date once the binary is in place, so on Windows we extract the
+# .exe and rename it to ./protoc (MSYS sh runs extensionless PE binaries).
+PROTOC_MEMBER := bin/protoc$(if $(findstring NT,$(OS)),.exe)
+
 protoc:
 	@OS_NAME=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
 	ARCH_NAME=$$(uname -m); \
-	if [ "$$OS_NAME" = "darwin" ]; then \
+	if echo "$$OS_NAME" | grep -qE 'mingw|msys|cygwin'; then \
+	  FILE=protoc-31.1-win64.zip; \
+	elif [ "$$OS_NAME" = "darwin" ]; then \
 	  if [ "$$ARCH_NAME" = "arm64" ]; then \
 	    FILE=protoc-31.1-osx-aarch_64.zip; \
 	  elif [ "$$ARCH_NAME" = "x86_64" ]; then \
@@ -562,18 +588,20 @@ protoc:
 	fi; \
 	URL=https://github.com/protocolbuffers/protobuf/releases/download/v31.1/$$FILE; \
 	curl -L $$URL -o protoc.zip && \
-	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
+	unzip -o -j -d $(CURDIR) protoc.zip $(PROTOC_MEMBER) && \
+	rm -f protoc.zip && \
+	[ ! -f ./protoc.exe ] || mv -f ./protoc.exe ./protoc
 
 .PHONY: protogen-go
 protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
 	# install-go-tools writes protoc-gen-go and protoc-gen-go-grpc into
-	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. protoc
-	# resolves its code-gen plugins via PATH, so without this prefix the
-	# generate step fails with "protoc-gen-go: program not found". Prepend
-	# GOPATH/bin so the freshly-installed plugins win without requiring a
-	# shell-profile change.
-	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. Point
+	# protoc at the plugins explicitly (--plugin) so discovery doesn't depend
+	# on PATH separator conventions (POSIX ':' vs Windows ';').
+	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+    --plugin=protoc-gen-go="$$(go env GOPATH)/bin/protoc-gen-go$(if $(findstring NT,$(OS)),.exe,)" \
+    --plugin=protoc-gen-go-grpc="$$(go env GOPATH)/bin/protoc-gen-go-grpc$(if $(findstring NT,$(OS)),.exe,)" \
     backend/backend.proto
 
 core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
@@ -1234,6 +1262,21 @@ backends/privacy-filter-darwin: build
 backends/audio-cpp-darwin: build
 	bash ./scripts/build/audio-cpp-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/audio-cpp.tar)"
+
+# Windows-specific backends (keep as explicit targets since they have special build logic).
+# Built on windows-latest under MSYS2 — see .github/workflows/backend_build_windows.yml.
+# Unlike the darwin targets this does not depend on `build`: the windows runner
+# builds local-ai.exe with setup-go (go build ./cmd/local-ai), and the full
+# `make build` would additionally need node for the React UI, which this
+# packaging path does not use. The script still builds local-ai itself when it
+# is missing so the target works outside CI too.
+# `ocifile://` hands the path straight to tarball.ImageFromPath, which on
+# Windows needs a drive-letter path — $(abspath) yields the MSYS /d/... form,
+# so it is converted via cygpath -m.
+backends/llama-cpp-windows:
+	bash ./scripts/build/llama-cpp-windows.sh
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp.tar))"
+
 
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh

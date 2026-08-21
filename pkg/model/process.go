@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -252,6 +253,24 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	// A Windows host has no shell to execute the run.sh stub the gallery
+	// contract names, so the image also ships run.ps1 and os.StartProcess runs
+	// it through the bundled Windows PowerShell. run.sh stays in the image so
+	// discovery, validation and upgrades stay uniform with the other platforms.
+	processName := filepath.Base(grpcProcess)
+	processArgs := args
+	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(filepath.Join(workDir, "run.ps1")); err == nil {
+			grpcProcess = filepath.Join(workDir, "run.ps1")
+			processName = "powershell.exe"
+			processArgs = append([]string{
+				"-NoProfile",
+				"-ExecutionPolicy", "Bypass",
+				"-File", grpcProcess,
+			}, args...)
+		}
+	}
+
 	env := os.Environ()
 	// Vulkan backends are self-contained: they bundle their own loader and
 	// Mesa driver .so files in lib/ plus the matching ICD manifests in
@@ -263,8 +282,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 
 	grpcControlProcess := process.New(
 		process.WithTemporaryStateDir(),
-		process.WithName(filepath.Base(grpcProcess)),
-		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
+		process.WithName(processName),
+		process.WithArgs(append(processArgs, []string{"--addr", serverAddress}...)...),
 		process.WithEnvironment(env...),
 		process.WithWorkDir(workDir),
 	)

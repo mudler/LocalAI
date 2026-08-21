@@ -12,6 +12,7 @@ import {
   filterMatrix,
   inferBackendPath,
   inferBackendPathDarwin,
+  inferBackendPathWindows,
 } from "./backend-filter.mjs";
 
 test("trellis2cpp maps to its Go backend source directory", () => {
@@ -81,8 +82,12 @@ const includesDarwin = [
   { backend: "ds4", lang: "go", "tag-suffix": "-metal-darwin-arm64-ds4", "build-type": "metal" },
 ];
 
+const includesWindows = [
+  { backend: "llama-cpp", lang: "go", "tag-suffix": "-windows-amd64-llama-cpp" },
+];
+
 const run = (changedFiles, previousMatrix) =>
-  filterMatrix({ includes, includesDarwin, changedFiles, previousMatrix });
+  filterMatrix({ includes, includesDarwin, includesWindows, changedFiles, previousMatrix });
 
 const names = entries => entries.map(e => e.backend).sort();
 
@@ -196,12 +201,13 @@ test("a bespoke Darwin build script rebuilds only its own backend", () => {
 });
 
 test("an unclassified scripts/build/ file conservatively rebuilds everything", () => {
-  const { filtered, filteredDarwin } = run([
+  const { filtered, filteredDarwin, filteredWindows } = run([
     "scripts/build/package-something-new.sh",
   ]);
 
   assert.equal(filtered.length, includes.length);
   assert.equal(filteredDarwin.length, includesDarwin.length);
+  assert.equal(filteredWindows.length, includesWindows.length);
 });
 
 test("tests for the packaging scripts do not rebuild anything", () => {
@@ -255,6 +261,87 @@ test("audio-cpp resolves to its C++ sources on Darwin, not backend/go", () => {
     }),
     "backend/cpp/audio-cpp/",
   );
+});
+
+// ---------------------------------------------------------------------------
+// Windows: native windows/amd64 backend images built under MSYS2
+// ---------------------------------------------------------------------------
+
+test("llama-cpp resolves to its C++ sources on Windows, not backend/go", () => {
+  // lang=go on a Windows entry only selects the runner and toolchain (the
+  // MSYS2 build compiles C++); routing it by that field would point at
+  // backend/go/llama-cpp/, which does not exist.
+  assert.equal(
+    inferBackendPathWindows({
+      backend: "llama-cpp",
+      lang: "go",
+      "tag-suffix": "-windows-amd64-llama-cpp",
+    }),
+    "backend/cpp/llama-cpp/",
+  );
+});
+
+test("llama-cpp source changes trigger the Windows build", () => {
+  const { filtered, filteredDarwin, filteredWindows, changedBackends } = run([
+    "backend/cpp/llama-cpp/grpc-server.cpp",
+  ]);
+
+  assert.deepEqual(names(filtered), ["llama-cpp", "turboquant"]);
+  assert.deepEqual(names(filteredDarwin), ["llama-cpp"]);
+  assert.deepEqual(names(filteredWindows), ["llama-cpp"]);
+  assert.ok(changedBackends.has("llama-cpp"));
+});
+
+test("backend.proto rebuilds the Windows entry too", () => {
+  const { filteredWindows } = run(["backend/backend.proto"]);
+
+  assert.equal(filteredWindows.length, includesWindows.length);
+});
+
+test("the reusable Windows build workflow rebuilds Windows only", () => {
+  const { filtered, filteredDarwin, filteredWindows } = run([
+    ".github/workflows/backend_build_windows.yml",
+  ]);
+
+  assert.deepEqual(filtered, []);
+  assert.deepEqual(filteredDarwin, []);
+  assert.equal(filteredWindows.length, includesWindows.length);
+});
+
+test("the Windows llama-cpp build script rebuilds only its backend", () => {
+  const { filtered, filteredDarwin, filteredWindows } = run([
+    "scripts/build/llama-cpp-windows.sh",
+  ]);
+
+  assert.deepEqual(filtered, []);
+  assert.deepEqual(filteredDarwin, []);
+  assert.deepEqual(names(filteredWindows), ["llama-cpp"]);
+});
+
+test("a pkg/ subtree change never rebuilds the Windows entry", () => {
+  // The launcher is the run.ps1 script (no Go, no compile) and local-ai.exe
+  // is rebuilt in the workflow itself, so the shipped image does not depend on
+  // LocalAI pkg/ code.
+  const { filteredWindows } = run(["pkg/grpc/server.go"]);
+
+  assert.deepEqual(filteredWindows, []);
+});
+
+test("editing the Windows matrix entry rebuilds it", () => {
+  const previousMatrix = previousOf(
+    e => e,
+    e => e,
+    e => ({ ...e, "tag-suffix": "-windows-amd64-llama-cpp-old" })
+  );
+
+  const { filtered, filteredDarwin, filteredWindows } = run(
+    [".github/backend-matrix.yml"],
+    previousMatrix
+  );
+
+  assert.deepEqual(filtered, []);
+  assert.deepEqual(filteredDarwin, []);
+  assert.deepEqual(names(filteredWindows), ["llama-cpp"]);
 });
 
 // ---------------------------------------------------------------------------
@@ -333,9 +420,10 @@ test("tests for the linked pkg subtrees do not rebuild anything", () => {
 
 // A matrix file is only ever compared against a previous revision of itself,
 // so build the "before" side by mutating a copy of the fixtures.
-const previousOf = (linuxPatch = e => e, darwinPatch = e => e) => ({
+const previousOf = (linuxPatch = e => e, darwinPatch = e => e, windowsPatch = e => e) => ({
   include: includes.map(e => linuxPatch({ ...e })),
   includeDarwin: includesDarwin.map(e => darwinPatch({ ...e })),
+  includeWindows: includesWindows.map(e => windowsPatch({ ...e })),
 });
 
 test("editing an existing entry's base-image rebuilds exactly that entry", () => {
@@ -372,15 +460,17 @@ test("a brand-new matrix entry for an existing backend rebuilds only itself", ()
   const previousMatrix = {
     include: includes.filter(e => e.backend !== "kokoros"),
     includeDarwin: includesDarwin,
+    includeWindows: includesWindows,
   };
 
-  const { filtered, filteredDarwin } = run(
+  const { filtered, filteredDarwin, filteredWindows } = run(
     [".github/backend-matrix.yml"],
     previousMatrix
   );
 
   assert.deepEqual(names(filtered), ["kokoros"]);
   assert.deepEqual(filteredDarwin, []);
+  assert.deepEqual(filteredWindows, []);
 });
 
 test("editing a Darwin entry rebuilds only that Darwin entry", () => {
@@ -421,11 +511,17 @@ test("removing an entry rebuilds nothing", () => {
       "base-image": "nvidia/cuda:11.8.0-devel-ubuntu22.04",
     }],
     includeDarwin: includesDarwin,
+    includeWindows: includesWindows,
   };
 
-  const { filtered } = run([".github/backend-matrix.yml"], previousMatrix);
+  const { filtered, filteredDarwin, filteredWindows } = run(
+    [".github/backend-matrix.yml"],
+    previousMatrix
+  );
 
   assert.deepEqual(filtered, []);
+  assert.deepEqual(filteredDarwin, []);
+  assert.deepEqual(filteredWindows, []);
 });
 
 test("a previous matrix is ignored when backend-matrix.yml did not change", () => {
@@ -443,10 +539,11 @@ test("a previous matrix is ignored when backend-matrix.yml did not change", () =
 test("an unavailable previous matrix conservatively rebuilds everything", () => {
   // Same posture as changed-backends.js's run-all fallbacks: if we cannot
   // resolve what the entries used to be, we must not claim nothing changed.
-  const { filtered, filteredDarwin } = run([".github/backend-matrix.yml"], null);
+  const { filtered, filteredDarwin, filteredWindows } = run([".github/backend-matrix.yml"], null);
 
   assert.equal(filtered.length, includes.length);
   assert.equal(filteredDarwin.length, includesDarwin.length);
+  assert.equal(filteredWindows.length, includesWindows.length);
 });
 
 // --- backend.proto: additive changes must not rebuild the world -------------
