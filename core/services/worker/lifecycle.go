@@ -42,6 +42,9 @@ func (s *backendSupervisor) subscribeLifecycleEvents() error {
 	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeModelUnload(s.nodeID), s.handleModelUnload); err != nil {
 		return fmt.Errorf("subscribing to model unload events: %w", err)
 	}
+	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeModelStop(s.nodeID), s.handleModelStop); err != nil {
+		return fmt.Errorf("subscribing to model stop events: %w", err)
+	}
 	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeModelDelete(s.nodeID), s.handleModelDelete); err != nil {
 		return fmt.Errorf("subscribing to model delete events: %w", err)
 	}
@@ -49,6 +52,15 @@ func (s *backendSupervisor) subscribeLifecycleEvents() error {
 		return fmt.Errorf("subscribing to node stop events: %w", err)
 	}
 	return nil
+}
+
+func (s *backendSupervisor) handleModelStop(data []byte, reply func([]byte)) {
+	var req messaging.ModelStopRequest
+	if err := json.Unmarshal(data, &req); err != nil {
+		replyJSON(reply, messaging.ModelStopReply{Error: fmt.Sprintf("invalid request: %v", err)})
+		return
+	}
+	replyJSON(reply, s.stopModelExact(req))
 }
 
 // handleBackendInstall is the NATS callback for backend.install — install

@@ -296,6 +296,29 @@ func SubjectNodeBackendStop(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.stop"
 }
 
+// SubjectNodeModelStop targets one supervisor process and acknowledges only
+// after that process has exited and its worker-side resources are released.
+func SubjectNodeModelStop(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.stop"
+}
+
+type ModelStopRequest struct {
+	ModelName       string `json:"model_name"`
+	ProcessKey      string `json:"process_key"`
+	ExpectedAddress string `json:"expected_address"`
+	Force           bool   `json:"force,omitempty"`
+	ConfigRevision  string `json:"config_revision,omitempty"`
+}
+
+type ModelStopReply struct {
+	Matched    bool   `json:"matched"`
+	Freed      bool   `json:"freed"`
+	Terminated bool   `json:"terminated"`
+	ProcessKey string `json:"process_key"`
+	Address    string `json:"address,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
 // SubjectNodeBackendDelete tells a worker node to delete a backend (stop + remove files).
 // Uses NATS request-reply.
 func SubjectNodeBackendDelete(nodeID string) string {
