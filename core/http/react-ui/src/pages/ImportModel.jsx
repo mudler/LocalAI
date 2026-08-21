@@ -577,7 +577,9 @@ export default function ImportModel() {
   const jobName = job?.file_name || job?.gallery_element_name || ''
   const jobBytes = Number.isFinite(job?.currentBytes) && Number.isFinite(job?.totalBytes) && job.totalBytes > 0
     ? `${formatBytes(job.currentBytes)} / ${formatBytes(job.totalBytes)}`
-    : ''
+    : (job?.downloaded_size && job?.file_size
+        ? `${job.downloaded_size} / ${job.file_size}`
+        : '')
   const jobRate = Number.isFinite(job?.bytesPerSecond) && job.bytesPerSecond > 0
     ? `${formatBytes(job.bytesPerSecond)}/s`
     : ''
