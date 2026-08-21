@@ -82,7 +82,7 @@ Manage model and backend galleries:
 
 - **Model Galleries**: JSON array of gallery objects with `url` and `name` fields, plus an optional `mirrors` list of fallback URLs (see [Gallery mirrors]({{%relref "features/model-gallery#gallery-mirrors" %}}))
 - **Backend Galleries**: JSON array of backend gallery objects, which accept the same `mirrors` key
-- **Autoload Galleries**: Automatically load model galleries on startup
+- **Load and pre-warm galleries on boot**: Load model galleries and pre-warm their remote size and VRAM estimates when LocalAI starts. Disable this setting to skip both startup operations.
 - **Autoload Backend Galleries**: Automatically load backend galleries on startup
 
 ### Agent Pool Settings
@@ -164,6 +164,7 @@ The `runtime_settings.json` file follows this structure:
   ],
   "autoload_galleries": true,
   "autoload_backend_galleries": true,
+  "vram_persistent_cache": true,
   "api_keys": []
 }
 ```

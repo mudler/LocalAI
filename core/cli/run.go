@@ -53,6 +53,7 @@ type RunCMD struct {
 	BackendGalleries          string   `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
 	Galleries                 string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	AutoloadGalleries         bool     `env:"LOCALAI_AUTOLOAD_GALLERIES,AUTOLOAD_GALLERIES" group:"models" default:"true"`
+	VRAMPersistentCache       bool     `env:"LOCALAI_VRAM_PERSISTENT_CACHE,VRAM_PERSISTENT_CACHE" group:"models" default:"true" help:"Persist successful remote VRAM metadata probes across restarts"`
 	AutoloadBackendGalleries  bool     `env:"LOCALAI_AUTOLOAD_BACKEND_GALLERIES,AUTOLOAD_BACKEND_GALLERIES" group:"backends" default:"true"`
 	BackendImagesReleaseTag   string   `env:"LOCALAI_BACKEND_IMAGES_RELEASE_TAG,BACKEND_IMAGES_RELEASE_TAG" help:"Fallback release tag for backend images" group:"backends" default:"latest"`
 	BackendImagesBranchTag    string   `env:"LOCALAI_BACKEND_IMAGES_BRANCH_TAG,BACKEND_IMAGES_BRANCH_TAG" help:"Fallback branch tag for backend images" group:"backends" default:"master"`
@@ -302,6 +303,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
 		config.WithBackendGalleries(r.BackendGalleries),
+		config.WithVRAMPersistentCache(r.VRAMPersistentCache),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
 		config.WithDisableCSRF(r.DisableCSRF),

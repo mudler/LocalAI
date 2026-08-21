@@ -328,6 +328,10 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.AutoloadBackendGalleries },
 		func(o *ApplicationConfig) bool { return o.AutoloadBackendGalleries },
 		func(o *ApplicationConfig, v bool) { o.AutoloadBackendGalleries = v }),
+	field("vram_persistent_cache",
+		func(s *RuntimeSettings) **bool { return &s.VRAMPersistentCache },
+		func(o *ApplicationConfig) bool { return o.VRAMPersistentCache },
+		func(o *ApplicationConfig, v bool) { o.VRAMPersistentCache = v }),
 
 	// API keys: echoed for the UI, but the apply loops never touch them.
 	// The settings endpoint and the file watcher own the env+runtime merge
