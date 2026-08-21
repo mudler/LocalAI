@@ -717,6 +717,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					template = predInput
 				}
 				thinkingStartToken := reason.DetectThinkingStartToken(template, &config.ReasoningConfig)
+				if config.TemplateConfig.UseTokenizerTemplate {
+					thinkingStartToken = reason.DetectThinkingStartTokenInTemplate(template, &config.ReasoningConfig)
+				}
 
 				xlog.Debug("Thinking start token", "thinkingStartToken", thinkingStartToken, "template", template)
 

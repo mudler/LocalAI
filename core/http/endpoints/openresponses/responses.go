@@ -1359,6 +1359,9 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		template = predInput
 	}
 	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
+	if cfg.TemplateConfig.UseTokenizerTemplate {
+		thinkingStartToken = reason.DetectThinkingStartTokenInTemplate(template, &cfg.ReasoningConfig)
+	}
 
 	// Extract reasoning from result before cleaning
 	reasoningContent, cleanedResult := reason.ExtractReasoningComplete(result, thinkingStartToken, cfg.ReasoningConfig)
@@ -1640,6 +1643,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		template = predInput
 	}
 	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
+	if cfg.TemplateConfig.UseTokenizerTemplate {
+		thinkingStartToken = reason.DetectThinkingStartTokenInTemplate(template, &cfg.ReasoningConfig)
+	}
 
 	// Track state for streaming
 	var currentMessageID string
