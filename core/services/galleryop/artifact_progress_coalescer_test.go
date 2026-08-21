@@ -61,6 +61,18 @@ func (m *modelOperationProgressManager) InstallModel(ctx context.Context, _ *Man
 
 func (m *modelOperationProgressManager) DeleteModel(string) error { return nil }
 
+type legacyModelOperationProgressManager struct {
+	err error
+}
+
+func (m *legacyModelOperationProgressManager) InstallModel(_ context.Context, _ *ManagementOp[gallery.GalleryModel, gallery.ModelConfig], progress ProgressCallback) error {
+	progress("model.bin", "25 B", "100 B", 25)
+	progress("model.bin", "50 B", "100 B", 50)
+	return m.err
+}
+
+func (m *legacyModelOperationProgressManager) DeleteModel(string) error { return nil }
+
 type recordingProgressClient struct {
 	mu      sync.Mutex
 	updates []*OpStatus
@@ -186,5 +198,43 @@ var _ = Describe("artifact progress coalescer", func() {
 			GalleryElementName: "model",
 			Cancellable:        true,
 		}))
+	})
+
+	It("coalesces legacy callback progress and flushes numeric bytes on close", func() {
+		installErr := errors.New("stop after legacy progress")
+		progressClient := &recordingProgressClient{}
+		service := NewGalleryService(&config.ApplicationConfig{}, nil)
+		service.modelManager = &legacyModelOperationProgressManager{err: installErr}
+		service.natsClient = progressClient
+		op := &ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
+			ID:                 "legacy-model-operation",
+			GalleryElementName: "model",
+			Context:            context.Background(),
+		}
+
+		Expect(service.modelHandler(op, nil, nil)).To(MatchError(installErr))
+		status := service.GetStatus(op.ID)
+		Expect(status).NotTo(BeNil())
+		Expect(status.Progress).To(Equal(float64(50)))
+		Expect(status.CurrentBytes).To(Equal(int64(50)))
+		Expect(status.TotalBytes).To(Equal(int64(100)))
+		Expect(status.DownloadedFileSize).To(Equal("50 B"))
+	})
+
+	It("forwards only the latest legacy callback update on each tick", func() {
+		updates := make(chan legacyProgressUpdate, 2)
+		coalescer := newLegacyProgressCoalescer(250*time.Millisecond, func(update legacyProgressUpdate) {
+			updates <- update
+		})
+		DeferCleanup(coalescer.Close)
+
+		coalescer.Sink("model.bin", "25 B", "100 B", 25)
+		coalescer.Sink("model.bin", "50 B", "100 B", 50)
+		Consistently(updates).ShouldNot(Receive())
+
+		ticker.channel <- time.Now()
+		Eventually(updates).Should(Receive(Equal(legacyProgressUpdate{
+			fileName: "model.bin", current: "50 B", total: "100 B", percentage: 50,
+		})))
 	})
 })

@@ -72,6 +72,19 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 		operationCtx = context.Background()
 	}
 	operationCtx = modelartifacts.WithProgressSink(operationCtx, coalescer.Sink)
+	legacyCoalescer := newLegacyProgressCoalescer(250*time.Millisecond, func(update legacyProgressUpdate) {
+		percentage := bridge.ClampLegacy(update.percentage)
+		status := &OpStatus{Message: fmt.Sprintf(processingMessage, update.fileName, update.total, update.current), FileName: update.fileName, Progress: percentage, TotalFileSize: update.total, DownloadedFileSize: update.current, Cancellable: true}
+		if currentBytes, ok := parseDisplayedBytes(update.current); ok {
+			if totalBytes, totalOK := parseDisplayedBytes(update.total); totalOK {
+				status.CurrentBytes = currentBytes
+				status.TotalBytes = totalBytes
+			}
+		}
+		status.GalleryElementName = op.GalleryElementName
+		g.UpdateStatus(op.ID, status)
+	})
+	defer legacyCoalescer.Close()
 
 	// displayDownload displays the download progress
 	progressCallback := func(fileName string, current string, total string, percentage float64) {
@@ -83,8 +96,7 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 			default:
 			}
 		}
-		percentage = bridge.ClampLegacy(percentage)
-		g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf(processingMessage, fileName, total, current), FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current, Cancellable: true})
+		legacyCoalescer.Sink(fileName, current, total, percentage)
 		utils.DisplayDownloadFunction(fileName, current, total, percentage)
 	}
 
@@ -95,6 +107,7 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 		err = g.modelManager.InstallModel(operationCtx, op, progressCallback)
 	}
 	if err != nil {
+		legacyCoalescer.Close()
 		// Check if error is due to cancellation
 		if op.Context != nil && errors.Is(err, op.Context.Err()) {
 			g.UpdateStatus(op.ID, &OpStatus{
@@ -112,6 +125,7 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 	if op.Context != nil {
 		select {
 		case <-op.Context.Done():
+			legacyCoalescer.Close()
 			g.UpdateStatus(op.ID, &OpStatus{
 				Cancelled:          true,
 				Processed:          true,
@@ -147,6 +161,7 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 		Op:      op2,
 	})
 
+	legacyCoalescer.Close()
 	g.UpdateStatus(op.ID,
 		&OpStatus{
 			Deletion:           op.Delete,
