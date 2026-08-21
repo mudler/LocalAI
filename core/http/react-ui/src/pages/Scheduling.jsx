@@ -52,22 +52,35 @@ function ReplicaInput({ id, label, value, onChange, presets }) {
   )
 }
 
-function SchedulingForm({ onSave, onCancel }) {
-  const [mode, setMode] = useState('placement')
-  const [modelName, setModelName] = useState('')
+function selectorObject(value) {
+  if (!value) return {}
+  if (typeof value === 'object') return value
+  try { return JSON.parse(value) } catch { return {} }
+}
+
+function configMode(config) {
+  if (!config) return 'placement'
+  if (config.spread_all) return 'spread'
+  if (config.min_replicas > 0 || config.max_replicas > 0) return 'autoscaling'
+  return 'placement'
+}
+
+function SchedulingForm({ initialConfig, onSave, onCancel }) {
+  const [mode, setMode] = useState(() => configMode(initialConfig))
+  const [modelName, setModelName] = useState(initialConfig?.model_name || '')
   // Selector is now a chip-builder map instead of a comma-separated string.
   // Operators were copying syntax from docs and missing commas; the chip UI
   // makes the key=value structure self-documenting.
-  const [selector, setSelector] = useState({})
-  const [minReplicas, setMinReplicas] = useState(1)
-  const [maxReplicas, setMaxReplicas] = useState(0)
+  const [selector, setSelector] = useState(() => selectorObject(initialConfig?.node_selector))
+  const [minReplicas, setMinReplicas] = useState(initialConfig?.min_replicas ?? 1)
+  const [maxReplicas, setMaxReplicas] = useState(initialConfig?.max_replicas ?? 0)
   // Prefix-cache routing controls. Empty routePolicy means "inherit the
   // cluster default"; the three thresholds at 0 likewise inherit, so they
   // stay out of the POST body's effective override only when explicitly set.
-  const [routePolicy, setRoutePolicy] = useState('')
-  const [balanceAbsThreshold, setBalanceAbsThreshold] = useState(0)
-  const [balanceRelThreshold, setBalanceRelThreshold] = useState(0)
-  const [minPrefixMatch, setMinPrefixMatch] = useState(0)
+  const [routePolicy, setRoutePolicy] = useState(initialConfig?.route_policy || '')
+  const [balanceAbsThreshold, setBalanceAbsThreshold] = useState(initialConfig?.balance_abs_threshold ?? 0)
+  const [balanceRelThreshold, setBalanceRelThreshold] = useState(initialConfig?.balance_rel_threshold ?? 0)
+  const [minPrefixMatch, setMinPrefixMatch] = useState(initialConfig?.min_prefix_match ?? 0)
 
   const hasSelector = Object.keys(selector).length > 0
 
@@ -93,7 +106,7 @@ function SchedulingForm({ onSave, onCancel }) {
   }
 
   return (
-    <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
+    <div className="card scheduling-form">
       {/* Mode selector — uses the project's segmented control instead of two
           50%-width filled buttons that competed visually with the actual
           primary action (Save). */}
@@ -139,11 +152,15 @@ function SchedulingForm({ onSave, onCancel }) {
               you can pre-create a rule for a model that hasn't been
               installed yet, which is a real workflow when standing up a new
               node and pre-staging its scheduling policy. */}
-          <SearchableModelSelect
-            value={modelName}
-            onChange={setModelName}
-            placeholder="Type to search models, or paste a name..."
-          />
+          {initialConfig ? (
+            <input id="sched-model" className="input scheduling-model-locked" value={modelName} readOnly />
+          ) : (
+            <SearchableModelSelect
+              value={modelName}
+              onChange={setModelName}
+              placeholder="Type to search models, or paste a name..."
+            />
+          )}
         </div>
 
         <div>
@@ -268,11 +285,138 @@ function SchedulingForm({ onSave, onCancel }) {
   )
 }
 
+const INITIAL_NODE_LIMIT = 5
+const NODE_LIMIT_STEP = 20
+
+function fuzzyIncludes(text, term) {
+  if (text.includes(term)) return true
+  let termIndex = 0
+  for (const character of text) {
+    if (character === term[termIndex]) termIndex++
+    if (termIndex === term.length) return true
+  }
+  return false
+}
+
+function matchesNode(node, query) {
+  const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean)
+  if (!terms.length) return true
+  const labels = Object.entries(node.labels || {})
+  const haystack = [
+    node.name,
+    node.id,
+    ...labels.flatMap(([key, value]) => [key, String(value), `${key}=${value}`]),
+  ].filter(Boolean).join(' ').toLocaleLowerCase()
+  return terms.every(term => fuzzyIncludes(haystack, term))
+}
+
+function NodeLabelReference() {
+  const [expanded, setExpanded] = useState(true)
+  const [nodes, setNodes] = useState([])
+  const [query, setQuery] = useState('')
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_NODE_LIMIT)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  const fetchNodes = useCallback(async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const data = await nodesApi.list()
+      setNodes(Array.isArray(data) ? data : [])
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchNodes() }, [fetchNodes])
+
+  const filtered = nodes.filter(node => matchesNode(node, query))
+  const visible = filtered.slice(0, visibleLimit)
+  const updateQuery = event => {
+    setQuery(event.target.value)
+    setVisibleLimit(INITIAL_NODE_LIMIT)
+  }
+
+  return (
+    <section className="card scheduling-node-reference" data-testid="node-label-reference">
+      <button
+        type="button"
+        className="scheduling-node-reference__toggle"
+        aria-expanded={expanded}
+        aria-controls="scheduling-node-label-content"
+        onClick={() => setExpanded(value => !value)}
+      >
+        <span><i className="fas fa-tags icon-before" aria-hidden="true" />Node labels</span>
+        <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} aria-hidden="true" />
+      </button>
+      {expanded && (
+        <div id="scheduling-node-label-content" className="scheduling-node-reference__content">
+          <p className="text-note">Browse labels available for node selectors without leaving this page.</p>
+          {loading ? (
+            <p className="scheduling-node-message" role="status">Loading node labels…</p>
+          ) : error ? (
+            <div className="scheduling-node-message" role="alert">
+              <span>Could not load node labels.</span>
+              <button type="button" className="btn btn-secondary btn-sm" aria-label="Retry loading node labels" onClick={fetchNodes}>Retry</button>
+            </div>
+          ) : nodes.length === 0 ? (
+            <p className="scheduling-node-message">No nodes are available yet.</p>
+          ) : (
+            <>
+              <div className="scheduling-node-toolbar">
+                <input
+                  type="search"
+                  className="input"
+                  aria-label="Search node labels"
+                  placeholder="Search node, label, or key=value…"
+                  value={query}
+                  onChange={updateQuery}
+                />
+                <span className="text-meta" aria-live="polite">{Math.min(visibleLimit, filtered.length)} of {filtered.length} nodes</span>
+              </div>
+              {filtered.length === 0 ? (
+                <p className="scheduling-node-message">No nodes match your search.</p>
+              ) : (
+                <div className="scheduling-node-grid">
+                  {visible.map(node => {
+                    const labels = Object.entries(node.labels || {})
+                    return (
+                      <article className="scheduling-node-card" key={node.id || node.name}>
+                        <div className="scheduling-node-card__header">
+                          <strong>{node.name || node.id}</strong>
+                          <span className={`scheduling-node-status scheduling-node-status--${String(node.status || 'unknown').toLowerCase()}`}>{node.status || 'unknown'}</span>
+                        </div>
+                        {labels.length ? (
+                          <div className="scheduling-node-labels">
+                            {labels.map(([key, value]) => <span className="scheduling-node-label" key={key}>{key}={String(value)}</span>)}
+                          </div>
+                        ) : <span className="text-note">No labels</span>}
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+              {visibleLimit < filtered.length && (
+                <button type="button" className="btn btn-secondary btn-sm scheduling-show-more" aria-label="Show 20 more nodes" onClick={() => setVisibleLimit(limit => limit + NODE_LIMIT_STEP)}>
+                  Show 20 more
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function Scheduling() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
   const [schedulingConfigs, setSchedulingConfigs] = useState([])
-  const [showForm, setShowForm] = useState(false)
+  const [formState, setFormState] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
   const fetchScheduling = useCallback(async () => {
@@ -288,7 +432,7 @@ export default function Scheduling() {
     try {
       await nodesApi.setScheduling(config)
       addToast('Scheduling rule saved', 'success')
-      setShowForm(false)
+      setFormState(null)
       fetchScheduling()
     } catch (err) { addToast(`Failed to save rule: ${err.message}`, 'error') }
   }
@@ -309,13 +453,21 @@ export default function Scheduling() {
         supporting={t('scheduling.subtitle')}
       />
       <div>
+        <NodeLabelReference />
         <button className="btn btn-primary btn-sm mb-md"
-          onClick={() => setShowForm(f => !f)}>
+          onClick={() => setFormState(current => current?.kind === 'add' ? null : { kind: 'add' })}>
           <i className="fas fa-plus icon-before" />
           Add Scheduling Rule
         </button>
-        {showForm && <SchedulingForm onSave={handleSave} onCancel={() => setShowForm(false)} />}
-        {schedulingConfigs.length === 0 && !showForm ? (
+        {formState && (
+          <SchedulingForm
+            key={formState.kind === 'edit' ? formState.config.model_name : 'add'}
+            initialConfig={formState.kind === 'edit' ? formState.config : undefined}
+            onSave={handleSave}
+            onCancel={() => setFormState(null)}
+          />
+        )}
+        {schedulingConfigs.length === 0 && !formState ? (
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: 'var(--spacing-xl) 0' }}>
             No scheduling rules configured. Add a rule to control how models are placed on nodes.
           </p>
@@ -412,9 +564,14 @@ export default function Scheduling() {
                       )}
                     </td>
                     <td className="text-right">
-                      <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(cfg.model_name)}>
-                        <i className="fas fa-trash" />
-                      </button>
+                      <div className="scheduling-rule-actions">
+                        <button className="btn btn-secondary btn-sm" aria-label={`Edit ${cfg.model_name}`} onClick={() => setFormState({ kind: 'edit', config: cfg })}>
+                          <i className="fas fa-edit" aria-hidden="true" />
+                        </button>
+                        <button className="btn btn-danger btn-sm" aria-label={`Delete ${cfg.model_name}`} onClick={() => setConfirmDelete(cfg.model_name)}>
+                          <i className="fas fa-trash" aria-hidden="true" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   )
