@@ -93,6 +93,25 @@ curl --location 'http://localhost:8080/models/apply' \
 ```
 
 
+### Reloading model configurations at runtime
+
+If you add or edit a model YAML file in the models directory while LocalAI is running,
+the change is not picked up automatically. Ask LocalAI to re-read the models directory:
+
+```bash
+curl -X POST http://localhost:8080/models/reload
+# {"success":true,"message":"Model configurations reloaded successfully"}
+```
+
+Unlike `/models/apply` above, this does not download anything — it only re-reads
+configuration that is already present on disk.
+
+{{% alert note %}}
+Reloading is additive: it adds new configurations and replaces existing ones with the
+same name, but it does **not** drop configurations whose file has been deleted. A model
+whose YAML you removed stays listed in `/v1/models` until LocalAI is restarted.
+{{% /alert %}}
+
 ### Preloading models during startup
 
 In order to allow the API to start-up with all the needed model on the first-start, the model gallery files can be used during startup. 

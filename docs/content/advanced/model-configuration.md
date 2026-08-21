@@ -70,6 +70,7 @@ When using `--models-config-file`, you can define multiple models as a list:
 | `backend` | string | Backend to use (e.g. `llama-cpp`, `vllm`, `diffusers`, `whisper`) | `llama-cpp` |
 | `description` | string | Human-readable description of the model | `A conversational AI model` |
 | `usage` | string | Usage instructions or notes | `Best for general conversation` |
+| `alias` | string | Redirects this name to another model. See [Model Aliases]({{%relref "features/model-aliases" %}}). | `my-llama-3` |
 
 ### Model File and Downloads
 
