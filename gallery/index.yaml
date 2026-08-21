@@ -3297,6 +3297,90 @@
     - filename: llama-cpp/mmproj/Qwythos-9B-v2-MTP-Q4_K_M/mmproj-Qwythos-9B-v2-BF16.gguf
       sha256: 0d1687cb33124c78acab788b342d4a2eaf85b3035e87c3abe4ee9d0b84ddb4f5
       uri: https://huggingface.co/empero-ai/Qwythos-9B-v2-GGUF/resolve/main/mmproj-Qwythos-9B-v2-BF16.gguf
+- &qwopus3-6-27b-fusion
+  name: "qwopus3.6-27b-fusion"
+  variants:
+    - model: qwopus3.6-27b-fusion-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.6-27B
+    - https://huggingface.co/KyleHessling1/Qwopus3.6-27B-Fusion-GGUF
+  description: |
+    Qwopus3.6-27B Fusion is an experimental Qwen3.6-27B merge that combines
+    reasoning and code-execution fine-tunes. It targets agentic coding,
+    mathematics, tool use, and long-context work while retaining image input.
+    This default entry uses the Q4_K_M GGUF quantization and the shared Q8_0
+    vision projector.
+  license: qwen
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - code
+    - agent
+    - tools
+    - long-context
+    - vision
+    - multimodal
+    - experimental
+  last_checked: "2026-08-21"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwopus3.6-27b-fusion/Qwopus3.6-27B-Fusion-mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwopus3.6-27b-fusion/Qwopus3.6-27B-Fusion-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwopus3.6-27b-fusion/Qwopus3.6-27B-Fusion-Q4_K_M.gguf
+      sha256: 6d4e6e9ffba84ffe5166969303d4918f3a31682d75862416827412cee8f20d5d
+      uri: huggingface://KyleHessling1/Qwopus3.6-27B-Fusion-GGUF/Qwopus3.6-27B-Fusion-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/qwopus3.6-27b-fusion/Qwopus3.6-27B-Fusion-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://KyleHessling1/Qwopus3.6-27B-Fusion-GGUF/Qwopus3.6-27B-Fusion-mmproj-Q8_0.gguf
+- !!merge <<: *qwopus3-6-27b-fusion
+  name: "qwopus3.6-27b-fusion-q8"
+  variants: []
+  description: |
+    Qwopus3.6-27B Fusion is an experimental Qwen3.6-27B reasoning and coding
+    merge. This entry uses the near-lossless Q8_0 GGUF quantization and the
+    shared Q8_0 vision projector.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwopus3.6-27b-fusion-q8/Qwopus3.6-27B-Fusion-mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwopus3.6-27b-fusion-q8/Qwopus3.6-27B-Fusion-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwopus3.6-27b-fusion-q8/Qwopus3.6-27B-Fusion-Q8_0.gguf
+      sha256: 5594e1776b75beedf4a54b933bba386dc83a0883417e3bcd9ef53fdfd120d5b6
+      uri: huggingface://KyleHessling1/Qwopus3.6-27B-Fusion-GGUF/Qwopus3.6-27B-Fusion-Q8_0.gguf
+    - filename: llama-cpp/mmproj/qwopus3.6-27b-fusion-q8/Qwopus3.6-27B-Fusion-mmproj-Q8_0.gguf
+      sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
+      uri: huggingface://KyleHessling1/Qwopus3.6-27B-Fusion-GGUF/Qwopus3.6-27B-Fusion-mmproj-Q8_0.gguf
 - &tess-4-27b
   name: "tess-4-27b"
   variants:
