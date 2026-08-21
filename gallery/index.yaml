@@ -23,6 +23,7 @@
     - llm
     - gguf
     - qwen3
+    - mtp
   icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
   overrides:
     backend: llama-cpp
@@ -3539,6 +3540,7 @@
     - gguf
     - reasoning
     - thinking
+    - mtp
   icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen3.6/Figures/qwen3.6_27b_score.png
   overrides:
     backend: llama-cpp
