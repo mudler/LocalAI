@@ -103,7 +103,10 @@
       "voice": "Stimme",
       "voicePlaceholder": "Optionale Stimm-ID",
       "input": "Text",
-      "inputPlaceholder": "Text zum Synthetisieren eingeben..."
+      "inputPlaceholder": "Text zum Synthetisieren eingeben...",
+      "instructions": "Anweisungen",
+      "instructionsPlaceholder": "Zum Beispiel: Langsam und warmherzig sprechen",
+      "instructionsHint": "Optionale Hinweise zur Sprechweise. Die Unterstützung hängt vom Backend ab."
     },
     "actions": {
       "generate": "Audio generieren",

@@ -30,6 +30,23 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
 
 Returns an `audio/wav` file.
 
+The **Instructions** field in the Text to Speech studio maps to the optional
+`instructions` property on `/v1/audio/speech`. Use it to describe delivery,
+such as tone or pace:
+
+```bash
+curl http://localhost:8080/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "tts",
+    "input": "Welcome to LocalAI.",
+    "instructions": "Speak slowly and warmly."
+  }' --output speech.wav
+```
+
+Backend support for speech instructions varies. Backends that do not support
+this control may ignore it.
+
 ## Voice Library
 
 Administrators can manage reusable voice-cloning references from **Operate → Voice Library** in the LocalAI WebUI. The library replaces per-model filesystem and YAML setup for supported cloning backends:

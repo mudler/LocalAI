@@ -152,6 +152,36 @@ test.describe('Voice Library', () => {
     expect(ttsBody.model).toBe('qwen-base')
   })
 
+  test('sends trimmed speech instructions and omits blank instructions', async ({ page }) => {
+    const ttsBodies = []
+    await page.route('**/tts', async route => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback()
+        return
+      }
+      ttsBodies.push(route.request().postDataJSON())
+      await route.fulfill({
+        status: 200,
+        contentType: 'audio/wav',
+        headers: { 'Content-Disposition': 'attachment; filename="speech.wav"' },
+        body: pcmWav(1),
+      })
+    })
+
+    await page.goto('/app/tts')
+    await page.getByPlaceholder('Enter text to synthesize...').fill('Read this sentence.')
+    await page.getByLabel('Instructions').fill('  Speak slowly and warmly.  ')
+    await page.getByRole('button', { name: /Generate$/ }).click()
+    await expect.poll(() => ttsBodies.length).toBe(1)
+    expect(ttsBodies[0].instructions).toBe('Speak slowly and warmly.')
+
+    await expect(page.getByRole('button', { name: /Generate$/ })).toBeEnabled()
+    await page.getByLabel('Instructions').fill('   \n  ')
+    await page.getByRole('button', { name: /Generate$/ }).click()
+    await expect.poll(() => ttsBodies.length).toBe(2)
+    expect(ttsBodies[1]).not.toHaveProperty('instructions')
+  })
+
   test('normalizes an upload and creates a consented profile', async ({ page }) => {
     await page.goto('/app/voice-library/new')
     await page.locator('#voice-profile-audio-file').setInputFiles({
