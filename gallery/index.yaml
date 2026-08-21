@@ -1,4 +1,60 @@
 ---
+- name: "qwen3.8-27b-cold-fusion-gain-v1.1-nm-dau-neo-max-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF
+  description: |
+    GGUFS, examples, how to modify reasoning settings (jinja) and detailed model card are here:
+
+    https://huggingface.co/DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF
+
+    IMPORTANT: The COLD FUSION (GAIN+Unsloth) method of training maintains 99% of performance of BF16, at both 8 bit and 4 bit levels.
+
+    FINALS STATUS - WE HAVE A WINNER - GGUFs RELEASED:
+      - FINALS: Benching of "1B", finals, prep for GGUF release. Outstanding performance at 4 bit at xhigh, med and low settings. All the power of the new Qwen 3.8, at 1/10 to 1/2 the thinking/output generation.
+      - 1B is the winner, by a landslide. Perfect generation (and thinking token reduction 1/10 to 1/2) at xhigh, med and low settings too.
+      - 1B maintains/exceeds Qwen 3.8 detail level, even at "low" reasoning effort.
+      - Model's natural mode of operation : High detail, sharp robust thinking then get the job done. Automatically uses minimal "verbage" with max detail in output too.
+      - "Cook 1" already exceeded all 7 core Qwen 3.8 benchmarks (posted below) ; we expect "COOK 1B" (same training/datasets as "COOK 1") to be equal to these, maybe higher.
+      - MTP speed (q4ks, non imatrix, no caching) : 91 T/S (5090), with 55.7% token MTP a
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf
+      sha256: db466a9432a52b87a7b7560f432f0e1caafeb111dbe3d168acf74dfe143a637c
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF/resolve/main/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M/mmproj-F32.gguf
+      sha256: b06833092001e0638d01769bfe608d632511691937b9e3a9b0ed0cbcb6f96a54
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF/resolve/main/mmproj-F32.gguf
 - name: "huihui-qwen3.8-27b-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
