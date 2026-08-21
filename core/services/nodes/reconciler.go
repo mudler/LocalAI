@@ -450,7 +450,7 @@ const probeFailuresBeforeReap = 3
 func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 	var stale []NodeModel
 	cutoff := time.Now().Add(-rc.probeStaleAfter)
-	err := rc.registry.db.WithContext(ctx).
+	err := currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.updated_at < ? AND node_models.address != ''",
 			"loaded", StatusHealthy, cutoff).
@@ -532,7 +532,7 @@ const inFlightLeakConfirmations = 2
 func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
 	var suspects []NodeModel
 	cutoff := time.Now().Add(-inFlightLeakIdleAfter)
-	err := rc.registry.db.WithContext(ctx).
+	err := currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.in_flight > 0 AND node_models.last_used < ? AND node_models.address != ''",
 			"loaded", StatusHealthy, cutoff).
@@ -632,7 +632,7 @@ func (rc *ReplicaReconciler) reconcileNodeProcesses(ctx context.Context) {
 
 	var stale []NodeModel
 	cutoff := time.Now().Add(-rc.probeStaleAfter)
-	err := rc.registry.db.WithContext(ctx).
+	err := currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND backend_nodes.status = ? AND backend_nodes.node_type = ? AND node_models.updated_at < ?",
 			"loaded", StatusHealthy, NodeTypeBackend, cutoff).
@@ -1067,8 +1067,8 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 	// and matching the worker supervisor's port-recycling behavior.
 	cutoff := time.Now().Add(-rc.scaleDownDelay)
 	var idleModels []NodeModel
-	rc.registry.db.WithContext(ctx).
-		Where("model_name = ? AND state = ? AND in_flight = 0 AND last_used < ?",
+	currentModelRevision(rc.registry.db.WithContext(ctx)).
+		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0 AND node_models.last_used < ?",
 			cfg.ModelName, "loaded", cutoff).
 		Order("replica_index DESC, last_used ASC").
 		Find(&idleModels)
@@ -1097,8 +1097,8 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 // allReplicasBusy returns true if all loaded replicas of a model have in-flight requests.
 func (rc *ReplicaReconciler) allReplicasBusy(ctx context.Context, modelName string) bool {
 	var idleCount int64
-	rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("model_name = ? AND state = ? AND in_flight = 0", modelName, "loaded").
+	currentModelRevision(rc.registry.db.WithContext(ctx).Model(&NodeModel{})).
+		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0", modelName, "loaded").
 		Count(&idleCount)
 	return idleCount == 0
 }

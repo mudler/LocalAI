@@ -16,9 +16,17 @@ type ModelRouter interface {
 	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
 	TouchNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int)
 	SetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int) error
+	SetNodeModelRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int, revision, effectiveOptionsHash string) error
 	SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType string, optsBlob []byte) error
+	SetNodeModelLoadInfoRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType, revision string, optsBlob []byte) error
 	UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error
+	UpsertModelLoadInfoRevision(ctx context.Context, modelName, backendType, revision string, optsBlob []byte) error
 	GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error)
+	GetModelLoadInfoRevision(ctx context.Context, modelName string) (backendType, revision string, optsBlob []byte, err error)
+	AdvanceModelConfigRevision(ctx context.Context, modelName, revision string) ([]NodeModel, error)
+	GetModelConfigRevision(ctx context.Context, modelName string) (string, error)
+	RecordModelCleanupFailure(ctx context.Context, nodeID, modelName string, replicaIndex int, cleanupErr string, nextRetry time.Time) error
+	ListModelCleanupRetries(ctx context.Context, now time.Time, limit int) ([]NodeModel, error)
 	NextFreeReplicaIndex(ctx context.Context, nodeID, modelName string, maxSlots int) (int, error)
 	CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error)
 	FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*BackendNode, error)

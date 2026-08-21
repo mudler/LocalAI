@@ -1904,12 +1904,14 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
 		var lru NodeModel
 		err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			// Lock the row so no other frontend can evict the same model
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			if err := currentModelRevision(tx.Clauses(clause.Locking{Strength: "UPDATE"})).
 				Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 				Where(`node_models.in_flight = 0 AND node_models.state = ? AND backend_nodes.status = ?
   AND (
     NOT EXISTS (SELECT 1 FROM model_scheduling_configs sc WHERE sc.model_name = node_models.model_name AND (sc.min_replicas > 0 OR sc.max_replicas > 0))
-    OR (SELECT COUNT(*) FROM node_models nm2 WHERE nm2.model_name = node_models.model_name AND nm2.state = 'loaded')
+    OR (SELECT COUNT(*) FROM node_models nm2 WHERE nm2.model_name = node_models.model_name AND nm2.state = 'loaded'
+         AND (NOT EXISTS (SELECT 1 FROM model_config_states mcs2 WHERE mcs2.model_name = nm2.model_name)
+              OR nm2.config_revision = (SELECT mcs3.config_revision FROM model_config_states mcs3 WHERE mcs3.model_name = nm2.model_name)))
        > COALESCE((SELECT sc2.min_replicas FROM model_scheduling_configs sc2 WHERE sc2.model_name = node_models.model_name), 1)
   )`, "loaded", StatusHealthy).
 				Order("node_models.last_used ASC").
