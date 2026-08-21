@@ -1,44 +1,35 @@
 package main
 
-import "testing"
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-func TestResolveAddr(t *testing.T) {
-	tests := []struct {
-		name     string
-		flagAddr string
-		args     []string
-		want     string
-	}{
-		{
-			name:     "explicit flag wins over positional",
-			flagAddr: "127.0.0.1:12345",
-			args:     []string{"127.0.0.1:59999"},
-			want:     "127.0.0.1:12345",
-		},
-		{
-			name:     "positional used when flag is at default",
-			flagAddr: defaultAddr,
-			args:     []string{"127.0.0.1:59999"},
-			want:     "127.0.0.1:59999",
-		},
-		{
-			name:     "default kept when no positional",
-			flagAddr: defaultAddr,
-			args:     nil,
-			want:     defaultAddr,
-		},
-		{
-			name:     "first positional wins among several",
-			flagAddr: defaultAddr,
-			args:     []string{"127.0.0.1:59999", "extra"},
-			want:     "127.0.0.1:59999",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := resolveAddr(tt.flagAddr, tt.args); got != tt.want {
-				t.Errorf("resolveAddr(%q, %v) = %q, want %q", tt.flagAddr, tt.args, got, tt.want)
-			}
-		})
-	}
-}
+// Specs for resolveAddr run under the suite bootstrap in gowhisper_test.go
+// (TestWhisper); they need no native library, so they never skip.
+var _ = Describe("resolveAddr", func() {
+	It("prefers an explicitly set -addr over a positional argument", func() {
+		Expect(resolveAddr("127.0.0.1:12345", true, []string{"127.0.0.1:59999"})).To(Equal("127.0.0.1:12345"))
+	})
+
+	It("keeps an explicit -addr equal to the default over a positional argument", func() {
+		Expect(resolveAddr(defaultAddr, true, []string{"127.0.0.1:59999"})).To(Equal(defaultAddr))
+	})
+
+	It("falls back to the positional argument when -addr is unset", func() {
+		Expect(resolveAddr(defaultAddr, false, []string{"127.0.0.1:59999"})).To(Equal("127.0.0.1:59999"))
+	})
+
+	It("keeps the default when -addr is unset and no positional argument is given", func() {
+		Expect(resolveAddr(defaultAddr, false, nil)).To(Equal(defaultAddr))
+	})
+
+	It("uses the first positional argument among several", func() {
+		Expect(resolveAddr(defaultAddr, false, []string{"127.0.0.1:59999", "extra"})).To(Equal("127.0.0.1:59999"))
+	})
+
+	It("treats an explicitly empty -addr as unset", func() {
+		Expect(resolveAddr("", true, []string{"127.0.0.1:59999"})).To(Equal("127.0.0.1:59999"))
+		Expect(resolveAddr("", true, nil)).To(Equal(defaultAddr))
+	})
+})

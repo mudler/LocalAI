@@ -18,13 +18,15 @@ var (
 	addr = flag.String("addr", defaultAddr, "the address to listen on")
 )
 
-// resolveAddr picks the address the gRPC server binds to. An explicit -addr
-// value always wins. Launchers may hand us the listen address as a bare
+// resolveAddr picks the address the gRPC server binds to. An explicitly set
+// -addr always wins. Launchers may hand us the listen address as a bare
 // positional argument, which Go's flag package silently drops — honour it
 // next so the server binds the port its caller actually allocated instead of
-// the default one (#11623).
-func resolveAddr(flagAddr string, args []string) string {
-	if flagAddr != defaultAddr {
+// the default one (#11623). An explicitly empty -addr counts as unset:
+// binding the empty address would listen on an OS-chosen port on every
+// interface instead of the one the caller allocated.
+func resolveAddr(flagAddr string, addrSet bool, args []string) string {
+	if addrSet && flagAddr != "" {
 		return flagAddr
 	}
 	if len(args) > 0 {
@@ -80,7 +82,16 @@ func main() {
 
 	flag.Parse()
 
-	if err := grpc.StartServer(resolveAddr(*addr, flag.Args()), &Whisper{}); err != nil {
+	// flag.Visit reports only flags that were explicitly set, so an -addr
+	// equal to the default is still distinguished from an untouched one.
+	addrSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "addr" {
+			addrSet = true
+		}
+	})
+
+	if err := grpc.StartServer(resolveAddr(*addr, addrSet, flag.Args()), &Whisper{}); err != nil {
 		panic(err)
 	}
 }
