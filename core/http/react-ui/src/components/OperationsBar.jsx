@@ -78,6 +78,9 @@ export default function OperationsBar() {
   const byteLabel = Number.isFinite(shown.currentBytes) && Number.isFinite(shown.totalBytes) && shown.totalBytes > 0
     ? `${formatBytes(shown.currentBytes)} / ${formatBytes(shown.totalBytes)}`
     : ''
+  const rateLabel = Number.isFinite(shown.bytesPerSecond) && shown.bytesPerSecond > 0
+    ? `${formatBytes(shown.bytesPerSecond)}/s`
+    : ''
   const kind = shown.isBackend ? t('activity.kind.backend') : t('activity.kind.model')
 
   let modifier = ''
@@ -159,7 +162,12 @@ export default function OperationsBar() {
       <span className="operations-strip__name">{shown.name || shown.id}</span>
       {detail && <span className="operations-strip__sep" aria-hidden="true">·</span>}
       {detail && <span className="operations-strip__detail">{detail}</span>}
-      {byteLabel && !shown.error && <span className="operations-strip__bytes">{byteLabel}</span>}
+      {byteLabel && !shown.error && (
+        <span className="operations-strip__bytes">
+          {byteLabel}
+          {rateLabel && <span aria-live="off"> · {rateLabel}</span>}
+        </span>
+      )}
       <span className="operations-strip__spacer" />
       {showProgress && (
         <>

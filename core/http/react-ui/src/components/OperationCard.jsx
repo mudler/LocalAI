@@ -75,6 +75,9 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
     : ''
   const phaseKey = phaseKeys[operation.phase]
   const etaLabel = formatEta(operation.etaSeconds)
+  const rateLabel = Number.isFinite(operation.bytesPerSecond) && operation.bytesPerSecond > 0
+    ? `${formatBytes(operation.bytesPerSecond)}/s`
+    : ''
   // Same call the strip makes, for the same reason: a failed operation
   // stopped where it broke and a queued one has not moved, so neither has a
   // bar worth drawing.
@@ -124,7 +127,11 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
               <span className="operation-card__message" title={operation.message}>{operation.message}</span>
             )}
             {!failed && operation.isQueued && <span>{t('activity.waitingForInstaller')}</span>}
-            {!failed && byteLabel && <span className="operation-card__bytes">{byteLabel}</span>}
+            {!failed && byteLabel && (
+              <span className="operation-card__bytes">
+                {byteLabel}{rateLabel && ` · ${rateLabel}`}
+              </span>
+            )}
             {!failed && etaLabel && <span className="operation-card__bytes">{t('activity.timeLeft', { value: etaLabel })}</span>}
           </div>
 
