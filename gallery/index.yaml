@@ -53341,3 +53341,61 @@
     - filename: audio-cpp/vevo2-q8_0.gguf
       sha256: f80a70facaaecfcf1aa417ef16ef091318c5e789b24c16a741233c64a72fcee8
       uri: huggingface://audio-cpp/audio.cpp-gguf/Vevo2-GGUF/vevo2-q8_0.gguf
+- name: "openresearcher-30b-a3b-q4"
+  variants:
+    - model: openresearcher-30b-a3b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/OpenResearcher/OpenResearcher-30B-A3B
+    - https://huggingface.co/OpenResearcher/OpenResearcher-30B-A3B-GGUF
+  description: |
+    OpenResearcher-30B-A3B is an agentic deep-research model with 30B total
+    parameters and 3B active parameters. This entry uses the Q4_K_M GGUF.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - research
+    - agent
+    - tools
+  last_checked: "2026-08-21"
+  overrides:
+    backend: llama-cpp
+    parameters:
+      model: OpenResearcher-30B-A3B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: OpenResearcher-30B-A3B-Q4_K_M.gguf
+      uri: huggingface://OpenResearcher/OpenResearcher-30B-A3B-GGUF/OpenResearcher-30B-A3B-Q4_K_M.gguf
+      sha256: 2ac3981624ca76c1e3eca569b649cf041e91ad8c95ac6b2cc41897881d773c08
+- name: "openresearcher-30b-a3b-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/OpenResearcher/OpenResearcher-30B-A3B
+    - https://huggingface.co/OpenResearcher/OpenResearcher-30B-A3B-GGUF
+  description: |
+    OpenResearcher-30B-A3B is an agentic deep-research model with 30B total
+    parameters and 3B active parameters. This entry uses the Q8_0 GGUF.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - research
+    - agent
+    - tools
+  last_checked: "2026-08-21"
+  overrides:
+    backend: llama-cpp
+    parameters:
+      model: OpenResearcher-30B-A3B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: OpenResearcher-30B-A3B-Q8_0.gguf
+      uri: huggingface://OpenResearcher/OpenResearcher-30B-A3B-GGUF/OpenResearcher-30B-A3B-Q8_0.gguf
+      sha256: c216d75002a580f939ceaf944965b0d4fd7d7b5b29a0914a001d836e49866970
