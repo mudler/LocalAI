@@ -155,6 +155,10 @@ test.describe('Voice Library', () => {
   test('sends trimmed speech instructions and omits blank instructions', async ({ page }) => {
     const ttsBodies = []
     await page.route('**/tts', async route => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback()
+        return
+      }
       ttsBodies.push(route.request().postDataJSON())
       await route.fulfill({
         status: 200,
