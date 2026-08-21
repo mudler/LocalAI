@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -295,23 +296,74 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			operations = append(operations, opData)
 		}
 
-		// Append active file staging operations (distributed mode only)
-		if d := applicationInstance.Distributed(); d != nil && d.Router != nil {
-			for modelID, status := range d.Router.StagingTracker().GetAll() {
-				operations = append(operations, map[string]any{
-					"id":          "staging:" + modelID,
-					"name":        modelID,
-					"fullName":    modelID,
-					"jobID":       "staging:" + modelID,
-					"progress":    int(status.Progress),
-					"taskType":    "staging",
-					"isDeletion":  false,
-					"isBackend":   false,
-					"isQueued":    false,
-					"cancellable": false,
-					"message":     status.Message,
-					"nodeName":    status.NodeName,
-				})
+		// Merge durable staging jobs with this replica's fresher tracker snapshot.
+		if d := applicationInstance.Distributed(); d != nil {
+			stagingOperations := map[string]map[string]any{}
+			trackerStatuses := map[string]nodes.StagingStatus{}
+			if d.Router != nil {
+				trackerStatuses = d.Router.StagingTracker().GetAll()
+			}
+			for modelID, status := range trackerStatuses {
+				stagingOperations[modelID] = map[string]any{
+					"id":           "staging:" + modelID,
+					"name":         modelID,
+					"fullName":     modelID,
+					"jobID":        "staging:" + modelID,
+					"progress":     int(status.Progress),
+					"taskType":     "staging",
+					"isDeletion":   false,
+					"isBackend":    false,
+					"isQueued":     false,
+					"cancellable":  false,
+					"message":      status.Message,
+					"nodeName":     status.NodeName,
+					"currentBytes": status.BytesSent,
+					"totalBytes":   status.TotalBytes,
+				}
+			}
+
+			if d.Registry != nil {
+				jobs, err := d.Registry.ListActiveLoadJobs(c.Request().Context())
+				if err != nil {
+					xlog.Warn("Failed to list durable model load jobs", "error", err)
+				} else {
+					for i := range jobs {
+						job := &jobs[i]
+						if job.State != nodes.LoadJobStateStaging {
+							continue
+						}
+						op := map[string]any{
+							"id":           "staging:" + job.TrackingKey,
+							"name":         job.TrackingKey,
+							"fullName":     job.TrackingKey,
+							"jobID":        "staging:" + job.TrackingKey,
+							"progress":     int(job.Progress()),
+							"taskType":     "staging",
+							"isDeletion":   false,
+							"isBackend":    false,
+							"isQueued":     false,
+							"cancellable":  false,
+							"message":      "",
+							"nodeID":       job.NodeID,
+							"nodeName":     job.NodeName,
+							"phase":        job.State,
+							"currentBytes": job.BytesSent,
+							"totalBytes":   job.TotalBytes,
+						}
+						if status, ok := trackerStatuses[job.TrackingKey]; ok {
+							op["nodeName"] = status.NodeName
+							op["message"] = status.Message
+							op["progress"] = int(status.Progress)
+							op["currentBytes"] = status.BytesSent
+							op["totalBytes"] = status.TotalBytes
+						}
+						stagingOperations[job.TrackingKey] = op
+					}
+				}
+			}
+
+			for _, operation := range stagingOperations {
+				operations = append(operations, operation)
 			}
 		}
 

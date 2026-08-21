@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"unsafe"
 
 	"github.com/labstack/echo/v4"
 	. "github.com/onsi/ginkgo/v2"
@@ -16,6 +18,8 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/pkg/system"
 )
 
@@ -39,6 +43,135 @@ func (m *parkedModelManager) DeleteModel(name string) error {
 	<-m.release
 	return nil
 }
+
+func applicationWithDistributedServices(registry *nodes.NodeRegistry, router *nodes.SmartRouter) *application.Application {
+	app := &application.Application{}
+	field := reflect.ValueOf(app).Elem().FieldByName("distributed")
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(&application.DistributedServices{
+		Registry: registry,
+		Router:   router,
+	}))
+	return app
+}
+
+var _ = Describe("/api/operations with durable staging jobs", func() {
+	noopMw := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+
+	serveOperations := func(app *application.Application) []map[string]any {
+		GinkgoHelper()
+		appCfg := &config.ApplicationConfig{}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+		e := echo.New()
+		routes.RegisterUIAPIRoutes(e, nil, nil, appCfg, galleryService, opcache, app, noopMw)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/operations", nil)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+
+		var envelope struct {
+			Operations []map[string]any `json:"operations"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &envelope)).To(Succeed())
+		return envelope.Operations
+	}
+
+	operationByID := func(operations []map[string]any, id string) map[string]any {
+		GinkgoHelper()
+		for _, operation := range operations {
+			if operation["id"] == id {
+				return operation
+			}
+		}
+		return nil
+	}
+
+	It("includes database-only staging jobs and excludes other load phases", func() {
+		db := testutil.SetupTestDB()
+		registry, err := nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
+
+		_, _, err = registry.ClaimLoadJob(context.Background(), "durable-model", "replica-a")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(registry.UpdateLoadJob(context.Background(), "durable-model", nodes.LoadJobUpdate{
+			State: nodes.LoadJobStateStaging, NodeID: "node-1", NodeName: "durable-node",
+			BytesSent: 25, TotalBytes: 100, FileIndex: 1, TotalFiles: 1,
+		})).To(Succeed())
+		_, _, err = registry.ClaimLoadJob(context.Background(), "loading-model", "replica-a")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(registry.UpdateLoadJob(context.Background(), "loading-model", nodes.LoadJobUpdate{
+			State: nodes.LoadJobStateLoading,
+		})).To(Succeed())
+
+		operations := serveOperations(applicationWithDistributedServices(registry, router))
+		found := operationByID(operations, "staging:durable-model")
+		Expect(found).ToNot(BeNil())
+		Expect(found).To(SatisfyAll(
+			HaveKeyWithValue("name", "durable-model"),
+			HaveKeyWithValue("nodeID", "node-1"),
+			HaveKeyWithValue("nodeName", "durable-node"),
+			HaveKeyWithValue("phase", nodes.LoadJobStateStaging),
+			HaveKeyWithValue("progress", float64(25)),
+			HaveKeyWithValue("currentBytes", float64(25)),
+			HaveKeyWithValue("totalBytes", float64(100)),
+		))
+		Expect(operationByID(operations, "staging:loading-model")).To(BeNil())
+	})
+
+	It("overlays a matching tracker snapshot without duplicating the durable job", func() {
+		db := testutil.SetupTestDB()
+		registry, err := nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
+		_, _, err = registry.ClaimLoadJob(context.Background(), "overlay-model", "replica-a")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(registry.UpdateLoadJob(context.Background(), "overlay-model", nodes.LoadJobUpdate{
+			State: nodes.LoadJobStateStaging, NodeName: "durable-node", BytesSent: 10, TotalBytes: 100,
+		})).To(Succeed())
+		router.StagingTracker().Start("overlay-model", "fresh-node", 1)
+		router.StagingTracker().UpdateFile("overlay-model", "weights.gguf", 1, 70, 100, "1 MB/s")
+
+		operations := serveOperations(applicationWithDistributedServices(registry, router))
+		matches := []map[string]any{}
+		for _, operation := range operations {
+			if operation["id"] == "staging:overlay-model" {
+				matches = append(matches, operation)
+			}
+		}
+		Expect(matches).To(HaveLen(1))
+		Expect(matches[0]).To(SatisfyAll(
+			HaveKeyWithValue("nodeName", "fresh-node"),
+			HaveKeyWithValue("progress", float64(70)),
+			HaveKeyWithValue("currentBytes", float64(70)),
+			HaveKeyWithValue("totalBytes", float64(100)),
+			HaveKeyWithValue("message", ContainSubstring("weights.gguf")),
+		))
+	})
+
+	It("retains tracker-only operations when the database read fails", func() {
+		db := testutil.SetupTestDB()
+		registry, err := nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
+		router.StagingTracker().Start("tracker-only", "local-node", 1)
+		router.StagingTracker().UpdateFile("tracker-only", "model.gguf", 1, 40, 100, "")
+
+		sqlDB, err := db.DB()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sqlDB.Close()).To(Succeed())
+
+		operations := serveOperations(applicationWithDistributedServices(registry, router))
+		found := operationByID(operations, "staging:tracker-only")
+		Expect(found).ToNot(BeNil())
+		Expect(found).To(SatisfyAll(
+			HaveKeyWithValue("progress", float64(40)),
+			HaveKeyWithValue("currentBytes", float64(40)),
+			HaveKeyWithValue("totalBytes", float64(100)),
+		))
+	})
+})
 
 // These specs guard the contract between the opcache (which stores
 // node-scoped backend installs under a "node:<nodeID>:<backend>" key) and the
