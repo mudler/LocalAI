@@ -1,19 +1,15 @@
-# bonsai fork skew patches
+# rocmfp4 fork skew patches
 
-The `bonsai` backend reuses `backend/cpp/llama-cpp/grpc-server.cpp` (written against
-LocalAI's pinned *upstream* llama.cpp) but compiles it against the PrismML `prism` fork,
-which branched from upstream some commits earlier. Any upstream API change that the shared
-gRPC server depends on, but that the fork does not yet carry, is back-ported here as a
-`*.patch` file and applied to the cloned fork checkout by `../apply-patches.sh`.
+The `rocmfp4` backend reuses `backend/cpp/llama-cpp/grpc-server.cpp` (written against
+LocalAI's pinned *upstream* llama.cpp) but compiles it against the
+[walcz-de/llama.cpp-ROCmFP4](https://github.com/walcz-de/llama.cpp-ROCmFP4) fork, which
+carries the ROCmFP4 / ROCmFPx tensor formats (ggml types 100-107) for AMD RDNA3.5 APUs.
 
-CI treats both this directory and `backend/cpp/llama-cpp/` as Bonsai inputs, since
-the wrapper copies and builds the shared llama.cpp backend sources.
+The fork tracks the same upstream pin as `backend/cpp/llama-cpp` (it is re-based onto the
+`LLAMA_VERSION` LocalAI pins), so in the common case **no patches are needed here** and this
+directory stays empty. If the pins ever drift — upstream changes an API the shared gRPC
+server depends on before the fork has rebased — the gap is back-ported here as a `*.patch`
+file and applied to the cloned fork checkout by `../apply-patches.sh`.
 
-Rules:
-
-- One upstream commit (or minimal hunk) per patch, named `NNNN-short-description.patch`.
-- Patches are applied with `git apply` from the fork's checkout root.
-- `apply-patches.sh` fails fast if a patch stops applying cleanly — that is the signal the
-  fork has caught up (or diverged), so re-cut or drop the patch.
-- Keep this set as small as possible; the long-term fix is the fork rebasing onto a newer
-  upstream (or Q1_0/Q2_0 landing in mainline llama.cpp, retiring this backend entirely).
+Patches apply with `git apply` from the fork checkout root. Name them
+`NNNN-short-description.patch` so the apply order stays deterministic.
