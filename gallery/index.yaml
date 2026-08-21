@@ -1941,7 +1941,7 @@
   files:
     - filename: llama-cpp/models/Parable-Granite-4.1-3B-Claude-Fable-5-Q4_K_M/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
       uri: https://huggingface.co/AnkitAI/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF/resolve/main/Parable-Granite-4.1-3B-Claude-Fable-5-GGUF-Q4_K_M.gguf
-      sha256: dbf202638af23e72508d8316577655d24ba2037fda51ce802b8996977e290bce
+      sha256: 97fcaf5f36c4724c700e411e0a2f13883a1620e87df0831e237230482fbb382c
 - name: "parable-qwen3-4b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
