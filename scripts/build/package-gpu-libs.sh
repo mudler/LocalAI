@@ -625,6 +625,7 @@ package_rocm_libs() {
         "libhipblas.so*"
         "libhipblaslt.so*"
         "librocblas.so*"
+        "librocroller.so*"
         "librocrand.so*"
         "librocsparse.so*"
         "librocsolver.so*"
