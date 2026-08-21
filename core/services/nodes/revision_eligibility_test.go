@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
 var _ = Describe("revision eligibility consumers", func() {
@@ -57,6 +58,29 @@ var _ = Describe("revision eligibility consumers", func() {
 				UpdatedAt: time.Now().Add(-time.Hour),
 			}).Error).To(Succeed())
 		}
+	})
+
+	It("establishes the first request revision without allowing a later request to roll it back", func() {
+		const freshModel = "first-request-revision"
+		Expect(registry.EstablishModelConfigRevision(ctx, freshModel, "new")).To(Succeed())
+		Expect(registry.EstablishModelConfigRevision(ctx, freshModel, "old")).To(MatchError(ErrStaleModelConfigRevision))
+		revision, err := registry.GetModelConfigRevision(ctx, freshModel)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(revision).To(Equal("new"))
+	})
+
+	It("rejects mixed old-context and old-parallel requests before placement", func() {
+		router := NewSmartRouter(registry, SmartRouterOptions{})
+		for _, opts := range []*pb.ModelOptions{
+			{ContextSize: 8192},
+			{ContextSize: 100000, Options: []string{"parallel:4"}},
+		} {
+			_, err := router.Route(ctx, modelName, "models/revision.gguf", "llama-cpp", "old", opts, false)
+			Expect(err).To(MatchError(ContainSubstring("stale model config revision")))
+		}
+		revision, getErr := registry.GetModelConfigRevision(ctx, modelName)
+		Expect(getErr).NotTo(HaveOccurred())
+		Expect(revision).To(Equal("current"))
 	})
 
 	DescribeTable("excludes empty, mismatched, and unloading rows after current state exists",

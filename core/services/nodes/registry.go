@@ -1227,6 +1227,23 @@ func (r *NodeRegistry) GetModelConfigRevision(ctx context.Context, modelName str
 	return state.ConfigRevision, nil
 }
 
+// EstablishModelConfigRevision creates the initial current revision without
+// ever replacing one. Inference requests use this operation so a late request
+// carrying an older config cannot roll controller state backward.
+func (r *NodeRegistry) EstablishModelConfigRevision(ctx context.Context, modelName, revision string) error {
+	if err := validateRevisionWrite(modelName, revision, true); err != nil {
+		return err
+	}
+	now := time.Now()
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		state := ModelConfigState{ModelName: modelName, ConfigRevision: revision, CreatedAt: now, UpdatedAt: now}
+		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "model_name"}}, DoNothing: true}).Create(&state).Error; err != nil {
+			return err
+		}
+		return requireCurrentRevision(tx, modelName, revision)
+	})
+}
+
 func (r *NodeRegistry) AdvanceModelConfigRevision(ctx context.Context, modelName, revision string) ([]NodeModel, error) {
 	if err := validateRevisionWrite(modelName, revision, true); err != nil {
 		return nil, err
@@ -1396,6 +1413,22 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 	var node BackendNode
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Lock the current model revision before selecting a replica. Revision
+		// advancement takes this lock before quarantining replica rows too, so
+		// an edit and a route claim have one ordering: either this transaction
+		// reserves a replica before the edit, or it observes the new revision
+		// and cannot reserve the old replica. A revision subquery alone is not
+		// sufficient under READ COMMITTED because the state can change between
+		// SELECT and the in-flight increment.
+		var currentState ModelConfigState
+		hasCurrentRevision := false
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("model_name = ?", modelName).First(&currentState).Error; err == nil {
+			hasCurrentRevision = true
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
 		// Mirror of PickBestReplica's policy (see replicapicker.go):
 		//   1. in_flight ASC — least busy replica.
 		//   2. last_used ASC — round-robin between equally-loaded replicas.
@@ -1417,8 +1450,10 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 		base := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 			Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
-				modelName, "loaded", StatusHealthy).
-			Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = node_models.model_name)")
+				modelName, "loaded", StatusHealthy)
+		if hasCurrentRevision {
+			base = base.Where("node_models.config_revision = ?", currentState.ConfigRevision)
+		}
 		if len(candidateNodeIDs) > 0 {
 			base = base.Where("node_models.node_id IN ?", candidateNodeIDs)
 		}

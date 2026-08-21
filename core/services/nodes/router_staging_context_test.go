@@ -68,7 +68,7 @@ var _ = Describe("Route cold-load staging context", func() {
 		stager.cancelRequest = cancel
 		defer cancel()
 
-		result, err := router.Route(ctx, "big-model", filepath.Join("models", "big.gguf"), "llama-cpp",
+		result, err := router.Route(ctx, "big-model", filepath.Join("models", "big.gguf"), "llama-cpp", "",
 			&pb.ModelOptions{Model: "big.gguf", ModelFile: modelFile}, false)
 
 		Expect(err).ToNot(HaveOccurred())

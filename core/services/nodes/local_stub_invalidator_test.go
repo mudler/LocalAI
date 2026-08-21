@@ -9,8 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
-	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // In distributed mode the frontend keeps an in-process stub for every model it

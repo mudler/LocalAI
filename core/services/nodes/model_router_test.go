@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"gorm.io/gorm"
 )
 
 // --- fakeModelRouterForSmartRouter implements ModelRouter ---
@@ -80,8 +81,14 @@ func (f *fakeModelRouterForSmartRouter) GetModelLoadInfoRevision(ctx context.Con
 func (f *fakeModelRouterForSmartRouter) AdvanceModelConfigRevision(_ context.Context, _, _ string) ([]NodeModel, error) {
 	return nil, nil
 }
+func (f *fakeModelRouterForSmartRouter) EstablishModelConfigRevision(_ context.Context, _, _ string) error {
+	return nil
+}
 func (f *fakeModelRouterForSmartRouter) GetModelConfigRevision(_ context.Context, _ string) (string, error) {
-	return "", fmt.Errorf("not found")
+	return "", gorm.ErrRecordNotFound
+}
+func (f *fakeModelRouterForSmartRouter) GetNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) (*NodeModel, error) {
+	return &NodeModel{NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}, nil
 }
 func (f *fakeModelRouterForSmartRouter) RecordModelCleanupFailure(_ context.Context, _, _ string, _ int, _ string, _ time.Time) error {
 	return nil
@@ -212,7 +219,7 @@ var _ = Describe("ModelRouterAdapter", func() {
 			adapter := NewModelRouterAdapter(sr)
 
 			opts := &pb.ModelOptions{Model: "test-model"}
-			m, err := adapter.Route(context.Background(), "llama-cpp", "test-model", "test-model", "model.gguf", opts, false)
+			m, err := adapter.Route(context.Background(), "llama-cpp", "test-model", "test-model", "model.gguf", "", opts, false)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(m).NotTo(BeNil())

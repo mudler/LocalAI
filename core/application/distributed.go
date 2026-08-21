@@ -348,6 +348,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
 		Unloader:         remoteUnloader,
+		ModelCleanup:     nodes.NewModelCleanupService(registry, remoteUnloader),
 		FileStager:       fileStager,
 		GalleriesJSON:    routerGalleriesJSON,
 		AuthToken:        routerAuthToken,

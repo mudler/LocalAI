@@ -35,7 +35,9 @@ type ModelRouter interface {
 	GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error)
 	GetModelLoadInfoRevision(ctx context.Context, modelName string) (backendType, revision string, optsBlob []byte, err error)
 	AdvanceModelConfigRevision(ctx context.Context, modelName, revision string) ([]NodeModel, error)
+	EstablishModelConfigRevision(ctx context.Context, modelName, revision string) error
 	GetModelConfigRevision(ctx context.Context, modelName string) (string, error)
+	GetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) (*NodeModel, error)
 	RecordModelCleanupFailure(ctx context.Context, nodeID, modelName string, replicaIndex int, cleanupErr string, nextRetry time.Time) error
 	ListModelCleanupRetries(ctx context.Context, now time.Time, limit int) ([]NodeModel, error)
 	NextFreeReplicaIndex(ctx context.Context, nodeID, modelName string, maxSlots int) (int, error)

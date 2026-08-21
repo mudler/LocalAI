@@ -59,7 +59,7 @@ type RemoteModelPresenceChecker interface {
 // instead of starting a local process. When set on the ModelLoader,
 // grpcModel() will delegate to this function before attempting local loading.
 type ModelRouter func(ctx context.Context, backend, modelID, modelName, modelFile string,
-	opts *pb.ModelOptions, parallel bool) (*Model, error)
+	configRevision string, opts *pb.ModelOptions, parallel bool) (*Model, error)
 
 // BackendLoadEvent describes one actual backend load attempt: a backend
 // process spawn (or remote-address attach) followed by its LoadModel RPC.
