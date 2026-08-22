@@ -39,6 +39,17 @@ type TTSConfig struct {
 	// A pointer preserves the distinction between an explicit false and the
 	// default automatic behavior.
 	VoiceCloning *bool `yaml:"voice_cloning,omitempty" json:"voice_cloning,omitempty"`
+
+	// Voices describes named voices accepted by this model. Backends with a
+	// built-in catalog supply defaults when this list is empty.
+	Voices []TTSVoice `yaml:"voices,omitempty" json:"voices,omitempty"`
+}
+
+// TTSVoice describes one named voice accepted by a text-to-speech model.
+type TTSVoice struct {
+	Name     string `yaml:"name" json:"name"`
+	Language string `yaml:"language,omitempty" json:"language,omitempty"`
+	Gender   string `yaml:"gender,omitempty" json:"gender,omitempty"`
 }
 
 // @Description ModelConfig represents a model configuration

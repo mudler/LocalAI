@@ -244,6 +244,8 @@ type BackendCapability struct {
 	// contract. Model variants that share a backend may narrow this further;
 	// use VoiceCloningForModel for UI/API decisions.
 	VoiceCloning *VoiceCloningCapability
+	// TTSVoices lists named voices built into the backend.
+	TTSVoices []TTSVoice
 	// Description is a human-readable summary of the backend.
 	Description string
 }
@@ -261,6 +263,22 @@ func referenceVoiceCloning() *VoiceCloningCapability {
 		ReferenceTranscriptRequired: true,
 		AcceptedAudioFormats:        []string{"audio/wav"},
 	}
+}
+
+// TTSVoicesForModel returns model-specific metadata or the backend's built-in
+// catalog. The returned slice is safe for callers to modify.
+func TTSVoicesForModel(cfg *ModelConfig) []TTSVoice {
+	if cfg == nil {
+		return nil
+	}
+	if len(cfg.TTSConfig.Voices) > 0 {
+		return slices.Clone(cfg.TTSConfig.Voices)
+	}
+	capability := GetBackendCapability(cfg.Backend)
+	if capability == nil {
+		return nil
+	}
+	return slices.Clone(capability.TTSVoices)
 }
 
 // BackendCapabilities maps each backend name (as used in model configs and gallery
@@ -580,7 +598,35 @@ var BackendCapabilities = map[string]BackendCapability{
 		PossibleUsecases: []string{UsecaseTTS},
 		DefaultUsecases:  []string{UsecaseTTS},
 		VoiceCloning:     referenceVoiceCloning(),
-		Description:      "Pocket TTS — lightweight text-to-speech",
+		TTSVoices: []TTSVoice{
+			{Name: "juergen", Language: "de_DE", Gender: "male"},
+			{Name: "alba", Language: "en_US", Gender: "female"},
+			{Name: "bill_boerst", Language: "en_US", Gender: "male"},
+			{Name: "charles", Language: "en_US", Gender: "male"},
+			{Name: "george", Language: "en_US", Gender: "male"},
+			{Name: "javert", Language: "en_US", Gender: "male"},
+			{Name: "jean", Language: "en_US", Gender: "male"},
+			{Name: "marius", Language: "en_US", Gender: "male"},
+			{Name: "michael", Language: "en_US", Gender: "male"},
+			{Name: "paul", Language: "en_US", Gender: "male"},
+			{Name: "peter_yearsley", Language: "en_US", Gender: "male"},
+			{Name: "stuart_bell", Language: "en_US", Gender: "male"},
+			{Name: "anna", Language: "en_US", Gender: "female"},
+			{Name: "azelma", Language: "en_US", Gender: "female"},
+			{Name: "caro_davy", Language: "en_US", Gender: "female"},
+			{Name: "cosette", Language: "en_US", Gender: "female"},
+			{Name: "eponine", Language: "en_US", Gender: "female"},
+			{Name: "eve", Language: "en_US", Gender: "female"},
+			{Name: "fantine", Language: "en_US", Gender: "female"},
+			{Name: "jane", Language: "en_US", Gender: "female"},
+			{Name: "mary", Language: "en_US", Gender: "female"},
+			{Name: "vera", Language: "en_US", Gender: "female"},
+			{Name: "lola", Language: "es_ES", Gender: "female"},
+			{Name: "estelle", Language: "fr_FR", Gender: "female"},
+			{Name: "giovanni", Language: "it_IT", Gender: "male"},
+			{Name: "rafael", Language: "pt_PT", Gender: "male"},
+		},
+		Description: "Pocket TTS — lightweight text-to-speech",
 	},
 	"qwen-tts": {
 		GRPCMethods:      []GRPCMethod{MethodTTS},
