@@ -217,11 +217,11 @@ export default function ImportModel() {
   // flipping backends back and forth doesn't lose input.
   const showQuantizations = useMemo(() => {
     if (!prefs.backend) return true
-    return ['llama-cpp', 'ik-llama-cpp', 'turboquant', 'stablediffusion-ggml'].includes(prefs.backend)
+    return ['llama-cpp', 'ik-llama-cpp', 'turboquant', 'cachyllama', 'stablediffusion-ggml'].includes(prefs.backend)
   }, [prefs.backend])
   const showMmprojQuantizations = useMemo(() => {
     if (!prefs.backend) return true
-    return ['llama-cpp', 'ik-llama-cpp', 'turboquant'].includes(prefs.backend)
+    return ['llama-cpp', 'ik-llama-cpp', 'turboquant', 'cachyllama'].includes(prefs.backend)
   }, [prefs.backend])
   const showModelType = useMemo(() => {
     if (!prefs.backend) return true

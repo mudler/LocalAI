@@ -14,6 +14,7 @@ const MOCK_BACKENDS = [
   { name: 'llama-cpp', modality: 'text', auto_detect: true, installed: true },
   { name: 'ik-llama-cpp', modality: 'text', auto_detect: true, installed: true },
   { name: 'turboquant', modality: 'text', auto_detect: true, installed: true },
+  { name: 'cachyllama', modality: 'text', auto_detect: true, installed: true },
   { name: 'stablediffusion-ggml', modality: 'image', auto_detect: true, installed: true },
   { name: 'transformers', modality: 'text', auto_detect: true, installed: true },
   { name: 'sentencetransformers', modality: 'embeddings', auto_detect: true, installed: true },
@@ -88,6 +89,14 @@ test.describe('Import form UX — Batch D (progressive disclosure)', () => {
     await expect(mmprojInput(page)).toBeVisible()
     // Model Type is scoped to transformers / sentencetransformers / rerankers
     // / rfdetr — llama-cpp doesn't consume it.
+    await expect(modelTypeInput(page)).toHaveCount(0)
+  })
+
+  test('D1 — selecting cachyllama shows GGUF Quantizations + MMProj', async ({ page }) => {
+    await enterPowerPreferences(page)
+    await selectBackend(page, 'cachyllama')
+    await expect(quantizationsInput(page)).toBeVisible()
+    await expect(mmprojInput(page)).toBeVisible()
     await expect(modelTypeInput(page)).toHaveCount(0)
   })
 
