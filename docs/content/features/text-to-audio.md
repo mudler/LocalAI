@@ -35,11 +35,11 @@ Returns an `audio/wav` file.
 Administrators can manage reusable voice-cloning references from **Operate → Voice Library** in the LocalAI WebUI. The library replaces per-model filesystem and YAML setup for supported cloning backends:
 
 1. Select **Create voice** and upload or record a clear reference clip.
-2. Enter the exact words spoken in the clip. The transcript is sent to backends that require reference text.
+2. Enter the exact words spoken in the clip. Add more audio/transcript pairs when the personality needs more examples.
 3. Confirm that you have permission to clone the voice, then save the profile.
 4. Open **Text to Speech**, choose a model marked **Cloning ready**, and select the saved voice.
 
-The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. Clips must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean, single-speaker audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
+The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. A profile can contain up to ten ordered references. Each clip must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
 
 ### Voice profile API
 
@@ -61,6 +61,18 @@ curl http://localhost:8080/api/voice-profiles \
   -F 'transcript=The exact words spoken in this reference.' \
   -F 'consent_confirmed=true' \
   -F 'audio=@reference.wav;type=audio/wav'
+```
+
+Repeat `transcript` and `audio` in matching order to create a multi-reference personality:
+
+```bash
+curl http://localhost:8080/api/voice-profiles \
+  -F 'name=Documentary personality' \
+  -F 'transcript=The first exact transcript.' \
+  -F 'audio=@reference-1.wav;type=audio/wav' \
+  -F 'transcript=The second exact transcript.' \
+  -F 'audio=@reference-2.wav;type=audio/wav' \
+  -F 'consent_confirmed=true'
 ```
 
 The response includes an opaque voice reference such as `localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000`. Pass that value as `voice` to either TTS-compatible endpoint:
@@ -122,7 +134,7 @@ Reference selection follows this order:
 3. The model's `tts.audio_path` reference-audio fallback.
 4. A backend-specific default voice or option.
 
-When a saved profile is selected, LocalAI supplies both its private WAV and exact transcript for that request. It does not rewrite the model YAML or copy the recording into the model directory.
+When a saved profile is selected, LocalAI supplies its ordered private WAV and transcript pairs to Fish Speech and audio.cpp. Other cloning backends receive the first pair, which preserves their existing single-reference behavior. LocalAI does not rewrite the model YAML or copy recordings into the model directory.
 
 #### Supported backend and model variants
 

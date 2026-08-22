@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -62,5 +63,19 @@ var _ = Describe("FileStagingClient TTS references", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(stager.ensureCalls).To(BeEmpty())
 		Expect(backend.ttsRequest.Voice).To(Equal("serena"))
+	})
+
+	It("stages every multi-reference personality clip", func(ctx SpecContext) {
+		backend := &capturingTTSBackend{}
+		stager := &fakeFileStager{}
+		client := NewFileStagingClient(backend, stager, "worker-1")
+		request := &pb.TTSRequest{Params: map[string]string{"multi_reference_cond": `[{"audio":"/data/one.wav","text":"one"},{"audio":"/data/two.wav","text":"two"}]`}}
+		_, err := client.TTS(ctx, request)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stager.ensureCalls).To(HaveLen(2))
+		var references []map[string]string
+		Expect(json.Unmarshal([]byte(backend.ttsRequest.Params["multi_reference_cond"]), &references)).To(Succeed())
+		Expect(references[0]["audio"]).To(HavePrefix("/remote/ephemeral/"))
+		Expect(references[1]["audio"]).To(HavePrefix("/remote/ephemeral/"))
 	})
 })
