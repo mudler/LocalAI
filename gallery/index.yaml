@@ -10984,6 +10984,36 @@
         source:
           type: huggingface
           repo: openbmb/VoxCPM1.5
+- name: voxcpm2
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/VoxCPM2
+  description: |
+    VoxCPM2 is a 2B-parameter text-to-speech model supporting 30 languages and 48 kHz output, with voice design and controllable voice cloning.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1670387859384-633fe7784b362488336bbfad.png
+  tags:
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - voice-design
+    - cpu
+    - gpu
+  last_checked: "2026-08-22"
+  overrides:
+    backend: voxcpm
+    known_usecases:
+      - tts
+    tts:
+      voice_cloning: true
+    parameters:
+      model: openbmb/VoxCPM2
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: openbmb/VoxCPM2
 - name: neutts-air
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
