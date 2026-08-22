@@ -24,7 +24,7 @@ The agent system provides:
 - **Autonomous agents** with configurable goals, personalities, and capabilities
 - **Tool/Action support** - agents can execute actions (web search, code execution, API calls, etc.)
 - **Knowledge base (RAG)** - per-agent collections with document upload, chunking, and semantic search
-- **Skills system** - reusable skill definitions that agents can leverage, with git-based skill repositories
+- **Skills system** - reusable skill definitions that agents can use, with git-based skill repositories
 - **SSE streaming** - real-time chat with agents via Server-Sent Events
 - **Import/Export** - share agent configurations as JSON files
 - **Agent Hub** - browse and download ready-made agents from [agenthub.localai.io](https://agenthub.localai.io)
