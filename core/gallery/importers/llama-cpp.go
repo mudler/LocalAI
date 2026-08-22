@@ -37,6 +37,7 @@ func (i *LlamaCPPImporter) AdditionalBackends() []KnownBackendEntry {
 	return []KnownBackendEntry{
 		{Name: "ik-llama-cpp", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with ik-quants"},
 		{Name: "turboquant", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with TurboQuant optimizations"},
+		{Name: "rocmfp4", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp reading ROCmFP4 4-bit weights on AMD RDNA3.5"},
 		{Name: "vllm-cpp", Modality: "text", Description: "vLLM-style continuous-batching engine (vllm.cpp) consuming GGUF, by the LocalAI team"},
 	}
 }
@@ -136,7 +137,9 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	backend := "llama-cpp"
 	if b, ok := preferencesMap["backend"].(string); ok {
 		switch b {
-		case "ik-llama-cpp", "turboquant", "vllm-cpp":
+		// Preference-only: ROCmFP4 GGUFs carry ordinary .gguf names, so there is no
+		// safe auto-detect signal. Without an explicit preference this stays llama-cpp.
+		case "ik-llama-cpp", "turboquant", "vllm-cpp", "rocmfp4":
 			backend = b
 		}
 	}

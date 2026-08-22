@@ -74,6 +74,43 @@
     nvidia-cuda-12: "cuda12-turboquant"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant"
+- &rocmfp4
+  name: "rocmfp4"
+  alias: "rocmfp4"
+  license: mit
+  description: |
+    Fork of llama.cpp carrying the ROCmFP4 / ROCmFPx 4-bit weight-quantization
+    formats (ggml types 100-107) for AMD RDNA3.5 APUs - gfx1150/1151/1152/1153,
+    which is Strix Point, Strix Halo, Gorgon Point and Gorgon Halo. Stock
+    llama.cpp rejects these tensor types, so this backend exists to serve the
+    published ROCmFP4 weights rather than to be a faster llama.cpp.
+
+    What the format buys on this hardware is MEMORY, not arithmetic: roughly 22%
+    smaller than Q4_K_M at perplexity parity, which can decide whether a model
+    fits in unified RAM. There is no FP4 matrix instruction on RDNA3.5 or RDNA4 -
+    only CDNA4 has one - so the matmul runs as int8 dot products and the gain is
+    bandwidth. Measured on a Radeon 8060S (gfx1151): 335 tok/s prefill and
+    14.2 tok/s decode on a 27B model.
+
+    llama-cpp stays the recommendation for everything else.
+  urls:
+    - https://github.com/walcz-de/llama.cpp-ROCmFP4
+    - https://github.com/charlie12345/ROCmFPX
+  tags:
+    - text-to-text
+    - LLM
+    - GPU
+    - HIP
+    - AMD
+    - rocmfp4
+    - fp4
+    - strix-halo
+  capabilities:
+    amd: "rocm-rocmfp4"
+- !!merge <<: *rocmfp4
+  name: "rocmfp4-development"
+  capabilities:
+    amd: "rocm-rocmfp4-development"
 - &bonsai
   name: "bonsai"
   alias: "bonsai"
@@ -2859,6 +2896,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-bonsai"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-bonsai
+- !!merge <<: *rocmfp4
+  name: "rocm-rocmfp4"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-rocmfp4"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-rocmfp4
+- !!merge <<: *rocmfp4
+  name: "rocm-rocmfp4-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-rocmfp4"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-rocmfp4
 - !!merge <<: *bonsai
   name: "rocm-bonsai"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-bonsai"
