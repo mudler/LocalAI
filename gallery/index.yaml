@@ -8807,6 +8807,94 @@
     - filename: llama-cpp/mmproj/tencent_UI-Mate-9B-GGUF/mmproj-tencent_UI-Mate-9B-f16.gguf
       sha256: 5a8380c4637dddceed9dbc28fffcdfa8601909c0ece9fe218fbd6888ec5d2c16
       uri: huggingface://bartowski/tencent_UI-Mate-9B-GGUF/mmproj-tencent_UI-Mate-9B-f16.gguf
+- &ui-mate-27b
+  name: ui-mate-27b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: ui-mate-27b-q8
+  urls:
+    - https://huggingface.co/tencent/UI-Mate-27B
+    - https://huggingface.co/bartowski/tencent_UI-Mate-27B-GGUF
+  description: |
+    UI-Mate-27B is Tencent's 27B-parameter multimodal computer-use agent,
+    fine-tuned from Qwen3.6-27B. It accepts task instructions, screenshots,
+    and interaction history, then emits reasoning and structured mouse and
+    keyboard actions for long-running desktop tasks. The model requires an
+    external runtime to execute its actions and should run with human
+    confirmation for sensitive operations. This entry uses the recommended
+    Q4_K_M GGUF quantization.
+  license: apache-2.0
+  tags:
+    - ui-mate
+    - qwen
+    - qwen3.6
+    - 27b
+    - llm
+    - gguf
+    - quantized
+    - chat
+    - vision
+    - multimodal
+    - agent
+    - computer-use
+    - gpu
+    - cpu
+  last_checked: "2026-08-22"
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/tencent_UI-Mate-27B-GGUF/mmproj-tencent_UI-Mate-27B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/tencent_UI-Mate-27B-GGUF/tencent_UI-Mate-27B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/tencent_UI-Mate-27B-GGUF/tencent_UI-Mate-27B-Q4_K_M.gguf
+      sha256: 05ee4cca09f10de19e828e51497cc8b4c9eabffe2a177a54d1188ff869669f20
+      uri: huggingface://bartowski/tencent_UI-Mate-27B-GGUF/tencent_UI-Mate-27B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/tencent_UI-Mate-27B-GGUF/mmproj-tencent_UI-Mate-27B-f16.gguf
+      sha256: 991376d8e954dda92b454358306fb2b4bbd51d522b12977cdfeb3eebbb904fbb
+      uri: huggingface://bartowski/tencent_UI-Mate-27B-GGUF/mmproj-tencent_UI-Mate-27B-f16.gguf
+- !!merge <<: *ui-mate-27b
+  name: ui-mate-27b-q8
+  variants: []
+  description: |
+    UI-Mate-27B is Tencent's 27B-parameter multimodal computer-use agent,
+    fine-tuned from Qwen3.6-27B. It accepts task instructions, screenshots,
+    and interaction history, then emits reasoning and structured mouse and
+    keyboard actions for long-running desktop tasks. The model requires an
+    external runtime to execute its actions and should run with human
+    confirmation for sensitive operations. This entry uses the higher-quality
+    Q8_0 GGUF quantization.
+  overrides:
+    backend: llama-cpp
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/tencent_UI-Mate-27B-GGUF/mmproj-tencent_UI-Mate-27B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/tencent_UI-Mate-27B-GGUF/tencent_UI-Mate-27B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/tencent_UI-Mate-27B-GGUF/tencent_UI-Mate-27B-Q8_0.gguf
+      sha256: 3626d336fb902e91f2e7d241d95c9410c74094d5f1739c76ef896140878bcd68
+      uri: huggingface://bartowski/tencent_UI-Mate-27B-GGUF/tencent_UI-Mate-27B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/tencent_UI-Mate-27B-GGUF/mmproj-tencent_UI-Mate-27B-f16.gguf
+      sha256: 991376d8e954dda92b454358306fb2b4bbd51d522b12977cdfeb3eebbb904fbb
+      uri: huggingface://bartowski/tencent_UI-Mate-27B-GGUF/mmproj-tencent_UI-Mate-27B-f16.gguf
 - &fara1-5-4b
   name: fara1.5-4b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
