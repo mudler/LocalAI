@@ -35,6 +35,7 @@ from diffusers_dynamic_loader import (
     get_available_pipelines,
     load_diffusers_pipeline,
 )
+from load_options import single_file_load_kwargs
 
 # Import specific items still needed for special cases and safety checker
 from diffusers import DiffusionPipeline, ControlNetModel
@@ -464,6 +465,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # Build kwargs for dynamic loading
         load_kwargs = {"torch_dtype": torchType}
+        load_kwargs.update(
+            single_file_load_kwargs(request.OriginalConfigFile, from_single_file)
+        )
 
         # Add variant if not loading from single file
         if not from_single_file and variant:

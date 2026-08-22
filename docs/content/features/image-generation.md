@@ -248,6 +248,18 @@ diffusers:
 cfg_scale: 8
 ```
 
+For an offline single-file checkpoint that needs its original Diffusers configuration, keep both files in the mounted models directory:
+
+```yaml
+name: offline-stable-diffusion
+parameters:
+  model: model.safetensors
+backend: diffusers
+diffusers:
+  pipeline_type: StableDiffusionPipeline
+  original_config_file: /models/v1-inference.yaml
+```
+
 #### Configuration parameters
 
 The following parameters are available in the configuration file:
