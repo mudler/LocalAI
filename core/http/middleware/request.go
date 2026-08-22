@@ -152,9 +152,15 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 
 			// If a model name was specified, verify it actually exists before proceeding.
 			// Check both configured models and loose model files in the model path.
-			// Skip the check for HuggingFace model IDs (contain "/") since backends
-			// like diffusers may download these on the fly.
-			if modelName != "" && !strings.Contains(modelName, "/") {
+			// Skip the check only for HuggingFace-style model IDs ("org/repo") that
+			// backends like diffusers may download on the fly. A name that points at a
+			// concrete weight file (e.g. "local/model.gguf") is NOT such an ID: it must
+			// still be verified, otherwise a wrong name silently falls through to the
+			// gallery autoloader and triggers a surprising download (issue #10162).
+			// CheckIfModelExists resolves relative paths against the models dir, so a
+			// loose weight file addressed by path still passes.
+			isRemoteModelID := strings.Contains(modelName, "/") && !model.HasKnownModelFileExtension(modelName)
+			if modelName != "" && !isRemoteModelID {
 				exists, existsErr := galleryop.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, modelName, galleryop.ALWAYS_INCLUDE)
 				if existsErr == nil && !exists {
 					return c.JSON(http.StatusNotFound, schema.ErrorResponse{
