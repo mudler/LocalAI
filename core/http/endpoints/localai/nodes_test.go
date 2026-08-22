@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -445,6 +446,60 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(list).To(HaveLen(1))
 			Expect(list[0].ModelName).To(Equal("llama-3.3"))
 			Expect(list[0].NodeID).To(Equal("n1"))
+		})
+	})
+
+	Describe("GetNodeModelsEndpoint", func() {
+		It("returns revision and cleanup state without serialized model options", func() {
+			ctx := context.Background()
+			Expect(registry.Register(ctx, &nodes.BackendNode{
+				ID: "n1", Name: "alpha", Address: "10.0.0.1:50051", Status: nodes.StatusHealthy,
+			}, true)).To(Succeed())
+
+			Expect(registry.EstablishModelConfigRevision(ctx, "current-model", "revision-current")).To(Succeed())
+			Expect(registry.SetNodeModelRevision(ctx, "n1", "current-model", 0, "loaded", "10.0.0.1:50052", 0, "revision-current", "options-current")).To(Succeed())
+			Expect(registry.SetNodeModelLoadInfoRevision(ctx, "n1", "current-model", 0, "llama-cpp", "revision-current", []byte("serialized-options"))).To(Succeed())
+
+			Expect(registry.EstablishModelConfigRevision(ctx, "changed-model", "revision-old")).To(Succeed())
+			Expect(registry.SetNodeModelRevision(ctx, "n1", "changed-model", 0, "loaded", "10.0.0.1:50053", 0, "revision-old", "options-old")).To(Succeed())
+			quarantined, err := registry.AdvanceModelConfigRevision(ctx, "changed-model", "revision-new")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(quarantined).To(HaveLen(1))
+			retryAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
+			Expect(registry.RecordModelCleanupFailure(ctx, "n1", "changed-model", 0, "worker unreachable", retryAt)).To(Succeed())
+
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/api/nodes/n1/models", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetPath("/api/nodes/:id/models")
+			c.SetParamNames("id")
+			c.SetParamValues("n1")
+
+			Expect(GetNodeModelsEndpoint(registry)(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var modelsResponse []map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &modelsResponse)).To(Succeed())
+			Expect(modelsResponse).To(HaveLen(2))
+			byName := map[string]map[string]any{}
+			for _, model := range modelsResponse {
+				byName[model["model_name"].(string)] = model
+				Expect(model).ToNot(HaveKey("model_opts_blob"))
+			}
+
+			Expect(byName["current-model"]).To(SatisfyAll(
+				HaveKeyWithValue("state", "loaded"),
+				HaveKeyWithValue("config_revision", "revision-current"),
+				HaveKeyWithValue("effective_options_hash", "options-current"),
+			))
+			Expect(byName["changed-model"]).To(SatisfyAll(
+				HaveKeyWithValue("state", "unloading"),
+				HaveKeyWithValue("config_revision", "revision-old"),
+				HaveKeyWithValue("effective_options_hash", "options-old"),
+				HaveKeyWithValue("cleanup_error", "worker unreachable"),
+				HaveKey("cleanup_next_retry_at"),
+			))
 		})
 	})
 })

@@ -9,5 +9,5 @@ type ModelResponse struct {
 	Error          string   `json:"error,omitempty"`
 	Details        []string `json:"details,omitempty"`
 	ConfigRevision string   `json:"config_revision,omitempty"`
-	PendingCleanup int      `json:"pending_cleanup,omitempty"`
+	PendingCleanup int      `json:"pending_cleanup"`
 }

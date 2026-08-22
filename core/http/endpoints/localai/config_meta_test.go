@@ -21,12 +21,13 @@ import (
 )
 
 type endpointLifecycleRecorder struct {
-	batches [][]modeladmin.ModelRevisionTransition
+	batches        [][]modeladmin.ModelRevisionTransition
+	pendingCleanup int
 }
 
 func (r *endpointLifecycleRecorder) ApplyConfigRevisions(_ context.Context, transitions []modeladmin.ModelRevisionTransition) (int, error) {
 	r.batches = append(r.batches, append([]modeladmin.ModelRevisionTransition(nil), transitions...))
-	return 0, nil
+	return r.pendingCleanup, nil
 }
 
 var _ = Describe("Config Metadata Endpoints", func() {
@@ -285,6 +286,30 @@ backend: llama-cpp
 			data, err := os.ReadFile(configPath)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(data)).To(ContainSubstring("vllm"))
+		})
+
+		It("reports lifecycle-backed pending cleanup with the saved revision", func() {
+			seedConfig := "name: test-model\nbackend: llama-cpp\ncontext_size: 4096\n"
+			Expect(os.WriteFile(filepath.Join(tempDir, "test-model.yaml"), []byte(seedConfig), 0o644)).To(Succeed())
+			Expect(configLoader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
+			lifecycle := &endpointLifecycleRecorder{pendingCleanup: 4}
+			endpointApp := echo.New()
+			endpointApp.PATCH(
+				"/api/models/config-json/:name",
+				PatchConfigEndpoint(configLoader, nil, appConfig, lifecycle),
+			)
+
+			body := bytes.NewBufferString(`{"context_size":8192}`)
+			req := httptest.NewRequest(http.MethodPatch, "/api/models/config-json/test-model", body)
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			endpointApp.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			var response map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+			Expect(response).To(HaveKeyWithValue("config_revision", Not(BeEmpty())))
+			Expect(response).To(HaveKeyWithValue("pending_cleanup", BeNumerically("==", 4)))
 		})
 
 		It("should not persist runtime defaults (SetDefaults values) to disk", func() {

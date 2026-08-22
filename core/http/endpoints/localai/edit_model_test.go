@@ -82,6 +82,40 @@ var _ = Describe("Edit Model test", func() {
 	})
 
 	Context("Edit Model endpoint", func() {
+		DescribeTable("reports the saved revision and pending cleanup count",
+			func(pendingCleanup int) {
+				systemState, err := system.GetSystemState(system.WithModelPath(tempDir))
+				Expect(err).ToNot(HaveOccurred())
+				applicationConfig := config.NewApplicationConfig(config.WithSystemState(systemState))
+				loader := config.NewModelConfigLoader(tempDir)
+				Expect(os.WriteFile(
+					filepath.Join(tempDir, "model.yaml"),
+					[]byte("name: model\nbackend: llama-cpp\ncontext_size: 4096\n"),
+					0o644,
+				)).To(Succeed())
+				Expect(loader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
+				lifecycle := &endpointLifecycleRecorder{pendingCleanup: pendingCleanup}
+				app := echo.New()
+				app.POST("/models/edit/:name", EditModelEndpoint(loader, nil, applicationConfig, lifecycle))
+
+				req := httptest.NewRequest(
+					http.MethodPost,
+					"/models/edit/model",
+					bytes.NewBufferString("name: model\nbackend: llama-cpp\ncontext_size: 8192\n"),
+				)
+				rec := httptest.NewRecorder()
+				app.ServeHTTP(rec, req)
+
+				Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+				var response map[string]any
+				Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+				Expect(response).To(HaveKeyWithValue("config_revision", Not(BeEmpty())))
+				Expect(response).To(HaveKeyWithValue("pending_cleanup", BeNumerically("==", pendingCleanup)))
+			},
+			Entry("when no replicas need cleanup", 0),
+			Entry("when stale replicas remain queued for cleanup", 2),
+		)
+
 		It("does not broadcast an in-place edit that rolls back during preload", func() {
 			systemState, err := system.GetSystemState(system.WithModelPath(tempDir))
 			Expect(err).ToNot(HaveOccurred())
@@ -243,7 +277,7 @@ var _ = Describe("Edit Model test", func() {
 			galleryService := galleryop.NewGalleryService(applicationConfig, nil)
 			client := &endpointRecordingClient{}
 			galleryService.SetNATSClient(client)
-			lifecycle := &endpointLifecycleRecorder{}
+			lifecycle := &endpointLifecycleRecorder{pendingCleanup: 2}
 			app := echo.New()
 			app.POST("/models/edit/:name", EditModelEndpoint(loader, galleryService, applicationConfig, lifecycle))
 
@@ -252,6 +286,10 @@ var _ = Describe("Edit Model test", func() {
 			app.ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			var response map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+			Expect(response).To(HaveKeyWithValue("config_revision", Not(BeEmpty())))
+			Expect(response).To(HaveKeyWithValue("pending_cleanup", BeNumerically("==", 2)))
 			Expect(client.published).To(HaveLen(2))
 			Expect(client.published[0]).To(Equal(messaging.CacheInvalidateEvent{
 				Element: "old", Op: "delete", ConfigRevision: modeladmin.DeletedModelConfigRevision("old"),
