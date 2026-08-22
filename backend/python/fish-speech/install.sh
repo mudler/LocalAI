@@ -44,6 +44,13 @@ fi
 # editable install. pyaudio is only used by the upstream playback client.
 bash "${backend_dir}/prepare-source.sh" "${BUILD_TYPE:-}" "${FISH_SPEECH_DIR}/pyproject.toml"
 
+# CUDA 13 has no torch 2.8 wheels, so fish-speech's exact upstream pin would
+# make pip select the CPU-only aarch64 wheel from PyPI. Prepare the cloned tree
+# before resolving it, and use soundfile for reference audio because torchcodec
+# does not publish Linux aarch64 wheels.
+python3 "${backend_dir}/prepare_upstream.py" "${FISH_SPEECH_DIR}" \
+    --cuda-major "${CUDA_MAJOR_VERSION:-}"
+
 # Install fish-speech deps from source (without the package itself since we use PYTHONPATH)
 ensureVenv
 if [ "x${USE_PIP}" == "xtrue" ]; then
