@@ -437,6 +437,21 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 			skippedBytes += file.Size
 			continue
 		}
+		// Before reaching for the network, consult committed sibling trees for the
+		// same Source (type+endpoint+repo+revision). A narrower allow_patterns
+		// request gets a different CacheKey, so committedResult misses even though a
+		// broader sibling already holds this exact file; reusing it avoids a
+		// redundant re-download of tens of gigabytes. The match is re-verified
+		// through verifyDownloadedFile (full SHA-256), never size-only, and a broader
+		// request can never inherit a narrower sibling's gaps because each file is
+		// matched individually against the sibling's manifest.
+		if entry, ok := reuseFromCommittedSibling(modelsPath, spec, file, layout, root); ok {
+			manifest.Files[taskIndex] = entry
+			completedBytes.Add(file.Size)
+			skippedFiles++
+			skippedBytes += file.Size
+			continue
+		}
 		nameSum := sha256.Sum256([]byte(file.Path))
 		blobRel := path.Join(".downloads", hex.EncodeToString(nameSum[:]))
 		blobAbs := filepath.Join(layout.Partial, filepath.FromSlash(blobRel))
@@ -586,6 +601,104 @@ func reuseMaterializedFile(fileName string, source hfapi.SnapshotFile) (Manifest
 		return ManifestFile{}, false
 	}
 	return entry, true
+}
+
+// reuseFromCommittedSibling looks for a file already committed under a sibling
+// artifact tree — same Source (type+endpoint+repo+revision), different
+// allow/ignore patterns — and stages it for this writer instead of fetching.
+// A narrower allow_patterns request gets a different CacheKey (path.go:62), so
+// committedResult misses and materializeLocked would otherwise re-download
+// files an already-committed broader sibling already holds.
+//
+// The match is never size-only: the sibling file is re-hashed through the
+// shared verifyDownloadedFile against the current request's SnapshotFile (its
+// LFS or git blob OID), so the staged entry is byte-for-byte identical to a
+// fresh download. A broader request can never stand in for files a narrower
+// sibling lacks, because each requested file is matched individually against
+// the sibling's manifest file set. Hard-link keeps the shared models volume
+// disk-neutral; a byte copy is the fallback only for EXDEV, the one case the
+// kernel cannot hard-link.
+func reuseFromCommittedSibling(modelsPath string, spec Spec, file hfapi.SnapshotFile, layout Layout, root *os.Root) (ManifestFile, bool) {
+	if spec.Resolved == nil || layout.Final == "" {
+		return ManifestFile{}, false
+	}
+	siblingsRoot := filepath.Join(modelsPath, ".artifacts", "huggingface")
+	entries, err := os.ReadDir(siblingsRoot)
+	if err != nil {
+		return ManifestFile{}, false
+	}
+	snapshotRel := path.Join("snapshot", file.Path)
+	snapshotAbs := filepath.Join(layout.Partial, filepath.FromSlash(snapshotRel))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		siblingFinal := filepath.Join(siblingsRoot, entry.Name())
+		// The current artifact's own committed tree is not a sibling. It is
+		// either absent (the reason materializeLocked is running) or already
+		// handled by committedResult's exact-key fast path.
+		if siblingFinal == layout.Final {
+			continue
+		}
+		siblingManifest, err := ReadManifest(filepath.Join(siblingFinal, "manifest.json"))
+		if err != nil {
+			continue
+		}
+		siblingArtifact := siblingManifest.Artifact
+		if siblingArtifact.Resolved == nil ||
+			siblingArtifact.Source.Type != spec.Source.Type ||
+			siblingArtifact.Resolved.Endpoint != spec.Resolved.Endpoint ||
+			siblingArtifact.Source.Repo != spec.Source.Repo ||
+			siblingArtifact.Resolved.Revision != spec.Resolved.Revision {
+			continue
+		}
+		for _, siblingFile := range siblingManifest.Files {
+			if siblingFile.Path != file.Path || siblingFile.Size != file.Size {
+				continue
+			}
+			siblingPath := filepath.Join(siblingFinal, "snapshot", filepath.FromSlash(file.Path))
+			verified, err := verifyDownloadedFile(siblingPath, file)
+			if err != nil {
+				continue
+			}
+			if err := root.MkdirAll(path.Dir(snapshotRel), 0o750); err != nil {
+				return ManifestFile{}, false
+			}
+			_ = root.Remove(snapshotRel)
+			if err := linkOrCopy(siblingPath, snapshotAbs); err != nil {
+				return ManifestFile{}, false
+			}
+			return verified, true
+		}
+	}
+	return ManifestFile{}, false
+}
+
+// linkOrCopy hard-links src to dst, falling back to a byte-for-byte copy only
+// when the kernel refuses a hard link across filesystems (EXDEV). Hard-linking
+// keeps the shared models volume neutral — a narrowed request does not double
+// the storage of a broad sibling's files.
+func linkOrCopy(src, dst string) error {
+	if err := os.Link(src, dst); err == nil {
+		return nil
+	} else if !errors.Is(err, syscall.EXDEV) {
+		return err
+	}
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = in.Close() }()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		_ = os.Remove(dst)
+		return err
+	}
+	return out.Close()
 }
 
 func verifyDownloadedFile(fileName string, source hfapi.SnapshotFile) (ManifestFile, error) {
