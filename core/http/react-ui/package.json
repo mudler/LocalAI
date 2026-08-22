@@ -20,7 +20,8 @@
   },
   "overrides": {
     "hono": "4.12.34",
-    "ip-address": "10.3.1"
+    "ip-address": "10.3.1",
+    "path-to-regexp": "8.4.0"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",
