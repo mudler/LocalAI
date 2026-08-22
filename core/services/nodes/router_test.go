@@ -18,6 +18,7 @@ import (
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	ggrpc "google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -261,17 +262,48 @@ func (f *fakeModelRouter) SetNodeModel(_ context.Context, nodeID, modelName stri
 	f.setCalls = append(f.setCalls, fmt.Sprintf("%s:%s:%s:%s", nodeID, modelName, state, address))
 	return nil
 }
+func (f *fakeModelRouter) SetNodeModelRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int, _, _ string) error {
+	return f.SetNodeModel(ctx, nodeID, modelName, replicaIndex, state, address, initialInFlight)
+}
 
 func (f *fakeModelRouter) SetNodeModelLoadInfo(_ context.Context, _, _ string, _ int, _ string, _ []byte) error {
 	return nil
+}
+func (f *fakeModelRouter) SetNodeModelLoadInfoRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType, _ string, optsBlob []byte) error {
+	return f.SetNodeModelLoadInfo(ctx, nodeID, modelName, replicaIndex, backendType, optsBlob)
 }
 
 func (f *fakeModelRouter) UpsertModelLoadInfo(_ context.Context, _, _ string, _ []byte) error {
 	return nil
 }
+func (f *fakeModelRouter) UpsertModelLoadInfoRevision(ctx context.Context, modelName, backendType, _ string, optsBlob []byte) error {
+	return f.UpsertModelLoadInfo(ctx, modelName, backendType, optsBlob)
+}
 
 func (f *fakeModelRouter) GetModelLoadInfo(_ context.Context, _ string) (string, []byte, error) {
 	return "", nil, fmt.Errorf("not found")
+}
+func (f *fakeModelRouter) GetModelLoadInfoRevision(ctx context.Context, modelName string) (string, string, []byte, error) {
+	backend, blob, err := f.GetModelLoadInfo(ctx, modelName)
+	return backend, "", blob, err
+}
+func (f *fakeModelRouter) AdvanceModelConfigRevision(_ context.Context, _, _ string) ([]NodeModel, error) {
+	return nil, nil
+}
+func (f *fakeModelRouter) EstablishModelConfigRevision(_ context.Context, _, _ string) error {
+	return nil
+}
+func (f *fakeModelRouter) GetModelConfigRevision(_ context.Context, _ string) (string, error) {
+	return "", gorm.ErrRecordNotFound
+}
+func (f *fakeModelRouter) GetNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) (*NodeModel, error) {
+	return &NodeModel{NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}, nil
+}
+func (f *fakeModelRouter) RecordModelCleanupFailure(_ context.Context, _, _ string, _ int, _ string, _ time.Time) error {
+	return nil
+}
+func (f *fakeModelRouter) ListModelCleanupRetries(_ context.Context, _ time.Time, _ int) ([]NodeModel, error) {
+	return nil, nil
 }
 
 func (f *fakeModelRouter) NextFreeReplicaIndex(_ context.Context, _, _ string, _ int) (int, error) {
@@ -386,13 +418,23 @@ type stubBackend struct {
 	healthErr    error
 	loadResult   *pb.Result
 	loadErr      error
+	loadHook     func(*pb.ModelOptions)
+	loadOpts     []*pb.ModelOptions
+	mu           sync.Mutex
 }
 
 func (f *stubBackend) HealthCheck(_ context.Context) (bool, error) {
 	return f.healthResult, f.healthErr
 }
 
-func (f *stubBackend) LoadModel(_ context.Context, _ *pb.ModelOptions, _ ...ggrpc.CallOption) (*pb.Result, error) {
+func (f *stubBackend) LoadModel(_ context.Context, opts *pb.ModelOptions, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	cloned := proto.Clone(opts).(*pb.ModelOptions)
+	f.mu.Lock()
+	f.loadOpts = append(f.loadOpts, cloned)
+	f.mu.Unlock()
+	if f.loadHook != nil {
+		f.loadHook(cloned)
+	}
 	return f.loadResult, f.loadErr
 }
 
@@ -531,7 +573,7 @@ var _ = Describe("SmartRouter", func() {
 					ClientFactory: factory,
 				})
 
-				result, err := router.Route(context.Background(), "my-model", "models/my-model.gguf", "llama-cpp", nil, false)
+				result, err := router.Route(context.Background(), "my-model", "models/my-model.gguf", "llama-cpp", "", nil, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).ToNot(BeNil())
 				Expect(result.Node.ID).To(Equal("n1"))
@@ -569,7 +611,7 @@ var _ = Describe("SmartRouter", func() {
 					ClientFactory: factory,
 				})
 
-				result, err := router.Route(context.Background(), "some-model", "models/some-model.gguf", "llama-cpp", nil, false)
+				result, err := router.Route(context.Background(), "some-model", "models/some-model.gguf", "llama-cpp", "", nil, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).ToNot(BeNil())
 				Expect(result.Node.ID).To(Equal("n2"))
@@ -598,7 +640,7 @@ var _ = Describe("SmartRouter", func() {
 					// DB is nil — no advisory lock
 				})
 
-				result, err := router.Route(context.Background(), "new-model", "models/new.gguf", "llama-cpp", nil, false)
+				result, err := router.Route(context.Background(), "new-model", "models/new.gguf", "llama-cpp", "", nil, false)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result.Node.ID).To(Equal("n3"))
 			})
@@ -629,8 +671,10 @@ var _ = Describe("SmartRouter", func() {
 				go func() {
 					defer GinkgoRecover()
 					_, err := router.Route(context.Background(), "wedged-model",
-						"models/wedged.gguf", "llama-cpp",
+						"models/wedged.gguf", "llama-cpp", "",
+
 						&pb.ModelOptions{Model: "models/wedged.gguf"}, false)
+
 					done <- err
 				}()
 
@@ -693,7 +737,7 @@ var _ = Describe("SmartRouter", func() {
 			idleNode := &BackendNode{ID: "idle-vram", Name: "idle", Address: "10.0.0.11:50051"}
 			reg.findIdleNode = idleNode
 
-			result, err := router.Route(context.Background(), "m1", "models/m1.gguf", "llama-cpp", &pb.ModelOptions{}, false)
+			result, err := router.Route(context.Background(), "m1", "models/m1.gguf", "llama-cpp", "", &pb.ModelOptions{}, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Node.ID).To(Equal("idle-vram"))
 		})
@@ -708,7 +752,7 @@ var _ = Describe("SmartRouter", func() {
 				ClientFactory: factory,
 			})
 
-			result, err := router.Route(context.Background(), "m2", "models/m2.gguf", "llama-cpp", nil, false)
+			result, err := router.Route(context.Background(), "m2", "models/m2.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Node.ID).To(Equal("idle-1"))
 		})
@@ -724,7 +768,7 @@ var _ = Describe("SmartRouter", func() {
 				ClientFactory: factory,
 			})
 
-			result, err := router.Route(context.Background(), "m3", "models/m3.gguf", "llama-cpp", nil, false)
+			result, err := router.Route(context.Background(), "m3", "models/m3.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Node.ID).To(Equal("ll-1"))
 		})
@@ -740,7 +784,7 @@ var _ = Describe("SmartRouter", func() {
 				// DB is nil — evictLRUAndFreeNode will fail because r.db is nil
 			})
 
-			_, err := router.Route(context.Background(), "m4", "models/m4.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(context.Background(), "m4", "models/m4.gguf", "llama-cpp", "", nil, false)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no available nodes"))
 		})
@@ -843,7 +887,7 @@ var _ = Describe("SmartRouter", func() {
 				ClientFactory: factory,
 			})
 
-			result, err := router.Route(context.Background(), "selector-model", "models/selector.gguf", "llama-cpp", nil, false)
+			result, err := router.Route(context.Background(), "selector-model", "models/selector.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
 			Expect(result.Node.ID).To(Equal("gpu-1"))
@@ -862,7 +906,7 @@ var _ = Describe("SmartRouter", func() {
 				ClientFactory: factory,
 			})
 
-			_, err := router.Route(context.Background(), "no-match-model", "models/nomatch.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(context.Background(), "no-match-model", "models/nomatch.gguf", "llama-cpp", "", nil, false)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no healthy nodes match selector"))
 		})
@@ -877,7 +921,7 @@ var _ = Describe("SmartRouter", func() {
 				ClientFactory: factory,
 			})
 
-			result, err := router.Route(context.Background(), "regular-model", "models/regular.gguf", "llama-cpp", nil, false)
+			result, err := router.Route(context.Background(), "regular-model", "models/regular.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
 			Expect(result.Node.ID).To(Equal("regular-1"))
@@ -924,7 +968,7 @@ var _ = Describe("SmartRouter", func() {
 				ClientFactory: factory,
 			})
 
-			result, err := router.Route(context.Background(), "sel-model", "models/sel.gguf", "llama-cpp", nil, false)
+			result, err := router.Route(context.Background(), "sel-model", "models/sel.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
 			// Should have fallen through to the new node
@@ -1305,7 +1349,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			router := NewSmartRouter(reg, SmartRouterOptions{Unloader: unloader, ClientFactory: factory})
 
 			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
-			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(reg.findAndLockPrefs).ToNot(BeEmpty())
@@ -1327,7 +1371,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			})
 
 			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
-			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(prov.decideCalls).To(BeNumerically(">=", 1))
@@ -1352,7 +1396,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			})
 
 			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{7, 8, 9})
-			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			// First request landed on X (cold placement on the only candidate)
 			// and observed the prefix there.
@@ -1362,7 +1406,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 
 			// Second request, same chain: X is now the warm-cache hot match, so
 			// the preference must point at it.
-			_, err = router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err = router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			last := reg.findAndLockPrefs[len(reg.findAndLockPrefs)-1]
 			Expect(last).ToNot(BeNil())
@@ -1402,7 +1446,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			})
 
 			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
-			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 
 			pref := reg.findAndLockPrefs[0]
@@ -1422,7 +1466,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 				PrefixConfig:   prefixcache.DefaultConfig(),
 			})
 
-			_, err := router.Route(context.Background(), "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(context.Background(), "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(prov.decideCalls).To(Equal(0))
 			Expect(prov.observed).To(BeEmpty())
@@ -1441,7 +1485,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			})
 
 			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
-			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(prov.decideCalls).To(Equal(0))
 			Expect(prov.observed).To(BeEmpty())
@@ -1487,7 +1531,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			})
 
 			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
-			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(pressure.Count("m", time.Now())).To(BeNumerically(">", 0),
@@ -1511,7 +1555,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			})
 
 			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
-			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(pressure.Count("m", time.Now())).To(Equal(0),
@@ -1535,7 +1579,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			})
 
 			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{1, 2, 3})
-			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(pressure.Count("m", time.Now())).To(Equal(0),
@@ -1556,7 +1600,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 
 			ctx := distributedhdr.WithPrefixChain(context.Background(), []uint64{5, 6})
 			// Warm the cache: X now holds the prefix.
-			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", nil, false)
+			_, err := router.Route(ctx, "m", "models/m.gguf", "llama-cpp", "", nil, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(idx.Decide("m", []uint64{5, 6}, []prefixcache.ReplicaKey{{NodeID: "X", Replica: 0}}, time.Now()).Hot).To(Equal(prefixcache.ReplicaKey{NodeID: "X", Replica: 0}))
 

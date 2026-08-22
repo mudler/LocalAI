@@ -155,8 +155,9 @@ var _ = Describe("scheduling a model onto a cluster without disk headroom", func
 	})
 
 	route := func(modelFile string) error {
-		_, err := router.Route(context.Background(), "longcat-video-avatar-1.5", "models/big.gguf", "llama-cpp",
+		_, err := router.Route(context.Background(), "longcat-video-avatar-1.5", "models/big.gguf", "llama-cpp", "",
 			&pb.ModelOptions{Model: "models/big.gguf", ModelFile: modelFile}, false)
+
 		return err
 	}
 

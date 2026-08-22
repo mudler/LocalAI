@@ -39,7 +39,10 @@ var companionSuffixes = map[string][]string{
 // SmartRouterOptions holds all dependencies for constructing a SmartRouter.
 // Passing them at construction time eliminates data races from post-creation setters.
 type SmartRouterOptions struct {
-	Unloader      NodeCommandSender
+	Unloader NodeCommandSender
+	// ModelCleanup performs acknowledged exact-process cleanup when a load
+	// finishes after its configuration revision became stale.
+	ModelCleanup  *ModelCleanupService
 	FileStager    FileStager
 	GalleriesJSON string
 	AuthToken     string
@@ -150,7 +153,8 @@ func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duratio
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
 	registry         ModelRouter
-	unloader         NodeCommandSender    // optional, for NATS-driven load/unload
+	unloader         NodeCommandSender // optional, for NATS-driven load/unload
+	modelCleanup     *ModelCleanupService
 	fileStager       FileStager           // optional, for distributed file transfer
 	galleriesJSON    string               // backend gallery config for dynamic installation
 	clientFactory    BackendClientFactory // creates gRPC backend clients
@@ -233,6 +237,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	return &SmartRouter{
 		registry:            registry,
 		unloader:            opts.Unloader,
+		modelCleanup:        opts.ModelCleanup,
 		fileStager:          opts.FileStager,
 		galleriesJSON:       opts.GalleriesJSON,
 		clientFactory:       factory,
@@ -323,7 +328,7 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 // scheduleNewModel allocates the replica index internally so the worker's
 // processKey, port, and the registry row all agree.
 func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, trackingKey, modelName string,
-	modelOpts *pb.ModelOptions, parallel bool, initialInFlight int) (*scheduleLoadResult, error) {
+	configRevision string, modelOpts *pb.ModelOptions, parallel bool, initialInFlight int) (*scheduleLoadResult, error) {
 
 	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
 	if err != nil {
@@ -341,8 +346,8 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// nothing happening. The row also reserves the replica slot against
 	// concurrent schedulers. Removed on any failure below so a dead load does
 	// not leave a phantom replica.
-	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "staging", backendAddr, 0); err != nil {
-		xlog.Warn("Failed to record staging state", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
+	if err := r.setNodeModelState(ctx, node.ID, trackingKey, replicaIndex, "staging", backendAddr, 0, configRevision, ""); err != nil {
+		return nil, fmt.Errorf("recording staging state: %w", err)
 	}
 	reportLoadPhase(ctx, LoadJobStateStaging, node, replicaIndex)
 	lifecycleSettled := false
@@ -351,6 +356,14 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 			return
 		}
 		cleanupCtx := context.WithoutCancel(ctx)
+		// An edit may have quarantined this row while staging/loading was in
+		// flight. Its cleanup intent is durable and must not be erased by the
+		// ordinary failed-load cleanup path.
+		if configRevision != "" {
+			if current, err := r.registry.GetModelConfigRevision(cleanupCtx, trackingKey); err == nil && current != configRevision {
+				return
+			}
+		}
 		if err := r.registry.RemoveNodeModel(cleanupCtx, node.ID, trackingKey, replicaIndex); err != nil {
 			xlog.Warn("Failed to clear lifecycle row after failed load", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
 		}
@@ -371,6 +384,14 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		}
 		loadOpts = staged
 	}
+	effectiveOptionsHash := ""
+	if loadOpts != nil {
+		var err error
+		effectiveOptionsHash, err = config.EffectiveModelOptionsHash(loadOpts)
+		if err != nil {
+			return nil, fmt.Errorf("hashing effective model options: %w", err)
+		}
+	}
 
 	client := r.buildClientForAddr(node, backendAddr, parallel)
 
@@ -380,8 +401,8 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 			"payloadBytes", payloadBytes, "loadBudget", loadTimeout)
 
 		// Staging is done; the checkpoint load on the worker begins.
-		if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "loading", backendAddr, 0); err != nil {
-			xlog.Warn("Failed to record loading state", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
+		if err := r.setNodeModelState(ctx, node.ID, trackingKey, replicaIndex, "loading", backendAddr, 0, configRevision, effectiveOptionsHash); err != nil {
+			return nil, fmt.Errorf("recording loading state: %w", err)
 		}
 		reportLoadPhase(ctx, LoadJobStateLoading, node, replicaIndex)
 
@@ -425,10 +446,14 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 
 	// Record the model as loaded on this node (specific replica slot). From
 	// here the row is authoritative; the failure-cleanup defer must not touch it.
-	lifecycleSettled = true
-	if err := r.registry.SetNodeModel(ctx, node.ID, trackingKey, replicaIndex, "loaded", backendAddr, initialInFlight); err != nil {
-		xlog.Warn("Failed to record model on node", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", err)
+	if err := r.setNodeModelState(ctx, node.ID, trackingKey, replicaIndex, "loaded", backendAddr, initialInFlight, configRevision, effectiveOptionsHash); err != nil {
+		if errors.Is(err, ErrStaleModelConfigRevision) {
+			lifecycleSettled = true
+			r.cleanupStaleLoad(ctx, node, trackingKey, replicaIndex, backendAddr, configRevision, effectiveOptionsHash)
+		}
+		return nil, fmt.Errorf("publishing loaded model: %w", err)
 	}
+	lifecycleSettled = true
 
 	// Store load metadata for future replica scale-ups by the reconciler.
 	// Writes both per-replica (NodeModel.model_opts_blob) for backward compat
@@ -436,16 +461,54 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// every replica row has been removed (Bug-1).
 	if modelOpts != nil {
 		if optsBlob, marshalErr := proto.Marshal(modelOpts); marshalErr == nil {
-			if storeErr := r.registry.SetNodeModelLoadInfo(ctx, node.ID, trackingKey, replicaIndex, backendType, optsBlob); storeErr != nil {
+			if storeErr := r.setNodeModelLoadInfo(ctx, node.ID, trackingKey, replicaIndex, backendType, configRevision, optsBlob); storeErr != nil {
 				xlog.Warn("Failed to store model load info", "node", node.Name, "model", trackingKey, "replica", replicaIndex, "error", storeErr)
 			}
-			if storeErr := r.registry.UpsertModelLoadInfo(ctx, trackingKey, backendType, optsBlob); storeErr != nil {
+			if storeErr := r.upsertModelLoadInfo(ctx, trackingKey, backendType, configRevision, optsBlob); storeErr != nil {
 				xlog.Warn("Failed to upsert per-model load info", "model", trackingKey, "error", storeErr)
 			}
 		}
 	}
 
 	return &scheduleLoadResult{Node: node, Client: client, BackendAddr: backendAddr, ReplicaIndex: replicaIndex}, nil
+}
+
+func (r *SmartRouter) cleanupStaleLoad(ctx context.Context, node *BackendNode, modelName string, replicaIndex int, address, revision, hash string) {
+	if r.modelCleanup == nil {
+		xlog.Warn("Stale model load requires exact cleanup", "node", node.Name, "model", modelName, "replica", replicaIndex)
+		return
+	}
+	replica, err := r.registry.GetNodeModel(context.WithoutCancel(ctx), node.ID, modelName, replicaIndex)
+	if err != nil {
+		replica = &NodeModel{NodeID: node.ID, ModelName: modelName, ReplicaIndex: replicaIndex, Address: address, State: "unloading", ConfigRevision: revision, EffectiveOptionsHash: hash}
+	}
+	r.modelCleanup.Cleanup(context.WithoutCancel(ctx), []NodeModel{*replica}, false)
+}
+
+func (r *SmartRouter) setNodeModelState(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int, revision, hash string) error {
+	if revision == "" {
+		if _, err := r.registry.GetModelConfigRevision(ctx, modelName); err == nil {
+			return ErrStaleModelConfigRevision
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		return r.registry.SetNodeModel(ctx, nodeID, modelName, replicaIndex, state, address, initialInFlight)
+	}
+	return r.registry.SetNodeModelRevision(ctx, nodeID, modelName, replicaIndex, state, address, initialInFlight, revision, hash)
+}
+
+func (r *SmartRouter) setNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType, revision string, blob []byte) error {
+	if revision == "" {
+		return r.registry.SetNodeModelLoadInfo(ctx, nodeID, modelName, replicaIndex, backendType, blob)
+	}
+	return r.registry.SetNodeModelLoadInfoRevision(ctx, nodeID, modelName, replicaIndex, backendType, revision, blob)
+}
+
+func (r *SmartRouter) upsertModelLoadInfo(ctx context.Context, modelName, backendType, revision string, blob []byte) error {
+	if revision == "" {
+		return r.registry.UpsertModelLoadInfo(ctx, modelName, backendType, blob)
+	}
+	return r.registry.UpsertModelLoadInfoRevision(ctx, modelName, backendType, revision, blob)
 }
 
 // loadAbandonedOnWorker reports whether a failed remote LoadModel left the
@@ -498,7 +561,7 @@ func (r *SmartRouter) reapAbandonedLoad(node *BackendNode, trackingKey string, r
 // full load sequence (stage files, LoadModel, SetNodeModel) on a new node.
 func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, error) {
 	// Get load info from an existing replica (stored when Route() first loaded the model)
-	backendType, optsBlob, err := r.registry.GetModelLoadInfo(ctx, modelName)
+	backendType, revision, optsBlob, err := r.registry.GetModelLoadInfoRevision(ctx, modelName)
 	if err != nil {
 		// No replica has ever been loaded for this model, so we have no
 		// backend type or model options to replicate. The previous fallback
@@ -517,7 +580,7 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 
 	// initialInFlight=0: reconciler is pre-loading, not serving a request.
 	// scheduleAndLoad picks both the node and the replica slot internally.
-	result, err := r.scheduleAndLoad(ctx, backendType, modelName, modelName, &modelOpts, false, 0)
+	result, err := r.scheduleAndLoad(ctx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -542,11 +605,23 @@ type RouteResult struct {
 // modelID is the logical model identifier used for DB tracking (e.g. "qwen_qwen3.5-0.8b").
 // modelName is the model file path used for gRPC LoadModel (e.g. "llama-cpp/models/Qwen_...gguf").
 // When modelID is empty, modelName is used for both purposes (backward compat).
-func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType string, modelOpts *pb.ModelOptions, parallel bool) (*RouteResult, error) {
+func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType, configRevision string, modelOpts *pb.ModelOptions, parallel bool) (*RouteResult, error) {
 	// Use modelID for DB tracking; fall back to modelName if empty
 	trackingKey := modelID
 	if trackingKey == "" {
 		trackingKey = modelName
+	}
+	if configRevision != "" {
+		if err := r.registry.EstablishModelConfigRevision(ctx, trackingKey, configRevision); err != nil {
+			return nil, fmt.Errorf("establishing config revision for %s: %w", trackingKey, err)
+		}
+	} else if _, err := r.registry.GetModelConfigRevision(ctx, trackingKey); err == nil {
+		return nil, fmt.Errorf("routing %s without a config revision: %w", trackingKey, ErrStaleModelConfigRevision)
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("reading config revision for %s: %w", trackingKey, err)
+	}
+	if modelOpts != nil {
+		modelOpts = proto.Clone(modelOpts).(*pb.ModelOptions)
 	}
 
 	// Fetch the model's scheduling config once: it is immutable for the life of
@@ -576,6 +651,7 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 		trackingKey:      trackingKey,
 		modelName:        modelName,
 		backendType:      backendType,
+		configRevision:   configRevision,
 		modelOpts:        modelOpts,
 		parallel:         parallel,
 		sched:            sched,
@@ -616,6 +692,7 @@ type routeAttempt struct {
 	trackingKey      string
 	modelName        string
 	backendType      string
+	configRevision   string
 	modelOpts        *pb.ModelOptions
 	parallel         bool
 	sched            *ModelSchedulingConfig
@@ -681,7 +758,7 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 // the replica it landed on. initialInFlight reserves the slot for the calling
 // request; the job runner passes 0 because it is loading on nobody's behalf.
 func (r *SmartRouter) coldLoad(ctx context.Context, att *routeAttempt, initialInFlight int) (*RouteResult, error) {
-	result, err := r.scheduleAndLoad(ctx, att.backendType, att.trackingKey, att.modelName, att.modelOpts, att.parallel, initialInFlight)
+	result, err := r.scheduleAndLoad(ctx, att.backendType, att.trackingKey, att.modelName, att.configRevision, att.modelOpts, att.parallel, initialInFlight)
 	if err != nil {
 		return nil, err
 	}
@@ -1904,12 +1981,14 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
 		var lru NodeModel
 		err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			// Lock the row so no other frontend can evict the same model
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			if err := currentModelRevision(tx.Clauses(clause.Locking{Strength: "UPDATE"})).
 				Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 				Where(`node_models.in_flight = 0 AND node_models.state = ? AND backend_nodes.status = ?
   AND (
     NOT EXISTS (SELECT 1 FROM model_scheduling_configs sc WHERE sc.model_name = node_models.model_name AND (sc.min_replicas > 0 OR sc.max_replicas > 0))
-    OR (SELECT COUNT(*) FROM node_models nm2 WHERE nm2.model_name = node_models.model_name AND nm2.state = 'loaded')
+    OR (SELECT COUNT(*) FROM node_models nm2 WHERE nm2.model_name = node_models.model_name AND nm2.state = 'loaded'
+         AND (NOT EXISTS (SELECT 1 FROM model_config_states mcs2 WHERE mcs2.model_name = nm2.model_name)
+              OR nm2.config_revision = (SELECT mcs3.config_revision FROM model_config_states mcs3 WHERE mcs3.model_name = nm2.model_name)))
        > COALESCE((SELECT sc2.min_replicas FROM model_scheduling_configs sc2 WHERE sc2.model_name = node_models.model_name), 1)
   )`, "loaded", StatusHealthy).
 				Order("node_models.last_used ASC").

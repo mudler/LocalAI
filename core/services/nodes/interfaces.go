@@ -4,8 +4,19 @@ import (
 	"context"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
+
+type ExactModelStopper interface {
+	StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (messaging.ModelStopReply, error)
+}
+
+type ModelCleanupRegistry interface {
+	ClaimModelCleanupRetries(ctx context.Context, now, leaseUntil time.Time, limit int) ([]NodeModel, error)
+	RecordModelCleanupFailure(ctx context.Context, nodeID, modelName string, replicaIndex int, cleanupErr string, nextRetry time.Time) error
+	RemoveClaimedModelCleanup(ctx context.Context, replica NodeModel) (bool, error)
+}
 
 // ModelRouter is used by SmartRouter for routing decisions and model lifecycle.
 type ModelRouter interface {
@@ -16,9 +27,19 @@ type ModelRouter interface {
 	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
 	TouchNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int)
 	SetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int) error
+	SetNodeModelRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int, revision, effectiveOptionsHash string) error
 	SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType string, optsBlob []byte) error
+	SetNodeModelLoadInfoRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType, revision string, optsBlob []byte) error
 	UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error
+	UpsertModelLoadInfoRevision(ctx context.Context, modelName, backendType, revision string, optsBlob []byte) error
 	GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error)
+	GetModelLoadInfoRevision(ctx context.Context, modelName string) (backendType, revision string, optsBlob []byte, err error)
+	AdvanceModelConfigRevision(ctx context.Context, modelName, revision string) ([]NodeModel, error)
+	EstablishModelConfigRevision(ctx context.Context, modelName, revision string) error
+	GetModelConfigRevision(ctx context.Context, modelName string) (string, error)
+	GetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) (*NodeModel, error)
+	RecordModelCleanupFailure(ctx context.Context, nodeID, modelName string, replicaIndex int, cleanupErr string, nextRetry time.Time) error
+	ListModelCleanupRetries(ctx context.Context, now time.Time, limit int) ([]NodeModel, error)
 	NextFreeReplicaIndex(ctx context.Context, nodeID, modelName string, maxSlots int) (int, error)
 	CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error)
 	FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*BackendNode, error)

@@ -80,8 +80,9 @@ var _ = Describe("reaping an abandoned remote load", func() {
 			ModelLoadTimeout: time.Minute,
 			ModelLoadCeiling: time.Hour,
 		})
-		_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp",
+		_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp", "",
 			&pb.ModelOptions{Model: "models/big.gguf"}, false)
+
 		return err
 	}
 

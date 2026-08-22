@@ -68,7 +68,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		ml.mu.Unlock()
 		if router != nil {
 			xlog.Info("Routing model to remote node via ModelRouter", "modelID", modelID, "backend", backend)
-			return router(o.context, backend, modelID, modelName, modelFile, o.gRPCOptions, o.parallelRequests)
+			return router(o.context, backend, modelID, modelName, modelFile, o.configRevision, o.gRPCOptions, o.parallelRequests)
 		}
 
 		uri := ml.GetAllExternalBackends(o)[backend]

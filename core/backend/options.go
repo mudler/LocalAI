@@ -202,6 +202,11 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		model.WithContext(so.Context),
 		model.WithModelID(c.ModelID()),
 	}
+	if revision, err := config.ModelConfigRevision(&c); err == nil {
+		defOpts = append(defOpts, model.WithConfigRevision(revision))
+	} else {
+		xlog.Warn("Failed to compute model configuration revision", "model", c.ModelID(), "error", err)
+	}
 	managedPrimary := len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil
 	if managedPrimary {
 		defOpts = append(defOpts, model.WithModelFile(c.ModelFileName()))

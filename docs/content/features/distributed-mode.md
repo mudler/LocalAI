@@ -486,6 +486,37 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 
 The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
 
+### Model configuration revisions
+
+Distributed mode assigns a `config_revision` to each validated model configuration. It hashes the persisted semantic configuration, including fields such as `context_size` and parallel settings. YAML formatting, comments, and map order do not change it.
+
+The first request for a model establishes its current revision and replay information. The replica reconciler uses only replay information that matches the current revision. This lets `min_replicas` recover after an ordinary worker failure without restoring an old configuration.
+
+When you save a valid model edit, LocalAI makes replicas from the old revision ineligible immediately. New requests cannot route to those replicas. This rule applies to raw YAML edits, structured patches, renames, disabled models, and changes from another frontend.
+
+The edit response includes these fields:
+
+- `config_revision` identifies the saved semantic configuration.
+- `pending_cleanup` counts old replicas that still need cleanup when the response returns.
+
+LocalAI sends an acknowledged stop request for each exact backend process. If a worker or NATS is unreachable, LocalAI keeps the replica in the `unloading` state and retries with durable backoff. The saved edit remains successful while cleanup is pending.
+
+Workers must support the exact model-stop protocol. Upgrade all workers before you rely on revision cleanup. An older worker cannot acknowledge the request, so its stale replica remains `unloading` until cleanup succeeds or the worker re-registers.
+
+Worker re-registration removes stale live-replica rows, but it preserves the current model revision and matching replay information. A temporary worker outage therefore does not make an old revision routable. The reconciler can restore the current revision after the worker becomes healthy.
+
+The responses from `GET /api/node/:id/models` and `GET /api/nodes/:id/models` include these replica fields:
+
+| Field | Meaning |
+|-------|---------|
+| `config_revision` | Hash of the persisted semantic model configuration that created the replica. Routable replicas match the current revision. |
+| `effective_options_hash` | Hash of the final node-specific load options after defaults and file staging have been applied. Different hashes can be valid on heterogeneous workers when `config_revision` matches. |
+| `state` | Replica lifecycle state, such as `staging`, `loading`, `loaded`, or `unloading`. Only eligible `loaded` replicas receive requests. |
+| `cleanup_error` | Last exact-stop error. This field appears while cleanup is pending. |
+| `cleanup_next_retry_at` | Time of the next durable cleanup attempt. This field appears after a failed attempt. |
+
+`model.unload` releases model memory inside a running backend. It does not replace the exact process stop that configuration cleanup requires. The `backend.stop` operation remains an administrative backend operation.
+
 ### Per-node VRAM budget
 
 Each worker advertises its detected VRAM, and the SmartRouter uses that number when picking a node with enough free memory. You can cap the VRAM a node offers for placement so it never gets scheduled beyond a chosen limit, leaving headroom for other workloads on that machine.
@@ -979,6 +1010,15 @@ Notes:
 
 **Backend not installing:**
 - Check the worker logs for `backend.install` events
+
+**Requests still report an old context size or another old load option:**
+- Query `/api/nodes/:id/models` for every worker that hosts the model.
+- Confirm that every routable replica has `state: loaded` and the same current `config_revision`.
+- Treat a different `effective_options_hash` as diagnostic information. Node-specific defaults can cause valid differences.
+- Check `cleanup_error` and `cleanup_next_retry_at` on replicas in the `unloading` state.
+- Check connectivity to the worker and NATS when cleanup reports a timeout or no responder.
+- Upgrade the worker when it does not support the exact model-stop request.
+- Stop and restart the stale backend only as an operational recovery action. LocalAI keeps it non-routable while durable cleanup is pending.
 
 **Port conflicts on workers:**
 - Each model gets its own gRPC process on an incrementing port (50051, 50052, ...)

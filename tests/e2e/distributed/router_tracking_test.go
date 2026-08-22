@@ -92,7 +92,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 	})
 
 	It("records model under modelID when modelID is provided", func() {
-		result, err := router.Route(infra.Ctx, "my-model-id", "path/to/model.gguf", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "my-model-id", "path/to/model.gguf", "llama-cpp", "",
 			&pb.ModelOptions{ModelFile: "path/to/model.gguf"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
@@ -105,7 +105,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 	})
 
 	It("records model under modelName when modelID is empty (backward compat)", func() {
-		result, err := router.Route(infra.Ctx, "", "legacy/model.bin", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "", "legacy/model.bin", "llama-cpp", "",
 			&pb.ModelOptions{ModelFile: "legacy/model.bin"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
@@ -117,7 +117,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 	})
 
 	It("FindNodesWithModel(modelID) finds node; FindNodesWithModel(modelName) does not", func() {
-		result, err := router.Route(infra.Ctx, "distinct-id", "distinct/path.gguf", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "distinct-id", "distinct/path.gguf", "llama-cpp", "",
 			&pb.ModelOptions{ModelFile: "distinct/path.gguf"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
@@ -135,7 +135,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 
 	It("InFlight tracking increments and decrements via registry", func() {
 		// Route to establish model record
-		result, err := router.Route(infra.Ctx, "release-model", "release/path.gguf", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "release-model", "release/path.gguf", "llama-cpp", "",
 			&pb.ModelOptions{ModelFile: "release/path.gguf"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		defer result.Release()
@@ -178,7 +178,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 
 	It("clears stale model record when node is unreachable", func() {
 		// First route to establish the model record
-		result, err := router.Route(infra.Ctx, "stale-check", "stale/path.gguf", "llama-cpp",
+		result, err := router.Route(infra.Ctx, "stale-check", "stale/path.gguf", "llama-cpp", "",
 			&pb.ModelOptions{ModelFile: "stale/path.gguf"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		result.Release()
@@ -195,7 +195,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		// Route again — should detect unreachable node and clear stale record
 		// (it will fall through to FindLeastLoadedNode + backend.install which succeeds,
 		// but the LoadModel gRPC call will fail since the server is down)
-		_, err = router.Route(infra.Ctx, "stale-check", "stale/path.gguf", "llama-cpp",
+		_, err = router.Route(infra.Ctx, "stale-check", "stale/path.gguf", "llama-cpp", "",
 			&pb.ModelOptions{ModelFile: "stale/path.gguf"}, false)
 		// Expect an error since the only node is down (LoadModel fails)
 		Expect(err).To(HaveOccurred())

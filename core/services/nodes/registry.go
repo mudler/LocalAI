@@ -123,19 +123,24 @@ const (
 // gRPC Address (each replica is a separate worker process on its own port),
 // and its own InFlight counter.
 type NodeModel struct {
-	ID            string    `gorm:"primaryKey;size:36" json:"id"`
-	NodeID        string    `gorm:"index;size:36" json:"node_id"`
-	ModelName     string    `gorm:"index;size:255" json:"model_name"`
-	ReplicaIndex  int       `gorm:"column:replica_index;default:0;index" json:"replica_index"`
-	Address       string    `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
-	State         string    `gorm:"size:32;default:idle" json:"state"` // staging, loading, loaded, unloading, idle
-	InFlight      int       `json:"in_flight"`                         // number of active requests on this replica
-	LastUsed      time.Time `json:"last_used"`
-	LoadingBy     string    `gorm:"size:36" json:"loading_by,omitempty"`    // frontend ID that triggered loading
-	BackendType   string    `gorm:"size:128" json:"backend_type,omitempty"` // e.g. "llama-cpp"; used by reconciler to replicate loads
-	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`                    // serialized pb.ModelOptions for replica scale-ups
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID                   string     `gorm:"primaryKey;size:36" json:"id"`
+	NodeID               string     `gorm:"index;size:36" json:"node_id"`
+	ModelName            string     `gorm:"index;size:255" json:"model_name"`
+	ReplicaIndex         int        `gorm:"column:replica_index;default:0;index" json:"replica_index"`
+	Address              string     `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
+	State                string     `gorm:"size:32;default:idle" json:"state"` // staging, loading, loaded, unloading, idle
+	InFlight             int        `json:"in_flight"`                         // number of active requests on this replica
+	LastUsed             time.Time  `json:"last_used"`
+	LoadingBy            string     `gorm:"size:36" json:"loading_by,omitempty"`    // frontend ID that triggered loading
+	BackendType          string     `gorm:"size:128" json:"backend_type,omitempty"` // e.g. "llama-cpp"; used by reconciler to replicate loads
+	ModelOptsBlob        []byte     `gorm:"type:bytea" json:"-"`                    // serialized pb.ModelOptions for replica scale-ups
+	ConfigRevision       string     `gorm:"column:config_revision;size:255" json:"config_revision,omitempty"`
+	EffectiveOptionsHash string     `gorm:"column:effective_options_hash;size:128" json:"effective_options_hash,omitempty"`
+	CleanupError         string     `gorm:"column:cleanup_error;type:text" json:"cleanup_error,omitempty"`
+	CleanupAttempts      int        `gorm:"column:cleanup_attempts;default:0" json:"cleanup_attempts,omitempty"`
+	CleanupNextRetryAt   *time.Time `gorm:"column:cleanup_next_retry_at" json:"cleanup_next_retry_at,omitempty"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
 }
 
 // ModelLoadInfo is per-model load metadata kept independently of NodeModel rows
@@ -156,12 +161,23 @@ type NodeModel struct {
 // That is identical to the per-NodeModel-row semantics today; if a stronger
 // guarantee is needed in the future, the row carries UpdatedAt for ordering.
 type ModelLoadInfo struct {
-	ModelName     string    `gorm:"primaryKey;size:255" json:"model_name"`
-	BackendType   string    `gorm:"size:128" json:"backend_type"`
-	ModelOptsBlob []byte    `gorm:"type:bytea" json:"-"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ModelName      string    `gorm:"primaryKey;size:255" json:"model_name"`
+	BackendType    string    `gorm:"size:128" json:"backend_type"`
+	ModelOptsBlob  []byte    `gorm:"type:bytea" json:"-"`
+	ConfigRevision string    `gorm:"column:config_revision;size:255" json:"config_revision,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
+
+// ModelConfigState is the controller's current configuration generation for a model.
+type ModelConfigState struct {
+	ModelName      string    `gorm:"primaryKey;size:255" json:"model_name"`
+	ConfigRevision string    `gorm:"column:config_revision;size:255;check:model_config_states_revision_nonempty,config_revision <> ''" json:"config_revision"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+var ErrStaleModelConfigRevision = errors.New("stale model config revision")
 
 // NodeLabel is a key-value label on a node (like K8s labels).
 type NodeLabel struct {
@@ -383,7 +399,7 @@ func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID s
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{})
+		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
@@ -658,13 +674,14 @@ func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
 func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*BackendNode, error) {
 	db := r.db.WithContext(ctx)
 
-	loadedModels := db.Model(&NodeModel{}).
+	loadedModels := currentModelRevision(db.Model(&NodeModel{})).
 		Select("node_id").
-		Where("state = ?", "loaded").
+		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 
-	subquery := db.Model(&NodeModel{}).
+	subquery := currentModelRevision(db.Model(&NodeModel{})).
 		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
+		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 
 	// Try idle nodes with enough effectively-free VRAM first, prefer the one
@@ -928,16 +945,16 @@ func (r *NodeRegistry) GetWithExtras(ctx context.Context, nodeID string) (*NodeW
 	}
 
 	var modelCount int64
-	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("node_id = ? AND state = ?", nodeID, "loaded").
+	if err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
+		Where("node_models.node_id = ? AND node_models.state = ?", nodeID, "loaded").
 		Count(&modelCount).Error; err != nil {
 		xlog.Warn("GetWithExtras: failed to get model count", "node", nodeID, "error", err)
 	}
 
 	var inFlight struct{ Total int }
-	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+	if err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
 		Select("COALESCE(SUM(in_flight), 0) as total").
-		Where("node_id = ? AND state IN ?", nodeID, []string{"loaded", "unloading"}).
+		Where("node_models.node_id = ? AND node_models.state = ?", nodeID, "loaded").
 		Scan(&inFlight).Error; err != nil {
 		xlog.Warn("GetWithExtras: failed to get in-flight count", "node", nodeID, "error", err)
 	}
@@ -1028,26 +1045,60 @@ func (r *NodeRegistry) FindStaleNodes(ctx context.Context, threshold time.Durati
 // replicaIndex identifies which slot on the node this replica occupies
 // (0..MaxReplicasPerModel-1). Pass 0 for single-replica scheduling.
 func (r *NodeRegistry) SetNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int) error {
+	revision, _ := r.GetModelConfigRevision(ctx, modelName)
+	return r.setNodeModelRevision(ctx, nodeID, modelName, replicaIndex, state, address, initialInFlight, revision, "", false)
+}
+
+func (r *NodeRegistry) SetNodeModelRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int, revision, effectiveOptionsHash string) error {
+	return r.setNodeModelRevision(ctx, nodeID, modelName, replicaIndex, state, address, initialInFlight, revision, effectiveOptionsHash, true)
+}
+
+func (r *NodeRegistry) setNodeModelRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int, revision, effectiveOptionsHash string, revisionRequired bool) error {
+	if err := validateRevisionWrite(modelName, revision, revisionRequired); err != nil {
+		return err
+	}
 	now := time.Now()
 	// Use Attrs for creation-only fields (ID) and Assign for update-only fields.
 	// Attrs is applied only when creating a new record. Assign is applied on
 	// both create and update. This prevents overwriting the primary key on
 	// subsequent calls for the same (node, model, replica_index).
-	var nm NodeModel
-	result := r.db.WithContext(ctx).Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
-		Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}).
-		Assign(map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight}).
-		FirstOrCreate(&nm)
-	return result.Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
+			return err
+		}
+		var nm NodeModel
+		return tx.Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+			Attrs(NodeModel{ID: uuid.New().String(), NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}).
+			Assign(map[string]any{"address": address, "state": state, "last_used": now, "in_flight": initialInFlight,
+				"config_revision": revision, "effective_options_hash": effectiveOptionsHash}).
+			FirstOrCreate(&nm).Error
+	})
 }
 
 // SetNodeModelLoadInfo stores the backend type and serialized model options on
 // an existing NodeModel record. This metadata is used by the reconciler to
 // replicate model loads during scale-up.
 func (r *NodeRegistry) SetNodeModelLoadInfo(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType string, optsBlob []byte) error {
-	return r.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
-		Updates(map[string]any{"backend_type": backendType, "model_opts_blob": optsBlob}).Error
+	revision, _ := r.GetModelConfigRevision(ctx, modelName)
+	return r.setNodeModelLoadInfoRevision(ctx, nodeID, modelName, replicaIndex, backendType, revision, optsBlob, false)
+}
+
+func (r *NodeRegistry) SetNodeModelLoadInfoRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType, revision string, optsBlob []byte) error {
+	return r.setNodeModelLoadInfoRevision(ctx, nodeID, modelName, replicaIndex, backendType, revision, optsBlob, true)
+}
+
+func (r *NodeRegistry) setNodeModelLoadInfoRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType, revision string, optsBlob []byte, revisionRequired bool) error {
+	if err := validateRevisionWrite(modelName, revision, revisionRequired); err != nil {
+		return err
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
+			return err
+		}
+		return tx.Model(&NodeModel{}).
+			Where("node_id = ? AND model_name = ? AND replica_index = ?", nodeID, modelName, replicaIndex).
+			Updates(map[string]any{"backend_type": backendType, "model_opts_blob": optsBlob, "config_revision": revision}).Error
+	})
 }
 
 // UpsertModelLoadInfo records or replaces the per-model load info in the
@@ -1061,25 +1112,75 @@ func (r *NodeRegistry) SetNodeModelLoadInfo(ctx context.Context, nodeID, modelNa
 // opts converge on whichever transaction committed last; that matches the
 // existing per-replica blob semantics today.
 func (r *NodeRegistry) UpsertModelLoadInfo(ctx context.Context, modelName, backendType string, optsBlob []byte) error {
-	if modelName == "" {
-		return fmt.Errorf("model name is required")
+	revision, _ := r.GetModelConfigRevision(ctx, modelName)
+	return r.upsertModelLoadInfoRevision(ctx, modelName, backendType, revision, optsBlob, false)
+}
+
+func (r *NodeRegistry) UpsertModelLoadInfoRevision(ctx context.Context, modelName, backendType, revision string, optsBlob []byte) error {
+	return r.upsertModelLoadInfoRevision(ctx, modelName, backendType, revision, optsBlob, true)
+}
+
+func (r *NodeRegistry) upsertModelLoadInfoRevision(ctx context.Context, modelName, backendType, revision string, optsBlob []byte, revisionRequired bool) error {
+	if err := validateRevisionWrite(modelName, revision, revisionRequired); err != nil {
+		return err
 	}
 	now := time.Now()
 	rec := ModelLoadInfo{
-		ModelName:     modelName,
-		BackendType:   backendType,
-		ModelOptsBlob: optsBlob,
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ModelName:      modelName,
+		BackendType:    backendType,
+		ModelOptsBlob:  optsBlob,
+		ConfigRevision: revision,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
-	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "model_name"}},
-		DoUpdates: clause.Assignments(map[string]any{
-			"backend_type":    backendType,
-			"model_opts_blob": optsBlob,
-			"updated_at":      now,
-		}),
-	}).Create(&rec).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := requireCurrentRevision(tx, modelName, revision); err != nil {
+			return err
+		}
+		return tx.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "model_name"}},
+			DoUpdates: clause.Assignments(map[string]any{
+				"backend_type":    backendType,
+				"model_opts_blob": optsBlob,
+				"config_revision": revision,
+				"updated_at":      now,
+			}),
+		}).Create(&rec).Error
+	})
+}
+
+func requireCurrentRevision(tx *gorm.DB, modelName, revision string) error {
+	var state ModelConfigState
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("model_name = ?", modelName).First(&state).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if state.ConfigRevision != revision {
+		return ErrStaleModelConfigRevision
+	}
+	return nil
+}
+
+func validateRevisionWrite(modelName, revision string, revisionRequired bool) error {
+	if modelName == "" {
+		return fmt.Errorf("model name is required")
+	}
+	if revisionRequired && revision == "" {
+		return fmt.Errorf("config revision is required")
+	}
+	return nil
+}
+
+// currentModelRevision limits node_models queries to rows that are safe to
+// publish. Legacy rows remain eligible until a current state exists; once it
+// does, only an exact revision match is eligible. The correlated subquery
+// deliberately avoids adding a JOIN, so callers that already join
+// node_models cannot generate duplicate table aliases on PostgreSQL.
+func currentModelRevision(db *gorm.DB) *gorm.DB {
+	return db.Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = node_models.model_name)")
 }
 
 // GetModelLoadInfo retrieves the stored backend type and serialized model
@@ -1089,23 +1190,172 @@ func (r *NodeRegistry) UpsertModelLoadInfo(ctx context.Context, modelName, backe
 // UpsertModelLoadInfo (rolling-upgrade transition). Returns
 // gorm.ErrRecordNotFound when neither source has an entry.
 func (r *NodeRegistry) GetModelLoadInfo(ctx context.Context, modelName string) (backendType string, optsBlob []byte, err error) {
+	backendType, _, optsBlob, err = r.GetModelLoadInfoRevision(ctx, modelName)
+	return backendType, optsBlob, err
+}
+
+func (r *NodeRegistry) GetModelLoadInfoRevision(ctx context.Context, modelName string) (backendType, revision string, optsBlob []byte, err error) {
 	var info ModelLoadInfo
-	err = r.db.WithContext(ctx).Where("model_name = ?", modelName).First(&info).Error
+	err = r.db.WithContext(ctx).
+		Where("model_load_infos.model_name = ?", modelName).
+		Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = model_load_infos.model_name) OR (model_load_infos.config_revision <> '' AND model_load_infos.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = model_load_infos.model_name))").
+		First(&info).Error
 	if err == nil {
-		return info.BackendType, info.ModelOptsBlob, nil
+		return info.BackendType, info.ConfigRevision, info.ModelOptsBlob, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", nil, err
+		return "", "", nil, err
 	}
 
 	var nm NodeModel
 	err = r.db.WithContext(ctx).
 		Where("model_name = ? AND state = ? AND model_opts_blob IS NOT NULL", modelName, "loaded").
+		Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = node_models.model_name)").
 		First(&nm).Error
 	if err != nil {
-		return "", nil, err
+		return "", "", nil, err
 	}
-	return nm.BackendType, nm.ModelOptsBlob, nil
+	return nm.BackendType, nm.ConfigRevision, nm.ModelOptsBlob, nil
+}
+
+func (r *NodeRegistry) GetModelConfigRevision(ctx context.Context, modelName string) (string, error) {
+	var state ModelConfigState
+	err := r.db.WithContext(ctx).Where("model_name = ?", modelName).First(&state).Error
+	if err != nil {
+		return "", err
+	}
+	return state.ConfigRevision, nil
+}
+
+// EstablishModelConfigRevision creates the initial current revision without
+// ever replacing one. Inference requests use this operation so a late request
+// carrying an older config cannot roll controller state backward.
+func (r *NodeRegistry) EstablishModelConfigRevision(ctx context.Context, modelName, revision string) error {
+	if err := validateRevisionWrite(modelName, revision, true); err != nil {
+		return err
+	}
+	now := time.Now()
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		state := ModelConfigState{ModelName: modelName, ConfigRevision: revision, CreatedAt: now, UpdatedAt: now}
+		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "model_name"}}, DoNothing: true}).Create(&state).Error; err != nil {
+			return err
+		}
+		return requireCurrentRevision(tx, modelName, revision)
+	})
+}
+
+type ModelConfigRevisionTransition struct {
+	ModelName      string
+	ConfigRevision string
+}
+
+func (r *NodeRegistry) AdvanceModelConfigRevision(ctx context.Context, modelName, revision string) ([]NodeModel, error) {
+	return r.AdvanceModelConfigRevisions(ctx, []ModelConfigRevisionTransition{{ModelName: modelName, ConfigRevision: revision}})
+}
+
+// AdvanceModelConfigRevisions publishes one or more related configuration
+// identities in a single transaction. Renames use this boundary so the old
+// identity cannot advance when establishing the new identity fails.
+func (r *NodeRegistry) AdvanceModelConfigRevisions(ctx context.Context, transitions []ModelConfigRevisionTransition) ([]NodeModel, error) {
+	if len(transitions) == 0 {
+		return nil, errors.New("at least one model config revision transition is required")
+	}
+	for _, transition := range transitions {
+		if err := validateRevisionWrite(transition.ModelName, transition.ConfigRevision, true); err != nil {
+			return nil, err
+		}
+	}
+	var quarantined []NodeModel
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, transition := range transitions {
+			now := time.Now()
+			state := ModelConfigState{ModelName: transition.ModelName, ConfigRevision: transition.ConfigRevision, CreatedAt: now, UpdatedAt: now}
+			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "model_name"}}, DoUpdates: clause.Assignments(map[string]any{"config_revision": transition.ConfigRevision, "updated_at": now})}).Create(&state).Error; err != nil {
+				return err
+			}
+			staleReplica := "model_name = ? AND state IN ? AND (config_revision IS NULL OR config_revision = '' OR config_revision <> ?)"
+			activeStates := []string{"loaded", "loading", "staging"}
+			var transitionQuarantined []NodeModel
+			if err := tx.Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Find(&transitionQuarantined).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&NodeModel{}).Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Updates(map[string]any{"state": "unloading", "cleanup_error": "", "cleanup_attempts": 0, "cleanup_next_retry_at": nil}).Error; err != nil {
+				return err
+			}
+			for i := range transitionQuarantined {
+				transitionQuarantined[i].State = "unloading"
+				transitionQuarantined[i].CleanupError = ""
+				transitionQuarantined[i].CleanupAttempts = 0
+				transitionQuarantined[i].CleanupNextRetryAt = nil
+			}
+			quarantined = append(quarantined, transitionQuarantined...)
+			if err := tx.Where("model_name = ? AND (config_revision IS NULL OR config_revision <> ?)", transition.ModelName, transition.ConfigRevision).Delete(&ModelLoadInfo{}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return quarantined, nil
+}
+
+func (r *NodeRegistry) RecordModelCleanupFailure(ctx context.Context, nodeID, modelName string, replicaIndex int, cleanupErr string, nextRetry time.Time) error {
+	return r.db.WithContext(ctx).Model(&NodeModel{}).Where("node_id = ? AND model_name = ? AND replica_index = ? AND state = ?", nodeID, modelName, replicaIndex, "unloading").Updates(map[string]any{"cleanup_error": cleanupErr, "cleanup_attempts": gorm.Expr("cleanup_attempts + 1"), "cleanup_next_retry_at": nextRetry}).Error
+}
+
+func (r *NodeRegistry) ListModelCleanupRetries(ctx context.Context, now time.Time, limit int) ([]NodeModel, error) {
+	var models []NodeModel
+	q := r.db.WithContext(ctx).Where("state = ? AND cleanup_next_retry_at IS NOT NULL AND cleanup_next_retry_at <= ?", "unloading", now).Order("cleanup_next_retry_at ASC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	err := q.Find(&models).Error
+	return models, err
+}
+
+// ClaimModelCleanupRetries leases due quarantine rows in one transaction. The
+// row locks prevent two frontends from sending the same exact-stop request,
+// while SKIP LOCKED lets each frontend take different work without waiting.
+func (r *NodeRegistry) ClaimModelCleanupRetries(ctx context.Context, now, leaseUntil time.Time, limit int) ([]NodeModel, error) {
+	var models []NodeModel
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		q := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("state = ? AND (cleanup_next_retry_at IS NULL OR cleanup_next_retry_at <= ?)", "unloading", now).
+			Order("cleanup_next_retry_at ASC")
+		if limit > 0 {
+			q = q.Limit(limit)
+		}
+		if err := q.Find(&models).Error; err != nil || len(models) == 0 {
+			return err
+		}
+		ids := make([]string, len(models))
+		for i := range models {
+			ids[i] = models[i].ID
+		}
+		return tx.Model(&NodeModel{}).Where("id IN ?", ids).Update("cleanup_next_retry_at", leaseUntil).Error
+	})
+	return models, err
+}
+
+// RemoveClaimedModelCleanup deletes only the exact quarantine row that was
+// stopped. A worker may re-register a replacement in the same logical slot
+// while the stop request is in flight; matching the immutable row identity and
+// stop inputs prevents cleanup from deleting that replacement.
+func (r *NodeRegistry) RemoveClaimedModelCleanup(ctx context.Context, replica NodeModel) (bool, error) {
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND node_id = ? AND model_name = ? AND replica_index = ? AND state = ? AND address = ? AND config_revision = ?",
+			replica.ID, replica.NodeID, replica.ModelName, replica.ReplicaIndex, "unloading", replica.Address, replica.ConfigRevision).
+		Delete(&NodeModel{})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return false, nil
+	}
+	r.fireReplicaRemoved(replica.ModelName, replica.NodeID, replica.ReplicaIndex)
+	return true, nil
 }
 
 // RemoveNodeModel removes a single replica of a model from a node.
@@ -1142,6 +1392,7 @@ func (r *NodeRegistry) FindNodesWithModel(ctx context.Context, modelName string)
 	if err := r.db.WithContext(ctx).Joins("JOIN node_models ON node_models.node_id = backend_nodes.id").
 		Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
 			modelName, "loaded", StatusHealthy).
+		Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = node_models.model_name)").
 		Order("node_models.in_flight ASC").
 		Find(&nodes).Error; err != nil {
 		return nil, fmt.Errorf("finding nodes with model %s: %w", modelName, err)
@@ -1186,6 +1437,22 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 	var node BackendNode
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Lock the current model revision before selecting a replica. Revision
+		// advancement takes this lock before quarantining replica rows too, so
+		// an edit and a route claim have one ordering: either this transaction
+		// reserves a replica before the edit, or it observes the new revision
+		// and cannot reserve the old replica. A revision subquery alone is not
+		// sufficient under READ COMMITTED because the state can change between
+		// SELECT and the in-flight increment.
+		var currentState ModelConfigState
+		hasCurrentRevision := false
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).
+			Where("model_name = ?", modelName).First(&currentState).Error; err == nil {
+			hasCurrentRevision = true
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
 		// Mirror of PickBestReplica's policy (see replicapicker.go):
 		//   1. in_flight ASC — least busy replica.
 		//   2. last_used ASC — round-robin between equally-loaded replicas.
@@ -1208,6 +1475,9 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 			Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 			Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
 				modelName, "loaded", StatusHealthy)
+		if hasCurrentRevision {
+			base = base.Where("node_models.config_revision = ?", currentState.ConfigRevision)
+		}
 		if len(candidateNodeIDs) > 0 {
 			base = base.Where("node_models.node_id IN ?", candidateNodeIDs)
 		}
@@ -1269,7 +1539,7 @@ func (r *NodeRegistry) LoadedReplicaStats(ctx context.Context, modelName string,
 		LastUsed      time.Time
 		AvailableVRAM uint64
 	}
-	q := r.db.WithContext(ctx).Model(&NodeModel{}).
+	q := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.model_name = ? AND node_models.state = ? AND backend_nodes.status = ?",
 			modelName, "loaded", StatusHealthy)
@@ -1321,7 +1591,8 @@ func (r *NodeRegistry) GetNodeModel(ctx context.Context, nodeID, modelName strin
 func (r *NodeRegistry) CountReplicasOnNode(ctx context.Context, nodeID, modelName string) (int, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("node_id = ? AND model_name = ?", nodeID, modelName).
+		Where("node_id = ? AND model_name = ? AND state <> ?", nodeID, modelName, "unloading").
+		Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = node_models.model_name)").
 		Count(&count).Error; err != nil {
 		return 0, err
 	}
@@ -1344,8 +1615,8 @@ func (r *NodeRegistry) NextFreeReplicaIndex(ctx context.Context, nodeID, modelNa
 		return 0, ErrNoFreeSlot
 	}
 	var taken []int
-	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("node_id = ? AND model_name = ?", nodeID, modelName).
+	if err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
+		Where("node_models.node_id = ? AND node_models.model_name = ? AND node_models.state <> ?", nodeID, modelName, "unloading").
 		Pluck("replica_index", &taken).Error; err != nil {
 		return 0, err
 	}
@@ -1368,8 +1639,9 @@ func (r *NodeRegistry) FindLeastLoadedNode(ctx context.Context) (*BackendNode, e
 	var node BackendNode
 	query := db.Where("status = ? AND node_type = ?", StatusHealthy, NodeTypeBackend)
 	// Order by total in-flight across all models on the node
-	subquery := db.Model(&NodeModel{}).
+	subquery := currentModelRevision(db.Model(&NodeModel{})).
 		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
+		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 
 	err := query.Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
@@ -1387,9 +1659,9 @@ func (r *NodeRegistry) FindIdleNode(ctx context.Context) (*BackendNode, error) {
 	db := r.db.WithContext(ctx)
 
 	var node BackendNode
-	loadedModels := db.Model(&NodeModel{}).
+	loadedModels := currentModelRevision(db.Model(&NodeModel{})).
 		Select("node_id").
-		Where("state = ?", "loaded").
+		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 	err := db.Where("status = ? AND node_type = ? AND id NOT IN (?)", StatusHealthy, NodeTypeBackend, loadedModels).
 		Order("available_vram DESC").
@@ -1447,6 +1719,7 @@ func (r *NodeRegistry) ListAllLoadedModels(ctx context.Context) ([]NodeModel, er
 	var models []NodeModel
 	err := r.db.WithContext(ctx).Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND backend_nodes.status = ?", "loaded", StatusHealthy).
+		Where("NOT EXISTS (SELECT 1 FROM model_config_states WHERE model_config_states.model_name = node_models.model_name) OR node_models.config_revision = (SELECT config_revision FROM model_config_states WHERE model_config_states.model_name = node_models.model_name)").
 		Find(&models).Error
 	if err != nil {
 		return nil, fmt.Errorf("listing all loaded models: %w", err)
@@ -1467,7 +1740,7 @@ func (r *NodeRegistry) FindNodeForModel(ctx context.Context, modelName string) (
 // FindLRUModel returns the least-recently-used model on a node.
 func (r *NodeRegistry) FindLRUModel(ctx context.Context, nodeID string) (*NodeModel, error) {
 	var nm NodeModel
-	err := r.db.WithContext(ctx).Where("node_id = ? AND state = ? AND in_flight = 0", nodeID, "loaded").
+	err := currentModelRevision(r.db.WithContext(ctx)).Where("node_models.node_id = ? AND node_models.state = ? AND node_models.in_flight = 0", nodeID, "loaded").
 		Order("last_used ASC").First(&nm).Error
 	if err != nil {
 		return nil, fmt.Errorf("finding LRU model on node %s: %w", nodeID, err)
@@ -1480,7 +1753,7 @@ func (r *NodeRegistry) FindLRUModel(ctx context.Context, nodeID string) (*NodeMo
 // Used by the router for preemptive eviction when no node has free VRAM.
 func (r *NodeRegistry) FindGlobalLRUModelWithZeroInFlight(ctx context.Context) (*NodeModel, error) {
 	var nm NodeModel
-	err := r.db.WithContext(ctx).Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
+	err := currentModelRevision(r.db.WithContext(ctx)).Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND node_models.in_flight = 0 AND backend_nodes.status = ? AND backend_nodes.node_type = ?",
 			"loaded", StatusHealthy, NodeTypeBackend).
 		Order("node_models.last_used ASC").
@@ -1600,13 +1873,14 @@ func (r *NodeRegistry) FindNodesBySelector(ctx context.Context, selector map[str
 func (r *NodeRegistry) FindNodeWithVRAMFromSet(ctx context.Context, minBytes uint64, nodeIDs []string) (*BackendNode, error) {
 	db := r.db.WithContext(ctx)
 
-	loadedModels := db.Model(&NodeModel{}).
+	loadedModels := currentModelRevision(db.Model(&NodeModel{})).
 		Select("node_id").
-		Where("state = ?", "loaded").
+		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 
-	subquery := db.Model(&NodeModel{}).
+	subquery := currentModelRevision(db.Model(&NodeModel{})).
 		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
+		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 
 	// Try idle nodes with enough effectively-free VRAM first.
@@ -1636,9 +1910,9 @@ func (r *NodeRegistry) FindIdleNodeFromSet(ctx context.Context, nodeIDs []string
 	db := r.db.WithContext(ctx)
 
 	var node BackendNode
-	loadedModels := db.Model(&NodeModel{}).
+	loadedModels := currentModelRevision(db.Model(&NodeModel{})).
 		Select("node_id").
-		Where("state = ?", "loaded").
+		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 	err := db.Where("status = ? AND node_type = ? AND id NOT IN (?) AND id IN ?", StatusHealthy, NodeTypeBackend, loadedModels, nodeIDs).
 		Order("available_vram DESC").
@@ -1656,8 +1930,9 @@ func (r *NodeRegistry) FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs [
 	var node BackendNode
 	query := db.Where("status = ? AND node_type = ? AND backend_nodes.id IN ?", StatusHealthy, NodeTypeBackend, nodeIDs)
 	// Order by total in-flight across all models on the node
-	subquery := db.Model(&NodeModel{}).
+	subquery := currentModelRevision(db.Model(&NodeModel{})).
 		Select("node_id, COALESCE(SUM(in_flight), 0) as total_inflight").
+		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 
 	err := query.Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
@@ -1737,7 +2012,9 @@ func (r *NodeRegistry) DeleteModelScheduling(ctx context.Context, modelName stri
 // CountLoadedReplicas returns the number of loaded replicas for a model.
 func (r *NodeRegistry) CountLoadedReplicas(ctx context.Context, modelName string) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).Model(&NodeModel{}).Where("model_name = ? AND state = ?", modelName, "loaded").Count(&count).Error
+	err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
+		Where("node_models.model_name = ? AND node_models.state = ?", modelName, "loaded").
+		Count(&count).Error
 	return count, err
 }
 
@@ -1758,9 +2035,9 @@ func (r *NodeRegistry) FindNodesWithFreeSlot(ctx context.Context, modelName stri
 	// Subquery: per-node count of loaded+loading replicas of this model.
 	// We count any non-removed row (state != deleted) so a load in progress
 	// counts against the cap and a second concurrent scale-up can't overshoot.
-	subq := r.db.Model(&NodeModel{}).
+	subq := currentModelRevision(r.db.Model(&NodeModel{})).
 		Select("node_id, COUNT(*) as cnt").
-		Where("model_name = ?", modelName).
+		Where("node_models.model_name = ? AND node_models.state <> ?", modelName, "unloading").
 		Group("node_id")
 
 	var out []BackendNode
@@ -1787,9 +2064,9 @@ func (r *NodeRegistry) ClusterCapacityForModel(ctx context.Context, modelName st
 	if len(candidateNodeIDs) > 0 {
 		q = q.Where("id IN ?", candidateNodeIDs)
 	}
-	subq := r.db.Model(&NodeModel{}).
+	subq := currentModelRevision(r.db.Model(&NodeModel{})).
 		Select("node_id, COUNT(*) as cnt").
-		Where("model_name = ?", modelName).
+		Where("node_models.model_name = ? AND node_models.state <> ?", modelName, "unloading").
 		Group("node_id")
 
 	var nodes []struct {
@@ -1986,9 +2263,9 @@ func (r *NodeRegistry) ListWithExtras(ctx context.Context) ([]NodeWithExtras, er
 		Count  int
 	}
 	var counts []modelCount
-	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+	if err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
 		Select("node_id, COUNT(*) as count").
-		Where("state = ?", "loaded").
+		Where("node_models.state = ?", "loaded").
 		Group("node_id").
 		Find(&counts).Error; err != nil {
 		xlog.Warn("ListWithExtras: failed to get model counts", "error", err)
@@ -2005,9 +2282,9 @@ func (r *NodeRegistry) ListWithExtras(ctx context.Context) ([]NodeWithExtras, er
 		Total  int
 	}
 	var inFlights []inFlightCount
-	if err := r.db.WithContext(ctx).Model(&NodeModel{}).
+	if err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
 		Select("node_id, COALESCE(SUM(in_flight), 0) as total").
-		Where("state IN ?", []string{"loaded", "unloading"}).
+		Where("node_models.state = ?", "loaded").
 		Group("node_id").
 		Find(&inFlights).Error; err != nil {
 		xlog.Warn("ListWithExtras: failed to get in-flight counts", "error", err)

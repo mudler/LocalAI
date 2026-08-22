@@ -24,8 +24,8 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
-	pbproto "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
+	pbproto "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
@@ -41,7 +41,7 @@ import (
 func newCapturingLoader() (*model.ModelLoader, *atomic.Value, func() context.Context) {
 	loader := model.NewModelLoader(&system.SystemState{})
 	var captured atomic.Value
-	loader.SetModelRouter(func(ctx context.Context, _ string, _, _, _ string, _ *pbproto.ModelOptions, _ bool) (*model.Model, error) {
+	loader.SetModelRouter(func(ctx context.Context, _ string, _, _, _, _ string, _ *pbproto.ModelOptions, _ bool) (*model.Model, error) {
 		captured.Store(ctx)
 		// Return an error so the backend short-circuits before trying to
 		// dial gRPC. We only care about the context-arrival contract.

@@ -1181,7 +1181,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/models/config-metadata/autocomplete/:provider", localai.AutocompleteEndpoint(cl, ml, appConfig), adminMiddleware)
 
 	// PATCH config endpoint - partial update using nested JSON merge
-	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
+	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(applicationInstance)), adminMiddleware)
 
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)

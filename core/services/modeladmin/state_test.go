@@ -2,6 +2,7 @@ package modeladmin
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -35,17 +36,43 @@ var _ = Describe("ConfigService.ToggleState", func() {
 	It("disables a model by writing disabled: true", func() {
 		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
 
-		_, err := svc.ToggleState(ctx, "qwen", ActionDisable, nil)
+		_, err := svc.ToggleState(ctx, "qwen", ActionDisable)
 		Expect(err).ToNot(HaveOccurred())
 
 		got := readMap(filepath.Join(dir, "qwen.yaml"))
 		Expect(got).To(HaveKeyWithValue("disabled", true))
 	})
 
+	It("applies disable through the revision lifecycle", func() {
+		lifecycle := &fakeRevisionLifecycle{pending: 3}
+		svc.Lifecycle = lifecycle
+		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
+
+		result, err := svc.ToggleState(ctx, "qwen", ActionDisable)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.ConfigRevision).ToNot(BeEmpty())
+		Expect(result.PendingCleanup).To(Equal(3))
+		Expect(lifecycle.calls).To(ConsistOf(revisionLifecycleCall{
+			oldName: "qwen", newName: "qwen", revision: result.ConfigRevision, disabled: true,
+		}))
+	})
+
+	It("restores disk and loader when state publication fails", func() {
+		svc.Lifecycle = &fakeRevisionLifecycle{err: errors.New("registry unavailable")}
+		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
+
+		_, err := svc.ToggleState(ctx, "qwen", ActionDisable)
+		Expect(err).To(MatchError(ContainSubstring("registry unavailable")))
+		Expect(readMap(filepath.Join(dir, "qwen.yaml"))).NotTo(HaveKey("disabled"))
+		loaded, ok := svc.Loader.GetModelConfig("qwen")
+		Expect(ok).To(BeTrue())
+		Expect(loaded.IsDisabled()).To(BeFalse())
+	})
+
 	It("enables a model by removing the disabled key entirely", func() {
 		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "disabled": true})
 
-		_, err := svc.ToggleState(ctx, "qwen", ActionEnable, nil)
+		_, err := svc.ToggleState(ctx, "qwen", ActionEnable)
 		Expect(err).ToNot(HaveOccurred())
 
 		got := readMap(filepath.Join(dir, "qwen.yaml"))
@@ -54,12 +81,12 @@ var _ = Describe("ConfigService.ToggleState", func() {
 
 	It("rejects unknown actions with ErrBadAction", func() {
 		writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp"})
-		_, err := svc.ToggleState(ctx, "qwen", Action("noop"), nil)
+		_, err := svc.ToggleState(ctx, "qwen", Action("noop"))
 		Expect(err).To(MatchError(ErrBadAction))
 	})
 
 	It("returns ErrNotFound for an unknown model", func() {
-		_, err := svc.ToggleState(ctx, "ghost", ActionDisable, nil)
+		_, err := svc.ToggleState(ctx, "ghost", ActionDisable)
 		Expect(err).To(MatchError(ErrNotFound))
 	})
 })

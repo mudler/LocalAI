@@ -843,6 +843,62 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 	return s.finishBackendStop(key, bp, stopErr)
 }
 
+// stopModelExact implements the acknowledged controller-to-worker stop path.
+// The address check and stopping reservation are one critical section so a
+// stale controller request can never stop a replacement under the same key.
+func (s *backendSupervisor) stopModelExact(req messaging.ModelStopRequest) messaging.ModelStopReply {
+	reply := messaging.ModelStopReply{ProcessKey: req.ProcessKey}
+
+	s.mu.Lock()
+	bp, ok := s.processes[req.ProcessKey]
+	if !ok || bp.proc == nil {
+		s.mu.Unlock()
+		reply.Terminated = true
+		return reply
+	}
+	reply.Matched = true
+	reply.Address = bp.addr
+	if bp.addr != req.ExpectedAddress {
+		s.mu.Unlock()
+		reply.Error = fmt.Sprintf("address mismatch for process %s: recorded %q, expected %q", req.ProcessKey, bp.addr, req.ExpectedAddress)
+		return reply
+	}
+	if bp.stopping {
+		s.mu.Unlock()
+		reply.Error = fmt.Sprintf("process %s is already stopping", req.ProcessKey)
+		return reply
+	}
+	bp.stopping = true
+	s.mu.Unlock()
+
+	if !req.Force {
+		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
+		freeErr := client.Free(freeCtx)
+		cancel()
+		if freeErr != nil {
+			reply.Error = fmt.Sprintf("freeing process %s: %v", req.ProcessKey, freeErr)
+		} else {
+			reply.Freed = true
+		}
+	}
+
+	stopErr := bp.proc.Stop()
+	if stopErr == nil {
+		<-bp.proc.Done()
+	}
+	if err := s.finishBackendStop(req.ProcessKey, bp, stopErr); err != nil {
+		if reply.Error != "" {
+			reply.Error += "; " + err.Error()
+		} else {
+			reply.Error = err.Error()
+		}
+		return reply
+	}
+	reply.Terminated = true
+	return reply
+}
+
 // beginBackendStop reserves both the process entry and its port while network
 // cleanup and process termination run without the supervisor mutex.
 func (s *backendSupervisor) beginBackendStop(key string) *backendProcess {
