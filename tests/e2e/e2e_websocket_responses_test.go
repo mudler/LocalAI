@@ -33,6 +33,7 @@ type wsResponseBody struct {
 	ID     string `json:"id"`
 	Status string `json:"status"`
 	Model  string `json:"model"`
+	Store  bool   `json:"store"`
 	Output []struct {
 		Type    string `json:"type"`
 		ID      string `json:"id"`
@@ -66,7 +67,7 @@ func readAllEvents(conn *websocket.Conn) []wsEvent {
 			break
 		}
 		events = append(events, ev)
-		if ev.Type == "response.completed" || ev.Type == "response.failed" {
+		if ev.Type == "response.completed" || ev.Type == "response.failed" || ev.Type == "error" {
 			break
 		}
 	}
@@ -124,6 +125,73 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 			Expect(resp.Status).To(Equal("completed"))
 			Expect(resp.Model).To(Equal("mock-model"))
 			Expect(resp.Output).ToNot(BeEmpty())
+		})
+	})
+
+	Context("Codex WebSocket prewarm", func() {
+		It("does not generate for generate:false and reuses the response ID", func() {
+			conn, err := dialWS()
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = conn.Close() }()
+
+			warmup := map[string]any{
+				"type":     "response.create",
+				"model":    "mock-model",
+				"store":    false,
+				"generate": false,
+				"input": []map[string]any{{
+					"type":    "message",
+					"role":    "user",
+					"content": []map[string]any{{"type": "input_text", "text": "Hello from Codex"}},
+				}},
+			}
+			Expect(conn.WriteJSON(warmup)).To(Succeed())
+
+			warmupEvents := readAllEvents(conn)
+			Expect(warmupEvents).To(HaveLen(2))
+			Expect([]string{warmupEvents[0].Type, warmupEvents[1].Type}).To(Equal([]string{
+				"response.created",
+				"response.completed",
+			}))
+
+			var warmupResp wsResponseBody
+			lastWarmup := warmupEvents[len(warmupEvents)-1]
+			Expect(lastWarmup.Type).To(Equal("response.completed"))
+			Expect(json.Unmarshal(lastWarmup.Response, &warmupResp)).To(Succeed())
+			Expect(warmupResp.ID).ToNot(BeEmpty())
+			Expect(warmupResp.Store).To(BeFalse())
+			Expect(warmupResp.Output).To(BeEmpty())
+
+			followUp := map[string]any{
+				"type":                 "response.create",
+				"model":                "mock-model",
+				"store":                false,
+				"previous_response_id": warmupResp.ID,
+				"input":                []any{},
+			}
+
+			// store:false response IDs are scoped to the WebSocket connection.
+			otherConn, err := dialWS()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(otherConn.WriteJSON(followUp)).To(Succeed())
+			otherEvent, err := readEvent(otherConn)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(otherEvent.Type).To(Equal("error"))
+			Expect(otherEvent.Error).ToNot(BeNil())
+			Expect(otherEvent.Error.Code).To(Equal("previous_response_not_found"))
+			Expect(otherConn.Close()).To(Succeed())
+
+			Expect(conn.WriteJSON(followUp)).To(Succeed())
+
+			followUpEvents := readAllEvents(conn)
+			Expect(followUpEvents).ToNot(BeEmpty())
+			lastFollowUp := followUpEvents[len(followUpEvents)-1]
+			Expect(lastFollowUp.Type).To(Equal("response.completed"), "unexpected terminal event: %#v", lastFollowUp.Error)
+			var followUpResp wsResponseBody
+			Expect(json.Unmarshal(lastFollowUp.Response, &followUpResp)).To(Succeed())
+			Expect(followUpResp.ID).ToNot(Equal(warmupResp.ID))
+			Expect(followUpResp.Store).To(BeFalse())
+			Expect(followUpResp.Output).ToNot(BeEmpty())
 		})
 	})
 
