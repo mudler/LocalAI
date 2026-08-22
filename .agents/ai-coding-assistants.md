@@ -35,19 +35,33 @@ All contributions must comply with LocalAI's licensing requirements:
 
 ## Signed-off-by and Developer Certificate of Origin
 
-**AI agents MUST NOT add `Signed-off-by` tags.** Only humans can legally
-certify the Developer Certificate of Origin (DCO). The human submitter
-is responsible for:
+Only humans can certify the Developer Certificate of Origin (DCO). AI
+agents MUST NOT invent or guess a human identity for `Signed-off-by` —
+doing so forges the DCO certification.
 
-- Reviewing all AI-generated code
+However, when a human operator explicitly directs the AI to commit on
+their behalf, the AI is acting as a typing tool — no different from an
+editor macro or `git commit -s`. In that case the AI SHOULD add
+`Signed-off-by:` using the **configured `user.name` / `user.email`** of
+the current git repository (i.e. the operator's own identity). The
+resulting trailer is the operator's signature; they take responsibility
+for it by reviewing and pushing the commit. The AI MUST NOT use any
+other identity and MUST NOT add its own name to the sign-off.
+
+When running `git commit`, prefer `git commit --signoff` (or `-s`) so
+the trailer is emitted by git itself from the configured identity,
+rather than hand-writing it in a heredoc — this guarantees the sign-off
+matches whatever identity the operator is currently using.
+
+The human submitter remains responsible for:
+
+- Reviewing all AI-generated code before it's pushed or merged
 - Ensuring compliance with licensing requirements
-- Adding their own `Signed-off-by` tag (when the project requires DCO)
-  to certify the contribution
 - Taking full responsibility for the contribution
 
-AI agents MUST NOT add `Co-Authored-By` trailers for themselves either.
-A human reviewer owns the contribution; the AI's involvement is recorded
-via `Assisted-by` (see below).
+AI agents MUST NOT add `Co-Authored-By` trailers for themselves. A human
+reviewer owns the contribution; the AI's involvement is recorded via
+`Assisted-by` (see below).
 
 ## Attribution
 
@@ -83,6 +97,12 @@ case so downstream consumers receive a valid payload.
 Assisted-by: Claude:claude-opus-4-7 golangci-lint
 Signed-off-by: Jane Developer <jane@example.com>
 ```
+
+The `Signed-off-by` line uses Jane's own identity because Jane is the
+submitter operating the AI. If Jane asks Claude to create the commit via
+`git commit -s`, git emits that exact trailer from Jane's configured
+identity — no separate human step is needed beyond Jane reviewing the
+diff before pushing.
 
 ## Scope and Responsibility
 
