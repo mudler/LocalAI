@@ -470,8 +470,9 @@ const (
 // Element names a specific model/backend when known; empty means "the whole
 // set was touched, do a full reload."
 type CacheInvalidateEvent struct {
-	Element string `json:"element,omitempty"`
-	Op      string `json:"op,omitempty"` // "install" | "delete" | "upgrade"
+	Element        string `json:"element,omitempty"`
+	Op             string `json:"op,omitempty"` // "install" | "delete" | "upgrade"
+	ConfigRevision string `json:"config_revision,omitempty"`
 }
 
 // SubjectCacheInvalidateCollection returns the NATS subject for collection cache invalidation.

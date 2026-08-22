@@ -29,15 +29,21 @@ func NewModelCleanupService(registry ModelCleanupRegistry, stopper ExactModelSto
 	return &ModelCleanupService{registry: registry, stopper: stopper, now: time.Now}
 }
 
-func (s *ModelCleanupService) Cleanup(ctx context.Context, replicas []NodeModel, force bool) {
+func (s *ModelCleanupService) Cleanup(ctx context.Context, replicas []NodeModel, force bool) int {
+	pending := 0
 	for _, replica := range replicas {
 		reply, err := s.stopper.StopModelReplica(ctx, replica.NodeID, replica, force)
 		if err == nil && reply.Terminated {
-			if _, err := s.registry.RemoveClaimedModelCleanup(ctx, replica); err != nil {
-				xlog.Warn("Removing terminated model replica failed", "nodeID", replica.NodeID, "model", replica.ModelName, "replica", replica.ReplicaIndex, "error", err)
+			removed, removeErr := s.registry.RemoveClaimedModelCleanup(ctx, replica)
+			if removeErr != nil {
+				xlog.Warn("Removing terminated model replica failed", "nodeID", replica.NodeID, "model", replica.ModelName, "replica", replica.ReplicaIndex, "error", removeErr)
+				pending++
+			} else if !removed {
+				pending++
 			}
 			continue
 		}
+		pending++
 
 		cleanupErr := conciseCleanupError(err, reply.Error)
 		nextRetry := s.now().Add(modelCleanupBackoff(replica.CleanupAttempts))
@@ -45,6 +51,7 @@ func (s *ModelCleanupService) Cleanup(ctx context.Context, replicas []NodeModel,
 			xlog.Warn("Recording model cleanup retry failed", "nodeID", replica.NodeID, "model", replica.ModelName, "replica", replica.ReplicaIndex, "error", recordErr)
 		}
 	}
+	return pending
 }
 
 func (s *ModelCleanupService) Run(ctx context.Context) {

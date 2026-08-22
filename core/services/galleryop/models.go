@@ -2,11 +2,14 @@ package galleryop
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -16,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,7 +28,37 @@ const (
 )
 
 func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gallery.ModelConfig], cl *config.ModelConfigLoader, systemState *system.SystemState) error {
+	if op.Delete && cl != nil {
+		return cl.WithModelConfigMutation(func() error {
+			return g.modelHandlerLocked(op, cl, systemState)
+		})
+	}
+	return g.modelHandlerLocked(op, cl, systemState)
+}
+
+func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryModel, gallery.ModelConfig], cl *config.ModelConfigLoader, systemState *system.SystemState) (returnErr error) {
 	utils.ResetDownloadTimers()
+	var deleteSnapshot *modelConfigFilesSnapshot
+	deleteStarted := false
+	deleteCommitted := false
+	var priorConfigs []config.ModelConfig
+	if op.Delete && cl != nil && systemState != nil {
+		var err error
+		deleteSnapshot, err = snapshotModelConfigFiles(systemState.Model.ModelsPath)
+		if err != nil {
+			return err
+		}
+		priorConfigs = cl.GetAllModelsConfigs()
+		defer func() {
+			if !deleteStarted || deleteCommitted {
+				return
+			}
+			if err := deleteSnapshot.restore(); err != nil {
+				returnErr = errors.Join(returnErr, fmt.Errorf("restore model configuration after failed deletion: %w", err))
+			}
+			cl.ReplaceModelConfigs(priorConfigs)
+		}()
+	}
 
 	// Dedup check in distributed mode — skip if another instance is already processing this element
 	if g.galleryStore != nil && op.GalleryElementName != "" && !op.Delete {
@@ -89,7 +123,10 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 	}
 
 	var err error
+	configRevision := ""
 	if op.Delete {
+		configRevision = fmt.Sprintf("%x", sha256.Sum256([]byte("deleted\x00"+op.GalleryElementName)))
+		deleteStarted = true
 		err = g.modelManager.DeleteModel(op.GalleryElementName)
 	} else {
 		err = g.modelManager.InstallModel(operationCtx, op, progressCallback)
@@ -123,19 +160,39 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 		}
 	}
 
-	// Reload models
-	err = cl.LoadModelConfigsFromPath(systemState.Model.ModelsPath, g.appConfig.ToConfigLoaderOptions()...)
+	// Parse a complete disk snapshot. LoadModelConfigsFromPath is additive on
+	// an existing loader, so using it directly would retain a just-deleted
+	// model and could preload artifacts for a config that no longer exists.
+	authoritative := config.NewModelConfigLoader(systemState.Model.ModelsPath)
+	err = authoritative.LoadModelConfigsFromPathStrict(systemState.Model.ModelsPath, g.appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 		return err
 	}
-
+	cl.ReplaceModelConfigs(authoritative.GetAllModelsConfigs())
 	err = cl.PreloadWithContext(operationCtx, systemState.Model.ModelsPath)
 	if err != nil {
 		return err
 	}
 
-	// Tell peer replicas to refresh their own ModelConfigLoader. The local
-	// LoadModelConfigsFromPath above already covered THIS replica; without
+	// Lifecycle publication is the irreversible boundary. File mutation,
+	// authoritative parsing, loader replacement, and preload have all completed,
+	// so no later failure can roll local configuration back behind an accepted
+	// registry revision.
+	if op.Delete && g.modelRevisionLifecycle != nil {
+		pending, lifecycleErr := g.modelRevisionLifecycle.ApplyConfigRevisions(operationCtx, []config.ModelConfigRevisionTransition{{
+			ModelName: op.GalleryElementName, ConfigRevision: configRevision, Disabled: true,
+		}})
+		if lifecycleErr != nil {
+			return lifecycleErr
+		}
+		if pending > 0 {
+			xlog.Warn("Model deletion continuing with exact cleanup pending", "model", op.GalleryElementName, "configRevision", configRevision, "pendingCleanup", pending)
+		}
+	}
+	deleteCommitted = true
+
+	// Tell peer replicas to refresh their own ModelConfigLoader. The
+	// authoritative replacement above already covered THIS replica; without
 	// this broadcast a chat completion routed by the load balancer to a peer
 	// would fail to find a model just installed.
 	op2 := "install"
@@ -143,8 +200,9 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 		op2 = "delete"
 	}
 	g.publishCacheInvalidate(messaging.SubjectCacheInvalidateModels, messaging.CacheInvalidateEvent{
-		Element: op.GalleryElementName,
-		Op:      op2,
+		Element:        op.GalleryElementName,
+		Op:             op2,
+		ConfigRevision: configRevision,
 	})
 
 	g.UpdateStatus(op.ID,
@@ -157,6 +215,90 @@ func (g *GalleryService) modelHandler(op *ManagementOp[gallery.GalleryModel, gal
 			Cancellable:        false})
 
 	return nil
+}
+
+type savedModelConfigFile struct {
+	data []byte
+	mode os.FileMode
+}
+
+type modelConfigFilesSnapshot struct {
+	dir   string
+	files map[string]savedModelConfigFile
+}
+
+func isModelConfigMetadata(name string) bool {
+	lower := strings.ToLower(name)
+	return strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml")
+}
+
+func snapshotModelConfigFiles(dir string) (*modelConfigFilesSnapshot, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("snapshot model configuration: %w", err)
+	}
+	snapshot := &modelConfigFilesSnapshot{dir: dir, files: map[string]savedModelConfigFile{}}
+	for _, entry := range entries {
+		if entry.IsDir() || !isModelConfigMetadata(entry.Name()) {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		info, err := entry.Info()
+		if err != nil {
+			return nil, fmt.Errorf("snapshot model configuration metadata %q: %w", entry.Name(), err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("snapshot model configuration metadata %q: %w", entry.Name(), err)
+		}
+		snapshot.files[entry.Name()] = savedModelConfigFile{data: data, mode: info.Mode().Perm()}
+	}
+	return snapshot, nil
+}
+
+func (s *modelConfigFilesSnapshot) restore() error {
+	entries, err := os.ReadDir(s.dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !isModelConfigMetadata(entry.Name()) {
+			continue
+		}
+		if _, exists := s.files[entry.Name()]; exists {
+			continue
+		}
+		if err := os.Remove(filepath.Join(s.dir, entry.Name())); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	for name, file := range s.files {
+		if err := writeRestoredConfigFile(filepath.Join(s.dir, name), file.data, file.mode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeRestoredConfigFile(path string, data []byte, mode os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".model-config-restore-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if err := tmp.Chmod(mode); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }
 
 func installModelFromRemoteConfig(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, req gallery.GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend bool, backendGalleries []config.Gallery, requireBackendIntegrity bool, options ...gallery.InstallOption) error {

@@ -298,7 +298,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if distSvc.Reconciler != nil {
 			go distSvc.Reconciler.Run(options.Context)
 		}
-		go nodes.NewModelCleanupService(distSvc.Registry, distSvc.Unloader).Run(options.Context)
+		go distSvc.ModelCleanup.Run(options.Context)
 		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
 		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
 		// The dispatcher still subscribes to jobs.new for persistence (result/progress subs)
@@ -371,13 +371,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 			gs := application.galleryService
 			sys := options.SystemState
 			cfgLoaderOpts := options.ToConfigLoaderOptions()
+			modelRevisionLifecycle := modeladmin.NewDistributedModelRevisionLifecycle(distSvc.Registry, distSvc.ModelCleanup)
+			gs.SetModelRevisionLifecycle(modelRevisionLifecycle)
 			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
 				// ApplyRemoteChange honors the op: a "delete" prunes the element
 				// (a reload-from-path is additive and cannot drop it), anything
 				// else reloads from disk; a named element's running instance is
 				// shut down so the new config takes effect. The originating
 				// replica reloads inline and never depends on this path.
-				if err := modeladmin.ApplyRemoteChange(application.ModelConfigLoader(), application.modelLoader, sys.Model.ModelsPath, evt, cfgLoaderOpts...); err != nil {
+				if err := modeladmin.ApplyRemoteChange(options.Context, application.ModelConfigLoader(), sys.Model.ModelsPath, evt, modelRevisionLifecycle, cfgLoaderOpts...); err != nil {
 					xlog.Warn("Failed to apply peer model config change", "error", err)
 				}
 			}

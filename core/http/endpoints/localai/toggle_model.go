@@ -9,7 +9,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
-	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // ToggleModelEndpoint handles enabling or disabling a model from being loaded on demand.
@@ -25,15 +24,15 @@ import (
 // @Failure      404  {object}  ModelResponse
 // @Failure      500  {object}  ModelResponse
 // @Router       /api/models/{name}/{action} [put]
-func ToggleStateModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig) echo.HandlerFunc {
-	svc := modeladmin.NewConfigService(cl, appConfig)
+func ToggleStateModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig, lifecycle ...modeladmin.ModelRevisionLifecycle) echo.HandlerFunc {
+	svc := modeladmin.NewConfigService(cl, appConfig, lifecycle...)
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 		if decoded, err := url.PathUnescape(modelName); err == nil {
 			modelName = decoded
 		}
 		action := modeladmin.Action(c.Param("action"))
-		result, err := svc.ToggleState(c.Request().Context(), modelName, action, ml)
+		result, err := svc.ToggleState(c.Request().Context(), modelName, action)
 		if err != nil {
 			return c.JSON(httpStatusForModelAdminError(err), ModelResponse{Success: false, Error: err.Error()})
 		}
@@ -42,13 +41,13 @@ func ToggleStateModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoade
 		// local loader; tell peers to refresh so the model's availability is
 		// consistent across replicas. No-op in standalone mode.
 		if gs != nil {
-			gs.BroadcastModelsChanged(modelName, "install")
+			gs.BroadcastModelsChangedRevision(modelName, "install", result.ConfigRevision)
 		}
 
 		msg := fmt.Sprintf("Model '%s' has been %sd successfully.", modelName, action)
 		if action == modeladmin.ActionDisable {
 			msg += " The model will not be loaded on demand until re-enabled."
 		}
-		return c.JSON(http.StatusOK, ModelResponse{Success: true, Message: msg, Filename: result.Filename})
+		return c.JSON(http.StatusOK, ModelResponse{Success: true, Message: msg, Filename: result.Filename, ConfigRevision: result.ConfigRevision, PendingCleanup: result.PendingCleanup})
 	}
 }

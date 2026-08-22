@@ -55,7 +55,20 @@ type GalleryService struct {
 	// load-balances onto this replica can find the just-installed model.
 	// The originating replica reloads inline (models.go) so it does not need
 	// the hook.
-	OnModelsChanged func(messaging.CacheInvalidateEvent)
+	OnModelsChanged        func(messaging.CacheInvalidateEvent)
+	modelRevisionLifecycle interface {
+		ApplyConfigRevisions(context.Context, []config.ModelConfigRevisionTransition) (int, error)
+	}
+}
+
+// SetModelRevisionLifecycle wires the distributed config-generation boundary
+// into gallery deletion without coupling gallery operations to node internals.
+func (g *GalleryService) SetModelRevisionLifecycle(lifecycle interface {
+	ApplyConfigRevisions(context.Context, []config.ModelConfigRevisionTransition) (int, error)
+}) {
+	g.Lock()
+	defer g.Unlock()
+	g.modelRevisionLifecycle = lifecycle
 }
 
 func NewGalleryService(appConfig *config.ApplicationConfig, ml *model.ModelLoader) *GalleryService {
@@ -235,9 +248,16 @@ func (g *GalleryService) publishCacheInvalidate(subject string, evt messaging.Ca
 // disk) or "delete" for a removal (the element must be pruned from memory,
 // which a reload-from-path cannot do because the loader is additive).
 func (g *GalleryService) BroadcastModelsChanged(element, op string) {
+	g.BroadcastModelsChangedRevision(element, op, "")
+}
+
+// BroadcastModelsChangedRevision includes the accepted semantic generation so
+// peers can apply the same registry transition idempotently.
+func (g *GalleryService) BroadcastModelsChangedRevision(element, op, configRevision string) {
 	g.publishCacheInvalidate(messaging.SubjectCacheInvalidateModels, messaging.CacheInvalidateEvent{
-		Element: element,
-		Op:      op,
+		Element:        element,
+		Op:             op,
+		ConfigRevision: configRevision,
 	})
 }
 

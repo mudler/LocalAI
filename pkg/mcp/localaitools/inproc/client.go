@@ -663,7 +663,7 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 // ---- State ----
 
 func (c *Client) ToggleModelState(ctx context.Context, name string, action modeladmin.Action) error {
-	_, err := c.modelAdmin.ToggleState(ctx, name, action, c.ModelLoader)
+	_, err := c.modelAdmin.ToggleState(ctx, name, action)
 	return err
 }
 

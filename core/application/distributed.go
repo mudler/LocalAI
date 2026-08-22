@@ -41,6 +41,7 @@ type DistributedServices struct {
 	FileStager   nodes.FileStager
 	ModelAdapter *nodes.ModelRouterAdapter
 	Unloader     *nodes.RemoteUnloaderAdapter
+	ModelCleanup *nodes.ModelCleanupService
 
 	shutdownOnce sync.Once
 }
@@ -346,9 +347,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if configLoader != nil {
 		conflictResolver = configLoader
 	}
+	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
 		Unloader:         remoteUnloader,
-		ModelCleanup:     nodes.NewModelCleanupService(registry, remoteUnloader),
+		ModelCleanup:     modelCleanup,
 		FileStager:       fileStager,
 		GalleriesJSON:    routerGalleriesJSON,
 		AuthToken:        routerAuthToken,
@@ -438,6 +440,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		FileStager:   fileStager,
 		ModelAdapter: modelAdapter,
 		Unloader:     remoteUnloader,
+		ModelCleanup: modelCleanup,
 	}, nil
 }
 

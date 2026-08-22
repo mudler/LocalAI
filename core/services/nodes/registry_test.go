@@ -1564,6 +1564,35 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(persisted.State).To(Equal("loaded"))
 		})
 
+		It("rolls back both rename identities when the second transition fails", func() {
+			ctx := context.Background()
+			node := makeNode("revision-rename-rollback", "10.0.2.15:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.AdvanceModelConfigRevision(ctx, "old-name", "rev-1")).To(BeEmpty())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "old-name", 0, "loaded", node.Address, 0, "rev-1", "hash-1")).To(Succeed())
+
+			callbackName := "test:fail-second-rename-revision"
+			Expect(db.Callback().Create().Before("gorm:create").Register(callbackName, func(tx *gorm.DB) {
+				if state, ok := tx.Statement.Dest.(*ModelConfigState); ok && state.ModelName == "new-name" {
+					tx.AddError(errors.New("injected second transition failure"))
+				}
+			})).To(Succeed())
+			DeferCleanup(func() { Expect(db.Callback().Create().Remove(callbackName)).To(Succeed()) })
+
+			quarantined, err := registry.AdvanceModelConfigRevisions(ctx, []ModelConfigRevisionTransition{
+				{ModelName: "old-name", ConfigRevision: "rev-2"},
+				{ModelName: "new-name", ConfigRevision: "rev-2"},
+			})
+			Expect(err).To(MatchError("injected second transition failure"))
+			Expect(quarantined).To(BeEmpty())
+			Expect(registry.GetModelConfigRevision(ctx, "old-name")).To(Equal("rev-1"))
+			_, err = registry.GetModelConfigRevision(ctx, "new-name")
+			Expect(err).To(MatchError(gorm.ErrRecordNotFound))
+			persisted, err := registry.GetNodeModel(ctx, node.ID, "old-name", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(persisted.State).To(Equal("loaded"))
+		})
+
 		It("excludes empty, mismatched, and unloading replicas from routing and statistics", func() {
 			ctx := context.Background()
 			matching := makeNode("revision-current", "10.0.2.11:50051", 8_000_000_000)

@@ -1244,32 +1244,56 @@ func (r *NodeRegistry) EstablishModelConfigRevision(ctx context.Context, modelNa
 	})
 }
 
+type ModelConfigRevisionTransition struct {
+	ModelName      string
+	ConfigRevision string
+}
+
 func (r *NodeRegistry) AdvanceModelConfigRevision(ctx context.Context, modelName, revision string) ([]NodeModel, error) {
-	if err := validateRevisionWrite(modelName, revision, true); err != nil {
-		return nil, err
+	return r.AdvanceModelConfigRevisions(ctx, []ModelConfigRevisionTransition{{ModelName: modelName, ConfigRevision: revision}})
+}
+
+// AdvanceModelConfigRevisions publishes one or more related configuration
+// identities in a single transaction. Renames use this boundary so the old
+// identity cannot advance when establishing the new identity fails.
+func (r *NodeRegistry) AdvanceModelConfigRevisions(ctx context.Context, transitions []ModelConfigRevisionTransition) ([]NodeModel, error) {
+	if len(transitions) == 0 {
+		return nil, errors.New("at least one model config revision transition is required")
+	}
+	for _, transition := range transitions {
+		if err := validateRevisionWrite(transition.ModelName, transition.ConfigRevision, true); err != nil {
+			return nil, err
+		}
 	}
 	var quarantined []NodeModel
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		now := time.Now()
-		state := ModelConfigState{ModelName: modelName, ConfigRevision: revision, CreatedAt: now, UpdatedAt: now}
-		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "model_name"}}, DoUpdates: clause.Assignments(map[string]any{"config_revision": revision, "updated_at": now})}).Create(&state).Error; err != nil {
-			return err
+		for _, transition := range transitions {
+			now := time.Now()
+			state := ModelConfigState{ModelName: transition.ModelName, ConfigRevision: transition.ConfigRevision, CreatedAt: now, UpdatedAt: now}
+			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "model_name"}}, DoUpdates: clause.Assignments(map[string]any{"config_revision": transition.ConfigRevision, "updated_at": now})}).Create(&state).Error; err != nil {
+				return err
+			}
+			staleReplica := "model_name = ? AND state IN ? AND (config_revision IS NULL OR config_revision = '' OR config_revision <> ?)"
+			activeStates := []string{"loaded", "loading", "staging"}
+			var transitionQuarantined []NodeModel
+			if err := tx.Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Find(&transitionQuarantined).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&NodeModel{}).Where(staleReplica, transition.ModelName, activeStates, transition.ConfigRevision).Updates(map[string]any{"state": "unloading", "cleanup_error": "", "cleanup_attempts": 0, "cleanup_next_retry_at": nil}).Error; err != nil {
+				return err
+			}
+			for i := range transitionQuarantined {
+				transitionQuarantined[i].State = "unloading"
+				transitionQuarantined[i].CleanupError = ""
+				transitionQuarantined[i].CleanupAttempts = 0
+				transitionQuarantined[i].CleanupNextRetryAt = nil
+			}
+			quarantined = append(quarantined, transitionQuarantined...)
+			if err := tx.Where("model_name = ? AND (config_revision IS NULL OR config_revision <> ?)", transition.ModelName, transition.ConfigRevision).Delete(&ModelLoadInfo{}).Error; err != nil {
+				return err
+			}
 		}
-		staleReplica := "model_name = ? AND state IN ? AND (config_revision IS NULL OR config_revision = '' OR config_revision <> ?)"
-		activeStates := []string{"loaded", "loading", "staging"}
-		if err := tx.Where(staleReplica, modelName, activeStates, revision).Find(&quarantined).Error; err != nil {
-			return err
-		}
-		if err := tx.Model(&NodeModel{}).Where(staleReplica, modelName, activeStates, revision).Updates(map[string]any{"state": "unloading", "cleanup_error": "", "cleanup_attempts": 0, "cleanup_next_retry_at": nil}).Error; err != nil {
-			return err
-		}
-		for i := range quarantined {
-			quarantined[i].State = "unloading"
-			quarantined[i].CleanupError = ""
-			quarantined[i].CleanupAttempts = 0
-			quarantined[i].CleanupNextRetryAt = nil
-		}
-		return tx.Where("model_name = ? AND (config_revision IS NULL OR config_revision <> ?)", modelName, revision).Delete(&ModelLoadInfo{}).Error
+		return nil
 	})
 	if err != nil {
 		return nil, err

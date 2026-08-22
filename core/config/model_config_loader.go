@@ -55,7 +55,18 @@ type ModelConfigLoader struct {
 	artifactMaterializer ArtifactMaterializer
 	preloadRenderMode    string
 	disablePreloadColor  bool
+	mutationMu           sync.Mutex
 	sync.Mutex
+}
+
+// WithModelConfigMutation serializes filesystem-backed configuration changes
+// and their lifecycle publication for every service sharing this loader. It is
+// deliberately separate from the loader's map lock: callbacks reload and
+// replace loader state and would deadlock if that lock were held here.
+func (bcl *ModelConfigLoader) WithModelConfigMutation(fn func() error) error {
+	bcl.mutationMu.Lock()
+	defer bcl.mutationMu.Unlock()
+	return fn()
 }
 
 func NewModelConfigLoader(modelPath string, options ...ModelConfigLoaderOption) *ModelConfigLoader {
@@ -305,6 +316,18 @@ func (bcl *ModelConfigLoader) RemoveModelConfig(m string) {
 	bcl.Lock()
 	defer bcl.Unlock()
 	delete(bcl.configs, m)
+}
+
+// ReplaceModelConfigs atomically replaces the in-memory configuration set with
+// a previously parsed snapshot.
+func (bcl *ModelConfigLoader) ReplaceModelConfigs(configs []ModelConfig) {
+	bcl.Lock()
+	defer bcl.Unlock()
+	replacement := make(map[string]ModelConfig, len(configs))
+	for _, cfg := range configs {
+		replacement[cfg.Name] = cfg
+	}
+	bcl.configs = replacement
 }
 
 // GetModelsConflictingWith returns the names of every other configured (and
@@ -629,6 +652,16 @@ func (bcl *ModelConfigLoader) MITMHostOwners() MITMHostOwnership {
 // LoadModelConfigsFromPath reads all the configurations of the models from a path
 // (non-recursive)
 func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...ConfigLoaderOption) error {
+	return bcl.loadModelConfigsFromPath(path, false, opts...)
+}
+
+// LoadModelConfigsFromPathStrict builds an authoritative snapshot and fails
+// when any visible config cannot be parsed or validated.
+func (bcl *ModelConfigLoader) LoadModelConfigsFromPathStrict(path string, opts ...ConfigLoaderOption) error {
+	return bcl.loadModelConfigsFromPath(path, true, opts...)
+}
+
+func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
 
@@ -656,6 +689,9 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 		// Read config(s) - handles both single and array formats
 		configs, err := readModelConfigsFromFile(filePath, opts...)
 		if err != nil {
+			if strict {
+				return err
+			}
 			xlog.Error("LoadModelConfigsFromPath cannot read config file", "error", err, "File Name", file.Name())
 			continue
 		}
@@ -665,6 +701,9 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 			if valid, validationErr := c.Validate(); valid {
 				bcl.configs[c.Name] = *c
 			} else {
+				if strict {
+					return fmt.Errorf("invalid model config %q: %w", c.Name, validationErr)
+				}
 				xlog.Error("config is not valid", "error", validationErr, "Name", c.Name)
 			}
 		}
