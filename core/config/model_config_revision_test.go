@@ -87,3 +87,57 @@ var _ = Describe("Model configuration revisions", func() {
 		Expect(different).NotTo(Equal(first))
 	})
 })
+
+var _ = Describe("Strict model configuration snapshots", func() {
+	write := func(dir, name, body string) {
+		Expect(os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600)).To(Succeed())
+	}
+
+	It("ignores valid catalogue and legacy gallery metadata", func() {
+		dir := GinkgoT().TempDir()
+		write(dir, "catalogue.yaml", "- name: downloadable\n  url: github:example/model.yaml\n- name: inline\n  config_file:\n    backend: llama-cpp\n")
+		write(dir, "gallery_simple.yaml", "name: legacy\nconfig_file: |\n  backend: llama-cpp\nfiles:\n- filename: model.gguf\n  uri: https://example.invalid/model.gguf\n")
+		write(dir, "installed.yaml", "name: installed\nbackend: llama-cpp\n")
+
+		loader := config.NewModelConfigLoader(dir)
+		galleryFiles := config.LoadOptionGalleryFiles(
+			config.Gallery{URL: "file://" + filepath.Join(dir, "catalogue.yaml")},
+			config.Gallery{URL: "file://" + filepath.Join(dir, "gallery_simple.yaml")},
+		)
+		Expect(loader.LoadModelConfigsFromPathStrict(dir, galleryFiles)).To(Succeed())
+		_, found := loader.GetModelConfig("installed")
+		Expect(found).To(BeTrue())
+		_, found = loader.GetModelConfig("downloadable")
+		Expect(found).To(BeFalse())
+		_, found = loader.GetModelConfig("legacy")
+		Expect(found).To(BeFalse())
+	})
+
+	DescribeTable("rejects malformed gallery-looking documents",
+		func(body, message string) {
+			dir := GinkgoT().TempDir()
+			write(dir, "broken.yaml", body)
+			loader := config.NewModelConfigLoader(dir)
+			galleryFile := config.LoadOptionGalleryFiles(config.Gallery{URL: "file://" + filepath.Join(dir, "broken.yaml")})
+			Expect(loader.LoadModelConfigsFromPathStrict(dir, galleryFile)).To(MatchError(ContainSubstring(message)))
+		},
+		Entry("invalid variants", "- name: broken\n  variants: []\n", "variants must be a non-empty sequence"),
+		Entry("malformed payload type", "- name: broken\n  files: nope\n", "files must be a sequence"),
+		Entry("mixed runtime and gallery fields", "- name: broken\n  backend: llama-cpp\n  url: github:example/model.yaml\n", `field "backend" is not gallery metadata`),
+		Entry("malformed legacy config", "name: broken\nconfig_file: [not, yaml]\n", "config_file must be a non-empty YAML string"),
+	)
+
+	It("still rejects invalid runtime configuration sequences", func() {
+		dir := GinkgoT().TempDir()
+		write(dir, "broken.yaml", "- name: broken\n  backend: [\n")
+		loader := config.NewModelConfigLoader(dir)
+		Expect(loader.LoadModelConfigsFromPathStrict(dir)).To(MatchError(ContainSubstring("cannot unmarshal config file")))
+	})
+
+	It("does not skip a valid gallery-shaped document without configured provenance", func() {
+		dir := GinkgoT().TempDir()
+		write(dir, "runtime.yaml", "- name: ambiguous\n  overrides:\n    backend: llama-cpp\n")
+		loader := config.NewModelConfigLoader(dir)
+		Expect(loader.LoadModelConfigsFromPathStrict(dir)).ToNot(Succeed())
+	})
+})

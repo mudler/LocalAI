@@ -1550,7 +1550,7 @@ var _ = Describe("NodeRegistry", func() {
 			callbackName := "test:fail-model-load-info-delete"
 			Expect(db.Callback().Delete().Before("gorm:delete").Register(callbackName, func(tx *gorm.DB) {
 				if tx.Statement.Table == "model_load_infos" {
-					tx.AddError(errors.New("injected delete failure"))
+					_ = tx.AddError(errors.New("injected delete failure"))
 				}
 			})).To(Succeed())
 			DeferCleanup(func() { Expect(db.Callback().Delete().Remove(callbackName)).To(Succeed()) })
@@ -1574,7 +1574,7 @@ var _ = Describe("NodeRegistry", func() {
 			callbackName := "test:fail-second-rename-revision"
 			Expect(db.Callback().Create().Before("gorm:create").Register(callbackName, func(tx *gorm.DB) {
 				if state, ok := tx.Statement.Dest.(*ModelConfigState); ok && state.ModelName == "new-name" {
-					tx.AddError(errors.New("injected second transition failure"))
+					_ = tx.AddError(errors.New("injected second transition failure"))
 				}
 			})).To(Succeed())
 			DeferCleanup(func() { Expect(db.Callback().Create().Remove(callbackName)).To(Succeed()) })

@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/LocalAI/pkg/safefile"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
@@ -242,16 +243,11 @@ func snapshotModelConfigFiles(dir string) (*modelConfigFilesSnapshot, error) {
 		if entry.IsDir() || !isModelConfigMetadata(entry.Name()) {
 			continue
 		}
-		path := filepath.Join(dir, entry.Name())
-		info, err := entry.Info()
+		data, mode, err := safefile.ReadRegularAt(dir, entry.Name())
 		if err != nil {
 			return nil, fmt.Errorf("snapshot model configuration metadata %q: %w", entry.Name(), err)
 		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("snapshot model configuration metadata %q: %w", entry.Name(), err)
-		}
-		snapshot.files[entry.Name()] = savedModelConfigFile{data: data, mode: info.Mode().Perm()}
+		snapshot.files[entry.Name()] = savedModelConfigFile{data: data, mode: mode}
 	}
 	return snapshot, nil
 }
@@ -261,6 +257,7 @@ func (s *modelConfigFilesSnapshot) restore() error {
 	if err != nil {
 		return err
 	}
+	var restoreErr error
 	for _, entry := range entries {
 		if entry.IsDir() || !isModelConfigMetadata(entry.Name()) {
 			continue
@@ -269,15 +266,15 @@ func (s *modelConfigFilesSnapshot) restore() error {
 			continue
 		}
 		if err := os.Remove(filepath.Join(s.dir, entry.Name())); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
+			restoreErr = errors.Join(restoreErr, err)
 		}
 	}
 	for name, file := range s.files {
 		if err := writeRestoredConfigFile(filepath.Join(s.dir, name), file.data, file.mode); err != nil {
-			return err
+			restoreErr = errors.Join(restoreErr, err)
 		}
 	}
-	return nil
+	return restoreErr
 }
 
 func writeRestoredConfigFile(path string, data []byte, mode os.FileMode) error {
@@ -286,13 +283,13 @@ func writeRestoredConfigFile(path string, data []byte, mode os.FileMode) error {
 		return err
 	}
 	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 	if err := tmp.Chmod(mode); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return err
 	}
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return err
 	}
 	if err := tmp.Close(); err != nil {

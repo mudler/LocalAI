@@ -4,6 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/mudler/LocalAI/pkg/safefile"
 )
 
 type savedMutationFile struct {
@@ -22,12 +26,14 @@ func (s *ConfigService) withMutationRollback(paths []string, mutate func() error
 			continue
 		}
 		seen[path] = struct{}{}
+		name, err := directMutationEntry(s.modelsPath(), path)
+		if err != nil {
+			return fmt.Errorf("snapshot config mutation: %w", err)
+		}
 		file := savedMutationFile{path: path}
-		info, err := os.Stat(path)
+		file.data, file.mode, err = safefile.ReadRegularAt(s.modelsPath(), name)
 		if err == nil {
 			file.exists = true
-			file.mode = info.Mode().Perm()
-			file.data, err = os.ReadFile(path)
 		}
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("snapshot config mutation: %w", err)
@@ -51,4 +57,20 @@ func (s *ConfigService) withMutationRollback(paths []string, mutate func() error
 		return err
 	}
 	return nil
+}
+
+func directMutationEntry(modelsPath, path string) (string, error) {
+	root, err := filepath.Abs(modelsPath)
+	if err != nil {
+		return "", err
+	}
+	candidate, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, candidate)
+	if err != nil || rel == "." || rel == ".." || filepath.IsAbs(rel) || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.Dir(candidate) != root {
+		return "", fmt.Errorf("config path %q is not a direct entry of the configured models directory", path)
+	}
+	return filepath.Base(candidate), nil
 }

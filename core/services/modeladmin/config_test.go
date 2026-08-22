@@ -80,6 +80,38 @@ var _ = Describe("ConfigService", func() {
 		ctx = context.Background()
 	})
 
+	It("rejects a symlink when snapshotting a mutation", func() {
+		target := filepath.Join(dir, "target.yaml")
+		Expect(os.WriteFile(target, []byte("name: target\n"), 0o600)).To(Succeed())
+		link := filepath.Join(dir, "link.yaml")
+		Expect(os.Symlink(target, link)).To(Succeed())
+
+		called := false
+		Expect(svc.withMutationRollback([]string{link}, func() error {
+			called = true
+			return nil
+		})).ToNot(Succeed())
+		Expect(called).To(BeFalse())
+	})
+
+	It("removes a symlink created at a previously absent rollback destination", func() {
+		target := filepath.Join(dir, "target.yaml")
+		Expect(os.WriteFile(target, []byte("unchanged"), 0o600)).To(Succeed())
+		destination := filepath.Join(dir, "new.yaml")
+		mutationErr := errors.New("mutation failed")
+
+		err := svc.withMutationRollback([]string{destination}, func() error {
+			Expect(os.Symlink(target, destination)).To(Succeed())
+			return mutationErr
+		})
+		Expect(err).To(MatchError(mutationErr))
+		_, statErr := os.Lstat(destination)
+		Expect(statErr).To(MatchError(os.ErrNotExist))
+		data, readErr := os.ReadFile(target)
+		Expect(readErr).NotTo(HaveOccurred())
+		Expect(data).To(Equal([]byte("unchanged")))
+	})
+
 	Describe("GetConfig", func() {
 		It("round-trips YAML from disk and exposes the parsed JSON", func() {
 			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
