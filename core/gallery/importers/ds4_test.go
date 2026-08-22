@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	. "github.com/mudler/LocalAI/core/gallery/importers"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -64,6 +65,72 @@ var _ = Describe("DS4Importer", func() {
 			Expect(strings.Contains(cfg.ConfigFile, "backend: ds4")).To(BeTrue(),
 				"ConfigFile must specify backend: ds4, got: %s", cfg.ConfigFile)
 			Expect(strings.Contains(cfg.ConfigFile, "use_tokenizer_template: true")).To(BeTrue())
+		})
+
+		It("preserves an explicit GGUF URI with a query string", func() {
+			uri := "https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/DeepSeek-V4-Flash-UD-IQ3_XXS.gguf?download=true"
+
+			cfg, err := importer.Import(Details{URI: uri})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cfg.Files).To(HaveLen(1))
+			Expect(cfg.Files[0].URI).To(Equal(uri))
+		})
+
+		It("selects the highest-priority requested quantization from a repository", func() {
+			details := Details{
+				URI:         "huggingface://antirez/deepseek-v4-gguf",
+				Preferences: json.RawMessage(`{"quantizations":"UD-IQ3_XXS,IQ2_XXS"}`),
+				HuggingFace: &hfapi.ModelDetails{Files: []hfapi.ModelFile{
+					{Path: "DeepSeek-V4-Flash-IQ2_XXS.gguf", URL: "https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/DeepSeek-V4-Flash-IQ2_XXS.gguf"},
+					{Path: "DeepSeek-V4-Flash-UD-IQ3_XXS.gguf", URL: "https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/DeepSeek-V4-Flash-UD-IQ3_XXS.gguf"},
+				}},
+			}
+
+			cfg, err := importer.Import(details)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cfg.Files).To(HaveLen(1))
+			Expect(cfg.Files[0].URI).To(Equal("https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/DeepSeek-V4-Flash-UD-IQ3_XXS.gguf"))
+		})
+
+		It("falls back to the last compatible GGUF when requested quantizations do not match", func() {
+			details := Details{
+				URI:         "huggingface://antirez/deepseek-v4-gguf",
+				Preferences: json.RawMessage(`{"quantizations":"F16"}`),
+				HuggingFace: &hfapi.ModelDetails{Files: []hfapi.ModelFile{
+					{Path: "DeepSeek-V4-Flash-BF16.gguf", URL: "https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/DeepSeek-V4-Flash-BF16.gguf"},
+					{Path: "README.md", URL: "https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/README.md"},
+					{Path: "DeepSeek-V4-Flash-Q8_0.gguf", URL: "https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/DeepSeek-V4-Flash-Q8_0.gguf"},
+				}},
+			}
+
+			cfg, err := importer.Import(details)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cfg.Files).To(HaveLen(1))
+			Expect(cfg.Files[0].URI).To(Equal("https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/DeepSeek-V4-Flash-Q8_0.gguf"))
+		})
+
+		It("rejects a repository URI when no HuggingFace file metadata is available", func() {
+			_, err := importer.Import(Details{URI: "huggingface://antirez/deepseek-v4-gguf"})
+
+			Expect(err).To(MatchError(ContainSubstring("compatible GGUF")))
+		})
+
+		It("rejects repository metadata without a compatible GGUF", func() {
+			details := Details{
+				URI: "huggingface://antirez/deepseek-v4-gguf",
+				HuggingFace: &hfapi.ModelDetails{Files: []hfapi.ModelFile{
+					{Path: "README.md", URL: "https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/README.md"},
+					{Path: "unrelated.gguf", URL: "https://huggingface.co/antirez/deepseek-v4-gguf/resolve/main/unrelated.gguf"},
+				}},
+			}
+
+			cfg, err := importer.Import(details)
+
+			Expect(err).To(MatchError(ContainSubstring("compatible GGUF")))
+			Expect(cfg.Files).To(BeEmpty())
 		})
 	})
 })
