@@ -72,6 +72,8 @@ See the performance section of the runtime errors reference: {{% relref "referen
 
 Yes! If the client uses OpenAI and supports setting a different base URL to send requests to, you can use the LocalAI endpoint. This allows to use this with every application that was supposed to work with OpenAI, but without changing the application!
 
+> **Tip:** Many clients read the endpoint from the `OPENAI_BASE_URL` environment variable (older ones use `OPENAI_API_BASE`), so pointing an existing app at LocalAI is often just `OPENAI_BASE_URL=http://localhost:8080/v1`. Clients that insist on a non-empty API key accept any placeholder value, unless you have configured `api_keys`.
+
 ### Can this leverage GPUs? 
 
 There is GPU support, see {{%relref "features/GPU-acceleration" %}}.
