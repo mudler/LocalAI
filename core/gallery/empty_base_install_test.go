@@ -236,8 +236,8 @@ var _ = Describe("InstallModelFromGallery with an empty base config", func() {
 		Expect(install(e.Name, gallery.GalleryModel{})).To(Succeed())
 		cfg := installedConfig(e.Name)
 		Expect(cfg["name"]).To(Equal(e.Name))
-		// The catalog's own overrides, verbatim, laid over the empty base.
-		Expect(cfg["parameters"]).To(Equal(e.Overrides["parameters"]))
+		// The catalog's model override survives inference-default enrichment.
+		Expect(cfg["parameters"]).To(HaveKeyWithValue("model", "LiquidAI_LFM2-1.2B-RAG-Q4_K_M.gguf"))
 		Expect(cfg["known_usecases"]).To(Equal(e.Overrides["known_usecases"]))
 	})
 })
