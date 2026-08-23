@@ -1089,33 +1089,43 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// If freeSlotNodes is empty (everyone full), candidateNodeIDs is whatever
 	// it was — we'll fall through to eviction below.
 
-	var node *BackendNode
-
-	if estimatedVRAM > 0 {
-		if candidateNodeIDs != nil {
-			node, err = r.registry.FindNodeWithVRAMFromSet(ctx, estimatedVRAM, candidateNodeIDs)
-		} else {
-			node, err = r.registry.FindNodeWithVRAM(ctx, estimatedVRAM)
-		}
-		if err != nil {
-			xlog.Warn("No nodes with enough VRAM, falling back to standard scheduling",
-				"required_vram", vram.FormatBytes(estimatedVRAM), "error", err)
-		}
-	}
-
-	if node == nil {
-		if candidateNodeIDs != nil {
-			node, err = r.registry.FindIdleNodeFromSet(ctx, candidateNodeIDs)
-			if err != nil {
-				node, err = r.registry.FindLeastLoadedNodeFromSet(ctx, candidateNodeIDs)
+	// Node choice is wrapped in a liveness check: a node's stored status comes
+	// from its HTTP heartbeat, which is a different channel from the bus that
+	// carries the install. A worker that has died stops answering on the bus at
+	// once but stays healthy in the database until its heartbeat ages out, so
+	// without this the scheduler could commit to a node it cannot reach.
+	selectNode := func() *BackendNode {
+		var candidate *BackendNode
+		var selErr error
+		if estimatedVRAM > 0 {
+			if candidateNodeIDs != nil {
+				candidate, selErr = r.registry.FindNodeWithVRAMFromSet(ctx, estimatedVRAM, candidateNodeIDs)
+			} else {
+				candidate, selErr = r.registry.FindNodeWithVRAM(ctx, estimatedVRAM)
 			}
-		} else {
-			node, err = r.registry.FindIdleNode(ctx)
-			if err != nil {
-				node, err = r.registry.FindLeastLoadedNode(ctx)
+			if selErr != nil {
+				xlog.Warn("No nodes with enough VRAM, falling back to standard scheduling",
+					"required_vram", vram.FormatBytes(estimatedVRAM), "error", selErr)
 			}
 		}
+
+		if candidate == nil {
+			if candidateNodeIDs != nil {
+				candidate, selErr = r.registry.FindIdleNodeFromSet(ctx, candidateNodeIDs)
+				if selErr != nil {
+					candidate, _ = r.registry.FindLeastLoadedNodeFromSet(ctx, candidateNodeIDs)
+				}
+			} else {
+				candidate, selErr = r.registry.FindIdleNode(ctx)
+				if selErr != nil {
+					candidate, _ = r.registry.FindLeastLoadedNode(ctx)
+				}
+			}
+		}
+		return candidate
 	}
+
+	node := r.pickReachableNode(ctx, selectNode)
 
 	// 4. Preemptive eviction: if no suitable node found, evict the LRU model with zero in-flight
 	if node == nil {

@@ -60,6 +60,7 @@ type ModelRouter interface {
 	GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error)
 	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
 	LoadedReplicaStats(ctx context.Context, modelName string, candidateNodeIDs []string) ([]ReplicaCandidate, error)
+	MarkUnhealthy(ctx context.Context, nodeID string) error
 	LoadJobStore
 }
 

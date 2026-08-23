@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/nats-io/nats.go"
 	ggrpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
@@ -61,6 +62,10 @@ func (f *fakeFileStager) ListRemoteDir(_ context.Context, _, _ string) ([]string
 
 // fakeModelRouter implements ModelRouter with configurable return values.
 type fakeModelRouter struct {
+	// markedUnhealthy records nodes demoted by the scheduler's liveness check.
+	markedUnhealthy  []string
+	markUnhealthyErr error
+
 	fakeLoadJobStore
 
 	// FindAndLockNodeWithModel returns
@@ -474,7 +479,15 @@ type fakeUnloader struct {
 	stopCalls   []string // "nodeID:model"
 	stopErr     error
 	unloadCalls []string
-	unloadErr   error
+
+	// deadNodes names the nodes PingNode reports as absent from the bus, and
+	// pingCalls records every node it was asked about, in order.
+	deadNodes map[string]bool
+	pingCalls []string
+	// pingErr is returned for nodes not in deadNodes, so a spec can model a
+	// node that is reachable but answering badly.
+	pingErr   error
+	unloadErr error
 }
 
 // installCall captures the args we care about when asserting that the
@@ -530,6 +543,22 @@ func (f *fakeUnloader) StopBackend(nodeID, backend string) error {
 func (f *fakeUnloader) UnloadModelOnNode(nodeID, modelName string) error {
 	f.unloadCalls = append(f.unloadCalls, nodeID+":"+modelName)
 	return f.unloadErr
+}
+
+func (f *fakeModelRouter) MarkUnhealthy(_ context.Context, nodeID string) error {
+	f.markedUnhealthy = append(f.markedUnhealthy, nodeID)
+	return f.markUnhealthyErr
+}
+
+func (f *fakeUnloader) PingNode(nodeID string) error {
+	f.mu.Lock()
+	f.pingCalls = append(f.pingCalls, nodeID)
+	dead := f.deadNodes[nodeID]
+	f.mu.Unlock()
+	if dead {
+		return nats.ErrNoResponders
+	}
+	return f.pingErr
 }
 
 // ---------------------------------------------------------------------------

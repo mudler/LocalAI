@@ -36,6 +36,10 @@ type NodeCommandSender interface {
 	ListBackends(nodeID string) (*messaging.BackendListReply, error)
 	StopBackend(nodeID, backend string) error
 	UnloadModelOnNode(nodeID, modelName string) error
+	// PingNode reports whether the node is still subscribed on the bus. It
+	// returns nats.ErrNoResponders when nothing answers for the node, which is
+	// the only condition callers may read as "this node cannot be given work".
+	PingNode(nodeID string) error
 }
 
 // RemoteUnloaderAdapter implements NodeCommandSender and model.RemoteModelUnloader
@@ -358,6 +362,27 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 	xlog.Debug("Sending NATS backend.list", "nodeID", nodeID)
 
 	return messaging.RequestJSON[messaging.BackendListRequest, messaging.BackendListReply](a.nats, subject, messaging.BackendListRequest{}, 30*time.Second)
+}
+
+// PingNode checks that a worker still has a live subscription on the bus.
+//
+// A node's status in the database comes from its HTTP heartbeat, which is a
+// separate channel from NATS. A worker that has died stops answering on NATS
+// at once but keeps its healthy status until the heartbeat ages out, so the
+// scheduler could pick a node that could not be given work and the request
+// failed with "no responders available".
+//
+// It reuses the models.running subject rather than a dedicated ping subject on
+// purpose: a new subject would go unanswered by any worker that has not been
+// upgraded yet, and this check would then report every one of them as dead.
+// The worker answers out of its in-memory process table, so a live node
+// replies immediately, and NATS reports no-responders without waiting out the
+// timeout.
+func (a *RemoteUnloaderAdapter) PingNode(nodeID string) error {
+	subject := messaging.SubjectNodeModelsRunning(nodeID)
+	_, err := messaging.RequestJSON[messaging.ModelsRunningRequest, messaging.ModelsRunningReply](
+		a.nats, subject, messaging.ModelsRunningRequest{}, 5*time.Second)
+	return err
 }
 
 // ListRunningModels asks a worker node which model backend processes it

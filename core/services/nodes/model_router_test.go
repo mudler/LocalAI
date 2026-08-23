@@ -250,3 +250,7 @@ var _ = Describe("ModelRouterAdapter", func() {
 		})
 	})
 })
+
+func (f *fakeModelRouterForSmartRouter) MarkUnhealthy(_ context.Context, _ string) error {
+	return nil
+}
