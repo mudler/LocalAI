@@ -33,14 +33,18 @@ func (r *failingReader) Read(p []byte) (int, error) {
 
 // fakeLayer is a minimal v1.Layer whose Compressed() fails failUntil times with
 // err (after emitting a partial prefix) before finally returning data in full.
+// The failing attempts emit prefix when set, or placeholder garbage otherwise.
+// digest, when set, is what Digest() reports.
 type fakeLayer struct {
 	data      []byte
+	prefix    []byte
+	digest    v1.Hash
 	failUntil int
 	err       error
 	calls     int
 }
 
-func (f *fakeLayer) Digest() (v1.Hash, error)            { return v1.Hash{}, nil }
+func (f *fakeLayer) Digest() (v1.Hash, error)            { return f.digest, nil }
 func (f *fakeLayer) DiffID() (v1.Hash, error)            { return v1.Hash{}, nil }
 func (f *fakeLayer) Size() (int64, error)                { return int64(len(f.data)), nil }
 func (f *fakeLayer) MediaType() (types.MediaType, error) { return types.DockerLayer, nil }
@@ -51,7 +55,11 @@ func (f *fakeLayer) Uncompressed() (io.ReadCloser, error) {
 func (f *fakeLayer) Compressed() (io.ReadCloser, error) {
 	f.calls++
 	if f.calls <= f.failUntil {
-		return io.NopCloser(&failingReader{prefix: []byte("partial-garbage"), err: f.err}), nil
+		prefix := f.prefix
+		if prefix == nil {
+			prefix = []byte("partial-garbage")
+		}
+		return io.NopCloser(&failingReader{prefix: prefix, err: f.err}), nil
 	}
 	return io.NopCloser(bytes.NewReader(f.data)), nil
 }
@@ -86,7 +94,7 @@ var _ = Describe("downloadLayerToFile", func() {
 			err:       io.ErrUnexpectedEOF,
 		}
 
-		err := downloadLayerToFile(context.Background(), layer, dst, nil)
+		err := downloadLayerToFile(context.Background(), layer, dst, nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(layer.calls).To(Equal(3))
 
@@ -104,7 +112,7 @@ var _ = Describe("downloadLayerToFile", func() {
 			err:       errors.New("permission denied"),
 		}
 
-		err := downloadLayerToFile(context.Background(), layer, dst, nil)
+		err := downloadLayerToFile(context.Background(), layer, dst, nil, nil)
 		Expect(err).To(HaveOccurred())
 		Expect(layer.calls).To(Equal(1))
 	})
@@ -116,7 +124,7 @@ var _ = Describe("downloadLayerToFile", func() {
 			err:       io.ErrUnexpectedEOF,
 		}
 
-		err := downloadLayerToFile(context.Background(), layer, dst, nil)
+		err := downloadLayerToFile(context.Background(), layer, dst, nil, nil)
 		Expect(err).To(MatchError(io.ErrUnexpectedEOF))
 		Expect(layer.calls).To(Equal(layerDownloadRetries + 1))
 	})
