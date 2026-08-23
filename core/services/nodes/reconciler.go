@@ -278,8 +278,9 @@ func (rc *ReplicaReconciler) reconcileOnce(ctx context.Context) {
 
 // reconcileState runs the state-reconciliation passes: drain pending backend
 // ops for freshly-healthy nodes, reconcile registry rows against what workers
-// report they are running, then port-probe whatever is left. All passes are
-// best-effort: a failure on one node doesn't stop the rest.
+// report they are running, port-probe whatever is left, then reclaim replica
+// slots held by loads nobody is driving. All passes are best-effort: a failure
+// on one node doesn't stop the rest.
 //
 // Order matters. The worker pass runs first and refreshes updated_at for every
 // model a worker vouches for, which takes those rows out of the port prober's
@@ -292,6 +293,9 @@ func (rc *ReplicaReconciler) reconcileState(ctx context.Context) {
 	rc.reconcileNodeProcesses(ctx)
 	rc.probeLoadedModels(ctx)
 	rc.sweepLeakedInFlight(ctx)
+	// Runs last: the passes above can move a row into a serving state, and a
+	// row that just became loaded is no longer this sweeper's business.
+	rc.reclaimAbandonedLoads(ctx)
 }
 
 // drainPendingBackendOps retries queued backend ops whose next_retry_at has

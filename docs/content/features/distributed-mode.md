@@ -1020,6 +1020,12 @@ Notes:
 - Upgrade the worker when it does not support the exact model-stop request.
 - Stop and restart the stale backend only as an operational recovery action. LocalAI keeps it non-routable while durable cleanup is pending.
 
+**A model cannot be scheduled on a node that looks free (`no replica slot ... all models busy, cannot evict`):**
+- A replica row in `staging` or `loading` holds its slot: slot allocation counts every state except `unloading`. If a worker drops out mid-transfer, that row never reaches `loaded`, and eviction only ever considers `loaded` replicas, so on a node with one replica slot per model the model became unschedulable there.
+- The reconciler now reclaims a replica row stuck before serving when no load job is still driving it, and the freed slot is immediately reusable.
+- Liveness is decided by the load job's progress heartbeat, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer that is still progressing is never reclaimed however long it takes.
+- `Reconciler: reclaimed a replica slot held by a load nobody is driving` names each row reclaimed this way.
+
 **A request fails with `nats: no responders available for request`:**
 - The chosen worker was not subscribed on the bus when the frontend tried to install the backend on it. A node's status comes from its HTTP heartbeat, which is a separate channel: a worker that stops stays `healthy` until that heartbeat ages out.
 - The scheduler now checks that a node still answers on the bus before it commits to it, marks one that does not as unhealthy, and picks another. A request should therefore see this only when no reachable node is left.
