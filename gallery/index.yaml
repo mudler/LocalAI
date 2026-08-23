@@ -1,4 +1,57 @@
 ---
+- name: "qwen3.8-9b-distill"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/empero-ai/Qwen3.8-9B-Distill-GGUF
+  description: |
+    # Qwen3.8-9B
+
+    **Developed by Empero**
+
+    > [!Note]
+    > This repository contains model weights and configuration files in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, and other standard runtimes with Qwen3.5 architecture support.
+
+    **Qwen3.8-9B** is a full-parameter distillation of **Qwen3.8 2.4T A95B** into the Qwen3.5-9B architecture. The student was trained on **~70,000 curated teacher traces** from our internal Qwen3.8 distillation datasets — dense chain-of-thought spanning mathematics, code, general reasoning, instruction following, and tool use, quality-filtered before training.
+
+    The objective: bring the reasoning behavior of a frontier-scale teacher into a dense 9B that deploys on a single GPU.
+
+    ## Highlights
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-9B-Q4_K_M/Qwen3.8-9B-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-9B-Q4_K_M/Qwen3.8-9B-Q4_K_M.gguf
+      sha256: df13d66021cef676f82be74053220fd75af6bf2a6a7fb77f5222ab9e50744a7a
+      uri: https://huggingface.co/empero-ai/Qwen3.8-9B-Distill-GGUF/resolve/main/Qwen3.8-9B-Q4_K_M.gguf
 - name: "huihui-qwen3.8-27b-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
