@@ -24,10 +24,17 @@ import (
 
 // Config represents the launcher configuration
 type Config struct {
-	ModelsPath      string            `json:"models_path"`
-	BackendsPath    string            `json:"backends_path"`
-	Address         string            `json:"address"`
-	AutoStart       bool              `json:"auto_start"`
+	ModelsPath   string `json:"models_path"`
+	BackendsPath string `json:"backends_path"`
+	Address      string `json:"address"`
+	// AutoStart controls whether the launcher starts the LocalAI server as
+	// soon as the launcher itself opens (and right after a fresh install).
+	// Unset means enabled: launching the app must yield a serving endpoint,
+	// which is what the quickstart docs promise. The JSON key is deliberately
+	// not the legacy "auto_start": that field was never honored nor exposed
+	// in any UI, so every existing launcher.json carries an unintentional
+	// false that would keep auto-start permanently off (#11673).
+	AutoStart       *bool             `json:"auto_start_server"`
 	StartOnBoot     bool              `json:"start_on_boot"`
 	LogLevel        string            `json:"log_level"`
 	EnvironmentVars map[string]string `json:"environment_vars"`
@@ -122,9 +129,6 @@ func (l *Launcher) Initialize() error {
 		log.Printf("Warning: failed to cleanup partial downloads: %v", err)
 	}
 
-	if l.config.StartOnBoot {
-		l.StartLocalAI()
-	}
 	// Set default paths if not configured (only if not already loaded from config)
 	if l.config.ModelsPath == "" {
 		homeDir, _ := os.UserHomeDir()
@@ -156,6 +160,12 @@ func (l *Launcher) Initialize() error {
 		log.Printf("Setting default ShowWelcome: true")
 	}
 
+	if l.config.AutoStart == nil {
+		enabled := true
+		l.config.AutoStart = &enabled
+		log.Printf("Setting default AutoStart: true")
+	}
+
 	// Create directories
 	os.MkdirAll(l.config.ModelsPath, 0755)
 	os.MkdirAll(l.config.BackendsPath, 0755)
@@ -177,12 +187,46 @@ func (l *Launcher) Initialize() error {
 				l.showDownloadLocalAIDialog()
 			}
 		})
+	} else if l.ShouldAutoStartServer() {
+		// The launcher is a tray-only app: without this the user launches it,
+		// sees no window and no server, and concludes it does nothing (#11673).
+		log.Printf("Auto-starting LocalAI server")
+		l.autoStartServer()
 	}
 
 	// Check for updates periodically
 	go l.periodicUpdateCheck()
 
 	return nil
+}
+
+// ShouldAutoStartServer reports whether the launcher should start the server
+// without user interaction: at launcher startup and right after a fresh
+// install. Defaults to enabled; StartOnBoot forces a start even when
+// auto-start was explicitly disabled, preserving its historical behavior.
+func (l *Launcher) ShouldAutoStartServer() bool {
+	if l.config == nil {
+		return false
+	}
+	if l.config.StartOnBoot {
+		return true
+	}
+	return l.config.AutoStart == nil || *l.config.AutoStart
+}
+
+// autoStartServer starts LocalAI in the background and surfaces failures
+// through the systray error dialog: during an auto-start there is no visible
+// window for a regular error dialog to attach to.
+func (l *Launcher) autoStartServer() {
+	go func() {
+		if err := l.StartLocalAI(); err != nil {
+			log.Printf("Failed to auto-start LocalAI: %v", err)
+			l.updateStatus(fmt.Sprintf("Failed to start LocalAI: %v", err))
+			if l.systray != nil {
+				l.systray.showStartupErrorDialog(err)
+			}
+		}
+	}()
 }
 
 // StartLocalAI starts the LocalAI server
@@ -644,13 +688,21 @@ func (l *Launcher) showDownloadError(title, message string) {
 // after a fresh install (no LocalAI binary present yet).
 func (l *Launcher) showDownloadProgress(version, title string) {
 	l.showDownloadProgressWindow(version, title, func(win fyne.Window) {
-		dialog.ShowConfirm("Installation Complete",
-			"LocalAI has been downloaded and installed successfully. You can now start LocalAI from the launcher.",
+		message := "LocalAI has been downloaded and installed successfully. You can now start LocalAI from the launcher."
+		if l.ShouldAutoStartServer() {
+			message = "LocalAI has been downloaded and installed successfully. It will start now: manage it and open the WebUI from the system tray icon."
+		}
+		dialog.ShowConfirm("Installation Complete", message,
 			func(bool) {
 				win.Close()
 				l.updateStatus("LocalAI installed successfully")
 				if l.systray != nil {
 					l.systray.recreateMenu()
+				}
+				// A fresh install should end with a running server, not with
+				// the user hunting for a start button in the tray (#11673).
+				if l.ShouldAutoStartServer() && !l.isRunning {
+					l.autoStartServer()
 				}
 			}, win)
 	})
