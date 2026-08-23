@@ -1,4 +1,63 @@
 ---
+- name: "qwen3.8-27b-abliterated"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Blackfrost-AI/Qwen3.8-27B-ABLITERATED-GGUF
+  description: |
+    Qwen3.8-27B — Blackfrost BF16
+
+    Weight-level de-risked Qwen3.8-27B · native BF16 · vision, reasoning, tools, and long context retained
+
+    Built by Blackfrost
+
+    > ### Take notice
+    > This is a Blackfrost weight-level research checkpoint with a deliberately reduced refusal surface. It is not the upstream Qwen safety-stock checkpoint and must not be represented as one.
+    >
+    > This repository is a **public, ungated research preview**. It is **not for sale**. Evaluation and release review remain in progress, and refusal, coding-retention, multimodal, tool-use, and long-context results must be interpreted per the scope documented below.
+
+    ## Why this model exists
+
+    Qwen3.8-27B is the dense, deployment-friendly member of the Qwen3.8 family. This checkpoint is the BF16 master for Blackfrost's research into reducing false-positive refusals in lawful, operator-controlled software engineering and security work while retaining the model's general capabilities.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - multimodal
+    - reasoning
+  icon: https://cdn-uploads.huggingface.co/production/uploads/69a27f2d114e4ac9de4dafc7/xDTdhLFXmKlZOazFcvJ5S.jpeg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.8-27B-ABLITERATED-Q4_K_M/mmproj-Qwen3.8-27B-ABLITERATED-Q8_0.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-27B-ABLITERATED-Q4_K_M/Qwen3.8-27B-ABLITERATED-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-27B-ABLITERATED-Q4_K_M/Qwen3.8-27B-ABLITERATED-Q4_K_M.gguf
+      sha256: 5d53637a59cfcd3a4d8354e254ffd44943e5a693da2405a3e228c62962355509
+      uri: https://huggingface.co/Blackfrost-AI/Qwen3.8-27B-ABLITERATED-GGUF/resolve/main/Qwen3.8-27B-ABLITERATED-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.8-27B-ABLITERATED-Q4_K_M/mmproj-Qwen3.8-27B-ABLITERATED-Q8_0.gguf
+      sha256: 6b8b9c95513e0798f4d48f467bced39491da62f418249bfb7ef12a857d15e5be
+      uri: https://huggingface.co/Blackfrost-AI/Qwen3.8-27B-ABLITERATED-GGUF/resolve/main/mmproj-Qwen3.8-27B-ABLITERATED-Q8_0.gguf
 - name: "huihui-qwen3.8-27b-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
