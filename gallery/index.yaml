@@ -4865,7 +4865,9 @@
     - gpu
   icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/2b08LKpev0DNEk6DlnWkY.png
   variants:
+    - model: lfm2.5-2.6b-dspark
     - model: lfm2.5-2.6b-q8
+    - model: lfm2.5-2.6b-q8-dspark
   overrides:
     backend: llama-cpp
     context_size: 131072
@@ -4921,6 +4923,105 @@
     - filename: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q8_0.gguf
       uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-Q8_0.gguf
       sha256: 1e22128dfa128bdfb684da167e74e072d0a056baa7d06d9f280291e2839b0fc9
+- !!merge <<: *lfm2-5-2-6b
+  name: "lfm2.5-2.6b-dspark"
+  description: |
+    LFM2.5-2.6B with LiquidAI's DSpark speculative drafter. This build pairs
+    the Q4_K_M target with the compact Q4_K_M draft sidecar for lower-memory
+    hosts. DSpark proposes blocks of tokens that the target model verifies,
+    which preserves the target model's output while accelerating generation.
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+    - dspark
+  variants: null
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B-DSpark-GGUF
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    draft_model: llama-cpp/models/LFM2.5-2.6B-DSpark-GGUF/LFM2.5-2.6B-DSpark-Q4_K_M.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:10
+      - spec_n_min:0
+    parameters:
+      model: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q4_K_M.gguf
+      repeat_penalty: 1.1
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q4_K_M.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-Q4_K_M.gguf
+      sha256: 02a8b7e17487d326e46d68ce0ba24211e1b80a14c4cd0597fa73c1cd697f52ed
+    - filename: llama-cpp/models/LFM2.5-2.6B-DSpark-GGUF/LFM2.5-2.6B-DSpark-Q4_K_M.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-DSpark-GGUF/resolve/main/LFM2.5-2.6B-DSpark-Q4_K_M.gguf
+      sha256: 63786b768e43562591a934625a66539eab39beb09e6e3d38e17509e34b79a3cd
+- !!merge <<: *lfm2-5-2-6b
+  name: "lfm2.5-2.6b-q8-dspark"
+  description: |
+    LFM2.5-2.6B with LiquidAI's DSpark speculative drafter. This build pairs
+    the higher-quality Q8_0 target with the recommended F16 draft sidecar for
+    the best acceptance length. DSpark proposes blocks of tokens that the
+    target model verifies, which preserves the target model's output while
+    accelerating generation.
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+    - dspark
+  variants: null
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B-DSpark-GGUF
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    draft_model: llama-cpp/models/LFM2.5-2.6B-DSpark-GGUF/LFM2.5-2.6B-DSpark-F16.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:10
+      - spec_n_min:0
+    parameters:
+      model: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q8_0.gguf
+      repeat_penalty: 1.1
+      temperature: 0.1
+      top_k: 50
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-2.6B-GGUF/LFM2.5-2.6B-Q8_0.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-Q8_0.gguf
+      sha256: 1e22128dfa128bdfb684da167e74e072d0a056baa7d06d9f280291e2839b0fc9
+    - filename: llama-cpp/models/LFM2.5-2.6B-DSpark-GGUF/LFM2.5-2.6B-DSpark-F16.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-2.6B-DSpark-GGUF/resolve/main/LFM2.5-2.6B-DSpark-F16.gguf
+      sha256: e198962c08903f3ba29f0ce6bf8e17f5e60bf85ec2f8673e1e2aab03508937e5
 - &bigbang-v1
   name: "bigbang-v1-q4-k-m"
   variants:
