@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -9,6 +10,15 @@ import (
 
 var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 	Describe("ToRuntimeSettings", func() {
+		It("includes the persistent VRAM cache toggle", func() {
+			encoded, err := json.Marshal(NewApplicationConfig().ToRuntimeSettings())
+			Expect(err).NotTo(HaveOccurred())
+
+			var settings map[string]any
+			Expect(json.Unmarshal(encoded, &settings)).To(Succeed())
+			Expect(settings).To(HaveKeyWithValue("vram_persistent_cache", true))
+		})
+
 		It("should convert all fields correctly", func() {
 			appConfig := &ApplicationConfig{
 				WatchDog:                 true,
