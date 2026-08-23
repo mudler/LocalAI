@@ -1,4 +1,49 @@
 ---
+- name: "ornith-1.5-35b-a3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF
+  description: |
+    [](https://deep-reinforce.com/ornith.html)
+
+    # Ornith-1.5-35B-A3B
+
+    Chirp Chirp! 🐦 We are introducing Ornith-1.5, a major step toward building foundation models through end-to-end self-improvement.
+
+    Ornith-1.5 extends Ornith-1.0 (which was developed on top of Qwen3.5 and Gemma4 with additional continued pretraining, mid-training, and post-training) by expanding the self-improvement loop from scaffold and rollout optimization to jointly optimizing task generation, scaffold construction, and solution rollouts. Rather than relying on a fixed set of human-curated tasks and manually designed harnesses, Ornith-1.5 continuously generates new training tasks, discovers effective strategies for solving them, and improves the policy through reinforcement learning. For more details on the task, harness, and rollout reward design, please refer to our blog.
+
+    ## Ornith 1.5 35B-A3B
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Ornith-1.5-35B-Q4_K_M/mmproj-Ornith-1.5-35B-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Ornith-1.5-35B-Q4_K_M/Ornith-1.5-35B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Ornith-1.5-35B-Q4_K_M/Ornith-1.5-35B-Q4_K_M.gguf
+      sha256: ca6ea26329c88b78ffd90a85163be2e746c2fafd1024f56db47e499f117f9a7f
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/main/Ornith-1.5-35B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Ornith-1.5-35B-Q4_K_M/mmproj-Ornith-1.5-35B-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/main/mmproj-Ornith-1.5-35B-BF16.gguf
 - name: "huihui-qwen3.8-27b-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
