@@ -1,4 +1,59 @@
 ---
+- name: "minimax-h3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/MiniMax-H3-GGUF
+  description: |
+    # MiniMax H3
+
+    ## News
+    Offical skills to improve prompt writing: skills on github
+
+    ## Online API
+    Use MiniMax\-H3 directly via API\.
+      - Global: platform\.minimax\.io \| CN: platform\.minimaxi\.com
+
+    ## Online App
+    Use MiniMax\-H3 directly via App\.
+      - WebApp Global: hailuoai\.video \| CN: hailuoai\.com
+      - Desktop Global: hub\.minimax\.io \| CN: hub\.minimaxi\.com
+
+    ## System Overview
+    MiniMax H3 is a general-purpose, omni-modal generative system. It supports unified understanding of multimodal contexts composed of text, images, video, and audio, and can generate video with native stereo audio at resolutions up to 2K and durations of up to 15 seconds. Thanks to its task-generalization-oriented system design, H3 already possesses broad multimodal context understanding and generation capabilities at the pre-training stage, enabling outstanding performance in following complex multimodal instructions.
+
+    H3 supports the following input and output specifications:
+
+    ### Model Variants and Input Specifications
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/qwen3vl_32b_minimax_h3-Q4_K_M/qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 40
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3vl_32b_minimax_h3-Q4_K_M/qwen3vl_32b_minimax_h3-Q4_K_M.gguf
+      sha256: 11e6efe70a57ce7f4838c47bdbd1a1c4b8ce10e2b7747f1b065990b70f4b05fc
+      uri: https://huggingface.co/unsloth/MiniMax-H3-GGUF/resolve/main/qwen3vl_32b_minimax_h3-Q4_K_M/qwen3vl_32b_minimax_h3-Q4_K_M.gguf
 - name: "huihui-qwen3.8-27b-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
