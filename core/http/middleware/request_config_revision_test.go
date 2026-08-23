@@ -50,7 +50,11 @@ var _ = Describe("Model config revision seen by inference requests", func() {
 
 		Expect(os.WriteFile(
 			filepath.Join(modelDir, "test-model.yaml"),
-			[]byte("name: test-model\nbackend: llama-cpp\ncontext_size: 4096\n"),
+			// The mmproj makes this derive several usecase flags. A single-flag
+			// model hides any instability in how that derived list is ordered.
+			[]byte("name: test-model\nbackend: llama-cpp\ncontext_size: 4096\n"+
+				"mmproj: llama-cpp/mmproj/test-model/mmproj.gguf\n"+
+				"known_usecases:\n    - chat\n"),
 			0o600,
 		)).To(Succeed())
 

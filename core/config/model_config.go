@@ -1369,6 +1369,12 @@ func (c *ModelConfig) syncKnownUsecasesFromString() {
 			c.KnownUsecaseStrings = append(c.KnownUsecaseStrings, k)
 		}
 	}
+	// GetAllModelConfigUsecases returns a map, and ranging one yields a random
+	// order per call. KnownUsecaseStrings is part of the serialized config, so
+	// an unsorted list gives the same file a different config revision on every
+	// load. In distributed mode that reads as a config change and the router
+	// rejects the request with ErrStaleModelConfigRevision.
+	slices.Sort(c.KnownUsecaseStrings)
 }
 
 func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
