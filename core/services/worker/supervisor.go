@@ -455,7 +455,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
 	clientAddr := fmt.Sprintf("127.0.0.1:%d", port)
 
-	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr)
+	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr, nil)
 	if err != nil {
 		s.releasePortForKey(backend, port)
 		s.mu.Unlock()
