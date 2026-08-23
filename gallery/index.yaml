@@ -1386,6 +1386,47 @@
     - filename: llama-cpp/models/muse-glimmer-30b/dflash-kquant.gguf
       uri: huggingface://meta-models/Muse-Glimmer-30B-GGUF/dflash-kquant.gguf
       sha256: 27d9a805fa29b943cfb6ad4843367cd4eaaaf06bd452d8cc3e00a2cd18a677bc
+- name: "homura-30b-q4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/hyrelabs/Homura-30B-GGUF
+    - https://huggingface.co/darkc0de/Muse-Glimmer-30B-heretic
+  description: |
+    Homura 30B is an English, agent-focused fine-tune of Muse Glimmer 30B.
+    It targets autonomous tool use and direct instruction following. This
+    entry uses the publisher's 16.9 GB Q4_K_M GGUF and supports a 131K-token
+    context window.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - agent
+    - tools
+    - long-context
+    - uncensored
+  last_checked: "2026-08-23"
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/homura-30b/Homura-30B-Q4_K_M.gguf
+      temperature: 0.2
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/homura-30b/Homura-30B-Q4_K_M.gguf
+      uri: huggingface://hyrelabs/Homura-30B-GGUF/Homura-30B-Q4_K_M.gguf
+      sha256: fd4dc394b193ac1cc0f4bb9fb44bff3d6eebd34df62246fc753104c0cc98cc51
 - &qwen3-5-9b-defiant-fable
   name: "qwen3.5-9b-defiant-fable-mtp"
   variants:
