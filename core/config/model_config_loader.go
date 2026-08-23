@@ -220,6 +220,15 @@ func (bcl *ModelConfigLoader) LoadModelConfigFileByName(modelName, modelPath str
 
 	cfg.SetDefaults(append(opts, ModelPath(modelPath))...)
 
+	// Stamp the revision here, at the boundary between the persisted
+	// configuration and the request that is about to override parts of it.
+	// Everything downstream of this point (the request middleware) merges
+	// per-request prediction parameters into cfg, so a revision computed later
+	// would identify the request rather than the configuration.
+	if err := cfg.StampPersistedConfigRevision(); err != nil {
+		return nil, fmt.Errorf("stamping config revision for %q: %w", modelName, err)
+	}
+
 	return cfg, nil
 }
 

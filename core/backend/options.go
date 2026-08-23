@@ -202,7 +202,15 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		model.WithContext(so.Context),
 		model.WithModelID(c.ModelID()),
 	}
-	if revision, err := config.ModelConfigRevision(&c); err == nil {
+	// Prefer the revision stamped when the configuration was loaded. c has since
+	// been merged with this request's prediction parameters (temperature, top_p,
+	// stop, ...), and hashing it here would produce a different revision for
+	// every distinct request body — which the controller reads as a config
+	// change and rejects as stale. Recomputing is the fallback for a config that
+	// never passed through the loader.
+	if revision := c.PersistedConfigRevision(); revision != "" {
+		defOpts = append(defOpts, model.WithConfigRevision(revision))
+	} else if revision, err := config.ModelConfigRevision(&c); err == nil {
 		defOpts = append(defOpts, model.WithConfigRevision(revision))
 	} else {
 		xlog.Warn("Failed to compute model configuration revision", "model", c.ModelID(), "error", err)

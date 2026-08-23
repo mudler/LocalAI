@@ -1020,6 +1020,12 @@ Notes:
 - Upgrade the worker when it does not support the exact model-stop request.
 - Stop and restart the stale backend only as an operational recovery action. LocalAI keeps it non-routable while durable cleanup is pending.
 
+**Requests fail with `stale model config revision` although nobody edited the model:**
+- A model's stored revision must describe its persisted configuration. Releases before this fix also hashed the per-request prediction parameters, so the first request after a restart pinned the revision to its own `temperature`, `top_p`, `stop` and similar values. Every later request that sent different values was then rejected.
+- Upgrade the frontend replicas first. After the upgrade the revision is stamped when the configuration is loaded, so it no longer depends on the request body.
+- The stored revision does not heal on its own, because the recorded value belongs to no persisted configuration. Clear it once per affected model so the next request establishes the correct revision: `DELETE FROM model_config_states WHERE model_name = '<model>';`
+- Saving any edit for the model through the API or the WebUI has the same effect, because an edit publishes the current revision.
+
 **Port conflicts on workers:**
 - Each model gets its own gRPC process on an incrementing port (50051, 50052, ...)
 - The HTTP file transfer server runs on the base port - 1 (default: 50050)
