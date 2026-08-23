@@ -50,8 +50,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Huihui-Qwen3.8-27B-abliterated-bf16/Huihui-Qwen3.8-27B-abliterated-bf16.gguf
-      sha256: a64a5e5464d7d0ea7ffcbc937cf28f8a7bc9b0a6e87be6034e6b854418d5abd5
       uri: https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/main/Huihui-Qwen3.8-27B-abliterated-bf16.gguf
+      sha256: b880f2042df16a9a493800c83f1ee16b7cd46e8ca695f193655940a1949e9097
     - filename: llama-cpp/mmproj/Huihui-Qwen3.8-27B-abliterated-bf16/mmproj-model-bf16.gguf
       sha256: c9a09064683620bea3d3bfed5d4462e1a97a7d2fff7e5045d6862a0a85eeb5b5
       uri: https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF/resolve/main/mmproj-model-bf16.gguf
@@ -1180,7 +1180,7 @@
   files:
     - filename: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
       uri: huggingface://ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
-      sha256: d4cc4c9fffaa356db8b49cfaba9233609cfb29b4dd89d827665210dc1cc8dbbb
+      sha256: b0e25ce2d301930e706d549a59d18c5969dcec664fdf7466435287b03fefda36
 - &muse-glimmer-30b
   name: "muse-glimmer-30b"
   variants:
@@ -18663,11 +18663,11 @@
       model: SmolVLM2-256M-Video-Instruct-Q8_0.gguf
   files:
     - filename: SmolVLM2-256M-Video-Instruct-Q8_0.gguf
-      sha256: af7ce9951a2f46c4f6e5def253e5b896ca5e417010e7a9949fdc9e5175c27767
       uri: huggingface://ggml-org/SmolVLM2-256M-Video-Instruct-GGUF/SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+      sha256: 1202d1c54493bddff5b0ecbc36fcb7520ff720b9fa3d7224aeb293581f90529a
     - filename: mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
-      sha256: d34913a588464ff7215f086193e0426a4f045eaba74456ee5e2667d8ed6798b1
       uri: huggingface://ggml-org/SmolVLM2-256M-Video-Instruct-GGUF/mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+      sha256: 05d5751132244a6ebd64cba9b34898c0d874b2cb78159d758e1d4da3aad91581
 - name: qwen3-30b-a3b
   url: github:mudler/LocalAI/gallery/qwen3.yaml@master
   urls:
