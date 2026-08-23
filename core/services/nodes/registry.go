@@ -1159,9 +1159,26 @@ func requireCurrentRevision(tx *gorm.DB, modelName, revision string) error {
 		return err
 	}
 	if state.ConfigRevision != revision {
-		return ErrStaleModelConfigRevision
+		// Name both sides. "stale model config revision" on its own says only
+		// that two hashes differ, which leaves an operator no way to tell an
+		// edited configuration from a revision that is not reproducible for one
+		// unchanged file.
+		return fmt.Errorf("%w (request carries %s, controller holds %s)",
+			ErrStaleModelConfigRevision, shortRevision(revision), shortRevision(state.ConfigRevision))
 	}
 	return nil
+}
+
+// shortRevision trims a revision for log and error output. The full value is a
+// sha256 hex digest; the leading bytes identify it well enough to compare two.
+func shortRevision(revision string) string {
+	if revision == "" {
+		return "(none)"
+	}
+	if len(revision) > 12 {
+		return revision[:12]
+	}
+	return revision
 }
 
 func validateRevisionWrite(modelName, revision string, revisionRequired bool) error {
