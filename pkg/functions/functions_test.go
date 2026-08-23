@@ -80,12 +80,11 @@ var _ = Describe("LocalAI grammar functions", func() {
 				},
 			}
 
-			// function_name_key / function_arguments_key are two independent
-			// settings. Passing the same key for both collapses the structure
-			// onto a single property, and the arguments overwrite the function
-			// name constant - leaving a grammar that cannot express which
-			// function was called.
-			js := functions.ToJSONStructure("function", "parameters")
+			config := FunctionsConfig{
+				FunctionNameKey:      "function",
+				FunctionArgumentsKey: "parameters",
+			}
+			js := config.ToJSONStructure(functions)
 			Expect(js.OneOf[0].Properties).To(HaveLen(2))
 
 			fnName := js.OneOf[0].Properties["function"].(FunctionName)
