@@ -1020,6 +1020,12 @@ Notes:
 - Upgrade the worker when it does not support the exact model-stop request.
 - Stop and restart the stale backend only as an operational recovery action. LocalAI keeps it non-routable while durable cleanup is pending.
 
+**A worker fills its own disk over time:**
+- A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.
+- Releases before this sweep existed kept every staged input for the lifetime of the worker. Delete `<models>/../staging/ephemeral/` on an affected worker once, as the user the worker runs as; the sweep keeps it bounded from then on.
+- Staged **model** files are not touched by this. They live beside the ephemeral directory and are not per-request scratch.
+- A worker whose volume is genuinely full reports `creating backend process state directory under ...: no space left on device` when a backend starts.
+
 **Requests fail with `stale model config revision` although nobody edited the model:**
 - A model's stored revision must describe its persisted configuration. Releases before this fix also hashed the per-request prediction parameters, so the first request after a restart pinned the revision to its own `temperature`, `top_p`, `stop` and similar values. Every later request that sent different values was then rejected.
 - Upgrade the frontend replicas first. After the upgrade the revision is stamped when the configuration is loaded, so it no longer depends on the request body.
