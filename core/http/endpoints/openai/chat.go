@@ -342,7 +342,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			}
 
 			// Update input grammar or json_schema based on use_llama_grammar option
-			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
+			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionArgumentsKey)
 			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
 			if err == nil {
 				config.Grammar = g

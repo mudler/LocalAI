@@ -283,7 +283,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, input *sc
 			funcsWithNoAction = funcsWithNoAction.Select(cfg.FunctionToCall())
 		}
 
-		jsStruct := funcsWithNoAction.ToJSONStructure(cfg.FunctionsConfig.FunctionNameKey, cfg.FunctionsConfig.FunctionNameKey)
+		jsStruct := funcsWithNoAction.ToJSONStructure(cfg.FunctionsConfig.FunctionNameKey, cfg.FunctionsConfig.FunctionArgumentsKey)
 		g, err := jsStruct.Grammar(cfg.FunctionsConfig.GrammarOptions()...)
 		if err == nil {
 			cfg.Grammar = g
