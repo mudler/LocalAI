@@ -373,6 +373,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 			cfgLoaderOpts := options.ToConfigLoaderOptions()
 			modelRevisionLifecycle := modeladmin.NewDistributedModelRevisionLifecycle(distSvc.Registry, distSvc.ModelCleanup)
 			gs.SetModelRevisionLifecycle(modelRevisionLifecycle)
+			// Bring the controller's stored revisions back in line with the
+			// configuration on disk. An inference request may only establish a
+			// revision, never replace one, so a model whose stored value had
+			// drifted stayed unroutable until someone deleted the row.
+			if err := modeladmin.ResyncModelConfigRevisions(options.Context,
+				application.ModelConfigLoader(),
+				modeladmin.NewRevisionStore(distSvc.Registry, modelRevisionLifecycle),
+			); err != nil {
+				xlog.Warn("Failed to resync model config revisions", "error", err)
+			}
 			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
 				// ApplyRemoteChange honors the op: a "delete" prunes the element
 				// (a reload-from-path is additive and cannot drop it), anything

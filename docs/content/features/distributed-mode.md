@@ -1041,8 +1041,9 @@ Notes:
 **Requests fail with `stale model config revision` although nobody edited the model:**
 - A model's stored revision must describe its persisted configuration. Releases before this fix also hashed the per-request prediction parameters, so the first request after a restart pinned the revision to its own `temperature`, `top_p`, `stop` and similar values. Every later request that sent different values was then rejected.
 - Upgrade the frontend replicas first. After the upgrade the revision is stamped when the configuration is loaded, so it no longer depends on the request body.
-- The stored revision does not heal on its own, because the recorded value belongs to no persisted configuration. Clear it once per affected model so the next request establishes the correct revision: `DELETE FROM model_config_states WHERE model_name = '<model>';`
-- Saving any edit for the model through the API or the WebUI has the same effect, because an edit publishes the current revision.
+- Each frontend now reconciles the stored revisions against the configuration on disk at startup, and republishes any that disagree, so a drifted revision heals on the next restart. Only models that actually drifted are republished, because republishing quarantines the replicas loaded under the old revision.
+- A model that has never been served has no stored revision and is left alone; its first request establishes one.
+- On a release without that reconciliation, clear the row once per affected model so the next request establishes the correct revision: `DELETE FROM model_config_states WHERE model_name = '<model>';` Saving any edit through the API or the WebUI has the same effect.
 
 **Port conflicts on workers:**
 - Each model gets its own gRPC process on an incrementing port (50051, 50052, ...)
