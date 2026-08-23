@@ -294,7 +294,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             } else {
                 SRV_WRN("[TOOLS DEBUG] parse_options: Parsed tools JSON is not an array: %s\n", tools_json.dump().c_str());
             }
-        } catch (const json::parse_error& e) {
+        } catch (const common_json_error& e) {
             SRV_WRN("Failed to parse tools JSON from proto: %s\n", e.what());
             SRV_WRN("[TOOLS DEBUG] parse_options: Tools string that failed to parse: %s\n", predict->tools().c_str());
         }
@@ -324,7 +324,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
                 SRV_DBG("[TOOLS DEBUG] Received tool_choice object from Go layer: %s\n", tool_choice_json.dump().c_str());
             }
             SRV_INF("Extracted tool_choice from proto: %s\n", predict->toolchoice().c_str());
-        } catch (const json::parse_error& e) {
+        } catch (const common_json_error& e) {
             // If parsing fails, treat as string
             data["tool_choice"] = predict->toolchoice();
             SRV_INF("Extracted tool_choice as string: %s\n", predict->toolchoice().c_str());
@@ -353,7 +353,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             // Add to data - llama.cpp server expects it as an object (map)
             data["logit_bias"] = logit_bias_json;
             SRV_INF("Using logit_bias: %s\n", predict->logitbias().c_str());
-        } catch (const json::parse_error& e) {
+        } catch (const common_json_error& e) {
             SRV_ERR("Failed to parse logit_bias JSON from proto: %s\n", e.what());
         }
     }
@@ -398,7 +398,10 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             });
     }
 
-    data["stop"] = predict->stopprompts();
+    data["stop"] = json::array();
+    for (const auto & stop : predict->stopprompts()) {
+        data["stop"].push_back(stop);
+    }
     // data["n_probs"] = predict->nprobs();
     //TODO: images,
 
@@ -1795,7 +1798,7 @@ public:
                         for (int j = 0; j < request->audios_size(); j++) rin.audios.push_back(request->audios(j));
                         for (int j = 0; j < request->videos_size(); j++) rin.videos.push_back(request->videos(j));
                     }
-                    messages_json.push_back(llama_grpc::build_reconstructed_message(rin));
+                    messages_json.push_back(json::parse(llama_grpc::build_reconstructed_message(rin).dump()));
                 }
 
                 // Final safety check: Ensure no message has null content (Jinja templates require strings)
@@ -1988,7 +1991,7 @@ public:
                             if (!body_json.contains("chat_template_kwargs")) {
                                 body_json["chat_template_kwargs"] = json::object();
                             }
-                            for (auto& el : ctk.items()) {
+                            for (auto el : ctk.items()) {
                                 body_json["chat_template_kwargs"][el.key()] = el.value();
                             }
                         }
@@ -2074,30 +2077,27 @@ public:
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
             if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_params.tmpls == nullptr) {
-                const auto &images_data = data.find("image_data");
-                if (images_data != data.end() && images_data->is_array())
+                if (data.contains("image_data") && data.at("image_data").is_array())
                 {
-                    for (const auto &img : *images_data)
+                    for (const auto &img : data.at("image_data"))
                     {
                         auto decoded_data = base64_decode(img["data"].get<std::string>());
                         files.push_back(decoded_data);
                     }
                 }
 
-                const auto &audio_data = data.find("audio_data");
-                if (audio_data != data.end() && audio_data->is_array())
+                if (data.contains("audio_data") && data.at("audio_data").is_array())
                 {
-                    for (const auto &audio : *audio_data)
+                    for (const auto &audio : data.at("audio_data"))
                     {
                         auto decoded_data = base64_decode(audio["data"].get<std::string>());
                         files.push_back(decoded_data);
                     }
                 }
 
-                const auto &video_data = data.find("video_data");
-                if (video_data != data.end() && video_data->is_array())
+                if (data.contains("video_data") && data.at("video_data").is_array())
                 {
-                    for (const auto &video : *video_data)
+                    for (const auto &video : data.at("video_data"))
                     {
                         auto decoded_data = base64_decode(video["data"].get<std::string>());
                         files.push_back(decoded_data);
@@ -2370,7 +2370,7 @@ public:
                         for (int j = 0; j < request->audios_size(); j++) rin.audios.push_back(request->audios(j));
                         for (int j = 0; j < request->videos_size(); j++) rin.videos.push_back(request->videos(j));
                     }
-                    messages_json.push_back(llama_grpc::build_reconstructed_message(rin));
+                    messages_json.push_back(json::parse(llama_grpc::build_reconstructed_message(rin).dump()));
                 }
 
                 // Final safety check: Ensure no message has null content (Jinja templates require strings)
@@ -2563,7 +2563,7 @@ public:
                             if (!body_json.contains("chat_template_kwargs")) {
                                 body_json["chat_template_kwargs"] = json::object();
                             }
-                            for (auto& el : ctk.items()) {
+                            for (auto el : ctk.items()) {
                                 body_json["chat_template_kwargs"][el.key()] = el.value();
                             }
                         }
@@ -2649,11 +2649,10 @@ public:
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
             if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_params.tmpls == nullptr) {
-                const auto &images_data = data.find("image_data");
-                if (images_data != data.end() && images_data->is_array())
+                if (data.contains("image_data") && data.at("image_data").is_array())
                 {
-                    std::cout << "[PREDICT] Processing " << images_data->size() << " images" << std::endl;
-                    for (const auto &img : *images_data)
+                    std::cout << "[PREDICT] Processing " << data.at("image_data").size() << " images" << std::endl;
+                    for (const auto &img : data.at("image_data"))
                     {
                         std::cout << "[PREDICT] Processing image" << std::endl;
                         auto decoded_data = base64_decode(img["data"].get<std::string>());
@@ -2661,20 +2660,18 @@ public:
                     }
                 }
 
-                const auto &audio_data = data.find("audio_data");
-                if (audio_data != data.end() && audio_data->is_array())
+                if (data.contains("audio_data") && data.at("audio_data").is_array())
                 {
-                    for (const auto &audio : *audio_data)
+                    for (const auto &audio : data.at("audio_data"))
                     {
                         auto decoded_data = base64_decode(audio["data"].get<std::string>());
                         files.push_back(decoded_data);
                     }
                 }
 
-                const auto &video_data = data.find("video_data");
-                if (video_data != data.end() && video_data->is_array())
+                if (data.contains("video_data") && data.at("video_data").is_array())
                 {
-                    for (const auto &video : *video_data)
+                    for (const auto &video : data.at("video_data"))
                     {
                         auto decoded_data = base64_decode(video["data"].get<std::string>());
                         files.push_back(decoded_data);
@@ -3005,7 +3002,7 @@ public:
         }
 
         // Collect responses
-        json responses = json::array();
+        std::vector<json> responses;
         for (auto & res : all_results.results) {
             GGML_ASSERT(dynamic_cast<server_task_result_rerank*>(res.get()) != nullptr);
             responses.push_back(res->to_json());
@@ -3018,7 +3015,7 @@ public:
         // Crop results by request.top_n if specified
         int top_n = request->top_n();
         if (top_n > 0 && top_n < static_cast<int>(responses.size())) {
-            responses = json(responses.begin(), responses.begin() + top_n);
+            responses.resize(top_n);
         }
         // Set usage information
         backend::Usage* usage = rerankResult->mutable_usage();
