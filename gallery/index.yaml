@@ -1,4 +1,64 @@
 ---
+- name: "qwen3.8-27b-unleashed"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/outsourc-e/Qwen3.8-27B-Unleashed-GGUF
+  description: |
+    # Qwen3.8-27B-Uncensored
+
+    Qwen3.8-27B with refusal behaviour
+    **substantially reduced**, not eliminated — see Measured behaviour for the numbers.
+    Capabilities, training data, and architecture are otherwise unchanged.
+
+    These are the bf16 safetensors. For local inference under llama.cpp, see
+    JonathanColetti/Qwen3.8-27B-Uncensored-GGUF, which ships imatrix quantizations with the
+    multi-token prediction head retained. Try it first in the
+    demo Space.
+
+    > **The MTP head is present and verified.** Abliteration drops the `mtp.*` tensors: the
+    > model is re-saved through transformers, which does not carry the MTP module, while
+    > `config.json` still advertises `mtp_num_hidden_layers`. All 15 `mtp.*` tensors were
+    > grafted back from the base checkpoint and the inventory was asserted against the source
+    > before upload.
+
+    ## Method
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.8-27B-Unleashed-UD-Q4_K_M/mmproj-Unleashed-f16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-27B-Unleashed-UD-Q4_K_M/Qwen3.8-27B-Unleashed-UD-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-27B-Unleashed-UD-Q4_K_M/Qwen3.8-27B-Unleashed-UD-Q4_K_M.gguf
+      sha256: 996c66cdd53346c1c8a7db2c61eeb3ff4bd341120469f12a50d79bf32c4ba35d
+      uri: https://huggingface.co/outsourc-e/Qwen3.8-27B-Unleashed-GGUF/resolve/main/Qwen3.8-27B-Unleashed-UD-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.8-27B-Unleashed-UD-Q4_K_M/mmproj-Unleashed-f16.gguf
+      sha256: 02b26e0e0e3f1b09be342f21cff7461f571ce491a2ce514a5e7c9880fc1cee2e
+      uri: https://huggingface.co/outsourc-e/Qwen3.8-27B-Unleashed-GGUF/resolve/main/mmproj-Unleashed-f16.gguf
 - name: "huihui-qwen3.8-27b-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
