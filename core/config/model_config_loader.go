@@ -168,6 +168,14 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 	if err := yaml.Unmarshal(f, &configs); err == nil && len(configs) > 0 {
 		for _, cc := range configs {
 			cc.modelConfigFile = file
+			// Stamp before SetDefaults: the revision describes what is on disk.
+			// SetDefaults folds in the GGUF guess, hardware defaults and
+			// app-level options, none of which are persisted configuration, and
+			// the GGUF guess in particular depends on whether the model file
+			// parses at that moment.
+			if err := cc.StampPersistedConfigRevision(); err != nil {
+				return nil, fmt.Errorf("stamping config revision for %q: %w", cc.Name, err)
+			}
 			cc.SetDefaults(opts...)
 			cc.syncKnownUsecasesFromString()
 		}
@@ -182,6 +190,9 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 
 	c.modelConfigFile = file
 	c.syncKnownUsecasesFromString()
+	if err := c.StampPersistedConfigRevision(); err != nil {
+		return nil, fmt.Errorf("stamping config revision for %q: %w", c.Name, err)
+	}
 	c.SetDefaults(opts...)
 
 	return []*ModelConfig{c}, nil
@@ -218,16 +229,17 @@ func (bcl *ModelConfigLoader) LoadModelConfigFileByName(modelName, modelPath str
 		}
 	}
 
-	cfg.SetDefaults(append(opts, ModelPath(modelPath))...)
-
-	// Stamp the revision here, at the boundary between the persisted
-	// configuration and the request that is about to override parts of it.
-	// Everything downstream of this point (the request middleware) merges
-	// per-request prediction parameters into cfg, so a revision computed later
-	// would identify the request rather than the configuration.
-	if err := cfg.StampPersistedConfigRevision(); err != nil {
-		return nil, fmt.Errorf("stamping config revision for %q: %w", modelName, err)
+	// Stamp before SetDefaults, and only when this config did not come from
+	// disk already carrying one (a name with no config file on disk is
+	// synthesized above). Re-stamping a loaded config here would hash it after
+	// SetDefaults and reintroduce the dependency on the GGUF guess.
+	if cfg.PersistedConfigRevision() == "" {
+		if err := cfg.StampPersistedConfigRevision(); err != nil {
+			return nil, fmt.Errorf("stamping config revision for %q: %w", modelName, err)
+		}
 	}
+
+	cfg.SetDefaults(append(opts, ModelPath(modelPath))...)
 
 	return cfg, nil
 }

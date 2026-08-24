@@ -115,8 +115,8 @@ var _ = Describe("Model config revision seen by inference requests", func() {
 		Expect(admin.LoadModelConfigsFromPath(modelDir, appConfig.ToConfigLoaderOptions()...)).To(Succeed())
 		loaded, ok := admin.GetModelConfig("test-model")
 		Expect(ok).To(BeTrue())
-		adminRevision, err := config.ModelConfigRevision(&loaded)
-		Expect(err).ToNot(HaveOccurred())
+		adminRevision := loaded.PersistedConfigRevision()
+		Expect(adminRevision).ToNot(BeEmpty())
 
 		Expect(revisionFor(`{"model":"test-model","temperature":0.7,"messages":[{"role":"user","content":"hi"}]}`)).
 			To(Equal(adminRevision))
