@@ -66,6 +66,12 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 			data, _ := json.Marshal(reply)
 			msg.Respond(data)
 		})
+		_, err = infra.NC.Conn().Subscribe("nodes.*.models.running", func(msg *nats.Msg) {
+			data, _ := json.Marshal(messaging.ModelsRunningReply{})
+			_ = msg.Respond(data)
+		})
+		Expect(err).NotTo(HaveOccurred())
+		FlushNATS(infra.NC)
 
 		// Start a mock gRPC backend using the same helper as full flow tests
 		llm := &trackingTestLLM{}
