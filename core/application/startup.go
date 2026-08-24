@@ -267,6 +267,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	// Initialize distributed mode services (NATS, object storage, node registry)
+	// revisionStore is built inside the distributed block below but used after
+	// the model configs are loaded, so it is declared out here.
+	var revisionStore modeladmin.RevisionStore
+
 	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader())
 	if err != nil {
 		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
@@ -373,16 +377,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 			cfgLoaderOpts := options.ToConfigLoaderOptions()
 			modelRevisionLifecycle := modeladmin.NewDistributedModelRevisionLifecycle(distSvc.Registry, distSvc.ModelCleanup)
 			gs.SetModelRevisionLifecycle(modelRevisionLifecycle)
-			// Bring the controller's stored revisions back in line with the
-			// configuration on disk. An inference request may only establish a
-			// revision, never replace one, so a model whose stored value had
-			// drifted stayed unroutable until someone deleted the row.
-			if err := modeladmin.ResyncModelConfigRevisions(options.Context,
-				application.ModelConfigLoader(),
-				modeladmin.NewRevisionStore(distSvc.Registry, modelRevisionLifecycle),
-			); err != nil {
-				xlog.Warn("Failed to resync model config revisions", "error", err)
-			}
+			// Captured here, used after the model configs are loaded below: the
+			// resync reads the loader, which is still empty at this point.
+			revisionStore = modeladmin.NewRevisionStore(distSvc.Registry, modelRevisionLifecycle)
 			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
 				// ApplyRemoteChange honors the op: a "delete" prunes the element
 				// (a reload-from-path is additive and cannot drop it), anything
@@ -427,6 +424,18 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	if err := application.ModelConfigLoader().LoadModelConfigsFromPath(options.SystemState.Model.ModelsPath, configLoaderOpts...); err != nil {
 		xlog.Error("error loading config files", "error", err)
+	}
+
+	// Bring the controller's stored revisions back in line with the
+	// configuration just loaded. An inference request may only establish a
+	// revision, never replace one, so a model whose stored value has drifted
+	// stays unroutable until something republishes it. This has to run after
+	// the load above: the loader is empty until then, and a resync against an
+	// empty loader silently reconciles nothing.
+	if revisionStore != nil {
+		if err := modeladmin.ResyncModelConfigRevisions(options.Context, application.ModelConfigLoader(), revisionStore); err != nil {
+			xlog.Warn("Failed to resync model config revisions", "error", err)
+		}
 	}
 
 	if err := gallery.RegisterBackends(options.SystemState, application.ModelLoader()); err != nil {

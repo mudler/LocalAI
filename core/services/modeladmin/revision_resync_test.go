@@ -140,3 +140,18 @@ var _ = Describe("ResyncModelConfigRevisions", func() {
 		Expect(store.applied).To(BeEmpty())
 	})
 })
+
+// Running the resync before the model configs are loaded reconciled nothing
+// while reporting success, which is how a mis-ordered startup call went
+// unnoticed. An empty loader is now called out instead of looking like a
+// clean run.
+var _ = Describe("ResyncModelConfigRevisions with nothing loaded", func() {
+	It("does not touch stored revisions when no configs are loaded", func() {
+		dir := GinkgoT().TempDir()
+		loader := config.NewModelConfigLoader(dir)
+		store := &stubRevisionStore{stored: map[string]string{"served-before": "stale"}}
+
+		Expect(ResyncModelConfigRevisions(context.Background(), loader, store)).To(Succeed())
+		Expect(store.applied).To(BeEmpty())
+	})
+})

@@ -70,8 +70,17 @@ func ResyncModelConfigRevisions(ctx context.Context, loader *config.ModelConfigL
 		return nil
 	}
 
+	configs := loader.GetAllModelsConfigs()
+	if len(configs) == 0 {
+		// Reconciling nothing is indistinguishable from reconciling correctly,
+		// which is how a caller that ran this before the configs were loaded
+		// went unnoticed. Say so rather than report success.
+		xlog.Warn("Skipping model config revision resync: no model configurations are loaded")
+		return nil
+	}
+
 	var transitions []ModelRevisionTransition
-	for _, cfg := range loader.GetAllModelsConfigs() {
+	for _, cfg := range configs {
 		want, err := config.ModelConfigRevision(&cfg)
 		if err != nil {
 			return fmt.Errorf("compute config revision for %q: %w", cfg.Name, err)
