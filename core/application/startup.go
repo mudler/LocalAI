@@ -433,7 +433,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// the load above: the loader is empty until then, and a resync against an
 	// empty loader silently reconciles nothing.
 	if revisionStore != nil {
-		if err := modeladmin.ResyncModelConfigRevisions(options.Context, application.ModelConfigLoader(), revisionStore); err != nil {
+		if err := modeladmin.ResyncModelConfigRevisions(options.Context, application.ModelConfigLoader(), options, revisionStore); err != nil {
 			xlog.Warn("Failed to resync model config revisions", "error", err)
 		}
 	}

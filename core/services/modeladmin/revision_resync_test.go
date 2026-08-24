@@ -55,12 +55,13 @@ var _ = Describe("ResyncModelConfigRevisions", func() {
 		Expect(os.WriteFile(filepath.Join(dir, name+".yaml"), []byte(body), 0o600)).To(Succeed())
 	}
 
+	// revisionOf resolves the revision the way an inference request does, which
+	// is the value the resync must publish.
 	revisionOf := func(name string) string {
-		cfg, ok := loader.GetModelConfig(name)
-		Expect(ok).To(BeTrue())
-		rev, err := config.ModelConfigRevision(&cfg)
+		cfg, err := loader.LoadModelConfigFileByNameDefaultOptions(name, appConfig)
 		Expect(err).ToNot(HaveOccurred())
-		return rev
+		Expect(cfg.PersistedConfigRevision()).ToNot(BeEmpty())
+		return cfg.PersistedConfigRevision()
 	}
 
 	BeforeEach(func() {
@@ -80,7 +81,7 @@ var _ = Describe("ResyncModelConfigRevisions", func() {
 		load()
 		store.stored["drifted"] = "a-revision-from-an-earlier-build"
 
-		Expect(ResyncModelConfigRevisions(context.Background(), loader, store)).To(Succeed())
+		Expect(ResyncModelConfigRevisions(context.Background(), loader, appConfig, store)).To(Succeed())
 
 		Expect(store.applied).To(HaveLen(1))
 		Expect(store.applied[0].ModelName).To(Equal("drifted"))
@@ -92,7 +93,7 @@ var _ = Describe("ResyncModelConfigRevisions", func() {
 		load()
 		store.stored["agreed"] = revisionOf("agreed")
 
-		Expect(ResyncModelConfigRevisions(context.Background(), loader, store)).To(Succeed())
+		Expect(ResyncModelConfigRevisions(context.Background(), loader, appConfig, store)).To(Succeed())
 
 		Expect(store.applied).To(BeEmpty(), "republishing an unchanged revision would quarantine live replicas for nothing")
 	})
@@ -104,7 +105,7 @@ var _ = Describe("ResyncModelConfigRevisions", func() {
 		write("never-served", "name: never-served\nbackend: llama-cpp\n")
 		load()
 
-		Expect(ResyncModelConfigRevisions(context.Background(), loader, store)).To(Succeed())
+		Expect(ResyncModelConfigRevisions(context.Background(), loader, appConfig, store)).To(Succeed())
 
 		Expect(store.applied).To(BeEmpty())
 	})
@@ -116,7 +117,7 @@ var _ = Describe("ResyncModelConfigRevisions", func() {
 		store.stored["drifted"] = "stale"
 		store.stored["agreed"] = revisionOf("agreed")
 
-		Expect(ResyncModelConfigRevisions(context.Background(), loader, store)).To(Succeed())
+		Expect(ResyncModelConfigRevisions(context.Background(), loader, appConfig, store)).To(Succeed())
 
 		Expect(store.applied).To(HaveLen(1))
 		Expect(store.applied[0].ModelName).To(Equal("drifted"))
@@ -128,7 +129,7 @@ var _ = Describe("ResyncModelConfigRevisions", func() {
 		store.stored["drifted"] = "stale"
 		store.applyEr = errors.New("database is down")
 
-		Expect(ResyncModelConfigRevisions(context.Background(), loader, store)).ToNot(Succeed())
+		Expect(ResyncModelConfigRevisions(context.Background(), loader, appConfig, store)).ToNot(Succeed())
 	})
 
 	It("skips a model whose stored revision cannot be read rather than guessing", func() {
@@ -136,7 +137,7 @@ var _ = Describe("ResyncModelConfigRevisions", func() {
 		load()
 		store.getErr = errors.New("connection reset")
 
-		Expect(ResyncModelConfigRevisions(context.Background(), loader, store)).ToNot(Succeed())
+		Expect(ResyncModelConfigRevisions(context.Background(), loader, appConfig, store)).ToNot(Succeed())
 		Expect(store.applied).To(BeEmpty())
 	})
 })
@@ -149,9 +150,11 @@ var _ = Describe("ResyncModelConfigRevisions with nothing loaded", func() {
 	It("does not touch stored revisions when no configs are loaded", func() {
 		dir := GinkgoT().TempDir()
 		loader := config.NewModelConfigLoader(dir)
+		appConfig := config.NewApplicationConfig()
+		appConfig.SystemState = &system.SystemState{Model: system.Model{ModelsPath: dir}}
 		store := &stubRevisionStore{stored: map[string]string{"served-before": "stale"}}
 
-		Expect(ResyncModelConfigRevisions(context.Background(), loader, store)).To(Succeed())
+		Expect(ResyncModelConfigRevisions(context.Background(), loader, appConfig, store)).To(Succeed())
 		Expect(store.applied).To(BeEmpty())
 	})
 })

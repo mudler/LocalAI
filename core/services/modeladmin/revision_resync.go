@@ -65,8 +65,8 @@ func NewRevisionStore(reader RevisionReader, lifecycle ModelRevisionLifecycle) R
 // A model with no stored revision is left alone. It has never been served, and
 // inventing controller state for it here would quarantine nothing and describe
 // a model that may never be requested.
-func ResyncModelConfigRevisions(ctx context.Context, loader *config.ModelConfigLoader, store RevisionStore) error {
-	if loader == nil || store == nil {
+func ResyncModelConfigRevisions(ctx context.Context, loader *config.ModelConfigLoader, appConfig *config.ApplicationConfig, store RevisionStore) error {
+	if loader == nil || store == nil || appConfig == nil {
 		return nil
 	}
 
@@ -81,9 +81,19 @@ func ResyncModelConfigRevisions(ctx context.Context, loader *config.ModelConfigL
 
 	var transitions []ModelRevisionTransition
 	for _, cfg := range configs {
-		want, err := config.ModelConfigRevision(&cfg)
+		// Resolve the revision the way an inference request does, through the
+		// loader, rather than hashing the stored config directly. SetDefaults
+		// is applied again on that path and is not idempotent for every model
+		// (it re-runs the GGUF guess and hardware defaults), so hashing the
+		// stored config yields a value no request will ever carry, and
+		// publishing it would wedge the model this resync exists to unwedge.
+		resolved, err := loader.LoadModelConfigFileByNameDefaultOptions(cfg.Name, appConfig)
 		if err != nil {
-			return fmt.Errorf("compute config revision for %q: %w", cfg.Name, err)
+			return fmt.Errorf("resolve config for %q: %w", cfg.Name, err)
+		}
+		want := resolved.PersistedConfigRevision()
+		if want == "" {
+			return fmt.Errorf("no config revision stamped for %q", cfg.Name)
 		}
 
 		stored, err := store.GetModelConfigRevision(ctx, cfg.Name)
