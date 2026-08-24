@@ -267,6 +267,89 @@ var _ = Describe("WebSocket Responses API E2E Tests", Label("WebSocket"), func()
 	})
 
 	Context("Error handling", func() {
+		It("rejects a concurrent create without terminating the active response", func() {
+			conn, err := dialWS()
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = conn.Close() }()
+
+			Expect(conn.WriteJSON(map[string]any{
+				"type":  "response.create",
+				"model": "mock-model",
+				"input": "MOCK_SLOW_STREAM",
+			})).To(Succeed())
+			Expect(conn.WriteJSON(map[string]any{
+				"type":  "response.create",
+				"model": "mock-model",
+				"input": "must be rejected",
+			})).To(Succeed())
+
+			sawRejection := false
+			sawCompletion := false
+			for !sawRejection || !sawCompletion {
+				ev, err := readEvent(conn)
+				Expect(err).NotTo(HaveOccurred())
+				switch ev.Type {
+				case "error":
+					Expect(ev.Error).NotTo(BeNil())
+					Expect(ev.Error.Message).To(ContainSubstring("already in progress"))
+					sawRejection = true
+				case "response.completed":
+					sawCompletion = true
+				}
+			}
+		})
+
+		It("emits a sequenced terminal failure when inference fails mid-stream", func() {
+			conn, err := dialWS()
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = conn.Close() }()
+
+			Expect(conn.WriteJSON(map[string]any{
+				"type":  "response.create",
+				"model": "mock-model",
+				"store": false,
+				"input": "MOCK_ERROR_MIDSTREAM",
+			})).To(Succeed())
+
+			events := readAllEvents(conn)
+			Expect(events).ToNot(BeEmpty())
+			Expect(events[len(events)-1].Type).To(Equal("response.failed"))
+			for i := 1; i < len(events); i++ {
+				Expect(events[i].SequenceNumber).To(BeNumerically(">", events[i-1].SequenceNumber))
+			}
+		})
+
+		It("rejects storing a response whose history is connection-local", func() {
+			conn, err := dialWS()
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = conn.Close() }()
+
+			Expect(conn.WriteJSON(map[string]any{
+				"type":     "response.create",
+				"model":    "mock-model",
+				"store":    false,
+				"generate": false,
+				"input":    "private warmup",
+			})).To(Succeed())
+			warmupEvents := readAllEvents(conn)
+			Expect(warmupEvents).To(HaveLen(2))
+			var warmupResp wsResponseBody
+			Expect(json.Unmarshal(warmupEvents[1].Response, &warmupResp)).To(Succeed())
+
+			Expect(conn.WriteJSON(map[string]any{
+				"type":                 "response.create",
+				"model":                "mock-model",
+				"store":                true,
+				"previous_response_id": warmupResp.ID,
+				"input":                "make this global",
+			})).To(Succeed())
+			ev, err := readEvent(conn)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ev.Type).To(Equal("error"))
+			Expect(ev.Error).NotTo(BeNil())
+			Expect(ev.Error.Code).To(Equal("invalid_store_transition"))
+		})
+
 		It("returns error for previous_response_not_found", func() {
 			conn, err := dialWS()
 			Expect(err).ToNot(HaveOccurred())

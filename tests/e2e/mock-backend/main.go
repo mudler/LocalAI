@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -269,6 +270,13 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 			}
 		}
 		return fmt.Errorf("mock backend stream error: simulated mid-stream failure")
+	}
+	if strings.Contains(in.Prompt, "MOCK_SLOW_STREAM") {
+		select {
+		case <-time.After(500 * time.Millisecond):
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
 	}
 
 	// Simulate C++ autoparser behavior: tool calls delivered via ChatDeltas

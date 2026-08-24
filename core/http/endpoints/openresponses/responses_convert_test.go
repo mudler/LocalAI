@@ -99,7 +99,7 @@ var _ = Describe("resolvePreviousResponseMessages", func() {
 			ID: "resp_2", Output: []schema.ORItemField{message("assistant", "answer-2")},
 		})
 
-		msgs, err := resolvePreviousResponseMessages(store, "resp_2", cfg)
+		msgs, err := resolvePreviousResponseMessages(store, "resp_2", cfg, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(msgs).To(HaveLen(6))
 		Expect([]string{
@@ -128,7 +128,15 @@ var _ = Describe("resolvePreviousResponseMessages", func() {
 			ID: "resp_local", Output: []schema.ORItemField{message("answer-1")},
 		})
 
-		msgs, err := resolvePreviousResponseMessagesFromStores([]*ResponseStore{connectionStore, globalStore}, "resp_local", cfg)
+		msgs, _, err := resolvePreviousResponseMessagesFromSources(
+			[]previousResponseStoreSource{
+				{store: connectionStore, connectionLocal: true},
+				{store: globalStore},
+			},
+			"resp_local",
+			cfg,
+			"",
+		)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(msgs).To(HaveLen(4))
 		Expect([]string{msgs[0].StringContent, msgs[1].StringContent, msgs[2].StringContent, msgs[3].StringContent}).To(

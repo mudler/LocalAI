@@ -61,7 +61,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		// Handle previous_response_id if provided.
 		var messages []schema.Message
 		if input.PreviousResponseID != "" {
-			previousMessages, err := resolvePreviousResponseMessages(store, input.PreviousResponseID, cfg)
+			previousMessages, err := resolvePreviousResponseMessages(store, input.PreviousResponseID, cfg, ownerFromContext(c))
 			if err != nil {
 				if notFound, ok := err.(*previousResponseNotFoundError); ok {
 					return sendOpenResponsesError(c, 404, "not_found", notFound.Error(), "previous_response_id")
@@ -235,8 +235,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			// Store the background response and stamp its owner before the ID
 			// is returned to the client, so later GET/cancel/resume can verify
 			// the caller owns it.
-			store.StoreBackground(responseID, input, queuedResponse, bgCancel, input.Stream)
-			store.SetOwner(responseID, ownerFromContext(c))
+			store.StoreBackgroundOwned(responseID, input, queuedResponse, bgCancel, input.Stream, ownerFromContext(c))
 
 			// Start background processing goroutine
 			go func() {
@@ -510,63 +509,91 @@ func (e *previousResponseNotFoundError) Error() string {
 // resolvePreviousResponseMessages reconstructs the complete stored conversation
 // ending at responseID. Requests are stored as incremental deltas, so replaying
 // only the immediately previous request loses older turns after the first chain.
-func resolvePreviousResponseMessages(store *ResponseStore, responseID string, cfg *config.ModelConfig) ([]schema.Message, error) {
-	return resolvePreviousResponseMessagesFromStores([]*ResponseStore{store}, responseID, cfg)
+func resolvePreviousResponseMessages(store *ResponseStore, responseID string, cfg *config.ModelConfig, callerID string) ([]schema.Message, error) {
+	messages, _, err := resolvePreviousResponseMessagesFromSources(
+		[]previousResponseStoreSource{{store: store}},
+		responseID,
+		cfg,
+		callerID,
+	)
+	return messages, err
 }
 
-// resolvePreviousResponseMessagesFromStores resolves each hop against the stores
-// in priority order. WebSocket mode uses this to prefer connection-local
-// store=false responses while still allowing references to globally stored ones.
-func resolvePreviousResponseMessagesFromStores(stores []*ResponseStore, responseID string, cfg *config.ModelConfig) ([]schema.Message, error) {
+type previousResponseStoreSource struct {
+	store           *ResponseStore
+	connectionLocal bool
+}
+
+// resolvePreviousResponseMessagesFromSources resolves each hop against the
+// stores in priority order and reports whether the resulting chain contains
+// connection-local state. Every hop is owner-checked so a known response ID
+// cannot be used to replay another caller's conversation.
+func resolvePreviousResponseMessagesFromSources(sources []previousResponseStoreSource, responseID string, cfg *config.ModelConfig, callerID string) ([]schema.Message, bool, error) {
 	type chainEntry struct {
-		id     string
-		stored *StoredResponse
+		id       string
+		request  schema.OpenResponsesRequest
+		response schema.ORResponseResource
 	}
 
 	var chain []chainEntry
+	usedConnectionLocal := false
 	seen := make(map[string]struct{})
 	for currentID := responseID; currentID != ""; {
 		if _, exists := seen[currentID]; exists {
-			return nil, fmt.Errorf("previous_response_id cycle detected at %s", currentID)
+			return nil, false, fmt.Errorf("previous_response_id cycle detected at %s", currentID)
 		}
 		seen[currentID] = struct{}{}
 
 		var stored *StoredResponse
-		for _, store := range stores {
-			if store == nil {
+		var connectionLocal bool
+		for _, source := range sources {
+			if source.store == nil {
 				continue
 			}
-			candidate, err := store.Get(currentID)
+			candidate, err := source.store.Get(currentID)
 			if err == nil {
+				if !accessAllowed(candidate, callerID) {
+					return nil, false, &previousResponseNotFoundError{ResponseID: currentID}
+				}
 				stored = candidate
+				connectionLocal = source.connectionLocal
 				break
 			}
 		}
 		if stored == nil {
-			return nil, &previousResponseNotFoundError{ResponseID: currentID}
+			return nil, false, &previousResponseNotFoundError{ResponseID: currentID}
 		}
+
+		stored.mu.RLock()
 		if stored.Request == nil || stored.Response == nil {
-			return nil, fmt.Errorf("stored previous response %s is incomplete", currentID)
+			stored.mu.RUnlock()
+			return nil, false, fmt.Errorf("stored previous response %s is incomplete", currentID)
 		}
-		chain = append(chain, chainEntry{id: currentID, stored: stored})
-		currentID = stored.Request.PreviousResponseID
+		request := *stored.Request
+		response := *stored.Response
+		response.Output = append([]schema.ORItemField(nil), stored.Response.Output...)
+		stored.mu.RUnlock()
+
+		chain = append(chain, chainEntry{id: currentID, request: request, response: response})
+		usedConnectionLocal = usedConnectionLocal || connectionLocal
+		currentID = request.PreviousResponseID
 	}
 
 	var messages []schema.Message
 	for i := len(chain) - 1; i >= 0; i-- {
 		entry := chain[i]
-		inputMessages, err := convertORInputToMessages(entry.stored.Request.Input, cfg)
+		inputMessages, err := convertORInputToMessages(entry.request.Input, cfg)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert previous input for %s: %w", entry.id, err)
+			return nil, false, fmt.Errorf("failed to convert previous input for %s: %w", entry.id, err)
 		}
-		outputMessages, err := convertOROutputItemsToMessages(entry.stored.Response.Output)
+		outputMessages, err := convertOROutputItemsToMessages(entry.response.Output)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert previous response %s: %w", entry.id, err)
+			return nil, false, fmt.Errorf("failed to convert previous response %s: %w", entry.id, err)
 		}
 		messages = append(messages, inputMessages...)
 		messages = append(messages, outputMessages...)
 	}
-	return messages, nil
+	return messages, usedConnectionLocal, nil
 }
 
 // convertOROutputItemsToMessages converts Open Responses output items to internal Messages.
@@ -1645,8 +1672,7 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	// Store response for future reference (if enabled)
 	if shouldStore {
 		store := GetGlobalStore()
-		store.Store(responseID, input, response)
-		store.SetOwner(responseID, ownerFromContext(c))
+		store.StoreOwned(responseID, input, response, ownerFromContext(c))
 	}
 
 	return c.JSON(200, response)
@@ -2381,8 +2407,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		// Store response for future reference (if enabled)
 		if shouldStore {
 			store := GetGlobalStore()
-			store.Store(responseID, input, responseCompleted)
-			store.SetOwner(responseID, ownerFromContext(c))
+			store.StoreOwned(responseID, input, responseCompleted, ownerFromContext(c))
 		}
 
 		// Send [DONE]
@@ -2737,7 +2762,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Store response for future reference (if enabled)
 	if shouldStore {
 		store := GetGlobalStore()
-		store.Store(responseID, input, responseCompleted)
+		store.StoreOwned(responseID, input, responseCompleted, ownerFromContext(c))
 	}
 
 	// Send [DONE]
