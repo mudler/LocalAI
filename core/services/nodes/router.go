@@ -1129,7 +1129,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 
 	// 4. Preemptive eviction: if no suitable node found, evict the LRU model with zero in-flight
 	if node == nil {
-		evictedNode, evictErr := r.evictLRUAndFreeNode(ctx)
+		evictedNode, evictErr := r.evictLRUAndFreeNodeFrom(ctx, candidateNodeIDs)
 		if evictErr != nil {
 			if errors.Is(evictErr, ErrEvictionBusy) {
 				return nil, "", 0, fmt.Errorf("no healthy nodes available: %w", evictErr)
@@ -1153,7 +1153,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		// it can race with another concurrent scheduler.
 		xlog.Warn("Chosen node has no free replica slot, evicting LRU",
 			"node", node.Name, "model", modelID, "max_slots", maxSlots)
-		evictedNode, evictErr := r.evictLRUAndFreeNode(ctx)
+		evictedNode, evictErr := r.evictLRUAndFreeNodeFrom(ctx, candidateNodeIDs)
 		if evictErr != nil {
 			return nil, "", 0, fmt.Errorf("no replica slot on %s and eviction failed: %w", node.Name, evictErr)
 		}
@@ -1979,7 +1979,23 @@ var ErrEvictionBusy = errors.New("all models busy, cannot evict")
 // Uses SELECT FOR UPDATE inside a transaction to prevent two frontends from
 // simultaneously picking the same eviction target. The NodeModel row is deleted
 // inside the transaction; the NATS unload command is sent after commit.
+// evictLRUAndFreeNode evicts across every healthy node. Callers that hold a
+// candidate set must use evictLRUAndFreeNodeFrom instead.
 func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, error) {
+	return r.evictLRUAndFreeNodeFrom(ctx, nil)
+}
+
+// evictLRUAndFreeNodeFrom evicts the least-recently-used idle model from one of
+// candidateNodeIDs, or from any healthy node when the set is nil.
+//
+// Restricting eviction to the candidate set matters whenever the model being
+// scheduled has a node selector. Evicting globally freed a slot on a node the
+// selector forbids, so the model was then placed there anyway, on hardware it
+// was explicitly pinned away from, and an unrelated model was dropped to make
+// the room. On a cluster where the selector-matching node was momentarily
+// unavailable this repeated, and the evicted model appeared to bounce between
+// nodes.
+func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNodeIDs []string) (*BackendNode, error) {
 	const maxEvictionRetries = 5
 	const evictionRetryInterval = 500 * time.Millisecond
 
@@ -1991,7 +2007,7 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
 		var lru NodeModel
 		err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			// Lock the row so no other frontend can evict the same model
-			if err := currentModelRevision(tx.Clauses(clause.Locking{Strength: "UPDATE"})).
+			q := currentModelRevision(tx.Clauses(clause.Locking{Strength: "UPDATE"})).
 				Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 				Where(`node_models.in_flight = 0 AND node_models.state = ? AND backend_nodes.status = ?
   AND (
@@ -2000,7 +2016,11 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
          AND (NOT EXISTS (SELECT 1 FROM model_config_states mcs2 WHERE mcs2.model_name = nm2.model_name)
               OR nm2.config_revision = (SELECT mcs3.config_revision FROM model_config_states mcs3 WHERE mcs3.model_name = nm2.model_name)))
        > COALESCE((SELECT sc2.min_replicas FROM model_scheduling_configs sc2 WHERE sc2.model_name = node_models.model_name), 1)
-  )`, "loaded", StatusHealthy).
+  )`, "loaded", StatusHealthy)
+			if len(candidateNodeIDs) > 0 {
+				q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
+			}
+			if err := q.
 				Order("node_models.last_used ASC").
 				First(&lru).Error; err != nil {
 				return err
