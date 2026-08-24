@@ -389,7 +389,7 @@ The canonical names match upstream llama.cpp (dash-separated). For backward comp
 Multiple types can be chained by passing a comma-separated list to `spec_type` (e.g. `spec_type:ngram-simple,ngram-mod`). The runtime tries them in order and accepts the first proposal that meets the acceptance criteria.
 
 {{% notice note %}}
-The current LocalAI llama.cpp backend supports speculative decoding with multimodal models that load an `mmproj`, including MTP. LocalAI passes both configurations to llama.cpp and does not disable speculation merely because an `mmproj` is present; older llama.cpp builds before [ggml-org/llama.cpp#19493](https://github.com/ggml-org/llama.cpp/pull/19493) did impose that restriction.
+The current LocalAI llama.cpp backend supports speculative decoding with multimodal models that load an `mmproj`, including MTP. LocalAI passes both configurations to llama.cpp and does not disable speculation merely because an `mmproj` is present. Upstream llama.cpp removed the former general multimodal/speculative restriction in [ggml-org/llama.cpp#19493](https://github.com/ggml-org/llama.cpp/pull/19493); [ggml-org/llama.cpp#22673](https://github.com/ggml-org/llama.cpp/pull/22673) later added MTP support and explicitly documented its compatibility with vision input.
 
 Compatibility still depends on the installed backend version and the target/draft model architecture. Check the backend logs for successful projector loading and speculative-context initialization, then look for the `draft acceptance` statistics line and its `accepted / generated` counts. A representative run with zero accepted draft tokens receives no speculative speedup and can indicate that the model or settings need tuning.
 {{% /notice %}}
