@@ -5,7 +5,7 @@ services:
     # Available images with CUDA, ROCm, SYCL
     # Image list (quay.io): https://quay.io/repository/go-skynet/local-ai?tab=tags
     # Image list (dockerhub): https://hub.docker.com/r/localai/localai
-    image: quay.io/go-skynet/local-ai:master
+    image: localai/localai:latest-gpu-nvidia-cuda-13
     build:
       context: .
       dockerfile: Dockerfile
@@ -13,7 +13,7 @@ services:
       - IMAGE_TYPE=core
       - BASE_IMAGE=ubuntu:24.04
     ports:
-      - 8080:8080
+      - 8080:4300
     env_file:
       - .env
     environment:
@@ -32,8 +32,8 @@ services:
     #  - LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres
     #  - LOCALAI_AGENT_POOL_DATABASE_URL=postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
     volumes:
-      - models:/models
-      - images:/tmp/generated/images/
+      - ./models:/models:cached
+      - ./images/:/tmp/generated/images/
       - data:/data
       - backends:/backends
       - configuration:/configuration
@@ -42,6 +42,13 @@ services:
     # or an URL pointing to a YAML configuration file, for example:
     # - https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
     - phi-2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all # alternatively, use count: all for all GPUs or count: 2 for two GPUs
+              capabilities: [gpu]
     # For NVIDIA GPU support with CDI (recommended for NVIDIA Container Toolkit 1.14+):
     # Uncomment the following deploy section and use driver: nvidia.com/gpu.
     # Include `utility` in capabilities so nvidia-smi / NVML are available —
