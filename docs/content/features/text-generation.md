@@ -240,6 +240,47 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+#### WebSocket Responses
+
+Connect to `ws://localhost:8080/v1/responses` (or `wss://` when TLS is
+enabled) and send `response.create` messages over the WebSocket. Only one
+response may be in progress on a connection. Wait for a terminal event such as
+`response.completed`, `response.failed`, or `error` before sending the next
+`response.create`.
+
+Set the WebSocket-only `generate` field to `false` to prepare a request without
+running inference:
+
+```json
+{
+  "type": "response.create",
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "generate": false,
+  "store": false,
+  "input": "Say this is a test!"
+}
+```
+
+LocalAI emits `response.created` followed by `response.completed` with no
+generated output. The completed response still has an ID that can continue the
+prepared request:
+
+```json
+{
+  "type": "response.create",
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "store": false,
+  "previous_response_id": "resp_abc123",
+  "input": []
+}
+```
+
+Response IDs created with `store: false` are available only on the WebSocket
+connection that created them and are removed when that connection closes. A
+`previous_response_id` chain can contain multiple responses; LocalAI replays the
+complete conversation from the oldest response through the referenced response
+before appending the new input.
+
 #### Request Parameters
 
 | Parameter | Type | Required | Description |
