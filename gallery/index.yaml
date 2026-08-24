@@ -548,6 +548,20 @@
       - use_jinja:true
     parameters:
       min_p: 0
+      model: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf
+      uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/Ornith-1.5-9B-Q4_K_M.gguf
+      sha256: 70c112196e0b7023803c9762752e46d29e612a92c83f995bc3ba1ceb07e8fab6
+    - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
+      uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/mmproj-Ornith-1.5-9B-BF16.gguf
+      sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
 - &ornith-1-5-35b-a3b
   name: "ornith-1.5-35b-a3b-apex"
   variants:
@@ -796,20 +810,6 @@
     - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/mmproj-Ornith-1.5-35B-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
-      model: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf
-      repeat_penalty: 1
-      temperature: 0.6
-      top_k: 20
-      top_p: 0.95
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf
-      uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/Ornith-1.5-9B-Q4_K_M.gguf
-      sha256: 70c112196e0b7023803c9762752e46d29e612a92c83f995bc3ba1ceb07e8fab6
-    - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
-      uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/mmproj-Ornith-1.5-9B-BF16.gguf
-      sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
 - !!merge <<: *ornith-1-5-9b
   name: "ornith-1.5-9b-q8"
   variants: []
