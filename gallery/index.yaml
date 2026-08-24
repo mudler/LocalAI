@@ -558,10 +558,10 @@
   files:
     - filename: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q4_K_M.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/Ornith-1.5-9B-Q4_K_M.gguf
-      sha256: 7d791afcb31812acc88cd5aafc675391df28c6fc3d8eae002bb4e6cc3d8cfd8d
+      sha256: 70c112196e0b7023803c9762752e46d29e612a92c83f995bc3ba1ceb07e8fab6
     - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/mmproj-Ornith-1.5-9B-BF16.gguf
-      sha256: d65001a94c4b6852bc7a0e7c5cc92fe8506755bb270e54483fd5feec7ae39a19
+      sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
 - !!merge <<: *ornith-1-5-9b
   name: "ornith-1.5-9b-q8"
   variants: []
@@ -593,10 +593,10 @@
   files:
     - filename: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q8_0.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/Ornith-1.5-9B-Q8_0.gguf
-      sha256: 6874eeb25c71081dc8f0bbe88f3ebb786312447132745371cd980bce95d259b9
+      sha256: 22086870b009dbe9815ee752c48a82de930118a7c5ce5599590892ae03b8b010
     - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/mmproj-Ornith-1.5-9B-BF16.gguf
-      sha256: d65001a94c4b6852bc7a0e7c5cc92fe8506755bb270e54483fd5feec7ae39a19
+      sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
 - &qwen3-8-27b-obliterated
   name: "qwen3.8-27b-obliterated-q4"
   variants:
@@ -654,7 +654,7 @@
   files:
     - filename: llama-cpp/models/qwen3.8-27b-obliterated/Qwen3.8-27B-OBLITERATED-Q4_K_M.gguf
       uri: huggingface://OBLITERATUS/Qwen3.8-27B-OBLITERATED/Qwen3.8-27B-OBLITERATED-Q4_K_M.gguf
-      sha256: c5e4fe705883e244a468c9e445c8d6ba37fd310b0113e25d2b8a7f2d6f1243e8
+      sha256: 1f74330b211a8253c96f1bf586cba6eb56d37117c97ed9e6eec18c198a4e7fe5
     - filename: llama-cpp/mmproj/qwen3.8-27b-obliterated/mmproj-model-bf16.gguf
       uri: huggingface://OBLITERATUS/Qwen3.8-27B-OBLITERATED/mmproj-model-bf16.gguf
       sha256: e484e3b7e907ed0e0644c0de56c3f5929c7ad5c9c6cc84d35a9d8dc08d461545
@@ -687,7 +687,7 @@
   files:
     - filename: llama-cpp/models/qwen3.8-27b-obliterated/Qwen3.8-27B-OBLITERATED-Q8_0.gguf
       uri: huggingface://OBLITERATUS/Qwen3.8-27B-OBLITERATED/Qwen3.8-27B-OBLITERATED-Q8_0.gguf
-      sha256: 4ed72a101dfa7f8fd642598368c4d334f1334cedc5254b71a06b5c4a542c59fc
+      sha256: afa839b2fa5bc890e5735031dda2c6239d3b6bba3b6ffa29477cbc14a2e1f221
     - filename: llama-cpp/mmproj/qwen3.8-27b-obliterated/mmproj-model-bf16.gguf
       uri: huggingface://OBLITERATUS/Qwen3.8-27B-OBLITERATED/mmproj-model-bf16.gguf
       sha256: e484e3b7e907ed0e0644c0de56c3f5929c7ad5c9c6cc84d35a9d8dc08d461545
