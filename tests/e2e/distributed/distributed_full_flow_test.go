@@ -260,10 +260,11 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 			data, _ := json.Marshal(reply)
 			msg.Respond(data)
 		})
-		infra.NC.Conn().Subscribe("nodes.*.models.running", func(msg *nats.Msg) {
+		_, err := infra.NC.Conn().Subscribe("nodes.*.models.running", func(msg *nats.Msg) {
 			data, _ := json.Marshal(messaging.ModelsRunningReply{})
-			msg.Respond(data)
+			_ = msg.Respond(data)
 		})
+		Expect(err).NotTo(HaveOccurred())
 		FlushNATS(infra.NC)
 
 		return router
