@@ -35,11 +35,17 @@ var preServingStates = []string{"loading", "staging"}
 // there until an operator intervened: scheduling saw no free slot, and eviction
 // found nothing it was allowed to evict.
 //
-// A row is abandoned when no live load job vouches for it. Ownership is decided
-// by the job's LastProgress heartbeat rather than elapsed time, because staging
-// a large checkpoint legitimately runs for a long while without touching the
-// replica row. That is the same signal job takeover already trusts, so a
-// transfer this sweeper reclaims is one no replica is still driving.
+// A row is only reclaimed when something proves the load is not progressing:
+// either a load job that has failed or stopped heartbeating, or, for a row with
+// no job at all, a node that is no longer healthy.
+//
+// The no-job case has to be conservative. Only the request path creates load
+// jobs; the reconciler's own scale-up loads a replica without one. Treating a
+// missing job as proof of abandonment would let this sweeper delete a healthy
+// reconciler-driven transfer the moment it ran past the grace period, which for
+// a multi-gigabyte checkpoint is every time. A healthy node with no job is
+// therefore left alone; when the node is gone, nothing can be progressing and
+// the row is safe to reclaim.
 func (rc *ReplicaReconciler) reclaimAbandonedLoads(ctx context.Context) {
 	if rc.db == nil {
 		return
@@ -56,7 +62,7 @@ func (rc *ReplicaReconciler) reclaimAbandonedLoads(ctx context.Context) {
 
 	now := time.Now()
 	for _, row := range stuck {
-		if rc.loadStillRunning(ctx, row.ModelName, now) {
+		if !rc.loadAbandoned(ctx, row, now) {
 			continue
 		}
 		if err := rc.registry.RemoveNodeModel(ctx, row.NodeID, row.ModelName, row.ReplicaIndex); err != nil {
@@ -70,29 +76,38 @@ func (rc *ReplicaReconciler) reclaimAbandonedLoads(ctx context.Context) {
 	}
 }
 
-// loadStillRunning reports whether a load job is actively driving this model.
+// loadAbandoned reports whether this row's load has demonstrably stopped.
 //
-// A missing job means nobody is loading it. A failed job has already given up.
-// An orphaned job stopped heartbeating, which is the condition another replica
-// uses to take it over, so the transfer behind it is not progressing either.
-// Any error reading the job is treated as "still running": leaving a slot held
-// for one more pass costs a scheduling opportunity, while removing a row out
-// from under a live transfer would restart a multi-gigabyte load.
-func (rc *ReplicaReconciler) loadStillRunning(ctx context.Context, modelName string, now time.Time) bool {
-	job, err := rc.registry.GetLoadJob(ctx, modelName)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return false
-	}
-	if err != nil {
+// Every uncertain case answers false. Leaving a slot held for another pass
+// costs one scheduling opportunity; reclaiming a row out from under a live
+// transfer restarts a multi-gigabyte load and, on a single-slot node, makes the
+// model unschedulable there for as long as the retry loop runs.
+func (rc *ReplicaReconciler) loadAbandoned(ctx context.Context, row NodeModel, now time.Time) bool {
+	job, err := rc.registry.GetLoadJob(ctx, row.ModelName)
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound), err == nil && job == nil:
+		// No job: only the request path creates them, so this may be a healthy
+		// reconciler-driven load. Reclaim only once its node is gone.
+		return !rc.nodeHealthy(ctx, row.NodeID)
+	case err != nil:
 		xlog.Warn("Reconciler: cannot read load job, leaving the replica slot held",
-			"model", modelName, "error", err)
+			"model", row.ModelName, "error", err)
+		return false
+	case job.State == LoadJobStateFailed:
+		return true
+	default:
+		return job.IsOrphaned(now)
+	}
+}
+
+// nodeHealthy reports whether the row's node is still healthy. An unreadable
+// node counts as healthy so a database blip cannot trigger a reclaim.
+func (rc *ReplicaReconciler) nodeHealthy(ctx context.Context, nodeID string) bool {
+	node, err := rc.registry.Get(ctx, nodeID)
+	if err != nil || node == nil {
+		xlog.Warn("Reconciler: cannot read node for a stuck replica, leaving the slot held",
+			"node", nodeID, "error", err)
 		return true
 	}
-	if job == nil {
-		return false
-	}
-	if job.State == LoadJobStateFailed {
-		return false
-	}
-	return !job.IsOrphaned(now)
+	return node.Status == StatusHealthy
 }

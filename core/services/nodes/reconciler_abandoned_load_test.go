@@ -82,12 +82,27 @@ var _ = Describe("ReplicaReconciler — abandoned load sweeper", func() {
 		Expect(rowExists("abandoned")).To(BeFalse())
 	})
 
-	It("reclaims a loading row that has no load job at all", func() {
+	It("reclaims a jobless row once its node is gone", func() {
 		seedReplica("orphan", "loading", time.Hour)
+		Expect(registry.MarkUnhealthy(context.Background(), node.ID)).To(Succeed())
 
 		rc.reclaimAbandonedLoads(context.Background())
 
 		Expect(rowExists("orphan")).To(BeFalse())
+	})
+
+	// Only the request path creates load jobs. The reconciler's own scale-up
+	// loads a replica without one, so treating a missing job as abandonment
+	// deleted healthy transfers the moment they outran the grace period, which
+	// for a multi-gigabyte checkpoint is every time. That is what made a replica
+	// appear to hop between nodes instead of finishing anywhere.
+	It("keeps a jobless row while its node is still healthy", func() {
+		seedReplica("scaling-up", "staging", time.Hour)
+
+		rc.reclaimAbandonedLoads(context.Background())
+
+		Expect(rowExists("scaling-up")).To(BeTrue(),
+			"a reconciler-driven load has no job row and must not be reclaimed for it")
 	})
 
 	It("keeps a long transfer whose job is still heartbeating", func() {
