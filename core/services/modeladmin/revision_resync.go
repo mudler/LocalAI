@@ -87,13 +87,9 @@ func ResyncModelConfigRevisions(ctx context.Context, loader *config.ModelConfigL
 		// (it re-runs the GGUF guess and hardware defaults), so hashing the
 		// stored config yields a value no request will ever carry, and
 		// publishing it would wedge the model this resync exists to unwedge.
-		resolved, err := loader.LoadModelConfigFileByNameDefaultOptions(cfg.Name, appConfig)
+		want, err := loader.RevisionFor(cfg.Name, appConfig)
 		if err != nil {
-			return fmt.Errorf("resolve config for %q: %w", cfg.Name, err)
-		}
-		want := resolved.PersistedConfigRevision()
-		if want == "" {
-			return fmt.Errorf("no config revision stamped for %q", cfg.Name)
+			return err
 		}
 
 		stored, err := store.GetModelConfigRevision(ctx, cfg.Name)

@@ -965,3 +965,38 @@ func hasAnyMappingKey(mapping *yaml.Node, keys ...string) bool {
 func nonemptyScalar(node *yaml.Node) bool {
 	return node != nil && node.Kind == yaml.ScalarNode && node.Tag == "!!str" && strings.TrimSpace(node.Value) != ""
 }
+
+// RevisionFor returns the config revision for modelName: the one an inference
+// request for that model will carry.
+//
+// This is the only way to obtain a revision outside this package. Every
+// publisher must use it, so that what is published and what is checked are
+// the same value by construction rather than by two implementations happening
+// to agree. Hashing a ModelConfig directly is not available to callers, because
+// a config that has been through SetDefaults or the request middleware hashes
+// to something no request will ever present.
+func (bcl *ModelConfigLoader) RevisionFor(modelName string, appConfig *ApplicationConfig) (string, error) {
+	cfg, err := bcl.LoadModelConfigFileByNameDefaultOptions(modelName, appConfig)
+	if err != nil {
+		return "", fmt.Errorf("resolving config revision for %q: %w", modelName, err)
+	}
+	return stampedRevision(cfg, modelName)
+}
+
+// RevisionForPath is RevisionFor for callers that hold loader options and a
+// models path rather than an ApplicationConfig.
+func (bcl *ModelConfigLoader) RevisionForPath(modelName, modelPath string, opts ...ConfigLoaderOption) (string, error) {
+	cfg, err := bcl.LoadModelConfigFileByName(modelName, modelPath, opts...)
+	if err != nil {
+		return "", fmt.Errorf("resolving config revision for %q: %w", modelName, err)
+	}
+	return stampedRevision(cfg, modelName)
+}
+
+func stampedRevision(cfg *ModelConfig, modelName string) (string, error) {
+	revision := cfg.PersistedConfigRevision()
+	if revision == "" {
+		return "", fmt.Errorf("no config revision stamped for %q", modelName)
+	}
+	return revision, nil
+}

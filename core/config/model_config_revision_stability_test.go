@@ -51,9 +51,8 @@ template:
 		Expect(loader.LoadModelConfigsFromPath(dir, appConfig.ToConfigLoaderOptions()...)).To(Succeed())
 		cfg, ok := loader.GetModelConfig("example")
 		Expect(ok).To(BeTrue())
-		revision, err := config.ModelConfigRevision(&cfg)
-		Expect(err).ToNot(HaveOccurred())
-		return revision
+		Expect(cfg.PersistedConfigRevision()).ToNot(BeEmpty())
+		return cfg.PersistedConfigRevision()
 	}
 
 	It("does not change when the same file is loaded repeatedly", func() {

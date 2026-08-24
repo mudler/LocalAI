@@ -202,18 +202,18 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 		model.WithContext(so.Context),
 		model.WithModelID(c.ModelID()),
 	}
-	// Prefer the revision stamped when the configuration was loaded. c has since
-	// been merged with this request's prediction parameters (temperature, top_p,
-	// stop, ...), and hashing it here would produce a different revision for
-	// every distinct request body — which the controller reads as a config
-	// change and rejects as stale. Recomputing is the fallback for a config that
-	// never passed through the loader.
+	// Use the revision stamped when the configuration was parsed, and only
+	// that. By this point c has been merged with the request's prediction
+	// parameters and had SetDefaults applied, so hashing it here would produce
+	// a revision that depends on the request body and on whether the model file
+	// parsed, which the controller reads as a config change and rejects. Every
+	// config the loader hands out is stamped; an unstamped one was synthesized
+	// elsewhere and is routed without a revision rather than with a wrong one.
 	if revision := c.PersistedConfigRevision(); revision != "" {
 		defOpts = append(defOpts, model.WithConfigRevision(revision))
-	} else if revision, err := config.ModelConfigRevision(&c); err == nil {
-		defOpts = append(defOpts, model.WithConfigRevision(revision))
 	} else {
-		xlog.Warn("Failed to compute model configuration revision", "model", c.ModelID(), "error", err)
+		xlog.Warn("Model configuration carries no revision stamp; routing without one",
+			"model", c.ModelID())
 	}
 	managedPrimary := len(c.Artifacts) > 0 && c.Artifacts[0].Resolved != nil
 	if managedPrimary {

@@ -1864,7 +1864,7 @@ func (c *ModelConfig) PersistedConfigRevision() string {
 // persisted. It is computed from the receiver as-is, so callers must invoke it
 // only on a configuration that has not been merged with request overrides.
 func (c *ModelConfig) StampPersistedConfigRevision() error {
-	revision, err := ModelConfigRevision(c)
+	revision, err := modelConfigRevision(c)
 	if err != nil {
 		return err
 	}

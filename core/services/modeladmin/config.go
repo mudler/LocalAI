@@ -185,13 +185,9 @@ func (s *ConfigService) patchConfig(ctx context.Context, name string, patch map[
 		// because SetDefaults runs again on the request path and is not
 		// idempotent for every model, and the edit would leave the model
 		// unroutable.
-		resolved, err := s.Loader.LoadModelConfigFileByNameDefaultOptions(updated.Name, s.AppConfig)
+		revision, err := s.Loader.RevisionFor(updated.Name, s.AppConfig)
 		if err != nil {
-			return fmt.Errorf("resolve config revision: %w", err)
-		}
-		revision := resolved.PersistedConfigRevision()
-		if revision == "" {
-			return fmt.Errorf("no config revision stamped for %q", updated.Name)
+			return err
 		}
 		_ = s.Loader.Preload(s.modelsPath())
 		pending, err := s.applyRevision(ctx, name, updated.Name, revision, updated.IsDisabled())
@@ -351,13 +347,12 @@ func (s *ConfigService) editYAML(ctx context.Context, name string, body []byte) 
 		if err := s.Loader.LoadModelConfigsFromPath(modelsPath, s.AppConfig.ToConfigLoaderOptions()...); err != nil {
 			return fmt.Errorf("reload configs: %w", err)
 		}
-		loaded, ok := s.Loader.GetModelConfig(req.Name)
-		if !ok {
+		if _, ok := s.Loader.GetModelConfig(req.Name); !ok {
 			return fmt.Errorf("reload configs: model %q missing", req.Name)
 		}
-		revision, err := config.ModelConfigRevision(&loaded)
+		revision, err := s.Loader.RevisionFor(req.Name, s.AppConfig)
 		if err != nil {
-			return fmt.Errorf("compute config revision: %w", err)
+			return err
 		}
 		if err := s.Loader.Preload(modelsPath); err != nil {
 			return fmt.Errorf("preload after edit: %w", err)

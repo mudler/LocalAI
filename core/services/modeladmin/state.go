@@ -68,13 +68,9 @@ func (s *ConfigService) toggleState(ctx context.Context, name string, action Act
 		// because SetDefaults runs again on the request path and is not
 		// idempotent for every model, and the edit would leave the model
 		// unroutable.
-		resolved, err := s.Loader.LoadModelConfigFileByNameDefaultOptions(name, s.AppConfig)
+		revision, err := s.Loader.RevisionFor(name, s.AppConfig)
 		if err != nil {
-			return fmt.Errorf("resolve config revision: %w", err)
-		}
-		revision := resolved.PersistedConfigRevision()
-		if revision == "" {
-			return fmt.Errorf("no config revision stamped for %q", name)
+			return err
 		}
 		pending, err := s.applyRevision(ctx, name, name, revision, action == ActionDisable)
 		if err != nil {

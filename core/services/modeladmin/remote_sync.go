@@ -49,9 +49,9 @@ func applyRemoteChange(ctx context.Context, cl *config.ModelConfigLoader, models
 			disabled := true
 			if exists {
 				var err error
-				revision, err = config.ModelConfigRevision(&cfg)
+				revision, err = authoritative.RevisionForPath(name, modelsPath, opts...)
 				if err != nil {
-					return fmt.Errorf("compute authoritative model config revision for %q: %w", name, err)
+					return fmt.Errorf("resolve authoritative model config revision for %q: %w", name, err)
 				}
 				disabled = cfg.IsDisabled()
 			}
@@ -83,15 +83,9 @@ func changedConfigNames(current, snapshot map[string]config.ModelConfig, named s
 			changed[name] = struct{}{}
 			continue
 		}
-		previousRevision, err := config.ModelConfigRevision(&previous)
-		if err != nil {
-			return nil, fmt.Errorf("compute current model config revision for %q: %w", name, err)
-		}
-		revision, err := config.ModelConfigRevision(&cfg)
-		if err != nil {
-			return nil, fmt.Errorf("compute authoritative model config revision for %q: %w", name, err)
-		}
-		if previousRevision != revision {
+		// Both sides come from a loader, so both carry the revision stamped
+		// when their file was parsed. Comparing the stamps compares the files.
+		if previous.PersistedConfigRevision() != cfg.PersistedConfigRevision() {
 			changed[name] = struct{}{}
 		}
 	}

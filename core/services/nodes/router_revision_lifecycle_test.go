@@ -249,8 +249,8 @@ var _ = Describe("revision-bound load publication", func() {
 			LLMConfig: config.LLMConfig{ContextSize: &contextSize},
 		}
 		cfg.Model = "models/full-flow.gguf"
-		expectedRevision, err := config.ModelConfigRevision(&cfg)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(cfg.StampPersistedConfigRevision()).To(Succeed())
+		expectedRevision := cfg.PersistedConfigRevision()
 
 		router := NewSmartRouter(registry, SmartRouterOptions{
 			Unloader:      unloader,
