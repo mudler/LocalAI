@@ -694,6 +694,102 @@
     - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/mmproj-Ornith-1.5-35B-BF16.gguf
       sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
+- &ornith-1-5-397b
+  name: "ornith-1.5-397b-q4"
+  variants:
+    - model: ornith-1.5-397b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-397B
+    - https://huggingface.co/ornith-ai/Ornith-1.5-397B-GGUF
+  description: |
+    Ornith-1.5-397B is Ornith AI's MIT-licensed flagship mixture-of-experts
+    model for agentic coding, reasoning, repository-level tasks, and tool use.
+    It supports text and image input with a context window of 262K tokens.
+
+    This default entry uses the Q4_K_M GGUF and BF16 vision projector. A
+    higher-quality Q8_0 model is available as a variant.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+  last_checked: "2026-08-25"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-397b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-397b/Ornith-1.5-397B-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-397b/Ornith-1.5-397B-Q4_K_M.gguf
+      uri: huggingface://ornith-ai/Ornith-1.5-397B-GGUF/Ornith-1.5-397B-Q4_K_M.gguf
+      sha256: c7775e6fae1a47619c199c81b865df9014e5d724509a098377ce1c84744b6552
+    - filename: llama-cpp/mmproj/ornith-1.5-397b/mmproj-BF16.gguf
+      uri: huggingface://ornith-ai/Ornith-1.5-397B-GGUF/mmproj-Ornith-1.5-397B-BF16.gguf
+      sha256: 9da8c035659d9782b80c2ca6bebdb3befb98a2d7c5a3ac5c001d5a9f02f76fdc
+- !!merge <<: *ornith-1-5-397b
+  name: "ornith-1.5-397b-q8"
+  variants: []
+  description: |
+    Ornith-1.5-397B in the higher-quality Q8_0 GGUF format, with the shared
+    BF16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-397b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-397b/Ornith-1.5-397B-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-397b/Ornith-1.5-397B-Q8_0.gguf
+      uri: huggingface://ornith-ai/Ornith-1.5-397B-GGUF/Ornith-1.5-397B-Q8_0.gguf
+      sha256: 1e033a38f099a5c125e3cf762ef93b6f3db071e18afc55dea6c265c4d0768d8e
+    - filename: llama-cpp/mmproj/ornith-1.5-397b/mmproj-BF16.gguf
+      uri: huggingface://ornith-ai/Ornith-1.5-397B-GGUF/mmproj-Ornith-1.5-397B-BF16.gguf
+      sha256: 9da8c035659d9782b80c2ca6bebdb3befb98a2d7c5a3ac5c001d5a9f02f76fdc
 - &qwen3-8-27b-obliterated
   name: "qwen3.8-27b-obliterated-q4"
   variants:
