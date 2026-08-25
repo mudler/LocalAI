@@ -587,9 +587,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 except json.JSONDecodeError:
                     pass
 
-            # Enable thinking mode if requested
-            if request.Metadata.get("enable_thinking", "").lower() == "true":
-                template_kwargs["enable_thinking"] = True
+            _thinking = request.Metadata.get("enable_thinking", "").lower()
+            if _thinking in ("true", "false"):
+                template_kwargs["enable_thinking"] = (_thinking == "true")
 
             try:
                 prompt = self.tokenizer.apply_chat_template(messages_dicts, **template_kwargs)

@@ -96,6 +96,38 @@ class TestSglangHelpers(unittest.TestCase):
             servicer._apply_engine_args({}, "[1,2,3]")
         self.assertIn("must be a JSON object", str(ctx.exception))
 
+    def test_build_prompt_forwards_enable_thinking(self):
+        from types import SimpleNamespace
+
+        class Tok:
+            def __init__(self):
+                self.kwargs = None
+
+            def apply_chat_template(self, messages, **kwargs):
+                self.kwargs = kwargs
+                return "PROMPT"
+
+        def kwargs_for(metadata):
+            servicer = self._servicer()
+            tok = Tok()
+            servicer.tokenizer = tok
+            msg = SimpleNamespace(
+                role="user", content="hi", name="",
+                tool_call_id="", reasoning_content="", tool_calls="",
+            )
+            req = SimpleNamespace(
+                Prompt="", UseTokenizerTemplate=True,
+                Messages=[msg], Tools="", Metadata=metadata,
+            )
+            self.assertEqual(servicer._build_prompt(req), "PROMPT")
+            return tok.kwargs
+
+        self.assertIs(kwargs_for({"enable_thinking": "true"})["enable_thinking"], True)
+        # "false" used to be dropped, so Qwen3 kept thinking on
+        self.assertIs(kwargs_for({"enable_thinking": "false"})["enable_thinking"], False)
+        self.assertNotIn("enable_thinking", kwargs_for({}))
+        self.assertIs(kwargs_for({"enable_thinking": "FALSE"})["enable_thinking"], False)
+
 
 if __name__ == "__main__":
     unittest.main()
