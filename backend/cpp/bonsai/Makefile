@@ -41,6 +41,7 @@ define bonsai-build
 	# and are applied by apply-patches.sh below.
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build purge
+	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-tts-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp
 	$(info $(GREEN)I bonsai build info:$(1)$(RESET))
@@ -79,6 +80,7 @@ bonsai-cpu-all:
 	# and are applied by apply-patches.sh below.
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build purge
+	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-tts-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp
 	$(info $(GREEN)I bonsai build info:cpu-all-variants$(RESET))
