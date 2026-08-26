@@ -1,4 +1,151 @@
 ---
+- &apodex-1-1-mini
+  name: "apodex-1.1-mini-q4"
+  variants:
+    - model: apodex-1.1-mini-q4-mtp
+    - model: apodex-1.1-mini-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/apodex/Apodex-1.1-mini
+    - https://huggingface.co/abenzerps/Apodex-1.1-mini-GGUF
+  description: |
+    Apodex-1.1-mini is an Apache-2.0 Qwen3.5 mixture-of-experts model for
+    long-horizon research, data analysis, coding, file work, and tool use. It
+    activates about 3B of its 35.95B parameters per token and supports text and
+    image input with a context window of 262K tokens.
+
+    This default entry uses the recommended Q4_K_M GGUF and F16 vision
+    projector. An MTP-enabled build and a higher-quality Q8_0 model are
+    available as variants.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+  last_checked: "2026-08-26"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/apodex-1.1-mini/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/apodex-1.1-mini/Apodex-1.1-mini-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/apodex-1.1-mini/Apodex-1.1-mini-Q4_K_M.gguf
+      uri: huggingface://abenzerps/Apodex-1.1-mini-GGUF/Apodex-1.1-mini-Q4_K_M.gguf
+      sha256: 13a580b1ab9350b90085c221cf66e8715a594b2428e5a80a7a956d8e0420be16
+    - filename: llama-cpp/mmproj/apodex-1.1-mini/mmproj-F16.gguf
+      uri: huggingface://abenzerps/Apodex-1.1-mini-GGUF/mmproj-Apodex-1.1-mini-F16.gguf
+      sha256: d0ccf814138020651bcab603d9ce5c080a0ada46f482c116f0aca0fbb84e091e
+- !!merge <<: *apodex-1-1-mini
+  name: "apodex-1.1-mini-q4-mtp"
+  variants: []
+  description: |
+    Apodex-1.1-mini with MTP speculative decoding enabled on the recommended
+    Q4_K_M GGUF. The model carries its native MTP head, so it needs no separate
+    draft model. The F16 vision projector supports multimodal prompts.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/apodex-1.1-mini/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      model: llama-cpp/models/apodex-1.1-mini/Apodex-1.1-mini-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/apodex-1.1-mini/Apodex-1.1-mini-Q4_K_M.gguf
+      uri: huggingface://abenzerps/Apodex-1.1-mini-GGUF/Apodex-1.1-mini-Q4_K_M.gguf
+      sha256: 13a580b1ab9350b90085c221cf66e8715a594b2428e5a80a7a956d8e0420be16
+    - filename: llama-cpp/mmproj/apodex-1.1-mini/mmproj-F16.gguf
+      uri: huggingface://abenzerps/Apodex-1.1-mini-GGUF/mmproj-Apodex-1.1-mini-F16.gguf
+      sha256: d0ccf814138020651bcab603d9ce5c080a0ada46f482c116f0aca0fbb84e091e
+- !!merge <<: *apodex-1-1-mini
+  name: "apodex-1.1-mini-q8"
+  variants: []
+  description: |
+    Apodex-1.1-mini in the higher-quality Q8_0 GGUF format, with the shared F16
+    vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/apodex-1.1-mini/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/apodex-1.1-mini/Apodex-1.1-mini-Q8_0.gguf
+      repeat_penalty: 1.05
+      temperature: 1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/apodex-1.1-mini/Apodex-1.1-mini-Q8_0.gguf
+      uri: huggingface://abenzerps/Apodex-1.1-mini-GGUF/Apodex-1.1-mini-Q8_0.gguf
+      sha256: 75340c1561b8e6cb8b6314299a6c4a865ba49f0109e2193dcef48d3478564068
+    - filename: llama-cpp/mmproj/apodex-1.1-mini/mmproj-F16.gguf
+      uri: huggingface://abenzerps/Apodex-1.1-mini-GGUF/mmproj-Apodex-1.1-mini-F16.gguf
+      sha256: d0ccf814138020651bcab603d9ce5c080a0ada46f482c116f0aca0fbb84e091e
 - name: "glm-5.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
