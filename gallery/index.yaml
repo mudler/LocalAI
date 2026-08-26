@@ -905,6 +905,140 @@
     - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/mmproj-Ornith-1.5-35B-BF16.gguf
       sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
+- &tiel-coder-35b-a3b
+  name: "tiel-coder-35b-a3b-q4"
+  variants:
+    - model: tiel-coder-35b-a3b-q4-mtp
+    - model: tiel-coder-35b-a3b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B
+    - https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF
+  description: |
+    Tiel-Coder-35B-A3B is a 35B-parameter mixture-of-experts model for coding,
+    reasoning, tool use, and vision tasks. This default entry uses the
+    Q4_K_XL GGUF and BF16 vision projector.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+  last_checked: "2026-08-25"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/tiel-coder-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/tiel-coder-35b-a3b/Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/tiel-coder-35b-a3b/Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf
+      uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF/Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf
+      sha256: 9286a94c453c6a40ad51982c3dc88df4bba32fee9efad06e4588c83c059cf17c
+    - filename: llama-cpp/mmproj/tiel-coder-35b-a3b/mmproj-BF16.gguf
+      uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF/mmproj-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
+- !!merge <<: *tiel-coder-35b-a3b
+  name: "tiel-coder-35b-a3b-q4-mtp"
+  variants: []
+  urls:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B
+    - https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP
+  description: |
+    Tiel-Coder-35B-A3B in Q4_K_XL format with MTP speculative decoding and a
+    BF16 vision projector.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+    parameters:
+      model: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL.gguf
+      uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL.gguf
+      sha256: 10960d1d6477b08ed36a0e542e571b473022023c25b8315b0cf8c33c57e98ccd
+    - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
+      uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/mmproj-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
+- !!merge <<: *tiel-coder-35b-a3b
+  name: "tiel-coder-35b-a3b-q8"
+  variants: []
+  description: |
+    Tiel-Coder-35B-A3B in the higher-quality Q8_K_XL GGUF format, with the
+    BF16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/tiel-coder-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/tiel-coder-35b-a3b/Tiel-Coder-35B-A3B-UD-Q8_K_XL.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/tiel-coder-35b-a3b/Tiel-Coder-35B-A3B-UD-Q8_K_XL.gguf
+      uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF/Tiel-Coder-35B-A3B-UD-Q8_K_XL.gguf
+      sha256: 883faacea54421f80f5d2713b344c69fbd2c76093a8cc4e2694dbb6958c4d699
+    - filename: llama-cpp/mmproj/tiel-coder-35b-a3b/mmproj-BF16.gguf
+      uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF/mmproj-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
 - &ornith-1-5-397b
   name: "ornith-1.5-397b-q4"
   variants:
