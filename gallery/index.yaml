@@ -1860,7 +1860,7 @@
   files:
     - filename: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
       uri: huggingface://ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
-      sha256: b0e25ce2d301930e706d549a59d18c5969dcec664fdf7466435287b03fefda36
+      sha256: d4cc4c9fffaa356db8b49cfaba9233609cfb29b4dd89d827665210dc1cc8dbbb
 - &muse-glimmer-30b
   name: "muse-glimmer-30b"
   variants:
