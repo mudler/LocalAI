@@ -5549,6 +5549,8 @@
   variants:
     - model: laguna-s-2.1-q8
     - model: laguna-s-2.1-dflash
+    - model: laguna-s-2.1-apex-i-quality
+    - model: laguna-s-2.1-apex-i-compact
   description: |
     Laguna S 2.1 is Poolside's 118B-parameter, 8B-active Mixture-of-Experts model for agentic software engineering. It supports tool use and a native one-million-token context window; the official GGUF recommends 256K context for best output quality. This default entry uses the current 96 GB Q4_K_M artifact, with imatrix-quantized routed experts and a Q8_0 signal path.
 
@@ -5572,6 +5574,70 @@
     - filename: llama-cpp/models/Laguna-S-2.1-GGUF/laguna-s-2.1-Q4_K_M.gguf
       sha256: a8b55c75714ea73fd90ec85de5defdc0b8d88ca0ad2108343cdd8fc22f7583e4
       uri: https://huggingface.co/poolside/Laguna-S-2.1-GGUF/resolve/main/laguna-s-2.1-Q4_K_M.gguf
+- !!merge <<: *laguna-s-2-1-q8
+  name: "laguna-s-2.1-apex-i-quality"
+  variants: []
+  urls:
+    - https://huggingface.co/poolside/Laguna-S-2.1
+    - https://huggingface.co/Myric/Laguna-S-2.1-APEX-GGUF
+  description: |
+    Laguna S 2.1 in the 73.9 GB APEX-I Quality format. This community build
+    uses an importance matrix and mixed precision to preserve the always-active
+    signal path while reducing the memory required by the routed experts.
+
+    License: OpenMDW 1.1.
+  last_checked: "2026-08-26"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Laguna-S-2.1-APEX-GGUF/Laguna-S-2.1-APEX-i-quality-v2.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Laguna-S-2.1-APEX-GGUF/Laguna-S-2.1-APEX-i-quality-v2.gguf
+      sha256: 772886614b2f11ba62ea2c2ebb5d02804e1ab829329b50f644e83e174decfaf2
+      uri: huggingface://Myric/Laguna-S-2.1-APEX-GGUF/Laguna-S-2.1-APEX-i-quality-v2.gguf
+- !!merge <<: *laguna-s-2-1-q8
+  name: "laguna-s-2.1-apex-i-compact"
+  variants: []
+  urls:
+    - https://huggingface.co/poolside/Laguna-S-2.1
+    - https://huggingface.co/Myric/Laguna-S-2.1-APEX-GGUF
+  description: |
+    Laguna S 2.1 in the smaller 54.4 GB APEX-I Compact format. This community
+    build uses an importance matrix and mixed precision to reduce memory use
+    while retaining higher precision for the always-active signal path.
+
+    License: OpenMDW 1.1.
+  last_checked: "2026-08-26"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Laguna-S-2.1-APEX-GGUF/Laguna-S-2.1-APEX-i-compact-v2.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Laguna-S-2.1-APEX-GGUF/Laguna-S-2.1-APEX-i-compact-v2.gguf
+      sha256: b5964de8c5de37c9d4fcbd6894a68a95a81a2c404b12897d9581fc0d934134de
+      uri: huggingface://Myric/Laguna-S-2.1-APEX-GGUF/Laguna-S-2.1-APEX-i-compact-v2.gguf
 - !!merge <<: *laguna-s-2-1-q8
   name: "laguna-s-2.1-dflash"
   description: |
