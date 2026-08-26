@@ -141,6 +141,12 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			}
 
 			modelName := input.ModelName(nil)
+			// Ollama-compat /api/tags appends ":latest" to untagged names.
+			// Strip it for lookup so the listed name works on /api/chat,
+			// /v1/chat/completions, and the other model-bearing endpoints.
+			if strings.HasSuffix(modelName, ":latest") {
+				modelName = strings.TrimSuffix(modelName, ":latest")
+			}
 			cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(modelName, re.applicationConfig)
 
 			if err != nil {
