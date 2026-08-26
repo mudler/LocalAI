@@ -1,4 +1,215 @@
 ---
+- &granite-4-2-3b
+  name: "granite-4.2-3b-q4"
+  variants:
+    - model: granite-4.2-3b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-3b
+    - https://huggingface.co/ibm-granite/granite-4.2-3b-GGUF
+  description: |
+    IBM Granite 4.2 3B is a compact multilingual reasoning model for chat,
+    coding, long-context tasks, and tool use. This entry uses the Q4_K_M
+    GGUF; a higher-fidelity Q8_0 build is available as a variant.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - granite
+    - multilingual
+    - reasoning
+    - thinking
+    - coding
+    - tools
+    - long-context
+  last_checked: "2026-08-25"
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/granite-4.2-3b/granite-4.2-3b-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/granite-4.2-3b/granite-4.2-3b-Q4_K_M.gguf
+      uri: huggingface://ibm-granite/granite-4.2-3b-GGUF/granite-4.2-3b-Q4_K_M.gguf
+      sha256: 20e436143017578687f7f848225cc6c6038126c84149192229c7dff6e4e0f427
+- !!merge <<: *granite-4-2-3b
+  name: "granite-4.2-3b-q8"
+  variants: []
+  description: |
+    IBM Granite 4.2 3B in the higher-fidelity Q8_0 GGUF format. It is a
+    compact multilingual reasoning model for chat, coding, and tool use.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/granite-4.2-3b/granite-4.2-3b-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/granite-4.2-3b/granite-4.2-3b-Q8_0.gguf
+      uri: huggingface://ibm-granite/granite-4.2-3b-GGUF/granite-4.2-3b-Q8_0.gguf
+      sha256: 9e97320b131445ab8d9098cafb48001e9925d879e71486a8af4db4c803c55394
+- &granite-4-2-8b
+  name: "granite-4.2-8b-q4"
+  variants:
+    - model: granite-4.2-8b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-8b
+    - https://huggingface.co/ibm-granite/granite-4.2-8b-GGUF
+  description: |
+    IBM Granite 4.2 8B is a multilingual reasoning model for chat, coding,
+    long-context tasks, and tool use. This entry uses the Q4_K_M GGUF; a
+    higher-fidelity Q8_0 build is available as a variant.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - granite
+    - multilingual
+    - reasoning
+    - thinking
+    - coding
+    - tools
+    - long-context
+  last_checked: "2026-08-25"
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/granite-4.2-8b/granite-4.2-8b-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/granite-4.2-8b/granite-4.2-8b-Q4_K_M.gguf
+      uri: huggingface://ibm-granite/granite-4.2-8b-GGUF/granite-4.2-8b-Q4_K_M.gguf
+      sha256: 16a9369d0805f80b7377d25d87f937a90c05dc04ad79173a52001e42c9aab311
+- !!merge <<: *granite-4-2-8b
+  name: "granite-4.2-8b-q8"
+  variants: []
+  description: |
+    IBM Granite 4.2 8B in the higher-fidelity Q8_0 GGUF format. It is a
+    multilingual reasoning model for chat, coding, and tool use.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/granite-4.2-8b/granite-4.2-8b-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/granite-4.2-8b/granite-4.2-8b-Q8_0.gguf
+      uri: huggingface://ibm-granite/granite-4.2-8b-GGUF/granite-4.2-8b-Q8_0.gguf
+      sha256: fb66ad5750680c77c76b9dc095961375f14fc88ba15fd5fc084ef6e6701bad77
+- &granite-4-2-30b
+  name: "granite-4.2-30b-q4"
+  variants:
+    - model: granite-4.2-30b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-30b
+    - https://huggingface.co/ibm-granite/granite-4.2-30b-GGUF
+  description: |
+    IBM Granite 4.2 30B is the family's flagship multilingual reasoning model
+    for chat, coding, long-context tasks, and tool use. This entry uses the
+    Q4_K_M GGUF; a higher-fidelity Q8_0 build is available as a variant.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - granite
+    - multilingual
+    - reasoning
+    - thinking
+    - coding
+    - tools
+    - long-context
+  last_checked: "2026-08-25"
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/granite-4.2-30b/granite-4.2-30b-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/granite-4.2-30b/granite-4.2-30b-Q4_K_M.gguf
+      uri: huggingface://ibm-granite/granite-4.2-30b-GGUF/granite-4.2-30b-Q4_K_M.gguf
+      sha256: f299dace85d77ee0e24ca0b6720bd211b1f4cd1f65b9c0a2111e79692e29c9be
+- !!merge <<: *granite-4-2-30b
+  name: "granite-4.2-30b-q8"
+  variants: []
+  description: |
+    IBM Granite 4.2 30B in the higher-fidelity Q8_0 GGUF format. It is the
+    family's flagship multilingual reasoning model for chat, coding, and tool
+    use.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/granite-4.2-30b/granite-4.2-30b-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/granite-4.2-30b/granite-4.2-30b-Q8_0.gguf
+      uri: huggingface://ibm-granite/granite-4.2-30b-GGUF/granite-4.2-30b-Q8_0.gguf
+      sha256: 005b0933353e9ba219b26e2667705bdb8dbc74eb50e4a4e6cb70fca108710f81
 - name: "qwen3.8-27b-dflash2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
