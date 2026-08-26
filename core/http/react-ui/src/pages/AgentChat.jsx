@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useParams, useOutletContext, useSearchParams } from 'react-router-dom'
 import { agentsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { renderMarkdown, highlightAll, enhanceCodeBlocks } from '../utils/markdown'
@@ -72,7 +72,6 @@ function AgentActivityGroup({ items }) {
 
 export default function AgentChat() {
   const { name } = useParams()
-  const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const [searchParams] = useSearchParams()
   const userId = searchParams.get('user_id') || undefined
@@ -600,9 +599,15 @@ export default function AgentChat() {
               <i className="fas fa-layer-group" /> {artifacts.length}
             </button>
           )}
-          <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/agents/${encodeURIComponent(name)}/status${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`)} title="View status & observables">
+          <a
+            className="btn btn-secondary btn-sm"
+            href={`/app/agents/${encodeURIComponent(name)}/status${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View status & observables in a new tab"
+          >
             <i className="fas fa-chart-bar" /> Status
-          </button>
+          </a>
           <button className="btn btn-secondary btn-sm" onClick={() => clearMessages()} disabled={messages.length === 0} title="Clear chat history">
             <i className="fas fa-eraser" /> Clear
           </button>
