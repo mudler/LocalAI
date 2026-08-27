@@ -2204,6 +2204,103 @@
     - filename: llama-cpp/mmproj/qwen3.5-9b-defiant-fable/mmproj-BF16.gguf
       uri: huggingface://DavidAU/Qwen3.5-9B-The-Defiant-Fable-Uncensored-Heretic-NEO-IMATRIX-MAX-MTP-GGUF/mmproj-BF16.gguf
       sha256: 853698ce7aa6c7ba732478bad280240969ddf7b0fcbf93900046f63903a83383
+- &qwen3-8-27b-cold-fusion
+  name: "qwen3.8-27b-cold-fusion-q4-mtp"
+  variants:
+    - model: qwen3.8-27b-cold-fusion-q8-mtp
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF
+  description: |
+    Qwen3.8 27B Cold Fusion is an Apache-2.0 multimodal fine-tune for
+    reasoning, coding, creative writing, and roleplay. This entry uses the
+    publisher's NEO-imatrix Q4_K_M GGUF with multi-token prediction enabled.
+    It supports vision through the shared BF16 projector and a native 256K
+    context window.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen3.8
+    - reasoning
+    - coding
+    - creative-writing
+    - vision
+    - multimodal
+    - mtp
+  last_checked: "2026-08-27"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-cold-fusion/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0.0
+      model: llama-cpp/models/qwen3.8-27b-cold-fusion/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf
+      repeat_penalty: 1.0
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-cold-fusion/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf
+      uri: huggingface://DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q4_K_M.gguf
+      sha256: db466a9432a52b87a7b7560f432f0e1caafeb111dbe3d168acf74dfe143a637c
+    - filename: llama-cpp/mmproj/qwen3.8-27b-cold-fusion/mmproj-BF16.gguf
+      uri: huggingface://DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF/mmproj-BF16.gguf
+      sha256: 734916669e61e798d2af7cdbff50ef7b1520b66993b69089bb883048cc048929
+- !!merge <<: *qwen3-8-27b-cold-fusion
+  name: "qwen3.8-27b-cold-fusion-q8-mtp"
+  variants: []
+  description: |
+    Qwen3.8 27B Cold Fusion in the higher-quality NEO-imatrix Q8_0 GGUF
+    format. Multi-token prediction is enabled, and the shared BF16 projector
+    provides vision support.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-cold-fusion/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0.0
+      model: llama-cpp/models/qwen3.8-27b-cold-fusion/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q8_0.gguf
+      repeat_penalty: 1.0
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-cold-fusion/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q8_0.gguf
+      uri: huggingface://DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-NEO-MTP-Q8_0.gguf
+      sha256: e78d3087059cc7280fbae60b551f6be0a2fdcd0afea8d5d28283b06878172a81
+    - filename: llama-cpp/mmproj/qwen3.8-27b-cold-fusion/mmproj-BF16.gguf
+      uri: huggingface://DavidAU/Qwen3.8-27B-Cold-Fusion-GAIN-V1.1-NM-DAU-NEO-MAX-MTP-GGUF/mmproj-BF16.gguf
+      sha256: 734916669e61e798d2af7cdbff50ef7b1520b66993b69089bb883048cc048929
 - &qwen3-8-2b-distill
   name: "qwen3.8-2b-distill-q4"
   variants:
