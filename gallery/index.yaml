@@ -2411,6 +2411,80 @@
     - filename: llama-cpp/models/BTL-4-Compact/BTL-4-IQ2_XXS.gguf
       uri: huggingface://badtheorylabs/BTL-4-Compact/BTL-4-IQ2_XXS.gguf
       sha256: 6b7c298cf909fc04428ecf360a29dcc578188b1c90aa6ed435159f5a0d351496
+- &mxbai-embed-large-v1
+  name: "mxbai-embed-large-v1-q4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: mxbai-embed-large-v1-q8
+    - model: mxbai-embed-large-v1-f16
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/mixedbread-ai/mxbai-embed-large-v1
+    - https://huggingface.co/ChristianAzinn/mxbai-embed-large-v1-gguf
+  description: |
+    Mixedbread's mxbai-embed-large-v1 is a 335M-parameter English BERT
+    embedding model for retrieval, semantic search, and RAG. It produces
+    1,024-dimensional embeddings and supports sequences up to 512 tokens.
+    Prefix retrieval queries with `Represent this sentence for searching
+    relevant passages: `. This entry uses the balanced Q4_K_M GGUF.
+  tags:
+    - embeddings
+    - retrieval
+    - rag
+    - gguf
+    - cpu
+    - gpu
+    - english
+  last_checked: "2026-08-27"
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/mxbai-embed-large-v1/mxbai-embed-large-v1.Q4_K_M.gguf
+  files:
+    - filename: llama-cpp/models/mxbai-embed-large-v1/mxbai-embed-large-v1.Q4_K_M.gguf
+      uri: huggingface://ChristianAzinn/mxbai-embed-large-v1-gguf/mxbai-embed-large-v1.Q4_K_M.gguf
+      sha256: 3869d462819e3f6cd2c1b0f8d6817e95cc1ed31fc09388432669209d1c6f1b65
+- !!merge <<: *mxbai-embed-large-v1
+  name: "mxbai-embed-large-v1-q8"
+  variants: []
+  description: |
+    Mixedbread's mxbai-embed-large-v1 in the higher-fidelity Q8_0 GGUF
+    format. This 335M-parameter English BERT model produces
+    1,024-dimensional embeddings for retrieval, semantic search, and RAG.
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/mxbai-embed-large-v1/mxbai-embed-large-v1.Q8_0.gguf
+  files:
+    - filename: llama-cpp/models/mxbai-embed-large-v1/mxbai-embed-large-v1.Q8_0.gguf
+      uri: huggingface://ChristianAzinn/mxbai-embed-large-v1-gguf/mxbai-embed-large-v1.Q8_0.gguf
+      sha256: bcdebca12aa16c0e51d166d97e4776efd46f905952b0c9acb968976eba2619f3
+- !!merge <<: *mxbai-embed-large-v1
+  name: "mxbai-embed-large-v1-f16"
+  variants: []
+  urls:
+    - https://huggingface.co/mixedbread-ai/mxbai-embed-large-v1
+  description: |
+    Mixedbread's mxbai-embed-large-v1 in the official full-precision F16
+    GGUF format. This 335M-parameter English BERT model produces
+    1,024-dimensional embeddings for retrieval, semantic search, and RAG.
+  overrides:
+    backend: llama-cpp
+    embeddings: true
+    known_usecases:
+      - embeddings
+    parameters:
+      model: llama-cpp/models/mxbai-embed-large-v1/mxbai-embed-large-v1-f16.gguf
+  files:
+    - filename: llama-cpp/models/mxbai-embed-large-v1/mxbai-embed-large-v1-f16.gguf
+      uri: huggingface://mixedbread-ai/mxbai-embed-large-v1/gguf/mxbai-embed-large-v1-f16.gguf
+      sha256: 819c2adf5ce6df2b6bd2ae4ca90d2a69f060afeb438d0c171db57daa02e39c3d
 - &nemotron-3-embed-1b
   name: "nemotron-3-embed-1b-q4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
