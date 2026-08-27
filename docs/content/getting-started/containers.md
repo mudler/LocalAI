@@ -16,7 +16,9 @@ Before you begin, ensure you have a container engine installed:
 - [Install Docker](https://docs.docker.com/get-docker/) (Mac, Windows, Linux)
 - [Install Podman](https://podman.io/getting-started/installation) (Linux, macOS, Windows WSL2)
 
-Most of the Podman commands are just Docker commands, but the image name must be fully specified (i.e. just including the `docker.io/` prefix to explicit the source registry; Docker assumes it to be Docker Hub if none is specified, Podman requires it). Inside docker-compose.yml it is always recommended to fully qualify the image name with its proper registry.
+Podman might not resolve short image names such as `localai/localai:latest`.
+The Podman and Compose examples use the `docker.io/` prefix to identify the
+container registry explicitly.
 
 ## Quick Start
 
