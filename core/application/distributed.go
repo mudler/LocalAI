@@ -162,6 +162,15 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Node registry initialized")
 
+	// Let scheduling rules be keyed by a model alias. The registry resolves a
+	// rule's name through the config loader to find the model it governs, so an
+	// operator can pin placement to a stable name like "production" and have it
+	// follow the alias when the alias is repointed. Wired before the seed below
+	// and before the reconciler starts, so the first tick already resolves.
+	if configLoader != nil {
+		registry.SetAliasResolver(configLoader)
+	}
+
 	// Seed declarative per-model scheduling config (LOCALAI_MODEL_SCHEDULING /
 	// LOCALAI_MODEL_SCHEDULING_CONFIG). Authoritative: overwrites matching models
 	// on every boot. Runs before the reconciler starts so the first tick already

@@ -176,6 +176,75 @@ test.describe('Scheduling page', () => {
     await expect(page.getByLabel('Node selector').getByText('gpu.vendor=nvidia', { exact: true })).toBeVisible()
   })
 
+  // A rule may be keyed by an alias, in which case it governs whichever model
+  // the alias points at. The page has to say which model that is, because the
+  // rule's own name no longer tells you.
+  test.describe('rules keyed by a model alias', () => {
+    const aliasRule = {
+      model_name: 'production',
+      target_model: 'llama-3.3',
+      model_is_alias: true,
+      node_selector: { tier: 'gpu' },
+      min_replicas: 2,
+      max_replicas: 4,
+    }
+
+    async function mockAliases(page, aliases = [{ name: 'production', target: 'llama-3.3' }]) {
+      await page.route('**/api/aliases', route => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(aliases),
+      }))
+      await page.route('**/api/models/capabilities', route => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ object: 'list', data: [{ id: 'llama-3.3' }, { id: 'production' }] }),
+      }))
+    }
+
+    test('names the model an alias rule governs', async ({ page }) => {
+      await mockScheduling(page, { rules: [aliasRule] })
+      await mockAliases(page)
+      await page.goto('/app/scheduling')
+
+      await expect(page.getByText('production')).toBeVisible()
+      await expect(page.locator('.scheduling-rule-target')).toHaveText(/llama-3\.3/)
+    })
+
+    test('marks a rule another rule already governs as shadowed', async ({ page }) => {
+      await mockScheduling(page, { rules: [{ ...aliasRule, shadowed: true }, rule] })
+      await mockAliases(page)
+      await page.goto('/app/scheduling')
+
+      await expect(page.locator('.scheduling-rule-shadowed')).toHaveCount(1)
+      await expect(page.locator('.scheduling-rule-shadowed')).toContainText('Shadowed')
+    })
+
+    test('flags an alias rule that no longer resolves', async ({ page }) => {
+      await mockScheduling(page, {
+        rules: [{ model_name: 'orphan', target_model: 'orphan', model_is_alias: true, min_replicas: 1 }],
+      })
+      await mockAliases(page, [])
+      await page.goto('/app/scheduling')
+
+      await expect(page.locator('.scheduling-rule-target--broken')).toBeVisible()
+    })
+
+    test('offers aliases in the model picker, tagged with their target', async ({ page }) => {
+      await mockScheduling(page)
+      await mockAliases(page)
+      await page.goto('/app/scheduling')
+      await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+
+      const picker = page.locator('.searchable-model-select input')
+      await picker.click()
+      await expect(page.locator('.sms-hint')).toHaveText('alias of llama-3.3')
+
+      await page.getByRole('option', { name: /production/ }).click()
+      await expect(page.getByText(/production is an alias for llama-3\.3/)).toBeVisible()
+    })
+  })
+
   test('keeps rule actions reachable on a narrow viewport', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await mockScheduling(page, { nodeList: nodes.slice(0, 2) })

@@ -629,7 +629,11 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	// nodeMatchesScheduling all read it. Fetching once gives a consistent
 	// snapshot and avoids three DB round-trips for one row. nil sched means
 	// "no scheduling constraints", same as before.
-	sched, _ := r.registry.GetModelScheduling(ctx, trackingKey)
+	// GetGoverningScheduling, not GetModelScheduling: a rule may be keyed by an
+	// alias of this model. Request middleware resolves an alias to its target
+	// long before routing, so by here trackingKey is always the target's name
+	// and the alias's rule can only be found by resolving the other way.
+	sched, _ := r.registry.GetGoverningScheduling(ctx, trackingKey)
 
 	// Resolve the model's NodeSelector once so cached-replica lookup and the
 	// new-load scheduler agree on the candidate set. Without this, a cached
@@ -1047,7 +1051,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// Check for scheduling constraints (node selector). If a selector is set,
 	// we restrict the candidate pool to matching nodes; otherwise nil means
 	// "any healthy node".
-	sched, _ := r.registry.GetModelScheduling(ctx, modelID)
+	sched, _ := r.registry.GetGoverningScheduling(ctx, modelID)
 	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID, sched)
 	if err != nil {
 		return nil, "", 0, err
@@ -2006,16 +2010,27 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 	for attempt := range maxEvictionRetries {
 		var lru NodeModel
 		err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			// Lock the row so no other frontend can evict the same model
+			// Lock the row so no other frontend can evict the same model.
+			//
+			// The replica-floor guard matches a rule to a replica through
+			// sc.target_model, so a rule keyed by an alias protects the model
+			// the alias points at. It falls back to sc.model_name when the
+			// stored target is empty, which keeps a rule inserted by some path
+			// that never resolved it protecting itself rather than nothing.
+			//
+			// target_model is not unique (two names can resolve to one model),
+			// so the floor is MAX over the matching rules: only one of them
+			// governs, but over-protecting costs a retry while under-protecting
+			// evicts below a floor the reconciler then has to rebuild.
 			q := currentModelRevision(tx.Clauses(clause.Locking{Strength: "UPDATE"})).
 				Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 				Where(`node_models.in_flight = 0 AND node_models.state = ? AND backend_nodes.status = ?
   AND (
-    NOT EXISTS (SELECT 1 FROM model_scheduling_configs sc WHERE sc.model_name = node_models.model_name AND (sc.min_replicas > 0 OR sc.max_replicas > 0))
+    NOT EXISTS (SELECT 1 FROM model_scheduling_configs sc WHERE COALESCE(NULLIF(sc.target_model, ''), sc.model_name) = node_models.model_name AND (sc.min_replicas > 0 OR sc.max_replicas > 0))
     OR (SELECT COUNT(*) FROM node_models nm2 WHERE nm2.model_name = node_models.model_name AND nm2.state = 'loaded'
          AND (NOT EXISTS (SELECT 1 FROM model_config_states mcs2 WHERE mcs2.model_name = nm2.model_name)
               OR nm2.config_revision = (SELECT mcs3.config_revision FROM model_config_states mcs3 WHERE mcs3.model_name = nm2.model_name)))
-       > COALESCE((SELECT sc2.min_replicas FROM model_scheduling_configs sc2 WHERE sc2.model_name = node_models.model_name), 1)
+       > COALESCE((SELECT MAX(sc2.min_replicas) FROM model_scheduling_configs sc2 WHERE COALESCE(NULLIF(sc2.target_model, ''), sc2.model_name) = node_models.model_name), 1)
   )`, "loaded", StatusHealthy)
 			if len(candidateNodeIDs) > 0 {
 				q = q.Where("node_models.node_id IN ?", candidateNodeIDs)

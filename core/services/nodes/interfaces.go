@@ -49,6 +49,7 @@ type ModelRouter interface {
 	FindLRUModel(ctx context.Context, nodeID string) (*NodeModel, error)
 	Get(ctx context.Context, nodeID string) (*BackendNode, error)
 	GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
+	GetGoverningScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
 	FindNodesBySelector(ctx context.Context, selector map[string]string) ([]BackendNode, error)
 	FindNodesWithFreeSlot(ctx context.Context, modelName string, candidateNodeIDs []string) ([]BackendNode, error)
 	NarrowByDiskHeadroom(ctx context.Context, candidateNodeIDs []string, required uint64) ([]string, error)
