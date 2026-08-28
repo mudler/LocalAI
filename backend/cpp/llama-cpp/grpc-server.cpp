@@ -88,6 +88,12 @@ using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 
+#if LOCALAI_HAS_MTMD_INIT_OPT
+#define LOCALAI_MTMD_INIT_OPT_ARG(value) , value
+#else
+#define LOCALAI_MTMD_INIT_OPT_ARG(value)
+#endif
+
 // gRPC bearer token auth for distributed mode.
 // Reads LOCALAI_GRPC_AUTH_TOKEN from the environment. When set, rejects
 // requests without a matching "authorization: Bearer <token>" metadata header.
@@ -1119,14 +1125,16 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 try {
                     int n = std::stoi(optval_str);
                     if (n < 0) n = 0;
-                    // Keep override-name storage alive for the lifetime of the params struct
-                    // (mirrors upstream arg.cpp behavior with a function-local static).
+#if LOCALAI_HAS_N_CPU_FFN_HELPER
+                    llm_add_n_cpu_ffn_overrides(n, LLM_FFN_EXPS_REGEX, params.speculative.draft.tensor_buft_overrides);
+#else
                     static std::list<std::string> buft_overrides_draft;
                     for (int i = 0; i < n; ++i) {
                         buft_overrides_draft.push_back(llm_ffn_exps_block_regex(i));
                         params.speculative.draft.tensor_buft_overrides.push_back(
                             {buft_overrides_draft.back().c_str(), ggml_backend_cpu_buffer_type()});
                     }
+#endif
                 } catch (...) {}
             }
 
@@ -1144,14 +1152,16 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 try {
                     int n = std::stoi(optval_str);
                     if (n < 0) n = 0;
-                    // Keep override-name storage alive for the lifetime of the
-                    // params struct (mirrors upstream arg.cpp's function-local static).
+#if LOCALAI_HAS_N_CPU_FFN_HELPER
+                    llm_add_n_cpu_ffn_overrides(n, LLM_FFN_EXPS_REGEX, params.tensor_buft_overrides);
+#else
                     static std::list<std::string> buft_overrides_main;
                     for (int i = 0; i < n; ++i) {
                         buft_overrides_main.push_back(llm_ffn_exps_block_regex(i));
                         params.tensor_buft_overrides.push_back(
                             {buft_overrides_main.back().c_str(), ggml_backend_cpu_buffer_type()});
                     }
+#endif
                 } catch (...) {}
             }
 
@@ -2111,10 +2121,10 @@ public:
             std::vector<server_tokens> inputs;
             if (has_mtmd) {
                 // multimodal
-                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files));
+                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt)));
             } else {
                  // Everything else, including multimodal completions.
-                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true);
+                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
             }
 
             tasks.reserve(inputs.size());
@@ -2686,10 +2696,10 @@ public:
             std::vector<server_tokens> inputs;
             if (has_mtmd) {
                 // multimodal
-                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files));
+                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt)));
             } else {
                  // Everything else, including multimodal completions.
-                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true);
+                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
             }
 
             tasks.reserve(inputs.size());
@@ -2876,7 +2886,7 @@ public:
         json prompt = body.at("embeddings");
 
 
-        auto tokenized_prompts = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt, true, true);
+        auto tokenized_prompts = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt, true, true LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
         for (const auto & tokens : tokenized_prompts) {
             // this check is necessary for models that do not add BOS token to the input
             if (tokens.empty()) {
@@ -2981,7 +2991,7 @@ public:
 
             tasks.reserve(documents.size());
             for (size_t i = 0; i < documents.size(); i++) {
-                auto tmp = format_prompt_rerank(ctx_server.impl->model_tgt, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i]);
+                auto tmp = format_prompt_rerank(ctx_server.impl->model_tgt, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i] LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
                 server_task task = server_task(SERVER_TASK_TYPE_RERANK);
                 task.id = rd.queue_tasks.get_new_id();
                 task.index = i;
@@ -3062,7 +3072,7 @@ public:
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, opts.error);
         }
 
-        auto wrapper = mtmd_helper_bitmap_init_from_file(ctx_server.impl->mctx, opts.voice_path.c_str(), false);
+        auto wrapper = mtmd_helper_bitmap_init_from_file(ctx_server.impl->mctx, opts.voice_path.c_str(), false LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
         if (!wrapper.bitmap) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
                 "failed to read speaker reference audio: " + opts.voice_path);
