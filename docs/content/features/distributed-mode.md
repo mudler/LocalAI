@@ -836,6 +836,12 @@ curl -X POST http://frontend:8080/api/nodes/scheduling \
 
 Without a node selector, models can schedule on any healthy node (default behavior).
 
+In the WebUI, the node selector field completes what you type against the labels
+your cluster actually reports: start typing a key and the matching label keys
+appear inline, then the value field offers only the values that key takes. A key
+no node reports yet is still accepted as typed, so you can write a rule before
+labelling the nodes for it.
+
 ### Replica Auto-Scaling
 
 Control the number of model replicas across the cluster:
