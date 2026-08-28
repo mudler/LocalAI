@@ -905,6 +905,92 @@
     - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/mmproj-Ornith-1.5-35B-BF16.gguf
       sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
+- &thomson-1-0-small
+  name: "thomson-1.0-small-q4"
+  variants:
+    - model: thomson-1.0-small-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/thomsonreuters/Thomson-1.0-Small
+    - https://huggingface.co/bartowski/thomsonreuters_Thomson-1.0-Small-GGUF
+  description: |
+    Thomson-1.0-Small is a 35B-parameter mixture-of-experts model with about
+    3B active parameters. It focuses on legal, tax, journalism, research,
+    reasoning, tool use, and document processing. It supports text and image
+    input with a native context window of 262K tokens.
+
+    This default entry uses the Q4_K_M GGUF and BF16 vision projector. A
+    higher-quality Q8_0 model is available as a variant.
+  license: "polyform-strict-1.0.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+  last_checked: "2026-08-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/thomson-1.0-small/mmproj-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/thomson-1.0-small/Thomson-1.0-Small-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/thomson-1.0-small/Thomson-1.0-Small-Q4_K_M.gguf
+      uri: huggingface://bartowski/thomsonreuters_Thomson-1.0-Small-GGUF/thomsonreuters_Thomson-1.0-Small-Q4_K_M.gguf
+      sha256: 35dc9b7e66a988a639289099be6798e6e774da5bf2790516fb4cc74bb5befeac
+    - filename: llama-cpp/mmproj/thomson-1.0-small/mmproj-bf16.gguf
+      uri: huggingface://bartowski/thomsonreuters_Thomson-1.0-Small-GGUF/mmproj-thomsonreuters_Thomson-1.0-Small-bf16.gguf
+      sha256: 11634fcccd59c23f1b95e34e5cf479dec86290eeb3dda980324aabd8b0b48f41
+- !!merge <<: *thomson-1-0-small
+  name: "thomson-1.0-small-q8"
+  variants: []
+  description: |
+    Thomson-1.0-Small in the higher-quality Q8_0 GGUF format, with the shared
+    BF16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/thomson-1.0-small/mmproj-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/thomson-1.0-small/Thomson-1.0-Small-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/thomson-1.0-small/Thomson-1.0-Small-Q8_0.gguf
+      uri: huggingface://bartowski/thomsonreuters_Thomson-1.0-Small-GGUF/thomsonreuters_Thomson-1.0-Small-Q8_0.gguf
+      sha256: b1907e8638d5a7eea675d1bffe3b83f32bd3b8bfb587a8e160e49e0979e0670b
+    - filename: llama-cpp/mmproj/thomson-1.0-small/mmproj-bf16.gguf
+      uri: huggingface://bartowski/thomsonreuters_Thomson-1.0-Small-GGUF/mmproj-thomsonreuters_Thomson-1.0-Small-bf16.gguf
+      sha256: 11634fcccd59c23f1b95e34e5cf479dec86290eeb3dda980324aabd8b0b48f41
 - &tiel-coder-35b-a3b
   name: "tiel-coder-35b-a3b-q4"
   variants:
