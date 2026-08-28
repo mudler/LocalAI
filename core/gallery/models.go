@@ -938,3 +938,73 @@ func SafetyScanGalleryModel(galleryModel *GalleryModel) error {
 	}
 	return nil
 }
+
+// ClusterResolveEnv describes a CLUSTER to variant selection, where
+// HostResolveEnv describes one machine.
+//
+// It exists because a distributed controller is the wrong machine to ask. The
+// controller is typically a GPU-less pod while every model actually runs on a
+// worker, so a picker sized against it reports that a fleet of A100s can only
+// run the smallest CPU build, and auto-selection then installs exactly that.
+//
+// availableMemory is the largest single healthy node's budget, and capabilities
+// are the capability strings present in the cluster. Either may be empty: a
+// zero memory reading keeps the host's own figure and an empty capability list
+// keeps the host's own hardware verdict, so every degradation path lands back
+// on the single-node behavior rather than on a cluster described as having
+// nothing.
+func ClusterResolveEnv(ctx context.Context, systemState *system.SystemState, availableMemory uint64, capabilities []string) ResolveEnv {
+	env := HostResolveEnv(ctx, systemState)
+
+	if availableMemory > 0 {
+		env.AvailableMemory = availableMemory
+	}
+	if len(capabilities) == 0 {
+		return env
+	}
+
+	// One state pinned per capability, mirroring AvailableBackendsForCapabilities:
+	// the controller's own detection must not leak into a worker's verdict, and
+	// a forced capability on the controller image must not either.
+	nodeStates := make([]*system.SystemState, 0, len(capabilities))
+	for _, capability := range capabilities {
+		nodeStates = append(nodeStates, system.NewCapabilityState(capability,
+			system.WithBackendPath(systemState.Backend.BackendsPath)))
+	}
+
+	hostCompatible := env.BackendCompatible
+	// A union, because a variant only has to run SOMEWHERE. The controller
+	// stays in the union so a cluster whose workers all went offline still
+	// describes itself the way it did before distributed mode existed.
+	env.BackendCompatible = func(backend string) bool {
+		if hostCompatible != nil && hostCompatible(backend) {
+			return true
+		}
+		for _, nodeState := range nodeStates {
+			if nodeState.IsBackendCompatible(backend, "") {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Ranking follows the same hardware as the filter. Left on the controller's
+	// tokens, an NVIDIA fleet would be offered the GGUF build over the vLLM one
+	// even though nothing filtered the vLLM build out.
+	seen := make(map[string]struct{})
+	preference := make([]string, 0, len(nodeStates))
+	for _, nodeState := range nodeStates {
+		for _, token := range nodeState.EnginePreferenceTokens() {
+			if _, dup := seen[token]; dup {
+				continue
+			}
+			seen[token] = struct{}{}
+			preference = append(preference, token)
+		}
+	}
+	if len(preference) > 0 {
+		env.EnginePreference = preference
+	}
+
+	return env
+}
