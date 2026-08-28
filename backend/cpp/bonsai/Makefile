@@ -41,12 +41,12 @@ define bonsai-build
 	# and are applied by apply-patches.sh below.
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build purge
-	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-tts-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp
 	$(info $(GREEN)I bonsai build info:$(1)$(RESET))
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BONSAI_VERSION) \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build llama.cpp
+	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/llama.cpp
 	bash $(CURRENT_MAKEFILE_DIR)/apply-patches.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/llama.cpp $(PATCHES_DIR)
 	CMAKE_ARGS="$(CMAKE_ARGS) $(2)" TARGET="$(3)" \
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BONSAI_VERSION) \
@@ -80,12 +80,12 @@ bonsai-cpu-all:
 	# and are applied by apply-patches.sh below.
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build purge
-	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-tts-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp
 	$(info $(GREEN)I bonsai build info:cpu-all-variants$(RESET))
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BONSAI_VERSION) \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build llama.cpp
+	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/llama.cpp
 	bash $(CURRENT_MAKEFILE_DIR)/apply-patches.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/llama.cpp $(PATCHES_DIR)
 	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON" TARGET="--target grpc-server --target ggml" \
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(BONSAI_VERSION) \
