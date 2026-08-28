@@ -1,4 +1,76 @@
 ---
+- name: "glm-5.3-flash"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF
+  description: |
+    # GLM-5.3-Flash
+
+    👋 Join our WeChat or Discord community.
+
+    📖 Check out the GLM-5.3-Flash blog and GLM-5 Technical report.
+
+    📍 Use GLM-5.3-Flash API services on Z.ai API Platform.
+
+    ## Introduction
+
+    We introduce GLM-5.3-Flash, the first natively multimodal model in the GLM-5 series. With 320B total parameters and just 18B active parameters, it outperforms GLM-5.2 across benchmarks and real-world workloads at one-tenth the price, while approaching Claude Opus 4.8 on coding and agentic benchmarks.
+
+    GLM-5.3-Flash starts from a newly trained base model, with its architecture and training recipe redesigned around capability and efficiency. For the first time in the GLM series, we introduce a hybrid architecture combining sparse and linear attention, sharply reducing long-context serving costs while preserving precise long-context capabilities. The model also adopts Manifold-Constrained Hyper-Connections (mHC) to further improve scaling efficiency. Together with our latest 30T-token multimodal pre-training corpus, these changes enable GLM-5.3-Flash to deliver more intelligence with less compute.
+
+    ## Serve GLM-5.3-Flash Locally
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/bench_53.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/GLM-5.3-Flash-UD-Q4_K_XL/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/GLM-5.3-Flash-UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/GLM-5.3-Flash-UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      sha256: 00dceaf3ed08781b1e44513a44ebb19e96248d01ba2a80b17f675a2b6fa9a1ee
+      uri: https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF/resolve/main/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+    - filename: llama-cpp/models/GLM-5.3-Flash-UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00002-of-00006.gguf
+      sha256: d3ecb6ff3957a99878f9a0352676a0913748a431a9a4a1b1ffa5ade9b8947a74
+      uri: https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF/resolve/main/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00002-of-00006.gguf
+    - filename: llama-cpp/models/GLM-5.3-Flash-UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00003-of-00006.gguf
+      sha256: 328073c004e7c5395b208247feed26089db247b94dd8fa4ab0f2569d86c1d770
+      uri: https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF/resolve/main/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00003-of-00006.gguf
+    - filename: llama-cpp/models/GLM-5.3-Flash-UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00004-of-00006.gguf
+      sha256: 6803ab7effa6da4a0b02c9c7865952fdd6c5b2e10e53903348da369e90bd13f9
+      uri: https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF/resolve/main/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00004-of-00006.gguf
+    - filename: llama-cpp/models/GLM-5.3-Flash-UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00005-of-00006.gguf
+      sha256: 852f3df9dacde3d196796f9fe738468e80c8701555ff0a8c30bc010fb8974dd8
+      uri: https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF/resolve/main/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00005-of-00006.gguf
+    - filename: llama-cpp/models/GLM-5.3-Flash-UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
+      sha256: c6ba510fafc1e12cc0addbc361a329c0c592ab96980098e7e25e107d8faa983e
+      uri: https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF/resolve/main/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
+    - filename: llama-cpp/mmproj/GLM-5.3-Flash-UD-Q4_K_XL/mmproj-F16.gguf
+      sha256: 96ccc182997646ad4405385a1987b1ac1e6adccd2669de43c3ea39692699ed27
+      uri: https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF/resolve/main/mmproj-F16.gguf
 - &granite-4-2-3b
   name: "granite-4.2-3b-q4"
   variants:
