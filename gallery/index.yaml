@@ -1,4 +1,155 @@
 ---
+- &glm-5-3-flash-iq1
+  name: "glm-5.3-flash-iq1"
+  variants:
+    - model: glm-5.3-flash-q4
+    - model: glm-5.3-flash:vllm
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+    - https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF
+  description: |
+    GLM-5.3-Flash is Z.ai's 320B-parameter multimodal mixture-of-experts model
+    with 18B active parameters. It supports chat, vision, agentic coding, tool
+    use, long-context tasks, and adjustable reasoning effort. This entry uses
+    the compact UD-IQ1_M GGUF; UD-Q4_K_XL and official vLLM safetensors builds
+    are available as variants.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - multimodal
+    - vision
+    - reasoning
+    - thinking
+    - coding
+    - tools
+    - long-context
+    - mixture-of-experts
+  last_checked: "2026-08-28"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/GLM-5.3-Flash/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/GLM-5.3-Flash/UD-IQ1_M/GLM-5.3-Flash-UD-IQ1_M-00001-of-00003.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/GLM-5.3-Flash/UD-IQ1_M/GLM-5.3-Flash-UD-IQ1_M-00001-of-00003.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-IQ1_M/GLM-5.3-Flash-UD-IQ1_M-00001-of-00003.gguf
+      sha256: f70f09b89b9e457743934f27daea09aca6b84957a6d55cbbf276e5c3175ab866
+    - filename: llama-cpp/models/GLM-5.3-Flash/UD-IQ1_M/GLM-5.3-Flash-UD-IQ1_M-00002-of-00003.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-IQ1_M/GLM-5.3-Flash-UD-IQ1_M-00002-of-00003.gguf
+      sha256: 6bcfc2210cced11cede6cd6ce4ac3368c0b1ab52d6fc3e40f2a3f310f0614001
+    - filename: llama-cpp/models/GLM-5.3-Flash/UD-IQ1_M/GLM-5.3-Flash-UD-IQ1_M-00003-of-00003.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-IQ1_M/GLM-5.3-Flash-UD-IQ1_M-00003-of-00003.gguf
+      sha256: 07e252723e988154340414ebd6857051179f69eb25112ad75122d4230ccfc6f7
+    - filename: llama-cpp/mmproj/GLM-5.3-Flash/mmproj-F16.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/mmproj-F16.gguf
+      sha256: 96ccc182997646ad4405385a1987b1ac1e6adccd2669de43c3ea39692699ed27
+- !!merge <<: *glm-5-3-flash-iq1
+  name: "glm-5.3-flash-q4"
+  variants: []
+  description: |
+    GLM-5.3-Flash in the higher-quality UD-Q4_K_XL GGUF format. The model has
+    320B total parameters with 18B active parameters and supports multimodal
+    chat, agentic coding, tool use, long-context tasks, and reasoning.
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/GLM-5.3-Flash/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/GLM-5.3-Flash/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/GLM-5.3-Flash/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      sha256: 00dceaf3ed08781b1e44513a44ebb19e96248d01ba2a80b17f675a2b6fa9a1ee
+    - filename: llama-cpp/models/GLM-5.3-Flash/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00002-of-00006.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00002-of-00006.gguf
+      sha256: d3ecb6ff3957a99878f9a0352676a0913748a431a9a4a1b1ffa5ade9b8947a74
+    - filename: llama-cpp/models/GLM-5.3-Flash/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00003-of-00006.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00003-of-00006.gguf
+      sha256: 328073c004e7c5395b208247feed26089db247b94dd8fa4ab0f2569d86c1d770
+    - filename: llama-cpp/models/GLM-5.3-Flash/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00004-of-00006.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00004-of-00006.gguf
+      sha256: 6803ab7effa6da4a0b02c9c7865952fdd6c5b2e10e53903348da369e90bd13f9
+    - filename: llama-cpp/models/GLM-5.3-Flash/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00005-of-00006.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00005-of-00006.gguf
+      sha256: 852f3df9dacde3d196796f9fe738468e80c8701555ff0a8c30bc010fb8974dd8
+    - filename: llama-cpp/models/GLM-5.3-Flash/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
+      sha256: c6ba510fafc1e12cc0addbc361a329c0c592ab96980098e7e25e107d8faa983e
+    - filename: llama-cpp/mmproj/GLM-5.3-Flash/mmproj-F16.gguf
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/mmproj-F16.gguf
+      sha256: 96ccc182997646ad4405385a1987b1ac1e6adccd2669de43c3ea39692699ed27
+- name: "glm-5.3-flash:vllm"
+  url: "github:mudler/LocalAI/gallery/vllm.yaml@master"
+  urls:
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+  description: |
+    GLM-5.3-Flash served from Z.ai's official safetensors checkpoint with vLLM.
+    The multimodal mixture-of-experts model has 320B total parameters with 18B
+    active parameters and supports agentic coding, tool use, long-context tasks,
+    vision, and adjustable reasoning effort.
+  license: "mit"
+  tags:
+    - llm
+    - safetensors
+    - vllm
+    - gpu
+    - multimodal
+    - vision
+    - reasoning
+    - thinking
+    - coding
+    - tools
+    - long-context
+    - mixture-of-experts
+  last_checked: "2026-08-28"
+  overrides:
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    parameters:
+      model: zai-org/GLM-5.3-Flash
 - &qwen3-8-flash-next
   name: "qwen3.8-flash-next-q4"
   variants:
