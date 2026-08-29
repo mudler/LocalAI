@@ -441,6 +441,26 @@ func (bcl *ModelConfigLoader) ResolveAlias(cfg *ModelConfig) (*ModelConfig, bool
 	return &target, true, nil
 }
 
+// ResolveAliasName maps a model name to the name of the model that actually
+// serves it: an alias resolves to its target, anything else resolves to
+// itself. The second return reports whether name was an alias.
+//
+// Unlike ResolveAlias this never errors. A name with no config (a rule may be
+// authored before the model is installed), a dangling alias, and a chained
+// alias all resolve to themselves, so callers keep a usable name that simply
+// has no model behind it rather than silently governing a different model.
+func (bcl *ModelConfigLoader) ResolveAliasName(name string) (string, bool) {
+	cfg, exists := bcl.GetModelConfig(name)
+	if !exists || !cfg.IsAlias() {
+		return name, false
+	}
+	target, exists := bcl.GetModelConfig(cfg.Alias)
+	if !exists || target.IsAlias() {
+		return name, true
+	}
+	return target.Name, true
+}
+
 // ValidateAliasTarget checks an alias config's target at create/swap time:
 // the target must exist, must not be an alias, and must not be disabled.
 // Returns nil for non-alias configs.

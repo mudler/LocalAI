@@ -99,7 +99,12 @@ type fakeModelRouter struct {
 
 	// GetModelScheduling returns
 	getModelScheduling *ModelSchedulingConfig
-	getModelSchedErr   error
+	// getGoverningScheduling stands in for a rule keyed by an alias of the
+	// routed model: the model has no rule under its own name, but one governs
+	// it all the same. Falls back to getModelScheduling so specs that set up a
+	// single direct rule need no change.
+	getGoverningScheduling *ModelSchedulingConfig
+	getModelSchedErr       error
 
 	// FindNodesBySelector returns
 	findBySelectorNodes []BackendNode
@@ -344,6 +349,13 @@ func (f *fakeModelRouter) Get(_ context.Context, _ string) (*BackendNode, error)
 }
 
 func (f *fakeModelRouter) GetModelScheduling(_ context.Context, _ string) (*ModelSchedulingConfig, error) {
+	return f.getModelScheduling, f.getModelSchedErr
+}
+
+func (f *fakeModelRouter) GetGoverningScheduling(_ context.Context, _ string) (*ModelSchedulingConfig, error) {
+	if f.getGoverningScheduling != nil {
+		return f.getGoverningScheduling, f.getModelSchedErr
+	}
 	return f.getModelScheduling, f.getModelSchedErr
 }
 
@@ -920,6 +932,30 @@ var _ = Describe("SmartRouter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).ToNot(BeNil())
 			Expect(result.Node.ID).To(Equal("gpu-1"))
+		})
+
+		It("applies a rule keyed by an alias of the routed model", func() {
+			// No rule under the model's own name: the rule the operator wrote
+			// is keyed "production", an alias that resolves to this model. Its
+			// selector matches nothing, so honouring it is the only way to
+			// reach the selector error — ignoring it would route successfully.
+			reg.getModelScheduling = nil
+			reg.getGoverningScheduling = &ModelSchedulingConfig{
+				ModelName:    "production",
+				TargetModel:  "aliased-model",
+				NodeSelector: `{"gpu.vendor":"tpu"}`,
+			}
+			reg.findBySelectorNodes = nil
+			reg.findIdleNode = &BackendNode{ID: "cpu-1", Name: "cpu-node", Address: "10.0.0.52:50051"}
+
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: factory,
+			})
+
+			_, err := router.Route(context.Background(), "aliased-model", "models/aliased.gguf", "llama-cpp", "", nil, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no healthy nodes match selector"))
 		})
 
 		It("returns error when no nodes match selector", func() {

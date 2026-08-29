@@ -2781,6 +2781,31 @@ select.input {
   justify-content: flex-end;
 }
 
+/* Second line of a rule's Model cell: the model an alias-keyed rule currently
+   governs. The cell itself is bold, so the weight is reset here rather than
+   inherited. */
+.scheduling-rule-target {
+  font-weight: 400;
+}
+
+.scheduling-rule-target--broken {
+  font-weight: 400;
+  color: var(--color-warning);
+}
+
+/* Status pill for a rule another rule already governs, so it has no effect.
+   Mirrors the unsatisfiable pill's shape. */
+.scheduling-rule-shadowed {
+  display: inline-block;
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+}
+
 @media (max-width: 640px) {
   .scheduling-rule-actions {
     width: 100%;

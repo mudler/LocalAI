@@ -1218,6 +1218,20 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, err.Error()))
 		}
 
+		// A rule may be keyed by an alias, in which case it governs whatever
+		// that alias currently points at. Reject an alias that resolves to
+		// nothing, and reject a second rule for a model some other rule already
+		// governs, so the operator hears about the clash instead of silently
+		// writing a rule that never takes effect.
+		target, err := registry.ValidateSchedulingTarget(ctx, req.ModelName)
+		if err != nil {
+			status := http.StatusBadRequest
+			if errors.Is(err, nodes.ErrSchedulingConflict) {
+				status = http.StatusConflict
+			}
+			return c.JSON(status, nodeError(status, err.Error()))
+		}
+
 		// Serialize node selector to JSON
 		var selectorJSON string
 		if len(req.NodeSelector) > 0 {
@@ -1230,6 +1244,7 @@ func SetSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 		config := &nodes.ModelSchedulingConfig{
 			ModelName:           req.ModelName,
+			TargetModel:         target,
 			NodeSelector:        selectorJSON,
 			MinReplicas:         req.MinReplicas,
 			MaxReplicas:         req.MaxReplicas,

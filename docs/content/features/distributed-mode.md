@@ -914,6 +914,40 @@ All fields are optional and composable:
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
 
+### Scheduling a model alias
+
+`model_name` accepts a [model alias](/features/model-aliases/) as well as a
+model. A rule keyed by an alias governs whatever model that alias currently
+points at, and keeps governing it after you repoint the alias:
+
+```bash
+# "production" is an alias for llama3
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "production", "node_selector": {"tier": "gpu"}, "min_replicas": 2}'
+
+# Repoint the alias at a new model: the rule follows, llama4 now runs
+# two replicas on the GPU tier and llama3 falls back to on-demand placement.
+```
+
+This makes an alias a stable deployment slot: the placement policy belongs to
+the slot, and the model filling it can change without rewriting the rule. The
+WebUI lists aliases in the model picker on the **Scheduling** page, tagged with
+the model each one resolves to.
+
+Two constraints follow from replicas being shared. A single load of `llama3`
+serves both `production` and any request that names `llama3` directly, so only
+one rule can decide where it runs: a rule whose target is already governed by
+another rule is rejected with `409 Conflict` naming the rule that has it. And a
+rule keyed by an alias that resolves to nothing (its target was deleted, or it
+points at another alias) is rejected, since it would govern nothing loadable.
+
+A rule can still end up inert if the pair is created some other way, for example
+by a declarative seed or by repointing an alias onto a model that already has a
+rule. The rule that governs is the one keyed by the model's own name, or failing
+that the oldest one; the rest are listed as **Shadowed** in the WebUI and carry
+`"shadowed": true` in `GET /api/nodes/scheduling`.
+
 ### Declarative per-model scheduling (unattended installs)
 
 In distributed mode you can declare per-model scheduling at startup, instead of

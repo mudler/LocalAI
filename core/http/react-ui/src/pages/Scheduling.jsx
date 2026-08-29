@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { nodesApi } from '../utils/api'
+import { nodesApi, modelsApi } from '../utils/api'
 import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ResponsiveTable from '../components/ResponsiveTable'
@@ -66,7 +66,7 @@ function configMode(config) {
   return 'placement'
 }
 
-function SchedulingForm({ initialConfig, onSave, onCancel, labels }) {
+function SchedulingForm({ initialConfig, onSave, onCancel, labels, aliases }) {
   const [mode, setMode] = useState(() => configMode(initialConfig))
   const [modelName, setModelName] = useState(initialConfig?.model_name || '')
   // Selector is now a chip-builder map instead of a comma-separated string.
@@ -84,6 +84,10 @@ function SchedulingForm({ initialConfig, onSave, onCancel, labels }) {
   const [minPrefixMatch, setMinPrefixMatch] = useState(initialConfig?.min_prefix_match ?? 0)
 
   const hasSelector = Object.keys(selector).length > 0
+  // Aliases are listed in the picker alongside models, tagged with the model
+  // they resolve to so the two are distinguishable in one flat list.
+  const aliasHints = Object.fromEntries(Object.entries(aliases || {}).map(([name, target]) => [name, `alias of ${target}`]))
+  const aliasTarget = (aliases || {})[modelName]
 
   const isValid = () => {
     if (!modelName) return false
@@ -159,8 +163,19 @@ function SchedulingForm({ initialConfig, onSave, onCancel, labels }) {
             <SearchableModelSelect
               value={modelName}
               onChange={setModelName}
-              placeholder="Type to search models, or paste a name..."
+              placeholder="Type to search models or aliases, or paste a name..."
+              hints={aliasHints}
             />
+          )}
+          {/* An alias is a stable name for whichever model currently serves it,
+              so a rule on one is a rule on a slot rather than on a model. Say
+              so at the point of choosing, because the consequence (repointing
+              the alias carries the rule along) is not visible anywhere else. */}
+          {aliasTarget && (
+            <span className="text-meta d-block mt-xs">
+              <i className="fas fa-link icon-before" aria-hidden="true" />
+              {modelName} is an alias for {aliasTarget}. This rule applies to whichever model the alias points at, and follows it if you repoint it.
+            </span>
           )}
         </div>
 
@@ -301,6 +316,21 @@ export default function Scheduling() {
   // is swallowed rather than surfaced: the field still commits whatever is
   // typed into it.
   const [labels, setLabels] = useState(() => labelIndex([]))
+  // name -> target for every configured alias. Feeds the picker so aliases are
+  // listed as schedulable names. Failing to load costs the annotation and
+  // nothing else: an alias typed by hand still resolves server-side.
+  const [aliases, setAliases] = useState({})
+
+  useEffect(() => {
+    let cancelled = false
+    modelsApi.listAliases()
+      .then(data => {
+        if (cancelled || !Array.isArray(data)) return
+        setAliases(Object.fromEntries(data.map(a => [a.name, a.target])))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -356,6 +386,7 @@ export default function Scheduling() {
             onSave={handleSave}
             onCancel={() => setFormState(null)}
             labels={labels}
+            aliases={aliases}
           />
         )}
         {schedulingConfigs.length === 0 && !formState ? (
@@ -387,9 +418,26 @@ export default function Scheduling() {
                   // of the model silently failing to scale.
                   const unsatisfiableUntil = cfg.unsatisfiable_until ? new Date(cfg.unsatisfiable_until) : null
                   const isUnsatisfiable = unsatisfiableUntil && unsatisfiableUntil.getTime() > Date.now()
+                  // A rule keyed by an alias names a slot, so the model it
+                  // currently governs is worth showing next to it.
+                  const governs = cfg.target_model && cfg.target_model !== cfg.model_name ? cfg.target_model : null
+                  const danglingAlias = cfg.model_is_alias && !governs
                   return (
                   <tr key={cfg.id || cfg.model_name}>
-                    <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cfg.model_name}</td>
+                    <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                      {cfg.model_name}
+                      {governs && (
+                        <div className="text-meta scheduling-rule-target">
+                          <i className="fas fa-arrow-right icon-before" aria-hidden="true" />
+                          {governs}
+                        </div>
+                      )}
+                      {danglingAlias && (
+                        <div className="text-meta scheduling-rule-target--broken">
+                          alias points at nothing
+                        </div>
+                      )}
+                    </td>
                     <td>
                       <span style={{
                         display: 'inline-block', fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
@@ -436,7 +484,15 @@ export default function Scheduling() {
                       ) : '-'}
                     </td>
                     <td>
-                      {isUnsatisfiable ? (
+                      {cfg.shadowed ? (
+                        <span
+                          className="scheduling-rule-shadowed"
+                          title="Another rule already governs the same model, so this one has no effect. Placement decides where a single shared load runs, so only one rule per model can apply."
+                        >
+                          <i className="fas fa-eye-slash icon-before" />
+                          Shadowed
+                        </span>
+                      ) : isUnsatisfiable ? (
                         <span
                           title={`Reconciler couldn't satisfy this rule (capacity exhausted). Will retry by ${unsatisfiableUntil.toLocaleString()}, or sooner on a node lifecycle change.`}
                           style={{
