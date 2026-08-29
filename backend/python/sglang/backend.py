@@ -374,10 +374,67 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 messages_dicts, tokenize=False, add_generation_prompt=True,
             )
 
-    def _make_parsers(self, request):
+    def _new_reasoning_parser(self, stream_reasoning: bool, prompt: str = "",
+                              grammar_constrained: bool = False):
+        """Build a ReasoningParser for one request, or None.
+
+        Reasoning templates come in two flavours. Some let the model emit the
+        opening tag, others put it into the *prompt* — Qwen3's template appends
+        ``<think>`` when thinking is on, so the completion starts straight in
+        the reasoning block and only the closing ``</think>`` ever shows up.
+        sglang's detector keys off the opening tag, so in that second case it
+        classifies the whole completion as normal content and
+        ``reasoning_content`` stays empty.
+
+        sglang's own OpenAI server covers this with
+        ``template_manager.force_reasoning``; this backend has no template
+        manager, so it derives the same signal from the rendered prompt.
+        ``force_reasoning`` is only passed when we mean True, leaving detector
+        defaults (e.g. DeepSeek-R1's built-in True) untouched.
+
+        ``grammar_constrained`` suppresses the prefill heuristic. A structured
+        decoding constraint applies from the first token, so the model cannot
+        emit the closing tag even though the template opened the block: the
+        whole completion is schema output and belongs in ``content``. Forcing
+        there files the answer as reasoning and leaves content empty. sglang's
+        own server keeps the two apart for the same reason — its grammar
+        backend owns the reasoning prefix when a reasoning parser is set.
+        """
+        if grammar_constrained:
+            prompt = ""
+
+        if not (HAS_REASONING_PARSERS and self.reasoning_parser_name):
+            return None
+
+        kwargs = {
+            "model_type": self.reasoning_parser_name,
+            "stream_reasoning": stream_reasoning,
+        }
+        try:
+            parser = ReasoningParser(**kwargs)
+        except Exception as e:
+            print(f"ReasoningParser init failed: {e!r}", file=sys.stderr)
+            return None
+
+        start = getattr(getattr(parser, "detector", None), "think_start_token", None)
+        if start and prompt and prompt.rstrip().endswith(start):
+            try:
+                parser = ReasoningParser(force_reasoning=True, **kwargs)
+            except TypeError:
+                # sglang without the force_reasoning kwarg: keep the default
+                # parser rather than failing the request.
+                pass
+            except Exception as e:
+                print(
+                    f"ReasoningParser(force_reasoning=True) failed: {e!r}",
+                    file=sys.stderr,
+                )
+
+        return parser
+
+    def _make_parsers(self, request, prompt: str = ""):
         """Construct fresh per-request parser instances (stateful)."""
         tool_parser = None
-        reasoning_parser = None
 
         if HAS_TOOL_PARSERS and self.tool_parser_name and request.Tools:
             try:
@@ -389,14 +446,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             except Exception as e:
                 print(f"FunctionCallParser init failed: {e!r}", file=sys.stderr)
 
-        if HAS_REASONING_PARSERS and self.reasoning_parser_name:
-            try:
-                reasoning_parser = ReasoningParser(
-                    model_type=self.reasoning_parser_name,
-                    stream_reasoning=True,
-                )
-            except Exception as e:
-                print(f"ReasoningParser init failed: {e!r}", file=sys.stderr)
+        reasoning_parser = self._new_reasoning_parser(
+            True, prompt, bool(getattr(request, "Grammar", "")),
+        )
 
         return tool_parser, reasoning_parser
 
@@ -404,7 +456,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         sampling_params = self._build_sampling_params(request)
         prompt = self._build_prompt(request)
 
-        tool_parser, reasoning_parser = self._make_parsers(request)
+        tool_parser, reasoning_parser = self._make_parsers(request, prompt)
 
         image_data = list(request.Images) if request.Images else None
         video_data = list(request.Videos) if request.Videos else None
@@ -500,15 +552,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         final_tool_calls: List[backend_pb2.ToolCallDelta] = []
 
         if not streaming:
-            final_reasoning_parser = None
-            if HAS_REASONING_PARSERS and self.reasoning_parser_name:
-                try:
-                    final_reasoning_parser = ReasoningParser(
-                        model_type=self.reasoning_parser_name,
-                        stream_reasoning=False,
-                    )
-                except Exception:
-                    final_reasoning_parser = None
+            final_reasoning_parser = self._new_reasoning_parser(
+                False, prompt, bool(getattr(request, "Grammar", "")),
+            )
 
             if final_reasoning_parser is not None:
                 try:
