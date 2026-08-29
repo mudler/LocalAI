@@ -1,4 +1,109 @@
 ---
+- name: "glm-5.3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/GLM-5.3-GGUF
+  description: |
+    # GLM-5.3
+
+    GLM-5.3 uses the same base model as GLM-5.2 — every gain comes from post-training. Compared with GLM-5.2, it is much better at complex coding and long-horizon tasks:
+
+    + Stronger Coding: GLM-5.3 is the most capable open-weights model for coding, with a 50% improvement over GLM-5.2 on our in-house Z.ai Code Bench. It also achieve open-source SOTA on public benchmarks including Terminal Bench 3.0 and Agents' Last Exam.
+    + Emergent Cyber Capability: As we scaled post-training, cyber capability developed faster than we expected. GLM-5.3 is state of the art on CyberGym for vulnerability discovery, and its gains are largest further up the exploitation chain, where it more than doubles GLM-5.2 on exploitation benchmarks.
+
+    ## Benchmark
+
+    ### Serve GLM-5.3 Locally
+
+    GLM-5.3 supports deployment with the following frameworks. Feel free to try them out:
+
+      - SGLang — see cookbook
+      - vLLM — see recipes
+      - TokenSpeed — see here
+      - Transformers — see transformers docs
+      - KTransformers — see tutorial
+      - Unsloth — see guide
+      - For deployment on the `Ascend NPU` platform, inference frameworks such as vLLM-Ascend, xLLM and SGLang are supported — see here.
+
+    ### Note
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/bench_53_2.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00001-of-00016.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00001-of-00016.gguf
+      sha256: d7f982efbb767fe9ce8d9e61e908d16c6c5f9eb470ee354273010b3aae734fea
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00001-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00002-of-00016.gguf
+      sha256: 710a95e0b38573ba205873caa3b7511b8f0b2a7b4c121698e4f251584087e62e
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00002-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00003-of-00016.gguf
+      sha256: bc5ba47c593594bcc0d8f3dc504c70661b6659bade502d4fc78ee780ec7ec672
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00003-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00004-of-00016.gguf
+      sha256: e766dfbb18e0dc27bd45196fad1bd70634664ef6bb61f0d0625c8df76b38eb36
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00004-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00005-of-00016.gguf
+      sha256: a74c1184952552a66234af849aee8e8720ec8c4beb4605a0482d090fa5366d22
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00005-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00006-of-00016.gguf
+      sha256: e28dcb4b00c4d3d2b850cba8252ae030017a33d5f283bc87a891d3d49f66e0ed
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00006-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00007-of-00016.gguf
+      sha256: cd60331983b19c5456fba9da439b4ea1dcdabe84e10239c404a43b25fbb76206
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00007-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00008-of-00016.gguf
+      sha256: a5042fdb3764e52ab717d6a8ebe5a8e06abff8f4cebe3c9c0dd51cba32722133
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00008-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00009-of-00016.gguf
+      sha256: 5bc47574214ef4dfe89ac1c5623dcc29e81056aed9d5fd3cbe16d5e8d93d42db
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00009-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00010-of-00016.gguf
+      sha256: 294b62b307ef8c8e39e233a977ed1c34c5f7191c1d69c098c0997b4bfa24bfcb
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00010-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00011-of-00016.gguf
+      sha256: 40b23e5b14423cfc20bd47e1ce77a434bd51beb428c123f421b4bf7d377e052f
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00011-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00012-of-00016.gguf
+      sha256: 3833e99de0ffd1673daf306c2a27a67ed0d3b252aec9f0ca8a7f18e7122501f0
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00012-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00013-of-00016.gguf
+      sha256: 87f0b9630eabf16cf64fe3003b177bb620a917ff1dff5d1b7d63041ea626b5ff
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00013-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00014-of-00016.gguf
+      sha256: e598ca6d9a61adae5a339bcaf0ecda8443665cc2f3972daa0c909a9ecf45352a
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00014-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00015-of-00016.gguf
+      sha256: e3430564ded510ab658d44bd6b412220ab91eadeb0f7e295a3f3360bfa1f4249
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00015-of-00016.gguf
+    - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00016-of-00016.gguf
+      sha256: 79af2211278ac07dfe4c789751d7de7d7caf0a4516486f8a9b6eedb1f3fb6e9b
+      uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00016-of-00016.gguf
 - &qwen3-8-flash-next
   name: "qwen3.8-flash-next-q4"
   variants:
