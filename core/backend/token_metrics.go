@@ -26,6 +26,11 @@ func TokenMetrics(
 	if model == nil {
 		return nil, fmt.Errorf("could not loadmodel model")
 	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 
 	res, err := model.GetTokenMetrics(ctx, &proto.MetricsRequest{})
 

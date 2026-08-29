@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"time"
 
@@ -1518,6 +1519,254 @@ var _ = Describe("NodeRegistry", func() {
 		It("rejects empty model names", func() {
 			err := registry.UpsertModelLoadInfo(context.Background(), "", "llama-cpp", []byte("x"))
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe("model config revisions", func() {
+		It("rejects empty model names and required revisions without writing state", func() {
+			ctx := context.Background()
+			node := makeNode("revision-validation", "10.0.2.9:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+
+			_, err := registry.AdvanceModelConfigRevision(ctx, "", "rev-1")
+			Expect(err).To(HaveOccurred())
+			_, err = registry.AdvanceModelConfigRevision(ctx, "model", "")
+			Expect(err).To(HaveOccurred())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "model", 0, "loaded", node.Address, 0, "", "hash")).To(HaveOccurred())
+			Expect(registry.SetNodeModelLoadInfoRevision(ctx, node.ID, "model", 0, "llama-cpp", "", []byte("opts"))).To(HaveOccurred())
+			Expect(registry.UpsertModelLoadInfoRevision(ctx, "model", "llama-cpp", "", []byte("opts"))).To(HaveOccurred())
+			_, err = registry.GetModelConfigRevision(ctx, "model")
+			Expect(err).To(MatchError(gorm.ErrRecordNotFound))
+		})
+
+		It("returns no quarantined rows when advancing the revision rolls back", func() {
+			ctx := context.Background()
+			node := makeNode("revision-rollback", "10.0.2.10:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.AdvanceModelConfigRevision(ctx, "rollback-model", "rev-1")).To(BeEmpty())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "rollback-model", 0, "loaded", node.Address, 0, "rev-1", "hash-1")).To(Succeed())
+			Expect(registry.UpsertModelLoadInfoRevision(ctx, "rollback-model", "llama-cpp", "rev-1", []byte("opts-1"))).To(Succeed())
+
+			callbackName := "test:fail-model-load-info-delete"
+			Expect(db.Callback().Delete().Before("gorm:delete").Register(callbackName, func(tx *gorm.DB) {
+				if tx.Statement.Table == "model_load_infos" {
+					_ = tx.AddError(errors.New("injected delete failure"))
+				}
+			})).To(Succeed())
+			DeferCleanup(func() { Expect(db.Callback().Delete().Remove(callbackName)).To(Succeed()) })
+
+			quarantined, err := registry.AdvanceModelConfigRevision(ctx, "rollback-model", "rev-2")
+			Expect(err).To(MatchError("injected delete failure"))
+			Expect(quarantined).To(BeEmpty(), "rolled-back rows must never escape as cleanup work")
+			Expect(registry.GetModelConfigRevision(ctx, "rollback-model")).To(Equal("rev-1"))
+			persisted, err := registry.GetNodeModel(ctx, node.ID, "rollback-model", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(persisted.State).To(Equal("loaded"))
+		})
+
+		It("rolls back both rename identities when the second transition fails", func() {
+			ctx := context.Background()
+			node := makeNode("revision-rename-rollback", "10.0.2.15:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.AdvanceModelConfigRevision(ctx, "old-name", "rev-1")).To(BeEmpty())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "old-name", 0, "loaded", node.Address, 0, "rev-1", "hash-1")).To(Succeed())
+
+			callbackName := "test:fail-second-rename-revision"
+			Expect(db.Callback().Create().Before("gorm:create").Register(callbackName, func(tx *gorm.DB) {
+				if state, ok := tx.Statement.Dest.(*ModelConfigState); ok && state.ModelName == "new-name" {
+					_ = tx.AddError(errors.New("injected second transition failure"))
+				}
+			})).To(Succeed())
+			DeferCleanup(func() { Expect(db.Callback().Create().Remove(callbackName)).To(Succeed()) })
+
+			quarantined, err := registry.AdvanceModelConfigRevisions(ctx, []ModelConfigRevisionTransition{
+				{ModelName: "old-name", ConfigRevision: "rev-2"},
+				{ModelName: "new-name", ConfigRevision: "rev-2"},
+			})
+			Expect(err).To(MatchError("injected second transition failure"))
+			Expect(quarantined).To(BeEmpty())
+			Expect(registry.GetModelConfigRevision(ctx, "old-name")).To(Equal("rev-1"))
+			_, err = registry.GetModelConfigRevision(ctx, "new-name")
+			Expect(err).To(MatchError(gorm.ErrRecordNotFound))
+			persisted, err := registry.GetNodeModel(ctx, node.ID, "old-name", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(persisted.State).To(Equal("loaded"))
+		})
+
+		It("excludes empty, mismatched, and unloading replicas from routing and statistics", func() {
+			ctx := context.Background()
+			matching := makeNode("revision-current", "10.0.2.11:50051", 8_000_000_000)
+			empty := makeNode("revision-empty", "10.0.2.12:50051", 8_000_000_000)
+			mismatched := makeNode("revision-mismatch", "10.0.2.13:50051", 8_000_000_000)
+			unloading := makeNode("revision-unloading", "10.0.2.14:50051", 8_000_000_000)
+			for _, node := range []*BackendNode{matching, empty, mismatched, unloading} {
+				Expect(registry.Register(ctx, node, true)).To(Succeed())
+			}
+			Expect(registry.AdvanceModelConfigRevision(ctx, "filtered-model", "rev-2")).To(BeEmpty())
+			Expect(registry.SetNodeModelRevision(ctx, matching.ID, "filtered-model", 0, "loaded", matching.Address, 3, "rev-2", "hash-2")).To(Succeed())
+			Expect(db.Create(&NodeModel{ID: "empty-revision", NodeID: empty.ID, ModelName: "filtered-model", State: "loaded", InFlight: 5}).Error).ToNot(HaveOccurred())
+			Expect(registry.SetNodeModelRevision(ctx, mismatched.ID, "filtered-model", 0, "loaded", mismatched.Address, 7, "rev-1", "hash-1")).To(MatchError(ErrStaleModelConfigRevision))
+			Expect(db.Create(&NodeModel{ID: "mismatched-revision", NodeID: mismatched.ID, ModelName: "filtered-model", State: "loaded", InFlight: 7, ConfigRevision: "rev-1"}).Error).ToNot(HaveOccurred())
+			Expect(registry.SetNodeModelRevision(ctx, unloading.ID, "filtered-model", 0, "unloading", unloading.Address, 11, "rev-2", "hash-2")).To(Succeed())
+
+			picked, _, err := registry.FindAndLockNodeWithModel(ctx, "filtered-model", nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(picked.ID).To(Equal(matching.ID))
+
+			stats, err := registry.LoadedReplicaStats(ctx, "filtered-model", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stats).To(HaveLen(1))
+			Expect(stats[0].NodeID).To(Equal(matching.ID))
+
+			count, err := registry.CountLoadedReplicas(ctx, "filtered-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(int64(1)))
+
+			nodes, err := registry.ListWithExtras(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			byID := make(map[string]NodeWithExtras, len(nodes))
+			for _, node := range nodes {
+				byID[node.ID] = node
+			}
+			Expect(byID[matching.ID].ModelCount).To(Equal(1))
+			Expect(byID[matching.ID].InFlightCount).To(Equal(4))
+			for _, node := range []*BackendNode{empty, mismatched, unloading} {
+				Expect(byID[node.ID].ModelCount).To(BeZero())
+				Expect(byID[node.ID].InFlightCount).To(BeZero())
+			}
+
+			// Scheduling aggregates must treat all three ineligible rows as absent.
+			Expect(db.Model(&BackendNode{}).Where("id = ?", empty.ID).Update("available_vram", 30_000_000_000).Error).ToNot(HaveOccurred())
+			Expect(db.Model(&BackendNode{}).Where("id = ?", mismatched.ID).Update("available_vram", 20_000_000_000).Error).ToNot(HaveOccurred())
+			Expect(db.Model(&BackendNode{}).Where("id = ?", unloading.ID).Update("available_vram", 10_000_000_000).Error).ToNot(HaveOccurred())
+			candidateIDs := []string{matching.ID, empty.ID, mismatched.ID, unloading.ID}
+			for _, find := range []func() (*BackendNode, error){
+				func() (*BackendNode, error) { return registry.FindNodeWithVRAM(ctx, 0) },
+				func() (*BackendNode, error) { return registry.FindNodeWithVRAMFromSet(ctx, 0, candidateIDs) },
+				func() (*BackendNode, error) { return registry.FindIdleNode(ctx) },
+				func() (*BackendNode, error) { return registry.FindIdleNodeFromSet(ctx, candidateIDs) },
+				func() (*BackendNode, error) { return registry.FindLeastLoadedNode(ctx) },
+				func() (*BackendNode, error) { return registry.FindLeastLoadedNodeFromSet(ctx, candidateIDs) },
+			} {
+				found, err := find()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(found.ID).To(Equal(empty.ID))
+			}
+
+			free, err := registry.FindNodesWithFreeSlot(ctx, "filtered-model", candidateIDs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(free).To(ConsistOf(
+				HaveField("ID", empty.ID), HaveField("ID", mismatched.ID), HaveField("ID", unloading.ID),
+			))
+			capacity, err := registry.ClusterCapacityForModel(ctx, "filtered-model", candidateIDs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(capacity).To(Equal(3))
+		})
+
+		It("atomically advances and quarantines stale active replicas", func() {
+			ctx := context.Background()
+			node := makeNode("revision-node", "10.0.2.1:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.AdvanceModelConfigRevision(ctx, "revision-model", "rev-1")).To(BeEmpty())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "revision-model", 0, "loaded", node.Address, 0, "rev-1", "hash-1")).To(Succeed())
+			Expect(registry.UpsertModelLoadInfoRevision(ctx, "revision-model", "llama-cpp", "rev-1", []byte("opts-1"))).To(Succeed())
+
+			quarantined, err := registry.AdvanceModelConfigRevision(ctx, "revision-model", "rev-2")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(quarantined).To(HaveLen(1))
+			Expect(quarantined[0].State).To(Equal("unloading"))
+			Expect(quarantined[0].CleanupAttempts).To(Equal(0))
+			Expect(quarantined[0].CleanupError).To(BeEmpty())
+
+			revision, err := registry.GetModelConfigRevision(ctx, "revision-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(revision).To(Equal("rev-2"))
+			_, _, _, err = registry.GetModelLoadInfoRevision(ctx, "revision-model")
+			Expect(err).To(MatchError(gorm.ErrRecordNotFound))
+		})
+
+		It("rejects stale load-info writes without changing matching replay info", func() {
+			ctx := context.Background()
+			Expect(registry.AdvanceModelConfigRevision(ctx, "stale-model", "rev-2")).To(BeEmpty())
+			Expect(registry.UpsertModelLoadInfoRevision(ctx, "stale-model", "llama-cpp", "rev-2", []byte("good"))).To(Succeed())
+			Expect(registry.UpsertModelLoadInfoRevision(ctx, "stale-model", "vllm", "rev-1", []byte("stale"))).To(MatchError(ErrStaleModelConfigRevision))
+
+			backend, revision, blob, err := registry.GetModelLoadInfoRevision(ctx, "stale-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(backend).To(Equal("llama-cpp"))
+			Expect(revision).To(Equal("rev-2"))
+			Expect(blob).To(Equal([]byte("good")))
+		})
+
+		It("never replays mismatched or empty load info once current state exists", func() {
+			ctx := context.Background()
+			Expect(registry.AdvanceModelConfigRevision(ctx, "replay-filter", "rev-2")).To(BeEmpty())
+			for _, revision := range []string{"", "rev-1"} {
+				Expect(db.Where("model_name = ?", "replay-filter").Delete(&ModelLoadInfo{}).Error).ToNot(HaveOccurred())
+				Expect(db.Create(&ModelLoadInfo{ModelName: "replay-filter", BackendType: "llama-cpp", ConfigRevision: revision, ModelOptsBlob: []byte("stale")}).Error).ToNot(HaveOccurred())
+				_, _, _, err := registry.GetModelLoadInfoRevision(ctx, "replay-filter")
+				Expect(err).To(MatchError(gorm.ErrRecordNotFound))
+			}
+		})
+
+		It("records cleanup failures and lists only due unloading retries", func() {
+			ctx := context.Background()
+			node := makeNode("cleanup-node", "10.0.2.2:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "cleanup-model", 0, "unloading", node.Address, 0, "rev-1", "hash")).To(Succeed())
+			now := time.Now()
+			Expect(registry.RecordModelCleanupFailure(ctx, node.ID, "cleanup-model", 0, "worker unavailable", now.Add(-time.Second))).To(Succeed())
+
+			retries, err := registry.ListModelCleanupRetries(ctx, now, 10)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(retries).To(HaveLen(1))
+			Expect(retries[0].CleanupAttempts).To(Equal(1))
+			Expect(retries[0].CleanupError).To(Equal("worker unavailable"))
+		})
+
+		It("preserves a replacement registered in the same slot after cleanup was claimed", func() {
+			ctx := context.Background()
+			node := makeNode("cleanup-replacement", "10.0.2.20:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "cleanup-race", 0, "unloading", "10.0.2.20:6001", 0, "rev-old", "hash-old")).To(Succeed())
+
+			claimed, err := registry.ClaimModelCleanupRetries(ctx, time.Now(), time.Now().Add(time.Minute), 1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimed).To(HaveLen(1))
+
+			Expect(db.Where("id = ?", claimed[0].ID).Delete(&NodeModel{}).Error).To(Succeed())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "cleanup-race", 0, "loaded", "10.0.2.20:7001", 0, "rev-new", "hash-new")).To(Succeed())
+
+			deleted, err := registry.RemoveClaimedModelCleanup(ctx, claimed[0])
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deleted).To(BeFalse())
+			models, err := registry.GetNodeModels(ctx, node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(ConsistOf(And(
+				HaveField("ConfigRevision", "rev-new"),
+				HaveField("Address", "10.0.2.20:7001"),
+				HaveField("State", "loaded"),
+			)))
+		})
+
+		It("preserves revision state and replay info across worker re-registration", func() {
+			ctx := context.Background()
+			node := makeNode("revision-reregister", "10.0.2.3:50051", 8_000_000_000)
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			Expect(registry.AdvanceModelConfigRevision(ctx, "replay-model", "rev-1")).To(BeEmpty())
+			Expect(registry.UpsertModelLoadInfoRevision(ctx, "replay-model", "llama-cpp", "rev-1", []byte("opts"))).To(Succeed())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "replay-model", 0, "loaded", node.Address, 0, "rev-1", "hash")).To(Succeed())
+
+			restarted := makeNode("revision-reregister", "10.0.2.3:50052", 8_000_000_000)
+			Expect(registry.Register(ctx, restarted, true)).To(Succeed())
+			models, err := registry.GetNodeModels(ctx, node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(models).To(BeEmpty())
+			Expect(registry.GetModelConfigRevision(ctx, "replay-model")).To(Equal("rev-1"))
+			_, revision, blob, err := registry.GetModelLoadInfoRevision(ctx, "replay-model")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(revision).To(Equal("rev-1"))
+			Expect(blob).To(Equal([]byte("opts")))
 		})
 	})
 })

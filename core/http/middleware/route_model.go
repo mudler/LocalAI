@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -32,6 +33,11 @@ type ScorerFactory func(modelName string) backend.Scorer
 // classifier so routing still happens.
 type EmbedderFactory func(modelName string) backend.Embedder
 
+// EmbedderFingerprintFactory returns the identity of the embedding space a
+// named model currently produces. Persisted KNN vectors are only reusable
+// while this identity is unchanged.
+type EmbedderFingerprintFactory func(modelName string) (string, error)
+
 // VectorStoreFactory returns a backend.VectorStore bound to a named
 // collection. Each router model's cache lives in its own collection
 // so two routers can't poison each other's hits.
@@ -49,6 +55,16 @@ type RerankerFactory func(modelName string) backend.Reranker
 // lives in ModelConfig.Validate() and runs at config load/save time.
 type ModelConfigLookup func(modelName string) *config.ModelConfig
 
+// CorpusLoader syncs a router's persisted KNN corpus into the live
+// vector index when the knn classifier is built. Implemented by
+// corpus.Manager; declared here (consumer side) so the middleware
+// doesn't depend on the corpus package. Optional — when nil, the knn
+// classifier serves whatever the index already holds (tests, embedded
+// callers).
+type CorpusLoader interface {
+	EnsureLoaded(ctx context.Context, storeName, embeddingModel, embeddingFingerprint string, embedder backend.Embedder, store backend.VectorStore) (int, error)
+}
+
 // ClassifierDeps bundles the backend factories the router middleware
 // needs to build a classifier and its optional L2 cache. Bundled into
 // one struct because RouteModel already takes many positional
@@ -61,10 +77,17 @@ type ModelConfigLookup func(modelName string) *config.ModelConfig
 // score classifier runs unwrapped and the embedding-cache YAML is
 // ignored with a warning.
 type ClassifierDeps struct {
-	Scorer      ScorerFactory
-	Embedder    EmbedderFactory
-	VectorStore VectorStoreFactory
-	Reranker    RerankerFactory
+	Scorer   ScorerFactory
+	Embedder EmbedderFactory
+	// EmbedderFingerprint identifies the weights/config behind Embedder so
+	// KNN corpus vectors cannot be queried across embedding spaces.
+	EmbedderFingerprint EmbedderFingerprintFactory
+	VectorStore         VectorStoreFactory
+	Reranker            RerankerFactory
+
+	// Corpus loads the persisted KNN corpus into the vector index when
+	// a knn classifier is built. Optional; nil skips the load.
+	Corpus CorpusLoader
 
 	// ModelLookup resolves the classifier_model name to its config so
 	// buildClassifier can reject misconfigurations that would
@@ -93,6 +116,27 @@ type ClassifierDeps struct {
 	// backend's n_ctx guard. Plain func type so core/application supplies
 	// it as a method value without importing this package.
 	TokenCounter func(modelName string) func(text string) (int, error)
+}
+
+// NewClassifierDeps assembles the full classifier dependency set from
+// the application container. Every entry point that runs the router —
+// OpenAI chat, Anthropic messages, realtime, the decision oracle, the
+// corpus API — builds its deps here, so a new ClassifierDeps field is
+// wired once instead of hand-copied per call site (where a missed site
+// silently degrades that path rather than failing).
+func NewClassifierDeps(app *application.Application) ClassifierDeps {
+	return ClassifierDeps{
+		Scorer:              app.Scorer,
+		Corpus:              app.RouterCorpus(),
+		TokenCounter:        app.TokenCounter,
+		Embedder:            app.Embedder,
+		EmbedderFingerprint: app.EmbedderFingerprint,
+		VectorStore:         app.VectorStore,
+		Reranker:            app.Reranker,
+		ModelLookup:         app.ModelConfigLookup(),
+		Registry:            app.RouterClassifierRegistry(),
+		Evaluator:           app.TemplatesEvaluator(),
+	}
 }
 
 // ProbeExtractor pulls the prompt content out of a parsed request so
@@ -241,7 +285,11 @@ func GetOrBuildClassifier(registry *router.Registry, cfg *config.ModelConfig, de
 	if deps.ModelLookup != nil {
 		classifierCfg = deps.ModelLookup(cfg.Router.ClassifierModel)
 	}
-	fp := routerConfigFingerprint(cfg.Router, classifierCfg)
+	embeddingFingerprint, err := resolvedKNNEmbeddingFingerprint(cfg, deps)
+	if err != nil {
+		return nil, err
+	}
+	fp := routerConfigFingerprint(cfg.Router, classifierCfg, embeddingFingerprint)
 	if cached, ok := registry.Get(cfg.Name, fp); ok {
 		return cached, nil
 	}
@@ -262,7 +310,7 @@ func GetOrBuildClassifier(registry *router.Registry, cfg *config.ModelConfig, de
 // unrelated changes (parameters, files, ...) don't burst the cache.
 // Pass classifierCfg=nil when no lookup is wired — the fingerprint
 // degenerates to the router-only form, matching pre-refactor behaviour.
-func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.ModelConfig) uint64 {
+func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.ModelConfig, additionalFingerprints ...string) uint64 {
 	bytes, err := yaml.Marshal(rc)
 	if err != nil {
 		// Marshalling a value type can't fail in practice; fall
@@ -291,7 +339,29 @@ func routerConfigFingerprint(rc config.RouterConfig, classifierCfg *config.Model
 			h.Write([]byte(strconv.Itoa(*classifierCfg.ContextSize)))
 		}
 	}
+	for _, fingerprint := range additionalFingerprints {
+		h.Write([]byte{0})
+		h.Write([]byte(fingerprint))
+	}
 	return h.Sum64()
+}
+
+func resolvedKNNEmbeddingFingerprint(cfg *config.ModelConfig, deps ClassifierDeps) (string, error) {
+	name := cfg.Router.Classifier
+	if name == "" {
+		name = router.ClassifierScore
+	}
+	if name != router.ClassifierKNN || cfg.Router.KNN == nil || deps.EmbedderFingerprint == nil {
+		return "", nil
+	}
+	modelFingerprint, err := deps.EmbedderFingerprint(cfg.Router.KNN.EmbeddingModel)
+	if err != nil {
+		return "", fmt.Errorf("router classifier knn: fingerprint embedding_model %q: %w", cfg.Router.KNN.EmbeddingModel, err)
+	}
+	if modelFingerprint == "" {
+		return "", fmt.Errorf("router classifier knn: embedding_model %q returned an empty fingerprint", cfg.Router.KNN.EmbeddingModel)
+	}
+	return cfg.Router.KNN.ResolvedEmbeddingFingerprint(modelFingerprint), nil
 }
 
 func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Classifier, error) {
@@ -312,6 +382,9 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 	var inner router.Classifier
 	switch name {
 	case router.ClassifierScore:
+		if rc.ClassifierModel == "" {
+			return nil, fmt.Errorf("router classifier score requires classifier_model")
+		}
 		if deps.Scorer == nil {
 			return nil, fmt.Errorf("router classifier score unavailable: no scorer factory wired")
 		}
@@ -363,6 +436,9 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 		}
 		inner = router.NewScoreClassifier(policies, scorer, opts)
 	case router.ClassifierColbert:
+		if rc.ClassifierModel == "" {
+			return nil, fmt.Errorf("router classifier colbert requires classifier_model")
+		}
 		if deps.Reranker == nil {
 			return nil, fmt.Errorf("router classifier colbert unavailable: no reranker factory wired")
 		}
@@ -375,8 +451,61 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 			rerankClassifier = rerankClassifier.WithTokenTrim(count, ctxTokens)
 		}
 		inner = rerankClassifier
+	case router.ClassifierKNN:
+		if rc.KNN == nil || rc.KNN.EmbeddingModel == "" {
+			return nil, fmt.Errorf("router classifier knn requires a knn block with embedding_model")
+		}
+		if deps.Embedder == nil || deps.VectorStore == nil {
+			return nil, fmt.Errorf("router classifier knn unavailable: embedder/vector-store factories not wired")
+		}
+		embeddingFingerprint, err := resolvedKNNEmbeddingFingerprint(cfg, deps)
+		if err != nil {
+			return nil, err
+		}
+		if deps.Corpus != nil && embeddingFingerprint == "" {
+			return nil, fmt.Errorf("router classifier knn unavailable: embedder fingerprint factory not wired")
+		}
+		embedder := deps.Embedder(rc.KNN.EmbeddingModel)
+		if embedder == nil {
+			return nil, fmt.Errorf("router classifier knn: embedding_model %q not loadable", rc.KNN.EmbeddingModel)
+		}
+		storeName := rc.KNN.ResolvedStoreName(cfg.Name)
+		vstore := deps.VectorStore(storeName)
+		if vstore == nil {
+			return nil, fmt.Errorf("router classifier knn: vector store %q not loadable", storeName)
+		}
+		if deps.Corpus != nil {
+			// Loading fails closed: a live index from a different embedding
+			// space may have the same vector width and return plausible but
+			// incorrect routes.
+			if n, err := deps.Corpus.EnsureLoaded(context.Background(), storeName, rc.KNN.EmbeddingModel, embeddingFingerprint, embedder, vstore); err != nil {
+				return nil, fmt.Errorf("router classifier knn: load corpus %q: %w", storeName, err)
+			} else if n > 0 {
+				xlog.Info("router: knn corpus loaded",
+					"router_model", cfg.Name, "store", storeName, "entries", n)
+			}
+		}
+		knnClassifier := router.NewKNNClassifier(embedder, vstore, router.KNNClassifierOptions{
+			K:                   rc.KNN.K,
+			SimilarityThreshold: rc.KNN.SimilarityThreshold,
+			VoteThreshold:       rc.KNN.VoteThreshold,
+		})
+		if count, ctxTokens := modelTokenTrim(rc.KNN.EmbeddingModel, deps); count != nil {
+			knnClassifier = knnClassifier.WithTokenTrim(count, ctxTokens)
+		}
+		if rc.EmbeddingCache != nil {
+			// The knn classifier IS an embedding-KNN lookup — wrapping it
+			// in the embedding cache would embed every probe twice to
+			// answer the same question. Ignore the block rather than fail
+			// routing. Returning from the arm (instead of name-checking in
+			// the shared wrap below) keeps the opt-out local: the next
+			// embedding-based classifier makes its own wrapping decision.
+			xlog.Warn("router: embedding_cache ignored for knn classifier",
+				"router_model", cfg.Name)
+		}
+		return knnClassifier, nil
 	default:
-		return nil, fmt.Errorf("router: unknown classifier %q (supported: %s)", name, strings.Join([]string{router.ClassifierScore, router.ClassifierColbert}, ", "))
+		return nil, fmt.Errorf("router: unknown classifier %q (supported: %s)", name, strings.Join(router.AllClassifiers, ", "))
 	}
 
 	if rc.EmbeddingCache == nil {
@@ -422,15 +551,12 @@ func assertClassifierDeclaresScore(classifierModel string, lookup ModelConfigLoo
 	return nil
 }
 
-// validateRouterPolicies checks the shared invariants both classifiers
-// rely on (non-empty policies, every candidate label declared as a
-// policy, every candidate has a model + at least one label) and
-// returns the parsed []ScorePolicy. Both Score and Rerank classifiers
-// take the same policy shape.
+// validateRouterPolicies checks the invariants every classifier relies
+// on (non-empty policies, every candidate label declared as a policy,
+// every candidate has a model + at least one label) and returns the
+// parsed []ScorePolicy. Per-classifier requirements (classifier_model,
+// knn block, ...) live in the buildClassifier arms, not here.
 func validateRouterPolicies(classifierName string, rc config.RouterConfig) ([]router.ScorePolicy, error) {
-	if rc.ClassifierModel == "" {
-		return nil, fmt.Errorf("router classifier %s requires classifier_model", classifierName)
-	}
 	if len(rc.Policies) == 0 {
 		return nil, fmt.Errorf("router classifier %s requires at least one policy", classifierName)
 	}

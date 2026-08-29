@@ -14,10 +14,8 @@ import (
 )
 
 // newBrandingTestApp mirrors how core/http/routes/ui_api.go registers
-// the branding endpoints: GET endpoints public, POST/DELETE gated by
-// the route-level admin middleware. PathWithoutAuth is left to its
-// NewApplicationConfig defaults so the "/api/branding" + "/branding/"
-// exempt entries (added in this PR) participate in the test.
+// the branding endpoints: the built-in registry allows only GET reads,
+// while POST/DELETE mutations remain gated by global and admin middleware.
 func newBrandingTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo {
 	e := echo.New()
 	e.Use(auth.Middleware(db, appConfig))
@@ -35,14 +33,9 @@ func newBrandingTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.
 	return e
 }
 
-// These specs pin a contract that's easy to break by accident: the
-// "/api/branding" entry in PathWithoutAuth uses a prefix match, so it
-// also exempts POST/DELETE /api/branding/asset/:kind from the *global*
-// auth middleware. Those mutations only stay admin-only because the
-// route registration explicitly carries auth.RequireAdmin(). If that
-// route-level middleware is ever forgotten — or someone adds a new
-// admin sub-route under /api/branding/* without the gate — these
-// specs go red.
+// These specs pin method-aware access: anonymous branding reads are public,
+// anonymous mutations fail global auth, and authenticated non-admin mutations
+// fail the route-level admin check.
 var _ = Describe("Branding route admin gating", func() {
 	var (
 		db        *gorm.DB
@@ -69,8 +62,7 @@ var _ = Describe("Branding route admin gating", func() {
 	It("returns 401 for anonymous POST /api/branding/asset/:kind", func() {
 		app := newBrandingTestApp(db, appConfig)
 		rec := doRequest(app, http.MethodPost, "/api/branding/asset/logo")
-		Expect(rec.Code).To(Equal(http.StatusUnauthorized),
-			"PathWithoutAuth exempts the prefix from global auth, but the route-level adminMiddleware MUST still 401 anonymous mutations")
+		Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 	})
 
 	It("returns 401 for anonymous DELETE /api/branding/asset/:kind", func() {

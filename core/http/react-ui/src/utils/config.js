@@ -66,6 +66,9 @@ export const API_CONFIG = {
     cancelAgentJob: (id) => `/api/agent/jobs/${id}/cancel`,
     executeAgentJob: '/api/agent/jobs/execute',
 
+    // Progress of a cold load still staging a model onto a worker
+    modelLoadStatus: (id) => `/api/models/${encodeURIComponent(id)}/load-status`,
+
     // OpenAI-compatible endpoints
     chatCompletions: '/v1/chat/completions',
     mcpChatCompletions: '/v1/mcp/chat/completions',

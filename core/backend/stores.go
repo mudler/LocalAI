@@ -15,11 +15,21 @@ import (
 )
 
 // VectorStore is the narrowed KNN store used by the router's embedding
-// cache. Search returns the top-1 match (cosine similarity in [-1, 1])
-// and the serialised payload, or ok=false on a clean miss.
+// cache and the KNN classifier. Search returns the top-1 match (cosine
+// similarity in [-1, 1]) and the serialised payload, or ok=false on a
+// clean miss. SearchK returns up to k nearest neighbours ordered by
+// descending similarity; an empty slice is a clean miss.
 type VectorStore interface {
 	Search(ctx context.Context, vec []float32) (similarity float64, payload []byte, ok bool, err error)
+	SearchK(ctx context.Context, vec []float32, k int) ([]Neighbor, error)
 	Insert(ctx context.Context, vec []float32, payload []byte) error
+}
+
+// Neighbor is one SearchK result — the stored payload and its cosine
+// similarity to the query vector.
+type Neighbor struct {
+	Similarity float64
+	Payload    []byte
 }
 
 // NewVectorStore returns a VectorStore backed by the local-store
@@ -45,42 +55,141 @@ func (s *localVectorStore) backend(_ context.Context) (grpc.Backend, error) {
 	return StoreBackend(s.loader, s.appConfig, s.cl, s.storeName, "")
 }
 
-func (s *localVectorStore) Search(ctx context.Context, vec []float32) (sim float64, payload []byte, ok bool, err error) {
-	start := time.Now()
+// Search is the top-1 special case of SearchK; delegating keeps the
+// backend-load/Find/trace plumbing in one place (SearchK records the
+// identically-shaped trace, so /api/backend-traces sees no difference).
+func (s *localVectorStore) Search(ctx context.Context, vec []float32) (float64, []byte, bool, error) {
+	neighbors, err := s.SearchK(ctx, vec, 1)
+	if err != nil || len(neighbors) == 0 {
+		return 0, nil, false, err
+	}
+	return neighbors[0].Similarity, neighbors[0].Payload, true, nil
+}
+
+func (s *localVectorStore) SearchK(ctx context.Context, vec []float32, k int) (neighbors []Neighbor, err error) {
 	outcome := "hit"
-	defer func() {
-		s.recordTrace(start, "search", len(vec), sim, outcome, err)
-	}()
+	sim := 0.0
 	be, berr := s.backend(ctx)
 	if berr != nil {
 		outcome = "backend_load_error"
-		return 0, nil, false, fmt.Errorf("vector store load: %w", berr)
+		err = fmt.Errorf("vector store load: %w", berr)
+		s.recordTrace("", time.Now(), "search", len(vec), 0, outcome, err)
+		return nil, err
 	}
-	_, values, similarities, ferr := store.Find(ctx, be, vec, 1)
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	start := time.Now()
+	traceID := s.beginTrace(start, "search")
+	defer func() {
+		s.recordTrace(traceID, start, "search", len(vec), sim, outcome, err)
+	}()
+	_, values, similarities, ferr := store.Find(ctx, be, vec, k)
 	if ferr != nil {
 		outcome = "find_error"
-		return 0, nil, false, fmt.Errorf("vector store find: %w", ferr)
+		return nil, fmt.Errorf("vector store find: %w", ferr)
 	}
-	if len(values) == 0 || len(similarities) == 0 {
+	if len(values) == 0 {
 		outcome = "miss"
-		return 0, nil, false, nil
+		return nil, nil
 	}
-	return float64(similarities[0]), values[0], true, nil
+	neighbors = make([]Neighbor, 0, len(values))
+	for i, v := range values {
+		neighbors = append(neighbors, Neighbor{Similarity: float64(similarities[i]), Payload: v})
+	}
+	sim = neighbors[0].Similarity
+	return neighbors, nil
 }
 
 func (s *localVectorStore) Insert(ctx context.Context, vec []float32, payload []byte) (err error) {
-	start := time.Now()
 	outcome := "ok"
-	defer func() {
-		s.recordTrace(start, "insert", len(vec), 0, outcome, err)
-	}()
 	be, berr := s.backend(ctx)
 	if berr != nil {
 		outcome = "backend_load_error"
-		return fmt.Errorf("vector store load: %w", berr)
+		err = fmt.Errorf("vector store load: %w", berr)
+		s.recordTrace("", time.Now(), "insert", len(vec), 0, outcome, err)
+		return err
 	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return err
+	}
+	defer release()
+	start := time.Now()
+	traceID := s.beginTrace(start, "insert")
+	defer func() {
+		s.recordTrace(traceID, start, "insert", len(vec), 0, outcome, err)
+	}()
 	if serr := store.SetSingle(ctx, be, vec, payload); serr != nil {
 		outcome = "insert_error"
+		return serr
+	}
+	return nil
+}
+
+// InsertBatch upserts many vectors in one gRPC round-trip. Not part of
+// the VectorStore interface — the corpus manager type-asserts for it
+// and falls back to per-entry Insert on stores that lack it.
+func (s *localVectorStore) InsertBatch(ctx context.Context, vecs [][]float32, payloads [][]byte) (err error) {
+	outcome := "ok"
+	dim := 0
+	if len(vecs) > 0 {
+		dim = len(vecs[0])
+	}
+	be, berr := s.backend(ctx)
+	if berr != nil {
+		outcome = "backend_load_error"
+		err = fmt.Errorf("vector store load: %w", berr)
+		s.recordTrace("", time.Now(), "insert_batch", dim, 0, outcome, err)
+		return err
+	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return err
+	}
+	defer release()
+	start := time.Now()
+	traceID := s.beginTrace(start, "insert_batch")
+	defer func() {
+		s.recordTrace(traceID, start, "insert_batch", dim, 0, outcome, err)
+	}()
+	if serr := store.SetCols(ctx, be, vecs, payloads); serr != nil {
+		outcome = "insert_error"
+		return serr
+	}
+	return nil
+}
+
+// Delete removes vectors by key. Optional capability like InsertBatch;
+// used by the corpus manager's Clear so a wiped corpus also leaves the
+// live index.
+func (s *localVectorStore) Delete(ctx context.Context, vecs [][]float32) (err error) {
+	outcome := "ok"
+	dim := 0
+	if len(vecs) > 0 {
+		dim = len(vecs[0])
+	}
+	be, berr := s.backend(ctx)
+	if berr != nil {
+		outcome = "backend_load_error"
+		err = fmt.Errorf("vector store load: %w", berr)
+		s.recordTrace("", time.Now(), "delete", dim, 0, outcome, err)
+		return err
+	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return err
+	}
+	defer release()
+	start := time.Now()
+	traceID := s.beginTrace(start, "delete")
+	defer func() {
+		s.recordTrace(traceID, start, "delete", dim, 0, outcome, err)
+	}()
+	if serr := store.DeleteCols(ctx, be, vecs); serr != nil {
+		outcome = "delete_error"
 		return serr
 	}
 	return nil
@@ -91,7 +200,15 @@ func (s *localVectorStore) Insert(ctx context.Context, vec []float32, payload []
 // modelName uses the store namespace (e.g. "router-cache-smart-router") so
 // admins can tell which router's cache misbehaved; the backend is always
 // "local-store" and can't disambiguate.
-func (s *localVectorStore) recordTrace(start time.Time, op string, vecDim int, sim float64, outcome string, err error) {
+func (s *localVectorStore) beginTrace(start time.Time, op string) string {
+	if s.appConfig == nil || !s.appConfig.EnableTracing {
+		return ""
+	}
+	trace.InitBackendTracingIfEnabled(s.appConfig.TracingMaxItems, s.appConfig.TracingMaxBodyBytes)
+	return trace.BeginBackendTrace(trace.BackendTrace{Timestamp: start, Type: trace.BackendTraceVectorStore, ModelName: s.storeName, Backend: model.LocalStoreBackend, Summary: op})
+}
+
+func (s *localVectorStore) recordTrace(traceID string, start time.Time, op string, vecDim int, sim float64, outcome string, err error) {
 	if s.appConfig == nil || !s.appConfig.EnableTracing {
 		return
 	}
@@ -115,6 +232,7 @@ func (s *localVectorStore) recordTrace(start time.Time, op string, vecDim int, s
 		data["similarity"] = sim
 	}
 	trace.RecordBackendTrace(trace.BackendTrace{
+		ID:        traceID,
 		Timestamp: start,
 		Duration:  time.Since(start),
 		Type:      trace.BackendTraceVectorStore,

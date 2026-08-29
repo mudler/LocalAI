@@ -59,7 +59,7 @@ type RemoteModelPresenceChecker interface {
 // instead of starting a local process. When set on the ModelLoader,
 // grpcModel() will delegate to this function before attempting local loading.
 type ModelRouter func(ctx context.Context, backend, modelID, modelName, modelFile string,
-	opts *pb.ModelOptions, parallel bool) (*Model, error)
+	configRevision string, opts *pb.ModelOptions, parallel bool) (*Model, error)
 
 // BackendLoadEvent describes one actual backend load attempt: a backend
 // process spawn (or remote-address attach) followed by its LoadModel RPC.
@@ -94,6 +94,7 @@ type ModelLoader struct {
 	lruEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models
 	onUnloadHooks            []ModelUnloadHook
 	loadObserver             func(BackendLoadEvent)
+	loadLifecycleObserver    func(BackendLoadEvent) (func(BackendLoadEvent), error)
 	remoteUnloader           RemoteModelUnloader
 	modelRouter              ModelRouter // distributed mode: route to remote node
 	backendLogs              *BackendLogStore
@@ -254,6 +255,24 @@ func (ml *ModelLoader) notifyLoadObserver(ev BackendLoadEvent) {
 	if obs != nil {
 		obs(ev)
 	}
+}
+
+// SetLoadLifecycleObserver registers a begin callback whose returned function
+// is invoked when the same real backend load attempt finishes.
+func (ml *ModelLoader) SetLoadLifecycleObserver(obs func(BackendLoadEvent) (func(BackendLoadEvent), error)) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.loadLifecycleObserver = obs
+}
+
+func (ml *ModelLoader) notifyLoadStarted(ev BackendLoadEvent) (func(BackendLoadEvent), error) {
+	ml.mu.Lock()
+	obs := ml.loadLifecycleObserver
+	ml.mu.Unlock()
+	if obs == nil {
+		return nil, nil
+	}
+	return obs(ev)
 }
 
 // SetRemoteUnloader sets the handler for unloading models on remote nodes.
@@ -469,7 +488,10 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 		modelFile := filepath.Join(ml.ModelPath, modelFileName)
 		model, err := loader(modelID, modelName, modelFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to route model with internal loader: %s", err)
+			// %w, not %s: the router reports a still-loading model as a typed
+			// error that the HTTP layer turns into 503 plus live progress, and
+			// that only survives an unbroken chain.
+			return nil, fmt.Errorf("failed to route model with internal loader: %w", err)
 		}
 		if model == nil {
 			return nil, fmt.Errorf("loader didn't return a model")

@@ -42,6 +42,7 @@ type ApplicationConfig struct {
 	F16                                 bool
 	Debug                               bool
 	EnableTracing                       bool
+	MaxConcurrentBackendRequests        int
 	TracingMaxItems                     int
 	TracingMaxBodyBytes                 int // Per-body cap for captured request/response bodies; 0 disables the cap
 	EnableBackendLogging                bool
@@ -124,6 +125,7 @@ type ApplicationConfig struct {
 	ExternalGRPCBackends map[string]string
 
 	AutoloadGalleries, AutoloadBackendGalleries bool
+	VRAMPersistentCache                         bool
 	AutoUpgradeBackends                         bool
 	PreferDevelopmentBackends                   bool
 
@@ -212,6 +214,8 @@ type ApplicationConfig struct {
 	Branding BrandingConfig
 }
 
+const DefaultMaxConcurrentBackendRequests = 1024
+
 // BrandingConfig holds the whitelabel/branding configuration of the instance.
 // Text fields are exposed via the public GET /api/branding endpoint so the
 // login page can read them before authentication. Binary asset filenames
@@ -281,6 +285,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		// toggle can still turn it off (a persisted false wins - see
 		// loadRuntimeSettingsFromFile).
 		EnableBackendLogging:        true,
+		VRAMPersistentCache:         true,
 		ArtifactDownloadConcurrency: modelartifacts.DefaultDownloadConcurrency,
 		AgentJobRetentionDays:       30,               // Default: 30 days
 		LRUEvictionMaxRetries:       30,               // Default: 30 retries
@@ -294,8 +299,9 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		// Interval to the default on every restart (#10601). The effective
 		// 500ms default is supplied at the watchdog layer (DefaultWatchdogInterval)
 		// when the value is still 0.
-		TracingMaxItems:     1024,
-		TracingMaxBodyBytes: 64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
+		MaxConcurrentBackendRequests: DefaultMaxConcurrentBackendRequests,
+		TracingMaxItems:              1024,
+		TracingMaxBodyBytes:          64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
 		AgentPool: AgentPoolConfig{
 			Enabled:         true,
 			Timeout:         "5m",
@@ -304,35 +310,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 			MaxChunkingSize: 400,
 			AgentHubURL:     "https://agenthub.localai.io",
 		},
-		PathWithoutAuth: []string{
-			"/static/",
-			"/generated-audio/",
-			"/generated-images/",
-			"/generated-videos/",
-			"/favicon.svg",
-			"/readyz",
-			"/healthz",
-			"/api/auth/",
-			"/assets/",
-			// Branding read endpoint + public asset server. The login
-			// screen renders before authentication completes, so it has
-			// to be able to GET /api/branding and the configured logo.
-			//
-			// IMPORTANT: PathWithoutAuth uses a prefix match (see
-			// auth.isExemptPath). The "/api/branding" entry therefore
-			// also exempts POST/DELETE /api/branding/asset/:kind from
-			// the *global* auth middleware. Those routes are still
-			// admin-gated because they are registered with the
-			// route-level adminMiddleware (auth.RequireAdmin) in
-			// core/http/routes/ui_api.go — that's what keeps anonymous
-			// uploads/deletes returning 401. Any new admin-only sub-route
-			// added under /api/branding/* MUST also carry adminMiddleware
-			// at the route registration site, otherwise it ships
-			// unauthenticated. The TestBrandingRoutes_AdminGatingHolds
-			// integration test in core/http/auth pins this contract.
-			"/api/branding",
-			"/branding/",
-		},
+		PathWithoutAuth: []string{},
 	}
 	for _, oo := range o {
 		oo(opt)
@@ -620,6 +598,10 @@ func WithAutoUpgradeBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
 }
 
+func WithVRAMPersistentCache(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.VRAMPersistentCache = v }
+}
+
 func WithRequireBackendIntegrity(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.RequireBackendIntegrity = v }
 }
@@ -782,6 +764,15 @@ func WithDebug(debug bool) AppOption {
 func WithTracingMaxItems(items int) AppOption {
 	return func(o *ApplicationConfig) {
 		o.TracingMaxItems = items
+	}
+}
+
+func WithMaxConcurrentBackendRequests(requests int) AppOption {
+	return func(o *ApplicationConfig) {
+		if requests <= 0 {
+			requests = DefaultMaxConcurrentBackendRequests
+		}
+		o.MaxConcurrentBackendRequests = requests
 	}
 }
 
@@ -1155,6 +1146,7 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 		LoadOptionF16(o.F16),
 		LoadOptionThreads(o.Threads),
 		ModelPath(o.SystemState.Model.ModelsPath),
+		LoadOptionGalleryFiles(o.Galleries...),
 	}
 }
 

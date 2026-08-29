@@ -41,6 +41,7 @@ type DistributedServices struct {
 	FileStager   nodes.FileStager
 	ModelAdapter *nodes.ModelRouterAdapter
 	Unloader     *nodes.RemoteUnloaderAdapter
+	ModelCleanup *nodes.ModelCleanupService
 
 	shutdownOnce sync.Once
 }
@@ -160,6 +161,15 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, fmt.Errorf("initializing node registry: %w", err)
 	}
 	xlog.Info("Node registry initialized")
+
+	// Let scheduling rules be keyed by a model alias. The registry resolves a
+	// rule's name through the config loader to find the model it governs, so an
+	// operator can pin placement to a stable name like "production" and have it
+	// follow the alias when the alias is repointed. Wired before the seed below
+	// and before the reconciler starts, so the first tick already resolves.
+	if configLoader != nil {
+		registry.SetAliasResolver(configLoader)
+	}
 
 	// Seed declarative per-model scheduling config (LOCALAI_MODEL_SCHEDULING /
 	// LOCALAI_MODEL_SCHEDULING_CONFIG). Authoritative: overwrites matching models
@@ -346,8 +356,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if configLoader != nil {
 		conflictResolver = configLoader
 	}
+	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
 		Unloader:         remoteUnloader,
+		ModelCleanup:     modelCleanup,
 		FileStager:       fileStager,
 		GalleriesJSON:    routerGalleriesJSON,
 		AuthToken:        routerAuthToken,
@@ -378,6 +390,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			cfg.Distributed.BackendInstallTimeoutOrDefault(),
 			cfg.Distributed.ModelLoadTimeoutOrDefault(),
 		),
+		// Bounds the REQUEST, not the load: a caller out of budget gets 503 with
+		// live staging progress while the job keeps running underneath.
+		ModelLoadWait: cfg.Distributed.ModelLoadWait,
 	})
 
 	// Wire staging-progress broadcasting so file-staging shows up on every
@@ -434,6 +449,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		FileStager:   fileStager,
 		ModelAdapter: modelAdapter,
 		Unloader:     remoteUnloader,
+		ModelCleanup: modelCleanup,
 	}, nil
 }
 

@@ -67,7 +67,7 @@ h1,h2,h3{margin:0;font-family:var(--display),system-ui,sans-serif;font-weight:70
 section{position:relative;padding:var(--band) 0}
 .navy{background:rgba(4,19,28,var(--veil))} .surf{background:var(--navy1)} .deepbg{background:var(--deep)}
 .navy h1,.navy h2,.navy h3,.navy .lede,.navy p,.navy .kicker{text-shadow:var(--glowtext)}
-.navy .mono,.navy .chips span,.navy .apis span,.navy .sn__e span{text-shadow:0 1px 10px rgba(4,19,28,.85)}
+.navy .mono,.navy .chips span,.navy .apis span,.navy .sn__e a{text-shadow:0 1px 10px rgba(4,19,28,.85)}
 #field{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:1;transition:opacity .7s ease}
 .top,main,footer{position:relative;z-index:1}
 .paper{background:var(--paper);color:var(--p-ink)}
@@ -192,9 +192,9 @@ h2{font-size:clamp(2.1rem,5vw,3.9rem)}
 .sn__v u{text-decoration:none;color:var(--faint)}
 .sn p{color:var(--dim);font-size:.96rem;max-width:54ch}
 .sn__e{display:flex;flex-wrap:wrap;gap:.35rem}
-.sn__e span{font-family:'Geist Mono',monospace;font-size:.63rem;color:var(--dim);
+.sn__e a{font-family:'Geist Mono',monospace;font-size:.63rem;color:var(--dim);
   border:1px solid var(--line);padding:.24rem .5rem;border-radius:999px}
-.sn:hover .sn__e span{border-color:var(--cyan);color:var(--ink)}
+.sn:hover .sn__e a{border-color:var(--cyan);color:var(--ink)}
 
 /* made with */
 .made{display:grid;gap:clamp(2rem,4vw,3.2rem);align-items:center;margin-top:2.6rem}
@@ -396,6 +396,7 @@ tbody tr:hover td{background:rgba(95,205,228,.10)}
 .term__b{display:flex;gap:.5rem;align-items:center;padding:.6rem .85rem;border-bottom:1px solid var(--line2);
   font-family:'Geist Mono',monospace;font-size:.63rem;color:var(--faint)}
 .term pre{margin:0;padding:1.2rem;overflow-x:auto;font-family:'Geist Mono',monospace;font-size:.83rem;line-height:1.95}
+.pane{min-height:17rem}
 .term .p{color:var(--cyan)} .term .c{color:var(--cyan-hi)} .term .o{color:var(--dim)} .term .h{color:var(--ink)}
 .cpy{margin-left:auto;font-family:'Geist Mono',monospace;font-size:.63rem;color:var(--cyan);
   background:none;border:0;cursor:pointer;padding:0}

@@ -850,7 +850,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		if calculatedSHA != sha {
 			xlog.Debug("SHA mismatch for file", "file", filePath, "calculated", calculatedSHA, "metadata", sha)
 			_ = removePartialFile(tmpFilePath)
-			return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", filePath, calculatedSHA, sha)
+			return asTransient(fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", filePath, calculatedSHA, sha))
 		}
 	} else {
 		// Visible at the default log level so missing-digest configs are

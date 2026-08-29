@@ -1,6 +1,9 @@
 package meta
 
-import "github.com/mudler/LocalAI/core/services/routing/piipattern"
+import (
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/routing/piipattern"
+)
 
 // builtinPatternOptions turns the piipattern built-in catalogue into select
 // options for the editor's built-in-patterns checklist, keeping the catalogue
@@ -182,6 +185,64 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Advanced: true,
 			Order:    22,
 		},
+		"compression.enabled": {
+			Section:     "llm",
+			Label:       "Context Compression",
+			Description: "Enable compression of chat history before it reaches the model context limit",
+			Component:   "checkbox",
+			Advanced:    true,
+			Order:       24,
+		},
+		"compression.trigger_at_ratio": {
+			Section:     "llm",
+			Label:       "Compression Trigger Ratio",
+			Description: "Fraction of the model context window that starts compression",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.05),
+			Advanced:    true,
+			Order:       25,
+		},
+		"compression.keep_tail_tokens": {
+			Section:     "llm",
+			Label:       "Compression Tail Tokens",
+			Description: "Number of newest conversation tokens to keep outside the summary",
+			Component:   "number",
+			Min:         f64(0),
+			Advanced:    true,
+			Order:       26,
+		},
+		"compression.max_summary_tokens": {
+			Section:     "llm",
+			Label:       "Maximum Summary Tokens",
+			Description: "Maximum number of tokens produced by context compression",
+			Component:   "number",
+			Min:         f64(0),
+			Advanced:    true,
+			Order:       27,
+		},
+		"compression.compressor_model": {
+			Section:              "llm",
+			Label:                "Compressor Model",
+			Description:          "Chat model used to summarize context; empty uses this model",
+			Component:            "model-select",
+			AutocompleteProvider: ProviderModelsChat,
+			Advanced:             true,
+			Order:                28,
+		},
+		"compression.on_post_compression_overflow": {
+			Section:     "llm",
+			Label:       "Post-compression Overflow",
+			Description: "Action to take when compressed context still exceeds the context limit",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "drop_oldest_summary", Label: "Drop Oldest Summary"},
+				{Value: "error", Label: "Return Error"},
+			},
+			Advanced: true,
+			Order:    29,
+		},
 		"cache_type_k": {
 			Section:     "llm",
 			Label:       "KV Cache Type (K)",
@@ -256,6 +317,30 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "number",
 			Advanced:    true,
 			Order:       35,
+		},
+		"parameters.pooling": {
+			Section:     "parameters",
+			Label:       "Embedding Pooling",
+			Description: "How per-token embedding vectors are reduced to one embedding: the backend pools itself (default), or LocalAI pools Go-side (mean, last, decayed_mean) from raw per-token vectors",
+			Component:   "select",
+			Options: []FieldOption{
+				{Value: "", Label: "Backend (default)"},
+				{Value: "backend", Label: "Backend"},
+				{Value: "mean", Label: "Mean"},
+				{Value: "last", Label: "Last token"},
+				{Value: "decayed_mean", Label: "Decayed mean"},
+			},
+			Advanced: true,
+			Order:    36,
+		},
+		"parameters.pooling_half_life_tokens": {
+			Section:     "parameters",
+			Label:       "Pooling Half-Life (tokens)",
+			Description: "Half-life in tokens for decayed_mean pooling: a token's weight halves every this many positions counting back from the end of the conversation (default 256)",
+			Component:   "number",
+			Min:         f64(0),
+			Advanced:    true,
+			Order:       37,
 		},
 
 		// --- Templates ---
@@ -752,6 +837,24 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       72,
 		},
 
+		// --- MCP ---
+		"mcp.remote": {
+			Section:     "mcp",
+			Label:       "Remote MCP Servers",
+			Description: "YAML or JSON string containing an mcpServers map of named remote Streamable HTTP endpoints. Each entry requires url; token optionally enables Bearer authentication.",
+			Component:   "code-editor",
+			Language:    "yaml",
+			Order:       130,
+		},
+		"mcp.stdio": {
+			Section:     "mcp",
+			Label:       "MCP STDIO Servers",
+			Description: "YAML or JSON string containing an mcpServers map of named local commands. Each entry requires command and may include args and env.",
+			Component:   "code-editor",
+			Language:    "yaml",
+			Order:       131,
+		},
+
 		// --- TTS ---
 		"tts.voice_cloning": {
 			Section:     "tts",
@@ -973,17 +1076,19 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 		"router.classifier": {
 			Section:     "router",
 			Label:       "Classifier",
-			Description: "Picks a candidate by scoring every policy label against the prompt. Only \"score\" is shipped today; it asks the classifier_model to rank each label and reads off the softmax. Empty defaults to \"score\".",
+			Description: "How the router picks labels for a prompt. \"score\" asks the classifier_model to rank each policy label and reads off the softmax; \"colbert\" reranks policy descriptions against the prompt via a reranker model; \"knn\" votes over a curated corpus of labelled example prompts (seeded via the corpus API) and routes to the fallback when the prompt is unlike all corpus entries. Empty defaults to \"score\".",
 			Component:   "select",
 			Options: []FieldOption{
 				{Value: "score", Label: "Score (Arch-Router-style)"},
+				{Value: "colbert", Label: "Colbert (reranker)"},
+				{Value: "knn", Label: "KNN (labelled corpus)"},
 			},
 			Order: 230,
 		},
 		"router.classifier_model": {
 			Section:              "router",
 			Label:                "Classifier Model",
-			Description:          "Loaded LocalAI model the score classifier asks to rank each policy label as a continuation. Must support the Score gRPC primitive (today: llama-cpp, vLLM) and use the ChatML template. Arch-Router-1.5B Q4_K_M is the canonical choice; any small ChatML instruct model also works at a higher activation_threshold.",
+			Description:          "Loaded LocalAI model the score classifier asks to rank each policy label as a continuation (for colbert: the reranker model). Must support the Score gRPC primitive (today: llama-cpp, vLLM) and use the ChatML template. Arch-Router-1.5B Q4_K_M is the canonical choice; any small ChatML instruct model also works at a higher activation_threshold. Not used by the knn classifier.",
 			Component:            "model-select",
 			AutocompleteProvider: ProviderModelsScore,
 			Order:                231,
@@ -1074,6 +1179,57 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Description: "Optional override for the local-store collection used by this router's cache. Empty defaults to \"router-cache-<router-model-name>\". Two routers sharing a store_name share their cache (rare).",
 			Component:   "input",
 			Order:       240,
+		},
+		"router.knn.embedding_model": {
+			Section:              "router",
+			Label:                "KNN: Embedding Model",
+			Description:          "Embedding model the knn classifier uses for corpus entries and incoming prompts. Required when classifier is \"knn\". Changing it invalidates stored vectors — entries recorded under a different embedder are re-embedded on load. nomic-embed-text-v1.5 is the recommended default.",
+			Component:            "model-select",
+			AutocompleteProvider: ProviderModels,
+			Order:                241,
+		},
+		"router.knn.embedding_revision": {
+			Section:     "router",
+			Label:       "KNN: Embedding Revision",
+			Description: "Optional identity suffix for embedding services or remote models whose weights may change without their LocalAI model name/config changing. Bump this value after replacing such a model so the persisted corpus is re-embedded.",
+			Component:   "input",
+			Order:       242,
+		},
+		"router.knn.k": {
+			Section:     "router",
+			Label:       "KNN: Neighbours (K)",
+			Description: "How many nearest corpus entries vote on a prompt (1-1024). 0 picks the default (3). K=1 routes on the single nearest example; larger K tolerates a mislabelled exemplar but needs denser corpus coverage per label.",
+			Component:   "number",
+			Min:         f64(0),
+			Max:         f64(float64(config.RouterKNNMaxK)),
+			Order:       243,
+		},
+		"router.knn.similarity_threshold": {
+			Section:     "router",
+			Label:       "KNN: Similarity Threshold",
+			Description: "Cosine-similarity floor a corpus entry must clear to vote. When no entry clears it the router uses the fallback model — a prompt unlike all labelled examples is treated as undecidable rather than guessed. 0 picks the default (0.80).",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.01),
+			Order:       244,
+		},
+		"router.knn.vote_threshold": {
+			Section:     "router",
+			Label:       "KNN: Vote Threshold",
+			Description: "Similarity-weighted vote share a label needs to activate. 0 picks the default (0.5, a weighted majority). Lower values allow multi-label activations from minority neighbours; higher values demand near-unanimous neighbourhoods.",
+			Component:   "slider",
+			Min:         f64(0),
+			Max:         f64(1),
+			Step:        f64(0.05),
+			Order:       245,
+		},
+		"router.knn.store_name": {
+			Section:     "router",
+			Label:       "KNN: Store Name",
+			Description: "Optional override for the local-store collection holding the corpus vectors. Empty defaults to \"router-corpus-<router-model-name>\".",
+			Component:   "input",
+			Order:       246,
 		},
 	}
 }

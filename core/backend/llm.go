@@ -378,9 +378,17 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			"xml_format_preset": c.FunctionsConfig.XMLFormatPreset,
 		}
 
-		startTime := time.Now()
 		originalFn := fn
 		fn = func() (LLMResponse, error) {
+			startTime := time.Now()
+			traceID := trace.BeginBackendTrace(trace.BackendTrace{
+				Timestamp: startTime,
+				Type:      trace.BackendTraceLLM,
+				ModelName: c.Name,
+				Backend:   c.Backend,
+				Summary:   trace.GenerateLLMSummary(messages, s),
+			})
+			defer trace.CancelBackendTrace(traceID)
 			resp, err := originalFn()
 			duration := time.Since(startTime)
 
@@ -432,6 +440,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			}
 
 			trace.RecordBackendTrace(trace.BackendTrace{
+				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  duration,
 				Type:      trace.BackendTraceLLM,
@@ -444,6 +453,15 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 
 			return resp, err
 		}
+	}
+	originalFn := fn
+	fn = func() (LLMResponse, error) {
+		release, err := AcquireGlobalBackendSlot()
+		if err != nil {
+			return LLMResponse{}, err
+		}
+		defer release()
+		return originalFn()
 	}
 
 	return fn, nil

@@ -109,8 +109,8 @@
   },
   "jump": {
     "heading": "Continue de onde parou",
-    "discover": "Descobrir",
-    "discoverSummary": "Explore a galeria e instale modelos",
+    "models": "Modelos",
+    "modelsSummary": "Explore, instale e gerencie modelos",
     "create": "Criar",
     "createSummary": "Abra uma sessão de chat, imagem ou voz",
     "operate": "Operar",

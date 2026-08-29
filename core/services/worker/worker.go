@@ -159,6 +159,10 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
 
+	// Per-request input files land in stagingDir over that server and nothing
+	// used to remove them, so a long-lived worker filled its own disk.
+	StartEphemeralStagingCleanup(shutdownCtx, stagingDir, 0, 0)
+
 	// Connect to NATS
 	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))
 	natsClient, err := connectNats()

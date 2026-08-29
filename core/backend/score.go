@@ -96,15 +96,23 @@ func ModelScore(prompt string, candidates []string, opts ScoreOptions, loader *m
 		return nil, fmt.Errorf("Score: candidates must be non-empty")
 	}
 	return func(ctx context.Context) ([]CandidateScore, error) {
+		release, err := AcquireGlobalBackendSlot()
+		if err != nil {
+			return nil, err
+		}
+		defer release()
 		// Surface score calls in the Traces UI alongside the LLM calls
 		// they typically gate (router classifier, eval scoring). Without
 		// this, a router-classified request shows only the downstream LLM
 		// trace with no record of the classification that picked it.
 		var startTime time.Time
+		var traceID string
 		if appConfig.EnableTracing {
 			trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 			startTime = time.Now()
+			traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceScore, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(prompt, 200)})
 		}
+		defer trace.CancelBackendTrace(traceID)
 		resp, err := b.Score(ctx, &pb.ScoreRequest{
 			ModelIdentity:        modelConfig.Model,
 			Prompt:               prompt,
@@ -120,6 +128,7 @@ func ModelScore(prompt string, candidates []string, opts ScoreOptions, loader *m
 				errStr = err.Error()
 			}
 			trace.RecordBackendTrace(trace.BackendTrace{
+				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  time.Since(startTime),
 				Type:      trace.BackendTraceScore,

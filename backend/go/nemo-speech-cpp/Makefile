@@ -12,7 +12,7 @@
 # runs 'make -C backend/go/$(BACKEND) build' and then copies package/), so it
 # has to produce the binary and the package, not just the shared libraries.
 
-NEMO_SPEECH_VERSION?=2e12e2def8a98ed06666f7ee3ca94e7193e04be4
+NEMO_SPEECH_VERSION?=4f9676226f667d14608487df744f375db87127f8
 NEMO_SPEECH_REPO?=https://github.com/NVIDIA/NeMo-Speech.cpp
 
 GOCMD?=go
@@ -88,6 +88,18 @@ ITN_LIB_DIR=$(ITN_PREFIX)/lib
 ITN_MARKER=$(ITN_LIB_DIR)/libsparrowhawk.so
 ITN_FST_HEADER=$(ITN_PREFIX)/include/fst/fst.h
 
+# SentencePiece became a core ASR dependency in 5be7bfb: RNNT context biasing
+# uses it even when Flashlight and text normalization are disabled. Build the
+# pinned static archive provided by upstream so every platform gets the same
+# dependency instead of relying on an undeclared system package.
+SENTENCEPIECE_PREFIX=sources/NeMo-Speech.cpp/.deps/sentencepiece
+SENTENCEPIECE_MARKER=$(SENTENCEPIECE_PREFIX)/lib/libsentencepiece.a
+
+# Linux's ASR CMake block looks in NEMO_SPEECH_DEPENDENCY_PREFIX directly, but
+# the Apple branch uses generic find_library()/find_path(). Put the same private
+# prefix on CMake's search path so Darwin consumes the archive built above too.
+CMAKE_ARGS+=-DCMAKE_PREFIX_PATH=$(abspath $(SENTENCEPIECE_PREFIX))
+
 ITN_CC?=gcc-12
 ITN_CXX?=g++-12
 
@@ -152,7 +164,7 @@ else
 endif
 CMAKE_ARGS+=-DNEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED)
 
-.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml engine itn patch-itn-headers
+.PHONY: nemo-speech-cpp-grpc package build clean purge test all stage-libs patch-ggml engine itn sentencepiece patch-itn-headers
 
 all: nemo-speech-cpp-grpc package
 
@@ -266,11 +278,28 @@ patch-itn-headers:
 
 itn: $(ITN_MARKER)
 
+$(SENTENCEPIECE_MARKER): | sources/NeMo-Speech.cpp
+	# Upstream's license copies use GNU install's -D flag, which BSD install
+	# does not support. Homebrew CMake 4 also rejects SentencePiece's old policy
+	# floor. Patch both incompatibilities before running the helper on Darwin.
+	@if [ "$(shell uname -s)" = Darwin ]; then \
+		cd sources/NeMo-Speech.cpp && \
+		mkdir -p .deps/sentencepiece/share/licenses/nemo-speech/third_party/sentencepiece && \
+		perl -pi \
+			-e 's/install -Dm0644/install -m 0644/g;' \
+			-e 's/-DCMAKE_BUILD_TYPE=Release /-DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 /;' \
+			scripts/build_sentencepiece_static.sh; \
+	fi
+	cd sources/NeMo-Speech.cpp && JOBS=$(JOBS) scripts/build_sentencepiece_static.sh
+
+sentencepiece: $(SENTENCEPIECE_MARKER)
+
 # Only a WITH_NORM=ON build needs the ITN stack, and it must exist before cmake
 # configures, since the WITH_NORM cmake block find_library()s into the prefix
 # with REQUIRED.
+NEMO_RUNTIME_PREREQS=$(SENTENCEPIECE_MARKER)
 ifeq ($(WITH_NORM),ON)
-NEMO_RUNTIME_PREREQS=$(ITN_MARKER)
+NEMO_RUNTIME_PREREQS+=$(ITN_MARKER)
 endif
 
 # Upstream sets CMAKE_LIBRARY_OUTPUT_DIRECTORY to ${CMAKE_BINARY_DIR}/bin, so the

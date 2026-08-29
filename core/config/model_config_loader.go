@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/LocalAI/pkg/safefile"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
@@ -55,7 +57,18 @@ type ModelConfigLoader struct {
 	artifactMaterializer ArtifactMaterializer
 	preloadRenderMode    string
 	disablePreloadColor  bool
+	mutationMu           sync.Mutex
 	sync.Mutex
+}
+
+// WithModelConfigMutation serializes filesystem-backed configuration changes
+// and their lifecycle publication for every service sharing this loader. It is
+// deliberately separate from the loader's map lock: callbacks reload and
+// replace loader state and would deadlock if that lock were held here.
+func (bcl *ModelConfigLoader) WithModelConfigMutation(fn func() error) error {
+	bcl.mutationMu.Lock()
+	defer bcl.mutationMu.Unlock()
+	return fn()
 }
 
 func NewModelConfigLoader(modelPath string, options ...ModelConfigLoaderOption) *ModelConfigLoader {
@@ -76,6 +89,7 @@ type LoadOptions struct {
 	debug            bool
 	threads, ctxSize int
 	f16              bool
+	galleryFiles     map[string]struct{}
 }
 
 func LoadOptionDebug(debug bool) ConfigLoaderOption {
@@ -108,6 +122,30 @@ func LoadOptionF16(f16 bool) ConfigLoaderOption {
 	}
 }
 
+// LoadOptionGalleryFiles identifies local gallery sources that can legitimately
+// live in the models directory. Exact paths provide provenance; document shape
+// validation alone cannot distinguish an overrides-only gallery entry from a
+// malformed runtime model configuration.
+func LoadOptionGalleryFiles(galleries ...Gallery) ConfigLoaderOption {
+	return func(o *LoadOptions) {
+		if o.galleryFiles == nil {
+			o.galleryFiles = map[string]struct{}{}
+		}
+		for _, configured := range galleries {
+			for _, raw := range append([]string{configured.URL}, configured.Mirrors...) {
+				parsed, err := url.Parse(raw)
+				if err != nil || parsed.Scheme != "file" || parsed.Path == "" {
+					continue
+				}
+				absolute, err := filepath.Abs(filepath.FromSlash(parsed.Path))
+				if err == nil {
+					o.galleryFiles[absolute] = struct{}{}
+				}
+			}
+		}
+	}
+}
+
 type ConfigLoaderOption func(*LoadOptions)
 
 func (lo *LoadOptions) Apply(options ...ConfigLoaderOption) {
@@ -130,6 +168,14 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 	if err := yaml.Unmarshal(f, &configs); err == nil && len(configs) > 0 {
 		for _, cc := range configs {
 			cc.modelConfigFile = file
+			// Stamp before SetDefaults: the revision describes what is on disk.
+			// SetDefaults folds in the GGUF guess, hardware defaults and
+			// app-level options, none of which are persisted configuration, and
+			// the GGUF guess in particular depends on whether the model file
+			// parses at that moment.
+			if err := cc.StampPersistedConfigRevision(); err != nil {
+				return nil, fmt.Errorf("stamping config revision for %q: %w", cc.Name, err)
+			}
 			cc.SetDefaults(opts...)
 			cc.syncKnownUsecasesFromString()
 		}
@@ -144,6 +190,9 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 
 	c.modelConfigFile = file
 	c.syncKnownUsecasesFromString()
+	if err := c.StampPersistedConfigRevision(); err != nil {
+		return nil, fmt.Errorf("stamping config revision for %q: %w", c.Name, err)
+	}
 	c.SetDefaults(opts...)
 
 	return []*ModelConfig{c}, nil
@@ -177,6 +226,16 @@ func (bcl *ModelConfigLoader) LoadModelConfigFileByName(modelName, modelPath str
 			if exists {
 				cfg = &cfgExisting
 			}
+		}
+	}
+
+	// Stamp before SetDefaults, and only when this config did not come from
+	// disk already carrying one (a name with no config file on disk is
+	// synthesized above). Re-stamping a loaded config here would hash it after
+	// SetDefaults and reintroduce the dependency on the GGUF guess.
+	if cfg.PersistedConfigRevision() == "" {
+		if err := cfg.StampPersistedConfigRevision(); err != nil {
+			return nil, fmt.Errorf("stamping config revision for %q: %w", modelName, err)
 		}
 	}
 
@@ -307,6 +366,18 @@ func (bcl *ModelConfigLoader) RemoveModelConfig(m string) {
 	delete(bcl.configs, m)
 }
 
+// ReplaceModelConfigs atomically replaces the in-memory configuration set with
+// a previously parsed snapshot.
+func (bcl *ModelConfigLoader) ReplaceModelConfigs(configs []ModelConfig) {
+	bcl.Lock()
+	defer bcl.Unlock()
+	replacement := make(map[string]ModelConfig, len(configs))
+	for _, cfg := range configs {
+		replacement[cfg.Name] = cfg
+	}
+	bcl.configs = replacement
+}
+
 // GetModelsConflictingWith returns the names of every other configured (and
 // not-disabled) model that shares at least one concurrency group with the
 // named model. Returns nil if the named model has no groups, is unknown, or
@@ -368,6 +439,26 @@ func (bcl *ModelConfigLoader) ResolveAlias(cfg *ModelConfig) (*ModelConfig, bool
 		return nil, true, fmt.Errorf("alias %q points to another alias %q (chains are not allowed)", cfg.Name, cfg.Alias)
 	}
 	return &target, true, nil
+}
+
+// ResolveAliasName maps a model name to the name of the model that actually
+// serves it: an alias resolves to its target, anything else resolves to
+// itself. The second return reports whether name was an alias.
+//
+// Unlike ResolveAlias this never errors. A name with no config (a rule may be
+// authored before the model is installed), a dangling alias, and a chained
+// alias all resolve to themselves, so callers keep a usable name that simply
+// has no model behind it rather than silently governing a different model.
+func (bcl *ModelConfigLoader) ResolveAliasName(name string) (string, bool) {
+	cfg, exists := bcl.GetModelConfig(name)
+	if !exists || !cfg.IsAlias() {
+		return name, false
+	}
+	target, exists := bcl.GetModelConfig(cfg.Alias)
+	if !exists || target.IsAlias() {
+		return name, true
+	}
+	return target.Name, true
 }
 
 // ValidateAliasTarget checks an alias config's target at create/swap time:
@@ -629,6 +720,16 @@ func (bcl *ModelConfigLoader) MITMHostOwners() MITMHostOwnership {
 // LoadModelConfigsFromPath reads all the configurations of the models from a path
 // (non-recursive)
 func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...ConfigLoaderOption) error {
+	return bcl.loadModelConfigsFromPath(path, false, opts...)
+}
+
+// LoadModelConfigsFromPathStrict builds an authoritative snapshot and fails
+// when any visible config cannot be parsed or validated.
+func (bcl *ModelConfigLoader) LoadModelConfigsFromPathStrict(path string, opts ...ConfigLoaderOption) error {
+	return bcl.loadModelConfigsFromPath(path, true, opts...)
+}
+
+func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
 
@@ -644,6 +745,8 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 		}
 		files = append(files, info)
 	}
+	loadOptions := &LoadOptions{}
+	loadOptions.Apply(opts...)
 	for _, file := range files {
 		// Only load real YAML config files and ignore dotfiles or backup variants
 		ext := strings.ToLower(filepath.Ext(file.Name()))
@@ -652,10 +755,35 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 		}
 
 		filePath := filepath.Join(path, file.Name())
+		absolutePath, absErr := filepath.Abs(filePath)
+		if absErr != nil {
+			return absErr
+		}
+		if _, gallerySource := loadOptions.galleryFiles[absolutePath]; gallerySource {
+			galleryDocument, err := classifyGalleryDocument(filePath)
+			if err != nil {
+				if strict {
+					return err
+				}
+				xlog.Error("LoadModelConfigsFromPath cannot validate gallery YAML file", "error", err, "File Name", file.Name())
+				continue
+			}
+			if !galleryDocument {
+				if strict {
+					return fmt.Errorf("configured gallery source %q is not valid gallery metadata", filePath)
+				}
+				xlog.Error("Configured gallery source is not valid gallery metadata", "File Name", file.Name())
+				continue
+			}
+			continue
+		}
 
 		// Read config(s) - handles both single and array formats
 		configs, err := readModelConfigsFromFile(filePath, opts...)
 		if err != nil {
+			if strict {
+				return err
+			}
 			xlog.Error("LoadModelConfigsFromPath cannot read config file", "error", err, "File Name", file.Name())
 			continue
 		}
@@ -665,6 +793,9 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 			if valid, validationErr := c.Validate(); valid {
 				bcl.configs[c.Name] = *c
 			} else {
+				if strict {
+					return fmt.Errorf("invalid model config %q: %w", c.Name, validationErr)
+				}
 				xlog.Error("config is not valid", "error", validationErr, "Name", c.Name)
 			}
 		}
@@ -687,4 +818,205 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 	}
 
 	return nil
+}
+
+var galleryMetadataKeys = map[string]struct{}{
+	"name": {}, "description": {}, "license": {}, "icon": {}, "tags": {}, "size": {},
+	"url": {}, "urls": {}, "config_file": {}, "overrides": {}, "files": {}, "variants": {}, "prompt_templates": {},
+}
+
+// classifyGalleryDocument recognizes the two gallery documents LocalAI writes
+// beside model configurations: a GalleryModel catalogue sequence and the
+// legacy downloadable ModelConfig mapping. A gallery discriminator makes the
+// document subject to the complete shape check; malformed or mixed documents
+// are errors rather than silently disappearing from an authoritative snapshot.
+func classifyGalleryDocument(path string) (bool, error) {
+	data, _, err := safefile.ReadRegularAt(filepath.Dir(path), filepath.Base(path))
+	if err != nil {
+		return false, fmt.Errorf("read YAML file %q for classification: %w", path, err)
+	}
+	var document yaml.Node
+	if err := yaml.Unmarshal(data, &document); err != nil || len(document.Content) != 1 {
+		return false, nil // The model-config parser supplies the syntax error.
+	}
+	root := document.Content[0]
+	switch root.Kind {
+	case yaml.SequenceNode:
+		looksGallery := false
+		for _, entry := range root.Content {
+			if entry.Kind == yaml.MappingNode && hasAnyMappingKey(entry, "url", "config_file", "variants", "files", "overrides") {
+				looksGallery = true
+			}
+		}
+		if !looksGallery {
+			return false, nil
+		}
+		if len(root.Content) == 0 {
+			return false, nil
+		}
+		for _, entry := range root.Content {
+			if err := validateGalleryCatalogueEntry(entry); err != nil {
+				return false, fmt.Errorf("invalid gallery catalogue %q: %w", path, err)
+			}
+		}
+		return true, nil
+	case yaml.MappingNode:
+		if !hasAnyMappingKey(root, "config_file", "prompt_templates") {
+			return false, nil
+		}
+		if err := validateLegacyGalleryModel(root); err != nil {
+			return false, fmt.Errorf("invalid gallery model metadata %q: %w", path, err)
+		}
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+func validateGalleryCatalogueEntry(entry *yaml.Node) error {
+	if entry.Kind != yaml.MappingNode {
+		return errors.New("entry must be a mapping")
+	}
+	if err := validateGalleryKeys(entry); err != nil {
+		return err
+	}
+	if !nonemptyScalar(galleryMappingValue(entry, "name")) {
+		return errors.New("entry name must be a non-empty string")
+	}
+	hasPayload := nonemptyScalar(galleryMappingValue(entry, "url"))
+	if node := galleryMappingValue(entry, "config_file"); node != nil {
+		if node.Kind != yaml.MappingNode {
+			return errors.New("config_file must be a mapping in a gallery catalogue")
+		}
+		hasPayload = true
+	}
+	for _, key := range []string{"overrides", "files", "variants"} {
+		if node := galleryMappingValue(entry, key); node != nil {
+			if err := validateGalleryPayload(key, node); err != nil {
+				return err
+			}
+			hasPayload = hasPayload || len(node.Content) > 0
+		}
+	}
+	if !hasPayload {
+		return errors.New("entry has no installable gallery payload")
+	}
+	return nil
+}
+
+func validateLegacyGalleryModel(entry *yaml.Node) error {
+	if err := validateGalleryKeys(entry); err != nil {
+		return err
+	}
+	if !nonemptyScalar(galleryMappingValue(entry, "name")) {
+		return errors.New("model name must be a non-empty string")
+	}
+	configFile := galleryMappingValue(entry, "config_file")
+	if !nonemptyScalar(configFile) {
+		return errors.New("config_file must be a non-empty YAML string")
+	}
+	for _, key := range []string{"files", "prompt_templates"} {
+		if node := galleryMappingValue(entry, key); node != nil && node.Kind != yaml.SequenceNode {
+			return fmt.Errorf("%s must be a sequence", key)
+		}
+	}
+	return nil
+}
+
+func validateGalleryKeys(entry *yaml.Node) error {
+	for i := 0; i+1 < len(entry.Content); i += 2 {
+		key := entry.Content[i].Value
+		if _, ok := galleryMetadataKeys[key]; !ok {
+			return fmt.Errorf("field %q is not gallery metadata", key)
+		}
+	}
+	return nil
+}
+
+func validateGalleryPayload(key string, node *yaml.Node) error {
+	switch key {
+	case "overrides":
+		if node.Kind != yaml.MappingNode {
+			return errors.New("overrides must be a mapping")
+		}
+	case "files":
+		if node.Kind != yaml.SequenceNode {
+			return errors.New("files must be a sequence")
+		}
+		for _, file := range node.Content {
+			if file.Kind != yaml.MappingNode || !nonemptyScalar(galleryMappingValue(file, "filename")) || !nonemptyScalar(galleryMappingValue(file, "uri")) {
+				return errors.New("each gallery file must have non-empty filename and uri strings")
+			}
+		}
+	case "variants":
+		if node.Kind != yaml.SequenceNode || len(node.Content) == 0 {
+			return errors.New("variants must be a non-empty sequence")
+		}
+		for _, variant := range node.Content {
+			if variant.Kind != yaml.MappingNode || len(variant.Content) != 2 || variant.Content[0].Value != "model" || !nonemptyScalar(variant.Content[1]) {
+				return errors.New("each variant must contain only a non-empty model string")
+			}
+		}
+	}
+	return nil
+}
+
+func galleryMappingValue(mapping *yaml.Node, key string) *yaml.Node {
+	if mapping == nil || mapping.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		if mapping.Content[i].Value == key {
+			return mapping.Content[i+1]
+		}
+	}
+	return nil
+}
+
+func hasAnyMappingKey(mapping *yaml.Node, keys ...string) bool {
+	for _, key := range keys {
+		if galleryMappingValue(mapping, key) != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func nonemptyScalar(node *yaml.Node) bool {
+	return node != nil && node.Kind == yaml.ScalarNode && node.Tag == "!!str" && strings.TrimSpace(node.Value) != ""
+}
+
+// RevisionFor returns the config revision for modelName: the one an inference
+// request for that model will carry.
+//
+// This is the only way to obtain a revision outside this package. Every
+// publisher must use it, so that what is published and what is checked are
+// the same value by construction rather than by two implementations happening
+// to agree. Hashing a ModelConfig directly is not available to callers, because
+// a config that has been through SetDefaults or the request middleware hashes
+// to something no request will ever present.
+func (bcl *ModelConfigLoader) RevisionFor(modelName string, appConfig *ApplicationConfig) (string, error) {
+	cfg, err := bcl.LoadModelConfigFileByNameDefaultOptions(modelName, appConfig)
+	if err != nil {
+		return "", fmt.Errorf("resolving config revision for %q: %w", modelName, err)
+	}
+	return stampedRevision(cfg, modelName)
+}
+
+// RevisionForPath is RevisionFor for callers that hold loader options and a
+// models path rather than an ApplicationConfig.
+func (bcl *ModelConfigLoader) RevisionForPath(modelName, modelPath string, opts ...ConfigLoaderOption) (string, error) {
+	cfg, err := bcl.LoadModelConfigFileByName(modelName, modelPath, opts...)
+	if err != nil {
+		return "", fmt.Errorf("resolving config revision for %q: %w", modelName, err)
+	}
+	return stampedRevision(cfg, modelName)
+}
+
+func stampedRevision(cfg *ModelConfig, modelName string) (string, error) {
+	revision := cfg.PersistedConfigRevision()
+	if revision == "" {
+		return "", fmt.Errorf("no config revision stamped for %q", modelName)
+	}
+	return revision, nil
 }

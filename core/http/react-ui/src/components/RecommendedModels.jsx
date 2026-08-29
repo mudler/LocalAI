@@ -5,7 +5,7 @@ import { useRecommendedModels, isNvfp4Name } from '../hooks/useRecommendedModels
 
 const CONTENT_ID = 'rec-models-content'
 
-// "Recommended for your hardware" at the top of Discover's zero state. Shares
+// "Recommended for your hardware" at the top of Models Explore's zero state. Shares
 // the hardware-fit ranking with the empty-state starter widget via
 // useRecommendedModels.
 //

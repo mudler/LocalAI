@@ -1,8 +1,11 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -39,8 +43,17 @@ type TTSConfig struct {
 
 // @Description ModelConfig represents a model configuration
 type ModelConfig struct {
-	modelConfigFile          string `yaml:"-" json:"-"`
-	modelTemplate            string `yaml:"-" json:"-"`
+	modelConfigFile string `yaml:"-" json:"-"`
+	modelTemplate   string `yaml:"-" json:"-"`
+	// persistedConfigRevision is the revision of this model's persisted
+	// configuration, stamped when the loader materializes it and therefore
+	// before any per-request override is merged in. The request pipeline
+	// mutates its copy of a ModelConfig with the caller's sampling parameters
+	// (temperature, top_p, stop, ...), so hashing the config at load time is
+	// the only way the controller sees one revision per configuration rather
+	// than one per request body. Unexported, so it never enters the hash it
+	// describes and never reaches YAML or JSON.
+	persistedConfigRevision  string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Name                     string                `yaml:"name,omitempty" json:"name,omitempty"`
 	Artifacts                []modelartifacts.Spec `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
@@ -80,6 +93,7 @@ type ModelConfig struct {
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function,omitempty" json:"function,omitempty"`
 	ReasoningConfig reasoning.Config          `yaml:"reasoning,omitempty" json:"reasoning,omitempty"`
+	Compression     CompressionConfig         `yaml:"compression,omitempty" json:"compression,omitempty"`
 
 	// ReasoningEffort is the default reasoning effort (none|minimal|low|medium|high)
 	// for this model. A per-request reasoning_effort overrides it. It is forwarded
@@ -146,6 +160,18 @@ type ModelConfig struct {
 	Proxy        ProxyConfig        `yaml:"proxy,omitempty" json:"proxy,omitempty"`
 	MITM         MITMModelConfig    `yaml:"mitm,omitempty" json:"mitm,omitempty"`
 	Limits       LimitsConfig       `yaml:"limits,omitempty" json:"limits,omitempty"`
+}
+
+// CompressionConfig controls opt-in compression of chat history before inference.
+// The request middleware consumes this configuration; keeping it on ModelConfig
+// lets operators select a policy per context window and model workload.
+type CompressionConfig struct {
+	Enabled                   bool    `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	TriggerAtRatio            float64 `yaml:"trigger_at_ratio,omitempty" json:"trigger_at_ratio,omitempty"`
+	KeepTailTokens            int     `yaml:"keep_tail_tokens,omitempty" json:"keep_tail_tokens,omitempty"`
+	MaxSummaryTokens          int     `yaml:"max_summary_tokens,omitempty" json:"max_summary_tokens,omitempty"`
+	CompressorModel           string  `yaml:"compressor_model,omitempty" json:"compressor_model,omitempty"`
+	OnPostCompressionOverflow string  `yaml:"on_post_compression_overflow,omitempty" json:"on_post_compression_overflow,omitempty"`
 }
 
 // @Description Admission-control limits applied per request. The
@@ -358,7 +384,17 @@ type RouterConfig struct {
 	// embeddings to past decisions, so semantically-similar prompts
 	// reuse a classification instead of re-running the classifier
 	// model. Omit the block to disable. See router/embedding_cache.go.
+	// Ignored (with a warning) for the knn classifier — that IS a
+	// KNN lookup already; wrapping it in another would embed twice
+	// for no additional information.
 	EmbeddingCache *EmbeddingCacheConfig `yaml:"embedding_cache,omitempty" json:"embedding_cache,omitempty"`
+
+	// KNN configures the "knn" classifier: nearest-neighbour voting
+	// over a curated corpus of labelled example prompts. Required when
+	// classifier is "knn", ignored otherwise. The corpus is seeded and
+	// curated through the router corpus API (never through the UI);
+	// see router/knn.go for the decision semantics.
+	KNN *RouterKNNConfig `yaml:"knn,omitempty" json:"knn,omitempty"`
 }
 
 // EmbeddingCacheConfig configures the L2 embedding-similarity decision
@@ -390,6 +426,97 @@ type EmbeddingCacheConfig struct {
 	// where <router> is the parent model name. Useful when two
 	// router models should share a cache (rare).
 	StoreName string `yaml:"store_name,omitempty" json:"store_name,omitempty"`
+}
+
+// RouterKNNMaxK bounds the local priority queue and the number of neighbors
+// returned across the store boundary for one routing decision.
+const RouterKNNMaxK = 1024
+
+// RouterKNNConfig configures the knn classifier. It shares the
+// embedding + local-store plumbing with EmbeddingCacheConfig but the
+// two are deliberately separate blocks: the cache stores another
+// classifier's decisions opportunistically, while the KNN corpus is
+// explicit labelled ground truth — different lifecycle, different
+// store namespace, different failure story.
+type RouterKNNConfig struct {
+	// EmbeddingModel names the loaded LocalAI model used to embed
+	// both corpus entries and incoming probes. Required. Changing it
+	// invalidates the stored vectors — the corpus loader re-embeds
+	// entries recorded under a different embedder fingerprint.
+	EmbeddingModel string `yaml:"embedding_model" json:"embedding_model"`
+
+	// EmbeddingRevision is an operator-controlled identity suffix for
+	// embedding backends whose underlying weights can change without a
+	// stable local checksum or config change. Bump it when replacing such
+	// a model in place so persisted corpus vectors are re-embedded.
+	EmbeddingRevision string `yaml:"embedding_revision,omitempty" json:"embedding_revision,omitempty"`
+
+	// K is how many nearest corpus entries vote on a probe. 0 picks
+	// the package default (3). K=1 reproduces exact nearest-entry
+	// routing; larger K tolerates mislabelled exemplars at the cost
+	// of needing denser corpus coverage per label region.
+	K int `yaml:"k,omitempty" json:"k,omitempty"`
+
+	// SimilarityThreshold is the epistemic gate: corpus entries less
+	// similar than this to the probe cannot vote, and when none clear
+	// it the router uses the fallback model — a probe unlike all
+	// labelled experience is undecidable, not a guess. 0 picks the
+	// package default (0.80).
+	SimilarityThreshold float64 `yaml:"similarity_threshold,omitempty" json:"similarity_threshold,omitempty"`
+
+	// VoteThreshold is the similarity-weighted vote share a label
+	// needs to activate. 0 picks the package default (0.5, a weighted
+	// majority). Lower values let minority-label neighbours activate
+	// additional labels (multi-label routing); higher values demand
+	// near-unanimous neighbourhoods.
+	VoteThreshold float64 `yaml:"vote_threshold,omitempty" json:"vote_threshold,omitempty"`
+
+	// StoreName overrides the local-store collection holding the
+	// corpus vectors. Empty defaults to "router-corpus-<router>".
+	StoreName string `yaml:"store_name,omitempty" json:"store_name,omitempty"`
+}
+
+// Validate rejects values that would make weighted cosine voting invalid or
+// allow one request to allocate an unbounded neighbor result. Zero retains the
+// documented default sentinel for backward compatibility.
+func (k *RouterKNNConfig) Validate() error {
+	if k.K < 0 || k.K > RouterKNNMaxK {
+		return fmt.Errorf("router.knn.k must be 0 (default) or between 1 and %d, got %d", RouterKNNMaxK, k.K)
+	}
+	if math.IsNaN(k.SimilarityThreshold) || math.IsInf(k.SimilarityThreshold, 0) {
+		return fmt.Errorf("router.knn.similarity_threshold must be finite, got %v", k.SimilarityThreshold)
+	}
+	if k.SimilarityThreshold < 0 || k.SimilarityThreshold > 1 {
+		return fmt.Errorf("router.knn.similarity_threshold must be 0 (default) or greater than 0 and at most 1, got %v", k.SimilarityThreshold)
+	}
+	if math.IsNaN(k.VoteThreshold) || math.IsInf(k.VoteThreshold, 0) {
+		return fmt.Errorf("router.knn.vote_threshold must be finite, got %v", k.VoteThreshold)
+	}
+	if k.VoteThreshold < 0 || k.VoteThreshold > 1 {
+		return fmt.Errorf("router.knn.vote_threshold must be 0 (default) or greater than 0 and at most 1, got %v", k.VoteThreshold)
+	}
+	return nil
+}
+
+// ResolvedStoreName is the local-store collection this router's corpus
+// actually lives in. The single source of the "router-corpus-<router>"
+// default — the classifier build, the corpus API, the status page, and
+// the assistant MCP tools all resolve through here so they cannot
+// desync on which store they touch.
+func (k *RouterKNNConfig) ResolvedStoreName(routerName string) string {
+	if k.StoreName != "" {
+		return k.StoreName
+	}
+	return "router-corpus-" + routerName
+}
+
+// ResolvedEmbeddingFingerprint binds the resolved embedding-model
+// fingerprint to the optional operator revision. Keeping this combination
+// in config makes the classifier build path and corpus management surfaces
+// derive exactly the same persisted identity.
+func (k *RouterKNNConfig) ResolvedEmbeddingFingerprint(modelFingerprint string) string {
+	sum := sha256.Sum256([]byte(modelFingerprint + "\x00" + k.EmbeddingRevision))
+	return hex.EncodeToString(sum[:])
 }
 
 // RouterPolicy is one entry in the label vocabulary. The label string
@@ -1242,6 +1369,12 @@ func (c *ModelConfig) syncKnownUsecasesFromString() {
 			c.KnownUsecaseStrings = append(c.KnownUsecaseStrings, k)
 		}
 	}
+	// GetAllModelConfigUsecases returns a map, and ranging one yields a random
+	// order per call. KnownUsecaseStrings is part of the serialized config, so
+	// an unsorted list gives the same file a different config revision on every
+	// load. In distributed mode that reads as a config change and the router
+	// rejects the request with ErrStaleModelConfigRevision.
+	slices.Sort(c.KnownUsecaseStrings)
 }
 
 func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
@@ -1411,6 +1544,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	}
 	runBackendHooks(cfg, lo.modelPath)
 
+	// llama.cpp selects raw-vs-final embedding layout at model load. Other
+	// backends may expose per-token embeddings through their own contracts, so
+	// do not inject a llama.cpp-specific option into them.
+	if IsGoSidePooling(cfg.Pooling) && IsLlamaCppBackend(cfg.Backend) && !hasLlamaPoolingOption(cfg.Options) {
+		cfg.Options = append(cfg.Options, "pooling:none")
+		xlog.Debug("Go-side pooling requested: auto-appending backend option",
+			"model", cfg.Name, "pooling", cfg.Pooling, "option", "pooling:none")
+	}
+
 	// Apply hardware-driven defaults (e.g. a larger physical batch on Blackwell)
 	// LAST, after the context size is fully resolved (explicit config, LoadOptions,
 	// then the GGUF guess inside runBackendHooks): the Blackwell batch guard sizes
@@ -1424,6 +1566,22 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	if c.Compression.Enabled {
+		if c.IsCloudProxyBackendPassthrough() {
+			return false, fmt.Errorf("compression: cloud-proxy passthrough is unsupported; configure proxy mode translate")
+		}
+		if c.Compression.TriggerAtRatio < 0 || c.Compression.TriggerAtRatio > 1 {
+			return false, fmt.Errorf("compression: trigger_at_ratio must be between 0 and 1")
+		}
+		if c.Compression.KeepTailTokens < 0 || c.Compression.MaxSummaryTokens < 0 {
+			return false, fmt.Errorf("compression: token limits cannot be negative")
+		}
+		switch c.Compression.OnPostCompressionOverflow {
+		case "", "error", "drop_oldest_summary":
+		default:
+			return false, fmt.Errorf("compression: unknown on_post_compression_overflow %q", c.Compression.OnPostCompressionOverflow)
+		}
+	}
 	if c.IsAlias() && len(c.Artifacts) > 0 {
 		return false, fmt.Errorf("alias model %q cannot declare artifacts", c.Name)
 	}
@@ -1565,6 +1723,11 @@ func (c *ModelConfig) Validate() (bool, error) {
 		return false, fmt.Errorf("router: unknown score_normalization %q (expected %q or %q)",
 			c.Router.ScoreNormalization, ScoreNormalizationRaw, ScoreNormalizationMean)
 	}
+	if c.Router.KNN != nil {
+		if err := c.Router.KNN.Validate(); err != nil {
+			return false, err
+		}
+	}
 
 	// router.classifier_system_template parses as Go text/template
 	// (Sprig funcs available at execution time). Reject malformed
@@ -1573,6 +1736,29 @@ func (c *ModelConfig) Validate() (bool, error) {
 	if c.Router.ClassifierSystemTemplate != "" {
 		if _, err := template.New("classifier_system").Parse(c.Router.ClassifierSystemTemplate); err != nil {
 			return false, fmt.Errorf("router: classifier_system_template parse error: %w", err)
+		}
+	}
+
+	// Go-side embedding pooling: reject unknown schemes and half-life
+	// misconfigurations at load time. llama.cpp chooses its result layout at
+	// model load, so its configured layout must agree with the model-level
+	// pooling scheme in both directions. Other backends declare the actual
+	// result layout on EmbeddingResult and are checked at request time.
+	if err := ValidatePooling(c.Pooling, c.PoolingHalfLifeTokens); err != nil {
+		return false, fmt.Errorf("parameters: %w", err)
+	}
+	if IsLlamaCppBackend(c.Backend) {
+		backendPooling, configured := llamaPoolingOption(c.Options)
+		raw := configured && backendPooling == "none"
+		if IsGoSidePooling(c.Pooling) && configured && !raw {
+			return false, fmt.Errorf(
+				"parameters.pooling %q needs raw per-token vectors but llama.cpp pooling %q returns a final vector: drop the option or set \"pooling:none\"",
+				c.Pooling, backendPooling)
+		}
+		if !IsGoSidePooling(c.Pooling) && raw {
+			return false, fmt.Errorf(
+				"parameters.pooling %q cannot pass through llama.cpp per-token vectors from \"pooling:none\": choose %q, %q or %q, or enable backend pooling",
+				c.Pooling, PoolingMean, PoolingLast, PoolingDecayedMean)
 		}
 	}
 
@@ -1588,12 +1774,102 @@ const (
 	ScoreNormalizationMean = "mean"
 )
 
+// Embedding pooling schemes (parameters.pooling). Defined here so
+// ModelConfig.Validate can reject unknown values without depending on
+// core/backend (which already depends on config); core/backend/pooling.go
+// aliases these for the pooling implementation.
+const (
+	// PoolingBackend (or the empty string) leaves pooling to the inference
+	// backend — the pre-existing behavior of the embeddings path.
+	PoolingBackend = "backend"
+	// PoolingMean averages the backend's raw per-token vectors Go-side.
+	PoolingMean = "mean"
+	// PoolingLast selects the last token's vector Go-side.
+	PoolingLast = "last"
+	// PoolingDecayedMean is a Go-side mean weighted toward the most recent
+	// tokens: w_i = 2^(-(T-1-i)/H) with half-life H tokens
+	// (parameters.pooling_half_life_tokens, default 256).
+	PoolingDecayedMean = "decayed_mean"
+)
+
+// IsGoSidePooling reports whether scheme pools in LocalAI's Go layer,
+// which requires raw per-token vectors from the backend (the "pooling:none"
+// backend option) rather than a backend-pooled single vector.
+func IsGoSidePooling(scheme string) bool {
+	switch scheme {
+	case PoolingMean, PoolingLast, PoolingDecayedMean:
+		return true
+	}
+	return false
+}
+
+// ValidatePooling checks a pooling scheme + half-life pair. Shared by
+// ModelConfig.Validate (model YAML) and the embeddings endpoint
+// (per-request override) so both paths reject exactly the same shapes.
+func ValidatePooling(scheme string, halfLifeTokens int) error {
+	switch scheme {
+	case "", PoolingBackend, PoolingMean, PoolingLast, PoolingDecayedMean:
+	default:
+		return fmt.Errorf("unknown pooling %q (expected %q, %q, %q or %q)",
+			scheme, PoolingBackend, PoolingMean, PoolingLast, PoolingDecayedMean)
+	}
+	if halfLifeTokens < 0 {
+		return fmt.Errorf("pooling_half_life_tokens must be non-negative, got %d", halfLifeTokens)
+	}
+	if halfLifeTokens > 0 && scheme != PoolingDecayedMean {
+		return fmt.Errorf("pooling_half_life_tokens only applies to pooling %q, not %q",
+			PoolingDecayedMean, scheme)
+	}
+	return nil
+}
+
+// llamaPoolingOption returns the last load-time llama.cpp pooling option. The
+// server accepts both names and processes options in order, so mirroring that
+// behavior avoids disagreeing with the layout the backend actually loads.
+func llamaPoolingOption(options []string) (string, bool) {
+	var value string
+	found := false
+	for _, o := range options {
+		if name, candidate, ok := strings.Cut(o, ":"); ok && (name == "pooling" || name == "pooling_type") {
+			value = candidate
+			found = true
+		}
+	}
+	return value, found
+}
+
+func hasLlamaPoolingOption(options []string) bool {
+	_, found := llamaPoolingOption(options)
+	return found
+}
+
 func (c *ModelConfig) HasTemplate() bool {
 	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != "" || c.TemplateConfig.UseTokenizerTemplate
 }
 
 func (c *ModelConfig) GetModelConfigFile() string {
 	return c.modelConfigFile
+}
+
+// PersistedConfigRevision returns the revision stamped when this configuration
+// was loaded, or "" when it was never stamped (a config synthesized outside the
+// loader). Callers that need a revision for a request must prefer this over
+// recomputing one from the config they hold: by then the request pipeline has
+// merged the caller's prediction parameters into it.
+func (c *ModelConfig) PersistedConfigRevision() string {
+	return c.persistedConfigRevision
+}
+
+// StampPersistedConfigRevision records the revision of this configuration as
+// persisted. It is computed from the receiver as-is, so callers must invoke it
+// only on a configuration that has not been merged with request overrides.
+func (c *ModelConfig) StampPersistedConfigRevision() error {
+	revision, err := modelConfigRevision(c)
+	if err != nil {
+		return err
+	}
+	c.persistedConfigRevision = revision
+	return nil
 }
 
 // GetModelTemplate returns the model's chat template if available

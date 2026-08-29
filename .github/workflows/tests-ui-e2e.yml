@@ -52,6 +52,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libopus-dev
+      - name: Run stale chunk recovery tests
+        run: PATH="$PATH:$HOME/go/bin" make test-ui-stale-chunk
       # Builds an instrumented UI bundle, runs the Playwright specs, and fails
       # if line coverage regressed beyond the jitter tolerance (the gate is
       # in `make test-ui-coverage-check`). PLAYWRIGHT_CHROMIUM_PATH is unset

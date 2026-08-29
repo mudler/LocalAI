@@ -356,7 +356,7 @@ func (mgs *BackendEndpointService) UpgradeBackendEndpoint() echo.HandlerFunc {
 // local system state is the only thing worth filtering against.
 type ClusterCapabilityProvider func(ctx context.Context) ([]string, error)
 
-// resolveClusterCapabilities reads the capabilities present in the cluster,
+// ResolveClusterCapabilities reads the capabilities present in the cluster,
 // degrading to the local-only listing on error.
 //
 // Every capability-filtered discovery endpoint shares this: on a distributed
@@ -364,7 +364,7 @@ type ClusterCapabilityProvider func(ctx context.Context) ([]string, error)
 // (usually GPU-less) host hides GPU-only backends the cluster can actually
 // run. A registry hiccup must never blank the catalog, so a failure falls back
 // to the pre-existing local-only behavior rather than erroring the request.
-func resolveClusterCapabilities(ctx context.Context, provider ClusterCapabilityProvider) []string {
+func ResolveClusterCapabilities(ctx context.Context, provider ClusterCapabilityProvider) []string {
 	if provider == nil {
 		return nil
 	}
@@ -423,7 +423,7 @@ func installedInCluster(backend *gallery.GalleryBackend, clusterInstalled map[st
 // @Router /backends/available [get]
 func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState, clusterCapabilities ClusterCapabilityProvider, clusterInstalled ClusterInstalledProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		capabilities := resolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
+		capabilities := ResolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
 
 		backends, err := gallery.AvailableBackendsForCapabilities(mgs.galleries, systemState, capabilities)
 		if err != nil {

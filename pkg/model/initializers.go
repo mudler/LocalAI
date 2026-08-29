@@ -68,20 +68,29 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		ml.mu.Unlock()
 		if router != nil {
 			xlog.Info("Routing model to remote node via ModelRouter", "modelID", modelID, "backend", backend)
-			return router(o.context, backend, modelID, modelName, modelFile, o.gRPCOptions, o.parallelRequests)
+			return router(o.context, backend, modelID, modelName, modelFile, o.configRevision, o.gRPCOptions, o.parallelRequests)
 		}
 
 		uri := ml.GetAllExternalBackends(o)[backend]
 		start := time.Now()
+		started := BackendLoadEvent{ModelID: modelID, ModelName: modelName, Backend: backend, BackendURI: uri}
+		finish, admissionErr := ml.notifyLoadStarted(started)
+		if admissionErr != nil {
+			return nil, admissionErr
+		}
 		m, err := ml.spawnGRPCModel(backend, uri, o, modelID, modelName, modelFile)
-		ml.notifyLoadObserver(BackendLoadEvent{
+		completed := BackendLoadEvent{
 			ModelID:    modelID,
 			ModelName:  modelName,
 			Backend:    backend,
 			BackendURI: uri,
 			Duration:   time.Since(start),
 			Err:        err,
-		})
+		}
+		ml.notifyLoadObserver(completed)
+		if finish != nil {
+			finish(completed)
+		}
 		return m, err
 	}
 }

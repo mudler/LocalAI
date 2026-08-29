@@ -194,9 +194,9 @@ export default function Agents() {
             )}
             {/* A label styled as a button, wrapping the file input it triggers,
                 so the control looks and behaves like its neighbours. */}
-            <label className="btn btn-secondary agents-import-input">
+            <label className="btn btn-secondary">
               <i className="fas fa-file-import" /> {t('actions.import')}
-              <input type="file" accept=".json" onChange={handleImport} />
+              <input type="file" accept=".json" className="agents-import-input" onChange={handleImport} />
             </label>
             <button className="btn btn-primary" onClick={() => navigate('/app/agents/new')}>
               <i className="fas fa-plus" /> {t('actions.createAgent')}

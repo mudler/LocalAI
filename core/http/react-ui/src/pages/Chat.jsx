@@ -21,6 +21,8 @@ import { useOperations } from '../hooks/useOperations'
 import { relativeTime } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
 
+const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
+
 function getLastMessagePreview(chat) {
   if (!chat.history || chat.history.length === 0) return ''
   for (let i = chat.history.length - 1; i >= 0; i--) {
@@ -294,6 +296,17 @@ function editableMessageText(message) {
   return typeof textBlock?.text === 'string' ? textBlock.text : null
 }
 
+// formatLoadEta renders the server's remaining-seconds estimate. The server
+// omits it entirely until its observed transfer rate is meaningful, so anything
+// arriving here is worth showing.
+function formatLoadEta(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return ''
+  if (seconds < 60) return `${Math.round(seconds)}s`
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes} min`
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+}
+
 function withEditedMessageText(message, text) {
   if (typeof message.content === 'string') return { ...message, content: text }
   const textIndex = message.content.findIndex(block => block?.type === 'text')
@@ -315,7 +328,7 @@ export default function Chat() {
   const { operations } = useOperations()
   const {
     chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
-    streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond,
+    streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond, modelLoading,
     addChat, forkChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
     sendMessage, stopGeneration, clearHistory, getContextUsagePercent, addMessage,
   } = useChat(urlModel || '')
@@ -326,13 +339,41 @@ export default function Chat() {
     return operations.find(op => op.taskType === 'staging' && op.name === activeChat.model) || null
   }, [operations, isStreaming, activeChat?.model])
 
+  // What to show instead of the thinking dots while the model is not up yet.
+  // The load job wins over the staging operation: it is authoritative across
+  // frontend replicas and names the phase (installing / staging / loading),
+  // where the operation only knows about a byte transfer this replica is
+  // performing. The operation stays as the fallback for a transfer with no job
+  // attached to this request (a reconciler scale-up, for instance).
+  const loadProgress = useMemo(() => {
+    if (modelLoading) {
+      const eta = formatLoadEta(modelLoading.eta_seconds)
+      return {
+        label: t(`streaming.modelState.${modelLoading.state}`, t('streaming.transferring'))
+          + (modelLoading.node ? ` ${t('streaming.onNode', { node: modelLoading.node })}` : ''),
+        progress: modelLoading.progress || 0,
+        detail: eta ? t('streaming.eta', { value: eta }) : '',
+      }
+    }
+    if (stagingOp) {
+      return {
+        label: stagingOp.nodeName
+          ? t('streaming.transferringTo', { node: stagingOp.nodeName })
+          : t('streaming.transferring'),
+        progress: stagingOp.progress || 0,
+        detail: stagingOp.message || '',
+      }
+    }
+    return null
+  }, [modelLoading, stagingOp, t])
+
   const [input, setInput] = useState('')
   const [files, setFiles] = useState([])
   const [showSettings, setShowSettings] = useState(false)
   const [mcpAvailable, setMcpAvailable] = useState(false)
   const [mcpServerList, setMcpServerList] = useState([])
   const [mcpServersLoading, setMcpServersLoading] = useState(false)
-  const [mcpServerCache, setMcpServerCache] = useState({})
+  const [mcpServerListError, setMcpServerListError] = useState('')
   const [mcpPromptList, setMcpPromptList] = useState([])
   const [mcpPromptsLoading, setMcpPromptsLoading] = useState(false)
   const [mcpPromptArgsDialog, setMcpPromptArgsDialog] = useState(null)
@@ -366,11 +407,19 @@ export default function Chat() {
   // Focus mode: once a conversation has at least one message we slim the
   // surrounding chrome (collapse the global app rail, fade non-essential
   // header items). Esc gives the user back the full chrome for the rest of
-  // this session.
+  // this session. The settings drawer offers a persistent opt-out.
   const isInConversation = (activeChat?.history?.length || 0) > 0
   const [focusOverride, setFocusOverride] = useState(false)
-  const focusActive = isInConversation && !focusOverride
+  const [focusModeEnabled, setFocusModeEnabled] = useState(() => {
+    try { return localStorage.getItem(FOCUS_MODE_KEY) !== 'false' } catch (_) { return true }
+  })
+  const focusActive = focusModeEnabled && isInConversation && !focusOverride
   const prevAppCollapseRef = useRef(null)
+
+  const toggleFocusMode = (next) => {
+    setFocusModeEnabled(next)
+    try { localStorage.setItem(FOCUS_MODE_KEY, String(next)) } catch (_) {}
+  }
 
   const artifacts = useMemo(
     () => canvasMode ? extractCodeArtifacts(activeChat?.history, 'role', 'assistant') : [],
@@ -425,22 +474,30 @@ export default function Chat() {
   const fetchMcpServers = useCallback(async () => {
     const model = activeChat?.model
     if (!model) return
-    if (mcpServerCache[model]) {
-      setMcpServerList(mcpServerCache[model])
-      return
-    }
     setMcpServersLoading(true)
+    setMcpServerListError('')
     try {
       const data = await mcpApi.listServers(model)
       const servers = data?.servers || []
       setMcpServerList(servers)
-      setMcpServerCache(prev => ({ ...prev, [model]: servers }))
-    } catch (_e) {
+
+      // A previously selected server may become unavailable between requests.
+      // Remove it from request metadata while leaving it visible with its error.
+      if (activeChat) {
+        const unavailable = new Set(servers.filter(server => server.error).map(server => server.name))
+        const current = activeChat.mcpServers || []
+        const availableSelection = current.filter(name => !unavailable.has(name))
+        if (availableSelection.length !== current.length) {
+          updateChatSettings(activeChat.id, { mcpServers: availableSelection })
+        }
+      }
+    } catch (e) {
       setMcpServerList([])
+      setMcpServerListError(e.body?.message || e.message || 'Failed to discover MCP servers')
     } finally {
       setMcpServersLoading(false)
     }
-  }, [activeChat?.model, mcpServerCache])
+  }, [activeChat, updateChatSettings])
 
   const toggleMcpServer = useCallback((serverName) => {
     if (!activeChat) return
@@ -1063,6 +1120,20 @@ export default function Chat() {
                 />
               </div>
             )}
+            <div className="form-group chat-settings-toggle-row">
+              <div className="chat-settings-toggle-text">
+                <span className="chat-settings-toggle-title">
+                  <i className="fas fa-compress" /> {t('settings.focusMode')}
+                </span>
+                <span className="chat-settings-toggle-desc">
+                  {t('settings.focusModeDesc')}
+                </span>
+              </div>
+              <Toggle
+                checked={focusModeEnabled}
+                onChange={toggleFocusMode}
+              />
+            </div>
             <div className="form-group">
               <label className="form-label">{t('settings.systemPrompt')}</label>
               <textarea
@@ -1339,21 +1410,21 @@ export default function Chat() {
               </div>
               <div className="chat-message-bubble">
                 <div className="chat-message-content chat-thinking-indicator">
-                  {stagingOp ? (
+                  {loadProgress ? (
                     <div className="chat-staging-progress">
                       <div className="chat-staging-label">
-                        <i className="fas fa-cloud-arrow-up" /> {stagingOp.nodeName ? t('streaming.transferringTo', { node: stagingOp.nodeName }) : t('streaming.transferring')}
+                        <i className="fas fa-cloud-arrow-up" /> {loadProgress.label}
                       </div>
-                      {stagingOp.progress > 0 && (
+                      {loadProgress.progress > 0 && (
                         <div className="chat-staging-detail">
                           <div className="chat-staging-bar-container">
-                            <div className="chat-staging-bar" style={{ width: `${stagingOp.progress}%` }} />
+                            <div className="chat-staging-bar" style={{ width: `${loadProgress.progress}%` }} />
                           </div>
-                          <span className="chat-staging-pct">{Math.round(stagingOp.progress)}%</span>
+                          <span className="chat-staging-pct">{Math.round(loadProgress.progress)}%</span>
                         </div>
                       )}
-                      {stagingOp.message && (
-                        <div className="chat-staging-file">{stagingOp.message}</div>
+                      {loadProgress.detail && (
+                        <div className="chat-staging-file">{loadProgress.detail}</div>
                       )}
                     </div>
                   ) : (
@@ -1465,10 +1536,11 @@ export default function Chat() {
                 serverMCPAvailable={mcpAvailable}
                 mcpServerList={mcpServerList}
                 mcpServersLoading={mcpServersLoading}
+                serverListError={mcpServerListError}
                 selectedServers={activeChat.mcpServers || []}
                 onToggleServer={toggleMcpServer}
                 onSelectAllServers={() => {
-                  const allNames = mcpServerList.map(s => s.name)
+                  const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
                   const allSelected = allNames.every(n => (activeChat.mcpServers || []).includes(n))
                   updateChatSettings(activeChat.id, { mcpServers: allSelected ? [] : allNames })
                 }}

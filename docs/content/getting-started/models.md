@@ -22,14 +22,21 @@ The Model Gallery is the simplest way to install models. It provides pre-configu
 ### Via WebUI
 
 1. Open the LocalAI WebUI at `http://localhost:8080`
-2. Navigate to the "Models" tab
-3. Browse available models
+2. Navigate to **Models → Explore**
+3. Browse or search the available models
 4. Click "Install" on any model you want
 5. Wait for installation to complete. Progress appears in the strip at the top
    of the app, and **Operate → Activity** shows every install in flight, plus
    what failed and what finished (see [Activity]({{% relref "operations/activity" %}}))
 
 For more details, refer to the [Gallery Documentation]({{% relref "features/model-gallery" %}}).
+
+The same Models page owns the complete lifecycle. Switch to **Installed** to
+search local configurations, filter them by running, idle, disabled, pinned,
+or distributed state, and open a model's runtime controls. Load, stop, edit,
+pin, disable, inspect backend logs, and remove actions stay with the selected
+model. The current view, search, filter, and selection are stored in the URL so
+links and browser history preserve your place.
 
 ### Via CLI
 

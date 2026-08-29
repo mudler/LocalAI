@@ -148,6 +148,7 @@ var _ = Describe("liveTraceState", func() {
 
 	It("clamps out-of-range float samples instead of wrapping", func() {
 		ts := newLiveTraceState(modelCfg(), appConfig, "")
+		defer trace.CancelBackendTrace(ts.traceID)
 		ts.addPCM([]float32{2.0, -2.0})
 		Expect(ts.pcm).To(Equal([]byte{0xff, 0x7f, 0x00, 0x80})) // 32767, -32768
 	})

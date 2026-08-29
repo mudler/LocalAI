@@ -30,7 +30,7 @@
   },
   "items": {
     "home": "홈",
-    "discover": "둘러보기",
+    "models": "Models",
     "chat": "채팅",
     "studio": "스튜디오",
     "talk": "대화",
@@ -40,7 +40,6 @@
     "voices": "음성",
     "jobs": "작업",
     "operate": "관리",
-    "host": "호스트",
     "audioTransform": "오디오 변환",
     "faceRecognition": "얼굴 인식",
     "voiceRecognition": "음성 인식",

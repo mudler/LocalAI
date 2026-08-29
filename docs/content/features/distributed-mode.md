@@ -75,6 +75,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
 | `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
+| *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
 ### The model load deadline scales with the checkpoint
@@ -110,6 +111,48 @@ That base is the hold's *starting* budget, not its maximum. Because the derived 
 While **model files are staging**, however, the deadline extends every time staging does real work, and expires only once staging has been silent for a 5-minute stall window. Real work means uploaded bytes, and also the resumable-upload verify phase: when a shard is already present on the worker from an earlier attempt, the frontend HEADs it and hashes the local copy to confirm it matches, then skips the transfer. That phase uploads nothing at all — on a 70 GB model resuming with 56 GB already staged it ran for six-plus consecutive minutes at ~45s per shard — so hashing counts as progress too. Otherwise a resumed transfer would be mistaken for a wedged one. Staging time is a function of checkpoint size and available bandwidth, not a constant: a 70 GB model at 26 MB/s needs about 45 minutes, and a 600 GB checkpoint needs hours. A fixed ceiling would therefore be a model-size cliff — every increase just moves the cliff to the next larger model. Extending on progress means a large model transfers for as long as it legitimately needs, while a worker that dies mid-transfer still releases the lock within the stall window.
 
 An absolute cap of 24h ends the hold even if progress keeps arriving, so a degenerate peer trickling a few bytes at a time cannot pin the lock forever. No configuration is needed for either value; both are sized well above any legitimate transfer.
+
+### Requests for a model that is still loading
+
+A cold load in distributed mode is a long-running background job: install the backend, stage multi-GB model files to the worker, then load the checkpoint. Staging a 35.7 GB GGUF onto a fresh worker takes roughly twenty minutes on a fast LAN — far longer than any HTTP request can be held open.
+
+So the load does **not** run on the request. The first request for an unloaded model claims a durable **model load job** — that claim takes milliseconds and is the only part that holds the per-model advisory lock — and the job then runs in the background on the frontend replica that claimed it. Every other request for the same model, on any replica, attaches to that job as a waiter:
+
+- It is **served the moment the model is ready**, with no client-side retry. A model already 90% staged usually needs no second request.
+- It never starts a duplicate load and never blocks on the database lock. (Before this split, concurrent requests blocked on `pg_advisory_lock` for the whole load and were killed by the PostgreSQL role's `statement_timeout` — `SQLSTATE 57014` — so from the operator's seat the model simply never loaded.)
+- If the load fails, the waiter gets the *real* cause (`worker out of disk`), not an anonymous timeout.
+- If the client disconnects, the load keeps going. It belongs to the job record, not to the request.
+
+When the wait budget (`LOCALAI_MODEL_LOAD_WAIT`, default `60s`) runs out, the request is answered with `503`, a `Retry-After` header, and a body that says exactly where the load is:
+
+```json
+{
+  "error": {
+    "message": "model Qwen3.6-27B-MTP-GGUF is staging on node nvidia-thor (41%, ETA ~11m)",
+    "type": "model_loading",
+    "code": "model_loading"
+  },
+  "loading": {
+    "model": "Qwen3.6-27B-MTP-GGUF",
+    "state": "staging",
+    "node": "nvidia-thor",
+    "progress": 41.2,
+    "bytes_sent": 14730000000,
+    "total_bytes": 35776484480,
+    "file_index": 1,
+    "total_files": 2,
+    "eta_seconds": 660
+  }
+}
+```
+
+The `error` envelope keeps OpenAI clients working unchanged; `loading` is additive, so a client that understands it renders progress instead of an error. `eta_seconds` is derived from the job's own observed transfer rate and is **omitted rather than guessed** until enough bytes have moved for that rate to mean anything — a confidently wrong ETA on a twenty-minute wait is worse than none. `state` is one of `pending` (choosing a node), `installing`, `staging` (transferring files) or `loading` (the worker is reading the checkpoint).
+
+The chat UI renders this state inline and retries automatically once the model reports ready. Poll `GET /api/models/{id}/load-status` for the same `loading` object at any time.
+
+{{% notice note %}}
+A frontend replica that dies mid-load does not wedge the model: the job row carries a heartbeat and another replica reclaims a job whose heartbeat has stopped. The heartbeat is time-based, not byte-based, because a checkpoint load legitimately transfers zero bytes for many minutes.
+{{% /notice %}}
 
 ### NATS JWT authentication (recommended for production)
 
@@ -443,6 +486,74 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 
 The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
 
+### Model sizing in the WebUI
+
+The model gallery answers "will this model run here" against the cluster, not
+against the frontend. A distributed frontend is usually a GPU-less pod, so
+sizing models against its own memory would report that a fleet of GPU workers
+can only run the smallest CPU build.
+
+The budget is the **largest single healthy backend node**, not the sum of the
+fleet: a model loads into one node, so four 16GB workers do not add up to a home
+for a 40GB model. A node's operator-set VRAM budget caps its contribution, since
+the scheduler would refuse a load above that ceiling anyway, and a GPU node wins
+over a CPU node holding more system RAM. The gallery names the node its verdict
+belongs to ("Fits on dgx-01").
+
+`GET /api/resources` and `GET /api/models` carry this as an additional `cluster`
+object; their existing `aggregate` and `ram*` fields keep reporting the
+frontend's own hardware, which is what the resource monitor shows. The object is
+absent in single-node mode, and also whenever the registry cannot be read, in
+which case every sizing surface falls back to the local host:
+
+```json
+{
+  "cluster": {
+    "enabled": true,
+    "node_id": "a1b2c3",
+    "node_name": "dgx-01",
+    "total_memory": 85899345920,
+    "is_gpu": true,
+    "node_count": 4
+  }
+}
+```
+
+Variant selection (`GET /api/models/variants/:id`) uses the same reading, and
+judges backend compatibility against the union of the capabilities present in
+the cluster, so a CUDA-only build is offered when any worker can run it.
+
+### Model configuration revisions
+
+Distributed mode assigns a `config_revision` to each validated model configuration. It hashes the persisted semantic configuration, including fields such as `context_size` and parallel settings. YAML formatting, comments, and map order do not change it.
+
+The first request for a model establishes its current revision and replay information. The replica reconciler uses only replay information that matches the current revision. This lets `min_replicas` recover after an ordinary worker failure without restoring an old configuration.
+
+When you save a valid model edit, LocalAI makes replicas from the old revision ineligible immediately. New requests cannot route to those replicas. This rule applies to raw YAML edits, structured patches, renames, disabled models, and changes from another frontend.
+
+The edit response includes these fields:
+
+- `config_revision` identifies the saved semantic configuration.
+- `pending_cleanup` counts old replicas that still need cleanup when the response returns.
+
+LocalAI sends an acknowledged stop request for each exact backend process. If a worker or NATS is unreachable, LocalAI keeps the replica in the `unloading` state and retries with durable backoff. The saved edit remains successful while cleanup is pending.
+
+Workers must support the exact model-stop protocol. Upgrade all workers before you rely on revision cleanup. An older worker cannot acknowledge the request, so its stale replica remains `unloading` until cleanup succeeds or the worker re-registers.
+
+Worker re-registration removes stale live-replica rows, but it preserves the current model revision and matching replay information. A temporary worker outage therefore does not make an old revision routable. The reconciler can restore the current revision after the worker becomes healthy.
+
+The responses from `GET /api/node/:id/models` and `GET /api/nodes/:id/models` include these replica fields:
+
+| Field | Meaning |
+|-------|---------|
+| `config_revision` | Hash of the persisted semantic model configuration that created the replica. Routable replicas match the current revision. |
+| `effective_options_hash` | Hash of the final node-specific load options after defaults and file staging have been applied. Different hashes can be valid on heterogeneous workers when `config_revision` matches. |
+| `state` | Replica lifecycle state, such as `staging`, `loading`, `loaded`, or `unloading`. Only eligible `loaded` replicas receive requests. |
+| `cleanup_error` | Last exact-stop error. This field appears while cleanup is pending. |
+| `cleanup_next_retry_at` | Time of the next durable cleanup attempt. This field appears after a failed attempt. |
+
+`model.unload` releases model memory inside a running backend. It does not replace the exact process stop that configuration cleanup requires. The `backend.stop` operation remains an administrative backend operation.
+
 ### Per-node VRAM budget
 
 Each worker advertises its detected VRAM, and the SmartRouter uses that number when picking a node with enough free memory. You can cap the VRAM a node offers for placement so it never gets scheduled beyond a chosen limit, leaving headroom for other workloads on that machine.
@@ -762,6 +873,12 @@ curl -X POST http://frontend:8080/api/nodes/scheduling \
 
 Without a node selector, models can schedule on any healthy node (default behavior).
 
+In the WebUI, the node selector field completes what you type against the labels
+your cluster actually reports: start typing a key and the matching label keys
+appear inline, then the value field offers only the values that key takes. A key
+no node reports yet is still accepted as typed, so you can write a rule before
+labelling the nodes for it.
+
 ### Replica Auto-Scaling
 
 Control the number of model replicas across the cluster:
@@ -796,6 +913,40 @@ All fields are optional and composable:
 - Node selector only: pin model to matching nodes, single replica
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
+
+### Scheduling a model alias
+
+`model_name` accepts a [model alias](/features/model-aliases/) as well as a
+model. A rule keyed by an alias governs whatever model that alias currently
+points at, and keeps governing it after you repoint the alias:
+
+```bash
+# "production" is an alias for llama3
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "production", "node_selector": {"tier": "gpu"}, "min_replicas": 2}'
+
+# Repoint the alias at a new model: the rule follows, llama4 now runs
+# two replicas on the GPU tier and llama3 falls back to on-demand placement.
+```
+
+This makes an alias a stable deployment slot: the placement policy belongs to
+the slot, and the model filling it can change without rewriting the rule. The
+WebUI lists aliases in the model picker on the **Scheduling** page, tagged with
+the model each one resolves to.
+
+Two constraints follow from replicas being shared. A single load of `llama3`
+serves both `production` and any request that names `llama3` directly, so only
+one rule can decide where it runs: a rule whose target is already governed by
+another rule is rejected with `409 Conflict` naming the rule that has it. And a
+rule keyed by an alias that resolves to nothing (its target was deleted, or it
+points at another alias) is rejected, since it would govern nothing loadable.
+
+A rule can still end up inert if the pair is created some other way, for example
+by a declarative seed or by repointing an alias onto a model that already has a
+rule. The rule that governs is the one keyed by the model's own name, or failing
+that the oldest one; the rest are listed as **Shadowed** in the WebUI and carry
+`"shadowed": true` in `GET /api/nodes/scheduling`.
 
 ### Declarative per-model scheduling (unattended installs)
 
@@ -936,6 +1087,40 @@ Notes:
 
 **Backend not installing:**
 - Check the worker logs for `backend.install` events
+
+**Requests still report an old context size or another old load option:**
+- Query `/api/nodes/:id/models` for every worker that hosts the model.
+- Confirm that every routable replica has `state: loaded` and the same current `config_revision`.
+- Treat a different `effective_options_hash` as diagnostic information. Node-specific defaults can cause valid differences.
+- Check `cleanup_error` and `cleanup_next_retry_at` on replicas in the `unloading` state.
+- Check connectivity to the worker and NATS when cleanup reports a timeout or no responder.
+- Upgrade the worker when it does not support the exact model-stop request.
+- Stop and restart the stale backend only as an operational recovery action. LocalAI keeps it non-routable while durable cleanup is pending.
+
+**A model cannot be scheduled on a node that looks free (`no replica slot ... all models busy, cannot evict`):**
+- A replica row in `staging` or `loading` holds its slot: slot allocation counts every state except `unloading`. If a worker drops out mid-transfer, that row never reaches `loaded`, and eviction only ever considers `loaded` replicas, so on a node with one replica slot per model the model became unschedulable there.
+- The reconciler now reclaims a replica row stuck before serving when no load job is still driving it, and the freed slot is immediately reusable.
+- Liveness is decided by the load job's progress heartbeat, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer that is still progressing is never reclaimed however long it takes.
+- `Reconciler: reclaimed a replica slot held by a load nobody is driving` names each row reclaimed this way.
+
+**A request fails with `nats: no responders available for request`:**
+- The chosen worker was not subscribed on the bus when the frontend tried to install the backend on it. A node's status comes from its HTTP heartbeat, which is a separate channel: a worker that stops stays `healthy` until that heartbeat ages out.
+- The scheduler now checks that a node still answers on the bus before it commits to it, marks one that does not as unhealthy, and picks another. A request should therefore see this only when no reachable node is left.
+- Only a no-responders answer counts as absent. A worker that answers slowly stays eligible, because excluding it would cost capacity that is really there.
+- Check the worker process is running and its NATS connection is up. `Scheduled node is not answering on the bus` in the frontend log names each node demoted this way.
+
+**A worker fills its own disk over time:**
+- A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.
+- Releases before this sweep existed kept every staged input for the lifetime of the worker. Delete `<models>/../staging/ephemeral/` on an affected worker once, as the user the worker runs as; the sweep keeps it bounded from then on.
+- Staged **model** files are not touched by this. They live beside the ephemeral directory and are not per-request scratch.
+- A worker whose volume is genuinely full reports `creating backend process state directory under ...: no space left on device` when a backend starts.
+
+**Requests fail with `stale model config revision` although nobody edited the model:**
+- A model's stored revision must describe its persisted configuration. Releases before this fix also hashed the per-request prediction parameters, so the first request after a restart pinned the revision to its own `temperature`, `top_p`, `stop` and similar values. Every later request that sent different values was then rejected.
+- Upgrade the frontend replicas first. After the upgrade the revision is stamped when the configuration is loaded, so it no longer depends on the request body.
+- Each frontend now reconciles the stored revisions against the configuration on disk at startup, and republishes any that disagree, so a drifted revision heals on the next restart. Only models that actually drifted are republished, because republishing quarantines the replicas loaded under the old revision.
+- A model that has never been served has no stored revision and is left alone; its first request establishes one.
+- On a release without that reconciliation, clear the row once per affected model so the next request establishes the correct revision: `DELETE FROM model_config_states WHERE model_name = '<model>';` Saving any edit through the API or the WebUI has the same effect.
 
 **Port conflicts on workers:**
 - Each model gets its own gRPC process on an incrementing port (50051, 50052, ...)

@@ -157,6 +157,17 @@ var _ = Describe("nemo-speech-cpp capabilities", func() {
 	})
 })
 
+var _ = Describe("MLX embedding capabilities", func() {
+	It("does not advertise RPCs that the backends return as unimplemented", func() {
+		for _, name := range []string{"mlx", "mlx-distributed", "mlx-vlm"} {
+			capability := GetBackendCapability(name)
+			Expect(capability).NotTo(BeNil())
+			Expect(capability.GRPCMethods).ToNot(ContainElement(MethodEmbedding), name)
+			Expect(capability.PossibleUsecases).ToNot(ContainElement(UsecaseEmbeddings), name)
+		}
+	})
+})
+
 // audio-cpp advertises voice cloning from the backend itself and ships
 // audio-cpp-chatterbox, whose family serves cloning and NOT plain TTS, so a
 // reference clip is the only way to use it. Without a capability entry

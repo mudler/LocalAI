@@ -33,6 +33,8 @@
     "title": "Chat Settings",
     "manageMode": "Manage mode",
     "manageModeDesc": "Let this chat install models, switch backends, and edit configs by talking to LocalAI.",
+    "focusMode": "Focus mode",
+    "focusModeDesc": "Collapse the sidebar and slim the header while a conversation is active. Esc restores them temporarily; turn this off to keep the full layout.",
     "systemPrompt": "System Prompt",
     "systemPromptPlaceholder": "You are a helpful assistant...",
     "temperature": "Temperature",
@@ -81,7 +83,15 @@
   },
   "streaming": {
     "transferring": "Transferring model...",
-    "transferringTo": "Transferring model to {{node}}..."
+    "transferringTo": "Transferring model to {{node}}...",
+    "onNode": "on {{node}}",
+    "eta": "~{{value}} left",
+    "modelState": {
+      "pending": "Preparing to load the model...",
+      "installing": "Installing the backend...",
+      "staging": "Staging model files...",
+      "loading": "Loading the model..."
+    }
   },
   "tokens": {
     "perSec": "{{count}} tok/s",

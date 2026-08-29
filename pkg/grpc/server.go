@@ -96,7 +96,10 @@ func (s *server) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.Embe
 		return nil, err
 	}
 
-	return &pb.EmbeddingResult{Embeddings: embeds}, nil
+	return &pb.EmbeddingResult{
+		Embeddings: embeds,
+		Layout:     pb.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL,
+	}, nil
 }
 
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {

@@ -6,32 +6,32 @@
       "tts": "TTS",
       "sound": "Suara",
       "transform": "Transformasi",
-      "overview": "Overview"
+      "overview": "Ikhtisar"
     },
     "overview": {
-      "eyebrow": "{{ready}} of {{total}} modalities ready",
+      "eyebrow": "{{ready}} dari {{total}} modalitas siap",
       "title": "Studio",
-      "subtitle": "Generate images, video, 3D, speech and sound with the models on this machine.",
-      "canMake": "What you can make",
-      "running": "Running now",
-      "recent": "Recent outputs",
-      "noModel": "No model installed",
-      "install": "Install a model",
-      "ready": "Ready",
+      "subtitle": "Hasilkan gambar, video, 3D dan suara dengan model pada mesin ini.",
+      "canMake": "Apa yang dapat Anda buat",
+      "running": "Sedang berjalan",
+      "recent": "Output terbaru",
+      "noModel": "Tidak ada model yang terinstal",
+      "install": "Instal model",
+      "ready": "Siap",
       "seconds": "{{seconds}}s",
       "describe": {
-        "images": "Text to image, image to image, reference images",
-        "video": "Text to video and image to video",
-        "threed": "Image to mesh reconstruction",
-        "tts": "Text to speech using your voice library",
-        "sound": "Music and sound effects from a prompt",
-        "transform": "Separation, enhancement and voice conversion"
+        "images": "Teks ke gambar, gambar ke gambar, gambar referensi",
+        "video": "Teks ke video dan gambar ke video",
+        "threed": "Rekonstruksi mesh dari gambar",
+        "tts": "Teks ke suara menggunakan pustaka suara Anda",
+        "sound": "Musik dan efek suara dari prompt",
+        "transform": "Pemisahan, peningkatan dan konversi suara"
       }
     },
     "groups": {
-      "create": "Create",
-      "voice": "Voice",
-      "transform": "Transform"
+      "create": "Buat",
+      "voice": "Suara",
+      "transform": "Transformasi"
     }
   },
   "image": {

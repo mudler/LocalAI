@@ -13,7 +13,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/internal"
-	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // GetEditModelPage renders the edit model page with current configuration
@@ -56,8 +55,8 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 }
 
 // EditModelEndpoint handles updating existing model configurations
-func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig) echo.HandlerFunc {
-	svc := modeladmin.NewConfigService(cl, appConfig)
+func EditModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig, lifecycle ...modeladmin.ModelRevisionLifecycle) echo.HandlerFunc {
+	svc := modeladmin.NewConfigService(cl, appConfig, lifecycle...)
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 		if decoded, err := url.PathUnescape(modelName); err == nil {
@@ -67,7 +66,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: "Failed to read request body: " + err.Error()})
 		}
-		result, err := svc.EditYAML(c.Request().Context(), modelName, body, ml)
+		result, err := svc.EditYAML(c.Request().Context(), modelName, body)
 		if err != nil {
 			return c.JSON(httpStatusForModelAdminError(err), ModelResponse{Success: false, Error: err.Error()})
 		}
@@ -77,9 +76,9 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *
 		// plus an install of the new one. No-op in standalone mode.
 		if gs != nil {
 			if result.Renamed {
-				gs.BroadcastModelsChanged(result.OldName, "delete")
+				gs.BroadcastModelsChangedRevision(result.OldName, "delete", modeladmin.DeletedModelConfigRevision(result.OldName))
 			}
-			gs.BroadcastModelsChanged(result.NewName, "install")
+			gs.BroadcastModelsChangedRevision(result.NewName, "install", result.ConfigRevision)
 		}
 
 		msg := fmt.Sprintf("Model '%s' updated successfully. Model has been reloaded with new configuration.", result.NewName)
@@ -87,10 +86,12 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *
 			msg = fmt.Sprintf("Model '%s' renamed to '%s' and updated successfully.", result.OldName, result.NewName)
 		}
 		return c.JSON(http.StatusOK, ModelResponse{
-			Success:  true,
-			Message:  msg,
-			Filename: result.Filename,
-			Config:   result.Config,
+			Success:        true,
+			Message:        msg,
+			Filename:       result.Filename,
+			Config:         result.Config,
+			ConfigRevision: result.ConfigRevision,
+			PendingCleanup: result.PendingCleanup,
 		})
 	}
 }

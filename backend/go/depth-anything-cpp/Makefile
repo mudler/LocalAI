@@ -14,7 +14,7 @@ JOBS?=$(shell nproc --ignore=1)
 # It is kept alive by the upstream tag da2-support (survives a squash-merge);
 # repoint to the master merge commit once mudler/depth-anything.cpp PR #1 lands.
 DEPTHANYTHING_REPO?=https://github.com/mudler/depth-anything.cpp.git
-DEPTHANYTHING_VERSION?=2028b47ac75a8659c6a9aa617baf09be193eb55f
+DEPTHANYTHING_VERSION?=739992d10bf9472c46dcd4622b14d2b20766c58d
 
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF

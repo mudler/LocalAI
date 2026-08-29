@@ -323,7 +323,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if not hasattr(request, proto_field):
                 continue
             value = getattr(request, proto_field)
-            if value in (None, 0, 0.0, [], False, ""):
+            if proto_field != "Temperature" and value in (None, 0, 0.0, [], False, ""):
                 continue
             # repeated fields come back as RepeatedScalarContainer — convert
             if hasattr(value, "__iter__") and not isinstance(value, (str, bytes)):
@@ -363,8 +363,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 template_kwargs["tools"] = json.loads(request.Tools)
             except json.JSONDecodeError:
                 pass
-        if request.Metadata.get("enable_thinking", "").lower() == "true":
-            template_kwargs["enable_thinking"] = True
+        _thinking = request.Metadata.get("enable_thinking", "").lower()
+        if _thinking in ("true", "false"):
+            template_kwargs["enable_thinking"] = (_thinking == "true")
 
         try:
             return self.tokenizer.apply_chat_template(messages_dicts, **template_kwargs)

@@ -80,27 +80,133 @@ var layerRetryBackoff = func(attempt int) time.Duration {
 	return d
 }
 
+// blobRangeOpener re-opens a layer blob at a byte offset. It returns the
+// stream and the offset it actually starts at: the requested offset when the
+// server honoured the Range request, or 0 when it ignored it and is sending
+// the blob from the first byte again.
+type blobRangeOpener func(ctx context.Context, offset int64) (io.ReadCloser, int64, error)
+
+// newBlobRangeOpener returns a blobRangeOpener that re-fetches the layer's
+// blob from its registry with an HTTP Range request. Registries like quay.io
+// redirect blob downloads to pre-signed S3/CDN URLs that expire after ~10
+// minutes; on a slow connection a multi-GiB layer cannot finish inside that
+// window, so restarting from byte zero can never succeed while resuming from
+// the current offset can (docker pull survives the same expiry this way).
+// Each call goes back to the registry, so it obtains a fresh redirect URL and
+// a fresh auth token. Returns nil when imageRef does not name a registry blob
+// (e.g. local tarballs), which disables resuming. See issue #10577.
+func newBlobRangeOpener(imageRef string, layer v1.Layer, auth *registrytypes.AuthConfig, base http.RoundTripper) blobRangeOpener {
+	ref, err := name.ParseReference(imageRef)
+	if err != nil {
+		return nil
+	}
+	digest, err := layer.Digest()
+	if err != nil || digest.Hex == "" {
+		return nil
+	}
+	repo := ref.Context()
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	var authenticator authn.Authenticator
+	if auth != nil {
+		authenticator = staticAuth{auth}
+	} else if authenticator, err = authn.DefaultKeychain.Resolve(repo.Registry); err != nil {
+		authenticator = authn.Anonymous
+	}
+	blobURL := fmt.Sprintf("%s://%s/v2/%s/blobs/%s", repo.Registry.Scheme(), repo.RegistryStr(), repo.RepositoryStr(), digest.String())
+
+	return func(ctx context.Context, offset int64) (io.ReadCloser, int64, error) {
+		tr, err := transport.NewWithContext(ctx, repo.Registry, authenticator, base, []string{repo.Scope(transport.PullScope)})
+		if err != nil {
+			return nil, 0, err
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, blobURL, nil)
+		if err != nil {
+			return nil, 0, err
+		}
+		if offset > 0 {
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
+		}
+		req.Header.Set("User-Agent", UserAgent())
+		resp, err := (&http.Client{Transport: tr}).Do(req)
+		if err != nil {
+			return nil, 0, err
+		}
+		switch resp.StatusCode {
+		case http.StatusPartialContent:
+			return resp.Body, offset, nil
+		case http.StatusOK:
+			return resp.Body, 0, nil
+		default:
+			_ = resp.Body.Close()
+			return nil, 0, fmt.Errorf("unexpected status %d resuming blob %s", resp.StatusCode, digest.String())
+		}
+	}
+}
+
+// verifyLayerFile proves the assembled layer file matches the digest the
+// registry advertised. A resumed download splices bytes from independent HTTP
+// responses and bypasses the verified reader layer.Compressed() provides, so
+// the whole file must be re-checked before it is trusted.
+func verifyLayerFile(layer v1.Layer, f *os.File) error {
+	digest, err := layer.Digest()
+	if err != nil || digest.Hex == "" || digest.Algorithm != "sha256" {
+		return nil
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	got, _, err := v1.SHA256(f)
+	if err != nil {
+		return err
+	}
+	if got.Hex != digest.Hex {
+		return fmt.Errorf("resumed layer digest mismatch: got %s, want %s", got, digest)
+	}
+	return nil
+}
+
 // downloadLayerToFile streams a single compressed layer into dst, retrying on
 // transient network errors (unexpected EOF, connection reset, ...). Large
 // backend images (e.g. vLLM) are several GiB and a single dropped connection
 // mid-stream previously failed the whole install with "unexpected EOF" and no
-// recovery. The registry transport already retries manifest fetches via
-// defaultRetryPredicate (see GetImage/GetImageDigest); this extends the same
-// behaviour to the layer data stream. See issue #10577.
-func downloadLayerToFile(ctx context.Context, layer v1.Layer, dst *os.File, progress *progressWriter) error {
+// recovery. When resume is non-nil, a retry keeps the bytes already on disk
+// and continues from that offset instead of starting over: registries that
+// serve blobs through expiring pre-signed URLs (quay.io + S3/Akamai) cut off
+// every full-length transfer on slow connections, so restarting can never
+// finish while resuming makes progress each round. The retry budget only
+// counts attempts that made no forward progress, so a download that keeps
+// advancing keeps going. See issue #10577.
+func downloadLayerToFile(ctx context.Context, layer v1.Layer, dst *os.File, progress *progressWriter, resume blobRangeOpener) error {
 	var lastErr error
+	// written tracks the valid bytes currently in dst across attempts, and
+	// bestWritten the furthest offset any attempt has reached: only beating
+	// it counts as forward progress for the retry budget, so a server that
+	// ignores Range requests and keeps dropping mid-stream still runs out
+	// of attempts instead of looping forever.
+	var written, bestWritten int64
+	// resumed records whether any byte in dst came from a resumed raw blob
+	// fetch, which requires re-verifying the assembled file at the end.
+	resumed := false
+
+	truncate := func() error {
+		if _, err := dst.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+		if err := dst.Truncate(0); err != nil {
+			return err
+		}
+		written = 0
+		resumed = false
+		if progress != nil {
+			progress.written = 0
+		}
+		return nil
+	}
+
 	for attempt := 0; attempt <= layerDownloadRetries; attempt++ {
 		if attempt > 0 {
-			// Discard any partial data from the previous failed attempt.
-			if _, err := dst.Seek(0, io.SeekStart); err != nil {
-				return err
-			}
-			if err := dst.Truncate(0); err != nil {
-				return err
-			}
-			if progress != nil {
-				progress.written = 0
-			}
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -108,19 +214,69 @@ func downloadLayerToFile(ctx context.Context, layer v1.Layer, dst *os.File, prog
 			}
 		}
 
-		var w io.Writer = dst
-		if progress != nil {
-			w = io.MultiWriter(dst, progress)
+		var reader io.ReadCloser
+		if attempt > 0 && resume != nil && written > 0 {
+			r, offset, rerr := resume(ctx, written)
+			switch {
+			case rerr != nil:
+				// Keep the partial bytes: opening the resume stream can
+				// fail transiently (token refresh, connection refused)
+				// and the next attempt can still continue from here.
+				lastErr = rerr
+			case offset != written:
+				// The server ignored the Range request and is sending
+				// the blob from the first byte: drop the partial data.
+				if err := truncate(); err != nil {
+					_ = r.Close()
+					return err
+				}
+				reader = r
+				resumed = true
+			default:
+				reader = r
+				resumed = true
+			}
+		} else {
+			// First attempt, or no way to resume: restart from scratch
+			// through the digest-verifying layer reader.
+			if err := truncate(); err != nil {
+				return err
+			}
+			reader, lastErr = layer.Compressed()
 		}
 
-		var reader io.ReadCloser
-		reader, lastErr = layer.Compressed()
-		if lastErr == nil {
-			_, lastErr = xio.Copy(ctx, w, reader)
+		if reader != nil {
+			var w io.Writer = dst
+			if progress != nil {
+				w = io.MultiWriter(dst, progress)
+			}
+			var n int64
+			n, lastErr = xio.Copy(ctx, w, reader)
+			written += n
 			_ = reader.Close()
+			if written > bestWritten {
+				// Forward progress: don't charge this round against the
+				// retry budget, or slow links would still exhaust it.
+				bestWritten = written
+				attempt = 0
+			}
 		}
+
 		if lastErr == nil {
-			return nil
+			if !resumed {
+				return nil
+			}
+			verr := verifyLayerFile(layer, dst)
+			if verr == nil {
+				return nil
+			}
+			// The spliced file is corrupt: discard it and retry cleanly.
+			logs.Warn.Printf("discarding resumed layer download: %v", verr)
+			lastErr = verr
+			if err := truncate(); err != nil {
+				return err
+			}
+			continue
 		}
 
 		// Stop early on context cancellation or non-retryable errors.
@@ -382,8 +538,11 @@ func DownloadOCIImageTar(ctx context.Context, img v1.Image, imageRef string, tar
 			}
 		}
 
-		// Download the compressed layer, retrying on transient network errors.
-		err = downloadLayerToFile(ctx, layer, file, progress)
+		// Download the compressed layer, retrying on transient network
+		// errors and resuming from the last byte received where possible.
+		// Anonymous/default-keychain credentials match what GetImage uses
+		// for every in-tree caller (they all pass a nil auth).
+		err = downloadLayerToFile(ctx, layer, file, progress, newBlobRangeOpener(imageRef, layer, nil, nil))
 		file.Close()
 		if err != nil {
 			return fmt.Errorf("failed to download layer %d: %v", i, err)

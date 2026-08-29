@@ -61,6 +61,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 |-----------|---------|-------------|----------------------|
 | `--galleries` | | JSON list of galleries | `$LOCALAI_GALLERIES`, `$GALLERIES` |
 | `--autoload-galleries` | `true` | Automatically load galleries on startup | `$LOCALAI_AUTOLOAD_GALLERIES`, `$AUTOLOAD_GALLERIES` |
+| `--vram-persistent-cache` | `true` | Persist successful remote VRAM metadata probes across restarts | `$LOCALAI_VRAM_PERSISTENT_CACHE`, `$VRAM_PERSISTENT_CACHE` |
 | `--preload-models` | | A list of models to apply in JSON at start | `$LOCALAI_PRELOAD_MODELS`, `$PRELOAD_MODELS` |
 | `--models` | | A list of model configuration URLs to load | `$LOCALAI_MODELS`, `$MODELS` |
 | `--preload-models-config` | | A list of models to apply at startup. Path to a YAML config file | `$LOCALAI_PRELOAD_MODELS_CONFIG`, `$PRELOAD_MODELS_CONFIG` |
@@ -81,6 +82,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--address` | `:8080` | Bind address for the API server | `$LOCALAI_ADDRESS`, `$ADDRESS` |
+| `--max-concurrent-backend-requests` | `1024` | Process-wide ceiling for concurrent backend inference operations. Excess inference receives HTTP 503 with `Retry-After`; UI and administrative endpoints remain available | `$LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS`, `$MAX_CONCURRENT_BACKEND_REQUESTS` |
 | `--cors` | `false` | Enable CORS (Cross-Origin Resource Sharing) | `$LOCALAI_CORS`, `$CORS` |
 | `--cors-allow-origins` | | Comma-separated list of allowed CORS origins | `$LOCALAI_CORS_ALLOW_ORIGINS`, `$CORS_ALLOW_ORIGINS` |
 | `--csrf` | `false` | Enable Fiber CSRF middleware | `$LOCALAI_CSRF` |

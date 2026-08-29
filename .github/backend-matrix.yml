@@ -3832,6 +3832,19 @@ include:
     dockerfile: "./backend/Dockerfile.golang"
     context: "./"
     ubuntu-version: '2404'
+  - build-type: 'hipblas'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-rocm-hipblas-stablediffusion-ggml'
+    runs-on: 'ubuntu-latest'
+    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    skip-drivers: 'false'
+    backend: "stablediffusion-ggml"
+    dockerfile: "./backend/Dockerfile.golang"
+    context: "./"
+    ubuntu-version: '2404'
   - build-type: 'sycl_f16'
     cuda-major-version: ""
     cuda-minor-version: ""

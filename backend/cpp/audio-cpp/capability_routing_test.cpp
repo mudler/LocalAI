@@ -361,7 +361,7 @@ static void test_names_round_trip() {
                         Task::SourceSeparation, Task::AudioGeneration, Task::Tts,
                         Task::VoiceCloning, Task::VoiceConversion,
                         Task::SpeechToSpeech, Task::Alignment, Task::VoiceDesign,
-                        Task::SpeakerRecognition, Task::Svc};
+                        Task::SpeakerRecognition, Task::Svc, Task::Midi};
     for (const Task t : all) {
         Task parsed = Task::Vad;
         const bool ok = parse_task_name(task_name(t), parsed);

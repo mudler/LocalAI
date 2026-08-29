@@ -1,6 +1,9 @@
-.PHONY: fish-speech
-fish-speech:
+.PHONY: fish-speech test-source-preparation
+fish-speech: test-source-preparation
 	bash install.sh
+
+test-source-preparation:
+	bash prepare-source_test.sh
 
 .PHONY: run
 run: fish-speech

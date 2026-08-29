@@ -129,7 +129,7 @@ func applyAutoparserOverride(
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient, assistantHolder *mcpTools.LocalAIAssistantHolder) echo.HandlerFunc {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient, assistantHolder *mcpTools.LocalAIAssistantHolder, compressor middleware.ChatCompressor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var textContentToReturn string
 		id := uuid.New().String()
@@ -155,6 +155,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// redaction already ran in the middleware; the response is
 		// forwarded unmodified.
 		if config.IsCloudProxyBackendPassthrough() {
+			if err := middleware.CompressChatRequest(c, compressor); err != nil {
+				return err
+			}
 			return forwardCloudProxyOpenAIViaBackend(c, config, input, ml, startupOptions)
 		}
 
@@ -201,7 +204,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			// system message they're responsible for keeping the assistant
 			// safe, so we leave it alone.
 			if !hasSystemMessage(input.Messages) {
-				input.Messages = append([]schema.Message{{Role: "system", StringContent: assistantHolder.SystemPrompt()}}, input.Messages...)
+				prompt := assistantHolder.SystemPrompt()
+				input.Messages = append([]schema.Message{{Role: "system", Content: prompt, StringContent: prompt}}, input.Messages...)
 			}
 
 			xlog.Debug("LocalAI Assistant tools injected", "count", len(mcpFuncs))
@@ -243,6 +247,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			} else {
 				xlog.Error("Failed to parse MCP config", "error", mcpErr)
 			}
+		}
+		if err := middleware.CompressChatRequest(c, compressor); err != nil {
+			return err
 		}
 
 		xlog.Debug("Tool call routing decision",
@@ -401,9 +408,17 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			for mcpStreamIter := 0; mcpStreamIter <= mcpStreamMaxIterations; mcpStreamIter++ {
 				// Re-template on MCP iterations
-				if mcpStreamIter > 0 && !config.TemplateConfig.UseTokenizerTemplate {
-					predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
-					xlog.Debug("MCP stream re-templating", "iteration", mcpStreamIter)
+				if mcpStreamIter > 0 {
+					if err := middleware.CompressChatRequest(c, compressor); err != nil {
+						fmt.Fprintf(c.Response().Writer, "data: {\"error\":{\"message\":%q,\"type\":\"context_compression_error\"}}\n\n", err.Error())
+						fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+						c.Response().Flush()
+						return nil
+					}
+					if !config.TemplateConfig.UseTokenizerTemplate {
+						predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
+						xlog.Debug("MCP stream re-templating", "iteration", mcpStreamIter)
+					}
 				}
 
 				responses := make(chan schema.OpenAIResponse)
@@ -658,6 +673,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				// tools-path worker not surfacing this value at all.
 				if input.StreamOptions != nil && input.StreamOptions.IncludeUsage {
 					trailerUsage := streamUsageFromTokenUsage(finalUsage, extraUsage)
+					trailerUsage.CompressionMeta = middleware.CompressionMetadata(c)
 					trailer := streamUsageTrailerJSON(id, input.Model, created, trailerUsage)
 					_, _ = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", trailer)
 				}
@@ -683,9 +699,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			for mcpIteration := 0; mcpIteration <= mcpMaxIterations; mcpIteration++ {
 				// Re-template on each MCP iteration since messages may have changed
-				if mcpIteration > 0 && !config.TemplateConfig.UseTokenizerTemplate {
-					predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
-					xlog.Debug("MCP re-templating", "iteration", mcpIteration, "prompt_len", len(predInput))
+				if mcpIteration > 0 {
+					if err := middleware.CompressChatRequest(c, compressor); err != nil {
+						return err
+					}
+					if !config.TemplateConfig.UseTokenizerTemplate {
+						predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
+						xlog.Debug("MCP re-templating", "iteration", mcpIteration, "prompt_len", len(predInput))
+					}
 				}
 
 				// Detect if thinking token is already in prompt or template
@@ -1010,6 +1031,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					usage.TimingTokenGeneration = tokenUsage.TimingTokenGeneration
 					usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 				}
+				usage.CompressionMeta = middleware.CompressionMetadata(c)
 
 				resp := &schema.OpenAIResponse{
 					ID:      id,

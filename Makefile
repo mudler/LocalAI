@@ -104,7 +104,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -679,6 +679,7 @@ test-extra: prepare-test-extra
 ##   BACKEND_TEST_PROMPT      Override the prompt used in predict/stream specs.
 ##   BACKEND_TEST_OPTIONS     Comma-separated Options[] entries forwarded to LoadModel,
 ##                            e.g. "tool_parser:hermes,reasoning_parser:qwen3".
+##   BACKEND_TEST_EMBEDDING_LAYOUT Expected EmbeddingResult layout: "final" or "per_token".
 ##
 ## Direct usage (image already built, no docker-build-* dependency):
 ##
@@ -708,6 +709,7 @@ test-extra-backend: protogen-go
 	BACKEND_TEST_CAPS="$$BACKEND_TEST_CAPS" \
 	BACKEND_TEST_PROMPT="$$BACKEND_TEST_PROMPT" \
 	BACKEND_TEST_OPTIONS="$$BACKEND_TEST_OPTIONS" \
+	BACKEND_TEST_EMBEDDING_LAYOUT="$$BACKEND_TEST_EMBEDDING_LAYOUT" \
 	BACKEND_TEST_TOOL_PROMPT="$$BACKEND_TEST_TOOL_PROMPT" \
 	BACKEND_TEST_TOOL_NAME="$$BACKEND_TEST_TOOL_NAME" \
 	BACKEND_TEST_CACHE_TYPE_K="$$BACKEND_TEST_CACHE_TYPE_K" \
@@ -725,6 +727,15 @@ test-extra-backend: protogen-go
 test-extra-backend-llama-cpp: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
 	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias \
+	$(MAKE) test-extra-backend
+
+## Raw llama.cpp embeddings are required by Go-side pooling. This exercises the
+## real C++ backend and verifies that it marks the flattened matrix per-token.
+test-extra-backend-llama-cpp-embeddings: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_CAPS=health,load,embeddings \
+	BACKEND_TEST_OPTIONS=pooling:none \
+	BACKEND_TEST_EMBEDDING_LAYOUT=per_token \
 	$(MAKE) test-extra-backend
 
 test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
@@ -816,6 +827,7 @@ test-extra-backend-tinygrad-embeddings: docker-build-tinygrad
 	BACKEND_IMAGE=local-ai-backend:tinygrad \
 	BACKEND_TEST_MODEL_NAME=Qwen/Qwen3-0.6B \
 	BACKEND_TEST_CAPS=health,load,embeddings \
+	BACKEND_TEST_EMBEDDING_LAYOUT=final \
 	$(MAKE) test-extra-backend
 
 ## tinygrad — Stable Diffusion 1.5. The original CompVis/runwayml repos have
@@ -1511,6 +1523,13 @@ test-ui: build-mock-backend protogen-go
 	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG)
 
+## The stale-chunk specs need the production code-split bundle. The V8 coverage
+## bundle below inlines dynamic imports to keep every page in its denominator.
+test-ui-stale-chunk: build-mock-backend protogen-go
+	cd core/http/react-ui && bun install && bun run build
+	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test --grep @production-chunks --workers=1
+
 ## React UI code coverage from the Playwright e2e suite. Builds a
 ## NON-instrumented bundle with source maps (COVERAGE_V8=true), re-embeds it
 ## into the ui-test-server (the dist is //go:embed'ed at compile time), runs the
@@ -1526,7 +1545,7 @@ test-ui-coverage: build-mock-backend protogen-go
 	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
 	( cd core/http/react-ui && rm -rf .nyc_output coverage && \
 	    sh $(CURDIR)/scripts/ensure-playwright-browser.sh && \
-	    PW_V8_COVERAGE=1 bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG) && bun run coverage:report )
+	    PW_V8_COVERAGE=1 bunx playwright test --grep-invert @production-chunks $(PLAYWRIGHT_WORKERS_FLAG) && bun run coverage:report )
 
 ## UI coverage baseline (committed) and the strict gate that compares against
 ## it — the React mirror of test-coverage-baseline / test-coverage-check.

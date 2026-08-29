@@ -414,6 +414,8 @@ definitions:
   localai.ModelResponse:
     properties:
       config: {}
+      config_revision:
+        type: string
       details:
         items:
           type: string
@@ -424,6 +426,8 @@ definitions:
         type: string
       message:
         type: string
+      pending_cleanup:
+        type: integer
       success:
         type: boolean
     type: object
@@ -518,7 +522,17 @@ definitions:
       backend_type:
         description: e.g. "llama-cpp"; used by reconciler to replicate loads
         type: string
+      cleanup_attempts:
+        type: integer
+      cleanup_error:
+        type: string
+      cleanup_next_retry_at:
+        type: string
+      config_revision:
+        type: string
       created_at:
+        type: string
+      effective_options_hash:
         type: string
       id:
         type: string
@@ -749,6 +763,21 @@ definitions:
         $ref: '#/definitions/schema.Message'
       text:
         type: string
+    type: object
+  schema.CompressionMetadata:
+    properties:
+      compressed_tokens:
+        type: integer
+      compressor:
+        type: string
+      dropped_turns:
+        type: integer
+      original_tokens:
+        type: integer
+      overflow_recoveries:
+        type: integer
+      summary_tokens:
+        type: integer
     type: object
   schema.DepthRequest:
     properties:
@@ -1583,6 +1612,31 @@ definitions:
           an error).
         type: string
     type: object
+  schema.ModelLoadingStatus:
+    properties:
+      bytes_sent:
+        type: integer
+      eta_seconds:
+        description: |-
+          ETASeconds is omitted rather than guessed until enough bytes have moved
+          for the observed rate to mean anything. A confidently wrong ETA on a
+          twenty-minute wait is worse than none.
+        type: integer
+      file_index:
+        type: integer
+      model:
+        type: string
+      node:
+        type: string
+      progress:
+        type: number
+      state:
+        type: string
+      total_bytes:
+        type: integer
+      total_files:
+        type: integer
+    type: object
   schema.ModelsDataResponse:
     properties:
       data:
@@ -2047,6 +2101,22 @@ definitions:
         type: string
       negative_prompt_scale:
         type: number
+      pooling:
+        description: |-
+          Pooling is a LocalAI extension for /v1/embeddings: how the backend's
+          per-token vectors are reduced to a single embedding. "" or "backend"
+          leaves pooling to the inference backend (the pre-existing behavior);
+          "mean", "last" and "decayed_mean" pool Go-side from raw per-token
+          vectors (the backend must run with the "pooling:none" option, which
+          model configs get automatically when this is set).
+        type: string
+      pooling_half_life_tokens:
+        description: |-
+          PoolingHalfLifeTokens is a LocalAI extension for /v1/embeddings: the
+          half-life (in tokens) of the "decayed_mean" pooling scheme — a token's
+          weight halves every this-many positions counting back from the end of
+          the conversation. Defaults to 256 when unset.
+        type: integer
       presence_penalty:
         type: number
       prompt:
@@ -2147,6 +2217,8 @@ definitions:
     properties:
       completion_tokens:
         type: integer
+      compression_meta:
+        $ref: '#/definitions/schema.CompressionMetadata'
       input_tokens:
         description: Fields for image generation API compatibility
         type: integer
@@ -2326,6 +2398,84 @@ definitions:
       redacted_text:
         type: string
     type: object
+  schema.RouterCorpusAddRequest:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/schema.RouterCorpusEntry'
+        type: array
+    type: object
+  schema.RouterCorpusAddResponse:
+    properties:
+      added:
+        description: Added is how many entries were embedded, persisted, and indexed.
+        type: integer
+      label_counts:
+        additionalProperties:
+          type: integer
+        description: LabelCounts is the per-label exemplar count after the call.
+        type: object
+      router:
+        type: string
+      skipped:
+        description: |-
+          Skipped counts entries whose text was already in the corpus —
+          duplicates are rejected rather than double-weighted.
+        type: integer
+      total:
+        description: Total is the corpus size after the call.
+        type: integer
+    type: object
+  schema.RouterCorpusClearResponse:
+    properties:
+      cleared:
+        type: integer
+      router:
+        type: string
+    type: object
+  schema.RouterCorpusEntry:
+    properties:
+      labels:
+        items:
+          type: string
+        type: array
+      text:
+        type: string
+    type: object
+  schema.RouterCorpusStatsResponse:
+    properties:
+      embedding_model:
+        type: string
+      embedding_models:
+        description: |-
+          EmbeddingModels lists the embedder fingerprints present in the
+          persisted corpus; more than one means part of the corpus is
+          pending re-embedding on the next load.
+        items:
+          type: string
+        type: array
+      label_counts:
+        additionalProperties:
+          type: integer
+        type: object
+      router:
+        type: string
+      store_name:
+        type: string
+      total:
+        type: integer
+    type: object
+  schema.RouterDecideNeighbor:
+    properties:
+      id:
+        type: string
+      labels:
+        items:
+          type: string
+        type: array
+      similarity:
+        type: number
+    type: object
   schema.RouterDecideRequest:
     properties:
       input:
@@ -2377,6 +2527,21 @@ definitions:
       latency_ms:
         description: LatencyMs is the classifier's wall-clock cost.
         type: integer
+      nearest_similarity:
+        description: |-
+          NearestSimilarity is the cosine similarity of the closest KNN
+          corpus entry — populated by the knn classifier even when the
+          decision fell back because the probe was out of corpus range.
+          0 for other classifiers.
+        type: number
+      neighbors:
+        description: |-
+          Neighbors lists the corpus entries the knn classifier retrieved,
+          by descending similarity, including ones below the similarity
+          gate. Empty for other classifiers.
+        items:
+          $ref: '#/definitions/schema.RouterDecideNeighbor'
+        type: array
       router:
         description: Router echoes the requested router model.
         type: string
@@ -3454,6 +3619,32 @@ paths:
       summary: Get an instruction's API guide or OpenAPI fragment
       tags:
       - instructions
+  /api/models/{id}/load-status:
+    get:
+      description: Returns the live state of a distributed cold load — phase, node,
+        byte progress and ETA — or 404 when no load is running for the model. This
+        is the same `loading` object the 503 response carries while a model is still
+        staging.
+      parameters:
+      - description: Model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Live load progress
+          schema:
+            $ref: '#/definitions/schema.ModelLoadingStatus'
+        "404":
+          description: No load is running for this model
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Report the progress of an in-flight model load.
+      tags:
+      - models
   /api/models/{name}/{action}:
     put:
       description: Enable or disable a model from being loaded on demand. Disabled
@@ -3808,6 +3999,121 @@ paths:
       summary: Redact PII in a string by applying the configured policy.
       tags:
       - pii
+  /api/router/{name}/corpus:
+    delete:
+      parameters:
+      - description: router model name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.RouterCorpusClearResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Clear a router's KNN corpus
+      tags:
+      - router
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: router model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: labelled exemplars
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.RouterCorpusAddRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.RouterCorpusAddResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Seed the KNN routing corpus with labelled example prompts
+      tags:
+      - router
+  /api/router/{name}/corpus/stats:
+    get:
+      parameters:
+      - description: router model name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.RouterCorpusStatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Inspect a router's KNN corpus (label counts only, never texts)
+      tags:
+      - router
   /api/router/decide:
     post:
       consumes:
@@ -4148,9 +4454,11 @@ paths:
   /audio/transformations/stream:
     get:
       description: 'Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference)
-        and out (mono). The first message must be a JSON `session.update` envelope
-        describing model + sample format + frame size + backend params. Server emits
-        binary PCM on the same cadence.'
+        and out (mono). The model must support the audio_transform use case. Any-to-any
+        models such as liquid-audio use the OpenAI Realtime API instead. The first
+        message must be a JSON `session.update` envelope describing model + sample
+        format + frame size + backend params. Server emits binary PCM on the same
+        cadence.'
       responses: {}
       summary: Bidirectional realtime audio transform over WebSocket.
       tags:

@@ -71,6 +71,9 @@ import (
 //	BACKEND_TEST_THREADS     Override Threads passed to LoadModel (default 4).
 //	BACKEND_TEST_OPTIONS     Comma-separated Options[] entries passed to LoadModel,
 //	                         e.g. "tool_parser:hermes,reasoning_parser:qwen3".
+//	BACKEND_TEST_EMBEDDING_LAYOUT Expected EmbeddingResult layout: "final" or
+//	                         "per_token". When set, the embeddings spec also
+//	                         validates tokens/dim against the returned payload.
 //	BACKEND_TEST_CACHE_TYPE_K Sets ModelOptions.CacheTypeKey (llama.cpp -ctk),
 //	                         e.g. "q8_0" — exercises KV-cache quantization code paths.
 //	BACKEND_TEST_CACHE_TYPE_V Sets ModelOptions.CacheTypeValue (llama.cpp -ctv).
@@ -401,6 +404,7 @@ var _ = Describe("Backend container", Ordered, func() {
 			NGPULayers:     0,
 			MMap:           true,
 			NBatch:         128,
+			Embeddings:     caps[capEmbeddings],
 			Options:        options,
 			MMProj:         mmprojFile,
 			CacheTypeKey:   os.Getenv("BACKEND_TEST_CACHE_TYPE_K"),
@@ -549,7 +553,28 @@ var _ = Describe("Backend container", Ordered, func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.GetEmbeddings()).NotTo(BeEmpty(), "Embedding returned empty vector")
-		GinkgoWriter.Printf("Embedding: %d dims\n", len(res.GetEmbeddings()))
+
+		expectedLayout := strings.ToLower(strings.TrimSpace(os.Getenv("BACKEND_TEST_EMBEDDING_LAYOUT")))
+		if expectedLayout != "" {
+			var layout pb.EmbeddingLayout
+			switch expectedLayout {
+			case "final":
+				layout = pb.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL
+				Expect(res.GetTokens()).To(Equal(int32(1)), "a final embedding must contain one vector")
+			case "per_token":
+				layout = pb.EmbeddingLayout_EMBEDDING_LAYOUT_PER_TOKEN
+				Expect(res.GetTokens()).To(BeNumerically(">", 1), "the test prompt should produce multiple token vectors")
+			default:
+				Fail(fmt.Sprintf("unsupported BACKEND_TEST_EMBEDDING_LAYOUT %q", expectedLayout))
+			}
+
+			Expect(res.GetLayout()).To(Equal(layout))
+			Expect(res.GetDim()).To(BeNumerically(">", 0))
+			Expect(res.GetEmbeddings()).To(HaveLen(int(res.GetTokens() * res.GetDim())))
+		}
+
+		GinkgoWriter.Printf("Embedding: layout=%s vectors=%d dim=%d\n",
+			res.GetLayout(), res.GetTokens(), res.GetDim())
 	})
 
 	// TokenClassify is the PII-NER RPC (privacy-filter backend). The crown-jewel

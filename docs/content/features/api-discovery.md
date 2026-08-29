@@ -22,6 +22,17 @@ curl http://localhost:8080/api/instructions
 curl http://localhost:8080/api/instructions/config-management
 ```
 
+## Authentication and discovery
+
+You can read these discovery surfaces without authentication. This remains true when LocalAI uses database authentication or legacy API keys:
+
+- `GET /.well-known/localai.json`
+- `GET /api/instructions`
+- `GET /api/instructions/{name}`
+- Swagger `GET` requests at `/swagger` and under `/swagger/`
+
+Discovery does not grant access to the endpoints it advertises. Those endpoints require credentials unless the [authentication guide]({{%relref "features/authentication" %}}) lists them as a public discovery or bootstrap route. For example, `GET /version` requires credentials even though the well-known response includes the instance version.
+
 ## Well-Known Discovery Endpoint
 
 `GET /.well-known/localai.json`
@@ -220,7 +231,7 @@ curl -X PATCH http://localhost:8080/api/models/config-json/my-model \
 The endpoint validates the merged config and writes it to disk as YAML.
 
 {{% notice context="warning" %}}
-Config management endpoints require **admin authentication** when API keys are configured. The discovery and instructions endpoints are unauthenticated.
+Config management endpoints require **admin authentication** when authentication is configured. The well-known endpoint, instructions API, and Swagger `GET` routes remain available without authentication.
 {{% /notice %}}
 
 ### VRAM estimation
@@ -252,12 +263,13 @@ Optional parameters: `gpu_layers` (number of layers to offload, 0 = all), `kv_qu
 
 A recommended workflow for agent/tool builders:
 
-1. **Discover**: Fetch `/.well-known/localai.json` to learn available endpoints and capabilities
-2. **Browse instructions**: Fetch `/api/instructions` for an overview of instruction areas
-3. **Deep dive**: Fetch `/api/instructions/:name` for a markdown API guide on a specific area
-4. **Explore config**: Use `/api/models/config-metadata` to understand configuration fields
-5. **Interact**: Use the standard OpenAI-compatible endpoints for inference, and the config management endpoints for runtime tuning
+1. **Discover**: Fetch `/.well-known/localai.json` to learn available endpoints and capabilities.
+2. **Browse instructions**: Fetch `/api/instructions` for an overview of instruction areas.
+3. **Deep dive**: Fetch `/api/instructions/{name}` for a markdown API guide on a specific area.
+4. **Authenticate**: Obtain credentials before you call an advertised protected endpoint.
+5. **Explore config**: Use admin credentials with `/api/models/config-metadata` to understand configuration fields.
+6. **Interact**: Use credentials with inference endpoints and configuration APIs.
 
 ## Swagger UI
 
-The full interactive API documentation is available at `/swagger/index.html`. All annotated endpoints can be explored and tested directly from the browser.
+The full interactive API documentation is available without authentication at `/swagger/index.html`. Requests sent to protected endpoints from Swagger still require credentials.

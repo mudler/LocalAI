@@ -92,7 +92,6 @@ export const operateConsole = {
       items: [
         { path: '/app/users', icon: 'fas fa-users', labelKey: 'items.users', adminOnly: true, authOnly: true },
         { path: '/app/middleware', icon: 'fas fa-shield-halved', labelKey: 'items.middleware', adminOnly: true },
-        { path: '/app/manage', icon: 'fas fa-desktop', labelKey: 'items.host', adminOnly: true, signal: 'host' },
         { path: '/app/settings', icon: 'fas fa-cog', labelKey: 'items.settings', adminOnly: true },
         { href: '/swagger/index.html', icon: 'fas fa-code', labelKey: 'items.api', external: true, adminOnly: true },
       ],

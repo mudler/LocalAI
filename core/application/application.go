@@ -1,8 +1,10 @@
 package application
 
 import (
+	"cmp"
 	"context"
 	"math/rand/v2"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,12 +21,14 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/routing/admission"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
+	"github.com/mudler/LocalAI/core/services/routing/corpus"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
+	"github.com/mudler/LocalAI/core/trace"
 	pkggrpc "github.com/mudler/LocalAI/pkg/grpc"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 	localaiInproc "github.com/mudler/LocalAI/pkg/mcp/localaitools/inproc"
@@ -76,6 +80,7 @@ type Application struct {
 	mitmHostConflicts atomic.Pointer[map[string][]string]
 	routerDecisions   router.DecisionStore
 	routerRegistry    *router.Registry
+	routerCorpus      *corpus.Manager
 	admissionLimiter  *admission.Limiter
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
@@ -119,6 +124,8 @@ func (a *Application) Ready() bool { return a.startupComplete.Load() }
 func (a *Application) markStartupComplete() { a.startupComplete.Store(true) }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
+	corebackend.ConfigureGlobalBackendAdmission(appConfig.MaxConcurrentBackendRequests)
+	trace.ConfigureBackendTraceMaxInFlight(appConfig.MaxConcurrentBackendRequests)
 	ml := model.NewModelLoader(appConfig.SystemState)
 
 	// Apply the per-model load-failure cooldown (0 disables). Set here rather
@@ -134,7 +141,7 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 	// Record a model_load backend trace for every real backend load, so the
 	// Traces UI shows which backend runtime served each model and how long
 	// the load took. Load failures are traced by the modality wrappers.
-	ml.SetLoadObserver(corebackend.ModelLoadTraceObserver(appConfig))
+	ml.SetLoadLifecycleObserver(corebackend.ModelLoadTraceObserver(appConfig))
 
 	app := &Application{
 		backendLoader: config.NewModelConfigLoader(
@@ -146,6 +153,10 @@ func newApplication(appConfig *config.ApplicationConfig) *Application {
 		applicationConfig:  appConfig,
 		templatesEvaluator: templates.NewEvaluator(appConfig.SystemState.Model.ModelsPath),
 		voiceProfileStore:  voiceprofile.NewStore(appConfig.DataPath),
+		// KNN corpus files live under <state dir>/router-corpus (same
+		// DataPath → DynamicConfigsDir precedence the agent pool uses).
+		routerCorpus: corpus.NewManager(filepath.Join(
+			cmp.Or(appConfig.DataPath, appConfig.DynamicConfigsDir, "."), "router-corpus")),
 	}
 
 	// Face-recognition registry backed by LocalAI's built-in vector store.
@@ -575,6 +586,13 @@ func (a *Application) start() error {
 		assistantClient.PIIRedactor = a.piiRedactor
 		assistantClient.PIIEvents = a.piiEvents
 		assistantClient.RouterDecisions = a.routerDecisions
+		// Router corpus tools — same factories the RouteModel middleware
+		// uses, so the assistant and the request path agree on store
+		// namespaces and model resolution.
+		assistantClient.RouterCorpus = a.RouterCorpus()
+		assistantClient.RouterEmbedder = a.Embedder
+		assistantClient.RouterEmbedderFingerprint = a.EmbedderFingerprint
+		assistantClient.RouterVectorStore = a.VectorStore
 		if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
 			// Why log+continue instead of fail: the assistant is an optional
 			// feature; a failure here must not take down the whole server.

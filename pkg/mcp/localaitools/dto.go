@@ -128,13 +128,19 @@ type ModelSchedulingConfig struct {
 	BalanceAbsThreshold int     `json:"balance_abs_threshold,omitempty"`
 	BalanceRelThreshold float64 `json:"balance_rel_threshold,omitempty"`
 	MinPrefixMatch      float64 `json:"min_prefix_match,omitempty"`
+	// TargetModel is the model the rule governs. It differs from ModelName when
+	// the rule is keyed by an alias, in which case it follows the alias.
+	TargetModel string `json:"target_model,omitempty"`
+	// Shadowed reports that another rule already governs TargetModel, leaving
+	// this one with no effect.
+	Shadowed bool `json:"shadowed,omitempty"`
 }
 
 // SetSchedulingRequest is the input for set_scheduling. It mirrors
 // /api/nodes/scheduling so standalone MCP and REST callers preserve the same
 // PATCH-style semantics for the optional prefix-cache routing fields.
 type SetSchedulingRequest struct {
-	ModelName           string            `json:"model_name"                         jsonschema:"Installed model name whose distributed scheduling rule should be created or updated."`
+	ModelName           string            `json:"model_name"                         jsonschema:"Installed model name, or model alias, whose distributed scheduling rule should be created or updated. A rule keyed by an alias follows that alias to whatever model it currently points at."`
 	NodeSelector        map[string]string `json:"node_selector,omitempty"            jsonschema:"Optional node-label selector. Empty means any healthy backend node."`
 	MinReplicas         int               `json:"min_replicas"                       jsonschema:"Minimum desired replicas. Mutually exclusive with spread_all."`
 	MaxReplicas         int               `json:"max_replicas"                       jsonschema:"Maximum desired replicas. Must be >= min_replicas when non-zero. Mutually exclusive with spread_all."`
@@ -345,6 +351,50 @@ type RouterDecision struct {
 	LatencyMs      int64   `json:"latency_ms"`
 	Cached         bool    `json:"cached"`
 	CreatedAt      string  `json:"created_at"`
+}
+
+// RouterCorpusEntry is one labelled exemplar for seed_router_corpus.
+type RouterCorpusEntry struct {
+	Text   string   `json:"text"   jsonschema:"Example prompt text. Embedded server-side and persisted; NEVER returned by any tool or endpoint."`
+	Labels []string `json:"labels" jsonschema:"Policy labels this exemplar activates. Every label must be declared in the router's policies."`
+}
+
+// RouterCorpusSeedRequest is the input for seed_router_corpus.
+type RouterCorpusSeedRequest struct {
+	Router  string              `json:"router"  jsonschema:"Router model name — the ModelConfig with classifier: knn and a router.knn block."`
+	Entries []RouterCorpusEntry `json:"entries" jsonschema:"Labelled exemplars to add. Duplicate texts are skipped, not double-weighted."`
+}
+
+// RouterCorpusSeedResult reports the outcome of seed_router_corpus.
+type RouterCorpusSeedResult struct {
+	Router      string         `json:"router"`
+	Added       int            `json:"added"`
+	Skipped     int            `json:"skipped"`
+	Total       int            `json:"total"`
+	LabelCounts map[string]int `json:"label_counts"`
+}
+
+// RouterCorpusQuery names the router whose corpus to inspect or clear.
+type RouterCorpusQuery struct {
+	Router string `json:"router" jsonschema:"Router model name."`
+}
+
+// RouterCorpusStats is the count-only inspection surface for a
+// router's KNN corpus. Entry texts are never exposed.
+type RouterCorpusStats struct {
+	Router          string         `json:"router"`
+	StoreName       string         `json:"store_name"`
+	EmbeddingModel  string         `json:"embedding_model"`
+	Total           int            `json:"total"`
+	LabelCounts     map[string]int `json:"label_counts"`
+	EmbeddingModels []string       `json:"embedding_models,omitempty"`
+}
+
+// RouterCorpusClearResult reports how many entries clear_router_corpus
+// removed.
+type RouterCorpusClearResult struct {
+	Router  string `json:"router"`
+	Cleared int    `json:"cleared"`
 }
 
 // VRAMEstimateRequest is the input for vram_estimate. The output type is

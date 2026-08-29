@@ -78,7 +78,7 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 	routeAndSettle := func(chain []uint64) string {
 		GinkgoHelper()
 		ctx := distributedhdr.WithPrefixChain(context.Background(), chain)
-		result, err := router.Route(ctx, model, model, "llama-cpp",
+		result, err := router.Route(ctx, model, model, "llama-cpp", "",
 			&pb.ModelOptions{ModelFile: model}, false)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(result).ToNot(BeNil())

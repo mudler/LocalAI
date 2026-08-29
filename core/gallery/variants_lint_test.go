@@ -534,7 +534,7 @@ var _ = Describe("gallery/index.yaml Higgs Audio entry", func() {
 		Expect(*entry.GetKnownUsecases() & config.FLAG_TTS).To(Equal(config.FLAG_TTS))
 		Expect(entry.AdditionalFiles).To(ConsistOf(gallery.File{
 			Filename: "audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf",
-			SHA256:   "b857344af06b1b2497f4f8c1d0f0c134d0eeaf9c089c0d28ae6e58084d90f901",
+			SHA256:   "79746822045b5bf8f9ab2bda87b16cd3f8ea3d9e319cbcf887a87aa1b537a74a",
 			URI:      "huggingface://audio-cpp/audio.cpp-gguf/Higgs-Audio-v3-TTS-4B-GGUF/higgs-audio-v3-tts-4b-q8_0.gguf",
 		}))
 	})
@@ -590,6 +590,11 @@ var _ = Describe("gallery/index.yaml deepseek-v4-flash resolution", Ordered, fun
 		Expect(entryInstallsSomething(*resolved)).To(BeTrue(),
 			"resolved entry %q (variant %q) carries no payload, so InstallModelFromGallery would refuse it",
 			resolved.Name, selected.Model)
+		Expect(resolved.AdditionalFiles).To(ContainElement(gallery.File{
+			Filename: "ds4flash.gguf",
+			SHA256:   "31598c67c8b8744d3bcebcd19aa62253c6dc43cef3b8adf9f593656c9e86fd8c",
+			URI:      "huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2.gguf",
+		}), "the base fallback must download the GGUF referenced by parameters.model")
 	})
 
 	// Pinning reaches each target directly, which is what actually proves all

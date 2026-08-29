@@ -231,6 +231,16 @@ func (ml *ModelLoader) StartProcess(grpcProcess, id string, serverAddress string
 	return ml.startProcess(grpcProcess, id, serverAddress, args...)
 }
 
+// newProcessStateDir creates the directory a backend process uses for its pid,
+// state and log files, and reports why when it cannot.
+func newProcessStateDir() (string, error) {
+	dir, err := os.MkdirTemp(os.TempDir(), "go-processmanager")
+	if err != nil {
+		return "", fmt.Errorf("creating backend process state directory under %s: %w", os.TempDir(), err)
+	}
+	return dir, nil
+}
+
 func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {
 	// Make sure the process is executable
 	// Check first if it has executable permissions
@@ -261,8 +271,19 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	// and the GPU would silently fall back to CPU). No-op for other backends.
 	env = append(env, vulkanICDEnv(workDir)...)
 
+	// Resolve the state directory here rather than through
+	// process.WithTemporaryStateDir(). process.New applies its options but
+	// discards the error they return, so a temp directory that cannot be
+	// created leaves StateDir empty and every later option unapplied. Run()
+	// then reported "mkdir : no such file or directory" with no path, hiding
+	// the real cause (a full volume, or a TMPDIR that no longer resolves).
+	stateDir, err := newProcessStateDir()
+	if err != nil {
+		return nil, err
+	}
+
 	grpcControlProcess := process.New(
-		process.WithTemporaryStateDir(),
+		process.WithStateDir(stateDir),
 		process.WithName(filepath.Base(grpcProcess)),
 		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
 		process.WithEnvironment(env...),
@@ -350,6 +371,9 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		} else {
 			// A stop we didn't initiate — a SIGSEGV from a missing shared
 			// library, a Python ImportError, an OOM kill, an unexpected self-exit.
+			if diagnostic := lastNonEmptyLine(grpcControlProcess.StderrPath(), startupStderrTailBytes); diagnostic != "" {
+				fields = append(fields, "stderr", diagnostic)
+			}
 			xlog.Warn("Backend process exited unexpectedly", fields...)
 		}
 	}()

@@ -18,7 +18,7 @@ const PAGES = [
   ['/app/usage', 'Usage'],
   ['/app/account', 'Account'],
   ['/app/studio', 'Studio'],
-  ['/app/manage', 'Manage'],
+  ['/app/models', 'Models'],
   ['/app/operate', 'Operate overview'],
   ['/app/backends', 'Backends'],
   ['/app/activity', 'Activity'],

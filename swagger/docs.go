@@ -1097,6 +1097,41 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/models/{id}/load-status": {
+            "get": {
+                "description": "Returns the live state of a distributed cold load — phase, node, byte progress and ETA — or 404 when no load is running for the model. This is the same ` + "`" + `loading` + "`" + ` object the 503 response carries while a model is still staging.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Report the progress of an in-flight model load.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Live load progress",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadingStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "No load is running for this model",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/{name}/{action}": {
             "put": {
                 "description": "Enable or disable a model from being loaded on demand. Disabled models remain installed but cannot be loaded.",
@@ -1485,6 +1520,181 @@ const docTemplate = `{
                     },
                     "503": {
                         "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/router/{name}/corpus": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Seed the KNN routing corpus with labelled example prompts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "router model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "labelled exemplars",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusAddRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusAddResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Clear a router's KNN corpus",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "router model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusClearResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/router/{name}/corpus/stats": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Inspect a router's KNN corpus (label counts only, never texts)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "router model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusStatsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1900,7 +2110,7 @@ const docTemplate = `{
         },
         "/audio/transformations/stream": {
             "get": {
-                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The first message must be a JSON ` + "`" + `session.update` + "`" + ` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
+                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The model must support the audio_transform use case. Any-to-any models such as liquid-audio use the OpenAI Realtime API instead. The first message must be a JSON ` + "`" + `session.update` + "`" + ` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
                 "tags": [
                     "audio"
                 ],
@@ -4370,6 +4580,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "config": {},
+                "config_revision": {
+                    "type": "string"
+                },
                 "details": {
                     "type": "array",
                     "items": {
@@ -4384,6 +4597,9 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string"
+                },
+                "pending_cleanup": {
+                    "type": "integer"
                 },
                 "success": {
                     "type": "boolean"
@@ -4525,7 +4741,22 @@ const docTemplate = `{
                     "description": "e.g. \"llama-cpp\"; used by reconciler to replicate loads",
                     "type": "string"
                 },
+                "cleanup_attempts": {
+                    "type": "integer"
+                },
+                "cleanup_error": {
+                    "type": "string"
+                },
+                "cleanup_next_retry_at": {
+                    "type": "string"
+                },
+                "config_revision": {
+                    "type": "string"
+                },
                 "created_at": {
+                    "type": "string"
+                },
+                "effective_options_hash": {
                     "type": "string"
                 },
                 "id": {
@@ -4867,6 +5098,29 @@ const docTemplate = `{
                 },
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.CompressionMetadata": {
+            "type": "object",
+            "properties": {
+                "compressed_tokens": {
+                    "type": "integer"
+                },
+                "compressor": {
+                    "type": "string"
+                },
+                "dropped_turns": {
+                    "type": "integer"
+                },
+                "original_tokens": {
+                    "type": "integer"
+                },
+                "overflow_recoveries": {
+                    "type": "integer"
+                },
+                "summary_tokens": {
+                    "type": "integer"
                 }
             }
         },
@@ -6064,6 +6318,39 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ModelLoadingStatus": {
+            "type": "object",
+            "properties": {
+                "bytes_sent": {
+                    "type": "integer"
+                },
+                "eta_seconds": {
+                    "description": "ETASeconds is omitted rather than guessed until enough bytes have moved\nfor the observed rate to mean anything. A confidently wrong ETA on a\ntwenty-minute wait is worse than none.",
+                    "type": "integer"
+                },
+                "file_index": {
+                    "type": "integer"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "node": {
+                    "type": "string"
+                },
+                "progress": {
+                    "type": "number"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "total_bytes": {
+                    "type": "integer"
+                },
+                "total_files": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.ModelsDataResponse": {
             "type": "object",
             "properties": {
@@ -6749,6 +7036,14 @@ const docTemplate = `{
                 "negative_prompt_scale": {
                     "type": "number"
                 },
+                "pooling": {
+                    "description": "Pooling is a LocalAI extension for /v1/embeddings: how the backend's\nper-token vectors are reduced to a single embedding. \"\" or \"backend\"\nleaves pooling to the inference backend (the pre-existing behavior);\n\"mean\", \"last\" and \"decayed_mean\" pool Go-side from raw per-token\nvectors (the backend must run with the \"pooling:none\" option, which\nmodel configs get automatically when this is set).",
+                    "type": "string"
+                },
+                "pooling_half_life_tokens": {
+                    "description": "PoolingHalfLifeTokens is a LocalAI extension for /v1/embeddings: the\nhalf-life (in tokens) of the \"decayed_mean\" pooling scheme — a token's\nweight halves every this-many positions counting back from the end of\nthe conversation. Defaults to 256 when unset.",
+                    "type": "integer"
+                },
                 "presence_penalty": {
                     "type": "number"
                 },
@@ -6885,6 +7180,9 @@ const docTemplate = `{
             "properties": {
                 "completion_tokens": {
                     "type": "integer"
+                },
+                "compression_meta": {
+                    "$ref": "#/definitions/schema.CompressionMetadata"
                 },
                 "input_tokens": {
                     "description": "Fields for image generation API compatibility",
@@ -7132,6 +7430,116 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.RouterCorpusAddRequest": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.RouterCorpusEntry"
+                    }
+                }
+            }
+        },
+        "schema.RouterCorpusAddResponse": {
+            "type": "object",
+            "properties": {
+                "added": {
+                    "description": "Added is how many entries were embedded, persisted, and indexed.",
+                    "type": "integer"
+                },
+                "label_counts": {
+                    "description": "LabelCounts is the per-label exemplar count after the call.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "router": {
+                    "type": "string"
+                },
+                "skipped": {
+                    "description": "Skipped counts entries whose text was already in the corpus —\nduplicates are rejected rather than double-weighted.",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "Total is the corpus size after the call.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.RouterCorpusClearResponse": {
+            "type": "object",
+            "properties": {
+                "cleared": {
+                    "type": "integer"
+                },
+                "router": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.RouterCorpusEntry": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.RouterCorpusStatsResponse": {
+            "type": "object",
+            "properties": {
+                "embedding_model": {
+                    "type": "string"
+                },
+                "embedding_models": {
+                    "description": "EmbeddingModels lists the embedder fingerprints present in the\npersisted corpus; more than one means part of the corpus is\npending re-embedding on the next load.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "label_counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "router": {
+                    "type": "string"
+                },
+                "store_name": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.RouterDecideNeighbor": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "similarity": {
+                    "type": "number"
+                }
+            }
+        },
         "schema.RouterDecideRequest": {
             "type": "object",
             "properties": {
@@ -7178,6 +7586,17 @@ const docTemplate = `{
                 "latency_ms": {
                     "description": "LatencyMs is the classifier's wall-clock cost.",
                     "type": "integer"
+                },
+                "nearest_similarity": {
+                    "description": "NearestSimilarity is the cosine similarity of the closest KNN\ncorpus entry — populated by the knn classifier even when the\ndecision fell back because the probe was out of corpus range.\n0 for other classifiers.",
+                    "type": "number"
+                },
+                "neighbors": {
+                    "description": "Neighbors lists the corpus entries the knn classifier retrieved,\nby descending similarity, including ones below the similarity\ngate. Empty for other classifiers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.RouterDecideNeighbor"
+                    }
                 },
                 "router": {
                     "description": "Router echoes the requested router model.",

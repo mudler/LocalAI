@@ -9,7 +9,7 @@
   },
   "actions": {
     "backTo": "Voltar para {{page}}",
-    "system": "Sistema",
+    "models": "Modelos",
     "templates": "Modelos",
     "createModel": "Criar Modelo",
     "saveChanges": "Salvar Alterações",

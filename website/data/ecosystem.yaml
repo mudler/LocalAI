@@ -26,6 +26,7 @@ contributors:
   companies:
     - { name: "Microsoft",       people: 3, commits: 20 }
     - { name: "Spectro Cloud",   people: 3, commits: 11 }
+    - { name: "Walcz",           people: 1, commits: 9 }
     - { name: "VictoriaMetrics", people: 1, commits: 5 }
     - { name: "Acronis",         people: 1, commits: 5 }
     - { name: "BearingPoint",    people: 1, commits: 4 }

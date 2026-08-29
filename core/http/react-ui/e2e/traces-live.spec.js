@@ -21,6 +21,38 @@ test('marks an API trace with no response status as in progress', async ({ page 
   await expect(row.locator('.fa-check-circle')).toHaveCount(0)
 })
 
+test('shows a running backend trace and exposes its logs immediately', async ({ page }) => {
+  await page.route('**/api/traces?*', route => route.fulfill({ json: [] }))
+  await page.route('**/api/backend-traces?*', route => route.fulfill({
+    json: [{
+      id: 'backend-running-1',
+      timestamp: '2026-08-05T02:00:00Z',
+      duration: 2_000_000_000,
+      status: 'running',
+      type: 'llm',
+      model_name: 'slow-model',
+      backend: 'llama-cpp',
+      summary: 'generating a reply',
+    }],
+    headers: { 'X-Total-Count': '1' },
+  }))
+  await page.route('**/api/backend-traces/backend-running-1', route => route.fulfill({
+    json: {
+      id: 'backend-running-1', status: 'running', type: 'llm',
+      timestamp: '2026-08-05T02:00:00Z', duration: 2_000_000_000,
+      model_name: 'slow-model', backend: 'llama-cpp', summary: 'generating a reply',
+    },
+  }))
+
+  await page.goto('/app/traces?tab=backend')
+  await page.getByRole('button', { name: /Backend Traces/ }).click()
+  const row = page.locator('tbody tr').filter({ hasText: 'generating a reply' })
+  await expect(row.locator('[title="Running"]')).toBeVisible()
+  await row.click()
+  await expect(page.getByRole('link', { name: 'View backend logs' })).toHaveAttribute('href', /\/app\/backend-logs\/slow-model/)
+  await expect(page.getByText(/running/, { exact: false })).toBeVisible()
+})
+
 // Regression for #11376: switching from Backend Traces back to API Traces
 // used to crash the page. `traces` holds whichever list was fetched last, so
 // right after `setActiveTab('api')` — before the refetch effect lands — the
