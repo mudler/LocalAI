@@ -323,7 +323,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if not hasattr(request, proto_field):
                 continue
             value = getattr(request, proto_field)
-            if value in (None, 0, 0.0, [], False, ""):
+            if proto_field != "Temperature" and value in (None, 0, 0.0, [], False, ""):
                 continue
             # repeated fields come back as RepeatedScalarContainer — convert
             if hasattr(value, "__iter__") and not isinstance(value, (str, bytes)):

@@ -523,9 +523,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             context.set_details(str(e))
             return backend_pb2.ScoreResponse()
 
-    async def _predict(self, request, context, streaming=False):
-        # Build the sampling parameters
-        # NOTE: this must stay in sync with the vllm backend
+    def _build_sampling_params(self, request):
         request_to_sampling_params = {
             "N": "n",
             "PresencePenalty": "presence_penalty",
@@ -555,8 +553,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         for request_field, param_field in request_to_sampling_params.items():
             if hasattr(request, request_field):
                 value = getattr(request, request_field)
-                if value not in (None, 0, [], False):
+                if request_field == "Temperature" or value not in (None, 0, [], False):
                     setattr(sampling_params, param_field, value)
+
+        return sampling_params
+
+    async def _predict(self, request, context, streaming=False):
+        # Build the sampling parameters
+        sampling_params = self._build_sampling_params(request)
 
         # Structured-output decoding: use Grammar field to pass JSON schema or BNF
         if HAS_GUIDED_DECODING and request.Grammar:

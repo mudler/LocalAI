@@ -128,6 +128,35 @@ class TestSglangHelpers(unittest.TestCase):
         self.assertNotIn("enable_thinking", kwargs_for({}))
         self.assertIs(kwargs_for({"enable_thinking": "FALSE"})["enable_thinking"], False)
 
+    def test_explicit_zero_temperature_is_preserved(self):
+        """Temperature=0 is valid greedy decoding, not an unset value."""
+        from types import SimpleNamespace
+
+        servicer = self._servicer()
+        request = SimpleNamespace(
+            Temperature=0,
+            N=0,
+            PresencePenalty=0,
+            FrequencyPenalty=0,
+            RepetitionPenalty=0,
+            TopP=0,
+            TopK=0,
+            MinP=0,
+            Seed=0,
+            StopPrompts=[],
+            StopTokenIds=[],
+            IgnoreEOS=False,
+            Tokens=0,
+            MinTokens=0,
+            SkipSpecialTokens=False,
+            Grammar="",
+        )
+
+        params = servicer._build_sampling_params(request)
+        self.assertEqual(params["temperature"], 0)
+        # Other protobuf-default scalar fields must remain filtered.
+        self.assertNotIn("top_p", params)
+
 
 if __name__ == "__main__":
     unittest.main()

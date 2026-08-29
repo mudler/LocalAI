@@ -37686,6 +37686,84 @@
   overrides:
     parameters:
       model: NousResearch/Hermes-3-Llama-3.1-405B
+- name: "phonellm-alpha-1:vllm"
+  variants:
+    - model: phonellm-alpha-1:sglang
+  url: "github:mudler/LocalAI/gallery/vllm.yaml@master"
+  urls:
+    - https://huggingface.co/pipecat-ai/phonellm-alpha-1
+    - https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16
+  description: |
+    PhoneLLM Alpha 1 is a 30B-parameter, 3.5B-active mixture-of-experts model
+    tuned by the Pipecat team for low-latency voice agents, multi-turn
+    conversations, and accurate tool use without thinking. This entry serves
+    the bfloat16 safetensors with vLLM and supports a 262K-token context.
+
+    PhoneLLM is released under BSD-2-Clause and derives from NVIDIA Nemotron 3
+    Nano 30B-A3B. The underlying work remains subject to the NVIDIA Nemotron
+    Open Model License and its redistribution and attribution requirements.
+  license: "bsd-2-clause"
+  tags:
+    - llm
+    - vllm
+    - gpu
+    - nemotron
+    - moe
+    - voice-agent
+    - conversational
+    - function-calling
+    - instruction-tuned
+    - long-context
+  last_checked: "2026-08-29"
+  overrides:
+    context_size: 262144
+    reasoning_effort: none
+    chat_template_kwargs:
+      enable_thinking: false
+    trust_remote_code: true
+    options:
+      - tool_parser:qwen3_xml
+    parameters:
+      model: pipecat-ai/phonellm-alpha-1
+      temperature: 0
+- name: "phonellm-alpha-1:sglang"
+  url: "github:mudler/LocalAI/gallery/sglang.yaml@master"
+  urls:
+    - https://huggingface.co/pipecat-ai/phonellm-alpha-1
+    - https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16
+  description: |
+    PhoneLLM Alpha 1 is a 30B-parameter, 3.5B-active mixture-of-experts model
+    tuned by the Pipecat team for low-latency voice agents, multi-turn
+    conversations, and accurate tool use without thinking. This entry serves
+    the bfloat16 safetensors with SGLang and supports a 262K-token context.
+
+    PhoneLLM is released under BSD-2-Clause and derives from NVIDIA Nemotron 3
+    Nano 30B-A3B. The underlying work remains subject to the NVIDIA Nemotron
+    Open Model License and its redistribution and attribution requirements.
+  license: "bsd-2-clause"
+  tags:
+    - llm
+    - sglang
+    - gpu
+    - nemotron
+    - moe
+    - voice-agent
+    - conversational
+    - function-calling
+    - instruction-tuned
+    - long-context
+  last_checked: "2026-08-29"
+  overrides:
+    context_size: 262144
+    reasoning_effort: none
+    chat_template_kwargs:
+      enable_thinking: false
+    trust_remote_code: true
+    options:
+      - tool_parser:qwen3_coder
+    parameters:
+      model: pipecat-ai/phonellm-alpha-1
+      temperature: 0
 - &gemma4-sglang-mtp
   name: "gemma-4-e2b-it:sglang-mtp"
   url: "github:mudler/LocalAI/gallery/sglang-gemma-4-e2b-mtp.yaml@master"
