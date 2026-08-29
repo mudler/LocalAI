@@ -89,7 +89,7 @@ function WorkerHintCard({ addToast, activeTab, hasWorkers }) {
   )
 }
 
-export default function Nodes() {
+export default function Nodes({ embedded = false }) {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
   const [nodesList, setNodesList] = useState([])
@@ -282,16 +282,18 @@ export default function Nodes() {
     : activeTab === 'agent' ? agentNodes : backendNodes
 
   return (
-    <div className="page page--wide">
-      <PageHeader
-        title={
-          <>
-            <i className="fas fa-network-wired icon-before" />
-            {t('nodes.title')}
-          </>
-        }
-        supporting={t('nodes.subtitle')}
-      />
+    <div className={embedded ? '' : 'page page--wide'}>
+      {!embedded && (
+        <PageHeader
+          title={
+            <>
+              <i className="fas fa-network-wired icon-before" />
+              {t('nodes.title')}
+            </>
+          }
+          supporting={t('nodes.subtitle')}
+        />
+      )}
 
       <ClusterPulse nodes={nodesList} />
       <AttentionCallout nodes={nodesList} onApprove={handleApprove} />

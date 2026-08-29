@@ -69,7 +69,7 @@ function NoNodes({ icon, title, hint }) {
   )
 }
 
-export default function P2P() {
+export default function P2P({ embedded = false }) {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
   const [workers, setWorkers] = useState([])
@@ -145,7 +145,7 @@ export default function P2P() {
 
   if (loading) {
     return (
-      <div className="page page--narrow loading-center">
+      <div className={embedded ? 'loading-center' : 'page page--narrow loading-center'}>
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -154,7 +154,7 @@ export default function P2P() {
   // ── P2P Disabled ──
   if (!enabled) {
     return (
-      <div className="page page--narrow">
+      <div className={embedded ? '' : 'page page--narrow'}>
         <div className="p2p-hero">
           <i className="fas fa-network-wired" />
           <h1>P2P distribution not enabled</h1>
@@ -243,19 +243,21 @@ export default function P2P() {
   const mlxTotal = stats.mlx_workers?.total ?? 0
 
   return (
-    <div className="page page--narrow">
-      <PageHeader
-        title={<><i className="fas fa-circle-nodes" aria-hidden="true" /> {t('p2p.title')}</>}
-        supporting={
-          <>
-            {t('p2p.subtitle')}
-            {' '}
-            <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer">
-              <i className="fas fa-up-right-from-square" aria-hidden="true" />
-            </a>
-          </>
-        }
-      />
+    <div className={embedded ? '' : 'page page--narrow'}>
+      {!embedded && (
+        <PageHeader
+          title={<><i className="fas fa-circle-nodes" aria-hidden="true" /> {t('p2p.title')}</>}
+          supporting={
+            <>
+              {t('p2p.subtitle')}
+              {' '}
+              <a href="https://localai.io/features/distribute/" target="_blank" rel="noopener noreferrer">
+                <i className="fas fa-up-right-from-square" aria-hidden="true" />
+              </a>
+            </>
+          }
+        />
+      )}
 
       <section className="p2p-token">
         <div className="hstack hstack--nowrap tone-warning">
