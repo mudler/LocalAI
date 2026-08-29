@@ -124,6 +124,86 @@
     - filename: llama-cpp/mmproj/qwen3.8-flash-next/mmproj-BF16.gguf
       uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf
       sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
+- &wemm-embedding-2b
+  name: "wemm-embedding-2b"
+  variants:
+    - model: wemm-embedding-4b
+    - model: wemm-embedding-9b
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/tencent/WeMM-Embedding-2B
+  description: |
+    WeMM-Embedding-2B is Tencent's Apache-2.0 multilingual embedding model
+    built on Qwen3.5. This entry serves the original bfloat16 safetensors with
+    LocalAI's Transformers backend and produces 2,048-dimensional normalized
+    embeddings for text retrieval, semantic search, and RAG.
+
+    The upstream model can also embed images and videos. LocalAI currently
+    exposes text input through its embeddings API for this backend.
+  license: "apache-2.0"
+  tags:
+    - embeddings
+    - safetensors
+    - transformers
+    - multilingual
+    - retrieval
+    - rag
+    - gpu
+    - cpu
+  last_checked: "2026-08-29"
+  overrides:
+    backend: transformers
+    embeddings: true
+    trust_remote_code: true
+    type: SentenceTransformer
+    known_usecases:
+      - embeddings
+    parameters:
+      model: tencent/WeMM-Embedding-2B
+- !!merge <<: *wemm-embedding-2b
+  name: "wemm-embedding-4b"
+  variants: []
+  urls:
+    - https://huggingface.co/tencent/WeMM-Embedding-4B
+  description: |
+    WeMM-Embedding-4B is Tencent's mid-sized Apache-2.0 multilingual embedding
+    model built on Qwen3.5. This entry serves the original bfloat16 safetensors
+    with LocalAI's Transformers backend and produces 2,560-dimensional
+    normalized embeddings for text retrieval, semantic search, and RAG.
+
+    The upstream model can also embed images and videos. LocalAI currently
+    exposes text input through its embeddings API for this backend.
+  overrides:
+    backend: transformers
+    embeddings: true
+    trust_remote_code: true
+    type: SentenceTransformer
+    known_usecases:
+      - embeddings
+    parameters:
+      model: tencent/WeMM-Embedding-4B
+- !!merge <<: *wemm-embedding-2b
+  name: "wemm-embedding-9b"
+  variants: []
+  urls:
+    - https://huggingface.co/tencent/WeMM-Embedding-9B
+  description: |
+    WeMM-Embedding-9B is Tencent's largest Apache-2.0 multilingual embedding
+    model built on Qwen3.5. This entry serves the original bfloat16 safetensors
+    with LocalAI's Transformers backend and produces 4,096-dimensional
+    normalized embeddings for text retrieval, semantic search, and RAG.
+
+    The upstream model can also embed images and videos. LocalAI currently
+    exposes text input through its embeddings API for this backend.
+  overrides:
+    backend: transformers
+    embeddings: true
+    trust_remote_code: true
+    type: SentenceTransformer
+    known_usecases:
+      - embeddings
+    parameters:
+      model: tencent/WeMM-Embedding-9B
 - &granite-4-2-3b
   name: "granite-4.2-3b-q4"
   variants:
