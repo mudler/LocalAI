@@ -121,6 +121,19 @@ class TestBackendServicer(unittest.TestCase):
         finally:
             self.tearDown()
 
+    def test_explicit_zero_temperature_is_preserved(self):
+        """Temperature=0 is valid greedy decoding, not an unset value."""
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+
+        servicer = BackendServicer()
+        request = backend_pb2.PredictOptions(Prompt="hello", Temperature=0)
+        sampling_params = servicer._build_sampling_params(request)
+        self.assertEqual(sampling_params.temperature, 0)
+        # Other protobuf-default scalar fields must remain filtered.
+        self.assertEqual(sampling_params.top_p, 0.9)
+
 
     def test_messages_to_dicts(self):
         """
