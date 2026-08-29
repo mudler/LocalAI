@@ -1,6 +1,9 @@
 package openai
 
 import (
+	"encoding/json"
+	"io"
+	"mime"
 	"net/http"
 	"time"
 
@@ -27,6 +30,61 @@ type RealtimeCallResponse struct {
 	SessionID string `json:"session_id"`
 }
 
+func decodeRealtimeCallRequest(c echo.Context) (RealtimeCallRequest, bool, error) {
+	var req RealtimeCallRequest
+	mediaType := ""
+	contentType := c.Request().Header.Get(echo.HeaderContentType)
+	if contentType != "" {
+		var err error
+		mediaType, _, err = mime.ParseMediaType(contentType)
+		if err != nil {
+			return req, false, err
+		}
+	}
+
+	switch mediaType {
+	case echo.MIMEMultipartForm:
+		if err := c.Request().ParseMultipartForm(32 << 20); err != nil {
+			return req, true, err
+		}
+		req.SDP = c.FormValue("sdp")
+		var session struct {
+			Model            string `json:"model"`
+			LocalAIAssistant bool   `json:"localai_assistant,omitempty"`
+		}
+		if err := json.Unmarshal([]byte(c.FormValue("session")), &session); err != nil {
+			return req, true, err
+		}
+		req.Model = session.Model
+		req.LocalAIAssistant = session.LocalAIAssistant
+		return req, true, nil
+	case "application/sdp":
+		sdp, err := readRealtimeSDP(c.Request().Body)
+		req.SDP = sdp
+		req.Model = c.QueryParam("model")
+		return req, true, err
+	default:
+		err := c.Bind(&req)
+		return req, false, err
+	}
+}
+
+func readRealtimeSDP(body io.Reader) (string, error) {
+	data, err := io.ReadAll(body)
+	return string(data), err
+}
+
+func writeRealtimeCallResponse(c echo.Context, plainSDPResponse bool, sdp, sessionID string) error {
+	if plainSDPResponse {
+		return c.Blob(http.StatusCreated, "application/sdp", []byte(sdp))
+	}
+
+	return c.JSON(http.StatusCreated, RealtimeCallResponse{
+		SDP:       sdp,
+		SessionID: sessionID,
+	})
+}
+
 // RealtimeCalls handles POST /v1/realtime/calls for WebRTC signaling.
 func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 	se, settingEngineErr := webRTCSettingEngine(application.ApplicationConfig())
@@ -38,8 +96,8 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 		if settingEngineErr != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": settingEngineErr.Error()})
 		}
-		var req RealtimeCallRequest
-		if err := c.Bind(&req); err != nil {
+		req, plainSDPResponse, err := decodeRealtimeCallRequest(c)
+		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
 		}
 		if req.SDP == "" {
@@ -189,10 +247,7 @@ func RealtimeCalls(application *application.Application) echo.HandlerFunc {
 			runRealtimeSession(application, transport, req.Model, evaluator, opts)
 		}()
 
-		return c.JSON(http.StatusCreated, RealtimeCallResponse{
-			SDP:       localDesc.SDP,
-			SessionID: sessionID,
-		})
+		return writeRealtimeCallResponse(c, plainSDPResponse, localDesc.SDP, sessionID)
 	}
 }
 
