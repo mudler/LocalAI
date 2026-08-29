@@ -1,4 +1,129 @@
 ---
+- &qwen3-8-flash-next
+  name: "qwen3.8-flash-next-q4"
+  variants:
+    - model: qwen3.8-flash-next-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+  description: |
+    Qwen3.8-Flash-Next is Qwen's 125B-parameter, 6B-active experimental
+    vision-language mixture-of-experts model. It targets agentic coding,
+    reasoning, tool use, and long-context workloads with a native 262K-token
+    context window.
+
+    This default entry uses Unsloth's UD-Q4_K_XL GGUF and BF16 vision
+    projector. The linked variant uses the higher-quality Q8_0 quantization.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-08-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-flash-next/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      sha256: 4448186216b3af4cc558bbce2c3213f01608f8f8b2e5267a9767971dd3ec8082
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00002-of-00004.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00002-of-00004.gguf
+      sha256: 3f342f1c1580473f1ee94ddd5b28206e8c07a70fa1a366f59d1d6c922919a6c9
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00003-of-00004.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00003-of-00004.gguf
+      sha256: 56758f40269cad5cd9b0d3d6fbae0f40f6d5be6de49e4ab392dbe83157d9cbd3
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00004-of-00004.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00004-of-00004.gguf
+      sha256: 753bda48b98ba4f1636134a90a967de1b2d3908a236c026e464777342e53510a
+    - filename: llama-cpp/mmproj/qwen3.8-flash-next/mmproj-BF16.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf
+      sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
+- !!merge <<: *qwen3-8-flash-next
+  name: "qwen3.8-flash-next-q8"
+  variants: []
+  description: |
+    Qwen3.8-Flash-Next in the higher-quality Q8_0 GGUF format, with the shared
+    BF16 vision projector. This build preserves more model quality but needs
+    more memory than the default Q4 variant.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-flash-next/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-Q8_0-00001-of-00006.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-Q8_0-00001-of-00006.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/Q8_0/Qwen3.8-Flash-Next-Q8_0-00001-of-00006.gguf
+      sha256: 2dabcbb53ca537a7947bc7d20414fd464eeaf4d66d43021b5b2556cc87544ad2
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-Q8_0-00002-of-00006.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/Q8_0/Qwen3.8-Flash-Next-Q8_0-00002-of-00006.gguf
+      sha256: 494ca4ed3dbf97bc28da88af3890b8877b9032f909812d00c0526a9ca5e91d2e
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-Q8_0-00003-of-00006.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/Q8_0/Qwen3.8-Flash-Next-Q8_0-00003-of-00006.gguf
+      sha256: 34efd79a80a1ce540a517a5d56171924b66ce1c38b04c904f17ad6d8ef17cf20
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-Q8_0-00004-of-00006.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/Q8_0/Qwen3.8-Flash-Next-Q8_0-00004-of-00006.gguf
+      sha256: bfa634025fabbd2658bf7694bc80b90e571699c768723f844c934c7ef06c691a
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-Q8_0-00005-of-00006.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/Q8_0/Qwen3.8-Flash-Next-Q8_0-00005-of-00006.gguf
+      sha256: 232a8f14cc0fa4262e7efe8593774b136fe40909e39c7a020342ddaa27259a97
+    - filename: llama-cpp/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-Q8_0-00006-of-00006.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/Q8_0/Qwen3.8-Flash-Next-Q8_0-00006-of-00006.gguf
+      sha256: 538a93bca918064983409a41187ad4c68640f9aced6f29564da8f551bf86d7a5
+    - filename: llama-cpp/mmproj/qwen3.8-flash-next/mmproj-BF16.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf
+      sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
 - &granite-4-2-3b
   name: "granite-4.2-3b-q4"
   variants:
