@@ -1,6 +1,7 @@
 package launcher_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -55,7 +56,8 @@ var _ = Describe("Launcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			config := launcherInstance.GetConfig()
-			Expect(config.ShowWelcome).To(BeTrue())
+			Expect(config.ShowWelcome).ToNot(BeNil())
+			Expect(*config.ShowWelcome).To(BeTrue())
 			Expect(config.Address).To(Equal("127.0.0.1:8080"))
 			Expect(config.LogLevel).To(Equal("info"))
 		})
@@ -177,10 +179,50 @@ var _ = Describe("Launcher", func() {
 
 			assertFlagValue("--generated-content-path", filepath.Join(dataPath, "generated"))
 			assertFlagValue("--upload-path", filepath.Join(dataPath, "uploads"))
-			// The bug was the server resolving these to shared /tmp paths.
+			// The bug was the server resolving these to its shared /tmp
+			// defaults. Only reject those specific paths: on Linux the test's
+			// own temp directory legitimately lives under /tmp.
 			for _, a := range args {
-				Expect(a).ToNot(HavePrefix("/tmp/"), "run args must not reference shared /tmp paths, got %s", a)
+				Expect(a).ToNot(HavePrefix("/tmp/generated"), "run args must not reference the shared /tmp generated-content default, got %s", a)
+				Expect(a).ToNot(HavePrefix("/tmp/upload"), "run args must not reference the shared /tmp upload default, got %s", a)
 			}
+		})
+	})
+
+	// Regression for "Mac dmg launcher launches nothing" (issue #11673): the
+	// launcher created empty log files and served nothing because nothing ever
+	// started the server unless the unrelated "start on system boot" option was
+	// enabled. Launching the app must yield a serving endpoint by default.
+	Describe("ShouldAutoStartServer", func() {
+		It("should auto-start by default when nothing is configured", func() {
+			Expect(launcherInstance.ShouldAutoStartServer()).To(BeTrue())
+		})
+
+		It("should respect an explicit opt-out", func() {
+			config := launcherInstance.GetConfig()
+			err := json.Unmarshal([]byte(`{"auto_start_server": false}`), config)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(launcherInstance.ShouldAutoStartServer()).To(BeFalse())
+		})
+
+		It("should still auto-start when StartOnBoot is set even if auto-start is off", func() {
+			config := launcherInstance.GetConfig()
+			err := json.Unmarshal([]byte(`{"auto_start_server": false, "start_on_boot": true}`), config)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(launcherInstance.ShouldAutoStartServer()).To(BeTrue())
+		})
+
+		It("should ignore the legacy auto_start key older launchers persisted as false", func() {
+			// Old launchers marshaled the never-honored AutoStart field as
+			// "auto_start": false into every launcher.json. That stale value
+			// carries no user intent and must not disable auto-start.
+			config := launcherInstance.GetConfig()
+			err := json.Unmarshal([]byte(`{"auto_start": false}`), config)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(launcherInstance.ShouldAutoStartServer()).To(BeTrue())
 		})
 	})
 
@@ -210,13 +252,38 @@ var _ = Describe("Launcher", func() {
 	})
 })
 
+// Regression for the welcome window suppressing itself (part of issue
+// #11673): the "don't show this welcome window again" checkbox was
+// initialized with the ShowWelcome value itself, so on the very first
+// showing it came up checked AND its change callback persisted
+// ShowWelcome=false, hiding the welcome window forever.
+var _ = Describe("WelcomeDontShowAgainChecked", func() {
+	It("should be unchecked when the welcome window is enabled", func() {
+		show := true
+		config := &launcher.Config{ShowWelcome: &show}
+		Expect(launcher.WelcomeDontShowAgainChecked(config)).To(BeFalse())
+	})
+
+	It("should be checked when the user opted out", func() {
+		show := false
+		config := &launcher.Config{ShowWelcome: &show}
+		Expect(launcher.WelcomeDontShowAgainChecked(config)).To(BeTrue())
+	})
+
+	It("should be unchecked when the preference is unset", func() {
+		Expect(launcher.WelcomeDontShowAgainChecked(&launcher.Config{})).To(BeFalse())
+		Expect(launcher.WelcomeDontShowAgainChecked(nil)).To(BeFalse())
+	})
+})
+
 var _ = Describe("Config", func() {
 	It("should have proper JSON tags", func() {
+		autoStart := true
 		config := &launcher.Config{
 			ModelsPath:      "/test/models",
 			BackendsPath:    "/test/backends",
 			Address:         ":8080",
-			AutoStart:       true,
+			AutoStart:       &autoStart,
 			LogLevel:        "info",
 			EnvironmentVars: map[string]string{"TEST": "value"},
 		}
@@ -224,7 +291,7 @@ var _ = Describe("Config", func() {
 		Expect(config.ModelsPath).To(Equal("/test/models"))
 		Expect(config.BackendsPath).To(Equal("/test/backends"))
 		Expect(config.Address).To(Equal(":8080"))
-		Expect(config.AutoStart).To(BeTrue())
+		Expect(*config.AutoStart).To(BeTrue())
 		Expect(config.LogLevel).To(Equal("info"))
 		Expect(config.EnvironmentVars).To(HaveKeyWithValue("TEST", "value"))
 	})
