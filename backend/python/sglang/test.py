@@ -128,11 +128,14 @@ class TestSglangHelpers(unittest.TestCase):
         self.assertNotIn("enable_thinking", kwargs_for({}))
         self.assertIs(kwargs_for({"enable_thinking": "FALSE"})["enable_thinking"], False)
 
-    def test_explicit_zero_temperature_is_preserved(self):
-        """Temperature=0 is valid greedy decoding, not an unset value."""
+    def test_explicit_zero_temperature_and_seed_are_preserved(self):
+        """Temperature=0 is greedy decoding and 0 is a valid seed — neither is
+        an unset value. A dropped seed turns a reproducible request random."""
         from types import SimpleNamespace
 
         servicer = self._servicer()
+        import sys as _sys
+        _SEED_KEY_FOR_TEST = _sys.modules["backend"]._SEED_KEY
         request = SimpleNamespace(
             Temperature=0,
             N=0,
@@ -154,8 +157,12 @@ class TestSglangHelpers(unittest.TestCase):
 
         params = servicer._build_sampling_params(request)
         self.assertEqual(params["temperature"], 0)
-        # Other protobuf-default scalar fields must remain filtered.
+        self.assertEqual(params[_SEED_KEY_FOR_TEST], 0)
+        # Other protobuf-default scalar fields must remain filtered. top_k=0 in
+        # particular is not a value sglang accepts (-1 disables it), so it must
+        # keep falling through to the engine default.
         self.assertNotIn("top_p", params)
+        self.assertNotIn("top_k", params)
 
 
 if __name__ == "__main__":

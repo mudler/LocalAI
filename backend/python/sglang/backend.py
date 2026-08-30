@@ -90,6 +90,14 @@ except Exception:
 
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
+
+# proto3 has no field presence, so an explicit 0 is indistinguishable from
+# "unset" and the zero-filter below would drop it. These two fields have a
+# meaningful zero a caller can actually intend: temperature 0 is greedy
+# decoding, and 0 is a valid seed. Silently substituting a default for either
+# turns a reproducible request into a random one.
+_EXPLICIT_ZERO_FIELDS = ("Temperature", "Seed")
+
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 
 
@@ -323,7 +331,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if not hasattr(request, proto_field):
                 continue
             value = getattr(request, proto_field)
-            if proto_field != "Temperature" and value in (None, 0, 0.0, [], False, ""):
+            if proto_field not in _EXPLICIT_ZERO_FIELDS and value in (None, 0, 0.0, [], False, ""):
                 continue
             # repeated fields come back as RepeatedScalarContainer — convert
             if hasattr(value, "__iter__") and not isinstance(value, (str, bytes)):

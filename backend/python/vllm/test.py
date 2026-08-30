@@ -121,16 +121,18 @@ class TestBackendServicer(unittest.TestCase):
         finally:
             self.tearDown()
 
-    def test_explicit_zero_temperature_is_preserved(self):
-        """Temperature=0 is valid greedy decoding, not an unset value."""
+    def test_explicit_zero_temperature_and_seed_are_preserved(self):
+        """Temperature=0 is greedy decoding and 0 is a valid seed — neither is
+        an unset value. A dropped seed turns a reproducible request random."""
         import sys, os
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from backend import BackendServicer
 
         servicer = BackendServicer()
-        request = backend_pb2.PredictOptions(Prompt="hello", Temperature=0)
+        request = backend_pb2.PredictOptions(Prompt="hello", Temperature=0, Seed=0)
         sampling_params = servicer._build_sampling_params(request)
         self.assertEqual(sampling_params.temperature, 0)
+        self.assertEqual(sampling_params.seed, 0)
         # Other protobuf-default scalar fields must remain filtered.
         self.assertEqual(sampling_params.top_p, 0.9)
 
