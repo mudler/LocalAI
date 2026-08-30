@@ -24,7 +24,7 @@ jobs:
             file: "backend/cpp/turboquant/Makefile"
           - repository: "PrismML-Eng/llama.cpp"
             variable: "BONSAI_VERSION"
-            branch: "prism"
+            branch: "prism-v5"
             file: "backend/cpp/bonsai/Makefile"
           - repository: "antirez/ds4"
             variable: "DS4_VERSION"
