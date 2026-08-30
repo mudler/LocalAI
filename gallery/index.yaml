@@ -1,4 +1,125 @@
 ---
+- &glm-5-3-flash-q4
+  name: "glm-5.3-flash-q4"
+  variants:
+    - model: glm-5.3-flash-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+    - https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF
+  description: |
+    GLM-5.3-Flash is Z.ai's natively multimodal 320B-parameter mixture-of-experts
+    model with 18B active parameters. It combines sparse and linear attention
+    for coding, agentic work, tool use, vision, and long-context tasks. This
+    entry uses the UD-Q4_K_XL GGUF quantization and enables the model's MTP
+    speculative-decoding head.
+  license: mit
+  icon: https://raw.githubusercontent.com/zai-org/GLM-5/refs/heads/main/resources/logo.svg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - multimodal
+    - vision
+    - reasoning
+    - tool-calling
+    - long-context
+    - moe
+    - mtp
+    - glm
+    - glm-5.3
+  last_checked: "2026-08-30"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - completion
+      - vision
+    known_input_modalities:
+      - text
+      - image
+    mmproj: llama-cpp/mmproj/glm-5.3-flash/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0.01
+      model: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: -1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      sha256: 00dceaf3ed08781b1e44513a44ebb19e96248d01ba2a80b17f675a2b6fa9a1ee
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-UD-Q4_K_XL-00002-of-00006.gguf
+      sha256: d3ecb6ff3957a99878f9a0352676a0913748a431a9a4a1b1ffa5ade9b8947a74
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00002-of-00006.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-UD-Q4_K_XL-00003-of-00006.gguf
+      sha256: 328073c004e7c5395b208247feed26089db247b94dd8fa4ab0f2569d86c1d770
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00003-of-00006.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-UD-Q4_K_XL-00004-of-00006.gguf
+      sha256: 6803ab7effa6da4a0b02c9c7865952fdd6c5b2e10e53903348da369e90bd13f9
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00004-of-00006.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-UD-Q4_K_XL-00005-of-00006.gguf
+      sha256: 852f3df9dacde3d196796f9fe738468e80c8701555ff0a8c30bc010fb8974dd8
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00005-of-00006.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
+      sha256: c6ba510fafc1e12cc0addbc361a329c0c592ab96980098e7e25e107d8faa983e
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
+    - filename: llama-cpp/mmproj/glm-5.3-flash/mmproj-BF16.gguf
+      sha256: 513c9bfc55898998186543caefc01626fb28e378b92f391018e1c3dd6655b113
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/mmproj-BF16.gguf
+- !!merge <<: *glm-5-3-flash-q4
+  name: "glm-5.3-flash-q8"
+  variants: []
+  description: |
+    GLM-5.3-Flash is Z.ai's natively multimodal 320B-parameter mixture-of-experts
+    model with 18B active parameters. It combines sparse and linear attention
+    for coding, agentic work, tool use, vision, and long-context tasks. This
+    entry uses the higher-quality Q8_0 GGUF quantization and enables the model's
+    MTP speculative-decoding head.
+  overrides:
+    parameters:
+      model: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-Q8_0-00001-of-00008.gguf
+  files:
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-Q8_0-00001-of-00008.gguf
+      sha256: 0b21d951c7d14562c479c6a7342c71166d222b21ac2e9c1e32b529a9e017a2df
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/Q8_0/GLM-5.3-Flash-Q8_0-00001-of-00008.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-Q8_0-00002-of-00008.gguf
+      sha256: 8aabbbc0a92c551894f62a0737b433c9fad60a94baaa61e669f96329bb1d88a6
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/Q8_0/GLM-5.3-Flash-Q8_0-00002-of-00008.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-Q8_0-00003-of-00008.gguf
+      sha256: 7b50941b404fed3413be4e0ca52af43e79113e4b3e2c940d1f4cdf74e95ebb39
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/Q8_0/GLM-5.3-Flash-Q8_0-00003-of-00008.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-Q8_0-00004-of-00008.gguf
+      sha256: ff27fb4536d524cae687c4fb88dfa1b43a8ee0b4256e55304f95dc1aa38e8b81
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/Q8_0/GLM-5.3-Flash-Q8_0-00004-of-00008.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-Q8_0-00005-of-00008.gguf
+      sha256: c088636854c5da312e44a7be4195cd765dd9eb6339d7b014d1da4192851a9b5b
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/Q8_0/GLM-5.3-Flash-Q8_0-00005-of-00008.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-Q8_0-00006-of-00008.gguf
+      sha256: 4bece55cb9e98720f3ef2e1e9683983aeced77434dbcd54584c0b7c80a2e95cb
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/Q8_0/GLM-5.3-Flash-Q8_0-00006-of-00008.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-Q8_0-00007-of-00008.gguf
+      sha256: a9f792204b0b58155e6092f9a4160a0659fcdc98a1c126e563ecc3cd02ad68ad
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/Q8_0/GLM-5.3-Flash-Q8_0-00007-of-00008.gguf
+    - filename: llama-cpp/models/glm-5.3-flash/GLM-5.3-Flash-Q8_0-00008-of-00008.gguf
+      sha256: a6cb6887c0047653f08c0ab6e564972451d9511322202970f7052e36052aefd6
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/Q8_0/GLM-5.3-Flash-Q8_0-00008-of-00008.gguf
+    - filename: llama-cpp/mmproj/glm-5.3-flash/mmproj-BF16.gguf
+      sha256: 513c9bfc55898998186543caefc01626fb28e378b92f391018e1c3dd6655b113
+      uri: huggingface://unsloth/GLM-5.3-Flash-GGUF/mmproj-BF16.gguf
 - name: "glm-5.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
