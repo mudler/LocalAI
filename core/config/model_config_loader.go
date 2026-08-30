@@ -168,6 +168,14 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 	if err := yaml.Unmarshal(f, &configs); err == nil && len(configs) > 0 {
 		for _, cc := range configs {
 			cc.modelConfigFile = file
+			// Stamp before SetDefaults: the revision describes what is on disk.
+			// SetDefaults folds in the GGUF guess, hardware defaults and
+			// app-level options, none of which are persisted configuration, and
+			// the GGUF guess in particular depends on whether the model file
+			// parses at that moment.
+			if err := cc.StampPersistedConfigRevision(); err != nil {
+				return nil, fmt.Errorf("stamping config revision for %q: %w", cc.Name, err)
+			}
 			cc.SetDefaults(opts...)
 			cc.syncKnownUsecasesFromString()
 		}
@@ -182,6 +190,9 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 
 	c.modelConfigFile = file
 	c.syncKnownUsecasesFromString()
+	if err := c.StampPersistedConfigRevision(); err != nil {
+		return nil, fmt.Errorf("stamping config revision for %q: %w", c.Name, err)
+	}
 	c.SetDefaults(opts...)
 
 	return []*ModelConfig{c}, nil
@@ -218,16 +229,17 @@ func (bcl *ModelConfigLoader) LoadModelConfigFileByName(modelName, modelPath str
 		}
 	}
 
-	cfg.SetDefaults(append(opts, ModelPath(modelPath))...)
-
-	// Stamp the revision here, at the boundary between the persisted
-	// configuration and the request that is about to override parts of it.
-	// Everything downstream of this point (the request middleware) merges
-	// per-request prediction parameters into cfg, so a revision computed later
-	// would identify the request rather than the configuration.
-	if err := cfg.StampPersistedConfigRevision(); err != nil {
-		return nil, fmt.Errorf("stamping config revision for %q: %w", modelName, err)
+	// Stamp before SetDefaults, and only when this config did not come from
+	// disk already carrying one (a name with no config file on disk is
+	// synthesized above). Re-stamping a loaded config here would hash it after
+	// SetDefaults and reintroduce the dependency on the GGUF guess.
+	if cfg.PersistedConfigRevision() == "" {
+		if err := cfg.StampPersistedConfigRevision(); err != nil {
+			return nil, fmt.Errorf("stamping config revision for %q: %w", modelName, err)
+		}
 	}
+
+	cfg.SetDefaults(append(opts, ModelPath(modelPath))...)
 
 	return cfg, nil
 }
@@ -427,6 +439,26 @@ func (bcl *ModelConfigLoader) ResolveAlias(cfg *ModelConfig) (*ModelConfig, bool
 		return nil, true, fmt.Errorf("alias %q points to another alias %q (chains are not allowed)", cfg.Name, cfg.Alias)
 	}
 	return &target, true, nil
+}
+
+// ResolveAliasName maps a model name to the name of the model that actually
+// serves it: an alias resolves to its target, anything else resolves to
+// itself. The second return reports whether name was an alias.
+//
+// Unlike ResolveAlias this never errors. A name with no config (a rule may be
+// authored before the model is installed), a dangling alias, and a chained
+// alias all resolve to themselves, so callers keep a usable name that simply
+// has no model behind it rather than silently governing a different model.
+func (bcl *ModelConfigLoader) ResolveAliasName(name string) (string, bool) {
+	cfg, exists := bcl.GetModelConfig(name)
+	if !exists || !cfg.IsAlias() {
+		return name, false
+	}
+	target, exists := bcl.GetModelConfig(cfg.Alias)
+	if !exists || target.IsAlias() {
+		return name, true
+	}
+	return target.Name, true
 }
 
 // ValidateAliasTarget checks an alias config's target at create/swap time:
@@ -952,4 +984,39 @@ func hasAnyMappingKey(mapping *yaml.Node, keys ...string) bool {
 
 func nonemptyScalar(node *yaml.Node) bool {
 	return node != nil && node.Kind == yaml.ScalarNode && node.Tag == "!!str" && strings.TrimSpace(node.Value) != ""
+}
+
+// RevisionFor returns the config revision for modelName: the one an inference
+// request for that model will carry.
+//
+// This is the only way to obtain a revision outside this package. Every
+// publisher must use it, so that what is published and what is checked are
+// the same value by construction rather than by two implementations happening
+// to agree. Hashing a ModelConfig directly is not available to callers, because
+// a config that has been through SetDefaults or the request middleware hashes
+// to something no request will ever present.
+func (bcl *ModelConfigLoader) RevisionFor(modelName string, appConfig *ApplicationConfig) (string, error) {
+	cfg, err := bcl.LoadModelConfigFileByNameDefaultOptions(modelName, appConfig)
+	if err != nil {
+		return "", fmt.Errorf("resolving config revision for %q: %w", modelName, err)
+	}
+	return stampedRevision(cfg, modelName)
+}
+
+// RevisionForPath is RevisionFor for callers that hold loader options and a
+// models path rather than an ApplicationConfig.
+func (bcl *ModelConfigLoader) RevisionForPath(modelName, modelPath string, opts ...ConfigLoaderOption) (string, error) {
+	cfg, err := bcl.LoadModelConfigFileByName(modelName, modelPath, opts...)
+	if err != nil {
+		return "", fmt.Errorf("resolving config revision for %q: %w", modelName, err)
+	}
+	return stampedRevision(cfg, modelName)
+}
+
+func stampedRevision(cfg *ModelConfig, modelName string) (string, error) {
+	revision := cfg.PersistedConfigRevision()
+	if revision == "" {
+		return "", fmt.Errorf("no config revision stamped for %q", modelName)
+	}
+	return revision, nil
 }

@@ -16,7 +16,7 @@ func TestVllmCpp(t *testing.T) {
 	RunSpecs(t, "vllm-cpp suite")
 }
 
-// The Go POD mirrors must match the C struct layout of vllm.h (ABI v21)
+// The Go POD mirrors must match the C struct layout of vllm.h (ABI v23)
 // byte-for-byte: these offsets are the C offsets on LP64 (linux/darwin
 // amd64+arm64). A failure here means govllmcpp.go drifted from vllm.h.
 var _ = Describe("C ABI struct mirrors", func() {
@@ -24,7 +24,7 @@ var _ = Describe("C ABI struct mirrors", func() {
 		// VLLM_ABI_VERSION in the vllm.h of VLLM_CPP_VERSION (Makefile).
 		// Moving the pin past this without growing the mirrors below ships a
 		// backend that refuses every load at startup (issue #11379).
-		Expect(abiVersion).To(Equal(21))
+		Expect(abiVersion).To(Equal(23))
 	})
 
 	It("cModelParams matches vllm_model_params", func() {
@@ -51,7 +51,8 @@ var _ = Describe("C ABI struct mirrors", func() {
 		Expect(unsafe.Offsetof(p.KVCacheMemoryBytes)).To(Equal(uintptr(104)))
 		Expect(unsafe.Offsetof(p.LanguageModelOnly)).To(Equal(uintptr(112)))
 		Expect(unsafe.Offsetof(p.LimitMMPerPrompt)).To(Equal(uintptr(120)))
-		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(128)))
+		Expect(unsafe.Offsetof(p.MMProjPath)).To(Equal(uintptr(128)))
+		Expect(unsafe.Sizeof(p)).To(Equal(uintptr(136)))
 	})
 
 	It("cSamplingParams matches vllm_sampling_params (ABI v8)", func() {

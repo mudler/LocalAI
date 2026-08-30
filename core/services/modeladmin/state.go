@@ -7,7 +7,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
@@ -61,13 +60,17 @@ func (s *ConfigService) toggleState(ctx context.Context, name string, action Act
 		if err := s.Loader.LoadModelConfigsFromPath(s.modelsPath(), s.AppConfig.ToConfigLoaderOptions()...); err != nil {
 			return fmt.Errorf("reload configs: %w", err)
 		}
-		loaded, ok := s.Loader.GetModelConfig(name)
-		if !ok {
+		if _, ok := s.Loader.GetModelConfig(name); !ok {
 			return fmt.Errorf("reload configs: model %q missing", name)
 		}
-		revision, err := config.ModelConfigRevision(&loaded)
+		// Resolve the revision the way an inference request does. Hashing the
+		// stored config instead publishes a value no request will ever carry,
+		// because SetDefaults runs again on the request path and is not
+		// idempotent for every model, and the edit would leave the model
+		// unroutable.
+		revision, err := s.Loader.RevisionFor(name, s.AppConfig)
 		if err != nil {
-			return fmt.Errorf("compute config revision: %w", err)
+			return err
 		}
 		pending, err := s.applyRevision(ctx, name, name, revision, action == ActionDisable)
 		if err != nil {

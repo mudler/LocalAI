@@ -152,7 +152,8 @@
     "sha256": "SHA256",
     "backToAll": "All models",
     "vramAt": "VRAM at {{context}}",
-    "headroom": "Headroom"
+    "headroom": "Headroom",
+    "headroomOn": "Headroom on {{node}}"
   },
   "empty": {
     "title": "No models found",
@@ -232,6 +233,8 @@
     "browsing": "Browsing",
     "pickHint": "Select a model to see its detail.",
     "heroWithRam": "{{ram}} of system memory, {{count}} models in the gallery.",
+    "heroWithCluster": "{{vram}} on {{node}}, the largest of {{nodes}} nodes, {{count}} models in the gallery.",
+    "heroWithNode": "{{vram}} on {{node}}, {{count}} models in the gallery.",
     "byUseCase": "Or start with a use case",
     "pickText": "Chat, reasoning, embeddings",
     "pickVision": "Read images and documents",

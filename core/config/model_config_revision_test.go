@@ -19,10 +19,11 @@ var _ = Describe("Model configuration revisions", func() {
 		return cfg
 	}
 
+	// The raw hash is unexported on purpose, so these specs exercise it the way
+	// every caller now must: by stamping the parsed config.
 	revision := func(cfg *config.ModelConfig) string {
-		value, err := config.ModelConfigRevision(cfg)
-		Expect(err).NotTo(HaveOccurred())
-		return value
+		Expect(cfg.StampPersistedConfigRevision()).To(Succeed())
+		return cfg.PersistedConfigRevision()
 	}
 
 	It("is stable across equivalent YAML formatting and map order", func() {

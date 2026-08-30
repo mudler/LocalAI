@@ -42,6 +42,8 @@ func (s *stubNodeCommandSender) StopBackend(_, _ string) error { return nil }
 
 func (s *stubNodeCommandSender) UnloadModelOnNode(_, _ string) error { return nil }
 
+func (s *stubNodeCommandSender) PingNode(_ string) error { return nil }
+
 var _ = Describe("ListBackendsOnNodeEndpoint", func() {
 	var registry *nodes.NodeRegistry
 

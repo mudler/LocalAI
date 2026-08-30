@@ -225,6 +225,42 @@ type ModelSchedulingConfig struct {
 	UnsatisfiableTicks int       `gorm:"column:unsatisfiable_ticks;default:0" json:"unsatisfiable_ticks"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
+
+	// TargetModel is the model this rule actually governs: ModelName itself,
+	// or, when ModelName is an alias, the model that alias points at. Callers
+	// must use Target() for anything that touches a loaded replica (counting,
+	// capacity, scheduling, eviction) and ModelName for anything that touches
+	// this rule's own row.
+	//
+	// Every read re-derives it from the live alias mapping, so Go callers never
+	// see a stale value. It is stored as well, purely so the eviction guard in
+	// evictLRUAndFreeNodeFrom can match a rule to a loaded replica inside its
+	// locking transaction: that check is raw SQL and cannot resolve an alias.
+	// RefreshSchedulingTargets rewrites the stored copy on every reconciler
+	// tick, so repointing an alias reaches the guard within a tick.
+	TargetModel string `gorm:"column:target_model;size:255" json:"target_model,omitempty"`
+	// ModelIsAlias reports whether ModelName is an alias rather than a model.
+	// Also derived on every read. An alias whose TargetModel equals ModelName
+	// is one that could not be resolved (its target is gone, or points at
+	// another alias): it governs nothing loadable.
+	ModelIsAlias bool `gorm:"-" json:"model_is_alias,omitempty"`
+	// Shadowed reports that another rule already governs this rule's target, so
+	// this one has no effect. Set only by ListModelSchedulings, which sees every
+	// rule at once. Write paths reject creating such a pair, but one can still
+	// arrive from a seed file or from repointing an alias onto a model that
+	// already has a rule, and an inert rule the operator cannot see is worse
+	// than one that is labelled.
+	Shadowed bool `gorm:"-" json:"shadowed,omitempty"`
+}
+
+// Target returns the model this rule governs. It falls back to ModelName when
+// the rule was built by hand rather than read through the registry, so a rule
+// that was never alias-resolved still governs itself.
+func (c ModelSchedulingConfig) Target() string {
+	if c.TargetModel != "" {
+		return c.TargetModel
+	}
+	return c.ModelName
 }
 
 // NodeWithExtras extends BackendNode with computed fields for list views.
@@ -323,6 +359,13 @@ type NodeRegistry struct {
 	// Stored in an atomic.Pointer to an immutable slice so the startup wiring
 	// (append) and request / reconcile handling (fire) are race-free.
 	replicaRemovedHooks atomic.Pointer[[]func(modelName, nodeID string, replicaIndex int)]
+
+	// aliasResolver maps a scheduling rule's model name onto the model it
+	// governs, so a rule can be keyed by an alias. Installed once at startup
+	// (see SetAliasResolver); nil means every rule governs its own name.
+	// Held in an atomic.Pointer for the same reason as the hooks above: the
+	// startup wiring writes it while request handling reads it.
+	aliasResolver atomic.Pointer[AliasResolver]
 }
 
 // AddReplicaRemovedHook registers a callback invoked after a replica row for
@@ -403,6 +446,14 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
+
+	// Rules written before scheduling rules could be keyed by an alias have no
+	// stored target. They are all direct rules, so their target is their own
+	// name, and the eviction guard needs the column filled in to match them.
+	_ = advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
+		return db.Exec(`UPDATE model_scheduling_configs SET target_model = model_name
+			WHERE target_model IS NULL OR target_model = ''`).Error
+	})
 
 	// One-shot cleanup of queue rows that can never drain: ops targeted at
 	// agent workers (wrong subscription set), at non-existent nodes, or with
@@ -1968,13 +2019,14 @@ func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSche
 	if config.ID == "" {
 		config.ID = uuid.New().String()
 	}
+	r.applyTarget(config)
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "model_name"}},
 			DoUpdates: clause.AssignmentColumns([]string{
 				"node_selector", "min_replicas", "max_replicas", "spread_all",
 				"route_policy", "balance_abs_threshold", "balance_rel_threshold", "min_prefix_match",
-				"updated_at",
+				"target_model", "updated_at",
 			}),
 		}).
 		Create(config).Error
@@ -2004,6 +2056,7 @@ func (r *NodeRegistry) GetModelScheduling(ctx context.Context, modelName string)
 	if err != nil {
 		return nil, err
 	}
+	r.applyTarget(&config)
 	return &config, nil
 }
 
@@ -2011,6 +2064,10 @@ func (r *NodeRegistry) GetModelScheduling(ctx context.Context, modelName string)
 func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
 	err := r.db.WithContext(ctx).Order("model_name ASC").Find(&configs).Error
+	for i := range configs {
+		r.applyTarget(&configs[i])
+	}
+	markShadowed(configs)
 	return configs, err
 }
 
@@ -2018,6 +2075,9 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
 	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
+	for i := range configs {
+		r.applyTarget(&configs[i])
+	}
 	return configs, err
 }
 

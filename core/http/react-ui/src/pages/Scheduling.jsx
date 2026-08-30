@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { nodesApi } from '../utils/api'
+import { nodesApi, modelsApi } from '../utils/api'
 import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ResponsiveTable from '../components/ResponsiveTable'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import KeyValueChips from '../components/nodes/KeyValueChips'
+import { labelIndex } from '../utils/nodeLabelSuggestions'
 
 // Numeric input with quick-pick preset chips. Picked over a slider because
 // replica counts are exact specs (operator math), not fuzzy estimates. The
@@ -65,7 +66,7 @@ function configMode(config) {
   return 'placement'
 }
 
-function SchedulingForm({ initialConfig, onSave, onCancel }) {
+function SchedulingForm({ initialConfig, onSave, onCancel, labels, aliases }) {
   const [mode, setMode] = useState(() => configMode(initialConfig))
   const [modelName, setModelName] = useState(initialConfig?.model_name || '')
   // Selector is now a chip-builder map instead of a comma-separated string.
@@ -83,6 +84,10 @@ function SchedulingForm({ initialConfig, onSave, onCancel }) {
   const [minPrefixMatch, setMinPrefixMatch] = useState(initialConfig?.min_prefix_match ?? 0)
 
   const hasSelector = Object.keys(selector).length > 0
+  // Aliases are listed in the picker alongside models, tagged with the model
+  // they resolve to so the two are distinguishable in one flat list.
+  const aliasHints = Object.fromEntries(Object.entries(aliases || {}).map(([name, target]) => [name, `alias of ${target}`]))
+  const aliasTarget = (aliases || {})[modelName]
 
   const isValid = () => {
     if (!modelName) return false
@@ -158,8 +163,19 @@ function SchedulingForm({ initialConfig, onSave, onCancel }) {
             <SearchableModelSelect
               value={modelName}
               onChange={setModelName}
-              placeholder="Type to search models, or paste a name..."
+              placeholder="Type to search models or aliases, or paste a name..."
+              hints={aliasHints}
             />
+          )}
+          {/* An alias is a stable name for whichever model currently serves it,
+              so a rule on one is a rule on a slot rather than on a model. Say
+              so at the point of choosing, because the consequence (repointing
+              the alias carries the rule along) is not visible anywhere else. */}
+          {aliasTarget && (
+            <span className="text-meta d-block mt-xs">
+              <i className="fas fa-link icon-before" aria-hidden="true" />
+              {modelName} is an alias for {aliasTarget}. This rule applies to whichever model the alias points at, and follows it if you repoint it.
+            </span>
           )}
         </div>
 
@@ -174,6 +190,10 @@ function SchedulingForm({ initialConfig, onSave, onCancel }) {
             placeholderKey="key (e.g. gpu.vendor)"
             placeholderValue="value (e.g. nvidia)"
             ariaLabel="Node selector"
+            ariaLabelKey="Selector key"
+            ariaLabelValue="Selector value"
+            addLabel="Add selector"
+            suggestions={labels}
           />
           <span className="text-meta d-block mt-xs">
             {mode === 'placement'
@@ -285,139 +305,40 @@ function SchedulingForm({ initialConfig, onSave, onCancel }) {
   )
 }
 
-const INITIAL_NODE_LIMIT = 5
-const NODE_LIMIT_STEP = 20
-
-function fuzzyIncludes(text, term) {
-  if (text.includes(term)) return true
-  let termIndex = 0
-  for (const character of text) {
-    if (character === term[termIndex]) termIndex++
-    if (termIndex === term.length) return true
-  }
-  return false
-}
-
-function matchesNode(node, query) {
-  const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean)
-  if (!terms.length) return true
-  const labels = Object.entries(node.labels || {})
-  const haystack = [
-    node.name,
-    node.id,
-    ...labels.flatMap(([key, value]) => [key, String(value), `${key}=${value}`]),
-  ].filter(Boolean).join(' ').toLocaleLowerCase()
-  return terms.every(term => fuzzyIncludes(haystack, term))
-}
-
-function NodeLabelReference() {
-  const [expanded, setExpanded] = useState(true)
-  const [nodes, setNodes] = useState([])
-  const [query, setQuery] = useState('')
-  const [visibleLimit, setVisibleLimit] = useState(INITIAL_NODE_LIMIT)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  const fetchNodes = useCallback(async () => {
-    setLoading(true)
-    setError(false)
-    try {
-      const data = await nodesApi.list()
-      setNodes(Array.isArray(data) ? data : [])
-    } catch {
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { fetchNodes() }, [fetchNodes])
-
-  const filtered = nodes.filter(node => matchesNode(node, query))
-  const visible = filtered.slice(0, visibleLimit)
-  const updateQuery = event => {
-    setQuery(event.target.value)
-    setVisibleLimit(INITIAL_NODE_LIMIT)
-  }
-
-  return (
-    <section className="card scheduling-node-reference" data-testid="node-label-reference">
-      <button
-        type="button"
-        className="scheduling-node-reference__toggle"
-        aria-expanded={expanded}
-        aria-controls="scheduling-node-label-content"
-        onClick={() => setExpanded(value => !value)}
-      >
-        <span><i className="fas fa-tags icon-before" aria-hidden="true" />Node labels</span>
-        <i className={`fas fa-chevron-${expanded ? 'up' : 'down'}`} aria-hidden="true" />
-      </button>
-      {expanded && (
-        <div id="scheduling-node-label-content" className="scheduling-node-reference__content">
-          <p className="text-note">Browse labels available for node selectors without leaving this page.</p>
-          {loading ? (
-            <p className="scheduling-node-message" role="status">Loading node labels…</p>
-          ) : error ? (
-            <div className="scheduling-node-message" role="alert">
-              <span>Could not load node labels.</span>
-              <button type="button" className="btn btn-secondary btn-sm" aria-label="Retry loading node labels" onClick={fetchNodes}>Retry</button>
-            </div>
-          ) : nodes.length === 0 ? (
-            <p className="scheduling-node-message">No nodes are available yet.</p>
-          ) : (
-            <>
-              <div className="scheduling-node-toolbar">
-                <input
-                  type="search"
-                  className="input"
-                  aria-label="Search node labels"
-                  placeholder="Search node, label, or key=value…"
-                  value={query}
-                  onChange={updateQuery}
-                />
-                <span className="text-meta" aria-live="polite">{Math.min(visibleLimit, filtered.length)} of {filtered.length} nodes</span>
-              </div>
-              {filtered.length === 0 ? (
-                <p className="scheduling-node-message">No nodes match your search.</p>
-              ) : (
-                <div className="scheduling-node-grid">
-                  {visible.map(node => {
-                    const labels = Object.entries(node.labels || {})
-                    return (
-                      <article className="scheduling-node-card" key={node.id || node.name}>
-                        <div className="scheduling-node-card__header">
-                          <strong>{node.name || node.id}</strong>
-                          <span className={`scheduling-node-status scheduling-node-status--${String(node.status || 'unknown').toLowerCase()}`}>{node.status || 'unknown'}</span>
-                        </div>
-                        {labels.length ? (
-                          <div className="scheduling-node-labels">
-                            {labels.map(([key, value]) => <span className="scheduling-node-label" key={key}>{key}={String(value)}</span>)}
-                          </div>
-                        ) : <span className="text-note">No labels</span>}
-                      </article>
-                    )
-                  })}
-                </div>
-              )}
-              {visibleLimit < filtered.length && (
-                <button type="button" className="btn btn-secondary btn-sm scheduling-show-more" aria-label="Show 20 more nodes" onClick={() => setVisibleLimit(limit => limit + NODE_LIMIT_STEP)}>
-                  Show 20 more
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </section>
-  )
-}
-
 export default function Scheduling() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
   const [schedulingConfigs, setSchedulingConfigs] = useState([])
   const [formState, setFormState] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  // The label vocabulary the selector field completes against. A roster that
+  // will not load costs the admin the hints and nothing else, so the failure
+  // is swallowed rather than surfaced: the field still commits whatever is
+  // typed into it.
+  const [labels, setLabels] = useState(() => labelIndex([]))
+  // name -> target for every configured alias. Feeds the picker so aliases are
+  // listed as schedulable names. Failing to load costs the annotation and
+  // nothing else: an alias typed by hand still resolves server-side.
+  const [aliases, setAliases] = useState({})
+
+  useEffect(() => {
+    let cancelled = false
+    modelsApi.listAliases()
+      .then(data => {
+        if (cancelled || !Array.isArray(data)) return
+        setAliases(Object.fromEntries(data.map(a => [a.name, a.target])))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    nodesApi.list()
+      .then(data => { if (!cancelled) setLabels(labelIndex(Array.isArray(data) ? data : [])) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const fetchScheduling = useCallback(async () => {
     try {
@@ -453,7 +374,6 @@ export default function Scheduling() {
         supporting={t('scheduling.subtitle')}
       />
       <div>
-        <NodeLabelReference />
         <button className="btn btn-primary btn-sm mb-md"
           onClick={() => setFormState(current => current?.kind === 'add' ? null : { kind: 'add' })}>
           <i className="fas fa-plus icon-before" />
@@ -465,6 +385,8 @@ export default function Scheduling() {
             initialConfig={formState.kind === 'edit' ? formState.config : undefined}
             onSave={handleSave}
             onCancel={() => setFormState(null)}
+            labels={labels}
+            aliases={aliases}
           />
         )}
         {schedulingConfigs.length === 0 && !formState ? (
@@ -496,9 +418,26 @@ export default function Scheduling() {
                   // of the model silently failing to scale.
                   const unsatisfiableUntil = cfg.unsatisfiable_until ? new Date(cfg.unsatisfiable_until) : null
                   const isUnsatisfiable = unsatisfiableUntil && unsatisfiableUntil.getTime() > Date.now()
+                  // A rule keyed by an alias names a slot, so the model it
+                  // currently governs is worth showing next to it.
+                  const governs = cfg.target_model && cfg.target_model !== cfg.model_name ? cfg.target_model : null
+                  const danglingAlias = cfg.model_is_alias && !governs
                   return (
                   <tr key={cfg.id || cfg.model_name}>
-                    <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cfg.model_name}</td>
+                    <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                      {cfg.model_name}
+                      {governs && (
+                        <div className="text-meta scheduling-rule-target">
+                          <i className="fas fa-arrow-right icon-before" aria-hidden="true" />
+                          {governs}
+                        </div>
+                      )}
+                      {danglingAlias && (
+                        <div className="text-meta scheduling-rule-target--broken">
+                          alias points at nothing
+                        </div>
+                      )}
+                    </td>
                     <td>
                       <span style={{
                         display: 'inline-block', fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
@@ -545,7 +484,15 @@ export default function Scheduling() {
                       ) : '-'}
                     </td>
                     <td>
-                      {isUnsatisfiable ? (
+                      {cfg.shadowed ? (
+                        <span
+                          className="scheduling-rule-shadowed"
+                          title="Another rule already governs the same model, so this one has no effect. Placement decides where a single shared load runs, so only one rule per model can apply."
+                        >
+                          <i className="fas fa-eye-slash icon-before" />
+                          Shadowed
+                        </span>
+                      ) : isUnsatisfiable ? (
                         <span
                           title={`Reconciler couldn't satisfy this rule (capacity exhausted). Will retry by ${unsatisfiableUntil.toLocaleString()}, or sooner on a node lifecycle change.`}
                           style={{

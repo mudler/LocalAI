@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=97d2990807fe6d558e395f8764198d7c7e7b411c
+STABLEDIFFUSION_GGML_VERSION?=be0e34480dada95f8ce9a021bbb95c5de85d67c7
 
 CMAKE_ARGS+=-DGGML_MAX_NAME=128
 
@@ -38,8 +38,11 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_PATH ?= /opt/rocm
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
-	AMDGPU_TARGETS?=gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1200,gfx1201
-	CMAKE_ARGS+=-DSD_HIPBLAS=ON -DGGML_HIPBLAS=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
+	AMDGPU_TARGETS?=gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+	# SD_HIPBLAS turns on ggml's HIP backend itself; GGML_HIPBLAS is the name ggml
+	# used before it was renamed to GGML_HIP, so passing it here only produced an
+	# unused-variable warning.
+	CMAKE_ARGS+=-DSD_HIPBLAS=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DSD_VULKAN=ON -DGGML_VULKAN=ON
 else ifeq ($(BUILD_TYPE),metal)

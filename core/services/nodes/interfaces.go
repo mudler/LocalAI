@@ -49,6 +49,7 @@ type ModelRouter interface {
 	FindLRUModel(ctx context.Context, nodeID string) (*NodeModel, error)
 	Get(ctx context.Context, nodeID string) (*BackendNode, error)
 	GetModelScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
+	GetGoverningScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
 	FindNodesBySelector(ctx context.Context, selector map[string]string) ([]BackendNode, error)
 	FindNodesWithFreeSlot(ctx context.Context, modelName string, candidateNodeIDs []string) ([]BackendNode, error)
 	NarrowByDiskHeadroom(ctx context.Context, candidateNodeIDs []string, required uint64) ([]string, error)
@@ -60,6 +61,7 @@ type ModelRouter interface {
 	GetNodeLabels(ctx context.Context, nodeID string) ([]NodeLabel, error)
 	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
 	LoadedReplicaStats(ctx context.Context, modelName string, candidateNodeIDs []string) ([]ReplicaCandidate, error)
+	MarkUnhealthy(ctx context.Context, nodeID string) error
 	LoadJobStore
 }
 

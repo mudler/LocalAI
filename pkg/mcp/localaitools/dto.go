@@ -128,13 +128,19 @@ type ModelSchedulingConfig struct {
 	BalanceAbsThreshold int     `json:"balance_abs_threshold,omitempty"`
 	BalanceRelThreshold float64 `json:"balance_rel_threshold,omitempty"`
 	MinPrefixMatch      float64 `json:"min_prefix_match,omitempty"`
+	// TargetModel is the model the rule governs. It differs from ModelName when
+	// the rule is keyed by an alias, in which case it follows the alias.
+	TargetModel string `json:"target_model,omitempty"`
+	// Shadowed reports that another rule already governs TargetModel, leaving
+	// this one with no effect.
+	Shadowed bool `json:"shadowed,omitempty"`
 }
 
 // SetSchedulingRequest is the input for set_scheduling. It mirrors
 // /api/nodes/scheduling so standalone MCP and REST callers preserve the same
 // PATCH-style semantics for the optional prefix-cache routing fields.
 type SetSchedulingRequest struct {
-	ModelName           string            `json:"model_name"                         jsonschema:"Installed model name whose distributed scheduling rule should be created or updated."`
+	ModelName           string            `json:"model_name"                         jsonschema:"Installed model name, or model alias, whose distributed scheduling rule should be created or updated. A rule keyed by an alias follows that alias to whatever model it currently points at."`
 	NodeSelector        map[string]string `json:"node_selector,omitempty"            jsonschema:"Optional node-label selector. Empty means any healthy backend node."`
 	MinReplicas         int               `json:"min_replicas"                       jsonschema:"Minimum desired replicas. Mutually exclusive with spread_all."`
 	MaxReplicas         int               `json:"max_replicas"                       jsonschema:"Maximum desired replicas. Must be >= min_replicas when non-zero. Mutually exclusive with spread_all."`

@@ -10,10 +10,17 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// ModelConfigRevision returns a stable revision of the persisted semantic
+// modelConfigRevision returns a stable revision of the persisted semantic
 // configuration. ModelConfig's JSON tags exclude runtime-derived state and
 // source bookkeeping, while encoding/json orders map keys deterministically.
-func ModelConfigRevision(cfg *ModelConfig) (string, error) {
+//
+// Deliberately unexported. It must only ever be called on a configuration as
+// parsed from disk, before SetDefaults folds in the GGUF guess, the hardware
+// defaults and app-level options. Callers outside this package cannot tell
+// which they hold, and every time one hashed a defaulted or request-merged
+// config it published a revision no inference request would carry, which makes
+// the model unroutable. Use ModelConfigLoader.RevisionFor instead.
+func modelConfigRevision(cfg *ModelConfig) (string, error) {
 	if cfg == nil {
 		return "", errors.New("model config is nil")
 	}

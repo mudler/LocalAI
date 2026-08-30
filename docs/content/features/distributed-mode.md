@@ -486,6 +486,43 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 
 The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
 
+### Model sizing in the WebUI
+
+The model gallery answers "will this model run here" against the cluster, not
+against the frontend. A distributed frontend is usually a GPU-less pod, so
+sizing models against its own memory would report that a fleet of GPU workers
+can only run the smallest CPU build.
+
+The budget is the **largest single healthy backend node**, not the sum of the
+fleet: a model loads into one node, so four 16GB workers do not add up to a home
+for a 40GB model. A node's operator-set VRAM budget caps its contribution, since
+the scheduler would refuse a load above that ceiling anyway, and a GPU node wins
+over a CPU node holding more system RAM. The gallery names the node its verdict
+belongs to ("Fits on dgx-01").
+
+`GET /api/resources` and `GET /api/models` carry this as an additional `cluster`
+object; their existing `aggregate` and `ram*` fields keep reporting the
+frontend's own hardware, which is what the resource monitor shows. The object is
+absent in single-node mode, and also whenever the registry cannot be read, in
+which case every sizing surface falls back to the local host:
+
+```json
+{
+  "cluster": {
+    "enabled": true,
+    "node_id": "a1b2c3",
+    "node_name": "dgx-01",
+    "total_memory": 85899345920,
+    "is_gpu": true,
+    "node_count": 4
+  }
+}
+```
+
+Variant selection (`GET /api/models/variants/:id`) uses the same reading, and
+judges backend compatibility against the union of the capabilities present in
+the cluster, so a CUDA-only build is offered when any worker can run it.
+
 ### Model configuration revisions
 
 Distributed mode assigns a `config_revision` to each validated model configuration. It hashes the persisted semantic configuration, including fields such as `context_size` and parallel settings. YAML formatting, comments, and map order do not change it.
@@ -836,6 +873,12 @@ curl -X POST http://frontend:8080/api/nodes/scheduling \
 
 Without a node selector, models can schedule on any healthy node (default behavior).
 
+In the WebUI, the node selector field completes what you type against the labels
+your cluster actually reports: start typing a key and the matching label keys
+appear inline, then the value field offers only the values that key takes. A key
+no node reports yet is still accepted as typed, so you can write a rule before
+labelling the nodes for it.
+
 ### Replica Auto-Scaling
 
 Control the number of model replicas across the cluster:
@@ -870,6 +913,40 @@ All fields are optional and composable:
 - Node selector only: pin model to matching nodes, single replica
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
+
+### Scheduling a model alias
+
+`model_name` accepts a [model alias](/features/model-aliases/) as well as a
+model. A rule keyed by an alias governs whatever model that alias currently
+points at, and keeps governing it after you repoint the alias:
+
+```bash
+# "production" is an alias for llama3
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "production", "node_selector": {"tier": "gpu"}, "min_replicas": 2}'
+
+# Repoint the alias at a new model: the rule follows, llama4 now runs
+# two replicas on the GPU tier and llama3 falls back to on-demand placement.
+```
+
+This makes an alias a stable deployment slot: the placement policy belongs to
+the slot, and the model filling it can change without rewriting the rule. The
+WebUI lists aliases in the model picker on the **Scheduling** page, tagged with
+the model each one resolves to.
+
+Two constraints follow from replicas being shared. A single load of `llama3`
+serves both `production` and any request that names `llama3` directly, so only
+one rule can decide where it runs: a rule whose target is already governed by
+another rule is rejected with `409 Conflict` naming the rule that has it. And a
+rule keyed by an alias that resolves to nothing (its target was deleted, or it
+points at another alias) is rejected, since it would govern nothing loadable.
+
+A rule can still end up inert if the pair is created some other way, for example
+by a declarative seed or by repointing an alias onto a model that already has a
+rule. The rule that governs is the one keyed by the model's own name, or failing
+that the oldest one; the rest are listed as **Shadowed** in the WebUI and carry
+`"shadowed": true` in `GET /api/nodes/scheduling`.
 
 ### Declarative per-model scheduling (unattended installs)
 
@@ -1020,6 +1097,18 @@ Notes:
 - Upgrade the worker when it does not support the exact model-stop request.
 - Stop and restart the stale backend only as an operational recovery action. LocalAI keeps it non-routable while durable cleanup is pending.
 
+**A model cannot be scheduled on a node that looks free (`no replica slot ... all models busy, cannot evict`):**
+- A replica row in `staging` or `loading` holds its slot: slot allocation counts every state except `unloading`. If a worker drops out mid-transfer, that row never reaches `loaded`, and eviction only ever considers `loaded` replicas, so on a node with one replica slot per model the model became unschedulable there.
+- The reconciler now reclaims a replica row stuck before serving when no load job is still driving it, and the freed slot is immediately reusable.
+- Liveness is decided by the load job's progress heartbeat, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer that is still progressing is never reclaimed however long it takes.
+- `Reconciler: reclaimed a replica slot held by a load nobody is driving` names each row reclaimed this way.
+
+**A request fails with `nats: no responders available for request`:**
+- The chosen worker was not subscribed on the bus when the frontend tried to install the backend on it. A node's status comes from its HTTP heartbeat, which is a separate channel: a worker that stops stays `healthy` until that heartbeat ages out.
+- The scheduler now checks that a node still answers on the bus before it commits to it, marks one that does not as unhealthy, and picks another. A request should therefore see this only when no reachable node is left.
+- Only a no-responders answer counts as absent. A worker that answers slowly stays eligible, because excluding it would cost capacity that is really there.
+- Check the worker process is running and its NATS connection is up. `Scheduled node is not answering on the bus` in the frontend log names each node demoted this way.
+
 **A worker fills its own disk over time:**
 - A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.
 - Releases before this sweep existed kept every staged input for the lifetime of the worker. Delete `<models>/../staging/ephemeral/` on an affected worker once, as the user the worker runs as; the sweep keeps it bounded from then on.
@@ -1029,8 +1118,9 @@ Notes:
 **Requests fail with `stale model config revision` although nobody edited the model:**
 - A model's stored revision must describe its persisted configuration. Releases before this fix also hashed the per-request prediction parameters, so the first request after a restart pinned the revision to its own `temperature`, `top_p`, `stop` and similar values. Every later request that sent different values was then rejected.
 - Upgrade the frontend replicas first. After the upgrade the revision is stamped when the configuration is loaded, so it no longer depends on the request body.
-- The stored revision does not heal on its own, because the recorded value belongs to no persisted configuration. Clear it once per affected model so the next request establishes the correct revision: `DELETE FROM model_config_states WHERE model_name = '<model>';`
-- Saving any edit for the model through the API or the WebUI has the same effect, because an edit publishes the current revision.
+- Each frontend now reconciles the stored revisions against the configuration on disk at startup, and republishes any that disagree, so a drifted revision heals on the next restart. Only models that actually drifted are republished, because republishing quarantines the replicas loaded under the old revision.
+- A model that has never been served has no stored revision and is left alone; its first request establishes one.
+- On a release without that reconciliation, clear the row once per affected model so the next request establishes the correct revision: `DELETE FROM model_config_states WHERE model_name = '<model>';` Saving any edit through the API or the WebUI has the same effect.
 
 **Port conflicts on workers:**
 - Each model gets its own gRPC process on an incrementing port (50051, 50052, ...)

@@ -600,6 +600,14 @@ func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetScheduli
 		return nil, err
 	}
 
+	// Same alias rules as POST /api/nodes/scheduling: a rule may be keyed by an
+	// alias and then follows it, an alias that resolves to nothing is refused,
+	// and a model already governed by another rule cannot take a second one.
+	target, err := c.NodeRegistry.ValidateSchedulingTarget(ctx, req.ModelName)
+	if err != nil {
+		return nil, err
+	}
+
 	var selectorJSON string
 	if len(req.NodeSelector) > 0 {
 		b, err := json.Marshal(req.NodeSelector)
@@ -610,6 +618,7 @@ func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetScheduli
 	}
 	config := &nodes.ModelSchedulingConfig{
 		ModelName:           req.ModelName,
+		TargetModel:         target,
 		NodeSelector:        selectorJSON,
 		MinReplicas:         req.MinReplicas,
 		MaxReplicas:         req.MaxReplicas,

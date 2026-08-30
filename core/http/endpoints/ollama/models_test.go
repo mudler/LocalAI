@@ -146,6 +146,20 @@ parameters:
 			Expect(resp.Details.Format).To(Equal("gguf"))
 			Expect(resp.Details.Families).ToNot(BeEmpty())
 		})
+
+		It("looks up the model when the Ollama :latest tag is included", func() {
+			writeConfig("chat", `
+name: chat
+backend: llama-cpp
+template:
+  chat: "{{ .Input }}"
+parameters:
+  model: Llama-3-8B-Q4_K_M.gguf
+`)
+			resp := callShow("chat:latest")
+			Expect(resp.Details.Format).To(Equal("gguf"))
+			Expect(resp.Capabilities).To(ContainElement("completion"))
+		})
 	})
 
 	Describe("ListModelsEndpoint", func() {

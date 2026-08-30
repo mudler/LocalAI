@@ -294,9 +294,9 @@ var _ = Describe("Edit Model test", func() {
 			Expect(client.published[0]).To(Equal(messaging.CacheInvalidateEvent{
 				Element: "old", Op: "delete", ConfigRevision: modeladmin.DeletedModelConfigRevision("old"),
 			}))
-			newConfig, ok := loader.GetModelConfig("new")
+			_, ok := loader.GetModelConfig("new")
 			Expect(ok).To(BeTrue())
-			newRevision, err := config.ModelConfigRevision(&newConfig)
+			newRevision, err := loader.RevisionForPath("new", tempDir)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(client.published[1]).To(Equal(messaging.CacheInvalidateEvent{
 				Element: "new", Op: "install", ConfigRevision: newRevision,
@@ -313,9 +313,9 @@ var _ = Describe("Edit Model test", func() {
 			}
 			_, oldOnPeer := peerLoader.GetModelConfig("old")
 			Expect(oldOnPeer).To(BeFalse())
-			peerConfig, newOnPeer := peerLoader.GetModelConfig("new")
+			_, newOnPeer := peerLoader.GetModelConfig("new")
 			Expect(newOnPeer).To(BeTrue())
-			peerRevision, err := config.ModelConfigRevision(&peerConfig)
+			peerRevision, err := peerLoader.RevisionForPath("new", tempDir)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(peerRevision).To(Equal(newRevision))
 			Expect(peerLifecycle.batches).To(Equal([][]modeladmin.ModelRevisionTransition{

@@ -123,6 +123,14 @@ func getDirectorySize(path string) (int64, error) {
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
 
+	// Both are nil in single-node mode, which leaves every surface below
+	// sizing models against the local host exactly as it always has. In
+	// distributed mode the models run on the workers, so "how big a model fits"
+	// and "which hardware can run it" are questions about them, not about this
+	// usually GPU-less controller.
+	clusterMemory := ClusterMemoryProviderFor(applicationInstance)
+	clusterCapabilities := ClusterCapabilityProviderFor(applicationInstance)
+
 	// Operations API - Get all current operations (models + backends)
 	app.GET("/api/operations", func(c echo.Context) error {
 		processingData, taskTypes := opcache.GetStatus()
@@ -772,7 +780,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		ramInfo, _ := xsysinfo.GetSystemRAMInfo()
 
-		return c.JSON(200, map[string]any{
+		listing := map[string]any{
 			"models":           modelsJSON,
 			"repositories":     appConfig.Galleries,
 			"allTags":          tags,
@@ -788,7 +796,16 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"totalPages":       totalPages,
 			"prevPage":         prevPage,
 			"nextPage":         nextPage,
-		})
+		}
+
+		// The ram* fields above stay the controller's own, so nothing that
+		// reads them changes meaning; a client sizing models reads this
+		// instead, and it is absent entirely in single-node mode.
+		if block := clusterResourceBlock(resolveClusterMemory(c.Request().Context(), clusterMemory)); block != nil {
+			listing["cluster"] = block
+		}
+
+		return c.JSON(200, listing)
 	}, adminMiddleware)
 
 	// Returns installed models with their capability flags for UI filtering
@@ -1000,7 +1017,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		// The full, unpaginated list: a variant references another gallery
 		// entry by name and that entry need not be anywhere near this one.
-		env := gallery.HostResolveEnv(c.Request().Context(), appConfig.SystemState)
+		env := clusterModelEnv(c.Request().Context(), appConfig.SystemState, clusterMemory, clusterCapabilities)
 		view, err := gallery.DescribeVariants(models, model, env)
 		if err != nil {
 			// A malformed variant list must not break the picker; the entry
@@ -1874,6 +1891,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"reclaimer_enabled":   appConfig.MemoryReclaimerEnabled,
 			"reclaimer_threshold": appConfig.MemoryReclaimerThreshold,
 			"watchdog_interval":   watchdogInterval,
+		}
+
+		// An additional field, never a rewrite of the local aggregate above:
+		// the resource monitor reports this controller's genuine own usage, and
+		// only the model-sizing surfaces read the cluster block.
+		if block := clusterResourceBlock(resolveClusterMemory(c.Request().Context(), clusterMemory)); block != nil {
+			response["cluster"] = block
 		}
 
 		return c.JSON(200, response)

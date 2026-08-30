@@ -96,6 +96,67 @@ class TestSglangHelpers(unittest.TestCase):
             servicer._apply_engine_args({}, "[1,2,3]")
         self.assertIn("must be a JSON object", str(ctx.exception))
 
+    def test_build_prompt_forwards_enable_thinking(self):
+        from types import SimpleNamespace
+
+        class Tok:
+            def __init__(self):
+                self.kwargs = None
+
+            def apply_chat_template(self, messages, **kwargs):
+                self.kwargs = kwargs
+                return "PROMPT"
+
+        def kwargs_for(metadata):
+            servicer = self._servicer()
+            tok = Tok()
+            servicer.tokenizer = tok
+            msg = SimpleNamespace(
+                role="user", content="hi", name="",
+                tool_call_id="", reasoning_content="", tool_calls="",
+            )
+            req = SimpleNamespace(
+                Prompt="", UseTokenizerTemplate=True,
+                Messages=[msg], Tools="", Metadata=metadata,
+            )
+            self.assertEqual(servicer._build_prompt(req), "PROMPT")
+            return tok.kwargs
+
+        self.assertIs(kwargs_for({"enable_thinking": "true"})["enable_thinking"], True)
+        # "false" used to be dropped, so Qwen3 kept thinking on
+        self.assertIs(kwargs_for({"enable_thinking": "false"})["enable_thinking"], False)
+        self.assertNotIn("enable_thinking", kwargs_for({}))
+        self.assertIs(kwargs_for({"enable_thinking": "FALSE"})["enable_thinking"], False)
+
+    def test_explicit_zero_temperature_is_preserved(self):
+        """Temperature=0 is valid greedy decoding, not an unset value."""
+        from types import SimpleNamespace
+
+        servicer = self._servicer()
+        request = SimpleNamespace(
+            Temperature=0,
+            N=0,
+            PresencePenalty=0,
+            FrequencyPenalty=0,
+            RepetitionPenalty=0,
+            TopP=0,
+            TopK=0,
+            MinP=0,
+            Seed=0,
+            StopPrompts=[],
+            StopTokenIds=[],
+            IgnoreEOS=False,
+            Tokens=0,
+            MinTokens=0,
+            SkipSpecialTokens=False,
+            Grammar="",
+        )
+
+        params = servicer._build_sampling_params(request)
+        self.assertEqual(params["temperature"], 0)
+        # Other protobuf-default scalar fields must remain filtered.
+        self.assertNotIn("top_p", params)
+
 
 if __name__ == "__main__":
     unittest.main()
