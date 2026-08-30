@@ -8666,6 +8666,8 @@
     - model: lfm2.5-8b-a1b-ud-q5-k-m
     - model: lfm2.5-8b-a1b-ud-q6-k
     - model: lfm2.5-8b-a1b-q8-0
+    - model: lfm2.5-8b-a1b-dspark
+    - model: lfm2.5-8b-a1b-q8-dspark
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF
@@ -8698,6 +8700,109 @@
     - filename: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q8_0.gguf
       uri: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-Q8_0.gguf
       sha256: 33ab3b8ce6a964fb8ebac89360c9b3cf72c4fa418d5e4c0a94d46883124d5c02
+- name: "lfm2.5-8b-a1b-dspark"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B
+    - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF
+    - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-DSpark-GGUF
+  description: |
+    LFM2.5-8B-A1B with LiquidAI's DSpark speculative drafter. This build pairs
+    the Q4_K_M target with the compact Q4_K_M draft sidecar for lower-memory
+    hosts. DSpark proposes blocks of tokens that the target model verifies,
+    which preserves the target model's output while accelerating generation.
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+    - dspark
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/qUZVGkns1bg3sZUShBbhv.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    draft_model: llama-cpp/models/LFM2.5-8B-A1B-DSpark-GGUF/LFM2.5-8B-A1B-DSpark-Q4_K_M.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:10
+      - spec_n_min:0
+    parameters:
+      min_p: 0.15
+      model: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+      top_p: 0.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q4_K_M.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-Q4_K_M.gguf
+      sha256: 4923ec14f06b968b74d663e5949867d2d9c3bf13a20b8be1a9f9af39989b2bb0
+    - filename: llama-cpp/models/LFM2.5-8B-A1B-DSpark-GGUF/LFM2.5-8B-A1B-DSpark-Q4_K_M.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-DSpark-GGUF/resolve/main/LFM2.5-8B-A1B-DSpark-Q4_K_M.gguf
+      sha256: 017278ec4409671890f2722a690a52dba59f5f02eff604f0c1e79cf52f7c4ae8
+- name: "lfm2.5-8b-a1b-q8-dspark"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B
+    - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF
+    - https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-DSpark-GGUF
+  description: |
+    LFM2.5-8B-A1B with LiquidAI's DSpark speculative drafter. This build pairs
+    the higher-quality Q8_0 target with the recommended F16 draft sidecar for
+    the best acceptance length. DSpark proposes blocks of tokens that the
+    target model verifies, which preserves the target model's output while
+    accelerating generation.
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - cpu
+    - gpu
+    - dspark
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/qUZVGkns1bg3sZUShBbhv.png
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    draft_model: llama-cpp/models/LFM2.5-8B-A1B-DSpark-GGUF/LFM2.5-8B-A1B-DSpark-F16.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:10
+      - spec_n_min:0
+    parameters:
+      min_p: 0.15
+      model: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q8_0.gguf
+      repeat_penalty: 1.05
+      temperature: 0.1
+      top_k: 50
+      top_p: 0.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/LFM2.5-8B-A1B-GGUF/LFM2.5-8B-A1B-Q8_0.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/main/LFM2.5-8B-A1B-Q8_0.gguf
+      sha256: 33ab3b8ce6a964fb8ebac89360c9b3cf72c4fa418d5e4c0a94d46883124d5c02
+    - filename: llama-cpp/models/LFM2.5-8B-A1B-DSpark-GGUF/LFM2.5-8B-A1B-DSpark-F16.gguf
+      uri: https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-DSpark-GGUF/resolve/main/LFM2.5-8B-A1B-DSpark-F16.gguf
+      sha256: a73be221783d3e832016c73945640fd81376f5de7a250025fd67a536435ce4b6
 - name: "qwopus3.5-9b-coder-mtp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
