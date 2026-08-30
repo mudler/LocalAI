@@ -600,6 +600,19 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			xlog.Info("Image signature verified", "ref", pinned)
 		}
 
+		// A CNCF ModelPack artifact carries model files directly rather than a
+		// runnable container filesystem, so it cannot be extracted as an image
+		// tar. Acquiring it is delegated to a running `llmman serve`, which
+		// already implements the ModelPack media types and keeps a
+		// content-addressed store.
+		isModelPack, err := oci.IsModelPackImage(img)
+		if err != nil {
+			return fmt.Errorf("inspecting manifest of %q: %v", url, err)
+		}
+		if isModelPack {
+			return fetchModelPackViaLlmman(ctx, url, filePath, downloadStatus)
+		}
+
 		return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
 	}
 
