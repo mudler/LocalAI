@@ -16341,6 +16341,112 @@
     - filename: antares-1b-q8_0.gguf
       sha256: f0b147c42d9056d59eb3f0ab51d4d57a2259bf1b4e37ae986ef96a6c2e0ac6b7
       uri: huggingface://mitkox/antares-1b-Q8_0-GGUF/antares-1b-q8_0.gguf
+- &granite-4-2-3b-vllm
+  name: "granite-4.2-3b:vllm"
+  variants:
+    - model: granite-4.2-8b:vllm
+    - model: granite-4.2-30b:vllm
+  url: "github:mudler/LocalAI/gallery/vllm.yaml@master"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-3b
+  description: |
+    Granite 4.2 3B is IBM's compact dense reasoning model for code generation,
+    tool calling, agentic workflows, multilingual chat, and long-context tasks.
+    This entry serves the bfloat16 safetensors with vLLM and supports a
+    128K-token context. It is the smallest fallback in a family that also offers
+    the higher-capacity 8B and 30B checkpoints as variants.
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/639bcaa2445b133a4e942436/CEW-OjXkRkDNmTxSu8Egh.png
+  tags:
+    - llm
+    - vllm
+    - gpu
+    - granite
+    - granite-4.2
+    - 3b
+    - reasoning
+    - code
+    - function-calling
+    - agentic
+    - multilingual
+    - long-context
+    - instruction-tuned
+  last_checked: "2026-08-29"
+  overrides:
+    context_size: 131072
+    options:
+      - reasoning_parser:granite
+      - tool_parser:qwen3_coder
+    parameters:
+      model: ibm-granite/granite-4.2-3b
+      temperature: 1
+      top_p: 0.95
+- !!merge <<: *granite-4-2-3b-vllm
+  name: "granite-4.2-8b:vllm"
+  variants: []
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-8b
+  description: |
+    Granite 4.2 8B is IBM's mid-sized dense reasoning model for code generation,
+    tool calling, agentic workflows, multilingual chat, and long-context tasks.
+    This entry serves the higher-capacity bfloat16 safetensors with vLLM and
+    supports a 128K-token context.
+  tags:
+    - llm
+    - vllm
+    - gpu
+    - granite
+    - granite-4.2
+    - 8b
+    - reasoning
+    - code
+    - function-calling
+    - agentic
+    - multilingual
+    - long-context
+    - instruction-tuned
+  overrides:
+    context_size: 131072
+    options:
+      - reasoning_parser:granite
+      - tool_parser:qwen3_coder
+    parameters:
+      model: ibm-granite/granite-4.2-8b
+      temperature: 1
+      top_p: 0.95
+- !!merge <<: *granite-4-2-3b-vllm
+  name: "granite-4.2-30b:vllm"
+  variants: []
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.2-30b
+  description: |
+    Granite 4.2 30B is IBM's largest dense Granite 4.2 reasoning model for code
+    generation, tool calling, agentic workflows, multilingual chat, and
+    long-context tasks. This entry serves the bfloat16 safetensors with vLLM and
+    supports a 128K-token context.
+  tags:
+    - llm
+    - vllm
+    - gpu
+    - granite
+    - granite-4.2
+    - 30b
+    - reasoning
+    - code
+    - function-calling
+    - agentic
+    - multilingual
+    - long-context
+    - instruction-tuned
+  overrides:
+    context_size: 131072
+    options:
+      - reasoning_parser:granite
+      - tool_parser:qwen3_coder
+    parameters:
+      model: ibm-granite/granite-4.2-30b
+      temperature: 1
+      top_p: 0.95
 - name: ibm-granite_granite-4.0-h-small
   url: github:mudler/LocalAI/gallery/granite4.yaml@master
   urls:
