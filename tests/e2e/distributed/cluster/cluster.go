@@ -44,7 +44,10 @@ type Options struct {
 
 // Process is one running local-ai.
 type Process struct {
-	Name    string
+	Name string
+	// Cmd is exposed for signalling only. Never call Cmd.Wait on it: the reaper
+	// goroutine started in spawn owns it, a second Wait races the first, and
+	// waitErr is only safe to read after <-p.exited.
 	Cmd     *exec.Cmd
 	Port    int
 	LogPath string
@@ -70,6 +73,10 @@ const (
 	defaultAdminEmail        = "admin@e2e.local"
 	readinessTimeout         = 90 * time.Second
 	readinessPoll            = 200 * time.Millisecond
+	// processExitTimeout bounds the post-SIGKILL wait in terminate. An unbounded
+	// wait turns one stuck child (D state, or a Wait that never returns) into a
+	// suite-wide Ginkgo timeout that names nothing.
+	processExitTimeout = 10 * time.Second
 )
 
 func (o *Options) applyDefaults() {
@@ -94,8 +101,10 @@ func (o Options) validate() error {
 	return nil
 }
 
-// Start brings up the cluster and blocks until every frontend answers /readyz
-// and every worker has registered.
+// Start brings up the cluster. It blocks until every frontend answers /readyz
+// and every worker process has been spawned. It does NOT wait for workers to
+// register: that needs an authenticated admin session, so a caller that depends
+// on registration must poll /api/nodes itself.
 func Start(opts Options) (*Cluster, error) {
 	opts.applyDefaults()
 	if err := opts.validate(); err != nil {
@@ -110,7 +119,7 @@ func Start(opts Options) (*Cluster, error) {
 	c := &Cluster{opts: opts, baseDir: baseDir}
 
 	for i := 0; i < opts.Frontends; i++ {
-		p, err := c.startFrontend(i)
+		p, err := c.startFrontend(i, 0)
 		if err != nil {
 			c.Stop()
 			return nil, err
@@ -128,10 +137,17 @@ func Start(opts Options) (*Cluster, error) {
 	return c, nil
 }
 
-func (c *Cluster) startFrontend(i int) (*Process, error) {
-	port, err := freeport.GetFreePort()
-	if err != nil {
-		return nil, fmt.Errorf("allocating frontend port: %w", err)
+// startFrontend starts frontend i. A port <= 0 allocates a fresh one; a pinned
+// port exists for restart: workers take LOCALAI_REGISTER_TO once at boot and
+// never re-resolve it, so a replica that comes back on a new port is
+// unreachable by exactly the workers that registered with it.
+func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
+	if port <= 0 {
+		allocated, err := freeport.GetFreePort()
+		if err != nil {
+			return nil, fmt.Errorf("allocating frontend port: %w", err)
+		}
+		port = allocated
 	}
 	name := fmt.Sprintf("frontend-%d", i)
 	dir := filepath.Join(c.baseDir, name)
@@ -218,7 +234,9 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 
 func (c *Cluster) spawn(name string, cmd *exec.Cmd, port int) (*Process, error) {
 	logPath := filepath.Join(c.opts.LogDir, name+".log")
-	f, err := os.Create(logPath)
+	// Append rather than truncate: a restarted process reopens the same path, and
+	// the log of the instance that died is the one a failover post-mortem needs.
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		return nil, fmt.Errorf("creating log file for %s: %w", name, err)
 	}
@@ -246,7 +264,11 @@ func (p *Process) terminate() {
 		return
 	}
 	_ = p.Cmd.Process.Kill()
-	<-p.exited
+	select {
+	case <-p.exited:
+	case <-time.After(processExitTimeout):
+		fmt.Printf("warning: %s did not exit within %s after SIGKILL; continuing teardown\n", p.Name, processExitTimeout)
+	}
 	if p.logFile != nil {
 		_ = p.logFile.Close()
 	}
@@ -265,6 +287,11 @@ func (c *Cluster) WorkerName(i int) string {
 // Stop terminates every process and removes the work directory. Logs survive in
 // LogDir, which the caller owns.
 func (c *Cluster) Stop() {
+	// Start returns (nil, err) after stopping itself, so a spec that defers
+	// c.Stop before asserting the error would otherwise nil-deref.
+	if c == nil {
+		return
+	}
 	for _, p := range append(append([]*Process{}, c.workers...), c.frontends...) {
 		p.terminate()
 	}
