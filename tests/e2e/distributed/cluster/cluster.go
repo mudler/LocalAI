@@ -152,8 +152,8 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 		}
 		port = allocated
 	}
-	name := fmt.Sprintf("frontend-%d", i)
-	dir := filepath.Join(c.baseDir, name)
+	name := frontendName(i)
+	dir := c.frontendDir(i)
 	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
 		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
 	}
@@ -164,7 +164,7 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 	// ${cwd}/data (core/cli/run.go:48), which under `go test` is inside the
 	// source tree and shared by every replica: one collectiondb, one task and
 	// job store for processes that are meant to be independent.
-	dataPath := filepath.Join(dir, "data")
+	dataPath := c.frontendDataDir(i)
 	if err := os.MkdirAll(dataPath, 0o750); err != nil {
 		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
 	}

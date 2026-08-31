@@ -57,3 +57,31 @@ var _ = Describe("Admin session", Label("Distributed"), func() {
 		Expect(err.Error()).To(ContainSubstring("frontend 1"))
 	})
 })
+
+// Like the admin specs above, these cover argument validation only. Killing,
+// stopping and restarting a real replica needs a built local-ai plus Postgres
+// and NATS, so those paths stay unexecuted until the failover suites land.
+var _ = Describe("Failure primitives", Label("Distributed"), func() {
+	It("rejects an out-of-range frontend index rather than panicking", func() {
+		c := cluster.ForTestingEmpty()
+		Expect(c.KillFrontend(0)).To(MatchError(ContainSubstring("frontend 0 out of range")))
+		Expect(c.StopFrontendGracefully(2)).To(MatchError(ContainSubstring("frontend 2 out of range")))
+		Expect(c.KillWorker(1)).To(MatchError(ContainSubstring("worker 1 out of range")))
+	})
+
+	It("rejects a restart of a frontend index that does not exist", func() {
+		Expect(cluster.ForTestingEmpty().RestartFrontend(0)).
+			To(MatchError(ContainSubstring("frontend 0 out of range")))
+	})
+
+	It("rejects a negative index without treating it as an offset from the end", func() {
+		c := cluster.ForTestingEmpty()
+		Expect(c.KillFrontend(-1)).To(MatchError(ContainSubstring("frontend -1 out of range")))
+		Expect(c.KillWorker(-1)).To(MatchError(ContainSubstring("worker -1 out of range")))
+		Expect(c.FrontendAlive(-1)).To(BeFalse())
+	})
+
+	It("reports a frontend that was never started as not alive", func() {
+		Expect(cluster.ForTestingEmpty().FrontendAlive(0)).To(BeFalse())
+	})
+})
