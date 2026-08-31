@@ -78,8 +78,9 @@ func (c *Cluster) KillWorker(i int) error {
 //		Should(BeFalse())
 //
 // FrontendAlive takes an index, so it has to be wrapped in a closure; handing
-// Gomega the method value directly fails with "requested 1 arguments but
-// received 0". Restart
+// Gomega the method value directly fails immediately: Eventually reports that
+// the function it was given takes one argument and none were provided, and
+// points at Eventually().WithArguments(). Restart
 // terminates whatever is still running with SIGKILL, so restarting straight
 // after a SIGTERM cuts the drain short and quietly turns the rolling-update
 // case into the crash case, which is the opposite of what pairing those two
