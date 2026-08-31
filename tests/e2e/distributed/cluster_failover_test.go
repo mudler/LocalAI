@@ -155,8 +155,9 @@ func (p *rosterProbe) explainStuckOffline(worker, format string, args ...any) fu
 // Consistently(healthy) passes BECAUSE NOTHING WAS CHECKING, and this helper
 // still succeeds afterwards once the session is reaped and the lock comes free.
 // That wedge is transient rather than permanent, which is exactly the shape the
-// backwards inference cannot see. Low probability, real, and unbounded only by
-// how fast Postgres notices a dead connection.
+// backwards inference cannot see. Low probability, real, and bounded by how
+// fast Postgres reaps the dead backend, usually immediate on a local socket
+// close.
 //
 // So treat this as a floor and not a proof: it rules out a health monitor that
 // is permanently dead, which is the failure that would otherwise make the
