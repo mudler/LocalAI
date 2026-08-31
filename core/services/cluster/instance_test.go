@@ -98,4 +98,18 @@ var _ = Describe("Advertised address discovery", func() {
 		_, err := cluster.DiscoverAdvertisedAddr("", 8080)
 		Expect(err).To(HaveOccurred())
 	})
+
+	// A database on this same host routes over loopback on every platform, so
+	// this is deterministic rather than host-dependent. Returning 127.0.0.1
+	// would make a peer dialling this replica reach itself.
+	It("refuses a loopback route instead of advertising an address peers cannot use", func() {
+		addr, err := cluster.DiscoverAdvertisedAddr("postgres://user@127.0.0.1:5432/testdb", 8080)
+		Expect(addr).To(BeEmpty())
+		Expect(err).To(MatchError(ContainSubstring("loopback")))
+	})
+
+	It("refuses a port that cannot be dialled", func() {
+		_, err := cluster.DiscoverAdvertisedAddr("postgres://198.51.100.1:5432/testdb", 0)
+		Expect(err).To(MatchError(ContainSubstring("out of range")))
+	})
 })
