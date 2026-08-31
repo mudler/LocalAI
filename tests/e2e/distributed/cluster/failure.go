@@ -33,8 +33,8 @@ func (c *Cluster) StopFrontendGracefully(i int) error {
 
 // KillWorker SIGKILLs worker i.
 func (c *Cluster) KillWorker(i int) error {
-	if i < 0 || i >= len(c.workers) {
-		return fmt.Errorf("worker %d out of range (cluster has %d)", i, len(c.workers))
+	if err := c.checkWorkerIndex(i); err != nil {
+		return err
 	}
 	return signalProcess(c.workers[i], syscall.SIGKILL)
 }
@@ -156,6 +156,15 @@ func signalProcess(p *Process, sig syscall.Signal) error {
 func (c *Cluster) checkFrontendIndex(i int) error {
 	if i < 0 || i >= len(c.frontends) {
 		return fmt.Errorf("frontend %d out of range (cluster has %d)", i, len(c.frontends))
+	}
+	return nil
+}
+
+// checkWorkerIndex is checkFrontendIndex for workers, and exists for the same
+// reason: one wording, whichever primitive tripped.
+func (c *Cluster) checkWorkerIndex(i int) error {
+	if i < 0 || i >= len(c.workers) {
+		return fmt.Errorf("worker %d out of range (cluster has %d)", i, len(c.workers))
 	}
 	return nil
 }
