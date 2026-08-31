@@ -5,6 +5,8 @@ package auth
 import (
 	"net/http"
 	"strings"
+
+	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 )
 
 type publicRouteRule struct {
@@ -77,5 +79,10 @@ func isPublicRoute(method, path string) bool {
 // usesAlternativeAuthentication identifies requests whose credentials are
 // validated by route-group middleware instead of the global auth middleware.
 func usesAlternativeAuthentication(path string) bool {
-	return strings.HasPrefix(path, "/api/node/")
+	// The peer link carries the cluster token in an Authorization header that
+	// no browser session ever sets, and its handler checks that token itself.
+	// The prefix comes from the endpoints package so the route and the
+	// exemption cannot drift apart.
+	return strings.HasPrefix(path, "/api/node/") ||
+		strings.HasPrefix(path, clusterep.AlternativeAuthPrefix)
 }
