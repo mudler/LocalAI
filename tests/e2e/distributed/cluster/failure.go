@@ -58,6 +58,25 @@ func (c *Cluster) KillWorker(i int) error {
 // {DataPath}/.hmac_secret, and wiping it would make every session minted before
 // the restart hash to a row the restarted replica cannot find, turning a
 // failover assertion into an unexplained 401.
+//
+// The wipe also destroys state that nothing can rebuild. This harness sets no
+// LOCALAI_STORAGE_URL, so the distributed object store is a directory under
+// {DataPath} (core/application/distributed.go:146), and quantization and
+// fine-tune jobs write their outputs to {DataPath}/quantization and
+// {DataPath}/fine-tune (core/services/{quantization,finetune}/service.go:95);
+// agent state, router-corpus, the voiceprofile store and {DataPath}/traces go
+// the same way. Postgres keeps the job row, the artifact it points at is gone.
+// So a spec that finishes a quantization or fine-tune on a replica, restarts
+// it, and then asserts the artifact is retrievable fails for a storage reason
+// dressed up as a failover one. No spec does that today; this note is here so
+// the first one that tries does not spend a day on it.
+//
+// After StopFrontendGracefully, wait for the process to actually go
+// (Eventually(c.FrontendAlive).Should(BeFalse())) before restarting. Restart
+// terminates whatever is still running with SIGKILL, so restarting straight
+// after a SIGTERM cuts the drain short and quietly turns the rolling-update
+// case into the crash case, which is the opposite of what pairing those two
+// calls is meant to express.
 func (c *Cluster) RestartFrontend(i int) error {
 	if err := c.checkFrontendIndex(i); err != nil {
 		return err
@@ -66,13 +85,18 @@ func (c *Cluster) RestartFrontend(i int) error {
 	if old == nil {
 		return fmt.Errorf("frontend %d was never started, nothing to restart", i)
 	}
+	// frontendDataDir is relative when baseDir is empty, and this deletes it:
+	// a Cluster assembled by a future test helper without a work dir would have
+	// RemoveAll walking "frontend-N/data" under the package source directory.
+	if c.baseDir == "" {
+		return fmt.Errorf("refusing to wipe the data dir of frontend %d: cluster has no work dir", i)
+	}
 	// The old process may still be running (a restart with no preceding kill) or
 	// already dead but unreaped. terminate is idempotent, bounds its wait, and
 	// releases the log handle the replacement is about to reopen; without it the
 	// replacement races the old listener for the port and leaks a file
 	// descriptor per restart.
 	old.terminate()
-
 	if err := os.RemoveAll(c.frontendDataDir(i)); err != nil {
 		return fmt.Errorf("wiping data dir of frontend %d: %w", i, err)
 	}
@@ -93,10 +117,17 @@ func (c *Cluster) FrontendAlive(i int) bool {
 	return c.frontends[i].alive()
 }
 
-// alive reports whether the process is still running. The reaper's exited
-// channel is authoritative and is consulted first: between a child's death and
-// the reaper's Wait returning, the child is a zombie, and signal 0 to a zombie
-// succeeds, which would report a dead replica as alive.
+// alive reports whether the process is still running.
+//
+// The exited check is cheap hygiene, not a fix for the zombie window. The
+// reaper closes exited only after Cmd.Wait returns, and Wait marks the
+// os.Process done before it returns (runtime/os pidfd path), so by the time
+// exited is closed signal 0 already errors: this branch cannot fire earlier
+// than the one it precedes. The window that stays open is the other one,
+// between the child exiting and waitid collecting it: there the child is a
+// zombie, signal 0 to a zombie succeeds, and alive reports true for a process
+// that is already dead. There is no local fix; the caller's is to poll,
+// Eventually(c.FrontendAlive).Should(BeFalse()), rather than assert once.
 func (p *Process) alive() bool {
 	if p == nil || p.Cmd == nil || p.Cmd.Process == nil {
 		return false
