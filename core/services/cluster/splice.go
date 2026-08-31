@@ -69,15 +69,22 @@ func copyStream(dst io.Writer, src io.Reader) error {
 }
 
 // normalizeStreamErr drops the endings that mean the conversation is over
-// rather than broken. io.EOF is the clean end of a stream, net.ErrClosed is
-// what a socket reports once it or its peer has been closed, and
-// io.ErrClosedPipe is the same condition on an in-memory pipe.
+// rather than broken: net.ErrClosed is what a socket reports once it or its
+// peer has been closed, and io.ErrClosedPipe is the same condition on an
+// in-memory pipe.
+//
+// io.EOF is deliberately absent. A clean read-side EOF never gets this far,
+// because io.Copy consumes it and reports nil, and neither *yamux.Stream nor
+// *net.TCPConn takes a WriteTo/ReadFrom path that would hand one back. So a
+// bare io.EOF arriving here came from a failing Write or Close, where it means
+// the peer is gone, and yamux produces exactly that when a Write races its
+// session's shutdown (see isMuxSessionFailure).
 //
 // The mux checks run first, and that ordering is load-bearing: a dying yamux
-// session hands every live stream its own cause wrapped up (session.go:330),
-// and that cause is routinely io.EOF or a closed-socket error, so consulting
-// the generic endings first would report a peer that vanished mid-request as a
-// clean completion.
+// session usually hands every live stream its own cause wrapped up
+// (session.go:330), and that cause is routinely a closed-socket error, so
+// consulting the generic endings first would report a peer that vanished
+// mid-request as a clean completion.
 func normalizeStreamErr(err error) error {
 	if err == nil {
 		return nil
@@ -88,8 +95,7 @@ func normalizeStreamErr(err error) error {
 	if isMuxStreamTeardown(err) {
 		return nil
 	}
-	if errors.Is(err, io.EOF) ||
-		errors.Is(err, net.ErrClosed) ||
+	if errors.Is(err, net.ErrClosed) ||
 		errors.Is(err, io.ErrClosedPipe) {
 		return nil
 	}
@@ -122,6 +128,13 @@ func isMuxSessionFailure(err error) bool {
 	// the cause, so the bare sentinel means this stream was reset and a
 	// wrapped one means the session died under it. Identity is what separates
 	// them; errors.Is cannot.
+	//
+	// Wrapped is not the only way a dead session shows up, though. close()
+	// publishes shutdownErr and closes shutdownCh before it force-closes the
+	// streams, so a Write or Close landing in that window gets the raw cause
+	// back instead (session.go:507-510, 528-533). That form is unrecognisable
+	// as yamux at all, which is why normalizeStreamErr no longer forgives a
+	// bare io.EOF: for a peer that vanished, the raw cause is precisely io.EOF.
 	return errors.Is(err, yamux.ErrStreamReset) && err != yamux.ErrStreamReset
 }
 
