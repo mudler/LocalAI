@@ -56,6 +56,11 @@ type Process struct {
 	// exited closes once the reaper has collected the process. Only the reaper
 	// calls Cmd.Wait, so nothing else may: a second Wait on the same Cmd races
 	// the first and corrupts ProcessState.
+	//
+	// A closed exited proves the child is gone. An open one proves nothing: it
+	// is still open for the whole interval between the child exiting and waitid
+	// collecting it, during which the child is a zombie that signal 0 reports as
+	// alive. Anything asserting on a process being dead must poll, not sample.
 	exited  chan struct{}
 	waitErr error
 }
