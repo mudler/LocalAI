@@ -1,6 +1,7 @@
 package cluster_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -206,6 +207,23 @@ var _ = Describe("Splice", func() {
 			Entry("an internal-error go-away", &yamux.GoAwayError{Remote: true, ErrorCode: 2}),
 		)
 
+		// A bare io.EOF can only reach Splice from a failing Write. io.Copy
+		// never surfaces a clean read-side EOF, and yamux hands out the raw
+		// cause rather than the wrapped one when a Write or Close races
+		// Session.close's shutdown window (session.go:507-510), so for a
+		// vanished peer this IS the dead session, arriving unwrapped.
+		It("reports a write that fails with a bare EOF", func() {
+			sink := &scriptedStream{writeErr: io.EOF}
+			source := &scriptedStream{feeds: true}
+
+			done := make(chan error, 1)
+			go func() { done <- cluster.Splice(sink, source) }()
+
+			var err error
+			Eventually(done, "5s").Should(Receive(&err))
+			Expect(err).To(MatchError(io.EOF))
+		})
+
 		// The distinction the classifier turns on, in one spec: yamux uses the
 		// same sentinel for "this stream was reset", which Splice provokes
 		// itself and must stay quiet about, and as the head of the wrapped
@@ -254,6 +272,57 @@ var _ = Describe("Splice", func() {
 			Eventually(done, "5s").Should(Receive(BeNil()))
 		})
 
+		// Everything above feeds Splice a synthesized error. This one drives a
+		// real yamux session, because the shapes a live library produces are
+		// not always the ones its source suggests: the bug this spec was added
+		// alongside was a race inside Session.close that no synthesized error
+		// could show. It asserts only that a dead session is reported, not how
+		// it is spelled, since which of the two forms arrives is a race.
+		It("reports a real yamux session dying under a live stream", func() {
+			clientConn, serverConn := net.Pipe()
+			client, err := yamux.Client(clientConn, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			server, err := yamux.Server(serverConn, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() {
+				_ = client.Close()
+				_ = server.Close()
+			})
+
+			accepted := make(chan *yamux.Stream, 1)
+			go func() {
+				defer GinkgoRecover()
+				far, err := server.AcceptStream()
+				if err != nil {
+					close(accepted)
+					return
+				}
+				accepted <- far
+			}()
+
+			stream, err := client.OpenStream(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			// Push a byte so the stream is established on both sides before
+			// the session is killed.
+			_, err = stream.Write([]byte("x"))
+			Expect(err).ToNot(HaveOccurred())
+			var far *yamux.Stream
+			Eventually(accepted, "10s").Should(Receive(&far))
+			_, err = far.Read(make([]byte, 1))
+			Expect(err).ToNot(HaveOccurred())
+
+			done := make(chan error, 1)
+			go func() { done <- cluster.Splice(stream, &scriptedStream{}) }()
+
+			// The peer's process disappears: the connection carrying the
+			// session goes away, which kills every stream riding on it.
+			Expect(serverConn.Close()).To(Succeed())
+
+			var spliceErr error
+			Eventually(done, "10s").Should(Receive(&spliceErr))
+			Expect(spliceErr).To(HaveOccurred())
+		})
+
 		// The anti-leak guarantee, which the pipe specs cannot see because
 		// their parked copy is released too quickly to catch Splice in the
 		// act. Waking a copy is asynchronous on a real stream (yamux's Close
@@ -281,7 +350,11 @@ var _ = Describe("Splice", func() {
 // parks in Read until Close, standing in for an idle half of a live stream.
 type scriptedStream struct {
 	readErr  error
+	writeErr error
 	closeErr error
+	// feeds makes Read produce bytes instead of parking, so a spec can keep a
+	// direction copying until its destination fails.
+	feeds bool
 	// holdReadPastClose keeps a parked Read blocked until release is called,
 	// standing in for the gap between a Close waking a reader and that reader
 	// running. Without it, Close releases the Read as a real stream does.
@@ -307,11 +380,24 @@ func (s *scriptedStream) Read(p []byte) (int, error) {
 	if s.readErr != nil {
 		return 0, s.readErr
 	}
+	if s.feeds {
+		select {
+		case <-s.gate():
+			return 0, io.EOF
+		default:
+			return len(p), nil
+		}
+	}
 	<-s.gate()
 	return 0, io.EOF
 }
 
-func (s *scriptedStream) Write(p []byte) (int, error) { return len(p), nil }
+func (s *scriptedStream) Write(p []byte) (int, error) {
+	if s.writeErr != nil {
+		return 0, s.writeErr
+	}
+	return len(p), nil
+}
 
 func (s *scriptedStream) Close() error {
 	s.closeN.Add(1)
