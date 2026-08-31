@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"time"
 
@@ -115,12 +116,32 @@ var _ = Describe("WebsocketConn framing", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		// A read spanning three messages must be satisfied, and the empty
-		// message must not surface as a premature (0, nil) or an EOF.
+		// A read spanning several messages must be satisfied: a message
+		// boundary is not the end of the stream.
 		got := make([]byte, 10)
 		_, err := io.ReadFull(reader, got)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(got)).To(Equal("abcdefghij"))
+	})
+
+	It("never hands back a zero-length read for a zero-length message", func() {
+		clientWS, serverWS := wsPair()
+		writer := clusterep.WebsocketConn(clientWS)
+		reader := clusterep.WebsocketConn(serverWS)
+
+		Expect(reader.SetReadDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
+
+		// An empty message carries nothing to return. Handing back (0, nil)
+		// would be legal for io.Reader but reads as a stalled stream to callers
+		// that loop on n, so the adapter waits for the next message instead.
+		_, err := writer.Write(nil)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = writer.Write([]byte("xy"))
+		Expect(err).ToNot(HaveOccurred())
+
+		n, err := reader.Read(make([]byte, 8))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(n).To(Equal(2))
 	})
 
 	It("reports a clean peer close as io.EOF", func() {
@@ -145,18 +166,71 @@ var _ = Describe("WebsocketConn framing", func() {
 		Expect(err.Error()).To(ContainSubstring("want binary"))
 	})
 
-	It("satisfies net.Conn, including the deadlines yamux sets on every write", func() {
+	It("satisfies net.Conn", func() {
 		clientWS, _ := wsPair()
 		var conn net.Conn = clusterep.WebsocketConn(clientWS)
 
 		Expect(conn.LocalAddr()).ToNot(BeNil())
 		Expect(conn.RemoteAddr()).ToNot(BeNil())
-		// yamux's sendLoop calls SetWriteDeadline before every flush, so an
-		// adapter that dropped the call would let a stalled peer block the
-		// session forever instead of failing it.
-		Expect(conn.SetWriteDeadline(time.Now().Add(time.Minute))).To(Succeed())
-		Expect(conn.SetReadDeadline(time.Now().Add(time.Minute))).To(Succeed())
-		Expect(conn.SetDeadline(time.Time{})).To(Succeed())
+	})
+
+	It("enforces a write deadline, which yamux arms before every flush", func() {
+		clientWS, _ := wsPair()
+		conn := clusterep.WebsocketConn(clientWS)
+
+		// Asserting that the setter returns nil would prove nothing: gorilla
+		// only records the deadline and applies it at the next flush. The write
+		// below is what shows the deadline reached the socket, and an adapter
+		// that swallowed the call would let a stalled peer block yamux's send
+		// loop forever instead of failing it.
+		Expect(conn.SetWriteDeadline(time.Now().Add(-time.Second))).To(Succeed())
+		_, err := conn.Write([]byte("x"))
+		Expect(err).To(HaveOccurred())
+		Expect(os.IsTimeout(err)).To(BeTrue(), "want a timeout, got %v", err)
+	})
+
+	It("enforces a read deadline, which is how a parked reader is unblocked", func() {
+		clientWS, _ := wsPair()
+		conn := clusterep.WebsocketConn(clientWS)
+
+		Expect(conn.SetReadDeadline(time.Now().Add(-time.Second))).To(Succeed())
+		_, err := conn.Read(make([]byte, 8))
+		Expect(err).To(HaveOccurred())
+		Expect(os.IsTimeout(err)).To(BeTrue(), "want a timeout, got %v", err)
+	})
+
+	It("arms both directions from SetDeadline", func() {
+		clientWS, _ := wsPair()
+		conn := clusterep.WebsocketConn(clientWS)
+
+		Expect(conn.SetDeadline(time.Now().Add(-time.Second))).To(Succeed())
+
+		_, err := conn.Read(make([]byte, 8))
+		Expect(os.IsTimeout(err)).To(BeTrue(), "read: want a timeout, got %v", err)
+		_, err = conn.Write([]byte("x"))
+		Expect(os.IsTimeout(err)).To(BeTrue(), "write: want a timeout, got %v", err)
+	})
+
+	It("lets a deadline be armed while another goroutine writes", func() {
+		// Task 5's relay arms an idle deadline from a supervisor goroutine while
+		// yamux's send loop writes. gorilla keeps the write deadline in a plain
+		// struct field, so this is a data race unless the adapter serialises it;
+		// the spec is here to be run under -race, where it would report one.
+		clientWS, _ := wsPair()
+		conn := clusterep.WebsocketConn(clientWS)
+
+		done := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(done)
+			for i := 0; i < 200; i++ {
+				_, _ = conn.Write([]byte("ping"))
+			}
+		}()
+		for i := 0; i < 200; i++ {
+			_ = conn.SetWriteDeadline(time.Now().Add(time.Minute))
+		}
+		Eventually(done, "20s").Should(BeClosed())
 	})
 })
 
