@@ -40,6 +40,17 @@ type Options struct {
 
 	Frontends int
 	Workers   int
+
+	// SpreadWorkerRegistrations sends worker i to frontend i%Frontends instead
+	// of sending every worker to frontend 0.
+	//
+	// Off by default, and deliberately so: the cross-replica session specs read
+	// a node at frontend 1 that only frontend 0 was ever told about, and
+	// spreading registrations would leave them passing while proving nothing.
+	// It exists for the racing-replicas spec, which is about two replicas
+	// writing to one roster concurrently and cannot express that at all while
+	// every worker registers through the same process.
+	SpreadWorkerRegistrations bool
 }
 
 // Process is one running local-ai.
@@ -248,19 +259,25 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		fmt.Sprintf("LOCALAI_ADVERTISE_ADDR=127.0.0.1:%d", grpcPort),
 		fmt.Sprintf("LOCALAI_HTTP_ADDR=127.0.0.1:%d", httpPort),
 		fmt.Sprintf("LOCALAI_ADVERTISE_HTTP_ADDR=127.0.0.1:%d", httpPort),
-		// Workers register with frontend 0 ONLY, never with every replica, and
-		// the cross-replica session specs depend on that. They prove a session
-		// minted at frontend 0 resolves at frontend 1 by reading a node that
-		// only frontend 0 was ever told about; register the worker everywhere
-		// and they still pass while proving nothing.
+		// Workers register with frontend 0 ONLY unless the caller opts into
+		// SpreadWorkerRegistrations, and the cross-replica session specs depend
+		// on that default. They prove a session minted at frontend 0 resolves at
+		// frontend 1 by reading a node that only frontend 0 was ever told about;
+		// register the worker everywhere and they still pass while proving
+		// nothing.
 		//
 		// Nothing in those specs can detect the change. The registry keys nodes
 		// by name and preserves ids across the shared Postgres
 		// (core/services/nodes/registry.go:522-527), so a roster read at
-		// frontend 1 looks identical either way. Anyone pointing workers at
-		// more than one replica must revisit
-		// tests/e2e/distributed/cluster_baseline_test.go by hand.
-		"LOCALAI_REGISTER_TO="+c.FrontendURL(0),
+		// frontend 1 looks identical either way. Anyone changing the default
+		// here must revisit tests/e2e/distributed/cluster_baseline_test.go by
+		// hand.
+		//
+		// The registrar also fixes where this worker's heartbeats go for the
+		// rest of its life: the loop posts to the URL it was given at boot and
+		// never re-resolves it (core/cli/workerregistry/client.go), so killing a
+		// worker's registrar orphans that worker rather than failing it over.
+		"LOCALAI_REGISTER_TO="+c.FrontendURL(c.registrarFor(i)),
 		"LOCALAI_NODE_NAME="+name,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
 		"LOCALAI_NATS_URL="+c.opts.NatsURL,
@@ -320,6 +337,23 @@ func (c *Cluster) FrontendURL(i int) string {
 // WorkerName is the node name worker i registered under.
 func (c *Cluster) WorkerName(i int) string {
 	return c.workers[i].Name
+}
+
+// registrarFor is the frontend index worker i registers and heartbeats with.
+//
+// It is read at spawn time and baked into the worker's environment, so it is
+// also the answer to "which replica's death orphans this worker".
+func (c *Cluster) registrarFor(worker int) int {
+	if !c.opts.SpreadWorkerRegistrations || c.opts.Frontends < 1 {
+		return 0
+	}
+	return worker % c.opts.Frontends
+}
+
+// WorkerRegistrar is registrarFor, exported so a spec can say which replica it
+// is about to kill relative to a worker instead of re-deriving the rule.
+func (c *Cluster) WorkerRegistrar(worker int) int {
+	return c.registrarFor(worker)
 }
 
 // Stop terminates every process and removes the work directory. Logs survive in
