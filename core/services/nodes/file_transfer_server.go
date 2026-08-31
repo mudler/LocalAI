@@ -839,6 +839,13 @@ func handleBackendLogsWS(w http.ResponseWriter, r *http.Request, logStore *model
 
 	conn := &backendLogsWSConn{Conn: ws}
 
+	// KNOWN RACE: the snapshot is sent before the subscription is registered, so
+	// a line appended in that window is never streamed. A viewer attaching while
+	// a model loads (when a backend is at its noisiest) can silently miss lines;
+	// they stay in the buffer, so a reload shows them. Fixing it needs an atomic
+	// snapshot-plus-subscribe under the store lock, not a reorder of these two
+	// calls, which would duplicate instead of drop.
+
 	// Send existing lines as initial batch
 	existingLines := logStore.GetLines(modelID)
 	initialMsg := map[string]any{
