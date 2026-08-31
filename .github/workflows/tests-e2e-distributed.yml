@@ -95,12 +95,26 @@ jobs:
     # spawns two or three local-ai children, so --procs on an unmeasured runner
     # is a change to make with numbers, not by default.
     #
-    # Measured at 8m39s over three consecutive runs (509.1s / 509.8s / 512.3s).
-    # Three specs sit at ~167s each because they wait out a 60s staleness
-    # threshold plus a 15s reconcile tick. Do not shorten those windows to make
-    # this job faster: the wait is what stops the assertions from passing before
-    # the system could have reacted, which was a real false green earlier on.
-    timeout-minutes: 25
+    # The two timeouts bound different things and are not alternatives. Ginkgo's
+    # --timeout=20m bounds the SUITE only; this job timeout must additionally
+    # cover setup, which here is the larger and more variable half: submodule
+    # checkout, apt, protoc plus two go installs plus protogen-go, a cold-cache
+    # module download (cache: false), a full go build of ./cmd/local-ai, and a
+    # separate ginkgo test compile. That build alone is ~316s of CPU, so on a
+    # 4-vCPU runner setup is realistically 8-12 minutes.
+    #
+    # 45 minutes therefore, matching the sibling job. A tighter number does not
+    # make a hang fail faster, it just moves the kill from Ginkgo, which prints
+    # which spec hung, to the runner, which prints nothing: a red job with no
+    # evidence, which is how a suite gets disabled rather than fixed.
+    #
+    # The suite itself is 8m39s over three consecutive runs (509.1s / 509.8s /
+    # 512.3s) on a developer box, and will be slower here. Three specs sit at
+    # ~167s each because they wait out a 60s staleness threshold plus a 15s
+    # reconcile tick. Do not shorten those windows to make this job faster: the
+    # wait is what stops the assertions from passing before the system could
+    # have reacted, which was a real false green earlier on.
+    timeout-minutes: 45
     steps:
       - name: Clone
         uses: actions/checkout@v7
@@ -130,6 +144,10 @@ jobs:
         # suite drives the HTTP API and never the UI, which has its own e2e
         # suite. A single index.html satisfies the //go:embed react-ui/dist/*
         # in core/http/app.go, so the job skips a full Node and Vite install.
+        # If a cluster spec ever asserts on a UI asset, this step must go and
+        # the real build come back: a developer box has a real dist/, so such a
+        # spec would pass locally and fail only here, or worse be served the
+        # stub and pass in both places.
         run: |
           mkdir -p core/http/react-ui/dist
           printf '<!doctype html><title>stub</title>\n' > core/http/react-ui/dist/index.html
@@ -168,7 +186,7 @@ jobs:
         # Ginkgo output says which assertion failed, not what the four child
         # processes were doing. Without this a red job is undebuggable.
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cluster-process-logs
           path: cluster-logs/**/*.log
