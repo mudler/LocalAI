@@ -25,7 +25,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// waitForLogSubscriber blocks until the worker's WebSocket log handler has
+// waitForSingleLogSubscriber blocks until the worker's WebSocket log handler has
 // registered its subscription on the store.
 //
 // The handler writes the "initial" batch first and subscribes only afterwards,
@@ -33,11 +33,21 @@ import (
 // streamed, and the spec then waits out its full read deadline. Measured at
 // roughly one run in seventeen with `--repeat`, which is far too often for CI.
 // Waiting on the subscription removes the race from the spec; the handler's own
-// snapshot/subscribe window is a separate production question.
-func waitForLogSubscriber(logStore *model.BackendLogStore, modelID string) {
+// snapshot/subscribe window is a separate production question, marked at both
+// production sites.
+//
+// Only valid where BackendLogStore.Subscribe resolves modelID to exactly ONE
+// buffer: a bare model ID with no "<modelID>#N" replica buffers in the store, or
+// a full process key. Subscribe registers the exact-key buffer and each replica
+// buffer one at a time, so for a model that does have replicas the count goes
+// positive while later replicas are still unattached and the race survives.
+// Hence the assertion is on exactly 1 rather than "at least 1": a spec that
+// misapplies this to a replicated model fails loudly on the count instead of
+// going quietly back to being flaky.
+func waitForSingleLogSubscriber(logStore *model.BackendLogStore, modelID string) {
 	GinkgoHelper()
 	Eventually(func() int { return logStore.SubscriberCount(modelID) }, "10s", "5ms").
-		Should(BeNumerically(">", 0), "the WebSocket handler never subscribed to %q", modelID)
+		Should(Equal(1), "the WebSocket handler never subscribed to %q exactly once", modelID)
 }
 
 var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func() {
@@ -227,7 +237,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(initialLines[1].Text).To(Equal("line-2"))
 
 			// Now append a new line and verify it arrives via WebSocket
-			waitForLogSubscriber(logStore, "ws-model")
+			waitForSingleLogSubscriber(logStore, "ws-model")
 			logStore.AppendLine("ws-model", "stdout", "line-3-realtime")
 
 			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -296,7 +306,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(conn.ReadJSON(&initialMsg)).To(Succeed())
 
 			// Append line to a different model
-			waitForLogSubscriber(logStore, "ws-model")
+			waitForSingleLogSubscriber(logStore, "ws-model")
 			logStore.AppendLine("other-model", "stdout", "should not appear")
 			// Append line to our model
 			logStore.AppendLine("ws-model", "stdout", "should appear")
@@ -492,7 +502,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(initialLines[0].Text).To(Equal("initial line from worker"))
 
 			// Append a new line on the worker's log store
-			waitForLogSubscriber(logStore, "proxy-model")
+			waitForSingleLogSubscriber(logStore, "proxy-model")
 			logStore.AppendLine("proxy-model", "stderr", "realtime via proxy")
 
 			// Read the streamed line through the proxy
