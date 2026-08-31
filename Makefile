@@ -340,10 +340,11 @@ run-e2e-aio: protogen-go
 	@echo 'Running e2e AIO tests'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
 
-# Flake retries for the distributed suite. Defaults to 1, unlike TEST_FLAKES:
-# this suite exists to catch nondeterministic cluster behaviour, and retrying
-# hides exactly the failures it is meant to surface. Raise it locally if you are
-# bisecting something unrelated.
+# Total ginkgo attempts per spec for the distributed suite: --flake-attempts counts
+# attempts, not retries. Defaults to 1, so each spec runs once and is never retried,
+# unlike TEST_FLAKES=5. This suite exists to catch nondeterministic cluster behaviour,
+# and a retry hides exactly the failures it is meant to surface. Raise it locally if
+# you are bisecting something unrelated.
 DISTRIBUTED_TEST_FLAKES?=1
 
 # Distributed architecture e2e (PostgreSQL + NATS via testcontainers).

@@ -16,7 +16,8 @@ var _ = Describe("Test database naming", Label("Distributed"), func() {
 			for i := 0; i < 100; i++ {
 				long += "a"
 			}
-			Expect(len(sanitizeDBName(long))).To(BeNumerically("<=", 50))
+			Expect(len(sanitizeDBName(long))).To(Equal(50),
+				"an over-long name must be truncated to exactly the 50-byte budget; <= 50 would also accept an empty name")
 		})
 
 		It("never produces an empty name", func() {
