@@ -352,8 +352,18 @@ func (c *Cluster) registrarFor(worker int) int {
 
 // WorkerRegistrar is registrarFor, exported so a spec can say which replica it
 // is about to kill relative to a worker instead of re-deriving the rule.
-func (c *Cluster) WorkerRegistrar(worker int) int {
-	return c.registrarFor(worker)
+//
+// It returns an error rather than indexing blindly, like every other exported
+// method here that takes an index. Gomega treats the trailing error as one that
+// must be nil, so Expect(c.WorkerRegistrar(0)).To(...) reads unchanged at the
+// call site while an out-of-range index fails the spec by name instead of
+// silently answering 0, which is a real frontend index and would send a spec
+// off to kill the wrong replica.
+func (c *Cluster) WorkerRegistrar(worker int) (int, error) {
+	if err := c.checkWorkerIndex(worker); err != nil {
+		return 0, err
+	}
+	return c.registrarFor(worker), nil
 }
 
 // Stop terminates every process and removes the work directory. Logs survive in
