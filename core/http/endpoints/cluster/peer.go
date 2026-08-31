@@ -9,18 +9,25 @@ package cluster
 import (
 	"crypto/subtle"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/libp2p/go-yamux/v5"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/xlog"
 )
 
 // AlternativeAuthPrefix is the path prefix whose credentials are checked by
-// this package rather than by the global session middleware. The auth layer
-// consults this same constant, so the two cannot drift apart and leave every
-// peer dial answering 401.
-const AlternativeAuthPrefix = "/api/cluster/"
+// this package rather than by the global session middleware.
+//
+// It is the auth package's own constant rather than a second copy: auth decides
+// which paths bypass the session middleware, so owning the prefix there and
+// deriving the route from it here means a change to either one moves both. The
+// dependency runs endpoints -> auth, the direction the rest of core/http flows;
+// pointing it the other way would deadlock the build as soon as this package
+// needs anything from auth, which registering in RouteFeatureRegistry will.
+const AlternativeAuthPrefix = auth.ClusterPathPrefix
 
 // PeerPath is the route a peer replica dials.
 const PeerPath = AlternativeAuthPrefix + "peer"
@@ -80,6 +87,16 @@ func PeerHandler(token string, onSession func(peerID string, sess *yamux.Session
 		}
 
 		xlog.Debug("cluster peer link established", "peer", peerID, "remote", ws.RemoteAddr().String())
+		// net/http recovers a panic from this goroutine but does not close a
+		// hijacked connection afterwards, so a panicking callback would leave
+		// the peer holding a link nobody accepts streams on: its opens would
+		// fill the 256-deep backlog and then hang without an error.
+		defer func() {
+			if r := recover(); r != nil {
+				_ = sess.Close()
+				panic(r)
+			}
+		}()
 		onSession(peerID, sess)
 		return nil
 	}
@@ -95,9 +112,10 @@ func authorizedPeer(r *http.Request, expected string) bool {
 	if expected == "" {
 		return false
 	}
+	// RFC 7235 makes the scheme case-insensitive; the token after it is not.
 	const prefix = "Bearer "
 	header := r.Header.Get("Authorization")
-	if len(header) < len(prefix) || header[:len(prefix)] != prefix {
+	if len(header) < len(prefix) || !strings.EqualFold(header[:len(prefix)], prefix) {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(header[len(prefix):]), []byte(expected)) == 1
