@@ -23,6 +23,11 @@ import (
 )
 
 // TestInfra holds shared test containers and connection strings.
+//
+// PGContainer and NATSContainer are the SUITE-WIDE containers, shared by every
+// spec. Never call Terminate or Stop on them from a spec: it ends the run for
+// everything after it. They are exposed only because nats_jwt_helpers_test.go
+// builds its own TestInfra around a dedicated NATS container.
 type TestInfra struct {
 	Ctx           context.Context
 	PGContainer   *tcpostgres.PostgresContainer
@@ -119,12 +124,24 @@ func replaceDBName(dsn, name string) string {
 	return u.String()
 }
 
-// adminDB opens a short-lived connection to the suite's maintenance database.
+// tryAdminDB opens a short-lived connection to the suite's maintenance
+// database. Cleanup paths use this rather than adminDB: once connections are
+// scarce, a fatal assertion here would convert one Postgres hiccup into a
+// suite-wide cascade that buries the original failure.
+//
 // CREATE/DROP DATABASE cannot run inside a transaction or against the target
 // database itself, so every call gets its own connection and closes it.
+func tryAdminDB() (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(suitePGDSN), &gorm.Config{Logger: gormlogger.Discard})
+	if err != nil {
+		return nil, fmt.Errorf("connecting to the suite maintenance database: %w", err)
+	}
+	return db, nil
+}
+
 func adminDB() *gorm.DB {
 	GinkgoHelper()
-	db, err := gorm.Open(postgres.Open(suitePGDSN), &gorm.Config{Logger: gormlogger.Discard})
+	db, err := tryAdminDB()
 	Expect(err).ToNot(HaveOccurred())
 	return db
 }
@@ -154,28 +171,37 @@ func SetupInfra(dbName string) *TestInfra {
 
 	db := fmt.Sprintf("%s_%d", sanitizeDBName(dbName), dbCounter.Add(1))
 
-	admin := adminDB()
-	Expect(admin.Exec(fmt.Sprintf("CREATE DATABASE %q", db)).Error).To(Succeed())
-	closeDB(admin)
+	// Scoped so a failed CREATE cannot leak the pool: the assertion panics, and a
+	// leaked pgx pool per failing spec exhausts the server's connection limit.
+	func() {
+		admin := adminDB()
+		defer closeDB(admin)
+		Expect(admin.Exec(fmt.Sprintf("CREATE DATABASE %q", db)).Error).To(Succeed())
+	}()
+
+	// Registered before anything else can fail: a NATS connect error below would
+	// otherwise leave the database behind for the rest of the suite.
+	DeferCleanup(func() {
+		if infra.NC != nil {
+			infra.NC.Close()
+		}
+		drop, err := tryAdminDB()
+		if err != nil {
+			AddReportEntry("drop database skipped", fmt.Sprintf("%s: %v", db, err))
+			return
+		}
+		defer closeDB(drop)
+		// FORCE terminates any connection the spec left open (Postgres 13+).
+		if err := drop.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %q WITH (FORCE)", db)).Error; err != nil {
+			AddReportEntry("drop database failed", fmt.Sprintf("%s: %v", db, err))
+		}
+	})
 
 	infra.PGURL = replaceDBName(suitePGDSN, db)
 
 	var err error
 	infra.NC, err = messaging.New(infra.NatsURL)
 	Expect(err).ToNot(HaveOccurred())
-
-	DeferCleanup(func() {
-		if infra.NC != nil {
-			infra.NC.Close()
-		}
-		// FORCE terminates any connection the spec left open (Postgres 13+).
-		// Failure to drop must not fail the spec: the container dies at AfterSuite.
-		drop := adminDB()
-		if err := drop.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %q WITH (FORCE)", db)).Error; err != nil {
-			AddReportEntry("drop database failed", fmt.Sprintf("%s: %v", db, err))
-		}
-		closeDB(drop)
-	})
 
 	return infra
 }
