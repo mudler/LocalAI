@@ -134,11 +134,36 @@ func (p *rosterProbe) explainStuckOffline(worker, format string, args ...any) fu
 // It is the terminating positive control for the two specs that assert a
 // healthy worker STAYS healthy. On their own those are pure negative
 // assertions: a cluster whose health checking had wedged entirely, say by
-// leaking the Postgres advisory lock the monitor takes (health.go:110), would
-// freeze the roster and satisfy them while observing a corpse. Killing a worker
-// afterwards and requiring the roster to react proves the monitor was running
-// for the whole window, which is the only thing that makes the preceding
-// Consistently a statement about behaviour rather than about a stopped clock.
+// leaking the Postgres advisory lock the monitor takes
+// (core/services/nodes/health.go:112), would freeze the roster and satisfy them
+// while observing a corpse.
+//
+// WHAT IT ACTUALLY PROVES, which is less than it looks like. Killing a worker
+// afterwards and requiring the roster to react proves the monitor was alive at
+// the END of the preceding window. It does not observe the window itself. The
+// inference back across it holds only if a wedge would have been sticky, i.e.
+// still present when this helper ran.
+//
+// THE RESIDUAL GAP, and it is not hypothetical in the peer-replica-death spec.
+// Health checks are single-flighted across replicas by a session-scoped
+// pg_try_advisory_lock (advisorylock.TryWithLockCtx, non-blocking: a replica
+// that does not get the lock returns immediately and checks nothing, silently,
+// because checkAll discards the acquired flag). That spec SIGKILLs frontend 1,
+// which may have been holding the lock at the moment it died. Postgres releases
+// a session-level advisory lock only when it reaps the dead backend, so until
+// then frontend 0's ticks acquire nothing and no check runs. The roster freezes,
+// Consistently(healthy) passes BECAUSE NOTHING WAS CHECKING, and this helper
+// still succeeds afterwards once the session is reaped and the lock comes free.
+// That wedge is transient rather than permanent, which is exactly the shape the
+// backwards inference cannot see. Low probability, real, and unbounded only by
+// how fast Postgres notices a dead connection.
+//
+// So treat this as a floor and not a proof: it rules out a health monitor that
+// is permanently dead, which is the failure that would otherwise make the
+// preceding Consistently a statement about a stopped clock, and it does not rule
+// out a monitor that was idle for part of the window. Closing the gap needs a
+// positive observation from inside the window (a log or metric assertion that a
+// check ran), not a stronger assertion here.
 //
 // It costs a full detection cycle, which is why it is a shared helper: the
 // wall-clock price should be paid once per spec and explained once.
@@ -258,7 +283,7 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 		proveHealthCheckingIsAlive(c, restarted, 0)
 	})
 
-	It("settles a dead worker to offline on every replica", func() {
+	It("settles a dead worker to offline and both replicas report it offline", func() {
 		c := startCluster(2, 1)
 		worker := c.WorkerName(0)
 
@@ -297,6 +322,15 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 		// prevents it, so explainStuckOffline says so in the failure message
 		// when it sees a node stuck at unhealthy. Fixing it is LocalAI work,
 		// not test work.
+		// Reading the same verdict at both replicas proves shared-verdict
+		// propagation, NOT two independent detectors. Health checks are
+		// single-flighted by the advisory lock (see proveHealthCheckingIsAlive),
+		// so exactly one replica ran the check that wrote the offline status, and
+		// both probes then read that one Postgres row back. What this rules out
+		// is a replica that keeps a private roster, or one that reads the shared
+		// row and reports something else. A spec claiming both replicas can
+		// detect death on their own would have to isolate them from each other,
+		// which the shared database makes impossible by design.
 		for _, probe := range []*rosterProbe{at0, at1} {
 			Eventually(probe.statusOf, workerDeathTimeout, rosterPollInterval).
 				WithArguments(worker).

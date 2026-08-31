@@ -71,8 +71,15 @@ func (c *Cluster) KillWorker(i int) error {
 // dressed up as a failover one. No spec does that today; this note is here so
 // the first one that tries does not spend a day on it.
 //
-// After StopFrontendGracefully, wait for the process to actually go
-// (Eventually(c.FrontendAlive).Should(BeFalse())) before restarting. Restart
+// After StopFrontendGracefully, wait for the process to actually go before
+// restarting:
+//
+//	Eventually(func() bool { return c.FrontendAlive(i) }, "20s", "500ms").
+//		Should(BeFalse())
+//
+// FrontendAlive takes an index, so it has to be wrapped in a closure; handing
+// Gomega the method value directly fails with "requested 1 arguments but
+// received 0". Restart
 // terminates whatever is still running with SIGKILL, so restarting straight
 // after a SIGTERM cuts the drain short and quietly turns the rolling-update
 // case into the crash case, which is the opposite of what pairing those two
@@ -126,8 +133,11 @@ func (c *Cluster) FrontendAlive(i int) bool {
 // than the one it precedes. The window that stays open is the other one,
 // between the child exiting and waitid collecting it: there the child is a
 // zombie, signal 0 to a zombie succeeds, and alive reports true for a process
-// that is already dead. There is no local fix; the caller's is to poll,
-// Eventually(c.FrontendAlive).Should(BeFalse()), rather than assert once.
+// that is already dead. There is no local fix; the caller's is to poll rather
+// than assert once, wrapping the index-taking FrontendAlive in a closure:
+//
+//	Eventually(func() bool { return c.FrontendAlive(i) }, "20s", "500ms").
+//		Should(BeFalse())
 func (p *Process) alive() bool {
 	if p == nil || p.Cmd == nil || p.Cmd.Process == nil {
 		return false
