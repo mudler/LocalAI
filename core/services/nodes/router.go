@@ -1874,6 +1874,16 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 		if walkErr != nil || d.IsDir() {
 			return nil
 		}
+		// Same reason as stageDirectory: the receiver writes "<file>.sha256" for
+		// every file it accepts, so staging the sidecars makes it write sidecars
+		// for those in turn. Option dirs are walked on every load, so each pass
+		// added a level - an espeak-ng-data tree observed in the wild had grown
+		// to "<file>.sha256" repeated eleven times and 5077 junk files, which is
+		// enough to keep a sherpa-onnx voice permanently "staging" and fail
+		// every realtime warmup that needs it.
+		if isHashSidecar(path) {
+			return nil
+		}
 		if _, err := r.fileStager.EnsureRemote(ctx, node.ID, path, keyFn(path)); err != nil {
 			xlog.Warn("Failed to stage option directory file, skipping", "path", path, "error", err)
 		}
