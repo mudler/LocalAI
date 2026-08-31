@@ -4,6 +4,8 @@ import (
 	"errors"
 	"io"
 	"net"
+
+	"github.com/libp2p/go-yamux/v5"
 )
 
 // Splice joins two streams and copies bytes between them in both directions
@@ -14,9 +16,16 @@ import (
 // io.Copy then io.Copy would deadlock waiting for a request on a stream whose
 // far side is waiting for a response.
 //
+// EOF in one direction therefore truncates whatever is still in flight in the
+// other. That is right for gRPC, HTTP/2 and yamux, which end a stream in both
+// directions at once, but a future caller relaying raw TCP with a half-close
+// would lose the response body still arriving after the request's CloseWrite.
+//
 // The error reported is the one from the direction that finished first, with
 // the endings that mean "someone closed" mapped to nil. The other direction's
-// error is discarded: by then it is only an echo of the Close done here.
+// error is dropped; most of the time it is an echo of the Close below, but it
+// can also be a genuine failure that lost the race, so a Splice error means
+// "one direction failed", never "only this failed".
 func Splice(a, b io.ReadWriteCloser) error {
 	errs := make(chan error, 2)
 	go func() { errs <- copyStream(b, a) }()
@@ -31,8 +40,13 @@ func Splice(a, b io.ReadWriteCloser) error {
 	closeErrA := a.Close()
 	closeErrB := b.Close()
 
-	// Wait for the second direction so no copy is still touching either
-	// stream once Splice has returned.
+	// Wait for the second direction so no copy is still touching either stream
+	// once Splice has returned. This is load-bearing: it assumes Close unblocks
+	// a copy parked in Read or Write, and a stream where that is false hangs
+	// here rather than leaking a goroutine. Both callers satisfy it. net.Conn
+	// does, and so does go-yamux/v5, whose Close sets readErr and calls
+	// notifyWaiting to wake a parked Read while a parked Write returns
+	// ErrStreamClosed.
 	<-errs
 
 	if first != nil {
@@ -54,14 +68,29 @@ func copyStream(dst io.Writer, src io.Reader) error {
 
 // normalizeStreamErr drops the endings that mean the conversation is over
 // rather than broken. io.EOF is the clean end of a stream, net.ErrClosed is
-// what a socket or yamux stream reports once it or its peer has been closed,
-// and io.ErrClosedPipe is the same condition on an in-memory pipe. Anything
-// else is a real failure the caller should see.
+// what a socket reports once it or its peer has been closed, and
+// io.ErrClosedPipe is the same condition on an in-memory pipe.
+//
+// The yamux sentinels are here because Splice owns the Close that produces
+// them: closing a stream whose session has already gone away returns
+// ErrSessionShutdown from the FIN write, and a stream torn down under a live
+// copy surfaces as ErrStreamClosed or a reset. None of yamux's error types
+// match net.ErrClosed, so each has to be named. Matching ErrStreamReset covers
+// every *StreamError and *GoAwayError, both of which report themselves as a
+// reset; ErrStreamClosed is a plain sentinel and matches only itself.
+//
+// Anything else is a real failure the caller should see. Note that a peer
+// resetting a socket mid-stream (ECONNRESET, EPIPE) is deliberately not in
+// this set: whether an abandoned request is routine is the caller's policy,
+// not this primitive's.
 func normalizeStreamErr(err error) error {
 	if err == nil ||
 		errors.Is(err, io.EOF) ||
 		errors.Is(err, net.ErrClosed) ||
-		errors.Is(err, io.ErrClosedPipe) {
+		errors.Is(err, io.ErrClosedPipe) ||
+		errors.Is(err, yamux.ErrStreamClosed) ||
+		errors.Is(err, yamux.ErrStreamReset) ||
+		errors.Is(err, yamux.ErrSessionShutdown) {
 		return nil
 	}
 	return err
