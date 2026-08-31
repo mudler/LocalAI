@@ -71,8 +71,11 @@ type Cluster struct {
 const (
 	defaultRegistrationToken = "e2e-token"
 	defaultAdminEmail        = "admin@e2e.local"
-	readinessTimeout         = 90 * time.Second
-	readinessPoll            = 200 * time.Millisecond
+	// testHMACSecret is shared by every frontend so a session minted at one
+	// replica validates at all of them. See the note in startFrontend.
+	testHMACSecret   = "e2e-cluster-hmac-secret"
+	readinessTimeout = 90 * time.Second
+	readinessPoll    = 200 * time.Millisecond
 	// processExitTimeout bounds the post-SIGKILL wait in terminate. An unbounded
 	// wait turns one stuck child (D state, or a Wait that never returns) into a
 	// suite-wide Ginkgo timeout that names nothing.
@@ -157,6 +160,14 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 	if err := os.MkdirAll(filepath.Join(dir, "backends"), 0o755); err != nil {
 		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
 	}
+	// Without an explicit LOCALAI_DATA_PATH every child resolves DataPath to
+	// ${cwd}/data (core/cli/run.go:48), which under `go test` is inside the
+	// source tree and shared by every replica: one collectiondb, one task and
+	// job store for processes that are meant to be independent.
+	dataPath := filepath.Join(dir, "data")
+	if err := os.MkdirAll(dataPath, 0o750); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
 
 	cmd := exec.Command(c.opts.Binary, "run",
 		"--address", fmt.Sprintf("127.0.0.1:%d", port),
@@ -171,6 +182,16 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 		"LOCALAI_AUTH=true",
 		"LOCALAI_AUTH_DATABASE_URL="+c.opts.PGDSN,
 		"LOCALAI_ADMIN_EMAIL="+c.opts.AdminEmail,
+		"LOCALAI_DATA_PATH="+dataPath,
+		// Session rows are keyed by HMAC-SHA256(token, APIKeyHMACSecret), and
+		// the secret is generated per instance into {DataPath}/.hmac_secret
+		// unless pinned (core/application/startup.go:141-148). Now that each
+		// replica owns its data directory, an unpinned secret would differ per
+		// replica, so the cookie minted at frontend 0 would hash to a session
+		// row that does not exist at frontend 1 and every post-failover
+		// /api/nodes call would 401 with nothing in the logs to explain it.
+		// Pinning makes the cross-replica session a property of the harness.
+		"LOCALAI_AUTH_HMAC_SECRET="+testHMACSecret,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
 		"LOCALAI_AUTO_APPROVE_NODES=true",
 		"DEBUG=true",

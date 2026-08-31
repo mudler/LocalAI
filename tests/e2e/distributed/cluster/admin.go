@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	// adminPassword must satisfy core/http/auth's policy (>= 12 chars and a
-	// zxcvbn score of 3 against hints that include "admin" and "localai").
-	// This one scores 3 today; acknowledgeWeakPassword is sent alongside it so
-	// a future tightening of the policy cannot silently break every failover
-	// spec at setup time.
+	// adminPassword is sent with "acknowledge_weak_password": true, which sets
+	// PasswordPolicy{AllowWeak: true} and skips the length floor and the zxcvbn
+	// score entirely (core/http/auth/password.go). Only the technical
+	// invariants still apply: non-empty, at most 72 bytes, no NUL. The
+	// acknowledgement is deliberate rather than incidental, so a future
+	// tightening of the policy cannot break every failover spec at setup time.
 	adminPassword = "e2e-admin-password"
 	// sessionCookieName mirrors the unexported constant in core/http/auth.
 	// The register handler returns 201 both for "user created, here is your
@@ -43,11 +44,18 @@ func ForTestingEmpty() *Cluster {
 // which core/http/auth exempts from the approval gate and assigns the admin
 // role, so registration alone yields an active admin session.
 //
-// Call this ONCE per cluster and share the client. Two reasons: the auth
-// endpoints are rate limited to 5 requests per minute per client IP, and every
-// e2e request arrives from 127.0.0.1; and the returned client is already good
-// for every frontend, because sessions live in the shared Postgres auth DB and
-// Go's cookie jar keys cookies by host without the port.
+// Call this ONCE per cluster and share the client. Two reasons:
+//
+// One, a single rate limiter of 5 requests per minute per client IP guards
+// POST /api/auth/token-login, POST /api/auth/register, POST /api/auth/login AND
+// PUT /api/auth/password (core/http/routes/auth.go:190). They share one budget,
+// and every e2e request arrives from 127.0.0.1, so a spec that changes a
+// password spends from the same five.
+//
+// Two, the returned client is already good for every frontend: sessions live in
+// the shared Postgres auth DB, the harness pins one HMAC secret across replicas
+// so the session row resolves at any of them, and Go's cookie jar keys cookies
+// by host without the port.
 func (c *Cluster) AdminSession(i int) (*http.Client, error) {
 	base, err := c.frontendBaseURL(i)
 	if err != nil {
