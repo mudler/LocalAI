@@ -108,10 +108,11 @@ jobs:
     # which spec hung, to the runner, which prints nothing: a red job with no
     # evidence, which is how a suite gets disabled rather than fixed.
     #
-    # The suite itself is 8m39s over three consecutive runs (509.1s / 509.8s /
-    # 512.3s) on a developer box, and will be slower here. Three specs sit at
-    # ~167s each because they wait out a 60s staleness threshold plus a 15s
-    # reconcile tick. Do not shorten those windows to make this job faster: the
+    # The suite itself is about 8m30s over three consecutive runs (509.1s /
+    # 509.8s / 512.3s, so 8m29s to 8m32s) on a developer box, and will be slower
+    # here. Three specs sit at ~167s each because they wait out a 60s staleness
+    # threshold plus a 15s health-check tick (HealthCheckInterval, in
+    # core/services/nodes/health.go, not one of the reconcilers). Do not shorten those windows to make this job faster: the
     # wait is what stops the assertions from passing before the system could
     # have reacted, which was a real false green earlier on.
     timeout-minutes: 45
