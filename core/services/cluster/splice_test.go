@@ -4,7 +4,11 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync"
+	"sync/atomic"
 	"time"
+
+	"github.com/libp2p/go-yamux/v5"
 
 	"github.com/mudler/LocalAI/core/services/cluster"
 
@@ -70,7 +74,7 @@ var _ = Describe("Splice", func() {
 		Expect(errors.Is(err, io.EOF)).To(BeTrue())
 	})
 
-	It("does not leak a goroutine when both sides close", func() {
+	It("returns when both sides close", func() {
 		aLeft, aRight := newPair()
 		bLeft, bRight := newPair()
 
@@ -111,4 +115,143 @@ var _ = Describe("Splice", func() {
 		// splice that forgot to close would leave this write parked forever.
 		Eventually(writes, "5s").Should(Receive(HaveOccurred()))
 	})
+	// net.Pipe can only ever end in EOF or a closed pipe, so the error half of
+	// the contract needs a stream that can be told how to fail.
+	Context("when a stream fails rather than closing", func() {
+		errBoom := errors.New("transport exploded")
+
+		It("reports a genuine transport error", func() {
+			failing := &scriptedStream{readErr: errBoom}
+			idle := &scriptedStream{}
+
+			done := make(chan error, 1)
+			go func() { done <- cluster.Splice(failing, idle) }()
+
+			var err error
+			Eventually(done, "5s").Should(Receive(&err))
+			Expect(errors.Is(err, errBoom)).To(BeTrue())
+
+			// Closed exactly once each: a second Close is what makes a yamux
+			// stream complain about a teardown that went fine.
+			Expect(failing.closes()).To(Equal(int32(1)))
+			Expect(idle.closes()).To(Equal(int32(1)))
+		})
+
+		It("reports a genuine failure from its own Close", func() {
+			failing := &scriptedStream{closeErr: errBoom}
+			idle := &scriptedStream{}
+
+			done := make(chan error, 1)
+			go func() { done <- cluster.Splice(idle, failing) }()
+
+			Expect(idle.Close()).To(Succeed())
+			var err error
+			Eventually(done, "5s").Should(Receive(&err))
+			Expect(errors.Is(err, errBoom)).To(BeTrue())
+		})
+
+		// Every one of these means "a stream we were copying through was
+		// closed". The yamux entries are the teardown Splice itself provokes:
+		// none of them matches net.ErrClosed, so each has to be classified by
+		// name or a normal relayed request ends up reported as a failure.
+		DescribeTable("treats a closed stream as normal termination",
+			func(ending error) {
+				ended := &scriptedStream{readErr: ending}
+				idle := &scriptedStream{}
+
+				done := make(chan error, 1)
+				go func() { done <- cluster.Splice(ended, idle) }()
+
+				Eventually(done, "5s").Should(Receive(BeNil()))
+			},
+			Entry("EOF", io.EOF),
+			Entry("a closed socket", net.ErrClosed),
+			Entry("a closed in-memory pipe", io.ErrClosedPipe),
+			Entry("a closed yamux stream", yamux.ErrStreamClosed),
+			Entry("a reset yamux stream", yamux.ErrStreamReset),
+			Entry("a shut-down yamux session", yamux.ErrSessionShutdown),
+			Entry("a stream reset by the remote", &yamux.StreamError{ErrorCode: 1, Remote: true}),
+			Entry("a go-away from the remote", yamux.ErrRemoteGoAway),
+		)
+
+		// The tunnel's own teardown: the local backend finishes normally while
+		// the yamux session has already gone away, so the FIN that Splice's
+		// Close writes fails. Nothing went wrong and nothing may be reported.
+		It("does not report a shut-down session on its own Close", func() {
+			stream := &scriptedStream{closeErr: yamux.ErrSessionShutdown}
+			backend := &scriptedStream{readErr: io.EOF}
+
+			done := make(chan error, 1)
+			go func() { done <- cluster.Splice(stream, backend) }()
+
+			Eventually(done, "5s").Should(Receive(BeNil()))
+		})
+
+		// The anti-leak guarantee, which the pipe specs cannot see because
+		// their parked copy is released too quickly to catch Splice in the
+		// act. Waking a copy is asynchronous on a real stream (yamux's Close
+		// notifies the reader, which then has to be scheduled), so this stream
+		// splits the two: Close records itself, and the spec decides when the
+		// parked Read actually returns.
+		It("does not return until the second direction has finished", func() {
+			parked := &scriptedStream{holdReadPastClose: true}
+			ending := &scriptedStream{readErr: io.EOF}
+
+			done := make(chan error, 1)
+			go func() { done <- cluster.Splice(ending, parked) }()
+
+			Eventually(parked.closes, "5s").Should(Equal(int32(1)))
+			Consistently(done, "200ms").ShouldNot(Receive())
+
+			parked.release()
+			Eventually(done, "5s").Should(Receive(BeNil()))
+		})
+	})
 })
+
+// scriptedStream is an io.ReadWriteCloser whose endings the spec dictates, so
+// Splice can be fed failures no in-memory pipe can produce. With no readErr it
+// parks in Read until Close, standing in for an idle half of a live stream.
+type scriptedStream struct {
+	readErr  error
+	closeErr error
+	// holdReadPastClose keeps a parked Read blocked until release is called,
+	// standing in for the gap between a Close waking a reader and that reader
+	// running. Without it, Close releases the Read as a real stream does.
+	holdReadPastClose bool
+
+	releaseOnce sync.Once
+	released    chan struct{}
+	initOnce    sync.Once
+	closeN      atomic.Int32
+}
+
+func (s *scriptedStream) gate() chan struct{} {
+	s.initOnce.Do(func() { s.released = make(chan struct{}) })
+	return s.released
+}
+
+func (s *scriptedStream) release() {
+	gate := s.gate()
+	s.releaseOnce.Do(func() { close(gate) })
+}
+
+func (s *scriptedStream) Read(p []byte) (int, error) {
+	if s.readErr != nil {
+		return 0, s.readErr
+	}
+	<-s.gate()
+	return 0, io.EOF
+}
+
+func (s *scriptedStream) Write(p []byte) (int, error) { return len(p), nil }
+
+func (s *scriptedStream) Close() error {
+	s.closeN.Add(1)
+	if !s.holdReadPastClose {
+		s.release()
+	}
+	return s.closeErr
+}
+
+func (s *scriptedStream) closes() int32 { return s.closeN.Load() }
