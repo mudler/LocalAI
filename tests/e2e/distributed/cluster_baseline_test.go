@@ -116,7 +116,11 @@ func mockBackendBinary() string {
 
 // startCluster brings up a cluster against a freshly provisioned database and
 // registers cleanup, including a log dump on failure.
-func startCluster(frontends, workers int) *cluster.Cluster {
+//
+// customise runs against the assembled Options immediately before Start, for
+// the one spec that needs a non-default topology. It is variadic so every
+// existing caller keeps the plain two-argument form and the default shape.
+func startCluster(frontends, workers int, customise ...func(*cluster.Options)) *cluster.Cluster {
 	GinkgoHelper()
 
 	// Resolved before SetupInfra so a missing binary skips without having paid
@@ -137,7 +141,7 @@ func startCluster(frontends, workers int) *cluster.Cluster {
 		Expect(os.MkdirAll(logDir, 0o755)).To(Succeed())
 	}
 
-	c, err := cluster.Start(cluster.Options{
+	options := cluster.Options{
 		Binary:      binary,
 		MockBackend: mockBackend,
 		PGDSN:       infra.PGURL,
@@ -145,7 +149,12 @@ func startCluster(frontends, workers int) *cluster.Cluster {
 		LogDir:      logDir,
 		Frontends:   frontends,
 		Workers:     workers,
-	})
+	}
+	for _, apply := range customise {
+		apply(&options)
+	}
+
+	c, err := cluster.Start(options)
 	Expect(err).ToNot(HaveOccurred())
 
 	DeferCleanup(func() {
