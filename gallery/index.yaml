@@ -1118,6 +1118,95 @@
     - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/mmproj-Ornith-1.5-9B-BF16.gguf
       sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
+- &ornith-1-5-9b-obliterated
+  name: "ornith-1.5-9b-obliterated-q4"
+  variants:
+    - model: ornith-1.5-9b-obliterated-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-9B
+    - https://huggingface.co/OBLITERATUS/Ornith-1.5-9B-OBLITERATED
+  description: |
+    Ornith-1.5-9B OBLITERATED is a refusal-removed derivative for alignment
+    research, red teaming, coding, reasoning, and agentic tasks. Its safety
+    guardrails are removed, and the publisher reports some capability loss
+    compared with the original model.
+
+    This default entry uses the Q4_K_M GGUF and BF16 vision projector. The
+    linked variant uses the higher-quality Q8_0 quantization.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - vision
+    - multimodal
+    - long-context
+    - uncensored
+  last_checked: "2026-08-31"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b-obliterated/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-9b-obliterated/Ornith-1.5-9B-OBLITERATED-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b-obliterated/Ornith-1.5-9B-OBLITERATED-Q4_K_M.gguf
+      uri: huggingface://OBLITERATUS/Ornith-1.5-9B-OBLITERATED/Ornith-1.5-9B-OBLITERATED-Q4_K_M.gguf
+      sha256: 88ce99bb696fbc921edc4f995c4beb12a66bf94319d00bfd5f44265d02fa6dfb
+    - filename: llama-cpp/mmproj/ornith-1.5-9b-obliterated/mmproj-BF16.gguf
+      uri: huggingface://OBLITERATUS/Ornith-1.5-9B-OBLITERATED/mmproj-Ornith-1.5-9B-bf16.gguf
+      sha256: 77c83186b512033e2a283b4542943e9349570b588128ae3c6343d752c41acf70
+- !!merge <<: *ornith-1-5-9b-obliterated
+  name: "ornith-1.5-9b-obliterated-q8"
+  variants: []
+  description: |
+    Ornith-1.5-9B OBLITERATED in the higher-quality Q8_0 GGUF format, with the
+    shared BF16 vision projector. Its safety guardrails are removed, and the
+    publisher recommends this quantization for better behavior fidelity.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b-obliterated/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-9b-obliterated/Ornith-1.5-9B-OBLITERATED-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b-obliterated/Ornith-1.5-9B-OBLITERATED-Q8_0.gguf
+      uri: huggingface://OBLITERATUS/Ornith-1.5-9B-OBLITERATED/Ornith-1.5-9B-OBLITERATED-Q8_0.gguf
+      sha256: e632573df9285acbceac28293ca19d95ffdbd108c05f39d54604d7f97ea4330c
+    - filename: llama-cpp/mmproj/ornith-1.5-9b-obliterated/mmproj-BF16.gguf
+      uri: huggingface://OBLITERATUS/Ornith-1.5-9B-OBLITERATED/mmproj-Ornith-1.5-9B-bf16.gguf
+      sha256: 77c83186b512033e2a283b4542943e9349570b588128ae3c6343d752c41acf70
 - &ornith-1-5-35b-a3b
   name: "ornith-1.5-35b-a3b-q4"
   variants:
