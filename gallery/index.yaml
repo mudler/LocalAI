@@ -8093,6 +8093,51 @@
     - filename: llama-cpp/mmproj/gemma-4-12B-it-qat-q4_0-gguf/mmproj-gemma-4-12b-it-qat-q4_0.gguf
       uri: https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf/resolve/main/mmproj-gemma-4-12b-it-qat-q4_0.gguf
       sha256: cb018338a7538a9814d994bfe54644c71eb7ed54e31eae2f721e45fd3c260da7
+- name: "security-slm-gemma-4-e2b-it-q4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/entrick/Security-SLM-Gemma-4-E2B-it-GGUF
+    - https://huggingface.co/unsloth/gemma-4-E2B-it-unsloth-bnb-4bit
+  description: |
+    Security-SLM is a compact Gemma 4 E2B fine-tune for authorized red-team,
+    blue-team, security operations, and AI security work. It is designed for
+    private and air-gapped deployments where prompts can contain sensitive
+    incident data, policies, or source code.
+
+    This entry uses the text-only 3.43 GB Q4_K_M GGUF release.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma
+    - cybersecurity
+    - tools
+  last_checked: "2026-08-31"
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/security-slm-gemma-4-e2b-it/security-gemma-4-e2b-it.Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/security-slm-gemma-4-e2b-it/security-gemma-4-e2b-it.Q4_K_M.gguf
+      uri: huggingface://entrick/Security-SLM-Gemma-4-E2B-it-GGUF/security-gemma-4-e2b-it.Q4_K_M.gguf
+      sha256: 9046894db49c38390088d151dd73397ce1a948480862b3fb8fcbb1b9e977ee5e
 - name: "gemma-4-e2b-it-qat-q4_0"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
