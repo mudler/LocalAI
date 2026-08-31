@@ -51,7 +51,7 @@ Rules (both gates):
 Two suites cover distributed mode (frontend replicas, worker nodes, PostgreSQL, NATS), split by a Ginkgo label:
 
 - `make test-e2e-distributed` runs `Distributed && !VLLMMultinode && !Cluster` over `./tests/e2e/distributed` recursively. Services are wired directly into the test binary. ~240 specs, ~75s.
-- `make test-e2e-cluster` runs `Cluster` and spawns real `local-ai` child processes through the `tests/e2e/distributed/cluster` helper package. 6 specs, 8m39s measured over three consecutive runs (509.1s / 509.8s / 512.3s).
+- `make test-e2e-cluster` runs `Cluster` and spawns real `local-ai` child processes through the `tests/e2e/distributed/cluster` helper package. 6 specs, about 8m30s measured over three consecutive runs (509.1s / 509.8s / 512.3s, so 8m29s to 8m32s).
 
 Both jobs live in `.github/workflows/tests-e2e-distributed.yml`, with `timeout-minutes: 45` each. They trigger on pull requests *and* on every push to `master`; the `paths-ignore` filter (see [.agents/ci-caching.md](ci-caching.md)) sits on the pull-request trigger only, so a master push always runs both. They are advisory only because `master` carries no branch protection, which is a repository setting and not a YAML key: `continue-on-error: true` would flip the run's *conclusion* to success and hide the failure, so it is not used.
 
