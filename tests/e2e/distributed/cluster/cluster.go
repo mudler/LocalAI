@@ -1,0 +1,329 @@
+// Package cluster runs LocalAI as real child processes for end-to-end tests.
+//
+// The in-process suites cannot express frontend-replica failure: there is no
+// process to kill, no second replica to race, and no real HTTP boundary between
+// a worker and the frontend it registered with. This package starts the same
+// binary an operator runs, one process per frontend replica and one per worker,
+// against containerised Postgres and NATS.
+package cluster
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"time"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
+
+	"github.com/phayes/freeport"
+)
+
+// Options configures a cluster. Every field without a default is required.
+type Options struct {
+	// Binary is the path to a built local-ai.
+	Binary string
+	// MockBackend is the path to the mock-backend binary. When set it is copied
+	// into each worker's backends directory as "mock-backend", which is the name
+	// model YAML refers to (see tests/e2e/e2e_suite_test.go:75).
+	MockBackend string
+	// PGDSN and NatsURL point at infrastructure the caller already started.
+	PGDSN   string
+	NatsURL string
+	// LogDir receives one file per process. Never empty: a cluster failure is
+	// unreadable without them.
+	LogDir string
+
+	RegistrationToken string // default "e2e-token"
+	AdminEmail        string // default "admin@e2e.local"
+
+	Frontends int
+	Workers   int
+}
+
+// Process is one running local-ai.
+type Process struct {
+	Name    string
+	Cmd     *exec.Cmd
+	Port    int
+	LogPath string
+
+	logFile *os.File
+	// exited closes once the reaper has collected the process. Only the reaper
+	// calls Cmd.Wait, so nothing else may: a second Wait on the same Cmd races
+	// the first and corrupts ProcessState.
+	exited  chan struct{}
+	waitErr error
+}
+
+// Cluster is a running set of frontend and worker processes.
+type Cluster struct {
+	opts      Options
+	frontends []*Process
+	workers   []*Process
+	baseDir   string
+}
+
+const (
+	defaultRegistrationToken = "e2e-token"
+	defaultAdminEmail        = "admin@e2e.local"
+	readinessTimeout         = 90 * time.Second
+	readinessPoll            = 200 * time.Millisecond
+)
+
+func (o *Options) applyDefaults() {
+	if o.RegistrationToken == "" {
+		o.RegistrationToken = defaultRegistrationToken
+	}
+	if o.AdminEmail == "" {
+		o.AdminEmail = defaultAdminEmail
+	}
+}
+
+func (o Options) validate() error {
+	if o.Frontends < 1 {
+		return fmt.Errorf("cluster needs at least one frontend, got %d", o.Frontends)
+	}
+	if o.LogDir == "" {
+		return fmt.Errorf("cluster needs a LogDir: process logs are the only way to read a cluster failure")
+	}
+	if st, err := os.Stat(o.Binary); err != nil || st.IsDir() {
+		return fmt.Errorf("local-ai binary not found at %q (run: make build)", o.Binary)
+	}
+	return nil
+}
+
+// Start brings up the cluster and blocks until every frontend answers /readyz
+// and every worker has registered.
+func Start(opts Options) (*Cluster, error) {
+	opts.applyDefaults()
+	if err := opts.validate(); err != nil {
+		return nil, err
+	}
+
+	baseDir, err := os.MkdirTemp("", "localai-cluster-*")
+	if err != nil {
+		return nil, fmt.Errorf("creating cluster work dir: %w", err)
+	}
+
+	c := &Cluster{opts: opts, baseDir: baseDir}
+
+	for i := 0; i < opts.Frontends; i++ {
+		p, err := c.startFrontend(i)
+		if err != nil {
+			c.Stop()
+			return nil, err
+		}
+		c.frontends = append(c.frontends, p)
+	}
+	for i := 0; i < opts.Workers; i++ {
+		p, err := c.startWorker(i)
+		if err != nil {
+			c.Stop()
+			return nil, err
+		}
+		c.workers = append(c.workers, p)
+	}
+	return c, nil
+}
+
+func (c *Cluster) startFrontend(i int) (*Process, error) {
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		return nil, fmt.Errorf("allocating frontend port: %w", err)
+	}
+	name := fmt.Sprintf("frontend-%d", i)
+	dir := filepath.Join(c.baseDir, name)
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "backends"), 0o755); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
+
+	cmd := exec.Command(c.opts.Binary, "run",
+		"--address", fmt.Sprintf("127.0.0.1:%d", port),
+		"--models-path", filepath.Join(dir, "models"),
+		"--backends-path", filepath.Join(dir, "backends"),
+	)
+	// Cmd.Environ() is the parent environment this Cmd would already run with;
+	// the children need PATH, HOME and the Go/CI environment intact.
+	cmd.Env = append(cmd.Environ(),
+		"LOCALAI_DISTRIBUTED=true",
+		"LOCALAI_NATS_URL="+c.opts.NatsURL,
+		"LOCALAI_AUTH=true",
+		"LOCALAI_AUTH_DATABASE_URL="+c.opts.PGDSN,
+		"LOCALAI_ADMIN_EMAIL="+c.opts.AdminEmail,
+		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
+		"LOCALAI_AUTO_APPROVE_NODES=true",
+		"DEBUG=true",
+	)
+
+	p, err := c.spawn(name, cmd, port)
+	if err != nil {
+		return nil, err
+	}
+	if err := waitReady(p, fmt.Sprintf("http://127.0.0.1:%d/readyz", port)); err != nil {
+		// The caller never sees this process, so Stop() will never reach it:
+		// reap it here or it outlives the suite holding a port and a log handle.
+		p.terminate()
+		return nil, fmt.Errorf("%s never became ready (see %s): %w", name, p.LogPath, err)
+	}
+	return p, nil
+}
+
+func (c *Cluster) startWorker(i int) (*Process, error) {
+	// Two independent free ports: the worker's file-transfer server defaults to
+	// basePort-1, which freeport never reserved and which is basePort of another
+	// worker whenever two allocations land adjacent.
+	ports, err := freeport.GetFreePorts(2)
+	if err != nil {
+		return nil, fmt.Errorf("allocating worker ports: %w", err)
+	}
+	grpcPort, httpPort := ports[0], ports[1]
+	name := fmt.Sprintf("worker-%d", i)
+	dir := filepath.Join(c.baseDir, name)
+	backends := filepath.Join(dir, "backends")
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
+	if err := os.MkdirAll(backends, 0o755); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
+	if c.opts.MockBackend != "" {
+		if err := copyExecutable(c.opts.MockBackend, filepath.Join(backends, "mock-backend")); err != nil {
+			return nil, fmt.Errorf("installing mock backend for %s: %w", name, err)
+		}
+	}
+
+	cmd := exec.Command(c.opts.Binary, "worker",
+		"--models-path", filepath.Join(dir, "models"),
+		"--backends-path", backends,
+	)
+	cmd.Env = append(cmd.Environ(),
+		fmt.Sprintf("LOCALAI_SERVE_ADDR=127.0.0.1:%d", grpcPort),
+		fmt.Sprintf("LOCALAI_ADVERTISE_ADDR=127.0.0.1:%d", grpcPort),
+		fmt.Sprintf("LOCALAI_HTTP_ADDR=127.0.0.1:%d", httpPort),
+		fmt.Sprintf("LOCALAI_ADVERTISE_HTTP_ADDR=127.0.0.1:%d", httpPort),
+		"LOCALAI_REGISTER_TO="+c.FrontendURL(0),
+		"LOCALAI_NODE_NAME="+name,
+		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
+		"LOCALAI_NATS_URL="+c.opts.NatsURL,
+		"DEBUG=true",
+	)
+
+	return c.spawn(name, cmd, grpcPort)
+}
+
+func (c *Cluster) spawn(name string, cmd *exec.Cmd, port int) (*Process, error) {
+	logPath := filepath.Join(c.opts.LogDir, name+".log")
+	f, err := os.Create(logPath)
+	if err != nil {
+		return nil, fmt.Errorf("creating log file for %s: %w", name, err)
+	}
+	cmd.Stdout = f
+	cmd.Stderr = f
+	if err := cmd.Start(); err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("starting %s: %w", name, err)
+	}
+	p := &Process{Name: name, Cmd: cmd, Port: port, LogPath: logPath, logFile: f, exited: make(chan struct{})}
+	// One reaper per process, joined by terminate(): a child that dies on its own
+	// is collected immediately, so waiters learn about it instead of polling a
+	// dead port until the readiness timeout.
+	go func() {
+		p.waitErr = cmd.Wait()
+		close(p.exited)
+	}()
+	return p, nil
+}
+
+// terminate kills the process, waits for the reaper, and releases the log
+// handle. Safe to call more than once and on a process that already exited.
+func (p *Process) terminate() {
+	if p == nil || p.Cmd == nil || p.Cmd.Process == nil {
+		return
+	}
+	_ = p.Cmd.Process.Kill()
+	<-p.exited
+	if p.logFile != nil {
+		_ = p.logFile.Close()
+	}
+}
+
+// FrontendURL is the base URL of frontend i.
+func (c *Cluster) FrontendURL(i int) string {
+	return fmt.Sprintf("http://127.0.0.1:%d", c.frontends[i].Port)
+}
+
+// WorkerName is the node name worker i registered under.
+func (c *Cluster) WorkerName(i int) string {
+	return c.workers[i].Name
+}
+
+// Stop terminates every process and removes the work directory. Logs survive in
+// LogDir, which the caller owns.
+func (c *Cluster) Stop() {
+	for _, p := range append(append([]*Process{}, c.workers...), c.frontends...) {
+		p.terminate()
+	}
+	if c.baseDir != "" {
+		_ = os.RemoveAll(c.baseDir)
+	}
+}
+
+// DumpLogs writes every process log to stdout. Call from an AfterEach guarded by
+// CurrentSpecReport().Failed().
+func (c *Cluster) DumpLogs() {
+	for _, p := range append(append([]*Process{}, c.frontends...), c.workers...) {
+		if p == nil {
+			continue
+		}
+		data, err := os.ReadFile(p.LogPath)
+		if err != nil {
+			fmt.Printf("=== %s: log unreadable: %v\n", p.Name, err)
+			continue
+		}
+		fmt.Printf("=== %s (%s) ===\n%s\n", p.Name, p.LogPath, string(data))
+	}
+}
+
+func waitReady(p *Process, url string) error {
+	deadline := time.Now().Add(readinessTimeout)
+	client := httpclient.NewWithTimeout(2 * time.Second)
+	var last error
+	for time.Now().Before(deadline) {
+		select {
+		case <-p.exited:
+			if p.waitErr == nil {
+				return fmt.Errorf("process exited cleanly before becoming ready")
+			}
+			return fmt.Errorf("process exited before becoming ready: %w", p.waitErr)
+		default:
+		}
+		resp, err := client.Get(url)
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+			last = fmt.Errorf("status %d", resp.StatusCode)
+		} else {
+			last = err
+		}
+		time.Sleep(readinessPoll)
+	}
+	return fmt.Errorf("not ready within %s: %w", readinessTimeout, last)
+}
+
+func copyExecutable(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", src, err)
+	}
+	if err := os.WriteFile(dst, data, 0o755); err != nil {
+		return fmt.Errorf("writing %s: %w", dst, err)
+	}
+	return nil
+}
