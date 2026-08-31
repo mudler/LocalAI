@@ -366,8 +366,11 @@ func (s *BackendLogStore) SubscriberCount(modelID string) int {
 	}
 	s.mu.RUnlock()
 
-	// Counted after releasing s.mu: no other path takes s.mu and a buffer lock
-	// together, and keeping it that way costs nothing here.
+	// Lock order in this type is always s.mu before any buffer lock — Subscribe
+	// holds s.mu.RLock across its replica registrations, which take buf.mu — so
+	// counting after releasing s.mu keeps that order rather than inverting it.
+	// The total is therefore a sample, not a snapshot: a concurrent Subscribe
+	// can register a further buffer while this loop runs.
 	count := func(buf *backendLogBuffer) int {
 		buf.mu.Lock()
 		defer buf.mu.Unlock()
