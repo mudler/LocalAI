@@ -125,8 +125,12 @@ func BackendLogsWebSocketEndpoint(ml *model.ModelLoader) echo.HandlerFunc {
 		// a line appended in that window is never streamed. A viewer attaching while
 		// a model loads (when a backend is at its noisiest) can silently miss lines;
 		// they stay in the buffer, so a reload shows them. Fixing it needs an atomic
-		// snapshot-plus-subscribe under the store lock, not a reorder of these two
-		// calls, which would duplicate instead of drop.
+		// snapshot-plus-subscribe held under the buffer's own lock (buf.mu in
+		// pkg/model/backend_log_store.go), because that is the lock AppendLine takes
+		// while it enqueues and fans out to subscribers. The store-level s.mu guards
+		// only the buffers map and excludes nothing an appender does, so taking it
+		// leaves this race exactly where it is. Reordering these two calls is not a
+		// fix either: it would duplicate instead of drop.
 
 		// Send existing lines as initial batch
 		existingLines := ml.BackendLogs().GetLines(modelID)
