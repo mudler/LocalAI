@@ -25,6 +25,21 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// waitForLogSubscriber blocks until the worker's WebSocket log handler has
+// registered its subscription on the store.
+//
+// The handler writes the "initial" batch first and subscribes only afterwards,
+// so a line appended the instant that batch lands is buffered but never
+// streamed, and the spec then waits out its full read deadline. Measured at
+// roughly one run in seventeen with `--repeat`, which is far too often for CI.
+// Waiting on the subscription removes the race from the spec; the handler's own
+// snapshot/subscribe window is a separate production question.
+func waitForLogSubscriber(logStore *model.BackendLogStore, modelID string) {
+	GinkgoHelper()
+	Eventually(func() int { return logStore.SubscriberCount(modelID) }, "10s", "5ms").
+		Should(BeNumerically(">", 0), "the WebSocket handler never subscribed to %q", modelID)
+}
+
 var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func() {
 
 	Context("Worker HTTP log endpoints", func() {
@@ -212,6 +227,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(initialLines[1].Text).To(Equal("line-2"))
 
 			// Now append a new line and verify it arrives via WebSocket
+			waitForLogSubscriber(logStore, "ws-model")
 			logStore.AppendLine("ws-model", "stdout", "line-3-realtime")
 
 			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -280,6 +296,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(conn.ReadJSON(&initialMsg)).To(Succeed())
 
 			// Append line to a different model
+			waitForLogSubscriber(logStore, "ws-model")
 			logStore.AppendLine("other-model", "stdout", "should not appear")
 			// Append line to our model
 			logStore.AppendLine("ws-model", "stdout", "should appear")
@@ -475,6 +492,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(initialLines[0].Text).To(Equal("initial line from worker"))
 
 			// Append a new line on the worker's log store
+			waitForLogSubscriber(logStore, "proxy-model")
 			logStore.AppendLine("proxy-model", "stderr", "realtime via proxy")
 
 			// Read the streamed line through the proxy
