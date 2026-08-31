@@ -17,7 +17,9 @@ struct ParserEvent {
 // Streaming parser. Stateless across instances; one per Predict call.
 class DsmlParser {
 public:
-    DsmlParser();
+    // The chat prompt may already contain the opening thinking marker, so the
+    // generated text can begin directly with reasoning bytes.
+    explicit DsmlParser(bool starts_in_thinking = false);
 
     // Feed a chunk of raw model-emitted text. Appends classified events to
     // `out`. May buffer the tail of `chunk` internally if it looks like a
@@ -43,7 +45,7 @@ public:
 
 private:
     enum class State { TEXT, THINK, TOOL_CALLS, INVOKE, PARAM_VALUE };
-    State state_ = State::TEXT;
+    State state_;
     std::string buf_;
     std::string current_tool_name_;
     int tool_index_ = -1;
