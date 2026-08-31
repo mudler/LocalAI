@@ -248,6 +248,18 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		fmt.Sprintf("LOCALAI_ADVERTISE_ADDR=127.0.0.1:%d", grpcPort),
 		fmt.Sprintf("LOCALAI_HTTP_ADDR=127.0.0.1:%d", httpPort),
 		fmt.Sprintf("LOCALAI_ADVERTISE_HTTP_ADDR=127.0.0.1:%d", httpPort),
+		// Workers register with frontend 0 ONLY, never with every replica, and
+		// the cross-replica session specs depend on that. They prove a session
+		// minted at frontend 0 resolves at frontend 1 by reading a node that
+		// only frontend 0 was ever told about; register the worker everywhere
+		// and they still pass while proving nothing.
+		//
+		// Nothing in those specs can detect the change. The registry keys nodes
+		// by name and preserves ids across the shared Postgres
+		// (core/services/nodes/registry.go:522-527), so a roster read at
+		// frontend 1 looks identical either way. Anyone pointing workers at
+		// more than one replica must revisit
+		// tests/e2e/distributed/cluster_baseline_test.go by hand.
 		"LOCALAI_REGISTER_TO="+c.FrontendURL(0),
 		"LOCALAI_NODE_NAME="+name,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,

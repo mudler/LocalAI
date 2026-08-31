@@ -40,7 +40,7 @@ type node struct {
 }
 
 // requireBinaries reports whether a missing binary must fail the spec instead of
-// skipping it.
+// skipping it. It defaults to ON under CI.
 //
 // Skipping is the right courtesy locally: someone who has not run `make build`
 // should get a clear note, not a wall of red. In CI it is the opposite. The
@@ -48,28 +48,42 @@ type node struct {
 // step breaks or moves its output, a skip would leave the job reporting
 // "0 Passed | 2 Skipped" and exiting 0. Ginkgo exits 0 on skips, so that job
 // goes green having never started a cluster, which is precisely the silent pass
-// this suite exists to make impossible. CI sets this variable (Task 9) and gets
-// a failure instead.
+// this suite exists to make impossible.
+//
+// Hence the polarity: the safe behaviour is the default, keyed off CI (GitHub
+// Actions always sets it), and LOCALAI_E2E_REQUIRE_BINARIES exists to be forced
+// OFF rather than to be remembered ON. A future workflow author cannot reach
+// the green-on-nothing state by forgetting a line, only by writing one that
+// explicitly asks for it. A local developer sees no change: CI is unset in an
+// ordinary shell, so a missing binary still skips.
 func requireBinaries() bool {
 	value := strings.TrimSpace(os.Getenv("LOCALAI_E2E_REQUIRE_BINARIES"))
 	if value == "" {
+		return os.Getenv("CI") != ""
+	}
+	// ParseBool rejects these, and the fallback below reads anything it rejects
+	// as ON. Someone writing "off" plainly means off, and silently inverting
+	// them would be a worse trap than the one this flag removes.
+	switch strings.ToLower(value) {
+	case "off", "no", "n", "disabled":
 		return false
 	}
 	if parsed, err := strconv.ParseBool(value); err == nil {
 		return parsed
 	}
-	// Set but unparseable means someone meant to turn this on. Reading it as
-	// false would quietly restore the silent skip the flag exists to prevent.
+	// Set to something meaningless means someone meant to turn this on. Reading
+	// it as false would quietly restore the silent skip the flag guards against.
 	return true
 }
 
-// missingBinary skips or fails, naming the path and the target that builds it.
-func missingBinary(what, path, makeTarget string) {
+// missingBinary skips or fails, naming the path and how to produce it.
+func missingBinary(what, path, remedy string) {
 	GinkgoHelper()
-	message := fmt.Sprintf("%s not found at %s; run `%s`", what, path, makeTarget)
+	message := fmt.Sprintf("%s not found at %s; %s", what, path, remedy)
 	if requireBinaries() {
-		Fail(message + " (LOCALAI_E2E_REQUIRE_BINARIES is set, so this fails rather than skips: " +
-			"in CI a skipped cluster spec is indistinguishable from a passing one)")
+		Fail(message + " (binaries are required here, either under CI or via " +
+			"LOCALAI_E2E_REQUIRE_BINARIES, so this fails rather than skips: a skipped " +
+			"cluster spec is indistinguishable from a passing one)")
 	}
 	Skip(message)
 }
@@ -84,7 +98,7 @@ func localAIBinary() string {
 		path = filepath.Join(wd, "..", "..", "..", "local-ai")
 	}
 	if _, err := os.Stat(path); err != nil {
-		missingBinary("local-ai binary", path, "make build")
+		missingBinary("local-ai binary", path, "run `make build` or set LOCALAI_E2E_BINARY")
 	}
 	return path
 }
@@ -95,7 +109,7 @@ func mockBackendBinary() string {
 	Expect(err).ToNot(HaveOccurred())
 	path := filepath.Join(wd, "..", "mock-backend", "mock-backend")
 	if _, err := os.Stat(path); err != nil {
-		missingBinary("mock-backend", path, "make build-mock-backend")
+		missingBinary("mock-backend", path, "run `make build-mock-backend`")
 	}
 	return path
 }
@@ -248,14 +262,21 @@ var _ = Describe("Cluster baseline", Label("Distributed"), Label("Cluster"), fun
 		registeredID := at0.idOf(c.WorkerName(0))
 		Expect(registeredID).ToNot(BeEmpty(), "frontend 0 reported the worker without a registration ID")
 
-		// Then assert frontend 1 serves the same row, not merely a node with the
-		// same name. Comparing IDs pins the topology inside the spec: a future
-		// harness that registered every worker with every frontend would keep a
-		// name-only assertion green while it quietly stopped testing shared state.
+		// Then assert frontend 1 serves the same row, by id and not merely by name.
+		//
+		// Be precise about what this proves. It does NOT pin the topology:
+		// NodeRegistry.Register looks a node up by name and preserves the
+		// existing id (core/services/nodes/registry.go:522-527), and both
+		// replicas read one Postgres, so a harness that registered the worker
+		// with every frontend would yield identical ids here too. What it does
+		// catch is a frontend answering from its own registry or its own
+		// database rather than the shared one, which is a different regression
+		// and just as silent. The topology fact is not asserted anywhere; it is
+		// recorded next to LOCALAI_REGISTER_TO in cluster.go.
 		at1 := newRosterProbe(c, client, 1)
 		Eventually(at1.healthyNames, nodeRosterTimeout, nodeRosterPoll).
 			Should(ContainElement(c.WorkerName(0)), at1.describe)
 		Expect(at1.idOf(c.WorkerName(0))).To(Equal(registeredID),
-			"frontend 1 must serve the same node row that registered through frontend 0, not a separate registration")
+			"frontend 1 must resolve the same node row as frontend 0; a differing id means it is not reading the shared state")
 	})
 })
