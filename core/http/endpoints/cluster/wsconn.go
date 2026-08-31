@@ -24,8 +24,9 @@ import (
 // larger data frame on the wire in one Write, so any message above the buffer
 // size is read in pieces.
 //
-// The returned conn is safe for one reader and one writer concurrently, which
-// is all yamux uses: its recvLoop reads and its sendLoop writes. It is not a
+// The returned conn is safe for one reader and one writer concurrently, plus a
+// third goroutine setting deadlines, which is what the relay needs: yamux's
+// sendLoop writes while a supervisor arms an idle deadline. It is not a
 // general-purpose net.Conn.
 func WebsocketConn(ws *websocket.Conn) net.Conn {
 	return &wsConn{ws: ws}
@@ -105,14 +106,27 @@ func (c *wsConn) LocalAddr() net.Addr  { return c.ws.LocalAddr() }
 func (c *wsConn) RemoteAddr() net.Addr { return c.ws.RemoteAddr() }
 
 func (c *wsConn) SetDeadline(t time.Time) error {
-	if err := c.ws.SetReadDeadline(t); err != nil {
+	if err := c.SetReadDeadline(t); err != nil {
 		return err
 	}
-	return c.ws.SetWriteDeadline(t)
+	return c.SetWriteDeadline(t)
 }
 
-func (c *wsConn) SetReadDeadline(t time.Time) error  { return c.ws.SetReadDeadline(t) }
-func (c *wsConn) SetWriteDeadline(t time.Time) error { return c.ws.SetWriteDeadline(t) }
+// SetReadDeadline needs no lock, and must not take readMu: gorilla passes the
+// read deadline straight to the underlying net.Conn, whose deadline setters are
+// safe to call from another goroutine, and taking readMu would block behind the
+// parked Read this call exists to unblock.
+func (c *wsConn) SetReadDeadline(t time.Time) error { return c.ws.SetReadDeadline(t) }
+
+// SetWriteDeadline takes writeMu because gorilla stores the write deadline in a
+// plain struct field (conn.go:787) and applies it when it next flushes, so
+// setting it while a write is in flight is a data race, not merely a late bound.
+func (c *wsConn) SetWriteDeadline(t time.Time) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
+	return c.ws.SetWriteDeadline(t)
+}
 
 // translateReadErr maps a peer hanging up cleanly onto io.EOF, which is how a
 // yamux session recognises a normal ending. Any other close code, and any
