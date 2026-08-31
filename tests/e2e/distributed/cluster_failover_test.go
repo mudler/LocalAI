@@ -106,6 +106,54 @@ func (p *rosterProbe) explain(format string, args ...any) func() string {
 	}
 }
 
+// explainStuckOffline is explain with one extra diagnosis attached.
+//
+// An assertion waiting for offline has a failure mode that looks like a harness
+// bug and is not one, so the message names it rather than leaving the reader to
+// find it. See proveHealthCheckingIsAlive and the comment on the dead-worker
+// spec for the mechanism.
+func (p *rosterProbe) explainStuckOffline(worker, format string, args ...any) func() string {
+	return func() string {
+		message := fmt.Sprintf(format, args...) + ": " + p.describe()
+		for _, n := range p.lastSeen {
+			if n.Name != worker || n.Status != nodes.StatusUnhealthy {
+				continue
+			}
+			message += "\n\nThe node is stuck at unhealthy, which is a LocalAI defect rather than " +
+				"a harness one: core/services/nodes/health.go:153-155 skips MarkOffline for a node " +
+				"already marked unhealthy, so a node whose unhealthy mark lands after its heartbeat " +
+				"has gone stale never reaches offline at all. Start there, not here."
+		}
+		return message
+	}
+}
+
+// proveHealthCheckingIsAlive kills a worker and waits for the roster to settle
+// it to offline.
+//
+// It is the terminating positive control for the two specs that assert a
+// healthy worker STAYS healthy. On their own those are pure negative
+// assertions: a cluster whose health checking had wedged entirely, say by
+// leaking the Postgres advisory lock the monitor takes (health.go:110), would
+// freeze the roster and satisfy them while observing a corpse. Killing a worker
+// afterwards and requiring the roster to react proves the monitor was running
+// for the whole window, which is the only thing that makes the preceding
+// Consistently a statement about behaviour rather than about a stopped clock.
+//
+// It costs a full detection cycle, which is why it is a shared helper: the
+// wall-clock price should be paid once per spec and explained once.
+func proveHealthCheckingIsAlive(c *cluster.Cluster, probe *rosterProbe, workerIndex int) {
+	GinkgoHelper()
+	worker := c.WorkerName(workerIndex)
+	Expect(c.KillWorker(workerIndex)).To(Succeed())
+	Eventually(probe.statusOf, workerDeathTimeout, rosterPollInterval).
+		WithArguments(worker).
+		Should(Equal(nodes.StatusOffline),
+			probe.explainStuckOffline(worker,
+				"frontend %d never reacted to a killed worker, so health checking was not running during the window above and the assertion before this one proved nothing",
+				probe.frontend))
+}
+
 var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), func() {
 	It("keeps a healthy worker in the roster when a peer replica dies", func() {
 		// Two replicas, one worker. The worker registers and heartbeats with
@@ -152,6 +200,10 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 			WithArguments(worker).
 			Should(Equal(nodes.StatusHealthy),
 				survivor.explain("killing a peer replica must not disturb a worker that never depended on it"))
+
+		// Everything above is a negative: nothing happened. Prove that the
+		// survivor was capable of making something happen the whole time.
+		proveHealthCheckingIsAlive(c, survivor, 0)
 	})
 
 	It("rediscovers the worker from shared state after a cold rolling restart", func() {
@@ -198,6 +250,12 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 			WithArguments(worker).
 			Should(Equal(nodes.StatusHealthy),
 				restarted.explain("the worker went stale after the restart, so its heartbeats are not reaching the replacement"))
+
+		// Same hole as the peer-death spec, and it is worse here: a cold
+		// restart is exactly the event that could leave a replacement unable to
+		// run health checks at all, and a frozen roster reads identically to a
+		// healthy one. This is the assertion that tells the two apart.
+		proveHealthCheckingIsAlive(c, restarted, 0)
 	})
 
 	It("settles a dead worker to offline on every replica", func() {
@@ -224,11 +282,26 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 		// reaches MarkOffline. So requiring exactly offline is what pins this to
 		// the stale-detection path rather than to the transient, which any
 		// not-healthy or not-present matcher would accept at t=8s.
+		//
+		// KNOWN HAZARD, read this before blaming the harness for a timeout here.
+		// The staleness branch skips a node that is already unhealthy
+		// (core/services/nodes/health.go:153-155, `if node.Status ==
+		// StatusOffline || node.Status == StatusUnhealthy { continue }`). The
+		// skip exists to stop the monitor re-logging nodes an operator took
+		// down, but it applies to the flap too: if the transient unhealthy mark
+		// lands AFTER the heartbeat has already gone stale, rather than at the
+		// ~8s observed here, MarkOffline is never called and this node stays
+		// unhealthy forever. This spec would then hang to workerDeathTimeout
+		// and fail with a roster that looks perfectly ordinary. The ordering
+		// that triggers it did not occur in any run so far, but nothing
+		// prevents it, so explainStuckOffline says so in the failure message
+		// when it sees a node stuck at unhealthy. Fixing it is LocalAI work,
+		// not test work.
 		for _, probe := range []*rosterProbe{at0, at1} {
 			Eventually(probe.statusOf, workerDeathTimeout, rosterPollInterval).
 				WithArguments(worker).
 				Should(Equal(nodes.StatusOffline),
-					probe.explain("frontend %d never settled the dead worker to offline", probe.frontend))
+					probe.explainStuckOffline(worker, "frontend %d never settled the dead worker to offline", probe.frontend))
 		}
 
 		// And it has to stay offline. Nothing may resurrect a row for a process
@@ -242,15 +315,28 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 	})
 
 	It("converges on one roster when two replicas register a worker each", func() {
-		// SpreadWorkerRegistrations is what makes this a race between replicas
-		// rather than two sequential writes through one: worker 0 registers with
-		// frontend 0 and worker 1 with frontend 1, both during Start, so two
-		// processes insert into the shared roster at the same moment.
+		// SpreadWorkerRegistrations sends worker 0 to frontend 0 and worker 1 to
+		// frontend 1, so the roster is written through two different replicas.
+		//
+		// This is a shared-roster identity test, NOT a concurrency test, and the
+		// distinction matters because the obvious reading of the spec name is
+		// the wrong one. Start spawns workers one after another and waits for
+		// neither, and the registrations land about a second apart in practice;
+		// there is no synchronisation point and nothing here is tuned to make
+		// the two writes collide. What it does establish is that a roster
+		// written through two replicas is one roster and not two: same rows,
+		// same identities, read back from either process. A genuine concurrent
+		// registration test would need workers released together against a
+		// shared barrier, and does not exist yet.
 		c := startCluster(2, 2, func(o *cluster.Options) {
 			o.SpreadWorkerRegistrations = true
 		})
-		Expect(c.WorkerRegistrar(0)).ToNot(Equal(c.WorkerRegistrar(1)),
-			"both workers registered through the same replica, so this spec is not testing a race")
+		registrar0, err := c.WorkerRegistrar(0)
+		Expect(err).ToNot(HaveOccurred())
+		registrar1, err := c.WorkerRegistrar(1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(registrar0).ToNot(Equal(registrar1),
+			"both workers registered through the same replica, so nothing below says anything about two replicas sharing a roster")
 
 		client, err := c.AdminSession(0)
 		Expect(err).ToNot(HaveOccurred())
@@ -260,7 +346,7 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 		expected := []string{c.WorkerName(0), c.WorkerName(1)}
 
 		// ConsistOf, not ContainElements: it fails on a third entry, which is
-		// how a registration that raced into two rows would show up.
+		// how a duplicated row for one worker would show up.
 		Eventually(at0.healthyNames, nodeRosterTimeout, nodeRosterPoll).
 			Should(ConsistOf(expected), at0.describe)
 		Eventually(at1.healthyNames, nodeRosterTimeout, nodeRosterPoll).
