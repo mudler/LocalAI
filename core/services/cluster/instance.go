@@ -49,16 +49,24 @@ func NewRegistry(db *gorm.DB) *Registry {
 // the primary key rather than deleting and re-inserting, so a concurrent Live
 // never observes a live replica as missing.
 func (r *Registry) Register(ctx context.Context, id, addr, version string) error {
-	inst := Instance{
-		ID:             id,
-		AdvertisedAddr: addr,
-		Version:        version,
-		LastSeen:       time.Now(),
-	}
-	if err := r.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"advertised_addr", "version", "last_seen"}),
-	}).Create(&inst).Error; err != nil {
+	// last_seen is stamped by the database, never by this process. Liveness is
+	// compared across replicas, so it has to be measured on the one clock they
+	// all share; with per-replica clocks the effective Live window becomes
+	// `within - writerBehind - readerAhead`, which either evicts healthy peers
+	// or keeps dead ones alive.
+	if err := r.db.WithContext(ctx).Model(&Instance{}).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "id"}},
+		DoUpdates: clause.Assignments(map[string]any{
+			"advertised_addr": addr,
+			"version":         version,
+			"last_seen":       gorm.Expr("now()"),
+		}),
+	}).Create(map[string]any{
+		"id":              id,
+		"advertised_addr": addr,
+		"version":         version,
+		"last_seen":       gorm.Expr("now()"),
+	}).Error; err != nil {
 		return fmt.Errorf("registering instance %q: %w", id, err)
 	}
 	return nil
@@ -72,7 +80,7 @@ func (r *Registry) Heartbeat(ctx context.Context, id string) error {
 	// read off RowsAffected.
 	res := r.db.WithContext(ctx).Model(&Instance{}).
 		Where("id = ?", id).
-		Update("last_seen", time.Now())
+		Update("last_seen", gorm.Expr("now()"))
 	if res.Error != nil {
 		return fmt.Errorf("heartbeating instance %q: %w", id, res.Error)
 	}
@@ -85,8 +93,10 @@ func (r *Registry) Heartbeat(ctx context.Context, id string) error {
 // Live returns the instances whose LastSeen is newer than now-within.
 func (r *Registry) Live(ctx context.Context, within time.Duration) ([]Instance, error) {
 	var out []Instance
+	// The cutoff is computed by the database for the same reason Register stamps
+	// there: a reader's clock must not decide whether another replica is alive.
 	if err := r.db.WithContext(ctx).
-		Where("last_seen > ?", time.Now().Add(-within)).
+		Where("last_seen > now() - make_interval(secs => ?)", within.Seconds()).
 		Order("id").
 		Find(&out).Error; err != nil {
 		return nil, fmt.Errorf("listing live instances: %w", err)
@@ -117,9 +127,19 @@ func (r *Registry) Get(ctx context.Context, id string) (*Instance, error) {
 // address to advertise. The caller supplies the port, since the frontend's
 // listening port has nothing to do with the database's.
 //
-// Failures are returned rather than papered over with a fallback such as
-// 127.0.0.1, which would publish an address no peer can dial.
+// The discovery only holds while the database is a shared, remote host. When
+// PostgreSQL runs on this same host or pod (compose, single-node, any sidecar
+// layout) the route to it is loopback, and advertising 127.0.0.1 would make a
+// peer dialling this replica reach itself instead. So an unspecified, loopback,
+// or link-local source address is rejected with an error telling the operator to
+// configure the advertised address explicitly, rather than returned. There is no
+// fallback string: no address is better than a wrong one.
 func DiscoverAdvertisedAddr(dsn string, port int) (string, error) {
+	// A port of 0 (or out of range) would produce an address nothing can dial,
+	// and the caller is likelier to have passed an unset field than to mean it.
+	if port < 1 || port > 65535 {
+		return "", fmt.Errorf("advertised port %d is out of range 1-65535", port)
+	}
 	host, dbPort, err := dsnHostPort(dsn)
 	if err != nil {
 		return "", err
@@ -133,7 +153,17 @@ func DiscoverAdvertisedAddr(dsn string, port int) (string, error) {
 	defer func() { _ = conn.Close() }()
 	local, ok := conn.LocalAddr().(*net.UDPAddr)
 	if !ok || local.IP == nil || local.IP.IsUnspecified() {
-		return "", fmt.Errorf("no local address on the route to database host %q", host)
+		return "", fmt.Errorf("no local address on the route to database host %q; set the advertised address explicitly", host)
+	}
+	if local.IP.IsLoopback() {
+		return "", fmt.Errorf("the route to database host %q is loopback (%s), so the database is local to this replica and its peer-reachable address cannot be discovered; set the advertised address explicitly", host, local.IP)
+	}
+	// A zone is only ever attached to a scoped (link-local) address, so this is
+	// the same rejection stated twice; the Zone check keeps the guarantee if a
+	// platform ever hands back a scoped address of another class, because
+	// IP.String() would silently drop the %iface and yield an undialable host.
+	if local.IP.IsLinkLocalUnicast() || local.Zone != "" {
+		return "", fmt.Errorf("the route to database host %q is link-local (%s), which peers on other hosts cannot dial; set the advertised address explicitly", host, local.IP)
 	}
 	return net.JoinHostPort(local.IP.String(), strconv.Itoa(port)), nil
 }
