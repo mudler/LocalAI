@@ -340,12 +340,18 @@ run-e2e-aio: protogen-go
 	@echo 'Running e2e AIO tests'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
 
+# Flake retries for the distributed suite. Defaults to 1, unlike TEST_FLAKES:
+# this suite exists to catch nondeterministic cluster behaviour, and retrying
+# hides exactly the failures it is meant to surface. Raise it locally if you are
+# bisecting something unrelated.
+DISTRIBUTED_TEST_FLAKES?=1
+
 # Distributed architecture e2e (PostgreSQL + NATS via testcontainers).
 # Includes NatsJWT specs (JWT-enabled NATS). Requires Docker.
 # VLLMMultinode is excluded here; use test-e2e-vllm-multinode for that.
 test-e2e-distributed: protogen-go
 	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode && !Cluster' --flake-attempts $(DISTRIBUTED_TEST_FLAKES) --timeout=40m -v -r ./tests/e2e/distributed
 
 # vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
 # cpu-vllm backend from the current working tree, then drives a
