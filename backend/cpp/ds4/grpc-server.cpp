@@ -771,7 +771,12 @@ public:
         build_prompt(g_engine, request, &prompt);
         int n_predict = request->tokens() > 0 ? request->tokens() : 256;
 
-        CollectCtx collect = {g_engine, "", {}, reply, 0, {}, "", ""};
+        const bool think_enabled = ds4_think_mode_enabled(parse_think_mode(request));
+        const bool starts_in_thinking = think_enabled &&
+            request->usetokenizertemplate() && request->messages_size() > 0;
+        CollectCtx collect = {
+            g_engine, "", ds4cpp::DsmlParser(starts_in_thinking),
+            reply, 0, {}, "", ""};
         std::string cache_key = render_prompt_text(request);
         size_t cache_hit = maybe_load_cache(cache_key);
         (void)cache_hit; // future: skip prompt prefix if hit covers full prompt
@@ -789,7 +794,6 @@ public:
         if (rc == 0) {
             const int eos = ds4_token_eos(g_engine);
             const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
-            const bool think_enabled = ds4_think_mode_enabled(parse_think_mode(request));
             int produced = 0;
             while (produced < n_predict) {
                 SampleParams sp = compute_sample_params(request, collect.parser, think_enabled);
@@ -871,7 +875,12 @@ public:
         build_prompt(g_engine, request, &prompt);
         int n_predict = request->tokens() > 0 ? request->tokens() : 256;
 
-        StreamCtx s = {g_engine, writer, {}, 0, false, {}};
+        const bool think_enabled = ds4_think_mode_enabled(parse_think_mode(request));
+        const bool starts_in_thinking = think_enabled &&
+            request->usetokenizertemplate() && request->messages_size() > 0;
+        StreamCtx s = {
+            g_engine, writer, ds4cpp::DsmlParser(starts_in_thinking),
+            0, false, {}};
         std::string cache_key = render_prompt_text(request);
         size_t cache_hit = maybe_load_cache(cache_key);
         (void)cache_hit;
@@ -884,7 +893,6 @@ public:
         if (rc == 0) {
             const int eos = ds4_token_eos(g_engine);
             const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
-            const bool think_enabled = ds4_think_mode_enabled(parse_think_mode(request));
             int produced = 0;
             while (produced < n_predict && !s.aborted) {
                 SampleParams sp = compute_sample_params(request, s.parser, think_enabled);
