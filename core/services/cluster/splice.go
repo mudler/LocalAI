@@ -35,8 +35,10 @@ func Splice(a, b io.ReadWriteCloser) error {
 
 	// Closing both ends is what releases the other direction, whether it is
 	// parked in Read or halfway through a Write nobody is draining. Each end
-	// is closed exactly once, here and nowhere else, so a stream that reports
-	// an error on a second Close (yamux does) never sees one.
+	// is closed exactly once, here and nowhere else, which keeps the error
+	// below meaningful: a second Close of a yamux stream that was reset
+	// returns the error that killed it, and Splice would have no way to tell
+	// that from a fresh failure.
 	closeErrA := a.Close()
 	closeErrB := b.Close()
 
@@ -71,27 +73,78 @@ func copyStream(dst io.Writer, src io.Reader) error {
 // what a socket reports once it or its peer has been closed, and
 // io.ErrClosedPipe is the same condition on an in-memory pipe.
 //
-// The yamux sentinels are here because Splice owns the Close that produces
-// them: closing a stream whose session has already gone away returns
-// ErrSessionShutdown from the FIN write, and a stream torn down under a live
-// copy surfaces as ErrStreamClosed or a reset. None of yamux's error types
-// match net.ErrClosed, so each has to be named. Matching ErrStreamReset covers
-// every *StreamError and *GoAwayError, both of which report themselves as a
-// reset; ErrStreamClosed is a plain sentinel and matches only itself.
-//
-// Anything else is a real failure the caller should see. Note that a peer
-// resetting a socket mid-stream (ECONNRESET, EPIPE) is deliberately not in
-// this set: whether an abandoned request is routine is the caller's policy,
-// not this primitive's.
+// The mux checks run first, and that ordering is load-bearing: a dying yamux
+// session hands every live stream its own cause wrapped up (session.go:330),
+// and that cause is routinely io.EOF or a closed-socket error, so consulting
+// the generic endings first would report a peer that vanished mid-request as a
+// clean completion.
 func normalizeStreamErr(err error) error {
-	if err == nil ||
-		errors.Is(err, io.EOF) ||
+	if err == nil {
+		return nil
+	}
+	if isMuxSessionFailure(err) {
+		return err
+	}
+	if isMuxStreamTeardown(err) {
+		return nil
+	}
+	if errors.Is(err, io.EOF) ||
 		errors.Is(err, net.ErrClosed) ||
-		errors.Is(err, io.ErrClosedPipe) ||
-		errors.Is(err, yamux.ErrStreamClosed) ||
-		errors.Is(err, yamux.ErrStreamReset) ||
-		errors.Is(err, yamux.ErrSessionShutdown) {
+		errors.Is(err, io.ErrClosedPipe) {
 		return nil
 	}
 	return err
+}
+
+// normalGoAwayCode is yamux's "no error" go-away code, read off a sentinel
+// declared with it because the constant itself is unexported.
+var normalGoAwayCode = yamux.ErrRemoteGoAway.ErrorCode
+
+// isMuxSessionFailure reports whether err is the yamux session underneath a
+// stream dying, as opposed to a single stream being torn down. The distinction
+// matters because Splice must stay quiet about the teardown it provokes itself
+// while still reporting a dead peer: a keepalive timeout, a broken TCP
+// connection or a protocol error under a relayed request has to reach the
+// caller, or a failed inference looks like a finished one.
+func isMuxSessionFailure(err error) bool {
+	// A go-away ends the whole session. Only the "no error" code is a normal
+	// ending; a protocol or internal error go-away is a real failure.
+	var goAway *yamux.GoAwayError
+	if errors.As(err, &goAway) {
+		return goAway.ErrorCode != normalGoAwayCode
+	}
+	// A stream error is scoped to one stream, whatever killed it.
+	var streamErr *yamux.StreamError
+	if errors.As(err, &streamErr) {
+		return false
+	}
+	// Session.close gives every stream it kills ErrStreamReset wrapped around
+	// the cause, so the bare sentinel means this stream was reset and a
+	// wrapped one means the session died under it. Identity is what separates
+	// them; errors.Is cannot.
+	return errors.Is(err, yamux.ErrStreamReset) && err != yamux.ErrStreamReset
+}
+
+// isMuxStreamTeardown reports whether err is yamux ending one stream, which
+// Splice mostly provokes itself: closing a stream whose session has already
+// shut down normally returns ErrSessionShutdown from the FIN write, and a copy
+// parked on a stream that gets closed comes back with ErrStreamClosed or a
+// reset. A reset does not only mean that, though; the same sentinel heads the
+// error a dying session hands its streams, which is why isMuxSessionFailure
+// runs first. None of yamux's error types match net.ErrClosed, so all of this
+// has to be recognised by shape.
+func isMuxStreamTeardown(err error) bool {
+	// Sentinels by identity, never errors.Is: the wrapped forms belong to a
+	// dead session and are reported instead. ErrSessionShutdown is absent on
+	// purpose rather than by oversight, being a *GoAwayError carrying the
+	// normal code, which the last check below covers.
+	if err == yamux.ErrStreamClosed || err == yamux.ErrStreamReset {
+		return true
+	}
+	var streamErr *yamux.StreamError
+	if errors.As(err, &streamErr) {
+		return true
+	}
+	var goAway *yamux.GoAwayError
+	return errors.As(err, &goAway) && goAway.ErrorCode == normalGoAwayCode
 }

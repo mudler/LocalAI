@@ -2,6 +2,7 @@ package cluster_test
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -173,6 +174,72 @@ var _ = Describe("Splice", func() {
 			Entry("a stream reset by the remote", &yamux.StreamError{ErrorCode: 1, Remote: true}),
 			Entry("a go-away from the remote", yamux.ErrRemoteGoAway),
 		)
+
+		// sessionDeath is the exact shape Session.close hands every live
+		// stream when the session dies for a non-go-away reason
+		// (session.go:330). It matters that these are wrapped: the cause it
+		// carries is routinely io.EOF or a closed socket, so a classifier that
+		// looked at the cause would call a vanished peer a clean ending.
+		sessionDeath := func(cause error) error {
+			return fmt.Errorf("%w: connection closed: %w", yamux.ErrStreamReset, cause)
+		}
+
+		// A dead peer under a relayed inference request has to reach the
+		// caller. If it arrives as nil, a failed request looks like a finished
+		// one and nothing upstream retries or logs it.
+		DescribeTable("reports the session dying under a stream",
+			func(ending error) {
+				dead := &scriptedStream{readErr: ending}
+				idle := &scriptedStream{}
+
+				done := make(chan error, 1)
+				go func() { done <- cluster.Splice(dead, idle) }()
+
+				var err error
+				Eventually(done, "5s").Should(Receive(&err))
+				Expect(err).To(MatchError(ending))
+			},
+			Entry("a keepalive timeout", sessionDeath(yamux.ErrKeepAliveTimeout)),
+			Entry("a broken connection", sessionDeath(errors.New("read tcp 10.0.0.1:4000: broken pipe"))),
+			Entry("a peer that vanished", sessionDeath(io.EOF)),
+			Entry("a protocol-error go-away", &yamux.GoAwayError{Remote: true, ErrorCode: 1}),
+			Entry("an internal-error go-away", &yamux.GoAwayError{Remote: true, ErrorCode: 2}),
+		)
+
+		// The distinction the classifier turns on, in one spec: yamux uses the
+		// same sentinel for "this stream was reset", which Splice provokes
+		// itself and must stay quiet about, and as the head of the wrapped
+		// error meaning "the session died", which it must report. Only
+		// identity separates them.
+		It("separates a bare reset from a session that died wrapping one", func() {
+			spliceEnding := func(ending error) error {
+				done := make(chan error, 1)
+				go func() {
+					done <- cluster.Splice(&scriptedStream{readErr: ending}, &scriptedStream{})
+				}()
+				var err error
+				EventuallyWithOffset(1, done, "5s").Should(Receive(&err))
+				return err
+			}
+
+			Expect(spliceEnding(yamux.ErrStreamReset)).To(BeNil())
+			Expect(spliceEnding(sessionDeath(yamux.ErrKeepAliveTimeout))).ToNot(BeNil())
+		})
+
+		// Session death also arrives through the Close Splice makes itself, on
+		// a stream whose session died while the other side was finishing. That
+		// is not the quiet teardown ErrSessionShutdown describes.
+		It("reports a session that died, even from its own Close", func() {
+			stream := &scriptedStream{closeErr: sessionDeath(yamux.ErrKeepAliveTimeout)}
+			backend := &scriptedStream{readErr: io.EOF}
+
+			done := make(chan error, 1)
+			go func() { done <- cluster.Splice(stream, backend) }()
+
+			var err error
+			Eventually(done, "5s").Should(Receive(&err))
+			Expect(err).To(MatchError(yamux.ErrKeepAliveTimeout))
+		})
 
 		// The tunnel's own teardown: the local backend finishes normally while
 		// the yamux session has already gone away, so the FIN that Splice's
