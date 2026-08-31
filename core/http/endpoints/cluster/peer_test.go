@@ -106,6 +106,82 @@ var _ = Describe("Peer link handler", func() {
 
 		Eventually(ids, "5s").Should(Receive(Equal("peer-1")))
 	})
+	It("rejects every dial when no cluster token is configured", func() {
+		// The route is registered in every deployment, so an empty configured
+		// token must authorize nobody. Failing open the way the worker
+		// file-transfer server's checkBearerToken does would publish an
+		// unauthenticated yamux multiplexer to anyone who can reach the port.
+		e := echo.New()
+		accepted := make(chan *yamux.Session, 1)
+		clusterep.RegisterClusterRoutes(e, "", func(_ string, sess *yamux.Session) { accepted <- sess })
+		s2 := httptest.NewServer(e)
+		DeferCleanup(s2.Close)
+
+		for _, header := range []http.Header{nil, {"Authorization": []string{"Bearer "}}, {"Authorization": []string{"Bearer anything"}}} {
+			_, resp, err := websocket.DefaultDialer.Dial(wsURL(s2), header)
+			Expect(err).To(HaveOccurred())
+			Expect(resp).ToNot(BeNil())
+			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+		}
+		Expect(accepted).ToNot(Receive())
+	})
+
+	It("accepts the bearer scheme in any case", func() {
+		// RFC 7235 makes the scheme case-insensitive. The token after it is not.
+		h := http.Header{}
+		h.Set("Authorization", "bearer peer-token")
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL(srv), h)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = conn.Close() })
+		Eventually(sessions, "5s").Should(Receive())
+	})
+
+	It("closes the session when the callback panics", func() {
+		// net/http recovers the panic but leaves the hijacked socket open, so
+		// without the handler's own recover the peer would keep a link nobody
+		// ever accepts streams on.
+		e := echo.New()
+		clusterep.RegisterClusterRoutes(e, "peer-token", func(_ string, _ *yamux.Session) {
+			panic("callback exploded")
+		})
+		s2 := httptest.NewServer(e)
+		DeferCleanup(func() {
+			// A hijacked connection the handler never closed would park
+			// httptest's Close forever, turning the assertion below into a
+			// suite hang. Forcing the conns shut keeps the failure legible.
+			s2.CloseClientConnections()
+			s2.Close()
+		})
+
+		h := http.Header{}
+		h.Set("Authorization", "Bearer peer-token")
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL(s2), h)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = conn.Close() })
+
+		clientSess, err := yamux.Client(clusterep.WebsocketConn(conn), nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = clientSess.Close() })
+
+		// Asserting on OpenStream would hang rather than fail: yamux only
+		// acknowledges a stream once the peer accepts it, and the leak this
+		// pins is precisely that nobody ever will. The session's own liveness
+		// is the observable that answers in both directions.
+		Eventually(clientSess.IsClosed, "10s").Should(BeTrue())
+	})
+
+	It("rejects an authenticated dial that names no peer", func() {
+		// The session is keyed by peer id, so a nameless link could never be
+		// looked up again; refusing it is cheaper than leaking it.
+		h := http.Header{}
+		h.Set("Authorization", "Bearer peer-token")
+		_, resp, err := websocket.DefaultDialer.Dial(
+			"ws"+strings.TrimPrefix(srv.URL, "http")+"/api/cluster/peer", h)
+		Expect(err).To(HaveOccurred())
+		Expect(resp).ToNot(BeNil())
+		Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+		Expect(sessions).ToNot(Receive())
+	})
 })
 
 var _ = Describe("Peer link auth prefix", func() {
