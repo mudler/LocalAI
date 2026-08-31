@@ -7133,7 +7133,7 @@
         disable: true
     known_usecases:
       - chat
-    mmproj: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
+    mmproj: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf
     options:
       - use_jinja:true
       - spec_type:draft-mtp
@@ -7147,9 +7147,9 @@
     - filename: llama-cpp/models/Qwythos-9B-Claude-Mythos-5-1M-GGUF/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
       uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/Qwythos-9B-Claude-Mythos-5-1M-MTP-Q4_K_M.gguf
       sha256: 318caed45110f5e3c60bff1142e0d1e658e046e670830d9be643df33940f4f98
-    - filename: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
-      sha256: f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f
-      uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/mmproj-Qwythos-9B-Claude-Mythos-5-1M-f16.gguf
+    - filename: llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf
+      sha256: f977efc337a2ac2ba183eea0c73e25b75fc240d56c05ed4d9b56ab451f64c82c
+      uri: https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf
 - name: "glm-5.2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
