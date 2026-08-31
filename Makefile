@@ -349,9 +349,32 @@ DISTRIBUTED_TEST_FLAKES?=1
 # Distributed architecture e2e (PostgreSQL + NATS via testcontainers).
 # Includes NatsJWT specs (JWT-enabled NATS). Requires Docker.
 # VLLMMultinode is excluded here; use test-e2e-vllm-multinode for that.
+# Cluster is excluded too and runs in test-e2e-cluster below, which needs a
+# built binary. The argument-validation specs under tests/e2e/distributed/cluster
+# carry Label("Distributed") only, so they run here and not there, on purpose.
 test-e2e-distributed: protogen-go
 	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode && !Cluster' --flake-attempts $(DISTRIBUTED_TEST_FLAKES) --timeout=40m -v -r ./tests/e2e/distributed
+
+# Cluster e2e: runs local-ai as real child processes (frontend replicas +
+# workers) against PostgreSQL and NATS, and kills them to assert failover.
+# Needs a built ./local-ai (or LOCALAI_E2E_BINARY) plus the mock backend.
+#
+# The label split is deliberate and asymmetric. --label-filter='Cluster'
+# selects only the specs that spawn processes: the baseline and failover specs
+# in tests/e2e/distributed. The argument-validation specs in
+# tests/e2e/distributed/cluster carry Label("Distributed") alone, so they stay
+# in test-e2e-distributed above, where they belong: they exercise the harness's
+# own option handling, need no binary, no PostgreSQL and no NATS, and run in
+# milliseconds. Ginkgo therefore reports 0 of 8 specs run for that package here.
+# That zero is correct, not a filter bug.
+#
+# --flake-attempts is pinned to 1 rather than $(DISTRIBUTED_TEST_FLAKES), and
+# should stay there: this suite exists to catch nondeterministic cluster
+# behaviour, and a retry turns exactly that signal into a green run.
+test-e2e-cluster: protogen-go build-mock-backend
+	@echo 'Running cluster e2e tests (label Cluster, real local-ai processes)'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Cluster' --flake-attempts 1 --timeout=20m -v -r ./tests/e2e/distributed
 
 # vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
 # cpu-vllm backend from the current working tree, then drives a
