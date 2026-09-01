@@ -5,6 +5,7 @@ package nodes
 import (
 	"context"
 	"net"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,5 +98,36 @@ var _ = Describe("The backend client factory", func() {
 			_, err = f.NewClientForNode("node-1", "10.0.0.1:41000", false)
 			Expect(err).To(MatchError(ErrNoWorkerDialer))
 		})
+	})
+})
+
+var _ = Describe("the host used to address a worker's own HTTP server", func() {
+	It("uses the registered address when the worker reports one", func() {
+		Expect(WorkerHTTPHost("node-1", "10.0.0.5:8080")).To(Equal("10.0.0.5:8080"))
+	})
+
+	It("still produces a host for a tunnel-only worker that reports none", func() {
+		// Task 7 removes the worker's inbound listeners, at which point a
+		// worker has no address to report. Refusing here would refuse exactly
+		// the workers the tunnel exists for, and the guards that used to do
+		// that returned 502 "node has no HTTP address".
+		host := WorkerHTTPHost("node-1", "")
+		Expect(host).ToNot(BeEmpty())
+		Expect(host).To(ContainSubstring("node-1"))
+	})
+
+	It("produces a host that cannot resolve, so it can never become a dial", func() {
+		// The value fills a URL's host component and nothing else. Making it
+		// unresolvable is what stops a later refactor connecting to it by
+		// accident: .invalid is reserved by RFC 2606 and resolves nowhere.
+		host := WorkerHTTPHost("node-1", "")
+		hostname, _, err := net.SplitHostPort(host)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(hostname).To(HaveSuffix(".invalid"))
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_, err = net.DefaultResolver.LookupHost(ctx, hostname)
+		Expect(err).To(HaveOccurred())
 	})
 })
