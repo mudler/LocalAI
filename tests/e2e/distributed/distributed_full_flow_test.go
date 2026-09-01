@@ -489,7 +489,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", directWorkerDialerFor)
 
 		// Create SmartRouter with the HTTPFileStager
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
@@ -558,7 +558,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", directWorkerDialerFor)
 
 		// Create SmartRouter with FileStager
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
@@ -616,7 +616,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", directWorkerDialerFor)
 
 		// Test AllocRemoteTemp + FetchRemote directly (the output retrieval path)
 		remoteTmpPath, err := stager.AllocRemoteTemp(ctx, node.ID)
@@ -662,7 +662,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", directWorkerDialerFor)
 
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
 
@@ -881,7 +881,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", directWorkerDialerFor)
 
 		// Create model files on the "frontend"
 		frontendModelsDir := GinkgoT().TempDir()
@@ -965,7 +965,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 				return "", err
 			}
 			return n.HTTPAddress, nil
-		}, "")
+		}, "", directWorkerDialerFor)
 
 		// Create model files: .onnx and .onnx.json in a temp "models" dir
 		frontendModelsDir := GinkgoT().TempDir()

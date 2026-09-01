@@ -62,7 +62,7 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 		It("should create HTTPFileStager with httpAddrFor function", func() {
 			stager := nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
 				return "", fmt.Errorf("no such node: %s", nodeID)
-			}, "")
+			}, "", directWorkerDialerFor)
 			Expect(stager).ToNot(BeNil())
 
 			// Should fail gracefully when node resolution fails
