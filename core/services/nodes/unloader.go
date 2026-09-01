@@ -109,7 +109,7 @@ func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID str
 		reply, err := messaging.RequestJSON[messaging.ModelStopRequest, messaging.ModelStopReply](a.nats, messaging.SubjectNodeModelStop(nodeID), messaging.ModelStopRequest{
 			ModelName:       replica.ModelName,
 			ProcessKey:      model.BackendProcessKey(replica.ModelName, replica.ReplicaIndex),
-			ExpectedAddress: replica.Address,
+			ExpectedAddress: replica.WorkerLocalAddress,
 			Force:           force,
 			ConfigRevision:  replica.ConfigRevision,
 		}, exactModelStopTimeout)

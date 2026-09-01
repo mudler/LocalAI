@@ -145,7 +145,7 @@ var _ = Describe("scheduling a model onto a cluster without disk headroom", func
 		reg.findIdleNode = &BackendNode{ID: "n1", Name: "nvidia-thor", Address: "10.0.0.1:50051"}
 		backend = &holdBackend{}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:9001"},
 		}
 		router = NewSmartRouter(reg, SmartRouterOptions{
 			Unloader:      unloader,
