@@ -30,10 +30,15 @@ import (
 type InFlightTrackingClient struct {
 	grpc.ControlBackend                       // passthrough for control-plane / streaming-constructor methods
 	inner               grpc.InferenceBackend // tracked inference methods delegate here
-	registry            InFlightTracker
-	nodeID              string
-	modelName           string
-	replicaIndex        int
+	// wrapped is the SAME object as ControlBackend and inner, kept at its full
+	// type so Unwrap can hand it back. The two fields above are deliberately
+	// narrowed to the sub-interfaces, which is what gives the compile-time
+	// guarantee below, and neither of them can be returned as a grpc.Backend.
+	wrapped      grpc.Backend
+	registry     InFlightTracker
+	nodeID       string
+	modelName    string
+	replicaIndex int
 
 	firstOnce       sync.Once // guards onFirstComplete
 	onFirstComplete func()    // called once after the first tracked inference call completes
@@ -44,11 +49,21 @@ type InFlightTrackingClient struct {
 // InferenceBackend method is left unwrapped.
 var _ grpc.Backend = (*InFlightTrackingClient)(nil)
 
+// And it must stay transparent to grpc.LastDialErrorOf. This is the wrapper
+// SmartRouter puts on every routed client, so a remote model's cached client is
+// one of these; without Unwrap, the transport guard in pkg/model reads nil for
+// every model the router produced and evicts on a tunnel blip.
+var _ grpc.BackendUnwrapper = (*InFlightTrackingClient)(nil)
+
+// Unwrap exposes the client this one decorates.
+func (c *InFlightTrackingClient) Unwrap() grpc.Backend { return c.wrapped }
+
 // NewInFlightTrackingClient wraps a gRPC backend client with in-flight tracking.
 func NewInFlightTrackingClient(inner grpc.Backend, registry InFlightTracker, nodeID, modelName string, replicaIndex int) *InFlightTrackingClient {
 	return &InFlightTrackingClient{
 		ControlBackend: inner,
 		inner:          inner,
+		wrapped:        inner,
 		registry:       registry,
 		nodeID:         nodeID,
 		modelName:      modelName,
