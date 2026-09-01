@@ -91,13 +91,27 @@ func (r *Registry) Heartbeat(ctx context.Context, id string) error {
 	return nil
 }
 
+// instanceIsLive is the one predicate that decides whether a replica is still
+// alive, and it takes the window in seconds as its single bind parameter. Every
+// reader of that fact uses this string: Live to list the survivors, Owner to
+// refuse an owner that is not among them. Two spellings of one fact drift, and
+// the drift would show up as a relay to a replica one query calls dead and
+// another calls alive.
+//
+// The column is table-qualified because Owner reads it across a join, where an
+// unqualified last_seen would be ambiguous. Postgres folds the unquoted name to
+// the same table gorm quotes, so the qualification costs Live nothing.
+//
+// The cutoff is computed by the database for the same reason Register stamps
+// there: liveness is compared across replicas, so a reader's own clock must not
+// decide whether another replica is alive.
+const instanceIsLive = `instances.last_seen > now() - make_interval(secs => ?)`
+
 // Live returns the instances whose LastSeen is newer than now-within.
 func (r *Registry) Live(ctx context.Context, within time.Duration) ([]Instance, error) {
 	var out []Instance
-	// The cutoff is computed by the database for the same reason Register stamps
-	// there: a reader's clock must not decide whether another replica is alive.
 	if err := r.db.WithContext(ctx).
-		Where("last_seen > now() - make_interval(secs => ?)", within.Seconds()).
+		Where(instanceIsLive, within.Seconds()).
 		Order("id").
 		Find(&out).Error; err != nil {
 		return nil, fmt.Errorf("listing live instances: %w", err)

@@ -168,14 +168,12 @@ func (r *Registry) Claim(ctx context.Context, nodeID, ownerID string) (int64, er
 // It answers "what does the table say", NOT "who holds this tunnel". The owner
 // it names may be dead: a replica that dies stops heartbeating, and its rows
 // survive until another replica's sweep removes them, which is up to
-// InstanceLiveness plus one InstanceHeartbeat later. Any caller that ACTS on
-// the answer must join instances itself and treat a non-live owner as
-// ErrNoConnection; relaying to the row without that check is relaying into a
-// process that is gone.
+// InstanceLiveness plus one InstanceHeartbeat later.
 //
-// The name says row on purpose, so that the joining version can take the plain
-// name when phase 2 introduces the first caller that needs it. Nothing in
-// phase 1 reads this outside tests, which is why the join is not here yet.
+// Callers that ACT on the answer want Owner, which joins instances and treats a
+// non-live owner as ErrNoConnection. This one is for callers that need to see
+// the row itself, such as a sweeper deciding what to clean up, or a spec
+// proving the two reads differ.
 func (r *Registry) OwnerRow(ctx context.Context, nodeID string) (string, int64, error) {
 	var conn NodeConnection
 	err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).First(&conn).Error
@@ -184,6 +182,49 @@ func (r *Registry) OwnerRow(ctx context.Context, nodeID string) (string, int64, 
 	}
 	if err != nil {
 		return "", 0, fmt.Errorf("looking up owner of node %q: %w", nodeID, err)
+	}
+	return conn.OwnerInstanceID, conn.Epoch, nil
+}
+
+// Owner returns the replica that holds nodeID's tunnel AND is still live, with
+// the epoch of that claim, or ErrNoConnection when there is no such replica.
+//
+// This is the read anything that ACTS on the answer must use. A connection row
+// outlives its owner: a replica that dies stops heartbeating but its rows stay
+// until a peer's sweep removes them, which is up to InstanceLiveness plus one
+// InstanceHeartbeat later. For that whole window OwnerRow names a process that
+// is gone, and a relay built on it would dial a corpse and report the worker as
+// unreachable rather than as absent.
+//
+// A missing row and a dead owner are one answer on purpose. Both mean "no
+// replica here holds this worker's tunnel", which is what a caller decides on;
+// they differ only in which sweep has already run, and that is the sweeper's
+// business rather than the caller's.
+//
+// One statement, joined, not a row read followed by an instance lookup: between
+// two statements the owner can die, and the caller would act on an owner the
+// second read would have rejected. The join makes the two facts one snapshot.
+//
+// The window is InstanceLiveness rather than a parameter, which is the window
+// the membership loop sweeps with. A caller free to pick its own could keep
+// relaying to a replica the sweeper has already declared dead, or give up on
+// one the sweeper is still keeping.
+func (r *Registry) Owner(ctx context.Context, nodeID string) (string, int64, error) {
+	var conn NodeConnection
+	err := r.db.WithContext(ctx).
+		Model(&NodeConnection{}).
+		// Only the connection's own columns are selected: the join exists to
+		// filter, and SELECT * across it would hand gorm the instances columns
+		// to scan into a NodeConnection.
+		Select("node_connections.*").
+		Joins("JOIN instances ON instances.id = node_connections.owner_instance_id AND "+instanceIsLive, InstanceLiveness.Seconds()).
+		Where("node_connections.node_id = ?", nodeID).
+		Take(&conn).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", 0, fmt.Errorf("looking up live owner of node %q: %w", nodeID, ErrNoConnection)
+	}
+	if err != nil {
+		return "", 0, fmt.Errorf("looking up live owner of node %q: %w", nodeID, err)
 	}
 	return conn.OwnerInstanceID, conn.Epoch, nil
 }
