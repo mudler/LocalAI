@@ -40,6 +40,14 @@ type Client struct {
 	// keeps gRPC's own TCP dial, which is what every non-distributed caller
 	// wants.
 	dialer func(ctx context.Context, addr string) (net.Conn, error)
+
+	// dialErrMu guards lastDialErr. Its own mutex rather than the embedded one:
+	// the embedded Mutex guards inFlight and is taken on every call, and a
+	// dialer runs underneath gRPC's own machinery where reentering it is not
+	// something this type can reason about.
+	dialErrMu   sync.Mutex
+	lastDialErr error
+
 	sync.Mutex
 	opMutex sync.Mutex
 	wd      WatchDog
@@ -1421,4 +1429,41 @@ func (c *Client) ModelMetadata(ctx context.Context, in *pb.ModelOptions, opts ..
 	defer conn.Close()
 	client := pb.NewBackendClient(conn)
 	return client.ModelMetadata(ctx, in, opts...)
+}
+
+// LastDialError returns the error from the most recent attempt by this client's
+// custom dialer, or nil when the last attempt succeeded or there is no custom
+// dialer.
+//
+// It exists because gRPC destroys the distinction its callers need. A dialer
+// failure reaches an RPC as codes.Unavailable with the cause flattened into a
+// message string, and codes.Unavailable is ALSO what a backend process that
+// died produces. Those two call for opposite actions: a dead backend's registry
+// row should be reaped, and a transport that could not reach a live backend
+// must never cause one to be. Recording the error here is what lets a caller
+// tell them apart, with the original error VALUE intact, so
+// core/services/cluster's sentinels survive the trip.
+//
+// Scope, stated exactly. This is the last dial on this CLIENT, not the last
+// dial for a particular RPC. A client used for one probe and closed gives exact
+// attribution, which is how every reaping path in core/services/nodes uses it.
+// A client shared across concurrent RPCs can attribute a dial failure to the
+// wrong one; both directions of that error are safe, because a caller consults
+// this only when its RPC already failed, and the outcomes are "treat a dead
+// backend as unreachable-for-now" (the row survives one extra round) or "treat
+// a transport failure as a backend failure" (the behaviour before this
+// existed).
+func (c *Client) LastDialError() error {
+	c.dialErrMu.Lock()
+	defer c.dialErrMu.Unlock()
+	return c.lastDialErr
+}
+
+// recordDialErr stores the outcome of one dial. A success CLEARS the previous
+// failure rather than leaving it, so a client that recovered does not keep
+// reporting a dial error that no longer describes anything.
+func (c *Client) recordDialErr(err error) {
+	c.dialErrMu.Lock()
+	c.lastDialErr = err
+	c.dialErrMu.Unlock()
 }
