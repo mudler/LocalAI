@@ -27,6 +27,16 @@ import (
 // interface therefore breaks this file's build (see the var assertion below)
 // until it is wrapped with track() - so a new inference path can't be added
 // without an in-flight accounting decision.
+// The ruleguard rule wants grpc.WrappedBackend here, and this is the one
+// decorator that cannot use it. Embedding ControlBackend rather than Backend is
+// what produces the compile-time guarantee below: leave an InferenceBackend
+// method unwrapped and this type stops satisfying grpc.Backend. WrappedBackend
+// embeds the FULL interface, so adopting it would silently restore
+// pass-through for every inference method and delete that guarantee. The
+// transparency the rule protects is provided explicitly instead, by the Unwrap
+// and the grpc.BackendUnwrapper assertion above.
+//
+//nolint:gocritic // embeds ControlBackend on purpose; Unwrap is declared explicitly
 type InFlightTrackingClient struct {
 	grpc.ControlBackend                       // passthrough for control-plane / streaming-constructor methods
 	inner               grpc.InferenceBackend // tracked inference methods delegate here
