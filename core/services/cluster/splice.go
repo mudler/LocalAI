@@ -80,27 +80,27 @@ func copyStream(dst io.Writer, src io.Reader) error {
 // *net.TCPConn takes a WriteTo/ReadFrom path that would hand one back. So a
 // bare io.EOF arriving here came from a failing Write or Close, where it means
 // the peer is gone, and yamux produces exactly that when a Write races its
-// session's shutdown (see isMuxFailure).
+// session's shutdown (see muxVerdict).
 //
 // A socket-level abort (ECONNRESET, EPIPE) is deliberately absent too, which
 // makes the same underlying event, a peer aborting mid-stream, reach the caller
 // as nil over a raw socket where it would be an error. That asymmetry is
-// narrower than it was, since a yamux abort is now reported (see isMuxFailure),
+// narrower than it was, since a yamux abort is now reported (see muxVerdict),
 // and what remains of it is that a raw socket cannot say who aborted.
 //
-// The mux checks run first, and that ordering is load-bearing: a dying yamux
-// session usually hands every live stream its own cause wrapped up
-// (go-yamux/v5@v5.1.0/session.go:328-337), and that cause is routinely a
+// The mux verdict is consulted first, and that ordering is load-bearing: a
+// dying yamux session usually hands every live stream its own cause wrapped up
+// (go-yamux/v5@v5.1.0 session.go, Session.close), and that cause is routinely a
 // closed-socket error, so consulting the generic endings first would report a
 // peer that vanished mid-request as a clean completion.
 func normalizeStreamErr(err error) error {
 	if err == nil {
 		return nil
 	}
-	if isMuxFailure(err) {
-		return err
-	}
-	if isMuxLocalTeardown(err) {
+	if recognised, report := muxVerdict(err); recognised {
+		if report {
+			return err
+		}
 		return nil
 	}
 	if errors.Is(err, net.ErrClosed) ||
@@ -114,14 +114,24 @@ func normalizeStreamErr(err error) error {
 // declared with it because the constant itself is unexported.
 var normalGoAwayCode = yamux.ErrRemoteGoAway.ErrorCode
 
-// isMuxFailure reports whether err is yamux saying the conversation was CUT,
-// as opposed to ended by this side.
+// muxVerdict classifies a yamux ending. recognised says the error came from the
+// multiplexer at all; report says the ending was INFLICTED on this stream
+// rather than asked for by this side.
 //
-// The distinction is what keeps Splice quiet about the teardown it provokes
-// itself while still reporting a request that died: a keepalive timeout, a
-// broken connection, a peer that reset the stream or a peer that went away
-// under a relayed request has to reach the caller, or a failed inference looks
-// like a finished one.
+// It is ONE function, and that is the point rather than a matter of taste. The
+// policy below turns on a single bit, Remote, and an earlier shape read that
+// bit in two predicates with a report-by-default fallthrough behind them.
+// Reverting either read left the whole suite green, because the error reached
+// the same answer down the other path: the classifier could not be
+// mutation-tested in pieces, which in code whose correctness argument IS its
+// mutation evidence is worse than the duplication it bought. Here each type is
+// decided once, so falsifying either read reddens a spec.
+//
+// The distinction it draws is what keeps Splice quiet about the teardown it
+// provokes itself while still reporting a request that died: a keepalive
+// timeout, a broken connection, a peer that reset the stream or a peer that
+// went away under a relayed request has to reach the caller, or a failed
+// inference looks like a finished one.
 //
 // TWO OF THESE ARE THE POLICY PHASE 1 LEFT OPEN, and this is where they are
 // settled, by the relay in core/services/cluster/relay.go, which is Splice's
@@ -154,6 +164,14 @@ var normalGoAwayCode = yamux.ErrRemoteGoAway.ErrorCode
 // (const.go:96) and is exactly what this process closing its own session
 // produces (session.go:284).
 //
+// The rule is "a remote reset is reported" and not "every remote reset is
+// reported". yamux only builds a *StreamError when the RST rides a
+// typeWindowUpdate frame (stream.go:436); an RST on any other frame type
+// yields the BARE ErrStreamReset sentinel, which is claimed below as this
+// side's own teardown and silenced. Every reset go-yamux itself sends uses
+// typeWindowUpdate, so the gap is unreachable between two LocalAI processes and
+// only a foreign multiplexer implementation could reach it.
+//
 // What this does NOT do is make the far side see a failure. Splice ends both
 // streams with Close, which is a FIN, and a reset after that is a no-op because
 // Close has already moved the stream to streamFinished (stream.go:266-272,
@@ -162,58 +180,44 @@ var normalGoAwayCode = yamux.ErrRemoteGoAway.ErrorCode
 // and HTTP, both of which detect a body that ended without its trailers or its
 // final chunk. Reporting is what the caller needs and this is where it comes
 // from.
-func isMuxFailure(err error) bool {
+func muxVerdict(err error) (recognised, report bool) {
 	// A go-away ends the whole session. Only a normal-code go-away this side
 	// sent is a normal ending.
 	var goAway *yamux.GoAwayError
 	if errors.As(err, &goAway) {
-		return goAway.Remote || goAway.ErrorCode != normalGoAwayCode
+		return true, goAway.Remote || goAway.ErrorCode != normalGoAwayCode
 	}
 	// A stream error is scoped to one stream. Only a reset this side asked for
 	// is a normal ending.
 	var streamErr *yamux.StreamError
 	if errors.As(err, &streamErr) {
-		return streamErr.Remote
+		return true, streamErr.Remote
 	}
-	// Session.close gives every stream it kills ErrStreamReset wrapped around
-	// the cause, so the bare sentinel means this stream was reset and a
-	// wrapped one means the session died under it. Identity is what separates
-	// them; errors.Is cannot.
+	// Sentinels by identity, never errors.Is, and before the wrapped check
+	// below: these are the endings Splice provokes itself. Closing a stream
+	// whose session has already shut down normally returns ErrSessionShutdown
+	// from the FIN write, which the go-away branch above has already claimed;
+	// a copy parked on a stream that gets closed comes back with
+	// ErrStreamClosed from a Write (stream.go:157-159) or the bare
+	// ErrStreamReset from a Read, which is what CloseRead installs
+	// (stream.go:348-349).
+	if err == yamux.ErrStreamClosed || err == yamux.ErrStreamReset {
+		return true, false
+	}
+	// The same sentinel WRAPPED means something else entirely: Session.close
+	// gives every stream it kills ErrStreamReset wrapped around the cause, so
+	// this is the session dying under a live stream. Identity above is what
+	// separates the two; errors.Is cannot.
 	//
 	// Wrapped is not the only way a dead session shows up, though. close()
 	// publishes shutdownErr and closes shutdownCh before it force-closes the
 	// streams, so a Write or Close landing in that window gets the raw cause
 	// back instead (session.go:305-308, 528-533). That form is unrecognisable
-	// as yamux at all, which is why normalizeStreamErr no longer forgives a
-	// bare io.EOF: for a peer that vanished, the raw cause is precisely io.EOF.
-	return errors.Is(err, yamux.ErrStreamReset) && err != yamux.ErrStreamReset
-}
-
-// isMuxLocalTeardown reports whether err is yamux ending one stream at this
-// side's request, which Splice mostly provokes itself: closing a stream whose
-// session has already shut down normally returns ErrSessionShutdown from the
-// FIN write, and a copy parked on a stream that gets closed comes back with
-// ErrStreamClosed from a Write (stream.go:157-159) or the bare ErrStreamReset
-// from a Read, which is what CloseRead installs (stream.go:348-349). A reset
-// does not only mean that, though; the same sentinel heads the error a dying
-// session hands its streams, and the remote forms belong to isMuxFailure, which
-// is why that runs first. None of yamux's error types match net.ErrClosed, so
-// all of this has to be recognised by shape.
-func isMuxLocalTeardown(err error) bool {
-	// Sentinels by identity, never errors.Is: the wrapped forms belong to a
-	// dead session and are reported instead. ErrSessionShutdown is absent on
-	// purpose rather than by oversight, being a *GoAwayError carrying the
-	// normal code with Remote false, which the last check below covers.
-	if err == yamux.ErrStreamClosed || err == yamux.ErrStreamReset {
-		return true
+	// as yamux at all, and is why it is left unrecognised here rather than
+	// guessed at: normalizeStreamErr no longer forgives a bare io.EOF, because
+	// for a peer that vanished the raw cause is precisely io.EOF.
+	if errors.Is(err, yamux.ErrStreamReset) {
+		return true, true
 	}
-	// Remote is re-checked rather than assumed from the ordering, so that this
-	// predicate is true to its own name if it is ever called from anywhere
-	// else.
-	var streamErr *yamux.StreamError
-	if errors.As(err, &streamErr) {
-		return !streamErr.Remote
-	}
-	var goAway *yamux.GoAwayError
-	return errors.As(err, &goAway) && !goAway.Remote && goAway.ErrorCode == normalGoAwayCode
+	return false, false
 }
