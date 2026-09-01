@@ -240,7 +240,11 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 // so it has to run second.
 func (r *Registry) ReapStale(ctx context.Context, self string, within time.Duration) (instances int64, connections int64, err error) {
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		res := tx.Where("id <> ? AND last_seen <= now() - make_interval(secs => ?)", self, within.Seconds()).
+		// Negated rather than spelled as its own comparison: "stale" has to be
+		// exactly "not live", including how each treats a row whose last_seen
+		// is NULL, and a hand-written complement is a second definition that
+		// only looks like the first.
+		res := tx.Where("id <> ? AND NOT ("+instanceIsLive+")", self, within.Seconds()).
 			Delete(&Instance{})
 		if res.Error != nil {
 			return fmt.Errorf("deleting stale instances: %w", res.Error)

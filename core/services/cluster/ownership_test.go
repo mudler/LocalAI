@@ -193,9 +193,16 @@ var _ = Describe("Connection ownership", func() {
 	// between the two is a whole liveness window wide, because a replica that
 	// dies leaves its connection rows behind until a peer's sweep removes them.
 	Describe("resolving the owner that can actually be relayed to", func() {
-		// Aged far enough past InstanceLiveness that the exact window boundary
-		// is not what these specs are measuring.
-		agedOut := 10 * time.Minute
+		// Just past the window the membership loop sweeps with, not an arbitrary
+		// large age: a row aged ten minutes is rejected by any window between
+		// zero and ten minutes, so it would pin "filtered by SOME window" while
+		// letting Owner and the sweeper drift apart. The two seconds keep the
+		// spec off the exact boundary without loosening what it holds.
+		agedOut := cluster.InstanceLiveness + 2*time.Second
+		// Old enough that a narrowed window would reject it, still inside the
+		// one Owner must use. It is the other half of the same pin: agedOut
+		// fails a widened window, this fails a narrowed one.
+		agedButLive := cluster.InstanceLiveness / 2
 
 		// age rewrites an instance's heartbeat into the past. Sleeping for a
 		// liveness window is forbidden in a spec, and would be measuring the
@@ -214,6 +221,18 @@ var _ = Describe("Connection ownership", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(owner).To(Equal("inst-a"))
 			Expect(epoch).To(Equal(claimed), "the resolved epoch must be the fence token the claim was handed")
+		})
+
+		It("still names an owner whose heartbeat is old but inside the window", func() {
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			claimed, err := reg.Claim(ctx, "w1", "inst-a")
+			Expect(err).ToNot(HaveOccurred())
+			age("inst-a", agedButLive)
+
+			owner, epoch, err := reg.Owner(ctx, "w1")
+			Expect(err).ToNot(HaveOccurred(), "a replica within the sweeper's window is alive, and its workers are still reachable through it")
+			Expect(owner).To(Equal("inst-a"))
+			Expect(epoch).To(Equal(claimed))
 		})
 
 		It("refuses to name an owner that has no instance row at all", func() {
@@ -350,21 +369,16 @@ var _ = Describe("Connection ownership", func() {
 		}
 		Expect(seen).To(HaveLen(claimants))
 
-		// Exactly one row, and its epoch is the highest handed out. That last
-		// part holds here because no Release intervenes: every claim after the
-		// first blocks on the row lock and draws its epoch after taking it, in
-		// commit order. It is not a general guarantee about epochs, which are
-		// unique but unordered.
+		// Exactly one row, holding one of the epochs that was handed out: a
+		// winner, not a value nobody was given. Which of the eight wins is not
+		// asserted, and neither is any ordering among them. Epochs are unique
+		// and unordered, and a spec that ranked them here would teach the
+		// opposite of what Claim documents, whatever the sequence happens to do
+		// on this path.
 		var rows []cluster.NodeConnection
 		Expect(db.Where("node_id = ?", "w-race").Find(&rows).Error).To(Succeed())
 		Expect(rows).To(HaveLen(1))
-		var max int64
-		for e := range seen {
-			if e > max {
-				max = e
-			}
-		}
-		Expect(rows[0].Epoch).To(Equal(max))
+		Expect(seen).To(HaveKey(rows[0].Epoch), "the stored epoch was never handed to any claimant")
 	})
 })
 
@@ -385,6 +399,18 @@ var _ = Describe("Connection ownership on a non-PostgreSQL dialect", func() {
 		// A PostgreSQL-only column DEFAULT here breaks AutoMigrate for every
 		// SQLite caller of nodes.NewNodeRegistry, which is how this regressed.
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
+	})
+
+	It("refuses to resolve an owner, rather than failing as a missing function", func() {
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
+
+		_, _, err := cluster.NewRegistry(db).Owner(ctx, "w1")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("requires PostgreSQL"))
+		Expect(err.Error()).ToNot(ContainSubstring("no such function"),
+			"a dialect that cannot answer must say so, not surface as a missing migration")
+		Expect(err).ToNot(MatchError(cluster.ErrNoConnection),
+			"a deployment with no cluster has no answer about ownership; reporting absence would let a caller conclude the worker is not connected")
 	})
 
 	It("refuses to claim, rather than pretending to fence", func() {
