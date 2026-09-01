@@ -619,9 +619,28 @@ func loopbackService(minPort, maxPort int) LocalService {
 	}
 }
 
-// loopbackHost is the only host any tunnel stream is ever dialled on. It is a
-// constant so that "the worker dials itself and nothing else" is a fact about
-// the code rather than a claim about its inputs.
+// loopbackHost is the host every stream the FRONTEND CAN STEER is dialled on.
+//
+// It is a constant so that "a stream cannot choose where the worker dials" is a
+// fact about the code rather than a claim about its inputs: the grpc tag builds
+// its address from this and a port it validated, and nothing derived from the
+// wire reaches the dialler.
+//
+// It is NOT the only host this file ever dials, and the difference is worth
+// stating exactly rather than summarising, because the whole argument about
+// what a stream can reach rests on knowing which hosts are reachable, and an
+// overstatement here is what would let a future reader conclude the constant
+// alone is doing the work.
+//
+// fixedService dials whatever address it was constructed with. Run constructs
+// it from this worker's own LOCALAI_HTTP_ADDR, which an operator may set to a
+// routable address; loopbackAddr only rewrites a WILDCARD bind, and leaves an
+// explicit host alone on purpose, because a server bound to one address is not
+// reachable on another. So the http tag can dial a non-loopback host. That host
+// is one the OPERATOR configured for this worker's own server, never one a
+// stream names: fixedService ignores its target entirely. The property the
+// design needs is that the frontend cannot steer the dial, and that holds for
+// both tags.
 const loopbackHost = "127.0.0.1"
 
 // tunnelServices builds the routing table the worker installs on its tunnel.
