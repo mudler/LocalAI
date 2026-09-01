@@ -91,7 +91,9 @@ That only holds while the database is on **another host**. If PostgreSQL runs on
 This replica will not be reachable by its peers: no advertised address
 ```
 
-The replica keeps serving every request that reaches it directly; what it cannot do is have another replica reach it. Set the address explicitly to fix it:
+The replica keeps serving every request that reaches it directly. What it cannot do is be reached by another replica, and on a multi-replica deployment that is worse than it sounds: a **worker whose tunnel lands on this replica is unroutable from every other replica**, because the ownership lookup only accepts an owner that is registered and live. This replica serves that worker fine; the others answer requests for it with `no route from this replica to that worker`. Behind a round-robin load balancer with N replicas, that is (N-1)/N of the traffic for that worker.
+
+A single-replica deployment is unaffected: it has no peers, and it holds every tunnel itself. Set the address explicitly to fix a multi-replica one:
 
 ```yaml
 environment:

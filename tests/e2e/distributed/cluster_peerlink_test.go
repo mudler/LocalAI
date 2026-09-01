@@ -47,6 +47,11 @@ const (
 	// is short on purpose: the refusal is one frame from a replica that has
 	// already decided, so a stream still open at this point is parked.
 	peerRefusalTimeout = 5 * time.Second
+
+	// unheldNodeID is a worker id no replica holds a tunnel for. It is a
+	// well-formed id rather than a nonsense string so the refusal it draws is
+	// the routing answer and not a parse failure.
+	unheldNodeID = "00000000-0000-0000-0000-00000000dead"
 )
 
 // openClusterDB connects to the database the cluster was given, so a spec can
@@ -180,16 +185,34 @@ var _ = Describe("Cluster peer link", Label("Distributed"), Label("Cluster"), fu
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = stream.Close() })
 
-		// Phase 1 installs no relay, so the accepted stream must be refused at
-		// once: an ENDING (EOF from the peer's Close, or a reset), not merely
-		// an error. A replica that accepted the stream and then left it parked
-		// would fail this read too, but with yamux's ErrTimeout, and that is
-		// the failure a live cluster experiences as every relayed request
-		// hanging until its own deadline.
+		// Phase 2 installs the relay on this link, so an accepted stream is one
+		// the peer is waiting to be told which worker it is for. Name one no
+		// replica holds and the refusal must come back at once.
+		//
+		// This spec used to assert the opposite, that an accepted stream ended
+		// immediately, because phase 1 had no relay to hand it to. The relay
+		// made that stale rather than wrong: a stream that says nothing now
+		// parks for relayHeaderTimeout, which is 15 seconds, and the old
+		// assertion failed on a five second budget against a replica behaving
+		// exactly as designed.
+		Expect(stream.SetWriteDeadline(time.Now().Add(peerRefusalTimeout))).To(Succeed())
+		Expect(clustersvc.WriteRelayRequest(stream, unheldNodeID, peerRefusalTimeout)).To(Succeed())
+
+		Expect(stream.SetReadDeadline(time.Now().Add(peerRefusalTimeout))).To(Succeed())
+		err = clustersvc.ReadRelayReply(stream)
+		Expect(err).To(MatchError(clustersvc.ErrNotOwner),
+			"the peer did not refuse a worker it does not hold: %v", err)
+		Expect(err).ToNot(MatchError(clustersvc.ErrNoConnection),
+			"a replica that does not hold a tunnel must not report the worker as absent: that is how a scheduler evicts a healthy worker")
+
+		// And the refusal ENDS the stream. A replica that says why and leaves
+		// the stream open has parked the caller on a request that will never be
+		// served, which reads as a slow replica rather than a refused request,
+		// and no deadline on the far side can tell those apart.
 		Expect(stream.SetReadDeadline(time.Now().Add(peerRefusalTimeout))).To(Succeed())
 		_, err = stream.Read(make([]byte, 1))
 		Expect(err).To(SatisfyAny(MatchError(io.EOF), MatchError(yamux.ErrStreamReset)),
-			"the peer accepted the stream and then neither answered nor ended it: %v", err)
+			"the peer refused the stream and then left it open: %v", err)
 
 		// The same dial with the wrong credentials must be refused, otherwise
 		// the success above says nothing about authentication.

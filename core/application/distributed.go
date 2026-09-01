@@ -216,11 +216,23 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	clusterRegistry := cluster.NewRegistry(authDB)
 	var membership *cluster.Membership
 	if advertised, err := advertisedPeerAddr(cfg); err != nil {
-		// Not fatal. A replica that cannot publish an address still serves
-		// every request that reaches it directly; what it cannot do is have
-		// another replica relay to it. Failing startup here would take out
+		// Not fatal, and the cost is worth stating exactly rather than as
+		// "peers cannot reach it", because it is larger than that now.
+		//
+		// Without a row in the instances table this replica is not a live
+		// owner as far as Registry.Owner is concerned: that read joins a
+		// connection against a live instance, so a worker whose tunnel lands
+		// HERE is answered as unroutable at every OTHER replica, for as long
+		// as it stays here. This replica serves that worker perfectly well
+		// itself; nobody else can. On N replicas behind round robin that is
+		// (N-1)/N of the traffic for that worker.
+		//
+		// It stays a warning all the same. Refusing to start would take out
 		// every existing single-host deployment, whose route to a local
-		// database is loopback.
+		// database is loopback and which has no peers to be unreachable by;
+		// the deployments this hurts are multi-replica ones, and telling those
+		// two apart at startup is a change with its own design and its own
+		// specs rather than a line here.
 		xlog.Warn("This replica will not be reachable by its peers: no advertised address",
 			"error", err, "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
 	} else {
