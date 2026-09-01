@@ -22,9 +22,9 @@ var _ = Describe("Instance registry", func() {
 
 	BeforeEach(func() {
 		db = testutil.SetupTestDB()
-		Expect(db.AutoMigrate(&cluster.Instance{})).To(Succeed())
-		reg = cluster.NewRegistry(db)
 		ctx = context.Background()
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
+		reg = cluster.NewRegistry(db)
 	})
 
 	It("registers an instance and reads it back", func() {
