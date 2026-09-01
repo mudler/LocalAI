@@ -188,6 +188,120 @@ var _ = Describe("Connection ownership", func() {
 		Expect(err).To(MatchError(cluster.ErrNoConnection))
 	})
 
+	// Owner is the resolving read: it answers "who holds this tunnel and can be
+	// relayed to", where OwnerRow answers "what does the table say". The gap
+	// between the two is a whole liveness window wide, because a replica that
+	// dies leaves its connection rows behind until a peer's sweep removes them.
+	Describe("resolving the owner that can actually be relayed to", func() {
+		// Aged far enough past InstanceLiveness that the exact window boundary
+		// is not what these specs are measuring.
+		agedOut := 10 * time.Minute
+
+		// age rewrites an instance's heartbeat into the past. Sleeping for a
+		// liveness window is forbidden in a spec, and would be measuring the
+		// clock rather than the query.
+		age := func(id string, by time.Duration) {
+			ExpectWithOffset(1, db.Model(&cluster.Instance{}).Where("id = ?", id).
+				Update("last_seen", time.Now().Add(-by)).Error).To(Succeed())
+		}
+
+		It("names an owner whose replica is live", func() {
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			claimed, err := reg.Claim(ctx, "w1", "inst-a")
+			Expect(err).ToNot(HaveOccurred())
+
+			owner, epoch, err := reg.Owner(ctx, "w1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(owner).To(Equal("inst-a"))
+			Expect(epoch).To(Equal(claimed), "the resolved epoch must be the fence token the claim was handed")
+		})
+
+		It("refuses to name an owner that has no instance row at all", func() {
+			// What a completed sweep leaves for the moment between deleting the
+			// instance row and deleting the connections it orphaned, and what a
+			// re-registering replica's own connection rows look like meanwhile.
+			_, err := reg.Claim(ctx, "w1", "inst-gone")
+			Expect(err).ToNot(HaveOccurred())
+
+			_, _, err = reg.Owner(ctx, "w1")
+			Expect(err).To(MatchError(cluster.ErrNoConnection))
+		})
+
+		It("refuses to name an owner whose heartbeat has aged past the liveness window", func() {
+			// The window this task exists to close: the replica is dead, no peer
+			// has swept it yet, and the row still names it.
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			_, err := reg.Claim(ctx, "w1", "inst-a")
+			Expect(err).ToNot(HaveOccurred())
+			age("inst-a", agedOut)
+
+			_, _, err = reg.Owner(ctx, "w1")
+			Expect(err).To(MatchError(cluster.ErrNoConnection))
+		})
+
+		It("names an owner again once its heartbeat comes back", func() {
+			// Liveness is a window, not a latch: a replica that stalls and
+			// recovers still owns the sockets it never dropped, so resolution
+			// has to follow last_seen rather than remember a verdict.
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			claimed, err := reg.Claim(ctx, "w1", "inst-a")
+			Expect(err).ToNot(HaveOccurred())
+			age("inst-a", agedOut)
+			Expect(reg.Heartbeat(ctx, "inst-a")).To(Succeed())
+
+			owner, epoch, err := reg.Owner(ctx, "w1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(owner).To(Equal("inst-a"))
+			Expect(epoch).To(Equal(claimed))
+		})
+
+		It("still reports the dead owner through OwnerRow, which is why the two reads are separate", func() {
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			claimed, err := reg.Claim(ctx, "w1", "inst-a")
+			Expect(err).ToNot(HaveOccurred())
+			age("inst-a", agedOut)
+
+			owner, epoch, err := reg.OwnerRow(ctx, "w1")
+			Expect(err).ToNot(HaveOccurred(), "OwnerRow reads the row and nothing else; hiding the dead owner here would leave the sweeper with no way to see what it has to clean up")
+			Expect(owner).To(Equal("inst-a"))
+			Expect(epoch).To(Equal(claimed))
+
+			_, _, err = reg.Owner(ctx, "w1")
+			Expect(err).To(MatchError(cluster.ErrNoConnection), "Owner and OwnerRow must not agree here, or one of them is redundant")
+		})
+
+		It("reports a node with no connection at all the same way", func() {
+			_, _, err := reg.Owner(ctx, "ghost")
+			Expect(err).To(MatchError(cluster.ErrNoConnection))
+		})
+
+		It("resolves in one joined statement measured on the database clock", func() {
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			_, err := reg.Claim(ctx, "w1", "inst-a")
+			Expect(err).ToNot(HaveOccurred())
+
+			rec := newSQLRecorder()
+			recording := cluster.NewRegistry(db.Session(&gorm.Session{Logger: rec}))
+			_, _, err = recording.Owner(ctx, "w1")
+			Expect(err).ToNot(HaveOccurred())
+
+			sql := strings.ToLower(rec.only())
+			// only() rules out the read-then-look-up shape: two statements
+			// leave a window in which the owner dies between them, which is the
+			// race the join closes.
+			Expect(sql).To(ContainSubstring("join"))
+			Expect(sql).To(ContainSubstring("instances"))
+			// Liveness is compared across replicas, so the cutoff has to be
+			// computed on the one clock they all share. A Go-side time.Now()
+			// would appear as a bound parameter and a plain comparison instead,
+			// and replica clock skew would then widen or narrow the window.
+			Expect(sql).To(ContainSubstring("now()"))
+			Expect(sql).To(ContainSubstring("make_interval"))
+			Expect(sql).ToNot(MatchRegexp(`last_seen\s*>\s*'`),
+				"the liveness cutoff must not be a literal timestamp from this process's clock")
+		})
+	})
+
 	It("claims in one statement that draws its epoch from the database sequence and stamps on the database clock", func() {
 		rec := newSQLRecorder()
 		recording := cluster.NewRegistry(db.Session(&gorm.Session{Logger: rec}))
