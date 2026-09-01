@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 	"github.com/mudler/LocalAI/core/services/cluster"
 
 	"github.com/gorilla/websocket"
@@ -239,7 +238,7 @@ var _ = Describe("Peer link payloads", func() {
 	It("carries a payload far larger than one yamux frame end to end", func() {
 		sessions := make(chan *yamux.Session, 1)
 		e := echo.New()
-		clusterep.RegisterClusterRoutes(e, "peer-token", func(_ string, s *yamux.Session) { sessions <- s })
+		servePeerRoute(e, "peer-token", func(_ string, s *yamux.Session) { sessions <- s })
 		srv := httptest.NewServer(e)
 		DeferCleanup(srv.Close)
 
