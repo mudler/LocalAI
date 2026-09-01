@@ -5,6 +5,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // These are white-box on purpose: the property is about the connection this
@@ -45,6 +48,11 @@ var _ = Describe("the maintenance connection", func() {
 			Expect(impose.Exec(fmt.Sprintf("ALTER DATABASE %q SET lock_timeout = '1ms'", maintenance)).Error).To(Succeed())
 		}()
 
+		// The bound is delivered before the first statement, so the check
+		// below is also the connection's first statement. That ordering is the
+		// point: clearing the bound with a SET would be circular, because the
+		// clearing statement inherits the bound it is clearing and can be
+		// aborted by it with 57014. There is no such bootstrap statement now.
 		fresh := openPool(dsn)
 		defer closePool(fresh)
 		var statementTimeout, lockTimeout string
@@ -55,9 +63,48 @@ var _ = Describe("the maintenance connection", func() {
 		Expect(lockTimeout).To(Equal("0"),
 			"a lock_timeout on the maintenance database reached the helper's own connection")
 
-		// And the thing the timeouts would actually abort still works while the
-		// bound is in force. A 1ms statement_timeout is far below the 14-26ms a
-		// CREATE DATABASE takes here, so this could not pass by being fast.
+		// A control, and the reason this spec is not a race. Clearing the bound
+		// with a statement is circular: the clearing statement runs on a
+		// connection that has already inherited the bound. Whether that
+		// particular statement exceeds 1ms is a matter of load, which makes the
+		// defect an intermittent one; whether the FIRST statement on a plain
+		// connection is bounded at all is not. So the control asks the
+		// deterministic question, with a first statement that certainly exceeds
+		// the bound.
+		func() {
+			plain, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: gormlogger.Discard})
+			Expect(err).ToNot(HaveOccurred())
+			defer closePool(plain)
+			err = plain.Exec("SELECT pg_sleep(0.05)").Error
+			Expect(err).To(HaveOccurred(),
+				"the imposed bound does not reach a fresh connection's first statement, so this spec's subject is not actually under test")
+			Expect(err.Error()).To(ContainSubstring("57014"),
+				"expected the imposed statement_timeout to abort this, got something else")
+		}()
+
+		// The same first statement on a maintenance connection is unbounded.
+		Expect(fresh.Exec("SELECT pg_sleep(0.05)").Error).To(Succeed())
+
+		// And this is the assertion that says WHY, which is the part a
+		// statement-based clearing cannot satisfy. reset_val is the value the
+		// session would fall back to, that is, the value that was in force when
+		// the connection started, before it could run anything. Clearing the
+		// bound with `SET statement_timeout = 0` leaves reset_val at the
+		// database's 1ms: the session is unbounded only because a statement
+		// said so, and that statement ran under the 1ms bound and can be
+		// aborted by it. Delivering it as a startup option makes the connection
+		// unbounded with no statement in between, which is the difference
+		// between a fix and a wider margin.
+		var resetVal string
+		Expect(fresh.Raw(
+			"SELECT reset_val FROM pg_settings WHERE name = 'statement_timeout'",
+		).Scan(&resetVal).Error).To(Succeed())
+		Expect(resetVal).To(Equal("0"),
+			"the maintenance connection started under a %s bound and cleared it with a statement, so the clearing statement itself runs under the bound it is clearing", resetVal)
+
+		// And the operation the bound would abort still works while it is in
+		// force. 1ms is far below the 14-26ms a CREATE DATABASE takes here, so
+		// this cannot pass by being fast.
 		Expect(SetupTestDB()).ToNot(BeNil())
 	})
 })
