@@ -133,7 +133,16 @@ func (f *fakeNodeHealthStore) RemoveNodeModel(_ context.Context, nodeID, modelNa
 type fakeBackendClient struct {
 	healthy bool
 	err     error
+	// dialErr makes this client report that its TRANSPORT failed, which is what
+	// a real client whose tunnel dial failed does. It is the half of
+	// unroutability that a refusing factory cannot stand in for, and the likely
+	// one in production: the factory only fails when the wiring is absent.
+	dialErr error
 }
+
+// LastDialError satisfies grpc.DialErrorReporter so a spec can drive the
+// "reached no backend" branch without a real tunnel.
+func (c *fakeBackendClient) LastDialError() error { return c.dialErr }
 
 func (c *fakeBackendClient) IsBusy() bool { return false }
 func (c *fakeBackendClient) HealthCheck(_ context.Context) (bool, error) {
@@ -391,4 +400,5 @@ func freshTime() time.Time {
 // Compile-time interface checks
 var _ NodeHealthStore = (*fakeNodeHealthStore)(nil)
 var _ BackendClientFactory = (*fakeBackendClientFactory)(nil)
+var _ grpc.DialErrorReporter = (*fakeBackendClient)(nil)
 var _ grpc.Backend = (*fakeBackendClient)(nil)

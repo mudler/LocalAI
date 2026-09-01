@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -685,6 +686,20 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 			// Remote/distributed model — no local process to check.
 			// Only evict on definitive connection errors (node is down).
 			// Timeouts may mean the node is busy, so keep the model cached.
+			//
+			// "The node is down" is exactly what this can no longer conclude on
+			// its own. In distributed mode the client reaches the backend over
+			// the worker's tunnel, and a failure of THAT transport (the replica
+			// holding the tunnel is restarting, the worker has not dialled in
+			// yet after a frontend-first upgrade) arrives as the same
+			// codes.Unavailable a dead worker produces. Evicting on it would
+			// unload a model that is loaded and serving. The client records
+			// which of the two happened; see grpc.DialErrorReporter.
+			if dialErr := transportFailure(client); dialErr != nil {
+				xlog.Warn("Remote model health check could not reach the worker, keeping cached",
+					"model", s, "error", dialErr)
+				return m
+			}
 			if isConnectionError(err) {
 				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
 				if delErr := ml.deleteProcess(cTimeout, s, false); delErr != nil {
@@ -708,4 +723,21 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 
 	m.MarkHealthy()
 	return m
+}
+
+// transportFailure reports why a call never reached the backend, or nil when it
+// did reach one.
+//
+// It is the one question that separates "this backend is gone" from "this
+// process cannot currently get to it", and gRPC does not answer it: a dialer
+// failure and a dead listener both surface as codes.Unavailable. A client with
+// no custom transport answers nil, which is right for every locally spawned
+// backend, where the address IS a socket on this machine and a failed
+// connection really does mean the process died.
+func transportFailure(client grpc.Backend) error {
+	reporter, ok := client.(grpc.DialErrorReporter)
+	if !ok {
+		return nil
+	}
+	return reporter.LastDialError()
 }

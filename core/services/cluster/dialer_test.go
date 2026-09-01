@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -26,13 +27,29 @@ import (
 type stubPeers struct {
 	sess *yamux.Session
 	err  error
+
+	// opened records the peers this pool was asked for, so a spec can assert
+	// that a replica was NOT dialled. That is the only way to tell a dialer
+	// that resolved a live owner from one that resolved a dead row and then
+	// found out the hard way.
+	mu     sync.Mutex
+	opened []string
 }
 
-func (s *stubPeers) Open(ctx context.Context, _ string) (net.Conn, error) {
+func (s *stubPeers) Open(ctx context.Context, peerID string) (net.Conn, error) {
+	s.mu.Lock()
+	s.opened = append(s.opened, peerID)
+	s.mu.Unlock()
 	if s.err != nil {
 		return nil, s.err
 	}
 	return s.sess.OpenStream(ctx)
+}
+
+func (s *stubPeers) peersDialled() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.opened...)
 }
 
 // dialResult carries what a Dial produced, so a spec can wait on a channel
@@ -124,12 +141,25 @@ func refuseOneStream(worker *yamux.Session, reason error) {
 //
 // It is the assertion this whole phase turns on. core/services/nodes reclaims a
 // worker's models when it concludes the worker is absent, so an unreachable
-// peer or a refusing worker arriving as absence would evict healthy work.
+// peer, a stale ownership row or a worker that has not dialled its tunnel yet
+// arriving as absence would evict healthy work.
 func expectNotAbsence(err error) {
 	GinkgoHelper()
 	Expect(err).To(HaveOccurred())
 	Expect(err).ToNot(MatchError(cluster.ErrNoConnection))
 	Expect(err).ToNot(MatchError(cluster.ErrInstanceNotFound))
+}
+
+// expectNoRoute asserts the umbrella is present as well as absence being gone.
+//
+// The umbrella is what crosses the package boundary. A consumer that reclaims
+// models has one check to make, and it can only make it if EVERY failure to
+// resolve or open a route carries it; a single path that forgets is a path
+// where a live worker gets reaped.
+func expectNoRoute(err error) {
+	GinkgoHelper()
+	expectNotAbsence(err)
+	Expect(err).To(MatchError(cluster.ErrNoRoute))
 }
 
 var _ = Describe("The worker dialer", func() {
@@ -200,16 +230,25 @@ var _ = Describe("The worker dialer", func() {
 			Expect(string(echoed)).To(Equal("ping"))
 		})
 
-		It("leaves no read deadline armed on the stream it hands back", func() {
+		It("leaves no deadline armed on the stream it hands back", func() {
 			// The handshake is bounded; the request that follows it is the
 			// caller's business and may be a generation that is quiet for
-			// minutes. A deadline left armed here would abort it.
+			// minutes. A deadline left armed here would abort it, and in
+			// production the dial context is the model-load or request budget,
+			// so the stream would die tens of seconds in.
+			//
+			// The first version of this spec did not assert that. It set a
+			// 300ms context and then wrote immediately, so the armed deadline
+			// had not expired and deleting the clear left it green: it detected
+			// only a deadline set in the PAST. What makes it bite is waiting for
+			// the dial context to actually expire FIRST, on its own Done channel
+			// rather than a sleep, and only then using the stream.
 			frontend, worker := workerTunnel()
 			_, err := mine.Attach(ctx, "w1", frontend)
 			Expect(err).ToNot(HaveOccurred())
 			seen := serveOneStream(worker)
 
-			deadlined, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+			deadlined, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 			defer cancel()
 			d := cluster.NewWorkerDialer(mine, nil)
 			result := dialAsync(d, deadlined, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000")
@@ -220,12 +259,16 @@ var _ = Describe("The worker dialer", func() {
 			Expect(out.err).ToNot(HaveOccurred())
 			DeferCleanup(func() { _ = out.conn.Close() })
 
-			// The dial context's deadline has now passed. A stream still
-			// carrying it would fail this write and this read.
-			Eventually(func() error {
-				_, err := out.conn.Write([]byte("ping"))
-				return err
-			}, "10s").Should(Succeed())
+			// The one wait this spec cannot replace with an event of its own:
+			// there is nothing to observe until the dial's deadline is behind
+			// us, and the deadline is the thing under test.
+			<-deadlined.Done()
+			Expect(deadlined.Err()).To(HaveOccurred())
+
+			// Both directions, because SetDeadline arms read and write and a
+			// clear that only covered one would still kill a live request.
+			_, err = out.conn.Write([]byte("ping"))
+			Expect(err).ToNot(HaveOccurred())
 			echoed := make([]byte, 4)
 			Eventually(readInto(out.conn, echoed), "10s").Should(Receive(BeNil()))
 			Expect(string(echoed)).To(Equal("ping"))
@@ -241,8 +284,12 @@ var _ = Describe("The worker dialer", func() {
 			var out dialResult
 			Eventually(dialAsync(d, ctx, "w1", "nonsense", ""), "10s").Should(Receive(&out))
 			Expect(out.err).To(MatchError(cluster.ErrStreamTagUnknown))
-			// A refusal is PROOF the worker is connected and answered.
+			// A refusal is PROOF the worker is connected and answered, so it is
+			// the ONE failure on this path that carries no umbrella: it is real
+			// evidence about the worker, and folding it into "no route" would
+			// throw that evidence away.
 			expectNotAbsence(out.err)
+			Expect(out.err).ToNot(MatchError(cluster.ErrNoRoute))
 		})
 
 		It("reports a broken tunnel held here as itself, not as a routing fact", func() {
@@ -257,9 +304,8 @@ var _ = Describe("The worker dialer", func() {
 			d := cluster.NewWorkerDialer(mine, nil)
 			var out dialResult
 			Eventually(dialAsync(d, ctx, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000"), "10s").Should(Receive(&out))
-			Expect(out.err).To(HaveOccurred())
 			Expect(out.err).ToNot(MatchError(cluster.ErrNotOwner))
-			expectNotAbsence(out.err)
+			expectNoRoute(out.err)
 		})
 	})
 
@@ -376,7 +422,7 @@ var _ = Describe("The worker dialer", func() {
 			var out dialResult
 			Eventually(dialAsync(d, ctx, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000"), "20s").Should(Receive(&out))
 			Expect(out.err).To(MatchError(cluster.ErrPeerUnreachable))
-			expectNotAbsence(out.err)
+			expectNoRoute(out.err)
 		})
 
 		It("passes a stale ownership refusal back as the routing fact", func() {
@@ -396,7 +442,7 @@ var _ = Describe("The worker dialer", func() {
 			var out dialResult
 			Eventually(dialAsync(d, ctx, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000"), "10s").Should(Receive(&out))
 			Expect(out.err).To(MatchError(cluster.ErrNotOwner))
-			expectNotAbsence(out.err)
+			expectNoRoute(out.err)
 		})
 
 		It("refuses rather than relaying to itself when the table names this replica", func() {
@@ -410,7 +456,7 @@ var _ = Describe("The worker dialer", func() {
 			var out dialResult
 			Eventually(dialAsync(d, ctx, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000"), "10s").Should(Receive(&out))
 			Expect(out.err).To(MatchError(cluster.ErrNotOwner))
-			expectNotAbsence(out.err)
+			expectNoRoute(out.err)
 		})
 
 		It("reports having no way to relay as its own condition", func() {
@@ -424,22 +470,35 @@ var _ = Describe("The worker dialer", func() {
 			Expect(out.err).To(MatchError(cluster.ErrNoRelayPath))
 			Expect(out.err).ToNot(MatchError(cluster.ErrNotOwner))
 			Expect(out.err).ToNot(MatchError(cluster.ErrPeerUnreachable))
-			expectNotAbsence(out.err)
+			expectNoRoute(out.err)
 		})
 	})
 
 	Describe("when no live replica holds the tunnel", func() {
-		It("reports absence when the worker has no connection row at all", func() {
-			d := cluster.NewWorkerDialer(mine, &stubPeers{err: errors.New("no peer should be dialled")})
+		// The rolling-upgrade case, and the one this phase must not get wrong.
+		//
+		// A worker's PRESENCE is its heartbeat, which lives in
+		// core/services/nodes. "No live replica holds this worker's tunnel" is
+		// a fact about tunnels and says nothing about the worker: a worker that
+		// has not dialled in yet after a frontend-first upgrade produces it on
+		// every request while it sits there heartbeating and serving models.
+		// A consumer told that is absence reclaims every one of those models.
+		It("answers no-route, never absence, for a worker with no connection row", func() {
+			peers := &stubPeers{err: errors.New("no peer should be dialled")}
+			d := cluster.NewWorkerDialer(mine, peers)
 			var out dialResult
 			Eventually(dialAsync(d, ctx, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000"), "10s").Should(Receive(&out))
-			Expect(out.err).To(MatchError(cluster.ErrNoConnection))
+			expectNoRoute(out.err)
+			// The cause still reaches a human.
+			Expect(fmt.Sprint(out.err)).To(ContainSubstring("no connection recorded"))
+			Expect(peers.peersDialled()).To(BeEmpty())
 		})
 
-		It("reports absence when the row's owner has stopped heartbeating", func() {
+		It("answers no-route, never absence, when the row's owner has stopped heartbeating", func() {
 			// End to end over the join Owner does: the row is there, the owner
-			// is not. A dialer built on the unjoined read would dial a corpse
-			// and report the worker as unreachable rather than as absent.
+			// is not. The join is what stops this replica dialling a process
+			// that is gone, which is why the spec asserts no peer was dialled
+			// as well as what came back.
 			Expect(reg.Register(ctx, "ghost", "10.0.0.9:8080", "v1")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "ghost")
 			Expect(err).ToNot(HaveOccurred())
@@ -451,10 +510,28 @@ var _ = Describe("The worker dialer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(owner).To(Equal("ghost"))
 
-			d := cluster.NewWorkerDialer(mine, &stubPeers{err: errors.New("no peer should be dialled")})
+			peers := &stubPeers{err: errors.New("no peer should be dialled")}
+			d := cluster.NewWorkerDialer(mine, peers)
 			var out dialResult
 			Eventually(dialAsync(d, ctx, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000"), "10s").Should(Receive(&out))
-			Expect(out.err).To(MatchError(cluster.ErrNoConnection))
+			expectNoRoute(out.err)
+			Expect(peers.peersDialled()).To(BeEmpty())
+		})
+
+		It("keeps an owner swept mid-dial out of the chain as well", func() {
+			// The other absence sentinel. PeerPool resolves the owner's address
+			// through the registry, so a replica reaped between Owner and the
+			// dial comes back as ErrInstanceNotFound. That is absence of a
+			// REPLICA, and a consumer matching absence would read it as absence
+			// of the WORKER.
+			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1")).To(Succeed())
+			_, err := reg.Claim(ctx, "w1", "owner")
+			Expect(err).ToNot(HaveOccurred())
+
+			d := cluster.NewWorkerDialer(mine, &stubPeers{err: cluster.ErrInstanceNotFound})
+			var out dialResult
+			Eventually(dialAsync(d, ctx, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000"), "10s").Should(Receive(&out))
+			expectNoRoute(out.err)
 		})
 	})
 

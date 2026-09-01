@@ -174,7 +174,16 @@ Four outcomes are kept apart on purpose, because they call for different actions
 
 Only the first is absence. The others are never reported as it, and that is not a stylistic preference: a scheduler told that a connected worker has gone away reclaims every model it is running.
 
-Set `LOCALAI_WORKER_TUNNEL=false` on a worker to turn the tunnel off and go back to the frontend dialling the worker's advertised addresses.
+#### There is no frontend-side fallback, and upgrade order matters
+
+`LOCALAI_WORKER_TUNNEL=false` still stops a worker dialling its tunnel, but it no longer has a frontend counterpart: after this change **no frontend path dials a worker's advertised address**, so a worker with the tunnel off is a worker the frontend cannot reach. Setting it is not a rollback. The rollback is to run the previous frontend release.
+
+That makes upgrade order matter, in one direction only:
+
+- **Upgrade the workers first, then the frontends.** A worker on the new build dials its tunnel and is reachable by frontends of either version, because the old frontend still dials its advertised address and the worker still listens.
+- **Upgrading the frontends first** leaves every not-yet-restarted worker unroutable until it restarts. Those workers keep running their models and keep heartbeating, and the frontend reports them as unroutable rather than as gone: their `node_models` rows are left alone, nothing is rescheduled, and requests for those models fail loudly with "no route" until the worker reconnects. It is a degraded window, not an eviction, but it is a window, and doing it the other way round has none.
+
+A worker that cannot reach its frontend retries with exponential backoff and never gives up, so restarting a worker is all that is needed to close the window.
 
 ### The model load deadline scales with the checkpoint
 
@@ -399,7 +408,7 @@ local-ai worker \
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
-| `--worker-tunnel` | `LOCALAI_WORKER_TUNNEL` | `true` | Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port (see [Worker tunnels](#worker-tunnels)) |
+| `--worker-tunnel` | `LOCALAI_WORKER_TUNNEL` | `true` | Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port (see [Worker tunnels](#worker-tunnels)). Turning it off makes the worker unreachable: the frontend has no path that dials a worker's advertised address. |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL for backend installation and file staging |
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
 | `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |

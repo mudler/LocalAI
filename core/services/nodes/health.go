@@ -203,8 +203,22 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				mCheckCtx, mCancel := context.WithTimeout(ctx, 5*time.Second)
 				ok, _ := mClient.HealthCheck(mCheckCtx)
 				mCancel()
+				// Asked BEFORE the client is closed, because closing is what
+				// would discard the transport's record of why it failed.
+				unreached := unroutable(mClient)
 				if closer, ok := mClient.(io.Closer); ok {
 					closer.Close()
+				}
+				if unreached != nil {
+					// The probe never reached a backend, so it observed
+					// nothing. The miss streak is left exactly as it was:
+					// neither advanced, which after three passes would delete
+					// this row and every other row in the fleet the moment a
+					// peer link blipped, nor cleared, which would forgive a
+					// backend that really has died.
+					xlog.Warn("Could not probe a model backend: no route to the worker",
+						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", unreached)
+					continue
 				}
 
 				key := modelKey{NodeID: node.ID, ModelName: m.ModelName, ReplicaIndex: m.ReplicaIndex}

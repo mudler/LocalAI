@@ -91,17 +91,34 @@ func (g grpcModelProber) Probe(ctx context.Context, nodeID, address string) Prob
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	ok, err := client.HealthCheck(probeCtx)
+	if unreached := unroutable(client); unreached != nil {
+		// The RPC never reached a backend. classifyProbeOutcome cannot tell:
+		// gRPC hands it codes.Unavailable for a worker this frontend has no
+		// route to and for a backend process that has died, and the reaper
+		// deletes rows on the second.
+		xlog.Warn("Could not probe a model: no route to the worker",
+			"node", nodeID, "address", address, "error", unreached)
+		return ProbeUnknown
+	}
 	return classifyProbeOutcome(ok, err)
 }
 
 // classifyProbeOutcome maps a HealthCheck result onto a ProbeOutcome.
+//
+// It is only ever reached for a probe that DID reach the worker. That is a
+// precondition and not an observation it can make for itself: its caller asks
+// the transport first and answers ProbeUnknown when the dial failed. Without
+// that step the Unavailable case below is wrong, because a worker this frontend
+// cannot route to produces exactly the same code as a backend that has died,
+// and only one of the two should cost a row.
 //
 // The gRPC client is lazy, so connection failures surface on the RPC rather
 // than at dial time, and the status code tells the two cases apart:
 //
 //   - DeadlineExceeded: the transport was fine but nothing serviced the RPC in
 //     time. That is a backend stuck inside a long synchronous request.
-//   - Unavailable: nothing is listening. The process is gone.
+//   - Unavailable: the worker was reached and nothing is listening on that
+//     port. The process is gone.
 //
 // A blackholed network also yields DeadlineExceeded and is therefore treated as
 // busy. That is deliberate: whole-node failures are the health monitor's job

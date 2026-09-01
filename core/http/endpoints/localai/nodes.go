@@ -801,11 +801,11 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
 
-		if node.HTTPAddress == "" {
-			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, "node has no HTTP address"))
-		}
-
-		resp, err := proxyHTTPToWorker(ctx, dialFor, nodeID, node.HTTPAddress, "/v1/backend-logs", registrationToken)
+		// No HTTPAddress guard: a tunnel-only worker reports none, and the
+		// http stream tag ignores the target anyway. WorkerHTTPHost fills the
+		// URL's host with something that identifies the node and resolves
+		// nowhere; the tunnel decides where the bytes go.
+		resp, err := proxyHTTPToWorker(ctx, dialFor, nodeID, nodes.WorkerHTTPHost(nodeID, node.HTTPAddress), "/v1/backend-logs", registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -831,12 +831,8 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
 
-		if node.HTTPAddress == "" {
-			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, "node has no HTTP address"))
-		}
-
 		path := "/v1/backend-logs/" + url.PathEscape(modelID)
-		resp, err := proxyHTTPToWorker(ctx, dialFor, nodeID, node.HTTPAddress, path, registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, nodeID, nodes.WorkerHTTPHost(nodeID, node.HTTPAddress), path, registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -888,7 +884,7 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 		// NetDialContext below is what decides where the connection goes. A
 		// missing dialer is a failure, not a direct dial: see
 		// nodes.ErrNoWorkerDialer.
-		workerURL := fmt.Sprintf("ws://%s/v1/backend-logs/%s/ws", node.HTTPAddress, url.PathEscape(modelID))
+		workerURL := fmt.Sprintf("ws://%s/v1/backend-logs/%s/ws", nodes.WorkerHTTPHost(nodeID, node.HTTPAddress), url.PathEscape(modelID))
 		workerHeaders := http.Header{}
 		if registrationToken != "" {
 			workerHeaders.Set("Authorization", "Bearer "+registrationToken)
@@ -899,8 +895,21 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 			workerDial = dialFor(nodeID)
 		}
 		if workerDial == nil {
-			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway,
-				fmt.Sprintf("cannot reach node %s: %v", nodeID, nodes.ErrNoWorkerDialer)))
+			// A JSON body cannot be written here: the response writer was
+			// hijacked by the upgrade above, so the status line is long gone
+			// and the write lands nowhere. The browser has to be told the same
+			// way every other failure past the upgrade tells it, with a close
+			// frame, and the socket has to be closed or it leaks for the life
+			// of the process.
+			// Best-effort: the browser may already have gone, and there is
+			// nothing left to report the failure to either way. The CLOSE is
+			// what matters and it is unconditional.
+			_ = browserWS.WriteMessage(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "no route to worker"))
+			_ = browserWS.Close()
+			xlog.Error("Cannot stream backend logs: no way to reach the worker",
+				"node", nodeID, "error", nodes.ErrNoWorkerDialer)
+			return nil
 		}
 
 		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, NetDialContext: workerDial}

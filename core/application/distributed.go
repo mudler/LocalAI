@@ -375,10 +375,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			if err != nil {
 				return "", err
 			}
-			if node.HTTPAddress == "" {
-				return "", fmt.Errorf("node %s has no HTTP address for file transfer", nodeID)
-			}
-			return node.HTTPAddress, nil
+			// An empty HTTPAddress is no longer a refusal. A tunnel-only worker
+			// reports none and does not need one: the http stream tag ignores
+			// the target and the worker routes to its own server. The host is
+			// only ever the URL's host component here, and WorkerHTTPHost
+			// supplies one that resolves nowhere so it cannot become a dial.
+			return nodes.WorkerHTTPHost(nodeID, node.HTTPAddress), nil
 		}, cfg.Distributed.RegistrationToken, workerHTTPDialer)
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}

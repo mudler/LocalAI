@@ -41,6 +41,15 @@ type HTTPFileStager struct {
 	// clients caches one *http.Client per node. Caching is what keeps the
 	// connection pool: a client built per request would open a fresh tunnel
 	// stream for every chunk of a multi-gigabyte upload.
+	//
+	// Entries are never pruned, and that is judged acceptable rather than
+	// overlooked. The map is bounded by the number of distinct workers this
+	// frontend has ever staged to, which is bounded by the fleet; each entry is
+	// a transport whose idle connections the 90s IdleConnTimeout above reclaims,
+	// so a departed worker's entry holds a map slot and nothing else. It is the
+	// same shape as PeerPool.links and would need the same thing to fix
+	// properly: a signal that a node has left, which the deregistration path
+	// does not publish today.
 	clientsMu       sync.Mutex
 	clients         map[string]*http.Client
 	responseTimeout time.Duration // timeout waiting for server response after upload

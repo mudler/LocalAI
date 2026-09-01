@@ -1941,11 +1941,18 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // (DecrementInFlight + RemoveNodeModel) still triggers on the next request.
 //
 // The client is built OUTSIDE the memoized closure, which is what keeps an
-// unreachable worker out of the cache entirely: DoOrCached only ever sees a
-// real answer. Building it costs a struct and no I/O, since the gRPC client
+// unreachable worker out of the cache entirely: DoOrCachedResult only ever sees
+// a real answer. Building it costs a struct and no I/O, since the gRPC client
 // dials lazily on its first call.
+//
+// The client is the RAW factory client rather than buildClientForAddr's, on
+// purpose. A health check stages no files, so the staging wrapper buys nothing
+// here; and the wrapper hides the transport, because it embeds grpc.Backend and
+// so does not carry LastDialError through. Wrapping would leave this function
+// unable to tell a dead backend from an unreachable worker, which is the whole
+// question it now answers.
 func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) (alive, probed bool) {
-	client, err := r.buildClientForAddr(node, addr, false)
+	client, err := r.clientFactory.NewClientForNode(node.ID, addr, false)
 	if err != nil {
 		xlog.Error("Cannot probe a model backend: no way to reach the worker",
 			"node", node.ID, "address", addr, "error", err)
@@ -1954,12 +1961,24 @@ func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr s
 	defer closeClient(client)
 
 	key := node.ID + "|" + addr
-	return r.probeCache.DoOrCached(key, func() bool {
+	alive, unreached := r.probeCache.DoOrCachedResult(key, func() (bool, error) {
 		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 		ok, _ := client.HealthCheck(checkCtx)
-		return ok
-	}), true
+		if ok {
+			return true, nil
+		}
+		// The RPC failed. gRPC reports a dead backend and an unreachable
+		// worker with the same code, so the only way to tell them apart is to
+		// ask the transport whether it was the one that failed.
+		return false, unroutable(client)
+	})
+	if unreached != nil {
+		xlog.Warn("Could not probe a model backend: no route to the worker",
+			"node", node.ID, "address", addr, "error", unreached)
+		return false, false
+	}
+	return alive, true
 }
 
 // closeClient closes a gRPC backend client if it implements io.Closer.
