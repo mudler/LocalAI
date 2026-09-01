@@ -93,6 +93,10 @@ type fakeModelRouter struct {
 	findLRUModel *NodeModel
 	findLRUErr   error
 
+	// NextFreeReplicaIndex returns
+	nextFreeReplicaIdx int
+	nextFreeReplicaErr error
+
 	// Get returns
 	getNode *BackendNode
 	getErr  error
@@ -317,7 +321,7 @@ func (f *fakeModelRouter) ListModelCleanupRetries(_ context.Context, _ time.Time
 }
 
 func (f *fakeModelRouter) NextFreeReplicaIndex(_ context.Context, _, _ string, _ int) (int, error) {
-	return 0, nil
+	return f.nextFreeReplicaIdx, f.nextFreeReplicaErr
 }
 
 func (f *fakeModelRouter) CountReplicasOnNode(_ context.Context, _, _ string) (int, error) {

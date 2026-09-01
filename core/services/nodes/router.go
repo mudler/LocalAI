@@ -1098,9 +1098,16 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// carries the install. A worker that has died stops answering on the bus at
 	// once but stays healthy in the database until its heartbeat ages out, so
 	// without this the scheduler could commit to a node it cannot reach.
+	//
+	// The last selection error is kept because eviction below fires on a nil
+	// node, and a lookup that failed is not the same answer as a cluster with
+	// no room: a control-plane database slow enough to time out these queries
+	// read as "everybody is full" and cost a healthy model its place.
+	var selectErr error
 	selectNode := func() *BackendNode {
 		var candidate *BackendNode
 		var selErr error
+		selectErr = nil
 		if estimatedVRAM > 0 {
 			if candidateNodeIDs != nil {
 				candidate, selErr = r.registry.FindNodeWithVRAMFromSet(ctx, estimatedVRAM, candidateNodeIDs)
@@ -1117,19 +1124,30 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 			if candidateNodeIDs != nil {
 				candidate, selErr = r.registry.FindIdleNodeFromSet(ctx, candidateNodeIDs)
 				if selErr != nil {
-					candidate, _ = r.registry.FindLeastLoadedNodeFromSet(ctx, candidateNodeIDs)
+					candidate, selErr = r.registry.FindLeastLoadedNodeFromSet(ctx, candidateNodeIDs)
 				}
 			} else {
 				candidate, selErr = r.registry.FindIdleNode(ctx)
 				if selErr != nil {
-					candidate, _ = r.registry.FindLeastLoadedNode(ctx)
+					candidate, selErr = r.registry.FindLeastLoadedNode(ctx)
 				}
+			}
+			if candidate == nil {
+				selectErr = selErr
 			}
 		}
 		return candidate
 	}
 
 	node := r.pickReachableNode(ctx, selectNode)
+
+	// Same reasoning as the replica-slot guard further down: only
+	// gorm.ErrRecordNotFound is a verdict that the cluster has no node to give.
+	// Any other error left the question unanswered, and evicting on it costs a
+	// healthy model its place for no evidence.
+	if node == nil && selectErr != nil && !errors.Is(selectErr, gorm.ErrRecordNotFound) {
+		return nil, "", 0, fmt.Errorf("selecting a node for %s: %w", modelID, selectErr)
+	}
 
 	// 4. Preemptive eviction: if no suitable node found, evict the LRU model with zero in-flight
 	if node == nil {
@@ -1152,6 +1170,15 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	}
 	replicaIdx, slotErr := r.registry.NextFreeReplicaIndex(ctx, node.ID, modelID, maxSlots)
 	if slotErr != nil {
+		// Only ErrNoFreeSlot means "this node is full". Any other error means
+		// we could not find out, and evicting on a guess costs a healthy model
+		// its place: a control-plane database slow enough to time out this
+		// lookup made the scheduler evict loaded models it had no evidence to
+		// evict, and they thrashed.
+		if !errors.Is(slotErr, ErrNoFreeSlot) {
+			return nil, "", 0, fmt.Errorf("determining free replica slot on %s: %w", node.Name, slotErr)
+		}
+
 		// All slots on this node are taken — fall back to eviction. This is
 		// rare in practice because FindNodesWithFreeSlot already filtered;
 		// it can race with another concurrent scheduler.
