@@ -90,3 +90,48 @@ var _ = Describe("Worker address resolution", func() {
 		})
 	})
 })
+
+var _ = Describe("Worker startup validation", func() {
+	// A Config as kong would hand it over with nothing unusual set: the tunnel
+	// on by its default, no auth enforcement.
+	newConfig := func() *Config {
+		return &Config{WorkerTunnel: true}
+	}
+
+	It("accepts the default configuration", func() {
+		Expect(newConfig().validateStartup()).To(Succeed())
+	})
+
+	It("refuses to start with the tunnel turned off", func() {
+		// Not a warning and not a degraded mode. A worker without its tunnel
+		// advertises nothing, binds only loopback, and has no frontend path
+		// that dials it, yet it would register, heartbeat and report healthy,
+		// so the scheduler would keep placing models on it and every one would
+		// fail. Refusing at boot is the only outcome that is visible.
+		cfg := newConfig()
+		cfg.WorkerTunnel = false
+		err := cfg.validateStartup()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_WORKER_TUNNEL"))
+		Expect(err.Error()).To(ContainSubstring("nothing can reach it"))
+	})
+
+	It("refuses enforcement without a registration token", func() {
+		cfg := newConfig()
+		cfg.RegistrationRequireAuth = true
+		Expect(cfg.validateStartup()).To(MatchError(ContainSubstring("LOCALAI_REGISTRATION_TOKEN is empty")))
+	})
+
+	It("refuses the umbrella switch without a registration token", func() {
+		cfg := newConfig()
+		cfg.DistributedRequireAuth = true
+		Expect(cfg.validateStartup()).To(MatchError(ContainSubstring("LOCALAI_REGISTRATION_TOKEN is empty")))
+	})
+
+	It("accepts enforcement once a token is set", func() {
+		cfg := newConfig()
+		cfg.DistributedRequireAuth = true
+		cfg.RegistrationToken = "shared"
+		Expect(cfg.validateStartup()).To(Succeed())
+	})
+})
