@@ -288,4 +288,39 @@ var _ = Describe("The relay wire framing", func() {
 	It("refuses to write an empty node id, rather than spending a round trip on it", func() {
 		Expect(cluster.WriteRelayRequest(&bytes.Buffer{}, "")).To(HaveOccurred())
 	})
+
+	// Acceptance is not the whole surface. A refusal read by the wrong hop's
+	// reader must not come back as one of that hop's own sentinels: "the
+	// owning replica does not hold this worker" arriving as "the worker does
+	// not serve that tag" would send a retry to the wrong end of the path, and
+	// it would look like a perfectly ordinary answer on the way.
+	DescribeTable("does not read a relay refusal as one of the worker tunnel's",
+		func(reason error) {
+			frame := &bytes.Buffer{}
+			Expect(cluster.WriteRelayRefusal(frame, reason)).To(Succeed())
+			err := cluster.ReadStreamReply(frame)
+			Expect(err).To(HaveOccurred())
+			Expect(err).ToNot(MatchError(cluster.ErrStreamTagUnknown))
+			Expect(err).ToNot(MatchError(cluster.ErrStreamTargetUnavailable))
+			Expect(err).ToNot(MatchError(cluster.ErrStreamRequestInvalid))
+		},
+		Entry("not the owner", cluster.ErrNotOwner),
+		Entry("the tunnel will not carry a stream", cluster.ErrRelayUnavailable),
+		Entry("a malformed relay request", cluster.ErrRelayRequestInvalid),
+	)
+
+	DescribeTable("does not read a worker tunnel refusal as one of the relay's",
+		func(reason error) {
+			frame := &bytes.Buffer{}
+			Expect(cluster.WriteStreamRefusal(frame, reason)).To(Succeed())
+			err := cluster.ReadRelayReply(frame)
+			Expect(err).To(HaveOccurred())
+			Expect(err).ToNot(MatchError(cluster.ErrNotOwner))
+			Expect(err).ToNot(MatchError(cluster.ErrRelayUnavailable))
+			Expect(err).ToNot(MatchError(cluster.ErrRelayRequestInvalid))
+		},
+		Entry("an unknown stream tag", cluster.ErrStreamTagUnknown),
+		Entry("a local service that will not answer", cluster.ErrStreamTargetUnavailable),
+		Entry("a malformed stream request", cluster.ErrStreamRequestInvalid),
+	)
 })
