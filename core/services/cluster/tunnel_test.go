@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +16,80 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
+
+// claimHook runs an action once, from inside the database call that issued a
+// matching statement, on that call's own goroutine.
+//
+// It is how a spec pins an interleaving instead of racing for one. gorm calls
+// its logger's Trace after the statement has executed and before the Create or
+// Delete that issued it returns (gorm@v1.31.1/callbacks.go:139-145), with the
+// bind values interpolated into the SQL, so an action installed here runs at
+// the one instant a claim has been written and not yet recorded. Racing two
+// goroutines and hoping to land in that window is the flaky spec this replaces.
+//
+// It fires at most once: the action itself issues statements through the same
+// session, and an unguarded hook would recurse.
+type claimHook struct {
+	gormlogger.Interface
+	mu     sync.Mutex
+	fired  bool
+	match  func(sql string) bool
+	action func(sql string)
+}
+
+func newClaimHook(match func(sql string) bool) *claimHook {
+	return &claimHook{Interface: gormlogger.Default.LogMode(gormlogger.Silent), match: match}
+}
+
+func (h *claimHook) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
+	sql, rows := fc()
+	h.mu.Lock()
+	fire := !h.fired && h.action != nil && h.match(sql)
+	if fire {
+		h.fired = true
+	}
+	h.mu.Unlock()
+	if fire {
+		h.action(sql)
+	}
+	h.Interface.Trace(ctx, begin, func() (string, int64) { return sql, rows }, err)
+}
+
+// isClaimOf matches the upsert Claim issues for one node.
+func isClaimOf(nodeIDs ...string) func(string) bool {
+	return func(sql string) bool {
+		if !strings.Contains(sql, "INSERT INTO \"node_connections\"") {
+			return false
+		}
+		for _, nodeID := range nodeIDs {
+			if strings.Contains(sql, "'"+nodeID+"'") {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// claimedNode reports which of the named nodes a claim statement was for.
+func claimedNode(sql string, nodeIDs ...string) string {
+	GinkgoHelper()
+	for _, nodeID := range nodeIDs {
+		if strings.Contains(sql, "'"+nodeID+"'") {
+			return nodeID
+		}
+	}
+	Fail("the claim statement named none of " + strings.Join(nodeIDs, ", "))
+	return ""
+}
+
+// serializationProbe is how long a spec watches for something that must not
+// happen. It bounds an assertion about an ABSENT event, which is the only kind
+// of wait a spec cannot replace with a channel: there is no event to receive.
+// The thing it watches for takes one database round trip when the serialisation
+// it guards is missing, so this is orders of magnitude longer than it needs.
+const serializationProbe = 500 * time.Millisecond
 
 // workerTunnel returns the two halves of a worker's tunnel: the frontend holds
 // the server half, because the worker is the side that dials. yamuxPair already
@@ -220,6 +294,85 @@ var _ = Describe("The worker tunnel registry", func() {
 			"holding the tunnel is a routing fact, and a failed Open is not what un-holds it")
 	})
 
+	It("refuses a nil session rather than claiming a tunnel that cannot carry anything", func() {
+		// A claim written for a session that does not exist publishes a tunnel
+		// to every replica in the deployment, and the fence would then have to
+		// be unwound by a Detach nobody is going to call.
+		_, err := tun.Attach(ctx, "w1", nil)
+		Expect(err).To(HaveOccurred())
+
+		Expect(tun.Held()).To(BeEmpty())
+		_, _, err = reg.OwnerRow(ctx, "w1")
+		Expect(err).To(MatchError(cluster.ErrNoConnection),
+			"a node with no session was published to the deployment as connected here")
+	})
+
+	It("returns the nodes it holds in sorted order", func() {
+		// Attached out of order on purpose: sorted output is what makes a log
+		// line and a re-claim pass comparable between two runs, and a map
+		// range would only look sorted until it did not.
+		for _, nodeID := range []string{"w3", "w1", "w2"} {
+			frontend, _ := workerTunnel()
+			_, err := tun.Attach(ctx, nodeID, frontend)
+			Expect(err).ToNot(HaveOccurred())
+		}
+		Expect(tun.Held()).To(Equal([]string{"w1", "w2", "w3"}))
+	})
+
+	It("serialises two Attach calls for one node, so the surviving entry holds the row's epoch", func() {
+		// Two claims for one node are serialised by PostgreSQL, but nothing
+		// orders the two map writes against the two commits. Unserialised, the
+		// entry left installed can carry the epoch of the claim that lost the
+		// row: its Detach then releases an epoch the row does not hold, the
+		// release matches nothing, and the row outlives the socket. Nothing
+		// sweeps that, because this replica is alive and heartbeating, so Owner
+		// keeps sending dialers here to be told ErrNotOwner.
+		hook := newClaimHook(isClaimOf("w1"))
+		hooked := cluster.NewTunnelRegistry(
+			cluster.NewRegistry(db.Session(&gorm.Session{Logger: hook})), "me")
+
+		secondSession, _ := workerTunnel()
+		secondStarted := make(chan struct{})
+		secondEpochs := make(chan int64, 1)
+		hook.action = func(string) {
+			// Launched from inside the first claim, so the second Attach is
+			// provably reaching for the same node while the first is between
+			// its claim and its store. Starting it before the call would leave
+			// which one claims first to the scheduler.
+			go func() {
+				defer GinkgoRecover()
+				close(secondStarted)
+				epoch, err := hooked.Attach(ctx, "w1", secondSession)
+				Expect(err).ToNot(HaveOccurred())
+				secondEpochs <- epoch
+			}()
+			<-secondStarted
+			Consistently(secondEpochs, serializationProbe, 10*time.Millisecond).ShouldNot(Receive(),
+				"a second Attach for this node claimed AND recorded its epoch while the first was between its own claim and store")
+		}
+
+		firstSession, _ := workerTunnel()
+		firstEpoch, err := hooked.Attach(ctx, "w1", firstSession)
+		Expect(err).ToNot(HaveOccurred())
+		var secondEpoch int64
+		Eventually(secondEpochs, "10s").Should(Receive(&secondEpoch))
+		Expect(secondEpoch).ToNot(Equal(firstEpoch))
+
+		_, stored, err := reg.OwnerRow(ctx, "w1")
+		Expect(err).ToNot(HaveOccurred())
+		Expect([]int64{firstEpoch, secondEpoch}).To(ContainElement(stored))
+
+		// Whichever attachment survived, one of these two Detach calls is the
+		// live one and must take the row with it. If neither does, the row is
+		// carrying an epoch no attachment holds.
+		hooked.Detach("w1", firstEpoch)
+		hooked.Detach("w1", secondEpoch)
+		Expect(hooked.Held()).To(BeEmpty())
+		_, _, err = reg.OwnerRow(ctx, "w1")
+		Expect(err).To(MatchError(cluster.ErrNoConnection),
+			"the surviving attachment could not release its row, so the row outlived the socket")
+	})
+
 	It("serves Attach, Open, Held and Detach from independent goroutines", func() {
 		// Run under -race. The point is contention on one node's entry, not a
 		// tidy per-goroutine partition: a registry whose map is only ever
@@ -288,6 +441,11 @@ var _ = Describe("The worker tunnel registry", func() {
 			tun.Detach("w1", epoch)
 		}
 		Expect(tun.Held()).To(BeEmpty())
+		for _, node := range []string{"w0", "w1"} {
+			_, _, err := reg.OwnerRow(ctx, node)
+			Expect(err).To(MatchError(cluster.ErrNoConnection),
+				"node %s kept a row no attachment could release", node)
+		}
 	})
 })
 
@@ -390,6 +548,87 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 		_, _, err = reg.OwnerRow(ctx, "dead")
 		Expect(err).To(MatchError(cluster.ErrNoConnection),
 			"a tunnel whose session is closed was claimed back from whoever holds the worker now")
+	})
+
+	It("records the re-claim on the attachment installed now, not the one it listed", func() {
+		// Reclaim lists the nodes it holds, then claims them one at a time. A
+		// worker that re-dials in between leaves an entry the list never saw.
+		// The claim is drawn under that node's gate, so it is the NEWEST claim
+		// for the node and the row carries it: recording it on the entry that
+		// is installed is the only thing that lets that entry release the row.
+		// Refusing to record it because the entry is not the one listed would
+		// leave the row behind when the socket dies.
+		hook := newClaimHook(isClaimOf("w1", "w2"))
+		hooked := cluster.NewTunnelRegistry(
+			cluster.NewRegistry(db.Session(&gorm.Session{Logger: hook})), "me")
+
+		for _, nodeID := range []string{"w1", "w2"} {
+			frontend, _ := workerTunnel()
+			_, err := hooked.Attach(ctx, nodeID, frontend)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		// The re-dial lands on whichever node this pass has not reached yet,
+		// so the spec does not depend on which one Reclaim takes first.
+		type redial struct {
+			node  string
+			epoch int64
+		}
+		redialled := make(chan redial, 1)
+		hook.action = func(sql string) {
+			node := "w2"
+			if claimedNode(sql, "w1", "w2") == "w2" {
+				node = "w1"
+			}
+			frontend, _ := workerTunnel()
+			epoch, err := hooked.Attach(ctx, node, frontend)
+			Expect(err).ToNot(HaveOccurred())
+			redialled <- redial{node: node, epoch: epoch}
+		}
+
+		count, err := hooked.Reclaim(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(Equal(2))
+
+		var latest redial
+		Expect(redialled).To(Receive(&latest))
+		_, stored, err := reg.OwnerRow(ctx, latest.node)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(stored).ToNot(Equal(latest.epoch), "the re-claim never reached the node that re-dialled")
+
+		// The attachment that re-dialled is the one holding the socket, so its
+		// Detach has to be the one that removes the row.
+		hooked.Detach(latest.node, latest.epoch)
+		_, _, err = reg.OwnerRow(ctx, latest.node)
+		Expect(err).To(MatchError(cluster.ErrNoConnection),
+			"the re-claim was recorded on nothing, so the attachment that holds the socket cannot release its row")
+	})
+
+	It("releases a re-claim whose attachment detached while the claim was in flight", func() {
+		// Detach is not gated against a re-claim, so this interleave is real:
+		// the claim commits, then the socket dies and Detach releases the epoch
+		// it was given, which the claim has already replaced. Left alone, the
+		// row names this replica for a tunnel it no longer holds, nothing
+		// sweeps it because this replica is alive, and Owner sends every dialer
+		// here to be told ErrNotOwner.
+		hook := newClaimHook(isClaimOf("w1"))
+		hooked := cluster.NewTunnelRegistry(
+			cluster.NewRegistry(db.Session(&gorm.Session{Logger: hook})), "me")
+
+		frontend, _ := workerTunnel()
+		epoch, err := hooked.Attach(ctx, "w1", frontend)
+		Expect(err).ToNot(HaveOccurred())
+
+		hook.action = func(string) { hooked.Detach("w1", epoch) }
+
+		count, err := hooked.Reclaim(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(BeZero(), "a node that detached mid-claim was counted as re-claimed")
+
+		Expect(hooked.Held()).To(BeEmpty())
+		_, _, err = reg.OwnerRow(ctx, "w1")
+		Expect(err).To(MatchError(cluster.ErrNoConnection),
+			"the re-claim left a row behind that no attachment holds and no sweep will remove")
 	})
 
 	It("keeps re-claiming out of the ordinary heartbeat, which has nothing to rebuild", func() {
