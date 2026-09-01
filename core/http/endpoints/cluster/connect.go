@@ -37,10 +37,16 @@ import (
 // panic; see the 503 below.
 //
 // It is deliberately absent from auth.RouteFeatureRegistry. That registry gates
-// a route on the FEATURES OF AN AUTHENTICATED USER, and there is no user here:
-// the dialer is a worker process holding a machine credential, and the global
-// auth middleware never runs on this path because it sits under
-// auth.ClusterPathPrefix.
+// a route on the FEATURES OF AN AUTHENTICATED USER, resolved from auth.GetUser,
+// and there is no user here: the dialer is a worker process holding a machine
+// credential.
+//
+// The global auth middleware does RUN on this path; what it does not do is
+// reject. It attempts session, bearer and legacy-key authentication first, so it
+// may even have set auth_user from a worker token that happens to match an API
+// key, and then core/http/auth/middleware.go:90 lets the request through
+// because usesAlternativeAuthentication reports the path as one whose
+// credentials its own route checks. Nothing here reads what it set.
 func ConnectHandler(registry *nodes.NodeRegistry, tunnels *clustersvc.TunnelRegistry) echo.HandlerFunc {
 	// gorilla's default CheckOrigin restricts a browser to same-origin and lets
 	// a header-less client (which every worker is) through, so the zero value
@@ -62,6 +68,14 @@ func ConnectHandler(registry *nodes.NodeRegistry, tunnels *clustersvc.TunnelRegi
 		// answering "unauthorized" would send the operator hunting a token
 		// problem that does not exist. It is checked after the header so that
 		// an anonymous dial still gets the 401 the coverage test requires.
+		//
+		// Only the registry half is covered by a spec. The two are read from one
+		// application.Distributed() in core/http/app.go and initDistributed
+		// returns an error rather than a partial struct, so a non-nil registry
+		// beside a nil tunnel registry is unreachable and no spec constructs it;
+		// the second half is defence against a future wiring that splits them,
+		// where the cost would be a nil dereference in Attach after the
+		// connection is already hijacked.
 		if registry == nil || tunnels == nil {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "distributed mode not enabled")
 		}
@@ -89,9 +103,40 @@ func ConnectHandler(registry *nodes.NodeRegistry, tunnels *clustersvc.TunnelRegi
 			return echo.NewHTTPError(http.StatusInternalServerError, "node lookup failed")
 		}
 
+		// Split from the mismatch below because they are different operator
+		// problems with different fixes. An empty stored hash means the node
+		// registered against a frontend with no LOCALAI_REGISTRATION_TOKEN, so
+		// no worker on that deployment can ever tunnel until one is set and the
+		// workers re-register; a mismatch means one worker holds the wrong
+		// secret. One log line for both leaves an operator reading "wrong token"
+		// while every worker fails identically.
+		if node.TokenHash == "" {
+			xlog.Warn("Refusing a worker tunnel: this node has no stored token, which means it registered with no registration token configured",
+				"node", nodeID, "knob", "LOCALAI_REGISTRATION_TOKEN")
+			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+		}
 		if !authorizedWorker(token, node.TokenHash) {
 			xlog.Debug("worker tunnel dial presented the wrong token", "node", nodeID)
 			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+		}
+
+		// Authenticated but not authorised, so 403 rather than 401: the fix is an
+		// admin approving the node, not a different credential, and answering
+		// 401 would send an operator looking at tokens.
+		//
+		// Only StatusPending is refused. The rest of /api/node/ self-service
+		// gates on nothing at all, but the two places that hand a node something
+		// DURABLE both refuse a pending one: the agent worker's API key
+		// (core/http/endpoints/localai/nodes.go:224) and its NATS credential
+		// (nodes.go:293). A tunnel is that kind of grant, not a heartbeat: it is
+		// a standing pipe into the worker recorded in node_connections and
+		// relayed to by every other replica. Draining and unhealthy nodes keep
+		// their tunnels on purpose; draining means finish what you have, and a
+		// node marked unhealthy for missed heartbeats needs the pipe to recover
+		// through.
+		if node.Status == nodes.StatusPending {
+			xlog.Warn("Refusing a worker tunnel: this node is awaiting admin approval", "node", nodeID)
+			return echo.NewHTTPError(http.StatusForbidden, "node is pending approval")
 		}
 
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
@@ -107,6 +152,23 @@ func ConnectHandler(registry *nodes.NodeRegistry, tunnels *clustersvc.TunnelRegi
 			_ = ws.Close()
 			return nil
 		}
+
+		// The same guard PeerHandler carries, for the same reason and one more.
+		// net/http recovers a panic from this goroutine but does not close the
+		// hijacked connection, and middleware.Recover does not either, so a
+		// panic below would leave the worker holding a live session this replica
+		// has no entry for and will never detach. The extra reason here is that
+		// Attach does database work: a panic inside it, with the session left
+		// open, is a tunnel nothing can reach and nothing will clean up.
+		//
+		// It re-panics rather than swallowing. Whatever it caught is a bug, and
+		// the recovery middleware above is what should report it.
+		defer func() {
+			if r := recover(); r != nil {
+				_ = sess.Close()
+				panic(r)
+			}
+		}()
 
 		// From here the connection is hijacked, so no status can reach the
 		// worker any more: a failure is a closed socket, which is what its
@@ -176,12 +238,19 @@ func bearerToken(r *http.Request) (string, bool) {
 // attacker knows. What this does rule out is the shortcut of comparing against
 // the configured token itself, which is what would have to be unpicked later;
 // the day a worker is issued its own secret at registration, this check starts
-// isolating workers from each other with no change here.
+// isolating workers from each other with no change here, PROVIDED the secret
+// lands in TokenHash. The one per-node secret LocalAI mints today, the agent
+// worker's api_token, does not: provisionAgentWorkerKey writes an auth.User and
+// an auth.APIKey referenced by node.AuthUserID / node.APIKeyID and never touches
+// this column. If the next task follows that precedent instead, this comparison
+// is what has to change.
 //
-// An empty stored hash authorizes nobody. Such a row exists whenever a worker
-// registered against a frontend with no registration token configured, and the
-// alternative, letting any token through for those, would make the check depend
-// on a setting the dialer can neither see nor be blamed for.
+// The empty-hash guard is defensive rather than deciding: a stored hash is
+// hex-encoded SHA-256, so 64 bytes or nothing, and ConstantTimeCompare already
+// returns 0 on a length mismatch (crypto/internal/fips140/subtle/constant_time.go:17-20
+// returns 0 outright when the lengths differ). It is kept because a reader should not have to
+// derive "an unregistered node authorizes nobody" from a length rule, and
+// because the caller logs that case separately.
 func authorizedWorker(token, storedHash string) bool {
 	if storedHash == "" {
 		return false

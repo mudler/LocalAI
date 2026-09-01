@@ -182,17 +182,32 @@ func (t *TunnelRegistry) Attach(ctx context.Context, nodeID string, sess *yamux.
 		return 0, fmt.Errorf("attaching tunnel for node %q: %w", nodeID, err)
 	}
 
-	epoch, err := t.reg.Claim(ctx, nodeID, t.selfID)
+	// The gated part is a closure so its release can be DEFERRED while the
+	// session close below still happens outside the gate. Releasing on each
+	// return path instead leaves one way out uncovered: a panic. Claim does
+	// database work, and a panic anywhere under it would leave this node's gate
+	// closed for the life of the process, so every later Attach or Reclaim for
+	// that worker would block in enterClaim until its own context expired. The
+	// caller's recover would report the panic and the worker would look
+	// permanently unable to reconnect, with nothing linking the two.
+	var previous *heldTunnel
+	epoch, err := func() (int64, error) {
+		defer t.leaveClaim(nodeID)
+
+		epoch, err := t.reg.Claim(ctx, nodeID, t.selfID)
+		if err != nil {
+			return 0, err
+		}
+
+		t.mu.Lock()
+		previous = t.tunnels[nodeID]
+		t.tunnels[nodeID] = &heldTunnel{sess: sess, token: epoch, claim: epoch}
+		t.mu.Unlock()
+		return epoch, nil
+	}()
 	if err != nil {
-		t.leaveClaim(nodeID)
 		return 0, err
 	}
-
-	t.mu.Lock()
-	previous := t.tunnels[nodeID]
-	t.tunnels[nodeID] = &heldTunnel{sess: sess, token: epoch, claim: epoch}
-	t.mu.Unlock()
-	t.leaveClaim(nodeID)
 
 	// Closed after the gate is released, not under it. The gate is justified by
 	// being held for one claim round trip, and closing a session is not that:
@@ -381,38 +396,48 @@ func (t *TunnelRegistry) reclaimOne(ctx context.Context, nodeID string) error {
 		return fmt.Errorf("re-claiming node %q: %w", nodeID, err)
 	}
 
-	t.mu.Lock()
-	tunnel, ok := t.tunnels[nodeID]
-	t.mu.Unlock()
-	if !ok {
-		// Detached between Reclaim listing the nodes and this gate. Nothing was
-		// claimed, so there is nothing to undo.
-		t.leaveClaim(nodeID)
-		return errTunnelNotReclaimed
-	}
-	if tunnel.sess.IsClosed() {
-		xlog.Debug("skipping re-claim of a worker tunnel whose session is closed", "node", nodeID)
-		t.leaveClaim(nodeID)
-		return errTunnelNotReclaimed
-	}
+	// Gated part in a closure so the release is DEFERRED, for the reason Attach
+	// gives: a panic under Claim would otherwise wedge this node's gate for the
+	// life of the process. The trailing Release still runs outside the gate.
+	var epoch int64
+	var installed bool
+	if err := func() error {
+		defer t.leaveClaim(nodeID)
 
-	epoch, err := t.reg.Claim(ctx, nodeID, t.selfID)
-	if err != nil {
-		t.leaveClaim(nodeID)
+		t.mu.Lock()
+		tunnel, ok := t.tunnels[nodeID]
+		t.mu.Unlock()
+		if !ok {
+			// Detached between Reclaim listing the nodes and this gate. Nothing
+			// was claimed, so there is nothing to undo.
+			return errTunnelNotReclaimed
+		}
+		if tunnel.sess.IsClosed() {
+			xlog.Debug("skipping re-claim of a worker tunnel whose session is closed", "node", nodeID)
+			return errTunnelNotReclaimed
+		}
+
+		var err error
+		epoch, err = t.reg.Claim(ctx, nodeID, t.selfID)
+		if err != nil {
+			return err
+		}
+
+		t.mu.Lock()
+		current, present := t.tunnels[nodeID]
+		installed = present
+		if installed {
+			// current is necessarily the entry read above: the gate is still
+			// held, and Attach and reclaimOne are the only writers that install
+			// one. The identity is therefore not re-checked; the case that IS
+			// reachable is the entry being gone, because Detach is not gated.
+			current.claim = epoch
+		}
+		t.mu.Unlock()
+		return nil
+	}(); err != nil {
 		return err
 	}
-
-	t.mu.Lock()
-	current, installed := t.tunnels[nodeID]
-	if installed {
-		// current is necessarily the entry read above: the gate is still held,
-		// and Attach and reclaimOne are the only writers that install one. The
-		// identity is therefore not re-checked; the case that IS reachable is
-		// the entry being gone, because Detach is not gated.
-		current.claim = epoch
-	}
-	t.mu.Unlock()
-	t.leaveClaim(nodeID)
 
 	if installed {
 		return nil
