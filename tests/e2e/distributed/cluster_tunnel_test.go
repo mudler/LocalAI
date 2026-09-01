@@ -362,7 +362,14 @@ var _ = Describe("Worker tunnel end to end", Label("Distributed"), Label("Cluste
 		// The worker publishes no endpoint of any kind. Without this the
 		// inference below would be satisfied by a frontend that dialled an
 		// advertised address, which is the path this phase removed.
-		advertised := probe.advertisementOf(c.WorkerName(0))
+		//
+		// Both halves are needed. An empty value alone would also be what a
+		// spec sees after the keys are renamed or dropped from the payload,
+		// and that would leave this reporting "advertises nothing" about a
+		// node it can no longer see the advertisement of at all.
+		advertised, carriedKeys := probe.advertisementOf(c.WorkerName(0))
+		Expect(carriedKeys).To(BeTrue(),
+			"the roster payload no longer carries the address and http_address keys, so this spec cannot tell a worker that advertises nothing from one it cannot read")
 		Expect(advertised).To(BeEmpty(),
 			"the worker advertised %q, so this spec cannot tell a tunnelled request from a direct dial", advertised)
 
@@ -408,9 +415,19 @@ var _ = Describe("Worker tunnel end to end", Label("Distributed"), Label("Cluste
 		nonOwner := 1 - owner
 		Expect(nonOwner).ToNot(Equal(owner))
 
-		// This is the whole point of the spec, so it is asserted rather than
-		// arranged: the request is about to go to a replica the database says
-		// does not hold this worker's tunnel.
+		// The request is about to go to a replica the database says does not
+		// hold this worker's tunnel. Read again here rather than inferred from
+		// the reading above, so a spec that had derived the index some other
+		// way still could not send it to the owner.
+		//
+		// This does NOT close the race, and saying that it does would be the
+		// same overclaim this phase has had to retract twice: ownership can
+		// move between this read and the reply, and if it moved TO nonOwner the
+		// request would be served directly and still come back 200. What closes
+		// it is the trailing read after the request, which requires the owner to
+		// be unchanged; a move to nonOwner leaves that read returning nonOwner
+		// and reddens the spec. This one rules out only the arrangement being
+		// wrong from the start, which is the cheaper half.
 		Expect(owners.ownerIndexOf(c, 2, nodeID)).ToNot(Equal(nonOwner),
 			"frontend %d owns the worker's tunnel, so a request to it would not be relayed and this spec would prove nothing", nonOwner)
 
@@ -421,10 +438,16 @@ var _ = Describe("Worker tunnel end to end", Label("Distributed"), Label("Cluste
 		expectMockedInference(client, c.FrontendURL(nonOwner), "relayed-model",
 			fmt.Sprintf("frontend %d must relay to frontend %d, which owns the worker's tunnel", nonOwner, owner))
 
-		// The relay did not move ownership. A replica that answered by taking
-		// the tunnel for itself would also have returned 200 above.
+		// THIS is the assertion that makes the request above a relayed one.
+		//
+		// It rules out the two ways a 200 could arrive without a relay: a
+		// replica that answered by taking the tunnel for itself, and the
+		// tunnel moving to nonOwner mid-request so that it served directly.
+		// Both leave the owner changed, and both redden here. The only window
+		// left is a move away and back inside one request, which takes two
+		// claims, and no replica dies in this scenario to prompt either.
 		Expect(owners.ownerIndexOf(c, 2, nodeID)).To(Equal(owner),
-			"serving a relayed request moved the tunnel to frontend %d, which is not relaying", nonOwner)
+			"the tunnel is no longer held by frontend %d, so the request to frontend %d was not necessarily relayed", owner, nonOwner)
 	})
 
 	// Scenario 3. Kills the replica holding the tunnel. The worker must land on
@@ -524,16 +547,20 @@ var _ = Describe("Worker tunnel end to end", Label("Distributed"), Label("Cluste
 		Expect(refused.status).ToNot(Equal(http.StatusOK),
 			"the frontend served an inference for a worker that holds no tunnel, so something other than the tunnel reaches it: %s", refused.body)
 
-		// And it fails for the RIGHT reason. A frontend that was refusing for
-		// any other cause (a missing model, a backend it could not install, an
-		// unhealthy node) would satisfy the assertion above just as well, and
-		// would leave the three specs before this one unproven.
-		Expect(refused.body).To(Or(
-			ContainSubstring("no route"),
-			ContainSubstring("not connected"),
-			ContainSubstring("unroutable"),
-			ContainSubstring("tunnel"),
-		), "the refusal does not name the missing route: %s", refused.body)
+		// And it fails for the RIGHT reason. A frontend refusing for any other
+		// cause (a missing model, a backend it could not install, an unhealthy
+		// node) would satisfy the assertion above just as well, and would leave
+		// the three specs before this one unproven.
+		//
+		// One substring, not a disjunction. This is the strongest leg of the
+		// whole control, and a disjunction is where such a leg goes soft: the
+		// looser alternatives this used to carry ("tunnel", "not connected",
+		// "unroutable") would each be satisfied by refusals that say nothing
+		// about routing, and one of them is a word this deployment's messages
+		// are full of. "no route" is what cluster.ErrNoRoute reads as, and
+		// nothing else on this path produces it.
+		Expect(refused.body).To(ContainSubstring("no route"),
+			"the refusal does not name the missing route, so this spec cannot tell a worker with no tunnel from a request that failed for one of the ordinary reasons: %s", refused.body)
 
 		// The control's own control: put the tunnel back, change nothing else,
 		// and the same request must now succeed. Without this the refusal above
@@ -583,13 +610,34 @@ func withBalancer(into **frontendBalancer, arm ...func(*frontendBalancer)) func(
 	}
 }
 
-// percentile returns the p'th percentile of durations, which must be sorted.
-func percentile(sorted []time.Duration, p float64) time.Duration {
-	if len(sorted) == 0 {
-		return 0
+// percentileIndex is where the p'th percentile of n sorted samples falls, or
+// -1 when there are none.
+func percentileIndex(n int, p float64) int {
+	if n == 0 {
+		return -1
 	}
-	idx := int(float64(len(sorted)-1) * p)
-	return sorted[idx]
+	return int(float64(n-1) * p)
+}
+
+// slowestOf is the worst sample, which is the statistic a blocking question
+// turns on: a session that stalls one request while a transfer holds it shows
+// up in the tail and not in the middle.
+func slowestOf(samples []time.Duration) time.Duration {
+	worst := time.Duration(0)
+	for _, d := range samples {
+		if d > worst {
+			worst = d
+		}
+	}
+	return worst
+}
+
+// sortedCopy returns samples in ascending order without disturbing the caller's
+// slice, which the report entry reads again afterwards.
+func sortedCopy(samples []time.Duration) []time.Duration {
+	sorted := append([]time.Duration(nil), samples...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	return sorted
 }
 
 // summarise reports the shape of a latency sample.
@@ -597,25 +645,50 @@ func summarise(label string, samples []time.Duration) string {
 	if len(samples) == 0 {
 		return label + ": no samples"
 	}
-	sorted := append([]time.Duration(nil), samples...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	sorted := sortedCopy(samples)
 	var total time.Duration
 	for _, d := range sorted {
 		total += d
 	}
-	return fmt.Sprintf("%s: n=%d mean=%s p50=%s p90=%s p99=%s max=%s",
-		label, len(sorted), total/time.Duration(len(sorted)),
-		percentile(sorted, 0.50), percentile(sorted, 0.90), percentile(sorted, 0.99), sorted[len(sorted)-1])
+	out := fmt.Sprintf("%s: n=%d mean=%s", label, len(sorted), total/time.Duration(len(sorted)))
+	// A quantile is printed only when the sample can separate it from the ones
+	// already printed and from the max. At the sizes here, n around 20 to 50,
+	// p90 and p99 routinely land on the same element and p99 often lands on the
+	// last one, and printing one number three times under three names invites a
+	// reader to compare a tail nothing measured. Omission says "this sample
+	// cannot answer that"; a repeated number says the opposite.
+	printed := map[int]bool{percentileIndex(len(sorted), 1): true}
+	for _, q := range []struct {
+		name string
+		p    float64
+	}{{"p50", 0.50}, {"p90", 0.90}, {"p99", 0.99}} {
+		idx := percentileIndex(len(sorted), q.p)
+		if printed[idx] {
+			continue
+		}
+		printed[idx] = true
+		out += fmt.Sprintf(" %s=%s", q.name, sorted[idx])
+	}
+	return out + fmt.Sprintf(" max=%s", sorted[len(sorted)-1])
 }
 
 // The deferred question of this phase: what one yamux session does when a large
 // message and ordinary inference share it, with the relay adding a second hop
 // for most requests.
 //
-// It is MEASURED here rather than asserted to be fine. Both sides' yamux
-// windows are left at their defaults by a deliberate decision, pending these
-// numbers, and the numbers are printed as a report entry so a future change to
-// those windows has something to be compared against.
+// It is MEASURED here rather than asserted to be fine, and the numbers are
+// printed as a report entry so a later change has something to be compared
+// against.
+//
+// Be exact about which windows those numbers do and do not speak for. The
+// WORKER TUNNEL's two ends both take yamux's defaults (core/services/worker,
+// tunnel.go, and core/http/endpoints/cluster/connect.go), and this measurement
+// is no reason to change that, but it is also no evidence that they are right:
+// a default receive window is limited by the bandwidth-delay product of the
+// link, and loopback has no delay to produce one. The PEER LINK's windows are raised
+// on both ends. What is measured here is whether a session SERIALISES, which
+// loopback answers perfectly well, and not whether a window is large enough for
+// a link with latency, which it cannot answer at all.
 const (
 	// bulkArtifactSize is the model artifact staged over the tunnel while
 	// probes run. It stands in for the 50MB-class message this feature has to
@@ -630,6 +703,12 @@ const (
 	// hypothetical: the first version of this spec used 64MiB and still passed
 	// with the artifact cut to 4KiB, which is the definition of measuring
 	// nothing.
+	//
+	// What it costs, since it is the largest thing this suite puts on disk:
+	// two bulk models seeded into each of two frontends is 512 MiB, and each is
+	// then staged to the worker, which is 256 MiB more. About 768 MiB under
+	// TMPDIR for the length of this spec, plus one 128 MiB string resident in
+	// the test process. The harness removes the tree in Stop.
 	bulkArtifactSize = 128 << 20
 
 	// tinyArtifactSize is the same cold load with nothing to transfer. It is
@@ -655,19 +734,55 @@ const (
 	// reporting.
 	minOverlappingProbes = 5
 
-	// holStallCeiling is the coarse absolute backstop, for the case where the
-	// bulk transfer is itself pathologically slow and the transfer-window
-	// comparison would admit a probe latency no deployment would tolerate.
+	// holStallShare bounds the worst probe as a fraction of the window in which
+	// bytes were moving. It is the STRUCTURAL assertion: a session that
+	// head-of-line blocks parks a probe until the transfer lets go, so a
+	// stalled probe's latency is on the order of the whole window, and one that
+	// interleaves finishes many probes inside it.
 	//
-	// The comparison is the assertion that bites; this is only the floor under
-	// it. A session that head-of-line blocks parks a probe until the transfer
-	// releases the session, so the stalled probe's latency is on the order of
-	// the transfer window's; one that interleaves answers a warm mock
-	// completion in the milliseconds it takes with nothing else on the wire.
-	// An ABSOLUTE ceiling would have to sit between those two, and on this
-	// hardware they are 30ms and 250ms, which is too narrow a gap to hold on a
-	// loaded box. The comparison holds whatever the box's speed, because both
-	// numbers move with it.
+	// Half, not the whole window. Bounding by the window itself admits a probe
+	// that took nearly all of it, which is the wedge with the numbers filed
+	// off.
+	//
+	// Not tighter than half, and the reason is measured rather than cautious. A
+	// probe's tail grows faster than the transfer window does when the box is
+	// busy: under a concurrent `-race` suite the worst relayed probe reached
+	// 20% of its window here, so a quarter would have had 1.2x of margin and a
+	// spec that fails one run in three is worse than no spec. Half leaves 2.4x
+	// on the same run and still reddens on a stall, which parks a probe for the
+	// window rather than a fifth of it.
+	holStallShare = 2
+
+	// holStallControlFactor bounds the worst probe against the worst probe
+	// under the EMPTY load in the same run, which is the second half of not
+	// relaxing under load: a slower box raises the control and the bound with
+	// it, while an absolute number would simply admit more.
+	//
+	// The empty load is the right thing to compare against and the plain
+	// baseline is not. Both samples then contain a cold load's contention for
+	// the worker, the router and the session, and the only thing that differs
+	// between them is 128 MiB crossing the wire. Compared against the quiet
+	// baseline instead, a transfer that cost nothing at all would still look
+	// like a regression on any box where a cold load is expensive.
+	//
+	// Eight, from both ends of the gap it has to sit in. Healthy runs measured
+	// 1.6x to 3.8x on this box under a concurrent `-race` suite, and about 2.5x
+	// to 3x on the reviewer's; a session that stalled a probe until the
+	// transfer let go would show the whole window over the same control, which
+	// is 14x to 43x on the same runs.
+	holStallControlFactor = 8
+
+	// holStallCeiling is the coarse absolute backstop under both of those, for
+	// a transfer so slow that a quarter of its window is a latency no
+	// deployment would tolerate.
+	//
+	// It is deliberately far above anything measured rather than tuned, because
+	// an absolute number cannot separate a wedge from a slow box. Measured
+	// worst probe and transfer window, for scale: 21-36ms against 261-576ms on
+	// the box this was written on, and 70-136ms against 590-1320ms on the
+	// reviewer's. An absolute ceiling that bit on the first machine's wedge
+	// would fail on the second machine's healthy run, which is why the two
+	// relative bounds above are the assertions and this is only a floor.
 	holStallCeiling = 5 * time.Second
 )
 
@@ -825,15 +940,15 @@ var _ = Describe("Worker tunnel under load", Label("Distributed"), Label("Cluste
 			report = append(report, line)
 			GinkgoWriter.Println(line)
 
-			slowest := time.Duration(0)
-			for _, d := range underBulk {
-				if d > slowest {
-					slowest = d
-				}
-			}
-			Expect(slowest).To(BeNumerically("<", transferWindow),
-				"%s: a probe waited %s while %s of bytes were moving, which is the shape of a session that stalled the probe until the transfer let go, not of one that interleaved them",
+			slowest := slowestOf(underBulk)
+			Expect(slowest).To(BeNumerically("<", transferWindow/holStallShare),
+				"%s: a probe waited %s of the %s in which bytes were moving, which is the shape of a session that stalled the probe until the transfer let go, not of one that interleaved them",
 				label, slowest, transferWindow)
+			control := slowestOf(underTiny)
+			Expect(control).To(BeNumerically(">", 0), "%s: the empty-load control produced no samples", label)
+			Expect(slowest).To(BeNumerically("<", holStallControlFactor*control),
+				"%s: the worst probe was %s while bytes were moving against %s under the same cold load with nothing to move, which is a stall rather than the contention a shared session costs",
+				label, slowest, control)
 			Expect(slowest).To(BeNumerically("<", holStallCeiling),
 				"%s: a probe waited %s while the bulk transfer held the session", label, slowest)
 		}

@@ -1,6 +1,7 @@
 package distributed_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -43,6 +44,25 @@ type node struct {
 	// have dialled instead of the tunnel.
 	Address     string `json:"address"`
 	HTTPAddress string `json:"http_address"`
+	// keys is what the payload actually carried, which a decoded struct cannot
+	// tell you. Both fields above are the zero value when a worker advertises
+	// nothing AND when the key was renamed or dropped, and the whole point of
+	// the change these specs cover was removing the advertisement, so a rename
+	// would leave "it advertises nothing" passing for a payload that no longer
+	// says anything either way.
+	keys map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes the fields above and keeps the raw key set beside them.
+func (n *node) UnmarshalJSON(data []byte) error {
+	// A distinct type, or this method calls itself.
+	type decoded node
+	var plain decoded
+	if err := json.Unmarshal(data, &plain); err != nil {
+		return err
+	}
+	*n = node(plain)
+	return json.Unmarshal(data, &n.keys)
 }
 
 // requireBinaries reports whether a missing binary must fail the spec instead of
@@ -231,16 +251,25 @@ func (p *rosterProbe) idOf(name string) string {
 }
 
 // advertisementOf returns whatever endpoints the roster last reported a node
-// advertising, joined for a failure message. Empty means the node published
-// none, which is what a worker on this release does.
-func (p *rosterProbe) advertisementOf(name string) string {
+// advertising, joined for a failure message, and whether the payload carried
+// both advertisement keys at all.
+//
+// The second result is the assertion, not a detail. Removing the advertisement
+// is what the change under test did, so "the node advertises nothing" and "the
+// keys that would have carried it are gone from the payload" are the two
+// outcomes a spec has to keep apart: the first is the feature working, the
+// second is the spec having lost its subject and reporting the feature working
+// for any node at all, including one that advertises plenty.
+func (p *rosterProbe) advertisementOf(name string) (string, bool) {
 	for _, n := range p.lastSeen {
 		if n.Name != name {
 			continue
 		}
-		return strings.TrimSpace(strings.Join([]string{n.Address, n.HTTPAddress}, " "))
+		_, hasAddress := n.keys["address"]
+		_, hasHTTP := n.keys["http_address"]
+		return strings.TrimSpace(strings.Join([]string{n.Address, n.HTTPAddress}, " ")), hasAddress && hasHTTP
 	}
-	return ""
+	return "", false
 }
 
 // describe is handed to Should as the failure message. Gomega calls a
