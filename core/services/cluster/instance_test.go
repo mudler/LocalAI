@@ -113,3 +113,49 @@ var _ = Describe("Advertised address discovery", func() {
 		Expect(err).To(MatchError(ContainSubstring("out of range")))
 	})
 })
+
+var _ = Describe("Checking a configured advertised address", func() {
+	// The configured address bypasses discovery entirely, so it bypasses every
+	// rejection discovery makes. These are the checks that put back the ones
+	// that can be made without a route to look at.
+	It("accepts an address on a network other hosts can reach", func() {
+		reason, err := cluster.CheckAdvertisedAddr("10.0.0.7:8080")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reason).To(BeEmpty())
+	})
+
+	It("accepts a name, because the dialler is what resolves it", func() {
+		reason, err := cluster.CheckAdvertisedAddr("localai-frontend.default.svc:8080")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reason).To(BeEmpty())
+	})
+
+	It("refuses an address with no port, which nothing could dial", func() {
+		_, err := cluster.CheckAdvertisedAddr("10.0.0.7")
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("refuses a port outside the dialable range", func() {
+		_, err := cluster.CheckAdvertisedAddr("10.0.0.7:0")
+		Expect(err).To(MatchError(ContainSubstring("port")))
+	})
+
+	It("refuses an address that names no host", func() {
+		_, err := cluster.CheckAdvertisedAddr(":8080")
+		Expect(err).To(MatchError(ContainSubstring("no host")))
+	})
+
+	It("reports loopback without refusing it, because one host is a supported topology", func() {
+		// Correct on a single host, and the value most likely to be copied
+		// onto three, where every peer would then dial itself.
+		reason, err := cluster.CheckAdvertisedAddr("127.0.0.1:8080")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reason).To(ContainSubstring("loopback"))
+	})
+
+	It("reports a bind address, which is not an address at all", func() {
+		reason, err := cluster.CheckAdvertisedAddr("0.0.0.0:8080")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reason).To(ContainSubstring("unspecified"))
+	})
+})
