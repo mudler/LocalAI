@@ -128,13 +128,16 @@ func (r *Registry) Get(ctx context.Context, id string) (*Instance, error) {
 // address to advertise. The caller supplies the port, since the frontend's
 // listening port has nothing to do with the database's.
 //
-// The discovery only holds while the database is a shared, remote host. When
-// PostgreSQL runs on this same host or pod (compose, single-node, any sidecar
-// layout) the route to it is loopback, and advertising 127.0.0.1 would make a
-// peer dialling this replica reach itself instead. So an unspecified, loopback,
-// or link-local source address is rejected with an error telling the operator to
-// configure the advertised address explicitly, rather than returned. There is no
-// fallback string: no address is better than a wrong one.
+// What defeats the discovery is a DSN that NAMES loopback, not the database
+// being co-located. Co-location is fine as long as the DSN names something
+// routable: compose's usual `host=postgres` resolves to a bridge address, so
+// the kernel picks this container's own bridge IP as the source, which is the
+// address a peer on that network dials. It is `host=localhost` (or 127.0.0.1,
+// or ::1) that makes the route loopback, and advertising 127.0.0.1 would make
+// a peer dialling this replica reach itself instead. So an unspecified,
+// loopback, or scoped source address is rejected with an error telling the
+// operator to configure the advertised address explicitly, rather than
+// returned. There is no fallback string: no address is better than a wrong one.
 func DiscoverAdvertisedAddr(dsn string, port int) (string, error) {
 	// A port of 0 (or out of range) would produce an address nothing can dial,
 	// and the caller is likelier to have passed an unset field than to mean it.
@@ -172,14 +175,27 @@ func unroutableReason(ip net.IP, zone string) string {
 		return fmt.Sprintf("unspecified (%s), which is a bind address rather than one anything can connect to", ip)
 	case ip.IsLoopback():
 		return fmt.Sprintf("loopback (%s), which means \"this host\" to whoever dials it, so every peer would reach itself", ip)
-	// A zone is only ever attached to a scoped (link-local) address, so this is
-	// the same rejection stated twice; the Zone check keeps the guarantee if a
-	// platform ever hands back a scoped address of another class, because
-	// IP.String() would silently drop the %iface and yield an undialable host.
-	case ip.IsLinkLocalUnicast() || zone != "":
-		return fmt.Sprintf("link-local (%s), which peers on other hosts cannot dial", ip)
+	case ip.IsLinkLocalUnicast():
+		return fmt.Sprintf("link-local (%s), which peers on other hosts cannot dial", withZone(ip, zone))
+	// A zone is normally attached only to a link-local address, which the case
+	// above already rejects. This one stays for the scoped address of some
+	// other class a platform may hand back, and says so rather than repeating
+	// the link-local label: the two have different cures, and an operator told
+	// the wrong one looks in the wrong place.
+	case zone != "":
+		return fmt.Sprintf("scoped to interface %q (%s), and the zone is dropped by the time an address is stored, leaving a host nothing can dial", zone, withZone(ip, zone))
 	}
 	return ""
+}
+
+// withZone renders the address the way it has to be dialled. IP.String() drops
+// the %iface, so an unadorned %s in a rejection reports an address that differs
+// from the one being rejected.
+func withZone(ip net.IP, zone string) string {
+	if zone == "" {
+		return ip.String()
+	}
+	return ip.String() + "%" + zone
 }
 
 // CheckAdvertisedAddr validates an address an operator configured, returning a
@@ -207,13 +223,28 @@ func CheckAdvertisedAddr(addr string) (reason string, err error) {
 	if err != nil || portNumber < 1 || portNumber > 65535 {
 		return "", fmt.Errorf("advertised address %q has no usable port (want 1-65535)", addr)
 	}
+	// The zone is split off before parsing because net.ParseIP rejects
+	// "fe80::1%eth0" outright. Left joined, a scoped literal would look like a
+	// name and collect no warning at all, which is the one case where the
+	// address is guaranteed not to work for a peer.
+	host, zone := splitZone(host)
 	// A name is resolved by whoever dials it, and may resolve differently
 	// there, so its presence is all this side can check.
 	ip := net.ParseIP(host)
 	if ip == nil {
 		return "", nil
 	}
-	return unroutableReason(ip, ""), nil
+	return unroutableReason(ip, zone), nil
+}
+
+// splitZone separates an IPv6 scope from the address it qualifies. A name
+// never carries one, so a host with no "%" comes back unchanged.
+func splitZone(host string) (string, string) {
+	addr, zone, found := strings.Cut(host, "%")
+	if !found {
+		return host, ""
+	}
+	return addr, zone
 }
 
 // dsnHostPort extracts the host and port from either DSN form gorm's postgres
