@@ -264,7 +264,7 @@ var _ = Describe("revision eligibility consumers", func() {
 
 type recordingEligibilityProber struct{ addresses []string }
 
-func (p *recordingEligibilityProber) Probe(_ context.Context, address string) ProbeOutcome {
+func (p *recordingEligibilityProber) Probe(_ context.Context, _, address string) ProbeOutcome {
 	p.addresses = append(p.addresses, address)
 	return ProbeAlive
 }

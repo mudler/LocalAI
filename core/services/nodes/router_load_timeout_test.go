@@ -53,6 +53,10 @@ type deadlineClientFactory struct{ client *deadlineBackend }
 
 func (f *deadlineClientFactory) NewClient(_ string, _ bool) grpc.Backend { return f.client }
 
+func (f *deadlineClientFactory) NewClientForNode(_, address string, parallel bool) (grpc.Backend, error) {
+	return f.NewClient(address, parallel), nil
+}
+
 var _ = Describe("remote LoadModel deadline", func() {
 	var (
 		reg      *fakeModelRouter

@@ -105,7 +105,7 @@ type unwritableStream struct {
 func newUnwritableStream(nodeID string) *unwritableStream {
 	GinkgoHelper()
 	frame := &bytes.Buffer{}
-	Expect(WriteRelayRequest(frame, nodeID)).To(Succeed())
+	Expect(WriteRelayRequest(frame, nodeID, 0)).To(Succeed())
 	return &unwritableStream{request: frame.Bytes(), closed: make(chan struct{})}
 }
 
@@ -176,7 +176,7 @@ var _ = Describe("The relay's own budgets", func() {
 		stream, err := peer.OpenStream(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = stream.Close() })
-		Expect(WriteRelayRequest(stream, "w1")).To(Succeed())
+		Expect(WriteRelayRequest(stream, "w1", 0)).To(Succeed())
 
 		replies := make(chan error, 1)
 		go func() {
@@ -243,7 +243,7 @@ var _ = Describe("The relay's own budgets", func() {
 		stream, err := peer.OpenStream(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = stream.Close() })
-		Expect(WriteRelayRequest(stream, "w1")).To(Succeed())
+		Expect(WriteRelayRequest(stream, "w1", 0)).To(Succeed())
 
 		replies := make(chan error, 1)
 		go func() {
@@ -263,6 +263,79 @@ var _ = Describe("The relay's own budgets", func() {
 			ends <- err
 		}()
 		Eventually(ends, "10s").Should(Receive(HaveOccurred()))
+	})
+
+	It("bounds its open by the caller's stated budget when that is the shorter", func() {
+		// The ceiling here is 10s and the caller says it has 50ms. Without the
+		// stated budget this replica would hold a relay goroutine and a yamux
+		// stream slot for the full ceiling on behalf of a client that gave up
+		// almost immediately.
+		relay := newRelay(tun, 0, 10*time.Second)
+		store := NewSessionStore(relay.Stream)
+		DeferCleanup(store.CloseAll)
+		peer, accepted := backloggedPair(256)
+		store.Accept("peer-1", accepted)
+
+		_, frontend := backloggedPair(1)
+		_, err := tun.Attach(ctx, "w1", frontend)
+		Expect(err).ToNot(HaveOccurred())
+		// One un-accepted open fills the one-deep backlog, so the relay's own
+		// open is the one that has to wait out a budget.
+		filler, err := frontend.OpenStream(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = filler.Close() })
+
+		stream, err := peer.OpenStream(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = stream.Close() })
+		Expect(WriteRelayRequest(stream, "w1", 50*time.Millisecond)).To(Succeed())
+
+		replies := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			replies <- ReadRelayReply(stream)
+		}()
+		var reply error
+		// Two seconds is twenty times the stated budget and a fifth of the
+		// ceiling, so only a relay that honoured the budget answers inside it.
+		Eventually(replies, "2s").Should(Receive(&reply))
+		Expect(reply).To(MatchError(ErrRelayUnavailable))
+		// The tunnel IS held here. A budget running out must not turn into a
+		// routing fact, and it must never become absence.
+		Expect(reply).ToNot(MatchError(ErrNotOwner))
+		Expect(reply).ToNot(MatchError(ErrNoConnection))
+	})
+
+	It("does not let a stated budget stretch its own ceiling", func() {
+		// A patient client must not be able to park this replica. The ceiling
+		// is 50ms and the caller says it will wait ten seconds; the refusal
+		// still has to arrive on the ceiling.
+		relay := newRelay(tun, 0, 50*time.Millisecond)
+		store := NewSessionStore(relay.Stream)
+		DeferCleanup(store.CloseAll)
+		peer, accepted := backloggedPair(256)
+		store.Accept("peer-1", accepted)
+
+		_, frontend := backloggedPair(1)
+		_, err := tun.Attach(ctx, "w1", frontend)
+		Expect(err).ToNot(HaveOccurred())
+		filler, err := frontend.OpenStream(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = filler.Close() })
+
+		stream, err := peer.OpenStream(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = stream.Close() })
+		Expect(WriteRelayRequest(stream, "w1", 10*time.Second)).To(Succeed())
+
+		replies := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			replies <- ReadRelayReply(stream)
+		}()
+		var reply error
+		Eventually(replies, "2s").Should(Receive(&reply))
+		Expect(reply).To(MatchError(ErrRelayUnavailable))
 	})
 
 	It("closes the worker's stream when it cannot tell the peer the stream was accepted", func() {
