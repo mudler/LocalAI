@@ -480,6 +480,10 @@ func (f *stubClientFactory) NewClient(_ string, _ bool) grpc.Backend {
 	return f.client
 }
 
+func (f *stubClientFactory) NewClientForNode(_, address string, parallel bool) (grpc.Backend, error) {
+	return f.NewClient(address, parallel), nil
+}
+
 // ---------------------------------------------------------------------------
 // Fake NodeCommandSender (unloader)
 // ---------------------------------------------------------------------------

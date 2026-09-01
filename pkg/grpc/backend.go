@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"net"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
@@ -29,7 +30,30 @@ func NewClientWithToken(address string, parallel bool, wd WatchDog, enableWatchD
 	return buildClient(address, parallel, wd, enableWatchDog, token)
 }
 
-func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) Backend {
+// NewClientWithDialer creates a gRPC client that reaches its backend through
+// dialer rather than by connecting to address.
+//
+// It is what distributed mode uses to reach a backend process on a worker: the
+// worker holds one multiplexed tunnel to a frontend replica and listens on
+// nothing, so address names which backend process the stream is for and the
+// dialer decides how the stream gets there. A nil dialer is a programming
+// error on this path rather than a fallback, because falling back to a direct
+// dial would work in a single-replica test and fail in production; callers with
+// no dialer call NewClientWithToken and mean it.
+func NewClientWithDialer(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string, dialer func(ctx context.Context, addr string) (net.Conn, error)) Backend {
+	if bc, ok := embeds[address]; ok {
+		return bc
+	}
+	// Assigned on the concrete type rather than through a checked assertion:
+	// an assertion that failed would silently hand back a client that dials
+	// the address directly, which is the exact bypass this constructor exists
+	// to close.
+	c := buildClient(address, parallel, wd, enableWatchDog, token)
+	c.dialer = dialer
+	return c
+}
+
+func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) *Client {
 	if !enableWatchDog {
 		wd = nil
 	}

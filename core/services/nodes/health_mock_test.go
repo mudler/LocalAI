@@ -300,6 +300,11 @@ type fakeBackendClientFactory struct {
 	clients map[string]*fakeBackendClient
 	// default client returned when address not in clients map
 	defaultClient *fakeBackendClient
+	// forNode records every node id NewClientForNode was asked for.
+	forNode []string
+	// refuseForNode makes NewClientForNode fail, standing in for a deployment
+	// with no way to reach the worker. Set before the code under test runs.
+	refuseForNode error
 }
 
 func newFakeBackendClientFactory() *fakeBackendClientFactory {
@@ -322,6 +327,24 @@ func (f *fakeBackendClientFactory) NewClient(address string, _ bool) grpc.Backen
 		return c
 	}
 	return f.defaultClient
+}
+
+// nodesSeen records the node ids the code under test asked for, so a spec can
+// assert a caller reached a worker through its NODE rather than by address.
+func (f *fakeBackendClientFactory) nodesSeen() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.forNode...)
+}
+
+func (f *fakeBackendClientFactory) NewClientForNode(nodeID, address string, parallel bool) (grpc.Backend, error) {
+	if f.refuseForNode != nil {
+		return nil, f.refuseForNode
+	}
+	f.mu.Lock()
+	f.forNode = append(f.forNode, nodeID)
+	f.mu.Unlock()
+	return f.NewClient(address, parallel), nil
 }
 
 // helper to make a BackendNode with given properties

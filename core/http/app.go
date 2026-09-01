@@ -1,12 +1,14 @@
 package http
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
 	"math"
 	"mime"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -567,15 +569,24 @@ func API(application *application.Application) (*echo.Echo, error) {
 	distCfg := application.ApplicationConfig().Distributed
 	var registry *nodes.NodeRegistry
 	var remoteUnloader nodes.NodeCommandSender
+	// How the admin log-proxy routes reach a worker's own HTTP server. Left nil
+	// outside distributed mode, where there are no workers and no tunnels; the
+	// routes then refuse rather than dialling an address directly.
+	var workerHTTPDialFor nodes.WorkerNetDialerFor
 	if d := application.Distributed(); d != nil {
 		registry = d.Registry
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}
+		if d.WorkerDialer != nil {
+			workerHTTPDialFor = func(nodeID string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return d.WorkerDialer.DialerFor(nodeID, clustersvc.StreamTagHTTP)
+			}
+		}
 	}
 	natsCfg := distCfg.NatsAuthConfig()
 	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDialFor)
 
 	// Replica-to-replica peer link. Registered only in distributed mode: in
 	// single-node mode there are no peers, and the route authenticates with the
