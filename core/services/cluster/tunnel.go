@@ -170,10 +170,10 @@ func (t *TunnelRegistry) Attach(ctx context.Context, nodeID string, sess *yamux.
 	if err := t.enterClaim(ctx, nodeID); err != nil {
 		return 0, fmt.Errorf("attaching tunnel for node %q: %w", nodeID, err)
 	}
-	defer t.leaveClaim(nodeID)
 
 	epoch, err := t.reg.Claim(ctx, nodeID, t.selfID)
 	if err != nil {
+		t.leaveClaim(nodeID)
 		return 0, err
 	}
 
@@ -181,7 +181,20 @@ func (t *TunnelRegistry) Attach(ctx context.Context, nodeID string, sess *yamux.
 	previous := t.tunnels[nodeID]
 	t.tunnels[nodeID] = &heldTunnel{sess: sess, token: epoch, claim: epoch}
 	t.mu.Unlock()
+	t.leaveClaim(nodeID)
 
+	// Closed after the gate is released, not under it. The gate is justified by
+	// being held for one claim round trip, and closing a session is not that:
+	// yamux closes the underlying conn and then waits for both its send and
+	// recv loops to exit (go-yamux/v5@v5.1.0/session.go:330-332), and the send
+	// loop can be inside a write bounded only by ConnectionWriteTimeout. That
+	// is a wait on other goroutines, and it must not stand between a worker
+	// re-dialling this node and its claim.
+	//
+	// Releasing first is safe because the superseded session is no longer
+	// reachable from the map: whoever re-dials next replaces an entry that
+	// already names the new session, and this close can only ever affect the
+	// one it just displaced.
 	if previous != nil && previous.sess != sess {
 		xlog.Debug("worker re-dialled this replica, dropping its previous tunnel", "node", nodeID)
 		_ = previous.sess.Close()
