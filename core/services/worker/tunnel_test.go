@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -212,6 +213,66 @@ var _ = Describe("Worker tunnel client", func() {
 			})
 			Eventually(read, "10s").Should(Receive(BeNil()))
 			Expect(string(buf)).To(Equal("ping"))
+		})
+
+		It("routes through the worker's OWN table, ignoring the host the frontend names", func() {
+			// Every other spec in this file installs dialLocalTCP, which dials
+			// whatever it is handed. This one installs tunnelServices, the
+			// table Run installs, so the wire path is exercised against the
+			// real routing rules at least once.
+			backend := echoListenerOn("127.0.0.1:0")
+			DeferCleanup(func() { _ = backend.Close() })
+			port := portOf(backend)
+
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) {
+				c.Services = tunnelServices(&Config{
+					ServeAddr:   fmt.Sprintf("0.0.0.0:%d", port),
+					GRPCMaxPort: port,
+				}, "0.0.0.0:1")
+			})
+
+			stream, err := session().OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			// A host that is not this machine, and a port that is.
+			Expect(cluster.WriteStreamRequest(stream, cluster.StreamTagGRPC,
+				fmt.Sprintf("attacker.invalid:%d", port))).To(Succeed())
+
+			reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+			Eventually(reply, "10s").Should(Receive(BeNil()))
+
+			_, err = stream.Write([]byte("loopback"))
+			Expect(err).ToNot(HaveOccurred())
+			buf := make([]byte, len("loopback"))
+			read := awaitErr(func() error {
+				_, err := io.ReadFull(stream, buf)
+				return err
+			})
+			Eventually(read, "10s").Should(Receive(BeNil()))
+			Expect(string(buf)).To(Equal("loopback"))
+		})
+
+		It("refuses a port outside its range as a bad request, over the wire", func() {
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) {
+				c.Services = tunnelServices(&Config{
+					ServeAddr:   "0.0.0.0:50051",
+					GRPCMaxPort: 50051,
+				}, "0.0.0.0:50050")
+			})
+
+			stream, err := session().OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cluster.WriteStreamRequest(stream, cluster.StreamTagGRPC, "127.0.0.1:22")).To(Succeed())
+
+			reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+			var got error
+			Eventually(reply, "10s").Should(Receive(&got))
+			// Three refusals, three meanings. A frontend retries unavailable
+			// and gives up on this one.
+			Expect(got).To(MatchError(cluster.ErrStreamRequestInvalid))
+			Expect(got).ToNot(MatchError(cluster.ErrStreamTargetUnavailable))
+			Expect(got).ToNot(MatchError(cluster.ErrStreamTagUnknown))
 		})
 	})
 
@@ -506,4 +567,222 @@ var _ = Describe("Worker tunnel client", func() {
 			Expect(second.nodeID).To(Equal("node-1"))
 		})
 	})
+})
+
+// echoListenerOn is echoListener bound to a specific address, so a spec can put
+// a listener somewhere the worker must NOT reach.
+func echoListenerOn(addr string) net.Listener {
+	ln, err := net.Listen("tcp", addr)
+	Expect(err).ToNot(HaveOccurred())
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer func() { _ = conn.Close() }()
+				_, _ = io.Copy(conn, conn)
+			}()
+		}
+	}()
+	return ln
+}
+
+// portOf returns the port a listener bound to.
+func portOf(ln net.Listener) int {
+	_, portStr, err := net.SplitHostPort(ln.Addr().String())
+	Expect(err).ToNot(HaveOccurred())
+	port, err := strconv.Atoi(portStr)
+	Expect(err).ToNot(HaveOccurred())
+	return port
+}
+
+// The routing table is the security boundary of the whole tunnel, and until now
+// nothing exercised it: every spec above installs dialLocalTCP, which is exactly
+// the permissive dialler loopbackService exists to prevent. A review turned
+// loopbackService into an arbitrary-host dialler and all 131 specs passed.
+var _ = Describe("Worker tunnel local services", func() {
+	var ctx context.Context
+
+	BeforeEach(func() { ctx = context.Background() })
+
+	Describe("loopbackService", func() {
+		It("reaches a loopback listener whose port is in range", func() {
+			ln := echoListenerOn("127.0.0.1:0")
+			DeferCleanup(func() { _ = ln.Close() })
+			port := portOf(ln)
+
+			conn, err := loopbackService(port, port)(ctx, ln.Addr().String())
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = conn.Close() })
+
+			_, err = conn.Write([]byte("hi"))
+			Expect(err).ToNot(HaveOccurred())
+			buf := make([]byte, 2)
+			_, err = io.ReadFull(conn, buf)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(buf)).To(Equal("hi"))
+		})
+
+		It("ignores the host the frontend names and dials loopback anyway", func() {
+			ln := echoListenerOn("127.0.0.1:0")
+			DeferCleanup(func() { _ = ln.Close() })
+			port := portOf(ln)
+
+			// A host that is emphatically not this machine. If it were honoured
+			// the dial would fail or, far worse, succeed against something else.
+			conn, err := loopbackService(port, port)(ctx, fmt.Sprintf("attacker.invalid:%d", port))
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = conn.Close() })
+			Expect(conn.RemoteAddr().String()).To(Equal(ln.Addr().String()))
+		})
+
+		It("does not reach a listener on another local address the frontend names", func() {
+			// The SSRF proof, stated as a reachability fact rather than as a
+			// property of the code. The only listener is on 127.0.0.2; nothing
+			// is on 127.0.0.1 at that port. A service that honoured the named
+			// host would connect; one that dials loopback cannot.
+			victim, err := net.Listen("tcp", "127.0.0.2:0")
+			if err != nil {
+				Skip("this host cannot bind a second loopback address: " + err.Error())
+			}
+			DeferCleanup(func() { _ = victim.Close() })
+			port := portOf(victim)
+
+			conn, err := loopbackService(port, port)(ctx, victim.Addr().String())
+			if err == nil {
+				_ = conn.Close()
+				Fail("the worker reached a host the frontend named, so a stream can steer it off loopback")
+			}
+			Expect(err).To(HaveOccurred())
+		})
+
+		DescribeTable("refuses a target it will not route",
+			func(target string, minPort, maxPort int) {
+				_, err := loopbackService(minPort, maxPort)(ctx, target)
+				Expect(err).To(HaveOccurred())
+				// Invalid, not unavailable. No retry brings a port outside this
+				// worker's own allocator range into it, and telling a frontend
+				// to retry forever is how a refusal becomes a hang.
+				Expect(err).To(MatchError(cluster.ErrStreamRequestInvalid))
+				Expect(err).ToNot(MatchError(cluster.ErrStreamTargetUnavailable))
+			},
+			Entry("a port below the range", "127.0.0.1:50050", 50051, 50060),
+			Entry("a port above the range", "127.0.0.1:50061", 50051, 50060),
+			Entry("a non-numeric port", "127.0.0.1:http", 50051, 50060),
+			Entry("no port at all", "127.0.0.1", 50051, 50060),
+			Entry("an empty target", "", 50051, 50060),
+		)
+
+		It("reports a backend that is not listening as unavailable, which a frontend may retry", func() {
+			// The other half of the taxonomy: a port IN range with nothing on
+			// it is a backend that has not started yet, not a bad request.
+			ln := echoListenerOn("127.0.0.1:0")
+			port := portOf(ln)
+			Expect(ln.Close()).To(Succeed())
+
+			_, err := loopbackService(port, port)(ctx, ln.Addr().String())
+			Expect(err).To(HaveOccurred())
+			Expect(classifyServiceFailure(err)).To(MatchError(cluster.ErrStreamTargetUnavailable))
+			Expect(classifyServiceFailure(err)).ToNot(MatchError(cluster.ErrStreamRequestInvalid))
+		})
+	})
+
+	Describe("fixedService", func() {
+		It("reaches its own address whatever the frontend names", func() {
+			ln := echoListenerOn("127.0.0.1:0")
+			DeferCleanup(func() { _ = ln.Close() })
+
+			conn, err := fixedService(ln.Addr().String())(ctx, "attacker.invalid:9")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = conn.Close() })
+			Expect(conn.RemoteAddr().String()).To(Equal(ln.Addr().String()))
+		})
+	})
+
+	DescribeTable("loopbackAddr rewrites a bind address into a dialable one",
+		func(bind, want string) {
+			Expect(loopbackAddr(bind)).To(Equal(want))
+		},
+		// Dialling 0.0.0.0 only accidentally reaches localhost, and not on
+		// every platform, so the wildcard is replaced rather than dialled.
+		Entry("IPv4 wildcard", "0.0.0.0:8080", "127.0.0.1:8080"),
+		Entry("IPv6 wildcard", "[::]:8080", "127.0.0.1:8080"),
+		Entry("no host", ":8080", "127.0.0.1:8080"),
+		Entry("an explicit host is left alone", "10.0.0.9:8080", "10.0.0.9:8080"),
+		Entry("an explicit loopback is left alone", "127.0.0.1:8080", "127.0.0.1:8080"),
+		Entry("something that is not host:port passes through", "not-an-address", "not-an-address"),
+	)
+
+	Describe("tunnelServices", func() {
+		// The table Run installs. Built by its own function precisely so this
+		// can be asserted without starting a worker.
+		It("serves exactly the two tags the frontend may name", func() {
+			cfg := &Config{ServeAddr: "0.0.0.0:50051"}
+			Expect(tunnelServices(cfg, "0.0.0.0:50050")).To(HaveLen(2))
+			Expect(tunnelServices(cfg, "0.0.0.0:50050")).To(HaveKey(cluster.StreamTagGRPC))
+			Expect(tunnelServices(cfg, "0.0.0.0:50050")).To(HaveKey(cluster.StreamTagHTTP))
+		})
+
+		It("bounds the gRPC service by THIS worker's configured port range", func() {
+			cfg := &Config{ServeAddr: "0.0.0.0:50051", GRPCMaxPort: 50052}
+			svc := tunnelServices(cfg, "0.0.0.0:50050")[cluster.StreamTagGRPC]
+
+			// The HTTP server's own port sits one below the base port, so a
+			// gRPC-tagged stream cannot be steered onto it.
+			_, err := svc(ctx, "127.0.0.1:50050")
+			Expect(err).To(MatchError(cluster.ErrStreamRequestInvalid))
+			_, err = svc(ctx, "127.0.0.1:50053")
+			Expect(err).To(MatchError(cluster.ErrStreamRequestInvalid))
+		})
+
+		// Pins that the HTTP service reaches the address Run configures. It
+		// does NOT pin the wildcard rewrite: on Linux dialling 0.0.0.0 reaches
+		// loopback anyway, so this spec stays green with loopbackAddr disabled.
+		// The loopbackAddr table above is what holds that, and it exists
+		// because the accident is not portable.
+		It("points the HTTP service at the worker's own server", func() {
+			ln := echoListenerOn("127.0.0.1:0")
+			DeferCleanup(func() { _ = ln.Close() })
+
+			cfg := &Config{ServeAddr: "0.0.0.0:50051"}
+			svc := tunnelServices(cfg, fmt.Sprintf("0.0.0.0:%d", portOf(ln)))[cluster.StreamTagHTTP]
+
+			conn, err := svc(ctx, "ignored:1")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = conn.Close() })
+			Expect(conn.RemoteAddr().String()).To(Equal(ln.Addr().String()))
+		})
+	})
+
+	DescribeTable("tunnelEndpoint builds the URL the worker dials",
+		func(frontendURL, nodeID, want string) {
+			got, err := tunnelEndpoint(frontendURL, nodeID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(Equal(want))
+		},
+		Entry("http becomes ws", "http://frontend:8080", "n1", "ws://frontend:8080/api/cluster/connect?id=n1"),
+		Entry("https becomes wss", "https://frontend", "n1", "wss://frontend/api/cluster/connect?id=n1"),
+		Entry("ws passes through", "ws://frontend:8080", "n1", "ws://frontend:8080/api/cluster/connect?id=n1"),
+		Entry("wss passes through", "wss://frontend", "n1", "wss://frontend/api/cluster/connect?id=n1"),
+		// A frontend behind a path prefix keeps it: the path is appended, not
+		// assigned, exactly as the registration client builds its URLs.
+		Entry("a path prefix is kept", "https://host/localai", "n1", "wss://host/localai/api/cluster/connect?id=n1"),
+		Entry("a trailing slash is not doubled", "https://host/localai/", "n1", "wss://host/localai/api/cluster/connect?id=n1"),
+		Entry("the node id is escaped", "http://h", "a b&c", "ws://h/api/cluster/connect?id=a+b%26c"),
+	)
+
+	DescribeTable("tunnelEndpoint refuses a frontend URL it cannot dial",
+		func(frontendURL string) {
+			_, err := tunnelEndpoint(frontendURL, "n1")
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("empty", ""),
+		// Refused rather than coerced: a worker silently dialling a scheme
+		// nobody configured is worse than one that says it cannot start.
+		Entry("a scheme that is not HTTP", "ftp://frontend"),
+		Entry("a bare host with no scheme", "frontend:8080/x"),
+		Entry("no host", "http://"),
+	)
 })
