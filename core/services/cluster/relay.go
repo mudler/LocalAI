@@ -178,6 +178,15 @@ const (
 	// which is the only reason there is one here. Without the bound, a worker
 	// that has stopped accepting would turn a refusable condition into a parked
 	// peer, which is the one outcome this path exists to avoid.
+	//
+	// It is deliberately NOT configurable. No operator has the information to
+	// set it: the number that matters is how long the ORIGINAL client is
+	// willing to wait, which is not known on this side of the link and is not
+	// something a deployment-wide constant can stand in for. The honest fix is
+	// the caller's remaining budget travelling in the relay request frame, and
+	// that belongs to the dialler that has the budget. Until then this is a
+	// backstop against parking, generous on purpose, because refusing healthy
+	// traffic costs more than waiting.
 	relayOpenTimeout = 15 * time.Second
 )
 
@@ -271,10 +280,14 @@ func (r *Relay) accept(peerID string, stream net.Conn) (net.Conn, bool) {
 		return nil, false
 	}
 
-	// Cleared before the open rather than after the reply: everything past this
-	// frame belongs to the worker tunnel's conversation, which brings its own
-	// deadlines, and one left armed here would abort a long inference stream in
-	// the middle.
+	// Cleared before the open rather than after the reply, and NOTHING arms
+	// another deadline on this stream afterwards. That is the intent rather
+	// than an omission: what follows is a relayed request whose length is the
+	// caller's business, and a header deadline left armed here would abort a
+	// long inference stream after any quiet moment in the middle of it. What
+	// still bounds the conversation is the peer link's own keepalive, which
+	// kills the session under it when the far side stops answering, and
+	// whatever deadline the original client is holding.
 	if err := stream.SetReadDeadline(time.Time{}); err != nil {
 		r.refuse(peerID, stream, fmt.Errorf("%w: clearing the request deadline: %v", ErrRelayUnavailable, err))
 		return nil, false
