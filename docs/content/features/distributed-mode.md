@@ -64,6 +64,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode |
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS server URL (e.g., `nats://localhost:4222`) |
+| `--distributed-advertise-addr` | `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` | *(derived)* | `host:port` the **other frontend replicas** dial to reach this one. See [Replica peer links](#replica-peer-links). |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
@@ -79,6 +80,27 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
+
+### Replica peer links
+
+Frontend replicas record themselves in an `instances` table and open direct links to each other, so that a request arriving at one replica can be served by state another replica holds. Each replica publishes one address for this, and every other replica dials it: it is the address **peers** use, which is not necessarily the address the process binds. A replica behind a Kubernetes Service, a load balancer or a NAT binds one and is reached at another.
+
+When `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` is unset, the address is derived: LocalAI asks the kernel which local address routes to PostgreSQL, and pairs it with the port it serves on. Every replica reaches the same database, so that address is on a network they demonstrably share.
+
+That only holds while the database is on **another host**. If PostgreSQL runs on the same host or pod (compose, single-node, a sidecar), the route to it is loopback, and advertising a loopback address would send every peer to itself. LocalAI refuses to guess in that case and logs:
+
+```
+This replica will not be reachable by its peers: no advertised address
+```
+
+The replica keeps serving every request that reaches it directly; what it cannot do is have another replica reach it. Set the address explicitly to fix it:
+
+```yaml
+environment:
+  LOCALAI_DISTRIBUTED_ADVERTISE_ADDR: "10.0.1.7:8080"   # or the pod IP, service DNS name, etc.
+```
+
+The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_REGISTRATION_TOKEN`, the same shared secret workers register with. Replicas that disagree about it cannot link. A replica that stops heartbeating for 30 seconds is dropped from the table by the others, along with the worker-connection rows it owned.
 
 ### The model load deadline scales with the checkpoint
 

@@ -59,17 +59,34 @@ type NodeConnection struct {
 	ConnectedAt time.Time `gorm:"not null" json:"connected_at"`
 }
 
-// EnsureEpochSequence creates the sequence Claim draws epochs from. It lives
+// Migrate creates every table and sequence this package owns. It is the one
+// call a caller has to remember: gorm's AutoMigrate models tables and columns
+// but has no notion of a sequence, and the connection fence draws its epochs
+// from one, so a caller that knew only about AutoMigrate would leave a schema
+// that looks complete and cannot claim. Safe to call repeatedly.
+//
+// It does not take the migration advisory lock itself. The caller holds it
+// across every table in the deployment, and taking a second one here would
+// either nest inside that one or, worse, be the reason someone stops holding
+// the outer one.
+func Migrate(ctx context.Context, db *gorm.DB) error {
+	if err := db.WithContext(ctx).AutoMigrate(&Instance{}, &NodeConnection{}); err != nil {
+		return fmt.Errorf("migrating cluster tables: %w", err)
+	}
+	return ensureEpochSequence(ctx, db)
+}
+
+// ensureEpochSequence creates the sequence Claim draws epochs from. It lives
 // here, beside the model that needs it, because gorm's AutoMigrate models
 // tables and columns but has no notion of a sequence; the caller that owns the
-// migration advisory lock calls it so that concurrently starting replicas do
-// not race on the DDL. It is safe to call repeatedly.
+// migration advisory lock calls Migrate so that concurrently starting replicas
+// do not race on the DDL. It is safe to call repeatedly.
 //
 // The sequence is not attached as a column DEFAULT on purpose: AutoMigrate
 // compares the struct's declared default against the one PostgreSQL reports
 // (`nextval('...'::regclass)`), and a mismatch there makes every startup ALTER
 // the column. Naming the sequence in the statement keeps the schema stable.
-func EnsureEpochSequence(ctx context.Context, db *gorm.DB) error {
+func ensureEpochSequence(ctx context.Context, db *gorm.DB) error {
 	// CREATE SEQUENCE is PostgreSQL-only, and the same migration path runs
 	// against SQLite in single-binary mode. Nothing there can claim a
 	// connection (Claim refuses the dialect outright), so there is nothing to
