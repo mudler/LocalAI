@@ -34,6 +34,102 @@ type PeerOpener interface {
 // and core/services/nodes reclaims the models of a worker it believes absent.
 var ErrNoRelayPath = errors.New("cluster: this replica cannot relay to the owner of that worker")
 
+// ErrNoRoute reports that this replica could not get a request to a worker's
+// backend, and is the FIFTH condition this phase keeps apart.
+//
+// It says nothing about whether the worker exists or is running. A worker's
+// PRESENCE is its heartbeat, which lives in core/services/nodes and which this
+// package cannot see; what this package can see is whether a route exists right
+// now, and those are different questions with different answers. A worker that
+// is registered, heartbeating and serving models can be unroutable from here
+// for a whole list of ordinary reasons: it has not dialled its tunnel yet after
+// a frontend-first upgrade, the replica holding its tunnel is restarting, the
+// ownership row is a moment stale, this replica has no peer mesh.
+//
+// Every failure to RESOLVE OR OPEN a route carries it, so a consumer that must
+// not act on absence has exactly one check to make. The specific condition
+// stays in the unwrap chain underneath for anyone that can act on it, with one
+// deliberate exception: see routeFailure.
+//
+// It is not carried by a REFUSAL from the worker itself. A worker that answers
+// is present by demonstration, and folding its answer into "no route" would
+// throw away the one thing on this path that is real evidence.
+var ErrNoRoute = errors.New("cluster: no route from this replica to that worker")
+
+// noRouteError reports a worker this replica cannot route to, keeping the cause
+// in its message and OUT of its unwrap chain.
+//
+// Withholding the cause is the entire point, and it is the same guarantee
+// unreachableError makes for peers. The causes this is built over are absence
+// claims: ErrNoConnection ("no live replica holds this worker's tunnel") and
+// ErrInstanceNotFound ("no such frontend replica"). Both are true statements
+// about the CLUSTER and neither is a statement about the worker, but a consumer
+// matching on them would read them as one, and the consequence is the
+// catastrophe this phase is built around: a scheduler concludes a worker that
+// is heartbeating and serving has gone away, and reclaims its models.
+//
+// The guarantee therefore belongs to the type. There is no path by which an
+// absence sentinel gets out, so no call site can leak one.
+type noRouteError struct {
+	nodeID string
+	cause  error
+}
+
+func (e *noRouteError) Error() string {
+	return fmt.Sprintf("cluster: no route from this replica to node %q: %v", e.nodeID, e.cause)
+}
+
+// Unwrap reports only ErrNoRoute. The cause reaches a human through Error() and
+// reaches no error-matching caller at all.
+func (e *noRouteError) Unwrap() error { return ErrNoRoute }
+
+// routeFailure is the ONE place a Dial failure is turned into an error, and the
+// one place the absence rule is expressed.
+//
+// The rule: an absence claim never reaches a caller, and everything else stays
+// matchable. It is a single predicate in a single function on purpose. An
+// earlier shape in this phase encoded one policy in two predicates, and
+// reverting either left the suite green because the error reached the same
+// answer down the other path; a rule whose correctness argument IS its mutation
+// evidence cannot afford to be un-mutatable in pieces. Falsifying either half
+// of isAbsenceClaim now reddens a named spec.
+func routeFailure(nodeID string, cause error) error {
+	if isAbsenceClaim(cause) {
+		return &noRouteError{nodeID: nodeID, cause: cause}
+	}
+	return fmt.Errorf("reaching node %q: %w: %w", nodeID, ErrNoRoute, cause)
+}
+
+// isAbsenceClaim reports whether an error asserts that something does not
+// exist. Those are the errors routeFailure keeps out of the chain.
+//
+// Both are about the CLUSTER rather than about the worker. ErrNoConnection says
+// no live replica holds the worker's tunnel; ErrInstanceNotFound says a peer
+// replica is not in the deployment. Neither can be answered by this package
+// with "and therefore the worker is gone", because this package does not know
+// what a worker is beyond an id in a connection row.
+func isAbsenceClaim(err error) bool {
+	return errors.Is(err, ErrNoConnection) || errors.Is(err, ErrInstanceNotFound)
+}
+
+// isWorkerAnswer reports whether an error is the WORKER's own refusal, read off
+// the reply it sent.
+//
+// Those three sentinels are the only ones ReadStreamReply produces from a frame
+// the worker actually wrote. Everything else it returns is a failure to read
+// one, which is the tunnel breaking rather than the worker speaking.
+//
+// A reply carrying a code this frontend does not recognise is deliberately NOT
+// counted here, even though a worker did send it. Classifying it as an answer
+// would let a newer worker's vocabulary be read by an older frontend as
+// evidence about a backend, and the consequence of guessing wrong in that
+// direction is a reaped replica; guessing wrong the other way costs a retry.
+func isWorkerAnswer(err error) bool {
+	return errors.Is(err, ErrStreamTagUnknown) ||
+		errors.Is(err, ErrStreamTargetUnavailable) ||
+		errors.Is(err, ErrStreamRequestInvalid)
+}
+
 // dialHandshakeTimeout bounds the request/reply exchange that opens every
 // stream, when the caller stated no deadline of its own.
 //
@@ -79,13 +175,18 @@ func NewWorkerDialer(tunnels *TunnelRegistry, peers PeerOpener) *WorkerDialer {
 // inference that is quiet for minutes, and a deadline left over from the
 // handshake would abort it.
 //
-// The errors are kept apart on purpose and a caller may act on them
-// differently. ErrNoConnection means no live replica holds this worker's
-// tunnel, which is the one answer that means the worker is absent. ErrNotOwner
-// means the routing was stale and re-resolving may find it. ErrPeerUnreachable
-// means a replica would not answer, ErrNoRelayPath that none could be dialled,
-// and the tunnelproto sentinels that the worker itself refused. Nothing here
-// ever converts one of the others into absence.
+// EVERY failure to resolve or open a route carries ErrNoRoute, and NO failure
+// carries an absence sentinel. That pair is the contract, and it is what makes
+// this safe to consume from a package that reclaims a worker's models when it
+// decides the worker has gone: there is one check to make, and there is nothing
+// to mistake for absence even if the caller makes none.
+//
+// Underneath the umbrella the conditions stay apart and a caller may act on
+// them differently. ErrNotOwner means the routing was stale and re-resolving
+// may find it; ErrPeerUnreachable means a replica would not answer;
+// ErrNoRelayPath means none could be dialled. A refusal from the WORKER carries
+// its own tunnelproto sentinel and no umbrella at all, because a worker that
+// answers has demonstrated it is there.
 func (d *WorkerDialer) Dial(ctx context.Context, nodeID, tag, target string) (net.Conn, error) {
 	stream, err := d.tunnels.Open(ctx, nodeID)
 	if err == nil {
@@ -93,10 +194,9 @@ func (d *WorkerDialer) Dial(ctx context.Context, nodeID, tag, target string) (ne
 	}
 	if !errors.Is(err, ErrNotOwner) {
 		// The tunnel is held HERE and its session would not carry a stream.
-		// Reported as itself: answering ErrNotOwner would send the caller to
-		// resolve an owner that is this same replica, and answering absence
-		// would tell a scheduler to reclaim a worker that is attached.
-		return nil, err
+		// ErrNotOwner stays out of it: that answer would send the caller to
+		// resolve an owner which is this same replica.
+		return nil, routeFailure(nodeID, err)
 	}
 	return d.relay(ctx, nodeID, tag, target)
 }
@@ -137,10 +237,12 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string) (n
 	// come back as ErrNoConnection here.
 	owner, _, err := d.tunnels.reg.Owner(ctx, nodeID)
 	if err != nil {
-		// ErrNoConnection and database failures both pass through as
-		// themselves. This is the ONLY path by which this function can produce
-		// an absence error, and it produces it only when Owner did.
-		return nil, err
+		// ErrNoConnection is the ordinary answer here, and it is precisely the
+		// one that must not get out: it means no live replica holds this
+		// worker's tunnel, which a worker that has not dialled in yet produces
+		// on every single request while it sits there heartbeating and serving.
+		// routeFailure keeps it in the message and out of the chain.
+		return nil, routeFailure(nodeID, err)
 	}
 	if owner == d.tunnels.selfID {
 		// The table names this replica and the registry above said the tunnel
@@ -149,19 +251,20 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string) (n
 		// would resolve the same owner and relay again. Reported as the routing
 		// fact so the caller re-resolves, which terminates: the row is either
 		// re-claimed by whoever holds the worker now, or swept.
-		return nil, fmt.Errorf("opening a stream to node %q: the connection row names this replica, which no longer holds the tunnel: %w", nodeID, ErrNotOwner)
+		return nil, routeFailure(nodeID, fmt.Errorf("the connection row names this replica, which no longer holds the tunnel: %w", ErrNotOwner))
 	}
 	if d.peers == nil {
-		return nil, fmt.Errorf("opening a stream to node %q held by replica %q: %w", nodeID, owner, ErrNoRelayPath)
+		return nil, routeFailure(nodeID, fmt.Errorf("the tunnel is held by replica %q: %w", owner, ErrNoRelayPath))
 	}
 
 	stream, err := d.peers.Open(ctx, owner)
 	if err != nil {
-		// Whatever the pool said, unchanged in its unwrap chain:
-		// ErrPeerUnreachable, ErrInstanceNotFound for an owner swept since the
-		// lookup above, or ErrPoolClosed while this process shuts down. None of
-		// them is a statement about the WORKER, and none is converted into one.
-		return nil, fmt.Errorf("opening a stream to node %q through replica %q: %w", nodeID, owner, err)
+		// ErrPeerUnreachable and ErrPoolClosed keep their identity; the one
+		// case the pool can also produce, ErrInstanceNotFound for an owner
+		// swept between the lookup above and this dial, is an absence claim
+		// about the REPLICA and routeFailure withholds it. Either way nothing
+		// here is a statement about the worker.
+		return nil, routeFailure(nodeID, fmt.Errorf("through replica %q: %w", owner, err))
 	}
 
 	// The caller's remaining time, stated so the owning replica can bound its
@@ -169,14 +272,15 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string) (n
 	// the owner falls back to without it.
 	if err := WriteRelayRequest(stream, nodeID, remainingBudget(ctx)); err != nil {
 		_ = stream.Close()
-		return nil, fmt.Errorf("naming node %q on a stream to replica %q: %w", nodeID, owner, err)
+		return nil, routeFailure(nodeID, fmt.Errorf("naming the node on a stream to replica %q: %w", owner, err))
 	}
 	if err := ReadRelayReply(stream); err != nil {
-		// ReadRelayReply already separates a refusal (ErrNotOwner,
-		// ErrRelayUnavailable, ErrRelayRequestInvalid) from a failure to read
-		// one, and neither kind is ever an absence error.
+		// A refusal from the OWNING REPLICA, not from the worker. It says the
+		// owner would not relay, which is a route that does not exist, so the
+		// umbrella is right for all of them; ErrNotOwner, ErrRelayUnavailable
+		// and ErrRelayRequestInvalid stay in the chain underneath.
 		_ = stream.Close()
-		return nil, fmt.Errorf("relaying to node %q through replica %q: %w", nodeID, owner, err)
+		return nil, routeFailure(nodeID, fmt.Errorf("through replica %q: %w", owner, err))
 	}
 	return d.handshake(ctx, stream, nodeID, tag, target)
 }
@@ -189,20 +293,27 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string) (n
 // session, and a frontend that retries would exhaust the worker's stream
 // budget rather than the worker's patience.
 func (d *WorkerDialer) handshake(ctx context.Context, stream net.Conn, nodeID, tag, target string) (net.Conn, error) {
-	if deadline, ok := handshakeDeadline(ctx); ok {
-		if err := stream.SetDeadline(deadline); err != nil {
-			_ = stream.Close()
-			return nil, fmt.Errorf("arming the handshake deadline for node %q: %w", nodeID, err)
-		}
+	if err := stream.SetDeadline(handshakeDeadline(ctx)); err != nil {
+		_ = stream.Close()
+		return nil, routeFailure(nodeID, fmt.Errorf("arming the handshake deadline: %w", err))
 	}
 
 	if err := WriteStreamRequest(stream, tag, target); err != nil {
+		// The stream would not carry the request, so the tunnel broke under it.
+		// Nothing was asked of the worker and nothing was learned about it.
 		_ = stream.Close()
-		return nil, fmt.Errorf("asking node %q for %q on %q: %w", nodeID, tag, target, err)
+		return nil, routeFailure(nodeID, fmt.Errorf("asking for %q on %q: %w", tag, target, err))
 	}
 	if err := ReadStreamReply(stream); err != nil {
 		_ = stream.Close()
-		return nil, fmt.Errorf("opening %q on node %q: %w", tag, nodeID, err)
+		if isWorkerAnswer(err) {
+			// The worker wrote a refusal, so it is connected and answering.
+			// This is the ONE failure on the whole path that is real evidence
+			// about the worker, and putting the umbrella on it would throw that
+			// away.
+			return nil, fmt.Errorf("opening %q on node %q: %w", tag, nodeID, err)
+		}
+		return nil, routeFailure(nodeID, fmt.Errorf("opening %q: %w", tag, err))
 	}
 
 	// Cleared unconditionally rather than only when one was armed, so that this
@@ -213,7 +324,7 @@ func (d *WorkerDialer) handshake(ctx context.Context, stream net.Conn, nodeID, t
 	// bounds a peer that has stopped answering.
 	if err := stream.SetDeadline(time.Time{}); err != nil {
 		_ = stream.Close()
-		return nil, fmt.Errorf("clearing the handshake deadline for node %q: %w", nodeID, err)
+		return nil, routeFailure(nodeID, fmt.Errorf("clearing the handshake deadline: %w", err))
 	}
 	xlog.Debug("opened a tunnelled stream to a worker", "node", nodeID, "tag", tag, "target", target)
 	return stream, nil
@@ -221,13 +332,18 @@ func (d *WorkerDialer) handshake(ctx context.Context, stream net.Conn, nodeID, t
 
 // handshakeDeadline is when the handshake must be done by: the caller's own
 // deadline when it has one and it is the sooner, and the backstop otherwise.
-func handshakeDeadline(ctx context.Context) (time.Time, bool) {
+//
+// There is always one, which is why this returns no "was there one" flag: a
+// context with no deadline still gets the backstop, so the caller has nothing
+// to branch on. It used to return a bool that was unconditionally true, and the
+// branch behind it could not be taken.
+func handshakeDeadline(ctx context.Context) time.Time {
 	backstop := time.Now().Add(dialHandshakeTimeout)
 	deadline, ok := ctx.Deadline()
 	if !ok || deadline.After(backstop) {
-		return backstop, true
+		return backstop
 	}
-	return deadline, true
+	return deadline
 }
 
 // remainingBudget is how long the caller is still willing to wait, or zero when

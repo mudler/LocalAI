@@ -49,8 +49,27 @@ func NewClientWithDialer(address string, parallel bool, wd WatchDog, enableWatch
 	// the address directly, which is the exact bypass this constructor exists
 	// to close.
 	c := buildClient(address, parallel, wd, enableWatchDog, token)
-	c.dialer = dialer
+	// Wrapped rather than stored bare, so every dial outcome is recorded. This
+	// is the seam that carries the reason a dial failed past gRPC, which
+	// flattens it into codes.Unavailable; see (*Client).LastDialError.
+	c.dialer = func(ctx context.Context, addr string) (net.Conn, error) {
+		conn, err := dialer(ctx, addr)
+		c.recordDialErr(err)
+		return conn, err
+	}
 	return c
+}
+
+// DialErrorReporter is implemented by a Backend that reaches its process
+// through a custom transport and can say whether that transport, rather than
+// the process, is what failed.
+//
+// It is a separate interface and NOT part of Backend on purpose: only the
+// handful of callers that act on the difference need it, and widening Backend
+// would make every wrapper and every test double implement a method they have
+// no answer for.
+type DialErrorReporter interface {
+	LastDialError() error
 }
 
 func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) *Client {

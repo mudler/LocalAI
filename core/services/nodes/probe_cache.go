@@ -73,22 +73,41 @@ func (c *probeCache) Invalidate(key string) {
 // probes invalidate the cache, so a transient miss doesn't pin every
 // subsequent request to a re-probe.
 func (c *probeCache) DoOrCached(key string, probe func() bool) bool {
+	alive, _ := c.DoOrCachedResult(key, func() (bool, error) { return probe(), nil })
+	return alive
+}
+
+// DoOrCachedResult is DoOrCached with a second result: the reason the probe
+// never reached the backend, or nil when it did.
+//
+// The second result travels through the SINGLEFLIGHT, which is the whole reason
+// it is not simply a variable the caller closes over. A closed-over variable is
+// only written by the goroutine that actually runs the probe; every other
+// caller coalesced into that flight adopts the leader's boolean and sees its own
+// unset variable, so the leader would correctly decline to reap while its
+// joiners reaped on the very same observation. Carrying it in singleflight's
+// error slot hands every joiner the leader's reason as well as its answer.
+//
+// A probe that could not reach the backend is NOT cached either way. Caching it
+// as fresh would hide a genuinely dead backend behind a network blip, and
+// caching it as a failure is what Invalidate already does.
+func (c *probeCache) DoOrCachedResult(key string, probe func() (bool, error)) (bool, error) {
 	if c.IsFresh(key) {
-		return true
+		return true, nil
 	}
-	v, _, _ := c.flight.Do(key, func() (any, error) {
+	v, unreached, _ := c.flight.Do(key, func() (any, error) {
 		// Double-check after potentially waiting: another caller in this
 		// flight may have just populated the cache.
 		if c.IsFresh(key) {
 			return true, nil
 		}
-		ok := probe()
+		ok, unreached := probe()
 		if ok {
 			c.markFresh(key)
 		} else {
 			c.Invalidate(key)
 		}
-		return ok, nil
+		return ok, unreached
 	})
-	return v.(bool)
+	return v.(bool), unreached
 }

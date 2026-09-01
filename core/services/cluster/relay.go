@@ -125,6 +125,16 @@ func ReadRelayRequest(r io.Reader) (string, time.Duration, error) {
 	if err != nil {
 		return "", 0, fmt.Errorf("reading a relay request for node %q: budget %q is not a number of milliseconds: %w", nodeID, budgetText, err)
 	}
+	if millis > maxRelayBudgetMillis {
+		// time.Duration is nanoseconds in an int64, so multiplying by
+		// time.Millisecond overflows past about 2.9e11 ms. Overflow here is
+		// bounded in the safe direction (it can only produce a negative or a
+		// small value, and both shorten the declaring peer's OWN open), but a
+		// bound that holds by arithmetic accident is not a bound. Anything past
+		// the ceiling is clamped to it, because a caller claiming to wait
+		// longer than the relay's own backstop gets the backstop either way.
+		millis = maxRelayBudgetMillis
+	}
 	if millis <= 0 {
 		// A caller with nothing left to spend. Reported as such rather than
 		// folded into "not stated", so the relay refuses at once instead of
@@ -208,6 +218,12 @@ func ReadRelayReply(r io.Reader) error {
 		return fmt.Errorf("relay stream refused with unrecognised code %q: %s", code, text)
 	}
 }
+
+// maxRelayBudgetMillis is the largest budget a peer may declare, and exists so
+// the conversion below cannot overflow. A day is many orders of magnitude past
+// relayOpenTimeout, which is the only thing a budget is ever compared against,
+// so clamping to it changes no honest caller's behaviour.
+const maxRelayBudgetMillis = int64(24 * 60 * 60 * 1000)
 
 const (
 	// relayHeaderTimeout bounds how long a peer stream may go without naming
