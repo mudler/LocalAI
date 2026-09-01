@@ -111,7 +111,12 @@ func ConnectHandler(registry *nodes.NodeRegistry, tunnels *clustersvc.TunnelRegi
 		// secret. One log line for both leaves an operator reading "wrong token"
 		// while every worker fails identically.
 		if node.TokenHash == "" {
-			xlog.Warn("Refusing a worker tunnel: this node has no stored token, which means it registered with no registration token configured",
+			// Debug, not Warn. Every worker in such a deployment fails this way
+			// on every reconnect, so warning per dial buries the log; the fact
+			// is stated once, at boot, where core/http/app.go warns that no
+			// registration token is configured. What this line adds is which
+			// node, for an operator who has already read that warning.
+			xlog.Debug("refusing a worker tunnel: this node has no stored token, so it registered with no registration token configured",
 				"node", nodeID, "knob", "LOCALAI_REGISTRATION_TOKEN")
 			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
 		}

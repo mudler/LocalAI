@@ -2,7 +2,9 @@ package advisorylock
 
 import (
 	"context"
+	"fmt"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,6 +15,51 @@ import (
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"gorm.io/gorm"
 )
+
+// alterThisDatabase applies a server-side setting to the database this handle is
+// actually connected to, and proves it landed.
+//
+// The name is read back from the connection rather than written as a literal.
+// The test helper hands each spec its own database on a shared server, so a
+// hard-coded name ALTERs a database this handle never touches: the statement
+// succeeds, the override does nothing, and the two specs below go green having
+// exercised none of the condition they exist for. They regress a model-load
+// advisory-lock wedge that has already shipped to production once, so a green
+// spec that proves nothing is the worst outcome available here.
+//
+// The read-back is the guard. Idle connections are dropped first so the next one
+// is opened fresh and inherits the new database-level default; SHOW then reports
+// what a waiter's own connection would inherit. If that ever stops matching, the
+// spec fails here rather than passing for the wrong reason.
+func alterThisDatabase(db *gorm.DB, setting, value string) {
+	GinkgoHelper()
+
+	var name string
+	Expect(db.Raw("SELECT current_database()").Scan(&name).Error).ToNot(HaveOccurred())
+	Expect(name).ToNot(BeEmpty())
+
+	Expect(db.Exec(fmt.Sprintf("ALTER DATABASE %q SET %s = %s", name, setting, quoteLiteral(value))).Error).
+		ToNot(HaveOccurred())
+
+	sqlDB, err := db.DB()
+	Expect(err).ToNot(HaveOccurred())
+	// database/sql retains no idle connections at 0, closing the ones it is
+	// already holding, so every connection after this point is opened fresh and
+	// inherits the new database-level default.
+	sqlDB.SetMaxIdleConns(0)
+
+	var applied string
+	Expect(db.Raw("SHOW " + setting).Scan(&applied).Error).ToNot(HaveOccurred())
+	Expect(applied).To(Equal(value),
+		"the %s override did not reach the database this spec is holding (%s), so the spec below would pass without ever reproducing the condition it regresses",
+		setting, name)
+}
+
+// quoteLiteral wraps a settings value as a SQL string literal. The values here
+// are spec constants, so this only has to be correct, not hostile-input-proof.
+func quoteLiteral(v string) string {
+	return "'" + strings.ReplaceAll(v, "'", "''") + "'"
+}
 
 var _ = Describe("AdvisoryLock", func() {
 	Context("PostgreSQL advisory locks", func() {
@@ -166,12 +213,7 @@ var _ = Describe("AdvisoryLock", func() {
 			// blocked on pg_advisory_lock() is aborted by the server after this
 			// window and surfaces SQLSTATE 55P03 ("canceling statement due to
 			// lock timeout") to the caller instead of waiting for its turn.
-			Expect(db.Exec("ALTER DATABASE testdb SET lock_timeout = '300ms'").Error).ToNot(HaveOccurred())
-			sqlDB, err := db.DB()
-			Expect(err).ToNot(HaveOccurred())
-			// Drop pooled connections so subsequent ones reconnect and inherit
-			// the new database-level lock_timeout default.
-			sqlDB.SetMaxIdleConns(0)
+			alterThisDatabase(db, "lock_timeout", "300ms")
 
 			holding := make(chan struct{})
 			released := make(chan struct{})
@@ -214,12 +256,7 @@ var _ = Describe("AdvisoryLock", func() {
 			// statement_timeout=60s; a cold model load holds the lock far longer,
 			// so every concurrent caller died with SQLSTATE 57014 ("canceling
 			// statement due to statement timeout") rather than waiting its turn.
-			Expect(db.Exec("ALTER DATABASE testdb SET statement_timeout = '300ms'").Error).ToNot(HaveOccurred())
-			sqlDB, err := db.DB()
-			Expect(err).ToNot(HaveOccurred())
-			// Drop pooled connections so subsequent ones reconnect and inherit
-			// the new database-level statement_timeout default.
-			sqlDB.SetMaxIdleConns(0)
+			alterThisDatabase(db, "statement_timeout", "300ms")
 
 			holding := make(chan struct{})
 			released := make(chan struct{})

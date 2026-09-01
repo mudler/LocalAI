@@ -146,7 +146,7 @@ func SetupTestDB() *gorm.DB {
 		// teardown.
 		closePool(db)
 
-		drop, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
+		drop, err := openTolerantPool(dsn)
 		if err != nil {
 			// Reported, never asserted. A cleanup that fails the spec turns one
 			// database hiccup into a failure that buries whatever the spec was
@@ -165,14 +165,64 @@ func SetupTestDB() *gorm.DB {
 	return db
 }
 
-// openPool connects to dsn with logging off. Used for the short-lived
-// maintenance connections only; the database a spec is handed keeps gorm's
-// silent logger so a caller can still swap it.
+// openPool connects to dsn with logging off and with every server-side timeout
+// disabled on the session. Used for the short-lived maintenance connections
+// only; the database a spec is handed keeps gorm's silent logger and the
+// server's defaults, because setting timeouts on it is a thing specs do on
+// purpose.
+//
+// The timeouts are cleared because CREATE DATABASE and DROP DATABASE must not
+// be bounded by anything a spec configured. A spec that sets a short
+// statement_timeout on ITS database cannot reach this one, but a spec that
+// names the maintenance database by mistake can, and that is not hypothetical:
+// two advisory-lock specs did exactly that until this round. The consequence
+// there is a load-dependent failure in another spec's setup or a silently
+// swallowed DROP, which is the same invisible single-spec flake this helper was
+// rewritten to remove.
+//
+// MaxOpenConns(1) is what makes the SET reach the statement that follows it: a
+// session setting lives on one connection, and with a single connection in the
+// pool there is no other one for CREATE or DROP to land on.
 func openPool(dsn string) *gorm.DB {
 	GinkgoHelper()
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
 	Expect(err).ToNot(HaveOccurred())
+
+	sqlDB, err := db.DB()
+	Expect(err).ToNot(HaveOccurred())
+	sqlDB.SetMaxOpenConns(1)
+
+	Expect(db.Exec("SET statement_timeout = 0").Error).To(Succeed())
+	Expect(db.Exec("SET lock_timeout = 0").Error).To(Succeed())
 	return db
+}
+
+// openTolerantPool is openPool for the cleanup path, which must report a
+// failure rather than assert one: an assertion here would fail a spec that had
+// already passed, and bury whatever the next real failure was.
+func openTolerantPool(dsn string) (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
+	if err != nil {
+		return nil, err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		closePool(db)
+		return nil, err
+	}
+	sqlDB.SetMaxOpenConns(1)
+	// The DROP below is the statement most likely to be slow, since it waits on
+	// FORCE terminating other sessions, so it is the one a leaked timeout would
+	// abort. Measured at up to 169ms under load, against a 300ms bound.
+	if err := db.Exec("SET statement_timeout = 0").Error; err != nil {
+		closePool(db)
+		return nil, err
+	}
+	if err := db.Exec("SET lock_timeout = 0").Error; err != nil {
+		closePool(db)
+		return nil, err
+	}
+	return db, nil
 }
 
 func closePool(db *gorm.DB) {
