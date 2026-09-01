@@ -89,7 +89,7 @@ var _ = Describe("The inter-replica relay", func() {
 		stream, err := peer.OpenStream(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = stream.Close() })
-		Expect(cluster.WriteRelayRequest(stream, nodeID)).To(Succeed())
+		Expect(cluster.WriteRelayRequest(stream, nodeID, 0)).To(Succeed())
 		return stream
 	}
 
@@ -279,14 +279,14 @@ var _ = Describe("The relay wire framing", func() {
 
 	It("round-trips a node id", func() {
 		frame := &bytes.Buffer{}
-		Expect(cluster.WriteRelayRequest(frame, "node-7")).To(Succeed())
-		nodeID, err := cluster.ReadRelayRequest(frame)
+		Expect(cluster.WriteRelayRequest(frame, "node-7", 0)).To(Succeed())
+		nodeID, _, err := cluster.ReadRelayRequest(frame)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(nodeID).To(Equal("node-7"))
 	})
 
 	It("refuses to write an empty node id, rather than spending a round trip on it", func() {
-		Expect(cluster.WriteRelayRequest(&bytes.Buffer{}, "")).To(HaveOccurred())
+		Expect(cluster.WriteRelayRequest(&bytes.Buffer{}, "", 0)).To(HaveOccurred())
 	})
 
 	// Acceptance is not the whole surface. A refusal read by the wrong hop's
