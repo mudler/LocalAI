@@ -107,6 +107,12 @@ type BackendUnwrapper interface {
 // Unwrap takes a VALUE receiver, which is safe because this holds one interface
 // and no lock, and is what lets the value type of any embedder satisfy
 // BackendUnwrapper.
+//
+// It is NOT for every decorator. Embedding this promotes the whole Backend
+// surface as pass-through, so a decorator that deliberately embeds a NARROWER
+// interface to force itself to handle each method (see
+// nodes.InFlightTrackingClient) must keep doing that and declare Unwrap by
+// hand; adopting this there would restore pass-through silently.
 type WrappedBackend struct{ Backend }
 
 // Unwrap exposes the decorated client.
