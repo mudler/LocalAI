@@ -233,8 +233,10 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 // has left the deployment but is still listening keeps a live WebSocket and the
 // two yamux loop goroutines behind it for as long as this process runs; a peer
 // that is genuinely gone is reclaimed by the 30s keepalive default, so the real
-// exposure is narrow. There is no Forget because nothing yet knows which peers
-// have left; Task 5's ownership work is where that knowledge appears.
+// exposure is narrow. There is no Forget: the membership sweep does know which
+// replicas have left, but nothing plumbs that knowledge to this pool, so an
+// entry for a departed peer outlives it and only the keepalive reclaims what it
+// holds.
 func (p *PeerPool) link(peerID string) (*peerLink, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

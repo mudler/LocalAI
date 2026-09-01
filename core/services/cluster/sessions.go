@@ -23,6 +23,10 @@ type SessionStore struct {
 	// onStream handles one accepted stream and owns closing it. A nil handler
 	// closes the stream immediately, which is what a replica with no relay
 	// installed should do: refuse promptly rather than leave a peer parked.
+	//
+	// In distributed mode this is Relay.Stream, which splices the stream onto
+	// a worker tunnel this replica holds. Nil is reached only from specs, and
+	// from a caller that wants a store with no relay.
 	onStream func(peerID string, stream net.Conn)
 
 	mu       sync.Mutex
