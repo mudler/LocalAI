@@ -50,9 +50,11 @@ type Membership struct {
 	done     chan struct{}
 	stopOnce sync.Once
 
-	// mu guards started, which tells Stop whether there is a loop to join.
+	// mu guards started, which tells Stop whether there is a loop to join, and
+	// tunnels, which SetTunnels may write while the loop is already reading it.
 	mu      sync.Mutex
 	started bool
+	tunnels *TunnelRegistry
 }
 
 // NewMembership returns the membership loop for one replica. The address is
@@ -75,6 +77,20 @@ func NewMembership(reg *Registry, id, addr, version string) *Membership {
 // registration is synchronous and its failure is returned: a replica whose
 // address never reaches the table is invisible to its peers, and starting
 // anyway would hide that behind a background log line.
+// SetTunnels gives the loop the registry holding this replica's worker tunnels,
+// so it can re-claim them after its rows have been swept. A Membership without
+// one still heartbeats and sweeps; it simply has nothing to re-claim, which is
+// the single-binary case and the case of a replica that accepts no tunnels.
+//
+// It is a setter rather than a constructor argument because the tunnel registry
+// is what the tunnel endpoint is built on, and that is wired after membership
+// is already running.
+func (m *Membership) SetTunnels(t *TunnelRegistry) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.tunnels = t
+}
+
 func (m *Membership) Start(ctx context.Context) error {
 	if err := m.reg.Register(ctx, m.id, m.addr, m.version); err != nil {
 		return err
@@ -155,13 +171,20 @@ func (m *Membership) tick(ctx context.Context) {
 		// enough to look dead. Re-register rather than heartbeat: a heartbeat
 		// carries no address, so the row has to be rebuilt from scratch.
 		//
-		// This rebuilds the instance row ONLY. The sweep that removed it also
-		// removed the connections this replica owned, and re-claiming those
-		// needs the tunnel registry phase 2 introduces; see ReapStale.
+		// Register rebuilds the instance row ONLY. The sweep that removed it
+		// removed the connections this replica owned in the same transaction,
+		// so the tunnels still held here have to be claimed again or this
+		// replica serves workers that, as far as every other replica can see,
+		// are connected nowhere.
 		xlog.Warn("Cluster instance row was reaped, re-registering", "id", m.id)
 		if err := m.reg.Register(ctx, m.id, m.addr, m.version); err != nil {
 			xlog.Error("Re-registering cluster instance failed", "id", m.id, "error", err)
+			// Nothing to re-claim onto: a claim naming an instance row that
+			// does not exist is deleted by the next sweep that runs, this
+			// replica's own included, and the sweep is what has just happened.
+			return
 		}
+		m.reclaimTunnels(ctx)
 	} else if err != nil {
 		xlog.Warn("Cluster instance heartbeat failed", "id", m.id, "error", err)
 	}
@@ -173,6 +196,30 @@ func (m *Membership) tick(ctx context.Context) {
 	}
 	if instances > 0 || connections > 0 {
 		xlog.Info("Reaped cluster state left by dead replicas", "instances", instances, "connections", connections)
+	}
+}
+
+// reclaimTunnels re-writes a claim for every worker tunnel this replica still
+// holds, after the sweep that deleted them. It is separate from tick only so
+// the lock around the registry reference is not held across the database work.
+func (m *Membership) reclaimTunnels(ctx context.Context) {
+	m.mu.Lock()
+	tunnels := m.tunnels
+	m.mu.Unlock()
+	if tunnels == nil {
+		return
+	}
+
+	reclaimed, err := tunnels.Reclaim(ctx)
+	if err != nil {
+		// Logged rather than returned, and the loop keeps running: the next
+		// heartbeat fails the same way if the row is still missing, so the
+		// re-claim is retried. A worker whose claim never lands is reachable
+		// only through the replica it is connected to, which is this one.
+		xlog.Error("Re-claiming worker tunnels after this replica was reaped failed", "id", m.id, "error", err)
+	}
+	if reclaimed > 0 {
+		xlog.Info("Re-claimed worker tunnels after this replica was reaped", "id", m.id, "tunnels", reclaimed)
 	}
 }
 
@@ -222,13 +269,12 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 // row would then delete the connections of workers that are, at that moment,
 // connected to it.
 //
-// That protection is one-sided, and only the instance row recovers on its own.
-// A replica that stalls long enough is reaped BY ANOTHER replica, taking its
-// connection rows with it, and the re-register in tick rebuilds the instance
-// row and nothing else: the sockets are still held here while the table says
-// nobody holds them. Phase 2 closes this by re-claiming, on re-register, every
-// connection this replica still holds locally, which needs the tunnel registry
-// that owns those sockets.
+// That protection is one-sided. A replica that stalls long enough is reaped BY
+// ANOTHER replica, taking its connection rows with it, and Register rebuilds
+// the instance row and nothing else. What restores the rest is the re-claim in
+// tick, which writes a fresh claim for every tunnel the tunnel registry still
+// holds; until it runs, this replica holds sockets the table records nobody
+// holding.
 //
 // PostgreSQL only, like Live: distributed mode requires it, and the interval
 // arithmetic is measured on the database's clock because liveness is compared
