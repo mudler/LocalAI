@@ -19,4 +19,33 @@ test.describe('Collections page', () => {
     await input.fill('my-kb')
     await expect(input).toHaveValue('my-kb')
   })
+
+  test('posts the source update interval as a JSON number', async ({ page }) => {
+    const collectionName = 'interval-regression'
+    const collectionPath = encodeURIComponent(collectionName)
+    let postedBody
+
+    await page.route(`**/api/agents/collections/${collectionPath}/entries`, route =>
+      route.fulfill({ contentType: 'application/json', body: JSON.stringify({ entries: [] }) }))
+    await page.route(`**/api/agents/collections/${collectionPath}/sources`, async route => {
+      if (route.request().method() === 'POST') {
+        postedBody = route.request().postDataJSON()
+        await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok' }) })
+      } else {
+        await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ sources: [] }) })
+      }
+    })
+
+    await page.goto(`/app/collections/${collectionPath}`)
+    await page.getByRole('button', { name: 'Sources' }).click()
+    await page.locator('#source-url').fill('https://example.com/feed')
+    await page.locator('#source-interval').fill('3600')
+    await page.getByRole('button', { name: 'Add Source' }).click()
+
+    await expect.poll(() => postedBody).toEqual({
+      url: 'https://example.com/feed',
+      update_interval: 3600,
+    })
+    expect(typeof postedBody.update_interval).toBe('number')
+  })
 })

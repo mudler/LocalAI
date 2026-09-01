@@ -457,7 +457,10 @@ export const agentCollectionsApi = {
   reset: (name, userId) => postJSON(`/api/agents/collections/${enc(name)}/reset${userQ(userId)}`),
   deleteEntry: (name, entry, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entry/delete${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
   sources: (name, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`),
-  addSource: (name, url, interval, userId) => postJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { url, update_interval: interval }),
+  addSource: (name, url, interval, userId) => postJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, {
+    url,
+    update_interval: interval === undefined ? undefined : Number(interval),
+  }),
   removeSource: (name, url, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
 }
 
