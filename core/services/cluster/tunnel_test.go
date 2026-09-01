@@ -715,6 +715,48 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 		}
 		Consistently(stored, 2*cluster.InstanceHeartbeat, time.Second).Should(Equal(epoch))
 	})
+
+	It("frees the node's gate when a re-claim panics", func() {
+		// The same property Attach's gate specs pin, on the other function that
+		// takes the gate. Reclaim runs from the heartbeat loop, so a wedged gate
+		// here is worse than one wedged by a dial: nothing retries it, and the
+		// worker can never re-attach to this replica because its Attach blocks
+		// in enterClaim until its own context expires.
+		//
+		// The panic is thrown from inside the re-claim's own Claim statement,
+		// on that statement's goroutine, using the same gorm Trace hook the
+		// interleaving specs above use. That is the window a real panic under
+		// Claim would land in: the row is written and the gate is held.
+		hook := newClaimHook(isClaimOf("w1"))
+		hooked := cluster.NewTunnelRegistry(
+			cluster.NewRegistry(db.Session(&gorm.Session{Logger: hook})), "me")
+
+		frontend, _ := workerTunnel()
+		_, err := hooked.Attach(ctx, "w1", frontend)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Installed after the attach so the hook fires on the RE-claim, not on
+		// the claim that set the tunnel up.
+		hook.setAction(func(string) { panic("claim exploded") })
+
+		panicked := func() (p bool) {
+			defer func() { p = recover() != nil }()
+			_, _ = hooked.Reclaim(ctx)
+			return
+		}()
+		Expect(panicked).To(BeTrue(),
+			"the hook did not fire inside the re-claim, so this spec is no longer testing what it claims")
+
+		// A wedged gate is indistinguishable from a slow one except by waiting.
+		// The hook has already fired once and will not fire again, so this
+		// Attach either completes or never reaches Claim at all.
+		bounded, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		next, _ := workerTunnel()
+		_, err = hooked.Attach(bounded, "w1", next)
+		Expect(err).ToNot(HaveOccurred(),
+			"the panicking re-claim left this node's gate closed, so the worker can never attach to this replica again")
+	})
 })
 
 var _ = Describe("The worker tunnel registry's claim gate", func() {
