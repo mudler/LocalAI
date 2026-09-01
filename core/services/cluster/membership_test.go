@@ -47,7 +47,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		Expect(connections).To(Equal(int64(1)),
 			"a worker whose owner no longer exists is recorded as connected to nothing")
 
-		_, _, err = reg.Owner(ctx, "w1")
+		_, _, err = reg.OwnerRow(ctx, "w1")
 		Expect(err).To(MatchError(cluster.ErrNoConnection))
 	})
 
@@ -61,7 +61,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(connections).To(BeZero())
 
-		owner, stored, err := reg.Owner(ctx, "w1")
+		owner, stored, err := reg.OwnerRow(ctx, "w1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(owner).To(Equal("other"))
 		Expect(stored).To(Equal(epoch))
@@ -82,9 +82,72 @@ var _ = Describe("Reaping dead replicas", func() {
 		Expect(instances).To(BeZero())
 		Expect(connections).To(BeZero())
 
-		owner, _, err := reg.Owner(ctx, "w1")
+		owner, _, err := reg.OwnerRow(ctx, "w1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(owner).To(Equal("me"))
+	})
+
+	It("deregisters a replica and the connections it owned, so peers drop it at once", func() {
+		// Without this a cleanly stopped replica is indistinguishable from a
+		// crashed one, and every peer keeps dialling it for the whole liveness
+		// window.
+		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "staying", "10.0.0.1:8080", "v1")).To(Succeed())
+		_, err := reg.Claim(ctx, "w1", "leaving")
+		Expect(err).ToNot(HaveOccurred())
+		_, err = reg.Claim(ctx, "w2", "staying")
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(reg.Deregister(ctx, "leaving")).To(Succeed())
+
+		live, err := reg.Live(ctx, time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(live).To(HaveLen(1))
+		Expect(live[0].ID).To(Equal("staying"))
+
+		// The same rule the sweeper applies: a replica that is gone owns
+		// nothing, and a claim naming it would point every reader at an owner
+		// that no longer exists.
+		_, _, err = reg.OwnerRow(ctx, "w1")
+		Expect(err).To(MatchError(cluster.ErrNoConnection))
+		owner, _, err := reg.OwnerRow(ctx, "w2")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(owner).To(Equal("staying"), "deregistering one replica took another replica's claim")
+	})
+
+	It("deregisters when the membership loop stops", func() {
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		Expect(membership.Start(ctx)).To(Succeed())
+
+		live, err := reg.Live(ctx, time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(live).To(HaveLen(1))
+
+		membership.Stop()
+
+		live, err = reg.Live(ctx, time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(live).To(BeEmpty(), "a replica that shut down cleanly left its row behind for peers to dial")
+	})
+
+	It("tolerates a repeated deregistration, because a sweeper may have got there first", func() {
+		Expect(reg.Register(ctx, "gone", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Deregister(ctx, "gone")).To(Succeed())
+		Expect(reg.Deregister(ctx, "gone")).To(Succeed())
+	})
+
+	It("stops safely when it was never started", func() {
+		// Nothing calls this today. It exists because the loop channel is only
+		// ever closed by a started loop, so joining an unstarted one blocks
+		// forever, and phase 2 adds callers to this shutdown path.
+		membership := cluster.NewMembership(reg, "never-started", "10.0.0.1:8080", "v1")
+		done := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(done)
+			membership.Stop()
+		}()
+		Eventually(done, "10s").Should(BeClosed())
 	})
 
 	It("keeps this replica's row alive and reaps the dead while it runs", func() {

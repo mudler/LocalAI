@@ -85,14 +85,14 @@ var _ = Describe("Connection ownership", func() {
 		e2, err := reg.Claim(ctx, "w1", "inst-b")
 		Expect(err).ToNot(HaveOccurred())
 
-		owner, epoch, err := reg.Owner(ctx, "w1")
+		owner, epoch, err := reg.OwnerRow(ctx, "w1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(owner).To(Equal("inst-b"))
 		Expect(epoch).To(Equal(e2), "the stored epoch must be the one the winning claim was handed")
 	})
 
 	It("distinguishes an unknown connection", func() {
-		_, _, err := reg.Owner(ctx, "ghost")
+		_, _, err := reg.OwnerRow(ctx, "ghost")
 		Expect(err).To(MatchError(cluster.ErrNoConnection))
 	})
 
@@ -105,7 +105,7 @@ var _ = Describe("Connection ownership", func() {
 		// inst-a tries to clean up after losing the claim.
 		Expect(reg.Release(ctx, "w1", "inst-a", e1)).ToNot(Succeed())
 
-		owner, _, err := reg.Owner(ctx, "w1")
+		owner, _, err := reg.OwnerRow(ctx, "w1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(owner).To(Equal("inst-b"), "a stale owner must not be able to delete a live claim")
 	})
@@ -120,7 +120,7 @@ var _ = Describe("Connection ownership", func() {
 
 		Expect(reg.Release(ctx, "w1", "inst-a", e1)).ToNot(Succeed())
 
-		owner, _, err := reg.Owner(ctx, "w1")
+		owner, _, err := reg.OwnerRow(ctx, "w1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(owner).To(Equal("inst-a"))
 	})
@@ -144,7 +144,7 @@ var _ = Describe("Connection ownership", func() {
 		// live claim disappearing rather than on the epoch arithmetic.
 		Expect(reg.Release(ctx, "w1", "inst-a", eA1)).ToNot(Succeed())
 
-		owner, epoch, err := reg.Owner(ctx, "w1")
+		owner, epoch, err := reg.OwnerRow(ctx, "w1")
 		Expect(err).ToNot(HaveOccurred(), "the delayed cleanup deleted the live claim")
 		Expect(owner).To(Equal("inst-a"))
 		Expect(epoch).To(Equal(eA2))
@@ -156,7 +156,7 @@ var _ = Describe("Connection ownership", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reg.Release(ctx, "w1", "inst-a", e)).To(Succeed())
 
-		_, _, err = reg.Owner(ctx, "w1")
+		_, _, err = reg.OwnerRow(ctx, "w1")
 		Expect(err).To(MatchError(cluster.ErrNoConnection))
 	})
 

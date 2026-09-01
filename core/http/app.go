@@ -28,6 +28,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
+	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/finetune"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -581,6 +582,14 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// registration token, so publishing it unconditionally would put a
 	// multiplexer on every single-binary install.
 	if d := application.Distributed(); d != nil && d.PeerSessions != nil {
+		if distCfg.RegistrationToken == "" {
+			// The handler fails closed on an empty token, which is right and
+			// invisible: without this line an operator sees only 401s on a
+			// route they never configured, and nothing connecting them to the
+			// token they did not set.
+			xlog.Warn("Replica peer link will refuse every dial: no registration token is configured",
+				"route", clustersvc.PeerPath, "knob", "LOCALAI_REGISTRATION_TOKEN")
+		}
 		routes.RegisterClusterRoutes(e, distCfg.RegistrationToken, d.PeerSessions.Accept)
 	}
 

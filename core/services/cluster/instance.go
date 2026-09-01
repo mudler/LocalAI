@@ -38,9 +38,10 @@ type Registry struct {
 	db *gorm.DB
 }
 
-// NewRegistry returns a Registry over db. Migration is the caller's job; the
-// nodes registry owns the AutoMigrate for every table in this deployment so
-// that a single advisory lock covers them all.
+// NewRegistry returns a Registry over db. Migration is the caller's job: this
+// package's tables and sequence are created by Migrate, which the nodes
+// registry calls under the one advisory lock that covers every table in the
+// deployment.
 func NewRegistry(db *gorm.DB) *Registry {
 	return &Registry{db: db}
 }
@@ -152,20 +153,67 @@ func DiscoverAdvertisedAddr(dsn string, port int) (string, error) {
 	// information about the address we just read.
 	defer func() { _ = conn.Close() }()
 	local, ok := conn.LocalAddr().(*net.UDPAddr)
-	if !ok || local.IP == nil || local.IP.IsUnspecified() {
+	if !ok || local.IP == nil {
 		return "", fmt.Errorf("no local address on the route to database host %q; set the advertised address explicitly", host)
 	}
-	if local.IP.IsLoopback() {
-		return "", fmt.Errorf("the route to database host %q is loopback (%s), so the database is local to this replica and its peer-reachable address cannot be discovered; set the advertised address explicitly", host, local.IP)
+	if reason := unroutableReason(local.IP, local.Zone); reason != "" {
+		return "", fmt.Errorf("the route to database host %q is %s; set the advertised address explicitly", host, reason)
 	}
+	return net.JoinHostPort(local.IP.String(), strconv.Itoa(port)), nil
+}
+
+// unroutableReason says why ip cannot serve as an address other hosts dial, or
+// "" when it can. It is the one place that decides, so the discovered address
+// and the configured one are held to the same rule; they differ only in what
+// they do with the answer.
+func unroutableReason(ip net.IP, zone string) string {
+	switch {
+	case ip == nil || ip.IsUnspecified():
+		return fmt.Sprintf("unspecified (%s), which is a bind address rather than one anything can connect to", ip)
+	case ip.IsLoopback():
+		return fmt.Sprintf("loopback (%s), which means \"this host\" to whoever dials it, so every peer would reach itself", ip)
 	// A zone is only ever attached to a scoped (link-local) address, so this is
 	// the same rejection stated twice; the Zone check keeps the guarantee if a
 	// platform ever hands back a scoped address of another class, because
 	// IP.String() would silently drop the %iface and yield an undialable host.
-	if local.IP.IsLinkLocalUnicast() || local.Zone != "" {
-		return "", fmt.Errorf("the route to database host %q is link-local (%s), which peers on other hosts cannot dial; set the advertised address explicitly", host, local.IP)
+	case ip.IsLinkLocalUnicast() || zone != "":
+		return fmt.Sprintf("link-local (%s), which peers on other hosts cannot dial", ip)
 	}
-	return net.JoinHostPort(local.IP.String(), strconv.Itoa(port)), nil
+	return ""
+}
+
+// CheckAdvertisedAddr validates an address an operator configured, returning a
+// reason it is questionable, or an error if it is unusable.
+//
+// A configured address bypasses every check DiscoverAdvertisedAddr performs,
+// and the value most likely to be copied is the one that works on a single
+// host: "127.0.0.1:8080" on three hosts makes every peer dial itself, which
+// presents as a relay loop rather than as a configuration error.
+//
+// The split between error and reason is deliberate. An address that cannot be
+// parsed into host and port is an error, because nothing can dial it at all. An
+// address that merely means "this host" is a reason to warn and no more: a
+// single-host deployment, including this repository's own e2e cluster, uses one
+// correctly, and refusing it would be refusing a supported topology.
+func CheckAdvertisedAddr(addr string) (reason string, err error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", fmt.Errorf("advertised address %q is not host:port: %w", addr, err)
+	}
+	if host == "" {
+		return "", fmt.Errorf("advertised address %q names no host, so peers have nothing to dial", addr)
+	}
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		return "", fmt.Errorf("advertised address %q has no usable port (want 1-65535)", addr)
+	}
+	// A name is resolved by whoever dials it, and may resolve differently
+	// there, so its presence is all this side can check.
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return "", nil
+	}
+	return unroutableReason(ip, ""), nil
 }
 
 // dsnHostPort extracts the host and port from either DSN form gorm's postgres

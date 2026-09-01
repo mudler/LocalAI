@@ -25,6 +25,10 @@ const (
 	// owner is merely slow has to be re-homed for nothing. The cost of waiting
 	// is bounded and symmetric: traffic for that worker is retried, not lost.
 	InstanceLiveness = 30 * time.Second
+
+	// deregisterTimeout bounds the deregistration Stop performs. Shutdown is
+	// not the place to wait on a database.
+	deregisterTimeout = 5 * time.Second
 )
 
 // Membership publishes this replica's address and keeps the instances table
@@ -45,6 +49,10 @@ type Membership struct {
 	stop     chan struct{}
 	done     chan struct{}
 	stopOnce sync.Once
+
+	// mu guards started, which tells Stop whether there is a loop to join.
+	mu      sync.Mutex
+	started bool
 }
 
 // NewMembership returns the membership loop for one replica. The address is
@@ -72,17 +80,49 @@ func (m *Membership) Start(ctx context.Context) error {
 		return err
 	}
 	xlog.Info("Cluster instance registered", "id", m.id, "addr", m.addr)
+	m.mu.Lock()
+	m.started = true
+	m.mu.Unlock()
 	go m.loop(ctx)
 	return nil
 }
 
-// Stop ends the loop and waits for it. Safe to call more than once.
+// Stop ends the loop, waits for it, and removes this replica's row.
+//
+// Deregistering is what makes a rolling restart quick for everyone else: a
+// replica that just closes its sockets is indistinguishable from one that
+// crashed, so its peers keep dialling it for the whole liveness window. It is
+// best-effort by nature (a killed process never gets here), which is why the
+// sweeper still exists.
+//
+// Safe to call more than once, and on a Membership that was never started.
 func (m *Membership) Stop() {
 	if m == nil {
 		return
 	}
-	m.stopOnce.Do(func() { close(m.stop) })
-	<-m.done
+	m.mu.Lock()
+	started := m.started
+	m.mu.Unlock()
+	if started {
+		m.stopOnce.Do(func() { close(m.stop) })
+		// Only a started Membership ever closes done. Waiting on one that was
+		// never started, or whose Start failed, would block forever.
+		<-m.done
+	}
+
+	// Deliberately NOT the context Start was given: that one is the
+	// application's, and by the time anything calls Stop it has usually been
+	// cancelled already, so deregistering on it would fail every time. The
+	// bound is here instead, because shutdown must not hang on a database that
+	// went away before the process using it.
+	ctx, cancel := context.WithTimeout(context.Background(), deregisterTimeout)
+	defer cancel()
+	if err := m.reg.Deregister(ctx, m.id); err != nil {
+		xlog.Warn("Deregistering this replica failed; peers will drop it when its heartbeat ages out",
+			"id", m.id, "within", m.liveness, "error", err)
+		return
+	}
+	xlog.Info("Cluster instance deregistered", "id", m.id)
 }
 
 func (m *Membership) loop(ctx context.Context) {
@@ -114,6 +154,10 @@ func (m *Membership) tick(ctx context.Context) {
 		// Another replica swept this row while this process was stalled long
 		// enough to look dead. Re-register rather than heartbeat: a heartbeat
 		// carries no address, so the row has to be rebuilt from scratch.
+		//
+		// This rebuilds the instance row ONLY. The sweep that removed it also
+		// removed the connections this replica owned, and re-claiming those
+		// needs the tunnel registry phase 2 introduces; see ReapStale.
 		xlog.Warn("Cluster instance row was reaped, re-registering", "id", m.id)
 		if err := m.reg.Register(ctx, m.id, m.addr, m.version); err != nil {
 			xlog.Error("Re-registering cluster instance failed", "id", m.id, "error", err)
@@ -132,6 +176,30 @@ func (m *Membership) tick(ctx context.Context) {
 	}
 }
 
+// Deregister removes one replica and the connections it owned.
+//
+// It deletes both, in one transaction, for the same reason ReapStale does: a
+// replica that is gone owns nothing, and leaving its connection rows behind
+// would point every reader at an owner that no longer exists. This is the
+// announced form of what the sweeper does by inference, and the two must not
+// disagree about what "gone" removes.
+func (r *Registry) Deregister(ctx context.Context, id string) error {
+	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("owner_instance_id = ?", id).Delete(&NodeConnection{}).Error; err != nil {
+			return fmt.Errorf("deleting connections owned by %q: %w", id, err)
+		}
+		// No RowsAffected check: deregistering a row another replica already
+		// swept is the normal outcome of a slow shutdown, not an error.
+		if err := tx.Where("id = ?", id).Delete(&Instance{}).Error; err != nil {
+			return fmt.Errorf("deleting instance %q: %w", id, err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("deregistering instance %q: %w", id, err)
+	}
+	return nil
+}
+
 // ReapStale deletes the replicas that have not heartbeated within the liveness
 // window, and the connection rows whose owner is no longer among the survivors.
 //
@@ -144,7 +212,15 @@ func (m *Membership) tick(ctx context.Context) {
 // self is never reaped. This process may fail to heartbeat for longer than the
 // window (a long stall, a database blip) and still be serving: deleting its own
 // row would then delete the connections of workers that are, at that moment,
-// connected to it. The stall is recovered by the re-register in tick instead.
+// connected to it.
+//
+// That protection is one-sided, and only the instance row recovers on its own.
+// A replica that stalls long enough is reaped BY ANOTHER replica, taking its
+// connection rows with it, and the re-register in tick rebuilds the instance
+// row and nothing else: the sockets are still held here while the table says
+// nobody holds them. Phase 2 closes this by re-claiming, on re-register, every
+// connection this replica still holds locally, which needs the tunnel registry
+// that owns those sockets.
 //
 // PostgreSQL only, like Live: distributed mode requires it, and the interval
 // arithmetic is measured on the database's clock because liveness is compared
