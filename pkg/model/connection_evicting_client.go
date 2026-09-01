@@ -16,7 +16,7 @@ import (
 // still returned to the caller — the NEXT request will trigger rescheduling
 // via SmartRouter.
 type ConnectionEvictingClient struct {
-	grpc.Backend
+	grpc.WrappedBackend
 	modelID string
 	evict   func()
 	once    sync.Once
@@ -24,15 +24,11 @@ type ConnectionEvictingClient struct {
 
 var _ grpc.BackendUnwrapper = (*ConnectionEvictingClient)(nil)
 
-// Unwrap exposes the client this one decorates, so grpc.LastDialErrorOf can see
-// past it.
-func (c *ConnectionEvictingClient) Unwrap() grpc.Backend { return c.Backend }
-
 func newConnectionEvictingClient(inner grpc.Backend, modelID string, evict func()) grpc.Backend {
 	return &ConnectionEvictingClient{
-		Backend: inner,
-		modelID: modelID,
-		evict:   evict,
+		WrappedBackend: grpc.WrappedBackend{Backend: inner},
+		modelID:        modelID,
+		evict:          evict,
 	}
 }
 
