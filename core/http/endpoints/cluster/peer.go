@@ -14,28 +14,20 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/libp2p/go-yamux/v5"
-	"github.com/mudler/LocalAI/core/http/auth"
+	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/xlog"
 )
 
-// AlternativeAuthPrefix is the path prefix whose credentials are checked by
-// this package rather than by the global session middleware.
-//
-// It is the auth package's own constant rather than a second copy: auth decides
-// which paths bypass the session middleware, so owning the prefix there and
-// deriving the route from it here means a change to either one moves both. The
-// dependency runs endpoints -> auth, the direction the rest of core/http flows;
-// pointing it the other way would deadlock the build as soon as this package
-// needs anything from auth, which registering in RouteFeatureRegistry will.
-const AlternativeAuthPrefix = auth.ClusterPathPrefix
-
-// PeerPath is the route a peer replica dials.
-const PeerPath = AlternativeAuthPrefix + "peer"
-
 // RegisterClusterRoutes registers the peer link. onPeer receives every
 // authenticated session; see PeerHandler for what it is expected to do with it.
+//
+// The route is core/services/cluster's own constant, so the handler and the
+// dialler cannot be registered and dialled at different paths. That the path
+// also falls under auth.ClusterPathPrefix, and so bypasses the session
+// middleware, is asserted by a spec in this package: it is the only place that
+// can see both, since core/services/cluster must not import core/http/auth.
 func RegisterClusterRoutes(e *echo.Echo, token string, onPeer func(string, *yamux.Session)) {
-	e.GET(PeerPath, PeerHandler(token, onPeer))
+	e.GET(clustersvc.PeerPath, PeerHandler(token, onPeer))
 }
 
 // PeerHandler upgrades an authenticated peer dial to a WebSocket, wraps it as
@@ -72,7 +64,7 @@ func PeerHandler(token string, onSession func(peerID string, sess *yamux.Session
 
 		// Server side of the mux: the dialing peer is the client, so it owns
 		// the odd stream IDs and this side the even ones.
-		sess, err := yamux.Server(WebsocketConn(ws), nil, nil)
+		sess, err := yamux.Server(clustersvc.WebsocketConn(ws), nil, nil)
 		if err != nil {
 			xlog.Error("cluster peer link session setup failed", "peer", peerID, "error", err)
 			_ = ws.Close()
