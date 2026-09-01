@@ -4114,8 +4114,8 @@
       sha256: 927d6bc9c4db38b953da1da8d8e1a473725253c7683471a6369e0ce74688cf94
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: ce49c492921cbf22991a7e3f927fa489ed7f87e1e426f542ce96b317c21072b4
 - &qwen3-6-35b-a3b-genesis-hermes-v7
   name: "qwen3.6-35b-a3b-genesis-hermes-v7"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -4176,8 +4176,8 @@
       sha256: 995c2a82e1aaca7947075891ead093e38d1e7dc5c0b54e4debd1d01058229ff9
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: ce49c492921cbf22991a7e3f927fa489ed7f87e1e426f542ce96b317c21072b4
 - !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-v7
   name: "qwen3.6-35b-a3b-genesis-hermes-v7-apex-compact"
   variants: []
@@ -4212,8 +4212,8 @@
       sha256: 41826ae69333ab4f3577d53c0a8b427b306c63c88c6200b4eada32dda28d26b9
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-APEX-Compact.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: ce49c492921cbf22991a7e3f927fa489ed7f87e1e426f542ce96b317c21072b4
 - !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-v7
   name: "qwen3.6-35b-a3b-genesis-hermes-v7-mtp-apex"
   variants: []
@@ -4260,8 +4260,8 @@
       sha256: 63a3cd730a4f1e7f5b909c89550de32e5a27b33c697c62aed9da60a7bd4643ae
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: ce49c492921cbf22991a7e3f927fa489ed7f87e1e426f542ce96b317c21072b4
 - !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-v7
   name: "qwen3.6-35b-a3b-genesis-hermes-v7-mtp-apex-compact"
   variants: []
@@ -4308,8 +4308,8 @@
       sha256: 11edd0da4f28f587c0eb72ae2e417dfb0d02733360303045e21c9ba3aae8d114
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-MTP-APEX-Compact.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: ce49c492921cbf22991a7e3f927fa489ed7f87e1e426f542ce96b317c21072b4
 - !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-v7
   name: "qwen3.6-35b-a3b-genesis-hermes-v7-q8-k-p"
   variants: []
@@ -4343,8 +4343,8 @@
       sha256: b37a4225ba1eebaaac35b69dfeb78d1955d06fcb9f41fd334a4837cbdaff21c1
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/Hermes3.6-35B-A3B-Uncensored-Genesis-V7-Q8_K_P.gguf
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
-      sha256: c8e702344a81f8c226a914aa980ed6e1f604bce9374f1fed8e65c896908af414
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
+      sha256: ce49c492921cbf22991a7e3f927fa489ed7f87e1e426f542ce96b317c21072b4
 - &kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev"
   variants:
