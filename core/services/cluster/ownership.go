@@ -16,54 +16,94 @@ import (
 // answer "this worker is not connected here", or to retry.
 var ErrNoConnection = errors.New("cluster: no connection recorded for node")
 
+// epochSequence is the PostgreSQL sequence every claim draws its epoch from.
+// A sequence rather than a per-row counter because a released row is deleted:
+// with `epoch = epoch + 1` the numbering restarts at 1 for the next claim, so a
+// replica that claimed, lost the worker, and claimed again could be handed an
+// epoch it already held, and a delayed cleanup from the first claim would then
+// match, and delete, the live one.
+const epochSequence = "node_connection_epochs"
+
 // NodeConnection records which frontend replica currently holds a worker's
 // tunnel. There is at most one row per node: a worker holds exactly one link,
 // and whoever wrote the row last owns it.
 //
 // Epoch is the fence. A worker whose link is silently broken reconnects and may
 // land on another replica before the previous owner's socket has noticed, so
-// for a while two replicas both believe they own it. Every claim gets a higher
-// epoch than any claim before it, so the loser can be told apart from the
-// winner by a number both of them hold, without either having to detect the
-// broken socket first.
+// for a while two replicas both believe they own it. Every claim draws a fresh,
+// never-reused epoch, so the loser can be told apart from the winner by a number
+// both of them hold, without either having to detect the broken socket first.
+//
+// There is deliberately no last-seen column here. Whether the owning replica is
+// alive is answered by Instance.LastSeen, and whether a claim is still the live
+// one is answered by the epoch; a second liveness clock for the same fact would
+// only drift from the first.
 type NodeConnection struct {
 	NodeID          string    `gorm:"primaryKey;size:36" json:"node_id"`
 	OwnerInstanceID string    `gorm:"size:36;index;not null" json:"owner_instance_id"`
 	Epoch           int64     `gorm:"not null" json:"epoch"`
 	ConnectedAt     time.Time `gorm:"not null;default:now()" json:"connected_at"`
-	LastSeen        time.Time `gorm:"index;not null;default:now()" json:"last_seen"`
+}
+
+// EnsureEpochSequence creates the sequence Claim draws epochs from. It lives
+// here, beside the model that needs it, because gorm's AutoMigrate models
+// tables and columns but has no notion of a sequence; the caller that owns the
+// migration advisory lock calls it so that concurrently starting replicas do
+// not race on the DDL. It is safe to call repeatedly.
+//
+// The sequence is not attached as a column DEFAULT on purpose: AutoMigrate
+// compares the struct's declared default against the one PostgreSQL reports
+// (`nextval('...'::regclass)`), and a mismatch there makes every startup ALTER
+// the column. Naming the sequence in the statement keeps the schema stable.
+func EnsureEpochSequence(ctx context.Context, db *gorm.DB) error {
+	if err := db.WithContext(ctx).Exec(`CREATE SEQUENCE IF NOT EXISTS ` + epochSequence + ` AS bigint`).Error; err != nil {
+		return fmt.Errorf("creating connection epoch sequence: %w", err)
+	}
+	return nil
 }
 
 // Claim records ownerID as the owner of nodeID's tunnel and returns the new
-// epoch, which is strictly greater than the epoch of every earlier claim on the
-// same node.
+// epoch, which is greater than every epoch handed out for that node before it
+// and is never handed out again.
 //
 // It is one statement on purpose. A read-then-write would let two replicas read
 // the same epoch and hand out the same fence token, which is exactly the case
 // the fence exists to rule out; PostgreSQL serializes concurrent
-// INSERT ... ON CONFLICT DO UPDATE on the conflicting row, so the increment is
-// computed by the database against the row version the winner just wrote.
+// INSERT ... ON CONFLICT DO UPDATE on the conflicting row, so the losing writers
+// block until the winner commits and only then draw their own epoch, in the
+// order they took the row lock.
 func (r *Registry) Claim(ctx context.Context, nodeID, ownerID string) (int64, error) {
-	// Timestamps are stamped by the database, never by this process, for the
-	// same reason instance liveness is: they are compared across replicas, so
-	// they have to be measured on the one clock every replica shares. On insert
-	// that is the column default; on conflict it is the assignment below.
-	conn := NodeConnection{NodeID: nodeID, OwnerInstanceID: ownerID, Epoch: 1}
-	if err := r.db.WithContext(ctx).Clauses(
+	// connected_at is stamped by the database, never by this process, for the
+	// same reason instance liveness is: it is compared across replicas, so it
+	// has to be measured on the one clock every replica shares.
+	nextEpoch := gorm.Expr("nextval('" + epochSequence + "')")
+	values := map[string]any{
+		"node_id":           nodeID,
+		"owner_instance_id": ownerID,
+		"epoch":             nextEpoch,
+		"connected_at":      gorm.Expr("now()"),
+	}
+	if err := r.db.WithContext(ctx).Model(&NodeConnection{}).Clauses(
 		clause.OnConflict{
 			Columns: []clause.Column{{Name: "node_id"}},
 			DoUpdates: clause.Assignments(map[string]any{
 				"owner_instance_id": ownerID,
-				"epoch":             gorm.Expr(`"node_connections"."epoch" + 1`),
+				"epoch":             nextEpoch,
 				"connected_at":      gorm.Expr("now()"),
-				"last_seen":         gorm.Expr("now()"),
 			}),
 		},
 		clause.Returning{Columns: []clause.Column{{Name: "epoch"}}},
-	).Create(&conn).Error; err != nil {
+	).Create(values).Error; err != nil {
 		return 0, fmt.Errorf("claiming connection for node %q as %q: %w", nodeID, ownerID, err)
 	}
-	return conn.Epoch, nil
+	// gorm scans RETURNING back over the map it was handed. If that ever stops
+	// happening the entry is still the expression we passed in, and returning a
+	// bogus epoch would hand out a fence token the database never issued.
+	epoch, ok := values["epoch"].(int64)
+	if !ok {
+		return 0, fmt.Errorf("claiming connection for node %q as %q: epoch not returned by the database (got %T)", nodeID, ownerID, values["epoch"])
+	}
+	return epoch, nil
 }
 
 // Owner returns the replica that holds nodeID's tunnel and the epoch of that

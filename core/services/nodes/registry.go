@@ -443,7 +443,14 @@ func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID s
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}, &cluster.Instance{}, &cluster.NodeConnection{})
+		if err := db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}, &cluster.Instance{}, &cluster.NodeConnection{}); err != nil {
+			return err
+		}
+		// AutoMigrate models tables and columns but has no notion of a
+		// sequence, and the connection-ownership fence draws its epochs from
+		// one. It runs under this same lock so concurrently starting replicas
+		// do not race on the DDL.
+		return cluster.EnsureEpochSequence(context.Background(), db)
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
