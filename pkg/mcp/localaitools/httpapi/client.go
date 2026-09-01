@@ -458,11 +458,11 @@ func (c *Client) SystemInfo(ctx context.Context) (*localaitools.SystemInfo, erro
 }
 
 func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
+	// address / http_address are deliberately not decoded: a worker advertises
+	// no endpoint, so both are empty on every current node.
 	var raw []struct {
-		ID          string `json:"id"`
-		Address     string `json:"address"`
-		HTTPAddress string `json:"http_address"`
-		Status      string `json:"status"`
+		ID     string `json:"id"`
+		Status string `json:"status"`
 	}
 	if err := c.do(ctx, http.MethodGet, routeNodes, nil, &raw); err != nil {
 		// Treat 404/disabled as "no nodes" to keep parity with single-process.
@@ -474,10 +474,8 @@ func (c *Client) ListNodes(ctx context.Context) ([]localaitools.Node, error) {
 	out := make([]localaitools.Node, 0, len(raw))
 	for _, n := range raw {
 		out = append(out, localaitools.Node{
-			ID:          n.ID,
-			Address:     n.Address,
-			HTTPAddress: n.HTTPAddress,
-			Healthy:     n.Status == "healthy",
+			ID:      n.ID,
+			Healthy: n.Status == "healthy",
 		})
 	}
 	return out, nil
