@@ -73,10 +73,6 @@ func NewMembership(reg *Registry, id, addr, version string) *Membership {
 	}
 }
 
-// Start registers this replica and begins heartbeating and sweeping. The first
-// registration is synchronous and its failure is returned: a replica whose
-// address never reaches the table is invisible to its peers, and starting
-// anyway would hide that behind a background log line.
 // SetTunnels gives the loop the registry holding this replica's worker tunnels,
 // so it can re-claim them after its rows have been swept. A Membership without
 // one still heartbeats and sweeps; it simply has nothing to re-claim, which is
@@ -91,6 +87,10 @@ func (m *Membership) SetTunnels(t *TunnelRegistry) {
 	m.tunnels = t
 }
 
+// Start registers this replica and begins heartbeating and sweeping. The first
+// registration is synchronous and its failure is returned: a replica whose
+// address never reaches the table is invisible to its peers, and starting
+// anyway would hide that behind a background log line.
 func (m *Membership) Start(ctx context.Context) error {
 	if err := m.reg.Register(ctx, m.id, m.addr, m.version); err != nil {
 		return err
@@ -177,14 +177,16 @@ func (m *Membership) tick(ctx context.Context) {
 		// replica serves workers that, as far as every other replica can see,
 		// are connected nowhere.
 		xlog.Warn("Cluster instance row was reaped, re-registering", "id", m.id)
-		if err := m.reg.Register(ctx, m.id, m.addr, m.version); err != nil {
+		if err := m.reg.Register(ctx, m.id, m.addr, m.version); err == nil {
+			m.reclaimTunnels(ctx)
+		} else {
+			// Re-claiming is skipped and only re-claiming: a claim written now
+			// would name an instance row that does not exist, and the very next
+			// sweep deletes it as an orphan. The sweep below still runs, because
+			// what it removes is other replicas, and this replica failing to
+			// rebuild its own row is no reason to stop reaping theirs.
 			xlog.Error("Re-registering cluster instance failed", "id", m.id, "error", err)
-			// Nothing to re-claim onto: a claim naming an instance row that
-			// does not exist is deleted by the next sweep that runs, this
-			// replica's own included, and the sweep is what has just happened.
-			return
 		}
-		m.reclaimTunnels(ctx)
 	} else if err != nil {
 		xlog.Warn("Cluster instance heartbeat failed", "id", m.id, "error", err)
 	}
