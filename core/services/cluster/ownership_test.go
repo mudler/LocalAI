@@ -24,6 +24,7 @@ type sqlRecorder struct {
 	gormlogger.Interface
 	mu         sync.Mutex
 	statements []string
+	errs       []error
 }
 
 func newSQLRecorder() *sqlRecorder {
@@ -31,10 +32,17 @@ func newSQLRecorder() *sqlRecorder {
 }
 
 func (r *sqlRecorder) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
-	sql, _ := fc()
+	sql, rows := fc()
 	r.mu.Lock()
 	r.statements = append(r.statements, sql)
+	if err != nil {
+		r.errs = append(r.errs, err)
+	}
 	r.mu.Unlock()
+	// Delegate so a failing statement is still reported the way gorm would
+	// report it. An instrument used to prove what the SQL does must not be the
+	// one thing that hides a statement erroring.
+	r.Interface.Trace(ctx, begin, func() (string, int64) { return sql, rows }, err)
 }
 
 // only returns the single recorded statement, failing the spec if the call
@@ -42,6 +50,7 @@ func (r *sqlRecorder) Trace(ctx context.Context, begin time.Time, fc func() (str
 func (r *sqlRecorder) only() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	ExpectWithOffset(1, r.errs).To(BeEmpty(), "the recorded statement failed")
 	ExpectWithOffset(1, r.statements).To(HaveLen(1), "expected exactly one statement, got: %v", r.statements)
 	return r.statements[0]
 }
@@ -55,9 +64,10 @@ var _ = Describe("Connection ownership", func() {
 
 	BeforeEach(func() {
 		db = testutil.SetupTestDB()
-		Expect(db.AutoMigrate(&cluster.NodeConnection{})).To(Succeed())
-		reg = cluster.NewRegistry(db)
 		ctx = context.Background()
+		Expect(db.AutoMigrate(&cluster.NodeConnection{})).To(Succeed())
+		Expect(cluster.EnsureEpochSequence(ctx, db)).To(Succeed())
+		reg = cluster.NewRegistry(db)
 	})
 
 	It("increments the epoch on every claim", func() {
@@ -71,13 +81,13 @@ var _ = Describe("Connection ownership", func() {
 	It("reports the latest owner", func() {
 		_, err := reg.Claim(ctx, "w1", "inst-a")
 		Expect(err).ToNot(HaveOccurred())
-		_, err = reg.Claim(ctx, "w1", "inst-b")
+		e2, err := reg.Claim(ctx, "w1", "inst-b")
 		Expect(err).ToNot(HaveOccurred())
 
 		owner, epoch, err := reg.Owner(ctx, "w1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(owner).To(Equal("inst-b"))
-		Expect(epoch).To(BeNumerically("==", 2))
+		Expect(epoch).To(Equal(e2), "the stored epoch must be the one the winning claim was handed")
 	})
 
 	It("distinguishes an unknown connection", func() {
@@ -114,6 +124,32 @@ var _ = Describe("Connection ownership", func() {
 		Expect(owner).To(Equal("inst-a"))
 	})
 
+	It("never hands a node the same epoch twice, so a delayed cleanup cannot delete a live claim", func() {
+		// The scenario the fence exists for, with a release in the middle of it:
+		// inst-a claims and its link then dies silently.
+		eA1, err := reg.Claim(ctx, "w1", "inst-a")
+		Expect(err).ToNot(HaveOccurred())
+		// The worker reconnects to inst-b, which later releases cleanly.
+		eB, err := reg.Claim(ctx, "w1", "inst-b")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reg.Release(ctx, "w1", "inst-b", eB)).To(Succeed())
+		// The worker comes back to inst-a, which is the same process throughout,
+		// so the owner id alone cannot separate this claim from the dead one.
+		eA2, err := reg.Claim(ctx, "w1", "inst-a")
+		Expect(err).ToNot(HaveOccurred())
+
+		// inst-a finally notices the first link is dead and cleans up after it.
+		// The harm is asserted before the cause, so a regression fails on the
+		// live claim disappearing rather than on the epoch arithmetic.
+		Expect(reg.Release(ctx, "w1", "inst-a", eA1)).ToNot(Succeed())
+
+		owner, epoch, err := reg.Owner(ctx, "w1")
+		Expect(err).ToNot(HaveOccurred(), "the delayed cleanup deleted the live claim")
+		Expect(owner).To(Equal("inst-a"))
+		Expect(epoch).To(Equal(eA2))
+		Expect(eA2).ToNot(Equal(eA1), "an epoch handed out before a release must never be handed out again")
+	})
+
 	It("lets the current owner release its own claim", func() {
 		e, err := reg.Claim(ctx, "w1", "inst-a")
 		Expect(err).ToNot(HaveOccurred())
@@ -135,8 +171,8 @@ var _ = Describe("Connection ownership", func() {
 		// check in only() is what rules that out. The rest pins the parts a
 		// silently dropped clause would remove.
 		Expect(sql).To(ContainSubstring("on conflict"))
-		Expect(sql).To(ContainSubstring(`"node_connections"."epoch" + 1`),
-			"the epoch must be incremented by the database, not by this process")
+		Expect(sql).To(MatchRegexp(`(?i)nextval\s*\(\s*'node_connection_epochs'\s*\)`),
+			"the epoch must be drawn by the database, not computed by this process")
 		Expect(sql).To(ContainSubstring("returning"))
 		Expect(sql).To(ContainSubstring(`"epoch"`))
 		// Timestamps are compared across replicas, so they must be measured on
