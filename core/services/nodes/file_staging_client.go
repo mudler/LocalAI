@@ -37,6 +37,14 @@ type FileStagingClient struct {
 	remoteModelPath string // set during LoadModel from staged ModelPath
 }
 
+// Unwrap exposes the client this one decorates, so grpc.LastDialErrorOf can see
+// past it. Without it a staged client answers "the transport was fine" for
+// every dial, because embedding grpc.Backend inherits only what Backend
+// declares and DialErrorReporter is deliberately not on Backend.
+func (f *FileStagingClient) Unwrap() grpc.Backend { return f.Backend }
+
+var _ grpc.BackendUnwrapper = (*FileStagingClient)(nil)
+
 // NewFileStagingClient creates a new file staging wrapper.
 func NewFileStagingClient(inner grpc.Backend, stager FileStager, nodeID string) *FileStagingClient {
 	return &FileStagingClient{

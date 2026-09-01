@@ -163,16 +163,19 @@ A worker's tunnel lands on exactly one replica, so with N replicas behind a load
 
 The dialling replica states how much time its own client has left in the frame that opens the relayed stream, and the owner bounds its work by the smaller of that and its own 15s ceiling. Neither number can lengthen the other: a patient client cannot park the owning replica, and an impatient one cannot be kept waiting on a budget it did not ask for.
 
-Four outcomes are kept apart on purpose, because they call for different actions:
+These outcomes are kept apart on purpose, because they call for different actions:
 
 | Outcome | What it means | What acts on it |
 |---|---|---|
-| No live owner | No replica holds this worker's tunnel | The worker is treated as absent; its models can be rescheduled |
+| No live owner | No replica holds this worker's tunnel | No route right now; the worker's models are **left alone** |
 | Not the owner | The routing was stale | Resolve the owner again |
 | Peer unreachable | A replica exists and will not answer | Retry |
+| No relay path | This replica cannot reach the owner at all | Report; requests here fail until it can |
 | The worker refused | The worker answered and said no | Report; the worker is connected |
 
-Only the first is absence. The others are never reported as it, and that is not a stylistic preference: a scheduler told that a connected worker has gone away reclaims every model it is running.
+**None of them is absence.** A worker's presence is its **heartbeat**, and a route to it is a separate fact that can be false while the worker is registered, heartbeating and serving every request another replica sends it. So the frontend answers "no route", never "this worker is gone", and nothing on this list causes a model to be rescheduled or a `node_models` row to be deleted.
+
+That distinction is the whole point rather than a nicety. A scheduler told that a connected worker has gone away stops its backend and reclaims every model it is running, and the events that produce "no route" are ordinary ones: a frontend replica restarting, an ownership row a moment stale, a worker that has not dialled its tunnel yet. A worker is treated as absent only when its **heartbeat** goes stale, which is a separate mechanism with its own threshold (see `--stale-node-threshold`).
 
 #### There is no frontend-side fallback, and upgrade order matters
 

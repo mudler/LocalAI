@@ -695,6 +695,12 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 			// codes.Unavailable a dead worker produces. Evicting on it would
 			// unload a model that is loaded and serving. The client records
 			// which of the two happened; see grpc.DialErrorReporter.
+			// The client here is long-lived and shared, so this reads the last
+			// dial on it rather than the one this HealthCheck made; see
+			// (*grpc.Client).LastDialError for why that imprecision is
+			// accepted. Both directions of it land on behaviour that already
+			// existed, and the common case (a worker with no route at all) has
+			// no concurrent success to clear the value.
 			if dialErr := transportFailure(client); dialErr != nil {
 				xlog.Warn("Remote model health check could not reach the worker, keeping cached",
 					"model", s, "error", dialErr)
@@ -735,9 +741,10 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 // backend, where the address IS a socket on this machine and a failed
 // connection really does mean the process died.
 func transportFailure(client grpc.Backend) error {
-	reporter, ok := client.(grpc.DialErrorReporter)
-	if !ok {
-		return nil
-	}
-	return reporter.LastDialError()
+	// LastDialErrorOf and not a type assertion. The client reaching this
+	// function for a routed remote model is an *InFlightTrackingClient, often
+	// over a *FileStagingClient, and an assertion on the outermost type reads
+	// nil for both: they embed grpc.Backend, which does not declare
+	// LastDialError. That is exactly how this guard shipped inert.
+	return grpc.LastDialErrorOf(client)
 }

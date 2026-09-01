@@ -208,13 +208,12 @@ var ErrNoWorkerDialer = fmt.Errorf("%w: no worker tunnel dialer is configured", 
 //
 // A client that reports nothing (no custom dialer, or a test double) yields
 // nil, which means "the call reached a backend" and preserves the behaviour
-// every non-distributed caller has always had.
+// every non-distributed caller has always had. Decorators are looked through;
+// see grpc.BackendUnwrapper for why that is not optional.
 func unroutable(client grpc.Backend) error {
-	reporter, ok := client.(grpc.DialErrorReporter)
-	if !ok {
-		return nil
-	}
-	dialErr := reporter.LastDialError()
+	// LastDialErrorOf and not a type assertion: the assertion could not see
+	// past a decorator, and SmartRouter hands every routed client out wrapped.
+	dialErr := grpc.LastDialErrorOf(client)
 	if dialErr == nil {
 		return nil
 	}

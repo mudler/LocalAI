@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -101,6 +102,60 @@ var _ = Describe("probeCache", func() {
 			"singleflight must collapse %d concurrent probes into one", N)
 		for i, got := range results {
 			Expect(got).To(BeTrue(), "goroutine %d saw a different result", i)
+		}
+	})
+
+	It("hands every coalesced joiner the leader's REASON, not just its answer", func() {
+		// The hole this shape exists to close, and the one a closed-over
+		// variable reintroduces. The reason is written only in the goroutine
+		// that runs the probe; every caller coalesced into that flight would
+		// read its own unset variable and see nil. In production that means the
+		// leader correctly declines to reap a replica on an unreachable worker
+		// while all seven joiners reap it, on the leader's own observation.
+		c := newProbeCache(time.Minute)
+		unreached := errors.New("no route to the worker")
+
+		// The probe blocks until every goroutine is inside flight.Do, so the
+		// joiners are genuinely coalesced rather than serialised. Released by a
+		// channel, so nothing here waits on a clock.
+		entered := make(chan struct{})
+		release := make(chan struct{})
+		var calls int32
+		probe := func() (bool, error) {
+			atomic.AddInt32(&calls, 1)
+			close(entered)
+			<-release
+			return false, unreached
+		}
+
+		const N = 8
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		reasons := make([]error, N)
+		alive := make([]bool, N)
+		for i := 0; i < N; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer GinkgoRecover()
+				defer wg.Done()
+				<-start
+				alive[i], reasons[i] = c.DoOrCachedResult("k", probe)
+			}(i)
+		}
+		close(start)
+
+		// Only unblock the leader once at least one goroutine is inside the
+		// probe; the rest are then either waiting on the flight or about to be.
+		<-entered
+		close(release)
+		wg.Wait()
+
+		Expect(atomic.LoadInt32(&calls)).To(Equal(int32(1)),
+			"singleflight must collapse %d concurrent probes into one", N)
+		for i := range reasons {
+			Expect(alive[i]).To(BeFalse(), "goroutine %d saw a different answer", i)
+			Expect(reasons[i]).To(MatchError(unreached),
+				"goroutine %d joined the flight and got the answer without the reason, which is how a joiner reaps what the leader would not", i)
 		}
 	})
 
