@@ -88,6 +88,30 @@ type BackendUnwrapper interface {
 	Unwrap() Backend
 }
 
+// WrappedBackend is what a decorator embeds INSTEAD of a Backend.
+//
+// It provides the pass-through method set exactly as embedding the interface
+// did, and it provides Unwrap, so a decorator built on it is transparent to
+// LastDialErrorOf by CONSTRUCTION rather than by remembering. That is the whole
+// design: the same defect shipped twice, both times because a wrapper inherited
+// only what Backend declares and DialErrorReporter is deliberately not on
+// Backend, so the transport answer every reaping guard depends on silently
+// became nil.
+//
+// Forgetting is therefore no longer possible for anything that embeds this, and
+// embedding the raw interface instead is caught by the ruleguard rule in
+// hack/lint/. A compile-time assertion cannot do that job: it only fires for a
+// type that already declares the intent, which is precisely the type that did
+// not forget.
+//
+// Unwrap takes a VALUE receiver, which is safe because this holds one interface
+// and no lock, and is what lets the value type of any embedder satisfy
+// BackendUnwrapper.
+type WrappedBackend struct{ Backend }
+
+// Unwrap exposes the decorated client.
+func (w WrappedBackend) Unwrap() Backend { return w.Backend }
+
 // maxBackendUnwrapDepth bounds the walk below. Three wrappers exist today and
 // they nest at most two deep; the bound is a guard against a cycle a future
 // wrapper could introduce, not a limit anything real approaches.
