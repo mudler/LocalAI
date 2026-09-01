@@ -112,7 +112,7 @@ var _ = Describe("size-derived remote LoadModel budget", func() {
 		backend = &holdBackend{}
 		factory = &holdClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:9001"},
 		}
 		dir = GinkgoT().TempDir()
 	})
