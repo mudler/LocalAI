@@ -93,10 +93,10 @@ func (r *Registry) Heartbeat(ctx context.Context, id string) error {
 
 // instanceIsLive is the one predicate that decides whether a replica is still
 // alive, and it takes the window in seconds as its single bind parameter. Every
-// reader of that fact uses this string: Live to list the survivors, Owner to
-// refuse an owner that is not among them. Two spellings of one fact drift, and
-// the drift would show up as a relay to a replica one query calls dead and
-// another calls alive.
+// reader of that fact is written in terms of it: Live lists the rows it selects,
+// Owner refuses an owner it rejects, and ReapStale deletes its negation. Two
+// spellings of one fact drift, and the drift would show up as a relay to a
+// replica one query calls dead and another calls alive.
 //
 // The column is table-qualified because Owner reads it across a join, where an
 // unqualified last_seen would be ambiguous. Postgres folds the unquoted name to

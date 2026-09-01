@@ -170,10 +170,16 @@ func (r *Registry) Claim(ctx context.Context, nodeID, ownerID string) (int64, er
 // survive until another replica's sweep removes them, which is up to
 // InstanceLiveness plus one InstanceHeartbeat later.
 //
-// Callers that ACT on the answer want Owner, which joins instances and treats a
-// non-live owner as ErrNoConnection. This one is for callers that need to see
-// the row itself, such as a sweeper deciding what to clean up, or a spec
-// proving the two reads differ.
+// Anything that needs to know WHO owns a node in order to act on it, a dialer
+// above all, wants Owner: it joins instances and treats a non-live owner as
+// ErrNoConnection. Dialing what this function returns is dialing a process that
+// may be gone.
+//
+// What is left for this one is observing the table as such, independently of
+// liveness. Its callers today are this package's specs, including the one that
+// holds the two reads apart, and the e2e cluster spec that watches ownership
+// move between replicas. No production caller reads it, and the sweeper is not
+// one: ReapStale deletes orphans with a set difference in SQL.
 func (r *Registry) OwnerRow(ctx context.Context, nodeID string) (string, int64, error) {
 	var conn NodeConnection
 	err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).First(&conn).Error
@@ -210,12 +216,23 @@ func (r *Registry) OwnerRow(ctx context.Context, nodeID string) (string, int64, 
 // relaying to a replica the sweeper has already declared dead, or give up on
 // one the sweeper is still keeping.
 func (r *Registry) Owner(ctx context.Context, nodeID string) (string, int64, error) {
+	// Refused rather than attempted, for the reason Claim refuses: now() and
+	// make_interval are PostgreSQL, so on the single-binary SQLite path this
+	// would fail with "no such function: now", which reads as a missing
+	// migration. It is deliberately not ErrNoConnection. A deployment with no
+	// cluster has no answer to give about who owns a tunnel, and reporting
+	// absence would let a caller conclude the worker is not connected.
+	if !isPostgres(r.db) {
+		return "", 0, fmt.Errorf("looking up live owner of node %q: connection ownership requires PostgreSQL, this deployment runs on %q", nodeID, r.db.Dialector.Name())
+	}
 	var conn NodeConnection
 	err := r.db.WithContext(ctx).
 		Model(&NodeConnection{}).
-		// Only the connection's own columns are selected: the join exists to
-		// filter, and SELECT * across it would hand gorm the instances columns
-		// to scan into a NodeConnection.
+		// Not load-bearing: gorm already expands this model's own columns,
+		// table-qualified, when a join is present and nothing was selected
+		// (callbacks.BuildQuerySQL). Written out so the projection is a
+		// property of this query rather than of that behaviour, since the join
+		// is here to filter and the row scanned back must stay this table's.
 		Select("node_connections.*").
 		Joins("JOIN instances ON instances.id = node_connections.owner_instance_id AND "+instanceIsLive, InstanceLiveness.Seconds()).
 		Where("node_connections.node_id = ?", nodeID).
