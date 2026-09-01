@@ -371,9 +371,7 @@ func (t *Tunnel) accept(ctx context.Context, stream net.Conn) (net.Conn, bool) {
 
 	local, err := svc(ctx, target)
 	if err != nil {
-		// An INFRASTRUCTURE failure, which a frontend may retry, and which must
-		// never be reported as the unknown tag above.
-		t.refuse(stream, fmt.Errorf("%w: %v", cluster.ErrStreamTargetUnavailable, err))
+		t.refuse(stream, classifyServiceFailure(err))
 		return nil, false
 	}
 
@@ -387,6 +385,26 @@ func (t *Tunnel) accept(ctx context.Context, stream net.Conn) (net.Conn, bool) {
 		return nil, false
 	}
 	return local, true
+}
+
+// classifyServiceFailure decides which refusal a local service's error is.
+//
+// A service that has ALREADY classified its own failure keeps that
+// classification. loopbackService does, and the distinction is not cosmetic: a
+// target outside this worker's backend port range is a request this worker will
+// never serve, while a backend that is not listening yet is a condition that
+// clears on its own. Reporting the first as the second tells a frontend to
+// retry something that can never work; reporting the second as the first makes
+// it give up on a backend that is merely starting.
+//
+// Anything unclassified is infrastructure, because that is what an unadorned
+// dial failure is, and it must never become the unknown-tag refusal: a tag this
+// worker serves does not stop being served because one dial failed.
+func classifyServiceFailure(err error) error {
+	if errors.Is(err, cluster.ErrStreamRequestInvalid) {
+		return err
+	}
+	return fmt.Errorf("%w: %v", cluster.ErrStreamTargetUnavailable, err)
 }
 
 // refuse reports why a stream will not be served and then ENDS it.
@@ -567,22 +585,59 @@ func tunnelEndpoint(frontendURL, nodeID string) (string, error) {
 //
 // The port range is the one the worker's own port allocator hands to backend
 // processes, so a stream cannot be pointed at some unrelated service that
-// happens to be listening on this host.
+// happens to be listening on this host. It is only as tight as the allocator's
+// range, which by default runs to 65535; a deployment that wants it narrow sets
+// LOCALAI_GRPC_MAX_PORT, which narrows both at once.
+//
+// Note the SHAPE, not only the checks. Nothing derived from the wire reaches
+// the dialler: the address is built from the loopbackHost constant and from
+// strconv.Itoa of an int this function validated, so `target` itself has no
+// path to DialContext at all. Relaxing this into an arbitrary-host dialler
+// therefore takes ADDING a data flow rather than deleting a check, which is the
+// difference between a guard and a property. It has specs either way; the shape
+// is what stops a plausible refactor from quietly restoring the hole.
 func loopbackService(minPort, maxPort int) LocalService {
 	return func(ctx context.Context, target string) (net.Conn, error) {
 		_, portStr, err := net.SplitHostPort(target)
 		if err != nil {
-			return nil, fmt.Errorf("routing a tunnel stream: %q is not a host:port: %w", target, err)
+			return nil, fmt.Errorf("%w: routing a tunnel stream: %q is not a host:port: %v",
+				cluster.ErrStreamRequestInvalid, target, err)
 		}
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
-			return nil, fmt.Errorf("routing a tunnel stream: %q has no numeric port: %w", target, err)
+			return nil, fmt.Errorf("%w: routing a tunnel stream: %q has no numeric port: %v",
+				cluster.ErrStreamRequestInvalid, target, err)
 		}
 		if port < minPort || port > maxPort {
-			return nil, fmt.Errorf("routing a tunnel stream: port %d is outside this worker's backend range [%d, %d]", port, minPort, maxPort)
+			// Invalid rather than unavailable: no retry can bring a port
+			// outside this worker's own allocator range into it.
+			return nil, fmt.Errorf("%w: routing a tunnel stream: port %d is outside this worker's backend range [%d, %d]",
+				cluster.ErrStreamRequestInvalid, port, minPort, maxPort)
 		}
 		var d net.Dialer
-		return d.DialContext(ctx, "tcp", net.JoinHostPort("127.0.0.1", portStr))
+		return d.DialContext(ctx, "tcp", net.JoinHostPort(loopbackHost, strconv.Itoa(port)))
+	}
+}
+
+// loopbackHost is the only host any tunnel stream is ever dialled on. It is a
+// constant so that "the worker dials itself and nothing else" is a fact about
+// the code rather than a claim about its inputs.
+const loopbackHost = "127.0.0.1"
+
+// tunnelServices builds the routing table the worker installs on its tunnel.
+//
+// It exists as its own function so the table can be specced. The table is the
+// security boundary of this whole feature, and building it inline in Run left
+// it reachable only by starting a worker, which meant it was covered by nothing
+// and an arbitrary-host regression passed the entire suite.
+func tunnelServices(cfg *Config, httpBindAddr string) map[string]LocalService {
+	basePort := cfg.effectiveBasePort()
+	return map[string]LocalService{
+		// The frontend names a backend process by its port; the worker decides
+		// that only its own loopback, and only within its own backend port
+		// range, is reachable through it.
+		cluster.StreamTagGRPC: loopbackService(basePort, cfg.effectiveMaxPort(basePort)),
+		cluster.StreamTagHTTP: fixedService(loopbackAddr(httpBindAddr)),
 	}
 }
 
@@ -611,7 +666,7 @@ func loopbackAddr(bindAddr string) string {
 		return bindAddr
 	}
 	if host == "" || host == "0.0.0.0" || host == "::" || host == "[::]" {
-		return net.JoinHostPort("127.0.0.1", port)
+		return net.JoinHostPort(loopbackHost, port)
 	}
 	return bindAddr
 }

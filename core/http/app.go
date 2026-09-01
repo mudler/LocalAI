@@ -609,8 +609,17 @@ func API(application *application.Application) (*echo.Echo, error) {
 			// credential at registration whether or not one is configured. What
 			// is missing is the gate in FRONT of that. With no registration
 			// token, RegisterNodeEndpoint validates nothing, so anyone who can
-			// reach this frontend can register a node and be handed a working
-			// tunnel credential for it.
+			// reach this frontend can register a node and be issued a tunnel
+			// credential for it.
+			//
+			// How far that gets them depends on the OTHER knob. With
+			// auto-approve on, the node is healthy at once and the credential
+			// works immediately. With it off, the node is pending, and the
+			// tunnel route refuses a pending node on every dial, so the
+			// credential is inert until an admin approves it and approval is
+			// the real gate. Worth stating precisely, because the same commit
+			// argues exactly this distinction three files away to justify
+			// minting for pending nodes at all.
 			//
 			// This warning replaced one that said the opposite, that tunnels
 			// would refuse every dial without this token. That was true while
