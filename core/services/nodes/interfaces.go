@@ -2,6 +2,9 @@ package nodes
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -137,20 +140,96 @@ type NodeManager interface {
 	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
 }
 
-// BackendClientFactory creates gRPC backend clients.
+// WorkerDialerFor hands back the dial function for one worker's backend
+// processes: the shape grpc.WithContextDialer wants, bound to a node.
+//
+// It is declared here rather than taken as a core/services/cluster type so that
+// this package keeps no dependency on that one. cluster is a leaf and imports
+// neither this package nor core/http; the wiring in core/application supplies
+// (*cluster.WorkerDialer).GRPCDialerFor, which has exactly this shape.
+type WorkerDialerFor func(nodeID string) func(ctx context.Context, addr string) (net.Conn, error)
+
+// WorkerNetDialerFor hands back the dial function for one worker's own HTTP
+// server, in the shape http.Transport.DialContext and websocket.Dialer's
+// NetDialContext want. (*cluster.WorkerDialer).DialerFor bound to the http tag
+// has this shape.
+type WorkerNetDialerFor func(nodeID string) func(ctx context.Context, network, addr string) (net.Conn, error)
+
+// ErrNoWorkerDialer reports that something tried to reach a worker without a
+// way to reach it through the worker's tunnel.
+//
+// It is deliberately an ERROR and not a fallback to dialling the worker's
+// advertised address. A worker that holds a tunnel need not listen on anything
+// and may be behind NAT with no address to dial, so the fallback would work
+// only where the tunnel was not needed: on a single-host developer setup, and
+// nowhere the feature exists for. It is also not an absence error: nothing
+// about it says the worker is gone.
+var ErrNoWorkerDialer = errors.New("nodes: no worker tunnel dialer is configured, so this worker cannot be reached")
+
+// BackendClientFactory creates the gRPC clients this frontend uses to reach
+// model backends running on worker nodes.
+//
+// There is ONE method, and that is the design rather than an omission. A
+// direct-dial constructor alongside it would be reachable from every call site
+// that has an address, which is all of them, and the whole of this change is
+// that having an address is no longer enough to reach a backend. Callers that
+// genuinely want a raw address call pkg/grpc directly and are visible as such.
 type BackendClientFactory interface {
-	NewClient(address string, parallel bool) grpc.Backend
+	// NewClientForNode reaches a backend process running on a WORKER, through
+	// that worker's tunnel. address names WHICH process on the worker; it is
+	// not somewhere this process connects to.
+	//
+	// It returns an error rather than a client that falls back to a direct
+	// dial, so that a deployment with no tunnel dialer fails where the mistake
+	// is instead of quietly reopening the bypass.
+	NewClientForNode(nodeID, address string, parallel bool) (grpc.Backend, error)
 }
 
-// tokenClientFactory is the default BackendClientFactory that creates gRPC
-// clients with an optional bearer token for distributed auth.
+// tokenClientFactory is the BackendClientFactory for a deployment with no
+// worker tunnel dialer, which is a misconfiguration rather than a mode. It
+// refuses every request, loudly, and reaches no worker.
+//
+// It exists so that the components that take a factory have something to hold
+// when none was wired, instead of a nil they would have to guard at every use.
 type tokenClientFactory struct {
 	token string
 }
 
-func (f *tokenClientFactory) NewClient(address string, parallel bool) grpc.Backend {
-	if f.token != "" {
-		return grpc.NewClientWithToken(address, parallel, nil, false, f.token)
+// NewClientForNode refuses. See ErrNoWorkerDialer for why this is not a direct
+// dial to address. The token this factory carries is the one a working dialer
+// would have used, kept only so the misconfiguration is repairable by wiring a
+// dialer rather than by also re-plumbing credentials.
+func (f *tokenClientFactory) NewClientForNode(nodeID, address string, _ bool) (grpc.Backend, error) {
+	return nil, fmt.Errorf("reaching backend %q on node %q: %w", address, nodeID, ErrNoWorkerDialer)
+}
+
+// tunnelClientFactory reaches a worker's backend processes through the worker's
+// tunnel, and is what every distributed deployment uses.
+type tunnelClientFactory struct {
+	token   string
+	dialFor WorkerDialerFor
+}
+
+// NewTunnelClientFactory returns the factory that reaches worker backends
+// through dialFor. A nil dialFor is refused rather than degraded: this
+// constructor exists to close the direct-dial bypass, and one that silently
+// handed back a direct-dialling factory would reopen it for the whole process.
+func NewTunnelClientFactory(token string, dialFor WorkerDialerFor) (BackendClientFactory, error) {
+	if dialFor == nil {
+		return nil, fmt.Errorf("building the worker backend client factory: %w", ErrNoWorkerDialer)
 	}
-	return grpc.NewClient(address, parallel, nil, false)
+	return &tunnelClientFactory{token: token, dialFor: dialFor}, nil
+}
+
+func (f *tunnelClientFactory) NewClientForNode(nodeID, address string, parallel bool) (grpc.Backend, error) {
+	if nodeID == "" {
+		// Without a node there is no tunnel to pick, and the only thing left to
+		// do with the address would be to dial it.
+		return nil, fmt.Errorf("reaching backend %q: no node id: %w", address, ErrNoWorkerDialer)
+	}
+	dial := f.dialFor(nodeID)
+	if dial == nil {
+		return nil, fmt.Errorf("reaching backend %q on node %q: %w", address, nodeID, ErrNoWorkerDialer)
+	}
+	return grpc.NewClientWithDialer(address, parallel, nil, false, f.token, dial), nil
 }

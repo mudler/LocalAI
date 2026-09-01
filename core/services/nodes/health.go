@@ -48,7 +48,11 @@ type HealthMonitor struct {
 // NewHealthMonitor creates a new HealthMonitor.
 // If db is non-nil (PostgreSQL), an advisory lock is used so that only one
 // frontend instance runs health checks at a time in distributed mode.
-// If clientFactory is nil, a default factory using the given authToken is used.
+// clientFactory is what reaches a worker's backends, over that worker's tunnel.
+// Omitting it (or passing nil) leaves the monitor with a factory that refuses
+// every request, so per-model probes are skipped and logged rather than counted
+// as misses; authToken is then only the credential a working factory would have
+// carried. Production always passes one.
 func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, staleThreshold time.Duration, authToken string, perModelHealthCheck bool, clientFactory ...BackendClientFactory) *HealthMonitor {
 	checkInterval = cmp.Or(checkInterval, 15*time.Second)
 	staleThreshold = cmp.Or(staleThreshold, 60*time.Second)
@@ -184,7 +188,18 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				if m.Address == "" || m.Address == node.Address {
 					continue
 				}
-				mClient := hm.clientFactory.NewClient(m.Address, false)
+				// Through the node's tunnel, never a direct dial to m.Address:
+				// that address is a port inside the worker. A worker this
+				// replica cannot reach is not evidence that its backend died,
+				// so the miss counter is left alone and the row survives;
+				// counting it as a miss would reap live models across the whole
+				// fleet the moment the tunnel wiring was wrong.
+				mClient, err := hm.clientFactory.NewClientForNode(node.ID, m.Address, false)
+				if err != nil {
+					xlog.Error("Skipping model health probe: no way to reach the worker",
+						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)
+					continue
+				}
 				mCheckCtx, mCancel := context.WithTimeout(ctx, 5*time.Second)
 				ok, _ := mClient.HealthCheck(mCheckCtx)
 				mCancel()

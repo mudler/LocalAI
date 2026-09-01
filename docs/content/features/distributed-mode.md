@@ -143,6 +143,37 @@ A stream naming a tag the worker does not serve, a target outside that port rang
 
 Reconnects use exponential backoff with jitter: the interval doubles from 500ms up to a ceiling of 30 seconds, and each wait is drawn between half of that interval and all of it, so no worker ever spins and a fleet that lost the same replica does not come back in lockstep. The interval returns to its floor only after a session that lasted at least 30 seconds. That last part is what stops a rolling frontend restart, where every dial succeeds and then dies moments later, from turning a fleet of workers into a retry storm against the first replica back up. A worker that is refused (`401`, `403`) keeps retrying on the same schedule rather than exiting: a re-registration or an admin approval fixes both without restarting it.
 
+#### What the frontend sends through it
+
+Every connection the frontend makes to a worker now goes through that worker's tunnel. There are three, and all three are the same path underneath:
+
+| What | Protocol | Stream tag |
+|------|----------|-----------|
+| Inference, model load, health checks | gRPC to a backend process | `grpc` |
+| Model file staging, backend-log listing | HTTP to the worker's own server | `http` |
+| Live backend-log streaming | WebSocket to the same server | `http` |
+
+The address the frontend holds for a backend (the per-replica port a worker reports after an install) is still what identifies it, and it is still what appears in logs and errors. What it no longer is, is somewhere the frontend connects to: it travels inside the tunnel as the stream's target, and the worker decides what to do with it.
+
+A frontend with no way to reach a worker says so and fails. It does **not** fall back to connecting to the worker's advertised address. That fallback is what the tunnel exists to remove, and it is the kind of defect that works on a one-replica developer box and fails in production, so it is an error everywhere. The consequences are deliberately narrow: a model whose worker cannot be reached is not reaped, and its row is left alone, because a frontend that cannot reach a worker has learned nothing about whether that worker is still running the model.
+
+#### Reaching a worker another replica holds
+
+A worker's tunnel lands on exactly one replica, so with N replicas behind a load balancer roughly (N-1)/N of requests arrive somewhere else. Those requests are relayed: the replica that received the request looks up the owner in `node_connections`, **joined against the live `instances` rows**, opens a stream on its peer link to that owner, and the owner splices it onto the worker's tunnel. One hop, never two; a stale ownership row is answered with a routing refusal and the dialling replica resolves the owner again rather than being sent round a loop.
+
+The dialling replica states how much time its own client has left in the frame that opens the relayed stream, and the owner bounds its work by the smaller of that and its own 15s ceiling. Neither number can lengthen the other: a patient client cannot park the owning replica, and an impatient one cannot be kept waiting on a budget it did not ask for.
+
+Four outcomes are kept apart on purpose, because they call for different actions:
+
+| Outcome | What it means | What acts on it |
+|---|---|---|
+| No live owner | No replica holds this worker's tunnel | The worker is treated as absent; its models can be rescheduled |
+| Not the owner | The routing was stale | Resolve the owner again |
+| Peer unreachable | A replica exists and will not answer | Retry |
+| The worker refused | The worker answered and said no | Report; the worker is connected |
+
+Only the first is absence. The others are never reported as it, and that is not a stylistic preference: a scheduler told that a connected worker has gone away reclaims every model it is running.
+
 Set `LOCALAI_WORKER_TUNNEL=false` on a worker to turn the tunnel off and go back to the frontend dialling the worker's advertised addresses.
 
 ### The model load deadline scales with the checkpoint

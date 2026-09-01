@@ -50,6 +50,17 @@ func waitForSingleLogSubscriber(logStore *model.BackendLogStore, modelID string)
 		Should(Equal(1), "the WebSocket handler never subscribed to %q exactly once", modelID)
 }
 
+// directWorkerDialerFor stands in for the worker tunnel in these specs.
+//
+// The log-proxy endpoints reach a worker over the tunnel that worker holds, and
+// refuse to reach one without a dialer. These specs run the worker's HTTP
+// server on loopback, so a plain TCP dial is the stand-in; production supplies
+// the real one from core/application.
+func directWorkerDialerFor(_ string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	var d net.Dialer
+	return d.DialContext
+}
+
 var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func() {
 
 	Context("Worker HTTP log endpoints", func() {
@@ -370,7 +381,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 			// Create an Echo test server with the proxy endpoint
 			e := echo.New()
-			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token))
+			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token, directWorkerDialerFor))
 
 			req := httptest.NewRequest("GET", fmt.Sprintf("/api/nodes/%s/backend-logs", node.ID), nil)
 			rec := httptest.NewRecorder()
@@ -392,7 +403,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			e := echo.New()
-			e.GET("/api/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, token))
+			e.GET("/api/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, token, directWorkerDialerFor))
 
 			req := httptest.NewRequest("GET", fmt.Sprintf("/api/nodes/%s/backend-logs/remote-model", node.ID), nil)
 			rec := httptest.NewRecorder()
@@ -409,7 +420,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 		It("should return 404 for unknown node ID", func() {
 			e := echo.New()
-			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token))
+			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token, directWorkerDialerFor))
 
 			req := httptest.NewRequest("GET", "/api/nodes/nonexistent-id/backend-logs", nil)
 			rec := httptest.NewRecorder()
@@ -453,7 +464,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 			// Start Echo server with the WebSocket proxy route
 			e := echo.New()
-			e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, token))
+			e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, token, directWorkerDialerFor))
 
 			lis, err := net.Listen("tcp", "127.0.0.1:0")
 			Expect(err).ToNot(HaveOccurred())

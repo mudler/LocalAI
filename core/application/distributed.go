@@ -67,6 +67,14 @@ type DistributedServices struct {
 	// loop, which re-claims what it holds after this replica has been reaped,
 	// and to the route that accepts a worker's dial.
 	Tunnels *cluster.TunnelRegistry
+	// WorkerDialer is how anything in this process reaches a worker: locally
+	// when this replica holds the tunnel, and through the owning replica when
+	// it does not. The HTTP layer takes its WebSocket log proxy from here.
+	WorkerDialer *cluster.WorkerDialer
+	// BackendClients builds the gRPC clients for worker backend processes, over
+	// WorkerDialer. Exposed so the model store built in startup.go reaches
+	// remote models the same way every other caller does.
+	BackendClients nodes.BackendClientFactory
 
 	shutdownOnce sync.Once
 }
@@ -254,6 +262,22 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// peer route checks (see RegisterClusterRoutes); two different tokens here
 	// would make every peer dial 401 with nothing naming the mismatch.
 	peers := cluster.NewPeerPool(cfg.Distributed.InstanceID, cfg.Distributed.RegistrationToken, clusterRegistry)
+	// The one door to every worker. Nothing in the frontend may dial a worker's
+	// advertised address any more: a worker holds ONE tunnel, it lands on ONE
+	// replica, and this resolves which replica that is and relays through it
+	// when it is not this one. The three transports the frontend speaks to a
+	// worker (gRPC to backend processes, HTTP for file staging and logs, a
+	// WebSocket for live log streaming) are all pointed at it below.
+	workerDialer := cluster.NewWorkerDialer(tunnels, peers)
+	backendClients, err := nodes.NewTunnelClientFactory(cfg.Distributed.RegistrationToken, workerDialer.GRPCDialerFor)
+	if err != nil {
+		return nil, fmt.Errorf("wiring the worker backend client factory: %w", err)
+	}
+	// Bound to the http tag: the worker ignores the target for it and routes to
+	// its own file-transfer and log server, wherever that bound.
+	workerHTTPDialer := nodes.WorkerNetDialerFor(func(nodeID string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return workerDialer.DialerFor(nodeID, cluster.StreamTagHTTP)
+	})
 
 	// Let scheduling rules be keyed by a model alias. The registry resolves a
 	// rule's name through the config loader to find the model it governs, so an
@@ -295,6 +319,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		cfg.Distributed.StaleNodeThresholdOrDefault(),
 		routerAuthToken,
 		!cfg.Distributed.DisablePerModelHealthCheck,
+		backendClients,
 	)
 
 	// Initialize job store
@@ -354,7 +379,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 				return "", fmt.Errorf("node %s has no HTTP address for file transfer", nodeID)
 			}
 			return node.HTTPAddress, nil
-		}, cfg.Distributed.RegistrationToken)
+		}, cfg.Distributed.RegistrationToken, workerHTTPDialer)
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}
 	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
@@ -456,6 +481,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		FileStager:       fileStager,
 		GalleriesJSON:    routerGalleriesJSON,
 		AuthToken:        routerAuthToken,
+		ClientFactory:    backendClients,
 		DB:               authDB,
 		ConflictResolver: conflictResolver,
 		PrefixProvider:   prefixProvider,
@@ -514,6 +540,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Unloader:          remoteUnloader,
 		Adapter:           remoteUnloader,
 		RegistrationToken: cfg.Distributed.RegistrationToken,
+		ClientFactory:     backendClients,
 		DB:                authDB,
 		Interval:          30 * time.Second,
 		ScaleDownDelay:    5 * time.Minute,
@@ -527,27 +554,29 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	success = true
 	return &DistributedServices{
-		Nats:         natsClient,
-		Store:        store,
-		Registry:     registry,
-		Router:       router,
-		Health:       healthMon,
-		Reconciler:   reconciler,
-		JobStore:     jobStore,
-		Dispatcher:   dispatcher,
-		AgentStore:   agentStore,
-		AgentBridge:  agentBridge,
-		DistStores:   distStores,
-		FileMgr:      fileMgr,
-		FileStager:   fileStager,
-		ModelAdapter: modelAdapter,
-		Unloader:     remoteUnloader,
-		ModelCleanup: modelCleanup,
-		Cluster:      clusterRegistry,
-		Membership:   membership,
-		PeerSessions: peerSessions,
-		Peers:        peers,
-		Tunnels:      tunnels,
+		Nats:           natsClient,
+		Store:          store,
+		Registry:       registry,
+		Router:         router,
+		Health:         healthMon,
+		Reconciler:     reconciler,
+		JobStore:       jobStore,
+		Dispatcher:     dispatcher,
+		AgentStore:     agentStore,
+		AgentBridge:    agentBridge,
+		DistStores:     distStores,
+		FileMgr:        fileMgr,
+		FileStager:     fileStager,
+		ModelAdapter:   modelAdapter,
+		Unloader:       remoteUnloader,
+		ModelCleanup:   modelCleanup,
+		Cluster:        clusterRegistry,
+		Membership:     membership,
+		PeerSessions:   peerSessions,
+		Peers:          peers,
+		Tunnels:        tunnels,
+		WorkerDialer:   workerDialer,
+		BackendClients: backendClients,
 	}, nil
 }
 

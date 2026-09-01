@@ -740,7 +740,7 @@ type fakeProber struct {
 	calls    int
 }
 
-func (f *fakeProber) Probe(_ context.Context, address string) ProbeOutcome {
+func (f *fakeProber) Probe(_ context.Context, _, address string) ProbeOutcome {
 	f.calls++
 	if f.outcomes == nil {
 		return ProbeUnreachable

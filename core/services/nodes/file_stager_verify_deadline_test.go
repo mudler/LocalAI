@@ -65,7 +65,7 @@ var _ = Describe("staging verify phase and the cold-load stall window", func() {
 				return "", err
 			}
 			return u.Host, nil
-		}, "")
+		}, "", directNetDialerFor)
 	}
 
 	It("survives a run of verified-and-skipped shards that upload no bytes at all", func() {

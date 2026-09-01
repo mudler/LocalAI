@@ -285,6 +285,46 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("MarkUnhealthy")))
 		})
 
+		It("probes a model through its NODE, never by dialling the stored address", func() {
+			// The address on a NodeModel row is a port inside the worker. This
+			// frontend reaches it over the worker's tunnel, so the node has to
+			// be part of every probe; a probe built from the address alone is
+			// the direct dial the tunnel replaces.
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-tun", "tun-worker", "10.0.0.20:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-tun", NodeModel{NodeID: "node-tun", ModelName: "m", Address: "10.0.0.20:50053"})
+
+			hm.doCheckAll(context.Background())
+			Expect(factory.nodesSeen()).To(ContainElement("node-tun"))
+		})
+
+		It("leaves a model row alone when it cannot reach the worker at all", func() {
+			// Not a miss. A frontend with no way to reach a worker has learned
+			// nothing about that worker's backends, and counting it as a failed
+			// probe would reap every model in the fleet the moment the tunnel
+			// wiring broke.
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			factory.refuseForNode = fmt.Errorf("no tunnel for you")
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-cut", "cut-worker", "10.0.0.21:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-cut", NodeModel{NodeID: "node-cut", ModelName: "m", Address: "10.0.0.21:50053"})
+
+			for i := 0; i < perModelMissThreshold+1; i++ {
+				hm.doCheckAll(context.Background())
+			}
+			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("RemoveNodeModel")))
+			Expect(store.getNode("node-cut").Status).To(Equal(StatusHealthy))
+		})
+
 		It("preserves model row when an intermittent failure is followed by a success", func() {
 			store := newFakeNodeHealthStore()
 			factory := newFakeBackendClientFactory()

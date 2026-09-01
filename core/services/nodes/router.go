@@ -393,7 +393,10 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		}
 	}
 
-	client := r.buildClientForAddr(node, backendAddr, parallel)
+	client, err := r.buildClientForAddr(node, backendAddr, parallel)
+	if err != nil {
+		return nil, fmt.Errorf("building a client for model %q on node %q: %w", modelName, node.ID, err)
+	}
 
 	// Load the model on the remote node
 	if loadOpts != nil {
@@ -721,7 +724,20 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	replicaIdx := nm.ReplicaIndex
 
 	// Verify the backend process is still alive via gRPC health check
-	if !r.probeHealth(ctx, node, modelAddr) {
+	alive, probed := r.probeHealth(ctx, node, modelAddr)
+	if !probed {
+		// Nothing was asked, so nothing was learned. The row is left exactly
+		// as it was: removing it would reclaim a model that is loaded and
+		// healthy on a worker this frontend merely cannot reach right now. The
+		// reservation is released, and the cold path below reports the wiring
+		// fault with the detail a caller needs.
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release a reservation for an unreachable worker",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		return nil
+	}
+	if !alive {
 		// Stale — roll back the increment, remove the specific replica row, fall through
 		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
 			xlog.Warn("Failed to release stale routing reservation",
@@ -753,7 +769,20 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	// call finishes, so in-flight returns to 0 when idle.
 	r.registry.TouchNodeModel(ctx, node.ID, att.trackingKey, replicaIdx)
 	r.observePrefix(att.trackingKey, att.observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
-	grpcClient := r.buildClientForAddr(node, modelAddr, att.parallel)
+	grpcClient, err := r.buildClientForAddr(node, modelAddr, att.parallel)
+	if err != nil {
+		// The probe above builds a client for the same node and would have
+		// reported !probed, so reaching here means the dialer stopped being
+		// able to serve this node between the two. Handled the same way and for
+		// the same reason: release the reservation, leave the row alone.
+		if relErr := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); relErr != nil {
+			xlog.Warn("Failed to release a reservation for an unreachable worker",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", relErr)
+		}
+		xlog.Error("Cannot build a client for a loaded model: no way to reach the worker",
+			"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		return nil
+	}
 	tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, att.trackingKey, replicaIdx)
 	return r.newRouteResult(node, att.trackingKey, replicaIdx, grpcClient, tracked)
 }
@@ -1343,14 +1372,25 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	}
 }
 
-func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {
-	client := r.clientFactory.NewClient(addr, parallel)
+// buildClientForAddr builds the gRPC client for a backend process running on a
+// worker node.
+//
+// addr is a port INSIDE the worker, reached over the tunnel that worker holds;
+// connecting to it from here would only work for a worker that still listens on
+// a routable address. The factory offers no way to do that, and an error is
+// returned rather than a direct-dialling client for the reason
+// ErrNoWorkerDialer gives.
+func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) (grpc.Backend, error) {
+	client, err := r.clientFactory.NewClientForNode(node.ID, addr, parallel)
+	if err != nil {
+		return nil, err
+	}
 
 	// Wrap with file staging if configured
 	if r.fileStager != nil {
-		return NewFileStagingClient(client, r.fileStager, node.ID)
+		return NewFileStagingClient(client, r.fileStager, node.ID), nil
 	}
-	return client
+	return client, nil
 }
 
 // stageModelFiles uploads model files to the backend node via the FileStager.
@@ -1885,6 +1925,13 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // via a gRPC health check with a 2-second timeout. The client is closed after
 // the check.
 //
+// TWO results, not one. alive is what the backend said; probed is whether it
+// was asked at all. They are separate because the caller REAPS on a dead probe,
+// and a frontend that cannot reach a worker has observed nothing about that
+// worker's backends: folding the two would delete every replica row in the
+// deployment the moment the tunnel wiring was wrong, while the models carried
+// on running.
+//
 // The result is memoized in r.probeCache for probeCacheTTL. With per-request
 // routing every inference call lands here, and unbounded re-probing can stall
 // behind a busy backend that serializes HealthCheck against active Predict.
@@ -1892,16 +1939,27 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // burst of N requests for a cold cache costs at most one round-trip, not N.
 // Failed probes invalidate the cache so the staleness recovery path
 // (DecrementInFlight + RemoveNodeModel) still triggers on the next request.
-func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) bool {
+//
+// The client is built OUTSIDE the memoized closure, which is what keeps an
+// unreachable worker out of the cache entirely: DoOrCached only ever sees a
+// real answer. Building it costs a struct and no I/O, since the gRPC client
+// dials lazily on its first call.
+func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) (alive, probed bool) {
+	client, err := r.buildClientForAddr(node, addr, false)
+	if err != nil {
+		xlog.Error("Cannot probe a model backend: no way to reach the worker",
+			"node", node.ID, "address", addr, "error", err)
+		return false, false
+	}
+	defer closeClient(client)
+
 	key := node.ID + "|" + addr
 	return r.probeCache.DoOrCached(key, func() bool {
-		client := r.buildClientForAddr(node, addr, false)
-		defer closeClient(client)
 		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 		ok, _ := client.HealthCheck(checkCtx)
 		return ok
-	})
+	}), true
 }
 
 // closeClient closes a gRPC backend client if it implements io.Closer.

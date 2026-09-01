@@ -283,9 +283,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 		// Wire ModelRouter so grpcModel() delegates to SmartRouter in distributed mode
 		application.modelLoader.SetModelRouter(distSvc.ModelAdapter.AsModelRouter())
 		// Wire DistributedModelStore so shutdown/list/watchdog can find remote models
+		// The client factory is not optional here. Without it the store builds
+		// remote models with no client, and pkg/model.Model.GRPC then dials the
+		// worker's raw address with gRPC's own dialer, which is the direct dial
+		// the tunnel replaces; ShutdownModel's Free and the backend monitor's
+		// Status both reach it.
 		distStore := nodes.NewDistributedModelStore(
 			model.NewInMemoryModelStore(),
 			distSvc.Registry,
+			distSvc.BackendClients,
 		)
 		application.modelLoader.SetModelStore(distStore)
 		// Drop the local stub when a model's last replica leaves the registry.
