@@ -100,6 +100,22 @@ environment:
 
 The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_REGISTRATION_TOKEN`, the same shared secret workers register with. Replicas that disagree about it cannot link. A replica that stops heartbeating for 30 seconds is dropped from the table by the others, along with the worker-connection rows it owned.
 
+### Worker tunnels
+
+A worker can open one long-lived, multiplexed tunnel to the frontend instead of listening on a port of its own. It dials `GET /api/cluster/connect?id=<node id>`, the connection is upgraded to a WebSocket, and every subsequent request the frontend makes to that worker travels as a stream inside it. Nothing dials *into* the worker, so a worker behind NAT, in another Kubernetes cluster or on a laptop needs no inbound port and no reachable address.
+
+The dial is authenticated against **that node's own stored token**, not the deployment-wide registration token: the frontend hashes the presented bearer token and compares it with the hash recorded on the node's row at registration. A worker that presents a token belonging to no node, or names a node ID the frontend has never seen, is refused with `401` before the WebSocket upgrade happens. A frontend that cannot read its node table answers `500` rather than `401`, so a worker retries instead of re-registering under a new identity.
+
+One honest caveat about that today: a worker currently registers by presenting the deployment's registration token, so the hash stored on its row *is* that token's hash, and a leaked registration token plus a known node ID still gets a tunnel. What the tunnel endpoint does not do is trust the configured token directly, so when workers are issued their own secrets at registration the isolation becomes real with no change to this route.
+
+The tunnel lands on exactly one frontend replica, and that replica records itself as the owner of the worker's connection in the `node_connections` table. When the socket dies the claim is dropped with it. If the replica stalls long enough for its peers to reap it, it re-claims every tunnel it still holds as soon as it re-registers.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/cluster/connect?id=<node id>` | Worker opens its multiplexed tunnel (`Authorization: Bearer <the worker's own token>`) |
+
+The route is exempt from the normal session/API-key authentication (it authenticates itself, like `/api/cluster/peer`) and is registered in every deployment. Outside distributed mode there is no node table to check a token against, so it answers `503`.
+
 ### The model load deadline scales with the checkpoint
 
 The `LoadModel` deadline starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint read and pipeline init. That work is proportional to the bytes on disk, which makes any fixed deadline a model-size cliff rather than a timeout: a 70 GB video checkpoint on a Jetson Thor worker failed reproducibly against the old fixed 5m default (`rpc error: code = DeadlineExceeded` after 953.5s of wall clock, roughly 11m of which was backend install and staging), and simply raising the constant would only move the cliff to the next larger model while making a genuinely wedged *small* model hang for the whole inflated duration.
@@ -485,6 +501,8 @@ Used by workers themselves (registration, heartbeat, etc.). Authenticated via th
 | `POST` | `/api/node/:id/drain` | Mark self as draining |
 | `GET` | `/api/node/:id/models` | Query own loaded models |
 | `DELETE` | `/api/node/:id` | Deregister self |
+
+The worker tunnel at `GET /api/cluster/connect` is also worker-facing but is authenticated differently: against the node's own stored token rather than the shared registration token. See [Worker tunnels](#worker-tunnels).
 
 ### `/api/nodes/` - Admin management
 

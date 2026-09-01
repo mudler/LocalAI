@@ -56,6 +56,11 @@ type DistributedServices struct {
 	Membership *cluster.Membership
 	// PeerSessions owns the peer links other replicas dialled into this one.
 	PeerSessions *cluster.SessionStore
+	// Tunnels holds the worker tunnels this replica has accepted and keeps the
+	// node_connections table agreeing with them. It is handed to the membership
+	// loop, which re-claims what it holds after this replica has been reaped,
+	// and to the route that accepts a worker's dial.
+	Tunnels *cluster.TunnelRegistry
 
 	shutdownOnce sync.Once
 }
@@ -206,6 +211,26 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		if err := membership.Start(cfg.Context); err != nil {
 			return nil, fmt.Errorf("registering this replica in the cluster: %w", err)
 		}
+	}
+
+	// The worker tunnels this replica accepts. It claims as the SAME instance
+	// ID membership registers under, because that is the ID a peer's Owner
+	// lookup joins a claim against to decide the owner is alive; two IDs here
+	// would make every claim this replica writes look like it belongs to a
+	// replica that does not exist.
+	tunnels := cluster.NewTunnelRegistry(clusterRegistry, cfg.Distributed.InstanceID)
+	// Without this the re-claim in the heartbeat loop is dead code: a replica
+	// stalled long enough to be swept loses the connection rows it owned, and
+	// nothing would ever write them back, so every other replica would answer
+	// "not connected" for workers that are connected right here.
+	//
+	// Nil when no peer-reachable address could be determined above. There is no
+	// heartbeat loop to hand it to in that case, and no other replica can reach
+	// this one anyway; the registry is still built, because it is what the
+	// tunnel endpoint attaches to and what this replica opens its own streams
+	// through.
+	if membership != nil {
+		membership.SetTunnels(tunnels)
 	}
 
 	// Let scheduling rules be keyed by a model alias. The registry resolves a
@@ -499,6 +524,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Cluster:      clusterRegistry,
 		Membership:   membership,
 		PeerSessions: peerSessions,
+		Tunnels:      tunnels,
 	}, nil
 }
 
