@@ -37,6 +37,12 @@ type node struct {
 	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Status string `json:"status"`
+	// Address and HTTPAddress are what a PRE-TUNNEL worker advertised. A worker
+	// running this release sends neither, which is the fact the tunnel specs
+	// assert on: with nothing advertised there is no address a frontend could
+	// have dialled instead of the tunnel.
+	Address     string `json:"address"`
+	HTTPAddress string `json:"http_address"`
 }
 
 // requireBinaries reports whether a missing binary must fail the spec instead of
@@ -220,6 +226,19 @@ func (p *rosterProbe) idOf(name string) string {
 		if n.Name == name {
 			return n.ID
 		}
+	}
+	return ""
+}
+
+// advertisementOf returns whatever endpoints the roster last reported a node
+// advertising, joined for a failure message. Empty means the node published
+// none, which is what a worker on this release does.
+func (p *rosterProbe) advertisementOf(name string) string {
+	for _, n := range p.lastSeen {
+		if n.Name != name {
+			continue
+		}
+		return strings.TrimSpace(strings.Join([]string{n.Address, n.HTTPAddress}, " "))
 	}
 	return ""
 }
