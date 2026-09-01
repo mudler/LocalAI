@@ -103,8 +103,20 @@ const (
 	peerLinkMaxWindow = 32 * 1024 * 1024
 )
 
-// peerLinkConfig returns the yamux configuration for a replica-to-replica link.
-func peerLinkConfig() *yamux.Config {
+// PeerLinkConfig returns the yamux configuration for a replica-to-replica link.
+//
+// Exported because BOTH ENDS need it and only one of them lives here. A yamux
+// receive window is advertised by the side that RECEIVES, so a link configured
+// on the dialler alone is tuned in exactly one direction: bytes travelling from
+// the accepting replica back to the dialler get these windows, and bytes
+// travelling the other way get yamux's defaults. The other way is the one that
+// carries a relayed model artifact to the replica that owns the worker's
+// tunnel, which is the largest thing this link ever moves.
+//
+// A fresh config per call, never a shared one: yamux keeps the pointer for the
+// life of the session, and two sessions sharing one struct would share whatever
+// a future field on it comes to mean.
+func PeerLinkConfig() *yamux.Config {
 	cfg := yamux.DefaultConfig()
 	cfg.InitialStreamWindowSize = peerLinkInitialWindow
 	cfg.MaxStreamWindowSize = peerLinkMaxWindow
@@ -183,9 +195,9 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 		if err == nil {
 			return st, nil
 		}
-		// A caller whose own context expired must not cost every other worker
+		// A caller whose own budget expired must not cost every other worker
 		// its link: the session is fine, this request is not.
-		if ctxErr := ctx.Err(); ctxErr != nil {
+		if ctxErr := callerRanOut(ctx); ctxErr != nil {
 			return nil, ctxErr
 		}
 		// A session that died between calls is the common case, not an
@@ -202,10 +214,10 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 		// the peer, which may be listening and perfectly healthy. Blaming it
 		// would let one impatient client get a good replica routed around.
 		//
-		// This also swallows a genuine ErrInstanceNotFound when the context
+		// This also swallows a genuine ErrInstanceNotFound when the budget
 		// happened to expire at the same moment, which is the safe direction:
 		// a timeout must never be able to manufacture absence.
-		if ctxErr := ctx.Err(); ctxErr != nil {
+		if ctxErr := callerRanOut(ctx); ctxErr != nil {
 			return nil, ctxErr
 		}
 		return nil, err
@@ -216,7 +228,7 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 		// The peer answered and completed a handshake but will not carry a
 		// stream, which is a transport condition and never absence.
 		_ = sess.Close()
-		if ctxErr := ctx.Err(); ctxErr != nil {
+		if ctxErr := callerRanOut(ctx); ctxErr != nil {
 			return nil, ctxErr
 		}
 		return nil, unreachablePeer(peerID, err)
@@ -224,6 +236,41 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 
 	l.sess = sess
 	return st, nil
+}
+
+// callerRanOut reports whether the CALLER's budget is what ended an attempt,
+// and is the one place that question is answered.
+//
+// ctx.Err() alone is not that question, and the difference is a real
+// misclassification rather than a nicety. A dial carries the caller's deadline
+// down to the socket, so when the budget runs out the socket's own timer fires
+// and the error travels back up through the WebSocket handshake and the
+// multiplexer. The context's cancellation is a SEPARATE timer whose func has to
+// be run by the scheduler before ctx.Err() stops returning nil, and nothing
+// orders the two. Under contention the socket's error can be back here first,
+// ctx.Err() reads nil, and a peer that is listening and healthy is reported as
+// ErrPeerUnreachable to a caller that simply ran out of time.
+//
+// That is the exact confusion this package refuses everywhere else: an
+// unreachable peer is a fact about the peer that a caller may act on, and an
+// expired deadline is a fact about the caller that it may not. The wall clock
+// settles it without waiting for a goroutine, because the deadline is the same
+// instant the socket compared itself against: if the socket's timer fired, this
+// comparison is past it too.
+//
+// A context with no deadline falls through to ctx.Err(), which is the whole
+// answer for cancellation: a Canceled context has already had its error set by
+// the caller of cancel, with no timer in between.
+func callerRanOut(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// Not time.Now().After: a failure at exactly the deadline is the caller's
+	// too, and the ambiguous instant is resolved towards never blaming a peer.
+	if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+		return context.DeadlineExceeded
+	}
+	return nil
 }
 
 // link returns the per-peer entry, creating it on first use.
@@ -300,7 +347,7 @@ func (p *PeerPool) dial(ctx context.Context, peerID string) (*yamux.Session, err
 
 	// Client side of the mux: the dialling replica owns the odd stream IDs,
 	// matching the yamux.Server the peer handler puts on its end.
-	sess, err := yamux.Client(WebsocketConn(ws), peerLinkConfig(), nil)
+	sess, err := yamux.Client(WebsocketConn(ws), PeerLinkConfig(), nil)
 	if err != nil {
 		_ = ws.Close()
 		return nil, unreachablePeer(peerID, err)
