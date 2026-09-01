@@ -3,11 +3,14 @@ package distributed_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"time"
 
 	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
+
+	"github.com/libp2p/go-yamux/v5"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +36,17 @@ const (
 	// peerDialTimeout bounds one peer dial. Every replica here is a local
 	// process, so a dial that needs longer has failed, not slowed.
 	peerDialTimeout = 20 * time.Second
+
+	// gracefulDepartureTimeout bounds the wait for a cleanly stopped replica to
+	// leave the table. It must stay well under InstanceLiveness, which the spec
+	// asserts: a budget that reached the window would pass on the sweeper doing
+	// the work and prove nothing about deregistration.
+	gracefulDepartureTimeout = 15 * time.Second
+
+	// peerRefusalTimeout bounds how long a refused stream may take to end. It
+	// is short on purpose: the refusal is one frame from a replica that has
+	// already decided, so a stream still open at this point is parked.
+	peerRefusalTimeout = 5 * time.Second
 )
 
 // openClusterDB connects to the database the cluster was given, so a spec can
@@ -166,16 +180,16 @@ var _ = Describe("Cluster peer link", Label("Distributed"), Label("Cluster"), fu
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = stream.Close() })
 
-		// Phase 1 installs no relay, so the accepted stream is refused at once.
-		// What matters here is that the refusal arrives: a replica that held
-		// the session without accepting on it would leave this read parked
-		// until the deadline, which is the failure mode a live cluster would
-		// experience as every relayed request hanging.
-		Expect(stream.SetReadDeadline(time.Now().Add(peerDialTimeout))).To(Succeed())
+		// Phase 1 installs no relay, so the accepted stream must be refused at
+		// once: an ENDING (EOF from the peer's Close, or a reset), not merely
+		// an error. A replica that accepted the stream and then left it parked
+		// would fail this read too, but with yamux's ErrTimeout, and that is
+		// the failure a live cluster experiences as every relayed request
+		// hanging until its own deadline.
+		Expect(stream.SetReadDeadline(time.Now().Add(peerRefusalTimeout))).To(Succeed())
 		_, err = stream.Read(make([]byte, 1))
-		Expect(err).To(HaveOccurred(),
-			"the peer accepted the stream and then neither answered nor closed it")
-		Expect(err).ToNot(MatchError(context.DeadlineExceeded))
+		Expect(err).To(SatisfyAny(MatchError(io.EOF), MatchError(yamux.ErrStreamReset)),
+			"the peer accepted the stream and then neither answered nor ended it: %v", err)
 
 		// The same dial with the wrong credentials must be refused, otherwise
 		// the success above says nothing about authentication.
@@ -185,6 +199,38 @@ var _ = Describe("Cluster peer link", Label("Distributed"), Label("Cluster"), fu
 		Expect(err).To(MatchError(clustersvc.ErrPeerUnreachable))
 		Expect(err).ToNot(MatchError(clustersvc.ErrInstanceNotFound),
 			"a peer refusing credentials is a live peer; reading it as absence is how a replica evicts healthy workers")
+	})
+
+	It("stops being dialled as soon as a replica shuts down cleanly", func() {
+		// The crash case below is handled by the sweeper, at the cost of a
+		// whole liveness window of peers dialling a corpse. A rolling update is
+		// not a crash: the replica knows it is leaving and says so. Without
+		// deregistration the two are indistinguishable, and every rolling
+		// restart spends that window failing peer dials for no reason.
+		c, dsn := startClusterOnFreshDB(2, 0)
+
+		roster := newInstanceRoster(openClusterDB(dsn))
+		awaitReplicas(roster, hostPortOf(c.FrontendURL(0)), hostPortOf(c.FrontendURL(1)))
+		departingID := roster.idAt(hostPortOf(c.FrontendURL(1)))
+		Expect(departingID).ToNot(BeEmpty())
+
+		Expect(c.StopFrontendGracefully(1)).To(Succeed())
+		Eventually(func() bool { return c.FrontendAlive(1) }, "20s", "500ms").Should(BeFalse())
+
+		// The budget is deliberately shorter than the liveness window: passing
+		// it proves the replica announced its departure rather than aged out.
+		Expect(gracefulDepartureTimeout).To(BeNumerically("<", clustersvc.InstanceLiveness))
+		Eventually(roster.addresses, gracefulDepartureTimeout, instanceRosterPoll).
+			Should(ConsistOf(hostPortOf(c.FrontendURL(0))), roster.describe)
+
+		// And absence is the RIGHT answer here, unlike the killed case: the
+		// replica said it was going. A caller may act on this.
+		ctx, cancel := context.WithTimeout(context.Background(), peerDialTimeout)
+		defer cancel()
+		pool := clustersvc.NewPeerPool("e2e-peer", c.RegistrationToken(), roster.registry)
+		DeferCleanup(pool.Close)
+		_, err := pool.Open(ctx, departingID)
+		Expect(err).To(MatchError(clustersvc.ErrInstanceNotFound))
 	})
 
 	It("reports a killed replica as unreachable, reaps what it owned, and evicts no worker", func() {
@@ -248,15 +294,17 @@ var _ = Describe("Cluster peer link", Label("Distributed"), Label("Cluster"), fu
 		Eventually(roster.addresses, deadReplicaTimeout, instanceRosterPoll).
 			Should(ConsistOf(hostPortOf(c.FrontendURL(0))), roster.describe)
 		ownerErr := func() error {
-			_, _, err := roster.registry.Owner(ctx, workerID)
+			_, _, err := roster.registry.OwnerRow(ctx, workerID)
 			return err
 		}
 		Eventually(ownerErr, deadReplicaTimeout, instanceRosterPoll).
 			Should(MatchError(clustersvc.ErrNoConnection),
 				"the claim held by a replica that no longer exists was never reaped")
 
-		// And the worker itself is untouched throughout. Nothing about a peer
-		// dying may reach the node roster.
+		// And the worker survives the sweep that removed its owner. This is a
+		// window after the reaping, not a watch over the whole scenario:
+		// Consistently starts here, so what it rules out is the sweep, or
+		// anything reacting to it, taking the worker with it.
 		Consistently(probe.healthyNames, "6s", "1s").
 			Should(ContainElement(c.WorkerName(0)), probe.describe)
 	})

@@ -161,9 +161,22 @@ func (r *Registry) Claim(ctx context.Context, nodeID, ownerID string) (int64, er
 	return epoch, nil
 }
 
-// Owner returns the replica that holds nodeID's tunnel and the epoch of that
-// claim, or ErrNoConnection when the node has no recorded connection.
-func (r *Registry) Owner(ctx context.Context, nodeID string) (string, int64, error) {
+// OwnerRow returns the row recording which replica holds nodeID's tunnel, and
+// the epoch of that claim, or ErrNoConnection when the node has no recorded
+// connection.
+//
+// It answers "what does the table say", NOT "who holds this tunnel". The owner
+// it names may be dead: a replica that dies stops heartbeating, and its rows
+// survive until another replica's sweep removes them, which is up to
+// InstanceLiveness plus one InstanceHeartbeat later. Any caller that ACTS on
+// the answer must join instances itself and treat a non-live owner as
+// ErrNoConnection; relaying to the row without that check is relaying into a
+// process that is gone.
+//
+// The name says row on purpose, so that the joining version can take the plain
+// name when phase 2 introduces the first caller that needs it. Nothing in
+// phase 1 reads this outside tests, which is why the join is not here yet.
+func (r *Registry) OwnerRow(ctx context.Context, nodeID string) (string, int64, error) {
 	var conn NodeConnection
 	err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).First(&conn).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

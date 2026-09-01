@@ -509,8 +509,21 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 // is only a peer-reachable answer when the database is on another host;
 // DiscoverAdvertisedAddr refuses rather than guessing when it is not.
 func advertisedPeerAddr(cfg *config.ApplicationConfig) (string, error) {
-	if cfg.Distributed.AdvertiseAddr != "" {
-		return cfg.Distributed.AdvertiseAddr, nil
+	if configured := cfg.Distributed.AdvertiseAddr; configured != "" {
+		// A configured address skips discovery, so it also skips every check
+		// discovery makes. Unusable is refused; merely questionable (a
+		// loopback address, correct on one host and wrong on three) is said
+		// once and honoured, because refusing it would refuse single-host
+		// deployments that use it correctly.
+		reason, err := cluster.CheckAdvertisedAddr(configured)
+		if err != nil {
+			return "", err
+		}
+		if reason != "" {
+			xlog.Warn("Configured peer address is not one another host can dial",
+				"address", configured, "reason", reason, "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
+		}
+		return configured, nil
 	}
 	if cfg.APIAddress == "" {
 		return "", fmt.Errorf("no API address to derive a peer port from")

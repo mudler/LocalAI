@@ -1,6 +1,7 @@
 package cluster_test
 
 import (
+	"io"
 	"net"
 	"time"
 
@@ -29,6 +30,11 @@ func yamuxPair() (client *yamux.Session, server *yamux.Session) {
 	return client, server
 }
 
+// refusalDeadline bounds how long a refused stream may take to end. A refusal
+// is one frame from a peer that already decided, so anything near this is the
+// hang it exists to detect.
+const refusalDeadline = 2 * time.Second
+
 var _ = Describe("Accepted peer sessions", func() {
 	It("accepts and refuses a stream rather than leaving the peer parked", func() {
 		// yamux only acknowledges a stream once the far side accepts it, so a
@@ -43,9 +49,15 @@ var _ = Describe("Accepted peer sessions", func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = stream.Close() })
 
-		Expect(stream.SetReadDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
+		// The deadline is short and is NOT the thing being asserted: yamux
+		// reports a deadline as ErrTimeout, and requiring an ending instead
+		// (EOF from the peer's Close, or a reset) is what separates "refused"
+		// from "parked". An earlier version asserted only that some error
+		// arrived, which a parked stream satisfies just as well.
+		Expect(stream.SetReadDeadline(time.Now().Add(refusalDeadline))).To(Succeed())
 		_, err = stream.Read(make([]byte, 1))
-		Expect(err).To(HaveOccurred(), "a refused stream must end, not hang")
+		Expect(err).To(SatisfyAny(MatchError(io.EOF), MatchError(yamux.ErrStreamReset)),
+			"a refused stream must END within %s; %v means the peer accepted it and then left it parked", refusalDeadline, err)
 	})
 
 	It("hands a stream to the relay when one is installed", func() {
