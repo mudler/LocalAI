@@ -80,8 +80,13 @@ jobs:
             coverage/coverage.out
             coverage/coverage.html
           if-no-files-found: ignore
+      # tmate keeps the runner busy until the 6 hour job limit, so a single
+      # failure costs a whole runner slot. Only open a session when someone
+      # asked for one by labelling the pull request `ci-debug`, and cap the
+      # session so a forgotten label cannot idle a runner either.
       - name: Setup tmate session if tests fail
-        if: ${{ failure() }}
+        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        timeout-minutes: 30
         uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
@@ -125,8 +130,13 @@ jobs:
           export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
           PATH="$PATH:$HOME/go/bin" make protogen-go
           PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target test
+      # tmate keeps the runner busy until the 6 hour job limit, so a single
+      # failure costs a whole runner slot. Only open a session when someone
+      # asked for one by labelling the pull request `ci-debug`, and cap the
+      # session so a forgotten label cannot idle a runner either.
       - name: Setup tmate session if tests fail
-        if: ${{ failure() }}
+        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        timeout-minutes: 30
         uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
