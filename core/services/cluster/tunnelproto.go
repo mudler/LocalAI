@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 )
 
 // The framing every stream on a worker tunnel opens with.
@@ -154,10 +155,7 @@ func WriteStreamRefusal(w io.Writer, reason error) error {
 		}, reason.Error())
 	}
 	frame := replyPrefixRefused + code + streamRequestSeparator + text
-	if len(frame) > maxTunnelFrame {
-		frame = frame[:maxTunnelFrame]
-	}
-	return writeFrame(w, frame)
+	return writeFrame(w, truncateRunes(frame, maxTunnelFrame))
 }
 
 // ReadStreamReply reads the worker's answer. nil means the stream is now
@@ -194,6 +192,30 @@ func ReadStreamReply(r io.Reader) error {
 		// retry forever against a refusal that means something else entirely.
 		return fmt.Errorf("tunnel stream refused with unrecognised code %q: %s", code, text)
 	}
+}
+
+// truncateRunes cuts s to at most limit BYTES, on a rune boundary.
+//
+// A plain slice would cut mid-rune and put a lone continuation byte on the
+// wire. Nothing breaks: the frame is length-prefixed so the framing survives,
+// and the reader's string() tolerates invalid UTF-8. What it costs is the
+// far side's log line ending in a replacement character, and a refusal reason
+// exists to be read by a person, so it should not arrive damaged.
+//
+// The code that reaches this is always short; only a cause from a local service
+// can be long enough to matter.
+func truncateRunes(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	cut := limit
+	// utf8.RuneStart finds the first byte of a rune. Walking back from the
+	// limit lands on the start of the rune that would have been split, and at
+	// most 3 steps are needed since a UTF-8 rune is at most 4 bytes.
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }
 
 // writeFrame writes one length-prefixed frame in a single Write.
