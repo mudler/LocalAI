@@ -54,8 +54,14 @@ type DistributedServices struct {
 	// peer-reachable address could be determined, which leaves this replica
 	// invisible to its peers but otherwise fully functional.
 	Membership *cluster.Membership
-	// PeerSessions owns the peer links other replicas dialled into this one.
+	// PeerSessions owns the peer links other replicas dialled into this one,
+	// and relays the streams that arrive on them onto the worker tunnels this
+	// replica holds.
 	PeerSessions *cluster.SessionStore
+	// Peers owns the peer links this replica dialled OUT, the mirror of
+	// PeerSessions. It is what the relaying dialer opens a stream on when a
+	// request arrives here for a worker another replica holds.
+	Peers *cluster.PeerPool
 	// Tunnels holds the worker tunnels this replica has accepted and keeps the
 	// node_connections table agreeing with them. It is handed to the membership
 	// loop, which re-claims what it holds after this replica has been reaped,
@@ -80,6 +86,13 @@ func (ds *DistributedServices) Shutdown() {
 		}
 		if ds.PeerSessions != nil {
 			ds.PeerSessions.CloseAll()
+		}
+		// Both halves of the peer mesh go down together. A pool left open
+		// holds a WebSocket and two yamux loop goroutines per peer for as long
+		// as the process lives, and an Open after this reports ErrPoolClosed,
+		// which is a fact about this process and never node absence.
+		if ds.Peers != nil {
+			ds.Peers.Close()
 		}
 		if ds.Health != nil {
 			ds.Health.Stop()
@@ -193,10 +206,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Replica membership. NewNodeRegistry has just migrated the tables this
 	// reads, so it has to come after it.
 	clusterRegistry := cluster.NewRegistry(authDB)
-	// Accepted peer links are held with no stream handler: this replica has
-	// somewhere to put a link a peer dials, and refuses the streams on it,
-	// because nothing relays worker traffic yet.
-	peerSessions := cluster.NewSessionStore(nil)
 	var membership *cluster.Membership
 	if advertised, err := advertisedPeerAddr(cfg); err != nil {
 		// Not fatal. A replica that cannot publish an address still serves
@@ -232,6 +241,19 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if membership != nil {
 		membership.SetTunnels(tunnels)
 	}
+
+	// The links peers dial IN, with the relay installed on them. This is what
+	// makes more than one replica work: a worker holds one tunnel, it lands on
+	// one replica, and every request that arrives anywhere else reaches the
+	// worker through this handler. Passing nil here would leave every such
+	// request refused, promptly and only at debug level, which presents as a
+	// worker that is connected and unusable from most of the deployment.
+	peerSessions := cluster.NewSessionStore(cluster.NewRelay(tunnels).Stream)
+	// The links this replica dials OUT, the other half of the same mesh. It
+	// authenticates with the registration token because that is the token the
+	// peer route checks (see RegisterClusterRoutes); two different tokens here
+	// would make every peer dial 401 with nothing naming the mismatch.
+	peers := cluster.NewPeerPool(cfg.Distributed.InstanceID, cfg.Distributed.RegistrationToken, clusterRegistry)
 
 	// Let scheduling rules be keyed by a model alias. The registry resolves a
 	// rule's name through the config loader to find the model it governs, so an
@@ -524,6 +546,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Cluster:      clusterRegistry,
 		Membership:   membership,
 		PeerSessions: peerSessions,
+		Peers:        peers,
 		Tunnels:      tunnels,
 	}, nil
 }

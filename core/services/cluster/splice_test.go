@@ -172,8 +172,12 @@ var _ = Describe("Splice", func() {
 			Entry("a closed yamux stream", yamux.ErrStreamClosed),
 			Entry("a reset yamux stream", yamux.ErrStreamReset),
 			Entry("a shut-down yamux session", yamux.ErrSessionShutdown),
-			Entry("a stream reset by the remote", &yamux.StreamError{ErrorCode: 1, Remote: true}),
-			Entry("a go-away from the remote", yamux.ErrRemoteGoAway),
+			// The LOCAL forms of the two endings the relay settled below. They
+			// stay normal because they are the teardown this side asked for,
+			// and Remote is the only thing separating them from the endings a
+			// peer inflicts.
+			Entry("a stream this side reset", &yamux.StreamError{ErrorCode: 0, Remote: false}),
+			Entry("a go-away this side sent", &yamux.GoAwayError{ErrorCode: 0, Remote: false}),
 		)
 
 		// sessionDeath is the exact shape Session.close hands every live
@@ -205,6 +209,14 @@ var _ = Describe("Splice", func() {
 			Entry("a peer that vanished", sessionDeath(io.EOF)),
 			Entry("a protocol-error go-away", &yamux.GoAwayError{Remote: true, ErrorCode: 1}),
 			Entry("an internal-error go-away", &yamux.GoAwayError{Remote: true, ErrorCode: 2}),
+			// The two endings phase 1 left open and the relay, Splice's first
+			// production caller, settled as failures. Both truncate whatever
+			// was in flight, and reporting them as normal termination is how a
+			// half-finished inference comes to look like a short one that
+			// completed. See isMuxFailure for why the decision could not be
+			// left to a caller reading Splice's result.
+			Entry("a stream the peer reset", &yamux.StreamError{ErrorCode: 1, Remote: true}),
+			Entry("a graceful go-away from the peer", yamux.ErrRemoteGoAway),
 		)
 
 		// A bare io.EOF can only reach Splice from a failing Write. io.Copy
