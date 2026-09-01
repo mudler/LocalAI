@@ -16,11 +16,16 @@ package worker
 //
 // Model loading (LoadModel) is always via direct gRPC — no NATS needed for that.
 type Config struct {
-	// Primary address — the reachable address of this worker.
-	// Host is used for advertise, port is the base for gRPC backends.
-	// HTTP file transfer runs on port-1.
-	Addr      string `env:"LOCALAI_ADDR" help:"Address where this worker is reachable (host:port). Port is base for gRPC backends, port-1 for HTTP." group:"server"`
-	ServeAddr string `env:"LOCALAI_SERVE_ADDR" default:"0.0.0.0:50051" help:"(Advanced) gRPC base port bind address" group:"server" hidden:""`
+	// Addr and ServeAddr are read for their PORT only. A worker binds nothing
+	// on a routable interface: backend processes and the file-transfer server
+	// both listen on loopback and are reached through this worker's outbound
+	// tunnel. The port still matters because it is the base of the backend
+	// port range (and port-1 is the HTTP server), so an operator who needs a
+	// different range sets it here. The host half is ignored, and is kept
+	// accepted rather than rejected so an upgraded worker starts on the
+	// environment it already had.
+	Addr      string `env:"LOCALAI_ADDR" help:"Base port for this worker, as host:port; only the port is used. Backends take ports upward from it, the HTTP file-transfer server takes port-1. Nothing binds a routable interface." group:"server"`
+	ServeAddr string `env:"LOCALAI_SERVE_ADDR" default:"0.0.0.0:50051" help:"(Advanced) gRPC base port; only the port is used" group:"server" hidden:""`
 
 	// GRPCMaxPort bounds the dynamic gRPC port allocator at [basePort, this].
 	// The width of that range is how many backend processes this worker can run
@@ -46,12 +51,11 @@ type Config struct {
 	// anyway; the master can still push the file on demand (existing behaviour).
 	PrefetchModels []string `env:"LOCALAI_PREFETCH_MODELS,PREFETCH_MODELS" help:"Comma-separated gallery model IDs to download from LOCALAI_GALLERIES at worker boot (e.g. 'llama-3.2-1b-instruct,phi-3-mini-4k'). Skipped if already on disk and SHA matches." group:"server"`
 
-	// HTTP file transfer
-	HTTPAddr          string `env:"LOCALAI_HTTP_ADDR" default:"" help:"HTTP file transfer server address (default: gRPC port + 1)" group:"server" hidden:""`
-	AdvertiseHTTPAddr string `env:"LOCALAI_ADVERTISE_HTTP_ADDR" help:"HTTP address the frontend uses to reach this node for file transfer" group:"server" hidden:""`
+	// HTTPAddr binds the HTTP file-transfer server. Default is loopback on
+	// basePort-1; an explicit value is bound exactly as given.
+	HTTPAddr string `env:"LOCALAI_HTTP_ADDR" default:"" help:"HTTP file transfer server bind address (default: loopback on the gRPC base port - 1)" group:"server" hidden:""`
 
 	// Registration (required)
-	AdvertiseAddr           string `env:"LOCALAI_ADVERTISE_ADDR" help:"Address the frontend uses to reach this node (defaults to hostname:port from Addr)" group:"registration" hidden:""`
 	RegisterTo              string `env:"LOCALAI_REGISTER_TO" required:"" help:"Frontend URL for registration" group:"registration"`
 	NodeName                string `env:"LOCALAI_NODE_NAME" help:"Node name for registration (defaults to hostname)" group:"registration"`
 	RegistrationToken       string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token for authenticating with the frontend" group:"registration"`

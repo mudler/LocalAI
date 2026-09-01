@@ -483,7 +483,7 @@ func (r *SmartRouter) cleanupStaleLoad(ctx context.Context, node *BackendNode, m
 	}
 	replica, err := r.registry.GetNodeModel(context.WithoutCancel(ctx), node.ID, modelName, replicaIndex)
 	if err != nil {
-		replica = &NodeModel{NodeID: node.ID, ModelName: modelName, ReplicaIndex: replicaIndex, Address: address, State: "unloading", ConfigRevision: revision, EffectiveOptionsHash: hash}
+		replica = &NodeModel{NodeID: node.ID, ModelName: modelName, ReplicaIndex: replicaIndex, WorkerLocalAddress: address, State: "unloading", ConfigRevision: revision, EffectiveOptionsHash: hash}
 	}
 	r.modelCleanup.Cleanup(context.WithoutCancel(ctx), []NodeModel{*replica}, false)
 }
@@ -592,9 +592,13 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 
 // RouteResult contains the routing decision.
 type RouteResult struct {
-	Node    *BackendNode
-	Client  grpc.Backend
-	Release func() // Must be called when the request is done (decrements in-flight)
+	Node   *BackendNode
+	Client grpc.Backend
+	// WorkerLocalAddress is where the routed replica's backend process listens
+	// on its worker. Carried so callers that record or log where a model went
+	// name the process rather than the node, which has no address.
+	WorkerLocalAddress string
+	Release            func() // Must be called when the request is done (decrements in-flight)
 }
 
 // Route finds the best node for the given model and backend type.
@@ -717,11 +721,24 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	if err != nil || node == nil {
 		return nil
 	}
-	modelAddr := node.Address
-	if nm.Address != "" {
-		modelAddr = nm.Address
-	}
+	modelAddr := nm.WorkerLocalAddress
 	replicaIdx := nm.ReplicaIndex
+
+	// A replica row that does not name its backend process cannot be routed
+	// to. There is no node address left to stand in for it, and naming an
+	// empty target would make the worker refuse the stream as invalid: a
+	// refusal that reads as the worker answering about its backend, which is
+	// evidence this row is not entitled to produce. Fall through to a cold
+	// load, which either replaces the row or reports a real failure.
+	if modelAddr == "" {
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release a reservation for an unnamed replica",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		xlog.Warn("Loaded replica row names no backend process; cold-loading instead",
+			"node", node.ID, "model", att.trackingKey, "replica", replicaIdx)
+		return nil
+	}
 
 	// Verify the backend process is still alive via gRPC health check
 	alive, probed := r.probeHealth(ctx, node, modelAddr)
@@ -784,7 +801,7 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 		return nil
 	}
 	tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, att.trackingKey, replicaIdx)
-	return r.newRouteResult(node, att.trackingKey, replicaIdx, grpcClient, tracked)
+	return r.newRouteResult(node, modelAddr, att.trackingKey, replicaIdx, grpcClient, tracked)
 }
 
 // coldLoad schedules the model onto a node and loads it, returning a route to
@@ -801,7 +818,7 @@ func (r *SmartRouter) coldLoad(ctx context.Context, att *routeAttempt, initialIn
 	r.observePrefix(att.trackingKey, att.observeChain, prefixcache.ReplicaKey{NodeID: result.Node.ID, Replica: result.ReplicaIndex})
 
 	tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, att.trackingKey, result.ReplicaIndex)
-	return r.newRouteResult(result.Node, att.trackingKey, result.ReplicaIndex, result.Client, tracked), nil
+	return r.newRouteResult(result.Node, result.BackendAddr, att.trackingKey, result.ReplicaIndex, result.Client, tracked), nil
 }
 
 // newColdLoadContext builds the detached, progress-extended context a cold load
@@ -1354,12 +1371,16 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 		if !reply.Success {
 			return "", fmt.Errorf("worker replied with error: %s", reply.Error)
 		}
-		// Return the backend's gRPC address (per-replica port from worker)
-		addr := reply.Address
-		if addr == "" {
-			addr = node.Address // fallback to node base address
+		// Where the backend process listens on that worker. There is no node
+		// address to fall back to any more, and there should not be: a worker
+		// that reports success without naming the port it started the process
+		// on has told us nothing routable, and inventing a target would surface
+		// later as the worker refusing an invalid stream, which reads as
+		// evidence about the backend rather than about this install.
+		if reply.WorkerLocalAddress == "" {
+			return "", fmt.Errorf("worker %s reported backend %q installed but named no address for the process", node.ID, backendType)
 		}
-		return addr, nil
+		return reply.WorkerLocalAddress, nil
 	})
 	select {
 	case <-ctx.Done():
@@ -1992,7 +2013,7 @@ func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr s
 // disconnect, handler error, validation failure after load) previously left
 // in_flight pinned at 1 forever, and every eviction query requires
 // in_flight = 0, so that replica's VRAM could never be reclaimed.
-func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, replicaIdx int, raw grpc.Backend, tracked *InFlightTrackingClient) *RouteResult {
+func (r *SmartRouter) newRouteResult(node *BackendNode, workerLocalAddr, trackingKey string, replicaIdx int, raw grpc.Backend, tracked *InFlightTrackingClient) *RouteResult {
 	var once sync.Once
 	release := func() {
 		once.Do(func() {
@@ -2006,8 +2027,9 @@ func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, repl
 	}
 	tracked.OnFirstComplete(release)
 	return &RouteResult{
-		Node:   node,
-		Client: tracked,
+		Node:               node,
+		Client:             tracked,
+		WorkerLocalAddress: workerLocalAddr,
 		Release: func() {
 			release()
 			closeClient(raw)

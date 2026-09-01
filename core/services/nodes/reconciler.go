@@ -522,14 +522,14 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		switch rc.prober.Probe(ctx, m.NodeID, m.Address) {
+		switch rc.prober.Probe(ctx, m.NodeID, m.WorkerLocalAddress) {
 		case ProbeUnknown:
 			// This frontend could not reach the worker to ask. The streak is
 			// left exactly as it was: neither cleared, which would forgive a
 			// backend that really is dead, nor advanced, which would reap every
 			// model in the fleet the moment the tunnel wiring broke.
 			xlog.Warn("Reconciler: could not probe a model, leaving its row alone",
-				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.WorkerLocalAddress)
 			continue
 		case ProbeAlive:
 			rc.clearProbeFailures(m.ID)
@@ -541,14 +541,14 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			// Reachable but mid-request. Proof of life, so clear the streak.
 			rc.clearProbeFailures(m.ID)
 			xlog.Debug("Reconciler: model busy, skipping liveness reap",
-				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.WorkerLocalAddress)
 			continue
 		}
 
 		failures := rc.recordProbeFailure(m.ID)
 		if failures < probeFailuresBeforeReap {
 			xlog.Debug("Reconciler: model unreachable, waiting for more misses before reaping",
-				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address,
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.WorkerLocalAddress,
 				"failures", failures, "threshold", probeFailuresBeforeReap)
 			continue
 		}
@@ -558,7 +558,7 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 		}
 		rc.clearProbeFailures(m.ID)
 		xlog.Warn("Reconciler: model unreachable, removed from registry",
-			"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address,
+			"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.WorkerLocalAddress,
 			"failures", failures)
 	}
 	rc.pruneProbeFailures(seen)
@@ -613,7 +613,7 @@ func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		if rc.prober.Probe(ctx, m.NodeID, m.Address) != ProbeAlive {
+		if rc.prober.Probe(ctx, m.NodeID, m.WorkerLocalAddress) != ProbeAlive {
 			// Busy or unreachable. Busy means the counter may well be real;
 			// unreachable is the reaper's business, not the sweeper's.
 			rc.clearInFlightIdle(m.ID)

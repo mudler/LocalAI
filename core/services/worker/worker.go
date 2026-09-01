@@ -28,7 +28,7 @@ import (
 // Run starts the distributed agent worker: registers with the frontend,
 // subscribes to NATS lifecycle subjects, and blocks on signals.
 func Run(ctx *cliContext.Context, cfg *Config) error {
-	xlog.Info("Starting worker", "advertise", cfg.advertiseAddr(), "basePort", cfg.effectiveBasePort())
+	xlog.Info("Starting worker", "basePort", cfg.effectiveBasePort())
 
 	// Fail fast (before prefetch/registration/NATS) when enforcement is on but no
 	// registration token is set: the worker's HTTP file-transfer server fails
@@ -113,14 +113,23 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		// second worker registering under this node's name rotates the row's
 		// credential, and this worker then fails every tunnel dial with 401 for
 		// the life of the process. It logs that once per backoff and never
-		// recovers on its own; a restart fixes it, because startup re-registers
-		// unconditionally.
+		// recovers on its own; a restart fixes it only until the other worker
+		// registers again.
 		//
-		// Deliberately NOT fixed here. Re-registering after repeated tunnel
-		// 401s is a decision about the worker's lifecycle, and it belongs with
-		// the change that removes this worker's inbound listeners, when a
-		// worker that cannot tunnel is a worker that cannot be reached at all.
-		// Today it can still be reached at the addresses it advertises.
+		// Still deliberately not auto-re-registered, and now for a concrete
+		// reason rather than a deferral. Register CLEARS this node's NodeModel
+		// rows, on the assumption that a re-registering worker restarted with
+		// nothing loaded, so re-registering on a 401 would delete a live
+		// worker's replica rows on every retry, and under the name collision
+		// that produces the 401 the two workers would take turns doing it
+		// forever. That is a credential failure causing model reclamation,
+		// which is the one outcome this whole design exists to prevent.
+		//
+		// The fix belongs to whichever comes first: a re-auth path that mints a
+		// tunnel credential WITHOUT the rest of registration's side effects, or
+		// a worker identity that is not the operator-chosen name, which is what
+		// would make a collision detectable instead of silent. Until then the
+		// 401 is loud, names both causes, and the operator acts on it.
 		staticTunnelToken := res.TunnelToken
 		tunnelToken = func() string { return staticTunnelToken }
 		connectNats = func() (*messaging.Client, error) {

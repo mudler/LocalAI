@@ -245,7 +245,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			// node should remain healthy because heartbeat is fresh
 			node := makeTestNode("node-crash", "crash-worker", "10.0.0.9:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-crash", NodeModel{NodeID: "node-crash", ModelName: "piper-model", Address: "10.0.0.9:50053"})
+			store.addNodeModel("node-crash", NodeModel{NodeID: "node-crash", ModelName: "piper-model", WorkerLocalAddress: "10.0.0.9:50053"})
 
 			// gRPC backend is dead — but health is heartbeat-based, not gRPC-based
 			factory.setClient("10.0.0.9:50051", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
@@ -265,7 +265,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			node := makeTestNode("node-model", "model-worker", "10.0.0.10:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-model", NodeModel{NodeID: "node-model", ModelName: "piper-model", Address: "10.0.0.10:50053"})
+			store.addNodeModel("node-model", NodeModel{NodeID: "node-model", ModelName: "piper-model", WorkerLocalAddress: "10.0.0.10:50053"})
 
 			// Model backend is dead
 			factory.setClient("10.0.0.10:50053", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
@@ -299,7 +299,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			node := makeTestNode("node-tun", "tun-worker", "10.0.0.20:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-tun", NodeModel{NodeID: "node-tun", ModelName: "m", Address: "10.0.0.20:50053"})
+			store.addNodeModel("node-tun", NodeModel{NodeID: "node-tun", ModelName: "m", WorkerLocalAddress: "10.0.0.20:50053"})
 
 			hm.doCheckAll(context.Background())
 			Expect(factory.nodesSeen()).To(ContainElement("node-tun"))
@@ -318,7 +318,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			node := makeTestNode("node-cut", "cut-worker", "10.0.0.21:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-cut", NodeModel{NodeID: "node-cut", ModelName: "m", Address: "10.0.0.21:50053"})
+			store.addNodeModel("node-cut", NodeModel{NodeID: "node-cut", ModelName: "m", WorkerLocalAddress: "10.0.0.21:50053"})
 
 			for i := 0; i < perModelMissThreshold+1; i++ {
 				hm.doCheckAll(context.Background())
@@ -340,7 +340,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			node := makeTestNode("node-blip", "blip-worker", "10.0.0.22:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-blip", NodeModel{NodeID: "node-blip", ModelName: "m", Address: "10.0.0.22:50053"})
+			store.addNodeModel("node-blip", NodeModel{NodeID: "node-blip", ModelName: "m", WorkerLocalAddress: "10.0.0.22:50053"})
 			factory.setClient("10.0.0.22:50053", &fakeBackendClient{
 				healthy: false,
 				err:     fmt.Errorf("connection error"),
@@ -364,7 +364,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			node := makeTestNode("node-dead", "dead-worker", "10.0.0.23:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-dead", NodeModel{NodeID: "node-dead", ModelName: "m", Address: "10.0.0.23:50053"})
+			store.addNodeModel("node-dead", NodeModel{NodeID: "node-dead", ModelName: "m", WorkerLocalAddress: "10.0.0.23:50053"})
 			// No dialErr: the transport was fine.
 			factory.setClient("10.0.0.23:50053", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
 
@@ -382,7 +382,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			node := makeTestNode("node-flap", "flap-worker", "10.0.0.11:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-flap", NodeModel{NodeID: "node-flap", ModelName: "piper-model", Address: "10.0.0.11:50053"})
+			store.addNodeModel("node-flap", NodeModel{NodeID: "node-flap", ModelName: "piper-model", WorkerLocalAddress: "10.0.0.11:50053"})
 
 			deadClient := &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")}
 			liveClient := &fakeBackendClient{healthy: true}

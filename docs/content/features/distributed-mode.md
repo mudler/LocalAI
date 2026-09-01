@@ -179,14 +179,23 @@ That distinction is the whole point rather than a nicety. A scheduler told that 
 
 #### There is no frontend-side fallback, and upgrade order matters
 
-`LOCALAI_WORKER_TUNNEL=false` still stops a worker dialling its tunnel, but it no longer has a frontend counterpart: after this change **no frontend path dials a worker's advertised address**, so a worker with the tunnel off is a worker the frontend cannot reach. Setting it is not a rollback. The rollback is to run the previous frontend release.
+`LOCALAI_WORKER_TUNNEL=false` still stops a worker dialling its tunnel, but it no longer has a frontend counterpart: **no frontend path dials a worker's advertised address**, and a worker on this release advertises none and listens on no routable interface. A worker with the tunnel off is a worker nothing can reach. Setting it is not a rollback. The rollback is to run the previous release on both sides.
 
 That makes upgrade order matter, in one direction only:
 
-- **Upgrade the workers first, then the frontends.** A worker on the new build dials its tunnel and is reachable by frontends of either version, because the old frontend still dials its advertised address and the worker still listens.
+- **Upgrade the workers first, then the frontends.** A worker on this build dials its tunnel, and a frontend of either version reaches it through that. An old frontend that would have dialled its advertised address no longer gets one, so this order is what keeps the fleet routable throughout.
 - **Upgrading the frontends first** leaves every not-yet-restarted worker unroutable until it restarts. Those workers keep running their models and keep heartbeating, and the frontend reports them as unroutable rather than as gone: their `node_models` rows are left alone, nothing is rescheduled, and requests for those models fail loudly with "no route" until the worker reconnects. It is a degraded window, not an eviction, but it is a window, and doing it the other way round has none.
 
 A worker that cannot reach its frontend retries with exponential backoff and never gives up, so restarting a worker is all that is needed to close the window.
+
+#### Workers bind nothing routable
+
+A worker on this release opens **no inbound listener on a routable interface**. Its backend gRPC processes and its HTTP file-transfer server all bind loopback, and the frontend reaches both through the tunnel. Concretely:
+
+- **No inbound firewall rule, published port, Service or Ingress is needed for a worker.** A worker needs outbound access to the frontend URL (`LOCALAI_REGISTER_TO`) and to NATS (`LOCALAI_NATS_URL`), and nothing else.
+- **`LOCALAI_ADVERTISE_ADDR` and `LOCALAI_ADVERTISE_HTTP_ADDR` are gone.** There is nothing to advertise. Both are ignored if still set; remove them.
+- **`LOCALAI_ADDR` and `LOCALAI_SERVE_ADDR` are read for their port only.** The port is the base of the backend port range, and `port-1` is the HTTP file-transfer port. The host half names an interface nothing binds.
+- The node's `address` and `http_address` fields in `GET /api/nodes` are empty, and are cleared for nodes that reported them before the upgrade.
 
 ### The model load deadline scales with the checkpoint
 
@@ -350,7 +359,9 @@ during installation as well as the committed snapshot.
 {{% /notice %}}
 
 {{% notice warning %}}
-The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
+The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open.
+
+By default the server binds loopback, so "anyone who can reach the port" means a process on the worker host, and no firewall rule is required. Setting `LOCALAI_HTTP_ADDR` to a routable address opts back out of that and puts the fail-open case back on the network - if you do it, firewall the port.
 {{% /notice %}}
 
 ### Watching Backend Installs
@@ -400,11 +411,10 @@ local-ai worker \
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--addr` | `LOCALAI_SERVE_ADDR` | `0.0.0.0:50051` | gRPC listen address |
+| `--addr` | `LOCALAI_ADDR` | *(unset)* | Base port for backend gRPC processes. Only the port is used; nothing binds the host |
+| `--serve-addr` | `LOCALAI_SERVE_ADDR` | `0.0.0.0:50051` | Same, used when `--addr` is unset |
 | `--grpc-max-port` | `LOCALAI_GRPC_MAX_PORT` | `65535` | Highest port the worker may assign to a backend gRPC process. Each backend gets its own port, allocated upward from the base port, so the width of `[base port, this]` caps how many backends this worker can run at once (see [Backend gRPC port range](#backend-grpc-port-range)) |
-| `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
-| `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
-| `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |
+| `--http-addr` | `LOCALAI_HTTP_ADDR` | `127.0.0.1:{gRPC port - 1}` | HTTP file transfer server bind address |
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(required)* | Frontend URL for self-registration |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
@@ -424,14 +434,14 @@ local-ai worker \
 | `--vram-budget` | `LOCALAI_VRAM_BUDGET` | *(empty)* | Cap the VRAM this node advertises for model placement, as a percentage (e.g. `80%`) or an absolute amount (e.g. `12GB`). Empty uses all detected VRAM. See [Per-node VRAM budget](#per-node-vram-budget). |
 
 {{% notice tip %}}
-**Advertise address:** The `--addr` flag is the local bind address for gRPC. The `--advertise-addr` is the address the frontend stores and uses to reach the worker via gRPC. If not set, the worker auto-derives it by replacing `0.0.0.0` with the OS hostname (which in Docker is the container ID, resolvable via Docker DNS). Set `--advertise-addr` explicitly when the auto-detected hostname is not routable from the frontend (e.g., in Kubernetes, use the pod's service DNS name).
+**There is no advertise address.** A worker states no endpoint at registration and binds nothing routable; the frontend reaches it through the tunnel it dials. `--advertise-addr` and `--advertise-http-addr` no longer exist. `--addr` and `--http-addr` remain, and set where the worker listens **locally**: only the port of `--addr` is used, and `--http-addr` binds loopback by default.
 
-**HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
+**HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). It listens on loopback at the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded.
 {{% /notice %}}
 
 ### Worker Health Probes
 
-The worker's HTTP server (base port - 1, default 50050) exposes two unauthenticated probes:
+The worker's HTTP server (loopback, base port - 1, default 50050) exposes two unauthenticated probes. They are reachable from the worker host - which is where a container healthcheck runs - and not from the network:
 
 | Endpoint | Meaning |
 |----------|---------|
@@ -440,34 +450,29 @@ The worker's HTTP server (base port - 1, default 50050) exposes two unauthentica
 
 `/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS — a worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
 
-The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically; no `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only to pin an explicit URL.
+The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically, deriving the port from `LOCALAI_HTTP_ADDR`, else `LOCALAI_ADDR`, else `LOCALAI_SERVE_ADDR`, minus one - the same order the worker itself uses. No `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only when the bind address is passed as a CLI flag rather than an environment variable, or to pin an explicit URL.
 
-### Worker Address Configuration
+### Worker Port Configuration
 
-The simplest way to configure a worker's network address is with a single variable:
+A worker needs no address configuration at all. It binds only loopback and reaches the frontend outbound, so the defaults work behind NAT, in another cluster, or on a laptop:
 
-| Variable | Description |
-|----------|-------------|
-| `LOCALAI_ADDR` | Reachable address of this worker (`host:port`). The port is used as the base for gRPC backend processes, and `port-1` for the HTTP file transfer server. |
-
-**Example:**
 ```yaml
 environment:
-  LOCALAI_ADDR: "192.168.1.100:50051"
   LOCALAI_NATS_URL: "nats://frontend:4222"
   LOCALAI_REGISTER_TO: "http://frontend:8080"
   LOCALAI_REGISTRATION_TOKEN: "my-secret"
 ```
 
-For advanced networking scenarios (NAT, load balancers, separate gRPC/HTTP ports), the following override variables are available:
+Set the variables below only to move the worker's **local** port range - for example when two workers share a host, or when the default range collides with something else. Only the port of each is used; the host half names an interface nothing binds.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LOCALAI_SERVE_ADDR` | gRPC base port bind address | `0.0.0.0:50051` |
+| `LOCALAI_ADDR` | Base port for backend gRPC processes, as `host:port`. `port-1` is the HTTP file-transfer port | *(unset; falls back to `LOCALAI_SERVE_ADDR`)* |
+| `LOCALAI_SERVE_ADDR` | Base port, as above, when `LOCALAI_ADDR` is unset | `0.0.0.0:50051` |
 | `LOCALAI_GRPC_MAX_PORT` | Highest port assignable to a backend gRPC process | `65535` |
-| `LOCALAI_HTTP_ADDR` | HTTP file transfer bind address | `0.0.0.0:{gRPC port - 1}` |
-| `LOCALAI_ADVERTISE_ADDR` | Public gRPC address (if different from `LOCALAI_ADDR`) | Derived from `LOCALAI_ADDR` |
-| `LOCALAI_ADVERTISE_HTTP_ADDR` | Public HTTP address (if different from gRPC host) | Derived from advertise host + HTTP port |
+| `LOCALAI_HTTP_ADDR` | HTTP file transfer bind address. Bound exactly as given, so this is also the way to expose that server deliberately | `127.0.0.1:{base port - 1}` |
+
+`LOCALAI_ADVERTISE_ADDR` and `LOCALAI_ADVERTISE_HTTP_ADDR` no longer exist. They named the endpoint the frontend dialled; nothing dials a worker any more. Remove them.
 
 ### Backend gRPC port range
 

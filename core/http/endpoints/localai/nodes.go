@@ -77,10 +77,14 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name          string `json:"name"`
-	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address       string `json:"address"`
-	HTTPAddress   string `json:"http_address,omitempty"`
+	Name     string `json:"name"`
+	NodeType string `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	// No address and no http_address. A worker has no inbound endpoint to
+	// register: it holds one outbound tunnel to a frontend replica and every
+	// protocol the frontend speaks to it travels on that. An older worker still
+	// sends both keys and they are ignored, which is the intended outcome:
+	// storing them would put a dialable-looking endpoint back in the API for
+	// something nothing dials.
 	Token         string `json:"token,omitempty"`
 	TotalVRAM     uint64 `json:"total_vram,omitempty"`
 	AvailableVRAM uint64 `json:"available_vram,omitempty"`
@@ -142,21 +146,14 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 				fmt.Sprintf("invalid node_type %q; must be %q or %q", nodeType, nodes.NodeTypeBackend, nodes.NodeTypeAgent)))
 		}
 
-		// Backend workers require address; agent workers don't serve gRPC
+		// A backend worker no longer has to state an address; the tunnel it
+		// dials is what makes it reachable, and requiring one here would refuse
+		// exactly the workers this design is for.
 		if req.Name == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "name is required"))
 		}
-		if nodeType == nodes.NodeTypeBackend && req.Address == "" {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "address is required for backend workers"))
-		}
 		if len(req.Name) > 255 {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "name exceeds 255 characters"))
-		}
-		if len(req.Address) > 512 {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "address exceeds 512 characters"))
-		}
-		if len(req.HTTPAddress) > 512 {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "http_address exceeds 512 characters"))
 		}
 
 		// Hash the token for storage (if provided)
@@ -177,8 +174,6 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		node := &nodes.BackendNode{
 			Name:                 req.Name,
 			NodeType:             nodeType,
-			Address:              req.Address,
-			HTTPAddress:          req.HTTPAddress,
 			TokenHash:            tokenHash,
 			TotalVRAM:            req.TotalVRAM,
 			AvailableVRAM:        req.AvailableVRAM,

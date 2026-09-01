@@ -289,7 +289,11 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(errObj["message"]).To(ContainSubstring("exceeds 255 characters"))
 		})
 
-		It("returns 400 when address is missing for backend node type", func() {
+		It("registers a backend worker that states no address", func() {
+			// This used to be a 400. It is the shape every worker now
+			// registers with: it has no inbound endpoint, it holds one outbound
+			// tunnel, and refusing it here would refuse exactly the workers the
+			// tunnel exists for.
 			e := echo.New()
 			body := `{"name":"worker-no-addr"}`
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
@@ -299,13 +303,35 @@ var _ = Describe("Node HTTP handlers", func() {
 
 			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
 			Expect(handler(c)).To(Succeed())
-			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+			Expect(rec.Code).To(Equal(http.StatusCreated))
 
-			var resp map[string]any
-			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
-			errObj, ok := resp["error"].(map[string]any)
-			Expect(ok).To(BeTrue())
-			Expect(errObj["message"]).To(ContainSubstring("address is required"))
+			stored, err := registry.GetByName(context.Background(), "worker-no-addr")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.NodeType).To(Equal(nodes.NodeTypeBackend))
+			Expect(stored.Address).To(BeEmpty())
+			Expect(stored.HTTPAddress).To(BeEmpty())
+		})
+
+		It("stores no address even when a worker still sends one", func() {
+			// An older worker keeps sending both keys. Storing them would put a
+			// dialable-looking endpoint back into the API and the Nodes page for
+			// something nothing dials, and would leave a reader of either one
+			// unsure which workers are reached how.
+			e := echo.New()
+			body := `{"name":"worker-legacy-addr","address":"10.0.0.9:50051","http_address":"10.0.0.9:50050"}`
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusCreated))
+
+			stored, err := registry.GetByName(context.Background(), "worker-legacy-addr")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Address).To(BeEmpty())
+			Expect(stored.HTTPAddress).To(BeEmpty())
 		})
 
 		It("returns 400 when node_type is invalid", func() {

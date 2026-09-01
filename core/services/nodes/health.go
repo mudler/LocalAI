@@ -185,16 +185,22 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		if hm.perModelHealthCheck {
 			models, _ := hm.registry.GetNodeModels(ctx, node.ID)
 			for _, m := range models {
-				if m.Address == "" || m.Address == node.Address {
+				// A row with no address names no backend process, so there is
+				// nothing to probe. The old second arm of this test skipped a
+				// replica whose address equalled the NODE's; a node has no
+				// address any more, so that comparison could only ever be true
+				// for two empty strings and has been dropped rather than left
+				// to read as a live rule.
+				if m.WorkerLocalAddress == "" {
 					continue
 				}
-				// Through the node's tunnel, never a direct dial to m.Address:
+				// Through the node's tunnel, never a direct dial to m.WorkerLocalAddress:
 				// that address is a port inside the worker. A worker this
 				// replica cannot reach is not evidence that its backend died,
 				// so the miss counter is left alone and the row survives;
 				// counting it as a miss would reap live models across the whole
 				// fleet the moment the tunnel wiring was wrong.
-				mClient, err := hm.clientFactory.NewClientForNode(node.ID, m.Address, false)
+				mClient, err := hm.clientFactory.NewClientForNode(node.ID, m.WorkerLocalAddress, false)
 				if err != nil {
 					xlog.Error("Skipping model health probe: no way to reach the worker",
 						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)
@@ -236,12 +242,12 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				if misses < perModelMissThreshold {
 					xlog.Debug("Model backend probe failed, awaiting threshold before removal",
 						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex,
-						"address", m.Address, "misses", misses, "threshold", perModelMissThreshold)
+						"address", m.WorkerLocalAddress, "misses", misses, "threshold", perModelMissThreshold)
 					continue
 				}
 				xlog.Warn("Model backend unhealthy after consecutive misses, removing from registry",
 					"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex,
-					"address", m.Address, "misses", misses)
+					"address", m.WorkerLocalAddress, "misses", misses)
 				if err := hm.registry.RemoveNodeModel(ctx, node.ID, m.ModelName, m.ReplicaIndex); err != nil {
 					xlog.Warn("Failed to remove unhealthy model from registry",
 						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)

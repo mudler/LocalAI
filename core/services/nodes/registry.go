@@ -21,11 +21,24 @@ import (
 // Workers are generic — they don't have a fixed backend type.
 // The SmartRouter dynamically installs backends via NATS backend.install events.
 type BackendNode struct {
-	ID          string `gorm:"primaryKey;size:36" json:"id"`
-	Name        string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType    string `gorm:"size:32;default:backend" json:"node_type"`  // backend, agent
-	Address     string `gorm:"size:255" json:"address"`                   // host:port for gRPC
-	HTTPAddress string `gorm:"size:255" json:"http_address"`              // host:port for HTTP file transfer
+	ID       string `gorm:"primaryKey;size:36" json:"id"`
+	Name     string `gorm:"uniqueIndex;size:255" json:"name"`
+	NodeType string `gorm:"size:32;default:backend" json:"node_type"` // backend, agent
+	// Address and HTTPAddress are what a PRE-TUNNEL worker advertised as its
+	// inbound gRPC and HTTP endpoints. Nothing dials them and nothing reads
+	// them to make a decision: a worker holds one outbound tunnel and every
+	// protocol the frontend speaks to it travels on that.
+	//
+	// A worker running this release sends neither, and Register force-clears
+	// both ON RE-REGISTRATION so an upgraded worker's stale advertisement does
+	// not survive its own upgrade and keep showing in the API and the UI. A
+	// first registration writes what it was given, which is how a spec that
+	// builds a node with an address still gets one. They are kept as
+	// columns rather than dropped only because dropping them is a wide,
+	// mechanical change across the fleet of specs that build a BackendNode,
+	// and they are inert either way.
+	Address     string `gorm:"size:255" json:"address"`
+	HTTPAddress string `gorm:"size:255" json:"http_address"`
 	Status      string `gorm:"size:32;default:registering" json:"status"` // registering, healthy, unhealthy, draining, pending
 	TokenHash   string `gorm:"size:64" json:"-"`                          // SHA-256 of registration token
 	// TunnelTokenHash is the SHA-256 of this node's OWN tunnel credential, the
@@ -133,14 +146,28 @@ const (
 //
 // Multiple replicas of the same model on the same node are allowed; each
 // replica has its own ReplicaIndex (0..MaxReplicasPerModel-1), its own
-// gRPC Address (each replica is a separate worker process on its own port),
-// and its own InFlight counter.
+// WorkerLocalAddress (each replica is a separate worker process on its own
+// port), and its own InFlight counter.
 type NodeModel struct {
-	ID                   string     `gorm:"primaryKey;size:36" json:"id"`
-	NodeID               string     `gorm:"index;size:36" json:"node_id"`
-	ModelName            string     `gorm:"index;size:255" json:"model_name"`
-	ReplicaIndex         int        `gorm:"column:replica_index;default:0;index" json:"replica_index"`
-	Address              string     `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
+	ID           string `gorm:"primaryKey;size:36" json:"id"`
+	NodeID       string `gorm:"index;size:36" json:"node_id"`
+	ModelName    string `gorm:"index;size:255" json:"model_name"`
+	ReplicaIndex int    `gorm:"column:replica_index;default:0;index" json:"replica_index"`
+	// WorkerLocalAddress is where this replica's backend process listens ON
+	// ITS WORKER. It is a loopback address and it is not dialable from here.
+	//
+	// It survived the removal of every worker address for one reason: the
+	// frontend still has to say WHICH backend process on a worker it means,
+	// and the port in this string is how it says it. It travels as the target
+	// of a stream on that worker's tunnel; the worker reads the port, checks
+	// it against its own allocator range, and dials its own loopback. Nothing
+	// in the frontend may treat it as a dial target, which is why it is not
+	// called Address any more: the old name is what a reader had to already
+	// know the design to interpret correctly.
+	//
+	// The column and the json key stay "address" so no migration and no API
+	// break rides along with the rename.
+	WorkerLocalAddress   string     `gorm:"column:address;size:255" json:"address"`
 	State                string     `gorm:"size:32;default:idle" json:"state"` // staging, loading, loaded, unloading, idle
 	InFlight             int        `json:"in_flight"`                         // number of active requests on this replica
 	LastUsed             time.Time  `json:"last_used"`
@@ -595,6 +622,15 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
 			}
 		}
+		// Force-clear the advertised addresses. Updates(struct) zero-skips, so a
+		// node that registered before workers stopped advertising would keep the
+		// host:port it reported then for the rest of its life, and the API and
+		// the Nodes page would keep showing an endpoint that nothing dials and
+		// that may not even exist any more.
+		if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+			Updates(map[string]any{"address": node.Address, "http_address": node.HTTPAddress}).Error; err != nil {
+			return fmt.Errorf("clearing the advertised addresses for node %s: %w", node.Name, err)
+		}
 		// Force-write the disk columns. Updates(struct) above zero-skips, and a
 		// worker whose models filesystem is 100% full re-registers with
 		// available_disk == 0 — the single most important reading there is.
@@ -657,7 +693,7 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		return fmt.Errorf("looking up node %s: %w", node.Name, err)
 	}
 
-	xlog.Info("Node registered", "name", node.Name, "address", node.Address, "status", node.Status)
+	xlog.Info("Node registered", "name", node.Name, "id", node.ID, "status", node.Status)
 	// Cluster capacity may have changed: a new healthy node, a returning
 	// node, or one with different MaxReplicasPerModel. Wake any configs the
 	// reconciler put in cooldown — the next tick will re-flag if still
@@ -1452,7 +1488,7 @@ func (r *NodeRegistry) ClaimModelCleanupRetries(ctx context.Context, now, leaseU
 func (r *NodeRegistry) RemoveClaimedModelCleanup(ctx context.Context, replica NodeModel) (bool, error) {
 	result := r.db.WithContext(ctx).
 		Where("id = ? AND node_id = ? AND model_name = ? AND replica_index = ? AND state = ? AND address = ? AND config_revision = ?",
-			replica.ID, replica.NodeID, replica.ModelName, replica.ReplicaIndex, "unloading", replica.Address, replica.ConfigRevision).
+			replica.ID, replica.NodeID, replica.ModelName, replica.ReplicaIndex, "unloading", replica.WorkerLocalAddress, replica.ConfigRevision).
 		Delete(&NodeModel{})
 	if result.Error != nil {
 		return false, result.Error
