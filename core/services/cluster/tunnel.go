@@ -15,6 +15,17 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// ConnectPath is the route a worker dials to open its tunnel, and the route the
+// HTTP layer registers the handler on. It lives here, beside the registry that
+// holds what the dial produces, for the reason PeerPath does: the HTTP
+// endpoints package imports this one, never the other way round.
+//
+// The literal is spelled out rather than derived from auth.ClusterPathPrefix
+// because importing core/http/auth is exactly the dependency this package must
+// not have. A spec in the endpoints package, which can see both, holds the two
+// from drifting apart.
+const ConnectPath = "/api/cluster/connect"
+
 // ErrNotOwner reports that this replica does not hold the tunnel for a node.
 //
 // It is a ROUTING fact and nothing else: some other replica may hold that
