@@ -72,6 +72,54 @@ type DialErrorReporter interface {
 	LastDialError() error
 }
 
+// BackendUnwrapper is implemented by a Backend that DECORATES another one.
+//
+// Every wrapper in this codebase must implement it, and the reason is a defect
+// that shipped: a wrapper embeds the Backend interface, so it inherits every
+// declared method and NOTHING else. DialErrorReporter is deliberately not
+// declared on Backend, so a wrapped client silently stopped answering "did the
+// transport fail" and the guard built on that answer read nil in production
+// while passing every spec that constructed a raw client by hand.
+//
+// Implementing this is what makes a decorator transparent to LastDialErrorOf,
+// and it is one line rather than a re-implementation per wrapper, so there is
+// no per-wrapper policy to get wrong.
+type BackendUnwrapper interface {
+	Unwrap() Backend
+}
+
+// maxBackendUnwrapDepth bounds the walk below. Three wrappers exist today and
+// they nest at most two deep; the bound is a guard against a cycle a future
+// wrapper could introduce, not a limit anything real approaches.
+const maxBackendUnwrapDepth = 16
+
+// LastDialErrorOf reports why the most recent dial under b failed, looking
+// THROUGH any decorators, or nil when the dial succeeded or nothing under b has
+// a custom transport.
+//
+// It is the single implementation of that question. Its callers
+// (core/services/nodes and pkg/model) each had their own type assertion, and an
+// assertion cannot see past a wrapper: in production the client handed to
+// pkg/model is an *InFlightTrackingClient over a *FileStagingClient over the
+// real one, so both callers were asking a wrapper that had no answer and
+// reading nil as "the transport was fine".
+func LastDialErrorOf(b Backend) error {
+	for range maxBackendUnwrapDepth {
+		if b == nil {
+			return nil
+		}
+		if reporter, ok := b.(DialErrorReporter); ok {
+			return reporter.LastDialError()
+		}
+		wrapper, ok := b.(BackendUnwrapper)
+		if !ok {
+			return nil
+		}
+		b = wrapper.Unwrap()
+	}
+	return nil
+}
+
 func buildClient(address string, parallel bool, wd WatchDog, enableWatchDog bool, token string) *Client {
 	if !enableWatchDog {
 		wd = nil
