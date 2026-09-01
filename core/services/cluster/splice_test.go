@@ -308,6 +308,9 @@ var _ = Describe("Splice", func() {
 			Expect(err).ToNot(HaveOccurred())
 			var far *yamux.Stream
 			Eventually(accepted, "10s").Should(Receive(&far))
+			// Deadline so a stream that never carries the byte fails this spec
+			// instead of parking the suite until its own timeout.
+			Expect(far.SetReadDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
 			_, err = far.Read(make([]byte, 1))
 			Expect(err).ToNot(HaveOccurred())
 
