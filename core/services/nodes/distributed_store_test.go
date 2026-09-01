@@ -2,11 +2,13 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
@@ -48,15 +50,17 @@ var _ ModelLookup = (*fakeModelLookup)(nil)
 
 var _ = Describe("DistributedModelStore", func() {
 	var (
-		local  *model.InMemoryModelStore
-		lookup *fakeModelLookup
-		store  *DistributedModelStore
+		local   *model.InMemoryModelStore
+		lookup  *fakeModelLookup
+		clients *fakeBackendClientFactory
+		store   *DistributedModelStore
 	)
 
 	BeforeEach(func() {
 		local = model.NewInMemoryModelStore()
 		lookup = newFakeModelLookup()
-		store = NewDistributedModelStore(local, lookup)
+		clients = newFakeBackendClientFactory()
+		store = NewDistributedModelStore(local, lookup, clients)
 	})
 
 	Describe("Get", func() {
@@ -111,6 +115,63 @@ var _ = Describe("DistributedModelStore", func() {
 			Expect(visited).To(HaveKey("model-a"))
 			Expect(visited).To(HaveKey("model-b"))
 			Expect(visited).To(HaveLen(2))
+		})
+
+		It("gives every remote model a client that reaches the worker through its node", func() {
+			// The second construction path, closed. A model built with a nil
+			// client makes pkg/model.Model.GRPC dial its raw address with
+			// gRPC's own dialer the first time anything touches it, which
+			// bypasses the worker's tunnel completely. It is reached in
+			// production: ShutdownModel calls Free on it and the backend
+			// monitor calls Status.
+			dbNode := &BackendNode{ID: "node-2", Address: "10.0.0.3:50051"}
+			lookup.nodes["node-2"] = dbNode
+			lookup.allModels = []NodeModel{{NodeID: "node-2", ModelName: "remote-model"}}
+
+			var got *model.Model
+			store.Range(func(id string, m *model.Model) bool {
+				if id == "remote-model" {
+					got = m
+				}
+				return true
+			})
+			Expect(got).ToNot(BeNil())
+			// The client is the factory's, so GRPC() returns it rather than
+			// building one by dialling. Asked for by NODE, not by address.
+			Expect(got.GRPC(false, nil)).To(BeIdenticalTo(grpc.Backend(clients.defaultClient)))
+			Expect(clients.nodesSeen()).To(ContainElement("node-2"))
+		})
+
+		It("refuses to list a remote model it has no way to reach", func() {
+			// Loudly, not by falling back. A model handed back here with a
+			// direct-dialling client works on a single-host developer setup and
+			// fails against every worker with no inbound port, which is the
+			// worst way for this defect to behave.
+			clients.refuseForNode = errors.New("no tunnel for you")
+			dbNode := &BackendNode{ID: "node-2", Address: "10.0.0.3:50051"}
+			lookup.nodes["node-2"] = dbNode
+			lookup.allModels = []NodeModel{{NodeID: "node-2", ModelName: "remote-model"}}
+
+			visited := map[string]bool{}
+			store.Range(func(id string, _ *model.Model) bool {
+				visited[id] = true
+				return true
+			})
+			Expect(visited).ToNot(HaveKey("remote-model"))
+		})
+
+		It("refuses when no client factory was wired at all", func() {
+			bare := NewDistributedModelStore(local, lookup, nil)
+			dbNode := &BackendNode{ID: "node-2", Address: "10.0.0.3:50051"}
+			lookup.nodes["node-2"] = dbNode
+			lookup.allModels = []NodeModel{{NodeID: "node-2", ModelName: "remote-model"}}
+
+			visited := map[string]bool{}
+			bare.Range(func(id string, _ *model.Model) bool {
+				visited[id] = true
+				return true
+			})
+			Expect(visited).ToNot(HaveKey("remote-model"))
 		})
 
 		It("handles DB list error gracefully", func() {

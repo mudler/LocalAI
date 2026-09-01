@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -32,6 +33,13 @@ type Client struct {
 	inFlight int
 	parallel bool
 	token    string
+	// dialer replaces the transport gRPC would otherwise use to reach address.
+	// In distributed mode it is a stream on the worker's tunnel, so address
+	// stops being a socket to connect to and becomes the name of a backend
+	// process inside the worker; see core/services/cluster.WorkerDialer. nil
+	// keeps gRPC's own TCP dial, which is what every non-distributed caller
+	// wants.
+	dialer func(ctx context.Context, addr string) (net.Conn, error)
 	sync.Mutex
 	opMutex sync.Mutex
 	wd      WatchDog
@@ -79,6 +87,12 @@ func (c *Client) dial() (*grpc.ClientConn, error) {
 	}
 	if c.token != "" {
 		opts = append(opts, grpc.WithPerRPCCredentials(bearerToken{token: c.token}))
+	}
+	if c.dialer != nil {
+		// The address is still passed to grpc.NewClient because it is what
+		// names the target in every error message and in the authority header;
+		// what it no longer decides is where the bytes go.
+		opts = append(opts, grpc.WithContextDialer(c.dialer))
 	}
 	return grpc.NewClient(c.address, opts...)
 }
