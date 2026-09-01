@@ -15,6 +15,30 @@ if [ -d "patches" ]; then
     done
 fi
 
+## Apple RDMA link fixup.
+
+## ggml-rpc hands Apple's librdma to the linker with
+## target_link_options(ggml-rpc PRIVATE "LINKER:-weak_library,..."). Link options are not
+## a usage requirement of a static library, so in our BUILD_SHARED_LIBS=OFF build the flag
+## dies with libggml-rpc.a and every ibv_* symbol transport-apple.cpp reaches for comes out
+## undefined when grpc-server and ggml-rpc-server link. Re-declare the same weak link as
+## INTERFACE so it travels to whoever links the static library.
+##
+## Guarded on the marker so a second prepare.sh over the same checkout is a no-op, and on
+## GGML_RPC_RDMA_APPLE so forks that branched before the Apple RDMA transport (turboquant,
+## bonsai) are left alone.
+RPC_CMAKE=llama.cpp/ggml/src/ggml-rpc/CMakeLists.txt
+if [ -f "$RPC_CMAKE" ] && grep -q "GGML_RPC_RDMA_APPLE" "$RPC_CMAKE" && ! grep -q "LOCALAI_RDMA_IFACE" "$RPC_CMAKE"; then
+    echo "==> ggml-rpc carries the Apple RDMA transport, re-declaring its weak librdma link as INTERFACE"
+    cat >> "$RPC_CMAKE" <<'EOF'
+
+# LOCALAI_RDMA_IFACE: added by backend/cpp/llama-cpp/prepare.sh
+if (GGML_RPC_RDMA AND APPLE AND NOT BUILD_SHARED_LIBS)
+    target_link_options(ggml-rpc INTERFACE "LINKER:-weak_library,${RDMA_LIB}")
+endif()
+EOF
+fi
+
 for file in $(ls llama.cpp/tools/server/); do
     cp -rfv llama.cpp/tools/server/$file llama.cpp/tools/grpc-server/
 done
