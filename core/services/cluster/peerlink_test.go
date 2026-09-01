@@ -30,6 +30,17 @@ func servePeerRoute(e *echo.Echo, token string, onPeer func(string, *yamux.Sessi
 	e.GET(cluster.PeerPath, clusterep.PeerHandler(token, onPeer))
 }
 
+// deadlinePassed is a context whose deadline has elapsed and whose
+// cancellation has not been delivered, which is the state a caller is in for
+// the moment between the two timers that fire at its deadline. Only Deadline is
+// overridden: the embedded context supplies a nil Done and a nil Err, which is
+// what a context in that window reports.
+type deadlinePassed struct{ context.Context }
+
+func (deadlinePassed) Deadline() (time.Time, bool) {
+	return time.Now().Add(-time.Millisecond), true
+}
+
 var _ = Describe("Peer pool", func() {
 	var (
 		db       *gorm.DB
@@ -258,6 +269,36 @@ var _ = Describe("Peer pool", func() {
 		Expect(err).To(MatchError(context.DeadlineExceeded))
 		Expect(err).ToNot(MatchError(cluster.ErrPeerUnreachable),
 			"the caller ran out of time; the peer never got a verdict")
+		Expect(err).ToNot(MatchError(cluster.ErrInstanceNotFound))
+	})
+
+	It("blames the caller's deadline even when its cancellation has not landed yet", func() {
+		// The same rule as the spec above, at the instant that makes it hard.
+		//
+		// A dial carries the caller's deadline down to the socket, so the
+		// socket's timer and the context's cancellation timer fire at the same
+		// moment and nothing orders them. The socket's error can be back in
+		// Open before the scheduler has run the context's cancel func, and in
+		// that window ctx.Err() is nil while the caller's budget is
+		// unambiguously spent. Reading only ctx.Err() there reports a peer that
+		// is listening and healthy as unreachable.
+		//
+		// That window is real: this spec's sibling above reproduces it under
+		// `-race` about three runs in seven, which is exactly often enough to
+		// be dismissed as noise. Here it is made deterministic instead, by
+		// handing Open a context in precisely that state: deadline passed,
+		// cancellation not delivered. Nothing is faked about the dial, which
+		// runs for real against an address nothing is listening on.
+		refused, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).ToNot(HaveOccurred())
+		addr := refused.Addr().String()
+		Expect(refused.Close()).To(Succeed())
+		Expect(reg.Register(ctx, "peer-refusing", addr, "test")).To(Succeed())
+
+		_, err = pool.Open(deadlinePassed{ctx}, "peer-refusing")
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+		Expect(err).ToNot(MatchError(cluster.ErrPeerUnreachable),
+			"the caller's budget was spent before the dial was made; blaming the peer for it is how an impatient client gets a healthy replica routed around")
 		Expect(err).ToNot(MatchError(cluster.ErrInstanceNotFound))
 	})
 
