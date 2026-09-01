@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,35 +60,78 @@ var (
 	ErrRelayRequestInvalid = errors.New("cluster: the owning replica rejected the relay request as malformed")
 )
 
-// WriteRelayRequest names the worker a peer stream is for.
+// WriteRelayRequest names the worker a peer stream is for, and how much time
+// the ORIGINAL client still has.
+//
+// The budget is what makes the relay's own open bound honest. Everything on the
+// far side of this frame is work done on behalf of a caller the relay cannot
+// see, so without it the relay can only fall back to a deployment-wide constant
+// that no operator has the information to set (see relayOpenTimeout). The
+// dialler does have the information, because it holds the caller's context, so
+// it is the one that states it.
+//
+// A zero budget means "not stated" and is written as no budget at all, which is
+// also what an older replica sends. It is NEVER written as the number zero: on
+// the far side that would be indistinguishable from a caller with no time left,
+// and the relay would refuse traffic that is perfectly healthy.
 //
 // An empty node id is refused here rather than on the wire, so a caller with a
-// bug learns at once instead of a round trip later.
-func WriteRelayRequest(w io.Writer, nodeID string) error {
+// bug learns at once instead of a round trip later. So is a node id containing
+// the separator, because the split below takes the FIRST one and a node id with
+// a space in it would silently move part of itself into the budget.
+func WriteRelayRequest(w io.Writer, nodeID string, budget time.Duration) error {
 	if nodeID == "" {
 		return fmt.Errorf("writing a relay request: empty node id")
 	}
-	return writeFrame(w, nodeID)
+	if strings.Contains(nodeID, streamRequestSeparator) {
+		return fmt.Errorf("writing a relay request: node id %q contains a space", nodeID)
+	}
+	if budget <= 0 {
+		return writeFrame(w, nodeID)
+	}
+	// A plain count of milliseconds rather than a duration string: an integer
+	// has one spelling, so two replicas cannot disagree about it the way they
+	// could about a units vocabulary that grew between their versions. Rounded
+	// UP so a sub-millisecond budget stays positive and keeps meaning "almost
+	// none" rather than collapsing into "not stated".
+	millis := (budget + time.Millisecond - 1) / time.Millisecond
+	return writeFrame(w, nodeID+streamRequestSeparator+strconv.FormatInt(int64(millis), 10))
 }
 
-// ReadRelayRequest reads the opening frame of a peer stream.
+// ReadRelayRequest reads the opening frame of a peer stream. The budget is zero
+// when the dialling replica stated none, which is also what a replica too old
+// to state one sends.
 //
 // A malformed frame is an ordinary error, NOT ErrRelayRequestInvalid: that
 // sentinel is what a relay SENDS to describe a refusal, and producing it here
 // would leave a caller unable to tell "the peer refused my request" from "I
 // could not read the peer's".
-func ReadRelayRequest(r io.Reader) (string, error) {
+func ReadRelayRequest(r io.Reader) (string, time.Duration, error) {
 	payload, err := readFrame(r)
 	if err != nil {
-		return "", fmt.Errorf("reading a relay request: %w", err)
+		return "", 0, fmt.Errorf("reading a relay request: %w", err)
 	}
-	if payload == "" {
+	nodeID, budgetText, stated := strings.Cut(payload, streamRequestSeparator)
+	if nodeID == "" {
 		// An empty payload is a well-formed frame naming no worker. Treating
 		// it as a node called "" would send the caller a routing refusal for a
 		// request no replica can ever serve, so it stays the caller's bug.
-		return "", fmt.Errorf("reading a relay request: empty node id")
+		return "", 0, fmt.Errorf("reading a relay request: empty node id")
 	}
-	return payload, nil
+	if !stated {
+		return nodeID, 0, nil
+	}
+	millis, err := strconv.ParseInt(budgetText, 10, 64)
+	if err != nil {
+		return "", 0, fmt.Errorf("reading a relay request for node %q: budget %q is not a number of milliseconds: %w", nodeID, budgetText, err)
+	}
+	if millis <= 0 {
+		// A caller with nothing left to spend. Reported as such rather than
+		// folded into "not stated", so the relay refuses at once instead of
+		// waiting out a backstop on behalf of a client that has already gone.
+		return nodeID, 0, fmt.Errorf("reading a relay request for node %q: budget %d ms has already expired", nodeID, millis)
+	}
+	return nodeID, time.Duration(millis) * time.Millisecond, nil
 }
 
 // WriteRelayAccepted tells the peer the stream now carries the worker tunnel's
@@ -172,21 +216,25 @@ const (
 	// peer link dies, which is minutes on the default keepalive.
 	relayHeaderTimeout = 15 * time.Second
 
-	// relayOpenTimeout bounds opening the worker-side stream. yamux blocks an
-	// Open once AcceptBacklog SYNs are in flight, waiting on synCh rather than
-	// failing (go-yamux/v5@v5.1.0/session.go:205-212); it honours the context,
-	// which is the only reason there is one here. Without the bound, a worker
-	// that has stopped accepting would turn a refusable condition into a parked
-	// peer, which is the one outcome this path exists to avoid.
+	// relayOpenTimeout is the CEILING on opening the worker-side stream. yamux
+	// blocks an Open once AcceptBacklog SYNs are in flight, waiting on synCh
+	// rather than failing (go-yamux/v5@v5.1.0/session.go:205-212); it honours
+	// the context, which is the only reason there is one here. Without the
+	// bound, a worker that has stopped accepting would turn a refusable
+	// condition into a parked peer, which is the one outcome this path exists
+	// to avoid.
 	//
-	// It is deliberately NOT configurable. No operator has the information to
-	// set it: the number that matters is how long the ORIGINAL client is
-	// willing to wait, which is not known on this side of the link and is not
-	// something a deployment-wide constant can stand in for. The honest fix is
-	// the caller's remaining budget travelling in the relay request frame, and
-	// that belongs to the dialler that has the budget. Until then this is a
-	// backstop against parking, generous on purpose, because refusing healthy
-	// traffic costs more than waiting.
+	// It is deliberately NOT configurable, and it is no longer the whole
+	// answer. The number that actually matters is how long the ORIGINAL client
+	// is willing to wait, which no deployment-wide constant can stand in for;
+	// the dialling replica now states it in the request frame and accept takes
+	// the SMALLER of the two. This remains the backstop for a caller that
+	// stated nothing, generous on purpose, because refusing healthy traffic
+	// costs more than waiting.
+	//
+	// The stated budget only ever SHORTENS the wait. A caller willing to wait
+	// an hour must not be able to park this replica's relay goroutine and a
+	// yamux stream slot for an hour on a worker that has stopped accepting.
 	relayOpenTimeout = 15 * time.Second
 )
 
@@ -271,7 +319,7 @@ func (r *Relay) accept(peerID string, stream net.Conn) (net.Conn, bool) {
 		return nil, false
 	}
 
-	nodeID, err := ReadRelayRequest(stream)
+	nodeID, budget, err := ReadRelayRequest(stream)
 	if err != nil {
 		// Includes the deadline above expiring. Both are "this stream never
 		// said which worker it wanted", which is the dialling replica's bug
@@ -296,7 +344,17 @@ func (r *Relay) accept(peerID string, stream net.Conn) (net.Conn, bool) {
 	// Not the peer's deadline, because there is none to inherit: a yamux stream
 	// carries no context. This bounds only the open, so a request that gets
 	// past it is never cut short by it.
-	ctx, cancel := context.WithTimeout(context.Background(), r.openTimeout)
+	//
+	// The SMALLER of the ceiling and what the caller said it still has. Taking
+	// the caller's number when it is larger would let one patient client park a
+	// relay goroutine on a worker that has stopped accepting for as long as it
+	// liked; taking the ceiling when the caller's is smaller would keep waiting
+	// on behalf of a client that has already given up.
+	open := r.openTimeout
+	if budget > 0 && budget < open {
+		open = budget
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), open)
 	defer cancel()
 
 	local, err := r.tunnels.Open(ctx, nodeID)
