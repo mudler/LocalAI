@@ -1,0 +1,302 @@
+package cluster
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"sync"
+	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/libp2p/go-yamux/v5"
+	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
+	"github.com/mudler/xlog"
+)
+
+// ErrPeerUnreachable reports that a peer this deployment knows about could not
+// be reached: the dial failed, the peer refused the credentials, or its
+// multiplexer would not carry a stream.
+//
+// It is deliberately NOT a form of ErrInstanceNotFound, and the two must stay
+// unmixable. A caller that sees absence is entitled to conclude a node is gone
+// and reclaim what it was running; a caller that sees unreachability may only
+// retry. Collapsing the two means a network hiccup between two healthy
+// replicas evicts healthy workers. See unreachableError for how that is
+// enforced rather than merely documented.
+var ErrPeerUnreachable = errors.New("cluster: peer unreachable")
+
+// unreachableError reports a peer that could not be reached, keeping the
+// underlying cause in its message and out of its unwrap chain.
+//
+// Withholding the cause from errors.Is is the point. The dial path resolves a
+// peer's address through the registry, so ErrInstanceNotFound is a cause this
+// error can genuinely be built over: a row deleted between two attempts, for
+// one. If the cause were unwrapped, that failure would satisfy both sentinels
+// at once and every caller's absence check would fire on a transport problem.
+// The guarantee therefore belongs to the type: no call site can leak absence
+// through it, because there is no path by which absence gets out.
+type unreachableError struct {
+	peerID string
+	cause  error
+}
+
+func (e *unreachableError) Error() string {
+	return fmt.Sprintf("cluster: peer %q unreachable: %v", e.peerID, e.cause)
+}
+
+// Unwrap reports only ErrPeerUnreachable. The cause reaches a human through
+// Error() and reaches no error-matching caller at all.
+func (e *unreachableError) Unwrap() error { return ErrPeerUnreachable }
+
+func unreachablePeer(peerID string, cause error) error {
+	return &unreachableError{peerID: peerID, cause: cause}
+}
+
+// ErrPoolClosed reports an Open on a pool that has been shut down. It is a
+// third condition on purpose: the pool being closed is a fact about this
+// process and says nothing about whether the peer exists or answers.
+var ErrPoolClosed = errors.New("cluster: peer pool is closed")
+
+const (
+	// peerLinkHandshakeTimeout bounds the WebSocket upgrade. It also bounds
+	// how long Close can wait behind an in-flight dial, since a dial holds the
+	// per-peer lock Close needs to reach the cached session.
+	peerLinkHandshakeTimeout = 10 * time.Second
+
+	// peerLinkInitialWindow is the per-stream receive window every stream on a
+	// peer link starts at, raised from yamux's 256 KiB default.
+	//
+	// yamux already bounds head-of-line blocking with MaxMessageSize (64 KiB
+	// by default), so one stream cannot monopolise the connection whatever the
+	// window is. What the small default costs is the ramp: a stream carrying a
+	// multi-megabyte gRPC message spends its first megabytes window-parked,
+	// paying a round trip per doubling (stream.go:229) before it reaches full
+	// rate. On a link that is also carrying token streams for other workers,
+	// that ramp is pure added latency on the bulk transfer for no benefit.
+	peerLinkInitialWindow = 4 * 1024 * 1024
+
+	// peerLinkMaxWindow is the ceiling the auto-tuner may grow a stream to,
+	// raised from yamux's 16 MiB default to cover the bandwidth-delay product
+	// of a fast cross-zone link (roughly 31 MiB at 10 Gbps and 25 ms).
+	//
+	// The window is a cap on data received but not yet read, so the worst case
+	// a peer can make this replica buffer is MaxIncomingStreams times this,
+	// which is why MaxIncomingStreams is left at yamux's default rather than
+	// raised alongside it.
+	peerLinkMaxWindow = 32 * 1024 * 1024
+)
+
+// peerLinkConfig returns the yamux configuration for a replica-to-replica link.
+func peerLinkConfig() *yamux.Config {
+	cfg := yamux.DefaultConfig()
+	cfg.InitialStreamWindowSize = peerLinkInitialWindow
+	cfg.MaxStreamWindowSize = peerLinkMaxWindow
+	return cfg
+}
+
+// PeerPool dials peer replicas and keeps one multiplexed session per peer.
+//
+// A peer link carries traffic for every worker that peer owns, so it is pooled
+// rather than dialled per request: a dial per relayed request would add a
+// WebSocket handshake to every inference.
+//
+// The pool needs no knowledge of yamux error shapes to keep its cache honest.
+// The two conditions worth reacting to arrive as OpenStream failures and are
+// handled by the same retry: a peer that shut down gracefully hands its
+// session ErrRemoteGoAway and closes it, and a session whose transport died
+// hands out its shutdown error. Conditions scoped to a single stream, such as
+// a peer resetting one request, never reach the pool at all, which is right:
+// dropping the session over one reset request would tear down every other
+// worker's traffic on that link.
+type PeerPool struct {
+	selfID string
+	token  string
+	reg    *Registry
+
+	dialer *websocket.Dialer
+
+	mu     sync.Mutex
+	links  map[string]*peerLink
+	closed bool
+}
+
+// peerLink is the cached session for one peer, plus the lock that serialises
+// dialling it. The lock is per-peer so a slow or hanging dial to one peer does
+// not hold up opens to any other.
+type peerLink struct {
+	mu   sync.Mutex
+	sess *yamux.Session
+}
+
+// NewPeerPool returns a pool that dials peers as selfID, authenticating with
+// the deployment's cluster token.
+func NewPeerPool(selfID, token string, reg *Registry) *PeerPool {
+	return &PeerPool{
+		selfID: selfID,
+		token:  token,
+		reg:    reg,
+		dialer: &websocket.Dialer{
+			HandshakeTimeout: peerLinkHandshakeTimeout,
+			// No Proxy: a peer link is replica-to-replica inside one
+			// deployment, and honouring HTTP_PROXY would route it through
+			// whatever egress proxy the environment happens to name.
+		},
+		links: map[string]*peerLink{},
+	}
+}
+
+// Open returns a stream to peerID, dialling and caching the session on first
+// use.
+//
+// The errors are three distinct conditions and callers act differently on
+// them: ErrInstanceNotFound means the peer is not part of this deployment,
+// ErrPeerUnreachable means it is but will not answer, and ErrPoolClosed means
+// this process is shutting down. Only the first is node absence.
+func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
+	l, err := p.link(peerID)
+	if err != nil {
+		return nil, err
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.sess != nil {
+		st, err := l.sess.OpenStream(ctx)
+		if err == nil {
+			return st, nil
+		}
+		// A caller whose own context expired must not cost every other worker
+		// its link: the session is fine, this request is not.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		// A session that died between calls is the common case, not an
+		// exception, so this is a debug line and not a warning.
+		xlog.Debug("cluster peer link session unusable, re-dialling", "peer", peerID, "error", err)
+		_ = l.sess.Close()
+		l.sess = nil
+	}
+
+	sess, err := p.dial(ctx, peerID)
+	if err != nil {
+		return nil, err
+	}
+
+	st, err := sess.OpenStream(ctx)
+	if err != nil {
+		// The peer answered and completed a handshake but will not carry a
+		// stream, which is a transport condition and never absence.
+		_ = sess.Close()
+		return nil, unreachablePeer(peerID, err)
+	}
+
+	l.sess = sess
+	return st, nil
+}
+
+// link returns the per-peer entry, creating it on first use.
+func (p *PeerPool) link(peerID string) (*peerLink, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.closed {
+		return nil, ErrPoolClosed
+	}
+	l, ok := p.links[peerID]
+	if !ok {
+		l = &peerLink{}
+		p.links[peerID] = l
+	}
+	return l, nil
+}
+
+// dial resolves the peer's advertised address and brings up one yamux client
+// session over an authenticated WebSocket.
+//
+// A registry miss is returned unchanged so ErrInstanceNotFound reaches the
+// caller; everything after it is wrapped as unreachable.
+func (p *PeerPool) dial(ctx context.Context, peerID string) (*yamux.Session, error) {
+	inst, err := p.reg.Get(ctx, peerID)
+	if err != nil {
+		return nil, err
+	}
+	if inst.AdvertisedAddr == "" {
+		// A registered replica with no address is reachable by nobody. It is
+		// present, so this is not absence.
+		return nil, unreachablePeer(peerID, errors.New("peer has no advertised address"))
+	}
+
+	endpoint := url.URL{
+		// Plain ws: replica-to-replica TLS is not part of this phase, and the
+		// link is authenticated by the cluster token rather than by transport.
+		Scheme:   "ws",
+		Host:     inst.AdvertisedAddr,
+		Path:     clusterep.PeerPath,
+		RawQuery: url.Values{"id": []string{p.selfID}}.Encode(),
+	}
+	header := http.Header{}
+	header.Set("Authorization", "Bearer "+p.token)
+
+	ws, resp, err := p.dialer.DialContext(ctx, endpoint.String(), header)
+	if resp != nil && resp.Body != nil {
+		// gorilla hands back the failed handshake's response so a caller can
+		// read the status; nothing here needs the body, but it has to be
+		// drained or the connection is not returned to the transport.
+		_ = resp.Body.Close()
+	}
+	if err != nil {
+		return nil, unreachablePeer(peerID, err)
+	}
+
+	// Client side of the mux: the dialling replica owns the odd stream IDs,
+	// matching the yamux.Server the peer handler puts on its end.
+	sess, err := yamux.Client(clusterep.WebsocketConn(ws), peerLinkConfig(), nil)
+	if err != nil {
+		_ = ws.Close()
+		return nil, unreachablePeer(peerID, err)
+	}
+
+	// Close raced this dial. Handing the session back would leak it, since
+	// Close has already walked the map.
+	p.mu.Lock()
+	closed := p.closed
+	p.mu.Unlock()
+	if closed {
+		_ = sess.Close()
+		return nil, ErrPoolClosed
+	}
+
+	xlog.Debug("cluster peer link dialled", "peer", peerID, "addr", inst.AdvertisedAddr)
+	return sess, nil
+}
+
+// Close closes every cached session. It is safe to call twice, and an Open
+// after it reports ErrPoolClosed rather than anything a caller could read as
+// node absence.
+func (p *PeerPool) Close() {
+	p.mu.Lock()
+	if p.closed {
+		p.mu.Unlock()
+		return
+	}
+	p.closed = true
+	links := p.links
+	p.links = nil
+	p.mu.Unlock()
+
+	// Each session is closed under its own peer lock rather than under p.mu,
+	// so closing the pool cannot deadlock against an Open that is mid-dial and
+	// about to take p.mu to re-check p.closed.
+	for _, l := range links {
+		l.mu.Lock()
+		if l.sess != nil {
+			_ = l.sess.Close()
+			l.sess = nil
+		}
+		l.mu.Unlock()
+	}
+}
