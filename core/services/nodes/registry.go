@@ -21,15 +21,27 @@ import (
 // Workers are generic — they don't have a fixed backend type.
 // The SmartRouter dynamically installs backends via NATS backend.install events.
 type BackendNode struct {
-	ID            string `gorm:"primaryKey;size:36" json:"id"`
-	Name          string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType      string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address       string `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress   string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status        string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash     string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	ID          string `gorm:"primaryKey;size:36" json:"id"`
+	Name        string `gorm:"uniqueIndex;size:255" json:"name"`
+	NodeType    string `gorm:"size:32;default:backend" json:"node_type"`  // backend, agent
+	Address     string `gorm:"size:255" json:"address"`                   // host:port for gRPC
+	HTTPAddress string `gorm:"size:255" json:"http_address"`              // host:port for HTTP file transfer
+	Status      string `gorm:"size:32;default:registering" json:"status"` // registering, healthy, unhealthy, draining, pending
+	TokenHash   string `gorm:"size:64" json:"-"`                          // SHA-256 of registration token
+	// TunnelTokenHash is the SHA-256 of this node's OWN tunnel credential, the
+	// one it presents at GET /api/cluster/connect. It is not the registration
+	// token: registration mints a fresh random secret per node, returns the
+	// plaintext once, and stores only this hash, so a leaked registration token
+	// no longer opens a tunnel for every node whose ID an attacker can read.
+	//
+	// Empty means no tunnel credential has been minted for this node yet, which
+	// is what a node registered by an older LocalAI looks like. Such a node
+	// cannot tunnel until it registers again. That is deliberate: the column
+	// cannot be back-filled, because the plaintext exists only in the response
+	// that minted it.
+	TunnelTokenHash string `gorm:"size:64" json:"-"`
+	TotalVRAM       uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM   uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
@@ -662,6 +674,24 @@ func (r *NodeRegistry) UpdateAuthRefs(ctx context.Context, nodeID, authUserID, a
 		"auth_user_id": authUserID,
 		"api_key_id":   apiKeyID,
 	}).Error
+}
+
+// SetTunnelTokenHash records the hash of a freshly minted tunnel credential for
+// a node, replacing whatever was there.
+//
+// Replacing is the whole design and not an accident of the implementation. Only
+// the hash is stored, so a re-registering worker cannot be told the secret it
+// already has, and the alternative to rotating would be storing the plaintext.
+// The live tunnel of a worker that re-registers is unaffected, because the
+// credential is checked when a tunnel is DIALLED and never again; what changes
+// is which secret its next reconnect must present, and the worker learns that
+// in the same response that rotated it.
+func (r *NodeRegistry) SetTunnelTokenHash(ctx context.Context, nodeID, hash string) error {
+	// Not Updates(struct): a struct update zero-skips, so this could never
+	// clear the column, and a caller that means to clear it would be silently
+	// ignored.
+	return r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Update("tunnel_token_hash", hash).Error
 }
 
 // ApproveNode sets a pending node's status to healthy.

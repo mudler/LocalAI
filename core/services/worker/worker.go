@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -94,13 +95,25 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	var (
 		nodeID      string
 		connectNats func() (*messaging.Client, error)
+		// tunnelToken reads the node's CURRENT tunnel credential. It is a
+		// function because the frontend rotates the credential on every
+		// registration, so the value a reconnect must present is not
+		// necessarily the one this worker started with.
+		tunnelToken func() string
 	)
 	if cfg.NatsJWT != "" || cfg.NatsUserSeed != "" {
-		nid, _, _, _, regErr := regClient.RegisterWithRetry(shutdownCtx, registrationBody, 10)
+		res, regErr := regClient.RegisterFullWithRetry(shutdownCtx, registrationBody, 10)
 		if regErr != nil {
 			return fmt.Errorf("failed to register with frontend: %w", regErr)
 		}
-		nodeID = nid
+		nodeID = res.ID
+		// This path registers exactly once and never again, so the credential
+		// it holds cannot go stale by rotation from its own side. It can still
+		// be superseded from OUTSIDE, by a second worker registering under the
+		// same node name, and there is nothing this worker can do about that
+		// but log the 401 and keep retrying.
+		staticTunnelToken := res.TunnelToken
+		tunnelToken = func() string { return staticTunnelToken }
 		connectNats = func() (*messaging.Client, error) {
 			return connectNATS(cfg.NatsURL, cfg.NatsJWT, cfg.NatsUserSeed, "", "", cfg.NatsAuthRequired(), natsTLS)
 		}
@@ -116,6 +129,10 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 			return fmt.Errorf("failed to register with frontend: %w", regErr)
 		}
 		nodeID = res.ID
+		// The manager re-registers to refresh NATS credentials, and every
+		// registration rotates the tunnel credential too, so this reads the
+		// manager rather than capturing a value.
+		tunnelToken = credMgr.TunnelToken
 		connectNats = func() (*messaging.Client, error) {
 			var opts []messaging.Option
 			if credMgr.HasCredentials() {
@@ -163,6 +180,42 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// used to remove them, so a long-lived worker filled its own disk.
 	StartEphemeralStagingCleanup(shutdownCtx, stagingDir, 0, 0)
 
+	// The tunnel is started here, after the HTTP server it fronts is listening
+	// and before any backend process exists. Both orders are deliberate: a
+	// stream tagged for HTTP that arrived before the server bound would be
+	// refused as unavailable, while a stream tagged for gRPC resolves its
+	// backend at dial time, so nothing has to exist yet for the tunnel to be
+	// useful.
+	//
+	// A failure to START it is fatal, unlike a failure to CONNECT: it means the
+	// frontend URL or this node's identity is unusable, and a worker that
+	// silently ran without its tunnel would look healthy while being
+	// unreachable to everything that dials through it.
+	tunnelBasePort := cfg.effectiveBasePort()
+	if cfg.WorkerTunnel {
+		tunnel, terr := StartTunnel(shutdownCtx, TunnelConfig{
+			FrontendURL: cfg.RegisterTo,
+			NodeID:      nodeID,
+			Token:       tunnelToken,
+			Services: map[string]LocalService{
+				// The frontend names a backend process by its port; the worker
+				// decides that only its own loopback, and only within its own
+				// backend port range, is reachable through it.
+				cluster.StreamTagGRPC: loopbackService(tunnelBasePort, cfg.effectiveMaxPort(tunnelBasePort)),
+				cluster.StreamTagHTTP: fixedService(loopbackAddr(httpAddr)),
+			},
+		})
+		if terr != nil {
+			nodes.ShutdownFileTransferServer(httpServer)
+			return fmt.Errorf("starting the worker tunnel: %w", terr)
+		}
+		defer func() {
+			if err := tunnel.Close(); err != nil {
+				xlog.Warn("Closing the worker tunnel failed", "error", err)
+			}
+		}()
+	}
+
 	// Connect to NATS
 	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))
 	natsClient, err := connectNats()
@@ -199,7 +252,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}()
 
 	// Process supervisor — manages multiple backend gRPC processes on different ports
-	basePort := cfg.effectiveBasePort()
+	basePort := tunnelBasePort
 	// Buffered so NATS stop handler can send without blocking
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +20,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// hashOf is how the node registry stores a secret: hex-encoded SHA-256.
+func hashOf(secret string) string {
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:])
+}
 
 var _ = DescribeTable("token validation",
 	func(expectedToken, providedToken string, wantMatch bool) {
@@ -75,6 +82,87 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(resp["name"]).To(Equal("worker-1"))
 			Expect(resp["id"]).ToNot(BeEmpty())
 			Expect(resp["status"]).To(Equal(nodes.StatusHealthy))
+		})
+
+		// register posts one registration and returns the decoded response.
+		register := func(body string, expectedToken string, autoApprove bool) map[string]any {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := RegisterNodeEndpoint(registry, expectedToken, autoApprove, nil, "", natsauth.Config{})
+			ExpectWithOffset(1, handler(c)).To(Succeed())
+			ExpectWithOffset(1, rec.Code).To(Equal(http.StatusCreated))
+
+			var resp map[string]any
+			ExpectWithOffset(1, json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			return resp
+		}
+
+		It("mints a per-node tunnel credential and stores only its hash", func() {
+			resp := register(`{"name":"worker-tunnel","address":"10.0.0.3:50051","token":"shared-registration-token"}`,
+				"shared-registration-token", true)
+
+			plaintext, _ := resp["tunnel_token"].(string)
+			Expect(plaintext).ToNot(BeEmpty())
+			// Not the registration token. That is the whole point: a leaked
+			// registration token plus a known node ID used to open a tunnel,
+			// because the tunnel authenticated against the hash of exactly the
+			// value every worker in the deployment holds.
+			Expect(plaintext).ToNot(Equal("shared-registration-token"))
+
+			node, err := registry.Get(context.Background(), resp["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			// Stored as a hash, never as the secret.
+			Expect(node.TunnelTokenHash).To(Equal(hashOf(plaintext)))
+			Expect(node.TunnelTokenHash).ToNot(Equal(plaintext))
+			// And it is a DIFFERENT column from the registration token's hash,
+			// which is what the tunnel used to compare against.
+			Expect(node.TunnelTokenHash).ToNot(Equal(node.TokenHash))
+			Expect(node.TokenHash).To(Equal(hashOf("shared-registration-token")))
+
+			// The security property, which none of the above actually pins: a
+			// second node registering with the SAME shared token gets a
+			// DIFFERENT credential. Everything above is satisfied by a secret
+			// derived deterministically from the registration token, which
+			// would isolate nothing; a mutation that did exactly that passed
+			// every assertion before this one.
+			other := register(`{"name":"worker-tunnel-2","address":"10.0.0.3:50052","token":"shared-registration-token"}`,
+				"shared-registration-token", true)
+			Expect(other["tunnel_token"]).ToNot(Equal(plaintext))
+		})
+
+		It("rotates the tunnel credential on every re-registration", func() {
+			body := `{"name":"worker-rotate","address":"10.0.0.4:50051"}`
+			first := register(body, "", true)
+			second := register(body, "", true)
+
+			Expect(second["id"]).To(Equal(first["id"]), "re-registration must keep the node identity")
+			firstToken := first["tunnel_token"].(string)
+			secondToken := second["tunnel_token"].(string)
+			// Only the hash is stored, so a re-registering worker cannot be told
+			// the secret it already holds; the alternative to rotating would be
+			// storing the plaintext.
+			Expect(secondToken).ToNot(Equal(firstToken))
+
+			node, err := registry.Get(context.Background(), first["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.TunnelTokenHash).To(Equal(hashOf(secondToken)))
+			Expect(node.TunnelTokenHash).ToNot(Equal(hashOf(firstToken)))
+		})
+
+		It("issues a tunnel credential to a node still awaiting approval", func() {
+			resp := register(`{"name":"worker-pending","address":"10.0.0.5:50051"}`, "", false)
+			Expect(resp["status"]).To(Equal(nodes.StatusPending))
+			// Deliberately unlike the agent API key and the NATS JWT, which are
+			// both withheld from a pending node. Those work the moment they are
+			// issued; this one does not, because the tunnel endpoint re-reads
+			// the node's status on every dial and refuses a pending node. A
+			// worker that registers exactly once would otherwise never receive
+			// one, since approval alone prompts no re-registration.
+			Expect(resp["tunnel_token"]).ToNot(BeEmpty())
 		})
 
 		It("returns nats_jwt when account seed is configured", func() {

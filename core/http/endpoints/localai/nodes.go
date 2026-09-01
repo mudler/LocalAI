@@ -2,6 +2,7 @@ package localai
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -244,6 +245,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			}
 		}
 
+		attachTunnelToken(ctx, response, registry, node)
 		attachNatsJWT(response, node, natsCfg)
 
 		return c.JSON(http.StatusCreated, response)
@@ -286,6 +288,43 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 
 		return c.JSON(http.StatusOK, response)
 	}
+}
+
+// attachTunnelToken mints this node a fresh tunnel credential, stores only its
+// hash, and puts the plaintext in the registration response.
+//
+// It is minted for EVERY node that registers, pending ones included, which is a
+// deliberate divergence from the two other per-node credentials in this file:
+// the agent worker's API key (provisionAgentWorkerKey) and its NATS JWT
+// (attachNatsJWT) are both withheld from a node awaiting approval. Those two
+// are bearer grants that WORK the moment they are issued, so issuing one to an
+// unapproved node would route around the admin. A tunnel credential is not:
+// core/http/endpoints/cluster/connect.go re-reads the node's status on every
+// dial and refuses a pending node with 403, so the credential is inert until an
+// admin approves and stays inert if approval is revoked. Withholding it would
+// instead strand every worker that registers exactly once (the static-NATS
+// path in core/services/worker/worker.go does), because approval alone does not
+// prompt a re-registration and nothing else can hand it the secret.
+//
+// A failure to mint or to store is logged and the response goes out without the
+// token. Registration is what gets a worker into the cluster at all, and
+// failing it over a credential the worker does not need until it tunnels would
+// turn a tunnel problem into a node that cannot join. The worker sees no
+// tunnel_token, reports that it has no credential, and retries at its next
+// registration.
+func attachTunnelToken(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode) {
+	if node == nil {
+		return
+	}
+	// crypto/rand.Text: at least 128 bits of randomness, no error to handle and
+	// no length constant to get wrong.
+	plaintext := rand.Text()
+	sum := sha256.Sum256([]byte(plaintext))
+	if err := registry.SetTunnelTokenHash(ctx, node.ID, hex.EncodeToString(sum[:])); err != nil {
+		xlog.Error("Failed to store a tunnel credential for node", "node", node.Name, "error", err)
+		return
+	}
+	response["tunnel_token"] = plaintext
 }
 
 // attachNatsJWT adds a per-node NATS user JWT to a register/approve response when minting is enabled.

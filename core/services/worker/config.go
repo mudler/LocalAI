@@ -58,7 +58,12 @@ type Config struct {
 	RegistrationRequireAuth bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Refuse to start the HTTP file-transfer server when no registration token is set (otherwise it fails open and serves read/write to models/staging/data unauthenticated)" group:"registration"`
 	DistributedRequireAuth  bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch implying both --nats-require-auth and --registration-require-auth" group:"distributed"`
 	HeartbeatInterval       string `env:"LOCALAI_HEARTBEAT_INTERVAL" default:"10s" help:"Interval between heartbeats" group:"registration"`
-	NodeLabels              string `env:"LOCALAI_NODE_LABELS" help:"Comma-separated key=value labels for this node (e.g. tier=fast,gpu=a100)" group:"registration"`
+	// WorkerTunnel holds one outbound multiplexed connection to the frontend
+	// and serves the frontend's requests over it, so the worker needs no
+	// inbound port. Turning it off leaves the worker reachable only at the
+	// addresses it advertises, which is the pre-tunnel behaviour.
+	WorkerTunnel bool   `env:"LOCALAI_WORKER_TUNNEL" default:"true" help:"Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port." group:"distributed"`
+	NodeLabels   string `env:"LOCALAI_NODE_LABELS" help:"Comma-separated key=value labels for this node (e.g. tier=fast,gpu=a100)" group:"registration"`
 	// MaxReplicasPerModel caps how many replicas of any one model can run on
 	// this worker concurrently. Default 1 = historical single-replica
 	// behavior. Set higher when a node has enough VRAM to host multiple

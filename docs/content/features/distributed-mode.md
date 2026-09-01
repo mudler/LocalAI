@@ -104,19 +104,42 @@ The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_R
 
 A worker can open one long-lived, multiplexed tunnel to the frontend instead of listening on a port of its own. It dials `GET /api/cluster/connect?id=<node id>`, the connection is upgraded to a WebSocket, and every subsequent request the frontend makes to that worker travels as a stream inside it. Nothing dials *into* the worker, so a worker behind NAT, in another Kubernetes cluster or on a laptop needs no inbound port and no reachable address.
 
-The dial is authenticated against **the hash stored on that node's row, which today is still the registration token's hash**: the frontend hashes the presented bearer token and compares it with what registration recorded. A worker that presents a token belonging to no node, or names a node ID the frontend has never seen, is refused with `401` before the WebSocket upgrade happens. A node still awaiting admin approval is refused with `403`. A frontend that cannot read its node table answers `500` rather than `401`, so a worker retries instead of re-registering under a new identity.
+#### Each worker has its own tunnel credential
 
-So the isolation is not there yet, and the caveat is worth stating plainly: because a worker registers by presenting the deployment's registration token, a leaked registration token plus a known node ID still gets a tunnel. What the tunnel endpoint does not do is trust the configured token directly, so when workers are issued their own per-node secrets and those secrets are what registration stores, the isolation becomes real with no change to this route.
+The dial is authenticated against **that node's own tunnel credential**, which is not the registration token. Registration mints a fresh random secret per node, returns the plaintext once in the registration response as `tunnel_token`, and stores only its SHA-256. So a leaked registration token no longer opens a tunnel: an attacker who has it, and who knows a node ID, still cannot authenticate as that worker.
 
-**Worker tunnels need `LOCALAI_REGISTRATION_TOKEN` set.** A worker registering against a frontend with no registration token configured sends no token, so nothing is stored on its row, and the tunnel has nothing to authenticate it against: every dial is refused with `401`. LocalAI warns about this at startup. Setting the token later is not enough on its own; the workers have to register again for the hash to be written.
+A worker that presents a credential belonging to no node, or names a node ID the frontend has never seen, is refused with `401` before the WebSocket upgrade happens. A node still awaiting admin approval is refused with `403`. A frontend that cannot read its node table answers `500` rather than `401`, so a worker retries instead of re-registering under a new identity.
+
+**The credential is rotated on every registration.** That follows from storing only the hash: a re-registering worker cannot be told the secret it already holds, so it is given a new one. The worker's live tunnel is unaffected, because the credential is checked when a tunnel is *dialled* and never again; what changes is which secret the next reconnect presents, and the worker learns it in the same response that rotated it.
+
+**A node that has not registered since upgrading cannot tunnel.** Its row has no tunnel credential and the column cannot be back-filled, because the plaintext only ever existed in the response that minted it. Such a node is refused with `401` until it registers again, which a worker restart does. The frontend does *not* fall back to the registration token for these nodes.
+
+Unlike the agent worker's API key and its NATS credential, a tunnel credential **is** issued to a node still awaiting approval. It is inert until then: the tunnel route re-reads the node's status on every dial and refuses a pending one. Withholding it would instead strand workers that register exactly once, since approval on its own prompts no re-registration.
+
+A tunnel credential does not replace `LOCALAI_REGISTRATION_TOKEN`. Without one, node registration itself is unauthenticated, so anyone who can reach the frontend can register a worker and be issued a working tunnel credential for it. LocalAI warns about that at startup.
 
 The tunnel lands on exactly one frontend replica, and that replica records itself as the owner of the worker's connection in the `node_connections` table. When the socket dies the claim is dropped with it. If the replica stalls long enough for its peers to reap it, it re-claims the tunnels it still holds on a live session as soon as it re-registers, skipping any whose socket has already gone. That re-claim needs the replica to have an advertised address: without one it never had an instance row to begin with, and its tunnels are usable only by the replica holding them.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/cluster/connect?id=<node id>` | Worker opens its multiplexed tunnel (`Authorization: Bearer <the token the worker registered with>`) |
+| `GET` | `/api/cluster/connect?id=<node id>` | Worker opens its multiplexed tunnel (`Authorization: Bearer <the node's own tunnel credential>`) |
 
 The route is exempt from the normal session/API-key authentication (it authenticates itself, like `/api/cluster/peer`) and is registered in every deployment. Outside distributed mode there is no node table to check a token against, so it answers `503`.
+
+#### What the worker does with the tunnel
+
+The worker holds the tunnel with one goroutine: it dials, serves the frontend's streams until the session dies, and dials again. Every stream opens with a small frame naming which local service it is for, and the worker answers before either side speaks the tunnelled protocol:
+
+| Tag | Goes to | Target |
+|-----|---------|--------|
+| `grpc` | a backend process on this worker | the port; the host is discarded and only `127.0.0.1` is dialled, within the worker's own backend port range |
+| `http` | the worker's own file-transfer and backend-log server | ignored; there is one such server and only the worker knows where it bound |
+
+A stream naming a tag the worker does not serve, or a local service it could not reach, is refused with a reason and the stream is **ended** rather than left open. Those two refusals are distinct on the wire on purpose: a frontend gives up on the first and may retry the second. One bad stream never affects the others or the session.
+
+Reconnects use exponential backoff with jitter: the interval doubles from 500ms up to a ceiling of 30 seconds, and each wait is drawn between half of that interval and all of it, so no worker ever spins and a fleet that lost the same replica does not come back in lockstep. The interval returns to its floor only after a session that lasted at least 30 seconds. That last part is what stops a rolling frontend restart, where every dial succeeds and then dies moments later, from turning a fleet of workers into a retry storm against the first replica back up. A worker that is refused (`401`, `403`) keeps retrying on the same schedule rather than exiting: a re-registration or an admin approval fixes both without restarting it.
+
+Set `LOCALAI_WORKER_TUNNEL=false` on a worker to turn the tunnel off and go back to the frontend dialling the worker's advertised addresses.
 
 ### The model load deadline scales with the checkpoint
 
@@ -341,6 +364,7 @@ local-ai worker \
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
+| `--worker-tunnel` | `LOCALAI_WORKER_TUNNEL` | `true` | Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port (see [Worker tunnels](#worker-tunnels)) |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL for backend installation and file staging |
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
 | `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |
