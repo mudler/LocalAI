@@ -306,6 +306,21 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 // path in core/services/worker/worker.go does), because approval alone does not
 // prompt a re-registration and nothing else can hand it the secret.
 //
+// Only BACKEND nodes get one, and that is a decision rather than an oversight.
+// An agent worker serves no gRPC backends and no file staging; nothing dials
+// into it at all, so a tunnel replaces nothing for it and there is no client on
+// the agent side that would ever open one. Minting anyway would hand out a
+// working credential for a pipe nobody drives, which is surface without a
+// feature, and it would contradict every comment in this change that says
+// "backend workers, the ones that tunnel".
+//
+// The gate lives HERE and not in ConnectHandler, which never looks at NodeType.
+// It does not need to: an agent node's tunnel credential is never minted, so
+// its TunnelTokenHash stays empty and the handler's empty-hash branch refuses
+// it like any other node without one. Enforcement is therefore structural. The
+// day agent workers want a tunnel, relaxing this condition is the whole change,
+// and it has to be a deliberate one.
+//
 // A failure to mint or to store is logged and the response goes out without the
 // token. Registration is what gets a worker into the cluster at all, and
 // failing it over a credential the worker does not need until it tunnels would
@@ -313,7 +328,7 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 // tunnel_token, reports that it has no credential, and retries at its next
 // registration.
 func attachTunnelToken(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode) {
-	if node == nil {
+	if node == nil || node.NodeType != nodes.NodeTypeBackend {
 		return
 	}
 	// crypto/rand.Text: at least 128 bits of randomness, no error to handle and

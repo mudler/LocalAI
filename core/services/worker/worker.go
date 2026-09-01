@@ -16,7 +16,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 
-	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -108,10 +107,20 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 		nodeID = res.ID
 		// This path registers exactly once and never again, so the credential
-		// it holds cannot go stale by rotation from its own side. It can still
-		// be superseded from OUTSIDE, by a second worker registering under the
-		// same node name, and there is nothing this worker can do about that
-		// but log the 401 and keep retrying.
+		// it holds cannot go stale by rotation from its own side.
+		//
+		// It CAN be superseded from outside: Register upserts by NAME, so a
+		// second worker registering under this node's name rotates the row's
+		// credential, and this worker then fails every tunnel dial with 401 for
+		// the life of the process. It logs that once per backoff and never
+		// recovers on its own; a restart fixes it, because startup re-registers
+		// unconditionally.
+		//
+		// Deliberately NOT fixed here. Re-registering after repeated tunnel
+		// 401s is a decision about the worker's lifecycle, and it belongs with
+		// the change that removes this worker's inbound listeners, when a
+		// worker that cannot tunnel is a worker that cannot be reached at all.
+		// Today it can still be reached at the addresses it advertises.
 		staticTunnelToken := res.TunnelToken
 		tunnelToken = func() string { return staticTunnelToken }
 		connectNats = func() (*messaging.Client, error) {
@@ -191,19 +200,15 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// frontend URL or this node's identity is unusable, and a worker that
 	// silently ran without its tunnel would look healthy while being
 	// unreachable to everything that dials through it.
-	tunnelBasePort := cfg.effectiveBasePort()
 	if cfg.WorkerTunnel {
 		tunnel, terr := StartTunnel(shutdownCtx, TunnelConfig{
 			FrontendURL: cfg.RegisterTo,
 			NodeID:      nodeID,
 			Token:       tunnelToken,
-			Services: map[string]LocalService{
-				// The frontend names a backend process by its port; the worker
-				// decides that only its own loopback, and only within its own
-				// backend port range, is reachable through it.
-				cluster.StreamTagGRPC: loopbackService(tunnelBasePort, cfg.effectiveMaxPort(tunnelBasePort)),
-				cluster.StreamTagHTTP: fixedService(loopbackAddr(httpAddr)),
-			},
+			// Built by tunnelServices rather than inline, so the routing
+			// table, which is this feature's security boundary, is reachable
+			// from a spec without starting a worker.
+			Services: tunnelServices(cfg, httpAddr),
 		})
 		if terr != nil {
 			nodes.ShutdownFileTransferServer(httpServer)
@@ -252,7 +257,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}()
 
 	// Process supervisor — manages multiple backend gRPC processes on different ports
-	basePort := tunnelBasePort
+	basePort := cfg.effectiveBasePort()
 	// Buffered so NATS stop handler can send without blocking
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

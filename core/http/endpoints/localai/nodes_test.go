@@ -154,15 +154,49 @@ var _ = Describe("Node HTTP handlers", func() {
 		})
 
 		It("issues a tunnel credential to a node still awaiting approval", func() {
-			resp := register(`{"name":"worker-pending","address":"10.0.0.5:50051"}`, "", false)
-			Expect(resp["status"]).To(Equal(nodes.StatusPending))
 			// Deliberately unlike the agent API key and the NATS JWT, which are
 			// both withheld from a pending node. Those work the moment they are
 			// issued; this one does not, because the tunnel endpoint re-reads
 			// the node's status on every dial and refuses a pending node. A
 			// worker that registers exactly once would otherwise never receive
 			// one, since approval alone prompts no re-registration.
-			Expect(resp["tunnel_token"]).ToNot(BeEmpty())
+			first := register(`{"name":"worker-pending","address":"10.0.0.5:50051","token":"shared"}`, "shared", false)
+			Expect(first["status"]).To(Equal(nodes.StatusPending))
+			plaintext, _ := first["tunnel_token"].(string)
+			Expect(plaintext).ToNot(BeEmpty())
+
+			// Non-empty alone does not pin per-node-ness, and a review's
+			// variant of the "derived from the shared token" mutation stayed
+			// green on exactly that gap. A pending node's credential has to be
+			// as unpredictable and as per-node as an approved one's, since it
+			// becomes live the moment an admin approves.
+			Expect(plaintext).ToNot(Equal("shared"))
+			node, err := registry.Get(context.Background(), first["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.TunnelTokenHash).To(Equal(hashOf(plaintext)))
+			Expect(node.TunnelTokenHash).ToNot(Equal(node.TokenHash))
+
+			second := register(`{"name":"worker-pending-2","address":"10.0.0.5:50052","token":"shared"}`, "shared", false)
+			Expect(second["status"]).To(Equal(nodes.StatusPending))
+			Expect(second["tunnel_token"]).ToNot(Equal(plaintext))
+		})
+
+		It("does not issue a tunnel credential to an agent node", func() {
+			// An agent worker serves no gRPC backends and no file staging;
+			// nothing dials into it, so a tunnel replaces nothing for it and no
+			// client on its side would open one. Minting anyway would be
+			// credential surface with no feature behind it.
+			//
+			// Enforcement is structural rather than a second check: with no
+			// credential minted, the node's hash stays empty and the tunnel
+			// route refuses it like any other node without one.
+			resp := register(`{"name":"agent-1","node_type":"agent"}`, "", true)
+			Expect(resp["node_type"]).To(Equal(nodes.NodeTypeAgent))
+			Expect(resp).ToNot(HaveKey("tunnel_token"))
+
+			node, err := registry.Get(context.Background(), resp["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.TunnelTokenHash).To(BeEmpty())
 		})
 
 		It("returns nats_jwt when account seed is configured", func() {
