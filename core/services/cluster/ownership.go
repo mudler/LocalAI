@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -15,6 +16,16 @@ import (
 // it from a transport failure to decide whether to relay through an owner, to
 // answer "this worker is not connected here", or to retry.
 var ErrNoConnection = errors.New("cluster: no connection recorded for node")
+
+// isPostgres reports whether the gorm dialect is PostgreSQL. The connection
+// fence is built out of PostgreSQL-only pieces (a sequence, ON CONFLICT
+// RETURNING), and the single-binary path runs on SQLite. advisorylock has an
+// identical private check; this one is copied rather than imported because it
+// is a one-line comparison on gorm's own dialector name and cluster is
+// deliberately a leaf package.
+func isPostgres(db *gorm.DB) bool {
+	return strings.Contains(db.Dialector.Name(), "postgres")
+}
 
 // epochSequence is the PostgreSQL sequence every claim draws its epoch from.
 // A sequence rather than a per-row counter because a released row is deleted:
@@ -39,10 +50,13 @@ const epochSequence = "node_connection_epochs"
 // one is answered by the epoch; a second liveness clock for the same fact would
 // only drift from the first.
 type NodeConnection struct {
-	NodeID          string    `gorm:"primaryKey;size:36" json:"node_id"`
-	OwnerInstanceID string    `gorm:"size:36;index;not null" json:"owner_instance_id"`
-	Epoch           int64     `gorm:"not null" json:"epoch"`
-	ConnectedAt     time.Time `gorm:"not null;default:now()" json:"connected_at"`
+	NodeID          string `gorm:"primaryKey;size:36" json:"node_id"`
+	OwnerInstanceID string `gorm:"size:36;index;not null" json:"owner_instance_id"`
+	Epoch           int64  `gorm:"not null" json:"epoch"`
+	// No column DEFAULT: now() is PostgreSQL syntax and would reach the DDL,
+	// which breaks AutoMigrate on the SQLite single-binary path. Claim writes
+	// the database clock as an expression instead, the way Register does.
+	ConnectedAt time.Time `gorm:"not null" json:"connected_at"`
 }
 
 // EnsureEpochSequence creates the sequence Claim draws epochs from. It lives
@@ -56,15 +70,32 @@ type NodeConnection struct {
 // (`nextval('...'::regclass)`), and a mismatch there makes every startup ALTER
 // the column. Naming the sequence in the statement keeps the schema stable.
 func EnsureEpochSequence(ctx context.Context, db *gorm.DB) error {
+	// CREATE SEQUENCE is PostgreSQL-only, and the same migration path runs
+	// against SQLite in single-binary mode. Nothing there can claim a
+	// connection (Claim refuses the dialect outright), so there is nothing to
+	// create.
+	if !isPostgres(db) {
+		return nil
+	}
 	if err := db.WithContext(ctx).Exec(`CREATE SEQUENCE IF NOT EXISTS ` + epochSequence + ` AS bigint`).Error; err != nil {
 		return fmt.Errorf("creating connection epoch sequence: %w", err)
 	}
 	return nil
 }
 
-// Claim records ownerID as the owner of nodeID's tunnel and returns the new
-// epoch, which is greater than every epoch handed out for that node before it
-// and is never handed out again.
+// Claim records ownerID as the owner of nodeID's tunnel and returns the epoch
+// of the claim.
+//
+// The epoch is UNIQUE and never reissued: no other claim, for this node or any
+// other, is ever handed the same value. It is NOT ordered, and callers must not
+// treat it as a version number. The sequence value on the insert path is drawn
+// while the tuple is built, before the row lock, so a claim that inserts after
+// a Release can be handed a number lower than one already issued elsewhere.
+// Compare epochs for equality only; never compare them for order.
+//
+// Uniqueness is all the fence needs: Release matches owner and epoch exactly,
+// so a stale claim's token cannot match a live claim's row whichever way the
+// two numbers happen to compare.
 //
 // It is one statement on purpose. A read-then-write would let two replicas read
 // the same epoch and hand out the same fence token, which is exactly the case
@@ -73,6 +104,13 @@ func EnsureEpochSequence(ctx context.Context, db *gorm.DB) error {
 // block until the winner commits and only then draw their own epoch, in the
 // order they took the row lock.
 func (r *Registry) Claim(ctx context.Context, nodeID, ownerID string) (int64, error) {
+	// Refused rather than attempted on a dialect with no sequence. The
+	// statement would fail anyway, but with a driver-level "no such function:
+	// nextval" that reads like a missing migration; and a fence that cannot
+	// issue a token must not look like one that did.
+	if !isPostgres(r.db) {
+		return 0, fmt.Errorf("claiming connection for node %q as %q: connection ownership requires PostgreSQL, this deployment runs on %q", nodeID, ownerID, r.db.Dialector.Name())
+	}
 	// connected_at is stamped by the database, never by this process, for the
 	// same reason instance liveness is: it is compared across replicas, so it
 	// has to be measured on the one clock every replica shares.
