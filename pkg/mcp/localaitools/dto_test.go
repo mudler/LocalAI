@@ -31,7 +31,7 @@ var _ = Describe("DTOs round-trip through JSON", func() {
 		roundTripDTO(InstallBackendRequest{GalleryName: "g", BackendName: "b"})
 		roundTripDTO(Backend{Name: "n", Installed: true})
 		roundTripDTO(SystemInfo{Version: "v1", Distributed: false, ModelsPath: "/tmp", LoadedModels: []string{"a"}, InstalledBackends: []string{"x"}})
-		roundTripDTO(Node{ID: "n", Address: "a", HTTPAddress: "h", TotalVRAM: 100, Healthy: true, LastSeen: "now"})
+		roundTripDTO(Node{ID: "n", TotalVRAM: 100, Healthy: true, LastSeen: "now"})
 		roundTripDTO(VRAMEstimateRequest{ModelName: "m", ContextSize: 4096, GPULayers: -1, KVQuantBits: 8})
 		roundTripDTO(ImportModelURIRequest{URI: "u", BackendPreference: "llama-cpp", Overrides: map[string]any{"k": "v"}})
 		roundTripDTO(ImportModelURIResponse{JobID: "j", DiscoveredModelName: "m", AmbiguousBackend: true, Modality: "tts", BackendCandidates: []string{"a", "b"}, Hint: "h"})

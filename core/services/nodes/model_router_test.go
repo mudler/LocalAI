@@ -22,6 +22,7 @@ type fakeModelRouterForSmartRouter struct {
 	nodeModel       *NodeModel
 	findErr         error
 	decrementCalled map[string]int // "nodeID:model" -> count
+	removed         []string       // "nodeID:model:replica" per RemoveNodeModel
 }
 
 func newFakeModelRouterForSmartRouter() *fakeModelRouterForSmartRouter {
@@ -46,8 +47,19 @@ func (f *fakeModelRouterForSmartRouter) DecrementInFlight(_ context.Context, nod
 func (f *fakeModelRouterForSmartRouter) IncrementInFlight(_ context.Context, _, _ string, _ int) error {
 	return nil
 }
-func (f *fakeModelRouterForSmartRouter) RemoveNodeModel(_ context.Context, _, _ string, _ int) error {
+func (f *fakeModelRouterForSmartRouter) RemoveNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.removed = append(f.removed, fmt.Sprintf("%s:%s:%d", nodeID, modelName, replicaIndex))
 	return nil
+}
+
+// removedModels lists the replica rows the code under test deleted, so a spec
+// can assert a branch left a row alone rather than only that it returned nil.
+func (f *fakeModelRouterForSmartRouter) removedModels() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.removed...)
 }
 func (f *fakeModelRouterForSmartRouter) RemoveAllNodeModelReplicas(_ context.Context, _, _ string) error {
 	return nil
