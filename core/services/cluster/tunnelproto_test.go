@@ -59,12 +59,25 @@ var _ = Describe("Worker tunnel stream framing", func() {
 			Entry("containing a space", "grpc stream"),
 		)
 
-		It("refuses a frame that declares more than the limit without allocating it", func() {
+		It("refuses an over-long declared length after reading only the header", func() {
+			// The name used to say "without allocating it" and the spec
+			// measured nothing of the sort. What is actually checkable, and is
+			// the mechanism the defence rests on, is that the reader STOPS: it
+			// consumes the two length bytes and not one byte of the body, so a
+			// peer cannot make it allocate or read on demand.
+			//
+			// The body is present in the input on purpose. With an input that
+			// ends after the header, a reader that went on to read the body
+			// would still consume nothing more, and this assertion would pass
+			// with the limit check deleted.
 			var hdr [2]byte
 			binary.BigEndian.PutUint16(hdr[:], 65535)
-			_, _, err := cluster.ReadStreamRequest(bytes.NewReader(hdr[:]))
+			src := &countingReader{r: bytes.NewReader(append(hdr[:], make([]byte, 4096)...))}
+
+			_, _, err := cluster.ReadStreamRequest(src)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("over the"))
+			Expect(src.n).To(Equal(2), "the reader consumed part of a frame it had already refused")
 		})
 
 		It("reports a truncated frame as a truncated read, not as a refusal", func() {
@@ -175,6 +188,19 @@ type reasonErr struct {
 
 func (e *reasonErr) Error() string { return e.sentinel.Error() + ": " + e.text }
 func (e *reasonErr) Unwrap() error { return e.sentinel }
+
+// countingReader records how many bytes were actually consumed, so a spec can
+// assert where a reader stopped rather than only what it returned.
+type countingReader struct {
+	r io.Reader
+	n int
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += n
+	return n, err
+}
 
 // writeRawFrame puts a payload on the wire without going through the encoder,
 // so a spec can present a frame the encoder would never produce.
