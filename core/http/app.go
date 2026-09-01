@@ -602,6 +602,19 @@ func API(application *application.Application) (*echo.Echo, error) {
 	var tunnels *clustersvc.TunnelRegistry
 	if d := application.Distributed(); d != nil {
 		tunnels = d.Tunnels
+		if distCfg.RegistrationToken == "" {
+			// A separate warning from the peer link's, for the same missing
+			// knob, because the broken thing is different and an operator has
+			// to be told both. A worker registering against a frontend with no
+			// registration token sends no token, so RegisterNodeEndpoint stores
+			// an empty token_hash, and the tunnel authenticates against exactly
+			// that column: every dial 401s, forever, on a deployment that looks
+			// correctly configured. Fixing it needs the token set AND the
+			// workers re-registered, which is why it is worth saying at boot
+			// rather than leaving in the 401s.
+			xlog.Warn("Worker tunnels will refuse every dial: no registration token is configured, so no worker has a stored token to authenticate against",
+				"route", clustersvc.ConnectPath, "knob", "LOCALAI_REGISTRATION_TOKEN")
+		}
 	}
 	routes.RegisterWorkerTunnelRoute(e, registry, tunnels)
 

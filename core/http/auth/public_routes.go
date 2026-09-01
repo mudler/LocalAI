@@ -74,9 +74,14 @@ func isPublicRoute(method, path string) bool {
 	return false
 }
 
-// ClusterPathPrefix is the replica-to-replica namespace. Its handlers check the
-// cluster token in the Authorization header themselves, so the check below lets
-// them through the global session middleware.
+// ClusterPathPrefix is the machine-to-machine cluster namespace. It carries two
+// different trust relationships, on two different credentials: the
+// replica-to-replica peer link, which checks the shared cluster token, and the
+// worker-to-frontend tunnel, which checks the dialing node's own stored token
+// hash. What they have in common is the only thing this prefix asserts, that
+// each handler checks its own Authorization header, so the check below lets them
+// through the global session middleware rather than rejecting a caller that has
+// no session and no user.
 //
 // The cluster routes do NOT derive their paths from this constant: they are
 // registered from core/services/cluster's own literal, because that package

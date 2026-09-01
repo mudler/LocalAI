@@ -194,6 +194,45 @@ var _ = Describe("Worker tunnel handler", func() {
 			"the claim outlived the socket, so this replica keeps being named the owner of a worker it no longer holds")
 	})
 
+	It("refuses a node whose row carries no stored token", func() {
+		// A deployment with no registration token configured produces exactly
+		// these rows: the worker sends no token, so registration stores none,
+		// and there is nothing here to authenticate against.
+		Expect(db.Exec(`UPDATE backend_nodes SET token_hash = '' WHERE id = ?`, nodeID).Error).To(Succeed())
+
+		_, resp, err := websocket.DefaultDialer.Dial(wsConnectURL(srv, nodeID), bearer(workerToken))
+		Expect(err).To(HaveOccurred())
+		Expect(resp).ToNot(BeNil())
+		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+		Expect(tun.Held()).To(BeEmpty())
+	})
+
+	It("refuses a node that is still awaiting admin approval", func() {
+		// Approval is what gates a node's participation, and a tunnel is a
+		// standing pipe recorded in node_connections, not a heartbeat. 403 and
+		// not 401: the credential is right, the authorisation is missing, and
+		// the fix is an admin rather than a different token.
+		Expect(db.Exec(`UPDATE backend_nodes SET status = ? WHERE id = ?`, nodes.StatusPending, nodeID).Error).To(Succeed())
+
+		_, resp, err := websocket.DefaultDialer.Dial(wsConnectURL(srv, nodeID), bearer(workerToken))
+		Expect(err).To(HaveOccurred())
+		Expect(resp).ToNot(BeNil())
+		Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
+		Expect(tun.Held()).To(BeEmpty())
+	})
+
+	It("still admits a draining node, which has work to finish", func() {
+		// Only pending is refused. Draining means "start nothing new", not
+		// "lose the pipe your in-flight requests travel on", and a node marked
+		// unhealthy for missed heartbeats needs the tunnel to recover through.
+		Expect(db.Exec(`UPDATE backend_nodes SET status = ? WHERE id = ?`, nodes.StatusDraining, nodeID).Error).To(Succeed())
+
+		conn, _, err := websocket.DefaultDialer.Dial(wsConnectURL(srv, nodeID), bearer(workerToken))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = conn.Close() })
+		Eventually(tun.Held, "10s").Should(ConsistOf(nodeID))
+	})
+
 	It("reports a lookup failure as a failure, not as a refusal", func() {
 		// ErrNotOwner, 401 and 404 are all ANSWERS. A database that cannot be
 		// read is none of them: telling a worker its credentials are wrong when
@@ -205,6 +244,56 @@ var _ = Describe("Worker tunnel handler", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(resp).ToNot(BeNil())
 		Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
+	})
+})
+
+var _ = Describe("Worker tunnel handler when the attach panics", func() {
+	// net/http recovers a panic from the request goroutine but does NOT close a
+	// hijacked connection, so without the handler's own recover the worker keeps
+	// a live session this replica has no entry for and will never detach: its
+	// opens fill yamux's 256-deep backlog and then hang with no error. The panic
+	// is injected through a real path rather than a fake one, a registry built
+	// over no database at all, which is what Attach's first database call
+	// dereferences.
+	var (
+		srv    *httptest.Server
+		db     *gorm.DB
+		nodeID string
+	)
+
+	BeforeEach(func() {
+		ctx := context.Background()
+		db = testutil.SetupTestDB()
+		nodeReg, err := nodes.NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		node := &nodes.BackendNode{Name: "worker-1", Address: "10.0.0.9:50051", TokenHash: tokenHash(workerToken)}
+		Expect(nodeReg.Register(ctx, node, true)).To(Succeed())
+		nodeID = node.ID
+
+		e := echo.New()
+		routes.RegisterWorkerTunnelRoute(e, nodeReg, clustersvc.NewTunnelRegistry(nil, "me"))
+		srv = httptest.NewServer(e)
+		DeferCleanup(func() {
+			// A hijacked connection the handler never closed would park Close
+			// forever, turning the assertion below into a suite hang.
+			srv.CloseClientConnections()
+			srv.Close()
+		})
+	})
+
+	It("closes the worker's session instead of stranding it", func() {
+		conn, _, err := websocket.DefaultDialer.Dial(wsConnectURL(srv, nodeID), bearer(workerToken))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = conn.Close() })
+
+		workerSess, err := yamux.Client(clustersvc.WebsocketConn(conn), nil, nil)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = workerSess.Close() })
+
+		// Asserting on OpenStream would hang rather than fail: yamux only
+		// acknowledges a stream once the peer accepts it, and the leak this
+		// pins is precisely that nobody ever will.
+		Eventually(workerSess.IsClosed, "10s").Should(BeTrue())
 	})
 })
 

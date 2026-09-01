@@ -716,3 +716,78 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 		Consistently(stored, 2*cluster.InstanceHeartbeat, time.Second).Should(Equal(epoch))
 	})
 })
+
+var _ = Describe("The worker tunnel registry's claim gate", func() {
+	// These specs need no database. They pin what happens when the database
+	// call under the gate does not return normally, which is the one exit a
+	// release-on-every-return-path cannot cover.
+	//
+	// The panic is produced by the production code itself: a registry with no
+	// *Registry behind it dereferences nothing at the gate and then panics
+	// inside Claim, which is exactly where a real one does its work.
+	var tun *cluster.TunnelRegistry
+
+	BeforeEach(func() {
+		tun = cluster.NewTunnelRegistry(nil, "me")
+	})
+
+	// attachPanics runs one Attach that is expected to panic, swallowing the
+	// panic so the spec can go on to ask what state it left behind.
+	attachPanics := func(ctx context.Context, nodeID string) {
+		defer GinkgoRecover()
+		defer func() { _ = recover() }()
+		frontend, _ := workerTunnel()
+		_, _ = tun.Attach(ctx, nodeID, frontend)
+		Fail("Attach was expected to panic inside Claim, so this spec is no longer testing what it claims")
+	}
+
+	It("frees the node's gate when the claim panics", func() {
+		attachPanics(context.Background(), "w1")
+
+		// A wedged gate is indistinguishable from a slow one except by waiting,
+		// so the second attempt is given a deadline. Reaching Claim means
+		// panicking again; returning a context error means it never got past
+		// enterClaim and this worker could never reconnect to this replica.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+
+		reached := make(chan any, 1)
+		go func() {
+			defer GinkgoRecover()
+			defer func() { reached <- recover() }()
+			frontend, _ := workerTunnel()
+			_, err := tun.Attach(ctx, "w1", frontend)
+			Expect(err).To(MatchError(context.DeadlineExceeded),
+				"the gate for this node was never released, so every later dial from it blocks until its own context expires")
+		}()
+		Eventually(reached, "5s").Should(Receive(Not(BeNil())),
+			"the second Attach did not reach Claim, so the panicking one left the gate closed")
+	})
+
+	It("leaves another node's gate alone", func() {
+		// The gate is per node so that one wedged worker cannot stop the rest;
+		// this holds that property against the panic path too.
+		attachPanics(context.Background(), "w1")
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		reached := make(chan any, 1)
+		go func() {
+			defer GinkgoRecover()
+			defer func() { reached <- recover() }()
+			frontend, _ := workerTunnel()
+			_, _ = tun.Attach(ctx, "w2", frontend)
+		}()
+		Eventually(reached, "5s").Should(Receive(Not(BeNil())))
+	})
+})
+
+var _ = Describe("Membership.SetTunnels", func() {
+	It("is safe on a nil receiver, like Stop", func() {
+		// A nil *Membership is a value this codebase deliberately produces when
+		// no peer-reachable address can be derived, so the asymmetry with Stop
+		// would be a trap for the next caller.
+		var m *cluster.Membership
+		Expect(func() { m.SetTunnels(cluster.NewTunnelRegistry(nil, "me")) }).ToNot(Panic())
+	})
+})
