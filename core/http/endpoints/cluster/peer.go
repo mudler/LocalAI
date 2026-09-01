@@ -52,7 +52,23 @@ func PeerHandler(token string, onSession func(peerID string, sess *yamux.Session
 
 		// Server side of the mux: the dialing peer is the client, so it owns
 		// the odd stream IDs and this side the even ones.
-		sess, err := yamux.Server(clustersvc.WebsocketConn(ws), nil, nil)
+		//
+		// The SAME configuration the dialler uses, and that is load bearing
+		// rather than symmetry for its own sake. A yamux receive window is
+		// advertised by the receiving side, so a nil here left this end on the
+		// 256 KiB default while the dialler ran at 4 MiB, and the direction
+		// governed by this end is the one that carries a relayed model artifact
+		// INTO the replica that owns the worker's tunnel. That direction was
+		// measured at roughly half the throughput of the same transfer without
+		// a relay in it.
+		//
+		// It also puts the same ceiling on unread data at this end that
+		// PeerLinkConfig already documents for the dialling end, so a replica
+		// is now sized against that figure per link in BOTH directions. That
+		// is the cost of the window being useful at all: a window is a bound
+		// on data received and not yet read, so a receiver that will not
+		// buffer cannot advertise one.
+		sess, err := yamux.Server(clustersvc.WebsocketConn(ws), clustersvc.PeerLinkConfig(), nil)
 		if err != nil {
 			xlog.Error("cluster peer link session setup failed", "peer", peerID, "error", err)
 			_ = ws.Close()

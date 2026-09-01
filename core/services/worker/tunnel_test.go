@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -598,6 +599,53 @@ func portOf(ln net.Listener) int {
 	return port
 }
 
+// listenOnSecondLoopback binds 127.0.0.2 on a port that 127.0.0.1 does not
+// have anything on, and will not be given anything on.
+//
+// The port choice is the assertion's, not an incidental. The spec it serves
+// proves a reachability fact: only 127.0.0.2 is listening, so a service that
+// honoured the host the frontend named would connect and one that dials
+// loopback cannot. A port taken from :0 lands in the kernel's ephemeral range,
+// where some unrelated socket on 127.0.0.1 can be holding the same number, and
+// then the dial to 127.0.0.1 succeeds and the spec reports an SSRF that did not
+// happen. That is not hypothetical: it failed about one run in seven under
+// `-race` while passing every time in isolation.
+//
+// Choosing from BELOW the ephemeral range (32768 on Linux by default) is what
+// removes it, because the kernel does not hand those out for outbound
+// connections. 127.0.0.1 is probed and released rather than held: holding it
+// would make the dial the spec expects to fail succeed instead.
+func listenOnSecondLoopback() (net.Listener, int) {
+	GinkgoHelper()
+	const (
+		floor    = 20000
+		ceiling  = 31000
+		attempts = 200
+	)
+	for i := 0; i < attempts; i++ {
+		port := floor + rand.IntN(ceiling-floor)
+		free, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			continue
+		}
+		if err := free.Close(); err != nil {
+			continue
+		}
+		victim, err := net.Listen("tcp", fmt.Sprintf("127.0.0.2:%d", port))
+		if err != nil {
+			// A host with no second loopback address fails on every port, so
+			// this is the skip the spec used to make inline.
+			if i == 0 && strings.Contains(err.Error(), "assign requested address") {
+				Skip("this host cannot bind a second loopback address: " + err.Error())
+			}
+			continue
+		}
+		return victim, port
+	}
+	Fail(fmt.Sprintf("no port in [%d, %d) was free on 127.0.0.1 and bindable on 127.0.0.2 after %d attempts", floor, ceiling, attempts))
+	return nil, 0
+}
+
 // The routing table is the security boundary of the whole tunnel, and until now
 // nothing exercised it: every spec above installs dialLocalTCP, which is exactly
 // the permissive dialler loopbackService exists to prevent. A review turned
@@ -643,12 +691,8 @@ var _ = Describe("Worker tunnel local services", func() {
 			// property of the code. The only listener is on 127.0.0.2; nothing
 			// is on 127.0.0.1 at that port. A service that honoured the named
 			// host would connect; one that dials loopback cannot.
-			victim, err := net.Listen("tcp", "127.0.0.2:0")
-			if err != nil {
-				Skip("this host cannot bind a second loopback address: " + err.Error())
-			}
+			victim, port := listenOnSecondLoopback()
 			DeferCleanup(func() { _ = victim.Close() })
-			port := portOf(victim)
 
 			conn, err := loopbackService(port, port)(ctx, victim.Addr().String())
 			if err == nil {
