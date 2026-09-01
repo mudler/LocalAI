@@ -209,6 +209,14 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 		// Pinning makes the cross-replica session a property of the harness.
 		"LOCALAI_AUTH_HMAC_SECRET="+testHMACSecret,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
+		// Every replica here shares one host, so the address a peer dials is
+		// this process's own loopback address. It has to be said explicitly:
+		// the automatic discovery asks which local address routes to
+		// PostgreSQL, and this suite's PostgreSQL is a container published on
+		// 127.0.0.1, so the discovery refuses (correctly) rather than
+		// advertising a loopback address that would mean "yourself" on a
+		// multi-host deployment.
+		fmt.Sprintf("LOCALAI_DISTRIBUTED_ADVERTISE_ADDR=127.0.0.1:%d", port),
 		"LOCALAI_AUTO_APPROVE_NODES=true",
 		"DEBUG=true",
 	)
@@ -332,6 +340,14 @@ func (p *Process) terminate() {
 // FrontendURL is the base URL of frontend i.
 func (c *Cluster) FrontendURL(i int) string {
 	return fmt.Sprintf("http://127.0.0.1:%d", c.frontends[i].Port)
+}
+
+// RegistrationToken is the shared secret this cluster was started with. It
+// authenticates worker registration AND the replica-to-replica peer link, so a
+// spec acting as a peer needs it rather than a second literal that can drift
+// from Options.
+func (c *Cluster) RegistrationToken() string {
+	return c.opts.RegistrationToken
 }
 
 // WorkerName is the node name worker i registered under.

@@ -122,6 +122,14 @@ func mockBackendBinary() string {
 // existing caller keeps the plain two-argument form and the default shape.
 func startCluster(frontends, workers int, customise ...func(*cluster.Options)) *cluster.Cluster {
 	GinkgoHelper()
+	c, _ := startClusterOnFreshDB(frontends, workers, customise...)
+	return c
+}
+
+// startClusterOnFreshDB is startCluster plus the DSN of the database it was
+// given, for a spec that has to read a table no endpoint exposes.
+func startClusterOnFreshDB(frontends, workers int, customise ...func(*cluster.Options)) (*cluster.Cluster, string) {
+	GinkgoHelper()
 
 	// Resolved before SetupInfra so a missing binary skips without having paid
 	// for a database that the skip would then leave to DeferCleanup.
@@ -163,7 +171,7 @@ func startCluster(frontends, workers int, customise ...func(*cluster.Options)) *
 		}
 		c.Stop()
 	})
-	return c
+	return c, infra.PGURL
 }
 
 // rosterProbe polls one frontend's node roster.

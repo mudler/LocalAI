@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -12,12 +14,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
@@ -43,6 +47,16 @@ type DistributedServices struct {
 	Unloader     *nodes.RemoteUnloaderAdapter
 	ModelCleanup *nodes.ModelCleanupService
 
+	// Cluster is the replica-membership registry: which frontend replicas are
+	// alive, at which address, and which of them holds a given worker's tunnel.
+	Cluster *cluster.Registry
+	// Membership publishes this replica's row and reaps the dead. Nil when no
+	// peer-reachable address could be determined, which leaves this replica
+	// invisible to its peers but otherwise fully functional.
+	Membership *cluster.Membership
+	// PeerSessions owns the peer links other replicas dialled into this one.
+	PeerSessions *cluster.SessionStore
+
 	shutdownOnce sync.Once
 }
 
@@ -53,6 +67,15 @@ func (ds *DistributedServices) Shutdown() {
 		return
 	}
 	ds.shutdownOnce.Do(func() {
+		// Peer state first: a replica that is going away should stop claiming
+		// to be alive before it stops answering, so peers re-home rather than
+		// dial a process in teardown.
+		if ds.Membership != nil {
+			ds.Membership.Stop()
+		}
+		if ds.PeerSessions != nil {
+			ds.PeerSessions.CloseAll()
+		}
 		if ds.Health != nil {
 			ds.Health.Stop()
 		}
@@ -161,6 +184,29 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, fmt.Errorf("initializing node registry: %w", err)
 	}
 	xlog.Info("Node registry initialized")
+
+	// Replica membership. NewNodeRegistry has just migrated the tables this
+	// reads, so it has to come after it.
+	clusterRegistry := cluster.NewRegistry(authDB)
+	// Accepted peer links are held with no stream handler: this replica has
+	// somewhere to put a link a peer dials, and refuses the streams on it,
+	// because nothing relays worker traffic yet.
+	peerSessions := cluster.NewSessionStore(nil)
+	var membership *cluster.Membership
+	if advertised, err := advertisedPeerAddr(cfg); err != nil {
+		// Not fatal. A replica that cannot publish an address still serves
+		// every request that reaches it directly; what it cannot do is have
+		// another replica relay to it. Failing startup here would take out
+		// every existing single-host deployment, whose route to a local
+		// database is loopback.
+		xlog.Warn("This replica will not be reachable by its peers: no advertised address",
+			"error", err, "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
+	} else {
+		membership = cluster.NewMembership(clusterRegistry, cfg.Distributed.InstanceID, advertised, internal.PrintableVersion())
+		if err := membership.Start(cfg.Context); err != nil {
+			return nil, fmt.Errorf("registering this replica in the cluster: %w", err)
+		}
+	}
 
 	// Let scheduling rules be keyed by a model alias. The registry resolves a
 	// rule's name through the config loader to find the model it governs, so an
@@ -450,7 +496,34 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		ModelAdapter: modelAdapter,
 		Unloader:     remoteUnloader,
 		ModelCleanup: modelCleanup,
+		Cluster:      clusterRegistry,
+		Membership:   membership,
+		PeerSessions: peerSessions,
 	}, nil
+}
+
+// advertisedPeerAddr is the host:port peers dial to reach this replica.
+//
+// The operator's value wins outright. Otherwise it is derived from the port
+// this process serves on and the local address that routes to PostgreSQL, which
+// is only a peer-reachable answer when the database is on another host;
+// DiscoverAdvertisedAddr refuses rather than guessing when it is not.
+func advertisedPeerAddr(cfg *config.ApplicationConfig) (string, error) {
+	if cfg.Distributed.AdvertiseAddr != "" {
+		return cfg.Distributed.AdvertiseAddr, nil
+	}
+	if cfg.APIAddress == "" {
+		return "", fmt.Errorf("no API address to derive a peer port from")
+	}
+	_, port, err := net.SplitHostPort(cfg.APIAddress)
+	if err != nil {
+		return "", fmt.Errorf("reading the peer port out of API address %q: %w", cfg.APIAddress, err)
+	}
+	portNumber, err := strconv.Atoi(port)
+	if err != nil {
+		return "", fmt.Errorf("API address %q has a non-numeric port: %w", cfg.APIAddress, err)
+	}
+	return cluster.DiscoverAdvertisedAddr(cfg.Auth.DatabaseURL, portNumber)
 }
 
 func isPostgresURL(url string) bool {

@@ -13,8 +13,15 @@ import (
 // DistributedConfig holds configuration for horizontal scaling mode.
 // When Enabled is true, PostgreSQL and NATS are required.
 type DistributedConfig struct {
-	Enabled           bool   // --distributed / LOCALAI_DISTRIBUTED
-	InstanceID        string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
+	Enabled    bool   // --distributed / LOCALAI_DISTRIBUTED
+	InstanceID string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
+	// AdvertiseAddr is the host:port OTHER REPLICAS dial to reach this one,
+	// which is not the address this process binds: a replica behind a service
+	// or a NAT binds one and is reached at another. Empty means "work it out",
+	// by asking the kernel which local address routes to PostgreSQL; that
+	// answer is only usable when the database is remote, so a deployment with
+	// a local or sidecar database has to set this.
+	AdvertiseAddr     string // LOCALAI_DISTRIBUTED_ADVERTISE_ADDR
 	NatsURL           string // --nats-url / LOCALAI_NATS_URL
 	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
 	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
@@ -192,6 +199,14 @@ var EnableDistributed = func(o *ApplicationConfig) {
 func WithDistributedInstanceID(id string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.InstanceID = id
+	}
+}
+
+// WithDistributedAdvertiseAddr pins the host:port peers dial to reach this
+// replica, overriding the route-based discovery.
+func WithDistributedAdvertiseAddr(addr string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.AdvertiseAddr = addr
 	}
 }
 

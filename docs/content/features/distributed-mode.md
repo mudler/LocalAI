@@ -64,6 +64,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode |
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS server URL (e.g., `nats://localhost:4222`) |
+| `--distributed-advertise-addr` | `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` | *(derived)* | `host:port` the **other frontend replicas** dial to reach this one. See [Replica peer links](#replica-peer-links). |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
@@ -77,6 +78,27 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
+
+### Replica peer links
+
+Frontend replicas record themselves in an `instances` table and open direct links to each other, so that a request arriving at one replica can be served by state another replica holds. Each replica publishes one address for this, and every other replica dials it: it is the address **peers** use, which is not necessarily the address the process binds. A replica behind a Kubernetes Service, a load balancer or a NAT binds one and is reached at another.
+
+When `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` is unset, the address is derived: LocalAI asks the kernel which local address routes to PostgreSQL, and pairs it with the port it serves on. Every replica reaches the same database, so that address is on a network they demonstrably share.
+
+That only holds while the database is on **another host**. If PostgreSQL runs on the same host or pod (compose, single-node, a sidecar), the route to it is loopback, and advertising a loopback address would send every peer to itself. LocalAI refuses to guess in that case and logs:
+
+```
+This replica will not be reachable by its peers: no advertised address
+```
+
+The replica keeps serving every request that reaches it directly; what it cannot do is have another replica reach it. Set the address explicitly to fix it:
+
+```yaml
+environment:
+  LOCALAI_DISTRIBUTED_ADVERTISE_ADDR: "10.0.1.7:8080"   # or the pod IP, service DNS name, etc.
+```
+
+The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_REGISTRATION_TOKEN`, the same shared secret workers register with. Replicas that disagree about it cannot link. A replica that stops heartbeating for 30 seconds is dropped from the table by the others, along with the worker-connection rows it owned.
 
 ### The model load deadline scales with the checkpoint
 

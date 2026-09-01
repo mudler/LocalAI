@@ -576,6 +576,14 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
 	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg)
 
+	// Replica-to-replica peer link. Registered only in distributed mode: in
+	// single-node mode there are no peers, and the route authenticates with the
+	// registration token, so publishing it unconditionally would put a
+	// multiplexer on every single-binary install.
+	if d := application.Distributed(); d != nil && d.PeerSessions != nil {
+		routes.RegisterClusterRoutes(e, distCfg.RegistrationToken, d.PeerSessions.Accept)
+	}
+
 	// Distributed SSE routes (job progress + agent events via NATS)
 	if d := application.Distributed(); d != nil {
 		if d.Dispatcher != nil {

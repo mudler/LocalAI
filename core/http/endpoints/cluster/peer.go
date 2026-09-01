@@ -18,18 +18,6 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// RegisterClusterRoutes registers the peer link. onPeer receives every
-// authenticated session; see PeerHandler for what it is expected to do with it.
-//
-// The route is core/services/cluster's own constant, so the handler and the
-// dialler cannot be registered and dialled at different paths. That the path
-// also falls under auth.ClusterPathPrefix, and so bypasses the session
-// middleware, is asserted by a spec in this package: it is the only place that
-// can see both, since core/services/cluster must not import core/http/auth.
-func RegisterClusterRoutes(e *echo.Echo, token string, onPeer func(string, *yamux.Session)) {
-	e.GET(clustersvc.PeerPath, PeerHandler(token, onPeer))
-}
-
 // PeerHandler upgrades an authenticated peer dial to a WebSocket, wraps it as
 // a yamux server session and hands it to onSession.
 //
