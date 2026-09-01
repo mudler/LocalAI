@@ -43,16 +43,26 @@ func newClaimHook(match func(sql string) bool) *claimHook {
 	return &claimHook{Interface: gormlogger.Default.LogMode(gormlogger.Silent), match: match}
 }
 
+// setAction installs what the hook runs, under the same lock that guards fired.
+// The action is written from the spec's goroutine and read from whichever
+// goroutine issues the statement, which need not be the same one.
+func (h *claimHook) setAction(action func(sql string)) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.action = action
+}
+
 func (h *claimHook) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
 	sql, rows := fc()
 	h.mu.Lock()
-	fire := !h.fired && h.action != nil && h.match(sql)
+	action := h.action
+	fire := !h.fired && action != nil && h.match(sql)
 	if fire {
 		h.fired = true
 	}
 	h.mu.Unlock()
 	if fire {
-		h.action(sql)
+		action(sql)
 	}
 	h.Interface.Trace(ctx, begin, func() (string, int64) { return sql, rows }, err)
 }
@@ -334,7 +344,7 @@ var _ = Describe("The worker tunnel registry", func() {
 		secondSession, _ := workerTunnel()
 		secondStarted := make(chan struct{})
 		secondEpochs := make(chan int64, 1)
-		hook.action = func(string) {
+		hook.setAction(func(string) {
 			// Launched from inside the first claim, so the second Attach is
 			// provably reaching for the same node while the first is between
 			// its claim and its store. Starting it before the call would leave
@@ -349,7 +359,7 @@ var _ = Describe("The worker tunnel registry", func() {
 			<-secondStarted
 			Consistently(secondEpochs, serializationProbe, 10*time.Millisecond).ShouldNot(Receive(),
 				"a second Attach for this node claimed AND recorded its epoch while the first was between its own claim and store")
-		}
+		})
 
 		firstSession, _ := workerTunnel()
 		firstEpoch, err := hooked.Attach(ctx, "w1", firstSession)
@@ -575,7 +585,7 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 			epoch int64
 		}
 		redialled := make(chan redial, 1)
-		hook.action = func(sql string) {
+		hook.setAction(func(sql string) {
 			node := "w2"
 			if claimedNode(sql, "w1", "w2") == "w2" {
 				node = "w1"
@@ -584,7 +594,7 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 			epoch, err := hooked.Attach(ctx, node, frontend)
 			Expect(err).ToNot(HaveOccurred())
 			redialled <- redial{node: node, epoch: epoch}
-		}
+		})
 
 		count, err := hooked.Reclaim(ctx)
 		Expect(err).ToNot(HaveOccurred())
@@ -604,6 +614,61 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 			"the re-claim was recorded on nothing, so the attachment that holds the socket cannot release its row")
 	})
 
+	It("serialises a re-claim against an Attach for the same node", func() {
+		// The re-claim takes the same gate Attach does, and for the same
+		// reason. Unserialised, a worker re-dialling between the re-claim's
+		// commit and its record leaves the row carrying the re-dial's epoch
+		// while the entry carries the re-claim's, so the attachment holding the
+		// socket releases an epoch the row does not have. Nothing sweeps the
+		// row that is left, because this replica is alive: Owner keeps naming
+		// it as the owner of a tunnel it does not hold.
+		hook := newClaimHook(isClaimOf("w1"))
+		hooked := cluster.NewTunnelRegistry(
+			cluster.NewRegistry(db.Session(&gorm.Session{Logger: hook})), "me")
+
+		first, _ := workerTunnel()
+		attachEpoch, err := hooked.Attach(ctx, "w1", first)
+		Expect(err).ToNot(HaveOccurred())
+
+		redialSession, _ := workerTunnel()
+		redialStarted := make(chan struct{})
+		redialEpochs := make(chan int64, 1)
+		hook.setAction(func(string) {
+			// Launched from inside the re-claim's own claim, so the re-dial is
+			// provably reaching for this node while the re-claim is between its
+			// commit and its record.
+			go func() {
+				defer GinkgoRecover()
+				close(redialStarted)
+				epoch, err := hooked.Attach(ctx, "w1", redialSession)
+				Expect(err).ToNot(HaveOccurred())
+				redialEpochs <- epoch
+			}()
+			<-redialStarted
+			Consistently(redialEpochs, serializationProbe, 10*time.Millisecond).ShouldNot(Receive(),
+				"a worker re-dialled and recorded its claim while a re-claim for the same node was between its own claim and record")
+		})
+
+		count, err := hooked.Reclaim(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(count).To(Equal(1))
+
+		var redialEpoch int64
+		Eventually(redialEpochs, "10s").Should(Receive(&redialEpoch))
+		Expect(redialEpoch).ToNot(Equal(attachEpoch))
+
+		// The re-dial claimed after the re-claim, so the row carries its epoch
+		// and its attachment is the one that has to be able to release it. The
+		// superseded token must still be a no-op.
+		hooked.Detach("w1", attachEpoch)
+		Expect(hooked.Held()).To(ConsistOf("w1"))
+		hooked.Detach("w1", redialEpoch)
+		Expect(hooked.Held()).To(BeEmpty())
+		_, _, err = reg.OwnerRow(ctx, "w1")
+		Expect(err).To(MatchError(cluster.ErrNoConnection),
+			"the attachment that re-dialled could not release its row, so the row outlived the socket")
+	})
+
 	It("releases a re-claim whose attachment detached while the claim was in flight", func() {
 		// Detach is not gated against a re-claim, so this interleave is real:
 		// the claim commits, then the socket dies and Detach releases the epoch
@@ -619,7 +684,7 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 		epoch, err := hooked.Attach(ctx, "w1", frontend)
 		Expect(err).ToNot(HaveOccurred())
 
-		hook.action = func(string) { hooked.Detach("w1", epoch) }
+		hook.setAction(func(string) { hooked.Detach("w1", epoch) })
 
 		count, err := hooked.Reclaim(ctx)
 		Expect(err).ToNot(HaveOccurred())
