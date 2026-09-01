@@ -19,9 +19,9 @@
 #   3. The frontend endpoint, when the mode cannot be determined.
 #
 # Ports are read from environment variables only, which is how containers are
-# configured in practice (compose/k8s set LOCALAI_ADDRESS, LOCALAI_SERVE_ADDR,
-# ...). If you instead pass the bind address as a CLI flag, set
-# HEALTHCHECK_ENDPOINT to match.
+# configured in practice (compose/k8s set LOCALAI_ADDRESS, LOCALAI_ADDR,
+# LOCALAI_SERVE_ADDR, ...). If you instead pass the bind address as a CLI flag,
+# set HEALTHCHECK_ENDPOINT to match.
 set -u
 
 # Detect the arguments local-ai was started with. PID 1 is the usual case
@@ -99,9 +99,24 @@ if [ -z "$endpoint" ]; then
             # The worker's file-transfer server (which also serves /readyz and
             # /healthz) binds LOCALAI_HTTP_ADDR when set, otherwise the gRPC
             # base port minus one. See Config.resolveHTTPAddr.
+            #
+            # The base port comes from LOCALAI_ADDR first and LOCALAI_SERVE_ADDR
+            # second, which is Config.effectiveBasePort's own order. Reading
+            # only the second one meant a worker configured with LOCALAI_ADDR
+            # (the documented knob; LOCALAI_SERVE_ADDR is marked hidden) was
+            # probed on the default 50050 while its server sat on a different
+            # port. That is #10987 again: a working worker reporting
+            # `unhealthy` forever because the probe went somewhere nothing
+            # binds.
+            #
+            # The worker binds loopback, which is where this probe runs: it runs
+            # inside the container, so no inbound port is needed for it to work.
             port=$(port_of "${LOCALAI_HTTP_ADDR:-}")
             if [ -z "$port" ]; then
-                base=$(port_of "${LOCALAI_SERVE_ADDR:-}")
+                base=$(port_of "${LOCALAI_ADDR:-}")
+                if [ -z "$base" ]; then
+                    base=$(port_of "${LOCALAI_SERVE_ADDR:-}")
+                fi
                 port=$(( ${base:-50051} - 1 ))
             fi
             endpoint="http://localhost:${port}/readyz"
