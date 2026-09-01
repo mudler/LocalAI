@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"golang.org/x/sync/singleflight"
 )
 
 var _ = Describe("probeCache", func() {
@@ -112,51 +113,75 @@ var _ = Describe("probeCache", func() {
 		// read its own unset variable and see nil. In production that means the
 		// leader correctly declines to reap a replica on an unreachable worker
 		// while all seven joiners reap it, on the leader's own observation.
+		//
+		// The FIRST version of this spec raced eight goroutines at the cache
+		// and hoped they coalesced. Nothing made them: a goroutine that arrived
+		// after the leader's flight finished started its own, re-entered the
+		// probe and double-closed a channel, so the spec panicked about one run
+		// in three. Its comment claimed the probe blocked until every goroutine
+		// was inside flight.Do, which was the design intended rather than the
+		// one written, and that gap was exactly the panic.
+		//
+		// This version does not hope. singleflight.DoChan registers its channel
+		// on the in-flight call under the group's own mutex and returns WITHOUT
+		// running its function (x/sync@v0.22.0 singleflight.go:127-132), so
+		// calling it while the leader is provably parked inside the probe joins
+		// that exact flight, with no window and no scheduler dependency. The
+		// group is reachable because this spec lives in the package.
 		c := newProbeCache(time.Minute)
 		unreached := errors.New("no route to the worker")
 
-		// The probe blocks until every goroutine is inside flight.Do, so the
-		// joiners are genuinely coalesced rather than serialised. Released by a
-		// channel, so nothing here waits on a clock.
-		entered := make(chan struct{})
+		// Buffered, and sent on rather than closed: a probe that somehow ran
+		// twice must fail an assertion, not panic and take the suite with it.
+		entered := make(chan struct{}, 4)
 		release := make(chan struct{})
 		var calls int32
 		probe := func() (bool, error) {
 			atomic.AddInt32(&calls, 1)
-			close(entered)
+			entered <- struct{}{}
 			<-release
 			return false, unreached
 		}
 
-		const N = 8
-		start := make(chan struct{})
-		var wg sync.WaitGroup
-		reasons := make([]error, N)
-		alive := make([]bool, N)
-		for i := 0; i < N; i++ {
-			wg.Add(1)
-			go func(i int) {
-				defer GinkgoRecover()
-				defer wg.Done()
-				<-start
-				alive[i], reasons[i] = c.DoOrCachedResult("k", probe)
-			}(i)
+		type leaderResult struct {
+			alive     bool
+			unreached error
 		}
-		close(start)
+		leader := make(chan leaderResult, 1)
+		go func() {
+			defer GinkgoRecover()
+			alive, reason := c.DoOrCachedResult("k", probe)
+			leader <- leaderResult{alive: alive, unreached: reason}
+		}()
 
-		// Only unblock the leader once at least one goroutine is inside the
-		// probe; the rest are then either waiting on the flight or about to be.
-		<-entered
+		// The leader is now inside the probe, so the group holds an entry for
+		// "k" and will hold it until the probe returns.
+		Eventually(entered, "10s").Should(Receive())
+
+		// Deterministically coalesced. This function must never run; if the
+		// join failed it would, and the assertion below on the probe count
+		// would catch it too.
+		joined := c.flight.DoChan("k", func() (any, error) {
+			Fail("DoChan started its own flight, so nothing was coalesced")
+			return false, nil
+		})
+
 		close(release)
-		wg.Wait()
+
+		var got leaderResult
+		Eventually(leader, "10s").Should(Receive(&got))
+		Expect(got.alive).To(BeFalse())
+		Expect(got.unreached).To(MatchError(unreached), "the caller that RAN the probe must get the reason")
+
+		var shared singleflight.Result
+		Eventually(joined, "10s").Should(Receive(&shared))
+		Expect(shared.Shared).To(BeTrue(), "this caller did not actually join the leader's flight")
+		Expect(shared.Val).To(Equal(false))
+		Expect(shared.Err).To(MatchError(unreached),
+			"a joiner got the answer without the reason, which is how a joiner reaps what the leader would not")
 
 		Expect(atomic.LoadInt32(&calls)).To(Equal(int32(1)),
-			"singleflight must collapse %d concurrent probes into one", N)
-		for i := range reasons {
-			Expect(alive[i]).To(BeFalse(), "goroutine %d saw a different answer", i)
-			Expect(reasons[i]).To(MatchError(unreached),
-				"goroutine %d joined the flight and got the answer without the reason, which is how a joiner reaps what the leader would not", i)
-		}
+			"the probe must have run exactly once")
 	})
 
 	It("treats different keys independently", func() {
