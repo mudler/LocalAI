@@ -3,6 +3,7 @@ package cluster_test
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
@@ -207,7 +209,11 @@ var _ = Describe("Connection ownership", func() {
 		}
 		Expect(seen).To(HaveLen(claimants))
 
-		// Exactly one row, and its epoch is the highest handed out.
+		// Exactly one row, and its epoch is the highest handed out. That last
+		// part holds here because no Release intervenes: every claim after the
+		// first blocks on the row lock and draws its epoch after taking it, in
+		// commit order. It is not a general guarantee about epochs, which are
+		// unique but unordered.
 		var rows []cluster.NodeConnection
 		Expect(db.Where("node_id = ?", "w-race").Find(&rows).Error).To(Succeed())
 		Expect(rows).To(HaveLen(1))
@@ -218,5 +224,35 @@ var _ = Describe("Connection ownership", func() {
 			}
 		}
 		Expect(rows[0].Epoch).To(Equal(max))
+	})
+})
+
+var _ = Describe("Connection ownership on a non-PostgreSQL dialect", func() {
+	var (
+		db  *gorm.DB
+		ctx context.Context
+	)
+
+	BeforeEach(func() {
+		var err error
+		ctx = context.Background()
+		db, err = gorm.Open(sqlite.Open(filepath.Join(GinkgoT().TempDir(), "cluster.db")), &gorm.Config{})
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("migrates, because the single-binary path shares this schema", func() {
+		// A PostgreSQL-only column DEFAULT here breaks AutoMigrate for every
+		// SQLite caller of nodes.NewNodeRegistry, which is how this regressed.
+		Expect(db.AutoMigrate(&cluster.NodeConnection{})).To(Succeed())
+		Expect(cluster.EnsureEpochSequence(ctx, db)).To(Succeed())
+	})
+
+	It("refuses to claim, rather than pretending to fence", func() {
+		Expect(db.AutoMigrate(&cluster.NodeConnection{})).To(Succeed())
+		Expect(cluster.EnsureEpochSequence(ctx, db)).To(Succeed())
+
+		_, err := cluster.NewRegistry(db).Claim(ctx, "w1", "inst-a")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("requires PostgreSQL"))
 	})
 })
