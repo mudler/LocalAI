@@ -603,16 +603,21 @@ func API(application *application.Application) (*echo.Echo, error) {
 	if d := application.Distributed(); d != nil {
 		tunnels = d.Tunnels
 		if distCfg.RegistrationToken == "" {
-			// A separate warning from the peer link's, for the same missing
-			// knob, because the broken thing is different and an operator has
-			// to be told both. A worker registering against a frontend with no
-			// registration token sends no token, so RegisterNodeEndpoint stores
-			// an empty token_hash, and the tunnel authenticates against exactly
-			// that column: every dial 401s, forever, on a deployment that looks
-			// correctly configured. Fixing it needs the token set AND the
-			// workers re-registered, which is why it is worth saying at boot
-			// rather than leaving in the 401s.
-			xlog.Warn("Worker tunnels will refuse every dial: no registration token is configured, so no worker has a stored token to authenticate against",
+			// A different warning from the peer link's, for the same missing
+			// knob, because what breaks is different. Tunnels themselves work
+			// without a registration token: each node is minted its own tunnel
+			// credential at registration whether or not one is configured. What
+			// is missing is the gate in FRONT of that. With no registration
+			// token, RegisterNodeEndpoint validates nothing, so anyone who can
+			// reach this frontend can register a node and be handed a working
+			// tunnel credential for it.
+			//
+			// This warning replaced one that said the opposite, that tunnels
+			// would refuse every dial without this token. That was true while
+			// the tunnel authenticated against the registration token's own
+			// hash, and stopped being true when nodes got credentials of their
+			// own.
+			xlog.Warn("Node registration is unauthenticated, so any caller that can reach this frontend can register a worker and be issued a tunnel credential",
 				"route", clustersvc.ConnectPath, "knob", "LOCALAI_REGISTRATION_TOKEN")
 		}
 	}
