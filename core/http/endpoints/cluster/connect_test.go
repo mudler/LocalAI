@@ -24,11 +24,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// workerToken is the secret one worker holds. It is stored on that worker's row
-// as a hash, never in a config value, which is the whole point of the check the
-// specs below pin: a second worker's token, and the deployment-wide
+// workerToken is the tunnel credential one worker holds. Registration mints it
+// per node and keeps only its hash, which is the whole point of the check the
+// specs below pin: a second worker's credential, and the deployment-wide
 // registration token, are both wrong for this node.
 const workerToken = "worker-1-secret"
+
+// registrationToken stands in for the shared secret every worker in a
+// deployment registers with. It is stored on the row too, in a DIFFERENT
+// column, and a spec below pins that presenting it does not open a tunnel.
+const registrationToken = "deployment-registration-token"
 
 func tokenHash(token string) string {
 	sum := sha256.Sum256([]byte(token))
@@ -66,9 +71,13 @@ var _ = Describe("Worker tunnel handler", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		node := &nodes.BackendNode{
-			Name:      "worker-1",
-			Address:   "10.0.0.9:50051",
-			TokenHash: tokenHash(workerToken),
+			Name:    "worker-1",
+			Address: "10.0.0.9:50051",
+			// Both hashes are set, and they differ. That is what a real
+			// registration produces: TokenHash is the shared token the worker
+			// registered WITH, TunnelTokenHash is the secret minted FOR it.
+			TokenHash:       tokenHash(registrationToken),
+			TunnelTokenHash: tokenHash(workerToken),
 		}
 		Expect(nodeReg.Register(ctx, node, true)).To(Succeed())
 		nodeID = node.ID
@@ -108,11 +117,13 @@ var _ = Describe("Worker tunnel handler", func() {
 		Expect(tun.Held()).To(BeEmpty())
 	})
 
-	It("refuses a token that is not the node's own", func() {
+	It("refuses the deployment's registration token, which this node also stores", func() {
 		// The registration token is the credential every worker in the
-		// deployment holds. Accepting it here would mean one leaked shared
-		// secret impersonates any worker whose ID an attacker can read.
-		_, resp, err := websocket.DefaultDialer.Dial(wsConnectURL(srv, nodeID), bearer("deployment-registration-token"))
+		// deployment holds, and it IS on this node's row, in TokenHash.
+		// Accepting it would mean one leaked shared secret impersonates any
+		// worker whose ID an attacker can read; the node's own tunnel
+		// credential is the only thing this route accepts.
+		_, resp, err := websocket.DefaultDialer.Dial(wsConnectURL(srv, nodeID), bearer(registrationToken))
 		Expect(err).To(HaveOccurred())
 		Expect(resp).ToNot(BeNil())
 		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
@@ -194,13 +205,19 @@ var _ = Describe("Worker tunnel handler", func() {
 			"the claim outlived the socket, so this replica keeps being named the owner of a worker it no longer holds")
 	})
 
-	It("refuses a node whose row carries no stored token", func() {
-		// A deployment with no registration token configured produces exactly
-		// these rows: the worker sends no token, so registration stores none,
-		// and there is nothing here to authenticate against.
-		Expect(db.Exec(`UPDATE backend_nodes SET token_hash = '' WHERE id = ?`, nodeID).Error).To(Succeed())
+	It("refuses a node with no tunnel credential, without falling back to its registration token", func() {
+		// A node registered by a LocalAI predating per-node tunnel credentials
+		// produces exactly this row: a registration-token hash in token_hash
+		// and nothing in tunnel_token_hash. It cannot be back-filled, because
+		// the plaintext only ever existed in the response that minted it, so
+		// such a node must register again.
+		//
+		// The dial presents the REGISTRATION token, which is still on the row.
+		// A handler that fell back to token_hash when the tunnel hash is empty
+		// would let it in, which is the weakness this whole change removed.
+		Expect(db.Exec(`UPDATE backend_nodes SET tunnel_token_hash = '' WHERE id = ?`, nodeID).Error).To(Succeed())
 
-		_, resp, err := websocket.DefaultDialer.Dial(wsConnectURL(srv, nodeID), bearer(workerToken))
+		_, resp, err := websocket.DefaultDialer.Dial(wsConnectURL(srv, nodeID), bearer(registrationToken))
 		Expect(err).To(HaveOccurred())
 		Expect(resp).ToNot(BeNil())
 		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
@@ -266,7 +283,7 @@ var _ = Describe("Worker tunnel handler when the attach panics", func() {
 		db = testutil.SetupTestDB()
 		nodeReg, err := nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
-		node := &nodes.BackendNode{Name: "worker-1", Address: "10.0.0.9:50051", TokenHash: tokenHash(workerToken)}
+		node := &nodes.BackendNode{Name: "worker-1", Address: "10.0.0.9:50051", TunnelTokenHash: tokenHash(workerToken)}
 		Expect(nodeReg.Register(ctx, node, true)).To(Succeed())
 		nodeID = node.ID
 

@@ -104,23 +104,21 @@ func ConnectHandler(registry *nodes.NodeRegistry, tunnels *clustersvc.TunnelRegi
 		}
 
 		// Split from the mismatch below because they are different operator
-		// problems with different fixes. An empty stored hash means the node
-		// registered against a frontend with no LOCALAI_REGISTRATION_TOKEN, so
-		// no worker on that deployment can ever tunnel until one is set and the
-		// workers re-register; a mismatch means one worker holds the wrong
-		// secret. One log line for both leaves an operator reading "wrong token"
-		// while every worker fails identically.
-		if node.TokenHash == "" {
-			// Debug, not Warn. Every worker in such a deployment fails this way
-			// on every reconnect, so warning per dial buries the log; the fact
-			// is stated once, at boot, where core/http/app.go warns that no
-			// registration token is configured. What this line adds is which
-			// node, for an operator who has already read that warning.
-			xlog.Debug("refusing a worker tunnel: this node has no stored token, so it registered with no registration token configured",
-				"node", nodeID, "knob", "LOCALAI_REGISTRATION_TOKEN")
+		// problems with different fixes. An empty stored hash means this node
+		// last registered against a LocalAI that predates per-node tunnel
+		// credentials, so it holds no secret this route can check and must
+		// register again; a mismatch means the worker is presenting the wrong
+		// one, usually a stale credential from before a rotation. One log line
+		// for both leaves an operator reading "wrong token" while a whole fleet
+		// of not-yet-restarted workers fails identically.
+		if node.TunnelTokenHash == "" {
+			// Debug, not Warn. Every worker in that state fails this way on
+			// every reconnect, so warning per dial buries the log.
+			xlog.Debug("refusing a worker tunnel: this node has no tunnel credential, so it has not registered since they were introduced",
+				"node", nodeID)
 			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
 		}
-		if !authorizedWorker(token, node.TokenHash) {
+		if !authorizedWorker(token, node.TunnelTokenHash) {
 			xlog.Debug("worker tunnel dial presented the wrong token", "node", nodeID)
 			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
 		}
@@ -229,32 +227,26 @@ func bearerToken(r *http.Request) (string, bool) {
 // authorizedWorker compares a presented token against the hash stored on the
 // node's own row, in constant time.
 //
-// Against the NODE's stored hash, not the configured registration token, which
-// is a deliberate strengthening over how /api/node/ authenticates. A tunnel is a
-// durable, multiplexed pipe into a worker; a credential that authorizes every
-// worker at once would mean one leak lets an attacker impersonate any worker
-// whose ID it can read, and take over that worker's traffic by claiming its
-// tunnel.
+// Against the NODE's OWN tunnel credential, not the deployment's registration
+// token. A tunnel is a durable, multiplexed pipe into a worker, and a
+// credential that authorizes every worker at once would mean one leak lets an
+// attacker impersonate any worker whose ID it can read and take over that
+// worker's traffic by claiming its tunnel. The secret compared here is minted
+// per node at registration (attachTunnelToken in
+// core/http/endpoints/localai/nodes.go), returned to that worker once, and
+// stored only as this hash, so knowing the registration token no longer gets
+// anyone a tunnel.
 //
-// What that buys TODAY is the mechanism, not yet the isolation, and the
-// difference should not be overstated: a worker registers by presenting the
-// deployment's registration token, so the hash on its row is that token's hash
-// and a leaked registration token still opens a tunnel for a node whose ID the
-// attacker knows. What this does rule out is the shortcut of comparing against
-// the configured token itself, which is what would have to be unpicked later;
-// the day a worker is issued its own secret at registration, this check starts
-// isolating workers from each other with no change here, PROVIDED the secret
-// lands in TokenHash. The one per-node secret LocalAI mints today, the agent
-// worker's api_token, does not: provisionAgentWorkerKey writes an auth.User and
-// an auth.APIKey referenced by node.AuthUserID / node.APIKeyID and never touches
-// this column. If the next task follows that precedent instead, this comparison
-// is what has to change.
+// Note which column: BackendNode.TunnelTokenHash, not TokenHash. TokenHash is
+// still the hash of whatever token the worker registered WITH, which on most
+// deployments is the shared registration token, and comparing against it is
+// exactly the weakness this replaced.
 //
 // The empty-hash guard is defensive rather than deciding: a stored hash is
 // hex-encoded SHA-256, so 64 bytes or nothing, and ConstantTimeCompare already
 // returns 0 on a length mismatch (crypto/internal/fips140/subtle/constant_time.go:17-20
 // returns 0 outright when the lengths differ). It is kept because a reader should not have to
-// derive "an unregistered node authorizes nobody" from a length rule, and
+// derive "a node with no credential authorizes nobody" from a length rule, and
 // because the caller logs that case separately.
 func authorizedWorker(token, storedHash string) bool {
 	if storedHash == "" {
