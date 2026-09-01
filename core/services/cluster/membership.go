@@ -81,7 +81,15 @@ func NewMembership(reg *Registry, id, addr, version string) *Membership {
 // It is a setter rather than a constructor argument because the tunnel registry
 // is what the tunnel endpoint is built on, and that is wired after membership
 // is already running.
+//
+// Safe on a nil receiver, like Stop. This package deliberately produces a nil
+// *Membership (core/application/distributed.go leaves it nil when no
+// peer-reachable address can be derived), so a setter that panicked on one
+// would be a trap for the next caller rather than an impossibility.
 func (m *Membership) SetTunnels(t *TunnelRegistry) {
+	if m == nil {
+		return
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.tunnels = t
