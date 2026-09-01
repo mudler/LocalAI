@@ -68,7 +68,7 @@ func (a *ModelRouterAdapter) Route(ctx context.Context, backend, modelID, modelN
 	// If file staging is configured, it's already wrapped with FileStagingClient
 	// by SmartRouter. Use NewModelWithClient so the wrapper is preserved when
 	// the ModelLoader returns this model on subsequent requests.
-	m := model.NewModelWithClient(modelID, result.Node.Address, result.Client)
+	m := model.NewModelWithClient(modelID, result.WorkerLocalAddress, result.Client)
 
 	// Publish the picked node ID into the per-request holder attached to
 	// ctx (by middleware.ExposeNodeHeader). No-op when the holder is
@@ -80,7 +80,7 @@ func (a *ModelRouterAdapter) Route(ctx context.Context, backend, modelID, modelN
 	// concurrently to different replicas.
 	distributedhdr.Stamp(ctx, result.Node.ID)
 
-	xlog.Info("Model routed to remote node", "model", modelName, "node", result.Node.Name, "address", result.Node.Address)
+	xlog.Info("Model routed to remote node", "model", modelName, "node", result.Node.Name, "address", result.WorkerLocalAddress)
 	return m, nil
 }
 

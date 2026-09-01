@@ -73,7 +73,7 @@ var _ = Describe("reaping an abandoned remote load", func() {
 		reg = &replicaSlotRouter{fakeModelRouter: base, replica: 2}
 		backend = &failingLoadBackend{}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:9001"},
 		}
 	})
 

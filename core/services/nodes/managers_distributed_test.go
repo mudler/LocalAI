@@ -386,9 +386,9 @@ var _ = Describe("DistributedBackendManager", func() {
 				n2 := registerHealthyBackend("worker-b", "10.0.0.2:50051")
 
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(n1.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+					messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:50100"})
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(n2.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.2:50100"})
+					messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.2:50100"})
 
 				Expect(mgr.InstallBackend(ctx, op("vllm-development"), nil)).To(Succeed())
 			})
@@ -420,7 +420,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				bad := registerHealthyBackend("worker-bad", "10.0.0.2:50051")
 
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(ok.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+					messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:50100"})
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(bad.ID),
 					messaging.BackendInstallReply{Success: false, Error: "out of memory"})
 
@@ -459,7 +459,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				other := registerHealthyBackend("worker-other", "10.0.0.2:50051")
 
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(target.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+					messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:50100"})
 				// No reply scripted for `other`: if InstallBackend fans out
 				// to it, the fakeNoRespondersErr default would surface and
 				// the test would fail.
@@ -615,7 +615,7 @@ var _ = Describe("DistributedBackendManager", func() {
 			It("invokes progressCb once per worker-published progress event", func() {
 				node := registerHealthyBackend("worker-prog", "10.0.0.7:50051")
 
-				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, Address: "10.0.0.7:50051"})
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.7:50051"})
 				mc.scheduleProgressPublish(node.ID, "op-prog-1", []messaging.BackendInstallProgressEvent{
 					{OpID: "op-prog-1", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "100 MB", Total: "1 GB", Percentage: 10},
 					{OpID: "op-prog-1", NodeID: node.ID, Backend: "vllm", FileName: "vllm.tar", Current: "1 GB", Total: "1 GB", Percentage: 100},
@@ -659,7 +659,7 @@ var _ = Describe("DistributedBackendManager", func() {
 		Context("InstallBackend tolerates silent (pre-Phase-2) workers", func() {
 			It("completes successfully even when no progress events are ever published", func() {
 				node := registerHealthyBackend("worker-silent", "10.0.0.8:50051")
-				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, Address: "10.0.0.8:50051"})
+				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID), messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.8:50051"})
 				// NO scheduleProgressPublish call - silent worker.
 
 				var ticks int
@@ -702,7 +702,7 @@ var _ = Describe("DistributedBackendManager", func() {
 			It("emits a success entry for each healthy node visited", func() {
 				node := registerHealthyBackend("worker-ok", "10.0.0.9:50051")
 				mc.scriptReply(messaging.SubjectNodeBackendInstall(node.ID),
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.9:50051"})
+					messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.9:50051"})
 
 				opVal := op("vllm")
 				opVal.ID = "op-node-success"
@@ -929,7 +929,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				// Fallback re-fires legacy backend.install with Force=true.
 				mc.scriptReplyMatching(messaging.SubjectNodeBackendInstall(n.ID),
 					func(req messaging.BackendInstallRequest) bool { return req.Force },
-					messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+					messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:50100"})
 
 				Expect(mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)).To(Succeed())
 			})

@@ -52,7 +52,7 @@ var _ = Describe("Eviction against an alias-keyed replica floor", func() {
 		rowID++
 		Expect(db.Create(&NodeModel{
 			ID: fmt.Sprintf("alias-row-%d", rowID), NodeID: node.ID, ModelName: model,
-			Address: node.Address, State: "loaded", InFlight: 0,
+			WorkerLocalAddress: node.Address, State: "loaded", InFlight: 0,
 			LastUsed: time.Now().Add(-idleFor), UpdatedAt: time.Now(),
 		}).Error).To(Succeed())
 	}

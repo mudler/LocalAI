@@ -47,7 +47,7 @@ var _ = Describe("routing when the worker cannot be reached at all", func() {
 	// cold-loaded somewhere else.
 	loadedReg := func() *fakeModelRouter {
 		node := &BackendNode{ID: "X", Name: "node-x", Address: "10.0.0.1:50051"}
-		nm := &NodeModel{NodeID: "X", ModelName: "m", Address: "10.0.0.1:9001"}
+		nm := &NodeModel{NodeID: "X", ModelName: "m", WorkerLocalAddress: "10.0.0.1:9001"}
 		return &fakeModelRouter{
 			findAndLockNode:          node,
 			findAndLockNM:            nm,
@@ -96,7 +96,7 @@ var _ = Describe("routing when the worker's tunnel dial fails", func() {
 	// process and the replica row is deleted after ONE miss.
 	loadedReg := func() *fakeModelRouter {
 		node := &BackendNode{ID: "X", Name: "node-x", Address: "10.0.0.1:50051"}
-		nm := &NodeModel{NodeID: "X", ModelName: "m", Address: "10.0.0.1:9001"}
+		nm := &NodeModel{NodeID: "X", ModelName: "m", WorkerLocalAddress: "10.0.0.1:9001"}
 		return &fakeModelRouter{
 			findAndLockNode:          node,
 			findAndLockNM:            nm,

@@ -263,10 +263,12 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		"--backends-path", backends,
 	)
 	cmd.Env = append(cmd.Environ(),
+		// Ports only. A worker advertises nothing, so there is no advertise
+		// address to set; these two exist to keep concurrently running workers
+		// off each other's ports, not to make anything reachable. Both binds
+		// are loopback whatever is set here.
 		fmt.Sprintf("LOCALAI_SERVE_ADDR=127.0.0.1:%d", grpcPort),
-		fmt.Sprintf("LOCALAI_ADVERTISE_ADDR=127.0.0.1:%d", grpcPort),
 		fmt.Sprintf("LOCALAI_HTTP_ADDR=127.0.0.1:%d", httpPort),
-		fmt.Sprintf("LOCALAI_ADVERTISE_HTTP_ADDR=127.0.0.1:%d", httpPort),
 		// Workers register with frontend 0 ONLY unless the caller opts into
 		// SpreadWorkerRegistrations, and the cross-replica session specs depend
 		// on that default. They prove a session minted at frontend 0 resolves at

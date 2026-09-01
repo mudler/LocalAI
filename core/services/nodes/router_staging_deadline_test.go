@@ -97,8 +97,8 @@ var _ = Describe("cold-load staging deadline", func() {
 		}
 		factory = &stubClientFactory{client: &stubBackend{loadResult: &pb.Result{Success: true}}}
 		unloader = &fakeUnloader{installReply: &messaging.BackendInstallReply{
-			Success: true,
-			Address: "10.0.0.1:9001",
+			Success:            true,
+			WorkerLocalAddress: "10.0.0.1:9001",
 		}}
 		modelDir = GinkgoT().TempDir()
 	})

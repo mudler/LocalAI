@@ -48,13 +48,13 @@ var _ = Describe("ReplicaReconciler — probe reaper vs busy backends", func() {
 	// seed inserts a stale loaded row so the probe pass picks it up.
 	seed := func(id string, inFlight int) {
 		Expect(db.Create(&NodeModel{
-			ID:        id,
-			NodeID:    node.ID,
-			ModelName: id,
-			Address:   addr,
-			State:     "loaded",
-			InFlight:  inFlight,
-			UpdatedAt: time.Now().Add(-5 * time.Minute),
+			ID:                 id,
+			NodeID:             node.ID,
+			ModelName:          id,
+			WorkerLocalAddress: addr,
+			State:              "loaded",
+			InFlight:           inFlight,
+			UpdatedAt:          time.Now().Add(-5 * time.Minute),
 		}).Error).To(Succeed())
 	}
 

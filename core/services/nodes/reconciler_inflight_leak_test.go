@@ -46,14 +46,14 @@ var _ = Describe("ReplicaReconciler — leaked in_flight sweeper", func() {
 
 	seed := func(id string, inFlight int, idleFor time.Duration) {
 		Expect(db.Create(&NodeModel{
-			ID:        id,
-			NodeID:    node.ID,
-			ModelName: id,
-			Address:   addr,
-			State:     "loaded",
-			InFlight:  inFlight,
-			LastUsed:  time.Now().Add(-idleFor),
-			UpdatedAt: time.Now(),
+			ID:                 id,
+			NodeID:             node.ID,
+			ModelName:          id,
+			WorkerLocalAddress: addr,
+			State:              "loaded",
+			InFlight:           inFlight,
+			LastUsed:           time.Now().Add(-idleFor),
+			UpdatedAt:          time.Now(),
 		}).Error).To(Succeed())
 	}
 

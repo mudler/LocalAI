@@ -54,13 +54,13 @@ var _ = Describe("ReplicaReconciler — reconcile against worker processes", fun
 
 	seed := func(id, modelName string, replica int, age time.Duration) {
 		Expect(db.Create(&NodeModel{
-			ID:           id,
-			NodeID:       node.ID,
-			ModelName:    modelName,
-			ReplicaIndex: replica,
-			Address:      "10.0.0.1:12345",
-			State:        "loaded",
-			UpdatedAt:    time.Now().Add(-age),
+			ID:                 id,
+			NodeID:             node.ID,
+			ModelName:          modelName,
+			ReplicaIndex:       replica,
+			WorkerLocalAddress: "10.0.0.1:12345",
+			State:              "loaded",
+			UpdatedAt:          time.Now().Add(-age),
 		}).Error).To(Succeed())
 	}
 

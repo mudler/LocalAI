@@ -483,7 +483,14 @@ func (t *Tunnel) logSessionEnded(err error, attempt int, delay time.Duration) {
 	if errors.As(err, &dialErr) {
 		switch dialErr.status {
 		case http.StatusUnauthorized:
-			xlog.Warn("Frontend rejected this worker's tunnel credential; re-registering will mint a fresh one",
+			// Named causes, because this worker cannot recover from either on
+			// its own and the two need different actions. It has no inbound
+			// listener and no advertised address, so a tunnel it cannot open is
+			// a worker nothing can reach: this is an outage, not a warning about
+			// a degraded path.
+			xlog.Warn("Frontend rejected this worker's tunnel credential, so nothing can reach this worker; "+
+				"either another worker registered under this node name and rotated the credential (check LOCALAI_NODE_NAME is unique), "+
+				"or the frontend's record of this node was replaced. Restarting this worker re-registers and mints a fresh credential",
 				"node", t.nodeID, "retry_in", delay)
 		case http.StatusForbidden:
 			xlog.Info("Worker tunnel refused: this node is awaiting admin approval",
