@@ -1,0 +1,221 @@
+package cluster_test
+
+import (
+	"context"
+	"io"
+	"net/http/httptest"
+	"strings"
+
+	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
+	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/testutil"
+
+	"github.com/labstack/echo/v4"
+	"github.com/libp2p/go-yamux/v5"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
+)
+
+var _ = Describe("Peer pool", func() {
+	var (
+		db       *gorm.DB
+		reg      *cluster.Registry
+		pool     *cluster.PeerPool
+		srv      *httptest.Server
+		accepted chan *yamux.Session
+		ctx      context.Context
+	)
+
+	// startPeer stands up a real peer server and registers it under peerID.
+	startPeer := func(peerID string) *httptest.Server {
+		e := echo.New()
+		clusterep.RegisterClusterRoutes(e, "peer-token", func(_ string, s *yamux.Session) {
+			accepted <- s
+		})
+		ts := httptest.NewServer(e)
+		addr := strings.TrimPrefix(ts.URL, "http://")
+		Expect(reg.Register(ctx, peerID, addr, "test")).To(Succeed())
+		return ts
+	}
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		db = testutil.SetupTestDB()
+		Expect(db.AutoMigrate(&cluster.Instance{})).To(Succeed())
+		reg = cluster.NewRegistry(db)
+		accepted = make(chan *yamux.Session, 4)
+		pool = cluster.NewPeerPool("self", "peer-token", reg)
+		DeferCleanup(pool.Close)
+		srv = startPeer("peer-1")
+		DeferCleanup(srv.Close)
+	})
+
+	It("opens a working stream to a live peer", func() {
+		st, err := pool.Open(ctx, "peer-1")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = st.Close() })
+
+		var serverSess *yamux.Session
+		Eventually(accepted, "10s").Should(Receive(&serverSess))
+
+		go func() {
+			defer GinkgoRecover()
+			_, _ = st.Write([]byte("ping"))
+		}()
+
+		got := make(chan []byte, 1)
+		go func() {
+			defer GinkgoRecover()
+			in, e := serverSess.AcceptStream()
+			if e != nil {
+				return
+			}
+			buf := make([]byte, 4)
+			if _, e := io.ReadFull(in, buf); e == nil {
+				got <- buf
+			}
+		}()
+		Eventually(got, "10s").Should(Receive(Equal([]byte("ping"))))
+	})
+
+	It("identifies itself to the peer by its own instance id", func() {
+		// The peer records which replica is on the far end of the link, so a
+		// pool that sent the peer's id (or nothing) would leave every inbound
+		// link anonymous and indistinguishable from every other.
+		ids := make(chan string, 1)
+		e := echo.New()
+		clusterep.RegisterClusterRoutes(e, "peer-token", func(id string, _ *yamux.Session) { ids <- id })
+		ts := httptest.NewServer(e)
+		DeferCleanup(ts.Close)
+		Expect(reg.Register(ctx, "peer-named", strings.TrimPrefix(ts.URL, "http://"), "test")).To(Succeed())
+
+		st, err := pool.Open(ctx, "peer-named")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = st.Close() })
+		Eventually(ids, "10s").Should(Receive(Equal("self")))
+	})
+
+	It("reuses one session across opens rather than dialling per stream", func() {
+		a, err := pool.Open(ctx, "peer-1")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = a.Close() })
+		Eventually(accepted, "10s").Should(Receive())
+
+		b, err := pool.Open(ctx, "peer-1")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = b.Close() })
+
+		// A second dial would deliver a second server session. One session
+		// serving both streams is the property under test: peer links are
+		// pooled, not per-stream.
+		Consistently(accepted, "2s", "200ms").ShouldNot(Receive())
+	})
+
+	It("returns ErrPeerUnreachable when the peer is registered but not listening", func() {
+		dead := startPeer("peer-dead")
+		dead.Close()
+
+		_, err := pool.Open(ctx, "peer-dead")
+		Expect(err).To(MatchError(cluster.ErrPeerUnreachable),
+			"a peer that will not answer must be a transport error, never node absence")
+		Expect(err).ToNot(MatchError(cluster.ErrInstanceNotFound),
+			"an unreachable peer must never be readable as an absent node; a replica acting on absence evicts healthy workers")
+	})
+
+	It("returns ErrPeerUnreachable when the peer answers but rejects the credentials", func() {
+		// A token mismatch is a live peer refusing the link, not a missing
+		// row. Reporting absence here would evict every worker behind a peer
+		// that was merely rolled out with a stale secret.
+		e := echo.New()
+		clusterep.RegisterClusterRoutes(e, "a-different-token", func(_ string, s *yamux.Session) { accepted <- s })
+		ts := httptest.NewServer(e)
+		DeferCleanup(ts.Close)
+		Expect(reg.Register(ctx, "peer-strict", strings.TrimPrefix(ts.URL, "http://"), "test")).To(Succeed())
+
+		_, err := pool.Open(ctx, "peer-strict")
+		Expect(err).To(MatchError(cluster.ErrPeerUnreachable))
+		Expect(err).ToNot(MatchError(cluster.ErrInstanceNotFound))
+	})
+
+	It("returns ErrInstanceNotFound when the peer is not in the registry", func() {
+		_, err := pool.Open(ctx, "never-registered")
+		Expect(err).To(MatchError(cluster.ErrInstanceNotFound))
+		Expect(err).ToNot(MatchError(cluster.ErrPeerUnreachable),
+			"a node that was never registered is absent, not merely unreachable")
+	})
+
+	It("re-dials after the cached session dies", func() {
+		first, err := pool.Open(ctx, "peer-1")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(first.Close()).To(Succeed())
+
+		var serverSess *yamux.Session
+		Eventually(accepted, "10s").Should(Receive(&serverSess))
+		Expect(serverSess.Close()).To(Succeed())
+		srv.Close()
+
+		// A replacement peer comes back on a new address under the same id,
+		// which is what a restarted replica looks like.
+		replacement := startPeer("peer-1")
+		DeferCleanup(replacement.Close)
+
+		Eventually(func() error {
+			st, e := pool.Open(ctx, "peer-1")
+			if e == nil {
+				_ = st.Close()
+			}
+			return e
+		}, "15s", "500ms").Should(Succeed())
+
+		// The replacement's own session proves the pool re-dialled the address
+		// it re-read from the registry rather than resurrecting the dead one.
+		Eventually(accepted, "10s").Should(Receive())
+	})
+
+	It("does not drop the pooled session when a single stream is reset by the peer", func() {
+		// A peer-initiated stream reset is scoped to one request. Dropping the
+		// session on it would tear down every other worker's traffic on the
+		// same link, so the pool must keep the session and hand out a fresh
+		// stream on it.
+		st, err := pool.Open(ctx, "peer-1")
+		Expect(err).ToNot(HaveOccurred())
+
+		var serverSess *yamux.Session
+		Eventually(accepted, "10s").Should(Receive(&serverSess))
+
+		go func() {
+			defer GinkgoRecover()
+			_, _ = st.Write([]byte("x"))
+		}()
+		var inbound *yamux.Stream
+		Eventually(func() error {
+			s, e := serverSess.AcceptStream()
+			inbound = s
+			return e
+		}, "10s").Should(Succeed())
+		// Reset, not a graceful close: this is the *StreamError{Remote:true}
+		// the far end sends when it abandons a request.
+		Expect(inbound.Reset()).To(Succeed())
+		Eventually(func() error {
+			_, e := st.Write([]byte("y"))
+			return e
+		}, "10s", "100ms").Should(HaveOccurred())
+
+		next, err := pool.Open(ctx, "peer-1")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = next.Close() })
+		Consistently(accepted, "2s", "200ms").ShouldNot(Receive(),
+			"a reset stream must not cost the whole peer link")
+	})
+
+	It("refuses to open after Close and is safe to close twice", func() {
+		pool.Close()
+		pool.Close()
+
+		_, err := pool.Open(ctx, "peer-1")
+		Expect(err).To(HaveOccurred())
+		Expect(err).ToNot(MatchError(cluster.ErrInstanceNotFound),
+			"a locally closed pool says nothing about whether the node exists")
+	})
+})
