@@ -9,6 +9,8 @@ package cluster
 
 import (
 	"fmt"
+	"math/rand/v2"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -51,6 +53,36 @@ type Options struct {
 	// writing to one roster concurrently and cannot express that at all while
 	// every worker registers through the same process.
 	SpreadWorkerRegistrations bool
+
+	// Models is written into every frontend's models directory before that
+	// replica starts, keyed by file name. It is how a spec gets a model
+	// configuration in front of the frontend at all: the models directory is
+	// scanned at startup, so a file written afterwards is not guaranteed to be
+	// seen, and there is no admin endpoint that creates a config.
+	//
+	// Frontends only. A worker is handed model artifacts by the frontend's file
+	// staging, over the tunnel, and pre-seeding the worker would hide whether
+	// that worked.
+	Models map[string]string
+
+	// WorkerFrontendURL rewrites the URL worker i registers and holds its
+	// tunnel against. It is called once per worker, after every frontend is
+	// serving, and is given the URL the worker would otherwise have been handed
+	// plus every frontend's URL in index order, so a hook can put a proxy or a
+	// load balancer in front of one replica or of all of them.
+	//
+	// It exists for two things the fixed per-replica URL cannot express. One is
+	// a worker that survives its replica: LOCALAI_REGISTER_TO is resolved once
+	// at boot and is the tunnel endpoint as well as the registration one, so a
+	// worker pointed straight at a replica has nowhere to reconnect to when
+	// that replica dies, and the re-home this feature is built on cannot
+	// happen. The other is the suite's negative control, which needs a worker
+	// that registers, heartbeats and reports healthy exactly as usual while its
+	// tunnel dial never reaches a frontend; nothing else can produce that,
+	// because LOCALAI_WORKER_TUNNEL=false is refused at startup and a worker
+	// that never started proves nothing about a worker reachable some other
+	// way.
+	WorkerFrontendURL func(worker int, registrar string, frontends []string) string
 }
 
 // Process is one running local-ai.
@@ -184,6 +216,12 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 	if err := os.MkdirAll(dataPath, 0o750); err != nil {
 		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
 	}
+	for file, content := range c.opts.Models {
+		path := filepath.Join(dir, "models", file)
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			return nil, fmt.Errorf("writing %s for %s: %w", file, name, err)
+		}
+	}
 
 	cmd := exec.Command(c.opts.Binary, "run",
 		"--address", fmt.Sprintf("127.0.0.1:%d", port),
@@ -235,14 +273,14 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 }
 
 func (c *Cluster) startWorker(i int) (*Process, error) {
-	// Two independent free ports: the worker's file-transfer server defaults to
-	// basePort-1, which freeport never reserved and which is basePort of another
-	// worker whenever two allocations land adjacent.
-	ports, err := freeport.GetFreePorts(2)
+	// One contiguous block, laid out the way production lays it out. See
+	// reserveWorkerPorts.
+	grpcPort, err := reserveWorkerPorts()
 	if err != nil {
 		return nil, fmt.Errorf("allocating worker ports: %w", err)
 	}
-	grpcPort, httpPort := ports[0], ports[1]
+	httpPort := grpcPort - 1
+	maxPort := grpcPort + workerPortBlockSize - 1
 	name := fmt.Sprintf("worker-%d", i)
 	dir := filepath.Join(c.baseDir, name)
 	backends := filepath.Join(dir, "backends")
@@ -264,11 +302,18 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 	)
 	cmd.Env = append(cmd.Environ(),
 		// Ports only. A worker advertises nothing, so there is no advertise
-		// address to set; these two exist to keep concurrently running workers
-		// off each other's ports, not to make anything reachable. Both binds
-		// are loopback whatever is set here.
+		// address to set; these exist to keep concurrently running workers off
+		// each other's ports, not to make anything reachable. Every bind is
+		// loopback whatever is set here.
+		//
+		// The max port is what keeps the backend allocator inside the block
+		// reserved for this worker. Without it the allocator walks upward to
+		// 65535 (core/services/worker/registration.go, effectiveMaxPort), so a
+		// worker running enough backends walks straight out of its block and
+		// into whatever else this host is using.
 		fmt.Sprintf("LOCALAI_SERVE_ADDR=127.0.0.1:%d", grpcPort),
 		fmt.Sprintf("LOCALAI_HTTP_ADDR=127.0.0.1:%d", httpPort),
+		fmt.Sprintf("LOCALAI_GRPC_MAX_PORT=%d", maxPort),
 		// Workers register with frontend 0 ONLY unless the caller opts into
 		// SpreadWorkerRegistrations, and the cross-replica session specs depend
 		// on that default. They prove a session minted at frontend 0 resolves at
@@ -287,7 +332,7 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		// rest of its life: the loop posts to the URL it was given at boot and
 		// never re-resolves it (core/cli/workerregistry/client.go), so killing a
 		// worker's registrar orphans that worker rather than failing it over.
-		"LOCALAI_REGISTER_TO="+c.FrontendURL(c.registrarFor(i)),
+		"LOCALAI_REGISTER_TO="+c.workerFrontendURL(i),
 		"LOCALAI_NODE_NAME="+name,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
 		"LOCALAI_NATS_URL="+c.opts.NatsURL,
@@ -295,6 +340,93 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 	)
 
 	return c.spawn(name, cmd, grpcPort)
+}
+
+const (
+	// workerPortBlockSize is how many ports one worker reserves: one for its
+	// HTTP file-transfer server and the rest for backend processes. A spec that
+	// loads more models than this on one worker exhausts the allocator, which
+	// fails the backend start by name (ErrNoFreePort) instead of colliding.
+	workerPortBlockSize = 24
+
+	// Workers take their ports from BELOW the ephemeral range, which on Linux
+	// starts at 32768 by default. That is not tidiness. Ports the kernel hands
+	// out for outbound connections are exactly the ports a long-lived process
+	// full of outbound connections is liable to be holding when a backend tries
+	// to bind one, and this suite's workers hold a tunnel, a NATS connection
+	// and a registration client each.
+	workerPortFloor   = 20000
+	workerPortCeiling = 31000
+
+	// workerPortAttempts bounds the search for a free block before giving up.
+	workerPortAttempts = 200
+)
+
+// reserveWorkerPorts returns the base gRPC port of a contiguous run of ports
+// nothing is currently listening on, laid out the way a real worker lays them
+// out: the HTTP file-transfer server at base-1, and backend processes upward
+// from base.
+//
+// A contiguous block rather than two independent freeport allocations, and the
+// difference is a defect this suite actually hit. The allocator hands backend
+// processes basePort, basePort+1, basePort+2 and so on with no check that
+// anything else holds them (core/services/worker/supervisor.go, allocatePort),
+// so the moment freeport returned two ADJACENT ports the second backend started
+// on a worker was handed the worker's own HTTP server's port and died at
+// startup with "address already in use". freeport returns adjacent ports often,
+// and no spec started two backends on one worker until the tunnel load
+// measurement did, so it presented as a spec that failed about one run in
+// three.
+//
+// This is not race free and cannot be: the probe closes each listener before
+// the worker binds it. It removes the deterministic self-collision, keeps the
+// block out of the range the kernel allocates from, and bounds the allocator to
+// the block, which together is the difference between "sometimes" and "not
+// observed".
+func reserveWorkerPorts() (int, error) {
+	for attempt := 0; attempt < workerPortAttempts; attempt++ {
+		base := workerPortFloor + rand.IntN(workerPortCeiling-workerPortFloor)
+		if blockIsFree(base-1, workerPortBlockSize+1) {
+			return base, nil
+		}
+	}
+	return 0, fmt.Errorf("no free run of %d ports in [%d, %d) after %d attempts",
+		workerPortBlockSize+1, workerPortFloor, workerPortCeiling, workerPortAttempts)
+}
+
+// blockIsFree reports whether count ports from first can all be bound on
+// loopback right now. Every listener is held until the whole run is proven, so
+// a run is not accepted on the strength of one port that a previous iteration
+// of this same loop had just released.
+func blockIsFree(first, count int) bool {
+	held := make([]net.Listener, 0, count)
+	defer func() {
+		for _, l := range held {
+			_ = l.Close()
+		}
+	}()
+	for port := first; port < first+count; port++ {
+		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			return false
+		}
+		held = append(held, l)
+	}
+	return true
+}
+
+// workerFrontendURL is the URL worker i is told to register and tunnel
+// against: its registrar's, unless the caller installed a hook.
+func (c *Cluster) workerFrontendURL(i int) string {
+	registrar := c.FrontendURL(c.registrarFor(i))
+	if c.opts.WorkerFrontendURL == nil {
+		return registrar
+	}
+	frontends := make([]string, 0, len(c.frontends))
+	for index := range c.frontends {
+		frontends = append(frontends, c.FrontendURL(index))
+	}
+	return c.opts.WorkerFrontendURL(i, registrar, frontends)
 }
 
 func (c *Cluster) spawn(name string, cmd *exec.Cmd, port int) (*Process, error) {
