@@ -130,6 +130,31 @@ var _ = Describe("Reaping dead replicas", func() {
 		Expect(live).To(BeEmpty(), "a replica that shut down cleanly left its row behind for peers to dial")
 	})
 
+	It("takes the two tables in one order, shared with the sweeper, so the two cannot deadlock", func() {
+		// A replica deregistering and a peer sweeping it run concurrently by
+		// design, and both lock rows in instances and in node_connections. In
+		// opposite orders each can end up holding the row the other waits for.
+		// The order is asserted on the SQL because the alternative, racing two
+		// transactions until they actually deadlock, is exactly the flaky spec
+		// this one replaces.
+		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1")).To(Succeed())
+		_, err := reg.Claim(ctx, "w1", "leaving")
+		Expect(err).ToNot(HaveOccurred())
+
+		deregRec := newSQLRecorder()
+		Expect(cluster.NewRegistry(db.Session(&gorm.Session{Logger: deregRec})).
+			Deregister(ctx, "leaving")).To(Succeed())
+
+		reapRec := newSQLRecorder()
+		_, _, err = cluster.NewRegistry(db.Session(&gorm.Session{Logger: reapRec})).
+			ReapStale(ctx, "sweeper", time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(deregRec.deleteOrder()).To(Equal([]string{"instances", "node_connections"}))
+		Expect(reapRec.deleteOrder()).To(Equal(deregRec.deleteOrder()),
+			"the sweeper and deregistration must lock the same two tables in the same order")
+	})
+
 	It("tolerates a repeated deregistration, because a sweeper may have got there first", func() {
 		Expect(reg.Register(ctx, "gone", "10.0.0.2:8080", "v1")).To(Succeed())
 		Expect(reg.Deregister(ctx, "gone")).To(Succeed())

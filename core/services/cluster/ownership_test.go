@@ -57,6 +57,29 @@ func (r *sqlRecorder) only() string {
 	return r.statements[0]
 }
 
+// deleteOrder returns the tables the recorded statements deleted from, in the
+// order they were issued. It is how a spec pins a lock order: the order two
+// paths take the same tables in is a property of the SQL, and asserting it on
+// an outcome instead would mean racing two transactions into a real deadlock.
+func (r *sqlRecorder) deleteOrder() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	ExpectWithOffset(1, r.errs).To(BeEmpty(), "a recorded statement failed")
+	var tables []string
+	for _, stmt := range r.statements {
+		idx := strings.Index(strings.ToLower(stmt), "delete from ")
+		if idx < 0 {
+			continue
+		}
+		fields := strings.Fields(stmt[idx+len("delete from "):])
+		if len(fields) == 0 {
+			continue
+		}
+		tables = append(tables, strings.Trim(fields[0], `"`))
+	}
+	return tables
+}
+
 var _ = Describe("Connection ownership", func() {
 	var (
 		db  *gorm.DB
@@ -71,12 +94,17 @@ var _ = Describe("Connection ownership", func() {
 		reg = cluster.NewRegistry(db)
 	})
 
-	It("increments the epoch on every claim", func() {
+	It("hands every claim an epoch no other claim was given", func() {
+		// Uniqueness, not order. Claim's contract is that no two claims ever
+		// share an epoch; the insert path draws its sequence value before the
+		// row lock, so a claim that follows a Release can be handed a lower
+		// number than one already issued. Asserting e2 > e1 here would pin an
+		// ordering the fence does not need and does not promise.
 		e1, err := reg.Claim(ctx, "w1", "inst-a")
 		Expect(err).ToNot(HaveOccurred())
 		e2, err := reg.Claim(ctx, "w1", "inst-b")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(e2).To(BeNumerically(">", e1))
+		Expect(e2).ToNot(Equal(e1))
 	})
 
 	It("reports the latest owner", func() {
@@ -160,7 +188,7 @@ var _ = Describe("Connection ownership", func() {
 		Expect(err).To(MatchError(cluster.ErrNoConnection))
 	})
 
-	It("claims in one statement that increments in SQL and stamps on the database clock", func() {
+	It("claims in one statement that draws its epoch from the database sequence and stamps on the database clock", func() {
 		rec := newSQLRecorder()
 		recording := cluster.NewRegistry(db.Session(&gorm.Session{Logger: rec}))
 
