@@ -12,6 +12,7 @@ import (
 	"time"
 
 	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
+	"github.com/mudler/LocalAI/core/services/cluster"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -54,8 +55,8 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("returns the rest of a message on the following Read", func() {
 		clientWS, serverWS := wsPair()
-		writer := clusterep.WebsocketConn(clientWS)
-		reader := clusterep.WebsocketConn(serverWS)
+		writer := cluster.WebsocketConn(clientWS)
+		reader := cluster.WebsocketConn(serverWS)
 
 		// A lost tail would otherwise park the reassembly below forever; with a
 		// deadline it fails as a timeout on the read that has nothing left.
@@ -83,8 +84,8 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("streams a message larger than the yamux read buffer without loss or reordering", func() {
 		clientWS, serverWS := wsPair()
-		writer := clusterep.WebsocketConn(clientWS)
-		reader := clusterep.WebsocketConn(serverWS)
+		writer := cluster.WebsocketConn(clientWS)
+		reader := cluster.WebsocketConn(serverWS)
 
 		Expect(reader.SetReadDeadline(time.Now().Add(20 * time.Second))).To(Succeed())
 
@@ -106,8 +107,8 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("presents consecutive messages as one continuous byte stream", func() {
 		clientWS, serverWS := wsPair()
-		writer := clusterep.WebsocketConn(clientWS)
-		reader := clusterep.WebsocketConn(serverWS)
+		writer := cluster.WebsocketConn(clientWS)
+		reader := cluster.WebsocketConn(serverWS)
 
 		Expect(reader.SetReadDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
 
@@ -126,8 +127,8 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("never hands back a zero-length read for a zero-length message", func() {
 		clientWS, serverWS := wsPair()
-		writer := clusterep.WebsocketConn(clientWS)
-		reader := clusterep.WebsocketConn(serverWS)
+		writer := cluster.WebsocketConn(clientWS)
+		reader := cluster.WebsocketConn(serverWS)
 
 		Expect(reader.SetReadDeadline(time.Now().Add(10 * time.Second))).To(Succeed())
 
@@ -146,7 +147,7 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("reports a clean peer close as io.EOF", func() {
 		clientWS, serverWS := wsPair()
-		reader := clusterep.WebsocketConn(serverWS)
+		reader := cluster.WebsocketConn(serverWS)
 
 		Expect(clientWS.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))).To(Succeed())
@@ -157,7 +158,7 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("refuses a text message rather than desynchronising the stream", func() {
 		clientWS, serverWS := wsPair()
-		reader := clusterep.WebsocketConn(serverWS)
+		reader := cluster.WebsocketConn(serverWS)
 
 		Expect(clientWS.WriteMessage(websocket.TextMessage, []byte("not a frame"))).To(Succeed())
 
@@ -168,7 +169,7 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("satisfies net.Conn", func() {
 		clientWS, _ := wsPair()
-		var conn net.Conn = clusterep.WebsocketConn(clientWS)
+		var conn net.Conn = cluster.WebsocketConn(clientWS)
 
 		Expect(conn.LocalAddr()).ToNot(BeNil())
 		Expect(conn.RemoteAddr()).ToNot(BeNil())
@@ -176,7 +177,7 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("enforces a write deadline, which yamux arms before every flush", func() {
 		clientWS, _ := wsPair()
-		conn := clusterep.WebsocketConn(clientWS)
+		conn := cluster.WebsocketConn(clientWS)
 
 		// Asserting that the setter returns nil would prove nothing: gorilla
 		// only records the deadline and applies it at the next flush. The write
@@ -191,7 +192,7 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("enforces a read deadline, which is how a parked reader is unblocked", func() {
 		clientWS, _ := wsPair()
-		conn := clusterep.WebsocketConn(clientWS)
+		conn := cluster.WebsocketConn(clientWS)
 
 		Expect(conn.SetReadDeadline(time.Now().Add(-time.Second))).To(Succeed())
 		_, err := conn.Read(make([]byte, 8))
@@ -201,7 +202,7 @@ var _ = Describe("WebsocketConn framing", func() {
 
 	It("arms both directions from SetDeadline", func() {
 		clientWS, _ := wsPair()
-		conn := clusterep.WebsocketConn(clientWS)
+		conn := cluster.WebsocketConn(clientWS)
 
 		Expect(conn.SetDeadline(time.Now().Add(-time.Second))).To(Succeed())
 
@@ -217,7 +218,7 @@ var _ = Describe("WebsocketConn framing", func() {
 		// struct field, so this is a data race unless the adapter serialises it;
 		// the spec is here to be run under -race, where it would report one.
 		clientWS, _ := wsPair()
-		conn := clusterep.WebsocketConn(clientWS)
+		conn := cluster.WebsocketConn(clientWS)
 
 		done := make(chan struct{})
 		go func() {
@@ -252,7 +253,7 @@ var _ = Describe("Peer link payloads", func() {
 		var serverSess *yamux.Session
 		Eventually(sessions, "5s").Should(Receive(&serverSess))
 
-		clientSess, err := yamux.Client(clusterep.WebsocketConn(conn), nil, nil)
+		clientSess, err := yamux.Client(cluster.WebsocketConn(conn), nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = clientSess.Close() })
 
