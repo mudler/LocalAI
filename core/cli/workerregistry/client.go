@@ -8,7 +8,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -93,7 +95,7 @@ func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]a
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("registration failed with status %d", resp.StatusCode)
+		return nil, registrationStatusError(resp)
 	}
 
 	var result RegisterResponse
@@ -101,6 +103,58 @@ func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]a
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
 	return &result, nil
+}
+
+// ErrRegistrationRejected marks a registration the frontend REFUSED, as opposed
+// to one it could not answer.
+//
+// Retrying a refusal cannot change it: the request is wrong, or this worker is
+// not allowed to make it. The one that matters in practice is a worker of this
+// release registering against a frontend that predates it, which answers
+// "address is required for backend workers" with 400, because a worker no
+// longer has an address to send. Without this the retry ladder spends four
+// minutes on a verdict the frontend reached instantly, and the operator watches
+// it before being told anything.
+//
+// 408 and 429 are deliberately NOT rejections. Both are the frontend asking for
+// the same request again later, which is exactly what a retry does.
+var ErrRegistrationRejected = errors.New("the frontend refused this registration")
+
+// maxRegistrationErrorBody bounds how much of a refusal's body is quoted back.
+// Enough for a message, not enough for an HTML error page to bury the log line
+// it is meant to explain.
+const maxRegistrationErrorBody = 512
+
+// registrationStatusError turns a non-2xx response into an error that says WHY.
+//
+// The body is the point. The frontend explains its refusals there
+// ("address is required for backend workers", "invalid registration token"),
+// and discarding it left an operator with a bare status code: the one line that
+// would tell them which of several possible mistakes they made was read off the
+// socket and thrown away.
+func registrationStatusError(resp *http.Response) error {
+	detail, err := io.ReadAll(io.LimitReader(resp.Body, maxRegistrationErrorBody))
+	if err != nil {
+		xlog.Debug("Could not read the frontend's registration error body", "status", resp.StatusCode, "error", err)
+	}
+	msg := strings.Join(strings.Fields(string(detail)), " ")
+	base := fmt.Sprintf("registration failed with status %d", resp.StatusCode)
+	if msg != "" {
+		base = fmt.Sprintf("%s: %s", base, msg)
+	}
+	if isRegistrationRejection(resp.StatusCode) {
+		return fmt.Errorf("%s: %w", base, ErrRegistrationRejected)
+	}
+	return errors.New(base)
+}
+
+// isRegistrationRejection reports whether a status is a verdict rather than a
+// condition that may pass.
+func isRegistrationRejection(status int) bool {
+	if status == http.StatusRequestTimeout || status == http.StatusTooManyRequests {
+		return false
+	}
+	return status >= 400 && status < 500
 }
 
 // Register sends a single registration request and returns the node ID and
@@ -137,6 +191,12 @@ func (c *RegistrationClient) RegisterFullWithRetry(ctx context.Context, body map
 		res, err = c.RegisterFull(ctx, body)
 		if err == nil {
 			return res, nil
+		}
+		if errors.Is(err, ErrRegistrationRejected) {
+			// A verdict, not an outage. Reported on the first attempt so the
+			// reason the frontend gave is the first thing in the log rather
+			// than the last, after the ladder.
+			return nil, err
 		}
 		if attempt == maxRetries {
 			return nil, fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
