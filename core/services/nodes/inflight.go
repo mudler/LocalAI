@@ -27,16 +27,25 @@ import (
 // interface therefore breaks this file's build (see the var assertion below)
 // until it is wrapped with track() - so a new inference path can't be added
 // without an in-flight accounting decision.
-// The ruleguard rule wants grpc.WrappedBackend here, and this is the one
-// decorator that cannot use it. Embedding ControlBackend rather than Backend is
-// what produces the compile-time guarantee below: leave an InferenceBackend
-// method unwrapped and this type stops satisfying grpc.Backend. WrappedBackend
-// embeds the FULL interface, so adopting it would silently restore
-// pass-through for every inference method and delete that guarantee. The
-// transparency the rule protects is provided explicitly instead, by the Unwrap
-// and the grpc.BackendUnwrapper assertion above.
+// DO NOT "fix" this by embedding grpc.WrappedBackend, and do not delete the
+// nolint below. Both look like tidy-ups and both silently remove a guarantee.
 //
-//nolint:gocritic // embeds ControlBackend on purpose; Unwrap is declared explicitly
+// The ruleguard rule in hack/lint/ asks every decorator to embed
+// grpc.WrappedBackend, because that makes Unwrap structural. This is the one
+// decorator that must not, and the reason is the paragraph above: embedding
+// ControlBackend rather than Backend is exactly what forces every
+// InferenceBackend method to be declared and tracked here, on pain of a build
+// failure. grpc.WrappedBackend embeds the FULL Backend interface, so adopting
+// it would promote every inference method as untracked pass-through, the build
+// would stay green, and in-flight accounting would silently stop covering
+// whatever was added next.
+//
+// The transparency the rule exists to protect is still provided, explicitly:
+// the wrapped field, the Unwrap method and the grpc.BackendUnwrapper assertion
+// above. A spec drives it (see the wrapper transport specs), so removing them
+// reddens rather than merely regressing.
+//
+//nolint:gocritic // embeds ControlBackend deliberately; see the paragraph above before changing this
 type InFlightTrackingClient struct {
 	grpc.ControlBackend                       // passthrough for control-plane / streaming-constructor methods
 	inner               grpc.InferenceBackend // tracked inference methods delegate here
