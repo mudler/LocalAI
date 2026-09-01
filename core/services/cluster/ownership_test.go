@@ -67,8 +67,7 @@ var _ = Describe("Connection ownership", func() {
 	BeforeEach(func() {
 		db = testutil.SetupTestDB()
 		ctx = context.Background()
-		Expect(db.AutoMigrate(&cluster.NodeConnection{})).To(Succeed())
-		Expect(cluster.EnsureEpochSequence(ctx, db)).To(Succeed())
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg = cluster.NewRegistry(db)
 	})
 
@@ -243,13 +242,11 @@ var _ = Describe("Connection ownership on a non-PostgreSQL dialect", func() {
 	It("migrates, because the single-binary path shares this schema", func() {
 		// A PostgreSQL-only column DEFAULT here breaks AutoMigrate for every
 		// SQLite caller of nodes.NewNodeRegistry, which is how this regressed.
-		Expect(db.AutoMigrate(&cluster.NodeConnection{})).To(Succeed())
-		Expect(cluster.EnsureEpochSequence(ctx, db)).To(Succeed())
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 	})
 
 	It("refuses to claim, rather than pretending to fence", func() {
-		Expect(db.AutoMigrate(&cluster.NodeConnection{})).To(Succeed())
-		Expect(cluster.EnsureEpochSequence(ctx, db)).To(Succeed())
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 
 		_, err := cluster.NewRegistry(db).Claim(ctx, "w1", "inst-a")
 		Expect(err).To(HaveOccurred())

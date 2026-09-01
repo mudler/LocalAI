@@ -20,6 +20,16 @@ import (
 	"gorm.io/gorm"
 )
 
+// servePeerRoute mounts the peer handler on the route both sides agree on.
+//
+// It deliberately does not call routes.RegisterClusterRoutes: that registrar
+// lives in core/http/routes, which imports half the server, and these specs are
+// about the handler and the dialler rather than about the route table. The path
+// comes from the same constant the registrar uses, so the two cannot drift.
+func servePeerRoute(e *echo.Echo, token string, onPeer func(string, *yamux.Session)) {
+	e.GET(cluster.PeerPath, clusterep.PeerHandler(token, onPeer))
+}
+
 var _ = Describe("Peer pool", func() {
 	var (
 		db       *gorm.DB
@@ -33,7 +43,7 @@ var _ = Describe("Peer pool", func() {
 	// startPeer stands up a real peer server and registers it under peerID.
 	startPeer := func(peerID string) *httptest.Server {
 		e := echo.New()
-		clusterep.RegisterClusterRoutes(e, "peer-token", func(_ string, s *yamux.Session) {
+		servePeerRoute(e, "peer-token", func(_ string, s *yamux.Session) {
 			accepted <- s
 		})
 		ts := httptest.NewServer(e)
@@ -45,7 +55,7 @@ var _ = Describe("Peer pool", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		db = testutil.SetupTestDB()
-		Expect(db.AutoMigrate(&cluster.Instance{})).To(Succeed())
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg = cluster.NewRegistry(db)
 		accepted = make(chan *yamux.Session, 4)
 		pool = cluster.NewPeerPool("self", "peer-token", reg)
@@ -88,7 +98,7 @@ var _ = Describe("Peer pool", func() {
 		// link anonymous and indistinguishable from every other.
 		ids := make(chan string, 1)
 		e := echo.New()
-		clusterep.RegisterClusterRoutes(e, "peer-token", func(id string, _ *yamux.Session) { ids <- id })
+		servePeerRoute(e, "peer-token", func(id string, _ *yamux.Session) { ids <- id })
 		ts := httptest.NewServer(e)
 		DeferCleanup(ts.Close)
 		Expect(reg.Register(ctx, "peer-named", strings.TrimPrefix(ts.URL, "http://"), "test")).To(Succeed())
@@ -131,7 +141,7 @@ var _ = Describe("Peer pool", func() {
 		// row. Reporting absence here would evict every worker behind a peer
 		// that was merely rolled out with a stale secret.
 		e := echo.New()
-		clusterep.RegisterClusterRoutes(e, "a-different-token", func(_ string, s *yamux.Session) { accepted <- s })
+		servePeerRoute(e, "a-different-token", func(_ string, s *yamux.Session) { accepted <- s })
 		ts := httptest.NewServer(e)
 		DeferCleanup(ts.Close)
 		Expect(reg.Register(ctx, "peer-strict", strings.TrimPrefix(ts.URL, "http://"), "test")).To(Succeed())
