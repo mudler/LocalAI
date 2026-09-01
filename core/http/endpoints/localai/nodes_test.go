@@ -199,6 +199,34 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(node.TunnelTokenHash).To(BeEmpty())
 		})
 
+		It("clears a tunnel credential when a node stops being a backend node", func() {
+			// Register upserts BY NAME, so a node can change node_type in place.
+			// Skipping the mint on the way through leaves the credential the
+			// node earned as a backend sitting on a row that is now an agent:
+			// Register's struct Updates zero-skips the column while writing the
+			// new node_type, so nothing else clears it. ConnectHandler never
+			// looks at node_type, so that stale hash is a usable tunnel
+			// credential for a node type that is not supposed to hold one.
+			//
+			// This is the same shape as the Register-upserts-by-name hazard
+			// already carried forward: a name is not an identity.
+			backend := register(`{"name":"shifty","address":"10.0.0.7:50051"}`, "", true)
+			Expect(backend["tunnel_token"]).ToNot(BeEmpty())
+
+			agent := register(`{"name":"shifty","node_type":"agent"}`, "", true)
+			Expect(agent["id"]).To(Equal(backend["id"]), "re-registration must keep the node identity")
+			Expect(agent["node_type"]).To(Equal(nodes.NodeTypeAgent))
+			Expect(agent).ToNot(HaveKey("tunnel_token"))
+
+			node, err := registry.Get(context.Background(), backend["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			// The claim the gate makes is that an ineligible node HAS no
+			// credential, not merely that it was not handed a new one. Only
+			// then is the empty-hash refusal in ConnectHandler the enforcement.
+			Expect(node.TunnelTokenHash).To(BeEmpty(),
+				"the node kept the credential it earned as a backend, so the mint-site gate is not structural")
+		})
+
 		It("returns nats_jwt when account seed is configured", func() {
 			akp, err := nkeys.CreateAccount()
 			Expect(err).ToNot(HaveOccurred())

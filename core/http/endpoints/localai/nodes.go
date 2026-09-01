@@ -315,11 +315,21 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 // "backend workers, the ones that tunnel".
 //
 // The gate lives HERE and not in ConnectHandler, which never looks at NodeType.
-// It does not need to: an agent node's tunnel credential is never minted, so
-// its TunnelTokenHash stays empty and the handler's empty-hash branch refuses
-// it like any other node without one. Enforcement is therefore structural. The
-// day agent workers want a tunnel, relaxing this condition is the whole change,
-// and it has to be a deliberate one.
+// It does not need to, PROVIDED an ineligible node ends up with no credential
+// rather than merely being handed no new one, because the handler's empty-hash
+// branch is what does the refusing. So this CLEARS the column instead of
+// returning early, and the difference is not theoretical: Register upserts by
+// NAME, so a backend node re-registering as an agent keeps its ID, and
+// Register's struct Updates zero-skips TunnelTokenHash while writing the new
+// node_type. An early return left a live credential on a row that had become an
+// agent. Clearing is what makes "enforcement is structural" true.
+//
+// It clears unconditionally rather than only when something is there, so the
+// invariant holds without depending on what the row happened to contain. The
+// cost is one UPDATE per agent registration.
+//
+// The day agent workers want a tunnel, relaxing the eligibility condition is
+// the whole change, and it has to be a deliberate one.
 //
 // A failure to mint or to store is logged and the response goes out without the
 // token. Registration is what gets a worker into the cluster at all, and
@@ -328,7 +338,17 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 // tunnel_token, reports that it has no credential, and retries at its next
 // registration.
 func attachTunnelToken(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode) {
-	if node == nil || node.NodeType != nodes.NodeTypeBackend {
+	if node == nil {
+		return
+	}
+	if node.NodeType != nodes.NodeTypeBackend {
+		// Cleared, not skipped. SetTunnelTokenHash writes the single column
+		// directly rather than through a struct update, so unlike Register it
+		// can write an empty value; see its doc.
+		if err := registry.SetTunnelTokenHash(ctx, node.ID, ""); err != nil {
+			xlog.Error("Failed to clear the tunnel credential of a node that is not a backend worker",
+				"node", node.Name, "type", node.NodeType, "error", err)
+		}
 		return
 	}
 	// crypto/rand.Text: at least 128 bits of randomness, no error to handle and
