@@ -50,6 +50,11 @@ type NATSCredentialManager struct {
 	jwt    string
 	seed   string
 	nodeID string
+	// tunnelToken is the node's own tunnel credential from the most recent
+	// registration. It is kept here because every re-registration this manager
+	// performs ROTATES it, so the tunnel client has to read the current value
+	// at dial time rather than be handed one at startup.
+	tunnelToken string
 }
 
 // NewNATSCredentialManager builds a manager over register. When requireCreds is
@@ -87,6 +92,22 @@ func (m *NATSCredentialManager) store(res *RegisterResponse) {
 	if res.NatsJWT != "" && res.NatsUserSeed != "" {
 		m.jwt, m.seed = res.NatsJWT, res.NatsUserSeed
 	}
+	// Guarded the same way the NATS pair is: a response that carries no tunnel
+	// token (a frontend that predates them, or one whose minting failed) must
+	// not wipe a working credential this worker already holds. Overwriting with
+	// "" would lock the tunnel out until the next registration that did carry
+	// one, which is the opposite of what an empty field means.
+	if res.TunnelToken != "" {
+		m.tunnelToken = res.TunnelToken
+	}
+}
+
+// TunnelToken returns the node's current tunnel credential, empty until one has
+// been issued. It is the callback the tunnel client reads on every dial.
+func (m *NATSCredentialManager) TunnelToken() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.tunnelToken
 }
 
 // Current returns the latest NATS credentials (both empty until acquired).
