@@ -99,9 +99,11 @@ var _ = Describe("Advertised address discovery", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	// A database on this same host routes over loopback on every platform, so
-	// this is deterministic rather than host-dependent. Returning 127.0.0.1
-	// would make a peer dialling this replica reach itself.
+	// A DSN that NAMES loopback routes over loopback on every platform, so this
+	// is deterministic rather than host-dependent. Co-location is not the
+	// trigger: compose's `host=postgres` resolves to a bridge address and
+	// discovery works there. Returning 127.0.0.1 would make a peer dialling
+	// this replica reach itself.
 	It("refuses a loopback route instead of advertising an address peers cannot use", func() {
 		addr, err := cluster.DiscoverAdvertisedAddr("postgres://user@127.0.0.1:5432/testdb", 8080)
 		Expect(addr).To(BeEmpty())
@@ -157,5 +159,15 @@ var _ = Describe("Checking a configured advertised address", func() {
 		reason, err := cluster.CheckAdvertisedAddr("0.0.0.0:8080")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reason).To(ContainSubstring("unspecified"))
+	})
+
+	It("reports a scoped literal, which net.ParseIP alone would wave through as a name", func() {
+		// The zone has to be split off before parsing, or this address is
+		// indistinguishable from a hostname and collects no warning at all.
+		reason, err := cluster.CheckAdvertisedAddr("[fe80::1%eth0]:8080")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reason).ToNot(BeEmpty(), "a scoped address peers cannot dial was accepted in silence")
+		Expect(reason).To(ContainSubstring("fe80::1%eth0"),
+			"the reported address must carry its zone, or it is not the address being rejected")
 	})
 })

@@ -76,10 +76,14 @@ func isPublicRoute(method, path string) bool {
 
 // ClusterPathPrefix is the replica-to-replica namespace. Its handlers check the
 // cluster token in the Authorization header themselves, so the check below lets
-// them through the global session middleware. The cluster endpoints build their
-// route paths from this same constant, which is why it lives here beside the
-// check rather than beside the handlers: the exemption and the route it exempts
-// cannot then be changed independently.
+// them through the global session middleware.
+//
+// The cluster routes do NOT derive their paths from this constant: they are
+// registered from core/services/cluster's own literal, because that package
+// must not import core/http/auth. Nothing in the compiler holds the two
+// together, so a spec does instead, driving a peer request through this
+// middleware in core/http/endpoints/cluster/peer_test.go. Moving either string
+// without the other turns that spec red, which is the whole reason it exists.
 const ClusterPathPrefix = "/api/cluster/"
 
 // usesAlternativeAuthentication identifies requests whose credentials are

@@ -183,15 +183,23 @@ func (m *Membership) tick(ctx context.Context) {
 // would point every reader at an owner that no longer exists. This is the
 // announced form of what the sweeper does by inference, and the two must not
 // disagree about what "gone" removes.
+//
+// Instances first, then connections, which is deliberate and is the same order
+// ReapStale takes. The two paths run concurrently in the ordinary case, a
+// replica shutting down while a peer is sweeping it, and each locks the same
+// two tables; opposite orders would let each hold the row the other is waiting
+// for. PostgreSQL breaks such a cycle by aborting one side, so the cost is a
+// failed shutdown rather than lost data, but an inversion that costs nothing to
+// remove should not be left in.
 func (r *Registry) Deregister(ctx context.Context, id string) error {
 	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("owner_instance_id = ?", id).Delete(&NodeConnection{}).Error; err != nil {
-			return fmt.Errorf("deleting connections owned by %q: %w", id, err)
-		}
 		// No RowsAffected check: deregistering a row another replica already
 		// swept is the normal outcome of a slow shutdown, not an error.
 		if err := tx.Where("id = ?", id).Delete(&Instance{}).Error; err != nil {
 			return fmt.Errorf("deleting instance %q: %w", id, err)
+		}
+		if err := tx.Where("owner_instance_id = ?", id).Delete(&NodeConnection{}).Error; err != nil {
+			return fmt.Errorf("deleting connections owned by %q: %w", id, err)
 		}
 		return nil
 	}); err != nil {
@@ -225,6 +233,11 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 // PostgreSQL only, like Live: distributed mode requires it, and the interval
 // arithmetic is measured on the database's clock because liveness is compared
 // across replicas.
+//
+// Instances are deleted before connections, and Deregister takes the same order
+// on purpose, so the two paths cannot deadlock against each other. Here the
+// order is also forced: the connection delete asks which instance rows survived,
+// so it has to run second.
 func (r *Registry) ReapStale(ctx context.Context, self string, within time.Duration) (instances int64, connections int64, err error) {
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Where("id <> ? AND last_seen <= now() - make_interval(secs => ?)", self, within.Seconds()).

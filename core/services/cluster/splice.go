@@ -45,10 +45,12 @@ func Splice(a, b io.ReadWriteCloser) error {
 	// Wait for the second direction so no copy is still touching either stream
 	// once Splice has returned. This is load-bearing: it assumes Close unblocks
 	// a copy parked in Read or Write, and a stream where that is false hangs
-	// here rather than leaking a goroutine. Both callers satisfy it. net.Conn
-	// does, and so does go-yamux/v5, whose Close sets readErr and calls
-	// notifyWaiting to wake a parked Read while a parked Write returns
-	// ErrStreamClosed.
+	// here rather than leaking a goroutine. The two stream types this is built
+	// for satisfy it: net.Conn does, and so does go-yamux/v5, whose Close sets
+	// readErr and calls notifyWaiting to wake a parked Read while a parked
+	// Write returns ErrStreamClosed. Nothing outside this package's own specs
+	// calls Splice yet, so a phase 2 caller relaying over anything else has to
+	// check this property rather than assume it.
 	<-errs
 
 	if first != nil {
@@ -79,6 +81,14 @@ func copyStream(dst io.Writer, src io.Reader) error {
 // bare io.EOF arriving here came from a failing Write or Close, where it means
 // the peer is gone, and yamux produces exactly that when a Write races its
 // session's shutdown (see isMuxSessionFailure).
+//
+// A socket-level abort (ECONNRESET, EPIPE) is deliberately absent too, which
+// makes the same underlying event, a peer aborting mid-stream, reach the caller
+// as nil over a yamux tunnel and as an error over a raw socket. That asymmetry
+// is intended: the yamux endings are the teardown Splice's own Close provokes,
+// so this primitive is the only thing that can tell them from a fault, whereas
+// whether an aborted request is routine or a failure is the relay's policy and
+// only the relay knows which request was abandoned.
 //
 // The mux checks run first, and that ordering is load-bearing: a dying yamux
 // session usually hands every live stream its own cause wrapped up
