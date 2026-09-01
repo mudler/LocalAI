@@ -593,6 +593,18 @@ func API(application *application.Application) (*echo.Echo, error) {
 		routes.RegisterClusterRoutes(e, distCfg.RegistrationToken, d.PeerSessions.Accept)
 	}
 
+	// The worker tunnel, registered unconditionally. Both arguments are nil
+	// outside distributed mode and the handler refuses every dial then, which
+	// is what makes registering it always safe; what it buys is the
+	// route-coverage test walking the route in a plain single-binary
+	// application, and that test is what holds the rule that an unauthenticated
+	// dial is refused BEFORE the WebSocket upgrade.
+	var tunnels *clustersvc.TunnelRegistry
+	if d := application.Distributed(); d != nil {
+		tunnels = d.Tunnels
+	}
+	routes.RegisterWorkerTunnelRoute(e, registry, tunnels)
+
 	// Distributed SSE routes (job progress + agent events via NATS)
 	if d := application.Distributed(); d != nil {
 		if d.Dispatcher != nil {
