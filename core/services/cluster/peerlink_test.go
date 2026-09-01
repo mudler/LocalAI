@@ -3,8 +3,11 @@ package cluster_test
 import (
 	"context"
 	"io"
+	"net"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"time"
 
 	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -207,6 +210,77 @@ var _ = Describe("Peer pool", func() {
 		DeferCleanup(func() { _ = next.Close() })
 		Consistently(accepted, "2s", "200ms").ShouldNot(Receive(),
 			"a reset stream must not cost the whole peer link")
+	})
+
+	It("blames the caller's deadline, not the peer, when a dial runs out of time", func() {
+		// A listener that completes the TCP connection and then says nothing,
+		// which is what a peer under load or behind a wedged proxy looks like.
+		// The peer is not unreachable; the caller is impatient. Reporting
+		// ErrPeerUnreachable here would make an impatient client enough to get
+		// a healthy replica routed around.
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = ln.Close() })
+		// The accept loop owns the connections it holds and closes them when
+		// the listener goes away, so nothing is shared with the spec goroutine.
+		go func() {
+			defer GinkgoRecover()
+			var held []net.Conn
+			defer func() {
+				for _, c := range held {
+					_ = c.Close()
+				}
+			}()
+			for {
+				c, e := ln.Accept()
+				if e != nil {
+					return
+				}
+				// Hold the connection open without ever answering the upgrade.
+				held = append(held, c)
+			}
+		}()
+		Expect(reg.Register(ctx, "peer-silent", ln.Addr().String(), "test")).To(Succeed())
+
+		deadlined, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+		DeferCleanup(cancel)
+		_, err = pool.Open(deadlined, "peer-silent")
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+		Expect(err).ToNot(MatchError(cluster.ErrPeerUnreachable),
+			"the caller ran out of time; the peer never got a verdict")
+		Expect(err).ToNot(MatchError(cluster.ErrInstanceNotFound))
+	})
+
+	It("dials once when many callers open the same peer at the same time", func() {
+		// Without a per-peer lock held across the dial, every concurrent
+		// caller races to dial and all but one of the resulting sessions is
+		// dropped on the floor still holding a live WebSocket.
+		const callers = 16
+		streams := make(chan net.Conn, callers)
+		var wg sync.WaitGroup
+		for range callers {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				st, err := pool.Open(context.Background(), "peer-1")
+				Expect(err).ToNot(HaveOccurred())
+				streams <- st
+			}()
+		}
+		wg.Wait()
+		close(streams)
+
+		count := 0
+		for st := range streams {
+			count++
+			DeferCleanup(func(c net.Conn) { _ = c.Close() }, st)
+		}
+		Expect(count).To(Equal(callers))
+
+		Eventually(accepted, "10s").Should(Receive())
+		Consistently(accepted, "2s", "200ms").ShouldNot(Receive(),
+			"concurrent opens must share one dial, not race to dial per caller")
 	})
 
 	It("refuses to open after Close and is safe to close twice", func() {

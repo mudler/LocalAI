@@ -5,7 +5,9 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
+	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -64,7 +66,7 @@ var _ = Describe("Peer link handler", func() {
 		// server must accept it. This proves the WebSocket was adapted into a
 		// stream-oriented conn correctly, which is the part most likely to be
 		// subtly wrong.
-		clientSess, err := yamux.Client(clusterep.WebsocketConn(conn), nil, nil)
+		clientSess, err := yamux.Client(clustersvc.WebsocketConn(conn), nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = clientSess.Close() })
 
@@ -159,7 +161,7 @@ var _ = Describe("Peer link handler", func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = conn.Close() })
 
-		clientSess, err := yamux.Client(clusterep.WebsocketConn(conn), nil, nil)
+		clientSess, err := yamux.Client(clustersvc.WebsocketConn(conn), nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() { _ = clientSess.Close() })
 
@@ -185,9 +187,16 @@ var _ = Describe("Peer link handler", func() {
 })
 
 var _ = Describe("Peer link auth prefix", func() {
-	It("is covered by the alternative-authentication prefix list", func() {
-		// /api/cluster/ authenticates with the cluster token, not the global
-		// session middleware, so it must be listed or every peer dial 401s.
-		Expect(clusterep.AlternativeAuthPrefix).To(Equal("/api/cluster/"))
+	It("keeps the peer route inside the alternative-authentication prefix", func() {
+		// The peer route authenticates with the cluster token, not the global
+		// session middleware, which only holds while the route sits under the
+		// prefix auth exempts. Moving either one alone 401s every peer dial.
+		//
+		// This lives here because it is the only package that can see both:
+		// core/services/cluster owns the route and must stay free of any
+		// core/http dependency, and core/http/auth owns the exemption.
+		Expect(strings.HasPrefix(clustersvc.PeerPath, auth.ClusterPathPrefix)).To(BeTrue(),
+			"peer route %q is no longer under the auth-exempt prefix %q",
+			clustersvc.PeerPath, auth.ClusterPathPrefix)
 	})
 })

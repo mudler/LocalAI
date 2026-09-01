@@ -12,9 +12,19 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/libp2p/go-yamux/v5"
-	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 	"github.com/mudler/xlog"
 )
+
+// PeerPath is the route a replica dials to open a peer link, and the route the
+// HTTP layer registers the handler on. It lives here, with the dialler and the
+// WebSocket adapter, so that core/services/cluster stays a leaf: the HTTP
+// endpoints package imports this one, never the other way round.
+//
+// The literal is spelled out rather than derived from auth.ClusterPathPrefix
+// because importing core/http/auth is exactly the dependency this package must
+// not have. The two are kept from drifting apart by a spec in the endpoints
+// package, which can see both.
+const PeerPath = "/api/cluster/peer"
 
 // ErrPeerUnreachable reports that a peer this deployment knows about could not
 // be reached: the dial failed, the peer refused the credentials, or its
@@ -83,9 +93,13 @@ const (
 	// of a fast cross-zone link (roughly 31 MiB at 10 Gbps and 25 ms).
 	//
 	// The window is a cap on data received but not yet read, so the worst case
-	// a peer can make this replica buffer is MaxIncomingStreams times this,
-	// which is why MaxIncomingStreams is left at yamux's default rather than
-	// raised alongside it.
+	// a peer can make this replica buffer is MaxIncomingStreams times this.
+	// At yamux's default MaxIncomingStreams of 1000 that ceiling goes from
+	// about 15.6 GiB to about 31 GiB per peer session, which is the figure to
+	// size a replica against; it is why MaxIncomingStreams is left at the
+	// default rather than raised alongside the window. Both are ceilings on
+	// unread data and not allocations: yamux grows a stream's receive buffer
+	// as data arrives.
 	peerLinkMaxWindow = 32 * 1024 * 1024
 )
 
@@ -183,6 +197,17 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 
 	sess, err := p.dial(ctx, peerID)
 	if err != nil {
+		// Same rule as above, on the path that has no cached session to
+		// protect: a dial that ran out of the caller's time says nothing about
+		// the peer, which may be listening and perfectly healthy. Blaming it
+		// would let one impatient client get a good replica routed around.
+		//
+		// This also swallows a genuine ErrInstanceNotFound when the context
+		// happened to expire at the same moment, which is the safe direction:
+		// a timeout must never be able to manufacture absence.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
 		return nil, err
 	}
 
@@ -191,6 +216,9 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 		// The peer answered and completed a handshake but will not carry a
 		// stream, which is a transport condition and never absence.
 		_ = sess.Close()
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
 		return nil, unreachablePeer(peerID, err)
 	}
 
@@ -199,6 +227,14 @@ func (p *PeerPool) Open(ctx context.Context, peerID string) (net.Conn, error) {
 }
 
 // link returns the per-peer entry, creating it on first use.
+//
+// Entries are never pruned: a peer id opened once keeps its entry, and any
+// session cached on it, until Close. The cost is not the map entry. A peer that
+// has left the deployment but is still listening keeps a live WebSocket and the
+// two yamux loop goroutines behind it for as long as this process runs; a peer
+// that is genuinely gone is reclaimed by the 30s keepalive default, so the real
+// exposure is narrow. There is no Forget because nothing yet knows which peers
+// have left; Task 5's ownership work is where that knowledge appears.
 func (p *PeerPool) link(peerID string) (*peerLink, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -219,6 +255,14 @@ func (p *PeerPool) link(peerID string) (*peerLink, error) {
 //
 // A registry miss is returned unchanged so ErrInstanceNotFound reaches the
 // caller; everything after it is wrapped as unreachable.
+//
+// The address is only read here, so a peer that re-registers on a new address
+// while its current session is still alive keeps being reached over that
+// session until it dies. That is deliberate: an address change without a
+// session break means the peer is still answering on the old one, and dropping
+// a working link to chase a registry write would interrupt live requests for
+// nothing. A replica that actually moved breaks its sessions in the process,
+// and the re-dial above picks the new address up on the next Open.
 func (p *PeerPool) dial(ctx context.Context, peerID string) (*yamux.Session, error) {
 	inst, err := p.reg.Get(ctx, peerID)
 	if err != nil {
@@ -235,7 +279,7 @@ func (p *PeerPool) dial(ctx context.Context, peerID string) (*yamux.Session, err
 		// link is authenticated by the cluster token rather than by transport.
 		Scheme:   "ws",
 		Host:     inst.AdvertisedAddr,
-		Path:     clusterep.PeerPath,
+		Path:     PeerPath,
 		RawQuery: url.Values{"id": []string{p.selfID}}.Encode(),
 	}
 	header := http.Header{}
@@ -254,7 +298,7 @@ func (p *PeerPool) dial(ctx context.Context, peerID string) (*yamux.Session, err
 
 	// Client side of the mux: the dialling replica owns the odd stream IDs,
 	// matching the yamux.Server the peer handler puts on its end.
-	sess, err := yamux.Client(clusterep.WebsocketConn(ws), peerLinkConfig(), nil)
+	sess, err := yamux.Client(WebsocketConn(ws), peerLinkConfig(), nil)
 	if err != nil {
 		_ = ws.Close()
 		return nil, unreachablePeer(peerID, err)
