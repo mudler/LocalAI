@@ -51,7 +51,7 @@ var _ = Describe("Route cold-load jobs", func() {
 		backend = &stubBackend{healthResult: true, loadResult: &pb.Result{Success: true}}
 		factory = &stubClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:9001"},
 		}
 	})
 

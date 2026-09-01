@@ -199,13 +199,15 @@ var _ = Describe("ModelRouterAdapter", func() {
 	Describe("Route", func() {
 		It("delegates to SmartRouter and stores release func", func() {
 			fakeNode := &BackendNode{
-				ID:      "node-1",
-				Name:    "test-node",
-				Address: "10.0.0.1:50051",
+				ID:   "node-1",
+				Name: "test-node",
 			}
+			// The replica row carries the address now; the node has none. A row
+			// without one is not routable and the warm path declines it.
 			fakeNM := &NodeModel{
-				NodeID:    "node-1",
-				ModelName: "test-model",
+				NodeID:             "node-1",
+				ModelName:          "test-model",
+				WorkerLocalAddress: "127.0.0.1:50052",
 			}
 
 			fakeReg := newFakeModelRouterForSmartRouter()
@@ -214,7 +216,7 @@ var _ = Describe("ModelRouterAdapter", func() {
 
 			// The fake gRPC client that SmartRouter will use for health check
 			factory := newFakeBackendClientFactory()
-			factory.setClient("10.0.0.1:50051", &fakeBackendClient{healthy: true})
+			factory.setClient("127.0.0.1:50052", &fakeBackendClient{healthy: true})
 
 			sr := NewSmartRouter(fakeReg, SmartRouterOptions{
 				ClientFactory: factory,

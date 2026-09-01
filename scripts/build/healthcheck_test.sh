@@ -101,6 +101,21 @@ echo "== worker derives the port from LOCALAI_SERVE_ADDR"
 run_hc 0 "local-ai worker" LOCALAI_SERVE_ADDR="0.0.0.0:60000"
 expect_url "http://localhost:59999/readyz"
 
+echo "== worker derives the port from LOCALAI_ADDR"
+# LOCALAI_ADDR is the worker's documented base-port knob (LOCALAI_SERVE_ADDR is
+# hidden), and Config.effectiveBasePort reads it FIRST. A probe that ignored it
+# went to 50050 while the server sat elsewhere, which is #10987's symptom.
+run_hc 0 "local-ai worker" LOCALAI_ADDR="0.0.0.0:60000"
+expect_url "http://localhost:59999/readyz"
+
+echo "== LOCALAI_ADDR outranks LOCALAI_SERVE_ADDR, as effectiveBasePort does"
+run_hc 0 "local-ai worker" LOCALAI_ADDR="0.0.0.0:60000" LOCALAI_SERVE_ADDR="0.0.0.0:50051"
+expect_url "http://localhost:59999/readyz"
+
+echo "== an explicit LOCALAI_HTTP_ADDR still outranks both"
+run_hc 0 "local-ai worker" LOCALAI_ADDR="0.0.0.0:60000" LOCALAI_HTTP_ADDR="0.0.0.0:18081"
+expect_url "http://localhost:18081/readyz"
+
 echo "== worker honours an explicit LOCALAI_HTTP_ADDR"
 run_hc 0 "local-ai worker" LOCALAI_HTTP_ADDR="0.0.0.0:18080"
 expect_url "http://localhost:18080/readyz"

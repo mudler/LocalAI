@@ -193,9 +193,18 @@ type BackendInstallRequest struct {
 
 // BackendInstallReply is the response from a backend.install NATS request.
 type BackendInstallReply struct {
-	Success bool   `json:"success"`
-	Address string `json:"address,omitempty"` // gRPC address of the backend process (host:port)
-	Error   string `json:"error,omitempty"`
+	Success bool `json:"success"`
+	// WorkerLocalAddress is where the backend process listens ON THE WORKER,
+	// which is a loopback address. It is not dialable from the frontend and
+	// never was meant to be read that way: the frontend takes its PORT and
+	// names it as the target of a stream on that worker's tunnel, and the
+	// worker dials its own loopback there.
+	//
+	// The json tag stays "address" so a worker and a frontend from different
+	// releases still understand each other. An older worker sends its
+	// advertised host here; only the port is read, and the port is the same.
+	WorkerLocalAddress string `json:"address,omitempty"`
+	Error              string `json:"error,omitempty"`
 }
 
 // SubjectNodeBackendUpgrade tells a worker node to force-reinstall a backend

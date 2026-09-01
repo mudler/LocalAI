@@ -52,7 +52,7 @@ var _ = Describe("Eviction under a node selector", func() {
 		rowID++
 		Expect(db.Create(&NodeModel{
 			ID: fmt.Sprintf("row-%d", rowID), NodeID: node.ID, ModelName: model,
-			Address: node.Address, State: "loaded", InFlight: inFlight,
+			WorkerLocalAddress: node.Address, State: "loaded", InFlight: inFlight,
 			LastUsed: time.Now().Add(-idleFor), UpdatedAt: time.Now(),
 		}).Error).To(Succeed())
 	}

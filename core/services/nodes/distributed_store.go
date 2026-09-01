@@ -91,10 +91,14 @@ func (s *DistributedModelStore) Range(fn func(string, *model.Model) bool) {
 		}
 		seen[nm.ModelName] = true
 
-		// Look up the node address
-		node, err := s.registry.Get(ctx, nm.NodeID)
-		if err != nil {
-			xlog.Warn("DistributedModelStore: failed to get node for model", "model", nm.ModelName, "nodeID", nm.NodeID, "error", err)
+		// The REPLICA's address, not the node's. This used to name the node,
+		// which was the worker's base gRPC port and never the port the backend
+		// process actually listens on, so Free and Status on a model reached
+		// from here went to the wrong place; with workers no longer advertising
+		// anything it would name nothing at all.
+		if nm.WorkerLocalAddress == "" {
+			xlog.Warn("DistributedModelStore: not listing a replica whose backend process is unnamed",
+				"model", nm.ModelName, "nodeID", nm.NodeID, "replica", nm.ReplicaIndex)
 			continue
 		}
 
@@ -103,13 +107,13 @@ func (s *DistributedModelStore) Range(fn func(string, *model.Model) bool) {
 		// anything calls GRPC() on it, which reaches a worker only while
 		// workers still listen on a routable address. Building the client here
 		// means the bypass has no path left rather than an unused one.
-		client, err := s.clientFor(nm.NodeID, node.Address)
+		client, err := s.clientFor(nm.NodeID, nm.WorkerLocalAddress)
 		if err != nil {
 			xlog.Error("DistributedModelStore: not listing a remote model it cannot reach",
 				"model", nm.ModelName, "nodeID", nm.NodeID, "error", err)
 			continue
 		}
-		m := model.NewModelWithClient(nm.ModelName, node.Address, client)
+		m := model.NewModelWithClient(nm.ModelName, nm.WorkerLocalAddress, client)
 		if !fn(nm.ModelName, m) {
 			return
 		}
