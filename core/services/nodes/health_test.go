@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/cluster"
+
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"gorm.io/gorm"
 )
@@ -323,6 +325,53 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			}
 			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("RemoveNodeModel")))
 			Expect(store.getNode("node-cut").Status).To(Equal(StatusHealthy))
+		})
+
+		It("leaves a model row alone when the probe never reached the worker", func() {
+			// The sibling of the factory case above, and the likelier one. The
+			// client is built fine and the tunnel DIAL fails, which gRPC
+			// reports with the same code as a dead backend. Counted as a miss
+			// it would delete every model row in the fleet after three passes
+			// of a peer link blip, while the models kept serving.
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-blip", "blip-worker", "10.0.0.22:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-blip", NodeModel{NodeID: "node-blip", ModelName: "m", Address: "10.0.0.22:50053"})
+			factory.setClient("10.0.0.22:50053", &fakeBackendClient{
+				healthy: false,
+				err:     fmt.Errorf("connection error"),
+				dialErr: fmt.Errorf("%w: %w", cluster.ErrNoRoute, cluster.ErrPeerUnreachable),
+			})
+
+			for i := 0; i < perModelMissThreshold+2; i++ {
+				hm.doCheckAll(context.Background())
+			}
+			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("RemoveNodeModel")))
+		})
+
+		It("still reaps a backend that died on a worker it CAN reach", func() {
+			// The other direction, so the new check cannot pass by never
+			// reaping. A dial that succeeded and an RPC that failed is a dead
+			// process, and its row must still go.
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-dead", "dead-worker", "10.0.0.23:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-dead", NodeModel{NodeID: "node-dead", ModelName: "m", Address: "10.0.0.23:50053"})
+			// No dialErr: the transport was fine.
+			factory.setClient("10.0.0.23:50053", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
+
+			for i := 0; i < perModelMissThreshold; i++ {
+				hm.doCheckAll(context.Background())
+			}
+			Expect(store.getCalls()).To(ContainElement("RemoveNodeModel:node-dead:m:0"))
 		})
 
 		It("preserves model row when an intermittent failure is followed by a success", func() {
