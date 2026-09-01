@@ -393,9 +393,17 @@ test-e2e: build-mock-backend build-cloud-proxy-backend prepare-e2e run-e2e-image
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
+# `docker stop` returns as soon as the container exits, but Docker reaps a
+# `--rm` container asynchronously after that. The `docker rmi localai-tests` in
+# test-e2e then loses the race against the reaper and fails on a still
+# referenced image, turning a green suite red. Removing the container ourselves
+# is synchronous, so the image reference is gone before we return. It also
+# covers the case where nothing is running, which `docker stop` could not
+# because it rejects an empty argument list.
 teardown-e2e:
 	rm -rf $(TEST_DIR) || true
-	docker stop $$(docker ps -q --filter ancestor=localai-tests)
+	@CONTAINERS=$$(docker ps -aq --filter ancestor=localai-tests 2>/dev/null); \
+	if [ -n "$$CONTAINERS" ]; then docker rm -f $$CONTAINERS || true; fi
 
 ########################################################
 ## Integration and unit tests
