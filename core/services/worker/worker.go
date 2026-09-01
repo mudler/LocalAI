@@ -30,12 +30,12 @@ import (
 func Run(ctx *cliContext.Context, cfg *Config) error {
 	xlog.Info("Starting worker", "basePort", cfg.effectiveBasePort())
 
-	// Fail fast (before prefetch/registration/NATS) when enforcement is on but no
-	// registration token is set: the worker's HTTP file-transfer server fails
-	// open on an empty token (see nodes.checkBearerToken), so refuse to start
-	// rather than register and then die mid-boot.
-	if cfg.RegistrationAuthRequired() && cfg.RegistrationToken == "" {
-		return fmt.Errorf("registration auth is required (LOCALAI_REGISTRATION_REQUIRE_AUTH or LOCALAI_DISTRIBUTED_REQUIRE_AUTH) but LOCALAI_REGISTRATION_TOKEN is empty — refusing to start an unauthenticated file-transfer server")
+	// Fail fast, before prefetch, registration and NATS, on any configuration
+	// that would produce a worker the cluster believes in and cannot use. See
+	// validateStartup for what those are and why each is fatal rather than
+	// degraded.
+	if err := cfg.validateStartup(); err != nil {
+		return err
 	}
 
 	systemState, err := system.GetSystemState(
@@ -209,26 +209,29 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// frontend URL or this node's identity is unusable, and a worker that
 	// silently ran without its tunnel would look healthy while being
 	// unreachable to everything that dials through it.
-	if cfg.WorkerTunnel {
-		tunnel, terr := StartTunnel(shutdownCtx, TunnelConfig{
-			FrontendURL: cfg.RegisterTo,
-			NodeID:      nodeID,
-			Token:       tunnelToken,
-			// Built by tunnelServices rather than inline, so the routing
-			// table, which is this feature's security boundary, is reachable
-			// from a spec without starting a worker.
-			Services: tunnelServices(cfg, httpAddr),
-		})
-		if terr != nil {
-			nodes.ShutdownFileTransferServer(httpServer)
-			return fmt.Errorf("starting the worker tunnel: %w", terr)
-		}
-		defer func() {
-			if err := tunnel.Close(); err != nil {
-				xlog.Warn("Closing the worker tunnel failed", "error", err)
-			}
-		}()
+	//
+	// Unconditional: LOCALAI_WORKER_TUNNEL=false is refused by validateStartup
+	// before this point, so there is no configuration that reaches here without
+	// one. A guard here would be a branch nothing can take, which reads as a
+	// supported no-tunnel mode that does not exist.
+	tunnel, terr := StartTunnel(shutdownCtx, TunnelConfig{
+		FrontendURL: cfg.RegisterTo,
+		NodeID:      nodeID,
+		Token:       tunnelToken,
+		// Built by tunnelServices rather than inline, so the routing
+		// table, which is this feature's security boundary, is reachable
+		// from a spec without starting a worker.
+		Services: tunnelServices(cfg, httpAddr),
+	})
+	if terr != nil {
+		nodes.ShutdownFileTransferServer(httpServer)
+		return fmt.Errorf("starting the worker tunnel: %w", terr)
 	}
+	defer func() {
+		if err := tunnel.Close(); err != nil {
+			xlog.Warn("Closing the worker tunnel failed", "error", err)
+		}
+	}()
 
 	// Connect to NATS
 	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))

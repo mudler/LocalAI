@@ -724,12 +724,28 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	modelAddr := nm.WorkerLocalAddress
 	replicaIdx := nm.ReplicaIndex
 
-	// A replica row that does not name its backend process cannot be routed
-	// to. There is no node address left to stand in for it, and naming an
-	// empty target would make the worker refuse the stream as invalid: a
-	// refusal that reads as the worker answering about its backend, which is
-	// evidence this row is not entitled to produce. Fall through to a cold
-	// load, which either replaces the row or reports a real failure.
+	// A replica row that does not name its backend process cannot be routed to.
+	// There is no node address left to stand in for it, and an empty target
+	// names no process, so the request would open a stream the worker refuses
+	// as an invalid request rather than one that reaches a backend. Fall
+	// through to a cold load, which either replaces the row or reports a real
+	// failure.
+	//
+	// The row is left in place, unlike the !alive branch below which removes
+	// it. That branch has OBSERVED a backend dead; this one has observed only
+	// that the row is unreadable, which says nothing about whether a process is
+	// running on that worker. The row is also the last record that one might
+	// be: the acknowledged stop path matches on ExpectedAddress and a worker
+	// refuses a stop whose address does not match, so an empty one cannot be
+	// cleaned up through it either. Keeping the row costs a lock and a
+	// decrement per request before the cold load and leaves something an
+	// operator can see; removing it would free the replica slot for a second
+	// copy of the model while the first one, if it exists, keeps its VRAM with
+	// nothing left pointing at it.
+	//
+	// Defensive rather than reachable: installBackendOnNode below refuses an
+	// install that names no address, so no row written by this release can look
+	// like this.
 	if modelAddr == "" {
 		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
 			xlog.Warn("Failed to release a reservation for an unnamed replica",
@@ -1374,9 +1390,21 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 		// Where the backend process listens on that worker. There is no node
 		// address to fall back to any more, and there should not be: a worker
 		// that reports success without naming the port it started the process
-		// on has told us nothing routable, and inventing a target would surface
-		// later as the worker refusing an invalid stream, which reads as
-		// evidence about the backend rather than about this install.
+		// on has produced nothing routable, and the failure belongs to THIS
+		// install rather than to whatever later step first tries to use the
+		// address. Substituting one would push a known-bad value into a replica
+		// row and defer the error to a probe, where its cause is no longer
+		// visible.
+		//
+		// An earlier version of this comment justified it by saying the worker
+		// would refuse the resulting empty target as an invalid stream and that
+		// the refusal would read as the worker answering about its backend. The
+		// first half is true (see cluster.isWorkerAnswer) and the second is
+		// not: nothing in this package branches on cluster.ErrNoRoute, and
+		// `unroutable` treats ANY recorded dial error as unroutable, so such a
+		// refusal reaches every reap guard as ProbeUnknown and deletes nothing.
+		// The decision stands on the grounds above, which do not depend on a
+		// classification the frontend does not currently make.
 		if reply.WorkerLocalAddress == "" {
 			return "", fmt.Errorf("worker %s reported backend %q installed but named no address for the process", node.ID, backendType)
 		}

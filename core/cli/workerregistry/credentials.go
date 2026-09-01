@@ -2,6 +2,7 @@ package workerregistry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -146,6 +147,11 @@ func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse,
 	for attempt := 1; m.maxAttempts <= 0 || attempt <= m.maxAttempts; attempt++ {
 		res, err := m.register(ctx)
 		switch {
+		case errors.Is(err, ErrRegistrationRejected):
+			// The frontend refused rather than failed. Waiting through the full
+			// attempt ladder would delay the operator's only explanation by the
+			// length of the ladder and change nothing about the answer.
+			return nil, err
 		case err != nil:
 			lastReason = err
 			xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)

@@ -1,5 +1,7 @@
 package worker
 
+import "fmt"
+
 // Config is the configuration for the distributed agent worker.
 //
 // Field tags are kong/kong-env metadata read by core/cli/worker.go's WorkerCMD,
@@ -64,9 +66,22 @@ type Config struct {
 	HeartbeatInterval       string `env:"LOCALAI_HEARTBEAT_INTERVAL" default:"10s" help:"Interval between heartbeats" group:"registration"`
 	// WorkerTunnel holds one outbound multiplexed connection to the frontend
 	// and serves the frontend's requests over it, so the worker needs no
-	// inbound port. Turning it off leaves the worker reachable only at the
-	// addresses it advertises, which is the pre-tunnel behaviour.
-	WorkerTunnel bool   `env:"LOCALAI_WORKER_TUNNEL" default:"true" help:"Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port." group:"distributed"`
+	// inbound port.
+	//
+	// Turning it off is now a fatal misconfiguration and validateStartup
+	// refuses to boot on it, which is a behaviour change from when this flag
+	// had a working "off" position. It no longer has one: this worker
+	// advertises no address and binds only loopback, and no frontend path
+	// dials a worker's address, so a worker without its tunnel is reachable by
+	// nothing. Left running it would be the worst available failure shape,
+	// because it registers, heartbeats and reports healthy, so the scheduler
+	// keeps placing models on it and every one of them fails.
+	//
+	// The flag is kept rather than deleted so that an operator who set it, on
+	// the old promise that it fell back to the advertised address, is told
+	// exactly that the promise is gone instead of having their setting quietly
+	// ignored.
+	WorkerTunnel bool   `env:"LOCALAI_WORKER_TUNNEL" default:"true" help:"Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port. Setting it false is refused: a worker has no other way to be reached." group:"distributed"`
 	NodeLabels   string `env:"LOCALAI_NODE_LABELS" help:"Comma-separated key=value labels for this node (e.g. tier=fast,gpu=a100)" group:"registration"`
 	// MaxReplicasPerModel caps how many replicas of any one model can run on
 	// this worker concurrently. Default 1 = historical single-replica
@@ -109,4 +124,26 @@ func (c Config) NatsAuthRequired() bool {
 // before the file-transfer server may start — the granular flag or the umbrella.
 func (c Config) RegistrationAuthRequired() bool {
 	return c.RegistrationRequireAuth || c.DistributedRequireAuth
+}
+
+// validateStartup reports a configuration this worker must refuse to boot on,
+// as opposed to one it can degrade under.
+//
+// It runs before prefetch, registration and NATS, so a refusal happens while
+// the worker is still invisible to the cluster. That ordering is the point of
+// checking here at all: both conditions below produce a worker that would
+// register, heartbeat and be scheduled onto, so discovering them later means
+// discovering them as failed inferences on a node the frontend believes is
+// healthy.
+func (c Config) validateStartup() error {
+	// The file-transfer server fails open on an empty token (see
+	// nodes.checkBearerToken), so enforcement plus no token is a request to
+	// serve the models directory unauthenticated.
+	if c.RegistrationAuthRequired() && c.RegistrationToken == "" {
+		return fmt.Errorf("registration auth is required (LOCALAI_REGISTRATION_REQUIRE_AUTH or LOCALAI_DISTRIBUTED_REQUIRE_AUTH) but LOCALAI_REGISTRATION_TOKEN is empty: refusing to start an unauthenticated file-transfer server")
+	}
+	if !c.WorkerTunnel {
+		return fmt.Errorf("LOCALAI_WORKER_TUNNEL is false, but this worker advertises no address and binds only loopback, and no frontend path dials a worker's address: without its tunnel nothing can reach it. Remove the setting, or run the pre-tunnel release on both the worker and the frontend")
+	}
+	return nil
 }

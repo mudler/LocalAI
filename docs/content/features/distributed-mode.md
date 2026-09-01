@@ -1243,9 +1243,9 @@ Notes:
 **Port conflicts on workers:**
 - Each model gets its own gRPC process on an incrementing port (50051, 50052, ...)
 - The HTTP file transfer server runs on the base port - 1 (default: 50050)
-- Ensure the port range is not blocked by firewalls or used by other services
+- All of those bind loopback, so a firewall cannot be the cause. What can is another service on the same host already holding a port in the range: move the worker's range with `LOCALAI_ADDR` (see [Worker Port Configuration](#worker-port-configuration)) or bound it with `LOCALAI_GRPC_MAX_PORT`
 - Verify the backend gallery configuration is correct
-- The worker needs network access to download backends from the gallery
+- The worker needs OUTBOUND network access to the gallery, to `LOCALAI_REGISTER_TO` and to `LOCALAI_NATS_URL`. It needs no inbound access at all
 
 ## Roadmap: Routing and Caching Enhancements
 
