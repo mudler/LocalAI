@@ -12,6 +12,7 @@
 #include "dsml_renderer.h" // populated in Task 16
 #include "generation_limits.h"
 #include "kv_cache.h"      // populated in Task 17
+#include "request_lifecycle.h"
 
 extern "C" {
 #include "ds4.h"
@@ -36,6 +37,7 @@ extern "C" {
 #include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 using grpc::Server;
@@ -69,6 +71,21 @@ bool g_distributed = false;
 int g_route_timeout_sec = 60;
 
 std::atomic<Server *> g_server{nullptr};
+
+static bool server_context_cancelled(void *ud) {
+    return static_cast<ServerContext *>(ud)->IsCancelled();
+}
+
+static void set_session_cancel(void *target, ds4cpp::CancelCallback callback,
+                               void *userdata) noexcept {
+    ds4_session_set_cancel(static_cast<ds4_session *>(target), callback, userdata);
+}
+
+static bool request_should_continue(ds4cpp::RequestLifecycle *request,
+                                    ServerContext *context) {
+    request->ObserveContextCancellation(context->IsCancelled());
+    return request->ShouldContinue();
+}
 
 // Parse a "key:value" option string. Returns empty when no colon.
 static std::pair<std::string, std::string> split_option(const std::string &opt) {
@@ -239,37 +256,58 @@ static bool apply_engine_option(ds4_engine_options *opt, const std::string &key,
 
 // When acting as a distributed coordinator, block until the worker route
 // covers all layers (ds4_session_distributed_route_ready == 1) or the timeout
-// elapses. Returns an empty string on success, or an error message to return
-// to the client. No-op when not distributed.
+// elapses. No-op when not distributed.
 //
 // Takes the g_engine_mu lock by reference and RELEASES it during each poll
 // sleep. The wait can span up to g_route_timeout_sec seconds while workers
 // connect; holding g_engine_mu the whole time would block the Status/Health
 // readiness probes (they also lock g_engine_mu), making LocalAI's loader treat
 // a still-starting worker as hung.
-static std::string wait_route_ready(std::unique_lock<std::mutex> &lock) {
-    if (!g_distributed) return "";
+struct RouteWaitResult {
+    ds4cpp::RouteWaitDecision decision;
+    std::string error;
+};
+
+static RouteWaitResult wait_route_ready(std::unique_lock<std::mutex> &lock,
+                                        ServerContext *context) {
+    if (!g_distributed) return {ds4cpp::RouteWaitDecision::Ready, ""};
     char err[256] = {0};
     const int deadline_polls = g_route_timeout_sec * 10; // 100ms per poll
     for (int i = 0; i <= deadline_polls; ++i) {
         int ready = ds4_session_distributed_route_ready(g_session, err, sizeof(err));
-        if (ready == 1) return "";
-        if (ready < 0) {
-            return std::string("ds4 distributed route error: ") +
-                   (err[0] ? err : "unknown");
+        switch (ds4cpp::DecideRouteWait(ready, context->IsCancelled())) {
+        case ds4cpp::RouteWaitDecision::Ready:
+            return {ds4cpp::RouteWaitDecision::Ready, ""};
+        case ds4cpp::RouteWaitDecision::Error:
+            return {ds4cpp::RouteWaitDecision::Error,
+                    std::string("ds4 distributed route error: ") +
+                        (err[0] ? err : "unknown")};
+        case ds4cpp::RouteWaitDecision::Cancelled:
+            return {ds4cpp::RouteWaitDecision::Cancelled, ""};
+        case ds4cpp::RouteWaitDecision::Pending:
+            break;
         }
+        if (i == deadline_polls) break;
         // Release the lock while sleeping so Status/Health and other RPCs can
         // interleave during worker startup.
         lock.unlock();
         struct timespec ts = {0, 100L * 1000L * 1000L}; // 100ms
         nanosleep(&ts, nullptr);
         lock.lock();
+        if (context->IsCancelled()) {
+            return {ds4cpp::RouteWaitDecision::Cancelled, ""};
+        }
         // A concurrent Free() may have torn down the engine while we slept.
         if (!g_engine || !g_session) {
-            return "ds4: model unloaded while waiting for distributed route";
+            return {ds4cpp::RouteWaitDecision::Error,
+                    "ds4: model unloaded while waiting for distributed route"};
         }
     }
-    return "ds4 distributed route incomplete: workers not connected (layers uncovered)";
+    if (context->IsCancelled()) {
+        return {ds4cpp::RouteWaitDecision::Cancelled, ""};
+    }
+    return {ds4cpp::RouteWaitDecision::Error,
+            "ds4 distributed route incomplete: workers not connected (layers uncovered)"};
 }
 
 static void append_token_text(ds4_engine *engine, int token, std::string &out) {
@@ -342,9 +380,9 @@ static void collect_done(void *) {}
 struct StreamCtx {
     ds4_engine *engine;
     ServerWriter<backend::Reply> *writer;
+    ds4cpp::RequestLifecycle *request;
     ds4cpp::DsmlParser parser;
     int tokens;
-    bool aborted;
     // Track which tool indices we've seen TOOL_START for, so subsequent
     // ARGS deltas can elide the redundant id/name fields.
     std::vector<bool> tool_started;
@@ -352,7 +390,7 @@ struct StreamCtx {
 
 static void stream_emit(void *ud, int token) {
     auto *s = static_cast<StreamCtx *>(ud);
-    if (s->aborted) return;
+    if (!s->request->ShouldContinue()) return;
     if (token == ds4_token_eos(s->engine)) return;
     size_t len = 0;
     const char *text = ds4_token_text(s->engine, token, &len);
@@ -402,7 +440,7 @@ static void stream_emit(void *ud, int token) {
     reply.set_message(chunk);
     reply.set_tokens(1);
     if (any_field) {
-        if (!s->writer->Write(reply)) s->aborted = true;
+        s->request->ObserveStreamWrite(s->writer->Write(reply));
     }
     s->tokens++;
 }
@@ -758,15 +796,19 @@ public:
         return GStatus::OK;
     }
 
-    GStatus Predict(ServerContext *, const backend::PredictOptions *request,
+    GStatus Predict(ServerContext *context, const backend::PredictOptions *request,
                    backend::Reply *reply) override {
         std::unique_lock<std::mutex> lock(g_engine_mu);
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
         if (GStatus id = check_model_identity(request); !id.ok()) return id;
-        if (std::string route_err = wait_route_ready(lock); !route_err.empty()) {
-            return GStatus(StatusCode::UNAVAILABLE, route_err);
+        RouteWaitResult route = wait_route_ready(lock, context);
+        if (route.decision == ds4cpp::RouteWaitDecision::Cancelled) {
+            return GStatus(StatusCode::CANCELLED, "ds4 request cancelled");
+        }
+        if (route.decision == ds4cpp::RouteWaitDecision::Error) {
+            return GStatus(StatusCode::UNAVAILABLE, route.error);
         }
         ds4_tokens prompt = {};
         build_prompt(g_engine, request, &prompt);
@@ -777,6 +819,7 @@ public:
         CollectCtx collect = {
             g_engine, "", ds4cpp::DsmlParser(starts_in_thinking),
             reply, 0, {}, "", ""};
+        ds4cpp::RequestLifecycle lifecycle;
         std::string cache_key = render_prompt_text(request);
         size_t cache_hit = maybe_load_cache(cache_key);
         (void)cache_hit; // future: skip prompt prefix if hit covers full prompt
@@ -788,10 +831,19 @@ public:
         // Either way g_session advances so the disk KV cache picks up a
         // real checkpoint after the call (see maybe_save_cache below).
         char err[256] = {0};
-        int rc = ds4_session_sync(g_session, &prompt, err, sizeof(err));
+        int rc;
+        {
+            ds4cpp::CancelCallbackScope cancel_scope(
+                g_session, set_session_cancel, server_context_cancelled, context);
+            rc = ds4_session_sync(g_session, &prompt, err, sizeof(err));
+        }
         int prompt_len = prompt.len;
         ds4_tokens_free(&prompt);
-        if (rc == 0) {
+        if (rc == DS4_SESSION_SYNC_INTERRUPTED) {
+            lifecycle.ObserveContextCancellation(true);
+        }
+        const bool generation_started = rc == 0;
+        if (generation_started) {
             const int n_predict = ds4cpp::EffectiveGenerationLimit(
                 request->tokens(), ds4_session_ctx(g_session),
                 ds4_session_pos(g_session));
@@ -799,6 +851,7 @@ public:
             const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
             int produced = 0;
             while (produced < n_predict) {
+                if (!request_should_continue(&lifecycle, context)) break;
                 SampleParams sp = compute_sample_params(request, collect.parser, think_enabled);
                 int first;
                 if (sp.temperature <= 0.0f) {
@@ -823,6 +876,10 @@ public:
                     if (n < 0) { rc = -1; break; }
                     bool stop = false;
                     for (int j = 0; j < n; ++j) {
+                        if (!request_should_continue(&lifecycle, context)) {
+                            stop = true;
+                            break;
+                        }
                         if (accepted[j] == eos) { stop = true; break; }
                         collect_emit(&collect, accepted[j]);
                         if (++produced >= n_predict) { stop = true; break; }
@@ -831,12 +888,26 @@ public:
                 } else {
                     collect_emit(&collect, first);
                     if (++produced >= n_predict) break;
+                    if (!request_should_continue(&lifecycle, context)) break;
                     rc = ds4_session_eval(g_session, first, err, sizeof(err));
                     if (rc != 0) break;
                 }
             }
-            collect_done(&collect);
         }
+
+        request_should_continue(&lifecycle, context);
+        ds4cpp::TerminalDecision terminal = ds4cpp::ResolveTerminalDecision(
+            rc == DS4_SESSION_SYNC_INTERRUPTED, rc != 0,
+            !lifecycle.ShouldFinalize());
+        if (!terminal.should_finalize) {
+            if (terminal.cause == ds4cpp::TerminalCause::EngineError) {
+                return GStatus(StatusCode::INTERNAL,
+                              std::string("ds4 generation failed: ") + err);
+            }
+            return GStatus(StatusCode::CANCELLED,
+                          "ds4 request cancelled");
+        }
+        if (generation_started) collect_done(&collect);
         maybe_save_cache(cache_key);
 
         // Flush any buffered parser state.
@@ -844,7 +915,7 @@ public:
         collect.parser.Flush(events);
         apply_events(&collect, events);
 
-        if (rc != 0) {
+        if (terminal.cause == ds4cpp::TerminalCause::EngineError) {
             return GStatus(StatusCode::INTERNAL,
                           std::string("ds4 generation failed: ") + err);
         }
@@ -867,15 +938,19 @@ public:
         return GStatus::OK;
     }
 
-    GStatus PredictStream(ServerContext *, const backend::PredictOptions *request,
+    GStatus PredictStream(ServerContext *context, const backend::PredictOptions *request,
                          ServerWriter<backend::Reply> *writer) override {
         std::unique_lock<std::mutex> lock(g_engine_mu);
         if (!g_engine || !g_session) {
             return GStatus(StatusCode::FAILED_PRECONDITION, "ds4: model not loaded");
         }
         if (GStatus id = check_model_identity(request); !id.ok()) return id;
-        if (std::string route_err = wait_route_ready(lock); !route_err.empty()) {
-            return GStatus(StatusCode::UNAVAILABLE, route_err);
+        RouteWaitResult route = wait_route_ready(lock, context);
+        if (route.decision == ds4cpp::RouteWaitDecision::Cancelled) {
+            return GStatus(StatusCode::CANCELLED, "ds4 request cancelled");
+        }
+        if (route.decision == ds4cpp::RouteWaitDecision::Error) {
+            return GStatus(StatusCode::UNAVAILABLE, route.error);
         }
         ds4_tokens prompt = {};
         build_prompt(g_engine, request, &prompt);
@@ -883,9 +958,10 @@ public:
         const bool think_enabled = ds4_think_mode_enabled(parse_think_mode(request));
         const bool starts_in_thinking = think_enabled &&
             request->usetokenizertemplate() && request->messages_size() > 0;
+        ds4cpp::RequestLifecycle lifecycle;
         StreamCtx s = {
-            g_engine, writer, ds4cpp::DsmlParser(starts_in_thinking),
-            0, false, {}};
+            g_engine, writer, &lifecycle,
+            ds4cpp::DsmlParser(starts_in_thinking), 0, {}};
         std::string cache_key = render_prompt_text(request);
         size_t cache_hit = maybe_load_cache(cache_key);
         (void)cache_hit;
@@ -893,16 +969,26 @@ public:
         // Manual loop on g_session - see Predict() above for the rationale.
         // MTP speculative path used when ds4_engine_mtp_draft_tokens > 0.
         char err[256] = {0};
-        int rc = ds4_session_sync(g_session, &prompt, err, sizeof(err));
+        int rc;
+        {
+            ds4cpp::CancelCallbackScope cancel_scope(
+                g_session, set_session_cancel, server_context_cancelled, context);
+            rc = ds4_session_sync(g_session, &prompt, err, sizeof(err));
+        }
         ds4_tokens_free(&prompt);
-        if (rc == 0) {
+        if (rc == DS4_SESSION_SYNC_INTERRUPTED) {
+            lifecycle.ObserveContextCancellation(true);
+        }
+        const bool generation_started = rc == 0;
+        if (generation_started) {
             const int n_predict = ds4cpp::EffectiveGenerationLimit(
                 request->tokens(), ds4_session_ctx(g_session),
                 ds4_session_pos(g_session));
             const int eos = ds4_token_eos(g_engine);
             const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
             int produced = 0;
-            while (produced < n_predict && !s.aborted) {
+            while (produced < n_predict) {
+                if (!request_should_continue(&lifecycle, context)) break;
                 SampleParams sp = compute_sample_params(request, s.parser, think_enabled);
                 int first;
                 if (sp.temperature <= 0.0f) {
@@ -926,42 +1012,66 @@ public:
                     if (n < 0) { rc = -1; break; }
                     bool stop = false;
                     for (int j = 0; j < n; ++j) {
+                        if (!request_should_continue(&lifecycle, context)) {
+                            stop = true;
+                            break;
+                        }
                         if (accepted[j] == eos) { stop = true; break; }
                         stream_emit(&s, accepted[j]);
-                        if (s.aborted) { stop = true; break; }
+                        if (!lifecycle.ShouldContinue()) { stop = true; break; }
                         if (++produced >= n_predict) { stop = true; break; }
                     }
                     if (stop) break;
                 } else {
                     stream_emit(&s, first);
-                    if (s.aborted || ++produced >= n_predict) break;
+                    if (!lifecycle.ShouldContinue() || ++produced >= n_predict) break;
+                    if (!request_should_continue(&lifecycle, context)) break;
                     rc = ds4_session_eval(g_session, first, err, sizeof(err));
                     if (rc != 0) break;
                 }
             }
-            stream_done(&s);
         }
-        maybe_save_cache(cache_key);
 
-        // Flush parser state.
-        std::vector<ds4cpp::ParserEvent> events;
-        s.parser.Flush(events);
-        if (!events.empty() && !s.aborted) {
-            backend::Reply reply;
-            auto *delta = reply.add_chat_deltas();
-            for (const auto &e : events) {
-                if (e.type == ds4cpp::ParserEvent::CONTENT) {
-                    delta->set_content(delta->content() + e.text);
-                } else if (e.type == ds4cpp::ParserEvent::REASONING) {
-                    delta->set_reasoning_content(delta->reasoning_content() + e.text);
+        request_should_continue(&lifecycle, context);
+        ds4cpp::TerminalDecision terminal = ds4cpp::ResolveTerminalDecision(
+            rc == DS4_SESSION_SYNC_INTERRUPTED, rc != 0,
+            !lifecycle.ShouldFinalize());
+        terminal = ds4cpp::RunPostlude(
+            terminal,
+            [&]() {
+                ds4cpp::DsmlParser staged_parser = s.parser;
+                std::vector<ds4cpp::ParserEvent> events;
+                staged_parser.Flush(events);
+                bool write_succeeded = true;
+                if (!events.empty()) {
+                    backend::Reply reply;
+                    auto *delta = reply.add_chat_deltas();
+                    for (const auto &e : events) {
+                        if (e.type == ds4cpp::ParserEvent::CONTENT) {
+                            delta->set_content(delta->content() + e.text);
+                        } else if (e.type == ds4cpp::ParserEvent::REASONING) {
+                            delta->set_reasoning_content(
+                                delta->reasoning_content() + e.text);
+                        }
+                    }
+                    write_succeeded = s.writer->Write(reply);
                 }
-            }
-            s.writer->Write(reply);
-        }
+                lifecycle.ObserveStreamWrite(write_succeeded);
+                request_should_continue(&lifecycle, context);
+                if (!lifecycle.ShouldFinalize()) return false;
+                s.parser = std::move(staged_parser);
+                if (generation_started) stream_done(&s);
+                return true;
+            },
+            [&]() { maybe_save_cache(cache_key); });
 
-        if (rc != 0 && !s.aborted) {
+        if (terminal.cause == ds4cpp::TerminalCause::EngineError) {
             return GStatus(StatusCode::INTERNAL,
                           std::string("ds4 generation failed: ") + err);
+        }
+        if (terminal.cause == ds4cpp::TerminalCause::Cancelled) {
+            return GStatus(StatusCode::CANCELLED,
+                          "ds4 request cancelled");
         }
         return GStatus::OK;
     }
