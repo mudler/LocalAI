@@ -45,6 +45,10 @@ type TunnelRegistry struct {
 
 	mu      sync.Mutex
 	tunnels map[string]*heldTunnel
+	// claiming holds one gate per node that a claim is in flight for. It is
+	// what makes "claim, then record the epoch" indivisible per node; see
+	// enterClaim.
+	claiming map[string]chan struct{}
 }
 
 // heldTunnel is one accepted worker tunnel.
@@ -77,10 +81,64 @@ type heldTunnel struct {
 // that is what Owner joins a claim against to decide the owner is alive.
 func NewTunnelRegistry(reg *Registry, selfID string) *TunnelRegistry {
 	return &TunnelRegistry{
-		reg:     reg,
-		selfID:  selfID,
-		tunnels: map[string]*heldTunnel{},
+		reg:      reg,
+		selfID:   selfID,
+		tunnels:  map[string]*heldTunnel{},
+		claiming: map[string]chan struct{}{},
 	}
+}
+
+// enterClaim takes the gate for nodeID, so that no two claims for one node are
+// ever in flight at the same time. leaveClaim releases it.
+//
+// It exists because a claim and the record of that claim are two steps, and
+// between them the database has already moved. Two Attach calls for one node
+// both claim, and PostgreSQL serialises the two upserts, but nothing orders the
+// two map writes against the two commits: the entry that ends up installed can
+// carry the epoch of the claim that did NOT win the row. Its Detach then
+// releases an epoch the row does not hold, the release matches nothing, and the
+// row survives the socket. Nothing sweeps that, because the replica named on it
+// is alive and heartbeating, so Owner keeps naming this replica as the owner of
+// a tunnel it no longer holds and every dialer routed here gets ErrNotOwner.
+//
+// The gate is per node rather than one lock over the whole registry so that a
+// slow claim for one worker does not hold up Open for any other, the same
+// reason PeerPool locks per peer. Detach is deliberately NOT gated: it takes no
+// context and must never park behind an in-flight database call. It does not
+// need to be, because it changes no epoch; what it can interleave with is
+// covered where that matters, in Reclaim.
+//
+// The entry is deleted rather than kept, so the map holds only the claims
+// actually in flight and cannot grow with the number of workers ever seen.
+func (t *TunnelRegistry) enterClaim(ctx context.Context, nodeID string) error {
+	for {
+		t.mu.Lock()
+		gate, busy := t.claiming[nodeID]
+		if !busy {
+			t.claiming[nodeID] = make(chan struct{})
+			t.mu.Unlock()
+			return nil
+		}
+		t.mu.Unlock()
+
+		// Re-checked in the loop rather than taken on waking: several waiters
+		// are released by one close, and only one of them may proceed.
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// leaveClaim releases the gate enterClaim took. The channel is closed rather
+// than sent on, so every waiter wakes rather than one.
+func (t *TunnelRegistry) leaveClaim(nodeID string) {
+	t.mu.Lock()
+	gate := t.claiming[nodeID]
+	delete(t.claiming, nodeID)
+	t.mu.Unlock()
+	close(gate)
 }
 
 // Attach records this replica as the owner of nodeID's tunnel and stores the
@@ -98,12 +156,21 @@ func NewTunnelRegistry(reg *Registry, selfID string) *TunnelRegistry {
 // broken, only replaced, and would wait there until the far side noticed. The
 // caller keeps ownership of the session it passed in; only a session this
 // registry evicted is closed by this registry.
+//
+// Two Attach calls for one node are serialised, claim and record together, so
+// the entry that survives is always the one whose claim the row carries. See
+// enterClaim for what an unserialised pair leaves behind.
 func (t *TunnelRegistry) Attach(ctx context.Context, nodeID string, sess *yamux.Session) (int64, error) {
 	if sess == nil {
 		// Claiming would publish a tunnel that cannot carry anything, and the
 		// fence would then have to be unwound by a Detach nobody will call.
 		return 0, fmt.Errorf("attaching tunnel for node %q: no session", nodeID)
 	}
+
+	if err := t.enterClaim(ctx, nodeID); err != nil {
+		return 0, fmt.Errorf("attaching tunnel for node %q: %w", nodeID, err)
+	}
+	defer t.leaveClaim(nodeID)
 
 	epoch, err := t.reg.Claim(ctx, nodeID, t.selfID)
 	if err != nil {
@@ -220,8 +287,9 @@ func (t *TunnelRegistry) Held() []string {
 // closed has already reconnected somewhere: claiming it back would point every
 // dialer at a replica that cannot carry a byte to it. The check narrows that
 // window rather than closing it, since a socket can be dead without this side
-// having noticed; yamux's keepalive bounds how long that lasts, and the
-// worker's next reconnect supersedes the claim in any case.
+// having noticed, and how long that lasts is decided by the keepalive on the
+// session whoever accepted the tunnel built. The worker's next reconnect
+// supersedes the claim in any case.
 //
 // The entry of a skipped tunnel is left alone. Whoever attached it owns its
 // lifetime and will detach it; Reclaim is not an eviction path, and evicting
@@ -231,48 +299,107 @@ func (t *TunnelRegistry) Held() []string {
 // and a claim that failed is retried on the next sweep this replica survives.
 func (t *TunnelRegistry) Reclaim(ctx context.Context) (int, error) {
 	t.mu.Lock()
-	held := make(map[string]*heldTunnel, len(t.tunnels))
-	for nodeID, tunnel := range t.tunnels {
-		held[nodeID] = tunnel
+	held := make([]string, 0, len(t.tunnels))
+	for nodeID := range t.tunnels {
+		held = append(held, nodeID)
 	}
 	t.mu.Unlock()
 
 	var reclaimed int
 	var errs []error
-	for nodeID, tunnel := range held {
-		if tunnel.sess.IsClosed() {
-			xlog.Debug("skipping re-claim of a worker tunnel whose session is closed", "node", nodeID)
-			continue
-		}
-		epoch, err := t.reg.Claim(ctx, nodeID, t.selfID)
-		if err != nil {
+	for _, nodeID := range held {
+		if err := t.reclaimOne(ctx, nodeID); err != nil {
+			if errors.Is(err, errTunnelNotReclaimed) {
+				continue
+			}
 			errs = append(errs, err)
 			continue
 		}
-		t.mu.Lock()
-		// Re-read under the lock: the tunnel may have been detached, or
-		// superseded by a reconnect, while the claim was in flight. Writing the
-		// new claim onto whatever is there now would give a different
-		// attachment an epoch it never drew, and its Release would then match
-		// nothing.
-		//
-		// The epoch just drawn is then held by no attachment. If it also
-		// happened to be the last write to the row, the row outlives the
-		// attachment that no longer matches it: it still names this replica,
-		// truthfully, but no Detach will remove it. It is cleared by the
-		// worker's next claim anywhere, since Claim upserts, and otherwise by
-		// the sweep that eventually removes this replica. Serialising Attach
-		// and Reclaim per node would close it; the window is one database
-		// round trip during the tick that follows a sweep of this replica, and
-		// the machinery costs more than it removes.
-		if current, ok := t.tunnels[nodeID]; ok && current == tunnel {
-			current.claim = epoch
-			reclaimed++
-		}
-		t.mu.Unlock()
+		reclaimed++
 	}
 	if len(errs) > 0 {
 		return reclaimed, fmt.Errorf("re-claiming worker tunnels: %w", errors.Join(errs...))
 	}
 	return reclaimed, nil
+}
+
+// errTunnelNotReclaimed reports that a node was passed over rather than failed:
+// its session is closed, or the attachment went away while the claim was in
+// flight. It never leaves this file. It exists so Reclaim's count stays honest
+// without "skipped" having to look like an error to its caller.
+var errTunnelNotReclaimed = errors.New("cluster: tunnel not re-claimed")
+
+// reclaimOne writes a fresh claim for one node and records it on whatever
+// attachment is installed for that node.
+//
+// Whatever is installed when the gate is taken, not whatever Reclaim listed a
+// moment earlier. A worker that re-dialled in between has an entry carrying the
+// epoch of ITS claim, and the gate makes that claim strictly older than this
+// one, so the row now holds this epoch and only this entry can release it.
+// Refusing to record onto an attachment because it is not the one listed would
+// leave that row with no attachment able to release it, which is the leak this
+// whole function exists to prevent.
+//
+// If nothing is installed, the attachment detached while the claim was in
+// flight. Detach is not gated, so this is reachable, and it is the one case
+// where a claim is drawn that no attachment will ever release: the row would
+// name this replica for a tunnel it does not hold, and Owner would send every
+// dialer here to be told ErrNotOwner. The claim is therefore released again.
+// Releasing it cannot take anyone else's row, because Release matches the epoch
+// exactly and no epoch is ever reissued.
+func (t *TunnelRegistry) reclaimOne(ctx context.Context, nodeID string) error {
+	// The gate is taken before the entry is even read, so that everything this
+	// function decides is decided about the attachment its claim will land on.
+	// Reading first and gating after would leave a window in which a re-dial
+	// replaces the entry, and the liveness this checked would be a property of
+	// a session it is no longer claiming for.
+	if err := t.enterClaim(ctx, nodeID); err != nil {
+		return fmt.Errorf("re-claiming node %q: %w", nodeID, err)
+	}
+
+	t.mu.Lock()
+	tunnel, ok := t.tunnels[nodeID]
+	t.mu.Unlock()
+	if !ok {
+		// Detached between Reclaim listing the nodes and this gate. Nothing was
+		// claimed, so there is nothing to undo.
+		t.leaveClaim(nodeID)
+		return errTunnelNotReclaimed
+	}
+	if tunnel.sess.IsClosed() {
+		xlog.Debug("skipping re-claim of a worker tunnel whose session is closed", "node", nodeID)
+		t.leaveClaim(nodeID)
+		return errTunnelNotReclaimed
+	}
+
+	epoch, err := t.reg.Claim(ctx, nodeID, t.selfID)
+	if err != nil {
+		t.leaveClaim(nodeID)
+		return err
+	}
+
+	t.mu.Lock()
+	current, installed := t.tunnels[nodeID]
+	if installed {
+		// current is necessarily the entry read above: the gate is still held,
+		// and Attach and reclaimOne are the only writers that install one. The
+		// identity is therefore not re-checked; the case that IS reachable is
+		// the entry being gone, because Detach is not gated.
+		current.claim = epoch
+	}
+	t.mu.Unlock()
+	t.leaveClaim(nodeID)
+
+	if installed {
+		return nil
+	}
+
+	// Released outside the gate: it is a second round trip, and holding the
+	// gate across it would park a worker re-dialling this node behind a
+	// cleanup. A re-dial that claims first simply makes this release match
+	// nothing, which is the same no-op it would have been.
+	if err := t.reg.Release(ctx, nodeID, t.selfID, epoch); err != nil && !errors.Is(err, ErrNoConnection) {
+		return fmt.Errorf("releasing a re-claim for detached node %q: %w", nodeID, err)
+	}
+	return errTunnelNotReclaimed
 }
