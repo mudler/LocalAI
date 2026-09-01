@@ -119,7 +119,7 @@ func (c *wsConn) SetDeadline(t time.Time) error {
 func (c *wsConn) SetReadDeadline(t time.Time) error { return c.ws.SetReadDeadline(t) }
 
 // SetWriteDeadline takes writeMu because gorilla stores the write deadline in a
-// plain struct field (conn.go:787) and applies it when it next flushes, so
+// plain struct field (conn.go:796) and applies it when it next flushes, so
 // setting it while a write is in flight is a data race, not merely a late bound.
 func (c *wsConn) SetWriteDeadline(t time.Time) error {
 	c.writeMu.Lock()
