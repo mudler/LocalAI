@@ -850,6 +850,17 @@ var _ = Describe("The worker tunnel registry's claim gate", func() {
 	})
 })
 
+var _ = Describe("Membership.SetReconnectGrace", func() {
+	It("is safe on a nil receiver, like SetTunnels and Stop", func() {
+		// Same reason SetTunnels is: core/application/distributed.go
+		// deliberately produces a nil *Membership when no peer-reachable
+		// address can be derived, so a setter that panicked on one would be a
+		// trap for the next caller rather than an impossibility.
+		var m *cluster.Membership
+		Expect(func() { m.SetReconnectGrace(time.Minute) }).ToNot(Panic())
+	})
+})
+
 var _ = Describe("Membership.SetTunnels", func() {
 	It("is safe on a nil receiver, like Stop", func() {
 		// A nil *Membership is a value this codebase deliberately produces when

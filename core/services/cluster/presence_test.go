@@ -4,6 +4,7 @@ package cluster_test
 
 import (
 	"context"
+	"math"
 	"path/filepath"
 	"strings"
 	"time"
@@ -85,6 +86,34 @@ var _ = Describe("Presence", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(p).To(Equal(cluster.PresenceConnected),
 			"a row whose connection is HELD is present whatever its departure stamp says")
+	})
+
+	It("reports reconnecting for a held row whose owner is dead and whose stamp is stale", func() {
+		// The full mixed-version rolling-upgrade state, which no other spec
+		// constructs: the row is HELD, the owner is NOT live, and the stamp is
+		// older than the grace. It is reachable exactly once, during an upgrade
+		// where a pre-column replica re-claimed without clearing the stamp and
+		// then died before the sweep reached it.
+		//
+		// Reconnecting is the only defensible answer. The worker is re-dialling
+		// the load balancer right now, and the stamp on this row records a
+		// departure from a DIFFERENT, earlier session, so its age says nothing
+		// about the current one; the grace clock starts when the sweep stamps a
+		// departure for THIS session, and it has not run yet.
+		//
+		// Both of the ways this task can be got wrong land on a different
+		// answer here, which is why the state is worth constructing rather than
+		// reasoning about. Reading the stamp first gives Gone. Reading
+		// held-ness without the liveness join gives Connected.
+		_, err := reg.Claim(ctx, "node-1", "inst-a")
+		Expect(err).ToNot(HaveOccurred())
+		age(ctx, db, "node_connections", "disconnected_at", "node_id", "node-1", 10*grace)
+		age(ctx, db, "instances", "last_seen", "id", "inst-a", cluster.InstanceLiveness+5*time.Second)
+
+		p, err := reg.Presence(ctx, "node-1", grace)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(p).To(Equal(cluster.PresenceReconnecting),
+			"a held row with a dead owner is a retry; its stale stamp belongs to an earlier session and must not become a verdict")
 	})
 
 	It("reports reconnecting immediately after the tunnel is released", func() {
@@ -227,6 +256,20 @@ var _ = Describe("Presence", func() {
 			Entry("a grace at the retention floor", cluster.DepartedRetention),
 			Entry("a grace far past the floor", 10*cluster.DepartedRetention),
 		)
+
+		It("does not wrap back to the floor for a grace so large the multiply overflows", func() {
+			// time.Duration is int64 nanoseconds, so five times a grace above
+			// roughly 58 years wraps. An unguarded multiply comes back negative
+			// or small, falls through to the floor, and reinstates exactly the
+			// defect this function exists to remove, silently and only for the
+			// operator who set the largest window.
+			huge := time.Duration(math.MaxInt64)
+			Expect(cluster.DepartedRetentionFor(huge)).To(BeNumerically(">=", huge))
+			// And one just past the threshold, where the wrap is easiest to
+			// miss because the input still looks like an ordinary duration.
+			overflowing := time.Duration(math.MaxInt64/5) + time.Second
+			Expect(cluster.DepartedRetentionFor(overflowing)).To(BeNumerically(">=", overflowing))
+		})
 
 		It("never shortens below the floor for a very small grace", func() {
 			// A tiny grace must not shrink the retention to match: the row is also
