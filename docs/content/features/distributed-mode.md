@@ -694,6 +694,48 @@ To go back to a durable write per beat -- on a database with plenty of write hea
 or while debugging heartbeat delivery -- set `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` to a
 value below the worker's heartbeat interval, for example `1s`.
 
+### Operations: do not share a database with the vector store
+
+Give the control plane a PostgreSQL **database of its own**. Sharing one with the
+agent vector store, or with anything else that holds long transactions, is the fastest
+way to reproduce the 460 MB node registry described above.
+
+PostgreSQL computes the removable-tuple cutoff **per database**, not per table. One
+transaction left open anywhere in the database -- a stalled embedding batch, an idle
+`BEGIN` from a connection pool, an abandoned `psql` session -- pins that cutoff for
+**every** table in it. Autovacuum still runs, finds nothing it is allowed to reclaim,
+and moves on. The node registry is six rows rewritten tens of thousands of times a
+day, so it is the table that pays: it bloats into hundreds of megabytes, a sequential
+scan starts costing the best part of a second, and model placement begins timing out
+while the vector store that caused it looks perfectly healthy.
+
+Concretely, these two must point at different databases:
+
+| Variable | What it holds |
+|----------|---------------|
+| `LOCALAI_AUTH_DATABASE_URL` | Auth **and the distributed control plane** - nodes, replicas, load jobs |
+| `LOCALAI_AGENT_POOL_DATABASE_URL` | Agent collections and their embeddings |
+
+Different databases on the same PostgreSQL server is enough; they do not need separate
+servers. Different *schemas* in one database is **not** enough, because the cutoff is
+per database.
+
+To detect it before placement starts failing, watch the
+`localai_control_plane_oldest_xmin_age` gauge, exported on the frontend's OpenTelemetry
+meter. It reports how many transactions have elapsed
+since the oldest snapshot still held open against the control plane's database. Under
+normal load it stays small and flat. A line that climbs without coming back down means
+something is holding a transaction open and autovacuum has stopped reclaiming the node
+registry; find it with:
+
+```sql
+SELECT pid, state, age(backend_xmin) AS xmin_age, query
+  FROM pg_stat_activity
+ WHERE backend_xmin IS NOT NULL
+ ORDER BY age(backend_xmin) DESC
+ LIMIT 5;
+```
+
 ## Agent Workers
 
 Agent workers are dedicated processes for executing agent chats and MCP CI jobs. Unlike backend workers (which run gRPC model inference), agent workers use cogito to orchestrate multi-step conversations with tool calls.
