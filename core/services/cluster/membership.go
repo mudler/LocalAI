@@ -29,6 +29,18 @@ const (
 	// deregisterTimeout bounds the deregistration Stop performs. Shutdown is
 	// not the place to wait on a database.
 	deregisterTimeout = 5 * time.Second
+
+	// DepartedRetention is how long a connection row outlives the tunnel it
+	// recorded before the sweep deletes it.
+	//
+	// A multiple of the liveness window rather than the window itself. The row
+	// survives so that how long ago a tunnel went can be answered at all, and a
+	// retention as short as the window a reader compares that age against would
+	// let the purge delete the row out from under the reader, turning a worker
+	// that is re-dialling back into a worker that was never here. Ten windows
+	// is far enough clear of any such comparison, and short enough that a
+	// worker retired for good does not sit in the table for a day.
+	DepartedRetention = 10 * InstanceLiveness
 )
 
 // Membership publishes this replica's address and keeps the instances table
@@ -207,6 +219,19 @@ func (m *Membership) tick(ctx context.Context) {
 	if instances > 0 || connections > 0 {
 		xlog.Info("Reaped cluster state left by dead replicas", "instances", instances, "connections", connections)
 	}
+
+	// The retention has an owner, and it is this sweep. A departure that
+	// nothing ever deletes is a row per worker that ever dialled this
+	// deployment, and it is the same loop that decides a replica is gone, so
+	// there is one schedule rather than two.
+	purged, err := m.reg.PurgeDepartedBefore(ctx, DepartedRetention)
+	if err != nil {
+		xlog.Warn("Purging departed worker connections failed", "error", err)
+		return
+	}
+	if purged > 0 {
+		xlog.Info("Purged worker connections whose departure aged out", "connections", purged, "retention", DepartedRetention)
+	}
 }
 
 // reclaimTunnels re-writes a claim for every worker tunnel this replica still
@@ -233,13 +258,18 @@ func (m *Membership) reclaimTunnels(ctx context.Context) {
 	}
 }
 
-// Deregister removes one replica and the connections it owned.
+// Deregister removes one replica and records a departure for every connection
+// it owned.
 //
-// It deletes both, in one transaction, for the same reason ReapStale does: a
-// replica that is gone owns nothing, and leaving its connection rows behind
-// would point every reader at an owner that no longer exists. This is the
+// Both in one transaction, for the same reason ReapStale does it in one: a
+// replica that is gone owns nothing, and leaving its connection rows pointing
+// at it would point every reader at an owner that no longer exists. This is the
 // announced form of what the sweeper does by inference, and the two must not
-// disagree about what "gone" removes.
+// disagree about what "gone" leaves behind.
+//
+// The connection rows are cleared, not deleted: a worker whose frontend shut
+// down is about to re-dial the load balancer, and erasing its row would make
+// the seconds in between look like a worker that had never connected.
 //
 // Instances first, then connections, which is deliberate and is the same order
 // ReapStale takes. The two paths run concurrently in the ordinary case, a
@@ -255,8 +285,11 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 		if err := tx.Where("id = ?", id).Delete(&Instance{}).Error; err != nil {
 			return fmt.Errorf("deleting instance %q: %w", id, err)
 		}
-		if err := tx.Where("owner_instance_id = ?", id).Delete(&NodeConnection{}).Error; err != nil {
-			return fmt.Errorf("deleting connections owned by %q: %w", id, err)
+		// No held-ness filter: only rows this replica owns match, and a
+		// departed row carries no owner, so it cannot be restamped here.
+		if err := tx.Model(&NodeConnection{}).Where("owner_instance_id = ?", id).
+			Updates(departure()).Error; err != nil {
+			return fmt.Errorf("recording departures for connections owned by %q: %w", id, err)
 		}
 		return nil
 	}); err != nil {
@@ -266,33 +299,39 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 }
 
 // ReapStale deletes the replicas that have not heartbeated within the liveness
-// window, and the connection rows whose owner is no longer among the survivors.
+// window, and records a departure for every connection row whose owner is no
+// longer among the survivors.
 //
-// The two deletes are one sweeper on purpose. A connection row is only ever
-// orphaned by its owner dying, so the moment that is decided is the moment to
-// clean up after it; a second sweeper with its own schedule would either lag
-// this one or race it, and would need its own answer to "is that replica
-// alive", which is the one fact this table already owns.
+// The two are one sweeper on purpose. A connection row is only ever orphaned by
+// its owner dying, so the moment that is decided is the moment to clean up
+// after it; a second sweeper with its own schedule would either lag this one or
+// race it, and would need its own answer to "is that replica alive", which is
+// the one fact this table already owns.
+//
+// The connection rows are cleared and not deleted, and the returned count is of
+// rows this sweep cleared. A worker whose owning replica died has not gone
+// anywhere: it is re-dialling the load balancer, and deleting its row would
+// erase the departure that says how long ago that started.
 //
 // self is never reaped. This process may fail to heartbeat for longer than the
 // window (a long stall, a database blip) and still be serving: deleting its own
-// row would then delete the connections of workers that are, at that moment,
+// row would then mark as departed the workers that are, at that moment,
 // connected to it.
 //
 // That protection is one-sided. A replica that stalls long enough is reaped BY
-// ANOTHER replica, taking its connection rows with it, and Register rebuilds
-// the instance row and nothing else. What restores the rest is the re-claim in
-// tick, which writes a fresh claim for every tunnel the tunnel registry still
-// holds; until it runs, this replica holds sockets the table records nobody
-// holding.
+// ANOTHER replica, which records a departure for every connection it held, and
+// Register rebuilds the instance row and nothing else. What restores the rest
+// is the re-claim in tick, which writes a fresh claim for every tunnel the
+// tunnel registry still holds; until it runs, this replica holds sockets the
+// table records nobody holding.
 //
 // PostgreSQL only, like Live: distributed mode requires it, and the interval
 // arithmetic is measured on the database's clock because liveness is compared
 // across replicas.
 //
-// Instances are deleted before connections, and Deregister takes the same order
+// Instances are written before connections, and Deregister takes the same order
 // on purpose, so the two paths cannot deadlock against each other. Here the
-// order is also forced: the connection delete asks which instance rows survived,
+// order is also forced: the connection sweep asks which instance rows survived,
 // so it has to run second.
 func (r *Registry) ReapStale(ctx context.Context, self string, within time.Duration) (instances int64, connections int64, err error) {
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -309,10 +348,17 @@ func (r *Registry) ReapStale(ctx context.Context, self string, within time.Durat
 
 		// Whatever survived the delete above is the live set, so this needs no
 		// second liveness rule and cannot disagree with the first one.
-		res = tx.Where("owner_instance_id NOT IN (SELECT id FROM instances)").
-			Delete(&NodeConnection{})
+		//
+		// Held rows only. An empty owner is in no instance's id, so a departed
+		// row matches the set difference too, and re-clearing it every sweep
+		// would push its departure forward five seconds at a time: it would
+		// never age out of any window measured from it, and every sweep would
+		// report clearing a connection that had already gone.
+		res = tx.Model(&NodeConnection{}).
+			Where("owner_instance_id NOT IN (SELECT id FROM instances) AND " + connectionIsHeld).
+			Updates(departure())
 		if res.Error != nil {
-			return fmt.Errorf("deleting orphaned node connections: %w", res.Error)
+			return fmt.Errorf("recording departures for orphaned node connections: %w", res.Error)
 		}
 		connections = res.RowsAffected
 		return nil
