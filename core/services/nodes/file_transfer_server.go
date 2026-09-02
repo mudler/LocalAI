@@ -45,23 +45,47 @@ const (
 	targetSidecarSuffix = ".sha256.target"
 )
 
+// AuthenticatedRoutes is a set of extra routes to serve on the worker's HTTP
+// server, mounted under Prefix and behind the SAME bearer check as the file
+// routes.
+//
+// It is a mount request rather than a plain func(*http.ServeMux) so this
+// package, and not its caller, owns the authentication. A caller handed the
+// server's own mux would be registering handlers alongside the file routes, and
+// forgetting the token check in one of them would be an unauthenticated verb
+// rather than a compile error. Register is instead given a mux of its own,
+// which is reachable only through the check below.
+type AuthenticatedRoutes struct {
+	// Prefix is the single path prefix every registered route lives under.
+	Prefix string
+	// Register mounts the routes on a mux private to this route set.
+	Register func(*http.ServeMux)
+}
+
 // StartFileTransferServer starts a small HTTP server for file transfer in distributed mode.
 // It provides PUT/GET/POST endpoints for uploading, downloading, and allocating temp files,
 // as well as backend log REST and WebSocket endpoints when logStore is non-nil.
 // Auth is via Bearer token (registration token), using constant-time comparison.
 // A nil readiness fails open, keeping /readyz's historical always-200 answer.
-func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return StartFileTransferServerWithCapacity(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+// A nil extra mounts no additional routes.
+func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, extra *AuthenticatedRoutes, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return StartFileTransferServerWithCapacityAndRoutes(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, extra, logStore...)
 }
 
 // StartFileTransferServerWithCapacity starts the file transfer server with a
 // worker-local guard for per-request ephemeral inputs.
 func StartFileTransferServerWithCapacity(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return StartFileTransferServerWithCapacityAndRoutes(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
+}
+
+// StartFileTransferServerWithCapacityAndRoutes combines capacity admission
+// with authenticated control routes.
+func StartFileTransferServerWithCapacityAndRoutes(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, extra *AuthenticatedRoutes, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return startFileTransferServer(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, logStore...)
+	return startFileTransferServerWithRoutes(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, extra, logStore...)
 }
 
 // StartFileTransferServerWithListener starts the server on an existing listener.
@@ -75,10 +99,23 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 // the probe keeps its historical always-200 behaviour for callers that have no
 // meaningful readiness signal to report.
 func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+	return StartFileTransferServerWithRoutes(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+}
+
+// StartFileTransferServerWithRoutes is StartFileTransferServerWithReadiness
+// plus an extra authenticated route set. See AuthenticatedRoutes.
+func StartFileTransferServerWithRoutes(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, extra *AuthenticatedRoutes, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return startFileTransferServerWithRoutes(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, extra, logStore...)
 }
 
 func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return startFileTransferServerWithRoutes(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
+}
+
+func startFileTransferServerWithRoutes(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, extra *AuthenticatedRoutes, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	if err := validateAuthenticatedRoutes(extra); err != nil {
+		return nil, err
+	}
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
@@ -194,8 +231,27 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 	// Readiness: "can this worker actually accept work?" See WorkerReadiness.
 	mux.HandleFunc("/readyz", probe(readiness.Check))
 
+	if extra != nil && extra.Register != nil && extra.Prefix != "" {
+		extraMux := http.NewServeMux()
+		extra.Register(extraMux)
+		mux.Handle(extra.Prefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !checkBearerToken(r, token) {
+				xlog.Debug("worker HTTP server: unauthorized request on an extra route",
+					"method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr)
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			extraMux.ServeHTTP(w, r)
+		}))
+	}
+
 	addr := lis.Addr().String()
 	server := &http.Server{
+		// Addr is informational here: Serve takes the listener, not this
+		// field. It is set so a caller that asked for port 0 can learn the
+		// port it actually got without threading a second return value
+		// through every wrapper above.
+		Addr:              addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 30 * time.Second, // prevent slowloris; does not affect body reads
 	}
