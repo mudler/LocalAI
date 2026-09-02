@@ -234,15 +234,14 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			continue
 		}
 
-		// A failed control RPC no longer demotes the node, and that is the
-		// point rather than an omission. It used to, on nats.ErrNoResponders,
-		// which meant "not on the bus"; the control plane's failures mean "this
+		// A failed control RPC does not demote the node, and that is the point
+		// rather than an omission. The control plane's failures mean "this
 		// frontend could not route to it", which is equally true of a worker
 		// that is heartbeating, serving another replica and re-homing its
 		// tunnel. Demoting on that is the fleet-wide eviction this phase exists
-		// to prevent. Absence is a fact read from the database, identically on
-		// every replica, and the scheduler starts reading it in the task that
-		// replaces this signal with cluster.Presence.
+		// to prevent. Absence is a separate fact, read from the database
+		// identically on every replica; the scheduler reads it through
+		// cluster.Presence and nothing on this path does.
 		if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
 			_ = d.registry.RecordPendingBackendOpFailure(ctx, id, errMsg)
 		}
