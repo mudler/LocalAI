@@ -28,6 +28,10 @@ var _ = Describe("control plane paths on the wire", func() {
 		Entry("model delete", workerctl.PathModelDelete, "/v1/control/model/delete"),
 		Entry("models running", workerctl.PathModelsRunning, "/v1/control/models/running"),
 		Entry("node stop", workerctl.PathNodeStop, "/v1/control/node/stop"),
+		Entry("files ensure", workerctl.PathFilesEnsure, "/v1/control/files/ensure"),
+		Entry("files stage", workerctl.PathFilesStage, "/v1/control/files/stage"),
+		Entry("files temp", workerctl.PathFilesTemp, "/v1/control/files/temp"),
+		Entry("files listdir", workerctl.PathFilesListDir, "/v1/control/files/listdir"),
 	)
 
 	It("names the prefix exactly, since the worker mounts its whole control plane behind it", func() {
@@ -57,6 +61,10 @@ var _ = Describe("control plane paths on the wire", func() {
 			workerctl.PathModelDelete,
 			workerctl.PathModelsRunning,
 			workerctl.PathNodeStop,
+			workerctl.PathFilesEnsure,
+			workerctl.PathFilesStage,
+			workerctl.PathFilesListDir,
+			workerctl.PathFilesTemp,
 		))
 	})
 

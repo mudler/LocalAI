@@ -38,22 +38,23 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 			"_INBOX.>",
 		}
 	default:
-		// Backend worker: file staging on this node only.
-		//
-		// The backend and model lifecycle verbs left the bus: they are HTTP
+		// Backend worker. Every verb a frontend gives it left the bus: the
+		// backend and model lifecycle verbs and now file staging too are HTTP
 		// routes under workerctl.Prefix, served on the worker's own server and
 		// reached through its tunnel, so no subject is minted for them and none
-		// is allowed here. The wildcard stays because the file-staging subjects
-		// are still under this node's prefix; narrowing it to nodes.<id>.files.>
-		// is a separate change that would break a worker mid-upgrade.
+		// is allowed here.
+		//
+		// The subscribe wildcard stays for now. A worker subscribes to nothing
+		// under it on this build, but narrowing it is a change a worker
+		// mid-upgrade would feel, and the connection itself is what the next
+		// step of this removal deletes.
 		subAllow = []string{
 			prefix + ".>",
 			"_INBOX.>",
 		}
-		// backend.install.*.progress is gone with the subject: install progress
-		// is written into the install response the frontend is already reading.
+		// Nothing left to publish. backend.install.*.progress went with the
+		// install subject, and the file-staging replies went with theirs.
 		pubAllow = []string{
-			prefix + ".files.>",
 			"_INBOX.>",
 		}
 	}
