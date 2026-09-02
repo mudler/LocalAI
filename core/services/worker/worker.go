@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/sanitize"
@@ -25,8 +27,8 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// Run starts the distributed agent worker: registers with the frontend,
-// subscribes to NATS lifecycle subjects, and blocks on signals.
+// Run starts the distributed agent worker: registers with the frontend, opens
+// its tunnel, serves its control plane on that tunnel, and blocks on signals.
 func Run(ctx *cliContext.Context, cfg *Config) error {
 	xlog.Info("Starting worker", "basePort", cfg.effectiveBasePort())
 
@@ -189,7 +191,42 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// means the worker has already registered with the frontend, so it is
 	// mid-startup rather than broken.
 	readiness := &nodes.WorkerReadiness{}
-	httpServer, err := nodes.StartFileTransferServer(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ml.BackendLogs())
+
+	// The supervisor is built BEFORE the HTTP server, not after, because the
+	// server is what serves its control plane. Ten NATS subscriptions used to
+	// be attached to it later, and could be, because the bus buffered nothing
+	// the worker had not subscribed to; a control route that is not mounted
+	// when the tunnel comes up is instead a 404 the frontend reads as a worker
+	// that does not implement the verb.
+	basePort := cfg.effectiveBasePort()
+	// Buffered so the node.stop verb can signal without blocking its response.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	// Set the registration token once before any backends are started.
+	if cfg.RegistrationToken != "" {
+		if err := os.Setenv(grpc.AuthTokenEnvVar, cfg.RegistrationToken); err != nil {
+			return fmt.Errorf("setting backend authentication token: %w", err)
+		}
+	}
+
+	// Process supervisor — manages multiple backend gRPC processes on different ports
+	supervisor := &backendSupervisor{
+		cfg:          cfg,
+		ml:           ml,
+		systemState:  systemState,
+		galleries:    galleries,
+		nodeID:       nodeID,
+		sigCh:        sigCh,
+		processes:    make(map[string]*backendProcess),
+		portAffinity: make(map[string]portOwnership),
+		nextPort:     basePort,
+		minPort:      basePort,
+		maxPort:      cfg.effectiveMaxPort(basePort),
+	}
+
+	httpServer, err := startWorkerHTTPServer(httpAddr, stagingDir, cfg.ModelsPath, dataDir,
+		cfg.RegistrationToken, readiness, supervisor, ml.BackendLogs())
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
@@ -268,39 +305,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 	}()
 
-	// Process supervisor — manages multiple backend gRPC processes on different ports
-	basePort := cfg.effectiveBasePort()
-	// Buffered so NATS stop handler can send without blocking
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	// Set the registration token once before any backends are started
-	if cfg.RegistrationToken != "" {
-		if err := os.Setenv(grpc.AuthTokenEnvVar, cfg.RegistrationToken); err != nil {
-			nodes.ShutdownFileTransferServer(httpServer)
-			return fmt.Errorf("setting backend authentication token: %w", err)
-		}
-	}
-
-	supervisor := &backendSupervisor{
-		cfg:          cfg,
-		ml:           ml,
-		systemState:  systemState,
-		galleries:    galleries,
-		nodeID:       nodeID,
-		nats:         natsClient,
-		sigCh:        sigCh,
-		processes:    make(map[string]*backendProcess),
-		portAffinity: make(map[string]portOwnership),
-		nextPort:     basePort,
-		minPort:      basePort,
-		maxPort:      cfg.effectiveMaxPort(basePort),
-	}
-	if err := supervisor.subscribeLifecycleEvents(); err != nil {
-		nodes.ShutdownFileTransferServer(httpServer)
-		return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
-	}
-
 	// Subscribe to file staging NATS subjects if S3 is configured
 	if cfg.StorageURL != "" {
 		if err := cfg.subscribeFileStaging(natsClient, nodeID); err != nil {
@@ -309,7 +313,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 	}
 
-	xlog.Info("Worker ready, waiting for backend.install events")
+	xlog.Info("Worker ready, serving its control plane over the tunnel")
 	// Exit on an OS signal or on an internal fatal condition (e.g. NATS
 	// credentials became unrenewable), so the worker restarts and re-acquires
 	// rather than lingering unable to serve.
@@ -327,4 +331,22 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
 	return runErr
+}
+
+// startWorkerHTTPServer starts the worker's loopback HTTP server with sup's
+// control plane mounted on it.
+//
+// It takes the supervisor rather than an optional route set on purpose: the
+// control plane and the file routes are served by one listener behind one
+// bearer check, and there is no worker that wants the second without the first.
+// Making the supervisor a parameter is what stops a future edit from starting
+// the server without the control plane and producing a worker that looks
+// healthy while answering 404 to every command.
+func startWorkerHTTPServer(addr, stagingDir, modelsDir, dataDir, token string,
+	readiness *nodes.WorkerReadiness, sup *backendSupervisor, logStore *model.BackendLogStore) (*http.Server, error) {
+	return nodes.StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token,
+		config.DefaultMaxUploadSize, readiness, &nodes.AuthenticatedRoutes{
+			Prefix:   workerctl.Prefix,
+			Register: sup.RegisterControlRoutes,
+		}, logStore)
 }

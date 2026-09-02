@@ -30,7 +30,7 @@ The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 4. Fall back to idle nodes (zero models), then least-loaded nodes
 5. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
 6. If all models are busy → wait (with timeout) for a model to become idle, then evict
-7. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
+7. `POST /v1/control/backend/install` through the worker's tunnel with backend name + model ID → worker starts a new gRPC process on a dynamic port
 8. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
 
 Each model gets its own gRPC backend process, so a single worker can serve multiple models simultaneously (e.g., a chat model and an embedding model).
@@ -170,6 +170,34 @@ Every connection the frontend makes to a worker now goes through that worker's t
 | Inference, model load, health checks | gRPC to a backend process | `grpc` |
 | Model file staging, backend-log listing | HTTP to the worker's own server | `http` |
 | Live backend-log streaming | WebSocket to the same server | `http` |
+| Backend install/upgrade/list/delete, model stop/unload/delete, node stop | HTTP to the worker's own server | `http` |
+
+#### The worker control plane
+
+A serve-backend worker serves the commands the frontend gives it as ordinary
+HTTP routes under `/v1/control/`, on the same loopback server that already
+carries file staging and backend logs, behind the same `LOCALAI_REGISTRATION_TOKEN`
+bearer check. They replace the ten `nodes.<id>.*` NATS subjects a worker used to
+subscribe to; the request and reply bodies are unchanged, so nothing an operator
+inspects on the wire has a new shape. Agent workers still take `nodes.<id>.backend.stop`
+over NATS.
+
+Two of the routes stream. `POST /v1/control/backend/install` and
+`/v1/control/backend/upgrade` answer with `application/x-ndjson`: zero or more
+`{"progress":{...}}` lines carrying the same download-progress payload the
+per-op NATS subject carried, followed by exactly one `{"reply":{...}}` line,
+which is always the last line on the body. An install that FAILS is still a
+`200` with a reply whose `success` is `false`. That is deliberate, and it is the
+same distinction the refusal table above draws: a non-2xx means the frontend
+could not get the request to the worker, which nothing may act on, while the
+worker's own verdict, including "there is no such backend", is evidence a reap
+guard may act on. A worker that answered `500` for a failed install would put
+its own verdict in the bucket reserved for a broken link.
+
+A control request carries the caller's deadline and nothing else: the worker
+does not impose a timeout of its own on an install, and a caller that gives up
+cancels the download rather than leaving the worker pulling gigabytes for a
+response nobody will read.
 
 The address the frontend holds for a backend (the per-replica port a worker reports after an install) is still what identifies it, and it is still what appears in logs and errors. What it no longer is, is somewhere the frontend connects to: it travels inside the tunnel as the stream's target, and the worker decides what to do with it.
 
@@ -341,7 +369,7 @@ A frontend replica that dies mid-load does not wedge the model: the job row carr
 
 ### NATS JWT authentication (recommended for production)
 
-By default, NATS connections are anonymous: any client that can reach port `4222` may publish control-plane subjects such as `nodes.<id>.backend.install`. Enable JWT auth to scope workers to their own node subjects and give the frontend a dedicated service credential.
+By default, NATS connections are anonymous: any client that can reach port `4222` may publish the subjects still carried on it. Serve-backend workers no longer subscribe to `nodes.<id>.backend.install` and its nine siblings - those are HTTP routes on the worker's tunnel now, see [The worker control plane](#the-worker-control-plane) - but agent workers, file staging and the frontend's own service credential still use NATS. Enable JWT auth to scope workers to their own node subjects and give the frontend a dedicated service credential.
 
 | Flag | Env Var | Description |
 |------|---------|-------------|
@@ -425,7 +453,7 @@ during installation as well as the committed snapshot.
 {{% /notice %}}
 
 {{% notice warning %}}
-The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open.
+The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector), **and to the `/v1/control/` routes that install, upgrade and delete backends and stop the node**. The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open.
 
 By default the server binds loopback, so "anyone who can reach the port" means a process on the worker host, and no firewall rule is required. Setting `LOCALAI_HTTP_ADDR` to a routable address opts back out of that and puts the fail-open case back on the network - if you do it, firewall the port.
 {{% /notice %}}

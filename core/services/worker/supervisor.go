@@ -119,8 +119,14 @@ type backendSupervisor struct {
 	systemState *system.SystemState
 	galleries   []config.Gallery
 	nodeID      string
-	nats        messaging.MessagingClient
 	sigCh       chan<- os.Signal // send shutdown signal instead of os.Exit
+
+	// installFn and upgradeFn override the two long-running verbs. Non-nil
+	// only in specs: they exist so the control plane's ROUTING can be exercised
+	// without a gallery, a registry or a real download, which is the same
+	// argument tunnelServices was extracted under. See installer/upgrader.
+	installFn installFunc
+	upgradeFn upgradeFunc
 
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name

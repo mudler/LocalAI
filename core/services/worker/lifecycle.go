@@ -14,157 +14,70 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// subscribeLifecycleEvents wires every NATS subject this worker accepts to its
-// per-event handler method. Each handler lives on *backendSupervisor below;
-// keeping the dispatcher to a single line per subject makes adding a new
-// subject a 2-line patch (one line here, one new method) instead of grafting
-// onto a monolith.
-func (s *backendSupervisor) subscribeLifecycleEvents() error {
-	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeBackendInstall(s.nodeID), s.handleBackendInstall); err != nil {
-		return fmt.Errorf("subscribing to backend install events: %w", err)
-	}
-	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeBackendUpgrade(s.nodeID), s.handleBackendUpgrade); err != nil {
-		return fmt.Errorf("subscribing to backend upgrade events: %w", err)
-	}
-	if _, err := s.nats.Subscribe(messaging.SubjectNodeBackendStop(s.nodeID), s.handleBackendStop); err != nil {
-		return fmt.Errorf("subscribing to backend stop events: %w", err)
-	}
-	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeBackendDelete(s.nodeID), s.handleBackendDelete); err != nil {
-		return fmt.Errorf("subscribing to backend delete events: %w", err)
-	}
-	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeBackendList(s.nodeID), s.handleBackendList); err != nil {
-		return fmt.Errorf("subscribing to backend list events: %w", err)
-	}
-	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeModelsRunning(s.nodeID), s.handleModelsRunning); err != nil {
-		return fmt.Errorf("subscribing to models running events: %w", err)
-	}
-	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeModelUnload(s.nodeID), s.handleModelUnload); err != nil {
-		return fmt.Errorf("subscribing to model unload events: %w", err)
-	}
-	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeModelStop(s.nodeID), s.handleModelStop); err != nil {
-		return fmt.Errorf("subscribing to model stop events: %w", err)
-	}
-	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeModelDelete(s.nodeID), s.handleModelDelete); err != nil {
-		return fmt.Errorf("subscribing to model delete events: %w", err)
-	}
-	if _, err := s.nats.Subscribe(messaging.SubjectNodeStop(s.nodeID), s.handleNodeStop); err != nil {
-		return fmt.Errorf("subscribing to node stop events: %w", err)
-	}
-	return nil
-}
-
-func (s *backendSupervisor) handleModelStop(data []byte, reply func([]byte)) {
-	var req messaging.ModelStopRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		replyJSON(reply, messaging.ModelStopReply{Error: fmt.Sprintf("invalid request: %v", err)})
-		return
-	}
-	replyJSON(reply, s.stopModelExact(req))
-}
-
-// handleBackendInstall is the NATS callback for backend.install — install
-// backend (idempotent: skips download if binary exists on disk) + start gRPC
-// process (request-reply).
+// The worker's lifecycle verbs.
 //
-// Each request runs in its own goroutine so that a slow install on one
-// backend does NOT head-of-line-block install requests for unrelated
-// backends arriving on the same subscription. Per-backend serialization
-// is provided by lockBackend so two requests targeting the same on-disk
-// artifact don't race the gallery directory.
-func (s *backendSupervisor) handleBackendInstall(data []byte, reply func([]byte)) {
-	go func() {
-		xlog.Info("Received NATS backend.install event")
-		var req messaging.BackendInstallRequest
-		if err := json.Unmarshal(data, &req); err != nil {
-			resp := messaging.BackendInstallReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-			replyJSON(reply, resp)
-			return
-		}
+// Each takes a decoded request and returns a reply value. They carry no
+// carrier: the HTTP control plane in control_routes.go is what decodes the
+// request, calls one of these, and encodes what comes back. Keeping the verb
+// free of its transport is what let the ten NATS subscriptions these replaced
+// be deleted without touching a line of what they actually do.
 
-		release := s.lockBackend(req.Backend)
-		defer release()
-
-		// req.Force=true is the legacy path used by pre-2026-05-08 masters
-		// that don't know about backend.upgrade. Honor it so a rolling
-		// update with new worker + old master keeps working; new masters
-		// send to backend.upgrade instead.
-		addr, err := s.installBackend(req, req.Force)
-		if err != nil {
-			xlog.Error("Failed to install backend via NATS", "error", err)
-			resp := messaging.BackendInstallReply{Success: false, Error: err.Error()}
-			replyJSON(reply, resp)
-			return
-		}
-
-		// The address goes back exactly as the process listens on it. It used
-		// to be rewritten onto this worker's advertise host, which made the
-		// reply the worker's third advertisement site; the frontend now reads
-		// only the port out of it and dials nothing.
-		//
-		// The rewrite was also wrong in a way nothing caught: the worker
-		// records the loopback address and stopModelExact refuses a stop whose
-		// ExpectedAddress does not match it, so on any worker whose advertise
-		// host was not 127.0.0.1 every acknowledged model stop failed with an
-		// address mismatch.
-		replyJSON(reply, messaging.BackendInstallReply{Success: true, WorkerLocalAddress: addr})
-	}()
-}
-
-// handleBackendUpgrade is the NATS callback for backend.upgrade — force-reinstall
-// a backend (request-reply). Lives on its own subscription so a multi-minute
-// download here does NOT block the install fast-path subscription on the same
-// worker.
-func (s *backendSupervisor) handleBackendUpgrade(data []byte, reply func([]byte)) {
-	go func() {
-		xlog.Info("Received NATS backend.upgrade event")
-		var req messaging.BackendUpgradeRequest
-		if err := json.Unmarshal(data, &req); err != nil {
-			resp := messaging.BackendUpgradeReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-			replyJSON(reply, resp)
-			return
-		}
-
-		release := s.lockBackend(req.Backend)
-		defer release()
-
-		// stopped is meaningful even on the error paths: it lists processes
-		// already terminated (and ports already recycled) before the failure, so
-		// the controller must drop those rows regardless of the outcome.
-		stopped, err := s.upgradeBackend(req)
-		if err != nil {
-			xlog.Error("Failed to upgrade backend via NATS", "error", err)
-			replyJSON(reply, messaging.BackendUpgradeReply{
-				Success:                 false,
-				Error:                   err.Error(),
-				StoppedProcessKeys:      stopped,
-				ReportsStoppedProcesses: true,
-			})
-			return
-		}
-		replyJSON(reply, messaging.BackendUpgradeReply{
-			Success:                 true,
-			StoppedProcessKeys:      stopped,
-			ReportsStoppedProcesses: true,
-		})
-	}()
-}
-
-// handleBackendStop is the NATS callback for backend.stop — stop a specific
-// backend process (fire-and-forget, no reply expected).
-func (s *backendSupervisor) handleBackendStop(data []byte) {
-	req, stopAll, err := decodeBackendStopRequest(data)
+// backendList answers backend.list with the backends installed in this node's
+// gallery.
+func (s *backendSupervisor) backendList() messaging.BackendListReply {
+	xlog.Info("Serving backend.list")
+	backends, err := gallery.ListSystemBackends(s.systemState)
 	if err != nil {
-		xlog.Error("Ignoring malformed NATS backend.stop event", "error", err)
-		return
+		return messaging.BackendListReply{Error: err.Error()}
 	}
+
+	var infos []messaging.NodeBackendInfo
+	for name, b := range backends {
+		// Drop synthetic alias rows: ListSystemBackends emits an entry
+		// keyed by the alias name that re-uses the chosen concrete's
+		// metadata. The frontend can't reconstruct that aliasing
+		// faithfully from a flat NodeBackendInfo, and for upgrade
+		// detection it would surface as a phantom `<alias>` install
+		// pointing at the dev concrete's URI/digest — tricking the
+		// upgrade check into flagging the non-dev gallery entry of the
+		// same alias. Concrete and meta entries always have
+		// `name == b.Metadata.Name`, so this drops aliases only.
+		if b.Metadata != nil && b.Metadata.Name != "" && name != b.Metadata.Name {
+			continue
+		}
+		info := messaging.NodeBackendInfo{
+			Name:     name,
+			IsSystem: b.IsSystem,
+			IsMeta:   b.IsMeta,
+		}
+		if b.Metadata != nil {
+			info.InstalledAt = b.Metadata.InstalledAt
+			info.GalleryURL = b.Metadata.GalleryURL
+			info.Version = b.Metadata.Version
+			info.URI = b.Metadata.URI
+			info.Digest = b.Metadata.Digest
+		}
+		infos = append(infos, info)
+	}
+
+	return messaging.BackendListReply{Backends: infos}
+}
+
+// stopBackends serves backend.stop: it terminates the processes the request
+// names, or every process when it names none.
+//
+// It reports nothing. The verb has always been fire-and-forget, and a stop that
+// could report per-process failure would be a different contract than the one
+// the frontend was written against.
+func (s *backendSupervisor) stopBackends(req messaging.BackendStopRequest, stopAll bool) {
 	if stopAll {
-		xlog.Info("Received NATS backend.stop event (all)", "force", req.Force)
+		xlog.Info("Serving backend.stop (all)", "force", req.Force)
 		s.stopAllBackends(req.Force)
 		return
 	}
-	xlog.Info("Received NATS backend.stop event", "backend", req.Backend, "force", req.Force)
+	xlog.Info("Serving backend.stop", "backend", req.Backend, "force", req.Force)
 	// The identifier may be a backend name, a model name, or an exact
-	// modelID#replica key depending on the publisher; resolveStopTargets
+	// modelID#replica key depending on the caller; resolveStopTargets
 	// handles all three. stopBackend alone resolves only the model meanings.
 	for _, key := range s.resolveStopTargets(req.Backend) {
 		if err := s.stopBackendExact(key, req.Force); err != nil {
@@ -173,6 +86,9 @@ func (s *backendSupervisor) handleBackendStop(data []byte) {
 	}
 }
 
+// decodeBackendStopRequest reads a backend.stop body. An EMPTY body means "stop
+// everything", which is the shape the frontend uses to drain a node, so it is
+// not a decode failure.
 func decodeBackendStopRequest(data []byte) (messaging.BackendStopRequest, bool, error) {
 	if len(data) == 0 {
 		return messaging.BackendStopRequest{}, true, nil
@@ -184,16 +100,10 @@ func decodeBackendStopRequest(data []byte) (messaging.BackendStopRequest, bool, 
 	return req, req.Backend == "", nil
 }
 
-// handleBackendDelete is the NATS callback for backend.delete — stop the
-// backend process if running, then remove its files from disk (request-reply).
-func (s *backendSupervisor) handleBackendDelete(data []byte, reply func([]byte)) {
-	var req messaging.BackendDeleteRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		resp := messaging.BackendDeleteReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-		replyJSON(reply, resp)
-		return
-	}
-	xlog.Info("Received NATS backend.delete event", "backend", req.Backend)
+// deleteBackend serves backend.delete: stop the backend's processes if running,
+// then remove its files from disk.
+func (s *backendSupervisor) deleteBackend(req messaging.BackendDeleteRequest) messaging.BackendDeleteReply {
+	xlog.Info("Serving backend.delete", "backend", req.Backend)
 
 	// Resolve the backend's identity (concrete name + alias) BEFORE touching
 	// the filesystem: DeleteBackendFromSystem removes the metadata.json that
@@ -235,8 +145,7 @@ func (s *backendSupervisor) handleBackendDelete(data []byte, reply func([]byte))
 			// "backend deleted" while the process keeps serving requests.
 			xlog.Error("Failed to stop backend process during delete; aborting delete",
 				"backend", req.Backend, "processKey", key, "error", err)
-			replyJSON(reply, deleteReply(false, fmt.Sprintf("could not stop running process %s: %v", key, err)))
-			return
+			return deleteReply(false, fmt.Sprintf("could not stop running process %s: %v", key, err))
 		}
 		stopped = append(stopped, key)
 	}
@@ -244,74 +153,22 @@ func (s *backendSupervisor) handleBackendDelete(data []byte, reply func([]byte))
 	// Delete the backend files
 	if err := gallery.DeleteBackendFromSystem(s.systemState, req.Backend); err != nil {
 		xlog.Warn("Failed to delete backend files", "backend", req.Backend, "error", err)
-		replyJSON(reply, deleteReply(false, err.Error()))
-		return
+		return deleteReply(false, err.Error())
 	}
 
 	// Re-register backends after deletion
 	if err := gallery.RegisterBackends(s.systemState, s.ml); err != nil {
 		xlog.Error("Failed to refresh registered backends after deletion", "backend", req.Backend, "error", err)
-		replyJSON(reply, deleteReply(false, err.Error()))
-		return
+		return deleteReply(false, err.Error())
 	}
 
-	replyJSON(reply, deleteReply(true, ""))
+	return deleteReply(true, "")
 }
 
-// handleBackendList is the NATS callback for backend.list — reply with the
-// installed backends from this node's gallery (request-reply).
-func (s *backendSupervisor) handleBackendList(data []byte, reply func([]byte)) {
-	xlog.Info("Received NATS backend.list event")
-	backends, err := gallery.ListSystemBackends(s.systemState)
-	if err != nil {
-		resp := messaging.BackendListReply{Error: err.Error()}
-		replyJSON(reply, resp)
-		return
-	}
-
-	var infos []messaging.NodeBackendInfo
-	for name, b := range backends {
-		// Drop synthetic alias rows: ListSystemBackends emits an entry
-		// keyed by the alias name that re-uses the chosen concrete's
-		// metadata. The frontend can't reconstruct that aliasing
-		// faithfully from a flat NodeBackendInfo, and for upgrade
-		// detection it would surface as a phantom `<alias>` install
-		// pointing at the dev concrete's URI/digest — tricking the
-		// upgrade check into flagging the non-dev gallery entry of the
-		// same alias. Concrete and meta entries always have
-		// `name == b.Metadata.Name`, so this drops aliases only.
-		if b.Metadata != nil && b.Metadata.Name != "" && name != b.Metadata.Name {
-			continue
-		}
-		info := messaging.NodeBackendInfo{
-			Name:     name,
-			IsSystem: b.IsSystem,
-			IsMeta:   b.IsMeta,
-		}
-		if b.Metadata != nil {
-			info.InstalledAt = b.Metadata.InstalledAt
-			info.GalleryURL = b.Metadata.GalleryURL
-			info.Version = b.Metadata.Version
-			info.URI = b.Metadata.URI
-			info.Digest = b.Metadata.Digest
-		}
-		infos = append(infos, info)
-	}
-
-	resp := messaging.BackendListReply{Backends: infos}
-	replyJSON(reply, resp)
-}
-
-// handleModelUnload is the NATS callback for model.unload — call gRPC Free()
-// to release GPU memory without killing the backend process (request-reply).
-func (s *backendSupervisor) handleModelUnload(data []byte, reply func([]byte)) {
-	xlog.Info("Received NATS model.unload event")
-	var req messaging.ModelUnloadRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		resp := messaging.ModelUnloadReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
-		replyJSON(reply, resp)
-		return
-	}
+// unloadModel serves model.unload: a gRPC Free() that releases GPU memory
+// without killing the backend process.
+func (s *backendSupervisor) unloadModel(ctx context.Context, req messaging.ModelUnloadRequest) messaging.ModelUnloadReply {
+	xlog.Info("Serving model.unload")
 
 	// Find the backend address for this model's backend type
 	// The request includes an Address field if the router knows which process to target
@@ -328,42 +185,37 @@ func (s *backendSupervisor) handleModelUnload(data []byte, reply func([]byte)) {
 
 	if targetAddr != "" {
 		// Best-effort bounded gRPC Free(). A model.unload request must not
-		// occupy the NATS reply handler forever when a backend is wedged.
+		// occupy the handler forever when a backend is wedged. The bound is
+		// derived from the caller's own budget where it has one, so a caller
+		// that allowed less than workerBackendFreeTimeout is not made to wait
+		// longer than it asked for.
 		client := grpc.NewClientWithToken(targetAddr, false, nil, false, s.cfg.RegistrationToken)
-		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
+		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
 		if err := client.Free(freeCtx); err != nil {
 			xlog.Warn("Free() failed during model.unload", "error", err, "addr", targetAddr)
 		}
 		cancel()
 	}
 
-	resp := messaging.ModelUnloadReply{Success: true}
-	replyJSON(reply, resp)
+	return messaging.ModelUnloadReply{Success: true}
 }
 
-// handleModelDelete is the NATS callback for model.delete — remove model
-// files from disk (request-reply).
-func (s *backendSupervisor) handleModelDelete(data []byte, reply func([]byte)) {
-	xlog.Info("Received NATS model.delete event")
-	var req messaging.ModelDeleteRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		replyJSON(reply, messaging.ModelDeleteReply{Success: false, Error: "invalid request"})
-		return
-	}
+// deleteModel serves model.delete: remove a model's staged files from disk.
+func (s *backendSupervisor) deleteModel(req messaging.ModelDeleteRequest) messaging.ModelDeleteReply {
+	xlog.Info("Serving model.delete", "model", req.ModelName)
 
 	if err := gallery.DeleteStagedModelFiles(s.cfg.ModelsPath, req.ModelName); err != nil {
 		xlog.Warn("Failed to delete model files", "model", req.ModelName, "error", err)
-		replyJSON(reply, messaging.ModelDeleteReply{Success: false, Error: err.Error()})
-		return
+		return messaging.ModelDeleteReply{Success: false, Error: err.Error()}
 	}
 
-	replyJSON(reply, messaging.ModelDeleteReply{Success: true})
+	return messaging.ModelDeleteReply{Success: true}
 }
 
-// handleNodeStop is the NATS callback for node.stop — trigger the normal
-// shutdown path via sigCh so deferred cleanup runs (fire-and-forget).
-func (s *backendSupervisor) handleNodeStop(data []byte) {
-	xlog.Info("Received NATS stop event — signaling shutdown")
+// signalNodeStop serves node.stop: it triggers the normal shutdown path via
+// sigCh so deferred cleanup runs, rather than exiting the process here.
+func (s *backendSupervisor) signalNodeStop() {
+	xlog.Info("Serving node.stop — signaling shutdown")
 	select {
 	case s.sigCh <- syscall.SIGTERM:
 	default:
