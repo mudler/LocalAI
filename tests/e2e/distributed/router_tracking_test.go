@@ -2,11 +2,11 @@ package distributed_test
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 
@@ -14,8 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/nats-io/nats.go"
 
 	pgdriver "gorm.io/driver/postgres"
 	gormDB "gorm.io/gorm"
@@ -60,18 +58,17 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		registry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 
-		// Mock backend.install handler — always replies success
-		infra.NC.Conn().Subscribe("nodes.*.backend.install", func(msg *nats.Msg) {
-			reply := messaging.BackendInstallReply{Success: true}
-			data, _ := json.Marshal(reply)
-			msg.Respond(data)
+		// Mock control plane — backend.install always replies success.
+		workers := NewControlWorkers()
+		workers.On(AnyNode, workerctl.PathBackendInstall, func(string, []byte) any {
+			return messaging.BackendInstallReply{Success: true}
 		})
-		_, err = infra.NC.Conn().Subscribe("nodes.*.models.running", func(msg *nats.Msg) {
-			data, _ := json.Marshal(messaging.ModelsRunningReply{})
-			_ = msg.Respond(data)
+		workers.On(AnyNode, workerctl.PathModelsRunning, func(string, []byte) any {
+			return messaging.ModelsRunningReply{}
 		})
-		Expect(err).NotTo(HaveOccurred())
-		FlushNATS(infra.NC)
+		workers.On(AnyNode, workerctl.PathBackendList, func(string, []byte) any {
+			return messaging.BackendListReply{}
+		})
 
 		// Start a mock gRPC backend using the same helper as full flow tests
 		llm := &trackingTestLLM{}
@@ -85,7 +82,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 		nodeID = node.ID
 
-		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 		router = nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
 			Unloader: unloader,
 		})

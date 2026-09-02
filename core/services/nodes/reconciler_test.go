@@ -9,8 +9,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"gorm.io/gorm"
 )
 
@@ -869,6 +871,95 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			Expect(row.Attempts).To(Equal(1))
 			Expect(row.LastError).To(Equal("boom"))
 			Expect(row.NextRetryAt).To(BeTemporally(">", before))
+		})
+	})
+
+	// The pending-op drain runs the SAME rolling-update fallback the admin
+	// path does, and that fallback re-fires a DESTRUCTIVE force-reinstall.
+	// Only the worker's own "I do not serve that verb" may trigger it. A
+	// worker this frontend could not reach has said nothing about the verb,
+	// and a BACKGROUND drain that force-reinstalls on silence is worse than
+	// the admin path doing it: nobody is watching, it retries on every tick,
+	// and a frontend replica that has just lost its tunnels would reinstall
+	// every queued backend on the fleet.
+	//
+	// The admin path's negative direction is pinned in
+	// managers_distributed_test.go; this one is the second call site of the
+	// same rule and was unpinned, so the condition here could be widened to
+	// any error with the whole suite still green.
+	Describe("draining a pending backend upgrade", func() {
+		var (
+			workers *scriptedControlWorkers
+			node    *BackendNode
+			rc      *ReplicaReconciler
+		)
+
+		BeforeEach(func() {
+			workers = newScriptedControlWorkers()
+			node = &BackendNode{Name: "worker-drain", NodeType: NodeTypeBackend, Address: "10.0.0.9:50051"}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.UpsertPendingBackendOp(context.Background(), node.ID, "vllm", OpBackendUpgrade, []byte("[]"))).To(Succeed())
+			rc = NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:  registry,
+				Scheduler: &fakeScheduler{},
+				DB:        db,
+				Adapter:   NewRemoteUnloaderAdapter(registry, nil, workers.controlClient(), time.Minute, time.Minute),
+			})
+		})
+
+		queuedOps := func() []PendingBackendOp {
+			var rows []PendingBackendOp
+			Expect(db.Find(&rows).Error).To(Succeed())
+			return rows
+		}
+
+		It("falls back to the legacy force install when the worker does not serve the upgrade verb", func() {
+			workers.scriptUnsupported(controlKey(node.ID, workerctl.PathBackendUpgrade))
+			workers.scriptReplyMatching(controlKey(node.ID, workerctl.PathBackendInstall),
+				func(req messaging.BackendInstallRequest) bool { return req.Force },
+				messaging.BackendInstallReply{Success: true})
+
+			rc.drainPendingBackendOps(context.Background())
+
+			Expect(workers.callSubjects()).To(Equal([]string{
+				controlKey(node.ID, workerctl.PathBackendUpgrade),
+				controlKey(node.ID, workerctl.PathBackendInstall),
+			}))
+			Expect(queuedOps()).To(BeEmpty(), "an op the fallback converged is drained")
+		})
+
+		// The negative direction, arranged so it cannot pass vacuously: the
+		// force install IS scripted and IS reachable here, so a fallback that
+		// fired would show up as a call AND as a drained row. What the worker
+		// fails to do is SERVE the upgrade verb, which is a 5xx and not the
+		// 404 that means it lacks it.
+		It("does NOT fall back to the legacy force install when the worker failed to serve the upgrade", func() {
+			workers.scriptReplyMatching(controlKey(node.ID, workerctl.PathBackendInstall),
+				func(req messaging.BackendInstallRequest) bool { return req.Force },
+				messaging.BackendInstallReply{Success: true})
+
+			rc.drainPendingBackendOps(context.Background())
+
+			Expect(workers.callSubjects()).ToNot(ContainElement(controlKey(node.ID, workerctl.PathBackendInstall)),
+				"an upgrade the worker failed to serve must not re-fire a force-reinstall")
+			rows := queuedOps()
+			Expect(rows).To(HaveLen(1), "the op keeps its backoff and is retried, not converged")
+			Expect(rows[0].Attempts).To(Equal(1))
+		})
+
+		// The same rule for the other non-answer: no route at all. The install
+		// is unreachable too here, so the witness is the error the drain
+		// RECORDED, which names the verb that actually failed.
+		It("records the upgrade's own failure when the worker could not be routed to", func() {
+			workers.scriptUnroutable(node.ID)
+
+			rc.drainPendingBackendOps(context.Background())
+
+			rows := queuedOps()
+			Expect(rows).To(HaveLen(1))
+			Expect(rows[0].LastError).To(ContainSubstring(workerctl.PathBackendUpgrade))
+			Expect(rows[0].LastError).ToNot(ContainSubstring(workerctl.PathBackendInstall),
+				"a fallback that fired would have replaced the upgrade's error with the install's")
 		})
 	})
 

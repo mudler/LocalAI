@@ -38,13 +38,21 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 			"_INBOX.>",
 		}
 	default:
-		// Backend worker: lifecycle + file staging on this node only.
+		// Backend worker: file staging on this node only.
+		//
+		// The backend and model lifecycle verbs left the bus: they are HTTP
+		// routes under workerctl.Prefix, served on the worker's own server and
+		// reached through its tunnel, so no subject is minted for them and none
+		// is allowed here. The wildcard stays because the file-staging subjects
+		// are still under this node's prefix; narrowing it to nodes.<id>.files.>
+		// is a separate change that would break a worker mid-upgrade.
 		subAllow = []string{
 			prefix + ".>",
 			"_INBOX.>",
 		}
+		// backend.install.*.progress is gone with the subject: install progress
+		// is written into the install response the frontend is already reading.
 		pubAllow = []string{
-			prefix + ".backend.install.*.progress",
 			prefix + ".files.>",
 			"_INBOX.>",
 		}

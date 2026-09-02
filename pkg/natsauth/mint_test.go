@@ -37,7 +37,13 @@ var _ = Describe("MintWorkerJWT", func() {
 		uc, err := jwt.DecodeUserClaims(token)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(uc.Permissions.Sub.Allow).To(ContainElement("nodes.550e8400-e29b-41d4-a716-446655440000.>"))
-		Expect(uc.Permissions.Pub.Allow).To(ContainElement("nodes.550e8400-e29b-41d4-a716-446655440000.backend.install.*.progress"))
+		Expect(uc.Permissions.Pub.Allow).To(ContainElement("nodes.550e8400-e29b-41d4-a716-446655440000.files.>"))
+		// The install-progress subject is gone with the carrier: progress is a
+		// line in the install response now, so a minted worker JWT must not
+		// still be granted a publish right for it.
+		for _, subj := range uc.Permissions.Pub.Allow {
+			Expect(subj).NotTo(ContainSubstring("backend.install"))
+		}
 	})
 
 	It("mints agent permissions without backend install subscribe", func() {
