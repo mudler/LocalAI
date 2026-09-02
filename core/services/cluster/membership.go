@@ -272,16 +272,16 @@ func (m *Membership) tick(ctx context.Context) {
 		xlog.Warn("Cluster instance heartbeat failed", "id", m.id, "error", err)
 	}
 
-	instances, connections, err := m.reg.ReapStale(ctx, m.id, m.liveness)
+	instances, cleared, err := m.reg.ReapStale(ctx, m.id, m.liveness)
 	if err != nil {
 		xlog.Warn("Reaping stale cluster instances failed", "error", err)
 		return
 	}
-	if instances > 0 || connections > 0 {
+	if instances > 0 || cleared > 0 {
 		// Two verbs because the sweep does two things: the instance rows are
 		// gone, the connection rows are still there and now record a departure.
 		xlog.Info("Swept cluster state left by dead replicas",
-			"instances_deleted", instances, "connections_departed", connections)
+			"instances_deleted", instances, "connections_departed", cleared)
 	}
 
 	// The retention has an owner, and it is this sweep. A departure that
@@ -379,8 +379,10 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 // race it, and would need its own answer to "is that replica alive", which is
 // the one fact this table already owns.
 //
-// The connection rows are cleared and not deleted, and the returned count is of
-// rows this sweep cleared. A worker whose owning replica died has not gone
+// The connection rows are cleared and not deleted, which is why the second
+// return is named for what it counts: rows this sweep CLEARED, never rows it
+// removed. Reading it as a delete count would make a worker that is re-dialling
+// right now look like one this deployment has forgotten. A worker whose owning replica died has not gone
 // anywhere: it is re-dialling the load balancer, and deleting its row would
 // erase the departure that says how long ago that started.
 //
@@ -404,7 +406,7 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 // on purpose, so the two paths cannot deadlock against each other. Here the
 // order is also forced: the connection sweep asks which instance rows survived,
 // so it has to run second.
-func (r *Registry) ReapStale(ctx context.Context, self string, within time.Duration) (instances int64, connections int64, err error) {
+func (r *Registry) ReapStale(ctx context.Context, self string, within time.Duration) (instances int64, cleared int64, err error) {
 	err = r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Negated rather than spelled as its own comparison: "stale" has to be
 		// exactly "not live", including how each treats a row whose last_seen
@@ -431,11 +433,11 @@ func (r *Registry) ReapStale(ctx context.Context, self string, within time.Durat
 		if res.Error != nil {
 			return fmt.Errorf("recording departures for orphaned node connections: %w", res.Error)
 		}
-		connections = res.RowsAffected
+		cleared = res.RowsAffected
 		return nil
 	})
 	if err != nil {
 		return 0, 0, fmt.Errorf("reaping stale cluster state: %w", err)
 	}
-	return instances, connections, nil
+	return instances, cleared, nil
 }
