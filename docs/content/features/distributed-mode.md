@@ -243,6 +243,25 @@ A worker on this release opens **no inbound listener on a routable interface**. 
 - **`LOCALAI_ADDR` and `LOCALAI_SERVE_ADDR` are read for their port only.** The port is the base of the backend port range, and `port-1` is the HTTP file-transfer port. The host half names an interface nothing binds.
 - The node's `address` and `http_address` fields in `GET /api/nodes` are empty, and are cleared for nodes that reported them before the upgrade.
 
+#### A lost tunnel is a departure, not an absence
+
+When a worker's tunnel goes, the frontend does **not** forget the worker. It records *when* the tunnel went, and for a grace period after that the worker is reported as **reconnecting**, not as gone. Only once the departure is older than the grace may anything act on the worker's absence: stop scheduling work onto it, clean up its rows, release its models.
+
+That distinction exists because a worker loses its tunnel for entirely ordinary reasons. A frontend replica restarting during a rolling upgrade drops every tunnel it held, and each of those workers immediately re-dials the load balancer and lands on another replica. Treating that as "the worker is gone" would evict models mid-upgrade for a fleet that never actually went anywhere.
+
+| Flag | Env var | Default | Description |
+|------|---------|---------|-------------|
+| `--worker-reconnect-grace` | `LOCALAI_WORKER_RECONNECT_GRACE` | `60s` | How long a worker whose tunnel was lost is treated as reconnecting rather than gone. |
+
+The default is **twice the worker's own maximum reconnect backoff** (the worker retries with exponential backoff capped at 30s), so a worker that misses one attempt at the ceiling and succeeds on the next is never condemned for it.
+
+What you trade by changing it:
+
+- **Lower**: a worker that has genuinely gone away is declared absent sooner, so its rows are cleaned and its models released sooner. Set it below the worker's backoff ceiling and you will condemn workers that are re-homing exactly as designed.
+- **Higher**: a rolling frontend restart is safer, because workers crossing it stay "reconnecting" for longer. The cost is that a worker that really has died keeps its rows for longer.
+
+The window is measured on the **database clock**, not on any frontend's own clock, so every replica agrees to the second on when a worker's grace ran out. A departure row is kept well past the grace before it is purged; once purged, the worker reads as *unknown* rather than *gone*, and nothing acts on unknown.
+
 ### The model load deadline scales with the checkpoint
 
 The `LoadModel` deadline starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint read and pipeline init. That work is proportional to the bytes on disk, which makes any fixed deadline a model-size cliff rather than a timeout: a 70 GB video checkpoint on a Jetson Thor worker failed reproducibly against the old fixed 5m default (`rpc error: code = DeadlineExceeded` after 953.5s of wall clock, roughly 11m of which was backend install and staging), and simply raising the constant would only move the cliff to the next larger model while making a genuinely wedged *small* model hang for the whole inflated duration.

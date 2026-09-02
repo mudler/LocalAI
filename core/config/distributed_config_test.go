@@ -176,3 +176,32 @@ var _ = Describe("DistributedConfig.Validate registration auth", func() {
 		Expect(err.Error()).To(ContainSubstring("LOCALAI_NATS_REQUIRE_AUTH"))
 	})
 })
+
+var _ = Describe("DistributedConfig worker reconnect grace", func() {
+	It("defaults to twice the worker tunnel's maximum reconnect backoff", func() {
+		// The tunnel's ceiling is 30s (core/services/worker, tunnelBackoffMax),
+		// so 60s covers a worker that misses one reconnect at the ceiling and
+		// lands on the next. A grace shorter than that condemns workers that
+		// are re-homing exactly as designed.
+		Expect(config.DistributedConfig{}.ReconnectGraceOrDefault()).To(Equal(60 * time.Second))
+	})
+
+	It("takes a configured worker reconnect grace verbatim", func() {
+		cfg := config.DistributedConfig{WorkerReconnectGrace: 5 * time.Minute}
+		Expect(cfg.ReconnectGraceOrDefault()).To(Equal(5 * time.Minute))
+	})
+
+	It("falls back to the default rather than condemning every worker on a negative value", func() {
+		// A negative grace makes every departure older than the window the
+		// instant it is stamped, which reports a worker that has been gone for
+		// two seconds as GONE, and gone is the one value a caller may reap on.
+		cfg := config.DistributedConfig{WorkerReconnectGrace: -1 * time.Second}
+		Expect(cfg.ReconnectGraceOrDefault()).To(Equal(config.DefaultWorkerReconnectGrace))
+	})
+
+	It("is settable through the application option", func() {
+		o := &config.ApplicationConfig{}
+		config.WithWorkerReconnectGrace(90 * time.Second)(o)
+		Expect(o.Distributed.ReconnectGraceOrDefault()).To(Equal(90 * time.Second))
+	})
+})

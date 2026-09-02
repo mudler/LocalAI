@@ -244,6 +244,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			"error", err, "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
 	} else {
 		membership = cluster.NewMembership(clusterRegistry, cfg.Distributed.InstanceID, advertised, internal.PrintableVersion())
+		// Before Start, so the first sweep already purges on the retention this
+		// deployment's grace requires rather than on the floor.
+		membership.SetReconnectGrace(cfg.Distributed.ReconnectGraceOrDefault())
 		if err := membership.Start(cfg.Context); err != nil {
 			return nil, fmt.Errorf("registering this replica in the cluster: %w", err)
 		}

@@ -31,8 +31,9 @@ const (
 	// not the place to wait on a database.
 	deregisterTimeout = 5 * time.Second
 
-	// DepartedRetention is how long a connection row outlives the tunnel it
-	// recorded before the sweep deletes it.
+	// DepartedRetention is the FLOOR on how long a connection row outlives the
+	// tunnel it recorded before the sweep deletes it. DepartedRetentionFor is
+	// what the sweep actually applies; this is what it never goes below.
 	//
 	// A multiple of the liveness window rather than the window itself. The row
 	// survives so that how long ago a tunnel went can be answered at all, and a
@@ -42,7 +43,34 @@ const (
 	// is far enough clear of any such comparison, and short enough that a
 	// worker retired for good does not sit in the table for a day.
 	DepartedRetention = 10 * InstanceLiveness
+
+	// departedRetentionGraceFactor is how many reconnect graces a departure is
+	// kept for once the grace is the larger of the two. Five, so the purge
+	// window is nowhere near the window a reader measures against, the same
+	// margin DepartedRetention keeps over the liveness window.
+	departedRetentionGraceFactor = 5
 )
+
+// DepartedRetentionFor returns how long a departure must be kept, given the
+// reconnect grace the readers of that departure measure against it.
+//
+// It exists because the two windows are set by different people. The retention
+// is this package's, the grace is an operator's
+// (DistributedConfig.WorkerReconnectGrace), and a fixed retention is only
+// correct while nobody raises the grace past it. An operator who does gets a
+// purge that deletes departures BEFORE the grace has elapsed, so Presence stops
+// answering PresenceGone for that worker and answers PresenceUnknown forever
+// instead. Nobody may act on unknown, so nothing is misreported; but nothing
+// ever reaps that worker's rows either, and the leak is silent.
+//
+// So the retention is derived rather than declared, and the ordering is a
+// property of this function rather than of two constants that happen to agree.
+func DepartedRetentionFor(grace time.Duration) time.Duration {
+	if scaled := departedRetentionGraceFactor * grace; scaled > DepartedRetention {
+		return scaled
+	}
+	return DepartedRetention
+}
 
 // Membership publishes this replica's address and keeps the instances table
 // free of replicas that have stopped answering.
@@ -58,6 +86,11 @@ type Membership struct {
 
 	interval time.Duration
 	liveness time.Duration
+	// retention is how long a departure is kept before the purge deletes it.
+	// It is derived from the reconnect grace rather than fixed, because the
+	// grace is the window Presence measures departures against and the purge
+	// must never outrun it (see DepartedRetentionFor).
+	retention time.Duration
 
 	stop     chan struct{}
 	done     chan struct{}
@@ -75,14 +108,15 @@ type Membership struct {
 // address this process binds.
 func NewMembership(reg *Registry, id, addr, version string) *Membership {
 	return &Membership{
-		reg:      reg,
-		id:       id,
-		addr:     addr,
-		version:  version,
-		interval: InstanceHeartbeat,
-		liveness: InstanceLiveness,
-		stop:     make(chan struct{}),
-		done:     make(chan struct{}),
+		reg:       reg,
+		id:        id,
+		addr:      addr,
+		version:   version,
+		interval:  InstanceHeartbeat,
+		liveness:  InstanceLiveness,
+		retention: DepartedRetention,
+		stop:      make(chan struct{}),
+		done:      make(chan struct{}),
 	}
 }
 
@@ -106,6 +140,23 @@ func (m *Membership) SetTunnels(t *TunnelRegistry) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.tunnels = t
+}
+
+// SetReconnectGrace tells the loop the window Presence measures a departure
+// against, so the purge keeps departures for longer than any reader needs them.
+// A Membership that is never told one purges on the DepartedRetention floor,
+// which is correct for every grace at or below it.
+//
+// It is a setter for the reason SetTunnels is: this package deliberately
+// produces a nil *Membership (core/application/distributed.go leaves it nil
+// when no peer-reachable address can be derived), so it is safe on one.
+func (m *Membership) SetReconnectGrace(grace time.Duration) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.retention = DepartedRetentionFor(grace)
 }
 
 // Start registers this replica and begins heartbeating and sweeping. The first
@@ -228,13 +279,16 @@ func (m *Membership) tick(ctx context.Context) {
 	// nothing ever deletes is a row per worker that ever dialled this
 	// deployment, and it is the same loop that decides a replica is gone, so
 	// there is one schedule rather than two.
-	purged, err := m.reg.PurgeDepartedBefore(ctx, DepartedRetention)
+	m.mu.Lock()
+	retention := m.retention
+	m.mu.Unlock()
+	purged, err := m.reg.PurgeDepartedBefore(ctx, retention)
 	if err != nil {
 		xlog.Warn("Purging departed worker connections failed", "error", err)
 		return
 	}
 	if purged > 0 {
-		xlog.Info("Purged worker connections whose departure aged out", "connections", purged, "retention", DepartedRetention)
+		xlog.Info("Purged worker connections whose departure aged out", "connections", purged, "retention", retention)
 	}
 }
 

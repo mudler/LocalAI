@@ -81,6 +81,17 @@ type DistributedConfig struct {
 
 	MCPCIJobTimeout time.Duration // MCP CI job execution timeout (default 10m)
 
+	// WorkerReconnectGrace is how long a worker whose tunnel was lost is
+	// treated as reconnecting rather than gone. It is the ONLY thing that
+	// separates a worker re-homing between frontend replicas from one that has
+	// left, and absence is what makes the scheduler stop placing work and reap
+	// the worker's rows, so a grace shorter than the worker's own reconnect
+	// backoff condemns workers that are behaving exactly as designed.
+	//
+	// Zero means unset (DefaultWorkerReconnectGrace applies). Measured on the
+	// database clock, so every replica agrees on when the window ends.
+	WorkerReconnectGrace time.Duration // LOCALAI_WORKER_RECONNECT_GRACE
+
 	BackendInstallTimeout time.Duration // NATS round-trip timeout for backend.install (default 15m)
 	BackendUpgradeTimeout time.Duration // NATS round-trip timeout for backend.upgrade (default 15m)
 	// ModelLoadTimeout is the gRPC deadline for the remote LoadModel call the
@@ -182,6 +193,7 @@ func (c DistributedConfig) Validate() error {
 		FlagBackendInstallTimeout: c.BackendInstallTimeout,
 		FlagBackendUpgradeTimeout: c.BackendUpgradeTimeout,
 		FlagModelLoadTimeout:      c.ModelLoadTimeout,
+		FlagWorkerReconnectGrace:  c.WorkerReconnectGrace,
 	} {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
@@ -322,6 +334,14 @@ func WithStorageSecretKey(key string) AppOption {
 	}
 }
 
+// WithWorkerReconnectGrace sets how long a lost worker tunnel is read as
+// reconnecting rather than gone (see DistributedConfig.WorkerReconnectGrace).
+func WithWorkerReconnectGrace(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.WorkerReconnectGrace = d
+	}
+}
+
 func WithBackendInstallTimeout(d time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.BackendInstallTimeout = d
@@ -416,7 +436,10 @@ const (
 	FlagBackendInstallTimeout = "backend-install-timeout"
 	FlagBackendUpgradeTimeout = "backend-upgrade-timeout"
 	FlagModelLoadTimeout      = "model-load-timeout"
-	FlagModelLoadWait         = "model-load-wait"
+	// FlagWorkerReconnectGrace names the reconnect-grace knob. Validate quotes
+	// it when the operator hands it a negative duration.
+	FlagWorkerReconnectGrace = "worker-reconnect-grace"
+	FlagModelLoadWait        = "model-load-wait"
 	// FlagDiskHeadroomCheck names the disk-headroom toggle. It is quoted in
 	// the warning the check emits while disabled, so the operator reading a
 	// log line knows exactly which knob produced it.
@@ -441,6 +464,18 @@ const (
 	// LocalAI (with progress the client can act on) rather than from a proxy
 	// dropping the connection.
 	DefaultModelLoadWait = 60 * time.Second
+	// DefaultWorkerReconnectGrace is twice the worker tunnel's maximum
+	// reconnect backoff (30s; tunnelBackoffMax in core/services/worker), so a
+	// worker that misses one reconnect at the ceiling and lands on the next is
+	// never condemned for it.
+	//
+	// Raising it makes a rolling frontend restart safer, because a worker
+	// re-homing across it stays "reconnecting" for longer. Lowering it makes a
+	// worker that really has gone reap sooner. There is no value at which a
+	// live worker is reported as gone and no value at which a dead one is
+	// reported as connected; the trade is only in how long the deployment waits
+	// before it is willing to say "gone".
+	DefaultWorkerReconnectGrace = 60 * time.Second
 )
 
 // ModelLoadWaitUnbounded records LOCALAI_MODEL_LOAD_WAIT=0 — "wait as long as
@@ -487,6 +522,23 @@ func (c DistributedConfig) NatsAuthConfig() natsauth.Config {
 		WorkerJWTTTL:    c.NatsWorkerJWTTTL,
 		RequireAuth:     c.NatsAuthRequired(),
 	}
+}
+
+// ReconnectGraceOrDefault returns the configured worker reconnect grace or the
+// default.
+//
+// A non-positive value falls back rather than being taken verbatim, which is
+// the opposite of what the timeout knobs above do, and deliberately. A
+// negative grace makes every departure older than the window the instant it is
+// stamped, so a worker two seconds into a normal reconnect reports as GONE, and
+// gone is the one answer a caller may reap and evict on. Validate rejects a
+// negative duration at startup; this is the second line, for a config built in
+// code that never went through it.
+func (c DistributedConfig) ReconnectGraceOrDefault() time.Duration {
+	if c.WorkerReconnectGrace <= 0 {
+		return DefaultWorkerReconnectGrace
+	}
+	return c.WorkerReconnectGrace
 }
 
 // BackendInstallTimeoutOrDefault returns the configured timeout or the default.
