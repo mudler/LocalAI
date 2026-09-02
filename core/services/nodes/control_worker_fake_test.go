@@ -53,6 +53,9 @@ type scriptedControlWorkers struct {
 	// that ends the call is the caller's own budget.
 	hangs map[string]bool
 
+	// serverErrors maps a verb to the body of the 5xx it answers with.
+	serverErrors map[string]string
+
 	// calls records every request that reached a worker, in order.
 	calls []requestCall
 }
@@ -67,13 +70,14 @@ type matchedControlReply struct {
 
 func newScriptedControlWorkers() *scriptedControlWorkers {
 	s := &scriptedControlWorkers{
-		replies:     map[string][]byte{},
-		unsupported: map[string]bool{},
-		matched:     map[string][]matchedControlReply{},
-		progress:    map[string][]messaging.BackendInstallProgressEvent{},
-		unreachable: map[string]bool{},
-		expired:     map[string]bool{},
-		hangs:       map[string]bool{},
+		replies:      map[string][]byte{},
+		unsupported:  map[string]bool{},
+		matched:      map[string][]matchedControlReply{},
+		progress:     map[string][]messaging.BackendInstallProgressEvent{},
+		unreachable:  map[string]bool{},
+		expired:      map[string]bool{},
+		hangs:        map[string]bool{},
+		serverErrors: map[string]string{},
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc(workerctl.Prefix, s.serve)
@@ -122,6 +126,7 @@ func (s *scriptedControlWorkers) serve(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.calls = append(s.calls, requestCall{Subject: key, Data: body})
 	unsupported := s.unsupported[key]
+	serverError, failing := s.serverErrors[key]
 	hang := s.hangs[key]
 	reply := s.replies[key]
 	matchers := s.matched[key]
@@ -136,6 +141,10 @@ func (s *scriptedControlWorkers) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if unsupported {
 		http.Error(w, "unknown worker control path "+r.URL.Path, http.StatusNotFound)
+		return
+	}
+	if failing {
+		http.Error(w, serverError, http.StatusInternalServerError)
 		return
 	}
 	if len(matchers) > 0 {
@@ -199,6 +208,19 @@ func (s *scriptedControlWorkers) scriptUnsupported(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.unsupported[key] = true
+}
+
+// scriptServerError makes one verb answer a 5xx carrying body, which is the
+// worker failing to SERVE the request rather than answering it.
+//
+// It exists so a spec can put chosen text inside the ERROR a control RPC
+// produces. A reply whose Error field carries that text is a different thing
+// entirely: it comes back with a nil error, so it never reaches the code that
+// classifies failures, and a spec built on one cannot see a classifier widen.
+func (s *scriptedControlWorkers) scriptServerError(key, body string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.serverErrors[key] = body
 }
 
 // scriptUnroutable makes every route to a node fail without reaching it. The
