@@ -21,6 +21,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -447,8 +448,16 @@ var _ = Describe("the worker's HTTP server", func() {
 				return nil, nil
 			},
 		}
+		// A real object store, because the four file verbs are only mounted for
+		// a worker that has one, and the mounting assertion below walks every
+		// path this package names.
+		store, err := storage.NewFilesystemStore(filepath.Join(dir, "objectstore"))
+		Expect(err).NotTo(HaveOccurred())
+		stagingFM, err := storage.NewFileManager(store, filepath.Join(dir, "..", "cache"))
+		Expect(err).NotTo(HaveOccurred())
+
 		srv, err = startWorkerHTTPServer("127.0.0.1:0", filepath.Join(dir, "staging"), dir,
-			filepath.Join(dir, "data"), token, &nodes.WorkerReadiness{}, sup, nil)
+			filepath.Join(dir, "data"), token, &nodes.WorkerReadiness{}, sup, sup.cfg, stagingFM, nil)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { nodes.ShutdownFileTransferServer(srv) })
 		Expect(srv.Addr).NotTo(BeEmpty(), "the worker HTTP server must report the address it bound")
@@ -479,6 +488,31 @@ var _ = Describe("the worker's HTTP server", func() {
 	It("puts the control plane behind the registration token", func() {
 		Expect(postCtl(workerctl.PathModelsRunning, "").StatusCode).To(Equal(http.StatusUnauthorized))
 		Expect(postCtl(workerctl.PathModelsRunning, "wrong").StatusCode).To(Equal(http.StatusUnauthorized))
+	})
+
+	It("serves no file verb at all when the deployment configured no object store", func() {
+		// Not a degraded mount: a worker with nowhere to stage to answers the
+		// four file paths the way a build that never had them does, which is
+		// the 404 the frontend already reads as "this worker does not serve
+		// that verb" rather than as a file that is not there.
+		dir := GinkgoT().TempDir()
+		bare, err := startWorkerHTTPServer("127.0.0.1:0", filepath.Join(dir, "staging"), dir,
+			filepath.Join(dir, "data"), token, &nodes.WorkerReadiness{}, sup, sup.cfg, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { nodes.ShutdownFileTransferServer(bare) })
+
+		for _, p := range []string{
+			workerctl.PathFilesEnsure, workerctl.PathFilesStage,
+			workerctl.PathFilesTemp, workerctl.PathFilesListDir,
+		} {
+			req, reqErr := http.NewRequest(http.MethodPost, "http://"+bare.Addr+p, strings.NewReader("{}"))
+			Expect(reqErr).NotTo(HaveOccurred())
+			req.Header.Set("Authorization", "Bearer "+token)
+			resp, doErr := http.DefaultClient.Do(req)
+			Expect(doErr).NotTo(HaveOccurred())
+			DeferCleanup(func() { _ = resp.Body.Close() })
+			Expect(resp.StatusCode).To(Equal(http.StatusNotFound), "%s answered without an object store", p)
+		}
 	})
 
 	It("mounts every control verb, not just the one this spec reads", func() {

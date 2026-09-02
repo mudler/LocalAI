@@ -376,32 +376,9 @@ type RunningModelInfo struct {
 	Address      string `json:"address,omitempty"`
 }
 
-// File Staging (Request-Reply — targeted to specific nodes)
-// These subjects use request-reply for synchronous file operations.
-
-// SubjectNodeFilesEnsure tells a serve-backend node to download an S3 key to its local cache.
-// Reply: {local_path, error}
-func SubjectNodeFilesEnsure(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.ensure"
-}
-
-// SubjectNodeFilesStage tells a serve-backend node to upload a local file to S3.
-// Reply: {key, error}
-func SubjectNodeFilesStage(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.stage"
-}
-
-// SubjectNodeFilesTemp tells a serve-backend node to allocate a temp file.
-// Reply: {local_path, error}
-func SubjectNodeFilesTemp(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.temp"
-}
-
-// SubjectNodeFilesListDir tells a serve-backend node to list files in a directory.
-// Reply: {files: [...], error}
-func SubjectNodeFilesListDir(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.listdir"
-}
+// File staging is no longer carried here. The four nodes.<id>.files.* subjects
+// are HTTP routes under workerctl.Prefix, served on the worker's own server and
+// reached through its tunnel, so no subject is minted for them.
 
 // Cache Invalidation (Pub/Sub — broadcast to all instances)
 const (

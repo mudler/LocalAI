@@ -38,7 +38,7 @@ Each model gets its own gRPC backend process, so a single worker can serve multi
 ## Prerequisites
 
 - **PostgreSQL** (with pgvector extension recommended for RAG) - used for node registry, job store, auth, and shared state
-- **NATS** server - used for real-time backend lifecycle events and file staging
+- **NATS** server - used for agent-worker coordination and the frontend's own cross-replica events. Serve-backend workers no longer take any command over it: the backend and model lifecycle verbs and file staging are HTTP routes on the worker's tunnel.
 - All services must be on the same network (or reachable via configured URLs)
 
 ## Quick Start with Docker Compose
@@ -170,17 +170,24 @@ Every connection the frontend makes to a worker now goes through that worker's t
 | Inference, model load, health checks | gRPC to a backend process | `grpc` |
 | Model file staging, backend-log listing | HTTP to the worker's own server | `http` |
 | Live backend-log streaming | WebSocket to the same server | `http` |
-| The control plane: backend install/upgrade/list/stop/delete, model stop/unload/delete, models running, node stop | HTTP to the worker's own server | `http` |
+| The control plane: backend install/upgrade/list/stop/delete, model stop/unload/delete, models running, node stop, and the four object-store staging verbs | HTTP to the worker's own server | `http` |
 
 #### The worker control plane
 
 A serve-backend worker serves the commands the frontend gives it as ordinary
 HTTP routes under `/v1/control/`, on the same loopback server that already
 carries file staging and backend logs, behind the same `LOCALAI_REGISTRATION_TOKEN`
-bearer check. They replace the ten `nodes.<id>.*` NATS subjects a worker used to
-subscribe to; the request and reply bodies are unchanged, so nothing an operator
-inspects on the wire has a new shape. Agent workers still take `nodes.<id>.backend.stop`
-over NATS.
+bearer check. They replace the fourteen `nodes.<id>.*` NATS subjects a worker
+used to subscribe to - the ten backend and model lifecycle verbs, plus the four
+object-store staging verbs (`POST /v1/control/files/{ensure,stage,temp,listdir}`,
+mounted only when the deployment configured an object store). The request and
+reply bodies are unchanged, so nothing an operator inspects on the wire has a new
+shape. Agent workers still take `nodes.<id>.backend.stop` over NATS.
+
+`files/listdir` is the verb the change is most visible on. Its reply used to be
+sized against what the bus would carry, which put a wide model directory close to
+the limit; it is now a response body the frontend is already reading, so the
+listing is returned whole and nothing truncates it at either end.
 
 Two of the routes stream. `POST /v1/control/backend/install` and
 `/v1/control/backend/upgrade` answer with `application/x-ndjson`: zero or more
@@ -399,7 +406,7 @@ A frontend replica that dies mid-load does not wedge the model: the job row carr
 
 ### NATS JWT authentication (recommended for production)
 
-By default, NATS connections are anonymous: any client that can reach port `4222` may publish the subjects still carried on it. Serve-backend workers no longer subscribe to `nodes.<id>.backend.install` and its nine siblings - those are HTTP routes on the worker's tunnel now, see [The worker control plane](#the-worker-control-plane) - but agent workers, file staging and the frontend's own service credential still use NATS. Enable JWT auth to scope workers to their own node subjects and give the frontend a dedicated service credential.
+By default, NATS connections are anonymous: any client that can reach port `4222` may publish the subjects still carried on it. Serve-backend workers no longer subscribe to `nodes.<id>.backend.install` and its nine siblings - those are HTTP routes on the worker's tunnel now, see [The worker control plane](#the-worker-control-plane) - but agent workers and the frontend's own service credential still use NATS. Enable JWT auth to scope workers to their own node subjects and give the frontend a dedicated service credential.
 
 | Flag | Env Var | Description |
 |------|---------|-------------|
@@ -443,7 +450,7 @@ Generate operator/account material with [`scripts/nats-auth-setup.sh`](https://g
 
 ### Optional: S3 Object Storage
 
-For multi-host deployments where workers don't share a filesystem, S3-compatible storage enables distributed file transfer (model files, configs):
+For multi-host deployments where workers don't share a filesystem, S3-compatible storage enables distributed file transfer (model files, configs). The frontend uploads the file to the bucket and then tells the worker to fetch it, over that worker's tunnel (`POST /v1/control/files/ensure`); the reverse direction (`.../files/stage`) has the worker upload one of its own files for the frontend to pull down. The bytes travel through the bucket, never through the tunnel:
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
@@ -452,6 +459,8 @@ For multi-host deployments where workers don't share a filesystem, S3-compatible
 | `--storage-region` | `LOCALAI_STORAGE_REGION` | `us-east-1` | S3 region |
 | `--storage-access-key` | `LOCALAI_STORAGE_ACCESS_KEY` | *(empty)* | S3 access key |
 | `--storage-secret-key` | `LOCALAI_STORAGE_SECRET_KEY` | *(empty)* | S3 secret key |
+
+A worker started without `LOCALAI_STORAGE_URL` does not serve the four staging verbs at all, and answers `404` for them, which is the same answer a frontend gets from a worker too old to know them.
 
 When S3 is not configured, model files are transferred directly from the frontend to workers via **HTTP** - no shared filesystem needed. Each worker runs a small HTTP file transfer server alongside the gRPC backend process. This is the default and works out of the box.
 
@@ -474,7 +483,10 @@ Hugging Face for managed artifacts.
 
 With `LOCALAI_DISTRIBUTED_SHARED_MODELS` enabled, workers use the shared
 absolute snapshot path and skip transfer. Otherwise, the controller stages the
-complete snapshot tree to each worker before loading the backend.
+complete snapshot tree to each worker before loading the backend. With an object
+store configured the controller uploads to the bucket and commands the worker to
+fetch over its tunnel; without one it pushes the files to the worker's HTTP file
+transfer server directly. Neither path uses NATS.
 
 {{% notice warning %}}
 Every controller and worker must have enough disk space for its own snapshot
@@ -546,7 +558,7 @@ local-ai worker \
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
 | `--worker-tunnel` | `LOCALAI_WORKER_TUNNEL` | `true` | Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port (see [Worker tunnels](#worker-tunnels)). Setting it to `false` is a **fatal startup error**, not a degraded mode: the frontend has no path that dials a worker's advertised address, so a worker without its tunnel is a worker nothing can reach. To run without tunnels, run the pre-tunnel release on both the worker and the frontend. |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL for backend installation and file staging |
+| `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL. A serve-backend worker takes no command over it - backend installation and file staging are HTTP routes on its tunnel - but it must still connect for the frontend to consider it healthy. |
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
 | `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |
 | `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | `false` | Require NATS JWT+seed (from registration or env) |

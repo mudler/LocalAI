@@ -29,6 +29,17 @@ const (
 	PathModelDelete    = "/v1/control/model/delete"
 	PathModelsRunning  = "/v1/control/models/running"
 	PathNodeStop       = "/v1/control/node/stop"
+
+	// The file-staging verbs. They are only ever served by a worker whose
+	// deployment configured an object store, because without one there is
+	// nothing for them to move a file to or from; a worker without one mounts
+	// them not at all, and the catch-all under Prefix answers for them. That is
+	// the same 404 an older build gives, which is what the frontend already
+	// reads as "this worker does not serve that verb" rather than as absence.
+	PathFilesEnsure  = "/v1/control/files/ensure"
+	PathFilesStage   = "/v1/control/files/stage"
+	PathFilesTemp    = "/v1/control/files/temp"
+	PathFilesListDir = "/v1/control/files/listdir"
 )
 
 // AllPaths returns every control verb's path.
@@ -47,6 +58,10 @@ func AllPaths() []string {
 		PathModelDelete,
 		PathModelsRunning,
 		PathNodeStop,
+		PathFilesEnsure,
+		PathFilesStage,
+		PathFilesTemp,
+		PathFilesListDir,
 	}
 }
 

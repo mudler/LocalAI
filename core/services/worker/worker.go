@@ -19,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -225,8 +226,26 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		maxPort:      cfg.effectiveMaxPort(basePort),
 	}
 
+	// The file-staging FileManager is built BEFORE the server, for the same
+	// reason the supervisor is: the server is what serves those four verbs, and
+	// a route that is not mounted when the tunnel comes up is a 404 the
+	// frontend reads as a worker that does not implement the verb. It used to
+	// be built after NATS connected, which is a window that no longer exists.
+	//
+	// A worker with no object store configured mounts NO file verbs. That is
+	// the honest answer rather than a degraded one: it has nowhere to fetch
+	// from or stage to, and the frontend that reaches such a deployment uses
+	// the HTTP file stager, which does not call these paths at all.
+	var stagingFM *storage.FileManager
+	if cfg.StorageURL != "" {
+		stagingFM, err = cfg.NewStagingFileManager(shutdownCtx)
+		if err != nil {
+			return fmt.Errorf("initializing file staging: %w", err)
+		}
+	}
+
 	httpServer, err := startWorkerHTTPServer(httpAddr, stagingDir, cfg.ModelsPath, dataDir,
-		cfg.RegistrationToken, readiness, supervisor, ml.BackendLogs())
+		cfg.RegistrationToken, readiness, supervisor, cfg, stagingFM, ml.BackendLogs())
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
@@ -305,14 +324,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 	}()
 
-	// Subscribe to file staging NATS subjects if S3 is configured
-	if cfg.StorageURL != "" {
-		if err := cfg.subscribeFileStaging(natsClient, nodeID); err != nil {
-			nodes.ShutdownFileTransferServer(httpServer)
-			return fmt.Errorf("subscribing to file staging subjects: %w", err)
-		}
-	}
-
 	xlog.Info("Worker ready, serving its control plane over the tunnel")
 	// Exit on an OS signal or on an internal fatal condition (e.g. NATS
 	// credentials became unrenewable), so the worker restarts and re-acquires
@@ -343,10 +354,19 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 // the server without the control plane and producing a worker that looks
 // healthy while answering 404 to every command.
 func startWorkerHTTPServer(addr, stagingDir, modelsDir, dataDir, token string,
-	readiness *nodes.WorkerReadiness, sup *backendSupervisor, logStore *model.BackendLogStore) (*http.Server, error) {
+	readiness *nodes.WorkerReadiness, sup *backendSupervisor, cfg *Config,
+	stagingFM *storage.FileManager, logStore *model.BackendLogStore) (*http.Server, error) {
 	return nodes.StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token,
 		config.DefaultMaxUploadSize, readiness, &nodes.AuthenticatedRoutes{
-			Prefix:   workerctl.Prefix,
-			Register: sup.RegisterControlRoutes,
+			Prefix: workerctl.Prefix,
+			// One registrar for both route sets, because there is ONE control
+			// prefix and AuthenticatedRoutes mounts one mux behind one bearer
+			// check. A second route set would be a second check to forget.
+			Register: func(mux *http.ServeMux) {
+				sup.RegisterControlRoutes(mux)
+				if stagingFM != nil {
+					cfg.RegisterFileControlRoutes(mux, stagingFM)
+				}
+			},
 		}, logStore)
 }

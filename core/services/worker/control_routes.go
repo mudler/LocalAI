@@ -85,34 +85,7 @@ func (s *backendSupervisor) upgrader() upgradeFunc {
 // plane shares one bearer check with the file routes rather than growing a
 // second one.
 func (s *backendSupervisor) RegisterControlRoutes(mux *http.ServeMux) {
-	// post registers one JSON-in, JSON-out verb. reply may be nil, in which
-	// case the verb answers 204: that is the shape the two former
-	// publish-no-reply subjects take.
-	post := func(path string, h func(ctx context.Context, body []byte) (any, error)) {
-		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-			body, ok := readControlBody(w, r)
-			if !ok {
-				return
-			}
-			reply, err := h(r.Context(), body)
-			if err != nil {
-				// Reaching here means the request could not be READ or routed,
-				// which is this worker failing rather than answering. A verb's
-				// own failure never reaches here: it comes back as a reply with
-				// Error set, and a 200.
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			if reply == nil {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			if encErr := json.NewEncoder(w).Encode(reply); encErr != nil {
-				xlog.Debug("worker control reply could not be written", "path", path, "error", encErr)
-			}
-		})
-	}
+	post := func(path string, h controlVerb) { postControlVerb(mux, path, h) }
 
 	post(workerctl.PathModelsRunning, func(context.Context, []byte) (any, error) {
 		return messaging.ModelsRunningReply{Models: s.runningModels()}, nil
@@ -197,6 +170,46 @@ func (s *backendSupervisor) RegisterControlRoutes(mux *http.ServeMux) {
 		// a frontend newer than this worker, and the body says so, because a
 		// bare 404 through a tunnel is indistinguishable from a proxy fault.
 		http.Error(w, "unknown worker control path "+truncate(r.URL.Path, maxEchoedPathBytes), http.StatusNotFound)
+	})
+}
+
+// controlVerb is the shape of a JSON-in, JSON-out control handler. A nil reply
+// means the verb answers 204, which is the shape the former publish-no-reply
+// subjects take.
+//
+// An error returned here means the request could not be READ or routed, which
+// is this worker FAILING rather than answering, and it becomes a non-2xx. A
+// verb's own failure is never returned this way: it comes back as a reply with
+// Error set, on a 200. See the note at the top of this file for why the two
+// must not be confused.
+type controlVerb func(ctx context.Context, body []byte) (any, error)
+
+// postControlVerb registers one control verb on mux.
+//
+// It is the single door every control route enters through, so the POST-only
+// check, the bounded read and the 200-with-error-field shape are written once
+// rather than once per route set. The file-staging routes mount through it for
+// exactly that reason: a second registrar with its own copy of the rules is how
+// one of them ends up unbounded, or answering 500 for a verdict.
+func postControlVerb(mux *http.ServeMux, path string, h controlVerb) {
+	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		body, ok := readControlBody(w, r)
+		if !ok {
+			return
+		}
+		reply, err := h(r.Context(), body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if reply == nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if encErr := json.NewEncoder(w).Encode(reply); encErr != nil {
+			xlog.Debug("worker control reply could not be written", "path", path, "error", encErr)
+		}
 	})
 }
 

@@ -390,11 +390,22 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("File manager initialized", "cacheDir", cacheDir)
 
+	// The frontend's control plane client. It reaches every worker over that
+	// worker's own tunnel, on the same `http` stream tag the file stager below
+	// uses, so a control RPC to a worker another replica holds is relayed the
+	// way an inference request is.
+	//
+	// ONE of these for the whole frontend, and the S3 file stager takes this
+	// one rather than minting a second. The client caches an http.Client per
+	// node, which is what keeps a worker's tunnel stream warm between verbs; a
+	// second client would open its own and the two would never share one.
+	controlClient := nodes.NewControlClient(workerHTTPDialer, cfg.Distributed.RegistrationToken)
+
 	// Create FileStager for distributed file transfer
 	var fileStager nodes.FileStager
 	if cfg.Distributed.StorageURL != "" {
-		fileStager = nodes.NewS3NATSFileStager(fileMgr, natsClient)
-		xlog.Info("File stager initialized (S3+NATS)")
+		fileStager = nodes.NewS3FileStager(fileMgr, controlClient)
+		xlog.Info("File stager initialized (object store + worker tunnel)")
 	} else {
 		fileStager = nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
 			node, err := registry.Get(context.Background(), nodeID)
@@ -410,12 +421,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		}, cfg.Distributed.RegistrationToken, workerHTTPDialer)
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}
-	// The frontend's control plane client. It reaches every worker over that
-	// worker's own tunnel, on the same `http` stream tag the file stager above
-	// uses, so a control RPC to a worker another replica holds is relayed the
-	// way an inference request is.
-	controlClient := nodes.NewControlClient(workerHTTPDialer, cfg.Distributed.RegistrationToken)
-
 	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
 	remoteUnloader := nodes.NewRemoteUnloaderAdapter(
 		registry,
