@@ -868,7 +868,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         else:
             # pass the kwargs dictionary to the self.pipe method
             image = self.pipe(
-                prompt,
+                prompt=prompt,
                 guidance_scale=self.cfg_scale,
                 **kwargs
             ).images[0]
