@@ -188,8 +188,8 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// the top of Run so the worker fails before registering.)
 	httpAddr := cfg.resolveHTTPAddr()
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
-	cacheDir := filepath.Join(cfg.ModelsPath, "..", "cache")
-	dataDir := filepath.Join(cfg.ModelsPath, "..", "data")
+	cacheDir := cfg.stagingCacheDir()
+	dataDir := cfg.stagingDataDir()
 	ephemeralRoots := []string{
 		filepath.Join(stagingDir, "ephemeral"),
 		filepath.Join(cacheDir, "ephemeral"),

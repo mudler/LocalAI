@@ -17,12 +17,30 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 		infra = SetupJWTInfra()
 	})
 
-	It("connects with a minted backend worker JWT and publishes on allowed subjects", func() {
-		// Backend workers may publish under nodes.<id>.files.> (see pkg/natsauth permissions).
-		subject := nodeSubjectPrefix(infra.NodeID) + ".files.in"
-		Expect(infra.NC.Publish(subject, map[string]string{"path": "/tmp/model"})).To(Succeed())
+	It("connects with a minted backend worker JWT and publishes on its one remaining allowed subject", func() {
+		// A backend worker's publish grant is `_INBOX.>` and nothing else now.
+		// Every verb a frontend gives it, file staging included, is an HTTP
+		// route on its tunnel, so the `nodes.<id>.files.>` grant went with the
+		// subjects. See pkg/natsauth.WorkerPermissions.
+		Expect(infra.NC.Publish("_INBOX.probe", map[string]string{"path": "/tmp/model"})).To(Succeed())
 		Expect(infra.NC.Conn().FlushTimeout(2 * time.Second)).To(Succeed())
+		Expect(infra.NC.Conn().LastError()).ToNot(HaveOccurred())
 		Expect(infra.NC.Conn().IsConnected()).To(BeTrue())
+	})
+
+	It("denies a backend worker the file-staging subjects it no longer serves", func() {
+		// This spec used to assert the OPPOSITE, and kept passing after the
+		// grant was deleted. A NATS permission violation does not close the
+		// connection, so a spec that checks only FlushTimeout and IsConnected
+		// cannot tell an allowed publish from a denied one; LastError is what
+		// actually reads the server's verdict, which is why the sibling below
+		// has always used it.
+		subject := nodeSubjectPrefix(infra.NodeID) + ".files.stage"
+		Expect(infra.NC.Publish(subject, map[string]string{"path": "/tmp/model"})).To(Succeed())
+		Eventually(func() error {
+			_ = infra.NC.Conn().FlushTimeout(500 * time.Millisecond)
+			return infra.NC.Conn().LastError()
+		}, "3s", "50ms").Should(HaveOccurred())
 	})
 
 	It("allows backend subscribe on the node prefix", func() {
