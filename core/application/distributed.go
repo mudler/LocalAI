@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -165,6 +166,13 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Bound durable heartbeat writes: a beat that only carries a fresher
 	// timestamp is what turned backend_nodes into a 460 MB six-row table.
 	registry.SetHeartbeatCheckpoint(cfg.Distributed.NodeHeartbeatCheckpointOrDefault())
+
+	// Measure the vacuum horizon. The 42 days it stayed open went unnoticed
+	// because no gauge reported it until models started failing to load.
+	if err := monitoring.RegisterControlPlaneDBMetrics(authDB, 30*time.Second); err != nil {
+		// Metrics are diagnostic; a failure here must not stop the frontend.
+		xlog.Warn("Control-plane database metrics unavailable", "error", err)
+	}
 
 	// Let scheduling rules be keyed by a model alias. The registry resolves a
 	// rule's name through the config loader to find the model it governs, so an

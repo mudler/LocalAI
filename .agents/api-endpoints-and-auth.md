@@ -236,6 +236,42 @@ Use these HTTP status codes:
 
 If your endpoint should be tracked for usage (token counts, request counts), add the `usageMiddleware` to its middleware chain. See `core/http/middleware/usage.go` and how it's applied in `routes/openai.go`.
 
+## Control-plane database health metrics
+
+In distributed mode the frontend registers three OpenTelemetry gauges over the
+PostgreSQL control-plane database (`core/services/monitoring/control_plane_db.go`,
+wired in `core/application/distributed.go`). They reach `/metrics` through the
+same Prometheus exporter as the rest of the API metrics.
+
+| Metric | Meaning | Page when |
+|--------|---------|-----------|
+| `localai_control_plane_oldest_xmin_age` | Transactions elapsed since the oldest snapshot any backend still holds | above a few million, and rising |
+| `localai_control_plane_longest_transaction_seconds` | Age of the longest open transaction | above 3600 |
+| `localai_control_plane_dead_tuple_ratio` | Dead tuples per live tuple, labelled by `table`, on `backend_nodes`, `node_models` and `gallery_operations` | sustained above ~10 on a small table |
+
+A sustained high `localai_control_plane_oldest_xmin_age` is the one to page on.
+While it grows, autovacuum can reclaim nothing anywhere in the database no
+matter how often it runs, so the dead tuple ratio keeps climbing and a six-row
+registry table can reach hundreds of megabytes. Tuning autovacuum does not help.
+The fix is to find the transaction holding the horizon open and clear it:
+
+```sql
+SELECT pid, state, age(backend_xmin) AS xmin_age, now() - xact_start AS xact_age, query
+FROM pg_stat_activity
+WHERE backend_xmin IS NOT NULL
+ORDER BY age(backend_xmin) DESC;
+```
+
+Then `pg_terminate_backend(pid)` on the offenders, and `VACUUM (VERBOSE)` the
+bloated tables once the horizon has moved.
+
+Sampling is scrape-driven behind a 30 second cache, so scrape frequency does not
+translate into database load. A failed sample reports the last good values rather
+than failing the scrape, because these gauges matter most when the database is
+already struggling. Before the first successful sample the gauges are absent
+rather than zero, since a zero xmin age would read as a healthy horizon: alert on
+`absent()` too if you need to distinguish "healthy" from "never sampled".
+
 ## Advertising surfaces — where to register a new capability
 
 Beyond routing and auth, LocalAI publishes its capability surface in **four independent places**. When you add an endpoint — especially one introducing a net-new capability like a new media type or a new auth-gated feature — you must update every relevant surface. These aren't optional: missing them means the endpoint works but is invisible to clients, admins, and the UI.
