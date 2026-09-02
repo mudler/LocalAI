@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,8 +41,8 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("S3NATSFileStager", func() {
-		It("should create S3NATSFileStager with valid config", func() {
+	Context("S3FileStager", func() {
+		It("should create S3FileStager with valid config", func() {
 			storeDir := filepath.Join(tmpDir, "objectstore")
 			cacheDir := filepath.Join(tmpDir, "cache")
 
@@ -53,7 +53,7 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fm.IsConfigured()).To(BeTrue())
 
-			stager := nodes.NewS3NATSFileStager(fm, infra.NC)
+			stager := nodes.NewS3FileStager(fm, nodes.NewControlClient(directWorkerDialerFor, ""))
 			Expect(stager).ToNot(BeNil())
 		})
 	})
@@ -83,8 +83,8 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 		})
 	})
 
-	Context("S3NATSFileStager with backend node simulation", func() {
-		It("should coordinate file staging via NATS request-reply", func() {
+	Context("S3FileStager with backend node simulation", func() {
+		It("should coordinate file staging over the worker's control plane", func() {
 			storeDir := filepath.Join(tmpDir, "objectstore")
 			cacheDir := filepath.Join(tmpDir, "cache")
 
@@ -103,15 +103,14 @@ var _ = Describe("File Staging", Label("Distributed"), func() {
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
-			// Verify NATS file staging subjects are correctly formed
-			ensureSubj := messaging.SubjectNodeFilesEnsure(node.ID)
-			Expect(ensureSubj).To(ContainSubstring("files.ensure"))
-
-			stageSubj := messaging.SubjectNodeFilesStage(node.ID)
-			Expect(stageSubj).To(ContainSubstring("files.stage"))
-
-			tempSubj := messaging.SubjectNodeFilesTemp(node.ID)
-			Expect(tempSubj).To(ContainSubstring("files.temp"))
+			// The staging verbs are HTTP routes on the worker's own control
+			// plane now, so what a registered node is addressed by is its
+			// tunnel host and the path, not a subject.
+			Expect(nodes.WorkerHTTPHost(node.ID, "")).To(ContainSubstring(node.ID))
+			Expect(workerctl.PathFilesEnsure).To(HavePrefix(workerctl.Prefix))
+			Expect(workerctl.PathFilesStage).To(HavePrefix(workerctl.Prefix))
+			Expect(workerctl.PathFilesTemp).To(HavePrefix(workerctl.Prefix))
+			Expect(workerctl.PathFilesListDir).To(HavePrefix(workerctl.Prefix))
 		})
 	})
 
