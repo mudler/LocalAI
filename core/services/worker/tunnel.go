@@ -65,11 +65,24 @@ const (
 	tunnelHandshakeTimeout = 10 * time.Second
 
 	// tunnelHeaderTimeout bounds how long a stream may go without sending the
-	// request frame that says what it is for. It is generous because it bounds
-	// only the frontend's own framing, which it writes immediately after
-	// opening the stream; it is present because without it a stream that sends
-	// nothing holds a goroutine and one of the session's stream slots for as
-	// long as the tunnel lives.
+	// request frame that says what it is for. It is present because without it
+	// a stream that sends nothing holds a goroutine and one of the session's
+	// stream slots for as long as the tunnel lives.
+	//
+	// It is generous because it does NOT bound only the frontend's own framing.
+	// An earlier version of this comment said it did, which is true on the
+	// direct path and false on the relay path that carries most of a
+	// multi-replica deployment's traffic: this timer starts when the OWNING
+	// replica opens the stream, while the frame is written by the DIALLING
+	// replica only after the relay's acceptance has travelled back to it. A
+	// whole peer-link round trip therefore runs inside this window, on a link
+	// deliberately loaded with multi-gigabyte artifacts beside token streams.
+	//
+	// The comment mattered because it was the argument for treating an expiry
+	// as the frontend's fault: framing written immediately can only be late if
+	// something is wrong with the frontend. It cannot, so an expiry is refused
+	// with cluster.ErrStreamNotServed and says nothing about a backend. See
+	// Tunnel.accept.
 	tunnelHeaderTimeout = 15 * time.Second
 )
 
@@ -358,7 +371,7 @@ func (t *Tunnel) accept(ctx context.Context, stream net.Conn) (net.Conn, bool) {
 		// with multi-gigabyte artifacts. Reported as a malformed request it
 		// became reaping evidence, and for a long-deadline caller that is a
 		// model evicted across the fleet by nothing but congestion.
-		if isReadTimeout(err) {
+		if reportsTimeout(err) {
 			t.refuse(stream, fmt.Errorf("%w: %v", cluster.ErrStreamNotServed, err))
 			return nil, false
 		}
@@ -408,51 +421,85 @@ func (t *Tunnel) accept(ctx context.Context, stream net.Conn) (net.Conn, bool) {
 // classifyServiceFailure decides which refusal a local service's error is.
 //
 // A service that has ALREADY classified its own failure keeps that
-// classification. loopbackService does, and the distinction is not cosmetic: a
+// classification, and that is asked of the whole vocabulary rather than of one
+// sentinel. loopbackService classifies, and the distinction is not cosmetic: a
 // target outside this worker's backend port range is a request this worker will
 // never serve, while a backend that is not listening yet is a condition that
 // clears on its own. Reporting the first as the second tells a frontend to
 // retry something that can never work; reporting the second as the first makes
 // it give up on a backend that is merely starting.
 //
+// This used to preserve ONE of the four codes, which was true to its own
+// comment for exactly as long as there was one classification worth keeping.
+// Once ErrStreamNotServed existed, a service returning the code whose entire
+// job is to say "I learned nothing" had it PROMOTED here into
+// ErrStreamTargetUnavailable, which every reap guard acts on. No in-tree
+// service produced it, which is the same "unreachable, therefore safe"
+// argument that let the request-frame merge survive a whole phase; LocalService
+// and TunnelConfig.Services are both exported, so out-of-tree is a real place.
+// cluster.IsStreamRefusal reads the vocabulary table, so a fifth code is
+// preserved here without anyone remembering to come back.
+//
 // The default is TargetUnavailable and stays that way, which is the deliberate
 // half of this function now that the frontend acts on that code. A dial to the
 // named process that came back with anything is the closest thing to evidence
 // this worker can produce, and the direction of a mis-classification decides
-// which mistake is made: defaulting the other way would mean a genuinely dead
-// backend whose errno nobody enumerated becomes a permanently unreapable row,
-// which is the exact defect this phase spent a round removing. So the
-// exemptions below are a DENY-list of causes that are provably not about the
-// target, not an allow-list of causes that are.
+// which mistake is made. A wrong reap is ACTIVE: it deletes rows and, on the
+// inference path, runs ShutdownModel on a model that is loaded and serving. A
+// wrong retention is passive, bounded to one replica slot, and clears on a
+// restart or an eviction. An allow-list of reapable causes would also fail
+// SILENTLY and PERMANENTLY when it missed one, where a deny-list that misses
+// fails loudly. So the exemptions below are a DENY-list of causes that are not
+// the target answering, not an allow-list of causes that are.
 //
-// The two exempted are the caller's context ending and a read/write deadline
-// firing. Neither is the target answering: the context here is the SESSION's,
-// so it ends when this worker's tunnel is torn down, and a deadline is this
-// process's own timer. Both clear on a reconnect. They are exempted rather
-// than argued away as unreachable because "unreachable" was the argument that
-// made the request-frame merge look safe.
+// The exempted causes, stated exactly, because an earlier version of this
+// comment said "two" and the predicate covered more than it named:
+//
+//   - The context ending. Here that is the SESSION's context, cancelled while
+//     stream goroutines are still running, so it means this worker's tunnel is
+//     being torn down and will reconnect.
+//   - This process's own I/O deadline (os.ErrDeadlineExceeded).
+//   - Anything else reporting itself as a net.Error timeout, which on a DIAL
+//     also covers syscall.ETIMEDOUT and syscall.EAGAIN. Those are kept
+//     deliberately. EAGAIN is this worker running out of resources, which is
+//     plainly not about the target. ETIMEDOUT from connect(2) IS an observation
+//     about the target, but it is the observation "it did not finish the
+//     handshake", which is a wedged or backlogged listener rather than an
+//     absent one, and reaping an overloaded backend is the eviction this whole
+//     phase exists to prevent. ECONNREFUSED, the shape of a process that is
+//     genuinely gone, is not a timeout and still reaps.
+//
+// They are exempted rather than argued away as unreachable because
+// "unreachable" was the argument that made the request-frame merge look safe.
 //
 // It must never become the unknown-tag refusal either: a tag this worker serves
 // does not stop being served because one dial failed.
 func classifyServiceFailure(err error) error {
-	if errors.Is(err, cluster.ErrStreamRequestInvalid) {
+	if cluster.IsStreamRefusal(err) {
 		return err
 	}
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || isReadTimeout(err) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || reportsTimeout(err) {
 		return fmt.Errorf("%w: %v", cluster.ErrStreamNotServed, err)
 	}
 	return fmt.Errorf("%w: %v", cluster.ErrStreamTargetUnavailable, err)
 }
 
-// isReadTimeout reports whether err is an I/O deadline firing rather than a
-// peer saying anything.
+// reportsTimeout reports whether err says of ITSELF that it is a timeout.
+//
+// Named for what it asks rather than for where it is asked, because it is asked
+// in two places that mean different things. On a stream READ it is a deadline
+// this process armed. On a DIAL it is wider: Go's syscall.Errno.Timeout is true
+// for ETIMEDOUT and EAGAIN as well, and net.OpError passes that through. Both
+// call sites want the same ANSWER (not the target speaking, so not evidence
+// about a backend), which is why one predicate serves both; see
+// classifyServiceFailure for why the wider set is kept deliberately.
 //
 // net.Error's Timeout is asked as well as os.ErrDeadlineExceeded because the
 // two are not the same set: a yamux stream returns its own timeout value from
 // a Read whose deadline expired, and a net.OpError over a socket returns
 // os.ErrDeadlineExceeded. Missing either would put a timeout back on the
 // verdict path, which is the defect this predicate exists to keep closed.
-func isReadTimeout(err error) bool {
+func reportsTimeout(err error) bool {
 	if errors.Is(err, os.ErrDeadlineExceeded) {
 		return true
 	}
