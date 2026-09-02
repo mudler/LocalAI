@@ -86,6 +86,10 @@ type holdClientFactory struct{ client *holdBackend }
 
 func (f *holdClientFactory) NewClient(_ string, _ bool) grpc.Backend { return f.client }
 
+func (f *holdClientFactory) NewClientForNode(_, address string, parallel bool) (grpc.Backend, error) {
+	return f.NewClient(address, parallel), nil
+}
+
 var _ = Describe("size-derived remote LoadModel budget", func() {
 	// Production, on an NVIDIA Jetson Thor worker: a 70 GB video checkpoint
 	// (longcat-video-avatar-1.5) failed reproducibly after 953.5s with
@@ -108,7 +112,7 @@ var _ = Describe("size-derived remote LoadModel budget", func() {
 		backend = &holdBackend{}
 		factory = &holdClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:9001"},
 		}
 		dir = GinkgoT().TempDir()
 	})

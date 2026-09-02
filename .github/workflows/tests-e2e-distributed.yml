@@ -1,0 +1,204 @@
+---
+name: 'E2E Distributed Tests'
+
+on:
+  pull_request:
+    # The suite's dependency graph is 99 packages, so an allowlist of paths
+    # silently stops guarding the moment code moves. At ~75s the job is cheap
+    # enough to run unless the diff is confined to paths it provably cannot
+    # reach. See .agents/ci-caching.md.
+    paths-ignore:
+      - 'gallery/**'
+      - 'docs/**'
+      - 'examples/**'
+      - '**/*.md'
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ci-tests-e2e-distributed-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests-e2e-distributed:
+    runs-on: ubuntu-latest
+    # Advisory because it is deliberately not in branch protection, so a failure
+    # is a visible red X rather than a blocked merge. Promoting it to a required
+    # check is a repository-settings change, to be made once it has a track
+    # record; a heavy suite made required on day one gets disabled instead of
+    # fixed.
+    timeout-minutes: 45
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Configure apt mirror on runner
+        uses: ./.github/actions/configure-apt-mirror
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libopus-dev
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Pre-pull test images
+        # Pulling here rather than inside the suite keeps container-start timing
+        # out of the spec timeouts and makes a registry outage read as a
+        # setup failure instead of a test failure. These two are the only images
+        # the suite needs once the testcontainers reaper is disabled below.
+        run: |
+          docker pull postgres:16-alpine
+          docker pull nats:2-alpine
+      - name: Distributed E2E
+        # TESTCONTAINERS_RYUK_DISABLED keeps the pre-pull above meaningful. The
+        # reaper exists to clean up leaked containers on a long-lived host, but
+        # this runner is ephemeral and every container dies with the VM. Leaving
+        # it enabled would pull a third, unpinned image (testcontainers/ryuk)
+        # from Docker Hub mid-suite: exactly the registry dependency the
+        # pre-pull step exists to remove.
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: |
+          PATH="$PATH:$HOME/go/bin" make test-e2e-distributed
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
+
+  tests-e2e-cluster:
+    runs-on: ubuntu-latest
+    # Advisory for the same reason as the job above: master has no branch
+    # protection, so a failure here is a visible red X rather than a blocked
+    # merge. That is a repository-settings property, not a YAML key. The key
+    # that looks like it says "advisory" instead flips the run's conclusion to
+    # success, which hides the failure rather than flagging it, so it appears in
+    # none of this repo's workflows and must not be added here.
+    #
+    # Separate job from tests-e2e-distributed so the fast in-process suite is
+    # not held behind a Go build of local-ai. Serial on purpose: each Ginkgo
+    # process would get its own PostgreSQL and NATS container and each spec
+    # spawns two or three local-ai children, so --procs on an unmeasured runner
+    # is a change to make with numbers, not by default.
+    #
+    # The two timeouts bound different things and are not alternatives. Ginkgo's
+    # --timeout=20m bounds the SUITE only; this job timeout must additionally
+    # cover setup, which here is the larger and more variable half: submodule
+    # checkout, apt, protoc plus two go installs plus protogen-go, a cold-cache
+    # module download (cache: false), a full go build of ./cmd/local-ai, and a
+    # separate ginkgo test compile. That build alone is ~316s of CPU, so on a
+    # 4-vCPU runner setup is realistically 8-12 minutes.
+    #
+    # 45 minutes therefore, matching the sibling job. A tighter number does not
+    # make a hang fail faster, it just moves the kill from Ginkgo, which prints
+    # which spec hung, to the runner, which prints nothing: a red job with no
+    # evidence, which is how a suite gets disabled rather than fixed.
+    #
+    # The suite itself is about 8m30s over three consecutive runs (509.1s /
+    # 509.8s / 512.3s, so 8m29s to 8m32s) on a developer box, and will be slower
+    # here. Three specs sit at ~167s each because they wait out a 60s staleness
+    # threshold plus a 15s health-check tick (HealthCheckInterval, in
+    # core/config/distributed_config.go; core/services/nodes/health.go runs the
+    # ticker on the unexported checkInterval, not one of the reconcilers). Do
+    # not shorten those windows to make this job faster: the wait is what stops
+    # the assertions from passing before the system could have reacted, which
+    # was a real false green earlier on.
+    timeout-minutes: 45
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Configure apt mirror on runner
+        uses: ./.github/actions/configure-apt-mirror
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libopus-dev
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Stub the embedded React UI
+        # core/http/react-ui/dist is gitignored and built by Node, but this
+        # suite drives the HTTP API and never the UI, which has its own e2e
+        # suite. A single index.html satisfies the //go:embed react-ui/dist/*
+        # in core/http/app.go, so the job skips a full Node and Vite install.
+        # If a cluster spec ever asserts on a UI asset, this step must go and
+        # the real build come back: a developer box has a real dist/, so such a
+        # spec would pass locally and fail only here, or worse be served the
+        # stub and pass in both places.
+        run: |
+          mkdir -p core/http/react-ui/dist
+          printf '<!doctype html><title>stub</title>\n' > core/http/react-ui/dist/index.html
+      - name: Build local-ai
+        # Not `make build`: that target pulls in the React UI build. The specs
+        # exec this binary directly via LOCALAI_E2E_BINARY.
+        run: |
+          PATH="$PATH:$HOME/go/bin" go build -o local-ai ./cmd/local-ai
+      - name: Pre-pull test images
+        # Same reasoning as the job above: pulling here keeps container-start
+        # timing out of the spec timeouts and makes a registry outage read as a
+        # setup failure rather than a test failure.
+        run: |
+          docker pull postgres:16-alpine
+          docker pull nats:2-alpine
+      - name: Cluster E2E
+        env:
+          LOCALAI_E2E_BINARY: ${{ github.workspace }}/local-ai
+          # Must live under the workspace so the upload step below can reach it.
+          # The harness defaults to GinkgoT().TempDir(), which lands under
+          # TMPDIR and would leave the artifact glob matching nothing.
+          LOCALAI_E2E_LOG_DIR: ${{ github.workspace }}/cluster-logs
+          # Belt and braces: the harness already fails rather than skips when CI
+          # is set, and GitHub Actions always sets CI. Stating it here means a
+          # future edit to that default cannot silently turn this job into one
+          # that passes without ever starting a cluster, since a skipped cluster
+          # spec is indistinguishable from a passing one.
+          LOCALAI_E2E_REQUIRE_BINARIES: "true"
+          # See the job above: the runner is ephemeral, so the reaper buys
+          # nothing and would pull a third, unpinned Docker Hub image mid-suite.
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: |
+          PATH="$PATH:$HOME/go/bin" make test-e2e-cluster
+      - name: Upload process logs
+        # The per-process logs are the only way to read a cluster failure: the
+        # Ginkgo output says which assertion failed, not what the four child
+        # processes were doing. Without this a red job is undebuggable.
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: cluster-process-logs
+          path: cluster-logs/**/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true

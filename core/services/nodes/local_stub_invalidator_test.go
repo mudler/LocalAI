@@ -44,7 +44,7 @@ var _ = Describe("LocalStubInvalidator", func() {
 	})
 
 	It("drops the local stub once the last replica of the model is gone", func() {
-		store := NewDistributedModelStore(local, registry)
+		store := NewDistributedModelStore(local, registry, newFakeBackendClientFactory())
 		Expect(registry.SetNodeModel(context.Background(), nodeA.ID, "ghost-model", 0, "loaded", "10.0.0.1:12345", 0)).To(Succeed())
 		local.Set("ghost-model", model.NewModel("ghost-model", "10.0.0.1:12345", nil))
 
@@ -64,7 +64,7 @@ var _ = Describe("LocalStubInvalidator", func() {
 	})
 
 	It("keeps the local stub while another replica still serves the model", func() {
-		store := NewDistributedModelStore(local, registry)
+		store := NewDistributedModelStore(local, registry, newFakeBackendClientFactory())
 		Expect(registry.SetNodeModel(context.Background(), nodeA.ID, "shared-model", 0, "loaded", "10.0.0.1:12345", 0)).To(Succeed())
 		Expect(registry.SetNodeModel(context.Background(), nodeB.ID, "shared-model", 0, "loaded", "10.0.0.2:12345", 0)).To(Succeed())
 		local.Set("shared-model", model.NewModel("shared-model", "10.0.0.1:12345", nil))
@@ -92,7 +92,7 @@ var _ = Describe("LocalStubInvalidator", func() {
 	})
 
 	It("drops the local stub when a whole node's replicas are removed", func() {
-		store := NewDistributedModelStore(local, registry)
+		store := NewDistributedModelStore(local, registry, newFakeBackendClientFactory())
 		Expect(registry.SetNodeModel(context.Background(), nodeA.ID, "node-model", 0, "loaded", "10.0.0.1:12345", 0)).To(Succeed())
 		local.Set("node-model", model.NewModel("node-model", "10.0.0.1:12345", nil))
 

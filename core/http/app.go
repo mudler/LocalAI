@@ -1,12 +1,14 @@
 package http
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
 	"math"
 	"mime"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,6 +30,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
+	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/finetune"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -566,15 +569,79 @@ func API(application *application.Application) (*echo.Echo, error) {
 	distCfg := application.ApplicationConfig().Distributed
 	var registry *nodes.NodeRegistry
 	var remoteUnloader nodes.NodeCommandSender
+	// How the admin log-proxy routes reach a worker's own HTTP server. Left nil
+	// outside distributed mode, where there are no workers and no tunnels; the
+	// routes then refuse rather than dialling an address directly.
+	var workerHTTPDialFor nodes.WorkerNetDialerFor
 	if d := application.Distributed(); d != nil {
 		registry = d.Registry
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}
+		if d.WorkerDialer != nil {
+			workerHTTPDialFor = func(nodeID string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return d.WorkerDialer.DialerFor(nodeID, clustersvc.StreamTagHTTP)
+			}
+		}
 	}
 	natsCfg := distCfg.NatsAuthConfig()
 	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDialFor)
+
+	// Replica-to-replica peer link. Registered only in distributed mode: in
+	// single-node mode there are no peers, and the route authenticates with the
+	// registration token, so publishing it unconditionally would put a
+	// multiplexer on every single-binary install.
+	if d := application.Distributed(); d != nil && d.PeerSessions != nil {
+		if distCfg.RegistrationToken == "" {
+			// The handler fails closed on an empty token, which is right and
+			// invisible: without this line an operator sees only 401s on a
+			// route they never configured, and nothing connecting them to the
+			// token they did not set.
+			xlog.Warn("Replica peer link will refuse every dial: no registration token is configured",
+				"route", clustersvc.PeerPath, "knob", "LOCALAI_REGISTRATION_TOKEN")
+		}
+		routes.RegisterClusterRoutes(e, distCfg.RegistrationToken, d.PeerSessions.Accept)
+	}
+
+	// The worker tunnel, registered unconditionally. Both arguments are nil
+	// outside distributed mode and the handler refuses every dial then, which
+	// is what makes registering it always safe; what it buys is the
+	// route-coverage test walking the route in a plain single-binary
+	// application, and that test is what holds the rule that an unauthenticated
+	// dial is refused BEFORE the WebSocket upgrade.
+	var tunnels *clustersvc.TunnelRegistry
+	if d := application.Distributed(); d != nil {
+		tunnels = d.Tunnels
+		if distCfg.RegistrationToken == "" {
+			// A different warning from the peer link's, for the same missing
+			// knob, because what breaks is different. Tunnels themselves work
+			// without a registration token: each node is minted its own tunnel
+			// credential at registration whether or not one is configured. What
+			// is missing is the gate in FRONT of that. With no registration
+			// token, RegisterNodeEndpoint validates nothing, so anyone who can
+			// reach this frontend can register a node and be issued a tunnel
+			// credential for it.
+			//
+			// How far that gets them depends on the OTHER knob. With
+			// auto-approve on, the node is healthy at once and the credential
+			// works immediately. With it off, the node is pending, and the
+			// tunnel route refuses a pending node on every dial, so the
+			// credential is inert until an admin approves it and approval is
+			// the real gate. Worth stating precisely, because the same commit
+			// argues exactly this distinction three files away to justify
+			// minting for pending nodes at all.
+			//
+			// This warning replaced one that said the opposite, that tunnels
+			// would refuse every dial without this token. That was true while
+			// the tunnel authenticated against the registration token's own
+			// hash, and stopped being true when nodes got credentials of their
+			// own.
+			xlog.Warn("Node registration is unauthenticated, so any caller that can reach this frontend can register a worker and be issued a tunnel credential",
+				"route", clustersvc.ConnectPath, "knob", "LOCALAI_REGISTRATION_TOKEN")
+		}
+	}
+	routes.RegisterWorkerTunnelRoute(e, registry, tunnels)
 
 	// Distributed SSE routes (job progress + agent events via NATS)
 	if d := application.Distributed(); d != nil {

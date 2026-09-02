@@ -250,7 +250,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 	Describe("StopModelReplica", func() {
 		It("requests an acknowledged stop for the exact process", func() {
 			mc.requestReply, _ = json.Marshal(messaging.ModelStopReply{Matched: true, Terminated: true, ProcessKey: "llama#2"})
-			replica := NodeModel{ModelName: "llama", ReplicaIndex: 2, Address: "127.0.0.1:5002", ConfigRevision: "rev-1"}
+			replica := NodeModel{ModelName: "llama", ReplicaIndex: 2, WorkerLocalAddress: "127.0.0.1:5002", ConfigRevision: "rev-1"}
 
 			reply, err := adapter.StopModelReplica(context.Background(), "node-1", replica, true)
 			Expect(err).NotTo(HaveOccurred())
@@ -344,7 +344,7 @@ func (f *failOnceMessagingClient) Close()            {}
 var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
 	It("passes the configured install timeout to the messaging client", func() {
 		mc := newScriptedMessagingClient()
-		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "127.0.0.1:0"})
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
 
 		_, err := adapter.InstallBackend("n1", "llama-cpp", "", "[]", "", "", "", 0, "", nil)
@@ -394,7 +394,7 @@ var _ = Describe("RemoteUnloaderAdapter NATS timeout handling", func() {
 var _ = Describe("RemoteUnloaderAdapter install progress streaming", func() {
 	It("forwards BackendInstallProgressEvent values into the onProgress callback when the worker publishes them", func() {
 		mc := newScriptedMessagingClient()
-		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "127.0.0.1:0"})
 		mc.scheduleProgressPublish("n1", "op-abc", []messaging.BackendInstallProgressEvent{
 			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "100 MB", Total: "1 GB", Percentage: 10},
 			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "500 MB", Total: "1 GB", Percentage: 50},

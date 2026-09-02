@@ -740,7 +740,7 @@ type fakeProber struct {
 	calls    int
 }
 
-func (f *fakeProber) Probe(_ context.Context, address string) ProbeOutcome {
+func (f *fakeProber) Probe(_ context.Context, _, address string) ProbeOutcome {
 	f.calls++
 	if f.outcomes == nil {
 		return ProbeUnreachable
@@ -770,20 +770,20 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			// Two loaded models — one stale (will probe), one fresh (skipped).
 			stale := &NodeModel{
-				ID:        "stale-1",
-				NodeID:    node.ID,
-				ModelName: "stale-model",
-				Address:   "10.0.0.1:12345",
-				State:     "loaded",
-				UpdatedAt: time.Now().Add(-5 * time.Minute),
+				ID:                 "stale-1",
+				NodeID:             node.ID,
+				ModelName:          "stale-model",
+				WorkerLocalAddress: "10.0.0.1:12345",
+				State:              "loaded",
+				UpdatedAt:          time.Now().Add(-5 * time.Minute),
 			}
 			fresh := &NodeModel{
-				ID:        "fresh-1",
-				NodeID:    node.ID,
-				ModelName: "fresh-model",
-				Address:   "10.0.0.1:54321",
-				State:     "loaded",
-				UpdatedAt: time.Now(), // within probeStaleAfter
+				ID:                 "fresh-1",
+				NodeID:             node.ID,
+				ModelName:          "fresh-model",
+				WorkerLocalAddress: "10.0.0.1:54321",
+				State:              "loaded",
+				UpdatedAt:          time.Now(), // within probeStaleAfter
 			}
 			Expect(db.Create(stale).Error).To(Succeed())
 			Expect(db.Create(fresh).Error).To(Succeed())
@@ -815,12 +815,12 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			node := &BackendNode{Name: "n1", NodeType: NodeTypeBackend, Address: "10.0.0.1:50051"}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			stale := &NodeModel{
-				ID:        "stale-2",
-				NodeID:    node.ID,
-				ModelName: "alive-model",
-				Address:   "10.0.0.1:12345",
-				State:     "loaded",
-				UpdatedAt: time.Now().Add(-5 * time.Minute),
+				ID:                 "stale-2",
+				NodeID:             node.ID,
+				ModelName:          "alive-model",
+				WorkerLocalAddress: "10.0.0.1:12345",
+				State:              "loaded",
+				UpdatedAt:          time.Now().Add(-5 * time.Minute),
 			}
 			Expect(db.Create(stale).Error).To(Succeed())
 

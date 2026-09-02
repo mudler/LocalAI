@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/cluster"
+
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"gorm.io/gorm"
 )
@@ -243,7 +245,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			// node should remain healthy because heartbeat is fresh
 			node := makeTestNode("node-crash", "crash-worker", "10.0.0.9:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-crash", NodeModel{NodeID: "node-crash", ModelName: "piper-model", Address: "10.0.0.9:50053"})
+			store.addNodeModel("node-crash", NodeModel{NodeID: "node-crash", ModelName: "piper-model", WorkerLocalAddress: "10.0.0.9:50053"})
 
 			// gRPC backend is dead — but health is heartbeat-based, not gRPC-based
 			factory.setClient("10.0.0.9:50051", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
@@ -263,7 +265,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			node := makeTestNode("node-model", "model-worker", "10.0.0.10:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-model", NodeModel{NodeID: "node-model", ModelName: "piper-model", Address: "10.0.0.10:50053"})
+			store.addNodeModel("node-model", NodeModel{NodeID: "node-model", ModelName: "piper-model", WorkerLocalAddress: "10.0.0.10:50053"})
 
 			// Model backend is dead
 			factory.setClient("10.0.0.10:50053", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
@@ -285,6 +287,93 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("MarkUnhealthy")))
 		})
 
+		It("probes a model through its NODE, never by dialling the stored address", func() {
+			// The address on a NodeModel row is a port inside the worker. This
+			// frontend reaches it over the worker's tunnel, so the node has to
+			// be part of every probe; a probe built from the address alone is
+			// the direct dial the tunnel replaces.
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-tun", "tun-worker", "10.0.0.20:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-tun", NodeModel{NodeID: "node-tun", ModelName: "m", WorkerLocalAddress: "10.0.0.20:50053"})
+
+			hm.doCheckAll(context.Background())
+			Expect(factory.nodesSeen()).To(ContainElement("node-tun"))
+		})
+
+		It("leaves a model row alone when it cannot reach the worker at all", func() {
+			// Not a miss. A frontend with no way to reach a worker has learned
+			// nothing about that worker's backends, and counting it as a failed
+			// probe would reap every model in the fleet the moment the tunnel
+			// wiring broke.
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			factory.refuseForNode = fmt.Errorf("no tunnel for you")
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-cut", "cut-worker", "10.0.0.21:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-cut", NodeModel{NodeID: "node-cut", ModelName: "m", WorkerLocalAddress: "10.0.0.21:50053"})
+
+			for i := 0; i < perModelMissThreshold+1; i++ {
+				hm.doCheckAll(context.Background())
+			}
+			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("RemoveNodeModel")))
+			Expect(store.getNode("node-cut").Status).To(Equal(StatusHealthy))
+		})
+
+		It("leaves a model row alone when the probe never reached the worker", func() {
+			// The sibling of the factory case above, and the likelier one. The
+			// client is built fine and the tunnel DIAL fails, which gRPC
+			// reports with the same code as a dead backend. Counted as a miss
+			// it would delete every model row in the fleet after three passes
+			// of a peer link blip, while the models kept serving.
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-blip", "blip-worker", "10.0.0.22:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-blip", NodeModel{NodeID: "node-blip", ModelName: "m", WorkerLocalAddress: "10.0.0.22:50053"})
+			factory.setClient("10.0.0.22:50053", &fakeBackendClient{
+				healthy: false,
+				err:     fmt.Errorf("connection error"),
+				dialErr: fmt.Errorf("%w: %w", cluster.ErrNoRoute, cluster.ErrPeerUnreachable),
+			})
+
+			for i := 0; i < perModelMissThreshold+2; i++ {
+				hm.doCheckAll(context.Background())
+			}
+			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("RemoveNodeModel")))
+		})
+
+		It("still reaps a backend that died on a worker it CAN reach", func() {
+			// The other direction, so the new check cannot pass by never
+			// reaping. A dial that succeeded and an RPC that failed is a dead
+			// process, and its row must still go.
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+			hm.perModelHealthCheck = true
+
+			node := makeTestNode("node-dead", "dead-worker", "10.0.0.23:50051", StatusHealthy, freshTime())
+			store.addNode(node)
+			store.addNodeModel("node-dead", NodeModel{NodeID: "node-dead", ModelName: "m", WorkerLocalAddress: "10.0.0.23:50053"})
+			// No dialErr: the transport was fine.
+			factory.setClient("10.0.0.23:50053", &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")})
+
+			for i := 0; i < perModelMissThreshold; i++ {
+				hm.doCheckAll(context.Background())
+			}
+			Expect(store.getCalls()).To(ContainElement("RemoveNodeModel:node-dead:m:0"))
+		})
+
 		It("preserves model row when an intermittent failure is followed by a success", func() {
 			store := newFakeNodeHealthStore()
 			factory := newFakeBackendClientFactory()
@@ -293,7 +382,7 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 
 			node := makeTestNode("node-flap", "flap-worker", "10.0.0.11:50051", StatusHealthy, freshTime())
 			store.addNode(node)
-			store.addNodeModel("node-flap", NodeModel{NodeID: "node-flap", ModelName: "piper-model", Address: "10.0.0.11:50053"})
+			store.addNodeModel("node-flap", NodeModel{NodeID: "node-flap", ModelName: "piper-model", WorkerLocalAddress: "10.0.0.11:50053"})
 
 			deadClient := &fakeBackendClient{healthy: false, err: fmt.Errorf("connection refused")}
 			liveClient := &fakeBackendClient{healthy: true}

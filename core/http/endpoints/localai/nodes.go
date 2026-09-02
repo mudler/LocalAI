@@ -2,6 +2,7 @@ package localai
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -75,10 +77,14 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name          string `json:"name"`
-	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address       string `json:"address"`
-	HTTPAddress   string `json:"http_address,omitempty"`
+	Name     string `json:"name"`
+	NodeType string `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	// No address and no http_address. A worker has no inbound endpoint to
+	// register: it holds one outbound tunnel to a frontend replica and every
+	// protocol the frontend speaks to it travels on that. An older worker still
+	// sends both keys and they are ignored, which is the intended outcome:
+	// storing them would put a dialable-looking endpoint back in the API for
+	// something nothing dials.
 	Token         string `json:"token,omitempty"`
 	TotalVRAM     uint64 `json:"total_vram,omitempty"`
 	AvailableVRAM uint64 `json:"available_vram,omitempty"`
@@ -140,21 +146,14 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 				fmt.Sprintf("invalid node_type %q; must be %q or %q", nodeType, nodes.NodeTypeBackend, nodes.NodeTypeAgent)))
 		}
 
-		// Backend workers require address; agent workers don't serve gRPC
+		// A backend worker no longer has to state an address; the tunnel it
+		// dials is what makes it reachable, and requiring one here would refuse
+		// exactly the workers this design is for.
 		if req.Name == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "name is required"))
 		}
-		if nodeType == nodes.NodeTypeBackend && req.Address == "" {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "address is required for backend workers"))
-		}
 		if len(req.Name) > 255 {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "name exceeds 255 characters"))
-		}
-		if len(req.Address) > 512 {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "address exceeds 512 characters"))
-		}
-		if len(req.HTTPAddress) > 512 {
-			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "http_address exceeds 512 characters"))
 		}
 
 		// Hash the token for storage (if provided)
@@ -175,8 +174,6 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		node := &nodes.BackendNode{
 			Name:                 req.Name,
 			NodeType:             nodeType,
-			Address:              req.Address,
-			HTTPAddress:          req.HTTPAddress,
 			TokenHash:            tokenHash,
 			TotalVRAM:            req.TotalVRAM,
 			AvailableVRAM:        req.AvailableVRAM,
@@ -244,6 +241,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			}
 		}
 
+		attachTunnelToken(ctx, response, registry, node)
 		attachNatsJWT(response, node, natsCfg)
 
 		return c.JSON(http.StatusCreated, response)
@@ -286,6 +284,78 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 
 		return c.JSON(http.StatusOK, response)
 	}
+}
+
+// attachTunnelToken mints this node a fresh tunnel credential, stores only its
+// hash, and puts the plaintext in the registration response.
+//
+// It is minted for EVERY node that registers, pending ones included, which is a
+// deliberate divergence from the two other per-node credentials in this file:
+// the agent worker's API key (provisionAgentWorkerKey) and its NATS JWT
+// (attachNatsJWT) are both withheld from a node awaiting approval. Those two
+// are bearer grants that WORK the moment they are issued, so issuing one to an
+// unapproved node would route around the admin. A tunnel credential is not:
+// core/http/endpoints/cluster/connect.go re-reads the node's status on every
+// dial and refuses a pending node with 403, so the credential is inert until an
+// admin approves and stays inert if approval is revoked. Withholding it would
+// instead strand every worker that registers exactly once (the static-NATS
+// path in core/services/worker/worker.go does), because approval alone does not
+// prompt a re-registration and nothing else can hand it the secret.
+//
+// Only BACKEND nodes get one, and that is a decision rather than an oversight.
+// An agent worker serves no gRPC backends and no file staging; nothing dials
+// into it at all, so a tunnel replaces nothing for it and there is no client on
+// the agent side that would ever open one. Minting anyway would hand out a
+// working credential for a pipe nobody drives, which is surface without a
+// feature, and it would contradict every comment in this change that says
+// "backend workers, the ones that tunnel".
+//
+// The gate lives HERE and not in ConnectHandler, which never looks at NodeType.
+// It does not need to, PROVIDED an ineligible node ends up with no credential
+// rather than merely being handed no new one, because the handler's empty-hash
+// branch is what does the refusing. So this CLEARS the column instead of
+// returning early, and the difference is not theoretical: Register upserts by
+// NAME, so a backend node re-registering as an agent keeps its ID, and
+// Register's struct Updates zero-skips TunnelTokenHash while writing the new
+// node_type. An early return left a live credential on a row that had become an
+// agent. Clearing is what makes "enforcement is structural" true.
+//
+// It clears unconditionally rather than only when something is there, so the
+// invariant holds without depending on what the row happened to contain. The
+// cost is one UPDATE per agent registration.
+//
+// The day agent workers want a tunnel, relaxing the eligibility condition is
+// the whole change, and it has to be a deliberate one.
+//
+// A failure to mint or to store is logged and the response goes out without the
+// token. Registration is what gets a worker into the cluster at all, and
+// failing it over a credential the worker does not need until it tunnels would
+// turn a tunnel problem into a node that cannot join. The worker sees no
+// tunnel_token, reports that it has no credential, and retries at its next
+// registration.
+func attachTunnelToken(ctx context.Context, response map[string]any, registry *nodes.NodeRegistry, node *nodes.BackendNode) {
+	if node == nil {
+		return
+	}
+	if node.NodeType != nodes.NodeTypeBackend {
+		// Cleared, not skipped. SetTunnelTokenHash writes the single column
+		// directly rather than through a struct update, so unlike Register it
+		// can write an empty value; see its doc.
+		if err := registry.SetTunnelTokenHash(ctx, node.ID, ""); err != nil {
+			xlog.Error("Failed to clear the tunnel credential of a node that is not a backend worker",
+				"node", node.Name, "type", node.NodeType, "error", err)
+		}
+		return
+	}
+	// crypto/rand.Text: at least 128 bits of randomness, no error to handle and
+	// no length constant to get wrong.
+	plaintext := rand.Text()
+	sum := sha256.Sum256([]byte(plaintext))
+	if err := registry.SetTunnelTokenHash(ctx, node.ID, hex.EncodeToString(sum[:])); err != nil {
+		xlog.Error("Failed to store a tunnel credential for node", "node", node.Name, "error", err)
+		return
+	}
+	response["tunnel_token"] = plaintext
 }
 
 // attachNatsJWT adds a per-node NATS user JWT to a register/approve response when minting is enabled.
@@ -717,7 +787,7 @@ func DeleteModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 
 // NodeBackendLogsListEndpoint proxies a request to a worker node's /v1/backend-logs
 // endpoint to list model IDs that have backend logs.
-func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		nodeID := c.Param("id")
@@ -726,11 +796,11 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
 
-		if node.HTTPAddress == "" {
-			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, "node has no HTTP address"))
-		}
-
-		resp, err := proxyHTTPToWorker(node.HTTPAddress, "/v1/backend-logs", registrationToken)
+		// No HTTPAddress guard: a tunnel-only worker reports none, and the
+		// http stream tag ignores the target anyway. WorkerHTTPHost fills the
+		// URL's host with something that identifies the node and resolves
+		// nowhere; the tunnel decides where the bytes go.
+		resp, err := proxyHTTPToWorker(ctx, dialFor, nodeID, nodes.WorkerHTTPHost(nodeID, node.HTTPAddress), "/v1/backend-logs", registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -745,7 +815,7 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 
 // NodeBackendLogsLinesEndpoint proxies a request to a worker node's
 // /v1/backend-logs/{modelId} endpoint to get buffered log lines.
-func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		nodeID := c.Param("id")
@@ -756,12 +826,8 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 			return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
 		}
 
-		if node.HTTPAddress == "" {
-			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, "node has no HTTP address"))
-		}
-
 		path := "/v1/backend-logs/" + url.PathEscape(modelID)
-		resp, err := proxyHTTPToWorker(node.HTTPAddress, path, registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, nodeID, nodes.WorkerHTTPHost(nodeID, node.HTTPAddress), path, registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -776,7 +842,7 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 
 // NodeBackendLogsWSEndpoint proxies a WebSocket connection to a worker node's
 // /v1/backend-logs/{modelId}/ws endpoint for real-time log streaming.
-func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	browserUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
@@ -808,15 +874,41 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 			return err
 		}
 
-		// Dial the worker WebSocket
-		workerURL := fmt.Sprintf("ws://%s/v1/backend-logs/%s/ws", node.HTTPAddress, url.PathEscape(modelID))
+		// Dial the worker WebSocket over that worker's tunnel. The URL still
+		// names the worker's registered address, for the Host header; the
+		// NetDialContext below is what decides where the connection goes. A
+		// missing dialer is a failure, not a direct dial: see
+		// nodes.ErrNoWorkerDialer.
+		workerURL := fmt.Sprintf("ws://%s/v1/backend-logs/%s/ws", nodes.WorkerHTTPHost(nodeID, node.HTTPAddress), url.PathEscape(modelID))
 		workerHeaders := http.Header{}
 		if registrationToken != "" {
 			workerHeaders.Set("Authorization", "Bearer "+registrationToken)
 		}
 
-		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
-		workerWS, _, err := workerDialer.Dial(workerURL, workerHeaders)
+		var workerDial func(ctx context.Context, network, addr string) (net.Conn, error)
+		if dialFor != nil {
+			workerDial = dialFor(nodeID)
+		}
+		if workerDial == nil {
+			// A JSON body cannot be written here: the response writer was
+			// hijacked by the upgrade above, so the status line is long gone
+			// and the write lands nowhere. The browser has to be told the same
+			// way every other failure past the upgrade tells it, with a close
+			// frame, and the socket has to be closed or it leaks for the life
+			// of the process.
+			// Best-effort: the browser may already have gone, and there is
+			// nothing left to report the failure to either way. The CLOSE is
+			// what matters and it is unconditional.
+			_ = browserWS.WriteMessage(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "no route to worker"))
+			_ = browserWS.Close()
+			xlog.Error("Cannot stream backend logs: no way to reach the worker",
+				"node", nodeID, "error", nodes.ErrNoWorkerDialer)
+			return nil
+		}
+
+		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, NetDialContext: workerDial}
+		workerWS, _, err := workerDialer.DialContext(ctx, workerURL, workerHeaders)
 		if err != nil {
 			browserWS.WriteMessage(websocket.CloseMessage,
 				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to connect to worker"))
@@ -1273,10 +1365,25 @@ func DeleteSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	}
 }
 
-// proxyHTTPToWorker makes a GET request to a worker's HTTP server with bearer token auth.
-func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) {
+// proxyHTTPToWorker makes a GET request to a worker's HTTP server with bearer
+// token auth, over that worker's tunnel.
+//
+// The URL still names the worker's registered HTTP address, because that is
+// what the Host header and every error message should say; what it no longer
+// decides is where the bytes go. dialFor supplies the transport, and a nil one
+// is an error rather than a fall back to connecting to httpAddress: a worker
+// behind NAT has no address to connect to, and a direct dial is the bypass this
+// whole change removes.
+func proxyHTTPToWorker(ctx context.Context, dialFor nodes.WorkerNetDialerFor, nodeID, httpAddress, path, token string) (*http.Response, error) {
+	if dialFor == nil {
+		return nil, fmt.Errorf("reaching node %s: %w", nodeID, nodes.ErrNoWorkerDialer)
+	}
+	dial := dialFor(nodeID)
+	if dial == nil {
+		return nil, fmt.Errorf("reaching node %s: %w", nodeID, nodes.ErrNoWorkerDialer)
+	}
 	reqURL := fmt.Sprintf("http://%s%s", httpAddress, path)
-	req, err := http.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1284,6 +1391,6 @@ func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) 
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := httpclient.NewWithTimeout(15 * time.Second)
+	client := httpclient.NewWithTimeout(15*time.Second, httpclient.WithTransport(&http.Transport{DialContext: dial}))
 	return client.Do(req)
 }

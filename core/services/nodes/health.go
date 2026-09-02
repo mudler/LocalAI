@@ -48,7 +48,11 @@ type HealthMonitor struct {
 // NewHealthMonitor creates a new HealthMonitor.
 // If db is non-nil (PostgreSQL), an advisory lock is used so that only one
 // frontend instance runs health checks at a time in distributed mode.
-// If clientFactory is nil, a default factory using the given authToken is used.
+// clientFactory is what reaches a worker's backends, over that worker's tunnel.
+// Omitting it (or passing nil) leaves the monitor with a factory that refuses
+// every request, so per-model probes are skipped and logged rather than counted
+// as misses; authToken is then only the credential a working factory would have
+// carried. Production always passes one.
 func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, staleThreshold time.Duration, authToken string, perModelHealthCheck bool, clientFactory ...BackendClientFactory) *HealthMonitor {
 	checkInterval = cmp.Or(checkInterval, 15*time.Second)
 	staleThreshold = cmp.Or(staleThreshold, 60*time.Second)
@@ -181,15 +185,46 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		if hm.perModelHealthCheck {
 			models, _ := hm.registry.GetNodeModels(ctx, node.ID)
 			for _, m := range models {
-				if m.Address == "" || m.Address == node.Address {
+				// A row with no address names no backend process, so there is
+				// nothing to probe. The old second arm of this test skipped a
+				// replica whose address equalled the NODE's; a node has no
+				// address any more, so that comparison could only ever be true
+				// for two empty strings and has been dropped rather than left
+				// to read as a live rule.
+				if m.WorkerLocalAddress == "" {
 					continue
 				}
-				mClient := hm.clientFactory.NewClient(m.Address, false)
+				// Through the node's tunnel, never a direct dial to m.WorkerLocalAddress:
+				// that address is a port inside the worker. A worker this
+				// replica cannot reach is not evidence that its backend died,
+				// so the miss counter is left alone and the row survives;
+				// counting it as a miss would reap live models across the whole
+				// fleet the moment the tunnel wiring was wrong.
+				mClient, err := hm.clientFactory.NewClientForNode(node.ID, m.WorkerLocalAddress, false)
+				if err != nil {
+					xlog.Error("Skipping model health probe: no way to reach the worker",
+						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)
+					continue
+				}
 				mCheckCtx, mCancel := context.WithTimeout(ctx, 5*time.Second)
 				ok, _ := mClient.HealthCheck(mCheckCtx)
 				mCancel()
+				// Asked BEFORE the client is closed, because closing is what
+				// would discard the transport's record of why it failed.
+				unreached := unroutable(mClient)
 				if closer, ok := mClient.(io.Closer); ok {
 					closer.Close()
+				}
+				if unreached != nil {
+					// The probe never reached a backend, so it observed
+					// nothing. The miss streak is left exactly as it was:
+					// neither advanced, which after three passes would delete
+					// this row and every other row in the fleet the moment a
+					// peer link blipped, nor cleared, which would forgive a
+					// backend that really has died.
+					xlog.Warn("Could not probe a model backend: no route to the worker",
+						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", unreached)
+					continue
 				}
 
 				key := modelKey{NodeID: node.ID, ModelName: m.ModelName, ReplicaIndex: m.ReplicaIndex}
@@ -207,12 +242,12 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				if misses < perModelMissThreshold {
 					xlog.Debug("Model backend probe failed, awaiting threshold before removal",
 						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex,
-						"address", m.Address, "misses", misses, "threshold", perModelMissThreshold)
+						"address", m.WorkerLocalAddress, "misses", misses, "threshold", perModelMissThreshold)
 					continue
 				}
 				xlog.Warn("Model backend unhealthy after consecutive misses, removing from registry",
 					"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex,
-					"address", m.Address, "misses", misses)
+					"address", m.WorkerLocalAddress, "misses", misses)
 				if err := hm.registry.RemoveNodeModel(ctx, node.ID, m.ModelName, m.ReplicaIndex); err != nil {
 					xlog.Warn("Failed to remove unhealthy model from registry",
 						"node", node.ID, "model", m.ModelName, "replica", m.ReplicaIndex, "error", err)

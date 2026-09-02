@@ -16,28 +16,51 @@ import (
 // still returned to the caller — the NEXT request will trigger rescheduling
 // via SmartRouter.
 type ConnectionEvictingClient struct {
-	grpc.Backend
+	grpc.WrappedBackend
 	modelID string
 	evict   func()
 	once    sync.Once
 }
 
+var _ grpc.BackendUnwrapper = (*ConnectionEvictingClient)(nil)
+
 func newConnectionEvictingClient(inner grpc.Backend, modelID string, evict func()) grpc.Backend {
 	return &ConnectionEvictingClient{
-		Backend: inner,
-		modelID: modelID,
-		evict:   evict,
+		WrappedBackend: grpc.WrappedBackend{Backend: inner},
+		modelID:        modelID,
+		evict:          evict,
 	}
 }
 
 func (c *ConnectionEvictingClient) checkErr(err error) {
-	if err != nil && isConnectionError(err) {
-		c.once.Do(func() {
-			xlog.Warn("Connection error during inference, evicting model from cache",
-				"model", c.modelID, "error", err)
-			c.evict()
-		})
+	if err == nil || !isConnectionError(err) {
+		return
 	}
+	// The fifth site of the same shape, and the one reached during INFERENCE
+	// rather than a health check. evict() runs ShutdownModel, which for a remote
+	// model sends backend.stop over NATS to every node holding it and deletes
+	// every replica row. In distributed mode the client underneath reaches the
+	// backend over the worker's tunnel, and a failure of THAT transport arrives
+	// as the same codes.Unavailable a dead backend produces; evicting on it
+	// stops a model that is loaded and serving, on a worker that is
+	// heartbeating. A locally spawned backend has no custom transport, so this
+	// reports nil and the behaviour there is exactly what it always was.
+	// transportFailure and not LastDialErrorOf: a refusal the WORKER wrote is
+	// the worker answering that it could not reach the process, which is what a
+	// crashed backend produces now that a worker listens on nothing. Treating
+	// that as a transport failure kept a genuinely dead model loaded and
+	// failing every request, which is the mirror image of the mistake this
+	// guard exists to prevent.
+	if dialErr := transportFailure(c.Backend); dialErr != nil {
+		xlog.Warn("Inference failed because the worker could not be reached; keeping the model",
+			"model", c.modelID, "error", dialErr)
+		return
+	}
+	c.once.Do(func() {
+		xlog.Warn("Connection error during inference, evicting model from cache",
+			"model", c.modelID, "error", err)
+		c.evict()
+	})
 }
 
 // --- Intercepted inference methods ---

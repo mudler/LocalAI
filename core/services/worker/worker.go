@@ -28,14 +28,14 @@ import (
 // Run starts the distributed agent worker: registers with the frontend,
 // subscribes to NATS lifecycle subjects, and blocks on signals.
 func Run(ctx *cliContext.Context, cfg *Config) error {
-	xlog.Info("Starting worker", "advertise", cfg.advertiseAddr(), "basePort", cfg.effectiveBasePort())
+	xlog.Info("Starting worker", "basePort", cfg.effectiveBasePort())
 
-	// Fail fast (before prefetch/registration/NATS) when enforcement is on but no
-	// registration token is set: the worker's HTTP file-transfer server fails
-	// open on an empty token (see nodes.checkBearerToken), so refuse to start
-	// rather than register and then die mid-boot.
-	if cfg.RegistrationAuthRequired() && cfg.RegistrationToken == "" {
-		return fmt.Errorf("registration auth is required (LOCALAI_REGISTRATION_REQUIRE_AUTH or LOCALAI_DISTRIBUTED_REQUIRE_AUTH) but LOCALAI_REGISTRATION_TOKEN is empty — refusing to start an unauthenticated file-transfer server")
+	// Fail fast, before prefetch, registration and NATS, on any configuration
+	// that would produce a worker the cluster believes in and cannot use. See
+	// validateStartup for what those are and why each is fatal rather than
+	// degraded.
+	if err := cfg.validateStartup(); err != nil {
+		return err
 	}
 
 	systemState, err := system.GetSystemState(
@@ -94,13 +94,44 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	var (
 		nodeID      string
 		connectNats func() (*messaging.Client, error)
+		// tunnelToken reads the node's CURRENT tunnel credential. It is a
+		// function because the frontend rotates the credential on every
+		// registration, so the value a reconnect must present is not
+		// necessarily the one this worker started with.
+		tunnelToken func() string
 	)
 	if cfg.NatsJWT != "" || cfg.NatsUserSeed != "" {
-		nid, _, _, _, regErr := regClient.RegisterWithRetry(shutdownCtx, registrationBody, 10)
+		res, regErr := regClient.RegisterFullWithRetry(shutdownCtx, registrationBody, 10)
 		if regErr != nil {
 			return fmt.Errorf("failed to register with frontend: %w", regErr)
 		}
-		nodeID = nid
+		nodeID = res.ID
+		// This path registers exactly once and never again, so the credential
+		// it holds cannot go stale by rotation from its own side.
+		//
+		// It CAN be superseded from outside: Register upserts by NAME, so a
+		// second worker registering under this node's name rotates the row's
+		// credential, and this worker then fails every tunnel dial with 401 for
+		// the life of the process. It logs that once per backoff and never
+		// recovers on its own; a restart fixes it only until the other worker
+		// registers again.
+		//
+		// Still deliberately not auto-re-registered, and now for a concrete
+		// reason rather than a deferral. Register CLEARS this node's NodeModel
+		// rows, on the assumption that a re-registering worker restarted with
+		// nothing loaded, so re-registering on a 401 would delete a live
+		// worker's replica rows on every retry, and under the name collision
+		// that produces the 401 the two workers would take turns doing it
+		// forever. That is a credential failure causing model reclamation,
+		// which is the one outcome this whole design exists to prevent.
+		//
+		// The fix belongs to whichever comes first: a re-auth path that mints a
+		// tunnel credential WITHOUT the rest of registration's side effects, or
+		// a worker identity that is not the operator-chosen name, which is what
+		// would make a collision detectable instead of silent. Until then the
+		// 401 is loud, names both causes, and the operator acts on it.
+		staticTunnelToken := res.TunnelToken
+		tunnelToken = func() string { return staticTunnelToken }
 		connectNats = func() (*messaging.Client, error) {
 			return connectNATS(cfg.NatsURL, cfg.NatsJWT, cfg.NatsUserSeed, "", "", cfg.NatsAuthRequired(), natsTLS)
 		}
@@ -116,6 +147,10 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 			return fmt.Errorf("failed to register with frontend: %w", regErr)
 		}
 		nodeID = res.ID
+		// The manager re-registers to refresh NATS credentials, and every
+		// registration rotates the tunnel credential too, so this reads the
+		// manager rather than capturing a value.
+		tunnelToken = credMgr.TunnelToken
 		connectNats = func() (*messaging.Client, error) {
 			var opts []messaging.Option
 			if credMgr.HasCredentials() {
@@ -162,6 +197,41 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// Per-request input files land in stagingDir over that server and nothing
 	// used to remove them, so a long-lived worker filled its own disk.
 	StartEphemeralStagingCleanup(shutdownCtx, stagingDir, 0, 0)
+
+	// The tunnel is started here, after the HTTP server it fronts is listening
+	// and before any backend process exists. Both orders are deliberate: a
+	// stream tagged for HTTP that arrived before the server bound would be
+	// refused as unavailable, while a stream tagged for gRPC resolves its
+	// backend at dial time, so nothing has to exist yet for the tunnel to be
+	// useful.
+	//
+	// A failure to START it is fatal, unlike a failure to CONNECT: it means the
+	// frontend URL or this node's identity is unusable, and a worker that
+	// silently ran without its tunnel would look healthy while being
+	// unreachable to everything that dials through it.
+	//
+	// Unconditional: LOCALAI_WORKER_TUNNEL=false is refused by validateStartup
+	// before this point, so there is no configuration that reaches here without
+	// one. A guard here would be a branch nothing can take, which reads as a
+	// supported no-tunnel mode that does not exist.
+	tunnel, terr := StartTunnel(shutdownCtx, TunnelConfig{
+		FrontendURL: cfg.RegisterTo,
+		NodeID:      nodeID,
+		Token:       tunnelToken,
+		// Built by tunnelServices rather than inline, so the routing
+		// table, which is this feature's security boundary, is reachable
+		// from a spec without starting a worker.
+		Services: tunnelServices(cfg, httpAddr),
+	})
+	if terr != nil {
+		nodes.ShutdownFileTransferServer(httpServer)
+		return fmt.Errorf("starting the worker tunnel: %w", terr)
+	}
+	defer func() {
+		if err := tunnel.Close(); err != nil {
+			xlog.Warn("Closing the worker tunnel failed", "error", err)
+		}
+	}()
 
 	// Connect to NATS
 	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))

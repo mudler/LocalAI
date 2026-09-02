@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"net"
 	"slices"
 	"syscall"
 
@@ -97,20 +96,17 @@ func (s *backendSupervisor) handleBackendInstall(data []byte, reply func([]byte)
 			return
 		}
 
-		advertiseAddr := addr
-		advAddr := s.cfg.advertiseAddr()
-		if advAddr != addr {
-			_, port, err := net.SplitHostPort(addr)
-			if err != nil {
-				xlog.Error("Failed to parse backend listen address; using it unchanged", "addr", addr, "error", err)
-			} else if advertiseHost, _, err := net.SplitHostPort(advAddr); err != nil {
-				xlog.Error("Failed to parse worker advertise address; using backend listen address", "addr", advAddr, "error", err)
-			} else {
-				advertiseAddr = net.JoinHostPort(advertiseHost, port)
-			}
-		}
-		resp := messaging.BackendInstallReply{Success: true, Address: advertiseAddr}
-		replyJSON(reply, resp)
+		// The address goes back exactly as the process listens on it. It used
+		// to be rewritten onto this worker's advertise host, which made the
+		// reply the worker's third advertisement site; the frontend now reads
+		// only the port out of it and dials nothing.
+		//
+		// The rewrite was also wrong in a way nothing caught: the worker
+		// records the loopback address and stopModelExact refuses a stop whose
+		// ExpectedAddress does not match it, so on any worker whose advertise
+		// host was not 127.0.0.1 every acknowledged model stop failed with an
+		// address mismatch.
+		replyJSON(reply, messaging.BackendInstallReply{Success: true, WorkerLocalAddress: addr})
 	}()
 }
 

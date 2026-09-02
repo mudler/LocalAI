@@ -104,15 +104,18 @@ services:
         - BASE_IMAGE=ubuntu:24.04
     command:
       - worker
-    # No HEALTHCHECK_ENDPOINT override is needed: the image's healthcheck
+    # No published ports and no advertised address: the worker holds one
+    # outbound tunnel to the frontend and binds only loopback, so nothing has to
+    # reach into this container.
+    #
+    # No HEALTHCHECK_ENDPOINT override is needed either: the image's healthcheck
     # detects worker mode and derives the port from LOCALAI_SERVE_ADDR below
-    # (gRPC base port - 1 = 50050). The worker's /readyz reports 503 while its
-    # NATS connection is down, so `unhealthy` here means the worker genuinely
-    # cannot receive work.
+    # (gRPC base port - 1 = 50050). It runs inside the container, so a loopback
+    # bind is enough for it. The worker's /readyz reports 503 while its NATS
+    # connection is down, so `unhealthy` here means the worker genuinely cannot
+    # receive work.
     environment:
       LOCALAI_SERVE_ADDR: "0.0.0.0:50051"
-      LOCALAI_ADVERTISE_ADDR: "worker-1:50051"
-      LOCALAI_ADVERTISE_HTTP_ADDR: "worker-1:50050"
       DEBUG: "true"
       LOCALAI_REGISTER_TO: "http://localai:8080"
       LOCALAI_NODE_NAME: "worker-1"
@@ -175,7 +178,11 @@ services:
   # Copy the worker-1 service above and change:
   #   - Service name (e.g., worker-2)
   #   - LOCALAI_NODE_NAME (must be unique)
-  #   - LOCALAI_ADVERTISE_ADDR (must match service name)
+  #
+  # Nothing else. A worker has no address to make unique: it binds loopback
+  # inside its own container and dials out to the frontend. Note that
+  # LOCALAI_NODE_NAME really must differ: the registry upserts by name, so two
+  # workers sharing one steal each other's row and each other's tunnel credential.
   #
   # Workers are generic — no backend type needed. The SmartRouter
   # will dynamically install the required backend via NATS when

@@ -1,14 +1,19 @@
 package worker
 
 import (
-	"os"
-	"strings"
+	"net"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Worker address resolution", func() {
+	// advertiseAddr and advertiseHTTPAddr used to be specced here. They are
+	// gone with the addresses they resolved: a worker advertises nothing. What
+	// they pinned that still matters is below: the port arithmetic they shared
+	// with the two functions that survived, and the fact that neither of those
+	// resolves to anything but this host.
 	Describe("effectiveBasePort", func() {
 		DescribeTable("returns the correct port",
 			func(addr, serve string, want int) {
@@ -25,61 +30,108 @@ var _ = Describe("Worker address resolution", func() {
 		)
 	})
 
-	Describe("advertiseAddr", func() {
-		It("returns AdvertiseAddr when set", func() {
-			cfg := &Config{
-				AdvertiseAddr: "public.example.com:50051",
-				Addr:          "10.0.0.5:60000",
-			}
-			Expect(cfg.advertiseAddr()).To(Equal("public.example.com:50051"))
-		})
-
-		It("returns Addr when set", func() {
-			cfg := &Config{Addr: "worker1.example.com:60000"}
-			Expect(cfg.advertiseAddr()).To(Equal("worker1.example.com:60000"))
-		})
-
-		It("falls back to hostname:basePort", func() {
-			cfg := &Config{ServeAddr: "0.0.0.0:50051"}
-			got := cfg.advertiseAddr()
-			_, port, _ := strings.Cut(got, ":")
-			Expect(port).To(Equal("50051"))
-
-			hostname, _ := os.Hostname()
-			if hostname != "" {
-				host, _, _ := strings.Cut(got, ":")
-				Expect(host).To(Equal(hostname))
-			}
-		})
-	})
-
 	Describe("resolveHTTPAddr", func() {
 		DescribeTable("returns the correct address",
 			func(httpAddr, addr, serve, want string) {
 				cfg := &Config{HTTPAddr: httpAddr, Addr: addr, ServeAddr: serve}
 				Expect(cfg.resolveHTTPAddr()).To(Equal(want))
 			},
+			// An explicit HTTPAddr is bound exactly as written, wildcard
+			// included: an operator who asks for a routable bind gets one, and
+			// the tunnel still reaches it because the http tag ignores the
+			// target and dials whatever this returned.
 			Entry("HTTPAddr takes priority", "0.0.0.0:8080", "", "", "0.0.0.0:8080"),
-			Entry("derives from Addr port minus 1", "", "worker1:60000", "0.0.0.0:50051", "0.0.0.0:59999"),
-			Entry("derives from ServeAddr port minus 1", "", "", "0.0.0.0:50051", "0.0.0.0:50050"),
-			Entry("default when nothing set", "", "", "", "0.0.0.0:50050"),
+			Entry("derives from Addr port minus 1", "", "worker1:60000", "0.0.0.0:50051", "127.0.0.1:59999"),
+			Entry("derives from ServeAddr port minus 1", "", "", "0.0.0.0:50051", "127.0.0.1:50050"),
+			Entry("default when nothing set", "", "", "", "127.0.0.1:50050"),
 		)
+
+		It("takes only the port from Addr, never its host", func() {
+			// The host half of Addr names an interface nothing binds any more.
+			// A default bind that carried it forward would put the
+			// file-transfer server back on a routable address.
+			cfg := &Config{Addr: "0.0.0.0:60000"}
+			Expect(cfg.resolveHTTPAddr()).To(Equal("127.0.0.1:59999"))
+		})
 	})
 
-	Describe("advertiseHTTPAddr", func() {
-		DescribeTable("returns the correct address",
-			func(advertiseHTTP, advertise, addr, serve, want string) {
-				cfg := &Config{
-					AdvertiseHTTPAddr: advertiseHTTP,
-					AdvertiseAddr:     advertise,
-					Addr:              addr,
-					ServeAddr:         serve,
-				}
-				Expect(cfg.advertiseHTTPAddr()).To(Equal(want))
-			},
-			Entry("AdvertiseHTTPAddr takes priority", "public.example.com:8080", "", "", "", "public.example.com:8080"),
-			Entry("derives from advertiseAddr host + basePort-1", "", "", "worker1.example.com:60000", "", "worker1.example.com:59999"),
-			Entry("uses AdvertiseAddr host with basePort-1", "", "public.example.com:60000", "10.0.0.5:60000", "", "public.example.com:59999"),
-		)
+	Describe("backendListenAddr", func() {
+		It("binds a backend process on the host the tunnel dials", func() {
+			// Not a literal on either side: this asserts the bind is built from
+			// the same constant the grpc stream tag dials, which is what makes
+			// "the worker binds where its tunnel dials" true rather than
+			// coincidental.
+			Expect(backendListenAddr(50052)).To(Equal(net.JoinHostPort(loopbackHost, strconv.Itoa(50052))))
+		})
+
+		It("binds no wildcard", func() {
+			// Stated separately from the equality above so a change to
+			// loopbackHost itself cannot make both pass while publishing every
+			// backend process on every interface.
+			host, _, err := net.SplitHostPort(backendListenAddr(50052))
+			Expect(err).ToNot(HaveOccurred())
+			ip := net.ParseIP(host)
+			Expect(ip).ToNot(BeNil(), "the backend bind address must be an IP, not a name that could resolve anywhere")
+			Expect(ip.IsLoopback()).To(BeTrue(), "backend processes must bind loopback only")
+		})
+	})
+
+	Describe("registrationBody", func() {
+		It("advertises no address at all", func() {
+			// The registration body is one of the three places this worker used
+			// to state where it could be reached. A key here is not inert: the
+			// frontend stores it, the API returns it, and the Nodes page shows
+			// it as an endpoint.
+			cfg := &Config{NodeName: "w1", Addr: "0.0.0.0:50051", ModelsPath: GinkgoT().TempDir()}
+			body := cfg.registrationBody()
+			Expect(body).To(HaveKeyWithValue("name", "w1"))
+			Expect(body).ToNot(HaveKey("address"))
+			Expect(body).ToNot(HaveKey("http_address"))
+		})
+	})
+})
+
+var _ = Describe("Worker startup validation", func() {
+	// A Config as kong would hand it over with nothing unusual set: the tunnel
+	// on by its default, no auth enforcement.
+	newConfig := func() *Config {
+		return &Config{WorkerTunnel: true}
+	}
+
+	It("accepts the default configuration", func() {
+		Expect(newConfig().validateStartup()).To(Succeed())
+	})
+
+	It("refuses to start with the tunnel turned off", func() {
+		// Not a warning and not a degraded mode. A worker without its tunnel
+		// advertises nothing, binds only loopback, and has no frontend path
+		// that dials it, yet it would register, heartbeat and report healthy,
+		// so the scheduler would keep placing models on it and every one would
+		// fail. Refusing at boot is the only outcome that is visible.
+		cfg := newConfig()
+		cfg.WorkerTunnel = false
+		err := cfg.validateStartup()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("LOCALAI_WORKER_TUNNEL"))
+		Expect(err.Error()).To(ContainSubstring("nothing can reach it"))
+	})
+
+	It("refuses enforcement without a registration token", func() {
+		cfg := newConfig()
+		cfg.RegistrationRequireAuth = true
+		Expect(cfg.validateStartup()).To(MatchError(ContainSubstring("LOCALAI_REGISTRATION_TOKEN is empty")))
+	})
+
+	It("refuses the umbrella switch without a registration token", func() {
+		cfg := newConfig()
+		cfg.DistributedRequireAuth = true
+		Expect(cfg.validateStartup()).To(MatchError(ContainSubstring("LOCALAI_REGISTRATION_TOKEN is empty")))
+	})
+
+	It("accepts enforcement once a token is set", func() {
+		cfg := newConfig()
+		cfg.DistributedRequireAuth = true
+		cfg.RegistrationToken = "shared"
+		Expect(cfg.validateStartup()).To(Succeed())
 	})
 })

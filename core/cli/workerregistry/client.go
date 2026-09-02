@@ -8,7 +8,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -58,9 +60,15 @@ func (c *RegistrationClient) setAuth(req *http.Request) {
 
 // RegisterResponse is the JSON body returned by /api/node/register.
 type RegisterResponse struct {
-	ID           string `json:"id"`
-	Status       string `json:"status,omitempty"` // "pending" until an admin approves the node
-	APIToken     string `json:"api_token,omitempty"`
+	ID       string `json:"id"`
+	Status   string `json:"status,omitempty"` // "pending" until an admin approves the node
+	APIToken string `json:"api_token,omitempty"`
+	// TunnelToken is this node's own credential for GET /api/cluster/connect.
+	// The frontend mints a fresh one on every registration and keeps only its
+	// hash, so this is the ONLY time the plaintext exists anywhere but in this
+	// worker's memory: a worker that discards it cannot get it back without
+	// registering again.
+	TunnelToken  string `json:"tunnel_token,omitempty"`
 	NatsJWT      string `json:"nats_jwt,omitempty"`
 	NatsUserSeed string `json:"nats_user_seed,omitempty"`
 }
@@ -87,7 +95,7 @@ func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]a
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("registration failed with status %d", resp.StatusCode)
+		return nil, registrationStatusError(resp)
 	}
 
 	var result RegisterResponse
@@ -95,6 +103,58 @@ func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]a
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
 	return &result, nil
+}
+
+// ErrRegistrationRejected marks a registration the frontend REFUSED, as opposed
+// to one it could not answer.
+//
+// Retrying a refusal cannot change it: the request is wrong, or this worker is
+// not allowed to make it. The one that matters in practice is a worker of this
+// release registering against a frontend that predates it, which answers
+// "address is required for backend workers" with 400, because a worker no
+// longer has an address to send. Without this the retry ladder spends four
+// minutes on a verdict the frontend reached instantly, and the operator watches
+// it before being told anything.
+//
+// 408 and 429 are deliberately NOT rejections. Both are the frontend asking for
+// the same request again later, which is exactly what a retry does.
+var ErrRegistrationRejected = errors.New("the frontend refused this registration")
+
+// maxRegistrationErrorBody bounds how much of a refusal's body is quoted back.
+// Enough for a message, not enough for an HTML error page to bury the log line
+// it is meant to explain.
+const maxRegistrationErrorBody = 512
+
+// registrationStatusError turns a non-2xx response into an error that says WHY.
+//
+// The body is the point. The frontend explains its refusals there
+// ("address is required for backend workers", "invalid registration token"),
+// and discarding it left an operator with a bare status code: the one line that
+// would tell them which of several possible mistakes they made was read off the
+// socket and thrown away.
+func registrationStatusError(resp *http.Response) error {
+	detail, err := io.ReadAll(io.LimitReader(resp.Body, maxRegistrationErrorBody))
+	if err != nil {
+		xlog.Debug("Could not read the frontend's registration error body", "status", resp.StatusCode, "error", err)
+	}
+	msg := strings.Join(strings.Fields(string(detail)), " ")
+	base := fmt.Sprintf("registration failed with status %d", resp.StatusCode)
+	if msg != "" {
+		base = fmt.Sprintf("%s: %s", base, msg)
+	}
+	if isRegistrationRejection(resp.StatusCode) {
+		return fmt.Errorf("%s: %w", base, ErrRegistrationRejected)
+	}
+	return errors.New(base)
+}
+
+// isRegistrationRejection reports whether a status is a verdict rather than a
+// condition that may pass.
+func isRegistrationRejection(status int) bool {
+	if status == http.StatusRequestTimeout || status == http.StatusTooManyRequests {
+		return false
+	}
+	return status >= 400 && status < 500
 }
 
 // Register sends a single registration request and returns the node ID and
@@ -108,27 +168,48 @@ func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) 
 }
 
 // RegisterWithRetry retries registration with exponential backoff.
+//
+// It drops every field of the response it does not name, the tunnel credential
+// among them. Callers that need one use RegisterFullWithRetry.
 func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
+	res, err := c.RegisterFullWithRetry(ctx, body, maxRetries)
+	if err != nil {
+		return "", "", "", "", err
+	}
+	return res.ID, res.APIToken, res.NatsJWT, res.NatsUserSeed, nil
+}
+
+// RegisterFullWithRetry retries registration with exponential backoff and
+// returns the whole response.
+func (c *RegistrationClient) RegisterFullWithRetry(ctx context.Context, body map[string]any, maxRetries int) (*RegisterResponse, error) {
 	backoff := 2 * time.Second
 	maxBackoff := 30 * time.Second
 
+	var err error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		nodeID, apiToken, natsJWT, natsSeed, err = c.Register(ctx, body)
+		var res *RegisterResponse
+		res, err = c.RegisterFull(ctx, body)
 		if err == nil {
-			return nodeID, apiToken, natsJWT, natsSeed, nil
+			return res, nil
+		}
+		if errors.Is(err, ErrRegistrationRejected) {
+			// A verdict, not an outage. Reported on the first attempt so the
+			// reason the frontend gave is the first thing in the log rather
+			// than the last, after the ladder.
+			return nil, err
 		}
 		if attempt == maxRetries {
-			return "", "", "", "", fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
+			return nil, fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
 		}
 		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
 		select {
 		case <-ctx.Done():
-			return "", "", "", "", ctx.Err()
+			return nil, ctx.Err()
 		case <-time.After(backoff):
 		}
 		backoff = min(backoff*2, maxBackoff)
 	}
-	return nodeID, apiToken, natsJWT, natsSeed, err
+	return nil, err
 }
 
 // Heartbeat sends a single heartbeat POST with the given body.

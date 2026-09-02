@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,10 +24,26 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// backendListenAddr is where a backend process binds, which is also the only
+// address anything ever reaches it on.
+//
+// It is built from loopbackHost, the constant the tunnel's grpc tag dials, so
+// "the worker binds where its tunnel dials" is one fact in one place rather
+// than two literals that can drift. A backend is reached only over this
+// worker's tunnel; a wildcard bind would publish every backend process on every
+// interface to serve a route nothing takes, and on a worker with a public
+// interface that is an unauthenticated inference server.
+func backendListenAddr(port int) string {
+	return net.JoinHostPort(loopbackHost, strconv.Itoa(port))
+}
+
 // backendProcess represents a single gRPC backend process.
 type backendProcess struct {
-	proc     *process.Process
-	addr     string // gRPC address (host:port)
+	proc *process.Process
+	// addr is where this process listens, and it is worker-local: see
+	// backendListenAddr. The frontend is told this string and reads only its
+	// port out of it.
+	addr     string
 	port     int
 	stopping bool
 	// backendName is the gallery backend this process was started for (e.g.
@@ -452,10 +470,9 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		s.mu.Unlock()
 		return "", fmt.Errorf("allocating gRPC port for backend %s: %w", backend, err)
 	}
-	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
-	clientAddr := fmt.Sprintf("127.0.0.1:%d", port)
+	procAddr := backendListenAddr(port)
 
-	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr)
+	proc, err := s.ml.StartProcess(backendPath, backend, procAddr)
 	if err != nil {
 		s.releasePortForKey(backend, port)
 		s.mu.Unlock()
@@ -476,13 +493,13 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 
 	s.processes[backend] = &backendProcess{
 		proc:         proc,
-		addr:         clientAddr,
+		addr:         procAddr,
 		port:         port,
 		backendName:  backendName,
 		backendDir:   backendDir,
 		backendDirID: dirInfo,
 	}
-	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
+	xlog.Info("Backend process started", "backend", backend, "addr", procAddr)
 
 	// Capture reference before unlocking for race-safe health check.
 	// Another goroutine could stopBackend and recycle the port while we poll.
@@ -495,7 +512,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// 4s window made the worker reply Success on a not-yet-listening port,
 	// which manifested upstream as "connect: connection refused" on the
 	// frontend's first LoadModel dial.
-	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.RegistrationToken)
+	client := grpc.NewClientWithToken(procAddr, false, nil, false, s.cfg.RegistrationToken)
 	const (
 		readinessPollInterval = 200 * time.Millisecond
 		readinessTimeout      = 30 * time.Second
@@ -514,8 +531,8 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 			if !s.backendStartStillValid(backend, bp) {
 				return "", fmt.Errorf("backend %s was stopped during startup", backend)
 			}
-			xlog.Debug("Backend gRPC server is ready", "backend", backend, "addr", clientAddr)
-			return clientAddr, nil
+			xlog.Debug("Backend gRPC server is ready", "backend", backend, "addr", procAddr)
+			return procAddr, nil
 		}
 		if healthErr != nil {
 			lastHealthErr = healthErr
@@ -537,7 +554,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// real cause). Stop the half-started process, recycle the port, and
 	// surface the failure to the caller with the backend's stderr tail.
 	stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
-	xlog.Error("Backend gRPC server not ready before deadline; aborting install", "backend", backend, "addr", clientAddr, "timeout", readinessTimeout, "healthError", lastHealthErr, "stderr", stderrTail)
+	xlog.Error("Backend gRPC server not ready before deadline; aborting install", "backend", backend, "addr", procAddr, "timeout", readinessTimeout, "healthError", lastHealthErr, "stderr", stderrTail)
 	if killErr := proc.Stop(); killErr != nil {
 		xlog.Warn("Failed to stop unready backend process", "backend", backend, "error", killErr)
 	}

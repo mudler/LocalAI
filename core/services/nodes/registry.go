@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
@@ -20,15 +21,49 @@ import (
 // Workers are generic — they don't have a fixed backend type.
 // The SmartRouter dynamically installs backends via NATS backend.install events.
 type BackendNode struct {
-	ID            string `gorm:"primaryKey;size:36" json:"id"`
-	Name          string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType      string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address       string `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress   string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status        string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash     string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	ID       string `gorm:"primaryKey;size:36" json:"id"`
+	Name     string `gorm:"uniqueIndex;size:255" json:"name"`
+	NodeType string `gorm:"size:32;default:backend" json:"node_type"` // backend, agent
+	// Address and HTTPAddress are what a PRE-TUNNEL worker advertised as its
+	// inbound gRPC and HTTP endpoints. Nothing dials them and nothing reads
+	// them to make a decision: a worker holds one outbound tunnel and every
+	// protocol the frontend speaks to it travels on that.
+	//
+	// A worker running this release sends neither, and Register force-clears
+	// both ON RE-REGISTRATION so an upgraded worker's stale advertisement does
+	// not survive its own upgrade and keep showing in the API and the UI. A
+	// first registration writes what it was given, which is how a spec that
+	// builds a node with an address still gets one. They are kept as
+	// columns rather than dropped only because dropping them is a wide,
+	// mechanical change across the fleet of specs that build a BackendNode,
+	// and they are inert either way.
+	Address     string `gorm:"size:255" json:"address"`
+	HTTPAddress string `gorm:"size:255" json:"http_address"`
+	Status      string `gorm:"size:32;default:registering" json:"status"` // registering, healthy, unhealthy, draining, pending
+	TokenHash   string `gorm:"size:64" json:"-"`                          // SHA-256 of registration token
+	// TunnelTokenHash is the SHA-256 of this node's OWN tunnel credential, the
+	// one it presents at GET /api/cluster/connect. It is not the registration
+	// token: registration mints a fresh random secret per node, returns the
+	// plaintext once, and stores only this hash, so a leaked registration token
+	// no longer opens a tunnel for every node whose ID an attacker can read.
+	//
+	// Stated exactly, because the useful half of the claim is the half that is
+	// still true. A leaked registration token no longer lets its holder BE a
+	// worker; it still lets its holder REACH every worker, because
+	// GET /api/cluster/peer authenticates with the shared cluster token and
+	// takes its ?id= on trust (see core/http/endpoints/cluster/peer.go), which
+	// also puts the ~31 GiB per-session peer receive window inside reach of
+	// anything holding it. Per replica-to-replica credentials are a named
+	// phase-3 item, not something this column already delivers.
+	//
+	// Empty means no tunnel credential has been minted for this node yet, which
+	// is what a node registered by an older LocalAI looks like. Such a node
+	// cannot tunnel until it registers again. That is deliberate: the column
+	// cannot be back-filled, because the plaintext exists only in the response
+	// that minted it.
+	TunnelTokenHash string `gorm:"size:64" json:"-"`
+	TotalVRAM       uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM   uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
@@ -120,14 +155,28 @@ const (
 //
 // Multiple replicas of the same model on the same node are allowed; each
 // replica has its own ReplicaIndex (0..MaxReplicasPerModel-1), its own
-// gRPC Address (each replica is a separate worker process on its own port),
-// and its own InFlight counter.
+// WorkerLocalAddress (each replica is a separate worker process on its own
+// port), and its own InFlight counter.
 type NodeModel struct {
-	ID                   string     `gorm:"primaryKey;size:36" json:"id"`
-	NodeID               string     `gorm:"index;size:36" json:"node_id"`
-	ModelName            string     `gorm:"index;size:255" json:"model_name"`
-	ReplicaIndex         int        `gorm:"column:replica_index;default:0;index" json:"replica_index"`
-	Address              string     `gorm:"size:255" json:"address"`           // gRPC address for this replica's backend process
+	ID           string `gorm:"primaryKey;size:36" json:"id"`
+	NodeID       string `gorm:"index;size:36" json:"node_id"`
+	ModelName    string `gorm:"index;size:255" json:"model_name"`
+	ReplicaIndex int    `gorm:"column:replica_index;default:0;index" json:"replica_index"`
+	// WorkerLocalAddress is where this replica's backend process listens ON
+	// ITS WORKER. It is a loopback address and it is not dialable from here.
+	//
+	// It survived the removal of every worker address for one reason: the
+	// frontend still has to say WHICH backend process on a worker it means,
+	// and the port in this string is how it says it. It travels as the target
+	// of a stream on that worker's tunnel; the worker reads the port, checks
+	// it against its own allocator range, and dials its own loopback. Nothing
+	// in the frontend may treat it as a dial target, which is why it is not
+	// called Address any more: the old name is what a reader had to already
+	// know the design to interpret correctly.
+	//
+	// The column and the json key stay "address" so no migration and no API
+	// break rides along with the rename.
+	WorkerLocalAddress   string     `gorm:"column:address;size:255" json:"address"`
 	State                string     `gorm:"size:32;default:idle" json:"state"` // staging, loading, loaded, unloading, idle
 	InFlight             int        `json:"in_flight"`                         // number of active requests on this replica
 	LastUsed             time.Time  `json:"last_used"`
@@ -442,7 +491,14 @@ func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID s
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{})
+		if err := db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}); err != nil {
+			return err
+		}
+		// The cluster package owns its own tables AND the sequence its
+		// ownership fence draws epochs from, which AutoMigrate cannot express.
+		// It runs under this same lock so concurrently starting replicas do not
+		// race on the DDL.
+		return cluster.Migrate(context.Background(), db)
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
@@ -575,6 +631,15 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
 			}
 		}
+		// Force-clear the advertised addresses. Updates(struct) zero-skips, so a
+		// node that registered before workers stopped advertising would keep the
+		// host:port it reported then for the rest of its life, and the API and
+		// the Nodes page would keep showing an endpoint that nothing dials and
+		// that may not even exist any more.
+		if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+			Updates(map[string]any{"address": node.Address, "http_address": node.HTTPAddress}).Error; err != nil {
+			return fmt.Errorf("clearing the advertised addresses for node %s: %w", node.Name, err)
+		}
 		// Force-write the disk columns. Updates(struct) above zero-skips, and a
 		// worker whose models filesystem is 100% full re-registers with
 		// available_disk == 0 — the single most important reading there is.
@@ -637,7 +702,7 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 		return fmt.Errorf("looking up node %s: %w", node.Name, err)
 	}
 
-	xlog.Info("Node registered", "name", node.Name, "address", node.Address, "status", node.Status)
+	xlog.Info("Node registered", "name", node.Name, "id", node.ID, "status", node.Status)
 	// Cluster capacity may have changed: a new healthy node, a returning
 	// node, or one with different MaxReplicasPerModel. Wake any configs the
 	// reconciler put in cooldown — the next tick will re-flag if still
@@ -654,6 +719,24 @@ func (r *NodeRegistry) UpdateAuthRefs(ctx context.Context, nodeID, authUserID, a
 		"auth_user_id": authUserID,
 		"api_key_id":   apiKeyID,
 	}).Error
+}
+
+// SetTunnelTokenHash records the hash of a freshly minted tunnel credential for
+// a node, replacing whatever was there.
+//
+// Replacing is the whole design and not an accident of the implementation. Only
+// the hash is stored, so a re-registering worker cannot be told the secret it
+// already has, and the alternative to rotating would be storing the plaintext.
+// The live tunnel of a worker that re-registers is unaffected, because the
+// credential is checked when a tunnel is DIALLED and never again; what changes
+// is which secret its next reconnect must present, and the worker learns that
+// in the same response that rotated it.
+func (r *NodeRegistry) SetTunnelTokenHash(ctx context.Context, nodeID, hash string) error {
+	// Not Updates(struct): a struct update zero-skips, so this could never
+	// clear the column, and a caller that means to clear it would be silently
+	// ignored.
+	return r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Update("tunnel_token_hash", hash).Error
 }
 
 // ApproveNode sets a pending node's status to healthy.
@@ -1414,7 +1497,7 @@ func (r *NodeRegistry) ClaimModelCleanupRetries(ctx context.Context, now, leaseU
 func (r *NodeRegistry) RemoveClaimedModelCleanup(ctx context.Context, replica NodeModel) (bool, error) {
 	result := r.db.WithContext(ctx).
 		Where("id = ? AND node_id = ? AND model_name = ? AND replica_index = ? AND state = ? AND address = ? AND config_revision = ?",
-			replica.ID, replica.NodeID, replica.ModelName, replica.ReplicaIndex, "unloading", replica.Address, replica.ConfigRevision).
+			replica.ID, replica.NodeID, replica.ModelName, replica.ReplicaIndex, "unloading", replica.WorkerLocalAddress, replica.ConfigRevision).
 		Delete(&NodeModel{})
 	if result.Error != nil {
 		return false, result.Error

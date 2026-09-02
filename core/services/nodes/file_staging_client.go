@@ -29,20 +29,22 @@ import (
 // Methods that require no file staging are inherited from the embedded
 // grpc.Backend; only methods with staging logic are overridden below.
 type FileStagingClient struct {
-	grpc.Backend // embedded for pass-through of non-staging methods
-	stager       FileStager
-	nodeID       string
+	grpc.WrappedBackend // pass-through of non-staging methods, plus Unwrap
+	stager              FileStager
+	nodeID              string
 
 	mu              sync.RWMutex
 	remoteModelPath string // set during LoadModel from staged ModelPath
 }
 
+var _ grpc.BackendUnwrapper = (*FileStagingClient)(nil)
+
 // NewFileStagingClient creates a new file staging wrapper.
 func NewFileStagingClient(inner grpc.Backend, stager FileStager, nodeID string) *FileStagingClient {
 	return &FileStagingClient{
-		Backend: inner,
-		stager:  stager,
-		nodeID:  nodeID,
+		WrappedBackend: grpc.WrappedBackend{Backend: inner},
+		stager:         stager,
+		nodeID:         nodeID,
 	}
 }
 

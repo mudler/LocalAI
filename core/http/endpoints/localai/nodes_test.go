@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +20,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// hashOf is how the node registry stores a secret: hex-encoded SHA-256.
+func hashOf(secret string) string {
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:])
+}
 
 var _ = DescribeTable("token validation",
 	func(expectedToken, providedToken string, wantMatch bool) {
@@ -75,6 +82,149 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(resp["name"]).To(Equal("worker-1"))
 			Expect(resp["id"]).ToNot(BeEmpty())
 			Expect(resp["status"]).To(Equal(nodes.StatusHealthy))
+		})
+
+		// register posts one registration and returns the decoded response.
+		register := func(body string, expectedToken string, autoApprove bool) map[string]any {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := RegisterNodeEndpoint(registry, expectedToken, autoApprove, nil, "", natsauth.Config{})
+			ExpectWithOffset(1, handler(c)).To(Succeed())
+			ExpectWithOffset(1, rec.Code).To(Equal(http.StatusCreated))
+
+			var resp map[string]any
+			ExpectWithOffset(1, json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			return resp
+		}
+
+		It("mints a per-node tunnel credential and stores only its hash", func() {
+			resp := register(`{"name":"worker-tunnel","address":"10.0.0.3:50051","token":"shared-registration-token"}`,
+				"shared-registration-token", true)
+
+			plaintext, _ := resp["tunnel_token"].(string)
+			Expect(plaintext).ToNot(BeEmpty())
+			// Not the registration token. That is the whole point: a leaked
+			// registration token plus a known node ID used to open a tunnel,
+			// because the tunnel authenticated against the hash of exactly the
+			// value every worker in the deployment holds.
+			Expect(plaintext).ToNot(Equal("shared-registration-token"))
+
+			node, err := registry.Get(context.Background(), resp["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			// Stored as a hash, never as the secret.
+			Expect(node.TunnelTokenHash).To(Equal(hashOf(plaintext)))
+			Expect(node.TunnelTokenHash).ToNot(Equal(plaintext))
+			// And it is a DIFFERENT column from the registration token's hash,
+			// which is what the tunnel used to compare against.
+			Expect(node.TunnelTokenHash).ToNot(Equal(node.TokenHash))
+			Expect(node.TokenHash).To(Equal(hashOf("shared-registration-token")))
+
+			// The security property, which none of the above actually pins: a
+			// second node registering with the SAME shared token gets a
+			// DIFFERENT credential. Everything above is satisfied by a secret
+			// derived deterministically from the registration token, which
+			// would isolate nothing; a mutation that did exactly that passed
+			// every assertion before this one.
+			other := register(`{"name":"worker-tunnel-2","address":"10.0.0.3:50052","token":"shared-registration-token"}`,
+				"shared-registration-token", true)
+			Expect(other["tunnel_token"]).ToNot(Equal(plaintext))
+		})
+
+		It("rotates the tunnel credential on every re-registration", func() {
+			body := `{"name":"worker-rotate","address":"10.0.0.4:50051"}`
+			first := register(body, "", true)
+			second := register(body, "", true)
+
+			Expect(second["id"]).To(Equal(first["id"]), "re-registration must keep the node identity")
+			firstToken := first["tunnel_token"].(string)
+			secondToken := second["tunnel_token"].(string)
+			// Only the hash is stored, so a re-registering worker cannot be told
+			// the secret it already holds; the alternative to rotating would be
+			// storing the plaintext.
+			Expect(secondToken).ToNot(Equal(firstToken))
+
+			node, err := registry.Get(context.Background(), first["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.TunnelTokenHash).To(Equal(hashOf(secondToken)))
+			Expect(node.TunnelTokenHash).ToNot(Equal(hashOf(firstToken)))
+		})
+
+		It("issues a tunnel credential to a node still awaiting approval", func() {
+			// Deliberately unlike the agent API key and the NATS JWT, which are
+			// both withheld from a pending node. Those work the moment they are
+			// issued; this one does not, because the tunnel endpoint re-reads
+			// the node's status on every dial and refuses a pending node. A
+			// worker that registers exactly once would otherwise never receive
+			// one, since approval alone prompts no re-registration.
+			first := register(`{"name":"worker-pending","address":"10.0.0.5:50051","token":"shared"}`, "shared", false)
+			Expect(first["status"]).To(Equal(nodes.StatusPending))
+			plaintext, _ := first["tunnel_token"].(string)
+			Expect(plaintext).ToNot(BeEmpty())
+
+			// Non-empty alone does not pin per-node-ness, and a review's
+			// variant of the "derived from the shared token" mutation stayed
+			// green on exactly that gap. A pending node's credential has to be
+			// as unpredictable and as per-node as an approved one's, since it
+			// becomes live the moment an admin approves.
+			Expect(plaintext).ToNot(Equal("shared"))
+			node, err := registry.Get(context.Background(), first["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.TunnelTokenHash).To(Equal(hashOf(plaintext)))
+			Expect(node.TunnelTokenHash).ToNot(Equal(node.TokenHash))
+
+			second := register(`{"name":"worker-pending-2","address":"10.0.0.5:50052","token":"shared"}`, "shared", false)
+			Expect(second["status"]).To(Equal(nodes.StatusPending))
+			Expect(second["tunnel_token"]).ToNot(Equal(plaintext))
+		})
+
+		It("does not issue a tunnel credential to an agent node", func() {
+			// An agent worker serves no gRPC backends and no file staging;
+			// nothing dials into it, so a tunnel replaces nothing for it and no
+			// client on its side would open one. Minting anyway would be
+			// credential surface with no feature behind it.
+			//
+			// Enforcement is structural rather than a second check: with no
+			// credential minted, the node's hash stays empty and the tunnel
+			// route refuses it like any other node without one.
+			resp := register(`{"name":"agent-1","node_type":"agent"}`, "", true)
+			Expect(resp["node_type"]).To(Equal(nodes.NodeTypeAgent))
+			Expect(resp).ToNot(HaveKey("tunnel_token"))
+
+			node, err := registry.Get(context.Background(), resp["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.TunnelTokenHash).To(BeEmpty())
+		})
+
+		It("clears a tunnel credential when a node stops being a backend node", func() {
+			// Register upserts BY NAME, so a node can change node_type in place.
+			// Skipping the mint on the way through leaves the credential the
+			// node earned as a backend sitting on a row that is now an agent:
+			// Register's struct Updates zero-skips the column while writing the
+			// new node_type, so nothing else clears it. ConnectHandler never
+			// looks at node_type, so that stale hash is a usable tunnel
+			// credential for a node type that is not supposed to hold one.
+			//
+			// This is the same shape as the Register-upserts-by-name hazard
+			// already carried forward: a name is not an identity.
+			backend := register(`{"name":"shifty","address":"10.0.0.7:50051"}`, "", true)
+			Expect(backend["tunnel_token"]).ToNot(BeEmpty())
+
+			agent := register(`{"name":"shifty","node_type":"agent"}`, "", true)
+			Expect(agent["id"]).To(Equal(backend["id"]), "re-registration must keep the node identity")
+			Expect(agent["node_type"]).To(Equal(nodes.NodeTypeAgent))
+			Expect(agent).ToNot(HaveKey("tunnel_token"))
+
+			node, err := registry.Get(context.Background(), backend["id"].(string))
+			Expect(err).ToNot(HaveOccurred())
+			// The claim the gate makes is that an ineligible node HAS no
+			// credential, not merely that it was not handed a new one. Only
+			// then is the empty-hash refusal in ConnectHandler the enforcement.
+			Expect(node.TunnelTokenHash).To(BeEmpty(),
+				"the node kept the credential it earned as a backend, so the mint-site gate is not structural")
 		})
 
 		It("returns nats_jwt when account seed is configured", func() {
@@ -139,7 +289,11 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(errObj["message"]).To(ContainSubstring("exceeds 255 characters"))
 		})
 
-		It("returns 400 when address is missing for backend node type", func() {
+		It("registers a backend worker that states no address", func() {
+			// This used to be a 400. It is the shape every worker now
+			// registers with: it has no inbound endpoint, it holds one outbound
+			// tunnel, and refusing it here would refuse exactly the workers the
+			// tunnel exists for.
 			e := echo.New()
 			body := `{"name":"worker-no-addr"}`
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
@@ -149,13 +303,35 @@ var _ = Describe("Node HTTP handlers", func() {
 
 			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
 			Expect(handler(c)).To(Succeed())
-			Expect(rec.Code).To(Equal(http.StatusBadRequest))
+			Expect(rec.Code).To(Equal(http.StatusCreated))
 
-			var resp map[string]any
-			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
-			errObj, ok := resp["error"].(map[string]any)
-			Expect(ok).To(BeTrue())
-			Expect(errObj["message"]).To(ContainSubstring("address is required"))
+			stored, err := registry.GetByName(context.Background(), "worker-no-addr")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.NodeType).To(Equal(nodes.NodeTypeBackend))
+			Expect(stored.Address).To(BeEmpty())
+			Expect(stored.HTTPAddress).To(BeEmpty())
+		})
+
+		It("stores no address even when a worker still sends one", func() {
+			// An older worker keeps sending both keys. Storing them would put a
+			// dialable-looking endpoint back into the API and the Nodes page for
+			// something nothing dials, and would leave a reader of either one
+			// unsure which workers are reached how.
+			e := echo.New()
+			body := `{"name":"worker-legacy-addr","address":"10.0.0.9:50051","http_address":"10.0.0.9:50050"}`
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusCreated))
+
+			stored, err := registry.GetByName(context.Background(), "worker-legacy-addr")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Address).To(BeEmpty())
+			Expect(stored.HTTPAddress).To(BeEmpty())
 		})
 
 		It("returns 400 when node_type is invalid", func() {

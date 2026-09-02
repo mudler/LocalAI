@@ -11,7 +11,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
-	grpcclient "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"github.com/nats-io/nats.go"
 	"google.golang.org/grpc/codes"
@@ -34,13 +33,28 @@ const (
 	// ProbeUnreachable: nothing is listening (connection refused), or the
 	// backend answered and affirmatively reported itself unhealthy.
 	ProbeUnreachable
+	// ProbeUnknown: the probe was never made, because this frontend has no way
+	// to reach the worker at all (no tunnel dialer wired, or none for this
+	// node). It is NOT ProbeUnreachable and must never be folded into it:
+	// unreachable is an observation about a backend and the reaper deletes rows
+	// on it, while this is a statement about THIS process and says nothing
+	// about the worker, which may be running the model perfectly well.
+	//
+	// It is appended rather than made the zero value on purpose. ProbeAlive is
+	// the zero value already, and renumbering the set would silently change the
+	// meaning of every stored or hard-coded outcome.
+	ProbeUnknown
 )
 
 // ModelProber checks the state of a model's backend process.
 // Defaulted to a gRPC health probe but overridable for tests so we don't
 // need to stand up a real server.
 type ModelProber interface {
-	Probe(ctx context.Context, address string) ProbeOutcome
+	// Probe checks the backend at address on node nodeID. The node is needed
+	// as well as the address because address is a port INSIDE the worker,
+	// reached over the tunnel that worker holds, and there is no route to it
+	// that does not name the node.
+	Probe(ctx context.Context, nodeID, address string) ProbeOutcome
 }
 
 // NodeProcessLister asks a worker which model backend processes it currently
@@ -60,25 +74,51 @@ type NodeProcessLister interface {
 // as death.
 const probeTimeout = 1 * time.Second
 
-// grpcModelProber does a short HealthCheck on the model's stored gRPC address.
-type grpcModelProber struct{ token string }
+// grpcModelProber does a short HealthCheck on the model's stored gRPC address,
+// through the tunnel of the node that address belongs to.
+type grpcModelProber struct{ clients BackendClientFactory }
 
-func (g grpcModelProber) Probe(ctx context.Context, address string) ProbeOutcome {
-	client := grpcclient.NewClientWithToken(address, false, nil, false, g.token)
+func (g grpcModelProber) Probe(ctx context.Context, nodeID, address string) ProbeOutcome {
+	client, err := g.clients.NewClientForNode(nodeID, address, false)
+	if err != nil {
+		// Never ProbeUnreachable: the reaper deletes a row on that answer, and
+		// this frontend not being able to reach a worker is no evidence that
+		// the worker stopped running the model.
+		xlog.Error("Cannot probe a model: no way to reach the worker",
+			"node", nodeID, "address", address, "error", err)
+		return ProbeUnknown
+	}
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	ok, err := client.HealthCheck(probeCtx)
+	if unreached := unroutable(client); unreached != nil {
+		// The RPC never reached a backend. classifyProbeOutcome cannot tell:
+		// gRPC hands it codes.Unavailable for a worker this frontend has no
+		// route to and for a backend process that has died, and the reaper
+		// deletes rows on the second.
+		xlog.Warn("Could not probe a model: no route to the worker",
+			"node", nodeID, "address", address, "error", unreached)
+		return ProbeUnknown
+	}
 	return classifyProbeOutcome(ok, err)
 }
 
 // classifyProbeOutcome maps a HealthCheck result onto a ProbeOutcome.
+//
+// It is only ever reached for a probe that DID reach the worker. That is a
+// precondition and not an observation it can make for itself: its caller asks
+// the transport first and answers ProbeUnknown when the dial failed. Without
+// that step the Unavailable case below is wrong, because a worker this frontend
+// cannot route to produces exactly the same code as a backend that has died,
+// and only one of the two should cost a row.
 //
 // The gRPC client is lazy, so connection failures surface on the RPC rather
 // than at dial time, and the status code tells the two cases apart:
 //
 //   - DeadlineExceeded: the transport was fine but nothing serviced the RPC in
 //     time. That is a backend stuck inside a long synchronous request.
-//   - Unavailable: nothing is listening. The process is gone.
+//   - Unavailable: the worker was reached and nothing is listening on that
+//     port. The process is gone.
 //
 // A blackholed network also yields DeadlineExceeded and is therefore treated as
 // busy. That is deliberate: whole-node failures are the health monitor's job
@@ -173,11 +213,17 @@ type ReplicaReconcilerOptions struct {
 	// Adapter is the NATS sender used to retry pending backend ops. When nil,
 	// the state-reconciler pending-drain pass is a no-op (single-node mode).
 	Adapter *RemoteUnloaderAdapter
-	// RegistrationToken is used by the default gRPC prober when probing model
-	// addresses. Matches the worker's token so HealthCheck auth succeeds.
+	// RegistrationToken is the bearer token the default gRPC prober presents to
+	// a worker's backends. It matters only when ClientFactory is unset, since
+	// the factory carries its own; a prober built from the token alone can
+	// reach no worker at all and reports ProbeUnknown for every model.
 	RegistrationToken string
 	// Prober overrides the default gRPC health probe (used by tests).
 	Prober ModelProber
+	// ClientFactory builds the gRPC clients the default prober uses. It is what
+	// carries the worker tunnel dialer; without it the default prober can reach
+	// no worker and says so on every probe.
+	ClientFactory BackendClientFactory
 	// ProcessLister overrides the default worker process query. When nil and
 	// no Adapter is set, the worker-authoritative pass is skipped entirely and
 	// only the port probe runs.
@@ -210,7 +256,14 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 	}
 	prober := opts.Prober
 	if prober == nil {
-		prober = grpcModelProber{token: opts.RegistrationToken}
+		clients := opts.ClientFactory
+		if clients == nil {
+			// No tunnel dialer was wired. The prober then refuses every probe
+			// with ProbeUnknown rather than dialling addresses directly, which
+			// is loud in the log and leaves every row alone.
+			clients = &tokenClientFactory{token: opts.RegistrationToken}
+		}
+		prober = grpcModelProber{clients: clients}
 	}
 	pressureThreshold := opts.PressureThreshold
 	if pressureThreshold == 0 {
@@ -469,7 +522,15 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		switch rc.prober.Probe(ctx, m.Address) {
+		switch rc.prober.Probe(ctx, m.NodeID, m.WorkerLocalAddress) {
+		case ProbeUnknown:
+			// This frontend could not reach the worker to ask. The streak is
+			// left exactly as it was: neither cleared, which would forgive a
+			// backend that really is dead, nor advanced, which would reap every
+			// model in the fleet the moment the tunnel wiring broke.
+			xlog.Warn("Reconciler: could not probe a model, leaving its row alone",
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.WorkerLocalAddress)
+			continue
 		case ProbeAlive:
 			rc.clearProbeFailures(m.ID)
 			// Bump updated_at so we don't probe this row again immediately.
@@ -480,14 +541,14 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			// Reachable but mid-request. Proof of life, so clear the streak.
 			rc.clearProbeFailures(m.ID)
 			xlog.Debug("Reconciler: model busy, skipping liveness reap",
-				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address)
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.WorkerLocalAddress)
 			continue
 		}
 
 		failures := rc.recordProbeFailure(m.ID)
 		if failures < probeFailuresBeforeReap {
 			xlog.Debug("Reconciler: model unreachable, waiting for more misses before reaping",
-				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address,
+				"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.WorkerLocalAddress,
 				"failures", failures, "threshold", probeFailuresBeforeReap)
 			continue
 		}
@@ -497,7 +558,7 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 		}
 		rc.clearProbeFailures(m.ID)
 		xlog.Warn("Reconciler: model unreachable, removed from registry",
-			"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.Address,
+			"node", m.NodeID, "model", m.ModelName, "replica", m.ReplicaIndex, "address", m.WorkerLocalAddress,
 			"failures", failures)
 	}
 	rc.pruneProbeFailures(seen)
@@ -552,9 +613,15 @@ func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		if rc.prober.Probe(ctx, m.Address) != ProbeAlive {
-			// Busy or unreachable. Busy means the counter may well be real;
-			// unreachable is the reaper's business, not the sweeper's.
+		if rc.prober.Probe(ctx, m.NodeID, m.WorkerLocalAddress) != ProbeAlive {
+			// Anything but alive, and the three of them agree on what this
+			// sweeper should do even though they disagree about everything
+			// else. Busy: the counter may well be real, so leave it.
+			// Unreachable: the row is the reaper's business, not the
+			// sweeper's. Unknown: this frontend has no route and therefore
+			// observed nothing, which is the one outcome that must never be
+			// read as evidence. Resetting a counter on any of the three would
+			// free a reservation a live request is still holding.
 			rc.clearInFlightIdle(m.ID)
 			continue
 		}

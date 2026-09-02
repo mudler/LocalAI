@@ -51,6 +51,10 @@ func (f *prefixStubClientFactory) NewClient(_ string, _ bool) grpcPkg.Backend {
 	return f.client
 }
 
+func (f *prefixStubClientFactory) NewClientForNode(_, _ string, _ bool) (grpcPkg.Backend, error) {
+	return f.client, nil
+}
+
 var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 	const model = "model"
 

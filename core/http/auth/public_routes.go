@@ -74,8 +74,26 @@ func isPublicRoute(method, path string) bool {
 	return false
 }
 
+// ClusterPathPrefix is the machine-to-machine cluster namespace. It carries two
+// different trust relationships, on two different credentials: the
+// replica-to-replica peer link, which checks the shared cluster token, and the
+// worker-to-frontend tunnel, which checks the dialing node's own stored token
+// hash. What they have in common is the only thing this prefix asserts, that
+// each handler checks its own Authorization header, so the check below lets them
+// through the global session middleware rather than rejecting a caller that has
+// no session and no user.
+//
+// The cluster routes do NOT derive their paths from this constant: they are
+// registered from core/services/cluster's own literal, because that package
+// must not import core/http/auth. Nothing in the compiler holds the two
+// together, so a spec does instead, driving a peer request through this
+// middleware in core/http/endpoints/cluster/peer_test.go. Moving either string
+// without the other turns that spec red, which is the whole reason it exists.
+const ClusterPathPrefix = "/api/cluster/"
+
 // usesAlternativeAuthentication identifies requests whose credentials are
 // validated by route-group middleware instead of the global auth middleware.
 func usesAlternativeAuthentication(path string) bool {
-	return strings.HasPrefix(path, "/api/node/")
+	return strings.HasPrefix(path, "/api/node/") ||
+		strings.HasPrefix(path, ClusterPathPrefix)
 }

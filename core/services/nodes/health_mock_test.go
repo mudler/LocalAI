@@ -133,7 +133,16 @@ func (f *fakeNodeHealthStore) RemoveNodeModel(_ context.Context, nodeID, modelNa
 type fakeBackendClient struct {
 	healthy bool
 	err     error
+	// dialErr makes this client report that its TRANSPORT failed, which is what
+	// a real client whose tunnel dial failed does. It is the half of
+	// unroutability that a refusing factory cannot stand in for, and the likely
+	// one in production: the factory only fails when the wiring is absent.
+	dialErr error
 }
+
+// LastDialError satisfies grpc.DialErrorReporter so a spec can drive the
+// "reached no backend" branch without a real tunnel.
+func (c *fakeBackendClient) LastDialError() error { return c.dialErr }
 
 func (c *fakeBackendClient) IsBusy() bool { return false }
 func (c *fakeBackendClient) HealthCheck(_ context.Context) (bool, error) {
@@ -300,6 +309,15 @@ type fakeBackendClientFactory struct {
 	clients map[string]*fakeBackendClient
 	// default client returned when address not in clients map
 	defaultClient *fakeBackendClient
+	// forNode records every node id NewClientForNode was asked for.
+	forNode []string
+	// forNodeAddr records the ADDRESS asked for alongside each node id, so a
+	// spec can pin which of the two addresses a caller reached for: a replica
+	// row's own, or the node's, the second of which is now always empty.
+	forNodeAddr []string
+	// refuseForNode makes NewClientForNode fail, standing in for a deployment
+	// with no way to reach the worker. Set before the code under test runs.
+	refuseForNode error
 }
 
 func newFakeBackendClientFactory() *fakeBackendClientFactory {
@@ -322,6 +340,32 @@ func (f *fakeBackendClientFactory) NewClient(address string, _ bool) grpc.Backen
 		return c
 	}
 	return f.defaultClient
+}
+
+// nodesSeen records the node ids the code under test asked for, so a spec can
+// assert a caller reached a worker through its NODE rather than by address.
+func (f *fakeBackendClientFactory) nodesSeen() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.forNode...)
+}
+
+// addressesSeen records the addresses passed alongside those node ids.
+func (f *fakeBackendClientFactory) addressesSeen() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.forNodeAddr...)
+}
+
+func (f *fakeBackendClientFactory) NewClientForNode(nodeID, address string, parallel bool) (grpc.Backend, error) {
+	if f.refuseForNode != nil {
+		return nil, f.refuseForNode
+	}
+	f.mu.Lock()
+	f.forNode = append(f.forNode, nodeID)
+	f.forNodeAddr = append(f.forNodeAddr, address)
+	f.mu.Unlock()
+	return f.NewClient(address, parallel), nil
 }
 
 // helper to make a BackendNode with given properties
@@ -368,4 +412,5 @@ func freshTime() time.Time {
 // Compile-time interface checks
 var _ NodeHealthStore = (*fakeNodeHealthStore)(nil)
 var _ BackendClientFactory = (*fakeBackendClientFactory)(nil)
+var _ grpc.DialErrorReporter = (*fakeBackendClient)(nil)
 var _ grpc.Backend = (*fakeBackendClient)(nil)

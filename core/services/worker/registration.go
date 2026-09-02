@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"cmp"
 	"fmt"
 	"net"
 	"os"
@@ -21,6 +20,10 @@ var (
 
 // effectiveBasePort returns the port used as base for gRPC backend processes.
 // Priority: Addr port → ServeAddr port → 50051
+//
+// Only the PORT of those settings is read. Their host halves name an interface
+// this worker no longer binds: every backend listens on loopback and is reached
+// through the tunnel.
 func (cfg *Config) effectiveBasePort() int {
 	for _, addr := range []string{cfg.Addr, cfg.ServeAddr} {
 		if addr == "" {
@@ -70,45 +73,21 @@ func (cfg *Config) effectiveMaxPort(basePort int) int {
 	return cfg.GRPCMaxPort
 }
 
-// advertiseAddr returns the address the frontend should use to reach this node.
-func (cfg *Config) advertiseAddr() string {
-	if cfg.AdvertiseAddr != "" {
-		return cfg.AdvertiseAddr
-	}
-	if cfg.Addr != "" {
-		return cfg.Addr
-	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		xlog.Warn("Failed to determine worker hostname; advertising localhost", "error", err)
-	}
-	return fmt.Sprintf("%s:%d", cmp.Or(hostname, "localhost"), cfg.effectiveBasePort())
-}
-
 // resolveHTTPAddr returns the address to bind the HTTP file transfer server to.
 // Uses basePort-1 so it doesn't conflict with dynamically allocated gRPC ports
 // which grow upward from basePort.
+//
+// The default is loopback for the same reason backend processes are: the
+// frontend reaches this server over the tunnel, whose http tag dials whatever
+// address this returns. An operator who sets HTTPAddr explicitly still gets
+// exactly that bind (see loopbackAddr, which rewrites only a wildcard), so a
+// deployment that has some other local reason to expose the server can, and
+// nothing in the frontend depends on it.
 func (cfg *Config) resolveHTTPAddr() string {
 	if cfg.HTTPAddr != "" {
 		return cfg.HTTPAddr
 	}
-	return fmt.Sprintf("0.0.0.0:%d", cfg.effectiveBasePort()-1)
-}
-
-// advertiseHTTPAddr returns the HTTP address the frontend should use to reach
-// this node for file transfer.
-func (cfg *Config) advertiseHTTPAddr() string {
-	if cfg.AdvertiseHTTPAddr != "" {
-		return cfg.AdvertiseHTTPAddr
-	}
-	advertiseAddr := cfg.advertiseAddr()
-	advHost, _, err := net.SplitHostPort(advertiseAddr)
-	if err != nil {
-		xlog.Warn("Invalid worker advertise address; advertising file transfer on localhost", "addr", advertiseAddr, "error", err)
-		advHost = "localhost"
-	}
-	httpPort := cfg.effectiveBasePort() - 1
-	return net.JoinHostPort(advHost, strconv.Itoa(httpPort))
+	return net.JoinHostPort(loopbackHost, strconv.Itoa(cfg.effectiveBasePort()-1))
 }
 
 // registrationBody builds the JSON body for node registration.
@@ -151,10 +130,12 @@ func (cfg *Config) registrationBody() map[string]any {
 	if maxReplicas < 1 {
 		maxReplicas = 1
 	}
+	// No address and no http_address: this worker has nothing inbound to
+	// advertise. It holds one outbound tunnel and the frontend reaches every
+	// service on it through that, so an address here would be a value that
+	// looks dialable, is stored, is shown, and is never dialled.
 	body := map[string]any{
 		"name":                   nodeName,
-		"address":                cfg.advertiseAddr(),
-		"http_address":           cfg.advertiseHTTPAddr(),
 		"total_vram":             totalVRAM,
 		"available_vram":         totalVRAM, // initially all VRAM is available
 		"gpu_vendor":             gpuVendor,

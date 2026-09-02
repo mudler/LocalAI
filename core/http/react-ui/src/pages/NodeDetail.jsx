@@ -78,7 +78,7 @@ export default function NodeDetail() {
       <PageHeader
         eyebrow={<a onClick={() => navigate('/app/nodes')} className="link-plain"><i className="fas fa-arrow-left icon-before" aria-hidden="true" />Cluster</a>}
         title={<><StatusPill status={node.status} /> {node.name}</>}
-        supporting={node.address}
+        supporting={node.address || node.id}
         actions={
           <>
             {node.status === 'draining'

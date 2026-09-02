@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -12,12 +14,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
@@ -43,6 +47,35 @@ type DistributedServices struct {
 	Unloader     *nodes.RemoteUnloaderAdapter
 	ModelCleanup *nodes.ModelCleanupService
 
+	// Cluster is the replica-membership registry: which frontend replicas are
+	// alive, at which address, and which of them holds a given worker's tunnel.
+	Cluster *cluster.Registry
+	// Membership publishes this replica's row and reaps the dead. Nil when no
+	// peer-reachable address could be determined, which leaves this replica
+	// invisible to its peers but otherwise fully functional.
+	Membership *cluster.Membership
+	// PeerSessions owns the peer links other replicas dialled into this one,
+	// and relays the streams that arrive on them onto the worker tunnels this
+	// replica holds.
+	PeerSessions *cluster.SessionStore
+	// Peers owns the peer links this replica dialled OUT, the mirror of
+	// PeerSessions. It is what the relaying dialer opens a stream on when a
+	// request arrives here for a worker another replica holds.
+	Peers *cluster.PeerPool
+	// Tunnels holds the worker tunnels this replica has accepted and keeps the
+	// node_connections table agreeing with them. It is handed to the membership
+	// loop, which re-claims what it holds after this replica has been reaped,
+	// and to the route that accepts a worker's dial.
+	Tunnels *cluster.TunnelRegistry
+	// WorkerDialer is how anything in this process reaches a worker: locally
+	// when this replica holds the tunnel, and through the owning replica when
+	// it does not. The HTTP layer takes its WebSocket log proxy from here.
+	WorkerDialer *cluster.WorkerDialer
+	// BackendClients builds the gRPC clients for worker backend processes, over
+	// WorkerDialer. Exposed so the model store built in startup.go reaches
+	// remote models the same way every other caller does.
+	BackendClients nodes.BackendClientFactory
+
 	shutdownOnce sync.Once
 }
 
@@ -53,6 +86,22 @@ func (ds *DistributedServices) Shutdown() {
 		return
 	}
 	ds.shutdownOnce.Do(func() {
+		// Peer state first: a replica that is going away should stop claiming
+		// to be alive before it stops answering, so peers re-home rather than
+		// dial a process in teardown.
+		if ds.Membership != nil {
+			ds.Membership.Stop()
+		}
+		if ds.PeerSessions != nil {
+			ds.PeerSessions.CloseAll()
+		}
+		// Both halves of the peer mesh go down together. A pool left open
+		// holds a WebSocket and two yamux loop goroutines per peer for as long
+		// as the process lives, and an Open after this reports ErrPoolClosed,
+		// which is a fact about this process and never node absence.
+		if ds.Peers != nil {
+			ds.Peers.Close()
+		}
 		if ds.Health != nil {
 			ds.Health.Stop()
 		}
@@ -162,6 +211,97 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Node registry initialized")
 
+	// Replica membership. NewNodeRegistry has just migrated the tables this
+	// reads, so it has to come after it.
+	clusterRegistry := cluster.NewRegistry(authDB)
+	var membership *cluster.Membership
+	if advertised, err := advertisedPeerAddr(cfg); err != nil {
+		// Not fatal, and the cost is worth stating exactly rather than as
+		// "peers cannot reach it", because it is larger than that now.
+		//
+		// Without a row in the instances table this replica is not a live
+		// owner as far as Registry.Owner is concerned: that read joins a
+		// connection against a live instance, so a worker whose tunnel lands
+		// HERE is answered as unroutable at every OTHER replica, for as long
+		// as it stays here. This replica serves that worker perfectly well
+		// itself; nobody else can. On N replicas behind round robin that is
+		// (N-1)/N of the traffic for that worker.
+		//
+		// It does not refuse to START. Refusing would take out every existing
+		// single-host deployment, whose route to a local database is loopback
+		// and which has no peers to be unreachable by; the deployments this
+		// hurts are multi-replica ones, and telling those two apart at startup
+		// is a change with its own design and its own specs rather than a line
+		// here.
+		//
+		// What it does not get to do is stay quiet. One startup line scrolls
+		// away in seconds and the cost is paid for the whole life of the
+		// process, on a symptom (workers that 5xx from most of the fleet) whose
+		// obvious reading is "the worker is broken". So this is an ERROR, not a
+		// warning, and nagUnadvertisedReplica below repeats it for as long as
+		// the state lasts, naming the workers it is currently costing.
+		xlog.Error("This replica is not registered in the cluster: no advertised address. Peers cannot reach it, and any worker whose tunnel lands here will be unroutable from every other replica",
+			"error", err, "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
+	} else {
+		membership = cluster.NewMembership(clusterRegistry, cfg.Distributed.InstanceID, advertised, internal.PrintableVersion())
+		if err := membership.Start(cfg.Context); err != nil {
+			return nil, fmt.Errorf("registering this replica in the cluster: %w", err)
+		}
+	}
+
+	// The worker tunnels this replica accepts. It claims as the SAME instance
+	// ID membership registers under, because that is the ID a peer's Owner
+	// lookup joins a claim against to decide the owner is alive; two IDs here
+	// would make every claim this replica writes look like it belongs to a
+	// replica that does not exist.
+	tunnels := cluster.NewTunnelRegistry(clusterRegistry, cfg.Distributed.InstanceID)
+	// Without this the re-claim in the heartbeat loop is dead code: a replica
+	// stalled long enough to be swept loses the connection rows it owned, and
+	// nothing would ever write them back, so every other replica would answer
+	// "not connected" for workers that are connected right here.
+	//
+	// Nil when no peer-reachable address could be determined above. There is no
+	// heartbeat loop to hand it to in that case, and no other replica can reach
+	// this one anyway; the registry is still built, because it is what the
+	// tunnel endpoint attaches to and what this replica opens its own streams
+	// through.
+	if membership != nil {
+		membership.SetTunnels(tunnels)
+	} else {
+		// The runtime symptom the startup line cannot be. See
+		// nagUnadvertisedReplica.
+		go nagUnadvertisedReplica(cfg.Context, tunnels.Held, unadvertisedNagInterval, logUnroutableWorkers)
+	}
+
+	// The links peers dial IN, with the relay installed on them. This is what
+	// makes more than one replica work: a worker holds one tunnel, it lands on
+	// one replica, and every request that arrives anywhere else reaches the
+	// worker through this handler. Passing nil here would leave every such
+	// request refused, promptly and only at debug level, which presents as a
+	// worker that is connected and unusable from most of the deployment.
+	peerSessions := cluster.NewSessionStore(cluster.NewRelay(tunnels).Stream)
+	// The links this replica dials OUT, the other half of the same mesh. It
+	// authenticates with the registration token because that is the token the
+	// peer route checks (see RegisterClusterRoutes); two different tokens here
+	// would make every peer dial 401 with nothing naming the mismatch.
+	peers := cluster.NewPeerPool(cfg.Distributed.InstanceID, cfg.Distributed.RegistrationToken, clusterRegistry)
+	// The one door to every worker. Nothing in the frontend may dial a worker's
+	// advertised address any more: a worker holds ONE tunnel, it lands on ONE
+	// replica, and this resolves which replica that is and relays through it
+	// when it is not this one. The three transports the frontend speaks to a
+	// worker (gRPC to backend processes, HTTP for file staging and logs, a
+	// WebSocket for live log streaming) are all pointed at it below.
+	workerDialer := cluster.NewWorkerDialer(tunnels, peers)
+	backendClients, err := nodes.NewTunnelClientFactory(cfg.Distributed.RegistrationToken, workerDialer.GRPCDialerFor)
+	if err != nil {
+		return nil, fmt.Errorf("wiring the worker backend client factory: %w", err)
+	}
+	// Bound to the http tag: the worker ignores the target for it and routes to
+	// its own file-transfer and log server, wherever that bound.
+	workerHTTPDialer := nodes.WorkerNetDialerFor(func(nodeID string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return workerDialer.DialerFor(nodeID, cluster.StreamTagHTTP)
+	})
+
 	// Let scheduling rules be keyed by a model alias. The registry resolves a
 	// rule's name through the config loader to find the model it governs, so an
 	// operator can pin placement to a stable name like "production" and have it
@@ -202,6 +342,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		cfg.Distributed.StaleNodeThresholdOrDefault(),
 		routerAuthToken,
 		!cfg.Distributed.DisablePerModelHealthCheck,
+		backendClients,
 	)
 
 	// Initialize job store
@@ -257,11 +398,13 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			if err != nil {
 				return "", err
 			}
-			if node.HTTPAddress == "" {
-				return "", fmt.Errorf("node %s has no HTTP address for file transfer", nodeID)
-			}
-			return node.HTTPAddress, nil
-		}, cfg.Distributed.RegistrationToken)
+			// An empty HTTPAddress is no longer a refusal. A tunnel-only worker
+			// reports none and does not need one: the http stream tag ignores
+			// the target and the worker routes to its own server. The host is
+			// only ever the URL's host component here, and WorkerHTTPHost
+			// supplies one that resolves nowhere so it cannot become a dial.
+			return nodes.WorkerHTTPHost(nodeID, node.HTTPAddress), nil
+		}, cfg.Distributed.RegistrationToken, workerHTTPDialer)
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}
 	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
@@ -363,6 +506,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		FileStager:       fileStager,
 		GalleriesJSON:    routerGalleriesJSON,
 		AuthToken:        routerAuthToken,
+		ClientFactory:    backendClients,
 		DB:               authDB,
 		ConflictResolver: conflictResolver,
 		PrefixProvider:   prefixProvider,
@@ -421,6 +565,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Unloader:          remoteUnloader,
 		Adapter:           remoteUnloader,
 		RegistrationToken: cfg.Distributed.RegistrationToken,
+		ClientFactory:     backendClients,
 		DB:                authDB,
 		Interval:          30 * time.Second,
 		ScaleDownDelay:    5 * time.Minute,
@@ -434,23 +579,125 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	success = true
 	return &DistributedServices{
-		Nats:         natsClient,
-		Store:        store,
-		Registry:     registry,
-		Router:       router,
-		Health:       healthMon,
-		Reconciler:   reconciler,
-		JobStore:     jobStore,
-		Dispatcher:   dispatcher,
-		AgentStore:   agentStore,
-		AgentBridge:  agentBridge,
-		DistStores:   distStores,
-		FileMgr:      fileMgr,
-		FileStager:   fileStager,
-		ModelAdapter: modelAdapter,
-		Unloader:     remoteUnloader,
-		ModelCleanup: modelCleanup,
+		Nats:           natsClient,
+		Store:          store,
+		Registry:       registry,
+		Router:         router,
+		Health:         healthMon,
+		Reconciler:     reconciler,
+		JobStore:       jobStore,
+		Dispatcher:     dispatcher,
+		AgentStore:     agentStore,
+		AgentBridge:    agentBridge,
+		DistStores:     distStores,
+		FileMgr:        fileMgr,
+		FileStager:     fileStager,
+		ModelAdapter:   modelAdapter,
+		Unloader:       remoteUnloader,
+		ModelCleanup:   modelCleanup,
+		Cluster:        clusterRegistry,
+		Membership:     membership,
+		PeerSessions:   peerSessions,
+		Peers:          peers,
+		Tunnels:        tunnels,
+		WorkerDialer:   workerDialer,
+		BackendClients: backendClients,
 	}, nil
+}
+
+// unadvertisedNagInterval is how often a replica that could not advertise
+// itself says so again.
+//
+// Five minutes is chosen against the log it lands in, not against the urgency:
+// the condition never clears on its own, so this line is either read once and
+// acted on or it is noise for the life of the process, and a noisy line gets
+// filtered rather than fixed. It is still frequent enough that the state is
+// visible in any window of logs an operator pulls while investigating the
+// symptom it causes.
+const unadvertisedNagInterval = 5 * time.Minute
+
+// nagUnadvertisedReplica repeats, for as long as the process runs, that this
+// replica is invisible to its peers, and names what that is currently costing.
+//
+// It exists because the deferral it accompanies changed cost between phases and
+// nothing about the deployment says so. Before workers held tunnels, a replica
+// with no advertised address was merely unreachable BY peers and could still
+// dial every worker directly, so a startup warning was proportionate. Now a
+// worker's tunnel lands on one replica and every other replica reaches it by
+// relaying to the owner, and the owner is resolved by joining the connection
+// row against a LIVE INSTANCES ROW - which this replica does not have. So every
+// worker that lands here is answered as unroutable everywhere else: on N
+// replicas behind round robin, (N-1)/N of that worker's traffic fails, while
+// this replica serves it perfectly and reports nothing.
+//
+// held is passed as a function rather than the registry so this can be driven
+// without one, and alarm is passed rather than logged inline so a spec can
+// observe the alarms instead of scraping a log.
+func nagUnadvertisedReplica(ctx context.Context, held func() []string, every time.Duration, alarm func([]string)) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			alarm(held())
+		}
+	}
+}
+
+// logUnroutableWorkers says what the state costs RIGHT NOW.
+//
+// The two cases are kept apart because they call for different urgency and an
+// operator can tell them apart at a glance. With no worker held this is a
+// misconfiguration that has not been paid for yet; with workers held, every one
+// of them is named, because "which worker is broken" is the question the
+// symptom sends an operator to ask and the answer is that none of them is.
+func logUnroutableWorkers(held []string) {
+	if len(held) == 0 {
+		xlog.Warn("This replica is still not registered in the cluster: no advertised address. No worker holds a tunnel here yet; the first that does will be unroutable from every other replica",
+			"knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
+		return
+	}
+	xlog.Error("This replica is not registered in the cluster and holds worker tunnels: those workers are unroutable from every OTHER replica, and requests for their models fail there with no route. The workers are healthy; this replica is invisible",
+		"workers", held, "worker_count", len(held), "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
+}
+
+// advertisedPeerAddr is the host:port peers dial to reach this replica.
+//
+// The operator's value wins outright. Otherwise it is derived from the port
+// this process serves on and the local address that routes to PostgreSQL, which
+// is only a peer-reachable answer when the database is on another host;
+// DiscoverAdvertisedAddr refuses rather than guessing when it is not.
+func advertisedPeerAddr(cfg *config.ApplicationConfig) (string, error) {
+	if configured := cfg.Distributed.AdvertiseAddr; configured != "" {
+		// A configured address skips discovery, so it also skips every check
+		// discovery makes. Unusable is refused; merely questionable (a
+		// loopback address, correct on one host and wrong on three) is said
+		// once and honoured, because refusing it would refuse single-host
+		// deployments that use it correctly.
+		reason, err := cluster.CheckAdvertisedAddr(configured)
+		if err != nil {
+			return "", err
+		}
+		if reason != "" {
+			xlog.Warn("Configured peer address is not one another host can dial",
+				"address", configured, "reason", reason, "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
+		}
+		return configured, nil
+	}
+	if cfg.APIAddress == "" {
+		return "", fmt.Errorf("no API address to derive a peer port from")
+	}
+	_, port, err := net.SplitHostPort(cfg.APIAddress)
+	if err != nil {
+		return "", fmt.Errorf("reading the peer port out of API address %q: %w", cfg.APIAddress, err)
+	}
+	portNumber, err := strconv.Atoi(port)
+	if err != nil {
+		return "", fmt.Errorf("API address %q has a non-numeric port: %w", cfg.APIAddress, err)
+	}
+	return cluster.DiscoverAdvertisedAddr(cfg.Auth.DatabaseURL, portNumber)
 }
 
 func isPostgresURL(url string) bool {
