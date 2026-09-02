@@ -162,6 +162,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Node registry initialized")
 
+	// Bound durable heartbeat writes: a beat that only carries a fresher
+	// timestamp is what turned backend_nodes into a 460 MB six-row table.
+	registry.SetHeartbeatCheckpoint(cfg.Distributed.NodeHeartbeatCheckpointOrDefault())
+
 	// Let scheduling rules be keyed by a model alias. The registry resolves a
 	// rule's name through the config loader to find the model it governs, so an
 	// operator can pin placement to a stable name like "production" and have it
