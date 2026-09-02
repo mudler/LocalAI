@@ -318,6 +318,67 @@ var _ = Describe("DistributedBackendManager", func() {
 			})
 		})
 
+		// The agent skip is stated at TWO call sites, the fan-out and
+		// ListBackends, and was pinned only at ListBackends. Agent workers
+		// serve no control plane, so a row enqueued for one can never be
+		// drained: it retries every reconciler tick until the dead-letter cap
+		// and shows in the UI as an operation that never finishes.
+		It("enqueues nothing for an agent node, which serves no control plane", func() {
+			backend := registerHealthyBackend("worker-a", "10.0.0.1:50051")
+			agent := &BackendNode{Name: "agent-a", NodeType: NodeTypeAgent, Address: "10.0.0.2:50051"}
+			Expect(registry.Register(ctx, agent, true)).To(Succeed())
+
+			mc.scriptReply(controlKey(backend.ID, workerctl.PathBackendInstall),
+				messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:50100"})
+
+			Expect(mgr.InstallBackend(ctx, op("vllm-development"), nil)).To(Succeed())
+
+			// The backend node WAS asked, which is the negative control: a
+			// fan-out that skipped everything would satisfy the agent
+			// assertion by doing nothing at all.
+			Expect(mc.callSubjects()).To(Equal([]string{controlKey(backend.ID, workerctl.PathBackendInstall)}))
+			rows, err := registry.ListPendingBackendOps(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			for _, row := range rows {
+				Expect(row.NodeID).ToNot(Equal(agent.ID),
+					"an agent node cannot drain a backend op, so it must never be given one")
+			}
+		})
+
+		// The admin fan-out is the third call site of the rule that a failed
+		// control RPC does not demote a node, and it was the unpinned one. The
+		// rule is stated in three places in this package and, before this spec,
+		// pinned only at ListBackends.
+		//
+		// What the demotion buys in production is the fleet-wide eviction this
+		// phase exists to prevent: MarkUnhealthy removes the node from
+		// ListDuePendingBackendOps AND from scheduling, so a frontend replica
+		// re-homing its tunnels would take out every node it has an op for.
+		Context("when the install RPC could not be routed", func() {
+			It("records the failure without demoting the node", func() {
+				node := registerHealthyBackend("worker-unroutable", "10.0.0.8:50051")
+				mc.scriptUnroutable(node.ID)
+
+				err := mgr.InstallBackend(ctx, op("vllm"), nil)
+				Expect(err).To(HaveOccurred())
+				// Not the still-installing soft path: that branch returns before
+				// the failure handling this spec is about, so without this the
+				// assertions below could pass on the wrong branch.
+				Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse())
+
+				// The recorded failure witnesses that the fan-out ran and
+				// reached the branch that used to demote.
+				rows, listErr := registry.ListPendingBackendOps(ctx)
+				Expect(listErr).ToNot(HaveOccurred())
+				Expect(rows).To(HaveLen(1))
+				Expect(rows[0].Attempts).To(Equal(1))
+
+				after, getErr := registry.Get(ctx, node.ID)
+				Expect(getErr).ToNot(HaveOccurred())
+				Expect(after.Status).To(Equal(StatusHealthy))
+			})
+		})
+
 		Context("ListBackends clears confirmed install rows", func() {
 			It("deletes the pending_backend_ops install row when the backend is reported installed on its target node", func() {
 				node := registerHealthyBackend("worker-a", "10.0.0.5:50051")
@@ -573,7 +634,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				scriptNoBackends(lacks.ID)
 				mc.scriptReply(controlKey(has.ID, workerctl.PathBackendUpgrade),
 					messaging.BackendUpgradeReply{Success: true})
-				// Deliberately don't script SubjectNodeBackendUpgrade for `lacks`:
+				// Deliberately don't script backend.upgrade for `lacks`:
 				// if the manager attempts it, the scripted-client default returns
 				// fakeNoRespondersErr and the assertion below fails loudly.
 
@@ -665,6 +726,33 @@ var _ = Describe("DistributedBackendManager", func() {
 					Expect(call.Subject).ToNot(Equal(controlKey(n1.ID, workerctl.PathBackendInstall)))
 				}
 			})
+		})
+
+		// The still-installing surfacing has TWO call sites, InstallBackend and
+		// this one, and was pinned only at InstallBackend. Dropping it here
+		// reports a spent budget as GREEN SUCCESS: the admin sees the upgrade
+		// finished while the worker is still re-pulling gigabytes, and the row
+		// the reconciler needs to confirm it is invisible in the UI.
+		It("reports an upgrade that ran out of budget as still installing, not as success", func() {
+			n := registerHealthyBackend("worker-slow", "10.0.0.1:50051")
+			scriptInstalled("vllm-development", n.ID)
+			// Only the upgrade verb hangs: backend.list must still answer, or
+			// the manager never gets as far as the node it would upgrade.
+			mc.scriptHang(controlKey(n.ID, workerctl.PathBackendUpgrade))
+			slow := &DistributedBackendManager{
+				local:    stubLocalBackendManager{},
+				adapter:  NewRemoteUnloaderAdapter(nil, nil, mc.controlClient(), time.Minute, 200*time.Millisecond),
+				registry: registry,
+			}
+
+			err := slow.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
+				"a spent budget must not read as a finished upgrade, got %v", err)
+
+			rows, listErr := registry.ListPendingBackendOps(ctx)
+			Expect(listErr).ToNot(HaveOccurred())
+			Expect(rows).To(HaveLen(1), "the row the reconciler confirms the outcome from must survive")
 		})
 
 		// Rolling-update fallback: pre-2026-05-08 workers do not serve

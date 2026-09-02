@@ -57,7 +57,7 @@ type ModelProber interface {
 }
 
 // NodeProcessLister asks a worker which model backend processes it currently
-// has running. Implemented by RemoteUnloaderAdapter over NATS.
+// has running. Implemented by RemoteUnloaderAdapter over the worker's tunnel.
 //
 // This is the sounder liveness signal: the worker owns the process table, so
 // its answer does not depend on whether a backend is busy. A health probe
@@ -161,7 +161,7 @@ type ReplicaReconciler struct {
 	registry       *NodeRegistry
 	scheduler      ModelScheduler // interface for scheduling new models
 	unloader       NodeCommandSender
-	adapter        *RemoteUnloaderAdapter // NATS sender for pending-op drain
+	adapter        *RemoteUnloaderAdapter // control-RPC sender for the pending-op drain
 	prober         ModelProber            // health probe for model gRPC addrs
 	db             *gorm.DB
 	interval       time.Duration
@@ -209,7 +209,7 @@ type ReplicaReconcilerOptions struct {
 	Registry  *NodeRegistry
 	Scheduler ModelScheduler
 	Unloader  NodeCommandSender
-	// Adapter is the NATS sender used to retry pending backend ops. When nil,
+	// Adapter is the control-RPC sender used to retry pending backend ops. When nil,
 	// the state-reconciler pending-drain pass is a no-op (single-node mode).
 	Adapter *RemoteUnloaderAdapter
 	// RegistrationToken is the bearer token the default gRPC prober presents to
@@ -442,8 +442,9 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 
 		// Dead-letter cap: after maxAttempts the row is the reconciler
 		// equivalent of a poison message. Delete it loudly so the queue
-		// doesn't churn NATS every tick forever — operators can re-issue
-		// the op from the UI if they still want it applied.
+		// doesn't churn a control RPC at the worker every tick forever —
+		// operators can re-issue the op from the UI if they still want it
+		// applied.
 		if op.Attempts+1 >= maxPendingBackendOpAttempts {
 			xlog.Error("Reconciler: abandoning pending backend op after max attempts",
 				"op", op.Op, "backend", op.Backend, "node", op.NodeID,
@@ -692,8 +693,8 @@ const workerMissesBeforeReap = 2
 // from ever being mistaken for a dead one.
 //
 // A worker that cannot be reached is skipped rather than treated as empty. A
-// messaging failure says nothing about the processes, and assuming the worst
-// would delete a whole node's rows on a transient NATS blip; the port probe
+// failure to route says nothing about the processes, and assuming the worst
+// would delete a whole node's rows every time a tunnel re-homed; the port probe
 // remains as the fallback for those nodes.
 func (rc *ReplicaReconciler) reconcileNodeProcesses(ctx context.Context) {
 	if rc.processLister == nil {

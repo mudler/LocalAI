@@ -255,6 +255,12 @@ var ErrNoWorkerDialer = fmt.Errorf("%w: no worker tunnel dialer is configured", 
 // A reply code this frontend does not recognise is deliberately not in the set
 // either (see cluster.IsWorkerAnswer), so a newer worker's vocabulary reaches
 // an older frontend as "no route" and costs a retry rather than a row.
+// The control plane's sibling is nodes.controlFailure, which splits the same
+// two ways. That one checks the caller's remaining budget FIRST, because it
+// races a live deadline against a reply that may arrive in the same instant.
+// There is no such race here: this reads ONE error that was already recorded on
+// the client, and an expiry is not in streamRefusals, so it falls to the
+// umbrella below without a guard. Anyone changing the split must change both.
 func unroutable(client grpc.Backend) error {
 	// LastDialErrorOf and not a type assertion: the assertion could not see
 	// past a decorator, and SmartRouter hands every routed client out wrapped.

@@ -274,6 +274,32 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(json.Unmarshal(workers.calls[0].Data, &payload)).To(Succeed())
 			Expect(payload).To(Equal(messaging.BackendStopRequest{Backend: "llama", Force: true}))
 		})
+
+		// The carrier split has TWO call sites, which is why stopBackend takes
+		// nodeType as a parameter. StopBackend is pinned in both directions
+		// below; this is the other caller, and hardcoding NodeTypeBackend here
+		// used to leave the whole suite green. An agent node holding a
+		// node_models row would then have its stop sent over a tunnel it does
+		// not hold, the call would fail, and the replica row would be left
+		// behind.
+		It("routes each stop by ITS node's type, not by one choice for the unload", func() {
+			locator.nodes = []BackendNode{
+				{ID: "agent-1", Name: "agent", NodeType: NodeTypeAgent},
+				{ID: "backend-1", Name: "gpu-1", NodeType: NodeTypeBackend},
+			}
+			scriptStop("backend-1")
+
+			Expect(adapter.UnloadRemoteModelContext(context.Background(), "llama", false)).To(Succeed())
+
+			// The agent's stop went to the bus and only the agent's did; the
+			// backend's went over the tunnel and only the backend's did.
+			Expect(bus.publishedSubjects()).To(Equal([]string{messaging.SubjectNodeBackendStop("agent-1")}))
+			Expect(workers.callSubjects()).To(Equal([]string{controlKey("backend-1", workerctl.PathBackendStop)}))
+			// Both rows dropped, which is the negative control: a stop put on
+			// the carrier the other kind of worker listens on fails, and a
+			// failed stop keeps its row.
+			Expect(locator.removedPairs).To(HaveLen(2))
+		})
 	})
 
 	// The carrier split. It is the one verb of the ten that is decided by the
@@ -495,6 +521,44 @@ var _ = Describe("RemoteUnloaderAdapter timeout handling", func() {
 		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), 100*time.Millisecond, 1*time.Second)
 
 		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse())
+		Expect(errors.Is(err, ErrWorkerUnroutable)).To(BeTrue())
+	})
+
+	// The still-installing rule has THREE call sites: InstallBackend,
+	// UpgradeBackend and the legacy force-install fallback. The first two are
+	// pinned by the specs above and by the timeout-configuration pair; the
+	// fallback was the unpinned one, and widening its guard to any error left
+	// the whole suite green. A permanently unroutable worker on the fallback
+	// path would then report as still-installing forever, which galleryop
+	// treats as a soft failure: the retry is pushed out and the operator never
+	// sees the error.
+	It("reports a spent budget on the legacy fallback as still-installing, on the upgrade budget", func() {
+		workers := newScriptedControlWorkers()
+		workers.scriptHang(controlKey("n1", workerctl.PathBackendInstall))
+		// Install and upgrade budgets far apart: the fallback re-fires an
+		// INSTALL but is part of an upgrade, so it must wait the upgrade
+		// budget. Waiting the install one would satisfy a bare
+		// still-installing assertion while carrying the wrong deadline.
+		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), 100*time.Millisecond, 500*time.Millisecond)
+
+		started := time.Now()
+		_, err := adapter.installWithForceFallback("n1", "llama-cpp", "[]", "", "", "", 0, "", nil)
+		elapsed := time.Since(started)
+
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(),
+			"a spent budget is reported as still-installing, got %v", err)
+		Expect(elapsed).To(BeNumerically(">=", 500*time.Millisecond))
+	})
+
+	It("does NOT report an unroutable legacy fallback as still installing", func() {
+		workers := newScriptedControlWorkers()
+		// The verb is not scripted, so the worker fails to SERVE it rather
+		// than answering; that is a 5xx and lands under the no-route umbrella.
+		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), time.Minute, time.Minute)
+
+		_, err := adapter.installWithForceFallback("n1", "llama-cpp", "[]", "", "", "", 0, "", nil)
 		Expect(err).To(HaveOccurred())
 		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse())
 		Expect(errors.Is(err, ErrWorkerUnroutable)).To(BeTrue())
