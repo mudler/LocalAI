@@ -40,10 +40,24 @@ var _ = Describe("control plane paths on the wire", func() {
 		}
 	})
 
-	It("enumerates every verb, so a new one cannot be added without the prefix check seeing it", func() {
-		Expect(workerctl.AllPaths()).To(HaveLen(10))
-		Expect(workerctl.AllPaths()).To(ContainElement(workerctl.PathBackendInstall))
-		Expect(workerctl.AllPaths()).To(ContainElement(workerctl.PathNodeStop))
+	It("lists every verb this package names, so none can be dropped from the set", func() {
+		// The claim is bounded on purpose. Go constants are not enumerable, so
+		// nothing here can see a NEW constant that was never added to AllPaths;
+		// what this catches is an EXISTING verb going missing from it, which
+		// matters because the prefix check above and the worker's mounting spec
+		// both iterate AllPaths and would silently stop covering it.
+		Expect(workerctl.AllPaths()).To(ConsistOf(
+			workerctl.PathBackendInstall,
+			workerctl.PathBackendUpgrade,
+			workerctl.PathBackendList,
+			workerctl.PathBackendStop,
+			workerctl.PathBackendDelete,
+			workerctl.PathModelStop,
+			workerctl.PathModelUnload,
+			workerctl.PathModelDelete,
+			workerctl.PathModelsRunning,
+			workerctl.PathNodeStop,
+		))
 	})
 
 	It("gives each verb a distinct path", func() {

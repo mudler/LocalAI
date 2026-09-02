@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -117,6 +118,14 @@ func (s *backendSupervisor) RegisterControlRoutes(mux *http.ServeMux) {
 		return messaging.ModelsRunningReply{Models: s.runningModels()}, nil
 	})
 
+	// model.stop deliberately does NOT take the caller's context, and the
+	// asymmetry with model.unload below is the point. This is the ACKNOWLEDGED
+	// stop path: it reserves the process, frees it, kills it, waits for it to
+	// exit and releases its port. Abandoning that half way because the caller
+	// stopped listening would leave a process the worker has marked stopping,
+	// a port not returned to the allocator, and a controller row nothing ever
+	// reconciles. The stop has to finish whether or not anyone reads the
+	// answer; its own bounds are internal and already in place.
 	post(workerctl.PathModelStop, func(_ context.Context, body []byte) (any, error) {
 		var req messaging.ModelStopRequest
 		if err := json.Unmarshal(body, &req); err != nil {
@@ -137,6 +146,10 @@ func (s *backendSupervisor) RegisterControlRoutes(mux *http.ServeMux) {
 		return s.deleteBackend(req), nil
 	})
 
+	// model.unload is the one verb that DOES take the caller's context. Free is
+	// the whole operation here rather than a courtesy before a kill: nothing is
+	// terminated, no port is released, and abandoning it leaves the worker
+	// exactly as it was. So the caller's budget is the operation's budget.
 	post(workerctl.PathModelUnload, func(ctx context.Context, body []byte) (any, error) {
 		var req messaging.ModelUnloadRequest
 		if err := json.Unmarshal(body, &req); err != nil {
@@ -153,6 +166,9 @@ func (s *backendSupervisor) RegisterControlRoutes(mux *http.ServeMux) {
 		return s.deleteModel(req), nil
 	})
 
+	// backend.stop drops the caller's context for the same reason model.stop
+	// does, and more plainly: it is fire-and-forget, so there is no answer for
+	// the caller to still be waiting on.
 	post(workerctl.PathBackendStop, func(_ context.Context, body []byte) (any, error) {
 		req, stopAll, err := decodeBackendStopRequest(body)
 		if err != nil {
@@ -207,23 +223,23 @@ func readControlBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
 }
 
 // truncate bounds a caller-controlled string that is about to be echoed.
-// It cuts on a rune boundary: a byte-wise cut can split a multi-byte rune, and
-// the half-rune then travels as a replacement character through every log and
-// UI that reads it.
+//
+// It cuts on a rune boundary. A byte-wise cut can split a multi-byte rune, and
+// the half rune then travels as a replacement character through every log and
+// UI that reads it; phase 2 shipped exactly that defect on a refusal reason and
+// pinned the rule afterwards. utf8.RuneStart is the same predicate the cluster
+// package uses for it, so the two are one rule rather than two hand-rolled
+// copies that can drift.
 func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s
 	}
 	cut := max
-	for cut > 0 && !isRuneStart(s[cut]) {
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
 		cut--
 	}
 	return s[:cut] + "…"
 }
-
-// isRuneStart reports whether b begins a UTF-8 rune (i.e. is not a
-// continuation byte).
-func isRuneStart(b byte) bool { return b&0xC0 != 0x80 }
 
 // ndjsonStream writes the Envelope lines of one streaming control response.
 //

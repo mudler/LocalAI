@@ -134,19 +134,11 @@ func (s *backendSupervisor) installBackend(ctx context.Context, req messaging.Ba
 		galleries = reqGalleries
 	}
 
-	// When the caller tagged this install with an OpID and is listening for
-	// progress, stream the gallery download ticks back on the response the
-	// caller is already reading. Callers that omit OpID stay on the silent path.
-	// The publisher releases its mutex before every emit so a slow link never
-	// stalls the download loop, and the deferred Flush guarantees a
-	// terminal-percentage event reaches the caller even when the install errors
-	// out.
-	var downloadCb func(file, current, total string, percentage float64)
-	if req.OpID != "" && onProgress != nil {
-		publisher := nodes.NewDebouncedInstallProgressSink(onProgress, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
-		downloadCb = publisher.OnDownload
-		defer publisher.Flush()
-	}
+	// Gallery download ticks go back on the response the caller is already
+	// reading. See startProgress for the guard and for why the flush is
+	// deferred.
+	downloadCb, flushProgress := s.startProgress(req.OpID, req.Backend, onProgress)
+	defer flushProgress()
 
 	// On upgrade, run the gallery install path even if the binary already
 	// exists on disk: findBackend would otherwise short-circuit and we'd
@@ -235,17 +227,10 @@ func (s *backendSupervisor) upgradeBackend(ctx context.Context, req messaging.Ba
 		galleries = reqGalleries
 	}
 
-	// When the caller tagged this upgrade with an OpID, stream gallery download
-	// progress back on the same sink install uses — an upgrade IS a
-	// force-reinstall. Callers that omit OpID stay on the silent path. The
-	// deferred Flush guarantees a terminal-percentage event even if the upgrade
-	// errors out, so the caller's per-node bar never hangs mid-download.
-	var downloadCb func(file, current, total string, percentage float64)
-	if req.OpID != "" && onProgress != nil {
-		publisher := nodes.NewDebouncedInstallProgressSink(onProgress, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
-		downloadCb = publisher.OnDownload
-		defer publisher.Flush()
-	}
+	// The same sink install uses: an upgrade IS a force-reinstall, so its
+	// progress is install progress.
+	downloadCb, flushProgress := s.startProgress(req.OpID, req.Backend, onProgress)
+	defer flushProgress()
 
 	if req.URI != "" {
 		xlog.Info("Upgrading backend from external URI", "backend", req.Backend, "uri", req.URI)
@@ -308,4 +293,35 @@ func (s *backendSupervisor) lockBackend(name string) func() {
 	s.mu.Unlock()
 	m.Lock()
 	return m.Unlock
+}
+
+// startProgress wires one install or upgrade to its caller's progress sink.
+//
+// It returns the download callback the gallery takes, and a flush the caller
+// must defer: the debouncer buffers within its window, and the deferred flush
+// is what gets the terminal percentage to the caller even when the install
+// errors out.
+//
+// Both halves of the guard matter. An empty OpID means the caller is a
+// reconciler-driven retry that asked for no progress, and a nil sink means the
+// caller is not reading a stream at all; either way the gallery gets a nil
+// callback and takes its silent path.
+//
+// The resolving event is emitted here, before any gallery work, so the caller
+// sees a line as soon as the worker has accepted the job rather than only once
+// bytes start moving. A cold install spends minutes resolving a manifest, and
+// during that time a progress stream with nothing on it is indistinguishable
+// from one that is broken.
+func (s *backendSupervisor) startProgress(opID, backend string, onProgress func(messaging.BackendInstallProgressEvent)) (func(file, current, total string, percentage float64), func()) {
+	if opID == "" || onProgress == nil {
+		return nil, func() {}
+	}
+	publisher := nodes.NewDebouncedInstallProgressSink(onProgress, s.nodeID, opID, backend, installProgressDebounce)
+	onProgress(messaging.BackendInstallProgressEvent{
+		OpID:    opID,
+		NodeID:  s.nodeID,
+		Backend: backend,
+		Phase:   messaging.PhaseResolving,
+	})
+	return publisher.OnDownload, publisher.Flush
 }

@@ -186,7 +186,11 @@ Two of the routes stream. `POST /v1/control/backend/install` and
 `/v1/control/backend/upgrade` answer with `application/x-ndjson`: zero or more
 `{"progress":{...}}` lines carrying the same download-progress payload the
 per-op NATS subject carried, followed by exactly one `{"reply":{...}}` line,
-which is always the last line on the body. An install that FAILS is still a
+which is always the last line on the body. When the request carries an `op_id`,
+the first progress line has phase `resolving` and is written before any gallery
+work begins, so a cold install that spends minutes on a manifest is
+distinguishable from a stream that is broken. Nothing publishes install progress
+over NATS any more. An install that FAILS is still a
 `200` with a reply whose `success` is `false`. That is deliberate, and it is the
 same distinction the refusal table above draws: a non-2xx means the frontend
 could not get the request to the worker, which nothing may act on, while the

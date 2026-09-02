@@ -849,6 +849,12 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 	}
 
 	if !force {
+		// Background and not a caller's context on purpose. This Free is a
+		// courtesy before the process is killed anyway, and the stop that
+		// follows must complete for the port to be released, so binding it to
+		// a caller that may have gone would buy nothing and could abandon a
+		// half-finished stop. model.unload, where Free IS the operation, takes
+		// the caller's budget instead; see RegisterControlRoutes.
 		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		xlog.Debug("Calling bounded Free() before stopping backend", "backend", key, "timeout", workerBackendFreeTimeout)
@@ -895,6 +901,8 @@ func (s *backendSupervisor) stopModelExact(req messaging.ModelStopRequest) messa
 	s.mu.Unlock()
 
 	if !req.Force {
+		// Background, for the reason given in stopBackendExact: this is the
+		// acknowledged stop and it has to run to completion.
 		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		freeErr := client.Free(freeCtx)

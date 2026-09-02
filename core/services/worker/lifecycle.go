@@ -183,18 +183,34 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req messaging.Model
 		s.mu.Unlock()
 	}
 
-	if targetAddr != "" {
-		// Best-effort bounded gRPC Free(). A model.unload request must not
-		// occupy the handler forever when a backend is wedged. The bound is
-		// derived from the caller's own budget where it has one, so a caller
-		// that allowed less than workerBackendFreeTimeout is not made to wait
-		// longer than it asked for.
-		client := grpc.NewClientWithToken(targetAddr, false, nil, false, s.cfg.RegistrationToken)
-		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
-		if err := client.Free(freeCtx); err != nil {
-			xlog.Warn("Free() failed during model.unload", "error", err, "addr", targetAddr)
+	if targetAddr == "" {
+		// Nothing is loaded here, so there is nothing to free. That is the
+		// worker's own answer and it is a true one, not a claim about work it
+		// performed.
+		return messaging.ModelUnloadReply{Success: true}
+	}
+
+	// Bounded gRPC Free(). A model.unload request must not occupy the handler
+	// forever when a backend is wedged. The bound is derived from the caller's
+	// own budget, so a caller that allowed less than workerBackendFreeTimeout
+	// is not made to wait longer than it asked for.
+	client := grpc.NewClientWithToken(targetAddr, false, nil, false, s.cfg.RegistrationToken)
+	freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
+	err := client.Free(freeCtx)
+	cancel()
+	if err != nil {
+		// Reported, not swallowed. This used to answer Success:true whatever
+		// Free did, which is the worker saying "done" about something it did
+		// not do: the frontend's only caller is EvictLRU, so a false yes told
+		// the scheduler VRAM had been released and let it place the next model
+		// on a node still holding the old one. A failure here is the worker's
+		// own verdict about one Free call and nothing more; it is not a
+		// statement that the node or the model is gone.
+		xlog.Warn("Free() failed during model.unload", "error", err, "addr", targetAddr)
+		return messaging.ModelUnloadReply{
+			Success: false,
+			Error:   fmt.Sprintf("freeing model on %s: %v", targetAddr, err),
 		}
-		cancel()
 	}
 
 	return messaging.ModelUnloadReply{Success: true}
@@ -215,7 +231,7 @@ func (s *backendSupervisor) deleteModel(req messaging.ModelDeleteRequest) messag
 // signalNodeStop serves node.stop: it triggers the normal shutdown path via
 // sigCh so deferred cleanup runs, rather than exiting the process here.
 func (s *backendSupervisor) signalNodeStop() {
-	xlog.Info("Serving node.stop — signaling shutdown")
+	xlog.Info("Serving node.stop, signaling shutdown")
 	select {
 	case s.sigCh <- syscall.SIGTERM:
 	default:
