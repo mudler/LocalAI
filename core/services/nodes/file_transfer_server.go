@@ -113,8 +113,18 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 }
 
 func startFileTransferServerWithRoutes(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, extra *AuthenticatedRoutes, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	if err := validateAuthenticatedRoutes(extra); err != nil {
-		return nil, err
+	// Checked before anything is created. A route set that names no prefix or
+	// no registrar is a caller bug, and mounting nothing for it would be the
+	// worst possible answer: the server comes up healthy and every route the
+	// caller believes it registered answers 404, which through a tunnel is
+	// indistinguishable from a version skew.
+	if extra != nil {
+		if extra.Prefix == "" {
+			return nil, fmt.Errorf("extra routes were given no prefix to mount under")
+		}
+		if extra.Register == nil {
+			return nil, fmt.Errorf("extra routes under %q were given no registrar", extra.Prefix)
+		}
 	}
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
@@ -231,7 +241,7 @@ func startFileTransferServerWithRoutes(lis net.Listener, stagingDir, modelsDir, 
 	// Readiness: "can this worker actually accept work?" See WorkerReadiness.
 	mux.HandleFunc("/readyz", probe(readiness.Check))
 
-	if extra != nil && extra.Register != nil && extra.Prefix != "" {
+	if extra != nil {
 		extraMux := http.NewServeMux()
 		extra.Register(extraMux)
 		mux.Handle(extra.Prefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

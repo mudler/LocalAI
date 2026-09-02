@@ -11,11 +11,10 @@ import (
 // and hands them to its emit sink at most once per `interval`. Always emits the
 // final event on Flush so the UI sees the terminal percentage.
 //
-// The sink is a function rather than a NATS subject because the same debounce
-// now bounds two carriers: the NATS progress subject an agent node still
-// publishes on, and a line written into the streaming HTTP response a worker
-// serves over its tunnel. Keeping one debouncer keeps the ~4/s tick bound a
-// single fact instead of one per carrier.
+// The sink is a function rather than a NATS subject because the events now ride
+// the streaming HTTP response the worker serves over its tunnel. Leaving the
+// debounce here, rather than at the sink, is what keeps the ~4/s tick bound a
+// property of install progress itself and not of whatever carries it.
 //
 // Behavior: leading-edge debounce. The first OnDownload after a quiet window
 // publishes immediately; subsequent ticks within `interval` only buffer the
@@ -38,21 +37,17 @@ type DebouncedInstallProgressPublisher struct {
 	timer           *time.Timer
 }
 
-// NewDebouncedInstallProgressPublisher constructs a publisher for one install
-// operation that publishes to the per-op NATS progress subject. interval is the
-// leading-edge debounce window (~250ms in production).
-func NewDebouncedInstallProgressPublisher(client messaging.MessagingClient, nodeID, opID, backend string, interval time.Duration) *DebouncedInstallProgressPublisher {
-	subject := messaging.SubjectNodeBackendInstallProgress(nodeID, opID)
-	return NewDebouncedInstallProgressSink(func(ev messaging.BackendInstallProgressEvent) {
-		_ = client.Publish(subject, ev)
-	}, nodeID, opID, backend, interval)
-}
-
 // NewDebouncedInstallProgressSink constructs a publisher for one install
 // operation that hands each debounced event to emit.
 //
 // emit is called with p.mu released, so a sink that blocks on a slow link
 // cannot stall the gallery download loop that feeds it.
+//
+// There was a sibling constructor that published to the per-op NATS progress
+// subject. It is gone rather than kept: a worker streams these events inside
+// the install response now, so the NATS publisher had no caller left, and a
+// constructor alive only for its own spec is a carrier a reader would believe
+// still runs.
 func NewDebouncedInstallProgressSink(emit func(messaging.BackendInstallProgressEvent), nodeID, opID, backend string, interval time.Duration) *DebouncedInstallProgressPublisher {
 	return &DebouncedInstallProgressPublisher{
 		emit:     emit,

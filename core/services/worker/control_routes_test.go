@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"unicode/utf8"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 )
 
@@ -136,6 +139,39 @@ var _ = Describe("worker control routes", func() {
 		Expect(string(body)).To(ContainSubstring("control"))
 	})
 
+	It("cuts the echoed path on a rune boundary, so no half rune reaches a log", func() {
+		// The multi-byte rune is placed so that it STRADDLES the cut: a
+		// byte-wise cut lands inside it and the body carries a replacement
+		// character. Phase 2 shipped this exact defect on a refusal reason.
+		// "a" is one byte and "€" is three. The echoed string is the WHOLE
+		// path, prefix included, so the padding is sized against the prefix to
+		// put the rune across bytes max-1, max and max+1.
+		lead := maxEchoedPathBytes - len(workerctl.Prefix) - 1
+		straddle := strings.Repeat("a", lead) + "€" + strings.Repeat("b", 64)
+		resp := post(workerctl.Prefix+straddle, struct{}{})
+		Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
+		body, err := io.ReadAll(resp.Body)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(utf8.ValidString(string(body))).To(BeTrue(), "the 404 body must stay valid UTF-8")
+		Expect(string(body)).NotTo(ContainSubstring("\uFFFD"), "the cut split a rune")
+		// And the whole rune is dropped rather than kept past the bound.
+		Expect(string(body)).NotTo(ContainSubstring("€"))
+	})
+
+	It("keeps a rune that ends exactly on the bound, so the cut is not off by one", func() {
+		// Here the rune's last byte is at maxEchoedPathBytes-1, so it fits
+		// entirely and must survive. A cut that walked back unconditionally
+		// would drop it and this spec would catch that.
+		lead := maxEchoedPathBytes - len(workerctl.Prefix) - 3
+		exact := strings.Repeat("a", lead) + "€" + strings.Repeat("b", 64)
+		resp := post(workerctl.Prefix+exact, struct{}{})
+		body, err := io.ReadAll(resp.Body)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(utf8.ValidString(string(body))).To(BeTrue())
+		Expect(string(body)).To(ContainSubstring("€"))
+	})
+
 	It("bounds the unknown path it echoes back, so a long URL cannot be reflected wholesale", func() {
 		long := strings.Repeat("a", 4096)
 		resp := post(workerctl.Prefix+long, struct{}{})
@@ -196,11 +232,33 @@ var _ = Describe("worker control routes", func() {
 	})
 
 	It("answers model.unload with the worker's own reply rather than a transport error", func() {
+		// Nothing is loaded, so there is nothing to free and the true answer is
+		// success.
 		resp := post(workerctl.PathModelUnload, messaging.ModelUnloadRequest{ModelName: "m"})
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		var reply messaging.ModelUnloadReply
 		Expect(json.NewDecoder(resp.Body).Decode(&reply)).To(Succeed())
 		Expect(reply.Success).To(BeTrue())
+	})
+
+	It("reports a failed Free as a failed unload, not as success", func() {
+		// A worker that answers "done" about work it did not do is the fourth
+		// kind of answer in this programme's taxonomy, and it is the one acted
+		// on: the frontend's only caller of unload is EvictLRU, so a false yes
+		// tells the scheduler VRAM was released and lets it place the next
+		// model on a node still holding the old one.
+		dead, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		addr := dead.Addr().String()
+		Expect(dead.Close()).To(Succeed())
+
+		resp := post(workerctl.PathModelUnload, messaging.ModelUnloadRequest{ModelName: "m", Address: addr})
+		// Still a 200: the WORKER answered. Only the verdict inside is negative.
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		var reply messaging.ModelUnloadReply
+		Expect(json.NewDecoder(resp.Body).Decode(&reply)).To(Succeed())
+		Expect(reply.Success).To(BeFalse())
+		Expect(reply.Error).To(ContainSubstring(addr))
 	})
 
 	It("answers model.stop for an unknown process with the worker's verdict, not a 5xx", func() {
@@ -520,5 +578,139 @@ var _ = Describe("the NDJSON control stream", func() {
 		for _, k := range kinds[:len(kinds)-1] {
 			Expect(k).To(Equal("progress"))
 		}
+	})
+})
+
+// These specs drive the REAL installBackend and upgradeBackend, with no
+// installFn override, so the progress wiring inside them is exercised end to
+// end through the carrier. Every other install spec scripts installFn, which
+// leaves the one line that decides whether a caller sees any progress at all
+// pinned by nothing.
+var _ = Describe("the real install progress wiring", func() {
+	var (
+		sup *backendSupervisor
+		srv *httptest.Server
+	)
+
+	BeforeEach(func() {
+		dir := GinkgoT().TempDir()
+		st, err := system.GetSystemState(
+			system.WithModelPath(dir),
+			system.WithBackendPath(filepath.Join(dir, "backends")),
+			system.WithBackendSystemPath(filepath.Join(dir, "backends-system")),
+		)
+		Expect(err).NotTo(HaveOccurred())
+		sup = &backendSupervisor{
+			cfg:         &Config{ModelsPath: dir, BackendsPath: filepath.Join(dir, "backends")},
+			systemState: st,
+			ml:          model.NewModelLoader(st),
+			nodeID:      "node-under-test",
+			sigCh:       make(chan os.Signal, 1),
+			processes:   map[string]*backendProcess{},
+			// Empty on purpose. The install cannot succeed, which is the point:
+			// what is under test is that the caller is told what the worker is
+			// doing and then told it failed, not that a download works.
+			galleries: nil,
+		}
+		mux := http.NewServeMux()
+		sup.RegisterControlRoutes(mux)
+		srv = httptest.NewServer(mux)
+		DeferCleanup(srv.Close)
+	})
+
+	postJSON := func(path string, body any) *http.Response {
+		GinkgoHelper()
+		buf, err := json.Marshal(body)
+		Expect(err).NotTo(HaveOccurred())
+		resp, err := srv.Client().Post(srv.URL+path, "application/json", bytes.NewReader(buf))
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = resp.Body.Close() })
+		return resp
+	}
+
+	// envelopesOf decodes a whole NDJSON body into its envelopes.
+	envelopesOf := func(body io.Reader) []workerctl.Envelope {
+		GinkgoHelper()
+		var out []workerctl.Envelope
+		dec := json.NewDecoder(body)
+		for {
+			var env workerctl.Envelope
+			err := dec.Decode(&env)
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			Expect(err).NotTo(HaveOccurred())
+			out = append(out, env)
+		}
+		return out
+	}
+
+	It("streams a resolving line before the failure, from the real installBackend", func() {
+		resp := postJSON(workerctl.PathBackendInstall,
+			messaging.BackendInstallRequest{Backend: "no-such-backend", OpID: "op-real"})
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		envs := envelopesOf(resp.Body)
+		Expect(envs).NotTo(BeEmpty())
+		Expect(envs[0].Progress).NotTo(BeNil(), "the caller must see a line before the gallery work starts")
+
+		var ev messaging.BackendInstallProgressEvent
+		Expect(json.Unmarshal(envs[0].Progress, &ev)).To(Succeed())
+		Expect(ev.Phase).To(Equal(messaging.PhaseResolving))
+		Expect(ev.OpID).To(Equal("op-real"))
+		Expect(ev.NodeID).To(Equal("node-under-test"))
+		Expect(ev.Backend).To(Equal("no-such-backend"))
+
+		last := envs[len(envs)-1]
+		Expect(last.Reply).NotTo(BeNil())
+		var reply messaging.BackendInstallReply
+		Expect(json.Unmarshal(last.Reply, &reply)).To(Succeed())
+		Expect(reply.Success).To(BeFalse())
+	})
+
+	It("streams nothing but the reply when the caller asked for no progress", func() {
+		// An empty OpID is a reconciler-driven retry. It must not be given a
+		// progress stream, and it must still get its terminal line.
+		resp := postJSON(workerctl.PathBackendInstall,
+			messaging.BackendInstallRequest{Backend: "no-such-backend"})
+		Expect(envelopeKindsOf(resp.Body)).To(Equal([]string{"reply"}))
+	})
+
+	It("streams a resolving line from the real upgradeBackend too", func() {
+		resp := postJSON(workerctl.PathBackendUpgrade,
+			messaging.BackendUpgradeRequest{Backend: "no-such-backend", OpID: "op-real-upgrade"})
+		envs := envelopesOf(resp.Body)
+		Expect(envs).NotTo(BeEmpty())
+		Expect(envs[0].Progress).NotTo(BeNil())
+
+		var ev messaging.BackendInstallProgressEvent
+		Expect(json.Unmarshal(envs[0].Progress, &ev)).To(Succeed())
+		Expect(ev.Phase).To(Equal(messaging.PhaseResolving))
+		Expect(ev.OpID).To(Equal("op-real-upgrade"))
+
+		var reply messaging.BackendUpgradeReply
+		Expect(json.Unmarshal(envs[len(envs)-1].Reply, &reply)).To(Succeed())
+		Expect(reply.Success).To(BeFalse())
+	})
+
+	It("hands the gallery no download callback when either half of the guard is missing", func() {
+		// A nil callback is what puts the gallery on its silent path, and both
+		// halves have to be checked: a caller with an OpID but no sink is the
+		// shape that would nil-panic on the resolving emit.
+		collected := func(messaging.BackendInstallProgressEvent) {}
+
+		cb, flush := sup.startProgress("", "b", collected)
+		Expect(cb).To(BeNil())
+		Expect(flush).NotTo(BeNil())
+		flush()
+
+		cb, flush = sup.startProgress("op", "b", nil)
+		Expect(cb).To(BeNil())
+		Expect(flush).NotTo(BeNil())
+		flush()
+
+		cb, flush = sup.startProgress("op", "b", collected)
+		Expect(cb).NotTo(BeNil())
+		flush()
 	})
 })
