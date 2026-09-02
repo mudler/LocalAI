@@ -11,6 +11,21 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
+// doOrCached drives the production entry point with a boolean-only probe,
+// which is what most of these specs are about.
+//
+// It is a spec helper and not a method, deliberately. It WAS a method, and once
+// probeHealth moved to DoOrCachedResult it became production code with no
+// production caller, kept green by these specs alone. Moving it here keeps the
+// convenience where its only user is and stops the shim being mistaken for a
+// supported way to probe.
+func doOrCached(c *probeCache, key string, probe func() bool) bool {
+	GinkgoHelper()
+	alive, unreached := c.DoOrCachedResult(key, func() (bool, error) { return probe(), nil })
+	Expect(unreached).To(BeNil())
+	return alive
+}
+
 var _ = Describe("probeCache", func() {
 	It("invokes the probe on a cold cache and caches success", func() {
 		c := newProbeCache(time.Minute)
@@ -20,9 +35,9 @@ var _ = Describe("probeCache", func() {
 			return true
 		}
 
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
 
 		// Cached: probe ran once.
 		Expect(atomic.LoadInt32(&calls)).To(Equal(int32(1)))
@@ -38,9 +53,9 @@ var _ = Describe("probeCache", func() {
 			return true
 		}
 
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
 		time.Sleep(5 * time.Millisecond)
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
 
 		Expect(atomic.LoadInt32(&calls)).To(Equal(int32(2)))
 	})
@@ -56,16 +71,16 @@ var _ = Describe("probeCache", func() {
 
 		// First probe fails — must NOT be cached.
 		result.Store(false)
-		Expect(c.DoOrCached("k", probe)).To(BeFalse())
+		Expect(doOrCached(c, "k", probe)).To(BeFalse())
 		Expect(c.IsFresh("k")).To(BeFalse())
 
 		// Recover: second probe succeeds and is cached.
 		result.Store(true)
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
 		Expect(c.IsFresh("k")).To(BeTrue())
 
 		// Third call short-circuits on the fresh entry.
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
 		Expect(atomic.LoadInt32(&calls)).To(Equal(int32(2)))
 	})
 
@@ -92,7 +107,7 @@ var _ = Describe("probeCache", func() {
 			go func(i int) {
 				defer wg.Done()
 				<-start
-				results[i] = c.DoOrCached("k", probe)
+				results[i] = doOrCached(c, "k", probe)
 			}(i)
 		}
 
@@ -187,9 +202,9 @@ var _ = Describe("probeCache", func() {
 	It("treats different keys independently", func() {
 		c := newProbeCache(time.Minute)
 		var aCalls, bCalls int32
-		Expect(c.DoOrCached("a", func() bool { atomic.AddInt32(&aCalls, 1); return true })).To(BeTrue())
-		Expect(c.DoOrCached("b", func() bool { atomic.AddInt32(&bCalls, 1); return true })).To(BeTrue())
-		Expect(c.DoOrCached("a", func() bool { atomic.AddInt32(&aCalls, 1); return true })).To(BeTrue())
+		Expect(doOrCached(c, "a", func() bool { atomic.AddInt32(&aCalls, 1); return true })).To(BeTrue())
+		Expect(doOrCached(c, "b", func() bool { atomic.AddInt32(&bCalls, 1); return true })).To(BeTrue())
+		Expect(doOrCached(c, "a", func() bool { atomic.AddInt32(&aCalls, 1); return true })).To(BeTrue())
 
 		Expect(atomic.LoadInt32(&aCalls)).To(Equal(int32(1)))
 		Expect(atomic.LoadInt32(&bCalls)).To(Equal(int32(1)))
@@ -203,9 +218,9 @@ var _ = Describe("probeCache", func() {
 			return true
 		}
 
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
 
 		Expect(atomic.LoadInt32(&calls)).To(Equal(int32(3)))
 	})
@@ -217,9 +232,9 @@ var _ = Describe("probeCache", func() {
 			atomic.AddInt32(&calls, 1)
 			return true
 		}
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
 		c.Invalidate("k")
-		Expect(c.DoOrCached("k", probe)).To(BeTrue())
+		Expect(doOrCached(c, "k", probe)).To(BeTrue())
 		Expect(atomic.LoadInt32(&calls)).To(Equal(int32(2)))
 	})
 })

@@ -112,7 +112,7 @@ func isAbsenceClaim(err error) bool {
 	return errors.Is(err, ErrNoConnection) || errors.Is(err, ErrInstanceNotFound)
 }
 
-// isWorkerAnswer reports whether an error is the WORKER's own refusal, read off
+// IsWorkerAnswer reports whether an error is the WORKER's own refusal, read off
 // the reply it sent.
 //
 // Those three sentinels are the only ones ReadStreamReply produces from a frame
@@ -124,7 +124,17 @@ func isAbsenceClaim(err error) bool {
 // would let a newer worker's vocabulary be read by an older frontend as
 // evidence about a backend, and the consequence of guessing wrong in that
 // direction is a reaped replica; guessing wrong the other way costs a retry.
-func isWorkerAnswer(err error) bool {
+//
+// It is EXPORTED because it is half of a contract, not an implementation
+// detail. Dial keeps these three out of the ErrNoRoute umbrella so that a
+// consumer can act on them; a consumer that cannot ask "was this the worker
+// speaking?" has no way to use that, and for a whole phase none could, so every
+// worker refusal reached the schedulers as "this frontend has no route" and
+// nothing could ever be reaped. The two sides must agree on the SAME set, so
+// there is one predicate and both call it: see nodes.unroutable and
+// model.transportFailure, whose job is to answer "did this call reach a
+// backend?" and for whom a refusal means it did.
+func IsWorkerAnswer(err error) bool {
 	return errors.Is(err, ErrStreamTagUnknown) ||
 		errors.Is(err, ErrStreamTargetUnavailable) ||
 		errors.Is(err, ErrStreamRequestInvalid)
@@ -293,6 +303,32 @@ func (d *WorkerDialer) relay(ctx context.Context, nodeID, tag, target string) (n
 // session, and a frontend that retries would exhaust the worker's stream
 // budget rather than the worker's patience.
 func (d *WorkerDialer) handshake(ctx context.Context, stream net.Conn, nodeID, tag, target string) (net.Conn, error) {
+	// blameCaller attributes a handshake I/O failure to the CALLER's own spent
+	// budget when that is what ended it, and returns nil when it was not.
+	//
+	// The third instance of the rule peerlink.go states in full at callerRanOut:
+	// the handshake deadline IS the caller's deadline whenever the caller's is
+	// the shorter (see handshakeDeadline), so a caller that has run out makes
+	// the socket's own timer fire, and the resulting i/o timeout arrives here
+	// while ctx.Err() may still read nil because nothing orders the two timers.
+	// Reported plainly, that is "the tunnel would not carry the request" for a
+	// worker that is connected, healthy and idle.
+	//
+	// The umbrella stays on either way, so Dial's contract is unchanged; what
+	// changes is that context.DeadlineExceeded is matchable underneath and the
+	// log line names the caller instead of the worker. It deliberately runs
+	// BEFORE the worker-answer check below, so a refusal that arrived in the
+	// same instant the budget expired is reported as the caller's timeout: a
+	// spent deadline must never be able to manufacture evidence about a
+	// backend, which is the same direction peerlink.go takes for absence.
+	blameCaller := func(what string) error {
+		ctxErr := callerRanOut(ctx)
+		if ctxErr == nil {
+			return nil
+		}
+		return routeFailure(nodeID, fmt.Errorf("%s: the caller's own budget ran out: %w", what, ctxErr))
+	}
+
 	if err := stream.SetDeadline(handshakeDeadline(ctx)); err != nil {
 		_ = stream.Close()
 		return nil, routeFailure(nodeID, fmt.Errorf("arming the handshake deadline: %w", err))
@@ -302,11 +338,17 @@ func (d *WorkerDialer) handshake(ctx context.Context, stream net.Conn, nodeID, t
 		// The stream would not carry the request, so the tunnel broke under it.
 		// Nothing was asked of the worker and nothing was learned about it.
 		_ = stream.Close()
+		if blamed := blameCaller(fmt.Sprintf("asking for %q on %q", tag, target)); blamed != nil {
+			return nil, blamed
+		}
 		return nil, routeFailure(nodeID, fmt.Errorf("asking for %q on %q: %w", tag, target, err))
 	}
 	if err := ReadStreamReply(stream); err != nil {
 		_ = stream.Close()
-		if isWorkerAnswer(err) {
+		if blamed := blameCaller(fmt.Sprintf("opening %q", tag)); blamed != nil {
+			return nil, blamed
+		}
+		if IsWorkerAnswer(err) {
 			// The worker wrote a refusal, so it is connected and answering.
 			// This is the ONE failure on the whole path that is real evidence
 			// about the worker, and putting the umbrella on it would throw that
