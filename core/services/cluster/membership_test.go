@@ -228,6 +228,53 @@ var _ = Describe("Reaping dead replicas", func() {
 			"the loop that sweeps dead replicas never applied the departure retention")
 	})
 
+	It("purges on the retention its reconnect grace requires, not on the floor", func() {
+		// The wiring, not the arithmetic. DepartedRetentionFor is pinned on its
+		// own in presence_test.go, and a sweep that ignored it and passed the
+		// DepartedRetention constant would satisfy every one of those
+		// expectations: the derived value is only worth anything if the loop
+		// that deletes rows is the thing reading it.
+		//
+		// A grace of 10m derives a retention of 50m, well past the 5m floor, so
+		// the two rows below straddle the difference and one answer cannot
+		// stand in for the other.
+		const grace = 10 * time.Minute
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		depart := func(node string, ago time.Duration) {
+			epoch, err := reg.Claim(ctx, node, "me")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reg.Release(ctx, node, "me", epoch)).To(Succeed())
+			// Aged on the database clock, like every window in this package.
+			Expect(db.WithContext(ctx).Exec(
+				`UPDATE node_connections SET disconnected_at = now() - make_interval(secs => ?) WHERE node_id = ?`,
+				ago.Seconds(), node).Error).To(Succeed())
+		}
+		// Past the 5m floor and inside the 50m the grace derives. A sweep
+		// applying the floor deletes this row, which is the whole defect: the
+		// purge would be outrunning the window Presence measures against, and
+		// a worker that really is gone would read as unknown for ever after.
+		depart("w-inside-derived-retention", cluster.DepartedRetention+time.Minute)
+		// Past both, so its deletion is the WITNESS that the sweep ran at all.
+		// Without it "the row survived" would also be true of a loop that never
+		// ticked, and the spec would pass on nothing happening.
+		depart("w-past-derived-retention", cluster.DepartedRetentionFor(grace)+time.Minute)
+
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		membership.SetReconnectGrace(grace)
+		Expect(membership.Start(ctx)).To(Succeed())
+		DeferCleanup(membership.Stop)
+
+		// One assertion for both halves: rows are only ever deleted, so the set
+		// settles, and the settled set says which retention the loop applied.
+		Eventually(func() ([]string, error) {
+			var ids []string
+			err := db.WithContext(ctx).Model(&cluster.NodeConnection{}).
+				Order("node_id").Pluck("node_id", &ids).Error
+			return ids, err
+		}, "20s", "250ms").Should(Equal([]string{"w-inside-derived-retention"}),
+			"the sweep applied a retention that is not the one this replica's reconnect grace derives")
+	})
+
 	It("deregisters when the membership loop stops", func() {
 		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
 		Expect(membership.Start(ctx)).To(Succeed())
