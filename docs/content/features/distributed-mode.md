@@ -326,11 +326,13 @@ The worker's HTTP server (base port - 1, default 50050) exposes two unauthentica
 | Endpoint | Meaning |
 |----------|---------|
 | `/healthz` | **Liveness.** 200 whenever the process is up and serving. Deliberately independent of readiness, so a brief NATS outage does not trigger a restart storm across every worker. |
-| `/readyz` | **Readiness.** 200 only when the worker is registered, its NATS connection is live, *and* every backend process it currently holds answers a short TCP dial on its gRPC address; 503 otherwise. A worker holding no backends is ready, because idle is a healthy state. |
+| `/readyz` | **Readiness.** 200 only when the worker is registered, its NATS connection is live, *and* every backend process it is currently serving answers a short TCP dial on its gRPC address; 503 otherwise. A worker holding no backends is ready, because idle is a healthy state, and so is one whose backends are still starting up. |
 
 `/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS — a worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
 
-The same applies to the data path. A worker can hold a live NATS link while the backend processes it believes it is running have died, so it reports healthy while every load routed to it fails. `/readyz` therefore also dials each held backend's recorded gRPC address, and a worker whose backend port refuses connections drops out of rotation instead of absorbing work it cannot serve. Backends that are already stopping are skipped, so an ordinary shutdown does not read as a fault.
+The same applies to the data path. A worker can hold a live NATS link while the backend processes it believes it is running have died, so it reports healthy while every load routed to it fails. `/readyz` therefore also dials the recorded gRPC address of each backend the worker is serving, and a worker whose backend port refuses connections drops out of rotation instead of absorbing work it cannot serve.
+
+Only backends in the middle of their lifecycle are dialled. A backend that is still starting is skipped until its gRPC server has answered a health check, which can take 10 to 15 seconds on a slow node, and a backend that is stopping is skipped from the moment shutdown begins. Neither a cold start nor an ordinary shutdown makes a worker report 503, so a Kubernetes `readinessProbe` at the usual 10s period does not pull a worker out of rotation every time it loads a model.
 
 The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically; no `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only to pin an explicit URL.
 

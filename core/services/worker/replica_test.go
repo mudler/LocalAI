@@ -151,9 +151,9 @@ var _ = Describe("Worker per-replica process keying", func() {
 				processes: map[string]*backendProcess{"model#0": bp},
 			}
 
-			Expect(s.backendStartStillValid("model#0", bp)).To(BeTrue())
+			Expect(s.markBackendServing("model#0", bp)).To(BeTrue())
 			bp.stopping = true
-			Expect(s.backendStartStillValid("model#0", bp)).To(BeFalse())
+			Expect(s.markBackendServing("model#0", bp)).To(BeFalse())
 		})
 
 		It("recycles a failed startup port at most once", func() {
