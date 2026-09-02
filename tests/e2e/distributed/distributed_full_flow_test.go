@@ -2,7 +2,6 @@ package distributed_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 
@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/nats-io/nats.go"
 	"google.golang.org/grpc"
 
 	pgdriver "gorm.io/driver/postgres"
@@ -225,10 +224,21 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		cancel()
 	})
 
-	// newTestSmartRouter creates a SmartRouter with NATS wired up and a mock
-	// backend.install handler that always replies success for all registered nodes.
+	// newTestSmartRouter creates a SmartRouter reaching a fleet of fake workers
+	// over the tunnelled control plane, with a backend.install handler that
+	// always replies success for every registered node.
 	newTestSmartRouter := func(reg *nodes.NodeRegistry, extraOpts ...nodes.SmartRouterOptions) *nodes.SmartRouter {
-		unloader := nodes.NewRemoteUnloaderAdapter(reg, infra.NC, 3*time.Minute, 15*time.Minute)
+		workers := NewControlWorkers()
+		workers.On(AnyNode, workerctl.PathBackendInstall, func(string, []byte) any {
+			return messaging.BackendInstallReply{Success: true}
+		})
+		workers.On(AnyNode, workerctl.PathModelsRunning, func(string, []byte) any {
+			return messaging.ModelsRunningReply{}
+		})
+		workers.On(AnyNode, workerctl.PathBackendList, func(string, []byte) any {
+			return messaging.BackendListReply{}
+		})
+		unloader := nodes.NewRemoteUnloaderAdapter(reg, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 
 		opts := nodes.SmartRouterOptions{
 			Unloader: unloader,
@@ -250,22 +260,6 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		}
 
 		router := nodes.NewSmartRouter(reg, opts)
-
-		// Subscribe a mock backend.install handler that replies success for any node.
-		// We use a wildcard-style approach: subscribe to all nodes' install subjects
-		// by registering after each node. In practice, we rely on the test registering
-		// nodes before calling Route, so we subscribe to a catch-all pattern.
-		infra.NC.Conn().Subscribe("nodes.*.backend.install", func(msg *nats.Msg) {
-			reply := messaging.BackendInstallReply{Success: true}
-			data, _ := json.Marshal(reply)
-			msg.Respond(data)
-		})
-		_, err := infra.NC.Conn().Subscribe("nodes.*.models.running", func(msg *nats.Msg) {
-			data, _ := json.Marshal(messaging.ModelsRunningReply{})
-			_ = msg.Respond(data)
-		})
-		Expect(err).NotTo(HaveOccurred())
-		FlushNATS(infra.NC)
 
 		return router
 	}
@@ -385,30 +379,25 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		result.Release()
 	})
 
-	It("should unload remote model via NATS", func() {
+	It("should unload a remote model over the worker's control plane", func() {
 		// Register a node with a loaded model
 		node := &nodes.BackendNode{Name: "gpu-unload", Address: "127.0.0.1:50099"}
 		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 		Expect(registry.SetNodeModel(context.Background(), node.ID, "old-model", 0, "loaded", "", 0)).To(Succeed())
 
-		// Subscribe to NATS backend.stop for this node
-		stopSubject := messaging.SubjectNodeBackendStop(node.ID)
+		// A worker serving backend.stop on its own control plane.
 		received := make(chan struct{}, 1)
-		rawConn, err := nats.Connect(infra.NatsURL)
-		Expect(err).ToNot(HaveOccurred())
-		defer rawConn.Close()
-
-		_, err = rawConn.Subscribe(stopSubject, func(msg *nats.Msg) {
+		workers := NewControlWorkers()
+		workers.On(node.ID, workerctl.PathBackendStop, func(string, []byte) any {
 			received <- struct{}{}
+			return nil
 		})
-		Expect(err).ToNot(HaveOccurred())
 
 		// Create RemoteUnloaderAdapter and unload model
-		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
-		err = unloader.UnloadRemoteModel("old-model")
-		Expect(err).ToNot(HaveOccurred())
+		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+		Expect(unloader.UnloadRemoteModel("old-model")).To(Succeed())
 
-		// Verify NATS event received
+		// The worker got the stop over its tunnel, not over the bus.
 		Eventually(received, 5*time.Second).Should(Receive())
 
 		// Verify model removed from registry
