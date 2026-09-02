@@ -980,3 +980,20 @@ func (s *backendSupervisor) getAddr(backend string) string {
 	}
 	return ""
 }
+
+// LoadedBackendAddresses returns the gRPC addresses of the backend processes
+// this worker currently holds, skipping any that are already stopping so a
+// normal shutdown does not read as a data-path fault.
+func (s *backendSupervisor) LoadedBackendAddresses() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	addrs := make([]string, 0, len(s.processes))
+	for _, bp := range s.processes {
+		if bp == nil || bp.stopping || bp.addr == "" {
+			continue
+		}
+		addrs = append(addrs, bp.addr)
+	}
+	return addrs
+}

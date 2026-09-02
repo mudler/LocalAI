@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"errors"
+	"fmt"
 	"sync/atomic"
 )
 
@@ -69,6 +70,56 @@ func NATSReadiness(conn natsConn) func() error {
 	return func() error {
 		if conn == nil || !conn.IsConnected() {
 			return ErrNATSDisconnected
+		}
+		return nil
+	}
+}
+
+// ErrBackendUnreachable is reported when a worker holds a backend process it
+// can no longer reach.
+var ErrBackendUnreachable = errors.New("backend process is unreachable")
+
+// BackendAddressLister reports the gRPC addresses of the backend processes a
+// worker currently believes it is running.
+type BackendAddressLister interface {
+	LoadedBackendAddresses() []string
+}
+
+// CompositeReadiness reports the first failure among its probes, so /readyz
+// names the specific reason rather than a generic not-ready.
+func CompositeReadiness(probes ...func() error) func() error {
+	return func() error {
+		for _, p := range probes {
+			if p == nil {
+				continue
+			}
+			if err := p(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// BackendDataPathReadiness closes the gap NATSReadiness leaves open: a worker
+// whose NATS link is fine but whose backend processes have died is up and
+// useless, and the scheduler cannot see the difference. It kept routing loads
+// to a node that answered 200 while its backend port refused connections.
+//
+// A worker holding no backends is ready. That is the normal idle state, not a
+// fault, and failing it would take every idle worker out of rotation.
+func BackendDataPathReadiness(lister BackendAddressLister, dial func(string) error) func() error {
+	return func() error {
+		if lister == nil || dial == nil {
+			return nil
+		}
+		for _, addr := range lister.LoadedBackendAddresses() {
+			if addr == "" {
+				continue
+			}
+			if err := dial(addr); err != nil {
+				return fmt.Errorf("%w: %s: %v", ErrBackendUnreachable, addr, err)
+			}
 		}
 		return nil
 	}
