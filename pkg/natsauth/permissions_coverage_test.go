@@ -33,6 +33,13 @@ func subjectMatches(pattern, subject string) bool {
 	return len(p) == len(s)
 }
 
+// workerSubjectTokenForTest mirrors the sanitizer both packages implement, so
+// the negative assertion below names the exact prefix without reaching into
+// either package's unexported copy.
+func workerSubjectTokenForTest(nodeID string) string {
+	return strings.NewReplacer(".", "-", "*", "-", ">", "-", " ", "-", "\t", "-", "\n", "-").Replace(nodeID)
+}
+
 func anyAllows(allow []string, subject string) bool {
 	for _, p := range allow {
 		if subjectMatches(p, subject) {
@@ -52,16 +59,11 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 	Context("backend worker", func() {
 		pub, sub := natsauth.WorkerPermissions(nodeID, "backend")
 
-		// Every subject core/services/worker/{lifecycle,file_staging}.go subscribes to.
+		// Every subject core/services/worker/file_staging.go subscribes to.
+		// The backend and model lifecycle verbs are NOT here: they left the bus
+		// for the worker's tunnelled control plane, so there is no subject to
+		// cover. See core/services/workerctl.
 		subscribed := []string{
-			messaging.SubjectNodeBackendInstall(nodeID),
-			messaging.SubjectNodeBackendUpgrade(nodeID),
-			messaging.SubjectNodeBackendStop(nodeID),
-			messaging.SubjectNodeBackendDelete(nodeID),
-			messaging.SubjectNodeBackendList(nodeID),
-			messaging.SubjectNodeModelUnload(nodeID),
-			messaging.SubjectNodeModelDelete(nodeID),
-			messaging.SubjectNodeStop(nodeID),
 			messaging.SubjectNodeFilesEnsure(nodeID),
 			messaging.SubjectNodeFilesStage(nodeID),
 			messaging.SubjectNodeFilesTemp(nodeID),
@@ -74,10 +76,20 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 			})
 		}
 
-		It("allows publishing backend.install progress", func() {
-			subject := messaging.SubjectNodeBackendInstallProgress(nodeID, "op-123")
+		It("allows publishing file staging replies", func() {
+			subject := messaging.SubjectNodeFilesStage(nodeID)
 			Expect(anyAllows(pub, subject)).To(BeTrue(),
 				"backend JWT pub allow-list %v does not cover %s", pub, subject)
+		})
+
+		// The negative half, and it is the one that would catch a verb quietly
+		// coming back to the bus: a backend worker is granted nothing to
+		// publish outside its own file-staging subtree and its inbox.
+		It("grants a backend worker no publish rights outside file staging and its inbox", func() {
+			Expect(pub).To(ConsistOf(
+				"nodes."+workerSubjectTokenForTest(nodeID)+".files.>",
+				"_INBOX.>",
+			))
 		})
 	})
 
@@ -115,7 +127,7 @@ var _ = Describe("Documented NATS service-user permissions", func() {
 	frontendPublishes := []string{
 		messaging.SubjectPrefixCacheObserve,
 		messaging.SubjectPrefixCacheInvalidate,
-		messaging.SubjectNodeBackendInstall("node-1"),
+		messaging.SubjectNodeBackendStop("node-1"),
 		messaging.SubjectGalleryProgress("op-1"),
 	}
 

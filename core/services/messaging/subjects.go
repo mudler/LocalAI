@@ -141,26 +141,29 @@ func SubjectResponseCancel(responseID string) string {
 	return subjectResponseCancelPrefix + sanitizeSubjectToken(responseID) + ".cancel"
 }
 
-// Node Backend Lifecycle (Pub/Sub — targeted to specific nodes)
+// Node Backend Lifecycle
 //
-// These subjects control the backend *process* lifecycle on a serve-backend node,
-// mirroring how the local ModelLoader uses startProcess() / deleteProcess().
+// The frontend's control plane no longer travels on NATS. The ten verbs that
+// drove a worker's backend and model lifecycle are HTTP routes under
+// workerctl.Prefix, served on the worker's own loopback server and reached
+// through its tunnel, so a subject builder for any of them would be a subject
+// nothing publishes and nothing subscribes to.
 //
-// Model loading (LoadModel gRPC) is done via direct gRPC calls to the node's
-// address — no NATS needed for that, same as local mode.
+// ONE survives: backend.stop, and only for AGENT workers. They hold no tunnel,
+// so they have no control plane to serve, and they subscribe to it to drop the
+// MCP sessions cached for a backend that is going away. See
+// nodes.RemoteUnloaderAdapter.stopBackend for the split, and
+// core/cli/agent_worker.go for the subscriber.
+//
+// The request and reply types below are UNCHANGED and still live here: they are
+// the wire format of the control routes, byte for byte what the subjects
+// carried, so a worker and a frontend from different releases still understand
+// each other.
 const (
 	subjectNodePrefix = "nodes."
 )
 
-// SubjectNodeBackendInstall tells a worker node to install a backend and start its gRPC process.
-// Uses NATS request-reply: the SmartRouter sends the request, the worker installs
-// the backend from gallery (if not already installed), starts the gRPC process,
-// and replies when ready.
-func SubjectNodeBackendInstall(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.install"
-}
-
-// BackendInstallRequest is the payload for a backend.install NATS request.
+// BackendInstallRequest is the payload for a backend.install control request.
 type BackendInstallRequest struct {
 	Backend          string `json:"backend"`
 	ModelID          string `json:"model_id,omitempty"`
@@ -178,20 +181,20 @@ type BackendInstallRequest struct {
 	ReplicaIndex int32 `json:"replica_index,omitempty"`
 	// Force is retained on the wire only for backward compatibility with
 	// pre-2026-05-08 masters that did not know about backend.upgrade. New
-	// callers MUST send to SubjectNodeBackendUpgrade instead. Workers continue
+	// callers MUST use workerctl.PathBackendUpgrade instead. Workers continue
 	// to honor Force=true here so a rolling update with new master + old
 	// worker still works (the master's install fallback path also uses this
-	// when backend.upgrade returns nats.ErrNoResponders).
+	// when the worker answers that it does not serve the upgrade verb).
 	Force bool `json:"force,omitempty"`
-	// OpID identifies the admin-side operation. When non-empty the worker
-	// publishes BackendInstallProgressEvent values to
-	// SubjectNodeBackendInstallProgress(nodeID, OpID) while the install is
-	// running, debounced to roughly 250ms. Empty means the caller is a
-	// reconciler-driven retry that does not need progress streamed.
+	// OpID identifies the admin-side operation. It travels so the worker can
+	// name the operation on the BackendInstallProgressEvent values it writes
+	// into the install response ahead of the reply, debounced to roughly 250ms.
+	// Empty means the caller is a reconciler-driven retry that does not need
+	// progress streamed.
 	OpID string `json:"op_id,omitempty"`
 }
 
-// BackendInstallReply is the response from a backend.install NATS request.
+// BackendInstallReply is the response from a backend.install control request.
 type BackendInstallReply struct {
 	Success bool `json:"success"`
 	// WorkerLocalAddress is where the backend process listens ON THE WORKER,
@@ -207,17 +210,7 @@ type BackendInstallReply struct {
 	Error              string `json:"error,omitempty"`
 }
 
-// SubjectNodeBackendUpgrade tells a worker node to force-reinstall a backend
-// from the gallery, stop every running process for that backend, and restart.
-// Uses NATS request-reply with a long deadline (gallery image pulls can take
-// many minutes on slow links). Routine model loads use SubjectNodeBackendInstall
-// instead — this subject exists so the slow path doesn't head-of-line-block
-// the fast one through a shared subscription goroutine.
-func SubjectNodeBackendUpgrade(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.upgrade"
-}
-
-// BackendUpgradeRequest is the payload for a backend.upgrade NATS request.
+// BackendUpgradeRequest is the payload for a backend.upgrade control request.
 // It is intentionally a strict subset of BackendInstallRequest — there is no
 // Force field because the upgrade subject IS the force semantics; no ModelID
 // because upgrade is backend-scoped (it stops every replica using the binary
@@ -232,13 +225,9 @@ type BackendUpgradeRequest struct {
 	// but the field lets future per-replica metadata (e.g. progress reporting
 	// scoped to a slot) ride the same wire without a v3 type.
 	ReplicaIndex int32 `json:"replica_index,omitempty"`
-	// OpID identifies the admin-side operation. When non-empty the worker
-	// publishes BackendInstallProgressEvent values to
-	// SubjectNodeBackendInstallProgress(nodeID, OpID) while the force-reinstall
-	// runs, so the master can stream per-node progress for upgrades exactly as
-	// it already does for installs (an upgrade IS a force-reinstall, so the
-	// install-progress subject is reused rather than minting a new one — no new
-	// NATS permission or rolling-update compat surface). Empty on legacy callers.
+	// OpID identifies the admin-side operation, so an upgrade streams per-node
+	// progress in its own response exactly as an install does. Empty on legacy
+	// callers.
 	OpID string `json:"op_id,omitempty"`
 }
 
@@ -258,16 +247,10 @@ type BackendUpgradeReply struct {
 	ReportsStoppedProcesses bool     `json:"reports_stopped_processes,omitempty"`
 }
 
-// SubjectNodeBackendList queries a worker node for its installed backends.
-// Uses NATS request-reply.
-func SubjectNodeBackendList(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.list"
-}
-
-// BackendListRequest is the payload for a backend.list NATS request.
+// BackendListRequest is the payload for a backend.list control request.
 type BackendListRequest struct{}
 
-// BackendListReply is the response from a backend.list NATS request.
+// BackendListReply is the response from a backend.list control request.
 type BackendListReply struct {
 	Backends []NodeBackendInfo `json:"backends"`
 	Error    string            `json:"error,omitempty"`
@@ -296,19 +279,15 @@ type BackendStopRequest struct {
 	Force   bool   `json:"force,omitempty"`
 }
 
-// SubjectNodeBackendStop tells a worker node to stop its gRPC backend process.
-// Equivalent to the local deleteProcess(). The node will:
-// 1. Best-effort bounded Free() via gRPC (unless Force is true)
-// 2. Kill the backend process
-// 3. Can be restarted via another backend.start event.
+// SubjectNodeBackendStop tells an AGENT worker that a backend is going away, so
+// it can close the MCP sessions it cached for that backend.
+//
+// It is the one node subject left, and it is addressed only to agent nodes. A
+// BACKEND worker takes its stop on workerctl.PathBackendStop over its tunnel,
+// where it also kills the process and recycles the port; an agent worker runs
+// no backend processes and only needs to hear that one went.
 func SubjectNodeBackendStop(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.stop"
-}
-
-// SubjectNodeModelStop targets one supervisor process and acknowledges only
-// after that process has exited and its worker-side resources are released.
-func SubjectNodeModelStop(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.stop"
 }
 
 type ModelStopRequest struct {
@@ -328,18 +307,12 @@ type ModelStopReply struct {
 	Error      string `json:"error,omitempty"`
 }
 
-// SubjectNodeBackendDelete tells a worker node to delete a backend (stop + remove files).
-// Uses NATS request-reply.
-func SubjectNodeBackendDelete(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.delete"
-}
-
-// BackendDeleteRequest is the payload for a backend.delete NATS request.
+// BackendDeleteRequest is the payload for a backend.delete control request.
 type BackendDeleteRequest struct {
 	Backend string `json:"backend"`
 }
 
-// BackendDeleteReply is the response from a backend.delete NATS request.
+// BackendDeleteReply is the response from a backend.delete control request.
 type BackendDeleteReply struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
@@ -362,57 +335,33 @@ type BackendDeleteReply struct {
 	ReportsStoppedProcesses bool `json:"reports_stopped_processes,omitempty"`
 }
 
-// SubjectNodeModelUnload tells a worker node to unload a model (gRPC Free) without killing the backend.
-// Uses NATS request-reply.
-func SubjectNodeModelUnload(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.unload"
-}
-
-// ModelUnloadRequest is the payload for a model.unload NATS request.
+// ModelUnloadRequest is the payload for a model.unload control request.
 type ModelUnloadRequest struct {
 	ModelName string `json:"model_name"`
 	Address   string `json:"address,omitempty"` // gRPC address of the backend process to unload from
 }
 
-// ModelUnloadReply is the response from a model.unload NATS request.
+// ModelUnloadReply is the response from a model.unload control request.
 type ModelUnloadReply struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
 }
 
-// SubjectNodeModelDelete tells a worker node to delete model files from disk.
-// Uses NATS request-reply.
-func SubjectNodeModelDelete(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.delete"
-}
-
-// ModelDeleteRequest is the payload for a model.delete NATS request.
+// ModelDeleteRequest is the payload for a model.delete control request.
 type ModelDeleteRequest struct {
 	ModelName string `json:"model_name"`
 }
 
-// ModelDeleteReply is the response from a model.delete NATS request.
+// ModelDeleteReply is the response from a model.delete control request.
 type ModelDeleteReply struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
 }
 
-// SubjectNodeModelsRunning asks a worker node which model backend processes it
-// currently has running. Uses NATS request-reply.
-//
-// This is the authoritative answer to "is this replica still alive". The worker
-// owns the process table, so unlike a health probe against the backend's own
-// serving port, its reply does not depend on whether that backend happens to be
-// busy: a model mid-generation cannot answer a gRPC health check for minutes at
-// a time, but the worker answers immediately either way.
-func SubjectNodeModelsRunning(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".models.running"
-}
-
-// ModelsRunningRequest is the payload for a models.running NATS request.
+// ModelsRunningRequest is the payload for a models.running control request.
 type ModelsRunningRequest struct{}
 
-// ModelsRunningReply is the response from a models.running NATS request.
+// ModelsRunningReply is the response from a models.running control request.
 type ModelsRunningReply struct {
 	Models []RunningModelInfo `json:"models"`
 	Error  string             `json:"error,omitempty"`
@@ -425,12 +374,6 @@ type RunningModelInfo struct {
 	ModelID      string `json:"model_id"`
 	ReplicaIndex int    `json:"replica_index"`
 	Address      string `json:"address,omitempty"`
-}
-
-// SubjectNodeStop tells a serve-backend node to shut down entirely
-// (deregister + exit). The node will not restart the backend process.
-func SubjectNodeStop(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".stop"
 }
 
 // File Staging (Request-Reply — targeted to specific nodes)

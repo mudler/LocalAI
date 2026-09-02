@@ -17,7 +17,7 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 **Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
 
-**Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type - the SmartRouter dynamically installs the required backend via NATS `backend.install` events when a model request arrives.
+**Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type - the SmartRouter dynamically installs the required backend by calling the worker's `backend.install` control route through its tunnel when a model request arrives.
 
 ### Scheduling Algorithm
 
@@ -163,14 +163,14 @@ Reconnects use exponential backoff with jitter: the interval doubles from 500ms 
 
 #### What the frontend sends through it
 
-Every connection the frontend makes to a worker now goes through that worker's tunnel. There are three, and all three are the same path underneath:
+Every connection the frontend makes to a worker now goes through that worker's tunnel. There are four, and all four are the same path underneath:
 
 | What | Protocol | Stream tag |
 |------|----------|-----------|
 | Inference, model load, health checks | gRPC to a backend process | `grpc` |
 | Model file staging, backend-log listing | HTTP to the worker's own server | `http` |
 | Live backend-log streaming | WebSocket to the same server | `http` |
-| Backend install/upgrade/list/delete, model stop/unload/delete, node stop | HTTP to the worker's own server | `http` |
+| The control plane: backend install/upgrade/list/stop/delete, model stop/unload/delete, models running, node stop | HTTP to the worker's own server | `http` |
 
 #### The worker control plane
 
@@ -202,6 +202,32 @@ A control request carries the caller's deadline and nothing else: the worker
 does not impose a timeout of its own on an install, and a caller that gives up
 cancels the download rather than leaving the worker pulling gigabytes for a
 response nobody will read.
+
+On the frontend's side the ten verbs are ordinary HTTP calls on the `http`
+stream tag, so a control RPC to a worker **another replica holds is relayed
+exactly like an inference request** - same lookup, same one hop, same budget
+arithmetic as [Reaching a worker another replica holds](#reaching-a-worker-another-replica-holds).
+There is nothing to subscribe to before an install: its progress lines share the
+install's own response, so no event can arrive before the caller is listening
+and there is no per-op subject to grant a permission for.
+
+How a control RPC can FAIL is where absence is decided for the whole control
+plane, so the frontend maps every outcome onto exactly one row of the table
+below and never onto another. Only the two rows in which the WORKER spoke may
+be acted on; everything else is this frontend failing to reach it, which says
+nothing about the worker at all:
+
+| What happened | How the frontend reports it | May anything reap on it? |
+|---|---|---|
+| The worker refused the stream with one of its three evidence codes | the refusal itself, unwrapped | **Yes.** The worker spoke. |
+| No route: no live owner, an unreachable peer, no relay path, a refusal code this frontend does not recognise, or the worker saying it learned nothing | "this frontend has no route to that worker" | No |
+| The call ran out of budget | a deadline, which install and upgrade report as *still installing on the worker* | No |
+| `404` under `/v1/control/` | "the worker does not serve that control verb" - it is older than this frontend, and only the upgrade path acts on it, by re-issuing the legacy force-install | No |
+| `200` with a reply whose `error` is set | the worker's own answer, handed to the caller as-is | **Yes**, by the caller |
+
+A `5xx`, or a body the frontend cannot decode, is in the second row and not the
+last: a worker's verdict arrives as a `200`, so a `5xx` is the server failing
+rather than answering.
 
 The address the frontend holds for a backend (the per-replica port a worker reports after an install) is still what identifies it, and it is still what appears in logs and errors. What it no longer is, is somewhere the frontend connects to: it travels inside the tunnel as the stream's target, and the worker decides what to do with it.
 
@@ -651,7 +677,7 @@ The system automatically applies hardware-detected labels on registration:
 
 ### How Workers Operate
 
-Workers start as generic processes with no backend installed. When the SmartRouter needs to load a model on a worker, it sends a NATS `backend.install` event with the backend name and model ID. The worker:
+Workers start as generic processes with no backend installed. When the SmartRouter needs to load a model on a worker, it calls `POST /v1/control/backend/install` through that worker's tunnel with the backend name and model ID. The worker:
 
 1. Installs the backend from the gallery (if not already installed)
 2. Starts a **new gRPC backend process on a dynamic port** (each model gets its own process)
@@ -1276,7 +1302,7 @@ Notes:
 | **Coordination** | Gossip protocol | NATS messaging |
 | **Node management** | Automatic | REST API + WebUI |
 | **Health monitoring** | Peer heartbeats | Centralized HealthMonitor |
-| **Backend management** | Manual per node | Dynamic via NATS backend.install |
+| **Backend management** | Manual per node | Dynamic via the worker's `backend.install` control route |
 | **Best for** | Ad-hoc clusters, community sharing | Production, Kubernetes, managed infrastructure |
 | **Setup complexity** | Minimal (share a token) | Requires PostgreSQL + NATS |
 
@@ -1319,11 +1345,11 @@ Notes:
 - Liveness is decided by the load job's progress heartbeat, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer that is still progressing is never reclaimed however long it takes.
 - `Reconciler: reclaimed a replica slot held by a load nobody is driving` names each row reclaimed this way.
 
-**A request fails with `nats: no responders available for request`:**
-- The chosen worker was not subscribed on the bus when the frontend tried to install the backend on it. A node's status comes from its HTTP heartbeat, which is a separate channel: a worker that stops stays `healthy` until that heartbeat ages out.
-- The scheduler now checks that a node still answers on the bus before it commits to it, marks one that does not as unhealthy, and picks another. A request should therefore see this only when no reachable node is left.
-- Only a no-responders answer counts as absent. A worker that answers slowly stays eligible, because excluding it would cost capacity that is really there.
-- Check the worker process is running and its NATS connection is up. `Scheduled node is not answering on the bus` in the frontend log names each node demoted this way.
+**A request fails with `this frontend has no route to that worker`:**
+- The chosen worker's tunnel was not reachable from the replica that handled the request. A node's status comes from its HTTP heartbeat, which is a separate channel: a worker that stops stays `healthy` until that heartbeat ages out, and a worker that is very much alive can be unroutable for a moment while its tunnel re-homes between frontend replicas.
+- It is **not** the same as the worker being gone, and nothing acts on it as if it were. A model on an unroutable worker is not reaped, its rows are left alone, and the node is not demoted: doing any of those on a lost route is how a rolling frontend restart turns into a fleet-wide eviction.
+- Check the worker process is running and that it has an open tunnel (`opened a tunnelled stream to a worker` in the frontend log, and the worker's own dial/reconnect lines). A worker behind a load balancer that keeps reconnecting is usually an idle-timeout or WebSocket-upgrade problem at the proxy; see the tunnel section above.
+- A `nats: no responders available for request` in a modern deployment concerns only the subjects still on the bus: agent-worker jobs, MCP, and file staging. It is no longer how a serve-backend worker is reached.
 
 **A worker fills its own disk over time:**
 - A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.

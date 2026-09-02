@@ -410,10 +410,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		}, cfg.Distributed.RegistrationToken, workerHTTPDialer)
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}
+	// The frontend's control plane client. It reaches every worker over that
+	// worker's own tunnel, on the same `http` stream tag the file stager above
+	// uses, so a control RPC to a worker another replica holds is relayed the
+	// way an inference request is.
+	controlClient := nodes.NewControlClient(workerHTTPDialer, cfg.Distributed.RegistrationToken)
+
 	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
 	remoteUnloader := nodes.NewRemoteUnloaderAdapter(
 		registry,
 		natsClient,
+		controlClient,
 		cfg.Distributed.BackendInstallTimeoutOrDefault(),
 		cfg.Distributed.BackendUpgradeTimeoutOrDefault(),
 	)

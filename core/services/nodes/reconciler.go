@@ -12,7 +12,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/xlog"
-	"github.com/nats-io/nats.go"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
@@ -394,14 +393,17 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			// Pending-op drain for admin upgrade — fires backend.upgrade so
 			// the slow re-pull doesn't head-of-line-block install traffic on
 			// the same worker. Falls back to the legacy backend.install
-			// Force=true path on nats.ErrNoResponders for old workers that
-			// don't subscribe to backend.upgrade yet (rolling-update window).
-			// Reconciler retries are background reconciliation with no live
-			// admin watching a progress bar, so opID/onProgress are empty —
-			// the adapter skips the progress subscription entirely.
+			// Force=true path when the worker answers that it does not serve
+			// backend.upgrade (rolling-update window). Reconciler retries are
+			// background reconciliation with no live admin watching a progress
+			// bar, so opID/onProgress are empty and no progress is streamed.
 			reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 			if err != nil {
-				if errors.Is(err, nats.ErrNoResponders) {
+				// Only the worker's own "I do not serve that verb" may
+				// re-fire a force-reinstall. An unroutable worker has said
+				// nothing, and retrying a destructive verb on silence is how a
+				// lost route becomes a reinstall.
+				if errors.Is(err, ErrWorkerControlUnsupported) {
 					instReply, instErr := rc.adapter.installWithForceFallback(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 					if instErr != nil {
 						applyErr = instErr
@@ -429,17 +431,14 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			continue
 		}
 
-		// ErrNoResponders means the node has no active NATS subscription for
-		// this subject. Either its connection dropped, or it's the wrong
-		// node type entirely. Mark unhealthy so the health monitor's
-		// heartbeat-only pass doesn't immediately flip it back — and so
-		// ListDuePendingBackendOps (which filters by status=healthy) stops
-		// picking the row until the node genuinely recovers.
-		if errors.Is(applyErr, nats.ErrNoResponders) {
-			xlog.Warn("Reconciler: no NATS responders — marking node unhealthy",
-				"op", op.Op, "backend", op.Backend, "node", op.NodeID)
-			_ = rc.registry.MarkUnhealthy(ctx, op.NodeID)
-		}
+		// A failed op no longer demotes the node. It used to, on
+		// nats.ErrNoResponders, which said the worker was not on the bus; a
+		// control RPC fails when THIS frontend cannot route to the worker,
+		// which a worker re-homing its tunnel does while it is heartbeating and
+		// serving. Demoting on it would take the node out of
+		// ListDuePendingBackendOps and out of scheduling for a reason that has
+		// nothing to do with the node. The row keeps its backoff and its
+		// dead-letter cap, and cluster.Presence becomes the absence signal.
 
 		// Dead-letter cap: after maxAttempts the row is the reconciler
 		// equivalent of a poison message. Delete it loudly so the queue
