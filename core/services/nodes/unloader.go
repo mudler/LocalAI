@@ -133,8 +133,9 @@ func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID str
 	return reply, nil
 }
 
-// UnloadRemoteModel finds the node(s) hosting the given model and tells them
-// to stop their backend process via NATS backend.stop event.
+// UnloadRemoteModel finds the node(s) hosting the given model and tells each
+// to stop its backend process. The carrier is decided per node by its type,
+// which is why stopBackend takes one: see stopBackend.
 // The worker process handles a bounded Free() followed by process termination;
 // forced shutdown skips Free().
 // This is called by ModelLoader.deleteProcess() when process == nil (remote model).
