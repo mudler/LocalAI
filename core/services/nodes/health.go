@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -51,7 +52,11 @@ type HealthMonitor struct {
 // If clientFactory is nil, a default factory using the given authToken is used.
 func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, staleThreshold time.Duration, authToken string, perModelHealthCheck bool, clientFactory ...BackendClientFactory) *HealthMonitor {
 	checkInterval = cmp.Or(checkInterval, 15*time.Second)
-	staleThreshold = cmp.Or(staleThreshold, 60*time.Second)
+	// Heartbeat checkpointing lets last_heartbeat sit up to one checkpoint
+	// interval behind by design, so a hardcoded 60s fallback here would mark
+	// every healthy, beating node offline. Track the shared default instead,
+	// which is derived from that interval.
+	staleThreshold = cmp.Or(staleThreshold, config.DefaultStaleNodeThreshold)
 	var factory BackendClientFactory
 	if len(clientFactory) > 0 && clientFactory[0] != nil {
 		factory = clientFactory[0]

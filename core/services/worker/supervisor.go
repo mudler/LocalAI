@@ -24,9 +24,19 @@ import (
 
 // backendProcess represents a single gRPC backend process.
 type backendProcess struct {
-	proc     *process.Process
-	addr     string // gRPC address (host:port)
-	port     int
+	proc *process.Process
+	addr string // gRPC address (host:port)
+	port int
+	// serving marks a process that has answered a gRPC health check and is
+	// therefore actually listening on addr. It is the opening bracket of the
+	// lifecycle that stopping closes.
+	//
+	// addr is recorded when the process is spawned, but the gRPC server can
+	// take 10 to 15 seconds to bind on a slow node (see the readiness poll in
+	// startBackend), so between those two points addr refuses connections.
+	// Anything that dials held backends must wait for this flag, or a cold
+	// start reads as a dead backend.
+	serving  bool
 	stopping bool
 	// backendName is the gallery backend this process was started for (e.g.
 	// "cuda13-nvidia-l4t-arm64-longcat-video"). It is NOT derivable from the
@@ -511,7 +521,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 			// Verify the process wasn't stopped/replaced while health-checking.
 			// A stopping entry remains in the map until process termination so its
 			// port stays reserved, but it must not be advertised as ready.
-			if !s.backendStartStillValid(backend, bp) {
+			if !s.markBackendServing(backend, bp) {
 				return "", fmt.Errorf("backend %s was stopped during startup", backend)
 			}
 			xlog.Debug("Backend gRPC server is ready", "backend", backend, "addr", clientAddr)
@@ -545,14 +555,23 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	return "", fmt.Errorf("backend %s did not become ready within %s. Last stderr:\n%s", backend, readinessTimeout, stderrTail)
 }
 
-// backendStartStillValid verifies that a successful readiness probe still
-// belongs to the active startup attempt. Stop keeps an entry tracked while it
-// terminates, so pointer identity alone is not enough.
-func (s *backendSupervisor) backendStartStillValid(key string, bp *backendProcess) bool {
+// markBackendServing verifies that a successful readiness probe still belongs
+// to the active startup attempt and, when it does, records the process as
+// serving. Stop keeps an entry tracked while it terminates, so pointer
+// identity alone is not enough.
+//
+// The check and the mark share one lock hold on purpose: serving is what
+// LoadedBackendAddresses dials, so it must only ever be set on the entry this
+// key currently owns and only once that entry has answered a health check.
+func (s *backendSupervisor) markBackendServing(key string, bp *backendProcess) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current, exists := s.processes[key]
-	return exists && current == bp && !current.stopping
+	if !exists || current != bp || current.stopping {
+		return false
+	}
+	current.serving = true
+	return true
 }
 
 // reapDeadProcess drops the bookkeeping for a process that exited without
@@ -979,4 +998,27 @@ func (s *backendSupervisor) getAddr(backend string) string {
 		return bp.addr
 	}
 	return ""
+}
+
+// LoadedBackendAddresses returns the gRPC addresses of the backend processes
+// this worker is currently serving, for the /readyz data-path probe to dial.
+//
+// Only the middle of the lifecycle counts. A process is skipped until it has
+// answered a health check, because addr is recorded at spawn time and refuses
+// connections until the gRPC server binds, which takes 10 to 15 seconds on a
+// slow node. It is skipped again once stopping is set. Reporting either end
+// would make a routine cold start or shutdown read as a data-path fault, and a
+// Kubernetes readinessProbe would pull the worker out of rotation for it.
+func (s *backendSupervisor) LoadedBackendAddresses() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	addrs := make([]string, 0, len(s.processes))
+	for _, bp := range s.processes {
+		if bp == nil || !bp.serving || bp.stopping || bp.addr == "" {
+			continue
+		}
+		addrs = append(addrs, bp.addr)
+	}
+	return addrs
 }
