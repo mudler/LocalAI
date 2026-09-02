@@ -3,6 +3,7 @@ package cluster_test
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 	"strings"
 	"unicode/utf8"
@@ -100,26 +101,65 @@ var _ = Describe("Worker tunnel stream framing", func() {
 			Expect(cluster.ReadStreamReply(&buf)).To(Succeed())
 		})
 
-		DescribeTable("keeps the three refusals apart",
+		DescribeTable("keeps the four refusals apart",
 			func(sent error, others []error) {
 				var buf bytes.Buffer
 				Expect(cluster.WriteStreamRefusal(&buf, sent)).To(Succeed())
 				got := cluster.ReadStreamReply(&buf)
 				Expect(got).To(MatchError(sent))
-				// The whole point. A caller gives up on an unknown tag, retries
-				// an unavailable target, and reports a bad request as its own
-				// bug; collapsing any pair makes one of those wrong.
+				// The whole point. A caller gives up on an unknown tag, acts on
+				// an unavailable target, reports a bad request as its own bug,
+				// and learns NOTHING from a not-served; collapsing any pair
+				// makes one of those wrong, and three of the four pairs end in
+				// a reaped replica.
 				for _, other := range others {
 					Expect(got).ToNot(MatchError(other))
 				}
 			},
 			Entry("unknown tag", cluster.ErrStreamTagUnknown,
-				[]error{cluster.ErrStreamTargetUnavailable, cluster.ErrStreamRequestInvalid}),
+				[]error{cluster.ErrStreamTargetUnavailable, cluster.ErrStreamRequestInvalid, cluster.ErrStreamNotServed}),
 			Entry("unavailable target", cluster.ErrStreamTargetUnavailable,
-				[]error{cluster.ErrStreamTagUnknown, cluster.ErrStreamRequestInvalid}),
+				[]error{cluster.ErrStreamTagUnknown, cluster.ErrStreamRequestInvalid, cluster.ErrStreamNotServed}),
 			Entry("invalid request", cluster.ErrStreamRequestInvalid,
-				[]error{cluster.ErrStreamTagUnknown, cluster.ErrStreamTargetUnavailable}),
+				[]error{cluster.ErrStreamTagUnknown, cluster.ErrStreamTargetUnavailable, cluster.ErrStreamNotServed}),
+			Entry("nothing learned", cluster.ErrStreamNotServed,
+				[]error{cluster.ErrStreamTagUnknown, cluster.ErrStreamTargetUnavailable, cluster.ErrStreamRequestInvalid}),
 		)
+
+		It("sends a reason it cannot classify as not-served, never as a verdict", func() {
+			// The default, and it is a safety default rather than a formality.
+			// Three of the four codes are evidence a frontend now ACTS on, up
+			// to deleting a model's row; an error that reached WriteStreamRefusal
+			// without carrying a sentinel is by construction one nobody
+			// classified. This default used to be bad-request, which was
+			// harmless while no consumer distinguished the codes and became a
+			// reap-by-omission the moment one did.
+			var buf bytes.Buffer
+			Expect(cluster.WriteStreamRefusal(&buf, errors.New("something nobody thought about"))).To(Succeed())
+			got := cluster.ReadStreamReply(&buf)
+			Expect(got).To(MatchError(cluster.ErrStreamNotServed))
+			Expect(got).ToNot(MatchError(cluster.ErrStreamRequestInvalid))
+			Expect(cluster.IsWorkerAnswer(got)).To(BeFalse(),
+				"an unclassified failure must never become the worker's verdict about a backend")
+			Expect(got.Error()).To(ContainSubstring("something nobody thought about"))
+		})
+
+		It("keeps not-served OUT of the answers a frontend acts on", func() {
+			// The predicate is the seam between what the worker says and what
+			// the frontend does with it. The other three are exempted from the
+			// no-route umbrella so a crashed backend can be reaped; this one
+			// must not be, or every transient worker-side failure reaps.
+			var buf bytes.Buffer
+			Expect(cluster.WriteStreamRefusal(&buf, cluster.ErrStreamNotServed)).To(Succeed())
+			Expect(cluster.IsWorkerAnswer(cluster.ReadStreamReply(&buf))).To(BeFalse())
+
+			for _, verdict := range []error{cluster.ErrStreamTagUnknown, cluster.ErrStreamTargetUnavailable, cluster.ErrStreamRequestInvalid} {
+				buf.Reset()
+				Expect(cluster.WriteStreamRefusal(&buf, verdict)).To(Succeed())
+				Expect(cluster.IsWorkerAnswer(cluster.ReadStreamReply(&buf))).To(BeTrue(),
+					"a verdict that stopped being an answer makes a dead backend unreapable")
+			}
+		})
 
 		It("carries the reason text to the far side", func() {
 			var buf bytes.Buffer
@@ -139,6 +179,8 @@ var _ = Describe("Worker tunnel stream framing", func() {
 			Expect(got).ToNot(MatchError(cluster.ErrStreamTagUnknown))
 			Expect(got).ToNot(MatchError(cluster.ErrStreamTargetUnavailable))
 			Expect(got).ToNot(MatchError(cluster.ErrStreamRequestInvalid))
+			Expect(got).ToNot(MatchError(cluster.ErrStreamNotServed))
+			Expect(cluster.IsWorkerAnswer(got)).To(BeFalse())
 		})
 
 		It("reports a failure to READ the reply as itself, never as a refusal", func() {
@@ -150,6 +192,7 @@ var _ = Describe("Worker tunnel stream framing", func() {
 			Expect(got).ToNot(MatchError(cluster.ErrStreamTagUnknown))
 			Expect(got).ToNot(MatchError(cluster.ErrStreamTargetUnavailable))
 			Expect(got).ToNot(MatchError(cluster.ErrStreamRequestInvalid))
+			Expect(got).ToNot(MatchError(cluster.ErrStreamNotServed))
 		})
 
 		It("truncates an over-long reason on a rune boundary, keeping it decodable", func() {
