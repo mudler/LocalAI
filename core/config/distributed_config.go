@@ -464,18 +464,30 @@ const (
 	// LocalAI (with progress the client can act on) rather than from a proxy
 	// dropping the connection.
 	DefaultModelLoadWait = 60 * time.Second
-	// DefaultWorkerReconnectGrace is twice the worker tunnel's maximum
-	// reconnect backoff (30s; tunnelBackoffMax in core/services/worker), so a
-	// worker that misses one reconnect at the ceiling and lands on the next is
-	// never condemned for it.
+	// DefaultWorkerReconnectGrace covers a worker that misses one reconnect at
+	// the ceiling and lands on the next, with margin. The worker's own numbers
+	// (core/services/worker/tunnel.go) are a 30s backoff ceiling
+	// (tunnelBackoffMax) and a 10s dial budget (tunnelHandshakeTimeout), so two
+	// ceiling waits with a hung dial between them puts the worker back at 70s,
+	// not 60s: two waits alone is the boundary, not a bound.
 	//
-	// Raising it makes a rolling frontend restart safer, because a worker
-	// re-homing across it stays "reconnecting" for longer. Lowering it makes a
-	// worker that really has gone reap sooner. There is no value at which a
-	// live worker is reported as gone and no value at which a dead one is
-	// reported as connected; the trade is only in how long the deployment waits
-	// before it is willing to say "gone".
-	DefaultWorkerReconnectGrace = 60 * time.Second
+	// The ceiling is reachable precisely when it matters. The backoff resets
+	// only after a session that lasted tunnelHealthyAfter (30s), which a
+	// replica accepting a dial and then dying denies, so a worker crossing a
+	// rolling frontend restart climbs to the ceiling rather than sitting near
+	// the 500ms floor.
+	//
+	// 90s therefore has margin where 60s sat on the edge. The asymmetry is
+	// deliberate: too short and a worker that is reconnecting exactly as
+	// designed is reported GONE, which licenses a reap and costs a model
+	// reload; too long and a worker that really has died is reaped later. The
+	// second is cheaper, so the default errs long.
+	//
+	// Raising it further makes a rolling frontend restart safer still; lowering
+	// it reaps a dead worker sooner. There IS a value at which a live worker is
+	// reported as gone: any grace shorter than that worker's actual reconnect.
+	// That is why this is a duration and not a boolean.
+	DefaultWorkerReconnectGrace = 90 * time.Second
 )
 
 // ModelLoadWaitUnbounded records LOCALAI_MODEL_LOAD_WAIT=0 — "wait as long as

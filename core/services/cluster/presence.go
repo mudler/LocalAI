@@ -155,12 +155,15 @@ func (r *Registry) Presence(ctx context.Context, nodeID string, grace time.Durat
 	switch {
 	case row.Held:
 		// First, and redundantly so: the query already excludes held rows from
-		// `departed`, so either gate alone answers correctly and no behavioural
-		// spec can tell which one is doing the work. The redundancy is kept
-		// because held-ness-first is the invariant the phase rests on, and this
-		// is what still answers correctly if the SQL gate is ever edited away.
-		// The SQL gate has its own assertion in the statement-shape spec, so
-		// removing it is caught there rather than here.
+		// `departed` (on the RAW column, before the join), so either gate alone
+		// answers Connected for a held row with a live owner, and no
+		// behavioural spec can tell which one is doing the work.
+		//
+		// The redundancy is PARTIAL, not a second complete gate. With the SQL
+		// gate removed and the owner DEAD, `held` is false and `departed` is
+		// true, so this ordering yields Gone where Reconnecting is correct.
+		// That is why the SQL gate carries its own assertion in the
+		// statement-shape spec: removing it is caught there, not here.
 		return PresenceConnected, nil
 	case row.Departed:
 		return PresenceGone, nil

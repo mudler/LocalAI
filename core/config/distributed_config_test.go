@@ -178,12 +178,15 @@ var _ = Describe("DistributedConfig.Validate registration auth", func() {
 })
 
 var _ = Describe("DistributedConfig worker reconnect grace", func() {
-	It("defaults to twice the worker tunnel's maximum reconnect backoff", func() {
-		// The tunnel's ceiling is 30s (core/services/worker, tunnelBackoffMax),
-		// so 60s covers a worker that misses one reconnect at the ceiling and
-		// lands on the next. A grace shorter than that condemns workers that
-		// are re-homing exactly as designed.
-		Expect(config.DistributedConfig{}.ReconnectGraceOrDefault()).To(Equal(60 * time.Second))
+	It("defaults clear of two ceiling backoffs plus the dial between them", func() {
+		// The worker's own numbers (core/services/worker/tunnel.go): a 30s
+		// backoff ceiling and a 10s dial budget, so two ceiling waits with a
+		// hung dial between them puts the worker back at 70s. 60s would sit
+		// under that and condemn a worker reconnecting exactly as designed;
+		// 90s clears it with margin.
+		Expect(config.DistributedConfig{}.ReconnectGraceOrDefault()).To(Equal(90 * time.Second))
+		Expect(config.DefaultWorkerReconnectGrace).To(BeNumerically(">", 70*time.Second),
+			"the default must clear two ceiling backoffs plus one handshake timeout")
 	})
 
 	It("takes a configured worker reconnect grace verbatim", func() {
@@ -197,6 +200,23 @@ var _ = Describe("DistributedConfig worker reconnect grace", func() {
 		// two seconds as GONE, and gone is the one value a caller may reap on.
 		cfg := config.DistributedConfig{WorkerReconnectGrace: -1 * time.Second}
 		Expect(cfg.ReconnectGraceOrDefault()).To(Equal(config.DefaultWorkerReconnectGrace))
+	})
+
+	It("refuses to start on a negative grace rather than reaping on it", func() {
+		// The flag is in Validate's negative-duration table, and this is what
+		// says so. A negative grace makes every departure older than the window
+		// the instant it is stamped, so the deployment would answer GONE for
+		// every worker that has ever lost a tunnel, and gone is the one answer
+		// a caller may reap and evict on.
+		c := config.DistributedConfig{
+			Enabled:              true,
+			NatsURL:              "nats://localhost:4222",
+			RegistrationToken:    "tok",
+			WorkerReconnectGrace: -1 * time.Second,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(config.FlagWorkerReconnectGrace))
 	})
 
 	It("is settable through the application option", func() {

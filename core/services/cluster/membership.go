@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -66,6 +67,14 @@ const (
 // So the retention is derived rather than declared, and the ordering is a
 // property of this function rather than of two constants that happen to agree.
 func DepartedRetentionFor(grace time.Duration) time.Duration {
+	// Guarded before the multiply, not after. A grace above roughly 58 years
+	// overflows time.Duration's int64 nanoseconds, and the product comes back
+	// negative or small, so a plain `scaled > DepartedRetention` would fall
+	// through to the floor and reinstate the very defect this function exists
+	// to remove, silently and only for the operator who set the largest window.
+	if grace > time.Duration(math.MaxInt64)/departedRetentionGraceFactor {
+		return time.Duration(math.MaxInt64)
+	}
 	if scaled := departedRetentionGraceFactor * grace; scaled > DepartedRetention {
 		return scaled
 	}
