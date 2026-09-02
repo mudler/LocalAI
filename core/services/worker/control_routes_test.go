@@ -457,7 +457,7 @@ var _ = Describe("the worker's HTTP server", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		srv, err = startWorkerHTTPServer("127.0.0.1:0", filepath.Join(dir, "staging"), dir,
-			filepath.Join(dir, "data"), token, &nodes.WorkerReadiness{}, sup, sup.cfg, stagingFM, nil)
+			filepath.Join(dir, "data"), token, &nodes.WorkerReadiness{}, sup, nil, sup.cfg, stagingFM, nil)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { nodes.ShutdownFileTransferServer(srv) })
 		Expect(srv.Addr).NotTo(BeEmpty(), "the worker HTTP server must report the address it bound")
@@ -497,7 +497,7 @@ var _ = Describe("the worker's HTTP server", func() {
 		// that verb" rather than as a file that is not there.
 		dir := GinkgoT().TempDir()
 		bare, err := startWorkerHTTPServer("127.0.0.1:0", filepath.Join(dir, "staging"), dir,
-			filepath.Join(dir, "data"), token, &nodes.WorkerReadiness{}, sup, sup.cfg, nil, nil)
+			filepath.Join(dir, "data"), token, &nodes.WorkerReadiness{}, sup, nil, sup.cfg, nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { nodes.ShutdownFileTransferServer(bare) })
 
