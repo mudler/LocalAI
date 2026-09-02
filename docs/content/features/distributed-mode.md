@@ -188,11 +188,24 @@ These outcomes are kept apart on purpose, because they call for different action
 | Not the owner | The routing was stale | Resolve the owner again |
 | Peer unreachable | A replica exists and will not answer | Retry |
 | No relay path | This replica cannot reach the owner at all | Report; requests here fail until it can |
-| The worker refused | The worker answered and said no | Report, and **act on it**; the worker is connected and speaking about its own backend |
+| The worker refused | The worker answered and said no | Depends on WHICH refusal; see below |
 
 **None of the first four is absence.** A worker's presence is its **heartbeat**, and a route to it is a separate fact that can be false while the worker is registered, heartbeating and serving every request another replica sends it. So the frontend answers "no route", never "this worker is gone", and none of the first four causes a model to be rescheduled or a `node_models` row to be deleted.
 
-The fifth is different, and deliberately so. A worker that **refuses** a stream has answered, which proves it is connected; what it is refusing is the stream to one backend process on it. That is the ordinary shape of a crashed backend now that workers listen on nothing: the worker's own dial to the process fails and it says so. The frontend treats that as evidence about the backend, so the model's row is reaped and the replica is reloaded, exactly as a dead local backend would be. Without that, a crashed backend on a healthy worker would leave a row nothing could ever delete, its replica slot permanently occupied. A refusal code the frontend does not recognise - a newer worker's vocabulary - is treated as "no route" instead, so a version skew costs a retry rather than a reaped replica.
+The fifth is different, and deliberately so. A worker that **refuses** a stream has answered, which proves it is connected; what it is refusing is the stream to one backend process on it. That is the ordinary shape of a crashed backend now that workers listen on nothing: the worker's own dial to the process fails and it says so.
+
+There are **four** refusals, and only three of them are evidence about a backend. The distinction decides whether a model's row is deleted, so an operator reading one of these in a log can tell what will happen next:
+
+| Refusal a worker sends | When | Row reaped? |
+|---|---|---|
+| `the worker could not reach the local service for that stream` | The worker's own dial to the backend process was refused. A crashed backend | **Yes.** Reloaded elsewhere, as a dead local backend would be |
+| `the worker does not serve that stream tag` | The worker does not serve that kind of stream at all | **Yes.** Nothing clears this until the worker is upgraded, and the model re-registers somewhere that works |
+| `the worker rejected the stream request as malformed` | The stored backend address is not a port in this worker's range | **Yes.** The row can never be reached, so reaping lets the model re-register a usable address |
+| `the worker could not serve that stream, for a reason that is not about the backend` | The request frame did not arrive in the worker's 15s window, the worker's tunnel was being torn down, or it ran out of a local resource | **No.** These clear on their own; the request fails with "no route" and is retried |
+
+The fourth exists because the other three are acted on. A relayed request crosses a peer link before its frame reaches the worker, so on a congested link a frame can arrive late through nobody's fault; reported as one of the first three, that would evict a model that is loaded and serving. If you see the fourth in your logs, look at peer-link congestion or a worker that is reconnecting, not at the backend it names.
+
+A refusal code the frontend does not recognise - a newer worker's vocabulary - is treated as "no route" as well, so a version skew costs a retry rather than a reaped replica.
 
 That distinction is the whole point rather than a nicety. A scheduler told that a connected worker has gone away stops its backend and reclaims every model it is running, and the events that produce "no route" are ordinary ones: a frontend replica restarting, an ownership row a moment stale, a worker that has not dialled its tunnel yet. A worker is treated as absent only when its **heartbeat** goes stale, which is a separate mechanism with its own threshold (see `--stale-node-threshold`).
 

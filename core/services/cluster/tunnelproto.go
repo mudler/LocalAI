@@ -113,6 +113,53 @@ var (
 	ErrStreamNotServed = errors.New("cluster: the worker could not serve that stream, for a reason that is not about the backend")
 )
 
+// streamRefusals is the whole refusal vocabulary, in ONE table.
+//
+// The writer, the reader, IsWorkerAnswer and IsStreamRefusal all read it, so a
+// fifth refusal cannot be taught to some of them and forgotten in the others.
+// That is not hypothetical tidiness: the fourth code was added to the writer,
+// the reader and the consumer predicate, and a fifth place that enumerated the
+// sentinels by hand (the worker's classifyServiceFailure) silently PROMOTED it
+// to a reaping verdict. One table is what makes the next such site impossible
+// to write.
+//
+// ORDER MATTERS for the writer: matching is by errors.Is and the first hit
+// wins, so a reason wrapping two sentinels resolves the same way every time.
+//
+// evidence is the half a consumer acts on, and it is a property OF THE CODE
+// rather than of the consumer asking. Three of the four are statements about a
+// backend that a frontend may reap on; ErrStreamNotServed is the worker saying
+// it learned nothing, and folding it in turns every transient worker-side
+// failure into an eviction. See IsWorkerAnswer.
+var streamRefusals = []struct {
+	sentinel error
+	code     string
+	evidence bool
+}{
+	{ErrStreamTagUnknown, replyCodeUnknownTag, true},
+	{ErrStreamTargetUnavailable, replyCodeUnavailable, true},
+	{ErrStreamRequestInvalid, replyCodeBadRequest, true},
+	{ErrStreamNotServed, replyCodeNotServed, false},
+}
+
+// IsStreamRefusal reports whether err ALREADY carries one of this vocabulary's
+// classifications.
+//
+// It answers "has something already decided what this failure is", which is a
+// different question from IsWorkerAnswer's "may a consumer act on it". A worker
+// that re-classifies an error which already carries a sentinel overwrites a
+// decision made closer to the failure, and when the overwrite lands on one of
+// the three evidence codes it manufactures a verdict out of something that was
+// explicitly not one.
+func IsStreamRefusal(err error) bool {
+	for _, r := range streamRefusals {
+		if errors.Is(err, r.sentinel) {
+			return true
+		}
+	}
+	return false
+}
+
 // WriteStreamRequest sends the opening frame naming what the stream is for.
 //
 // An empty tag is refused here rather than on the wire, because the worker
@@ -173,15 +220,11 @@ func WriteStreamAccepted(w io.Writer) error {
 // distinguished the codes and became a reap-by-omission when one did.
 func WriteStreamRefusal(w io.Writer, reason error) error {
 	code := replyCodeNotServed
-	switch {
-	case errors.Is(reason, ErrStreamTagUnknown):
-		code = replyCodeUnknownTag
-	case errors.Is(reason, ErrStreamTargetUnavailable):
-		code = replyCodeUnavailable
-	case errors.Is(reason, ErrStreamRequestInvalid):
-		code = replyCodeBadRequest
-	case errors.Is(reason, ErrStreamNotServed):
-		code = replyCodeNotServed
+	for _, r := range streamRefusals {
+		if errors.Is(reason, r.sentinel) {
+			code = r.code
+			break
+		}
 	}
 
 	text := ""
@@ -221,21 +264,16 @@ func ReadStreamReply(r io.Reader) error {
 		return fmt.Errorf("reading a tunnel stream reply: unrecognised reply %q", payload)
 	}
 	code, text, _ := strings.Cut(rest, streamRequestSeparator)
-	switch code {
-	case replyCodeUnknownTag:
-		return fmt.Errorf("%w: %s", ErrStreamTagUnknown, text)
-	case replyCodeUnavailable:
-		return fmt.Errorf("%w: %s", ErrStreamTargetUnavailable, text)
-	case replyCodeBadRequest:
-		return fmt.Errorf("%w: %s", ErrStreamRequestInvalid, text)
-	case replyCodeNotServed:
-		return fmt.Errorf("%w: %s", ErrStreamNotServed, text)
-	default:
-		// A code from a newer worker. Reported as an error carrying the code
-		// rather than mapped onto the nearest known one, so a frontend does not
-		// retry forever against a refusal that means something else entirely.
-		return fmt.Errorf("tunnel stream refused with unrecognised code %q: %s", code, text)
+	for _, r := range streamRefusals {
+		if code == r.code {
+			return fmt.Errorf("%w: %s", r.sentinel, text)
+		}
 	}
+	// A code from a newer worker. Reported as an error carrying the code rather
+	// than mapped onto the nearest known one, so a frontend does not retry
+	// forever against a refusal that means something else entirely, and so
+	// IsWorkerAnswer reports false for it and nothing reaps.
+	return fmt.Errorf("tunnel stream refused with unrecognised code %q: %s", code, text)
 }
 
 // truncateRunes cuts s to at most limit BYTES, on a rune boundary.
