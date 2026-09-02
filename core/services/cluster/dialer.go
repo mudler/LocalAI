@@ -143,9 +143,16 @@ func isAbsenceClaim(err error) bool {
 // model.transportFailure, whose job is to answer "did this call reach a
 // backend?" and for whom a refusal means it did.
 func IsWorkerAnswer(err error) bool {
-	return errors.Is(err, ErrStreamTagUnknown) ||
-		errors.Is(err, ErrStreamTargetUnavailable) ||
-		errors.Is(err, ErrStreamRequestInvalid)
+	// Read off the vocabulary table rather than enumerated here, so this
+	// predicate and the wire codes cannot disagree about which refusals exist.
+	// Enumerating them by hand is what let a fifth site promote the fourth code
+	// into a verdict; see streamRefusals.
+	for _, r := range streamRefusals {
+		if r.evidence && errors.Is(err, r.sentinel) {
+			return true
+		}
+	}
+	return false
 }
 
 // dialHandshakeTimeout bounds the request/reply exchange that opens every
