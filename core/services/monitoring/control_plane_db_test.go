@@ -252,3 +252,35 @@ var _ = Describe("control plane database stats", func() {
 		})
 	})
 })
+
+// The table names the gauges query used to be a hardcoded literal list. That
+// compiles forever and matches nothing the moment a model's table name moves,
+// and a dead-tuple gauge that matched no rows is indistinguishable from a
+// healthy cluster. These specs pin that the names come from gorm instead.
+var _ = Describe("control plane table names", func() {
+	var db *gorm.DB
+
+	BeforeEach(func() {
+		if runtime.GOOS == "darwin" {
+			Skip("testcontainers requires Docker, not available on macOS CI")
+		}
+		db = testutil.SetupTestDB()
+	})
+
+	It("resolves the registry tables the gauges report on", func() {
+		names, err := controlPlaneTableNames(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(names).To(ConsistOf("backend_nodes", "node_models", "gallery_operations"))
+	})
+
+	It("honours a TableName override rather than guessing from the type", func() {
+		names, err := controlPlaneTableNames(db)
+		Expect(err).ToNot(HaveOccurred())
+
+		// GalleryOperationRecord overrides TableName. Naive pluralisation of the
+		// type would yield gallery_operation_records, so this assertion fails if
+		// the resolution ever stops consulting the model.
+		Expect(names).To(ContainElement("gallery_operations"))
+		Expect(names).ToNot(ContainElement("gallery_operation_records"))
+	})
+})

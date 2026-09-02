@@ -2,9 +2,12 @@ package monitoring
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/distributed"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/xlog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -12,8 +15,31 @@ import (
 	"gorm.io/gorm"
 )
 
-// controlPlaneTables are the registry tables whose bloat degrades routing.
-var controlPlaneTables = []string{"backend_nodes", "node_models", "gallery_operations"}
+// controlPlaneModels are the registry records whose table bloat degrades
+// routing. The table NAMES are resolved from gorm rather than written out
+// here, because the three do not agree on how they get one: BackendNode and
+// NodeModel take gorm's default pluralisation, while GalleryOperationRecord
+// overrides TableName. A literal list would keep compiling and silently stop
+// matching the day any of them gains or changes a TableName, and a gauge that
+// reads zero because it matched no rows looks exactly like a healthy cluster.
+var controlPlaneModels = []any{
+	&nodes.BackendNode{},
+	&nodes.NodeModel{},
+	&distributed.GalleryOperationRecord{},
+}
+
+// controlPlaneTableNames asks gorm what each model is actually stored as.
+func controlPlaneTableNames(db *gorm.DB) ([]string, error) {
+	names := make([]string, 0, len(controlPlaneModels))
+	for _, model := range controlPlaneModels {
+		stmt := &gorm.Statement{DB: db}
+		if err := stmt.Parse(model); err != nil {
+			return nil, fmt.Errorf("resolving control-plane table name for %T: %w", model, err)
+		}
+		names = append(names, stmt.Table)
+	}
+	return names, nil
+}
 
 // controlPlaneSampleTimeout bounds one catalog sample. A scrape drives the
 // collection, so an unbounded query on a wedged database would hold the
@@ -59,10 +85,14 @@ func SampleControlPlaneDB(ctx context.Context, db *gorm.DB) (ControlPlaneDBStats
 		DeadTup int64
 		LiveTup int64
 	}
+	tables, err := controlPlaneTableNames(db)
+	if err != nil {
+		return stats, err
+	}
 	if err := db.WithContext(ctx).Raw(`
 		SELECT relname, n_dead_tup AS dead_tup, n_live_tup AS live_tup
 		FROM pg_stat_user_tables
-		WHERE relname IN ?`, controlPlaneTables).Scan(&rows).Error; err != nil {
+		WHERE relname IN ?`, tables).Scan(&rows).Error; err != nil {
 		return stats, err
 	}
 	for _, r := range rows {
