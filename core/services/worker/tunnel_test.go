@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -348,6 +349,121 @@ var _ = Describe("Worker tunnel client", func() {
 				return err
 			})
 			Eventually(ended, "10s").Should(Receive(BeNil()))
+		})
+
+		It("says it learned NOTHING when the request frame never arrived in time", func() {
+			// The producer side of the phase's worst self-inflicted defect.
+			//
+			// This refusal used to be ErrStreamRequestInvalid, merged with a
+			// genuinely malformed frame on the grounds that both are "this
+			// stream never told me what it wanted". That was safe only while
+			// the frontend treated every refusal as "no route". Once
+			// nodes.unroutable started exempting worker answers so a crashed
+			// backend could be reaped, this became reaping evidence for a frame
+			// that had merely not ARRIVED yet.
+			//
+			// It is reachable: on the relay path the worker's header timer
+			// starts when the OWNING replica opens the stream, while the frame
+			// is written by the DIALLING replica only after the relay
+			// acceptance travels back, so a peer-link round trip runs inside
+			// this window on a link that also carries multi-gigabyte artifacts.
+			// For a long-deadline caller the endpoint is
+			// ConnectionEvictingClient, which stops the model across the fleet.
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) {
+				c.Services[cluster.StreamTagGRPC] = dialLocalTCP
+				c.headerTimeout = 50 * time.Millisecond
+			})
+
+			stream, err := session().OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			// Nothing is written, so only the header timer can end this.
+			reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+			var got error
+			Eventually(reply, "10s").Should(Receive(&got))
+
+			Expect(got).To(MatchError(cluster.ErrStreamNotServed))
+			// The three assertions that make this bite. Each of the other
+			// sentinels is evidence the frontend acts on, and the predicate is
+			// the single place the two lists are kept identical.
+			Expect(got).ToNot(MatchError(cluster.ErrStreamRequestInvalid),
+				"a frame that arrived late is not a malformed frame, and this one reaps")
+			Expect(got).ToNot(MatchError(cluster.ErrStreamTargetUnavailable))
+			Expect(cluster.IsWorkerAnswer(got)).To(BeFalse(),
+				"a timeout must reach a reap guard as no-route, never as the worker's verdict")
+		})
+
+		It("still calls a MALFORMED request frame malformed, which is a verdict", func() {
+			// The other direction. Separating the timeout out must not turn the
+			// verdict off: a frontend that writes a frame this worker cannot
+			// parse has a bug that no retry fixes, and the refusal has to keep
+			// saying so.
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) {
+				c.Services[cluster.StreamTagGRPC] = dialLocalTCP
+				c.headerTimeout = time.Minute
+			})
+
+			stream, err := session().OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			// A frame whose declared length exceeds what the reader will take,
+			// so the failure is the frame's shape and not the clock.
+			Expect(binary.Write(stream, binary.BigEndian, uint16(60000))).To(Succeed())
+
+			reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+			var got error
+			Eventually(reply, "10s").Should(Receive(&got))
+
+			Expect(got).To(MatchError(cluster.ErrStreamRequestInvalid))
+			Expect(got).ToNot(MatchError(cluster.ErrStreamNotServed))
+			Expect(cluster.IsWorkerAnswer(got)).To(BeTrue())
+		})
+
+		It("says it learned nothing when the local dial ended on the session going away", func() {
+			// classifyServiceFailure's deny-list. The default there is
+			// TargetUnavailable and stays that way, because a mis-classified
+			// dial failure must fall towards "reapable" rather than towards a
+			// row nothing can ever delete. What is exempted is the pair of
+			// causes that are provably not the target answering: this worker's
+			// own session context ending, and its own I/O deadline firing.
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) {
+				c.Services[cluster.StreamTagGRPC] = func(ctx context.Context, _ string) (net.Conn, error) {
+					return nil, fmt.Errorf("dialing the backend: %w", context.Canceled)
+				}
+			})
+
+			stream, err := session().OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cluster.WriteStreamRequest(stream, cluster.StreamTagGRPC, "127.0.0.1:41000")).To(Succeed())
+
+			reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+			var got error
+			Eventually(reply, "10s").Should(Receive(&got))
+			Expect(got).To(MatchError(cluster.ErrStreamNotServed))
+			Expect(cluster.IsWorkerAnswer(got)).To(BeFalse())
+		})
+
+		It("still reports a refused local dial as an unavailable target, which reaps", func() {
+			// The other direction for the deny-list: the ordinary shape of a
+			// crashed backend must keep producing the code the reap guards act
+			// on, or the ghost rows come back.
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) {
+				c.Services[cluster.StreamTagGRPC] = func(context.Context, string) (net.Conn, error) {
+					return nil, fmt.Errorf("dial tcp 127.0.0.1:41000: connect: %w", syscall.ECONNREFUSED)
+				}
+			})
+
+			stream, err := session().OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cluster.WriteStreamRequest(stream, cluster.StreamTagGRPC, "127.0.0.1:41000")).To(Succeed())
+
+			reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+			var got error
+			Eventually(reply, "10s").Should(Receive(&got))
+			Expect(got).To(MatchError(cluster.ErrStreamTargetUnavailable))
+			Expect(cluster.IsWorkerAnswer(got)).To(BeTrue())
 		})
 	})
 

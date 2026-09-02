@@ -325,6 +325,62 @@ var _ = Describe("The worker dialer", func() {
 			expectNoRoute(out.err)
 		})
 
+		It("blames the caller's spent budget when it runs out BETWEEN the request and the reply", func() {
+			// R2: the read-site guard, which its sibling above cannot reach.
+			//
+			// deadlinePassed makes the budget already spent when handshake
+			// starts, so the WRITE is what fails and only the write-site guard
+			// fires. The guard that matters in production is the other one: a
+			// caller with a real budget writes its request successfully, the
+			// worker takes longer than the remainder to answer, and the READ
+			// ends on the deadline handshakeDeadline armed from that same
+			// budget. Deleting the read-site guard left the whole cluster suite
+			// green, which is exactly the "pinned at one of three sites" gap
+			// this branch has now closed twice.
+			//
+			// Deterministic without a sleep: the worker reads the request and
+			// then never answers, so nothing but the caller's own deadline can
+			// end the exchange, and the spec waits on the request having been
+			// SEEN before waiting on the dial. Seeing it is also what proves
+			// the write succeeded and therefore that this is the read site.
+			frontend, worker := workerTunnel()
+			_, err := mine.Attach(ctx, "w1", frontend)
+			Expect(err).ToNot(HaveOccurred())
+
+			seen := make(chan servedRequest, 1)
+			go func() {
+				defer GinkgoRecover()
+				stream, err := worker.AcceptStream()
+				if err != nil {
+					seen <- servedRequest{err: err}
+					return
+				}
+				tag, target, err := cluster.ReadStreamRequest(stream)
+				seen <- servedRequest{tag: tag, target: target, stream: stream, err: err}
+				// Deliberately no reply. The caller's deadline is the only
+				// thing left that can end this handshake.
+			}()
+
+			budgeted, cancel := context.WithTimeout(ctx, 750*time.Millisecond)
+			defer cancel()
+			d := cluster.NewWorkerDialer(mine, nil)
+			result := dialAsync(d, budgeted, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000")
+
+			var req servedRequest
+			Eventually(seen, "10s").Should(Receive(&req))
+			Expect(req.err).ToNot(HaveOccurred(),
+				"the request frame must have been written and read, or this spec is testing the write site")
+
+			var out dialResult
+			Eventually(result, "10s").Should(Receive(&out))
+			Expect(out.err).To(MatchError(context.DeadlineExceeded),
+				"the caller ran out waiting for a reply; the worker never gave a verdict")
+			Expect(out.err.Error()).To(ContainSubstring("the caller's own budget ran out"))
+			Expect(out.err.Error()).To(ContainSubstring(`opening "grpc"`),
+				"this is the READ site; the write site says \"asking for\"")
+			expectNoRoute(out.err)
+		})
+
 		It("reports a broken tunnel held here as itself, not as a routing fact", func() {
 			// ErrNotOwner tells a caller to look for the worker elsewhere. For
 			// a tunnel held right here that sends it back to this replica, and
