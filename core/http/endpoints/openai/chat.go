@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,16 +25,45 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// messageText returns the textual content of a message, preferring the
+// middleware-populated StringContent and falling back to a string Content.
+func messageText(m schema.Message) string {
+	if m.StringContent != "" {
+		return m.StringContent
+	}
+	if s, ok := m.Content.(string); ok {
+		return s
+	}
+	return ""
+}
+
 // hasSystemMessage reports whether the message slice already contains a
-// system-role message — used to avoid clobbering a caller-supplied system
-// prompt when the LocalAI Assistant modality is on.
+// non-empty system-role message — used to avoid clobbering a caller-supplied
+// system prompt when the LocalAI Assistant modality is on. Empty / whitespace
+// system turns (historically sent by the web Chat UI) are ignored so they do
+// not suppress the model config system_prompt.
 func hasSystemMessage(messages []schema.Message) bool {
 	for _, m := range messages {
-		if m.Role == "system" {
+		if m.Role == "system" && strings.TrimSpace(messageText(m)) != "" {
 			return true
 		}
 	}
 	return false
+}
+
+// stripEmptySystemMessages drops system-role messages whose content is empty
+// or whitespace-only. An explicit blank system turn would otherwise satisfy
+// tokenizer chat templates' `messages[0].role == "system"` check and suppress
+// both the model's configured system_prompt and any template default.
+func stripEmptySystemMessages(messages []schema.Message) []schema.Message {
+	out := messages[:0:0]
+	for _, m := range messages {
+		if m.Role == "system" && strings.TrimSpace(messageText(m)) == "" {
+			continue
+		}
+		out = append(out, m)
+	}
+	return out
 }
 
 // mergeToolCallDeltas merges streaming tool call deltas into complete tool calls.
@@ -148,6 +178,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		}
 
 		xlog.Debug("Chat endpoint configuration read", "config", config)
+
+		// Drop blank system turns from the web UI (and similar clients) so they
+		// cannot suppress the model YAML system_prompt / tokenizer defaults.
+		input.Messages = stripEmptySystemMessages(input.Messages)
+
+		// Tokenizer-template models pass messages through to the backend as-is,
+		// so apply the configured system_prompt when the request did not supply
+		// one. Go-template models already receive SystemPrompt via PromptTemplateData.
+		if config.TemplateConfig.UseTokenizerTemplate && config.SystemPrompt != "" && !hasSystemMessage(input.Messages) {
+			prompt := config.SystemPrompt
+			input.Messages = append([]schema.Message{{Role: "system", Content: prompt, StringContent: prompt}}, input.Messages...)
+		}
 
 		// Cloud-proxy bail. Bypasses the local pipeline (templating,
 		// MCP injection, gRPC backend) and forwards via the cloud-
