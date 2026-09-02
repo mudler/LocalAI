@@ -119,10 +119,18 @@ func isAbsenceClaim(err error) bool {
 // the worker actually wrote. Everything else it returns is a failure to read
 // one, which is the tunnel breaking rather than the worker speaking.
 //
-// A reply carrying a code this frontend does not recognise is deliberately NOT
-// counted here, even though a worker did send it. Classifying it as an answer
-// would let a newer worker's vocabulary be read by an older frontend as
-// evidence about a backend, and the consequence of guessing wrong in that
+// ErrStreamNotServed is deliberately NOT here, even though it is the fourth
+// refusal and a worker plainly sent it. It is the code a worker uses to say it
+// learned nothing: a request frame that never arrived in time, a stream whose
+// deadline could not be armed, anything it could not classify. Those clear on
+// their own, so they must reach a consumer as "no route" and cost a retry, not
+// a row. Keeping the fourth code out of this predicate is what makes it
+// possible for the worker to answer honestly at all.
+//
+// A reply carrying a code this frontend does not recognise is NOT counted here
+// either, for the same reason at the next version boundary. Classifying it as
+// an answer would let a newer worker's vocabulary be read by an older frontend
+// as evidence about a backend, and the consequence of guessing wrong in that
 // direction is a reaped replica; guessing wrong the other way costs a retry.
 //
 // It is EXPORTED because it is half of a contract, not an implementation

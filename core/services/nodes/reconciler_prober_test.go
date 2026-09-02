@@ -26,9 +26,16 @@ import (
 // refusal is written with the worker's own writer and read back with the
 // frontend's own reader, so a reason the protocol cannot carry, or a code
 // mapping that stopped round-tripping, reddens these specs instead of leaving
-// them asserting against a value production never produces. The final wrap is
-// the shape WorkerDialer.handshake returns for a worker answer, umbrella and
-// all: there is none, which is the property under test.
+// them asserting against a value production never produces.
+//
+// The wrap is chosen by cluster.IsWorkerAnswer, which is what
+// WorkerDialer.handshake does, so the spec exercises the real branch rather
+// than a transcription of it. That is not circular: the helper decides the
+// SHAPE of the error and the table below states the OUTCOME independently, so
+// moving a sentinel into or out of the predicate reddens the table. In
+// particular, adding ErrStreamNotServed to the predicate would strip its
+// umbrella here and turn its ProbeUnknown entry red, which is the property that
+// keeps a transient worker-side failure from reaping a live model.
 func refusalFromWorker(reason error) error {
 	GinkgoHelper()
 	var frame bytes.Buffer
@@ -36,7 +43,10 @@ func refusalFromWorker(reason error) error {
 	readBack := cluster.ReadStreamReply(&frame)
 	Expect(readBack).To(MatchError(reason), "the refusal must survive its own round trip")
 	Expect(readBack).ToNot(MatchError(cluster.ErrNoRoute))
-	return fmt.Errorf("opening %q on node %q: %w", "grpc", "node-1", readBack)
+	if cluster.IsWorkerAnswer(readBack) {
+		return fmt.Errorf("opening %q on node %q: %w", "grpc", "node-1", readBack)
+	}
+	return fmt.Errorf("reaching node %q: %w: opening %q: %w", "node-1", cluster.ErrNoRoute, "grpc", readBack)
 }
 
 // proberFactory hands the prober one client, and records what it was asked for.
@@ -121,6 +131,24 @@ var _ = Describe("the reconciler's gRPC model prober", func() {
 		Entry("the worker does not serve gRPC streams at all", cluster.ErrStreamTagUnknown),
 		Entry("the worker rejected the stored address", cluster.ErrStreamRequestInvalid),
 	)
+
+	It("answers ProbeUnknown when the worker refused but said it learned nothing", func() {
+		// The fourth refusal, and the boundary that keeps the three above safe
+		// to act on. A worker answers with it for its OWN transient conditions:
+		// a request frame that never arrived in time, a stream whose deadline
+		// would not arm, a local dial that ended on the session going away.
+		// Those clear on a reconnect, so acting on them would convert
+		// peer-link congestion into a reaped row, and on the inference path
+		// into a model stopped across the fleet.
+		//
+		// This is not hypothetical: the header-timeout case USED to arrive as
+		// ErrStreamRequestInvalid, which the table above reaps on.
+		Expect(probe(&proberFactory{client: &fakeBackendClient{
+			healthy: false,
+			err:     status.Error(codes.Unavailable, "connection error: transport"),
+			dialErr: refusalFromWorker(cluster.ErrStreamNotServed),
+		}})).To(Equal(ProbeUnknown))
+	})
 
 	It("answers ProbeUnknown for a refusal code this frontend does not recognise", func() {
 		// The other direction, and the boundary of the exemption above. A

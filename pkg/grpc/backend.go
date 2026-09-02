@@ -133,6 +133,20 @@ const maxBackendUnwrapDepth = 16
 // pkg/model is an *InFlightTrackingClient over a *FileStagingClient over the
 // real one, so both callers were asking a wrapper that had no answer and
 // reading nil as "the transport was fine".
+//
+// WHAT IT ANSWERS IS NOT "was this the transport's fault". It answers "what did
+// the dialler last return", and in distributed mode some of those values are a
+// WORKER'S OWN REFUSAL, which means the tunnel worked and the worker spoke.
+// Telling those apart is cluster.IsWorkerAnswer, and the two production callers
+// (nodes.unroutable, model.transportFailure) both go through it. A new caller
+// that matches on sentinels of its own would be re-creating the collapse this
+// phase spent two rounds removing: the reap guards and the dialler would stop
+// agreeing on which errors are evidence.
+//
+// Nothing structural prevents that, unlike the WrappedBackend rule in
+// hack/lint/ which makes decorator transparency impossible to forget. With two
+// callers, both funnelling through one predicate, a ruleguard rule is not worth
+// its false positives; if a third appears, it is. Recorded as a phase-3 note.
 func LastDialErrorOf(b Backend) error {
 	for range maxBackendUnwrapDepth {
 		if b == nil {

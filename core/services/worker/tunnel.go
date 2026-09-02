@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -335,17 +336,32 @@ func (t *Tunnel) accept(ctx context.Context, stream net.Conn) (net.Conn, bool) {
 	// Deliberately time.Now and not t.now: this is an I/O deadline, and the
 	// clock seam exists only to measure how long a session lasted.
 	if err := stream.SetReadDeadline(time.Now().Add(t.headerTimeout)); err != nil {
-		// Nothing is readable on a stream whose deadline cannot be set, so this
-		// is reported as an infrastructure failure rather than pushed past.
-		t.refuse(stream, fmt.Errorf("%w: arming the request deadline: %v", cluster.ErrStreamTargetUnavailable, err))
+		// NotServed and not TargetUnavailable: this is a fact about the STREAM,
+		// which would not take a deadline, and no local service has been named
+		// yet, let alone dialled. Reporting it as an unreachable target would
+		// tell the frontend a backend it has not asked about is gone.
+		t.refuse(stream, fmt.Errorf("%w: arming the request deadline: %v", cluster.ErrStreamNotServed, err))
 		return nil, false
 	}
 
 	tag, target, err := cluster.ReadStreamRequest(stream)
 	if err != nil {
-		// Includes the deadline above expiring. Both are "this stream never
-		// told me what it wanted", which is the frontend's problem to fix, not
-		// something a retry against this worker resolves.
+		// The two causes are SEPARATED here, and merging them was a real
+		// defect. A malformed frame is the frontend's own bug and does not
+		// clear on its own, so it stays a verdict the frontend acts on. The
+		// deadline above expiring is a frame that has not ARRIVED yet, which
+		// clears the moment the link drains; on the relay path the worker's
+		// timer starts when the OWNING replica opens the stream, while the
+		// frame is written by the DIALLING replica only after the relay's
+		// acceptance has travelled back to it, so a whole peer-link round trip
+		// runs inside this window, on a link this design deliberately loads
+		// with multi-gigabyte artifacts. Reported as a malformed request it
+		// became reaping evidence, and for a long-deadline caller that is a
+		// model evicted across the fleet by nothing but congestion.
+		if isReadTimeout(err) {
+			t.refuse(stream, fmt.Errorf("%w: %v", cluster.ErrStreamNotServed, err))
+			return nil, false
+		}
 		t.refuse(stream, fmt.Errorf("%w: %v", cluster.ErrStreamRequestInvalid, err))
 		return nil, false
 	}
@@ -365,7 +381,9 @@ func (t *Tunnel) accept(ctx context.Context, stream net.Conn) (net.Conn, bool) {
 	// its own deadlines, and one left armed here would abort a long inference
 	// stream in the middle.
 	if err := stream.SetReadDeadline(time.Time{}); err != nil {
-		t.refuse(stream, fmt.Errorf("%w: clearing the request deadline: %v", cluster.ErrStreamTargetUnavailable, err))
+		// NotServed for the same reason as arming it: the stream is what
+		// failed, and this worker has said nothing about the target.
+		t.refuse(stream, fmt.Errorf("%w: clearing the request deadline: %v", cluster.ErrStreamNotServed, err))
 		return nil, false
 	}
 
@@ -397,14 +415,49 @@ func (t *Tunnel) accept(ctx context.Context, stream net.Conn) (net.Conn, bool) {
 // retry something that can never work; reporting the second as the first makes
 // it give up on a backend that is merely starting.
 //
-// Anything unclassified is infrastructure, because that is what an unadorned
-// dial failure is, and it must never become the unknown-tag refusal: a tag this
-// worker serves does not stop being served because one dial failed.
+// The default is TargetUnavailable and stays that way, which is the deliberate
+// half of this function now that the frontend acts on that code. A dial to the
+// named process that came back with anything is the closest thing to evidence
+// this worker can produce, and the direction of a mis-classification decides
+// which mistake is made: defaulting the other way would mean a genuinely dead
+// backend whose errno nobody enumerated becomes a permanently unreapable row,
+// which is the exact defect this phase spent a round removing. So the
+// exemptions below are a DENY-list of causes that are provably not about the
+// target, not an allow-list of causes that are.
+//
+// The two exempted are the caller's context ending and a read/write deadline
+// firing. Neither is the target answering: the context here is the SESSION's,
+// so it ends when this worker's tunnel is torn down, and a deadline is this
+// process's own timer. Both clear on a reconnect. They are exempted rather
+// than argued away as unreachable because "unreachable" was the argument that
+// made the request-frame merge look safe.
+//
+// It must never become the unknown-tag refusal either: a tag this worker serves
+// does not stop being served because one dial failed.
 func classifyServiceFailure(err error) error {
 	if errors.Is(err, cluster.ErrStreamRequestInvalid) {
 		return err
 	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || isReadTimeout(err) {
+		return fmt.Errorf("%w: %v", cluster.ErrStreamNotServed, err)
+	}
 	return fmt.Errorf("%w: %v", cluster.ErrStreamTargetUnavailable, err)
+}
+
+// isReadTimeout reports whether err is an I/O deadline firing rather than a
+// peer saying anything.
+//
+// net.Error's Timeout is asked as well as os.ErrDeadlineExceeded because the
+// two are not the same set: a yamux stream returns its own timeout value from
+// a Read whose deadline expired, and a net.OpError over a socket returns
+// os.ErrDeadlineExceeded. Missing either would put a timeout back on the
+// verdict path, which is the defect this predicate exists to keep closed.
+func isReadTimeout(err error) bool {
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 // refuse reports why a stream will not be served and then ENDS it.
