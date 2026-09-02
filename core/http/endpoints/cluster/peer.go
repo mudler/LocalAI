@@ -38,6 +38,30 @@ func PeerHandler(token string, onSession func(peerID string, sess *yamux.Session
 			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
 		}
 
+		// SELF-DECLARED, and knowingly so. Unlike the worker route next door,
+		// which resolves ?id= to a node row and checks that node's OWN minted
+		// credential, this route has only the shared cluster token to check,
+		// so the id is a label and not a claim anything verifies.
+		//
+		// What that costs, exactly, for anything already holding the shared
+		// token (every worker holds it, and it is the same token that
+		// authenticates registration): it can relay to every worker tunnel this
+		// replica owns, reaching every backend gRPC process and every worker's
+		// file-transfer server; and by declaring a legitimate replica's id it
+		// can make SessionStore.Accept evict that replica's inbound link, at
+		// will. Neither is a new capability in KIND - before workers stopped
+		// listening, a holder of that token could already dial any worker's
+		// advertised ports directly - but the token is now the only thing
+		// between an attacker and the whole fleet's tunnels.
+		//
+		// It is deferred rather than patched, because the cheap patch does not
+		// work: checking ?id= against the instances table stops an invented id
+		// and stops nothing else, since the attack declares a REAL replica's
+		// id, and it would buy a false sense of a closed hole. Closing it takes
+		// a credential per replica, minted where a replica joins the instances
+		// table and presented here, which is a design with its own migration
+		// and its own specs. Tracked as the phase-3 item named at
+		// nodes.BackendNode.TunnelTokenHash.
 		peerID := c.QueryParam("id")
 		if peerID == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "missing peer id")

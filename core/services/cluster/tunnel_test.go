@@ -304,6 +304,32 @@ var _ = Describe("The worker tunnel registry", func() {
 			"holding the tunnel is a routing fact, and a failed Open is not what un-holds it")
 	})
 
+	It("blames the caller's own spent budget, not the tunnel, when a stream cannot be opened", func() {
+		// The second of the three sites where peerlink.go's callerRanOut rule
+		// has to hold. A caller whose budget ran out gets the multiplexer's
+		// error back before the scheduler has necessarily run its context's
+		// cancel func, so ctx.Err() can still read nil while the failure is
+		// entirely the caller's; reported plainly it becomes "the tunnel this
+		// replica holds would not carry a stream" in an operator's log for a
+		// worker that is fine.
+		//
+		// deadlinePassed is that window made deterministic: deadline elapsed,
+		// cancellation not delivered. Nothing about the broken session is
+		// faked.
+		frontend, worker := workerTunnel()
+		_, err := tun.Attach(ctx, "w1", frontend)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(worker.Close()).To(Succeed())
+		Eventually(frontend.IsClosed, "10s").Should(BeTrue())
+
+		_, err = tun.Open(deadlinePassed{ctx}, "w1")
+		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(context.DeadlineExceeded),
+			"the caller's budget was spent, and only it can say so")
+		Expect(err.Error()).To(ContainSubstring("the caller's own budget ran out"))
+	})
+
 	It("refuses a nil session rather than claiming a tunnel that cannot carry anything", func() {
 		// A claim written for a session that does not exist publishes a tunnel
 		// to every replica in the deployment, and the fence would then have to

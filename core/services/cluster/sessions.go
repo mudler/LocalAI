@@ -76,6 +76,15 @@ func (s *SessionStore) Accept(peerID string, sess *yamux.Session) {
 // is false when no link from that peer is held, which a caller must not read as
 // the peer being absent: it may be about to dial, or dialling this replica may
 // simply not be its job.
+//
+// It has NO production caller, and that is stated rather than left to be
+// discovered: nothing in the frontend routes by looking up an inbound link,
+// because the relay is driven by the streams a peer opens on the session, not
+// by this side going to find one. What Get exists for is the specs, which have
+// no other way to observe which session this store holds, and holding exactly
+// one session per peer is the property Accept's eviction is about. Deleting it
+// would delete that observation with it. Anything tempted to route on it should
+// read the paragraph above first: a missing entry is not an absent peer.
 func (s *SessionStore) Get(peerID string) (*yamux.Session, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

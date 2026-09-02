@@ -292,6 +292,39 @@ var _ = Describe("The worker dialer", func() {
 			Expect(out.err).ToNot(MatchError(cluster.ErrNoRoute))
 		})
 
+		It("blames the caller's own spent budget, not the worker, when the handshake ends on the deadline", func() {
+			// The third and last site of peerlink.go's callerRanOut rule.
+			//
+			// The handshake deadline IS the caller's whenever the caller's is
+			// shorter (handshakeDeadline), so a caller that has run out makes
+			// the stream's own timer fire, and the i/o timeout arrives here
+			// while ctx.Err() may still read nil. Without the guard this reads
+			// as "the tunnel would not carry the request" for a worker that is
+			// connected, healthy, and simply not answering yet, which is what a
+			// worker under load looks like.
+			//
+			// The worker accepts the stream and says nothing, so the ONLY thing
+			// that can end this handshake is the deadline; there is no sleep
+			// and no race.
+			frontend, worker := workerTunnel()
+			_, err := mine.Attach(ctx, "w1", frontend)
+			Expect(err).ToNot(HaveOccurred())
+			go func() {
+				defer GinkgoRecover()
+				_, _ = worker.AcceptStream()
+			}()
+
+			d := cluster.NewWorkerDialer(mine, nil)
+			var out dialResult
+			Eventually(dialAsync(d, deadlinePassed{ctx}, "w1", cluster.StreamTagGRPC, "127.0.0.1:41000"), "10s").Should(Receive(&out))
+			Expect(out.err).To(MatchError(context.DeadlineExceeded),
+				"the caller's budget was spent; the worker never got a verdict")
+			Expect(out.err.Error()).To(ContainSubstring("the caller's own budget ran out"))
+			// The umbrella is still on it, so Dial's contract is unchanged and
+			// no consumer reads this as the worker having gone away.
+			expectNoRoute(out.err)
+		})
+
 		It("reports a broken tunnel held here as itself, not as a routing fact", func() {
 			// ErrNotOwner tells a caller to look for the worker elsewhere. For
 			// a tunnel held right here that sends it back to this replica, and
