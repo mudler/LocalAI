@@ -564,18 +564,28 @@ var _ = Describe("RemoteUnloaderAdapter timeout handling", func() {
 		Expect(errors.Is(err, ErrWorkerUnroutable)).To(BeTrue())
 	})
 
-	It("does not read a message merely containing the words nats timeout as a timeout", func() {
-		// The string match the bus carrier needed would have matched a worker
-		// error that quoted the phrase, and would have turned a real failure
-		// into "still installing" forever.
+	It("does not read an error merely containing the words nats timeout as a timeout", func() {
+		// The string match the bus carrier needed would have matched any
+		// message quoting the phrase, and would have turned a permanent failure
+		// into "still installing" forever: galleryop reads that as a soft
+		// failure, pushes the retry out, and the operator never sees the error.
+		//
+		// The input has to be an ERROR carrying the phrase. A successful reply
+		// whose Error field carries it comes back with a nil error and never
+		// reaches the classifier at all, so a spec built on one stays green
+		// with the string match restored — which is exactly what the previous
+		// version of this spec did.
 		workers := newScriptedControlWorkers()
-		workers.scriptReply(controlKey("n1", workerctl.PathBackendInstall),
-			messaging.BackendInstallReply{Success: false, Error: `the worker said "nats: timeout" in its log`})
+		workers.scriptServerError(controlKey("n1", workerctl.PathBackendInstall),
+			`the worker said "nats: timeout" in its log`)
 		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), time.Minute, time.Minute)
 
-		reply, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(reply.Success).To(BeFalse())
+		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("nats: timeout"),
+			"precondition: the phrase must actually reach the timeout classifier")
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse())
+		Expect(errors.Is(err, ErrWorkerUnroutable)).To(BeTrue())
 	})
 })
 

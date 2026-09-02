@@ -516,7 +516,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
-		Unloader:         remoteUnloader,
+		Unloader: remoteUnloader,
+		// Absence, and the only source of it the scheduler has. It is a fact
+		// read from the database, so every replica answers it identically;
+		// the bus sentinel it replaces was one frontend's observation that
+		// nobody answered IT within a budget, and two replicas asking at the
+		// same moment could disagree and demote each other's workers.
+		Presence:         clusterRegistry,
+		ReconnectGrace:   cfg.Distributed.ReconnectGraceOrDefault(),
 		ModelCleanup:     modelCleanup,
 		FileStager:       fileStager,
 		GalleriesJSON:    routerGalleriesJSON,

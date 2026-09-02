@@ -431,14 +431,13 @@ func (rc *ReplicaReconciler) drainPendingBackendOps(ctx context.Context) {
 			continue
 		}
 
-		// A failed op no longer demotes the node. It used to, on
-		// nats.ErrNoResponders, which said the worker was not on the bus; a
-		// control RPC fails when THIS frontend cannot route to the worker,
-		// which a worker re-homing its tunnel does while it is heartbeating and
-		// serving. Demoting on it would take the node out of
-		// ListDuePendingBackendOps and out of scheduling for a reason that has
-		// nothing to do with the node. The row keeps its backoff and its
-		// dead-letter cap, and cluster.Presence becomes the absence signal.
+		// A failed op does not demote the node. A control RPC fails when THIS
+		// frontend cannot route to the worker, which a worker re-homing its
+		// tunnel does while it is heartbeating and serving. Demoting on it
+		// would take the node out of ListDuePendingBackendOps and out of
+		// scheduling for a reason that has nothing to do with the node. The row
+		// keeps its backoff and its dead-letter cap; absence is a separate fact
+		// read from the database by the scheduler (cluster.Presence).
 
 		// Dead-letter cap: after maxAttempts the row is the reconciler
 		// equivalent of a poison message. Delete it loudly so the queue

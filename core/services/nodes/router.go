@@ -40,6 +40,19 @@ var companionSuffixes = map[string][]string{
 // Passing them at construction time eliminates data races from post-creation setters.
 type SmartRouterOptions struct {
 	Unloader NodeCommandSender
+	// Presence answers whether a worker's tunnel is held, lost inside the
+	// reconnect grace, lost past it, or unknown. It is the ONLY thing the
+	// scheduler reads absence from; nil disables the check entirely and every
+	// node is treated as present, which is what a deployment with no cluster
+	// registry gets. See nodeMayTakeWork.
+	Presence NodePresenceReader
+	// ReconnectGrace is how long a lost tunnel is read as reconnecting rather
+	// than gone. It is the operator's trade rather than this package's, so
+	// callers pass config.DistributedConfig.ReconnectGraceOrDefault(). Zero
+	// selects the same default: a caller that wires Presence and forgets the
+	// grace gets the documented window instead of a zero one, which would
+	// condemn every worker the instant its tunnel dropped.
+	ReconnectGrace time.Duration
 	// ModelCleanup performs acknowledged exact-process cleanup when a load
 	// finishes after its configuration revision became stale.
 	ModelCleanup  *ModelCleanupService
@@ -152,8 +165,12 @@ func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duratio
 // SmartRouter routes inference requests to the best available backend node.
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
-	registry         ModelRouter
-	unloader         NodeCommandSender // optional, for NATS-driven load/unload
+	registry ModelRouter
+	unloader NodeCommandSender // optional, for control-plane load/unload
+	// presence is the scheduler's only source of absence, and reconnectGrace
+	// the window it measures a departure against. See nodeMayTakeWork.
+	presence         NodePresenceReader
+	reconnectGrace   time.Duration
 	modelCleanup     *ModelCleanupService
 	fileStager       FileStager           // optional, for distributed file transfer
 	galleriesJSON    string               // backend gallery config for dynamic installation
@@ -234,9 +251,18 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if diskHeadroom == nil {
 		diskHeadroom = func() bool { return true }
 	}
+	// Zero means the caller wired a presence reader without an explicit grace.
+	// Defaulted here rather than left at zero, because a zero window makes
+	// every departure instantly a verdict.
+	grace := opts.ReconnectGrace
+	if grace <= 0 {
+		grace = config.DefaultWorkerReconnectGrace
+	}
 	return &SmartRouter{
 		registry:            registry,
 		unloader:            opts.Unloader,
+		presence:            opts.Presence,
+		reconnectGrace:      grace,
 		modelCleanup:        opts.ModelCleanup,
 		fileStager:          opts.FileStager,
 		galleriesJSON:       opts.GalleriesJSON,

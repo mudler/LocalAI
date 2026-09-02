@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nats-io/nats.go"
-
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -36,12 +34,6 @@ type NodeCommandSender interface {
 	ListBackends(nodeID string) (*messaging.BackendListReply, error)
 	StopBackend(nodeID, backend string) error
 	UnloadModelOnNode(nodeID, modelName string) error
-	// PingNode reports whether the worker answered a control RPC. Only an
-	// answer is evidence; every other outcome is this frontend failing to
-	// route, which callers must not read as the node having gone. Task 6
-	// replaces it with a presence read on the database clock, which is the
-	// only thing in this deployment that CAN say a worker is gone.
-	PingNode(nodeID string) error
 }
 
 // RemoteUnloaderAdapter implements NodeCommandSender and
@@ -324,7 +316,6 @@ const (
 	modelUnloadTimeout   = 30 * time.Second
 	modelDeleteTimeout   = 30 * time.Second
 	nodeStopTimeout      = 30 * time.Second
-	nodePingTimeout      = 5 * time.Second
 )
 
 // ListBackends queries a worker node for its installed backends.
@@ -339,41 +330,6 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 		return nil, err
 	}
 	return &reply, nil
-}
-
-// PingNode asks a worker one cheap control verb and reports what came back.
-//
-// A node's status in the database comes from its HTTP heartbeat, which is a
-// separate channel, so a worker that has died keeps its healthy status until
-// the heartbeat ages out and the scheduler could commit to a node it cannot
-// reach.
-//
-// What this can and cannot conclude changed with the carrier, and the
-// difference is the whole point. A worker that ANSWERS is present by
-// demonstration, whatever it answered. Every other outcome is this frontend
-// failing to route to it, which is true of a worker that is heartbeating and
-// serving another replica's requests while re-homing its tunnel; reported as
-// absence it would have the scheduler demote a healthy node. So the error is
-// ErrWorkerUnroutable, callers must not read it as the node having gone, and
-// nothing here returns an absence sentinel at all. Task 6 replaces this with
-// cluster.Registry.Presence, which is the one fact in the deployment that can
-// say a worker is gone, and says it identically on every replica.
-//
-// backend.list rather than models.running for the reason it always was: it has
-// been part of the worker protocol far longer, so it is the safer question to
-// ask of a worker that may be older than this frontend.
-func (a *RemoteUnloaderAdapter) PingNode(nodeID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), nodePingTimeout)
-	defer cancel()
-
-	var reply messaging.BackendListReply
-	err := a.control.Call(ctx, nodeID, workerctl.PathBackendList, messaging.BackendListRequest{}, &reply)
-	if errors.Is(err, ErrWorkerControlUnsupported) {
-		// The worker answered, from a build that predates this verb. That is a
-		// worker that is very much there.
-		return nil
-	}
-	return err
 }
 
 // ListRunningModels asks a worker node which model backend processes it
@@ -560,11 +516,14 @@ func (a *RemoteUnloaderAdapter) StopNode(nodeID string) error {
 // isRequestTimeout reports whether a control RPC ended because its budget ran
 // out rather than because the worker said anything.
 //
-// context.DeadlineExceeded is the one signal, and it is matchable because
-// controlFailure wraps the caller's own ctx.Err(). nats.ErrTimeout is still
-// accepted for as long as any verb reaches a worker over the bus. The string
-// match the NATS carrier needed is deliberately NOT reproduced: a message that
-// merely quotes a timeout is not one.
+// context.DeadlineExceeded is the ONE signal, and it is matchable because
+// controlFailure wraps the caller's own ctx.Err(). The bus sentinel it used to
+// accept alongside is gone with the bus: every verb this adapter sends now
+// travels over the worker's tunnel, so a nats.ErrTimeout could only arrive from
+// a carrier nothing here uses. The string match that carrier needed is
+// deliberately not reproduced either, in any spelling: a message that merely
+// quotes a timeout is not one, and a worker error that happened to contain the
+// phrase would be reported as still-installing forever.
 func isRequestTimeout(err error) bool {
-	return errors.Is(err, nats.ErrTimeout) || errors.Is(err, context.DeadlineExceeded)
+	return errors.Is(err, context.DeadlineExceeded)
 }

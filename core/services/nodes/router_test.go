@@ -17,7 +17,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
-	"github.com/nats-io/nats.go"
 	ggrpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
@@ -496,13 +495,6 @@ type fakeUnloader struct {
 	stopErr     error
 	unloadCalls []string
 
-	// deadNodes names the nodes PingNode reports as absent from the bus, and
-	// pingCalls records every node it was asked about, in order.
-	deadNodes map[string]bool
-	pingCalls []string
-	// pingErr is returned for nodes not in deadNodes, so a spec can model a
-	// node that is reachable but answering badly.
-	pingErr   error
 	unloadErr error
 }
 
@@ -564,17 +556,6 @@ func (f *fakeUnloader) UnloadModelOnNode(nodeID, modelName string) error {
 func (f *fakeModelRouter) MarkUnhealthy(_ context.Context, nodeID string) error {
 	f.markedUnhealthy = append(f.markedUnhealthy, nodeID)
 	return f.markUnhealthyErr
-}
-
-func (f *fakeUnloader) PingNode(nodeID string) error {
-	f.mu.Lock()
-	f.pingCalls = append(f.pingCalls, nodeID)
-	dead := f.deadNodes[nodeID]
-	f.mu.Unlock()
-	if dead {
-		return nats.ErrNoResponders
-	}
-	return f.pingErr
 }
 
 // ---------------------------------------------------------------------------

@@ -1110,13 +1110,19 @@ func (r *NodeRegistry) GetByName(ctx context.Context, name string) (*BackendNode
 	return &node, nil
 }
 
-// MarkUnhealthy sets a node status to unhealthy. Deliberately status-only:
-// callers fire this on transient triggers (a single nats.ErrNoResponders from
-// managers_distributed / reconciler) where the next heartbeat is expected to
-// flip the node back to healthy, and cascade-deleting node_models here would
-// force a full model reload on every brief NATS hiccup. Stale rows are reaped
-// by the per-model health probe (on by default; see HealthMonitor) and by
-// MarkOffline when the heartbeat really has gone away.
+// MarkUnhealthy sets a node status to unhealthy. Deliberately status-only: it
+// stops placement, it does not delete a row, and that is what keeps it inside
+// what the scheduler's one demotion trigger licenses.
+//
+// That trigger is now a single fact rather than a class of transient failures:
+// the scheduler demotes only a node cluster.Presence reports as GONE, meaning
+// no live replica holds its tunnel and its departure has outlived the reconnect
+// grace (see SmartRouter.nodeMayTakeWork). A failed control RPC no longer
+// reaches here at all. Cascade-deleting node_models here would still be wrong
+// even so: the node may be re-dialling, and reloading every model it held is
+// exactly the fleet-wide eviction the tunnel work exists to prevent. Stale rows
+// are reaped by the per-model health probe (on by default; see HealthMonitor)
+// and by MarkOffline when the heartbeat really has gone away.
 func (r *NodeRegistry) MarkUnhealthy(ctx context.Context, nodeID string) error {
 	return r.setStatus(ctx, nodeID, StatusUnhealthy)
 }
@@ -2579,8 +2585,8 @@ func (r *NodeRegistry) DeleteStalePendingBackendOps(ctx context.Context, grace t
 	cutoff := time.Now().Add(-grace)
 	// Draining nodes are cleared immediately (admin action; model rows already
 	// purged). Offline AND unhealthy nodes are cleared only once their heartbeat
-	// is older than the grace window: a node marked unhealthy on a NATS
-	// ErrNoResponders never transitions to offline (health.go skips re-marking
+	// is older than the grace window: a node the scheduler demoted for a
+	// departed tunnel never transitions to offline (health.go skips re-marking
 	// it), so without including unhealthy here its ops would leak exactly like
 	// the offline case. A node with a fresh heartbeat (last_heartbeat > cutoff)
 	// is recovering and keeps its op for retry.

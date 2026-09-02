@@ -275,7 +275,7 @@ The fourth exists because the other three are acted on. A relayed request crosse
 
 A refusal code the frontend does not recognise - a newer worker's vocabulary - is treated as "no route" as well, so a version skew costs a retry rather than a reaped replica.
 
-That distinction is the whole point rather than a nicety. A scheduler told that a connected worker has gone away stops its backend and reclaims every model it is running, and the events that produce "no route" are ordinary ones: a frontend replica restarting, an ownership row a moment stale, a worker that has not dialled its tunnel yet. A worker is treated as absent only when its **heartbeat** goes stale, which is a separate mechanism with its own threshold (see `--stale-node-threshold`).
+That distinction is the whole point rather than a nicety. A scheduler told that a connected worker has gone away stops its backend and reclaims every model it is running, and the events that produce "no route" are ordinary ones: a frontend replica restarting, an ownership row a moment stale, a worker that has not dialled its tunnel yet. Absence has its own two mechanisms and neither of them is a failed request: a stale **heartbeat** (see `--stale-node-threshold`), and a tunnel **departure** older than the reconnect grace (see below).
 
 #### There is no frontend-side fallback
 
@@ -316,6 +316,10 @@ A worker on this release opens **no inbound listener on a routable interface**. 
 When a worker's tunnel goes, the frontend does **not** forget the worker. It records *when* the tunnel went, and for a grace period after that the worker is reported as **reconnecting**, not as gone. Only once the departure is older than the grace may anything act on the worker's absence: stop scheduling work onto it, clean up its rows, release its models.
 
 That distinction exists because a worker loses its tunnel for entirely ordinary reasons. A frontend replica restarting during a rolling upgrade drops every tunnel it held, and each of those workers immediately re-dials the load balancer and lands on another replica. Treating that as "the worker is gone" would evict models mid-upgrade for a fleet that never actually went anywhere.
+
+The scheduler reads exactly this before it places a cold load. A worker whose departure has outlived the grace is skipped and marked unhealthy, so every other frontend replica stops choosing it too; the log line is `Scheduled node has no tunnel and its departure outlived the reconnect grace, marking unhealthy and re-scheduling` and it names the grace it used. The demotion is a **status** change, not a deletion: the worker's `node_models` rows survive it, and a worker that comes back is marked healthy again by its next heartbeat.
+
+The other three answers place work as normal. **Reconnecting** (the tunnel went inside the grace) and **unknown** (no connection row at all — the worker has never dialled, or its departure has already aged out of retention) are both non-verdicts; so is a failure to read the answer, because a database hiccup that excluded workers would cost the fleet its capacity for a reason that has nothing to do with any worker. In each of those cases scheduling proceeds and the install that follows reports its own outcome.
 
 | Flag | Env var | Default | Description |
 |------|---------|---------|-------------|
@@ -1363,7 +1367,8 @@ Notes:
 - The chosen worker's tunnel was not reachable from the replica that handled the request. A node's status comes from its HTTP heartbeat, which is a separate channel: a worker that stops stays `healthy` until that heartbeat ages out, and a worker that is very much alive can be unroutable for a moment while its tunnel re-homes between frontend replicas.
 - It is **not** the same as the worker being gone, and nothing acts on it as if it were. A model on an unroutable worker is not reaped, its rows are left alone, and the node is not demoted: doing any of those on a lost route is how a rolling frontend restart turns into a fleet-wide eviction.
 - Check the worker process is running and that it has an open tunnel (`opened a tunnelled stream to a worker` in the frontend log, and the worker's own dial/reconnect lines). A worker behind a load balancer that keeps reconnecting is usually an idle-timeout or WebSocket-upgrade problem at the proxy; see the tunnel section above.
-- A `nats: no responders available for request` in a modern deployment concerns only the subjects still on the bus: agent-worker jobs, MCP, and file staging. It is no longer how a serve-backend worker is reached.
+- **`no route` is not `gone`, and nothing in the frontend reads it as such.** A worker is declared **gone** by one mechanism only: no live frontend replica holds its tunnel *and* its departure is older than `--worker-reconnect-grace`. That is a fact recorded in the shared database, so every replica answers it identically. "No route" is one replica failing to reach a worker right now, and it is not evidence about the worker at all.
+- Older releases decided absence from `nats: no responders available for request` — one frontend's observation that nobody answered *it* within a request budget. Two replicas asking at the same moment could disagree and demote each other's workers. That signal is gone from the scheduler; if you still see the message, it concerns only the subjects that remain on the bus (agent-worker jobs and MCP), never a serve-backend worker.
 
 **A worker fills its own disk over time:**
 - A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.
