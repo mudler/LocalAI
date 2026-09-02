@@ -186,7 +186,11 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// the top of Run so the worker fails before registering.)
 	httpAddr := cfg.resolveHTTPAddr()
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
-	dataDir := filepath.Join(cfg.ModelsPath, "..", "data")
+	// Derived through the same helper the listdir verb resolves `data/` keys
+	// against, and not a second time here. Two independent joins that agreed
+	// today would each stay self consistent if one moved, and the symptom would
+	// be a verb that lists files the file server does not serve.
+	dataDir := cfg.stagingDataDir()
 	// The readiness gate is created here but only armed once NATS is up, below.
 	// Until then /readyz reports ready, which is correct: reaching this line
 	// means the worker has already registered with the frontend, so it is

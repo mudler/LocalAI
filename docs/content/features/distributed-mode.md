@@ -180,9 +180,11 @@ carries file staging and backend logs, behind the same `LOCALAI_REGISTRATION_TOK
 bearer check. They replace the fourteen `nodes.<id>.*` NATS subjects a worker
 used to subscribe to - the ten backend and model lifecycle verbs, plus the four
 object-store staging verbs (`POST /v1/control/files/{ensure,stage,temp,listdir}`,
-mounted only when the deployment configured an object store). The request and
-reply bodies are unchanged, so nothing an operator inspects on the wire has a new
-shape. Agent workers still take `nodes.<id>.backend.stop` over NATS.
+mounted only when the deployment configured an object store). The request bodies
+are unchanged and the reply fields keep their names and types, so nothing an
+operator inspects on the wire has a new shape. The one difference is that a
+worker now OMITS an empty reply field where the NATS handlers always emitted it,
+which a client reading a missing field as the zero value cannot tell apart. Agent workers still take `nodes.<id>.backend.stop` over NATS.
 
 `files/listdir` is the verb the change is most visible on. Its reply used to be
 sized against what the bus would carry, which put a wide model directory close to

@@ -22,7 +22,9 @@ import (
 // for distributed mode. Input files are staged on the backend node before the
 // gRPC call. Output files are retrieved from the backend after the call.
 //
-// Uses the FileStager interface — agnostic to transport (S3+NATS or gRPC).
+// Uses the FileStager interface — agnostic to transport (an object store, or
+// direct HTTP to the worker), and in both cases reached over the worker's
+// tunnel.
 // The caller gets a grpc.Backend that behaves identically to a local one —
 // no changes needed in core/backend/*.go.
 //

@@ -5,11 +5,14 @@ import "context"
 // FileStager abstracts file transfer between frontend and backend nodes
 // in distributed mode. Two implementations exist:
 //
-//  1. S3NATSFileStager (primary): Both sides have FileManager with same S3.
-//     Frontend uploads to S3, sends NATS request-reply to backend to download locally.
+//  1. S3FileStager (primary): Both sides have FileManager with same S3.
+//     Frontend uploads to S3, then calls the worker's control plane over its
+//     tunnel to have it download locally.
 //
 //  2. HTTPFileStager (fallback): Frontend pushes/pulls files directly over
 //     HTTP to a small file transfer server on the backend node (no S3 needed).
+//
+// Both reach the worker through its tunnel and neither uses NATS.
 type FileStager interface {
 	// EnsureRemote ensures a local file is available on the remote node.
 	// Returns the remote-local path.

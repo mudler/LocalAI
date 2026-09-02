@@ -43,6 +43,29 @@ const (
 	fileMetadataRPCTimeout = 30 * time.Second
 )
 
+// fileRPCBudget is the ceiling one file-staging verb's RPC gets.
+//
+// The mapping lives here rather than at the call sites, and that is the same
+// argument callWorker is written under: five sites each naming their own
+// constant is five chances to name the wrong one, and a stage verb given the
+// metadata ceiling would abandon a multi-gigabyte copy after thirty seconds
+// while the worker went on making it.
+//
+// A path this function does not know gets the SHORTER ceiling. That is the safe
+// direction: a verb wrongly given 30 seconds fails visibly and is retried,
+// while one wrongly given ten minutes parks a caller on a verb that was never
+// meant to be slow.
+func fileRPCBudget(path string) time.Duration {
+	switch path {
+	case workerctl.PathFilesEnsure, workerctl.PathFilesStage:
+		return fileTransferRPCTimeout
+	case workerctl.PathFilesTemp, workerctl.PathFilesListDir:
+		return fileMetadataRPCTimeout
+	default:
+		return fileMetadataRPCTimeout
+	}
+}
+
 // Control request/reply message types. Their JSON is the shape the
 // nodes.<id>.files.* subjects carried, so the worker's handler bodies did not
 // have to change when the carrier did.
@@ -83,15 +106,16 @@ type fileListDirReply struct {
 }
 
 // callWorker issues one file-staging RPC under a deadline derived from the
-// caller's context.
+// caller's context and bounded by the verb's own ceiling.
 //
 // It exists so the derivation is written ONCE. Five call sites each repeating
 // context.WithTimeout is five chances for one of them to start from a
 // background context instead, and that one site would then keep commanding a
 // worker after its caller had gone, with nothing else in the suite any redder
-// for it.
-func (s *S3FileStager) callWorker(ctx context.Context, nodeID, path string, budget time.Duration, req, reply any) error {
-	rpcCtx, cancel := context.WithTimeout(ctx, budget)
+// for it. The budget comes from the path rather than from an argument for the
+// same reason; see fileRPCBudget.
+func (s *S3FileStager) callWorker(ctx context.Context, nodeID, path string, req, reply any) error {
+	rpcCtx, cancel := context.WithTimeout(ctx, fileRPCBudget(path))
 	defer cancel()
 	return s.control.Call(rpcCtx, nodeID, path, req, reply)
 }
@@ -115,8 +139,7 @@ func (s *S3FileStager) EnsureRemote(ctx context.Context, nodeID, localPath, key 
 	}
 
 	var reply fileEnsureReply
-	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesEnsure, fileTransferRPCTimeout,
-		fileEnsureRequest{Key: key}, &reply); err != nil {
+	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesEnsure, fileEnsureRequest{Key: key}, &reply); err != nil {
 		return "", err
 	}
 	if reply.Error != "" {
@@ -145,8 +168,7 @@ func (s *S3FileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, localD
 
 func (s *S3FileStager) fetchRemoteWithKey(ctx context.Context, nodeID, remotePath, key, localDst string, cleanup bool) error {
 	var reply fileStageReply
-	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesStage, fileTransferRPCTimeout,
-		fileStageRequest{LocalPath: remotePath, Key: key}, &reply); err != nil {
+	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesStage, fileStageRequest{LocalPath: remotePath, Key: key}, &reply); err != nil {
 		return err
 	}
 	if reply.Error != "" {
@@ -177,8 +199,7 @@ func (s *S3FileStager) fetchRemoteWithKey(ctx context.Context, nodeID, remotePat
 // AllocRemoteTemp asks the worker to allocate a temp file.
 func (s *S3FileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (string, error) {
 	var reply fileTempReply
-	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesTemp, fileMetadataRPCTimeout,
-		fileTempRequest{}, &reply); err != nil {
+	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesTemp, fileTempRequest{}, &reply); err != nil {
 		return "", err
 	}
 	if reply.Error != "" {
@@ -197,8 +218,7 @@ func (s *S3FileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (stri
 // listing would read to the caller as files the worker does not have.
 func (s *S3FileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix string) ([]string, error) {
 	var reply fileListDirReply
-	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesListDir, fileMetadataRPCTimeout,
-		fileListDirRequest{KeyPrefix: keyPrefix}, &reply); err != nil {
+	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesListDir, fileListDirRequest{KeyPrefix: keyPrefix}, &reply); err != nil {
 		return nil, err
 	}
 	if reply.Error != "" {
@@ -211,8 +231,7 @@ func (s *S3FileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix stri
 // StageRemoteToStore tells the worker to upload a local file to shared storage.
 func (s *S3FileStager) StageRemoteToStore(ctx context.Context, nodeID, remotePath, key string) error {
 	var reply fileStageReply
-	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesStage, fileTransferRPCTimeout,
-		fileStageRequest{LocalPath: remotePath, Key: key}, &reply); err != nil {
+	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesStage, fileStageRequest{LocalPath: remotePath, Key: key}, &reply); err != nil {
 		return err
 	}
 	if reply.Error != "" {
