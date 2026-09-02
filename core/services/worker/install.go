@@ -56,11 +56,16 @@ func buildProcessKey(modelID, backend string, replicaIndex int) string {
 //
 // Returns the gRPC address of the backend process.
 //
+// ctx is the CALLER's budget, carried in from the control request, so a
+// frontend that stopped reading stops the download rather than leaving the
+// worker pulling gigabytes for a response nobody will read. onProgress receives
+// debounced download ticks and may be nil.
+//
 // ProcessKey includes the replica index so a worker with MaxReplicasPerModel>1
 // can host multiple processes for the same model on distinct ports. Old
 // controllers (no replica_index in the request) implicitly target replica 0,
 // which preserves single-replica behavior.
-func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, force bool) (string, error) {
+func (s *backendSupervisor) installBackend(ctx context.Context, req messaging.BackendInstallRequest, force bool, onProgress func(messaging.BackendInstallProgressEvent)) (string, error) {
 	processKey := buildProcessKey(req.ModelID, req.Backend, int(req.ReplicaIndex))
 
 	if !force {
@@ -129,16 +134,16 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 		galleries = reqGalleries
 	}
 
-	// When the master tagged this install with an OpID, stream the
-	// gallery download progress back to it on the per-op NATS subject.
-	// Old masters that omit OpID stay on the silent path so they keep
-	// working without changes. The publisher releases its mutex before
-	// every Publish so a slow link never stalls the download loop, and
-	// the deferred Flush guarantees a terminal-percentage event reaches
-	// the master even when the install errors out.
+	// When the caller tagged this install with an OpID and is listening for
+	// progress, stream the gallery download ticks back on the response the
+	// caller is already reading. Callers that omit OpID stay on the silent path.
+	// The publisher releases its mutex before every emit so a slow link never
+	// stalls the download loop, and the deferred Flush guarantees a
+	// terminal-percentage event reaches the caller even when the install errors
+	// out.
 	var downloadCb func(file, current, total string, percentage float64)
-	if req.OpID != "" && s.nats != nil {
-		publisher := nodes.NewDebouncedInstallProgressPublisher(s.nats, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
+	if req.OpID != "" && onProgress != nil {
+		publisher := nodes.NewDebouncedInstallProgressSink(onProgress, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
 		downloadCb = publisher.OnDownload
 		defer publisher.Flush()
 	}
@@ -155,14 +160,14 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 		if req.URI != "" {
 			xlog.Info("Installing backend from external URI", "backend", req.Backend, "uri", req.URI, "force", force)
 			if err := galleryop.InstallExternalBackend(
-				context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, force, s.cfg.RequireBackendIntegrity,
+				ctx, galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, force, s.cfg.RequireBackendIntegrity,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
 		} else {
 			xlog.Info("Installing backend from gallery", "backend", req.Backend, "force", force)
 			if err := gallery.InstallBackendFromGallery(
-				context.Background(), galleries, s.systemState, s.ml, req.Backend, downloadCb, force, s.cfg.RequireBackendIntegrity,
+				ctx, galleries, s.systemState, s.ml, req.Backend, downloadCb, force, s.cfg.RequireBackendIntegrity,
 			); err != nil {
 				return "", fmt.Errorf("installing backend from gallery: %w", err)
 			}
@@ -191,13 +196,15 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 // It does NOT start any new gRPC process — the next routine model load via
 // backend.install will spawn a fresh process picking up the new binary.
 //
-// The caller is responsible for holding s.lockBackend(req.Backend).
+// The caller is responsible for holding s.lockBackend(req.Backend). ctx is the
+// caller's budget and onProgress its progress sink, with the same meaning as on
+// installBackend.
 //
 // It returns the process keys it terminated so the controller can drop the
 // NodeModel rows addressing them: an upgrade stops every process using the
 // binary and starts none back up, recycling their gRPC ports while the rows
 // still point at those addresses.
-func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) ([]string, error) {
+func (s *backendSupervisor) upgradeBackend(ctx context.Context, req messaging.BackendUpgradeRequest, onProgress func(messaging.BackendInstallProgressEvent)) ([]string, error) {
 	// Stop every live process for this backend (peer replicas + the bare
 	// processKey). Same logic as the force branch in installBackend.
 	toStop := s.resolveProcessKeysForBackend(s.backendIdentity(req.Backend))
@@ -228,14 +235,14 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 		galleries = reqGalleries
 	}
 
-	// When the master tagged this upgrade with an OpID, stream gallery download
-	// progress back on the per-op subject (reused from install — an upgrade is a
-	// force-reinstall). Old masters omit OpID and stay on the silent path. The
+	// When the caller tagged this upgrade with an OpID, stream gallery download
+	// progress back on the same sink install uses — an upgrade IS a
+	// force-reinstall. Callers that omit OpID stay on the silent path. The
 	// deferred Flush guarantees a terminal-percentage event even if the upgrade
-	// errors out, so the master's per-node bar never hangs mid-download.
+	// errors out, so the caller's per-node bar never hangs mid-download.
 	var downloadCb func(file, current, total string, percentage float64)
-	if req.OpID != "" && s.nats != nil {
-		publisher := nodes.NewDebouncedInstallProgressPublisher(s.nats, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
+	if req.OpID != "" && onProgress != nil {
+		publisher := nodes.NewDebouncedInstallProgressSink(onProgress, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
 		downloadCb = publisher.OnDownload
 		defer publisher.Flush()
 	}
@@ -243,14 +250,14 @@ func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) 
 	if req.URI != "" {
 		xlog.Info("Upgrading backend from external URI", "backend", req.Backend, "uri", req.URI)
 		if err := galleryop.InstallExternalBackend(
-			context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, true, s.cfg.RequireBackendIntegrity,
+			ctx, galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, true, s.cfg.RequireBackendIntegrity,
 		); err != nil {
 			return stopped, fmt.Errorf("upgrading backend from external URI: %w", err)
 		}
 	} else {
 		xlog.Info("Upgrading backend from gallery", "backend", req.Backend)
 		if err := gallery.InstallBackendFromGallery(
-			context.Background(), galleries, s.systemState, s.ml, req.Backend, downloadCb, true, /* force */
+			ctx, galleries, s.systemState, s.ml, req.Backend, downloadCb, true, /* force */
 			s.cfg.RequireBackendIntegrity,
 		); err != nil {
 			return stopped, fmt.Errorf("upgrading backend from gallery: %w", err)
