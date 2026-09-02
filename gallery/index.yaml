@@ -1,4 +1,65 @@
 ---
+- name: "qwen3.8-flash-next-uncensored"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF
+  description: |
+    # Qwen3.8-Flash-Next
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, TokenSpeed, etc.
+
+    > [!Tip]
+    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
+    >
+    > In particular, **Qwen3.8-Flash** is the official version based on Qwen3.8-Flash-Next with more production features, e.g., 1M context length by default, official built-in tools. For more information, please refer to the Qwen3.8-Flash Overview.
+
+    As the frontier of foundation models pushes toward ever-larger parameter counts and ever-longer context windows, the question is no longer just how much we can scale, but how efficiently we can do so. Sustainable progress toward artificial general intelligence (AGI) that benefits everyone demands architectural innovation. Today, we are sharing a concrete step in that direction: Qwen3.8-Flash-Next.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - reasoning
+  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.8-Flash-Next/architecture.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/mmproj-Qwen3.8-Flash-Next-Uncensored-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00001-of-00003.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00001-of-00003.gguf
+      sha256: '****************************************************************'
+      uri: https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF/resolve/main/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00001-of-00003.gguf
+    - filename: llama-cpp/models/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00002-of-00003.gguf
+      sha256: '****************************************************************'
+      uri: https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF/resolve/main/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00002-of-00003.gguf
+    - filename: llama-cpp/models/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00003-of-00003.gguf
+      sha256: '****************************************************************'
+      uri: https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF/resolve/main/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00003-of-00003.gguf
+    - filename: llama-cpp/mmproj/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/mmproj-Qwen3.8-Flash-Next-Uncensored-F16.gguf
+      sha256: '****************************************************************'
+      uri: https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF/resolve/main/mmproj-Qwen3.8-Flash-Next-Uncensored-F16.gguf
 - name: "glm-5.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
