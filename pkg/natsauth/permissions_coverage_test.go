@@ -59,37 +59,32 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 	Context("backend worker", func() {
 		pub, sub := natsauth.WorkerPermissions(nodeID, "backend")
 
-		// Every subject core/services/worker/file_staging.go subscribes to.
-		// The backend and model lifecycle verbs are NOT here: they left the bus
-		// for the worker's tunnelled control plane, so there is no subject to
-		// cover. See core/services/workerctl.
-		subscribed := []string{
-			messaging.SubjectNodeFilesEnsure(nodeID),
-			messaging.SubjectNodeFilesStage(nodeID),
-			messaging.SubjectNodeFilesTemp(nodeID),
-			messaging.SubjectNodeFilesListDir(nodeID),
-		}
-		for _, subject := range subscribed {
-			It("allows subscribing to "+subject, func() {
-				Expect(anyAllows(sub, subject)).To(BeTrue(),
-					"backend JWT sub allow-list %v does not cover %s", sub, subject)
-			})
-		}
-
-		It("allows publishing file staging replies", func() {
-			subject := messaging.SubjectNodeFilesStage(nodeID)
-			Expect(anyAllows(pub, subject)).To(BeTrue(),
-				"backend JWT pub allow-list %v does not cover %s", pub, subject)
+		// A backend worker subscribes to no subject of its own on this build.
+		// Every verb a frontend gives it — the backend and model lifecycle ten,
+		// and now the four file-staging verbs — is an HTTP route on its
+		// tunnelled control plane, so there is no subject left to cover. See
+		// core/services/workerctl.
+		//
+		// The subscribe wildcard is asserted rather than removed because the
+		// grant is still minted and a worker mid-upgrade still uses it.
+		It("still grants a backend worker its own node subtree to subscribe on", func() {
+			Expect(sub).To(ConsistOf(
+				"nodes."+workerSubjectTokenForTest(nodeID)+".>",
+				"_INBOX.>",
+			))
 		})
 
 		// The negative half, and it is the one that would catch a verb quietly
 		// coming back to the bus: a backend worker is granted nothing to
-		// publish outside its own file-staging subtree and its inbox.
-		It("grants a backend worker no publish rights outside file staging and its inbox", func() {
-			Expect(pub).To(ConsistOf(
-				"nodes."+workerSubjectTokenForTest(nodeID)+".files.>",
-				"_INBOX.>",
-			))
+		// publish at all beyond its own inbox. File staging used to be the one
+		// exception and is not any more.
+		It("grants a backend worker no publish rights outside its inbox", func() {
+			Expect(pub).To(ConsistOf("_INBOX.>"))
+		})
+
+		It("no longer grants a backend worker the file-staging publish subtree", func() {
+			Expect(anyAllows(pub, "nodes."+workerSubjectTokenForTest(nodeID)+".files.stage")).To(BeFalse(),
+				"backend JWT pub allow-list %v still covers file staging", pub)
 		})
 	})
 
