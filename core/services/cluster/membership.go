@@ -20,10 +20,11 @@ const (
 	// InstanceLiveness is how long a replica may go without a heartbeat before
 	// its peers treat it as gone: six consecutive misses.
 	//
-	// The window is generous on purpose. Declaring a replica dead deletes the
-	// connection rows it owned, and a worker whose row is deleted while its
-	// owner is merely slow has to be re-homed for nothing. The cost of waiting
-	// is bounded and symmetric: traffic for that worker is retried, not lost.
+	// The window is generous on purpose. Declaring a replica dead records a
+	// departure for every connection row it owned, and a worker recorded as
+	// departed while its owner is merely slow has to be re-homed for nothing.
+	// The cost of waiting is bounded and symmetric: traffic for that worker is
+	// retried, not lost.
 	InstanceLiveness = 30 * time.Second
 
 	// deregisterTimeout bounds the deregistration Stop performs. Shutdown is
@@ -192,10 +193,10 @@ func (m *Membership) tick(ctx context.Context) {
 		// carries no address, so the row has to be rebuilt from scratch.
 		//
 		// Register rebuilds the instance row ONLY. The sweep that removed it
-		// removed the connections this replica owned in the same transaction,
-		// so the tunnels still held here have to be claimed again or this
-		// replica serves workers that, as far as every other replica can see,
-		// are connected nowhere.
+		// recorded a departure for every connection this replica owned, in the
+		// same transaction, so the tunnels still held here have to be claimed
+		// again or this replica serves workers that, as far as every other
+		// replica can see, are connected nowhere.
 		xlog.Warn("Cluster instance row was reaped, re-registering", "id", m.id)
 		if err := m.reg.Register(ctx, m.id, m.addr, m.version); err == nil {
 			m.reclaimTunnels(ctx)
@@ -217,7 +218,10 @@ func (m *Membership) tick(ctx context.Context) {
 		return
 	}
 	if instances > 0 || connections > 0 {
-		xlog.Info("Reaped cluster state left by dead replicas", "instances", instances, "connections", connections)
+		// Two verbs because the sweep does two things: the instance rows are
+		// gone, the connection rows are still there and now record a departure.
+		xlog.Info("Swept cluster state left by dead replicas",
+			"instances_deleted", instances, "connections_departed", connections)
 	}
 
 	// The retention has an owner, and it is this sweep. A departure that
@@ -235,8 +239,9 @@ func (m *Membership) tick(ctx context.Context) {
 }
 
 // reclaimTunnels re-writes a claim for every worker tunnel this replica still
-// holds, after the sweep that deleted them. It is separate from tick only so
-// the lock around the registry reference is not held across the database work.
+// holds, after the sweep that recorded them as departed. It is separate from
+// tick only so the lock around the registry reference is not held across the
+// database work.
 func (m *Membership) reclaimTunnels(ctx context.Context) {
 	m.mu.Lock()
 	tunnels := m.tunnels
@@ -285,9 +290,12 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 		if err := tx.Where("id = ?", id).Delete(&Instance{}).Error; err != nil {
 			return fmt.Errorf("deleting instance %q: %w", id, err)
 		}
-		// No held-ness filter: only rows this replica owns match, and a
-		// departed row carries no owner, so it cannot be restamped here.
-		if err := tx.Model(&NodeConnection{}).Where("owner_instance_id = ?", id).
+		// Held rows only, for the reason Owner filters rather than leaning on
+		// the join: an id column that is never empty is an accident of who
+		// registers, not a property, and an empty id here would match every
+		// departed row in the table and reset every departure's age.
+		if err := tx.Model(&NodeConnection{}).
+			Where("owner_instance_id = ? AND "+connectionIsHeld, id).
 			Updates(departure()).Error; err != nil {
 			return fmt.Errorf("recording departures for connections owned by %q: %w", id, err)
 		}
