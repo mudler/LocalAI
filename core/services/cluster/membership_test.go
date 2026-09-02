@@ -51,6 +51,69 @@ var _ = Describe("Reaping dead replicas", func() {
 		Expect(err).To(MatchError(cluster.ErrNoConnection))
 	})
 
+	It("records a departure rather than erasing the connection when a stale replica is swept", func() {
+		// The row is what tells "this worker's owner died a moment ago" from
+		// "this worker has never connected". Deleting it on the sweep erased
+		// exactly the departure a reconnect grace has to be measured from.
+		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1")).To(Succeed())
+		_, err := reg.Claim(ctx, "w1", "dead")
+		Expect(err).ToNot(HaveOccurred())
+		age("dead", time.Hour)
+
+		_, _, err = reg.ReapStale(ctx, "live", time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+
+		var row cluster.NodeConnection
+		Expect(db.WithContext(ctx).Where("node_id = ?", "w1").First(&row).Error).To(Succeed(),
+			"the sweep deleted the row, so the worker its owner left behind looks like one that never dialled")
+		Expect(row.OwnerInstanceID).To(BeEmpty())
+		Expect(row.DisconnectedAt).ToNot(BeNil())
+	})
+
+	It("does not restamp a departure it has already recorded", func() {
+		// The sweep runs every heartbeat. Re-clearing a row it already cleared
+		// would push its departure forward on every pass, so the departure
+		// would never age out of any window and the row would be reported as
+		// swept for as long as it existed.
+		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1")).To(Succeed())
+		_, err := reg.Claim(ctx, "w1", "dead")
+		Expect(err).ToNot(HaveOccurred())
+		age("dead", time.Hour)
+
+		_, connections, err := reg.ReapStale(ctx, "live", time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(connections).To(Equal(int64(1)))
+		var first cluster.NodeConnection
+		Expect(db.WithContext(ctx).Where("node_id = ?", "w1").First(&first).Error).To(Succeed())
+
+		_, connections, err = reg.ReapStale(ctx, "live", time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(connections).To(BeZero(), "the sweeper reported clearing a connection that was already departed")
+
+		var second cluster.NodeConnection
+		Expect(db.WithContext(ctx).Where("node_id = ?", "w1").First(&second).Error).To(Succeed())
+		Expect(second.DisconnectedAt).ToNot(BeNil())
+		Expect(*second.DisconnectedAt).To(Equal(*first.DisconnectedAt),
+			"the second sweep moved the departure forward, so it can never age past a grace window")
+	})
+
+	It("records a departure rather than erasing the connection when a replica deregisters", func() {
+		// The announced form of the same thing the sweeper does by inference,
+		// and the two must not disagree about what "gone" leaves behind.
+		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1")).To(Succeed())
+		_, err := reg.Claim(ctx, "w1", "leaving")
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(reg.Deregister(ctx, "leaving")).To(Succeed())
+
+		var row cluster.NodeConnection
+		Expect(db.WithContext(ctx).Where("node_id = ?", "w1").First(&row).Error).To(Succeed())
+		Expect(row.OwnerInstanceID).To(BeEmpty())
+		Expect(row.DisconnectedAt).ToNot(BeNil())
+	})
+
 	It("leaves the connections of a live replica alone", func() {
 		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1")).To(Succeed())
 		Expect(reg.Register(ctx, "other", "10.0.0.2:8080", "v1")).To(Succeed())
@@ -150,8 +213,8 @@ var _ = Describe("Reaping dead replicas", func() {
 			ReapStale(ctx, "sweeper", time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(deregRec.deleteOrder()).To(Equal([]string{"instances", "node_connections"}))
-		Expect(reapRec.deleteOrder()).To(Equal(deregRec.deleteOrder()),
+		Expect(deregRec.writeOrder()).To(Equal([]string{"instances", "node_connections"}))
+		Expect(reapRec.writeOrder()).To(Equal(deregRec.writeOrder()),
 			"the sweeper and deregistration must lock the same two tables in the same order")
 	})
 
