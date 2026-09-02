@@ -28,11 +28,12 @@ func isPostgres(db *gorm.DB) bool {
 }
 
 // epochSequence is the PostgreSQL sequence every claim draws its epoch from.
-// A sequence rather than a per-row counter because a released row is deleted:
-// with `epoch = epoch + 1` the numbering restarts at 1 for the next claim, so a
+// A sequence rather than a per-row counter because a connection row does not
+// outlive the deployment: a departure is purged once it is old enough, and with
+// `epoch = epoch + 1` the numbering would restart at 1 for the next claim, so a
 // replica that claimed, lost the worker, and claimed again could be handed an
 // epoch it already held, and a delayed cleanup from the first claim would then
-// match, and delete, the live one.
+// match, and clear, the live one.
 const epochSequence = "node_connection_epochs"
 
 // NodeConnection records which frontend replica currently holds a worker's
@@ -50,14 +51,45 @@ const epochSequence = "node_connection_epochs"
 // one is answered by the epoch; a second liveness clock for the same fact would
 // only drift from the first.
 type NodeConnection struct {
-	NodeID          string `gorm:"primaryKey;size:36" json:"node_id"`
+	NodeID string `gorm:"primaryKey;size:36" json:"node_id"`
+	// Empty when nobody holds this tunnel. A departed row keeps the empty
+	// string rather than NULL so there is one spelling of "held by nobody";
+	// connectionIsHeld is the only place that spelling is written down.
 	OwnerInstanceID string `gorm:"size:36;index;not null" json:"owner_instance_id"`
 	Epoch           int64  `gorm:"not null" json:"epoch"`
 	// No column DEFAULT: now() is PostgreSQL syntax and would reach the DDL,
 	// which breaks AutoMigrate on the SQLite single-binary path. Claim writes
 	// the database clock as an expression instead, the way Register does.
 	ConnectedAt time.Time `gorm:"not null" json:"connected_at"`
+	// DisconnectedAt is when the tunnel LEFT, and it exists because "gone for
+	// thirty seconds" and "never here" have to be different answers.
+	//
+	// A released row used to be deleted, so a worker re-homing between replicas
+	// was indistinguishable from one that had never dialled, and any grace
+	// period built on top would have had nothing to measure from. It is NOT a
+	// liveness clock for the owner: whether the OWNING replica is alive is
+	// still Instance.LastSeen and nothing else. It ticks once, on departure.
+	//
+	// Null while the row is held, and stamped on the database clock by whoever
+	// records the departure, so a row with an owner never also carries one.
+	DisconnectedAt *time.Time `gorm:"index" json:"disconnected_at,omitempty"`
 }
+
+// connectionIsHeld is the one predicate that separates a row recording a tunnel
+// somebody holds from a row recording a departure. Everything that asks that
+// question asks it here, or asks for its negation: Owner and OwnerRow refuse a
+// row it rejects, ReapStale clears only rows it accepts, and
+// PurgeDepartedBefore deletes only rows it rejects. Two spellings of one fact
+// drift, and the drift here would show up as a departed worker resolving to a
+// replica that holds nothing.
+//
+// Deregister is the one write that does not use it, because it matches an owner
+// id, which is narrower: a departed row carries no owner and so cannot match.
+//
+// The column is table-qualified because Owner reads it across a join, where an
+// unqualified name is ambiguous; qualifying it costs the single-table readers
+// nothing.
+const connectionIsHeld = `node_connections.owner_instance_id <> ''`
 
 // Migrate creates every table and sequence this package owns. It is the one
 // call a caller has to remember: gorm's AutoMigrate models tables and columns
@@ -145,6 +177,10 @@ func (r *Registry) Claim(ctx context.Context, nodeID, ownerID string) (int64, er
 				"owner_instance_id": ownerID,
 				"epoch":             nextEpoch,
 				"connected_at":      gorm.Expr("now()"),
+				// In the SAME statement as the owner, so a reconnect is never
+				// observed half-applied: a row that names a holder while still
+				// carrying a departure would answer "held" and "gone" at once.
+				"disconnected_at": nil,
 			}),
 		},
 		clause.Returning{Columns: []clause.Column{{Name: "epoch"}}},
@@ -179,10 +215,15 @@ func (r *Registry) Claim(ctx context.Context, nodeID, ownerID string) (int64, er
 // liveness. Its callers today are this package's specs, including the one that
 // holds the two reads apart, and the e2e cluster spec that watches ownership
 // move between replicas. No production caller reads it, and the sweeper is not
-// one: ReapStale deletes orphans with a set difference in SQL.
+// one: ReapStale finds orphans with a set difference in SQL.
+//
+// A row that records a departure is ErrNoConnection here too. The row survives
+// so that something can decide how old the departure is; what it says about who
+// holds the tunnel is nobody, and this read reports exactly that.
 func (r *Registry) OwnerRow(ctx context.Context, nodeID string) (string, int64, error) {
 	var conn NodeConnection
-	err := r.db.WithContext(ctx).Where("node_id = ?", nodeID).First(&conn).Error
+	err := r.db.WithContext(ctx).
+		Where("node_id = ? AND "+connectionIsHeld, nodeID).First(&conn).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", 0, fmt.Errorf("looking up owner of node %q: %w", nodeID, ErrNoConnection)
 	}
@@ -202,10 +243,15 @@ func (r *Registry) OwnerRow(ctx context.Context, nodeID string) (string, int64, 
 // is gone, and a relay built on it would dial a corpse and report the worker as
 // unreachable rather than as absent.
 //
-// A missing row and a dead owner are one answer on purpose. Both mean "no
-// replica here holds this worker's tunnel", which is what a caller decides on;
-// they differ only in which sweep has already run, and that is the sweeper's
-// business rather than the caller's.
+// A missing row, a departed row and a dead owner are one answer on purpose. All
+// three mean "no live replica holds this worker's tunnel", which is what a
+// caller decides on; they differ only in which sweep has already run, and that
+// is the sweeper's business rather than the caller's.
+//
+// That answer is emphatically not "this worker is gone". How long ago the
+// departure was recorded is what separates a worker re-homing between replicas
+// from one that has left, and this read does not report it: a caller that has
+// to tell those apart reads the departure, not this.
 //
 // One statement, joined, not a row read followed by an instance lookup: between
 // two statements the owner can die, and the caller would act on an owner the
@@ -235,7 +281,11 @@ func (r *Registry) Owner(ctx context.Context, nodeID string) (string, int64, err
 		// is here to filter and the row scanned back must stay this table's.
 		Select("node_connections.*").
 		Joins("JOIN instances ON instances.id = node_connections.owner_instance_id AND "+instanceIsLive, InstanceLiveness.Seconds()).
-		Where("node_connections.node_id = ?", nodeID).
+		// The departure filter is this query's own, not the join's. An empty
+		// owner matches no instance today only because no replica registers
+		// under an empty id, which is an accident of who registers rather than
+		// a property of ownership.
+		Where("node_connections.node_id = ? AND "+connectionIsHeld, nodeID).
 		Take(&conn).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", 0, fmt.Errorf("looking up live owner of node %q: %w", nodeID, ErrNoConnection)
@@ -246,19 +296,52 @@ func (r *Registry) Owner(ctx context.Context, nodeID string) (string, int64, err
 	return conn.OwnerInstanceID, conn.Epoch, nil
 }
 
-// Release drops the claim identified by ownerID and epoch. Both are in the
-// WHERE so a replica that has only just noticed its dead socket cannot delete
-// the claim a later reconnect established elsewhere: the row it is trying to
-// clean up no longer exists, and deleting the live one would strand a worker
-// that is in fact connected. A claim that is no longer the live one is reported
-// as ErrNoConnection rather than silently ignored, because the caller learning
-// it has been fenced out is the point.
+// departure is the single assignment that turns a held row into a departed one.
+// Release writes it for one claim and the membership sweep writes it for every
+// claim a dead replica held, and the two must not disagree about what a
+// departure looks like: a row cleared without a stamp, or stamped without being
+// cleared, is a state every reader here has no answer for.
+//
+// The timestamp is the database's, never this process's, for the same reason
+// instance liveness is: it is compared across replicas, so it has to be
+// measured on the one clock they share.
+func departure() map[string]any {
+	return map[string]any{
+		"owner_instance_id": "",
+		"disconnected_at":   gorm.Expr("now()"),
+	}
+}
+
+// Release drops the claim identified by ownerID and epoch, and records the
+// departure: the row survives with no owner and a disconnected_at stamp.
+//
+// An UPDATE and not a DELETE, because the row is the only place a departure can
+// be recorded. Deleting it made a worker re-homing between replicas look like
+// one that had never connected, so nothing above could tell a two-second blip
+// from a worker that is gone.
+//
+// Both ownerID and epoch are in the WHERE so a replica that has only just
+// noticed its dead socket cannot touch the claim a later reconnect established
+// elsewhere: it must not clear a live claim, and it must not stamp a departure
+// onto one. A claim that is no longer the live one is reported as
+// ErrNoConnection rather than silently ignored, because the caller learning it
+// has been fenced out is the point.
 func (r *Registry) Release(ctx context.Context, nodeID, ownerID string, epoch int64) error {
+	// Refused rather than attempted, for the reason Claim refuses: the
+	// departure is stamped with now(), which on the single-binary SQLite path
+	// fails as a missing function and reads as a missing migration. It is
+	// deliberately not ErrNoConnection: a deployment with no cluster holds no
+	// claims, and reporting a fenced-out release would tell the caller it lost
+	// one.
+	if !isPostgres(r.db) {
+		return fmt.Errorf("releasing connection for node %q held by %q: connection ownership requires PostgreSQL, this deployment runs on %q", nodeID, ownerID, r.db.Dialector.Name())
+	}
 	// gorm reports no error when a Where matches nothing, so the miss has to be
 	// read off RowsAffected.
 	res := r.db.WithContext(ctx).
+		Model(&NodeConnection{}).
 		Where("node_id = ? AND owner_instance_id = ? AND epoch = ?", nodeID, ownerID, epoch).
-		Delete(&NodeConnection{})
+		Updates(departure())
 	if res.Error != nil {
 		return fmt.Errorf("releasing connection for node %q held by %q at epoch %d: %w", nodeID, ownerID, epoch, res.Error)
 	}
@@ -266,4 +349,35 @@ func (r *Registry) Release(ctx context.Context, nodeID, ownerID string, epoch in
 		return fmt.Errorf("releasing connection for node %q held by %q at epoch %d: %w", nodeID, ownerID, epoch, ErrNoConnection)
 	}
 	return nil
+}
+
+// PurgeDepartedBefore deletes the connection rows whose departure is older than
+// olderThan, and returns how many went.
+//
+// Departures are kept so that absence can be decided, not kept forever. The
+// retention has to outlast every window measured from a departure by enough
+// that a purge can never turn a worker inside its reconnect grace into a worker
+// that was never here; the caller passes a multiple of that grace, never the
+// grace itself.
+//
+// A held row is never touched, whatever timestamp it carries: deleting one
+// strands a worker that is connected at that moment. The age is measured by the
+// database, like every other window here, so no replica's clock decides how old
+// another replica's departure is.
+func (r *Registry) PurgeDepartedBefore(ctx context.Context, olderThan time.Duration) (int64, error) {
+	// Refused rather than attempted, for the reason Claim refuses: now() and
+	// make_interval are PostgreSQL, and on the single-binary SQLite path this
+	// would fail with "no such function: now", which reads as a missing
+	// migration.
+	if !isPostgres(r.db) {
+		return 0, fmt.Errorf("purging departed connections: connection ownership requires PostgreSQL, this deployment runs on %q", r.db.Dialector.Name())
+	}
+	res := r.db.WithContext(ctx).
+		Where("NOT ("+connectionIsHeld+") AND node_connections.disconnected_at < now() - make_interval(secs => ?)",
+			olderThan.Seconds()).
+		Delete(&NodeConnection{})
+	if res.Error != nil {
+		return 0, fmt.Errorf("purging departed connections: %w", res.Error)
+	}
+	return res.RowsAffected, nil
 }
