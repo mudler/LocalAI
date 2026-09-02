@@ -10,6 +10,7 @@
 
 #include "dsml_parser.h"   // populated in Task 12
 #include "dsml_renderer.h" // populated in Task 16
+#include "generation_limits.h"
 #include "kv_cache.h"      // populated in Task 17
 
 extern "C" {
@@ -769,7 +770,6 @@ public:
         }
         ds4_tokens prompt = {};
         build_prompt(g_engine, request, &prompt);
-        int n_predict = request->tokens() > 0 ? request->tokens() : 256;
 
         const bool think_enabled = ds4_think_mode_enabled(parse_think_mode(request));
         const bool starts_in_thinking = think_enabled &&
@@ -792,6 +792,9 @@ public:
         int prompt_len = prompt.len;
         ds4_tokens_free(&prompt);
         if (rc == 0) {
+            const int n_predict = ds4cpp::EffectiveGenerationLimit(
+                request->tokens(), ds4_session_ctx(g_session),
+                ds4_session_pos(g_session));
             const int eos = ds4_token_eos(g_engine);
             const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
             int produced = 0;
@@ -810,9 +813,12 @@ public:
                 if (draft_max > 0 && sp.temperature <= 0.0f) {
                     constexpr int kAcceptedMax = 8;
                     int accepted[kAcceptedMax];
-                    int cap = std::min(kAcceptedMax, draft_max + 1);
+                    const int remaining = ds4cpp::RemainingGenerationBudget(
+                        n_predict, produced);
+                    const int cap = ds4cpp::SpeculativeAcceptedCapacity(
+                        remaining, draft_max, kAcceptedMax);
                     int n = ds4_session_eval_speculative_argmax(
-                        g_session, first, draft_max, eos,
+                        g_session, first, remaining, eos,
                         accepted, cap, err, sizeof(err));
                     if (n < 0) { rc = -1; break; }
                     bool stop = false;
@@ -873,7 +879,6 @@ public:
         }
         ds4_tokens prompt = {};
         build_prompt(g_engine, request, &prompt);
-        int n_predict = request->tokens() > 0 ? request->tokens() : 256;
 
         const bool think_enabled = ds4_think_mode_enabled(parse_think_mode(request));
         const bool starts_in_thinking = think_enabled &&
@@ -891,6 +896,9 @@ public:
         int rc = ds4_session_sync(g_session, &prompt, err, sizeof(err));
         ds4_tokens_free(&prompt);
         if (rc == 0) {
+            const int n_predict = ds4cpp::EffectiveGenerationLimit(
+                request->tokens(), ds4_session_ctx(g_session),
+                ds4_session_pos(g_session));
             const int eos = ds4_token_eos(g_engine);
             const int draft_max = ds4_engine_mtp_draft_tokens(g_engine);
             int produced = 0;
@@ -908,9 +916,12 @@ public:
                 if (draft_max > 0 && sp.temperature <= 0.0f) {
                     constexpr int kAcceptedMax = 8;
                     int accepted[kAcceptedMax];
-                    int cap = std::min(kAcceptedMax, draft_max + 1);
+                    const int remaining = ds4cpp::RemainingGenerationBudget(
+                        n_predict, produced);
+                    const int cap = ds4cpp::SpeculativeAcceptedCapacity(
+                        remaining, draft_max, kAcceptedMax);
                     int n = ds4_session_eval_speculative_argmax(
-                        g_session, first, draft_max, eos,
+                        g_session, first, remaining, eos,
                         accepted, cap, err, sizeof(err));
                     if (n < 0) { rc = -1; break; }
                     bool stop = false;

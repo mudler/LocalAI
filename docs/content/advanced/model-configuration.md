@@ -173,6 +173,14 @@ These settings will be used as defaults for all the API calls to the model.
 | `tfz` | float | `1.0` | Tail free z parameter |
 | `keep` | int | `0` | Number of tokens to keep from the prompt |
 
+{{% notice note %}}
+The DS4 backend preserves its legacy behavior for omitted or non-positive
+`max_tokens` values by generating at most 256 tokens. Set `max_tokens` to a
+positive value when you need a specific DS4 output limit. After processing the
+prompt, DS4 clamps that limit to the available context space and reserves one
+context slot for safe generation.
+{{% /notice %}}
+
 ### Language and Translation
 
 | Field | Type | Description |
