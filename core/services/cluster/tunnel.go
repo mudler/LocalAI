@@ -290,6 +290,23 @@ func (t *TunnelRegistry) Open(ctx context.Context, nodeID string) (net.Conn, err
 
 	stream, err := held.sess.OpenStream(ctx)
 	if err != nil {
+		// The same rule peerlink.go applies to a peer, applied here to a
+		// tunnel, because the confusion is the same one: a caller whose own
+		// budget ran out gets the socket's error back before the context's
+		// cancel func has necessarily run, so ctx.Err() can still read nil
+		// while the failure is entirely the caller's. Reporting it plainly
+		// would put "the tunnel this replica holds would not carry a stream"
+		// in an operator's log for a worker that is fine and a client that was
+		// impatient. callerRanOut settles it on the wall clock; see its
+		// comment for why ctx.Err() alone is not the question.
+		//
+		// The caller's error is wrapped rather than returned bare, so
+		// WorkerDialer's contract still holds (every failure to resolve or open
+		// carries ErrNoRoute) and context.DeadlineExceeded stays matchable
+		// underneath for anyone that wants to tell the two apart.
+		if ctxErr := callerRanOut(ctx); ctxErr != nil {
+			return nil, fmt.Errorf("opening a stream to node %q over the tunnel held here: the caller's own budget ran out: %w", nodeID, ctxErr)
+		}
 		return nil, fmt.Errorf("opening a stream to node %q over the tunnel held here: %w", nodeID, err)
 	}
 	return stream, nil

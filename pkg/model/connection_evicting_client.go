@@ -45,7 +45,13 @@ func (c *ConnectionEvictingClient) checkErr(err error) {
 	// stops a model that is loaded and serving, on a worker that is
 	// heartbeating. A locally spawned backend has no custom transport, so this
 	// reports nil and the behaviour there is exactly what it always was.
-	if dialErr := grpc.LastDialErrorOf(c.Backend); dialErr != nil {
+	// transportFailure and not LastDialErrorOf: a refusal the WORKER wrote is
+	// the worker answering that it could not reach the process, which is what a
+	// crashed backend produces now that a worker listens on nothing. Treating
+	// that as a transport failure kept a genuinely dead model loaded and
+	// failing every request, which is the mirror image of the mistake this
+	// guard exists to prevent.
+	if dialErr := transportFailure(c.Backend); dialErr != nil {
 		xlog.Warn("Inference failed because the worker could not be reached; keeping the model",
 			"model", c.modelID, "error", dialErr)
 		return

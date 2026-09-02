@@ -614,8 +614,14 @@ func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
 		}
 		seen[m.ID] = struct{}{}
 		if rc.prober.Probe(ctx, m.NodeID, m.WorkerLocalAddress) != ProbeAlive {
-			// Busy or unreachable. Busy means the counter may well be real;
-			// unreachable is the reaper's business, not the sweeper's.
+			// Anything but alive, and the three of them agree on what this
+			// sweeper should do even though they disagree about everything
+			// else. Busy: the counter may well be real, so leave it.
+			// Unreachable: the row is the reaper's business, not the
+			// sweeper's. Unknown: this frontend has no route and therefore
+			// observed nothing, which is the one outcome that must never be
+			// read as evidence. Resetting a counter on any of the three would
+			// free a reservation a live request is still holding.
 			rc.clearInFlightIdle(m.ID)
 			continue
 		}

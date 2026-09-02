@@ -47,6 +47,14 @@ type BackendNode struct {
 	// plaintext once, and stores only this hash, so a leaked registration token
 	// no longer opens a tunnel for every node whose ID an attacker can read.
 	//
+	// Stated exactly, because the useful half of the claim is the half that is
+	// still true. A leaked registration token no longer lets its holder BE a
+	// worker; it still lets its holder REACH every worker, because
+	// GET /api/cluster/peer authenticates with the shared cluster token and
+	// takes its ?id= on trust (see core/http/endpoints/cluster/peer.go). Per
+	// replica-to-replica credentials are a named phase-3 item, not something
+	// this column already delivers.
+	//
 	// Empty means no tunnel credential has been minted for this node yet, which
 	// is what a node registered by an older LocalAI looks like. Such a node
 	// cannot tunnel until it registers again. That is deliberate: the column

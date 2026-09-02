@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
@@ -210,11 +211,39 @@ var ErrNoWorkerDialer = fmt.Errorf("%w: no worker tunnel dialer is configured", 
 // nil, which means "the call reached a backend" and preserves the behaviour
 // every non-distributed caller has always had. Decorators are looked through;
 // see grpc.BackendUnwrapper for why that is not optional.
+//
+// A WORKER'S OWN REFUSAL also yields nil, and that is the second half of the
+// contract rather than a loophole. cluster.Dial keeps the three tunnelproto
+// sentinels out of the ErrNoRoute umbrella precisely so this function can tell
+// them apart, and for a whole phase nothing did: a backend process that crashed
+// on a healthy worker is no longer a dead listener's codes.Unavailable, it is
+// the worker refusing the stream with cluster.ErrStreamTargetUnavailable, which
+// gRPC then flattens into codes.Unavailable anyway. Reporting that as
+// unroutable made every reap path answer ProbeUnknown and leave the row, so the
+// replica slot never freed and (at the default MaxReplicasPerModel=1) the only
+// remaining cleanup was LRU eviction of HEALTHY models. A worker that answers
+// has demonstrated it is there, so the answer is evidence about its backend and
+// the reap guards may act on it.
+//
+// All three sentinels, not only the unavailable one, and the difference is
+// worth stating because two of them are not observations about the process. An
+// unknown tag means this worker does not serve gRPC streams at all; an invalid
+// request means the stored address is not a port in this worker's range.
+// Neither clears on its own, so a row that carries one is unreachable from
+// EVERY replica for as long as it exists, and reaping it converges: the model
+// is reloaded somewhere that works and re-registers a usable address. The
+// condition the phase refuses to reap on is a TRANSIENT one, and none of these
+// is transient. A reply code this frontend does not recognise is deliberately
+// not in the set (see cluster.IsWorkerAnswer), so a newer worker's vocabulary
+// reaches an older frontend as "no route" and costs a retry rather than a row.
 func unroutable(client grpc.Backend) error {
 	// LastDialErrorOf and not a type assertion: the assertion could not see
 	// past a decorator, and SmartRouter hands every routed client out wrapped.
 	dialErr := grpc.LastDialErrorOf(client)
 	if dialErr == nil {
+		return nil
+	}
+	if cluster.IsWorkerAnswer(dialErr) {
 		return nil
 	}
 	// Multi-%w: the umbrella this package acts on, and the cluster condition

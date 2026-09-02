@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/cluster"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -746,5 +747,20 @@ func transportFailure(client grpc.Backend) error {
 	// over a *FileStagingClient, and an assertion on the outermost type reads
 	// nil for both: they embed grpc.Backend, which does not declare
 	// LastDialError. That is exactly how this guard shipped inert.
-	return grpc.LastDialErrorOf(client)
+	dialErr := grpc.LastDialErrorOf(client)
+	if dialErr == nil {
+		return nil
+	}
+	// A refusal WRITTEN BY THE WORKER is not a transport failure, however much
+	// it looks like one from here: the tunnel carried the request, the worker
+	// read it and answered that it could not reach the process the stream
+	// named. That is the ordinary shape of a crashed backend now that a worker
+	// listens on nothing, and reporting it as "could not reach the worker"
+	// pinned the model in this cache forever. cluster.Dial keeps these three
+	// out of its no-route umbrella for exactly this question; see
+	// cluster.IsWorkerAnswer.
+	if cluster.IsWorkerAnswer(dialErr) {
+		return nil
+	}
+	return dialErr
 }

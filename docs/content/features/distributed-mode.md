@@ -85,13 +85,24 @@ Frontend replicas record themselves in an `instances` table and open direct link
 
 When `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` is unset, the address is derived: LocalAI asks the kernel which local address routes to PostgreSQL, and pairs it with the port it serves on. Every replica reaches the same database, so that address is on a network they demonstrably share.
 
-That only holds while the database is on **another host**. If PostgreSQL runs on the same host or pod (compose, single-node, a sidecar), the route to it is loopback, and advertising a loopback address would send every peer to itself. LocalAI refuses to guess in that case and logs:
+That only holds while the database is on **another host**. If PostgreSQL runs on the same host or pod (compose, single-node, a sidecar), the route to it is loopback, and advertising a loopback address would send every peer to itself. LocalAI refuses to guess in that case. It starts anyway - refusing would break every single-host deployment, which has no peers to be unreachable by - and logs an error at startup:
 
 ```
-This replica will not be reachable by its peers: no advertised address
+ERROR This replica is not registered in the cluster: no advertised address. Peers cannot reach it,
+      and any worker whose tunnel lands here will be unroutable from every other replica
 ```
 
 The replica keeps serving every request that reaches it directly. What it cannot do is be reached by another replica, and on a multi-replica deployment that is worse than it sounds: a **worker whose tunnel lands on this replica is unroutable from every other replica**, because the ownership lookup only accepts an owner that is registered and live. This replica serves that worker fine; the others answer requests for it with `no route from this replica to that worker`. Behind a round-robin load balancer with N replicas, that is (N-1)/N of the traffic for that worker.
+
+Because that symptom looks like a broken **worker** and not a misconfigured **frontend**, the replica repeats itself every five minutes for as long as it runs, and names the workers it is currently costing:
+
+```
+ERROR This replica is not registered in the cluster and holds worker tunnels: those workers are
+      unroutable from every OTHER replica, and requests for their models fail there with no route.
+      The workers are healthy; this replica is invisible   workers=[node-a node-b] worker_count=2
+```
+
+If you are chasing a worker that answers on one replica and 5xxs on the others, grep the frontend logs for that line before looking at the worker. Until a worker's tunnel lands here the same line appears at `WARN` with no workers named, which is the same misconfiguration not yet costing anything.
 
 A single-replica deployment is unaffected: it has no peers, and it holds every tunnel itself. Set the address explicitly to fix a multi-replica one:
 
@@ -101,6 +112,10 @@ environment:
 ```
 
 The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_REGISTRATION_TOKEN`, the same shared secret workers register with. Replicas that disagree about it cannot link. A replica that stops heartbeating for 30 seconds is dropped from the table by the others, along with the worker-connection rows it owned.
+
+{{% notice note %}}
+**The peer link has no per-replica credential yet.** It checks the shared registration token and takes the replica id in `?id=` on trust. Anything already holding that token - every worker holds it - can therefore open a peer link, relay through it to every worker tunnel a replica owns, and by declaring another replica's id displace that replica's inbound link. Treat `LOCALAI_REGISTRATION_TOKEN` as a cluster-wide secret with the blast radius of the whole fleet: give it its own value per deployment, do not reuse it elsewhere, and keep `/api/cluster/peer` on a network only your replicas and workers can reach. Per-replica credentials for this route are planned.
+{{% /notice %}}
 
 ### Worker tunnels
 
@@ -173,22 +188,32 @@ These outcomes are kept apart on purpose, because they call for different action
 | Not the owner | The routing was stale | Resolve the owner again |
 | Peer unreachable | A replica exists and will not answer | Retry |
 | No relay path | This replica cannot reach the owner at all | Report; requests here fail until it can |
-| The worker refused | The worker answered and said no | Report; the worker is connected |
+| The worker refused | The worker answered and said no | Report, and **act on it**; the worker is connected and speaking about its own backend |
 
-**None of them is absence.** A worker's presence is its **heartbeat**, and a route to it is a separate fact that can be false while the worker is registered, heartbeating and serving every request another replica sends it. So the frontend answers "no route", never "this worker is gone", and nothing on this list causes a model to be rescheduled or a `node_models` row to be deleted.
+**None of the first four is absence.** A worker's presence is its **heartbeat**, and a route to it is a separate fact that can be false while the worker is registered, heartbeating and serving every request another replica sends it. So the frontend answers "no route", never "this worker is gone", and none of the first four causes a model to be rescheduled or a `node_models` row to be deleted.
+
+The fifth is different, and deliberately so. A worker that **refuses** a stream has answered, which proves it is connected; what it is refusing is the stream to one backend process on it. That is the ordinary shape of a crashed backend now that workers listen on nothing: the worker's own dial to the process fails and it says so. The frontend treats that as evidence about the backend, so the model's row is reaped and the replica is reloaded, exactly as a dead local backend would be. Without that, a crashed backend on a healthy worker would leave a row nothing could ever delete, its replica slot permanently occupied. A refusal code the frontend does not recognise - a newer worker's vocabulary - is treated as "no route" instead, so a version skew costs a retry rather than a reaped replica.
 
 That distinction is the whole point rather than a nicety. A scheduler told that a connected worker has gone away stops its backend and reclaims every model it is running, and the events that produce "no route" are ordinary ones: a frontend replica restarting, an ownership row a moment stale, a worker that has not dialled its tunnel yet. A worker is treated as absent only when its **heartbeat** goes stale, which is a separate mechanism with its own threshold (see `--stale-node-threshold`).
 
-#### There is no frontend-side fallback, and upgrade order matters
+#### There is no frontend-side fallback
 
-`LOCALAI_WORKER_TUNNEL=false` still stops a worker dialling its tunnel, but it no longer has a frontend counterpart: **no frontend path dials a worker's advertised address**, and a worker on this release advertises none and listens on no routable interface. A worker with the tunnel off is a worker nothing can reach. Setting it is not a rollback. The rollback is to run the previous release on both sides.
+`LOCALAI_WORKER_TUNNEL=false` is a **fatal startup error** on this release. It is not a degraded mode and not a rollback switch: the worker refuses to boot and prints why. Nothing else would be honest, because the setting stops the worker dialling its tunnel while **no frontend path dials a worker's advertised address**, and a worker on this release advertises none and listens on no routable interface, so a worker that started with it off would register, heartbeat, be scheduled onto, and fail every request. The rollback is to run the previous release on both sides.
 
-That makes upgrade order matter, in one direction only:
+#### Upgrade the frontends first
 
-- **Upgrade the workers first, then the frontends.** A worker on this build dials its tunnel, and a frontend of either version reaches it through that. An old frontend that would have dialled its advertised address no longer gets one, so this order is what keeps the fleet routable throughout.
-- **Upgrading the frontends first** leaves every not-yet-restarted worker unroutable until it restarts. Those workers keep running their models and keep heartbeating, and the frontend reports them as unroutable rather than as gone: their `node_models` rows are left alone, nothing is rescheduled, and requests for those models fail loudly with "no route" until the worker reconnects. It is a degraded window, not an eviction, but it is a window, and doing it the other way round has none.
+**Upgrade every frontend replica, then restart the workers one at a time.**
 
-A worker that cannot reach its frontend retries with exponential backoff and never gives up, so restarting a worker is all that is needed to close the window.
+- **Frontends first (correct).** Old workers keep running, keep heartbeating and keep their `node_models` rows: the new frontend reports them as unroutable rather than as gone, so nothing is rescheduled and nothing is reaped. What fails is requests for models on a worker that has not been restarted yet. That is a real degraded window, but it is bounded by how fast you roll the workers, it heals itself as each one comes back, and no state is lost.
+  - **What you will see while it lasts:** requests for models on a not-yet-restarted worker fail with "no route to the worker", while `GET /api/nodes` still shows that node healthy and heartbeating and its models still listed. Restart the worker and it clears. Nothing needs fixing; you are watching the window close.
+- **Workers first (this fails, do not do it).** An old frontend has no `/api/cluster/connect` route for the worker to dial *and* rejects the new worker's registration outright, because the worker no longer sends an address and the old frontend requires one. A 4xx is a verdict rather than an outage, so the worker reports the reason on the **first** attempt and exits instead of retrying. Every worker you restart is a worker you take out of the fleet until the frontends are upgraded.
+  - **What you will see if you do it anyway:** each restarted worker exits within a second or two of starting, with `registration failed with status 400: address is required for backend workers: the frontend refused this registration`. The fleet drains one node per restart, and the nodes that are left are the ones you have not touched yet.
+
+A worker that cannot reach its frontend *at the network level* retries with exponential backoff and never gives up, so restarting a worker is all that is needed to close the frontend-first window. A worker whose registration is **rejected** does not retry, which is what makes the wrong order destructive rather than slow.
+
+##### Rolling a frontend back requires restarting every worker
+
+Registering against an upgraded frontend **clears** a node's `address` and `http_address` columns in the shared database, and re-registration is the only thing that ever writes them back. So a partial rollback does not restore the previous behaviour on its own: the old frontend code reads an empty address for every node that has registered since the upgrade and dials nothing. Roll the frontends back *and then restart every worker* so each one re-registers and repopulates its address. Rolling back is not a frontend-only operation.
 
 #### Workers bind nothing routable
 
@@ -423,7 +448,7 @@ local-ai worker \
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
-| `--worker-tunnel` | `LOCALAI_WORKER_TUNNEL` | `true` | Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port (see [Worker tunnels](#worker-tunnels)). Turning it off makes the worker unreachable: the frontend has no path that dials a worker's advertised address. |
+| `--worker-tunnel` | `LOCALAI_WORKER_TUNNEL` | `true` | Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port (see [Worker tunnels](#worker-tunnels)). Setting it to `false` is a **fatal startup error**, not a degraded mode: the frontend has no path that dials a worker's advertised address, so a worker without its tunnel is a worker nothing can reach. To run without tunnels, run the pre-tunnel release on both the worker and the frontend. |
 | `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL for backend installation and file staging |
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
 | `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |

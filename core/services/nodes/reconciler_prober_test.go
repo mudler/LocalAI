@@ -3,17 +3,41 @@
 package nodes
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/mudler/LocalAI/core/services/cluster"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
+
+// refusalFromWorker builds the error a frontend actually holds after a worker
+// refused one of its streams.
+//
+// It goes over the WIRE rather than being handed the sentinel directly: the
+// refusal is written with the worker's own writer and read back with the
+// frontend's own reader, so a reason the protocol cannot carry, or a code
+// mapping that stopped round-tripping, reddens these specs instead of leaving
+// them asserting against a value production never produces. The final wrap is
+// the shape WorkerDialer.handshake returns for a worker answer, umbrella and
+// all: there is none, which is the property under test.
+func refusalFromWorker(reason error) error {
+	GinkgoHelper()
+	var frame bytes.Buffer
+	Expect(cluster.WriteStreamRefusal(&frame, reason)).To(Succeed())
+	readBack := cluster.ReadStreamReply(&frame)
+	Expect(readBack).To(MatchError(reason), "the refusal must survive its own round trip")
+	Expect(readBack).ToNot(MatchError(cluster.ErrNoRoute))
+	return fmt.Errorf("opening %q on node %q: %w", "grpc", "node-1", readBack)
+}
 
 // proberFactory hands the prober one client, and records what it was asked for.
 type proberFactory struct {
@@ -65,11 +89,65 @@ var _ = Describe("the reconciler's gRPC model prober", func() {
 		Expect(probe(&proberFactory{client: &fakeBackendClient{healthy: true}})).To(Equal(ProbeAlive))
 	})
 
-	It("still answers ProbeUnreachable for a dead backend on a worker it reached", func() {
-		// The other direction. The new check must not turn the reaper off: a
-		// backend that answered "unhealthy" over a working transport is a ghost
-		// and its row should go.
+	It("still answers ProbeUnreachable for a backend that answered unhealthy", func() {
+		// One of the two shapes a dead backend takes, and the easy one: the
+		// process is up enough to answer and reports itself unhealthy over a
+		// working transport. It is a ghost and its row should go.
+		//
+		// This spec used to be named for the property the table below holds,
+		// which it never tested: a backend process that DIED on a tunnelled
+		// worker does not answer at all, and what the frontend gets back is the
+		// worker's refusal, not an unhealthy reply.
 		Expect(probe(&proberFactory{client: &fakeBackendClient{healthy: false}})).To(Equal(ProbeUnreachable))
+	})
+
+	DescribeTable("answers ProbeUnreachable when the WORKER ITSELF refused the stream",
+		// The dominant shape of a dead backend since workers stopped listening,
+		// and the one that produced a permanently unreapable row. The worker is
+		// healthy, connected and answering; what it answers is that the stream
+		// cannot be served. That is evidence about the backend, so the reaper
+		// may act on it. Reported as ProbeUnknown instead, no reap path deleted
+		// the row, the replica slot never freed, and at the default
+		// MaxReplicasPerModel=1 the only remaining cleanup was LRU eviction of
+		// models that were working.
+		func(reason error) {
+			Expect(probe(&proberFactory{client: &fakeBackendClient{
+				healthy: false,
+				err:     status.Error(codes.Unavailable, "connection error: transport"),
+				dialErr: refusalFromWorker(reason),
+			}})).To(Equal(ProbeUnreachable))
+		},
+		Entry("the worker could not reach the backend process", cluster.ErrStreamTargetUnavailable),
+		Entry("the worker does not serve gRPC streams at all", cluster.ErrStreamTagUnknown),
+		Entry("the worker rejected the stored address", cluster.ErrStreamRequestInvalid),
+	)
+
+	It("answers ProbeUnknown for a refusal code this frontend does not recognise", func() {
+		// The other direction, and the boundary of the exemption above. A
+		// newer worker's vocabulary must not be read as evidence about a
+		// backend: ReadStreamReply returns an unrecognised code as a plain
+		// error, WorkerDialer puts the no-route umbrella on it, and the row
+		// survives. Guessing wrong here costs a retry; guessing wrong the other
+		// way costs a reaped replica.
+		unknownCode := fmt.Errorf("reaching node %q: %w: opening %q: tunnel stream refused with unrecognised code %q: %s",
+			"node-1", cluster.ErrNoRoute, "grpc", "quiesced", "this worker is draining")
+		Expect(probe(&proberFactory{client: &fakeBackendClient{
+			healthy: false,
+			err:     status.Error(codes.Unavailable, "connection error: transport"),
+			dialErr: unknownCode,
+		}})).To(Equal(ProbeUnknown))
+	})
+
+	It("answers ProbeUnknown when the tunnel broke while reading the worker's reply", func() {
+		// The condition a refusal is most easily confused with, kept apart on
+		// purpose: a read failure is the tunnel breaking, not the worker
+		// speaking, and it says nothing about the backend.
+		Expect(probe(&proberFactory{client: &fakeBackendClient{
+			healthy: false,
+			err:     status.Error(codes.Unavailable, "connection error: transport"),
+			dialErr: fmt.Errorf("reaching node %q: %w: opening %q: reading a tunnel stream reply: %w",
+				"node-1", cluster.ErrNoRoute, "grpc", io.ErrUnexpectedEOF),
+		}})).To(Equal(ProbeUnknown))
 	})
 
 	It("does not report a transport that recovered", func() {

@@ -1398,13 +1398,13 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 		//
 		// An earlier version of this comment justified it by saying the worker
 		// would refuse the resulting empty target as an invalid stream and that
-		// the refusal would read as the worker answering about its backend. The
-		// first half is true (see cluster.isWorkerAnswer) and the second is
-		// not: nothing in this package branches on cluster.ErrNoRoute, and
-		// `unroutable` treats ANY recorded dial error as unroutable, so such a
-		// refusal reaches every reap guard as ProbeUnknown and deletes nothing.
-		// The decision stands on the grounds above, which do not depend on a
-		// classification the frontend does not currently make.
+		// the refusal would read as the worker answering about its backend.
+		// Both halves are true NOW (see cluster.IsWorkerAnswer and
+		// `unroutable`), and the decision still does not rest on either: a row
+		// written with an empty address would be reaped a probe cycle later
+		// with its cause a hop away from where it was created, and the failure
+		// belongs to this install. Reaping is a recovery, not a substitute for
+		// refusing to write the bad value.
 		if reply.WorkerLocalAddress == "" {
 			return "", fmt.Errorf("worker %s reported backend %q installed but named no address for the process", node.ID, backendType)
 		}
@@ -1995,11 +1995,14 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // dials lazily on its first call.
 //
 // The client is the RAW factory client rather than buildClientForAddr's, on
-// purpose. A health check stages no files, so the staging wrapper buys nothing
-// here; and the wrapper hides the transport, because it embeds grpc.Backend and
-// so does not carry LastDialError through. Wrapping would leave this function
-// unable to tell a dead backend from an unreachable worker, which is the whole
-// question it now answers.
+// purpose, and the reason is narrower than it used to be. The staging wrapper
+// no longer hides the transport: since it became a grpc.WrappedBackend it
+// carries LastDialError through, so wrapping would not cost this function the
+// answer it needs. What it buys is nothing at all, because a health check
+// stages no files, and an unused wrapper on the hottest path in the router is
+// an allocation and an indirection per probe. The earlier justification
+// ("the wrapper does not carry LastDialError through") is no longer true and is
+// recorded here so nobody re-derives the decision from it.
 func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) (alive, probed bool) {
 	client, err := r.clientFactory.NewClientForNode(node.ID, addr, false)
 	if err != nil {

@@ -227,13 +227,20 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		// itself; nobody else can. On N replicas behind round robin that is
 		// (N-1)/N of the traffic for that worker.
 		//
-		// It stays a warning all the same. Refusing to start would take out
-		// every existing single-host deployment, whose route to a local
-		// database is loopback and which has no peers to be unreachable by;
-		// the deployments this hurts are multi-replica ones, and telling those
-		// two apart at startup is a change with its own design and its own
-		// specs rather than a line here.
-		xlog.Warn("This replica will not be reachable by its peers: no advertised address",
+		// It does not refuse to START. Refusing would take out every existing
+		// single-host deployment, whose route to a local database is loopback
+		// and which has no peers to be unreachable by; the deployments this
+		// hurts are multi-replica ones, and telling those two apart at startup
+		// is a change with its own design and its own specs rather than a line
+		// here.
+		//
+		// What it does not get to do is stay quiet. One startup line scrolls
+		// away in seconds and the cost is paid for the whole life of the
+		// process, on a symptom (workers that 5xx from most of the fleet) whose
+		// obvious reading is "the worker is broken". So this is an ERROR, not a
+		// warning, and nagUnadvertisedReplica below repeats it for as long as
+		// the state lasts, naming the workers it is currently costing.
+		xlog.Error("This replica is not registered in the cluster: no advertised address. Peers cannot reach it, and any worker whose tunnel lands here will be unroutable from every other replica",
 			"error", err, "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
 	} else {
 		membership = cluster.NewMembership(clusterRegistry, cfg.Distributed.InstanceID, advertised, internal.PrintableVersion())
@@ -260,6 +267,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// through.
 	if membership != nil {
 		membership.SetTunnels(tunnels)
+	} else {
+		// The runtime symptom the startup line cannot be. See
+		// nagUnadvertisedReplica.
+		go nagUnadvertisedReplica(cfg.Context, tunnels.Held, unadvertisedNagInterval, logUnroutableWorkers)
 	}
 
 	// The links peers dial IN, with the relay installed on them. This is what
@@ -592,6 +603,64 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		WorkerDialer:   workerDialer,
 		BackendClients: backendClients,
 	}, nil
+}
+
+// unadvertisedNagInterval is how often a replica that could not advertise
+// itself says so again.
+//
+// Five minutes is chosen against the log it lands in, not against the urgency:
+// the condition never clears on its own, so this line is either read once and
+// acted on or it is noise for the life of the process, and a noisy line gets
+// filtered rather than fixed. It is still frequent enough that the state is
+// visible in any window of logs an operator pulls while investigating the
+// symptom it causes.
+const unadvertisedNagInterval = 5 * time.Minute
+
+// nagUnadvertisedReplica repeats, for as long as the process runs, that this
+// replica is invisible to its peers, and names what that is currently costing.
+//
+// It exists because the deferral it accompanies changed cost between phases and
+// nothing about the deployment says so. Before workers held tunnels, a replica
+// with no advertised address was merely unreachable BY peers and could still
+// dial every worker directly, so a startup warning was proportionate. Now a
+// worker's tunnel lands on one replica and every other replica reaches it by
+// relaying to the owner, and the owner is resolved by joining the connection
+// row against a LIVE INSTANCES ROW - which this replica does not have. So every
+// worker that lands here is answered as unroutable everywhere else: on N
+// replicas behind round robin, (N-1)/N of that worker's traffic fails, while
+// this replica serves it perfectly and reports nothing.
+//
+// held is passed as a function rather than the registry so this can be driven
+// without one, and alarm is passed rather than logged inline so a spec can
+// observe the alarms instead of scraping a log.
+func nagUnadvertisedReplica(ctx context.Context, held func() []string, every time.Duration, alarm func([]string)) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			alarm(held())
+		}
+	}
+}
+
+// logUnroutableWorkers says what the state costs RIGHT NOW.
+//
+// The two cases are kept apart because they call for different urgency and an
+// operator can tell them apart at a glance. With no worker held this is a
+// misconfiguration that has not been paid for yet; with workers held, every one
+// of them is named, because "which worker is broken" is the question the
+// symptom sends an operator to ask and the answer is that none of them is.
+func logUnroutableWorkers(held []string) {
+	if len(held) == 0 {
+		xlog.Warn("This replica is still not registered in the cluster: no advertised address. No worker holds a tunnel here yet; the first that does will be unroutable from every other replica",
+			"knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
+		return
+	}
+	xlog.Error("This replica is not registered in the cluster and holds worker tunnels: those workers are unroutable from every OTHER replica, and requests for their models fail there with no route. The workers are healthy; this replica is invisible",
+		"workers", held, "worker_count", len(held), "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
 }
 
 // advertisedPeerAddr is the host:port peers dial to reach this replica.
