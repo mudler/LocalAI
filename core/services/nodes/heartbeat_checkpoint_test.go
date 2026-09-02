@@ -225,6 +225,65 @@ var _ = Describe("heartbeat checkpointing", func() {
 			"4 GiB less free VRAM changes where the scheduler can place")
 	})
 
+	// A node with a VRAM budget persists capAvailable(reported, ceiling), not
+	// the raw reading. Comparing the raw reading against the snapshot therefore
+	// measures a different quantity from the one the column holds: on a budgeted
+	// node whose actual free VRAM swings well above its ceiling, every beat looks
+	// material while the written value never moves, and suppression is defeated
+	// on exactly the nodes an operator has bothered to configure.
+	Describe("on a node with a VRAM budget", func() {
+		const ceiling = uint64(8) << 30
+
+		BeforeEach(func() {
+			Expect(db.Model(&BackendNode{}).Where("id = ?", nodeID).
+				Updates(map[string]any{
+					ColTotalVRAM:       uint64(24) << 30,
+					ColVRAMBudget:      "8GB",
+					ColVRAMBudgetBytes: ceiling,
+				}).Error).ToNot(HaveOccurred())
+		})
+
+		persistedVRAM := func() uint64 {
+			var n BackendNode
+			Expect(db.First(&n, "id = ?", nodeID).Error).ToNot(HaveOccurred())
+			return n.AvailableVRAM
+		}
+
+		It("suppresses beats whose raw reading oscillates above the ceiling", func() {
+			registry.SetHeartbeatCheckpoint(time.Hour)
+
+			Expect(registry.Heartbeat(ctx, nodeID, workerBeat(20<<30))).To(Succeed())
+			first := writtenAt()
+			Expect(persistedVRAM()).To(Equal(ceiling), "the column stores the capped figure")
+
+			// Multi-gigabyte swings, all of them above the 8 GiB ceiling, so the
+			// capped value the column holds is unchanged every time.
+			for _, raw := range []uint64{12 << 30, 18 << 30, 9 << 30, 24 << 30} {
+				time.Sleep(5 * time.Millisecond)
+				Expect(registry.Heartbeat(ctx, nodeID, workerBeat(raw))).To(Succeed())
+			}
+
+			Expect(writtenAt()).To(BeTemporally("==", first),
+				"free VRAM above the budget ceiling cannot change a placement "+
+					"decision, so a reading that only moves above it must not write")
+			Expect(persistedVRAM()).To(Equal(ceiling))
+		})
+
+		It("still writes when the reading drops below the ceiling", func() {
+			registry.SetHeartbeatCheckpoint(time.Hour)
+
+			Expect(registry.Heartbeat(ctx, nodeID, workerBeat(20<<30))).To(Succeed())
+			first := writtenAt()
+
+			time.Sleep(10 * time.Millisecond)
+			Expect(registry.Heartbeat(ctx, nodeID, workerBeat(2<<30))).To(Succeed())
+			Expect(writtenAt()).To(BeTemporally(">", first),
+				"below the ceiling the reading is the scheduler's figure, and "+
+					"6 GiB less of it changes where a model can be placed")
+			Expect(persistedVRAM()).To(Equal(uint64(2) << 30))
+		})
+	})
+
 	It("keeps a checkpointing node healthy while it beats normally", func() {
 		registry.SetHeartbeatCheckpoint(200 * time.Millisecond)
 		// perModelHealthCheck off: this spec is about liveness, not backends.
@@ -240,6 +299,27 @@ var _ = Describe("heartbeat checkpointing", func() {
 		Expect(db.First(&n, "id = ?", nodeID).Error).ToNot(HaveOccurred())
 		Expect(n.Status).To(Equal(StatusHealthy),
 			"suppressed beats must not read as a dead node")
+	})
+
+	It("does not mark a beating node offline when built with no explicit threshold", func() {
+		registry.SetHeartbeatCheckpoint(time.Minute)
+		// Two minutes since the last durable write is normal under
+		// checkpointing: the node may have beaten seconds ago and been
+		// suppressed. It is well inside the 5 minute default and well outside
+		// the 60 seconds the zero-threshold fallback used to resolve to, which
+		// would have flapped every node in the cluster offline each cycle.
+		Expect(db.Model(&BackendNode{}).Where("id = ?", nodeID).
+			Update("last_heartbeat", time.Now().Add(-2*time.Minute)).Error).ToNot(HaveOccurred())
+
+		// Zero staleThreshold: the constructor's fallback is what is under test.
+		hm := NewHealthMonitor(registry, db, time.Minute, 0, "", false)
+		hm.doCheckAll(ctx)
+
+		var n BackendNode
+		Expect(db.First(&n, "id = ?", nodeID).Error).ToNot(HaveOccurred())
+		Expect(n.Status).To(Equal(StatusHealthy),
+			"the default threshold has to track the checkpoint interval, or a "+
+				"monitor built without one reaps every healthy node it sees")
 	})
 
 	It("still marks a genuinely silent node offline once the threshold elapses", func() {

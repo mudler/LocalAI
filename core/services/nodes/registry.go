@@ -447,8 +447,13 @@ func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID s
 // heartbeatSnapshot is the last state actually persisted for a node, so the
 // next beat can tell an idle refresh from a real change.
 type heartbeatSnapshot struct {
-	writtenAt     time.Time
+	writtenAt time.Time
+	// availableVRAM is stored CAPPED by vramCeiling, because that is what the
+	// available_vram column holds. vramCeiling is the node's resolved VRAM
+	// budget (0 = none) as read on the last durable write, cached so a
+	// suppressed beat costs no query at all.
 	availableVRAM uint64
+	vramCeiling   uint64
 	availableRAM  uint64
 	availableDisk uint64
 	totalVRAM     uint64
@@ -897,8 +902,9 @@ func (r *NodeRegistry) SetHeartbeatCheckpoint(d time.Duration) {
 }
 
 // skipHeartbeatWrite reports whether this beat carries nothing the database
-// needs yet. It records the beat as written when it returns false, so the
-// caller must actually perform the write.
+// needs yet. It only decides: the caller commits the beat with
+// recordHeartbeatWrite once it knows the budget ceiling the columns are
+// actually written with.
 func (r *NodeRegistry) skipHeartbeatWrite(nodeID string, update *HeartbeatUpdate) bool {
 	r.hbMu.Lock()
 	defer r.hbMu.Unlock()
@@ -908,69 +914,98 @@ func (r *NodeRegistry) skipHeartbeatWrite(nodeID string, update *HeartbeatUpdate
 	}
 
 	prev, seen := r.hbLastWrite[nodeID]
-	next := prev
-	next.writtenAt = time.Now()
+	if !seen {
+		return false
+	}
+	if heartbeatMaterial(prev, update) {
+		return false
+	}
+	return time.Since(prev.writtenAt) < r.heartbeatCheckpoint
+}
 
-	material := !seen
+// heartbeatMaterial reports whether a beat carries something the database needs
+// now, given what was last persisted for the node.
+//
+// Every field is compared against what was last PERSISTED, never merely tested
+// for presence. A backend worker's heartbeat body carries total_disk (and
+// available_disk, and free RAM) on every single beat by design, so presence
+// would make every real beat material and suppress nothing at all: the
+// empty-bodied agent workers would be the only nodes that ever benefited.
+//
+// Comparing against the last persisted value, rather than against the previous
+// beat, is also what stops small moves accumulating: drift is always measured
+// from the figure the scheduler is actually reading, so a reading that walks
+// away in sub-delta steps still writes once the total distance crosses the
+// threshold.
+func heartbeatMaterial(prev heartbeatSnapshot, update *HeartbeatUpdate) bool {
+	if update == nil {
+		return false
+	}
+	if update.GPUVendor != "" && update.GPUVendor != prev.gpuVendor {
+		return true
+	}
+	// A total is a hardware fact, not a fluctuating reading, so any change at
+	// all is worth a write and no delta applies.
+	if update.TotalVRAM != nil && *update.TotalVRAM != prev.totalVRAM {
+		return true
+	}
+	if update.TotalDisk != nil && *update.TotalDisk != prev.totalDisk {
+		return true
+	}
+	// The CAPPED reading is compared, because capAvailable is what the column
+	// stores. On a node with a VRAM budget whose raw free reading oscillates
+	// above the ceiling, comparing the raw value makes every beat look material
+	// while the persisted value never moves, so suppression is defeated on
+	// precisely the nodes that have a budget set.
+	if update.AvailableVRAM != nil &&
+		absDiff(capAvailable(*update.AvailableVRAM, prev.vramCeiling), prev.availableVRAM) > heartbeatMaterialDelta {
+		return true
+	}
+	if update.AvailableRAM != nil && absDiff(*update.AvailableRAM, prev.availableRAM) > heartbeatMaterialDelta {
+		return true
+	}
+	if update.AvailableDisk != nil && absDiff(*update.AvailableDisk, prev.availableDisk) > heartbeatMaterialDelta {
+		return true
+	}
+	return false
+}
+
+// recordHeartbeatWrite snapshots what a beat is about to persist, so the next
+// beat compares like with like. ceiling is the VRAM budget the write resolved;
+// it is kept so the next beat can cap its own reading without re-reading the
+// column, and free VRAM is stored capped for the same reason the column is.
+func (r *NodeRegistry) recordHeartbeatWrite(nodeID string, update *HeartbeatUpdate, ceiling uint64) {
+	r.hbMu.Lock()
+	defer r.hbMu.Unlock()
+
+	if r.heartbeatCheckpoint <= 0 {
+		return
+	}
+
+	next := r.hbLastWrite[nodeID]
+	next.writtenAt = time.Now()
+	next.vramCeiling = ceiling
 	if update != nil {
-		// Every field is compared against what was last PERSISTED, never merely
-		// tested for presence. A backend worker's heartbeat body carries
-		// total_disk (and available_disk, and free RAM) on every single beat by
-		// design, so presence would make every real beat material and suppress
-		// nothing at all — the empty-bodied agent workers would be the only
-		// nodes that ever benefited.
-		//
-		// Comparing against the last persisted value, rather than against the
-		// previous beat, is also what stops small moves accumulating: drift is
-		// always measured from the figure the scheduler is actually reading, so
-		// a reading that walks away in sub-delta steps still writes once the
-		// total distance crosses the threshold.
 		if update.GPUVendor != "" {
-			if update.GPUVendor != prev.gpuVendor {
-				material = true
-			}
 			next.gpuVendor = update.GPUVendor
 		}
 		if update.TotalVRAM != nil {
-			// A total is a hardware fact, not a fluctuating reading, so any
-			// change at all is worth a write and no delta applies.
-			if *update.TotalVRAM != prev.totalVRAM {
-				material = true
-			}
 			next.totalVRAM = *update.TotalVRAM
 		}
 		if update.TotalDisk != nil {
-			if *update.TotalDisk != prev.totalDisk {
-				material = true
-			}
 			next.totalDisk = *update.TotalDisk
 		}
 		if update.AvailableVRAM != nil {
-			if absDiff(*update.AvailableVRAM, prev.availableVRAM) > heartbeatMaterialDelta {
-				material = true
-			}
-			next.availableVRAM = *update.AvailableVRAM
+			next.availableVRAM = capAvailable(*update.AvailableVRAM, ceiling)
 		}
 		if update.AvailableRAM != nil {
-			if absDiff(*update.AvailableRAM, prev.availableRAM) > heartbeatMaterialDelta {
-				material = true
-			}
 			next.availableRAM = *update.AvailableRAM
 		}
 		if update.AvailableDisk != nil {
-			if absDiff(*update.AvailableDisk, prev.availableDisk) > heartbeatMaterialDelta {
-				material = true
-			}
 			next.availableDisk = *update.AvailableDisk
 		}
 	}
-
-	if !material && seen && time.Since(prev.writtenAt) < r.heartbeatCheckpoint {
-		return true
-	}
-
 	r.hbLastWrite[nodeID] = next
-	return false
 }
 
 // forgetHeartbeatCheckpoint drops a node's suppression state so its next beat
@@ -1007,16 +1042,28 @@ type HeartbeatUpdate struct {
 func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error {
 	db := r.db.WithContext(ctx)
 
+	// Decided BEFORE the updates map is built, because building that map costs
+	// a SELECT for the node's VRAM budget ceiling, and a beat the database does
+	// not need must not pay for a query: per-beat control-plane queries are the
+	// load this checkpointing exists to remove. The decision reuses the ceiling
+	// cached on the last durable write, so it can be at most one checkpoint
+	// interval out of date. That costs at most one extra or one late write; it
+	// cannot persist a wrong figure, because the write path below re-reads the
+	// ceiling before it caps anything.
+	if r.skipHeartbeatWrite(nodeID, update) {
+		return nil
+	}
+
 	updates := map[string]any{
 		ColLastHeartbeat: time.Now(),
 	}
 
+	var ceiling uint64
 	if update != nil {
 		if update.AvailableVRAM != nil {
 			// Cap the reported available against the node's resolved budget
 			// ceiling (0 = none) so the SQL scheduler only ever sees budgeted
 			// capacity. TotalVRAM stays raw (written below).
-			var ceiling uint64
 			db.Model(&BackendNode{}).
 				Select(ColVRAMBudgetBytes).Where("id = ?", nodeID).Scan(&ceiling)
 			updates[ColAvailableVRAM] = capAvailable(*update.AvailableVRAM, ceiling)
@@ -1044,9 +1091,9 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 		}
 	}
 
-	if r.skipHeartbeatWrite(nodeID, update) {
-		return nil
-	}
+	// Recorded with the ceiling this write actually resolved, so the snapshot
+	// and the column always measure the same quantity.
+	r.recordHeartbeatWrite(nodeID, update, ceiling)
 
 	// Only update all fields (including status promotion) for active nodes.
 	// Pending and offline nodes must go through approval or re-registration.

@@ -126,6 +126,17 @@ func (c *cachedDBSampler) stats(ctx context.Context) (ControlPlaneDBStats, bool)
 // sample. Collection is scrape-driven, so the cache bounds how often a scrape
 // can reach the database.
 func RegisterControlPlaneDBMetrics(db *gorm.DB, minInterval time.Duration) error {
+	// ORDERING DEPENDENCY, deliberately recorded because nothing enforces it:
+	// this reads the GLOBAL meter provider, so it must run after
+	// monitoring.NewLocalAIMetricsService has called otel.SetMeterProvider in
+	// core/application/startup.go. Called before that, the gauges bind to the
+	// no-op global and never reach /metrics, silently. Today the distributed
+	// wiring in core/application/distributed.go runs after that point, which is
+	// why the global is safe here rather than injected the way billing, pii and
+	// agentpool take an explicit meter. This repo has been bitten by that race
+	// three times already: see the comments at core/application/startup.go,
+	// core/http/app.go and core/application/application.go. Anyone moving this
+	// call earlier must switch it to an injected meter instead.
 	meter := otel.Meter("github.com/mudler/LocalAI")
 
 	xminAge, err := meter.Int64ObservableGauge("localai_control_plane_oldest_xmin_age",

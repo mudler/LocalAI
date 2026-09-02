@@ -62,7 +62,7 @@ type DistributedConfig struct {
 	WorkerWaitTimeout       time.Duration // Max wait for healthy worker at startup (default 5m)
 	DrainTimeout            time.Duration // Time to wait for in-flight requests during drain (default 30s)
 	HealthCheckInterval     time.Duration // Health monitor check interval (default 15s)
-	StaleNodeThreshold      time.Duration // Time before a node is considered stale (default 60s)
+	StaleNodeThreshold      time.Duration // Time before a node is considered stale (default 5m)
 	NodeHeartbeatCheckpoint time.Duration // Minimum gap between durable heartbeat writes (default 60s, 0 = every beat)
 	// DisablePerModelHealthCheck turns off the health monitor's per-model
 	// gRPC probe. When enabled (the default), the monitor pings each model's
@@ -336,6 +336,17 @@ func WithModelLoadWait(d time.Duration) AppOption {
 			d = ModelLoadWaitUnbounded
 		}
 		o.Distributed.ModelLoadWait = d
+	}
+}
+
+// WithStaleNodeThreshold sets how long a node may go without a durable
+// heartbeat before the health monitor marks it offline. It has to be raised
+// alongside WithNodeHeartbeatCheckpoint: a checkpoint interval wider than this
+// threshold makes every healthy node look dead the moment its beats start
+// being suppressed.
+func WithStaleNodeThreshold(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.StaleNodeThreshold = d
 	}
 }
 

@@ -77,6 +77,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
+| `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
 ### The model load deadline scales with the checkpoint
@@ -679,7 +680,10 @@ than drifting arbitrarily far from the figure the scheduler is reading.
 The consequence is that `last_heartbeat` is up to one checkpoint interval behind
 reality **by design**. The stale-node threshold therefore defaults to **5 minutes**
 (it was 60 seconds before checkpointing existed): the health monitor waits that long
-without a fresh timestamp before it marks a node `offline`.
+without a fresh timestamp before it marks a node `offline`. It is configurable with
+`--stale-node-threshold` / `LOCALAI_STALE_NODE_THRESHOLD`, and an operator who widens
+`--node-heartbeat-checkpoint` must widen this to match, or the beats that checkpointing
+suppresses will read as a dead node.
 
 {{% notice note %}}
 Marking a node `offline` from a stale heartbeat now takes up to five minutes. This is
@@ -735,6 +739,13 @@ SELECT pid, state, age(backend_xmin) AS xmin_age, query
  ORDER BY age(backend_xmin) DESC
  LIMIT 5;
 ```
+
+Grant `pg_read_all_stats` to the role LocalAI connects as (`GRANT pg_read_all_stats TO
+localai;`), or make it a superuser. PostgreSQL blanks `backend_xmin` and `xact_start` in
+`pg_stat_activity` for sessions owned by **other** roles, so without that grant both the
+gauge and the query above see only LocalAI's own sessions -- and the transaction that
+wedges the horizon is typically the co-located vector store connecting as a different
+role, which is exactly the case they exist to catch.
 
 ## Agent Workers
 
