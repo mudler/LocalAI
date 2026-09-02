@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,6 +43,26 @@ var _ = Describe("the S3 file stager's control RPCs", func() {
 
 		local = filepath.Join(dir, "model.gguf")
 		Expect(os.WriteFile(local, []byte("weights"), 0o600)).To(Succeed())
+	})
+
+	// The budgets are written out BY HAND and deliberately not derived from the
+	// constants under test. They are the timeouts the NATS request-reply calls
+	// carried, and keeping them is a compatibility fact rather than a taste:
+	// an operator whose staging of a 35 GB checkpoint fits inside ten minutes
+	// today must not find it cut to thirty seconds by the carrier changing.
+	DescribeTable("gives each verb the ceiling its NATS timeout carried",
+		func(path string, want time.Duration) { Expect(fileRPCBudget(path)).To(Equal(want)) },
+		Entry("ensure moves bytes", workerctl.PathFilesEnsure, 10*time.Minute),
+		Entry("stage moves bytes", workerctl.PathFilesStage, 10*time.Minute),
+		Entry("temp is metadata", workerctl.PathFilesTemp, 30*time.Second),
+		Entry("listdir is metadata", workerctl.PathFilesListDir, 30*time.Second),
+	)
+
+	It("gives a verb it does not know the shorter ceiling", func() {
+		// The safe direction: a verb wrongly given thirty seconds fails visibly
+		// and is retried, while one wrongly given ten minutes parks a caller on
+		// a verb that was never meant to be slow.
+		Expect(fileRPCBudget(workerctl.Prefix + "invented")).To(Equal(30 * time.Second))
 	})
 
 	DescribeTable("addresses the verb that verb's path names",
