@@ -14,14 +14,25 @@ import (
 // whole fleet.
 const maxNodeLivenessRetries = 3
 
-// nodeAnswersOnBus reports whether a node still has a live subscription.
+// nodeAnswersOnBus reports whether a node may still be given work.
 //
-// Only nats.ErrNoResponders means "absent". Any other outcome, a timeout or a
-// transport hiccup, leaves the node eligible: wrongly excluding a node that is
-// merely slow costs real capacity, while the install that follows already
-// reports its own failure. When no command sender is configured there is no bus
-// to consult and every node is treated as reachable, which preserves the
-// behaviour of deployments that do not run one.
+// It probes the node's CONTROL PLANE, over that node's tunnel, and nothing it
+// can learn there is proof of absence. A worker that answers is present by
+// demonstration; every other outcome is this frontend failing to route, which
+// is equally what a healthy worker re-homing its tunnel between frontend
+// replicas produces, so excluding on it would demote a node that is
+// heartbeating and serving. Only nats.ErrNoResponders excludes, and no control
+// RPC produces it: the exclusion is therefore inert here, and stays only until
+// the scheduler reads cluster.Presence, which is the one fact in the deployment
+// that can say a worker is gone and says it identically on every replica.
+//
+// Before that carrier change this asked two NATS subjects the worker no longer
+// subscribes to, so EVERY healthy worker answered "no responders" and was
+// marked unhealthy on the scheduling path.
+//
+// When no command sender is configured there is nothing to consult and every
+// node is treated as reachable, which preserves the behaviour of deployments
+// that do not run one.
 func (r *SmartRouter) nodeAnswersOnBus(node *BackendNode) bool {
 	if r.unloader == nil || node == nil {
 		return true

@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +18,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), func() {
+var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("Distributed"), func() {
 	var (
 		infra    *TestInfra
 		db       *gorm.DB
@@ -37,27 +38,23 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("NATS backend.install events", func() {
-		It("should send backend.install request-reply to a specific node", func() {
+	Context("backend.install", func() {
+		It("should send backend.install to a specific node", func() {
 			node := &nodes.BackendNode{
 				Name: "gpu-node-1", Address: "h1:50051",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
-			// Simulate worker subscribing to backend.install and replying success
-			infra.NC.SubscribeReply(messaging.SubjectNodeBackendInstall(node.ID), func(data []byte, reply func([]byte)) {
+			// The worker serves backend.install on its own control plane.
+			workers := NewControlWorkers()
+			workers.On(node.ID, workerctl.PathBackendInstall, func(_ string, data []byte) any {
 				var req messaging.BackendInstallRequest
-				json.Unmarshal(data, &req)
+				Expect(json.Unmarshal(data, &req)).To(Succeed())
 				Expect(req.Backend).To(Equal("llama-cpp"))
-
-				resp := messaging.BackendInstallReply{Success: true}
-				respData, _ := json.Marshal(resp)
-				reply(respData)
+				return messaging.BackendInstallReply{Success: true}
 			})
 
-			FlushNATS(infra.NC)
-
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 			installReply, err := adapter.InstallBackend(node.ID, "llama-cpp", "", "", "", "", "", 0, "", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(installReply.Success).To(BeTrue())
@@ -69,16 +66,13 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
-			// Simulate worker replying with error
-			infra.NC.SubscribeReply(messaging.SubjectNodeBackendInstall(node.ID), func(data []byte, reply func([]byte)) {
-				resp := messaging.BackendInstallReply{Success: false, Error: "backend not found"}
-				respData, _ := json.Marshal(resp)
-				reply(respData)
+			// The worker's own verdict: an answer, not a transport failure.
+			workers := NewControlWorkers()
+			workers.On(node.ID, workerctl.PathBackendInstall, func(string, []byte) any {
+				return messaging.BackendInstallReply{Success: false, Error: "backend not found"}
 			})
 
-			FlushNATS(infra.NC)
-
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 			installReply, err := adapter.InstallBackend(node.ID, "nonexistent", "", "", "", "", "", 0, "", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(installReply.Success).To(BeFalse())
@@ -86,7 +80,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 		})
 	})
 
-	Context("NATS backend.stop events (model unload)", func() {
+	Context("backend.stop (model unload)", func() {
 		It("should send backend.stop to nodes hosting the model", func() {
 			node := &nodes.BackendNode{
 				Name: "gpu-node-2", Address: "h2:50051",
@@ -95,16 +89,14 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			Expect(registry.SetNodeModel(context.Background(), node.ID, "whisper-large", 0, "loaded", "", 0)).To(Succeed())
 
 			var stopReceived atomic.Int32
-			sub, err := infra.NC.Subscribe(messaging.SubjectNodeBackendStop(node.ID), func(data []byte) {
+			workers := NewControlWorkers()
+			workers.On(node.ID, workerctl.PathBackendStop, func(string, []byte) any {
 				stopReceived.Add(1)
+				return nil
 			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			FlushNATS(infra.NC)
 
 			// Frontend calls UnloadRemoteModel (triggered by UI "Stop" or WatchDog)
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 			Expect(adapter.UnloadRemoteModel("whisper-large")).To(Succeed())
 
 			Eventually(func() int32 { return stopReceived.Load() }, "5s").Should(Equal(int32(1)))
@@ -123,18 +115,15 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			registry.SetNodeModel(context.Background(), node2.ID, "shared-model", 0, "loaded", "", 0)
 
 			var count atomic.Int32
-			sub1, _ := infra.NC.Subscribe(messaging.SubjectNodeBackendStop(node1.ID), func(data []byte) {
-				count.Add(1)
-			})
-			sub2, _ := infra.NC.Subscribe(messaging.SubjectNodeBackendStop(node2.ID), func(data []byte) {
-				count.Add(1)
-			})
-			defer sub1.Unsubscribe()
-			defer sub2.Unsubscribe()
+			workers := NewControlWorkers()
+			for _, id := range []string{node1.ID, node2.ID} {
+				workers.On(id, workerctl.PathBackendStop, func(string, []byte) any {
+					count.Add(1)
+					return nil
+				})
+			}
 
-			FlushNATS(infra.NC)
-
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 			adapter.UnloadRemoteModel("shared-model")
 
 			Eventually(func() int32 { return count.Load() }, "5s").Should(Equal(int32(2)))
@@ -150,49 +139,57 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 			// The same contract is pinned at unit level by "with no nodes
 			// returns nil" in core/services/nodes/unloader_test.go; keep them
 			// in step.
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, NewControlWorkers().Client(), 3*time.Minute, 15*time.Minute)
 			Expect(adapter.UnloadRemoteModel("nonexistent-model")).To(Succeed())
 		})
 	})
 
-	Context("NATS node stop events (full shutdown)", func() {
-		It("should publish stop event to a node", func() {
+	Context("node.stop (full shutdown)", func() {
+		It("should ask the node to shut down over its control plane", func() {
 			node := &nodes.BackendNode{
 				Name: "stop-me", Address: "h3:50051",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			var stopped atomic.Int32
-			sub, err := infra.NC.Subscribe(messaging.SubjectNodeStop(node.ID), func(data []byte) {
+			workers := NewControlWorkers()
+			workers.On(node.ID, workerctl.PathNodeStop, func(string, []byte) any {
 				stopped.Add(1)
+				return nil
 			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
 
-			FlushNATS(infra.NC)
-
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 			Expect(adapter.StopNode(node.ID)).To(Succeed())
 
 			Eventually(func() int32 { return stopped.Load() }, "5s").Should(Equal(int32(1)))
 		})
 	})
 
-	Context("NATS subject naming", func() {
-		It("should generate correct backend lifecycle subjects", func() {
-			Expect(messaging.SubjectNodeBackendInstall("node-abc")).To(Equal("nodes.node-abc.backend.install"))
+	Context("wire naming", func() {
+		// Written out BY HAND, and not derived from the constants: a frontend
+		// and a worker built from different commits reach each other over these
+		// literals, and a renamed path is a 404 that looks exactly like a
+		// broken tunnel.
+		It("should name the backend lifecycle control verbs", func() {
+			Expect(workerctl.PathBackendInstall).To(Equal("/v1/control/backend/install"))
+			Expect(workerctl.PathBackendStop).To(Equal("/v1/control/backend/stop"))
+			Expect(workerctl.PathNodeStop).To(Equal("/v1/control/node/stop"))
+		})
+
+		// The one node subject left, and it is addressed only to AGENT workers:
+		// they hold no tunnel and subscribe to it to drop cached MCP sessions.
+		It("should keep the agent worker's backend.stop subject", func() {
 			Expect(messaging.SubjectNodeBackendStop("node-abc")).To(Equal("nodes.node-abc.backend.stop"))
-			Expect(messaging.SubjectNodeStop("node-abc")).To(Equal("nodes.node-abc.stop"))
 		})
 	})
 
-	// Design note: LoadModel is a direct gRPC call to node.Address, NOT a NATS event.
-	// NATS is used for backend.install (install + start process) and backend.stop.
-	// The SmartRouter calls grpc.NewClient(node.Address).LoadModel() directly.
+	// Design note: LoadModel is a gRPC call through the worker's tunnel, not a
+	// control verb. The control plane installs and stops the process; the model
+	// is loaded into it over the `grpc` stream tag.
 	//
 	// Flow:
-	// 1. NATS backend.install → worker installs backend + starts gRPC process
-	// 2. SmartRouter.Route() → gRPC LoadModel(node.Address) directly
-	// 3. [inference via gRPC]
-	// 4. NATS backend.stop → worker stops gRPC process
+	// 1. backend.install → worker installs backend + starts gRPC process
+	// 2. SmartRouter.Route() → LoadModel over the worker's tunnel
+	// 3. [inference over the tunnel]
+	// 4. backend.stop → worker stops gRPC process
 })

@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
@@ -136,30 +137,18 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			Expect(registry.SetNodeModel(context.Background(), node1.ID, "big-model", 0, "loaded", "", 0)).To(Succeed())
 			Expect(registry.SetNodeModel(context.Background(), node2.ID, "big-model", 0, "loaded", "", 0)).To(Succeed())
 
-			// Subscribe to model.delete on both node subjects, track receipt
+			// Both workers serve model.delete on their own control plane.
 			var deleteCount atomic.Int32
-			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeModelDelete(node1.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.ModelDeleteRequest
-				json.Unmarshal(data, &req)
-				Expect(req.ModelName).To(Equal("big-model"))
-				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.ModelDeleteReply{Success: true})
-				reply(resp)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub1.Unsubscribe()
-
-			sub2, err := infra.NC.SubscribeReply(messaging.SubjectNodeModelDelete(node2.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.ModelDeleteRequest
-				json.Unmarshal(data, &req)
-				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.ModelDeleteReply{Success: true})
-				reply(resp)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub2.Unsubscribe()
-
-			FlushNATS(infra.NC)
+			workers := NewControlWorkers()
+			for _, id := range []string{node1.ID, node2.ID} {
+				workers.On(id, workerctl.PathModelDelete, func(_ string, data []byte) any {
+					var req messaging.ModelDeleteRequest
+					Expect(json.Unmarshal(data, &req)).To(Succeed())
+					Expect(req.ModelName).To(Equal("big-model"))
+					deleteCount.Add(1)
+					return messaging.ModelDeleteReply{Success: true}
+				})
+			}
 
 			// Create temp dir for local model files
 			tempDir, err := os.MkdirTemp("", "dist-model-test-*")
@@ -176,7 +165,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 			distMgr := nodes.NewDistributedModelManager(appCfg, ml, adapter)
 
 			err = distMgr.DeleteModel("big-model")
@@ -202,39 +191,24 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			Expect(registry.Register(context.Background(), node3, true)).To(Succeed())
 			Expect(registry.MarkUnhealthy(context.Background(), node3.ID)).To(Succeed())
 
-			// Subscribe to backend.delete on all 3 nodes
+			// All 3 workers serve backend.delete on their control plane.
 			var deleteCount atomic.Int32
-			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node1.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.BackendDeleteRequest
-				json.Unmarshal(data, &req)
-				Expect(req.Backend).To(Equal("my-backend"))
-				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.BackendDeleteReply{Success: true})
-				reply(resp)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub1.Unsubscribe()
-
-			sub2, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node2.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.BackendDeleteRequest
-				json.Unmarshal(data, &req)
-				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.BackendDeleteReply{Success: true})
-				reply(resp)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub2.Unsubscribe()
+			workers := NewControlWorkers()
+			for _, id := range []string{node1.ID, node2.ID} {
+				workers.On(id, workerctl.PathBackendDelete, func(_ string, data []byte) any {
+					var req messaging.BackendDeleteRequest
+					Expect(json.Unmarshal(data, &req)).To(Succeed())
+					Expect(req.Backend).To(Equal("my-backend"))
+					deleteCount.Add(1)
+					return messaging.BackendDeleteReply{Success: true}
+				})
+			}
 
 			var unhealthyReceived atomic.Int32
-			sub3, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node3.ID), func(data []byte, reply func([]byte)) {
+			workers.On(node3.ID, workerctl.PathBackendDelete, func(string, []byte) any {
 				unhealthyReceived.Add(1)
-				resp, _ := json.Marshal(messaging.BackendDeleteReply{Success: true})
-				reply(resp)
+				return messaging.BackendDeleteReply{Success: true}
 			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub3.Unsubscribe()
-
-			FlushNATS(infra.NC)
 
 			// Create temp dir for local backend files
 			tempDir, err := os.MkdirTemp("", "dist-backend-test-*")
@@ -252,7 +226,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry, nil)
 
 			err = distMgr.DeleteBackend("my-backend")
@@ -275,18 +249,14 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			Expect(registry.Register(context.Background(), node1, true)).To(Succeed())
 
 			var deleteCount atomic.Int32
-			sub1, err := infra.NC.SubscribeReply(messaging.SubjectNodeBackendDelete(node1.ID), func(data []byte, reply func([]byte)) {
+			workers := NewControlWorkers()
+			workers.On(node1.ID, workerctl.PathBackendDelete, func(_ string, data []byte) any {
 				var req messaging.BackendDeleteRequest
-				json.Unmarshal(data, &req)
+				Expect(json.Unmarshal(data, &req)).To(Succeed())
 				Expect(req.Backend).To(Equal("remote-only-backend"))
 				deleteCount.Add(1)
-				resp, _ := json.Marshal(messaging.BackendDeleteReply{Success: true})
-				reply(resp)
+				return messaging.BackendDeleteReply{Success: true}
 			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub1.Unsubscribe()
-
-			FlushNATS(infra.NC)
 
 			// Use a temp dir with NO local backend directory — simulates frontend node
 			tempDir, err := os.MkdirTemp("", "dist-backend-remote-only-*")
@@ -299,7 +269,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry, nil)
 
 			// Should NOT return an error even though the backend doesn't exist locally

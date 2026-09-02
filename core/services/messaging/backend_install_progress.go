@@ -11,10 +11,11 @@ const (
 	PhaseStarting    = "starting"    // worker is spawning the gRPC backend process
 )
 
-// BackendInstallProgressEvent is the wire payload published by a worker to
-// nodes.<nodeID>.backend.install.<opID>.progress while a long-running install
-// is in flight. Transient: dropped events are acceptable, the master relies
-// on BackendInstallReply for ground truth on success/failure.
+// BackendInstallProgressEvent is the wire payload a worker writes as a progress
+// line of its backend.install and backend.upgrade responses while a
+// long-running install is in flight. Transient: a line the frontend cannot read
+// is acceptable, and BackendInstallReply is the ground truth on
+// success/failure.
 //
 // Phase holds one of the Phase* constants above.
 type BackendInstallProgressEvent struct {
@@ -26,11 +27,4 @@ type BackendInstallProgressEvent struct {
 	Total      string  `json:"total,omitempty"`   // human-readable size, e.g. "2.1 GB"
 	Percentage float64 `json:"percentage"`
 	Phase      string  `json:"phase,omitempty"`
-}
-
-// SubjectNodeBackendInstallProgress returns the NATS subject for transient
-// progress events emitted by a worker during a single backend.install run.
-// Per-op so multiple concurrent installs on the same node never alias.
-func SubjectNodeBackendInstallProgress(nodeID, opID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.install." + sanitizeSubjectToken(opID) + ".progress"
 }
