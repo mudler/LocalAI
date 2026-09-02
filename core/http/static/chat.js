@@ -1149,13 +1149,21 @@ async function promptGPT(systemPrompt, input) {
   messages = chatStore.messages();
 
   // Exclude thinking/reasoning from API payload (backend chat templates expect only system/user/assistant)
-  messages = messages.filter((m) => m.role !== "thinking" && m.role !== "reasoning");
+  // Also drop blank system turns so they cannot suppress the model default.
+  messages = messages.filter((m) =>
+    m.role !== "thinking" &&
+    m.role !== "reasoning" &&
+    !(m.role === "system" && !(typeof m.content === "string" && m.content.trim()))
+  );
 
-  // if systemPrompt isn't empty, push it at the start of messages
-  if (systemPrompt) {
+  // Omit empty/whitespace system prompts so the model YAML system_prompt
+  // (and tokenizer chat-template defaults) are not suppressed by a blank
+  // system turn from Chat Settings.
+  const trimmedSystemPrompt = typeof systemPrompt === "string" ? systemPrompt.trim() : "";
+  if (trimmedSystemPrompt) {
     messages.unshift({
       role: "system",
-      content: systemPrompt
+      content: trimmedSystemPrompt
     });
   }
 
@@ -2275,7 +2283,8 @@ storesystemPrompt = localStorage.getItem("system_prompt");
 if (storesystemPrompt) {
   document.getElementById("systemPrompt").value = storesystemPrompt;
 } else {
-  document.getElementById("systemPrompt").value = null;
+  // Use "" — assigning null stringifies to "null" on textarea.value.
+  document.getElementById("systemPrompt").value = "";
 }
 
 marked.setOptions({

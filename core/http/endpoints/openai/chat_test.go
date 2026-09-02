@@ -357,3 +357,47 @@ var _ = Describe("mergeToolCallDeltas", func() {
 		})
 	})
 })
+
+var _ = Describe("system message helpers", func() {
+	Describe("hasSystemMessage", func() {
+		It("ignores empty and whitespace-only system turns", func() {
+			Expect(hasSystemMessage([]schema.Message{
+				{Role: "system", Content: "", StringContent: ""},
+				{Role: "user", Content: "hi", StringContent: "hi"},
+			})).To(BeFalse())
+			Expect(hasSystemMessage([]schema.Message{
+				{Role: "system", Content: "   ", StringContent: "   "},
+			})).To(BeFalse())
+		})
+
+		It("detects a real system prompt", func() {
+			Expect(hasSystemMessage([]schema.Message{
+				{Role: "system", Content: "You are helpful.", StringContent: "You are helpful."},
+				{Role: "user", Content: "hi", StringContent: "hi"},
+			})).To(BeTrue())
+		})
+	})
+
+	Describe("stripEmptySystemMessages", func() {
+		It("removes blank system turns and keeps the rest", func() {
+			in := []schema.Message{
+				{Role: "system", Content: "", StringContent: ""},
+				{Role: "system", Content: "  ", StringContent: "  "},
+				{Role: "user", Content: "Explain how this works", StringContent: "Explain how this works"},
+			}
+			out := stripEmptySystemMessages(in)
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].Role).To(Equal("user"))
+		})
+
+		It("keeps a non-empty system turn", func() {
+			in := []schema.Message{
+				{Role: "system", Content: "You are LocalAI.", StringContent: "You are LocalAI."},
+				{Role: "user", Content: "hi", StringContent: "hi"},
+			}
+			out := stripEmptySystemMessages(in)
+			Expect(out).To(HaveLen(2))
+			Expect(out[0].StringContent).To(Equal("You are LocalAI."))
+		})
+	})
+})
