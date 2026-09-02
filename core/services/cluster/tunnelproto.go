@@ -59,19 +59,24 @@ const (
 	replyCodeUnknownTag    = "unknown-tag"
 	replyCodeUnavailable   = "unavailable"
 	replyCodeBadRequest    = "bad-request"
+	replyCodeNotServed     = "not-served"
 	replyPrefixRefused     = "err "
 	streamRequestSeparator = " "
 )
 
-// The three refusals a worker can send, kept apart on purpose.
+// The four refusals a worker can send, kept apart on purpose.
 //
 // This is the phase's standing rule in its wire form. An unknown tag is a fact
 // about what this worker SERVES and will not change until the worker is
-// upgraded; an unavailable target is an infrastructure failure that may well
-// succeed on the next attempt; a bad request is this frontend's own bug. A
-// caller retries the second, gives up on the first, and reports the third.
-// Collapsing them into one error would make a frontend retry a stream that can
-// never work, or abandon a backend that was merely restarting.
+// upgraded; an unavailable target is the worker's own dial to the named
+// process failing, which is what a backend that died looks like from inside
+// the worker; a bad request is this frontend's own bug. A caller gives up on
+// the first, acts on the second, and reports the third. Collapsing them into
+// one error would make a frontend retry a stream that can never work, or
+// abandon a backend that was merely restarting.
+//
+// The fourth is the one that says NOTHING, and it exists because the first
+// three all say something a consumer now acts on. See ErrStreamNotServed.
 //
 // None of them wraps a node-absence error, and none must ever be built over
 // one: a refusal is proof the worker is CONNECTED and answered.
@@ -79,6 +84,33 @@ var (
 	ErrStreamTagUnknown        = errors.New("cluster: the worker does not serve that stream tag")
 	ErrStreamTargetUnavailable = errors.New("cluster: the worker could not reach the local service for that stream")
 	ErrStreamRequestInvalid    = errors.New("cluster: the worker rejected the stream request as malformed")
+
+	// ErrStreamNotServed reports that the worker could not serve the stream for
+	// a reason of ITS OWN, which is not a statement about the backend the
+	// stream named.
+	//
+	// It is the refusal a worker sends when it has learned nothing. The other
+	// three are evidence a frontend ACTS on: IsWorkerAnswer exempts them from
+	// the no-route umbrella, and nodes.unroutable then lets a reap guard delete
+	// the row. This one is deliberately OUTSIDE that predicate, so it reaches a
+	// consumer as ErrNoRoute and nothing is reaped.
+	//
+	// It exists because of a defect this phase created and then found: the
+	// worker used to answer a request frame that merely arrived LATE with
+	// ErrStreamRequestInvalid, which was harmless while the frontend treated
+	// every refusal as "no route", and became a reap the moment a frontend
+	// started acting on refusals. A delivery timeout clears as soon as the link
+	// drains; a malformed frame does not. Merging them was safe only while
+	// nothing downstream could tell them apart, and something downstream now
+	// can. Anything the worker cannot classify as one of the other three
+	// belongs here, because an unclassified failure is by definition not a
+	// verdict about a backend.
+	//
+	// A frontend too old to know this code reads it as an unrecognised reply,
+	// which ReadStreamReply already returns as a plain error and which
+	// IsWorkerAnswer already declines to count as an answer. So the safe
+	// behaviour is what a mixed-version deployment gets for free.
+	ErrStreamNotServed = errors.New("cluster: the worker could not serve that stream, for a reason that is not about the backend")
 )
 
 // WriteStreamRequest sends the opening frame naming what the stream is for.
@@ -127,12 +159,20 @@ func WriteStreamAccepted(w io.Writer) error {
 // WriteStreamRefusal reports why a stream will not be served. The caller closes
 // the stream afterwards; this only says why.
 //
-// An unrecognised reason is sent as bad-request with its text attached rather
+// An unrecognised reason is sent as NOT-SERVED with its text attached rather
 // than being dropped, because a refusal a frontend cannot read is
 // indistinguishable from a worker that hung up, and those are different
 // problems.
+//
+// The default is not-served and not bad-request, and the difference is the
+// whole point of the fourth code. The other three are evidence a frontend acts
+// on, up to and including deleting a model's row; an error that reached here
+// without carrying one of them is by construction an error nobody classified,
+// and an unclassified failure must never become a verdict by default. This
+// default used to be bad-request, which was harmless while no consumer
+// distinguished the codes and became a reap-by-omission when one did.
 func WriteStreamRefusal(w io.Writer, reason error) error {
-	code := replyCodeBadRequest
+	code := replyCodeNotServed
 	switch {
 	case errors.Is(reason, ErrStreamTagUnknown):
 		code = replyCodeUnknownTag
@@ -140,6 +180,8 @@ func WriteStreamRefusal(w io.Writer, reason error) error {
 		code = replyCodeUnavailable
 	case errors.Is(reason, ErrStreamRequestInvalid):
 		code = replyCodeBadRequest
+	case errors.Is(reason, ErrStreamNotServed):
+		code = replyCodeNotServed
 	}
 
 	text := ""
@@ -186,6 +228,8 @@ func ReadStreamReply(r io.Reader) error {
 		return fmt.Errorf("%w: %s", ErrStreamTargetUnavailable, text)
 	case replyCodeBadRequest:
 		return fmt.Errorf("%w: %s", ErrStreamRequestInvalid, text)
+	case replyCodeNotServed:
+		return fmt.Errorf("%w: %s", ErrStreamNotServed, text)
 	default:
 		// A code from a newer worker. Reported as an error carrying the code
 		// rather than mapped onto the nearest known one, so a frontend does not

@@ -233,9 +233,21 @@ var ErrNoWorkerDialer = fmt.Errorf("%w: no worker tunnel dialer is configured", 
 // EVERY replica for as long as it exists, and reaping it converges: the model
 // is reloaded somewhere that works and re-registers a usable address. The
 // condition the phase refuses to reap on is a TRANSIENT one, and none of these
-// is transient. A reply code this frontend does not recognise is deliberately
-// not in the set (see cluster.IsWorkerAnswer), so a newer worker's vocabulary
-// reaches an older frontend as "no route" and costs a retry rather than a row.
+// is transient.
+//
+// That last sentence is a claim about the WORKER, not about this file, and it
+// held only after the worker stopped answering a request frame that merely
+// arrived late with ErrStreamRequestInvalid. It did, and the frontend's half of
+// that contract is that a transient condition arrives as the fourth code:
+// cluster.ErrStreamNotServed is not in cluster.IsWorkerAnswer, so it reaches
+// here under the no-route umbrella and reaps nothing. If a worker ever starts
+// sending one of the three for something that clears on its own, this comment
+// becomes false and a live model gets evicted; the guard against that is at the
+// worker, in Tunnel.accept and classifyServiceFailure, and it is stated there.
+//
+// A reply code this frontend does not recognise is deliberately not in the set
+// either (see cluster.IsWorkerAnswer), so a newer worker's vocabulary reaches
+// an older frontend as "no route" and costs a retry rather than a row.
 func unroutable(client grpc.Backend) error {
 	// LastDialErrorOf and not a type assertion: the assertion could not see
 	// past a decorator, and SmartRouter hands every routed client out wrapped.

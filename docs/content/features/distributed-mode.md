@@ -114,7 +114,7 @@ environment:
 The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_REGISTRATION_TOKEN`, the same shared secret workers register with. Replicas that disagree about it cannot link. A replica that stops heartbeating for 30 seconds is dropped from the table by the others, along with the worker-connection rows it owned.
 
 {{% notice note %}}
-**The peer link has no per-replica credential yet.** It checks the shared registration token and takes the replica id in `?id=` on trust. Anything already holding that token - every worker holds it - can therefore open a peer link, relay through it to every worker tunnel a replica owns, and by declaring another replica's id displace that replica's inbound link. Treat `LOCALAI_REGISTRATION_TOKEN` as a cluster-wide secret with the blast radius of the whole fleet: give it its own value per deployment, do not reuse it elsewhere, and keep `/api/cluster/peer` on a network only your replicas and workers can reach. Per-replica credentials for this route are planned.
+**The peer link has no per-replica credential yet.** It checks the shared registration token and takes the replica id in `?id=` on trust. Anything already holding that token - every worker holds it - can therefore open a peer link, relay through it to every worker tunnel a replica owns, by declaring another replica's id displace that replica's inbound link, and hold sessions open against the per-session receive window, which the peer-link code sizes at roughly 31 GiB of unread data per session and which on this route is also a memory budget an attacker can point at one replica. Treat `LOCALAI_REGISTRATION_TOKEN` as a cluster-wide secret with the blast radius of the whole fleet: give it its own value per deployment, do not reuse it elsewhere, and keep `/api/cluster/peer` on a network only your replicas and workers can reach. Per-replica credentials for this route are planned.
 {{% /notice %}}
 
 ### Worker tunnels
@@ -207,7 +207,13 @@ That distinction is the whole point rather than a nicety. A scheduler told that 
 - **Frontends first (correct).** Old workers keep running, keep heartbeating and keep their `node_models` rows: the new frontend reports them as unroutable rather than as gone, so nothing is rescheduled and nothing is reaped. What fails is requests for models on a worker that has not been restarted yet. That is a real degraded window, but it is bounded by how fast you roll the workers, it heals itself as each one comes back, and no state is lost.
   - **What you will see while it lasts:** requests for models on a not-yet-restarted worker fail with "no route to the worker", while `GET /api/nodes` still shows that node healthy and heartbeating and its models still listed. Restart the worker and it clears. Nothing needs fixing; you are watching the window close.
 - **Workers first (this fails, do not do it).** An old frontend has no `/api/cluster/connect` route for the worker to dial *and* rejects the new worker's registration outright, because the worker no longer sends an address and the old frontend requires one. A 4xx is a verdict rather than an outage, so the worker reports the reason on the **first** attempt and exits instead of retrying. Every worker you restart is a worker you take out of the fleet until the frontends are upgraded.
-  - **What you will see if you do it anyway:** each restarted worker exits within a second or two of starting, with `registration failed with status 400: address is required for backend workers: the frontend refused this registration`. The fleet drains one node per restart, and the nodes that are left are the ones you have not touched yet.
+  - **What you will see if you do it anyway:** each restarted worker exits within a second or two of starting, with
+
+    ```
+    registration failed with status 400: {"error":{"code":400,"message":"address is required for backend workers","type":"node_error"}}: the frontend refused this registration
+    ```
+
+    The fleet drains one node per restart, and the nodes that are left are the ones you have not touched yet. Grep for `address is required for backend workers` if your log collector reflows the line.
 
 A worker that cannot reach its frontend *at the network level* retries with exponential backoff and never gives up, so restarting a worker is all that is needed to close the frontend-first window. A worker whose registration is **rejected** does not retry, which is what makes the wrong order destructive rather than slow.
 
