@@ -265,12 +265,28 @@ ORDER BY age(backend_xmin) DESC;
 Then `pg_terminate_backend(pid)` on the offenders, and `VACUUM (VERBOSE)` the
 bloated tables once the horizon has moved.
 
+**A healthy-looking xmin age does not on its own prove the horizon is free.**
+The gauge reads `pg_stat_activity`, which only sees live backends. Two other
+things pin the very same horizon and are invisible there, so either one can hold
+vacuum back while the gauge reads 0:
+
+```sql
+SELECT gid, prepared, database, transaction FROM pg_prepared_xacts;
+SELECT slot_name, active, xmin, catalog_xmin FROM pg_replication_slots;
+```
+
+An orphaned prepared transaction is cleared with `ROLLBACK PREPARED '<gid>'`,
+and a stale slot with `pg_drop_replication_slot('<slot_name>')`. Check both
+before concluding that a bloated table has some other cause.
+
 Sampling is scrape-driven behind a 30 second cache, so scrape frequency does not
-translate into database load. A failed sample reports the last good values rather
-than failing the scrape, because these gauges matter most when the database is
-already struggling. Before the first successful sample the gauges are absent
-rather than zero, since a zero xmin age would read as a healthy horizon: alert on
-`absent()` too if you need to distinguish "healthy" from "never sampled".
+translate into database load. Failed and timed-out samples cost the same interval
+as successful ones, so a database that is already struggling is not retried on
+every scrape. A failed sample reports the last good values rather than failing the
+scrape, because these gauges matter most when the database is struggling. Before
+the first successful sample the gauges are absent rather than zero, since a zero
+xmin age would read as a healthy horizon: alert on `absent()` too if you need to
+distinguish "healthy" from "never sampled".
 
 ## Advertising surfaces — where to register a new capability
 

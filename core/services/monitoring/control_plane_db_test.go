@@ -181,6 +181,25 @@ var _ = Describe("control plane database stats", func() {
 			Expect(after.DeadTupleRatio).To(HaveKey("node_models"))
 		})
 
+		It("rate-limits retries against a failing database to one attempt per interval", func() {
+			attempts := 0
+			// Raw().Scan() runs through gorm's row callback, so this counts one
+			// tick per statement the sampler actually sends to the database.
+			Expect(db.Callback().Row().After("gorm:row").Register("count_attempts", func(tx *gorm.DB) {
+				attempts++
+			})).To(Succeed())
+			closeDB(db)
+
+			sampler := &cachedDBSampler{db: db, minInterval: time.Hour}
+			for i := 0; i < 5; i++ {
+				_, ok := sampler.stats(context.Background())
+				Expect(ok).To(BeFalse())
+			}
+
+			Expect(attempts).To(Equal(1),
+				"a failing sample must cost the cache interval too, or a struggling database is retried on every scrape")
+		})
+
 		It("reports nothing at all before the first successful sample", func() {
 			closeDB(db)
 

@@ -76,15 +76,23 @@ func SampleControlPlaneDB(ctx context.Context, db *gorm.DB) (ControlPlaneDBStats
 }
 
 // cachedDBSampler serves the catalog sample to scrape-driven collection. The
-// cache bounds how often a scrape can reach the database, and it keeps the
-// last good values available when a later sample fails.
+// cache bounds how often a scrape can reach the database, whether or not the
+// sample succeeds, and it keeps the last good values available when a later
+// sample fails.
 type cachedDBSampler struct {
 	db          *gorm.DB
 	minInterval time.Duration
 
-	mu       sync.Mutex
-	cached   ControlPlaneDBStats
-	cachedAt time.Time
+	mu     sync.Mutex
+	cached ControlPlaneDBStats
+	// hasSample records whether cached ever held a real reading. It is kept
+	// apart from lastAttempt so that a failing database does not blank the
+	// gauges, and so that a failed attempt still costs the interval.
+	hasSample bool
+	// lastAttempt times every attempt, successful or not. Gating on the last
+	// success instead would leave a failing database open to one query per
+	// scrape, which is a retry storm aimed at a database already in trouble.
+	lastAttempt time.Time
 }
 
 // stats returns the values to report and whether any good sample exists yet.
@@ -97,18 +105,21 @@ func (c *cachedDBSampler) stats(ctx context.Context) (ControlPlaneDBStats, bool)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if time.Since(c.cachedAt) >= c.minInterval {
+	if c.lastAttempt.IsZero() || time.Since(c.lastAttempt) >= c.minInterval {
 		sampleCtx, cancel := context.WithTimeout(ctx, controlPlaneSampleTimeout)
 		s, err := SampleControlPlaneDB(sampleCtx, c.db)
 		cancel()
+		// Timed from completion, and recorded whatever the outcome, so that a
+		// slow or failing sample is rate limited exactly like a good one.
+		c.lastAttempt = time.Now()
 		if err != nil {
 			xlog.Debug("Control-plane database sample failed, reporting the last good values", "error", err)
 		} else {
-			c.cached, c.cachedAt = s, time.Now()
+			c.cached, c.hasSample = s, true
 		}
 	}
 
-	return c.cached, !c.cachedAt.IsZero()
+	return c.cached, c.hasSample
 }
 
 // RegisterControlPlaneDBMetrics installs observable gauges backed by a cached
