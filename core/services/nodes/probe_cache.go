@@ -33,7 +33,7 @@ type probeCache struct {
 }
 
 // newProbeCache returns a probeCache with the given TTL. Zero TTL disables
-// caching: every call to DoOrCached invokes the probe.
+// caching: every call to DoOrCachedResult invokes the probe.
 func newProbeCache(ttl time.Duration) *probeCache {
 	return &probeCache{
 		ttl:  ttl,
@@ -68,17 +68,18 @@ func (c *probeCache) Invalidate(key string) {
 	delete(c.seen, key)
 }
 
-// DoOrCached returns true if key is fresh; otherwise it runs probe (coalescing
-// concurrent callers via singleflight) and caches a successful result. Failed
-// probes invalidate the cache, so a transient miss doesn't pin every
-// subsequent request to a re-probe.
-func (c *probeCache) DoOrCached(key string, probe func() bool) bool {
-	alive, _ := c.DoOrCachedResult(key, func() (bool, error) { return probe(), nil })
-	return alive
-}
-
-// DoOrCachedResult is DoOrCached with a second result: the reason the probe
-// never reached the backend, or nil when it did.
+// DoOrCachedResult returns true if key is fresh; otherwise it runs probe
+// (coalescing concurrent callers via singleflight) and caches a successful
+// result. Failed probes invalidate the cache, so a transient miss does not pin
+// every subsequent request to a re-probe.
+//
+// It is the ONLY entry point. A boolean-only sibling, DoOrCached, stood beside
+// it until probeHealth stopped using it, after which it was production code
+// held green by nothing but its own specs; the shim that reads it as a boolean
+// now lives in probe_cache_test.go, where its one caller is.
+//
+// The second result is the reason the probe never reached the backend, or nil
+// when it did.
 //
 // The second result travels through the SINGLEFLIGHT, which is the whole reason
 // it is not simply a variable the caller closes over. A closed-over variable is
