@@ -8,9 +8,14 @@ import (
 )
 
 // DebouncedInstallProgressPublisher buffers backend-install download ticks
-// and publishes them to the per-op NATS progress subject at most once per
-// `interval`. Always publishes the final event on Flush so the UI sees the
-// terminal percentage.
+// and hands them to its emit sink at most once per `interval`. Always emits the
+// final event on Flush so the UI sees the terminal percentage.
+//
+// The sink is a function rather than a NATS subject because the same debounce
+// now bounds two carriers: the NATS progress subject an agent node still
+// publishes on, and a line written into the streaming HTTP response a worker
+// serves over its tunnel. Keeping one debouncer keeps the ~4/s tick bound a
+// single fact instead of one per carrier.
 //
 // Behavior: leading-edge debounce. The first OnDownload after a quiet window
 // publishes immediately; subsequent ticks within `interval` only buffer the
@@ -18,13 +23,12 @@ import (
 // keeps the wire chatter bounded (~4 events per second at 250ms) while
 // still surfacing every meaningful percentage jump.
 //
-// Lock ordering: never hold p.mu across a Publish call. Publish hits the
-// NATS client which may block on a slow link, and we don't want a stalled
-// network to stall the underlying gallery download loop.
+// Lock ordering: never hold p.mu across an emit call. The sink writes to the
+// network, which may block on a slow link, and we don't want a stalled network
+// to stall the underlying gallery download loop.
 type DebouncedInstallProgressPublisher struct {
 	mu              sync.Mutex
-	client          messaging.MessagingClient
-	subject         string
+	emit            func(messaging.BackendInstallProgressEvent)
 	nodeID          string
 	opID            string
 	backend         string
@@ -34,13 +38,24 @@ type DebouncedInstallProgressPublisher struct {
 	timer           *time.Timer
 }
 
-// NewDebouncedInstallProgressPublisher constructs a publisher for one
-// install operation. interval is the leading-edge debounce window
-// (~250ms in production).
+// NewDebouncedInstallProgressPublisher constructs a publisher for one install
+// operation that publishes to the per-op NATS progress subject. interval is the
+// leading-edge debounce window (~250ms in production).
 func NewDebouncedInstallProgressPublisher(client messaging.MessagingClient, nodeID, opID, backend string, interval time.Duration) *DebouncedInstallProgressPublisher {
+	subject := messaging.SubjectNodeBackendInstallProgress(nodeID, opID)
+	return NewDebouncedInstallProgressSink(func(ev messaging.BackendInstallProgressEvent) {
+		_ = client.Publish(subject, ev)
+	}, nodeID, opID, backend, interval)
+}
+
+// NewDebouncedInstallProgressSink constructs a publisher for one install
+// operation that hands each debounced event to emit.
+//
+// emit is called with p.mu released, so a sink that blocks on a slow link
+// cannot stall the gallery download loop that feeds it.
+func NewDebouncedInstallProgressSink(emit func(messaging.BackendInstallProgressEvent), nodeID, opID, backend string, interval time.Duration) *DebouncedInstallProgressPublisher {
 	return &DebouncedInstallProgressPublisher{
-		client:   client,
-		subject:  messaging.SubjectNodeBackendInstallProgress(nodeID, opID),
+		emit:     emit,
 		nodeID:   nodeID,
 		opID:     opID,
 		backend:  backend,
@@ -70,7 +85,7 @@ func (p *DebouncedInstallProgressPublisher) OnDownload(file, current, total stri
 		p.lastPublishedAt = now
 		p.pending = nil
 		p.mu.Unlock()
-		_ = p.client.Publish(p.subject, ev)
+		p.emit(ev)
 		return
 	}
 	// Within the window: buffer the latest event and arm a trailing
@@ -85,8 +100,8 @@ func (p *DebouncedInstallProgressPublisher) OnDownload(file, current, total stri
 }
 
 // flushPending is the trailing-edge publisher fired by the AfterFunc timer.
-// It clears the pending slot under the lock, then publishes outside the
-// lock so Publish never blocks an in-progress OnDownload call.
+// It clears the pending slot under the lock, then emits outside the lock so the
+// sink never blocks an in-progress OnDownload call.
 func (p *DebouncedInstallProgressPublisher) flushPending() {
 	p.mu.Lock()
 	p.timer = nil
@@ -97,14 +112,14 @@ func (p *DebouncedInstallProgressPublisher) flushPending() {
 	}
 	p.mu.Unlock()
 	if pending != nil {
-		_ = p.client.Publish(p.subject, *pending)
+		p.emit(*pending)
 	}
 }
 
-// Flush publishes any pending buffered event synchronously and stops the
-// pending timer. Safe to call multiple times. Callers MUST defer Flush
-// after constructing the publisher so the terminal percentage reaches the
-// master even on error returns.
+// Flush emits any pending buffered event synchronously and stops the pending
+// timer. Safe to call multiple times. Callers MUST defer Flush after
+// constructing the publisher so the terminal percentage reaches the master even
+// on error returns.
 func (p *DebouncedInstallProgressPublisher) Flush() {
 	p.mu.Lock()
 	if p.timer != nil {
@@ -115,6 +130,6 @@ func (p *DebouncedInstallProgressPublisher) Flush() {
 	p.pending = nil
 	p.mu.Unlock()
 	if pending != nil {
-		_ = p.client.Publish(p.subject, *pending)
+		p.emit(*pending)
 	}
 }
