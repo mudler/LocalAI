@@ -47,12 +47,16 @@ func PeerHandler(token string, onSession func(peerID string, sess *yamux.Session
 		// token (every worker holds it, and it is the same token that
 		// authenticates registration): it can relay to every worker tunnel this
 		// replica owns, reaching every backend gRPC process and every worker's
-		// file-transfer server; and by declaring a legitimate replica's id it
-		// can make SessionStore.Accept evict that replica's inbound link, at
-		// will. Neither is a new capability in KIND - before workers stopped
-		// listening, a holder of that token could already dial any worker's
-		// advertised ports directly - but the token is now the only thing
-		// between an attacker and the whole fleet's tunnels.
+		// file-transfer server; by declaring a legitimate replica's id it can
+		// make SessionStore.Accept evict that replica's inbound link, at will;
+		// and it can aim the per-session receive window, which PeerLinkConfig
+		// sizes at roughly 31 GiB of unread data per session, at one replica's
+		// memory. The first two are not new capabilities in KIND - before
+		// workers stopped listening, a holder of that token could already dial
+		// any worker's advertised ports directly - but the token is now the
+		// only thing between an attacker and the whole fleet's tunnels, and the
+		// third is a figure written down as sizing guidance that is also a
+		// budget on a route this open.
 		//
 		// It is deferred rather than patched, because the cheap patch does not
 		// work: checking ?id= against the instances table stops an invented id
