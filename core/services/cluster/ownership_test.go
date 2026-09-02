@@ -491,6 +491,26 @@ var _ = Describe("Connection ownership", func() {
 				"a replica that only just noticed its dead socket marked a live tunnel as departed")
 		})
 
+		It("refuses a release that names no owner, so a recorded departure cannot be aged backwards", func() {
+			// A departed row keeps the epoch of the claim that left, and its
+			// owner is the empty string, so a release naming an empty owner
+			// matches it on both columns. Stamping a fresh departure there would
+			// make a worker that left long ago look like one that has only just
+			// gone, which is the difference every window above is measured from.
+			epoch, err := reg.Claim(ctx, "w1", "inst-a")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reg.Release(ctx, "w1", "inst-a", epoch)).To(Succeed())
+			var before cluster.NodeConnection
+			Expect(db.WithContext(ctx).Where("node_id = ?", "w1").First(&before).Error).To(Succeed())
+
+			Expect(reg.Release(ctx, "w1", "", epoch)).To(MatchError(cluster.ErrNoConnection))
+
+			var after cluster.NodeConnection
+			Expect(db.WithContext(ctx).Where("node_id = ?", "w1").First(&after).Error).To(Succeed())
+			Expect(after.DisconnectedAt).ToNot(BeNil())
+			Expect(*after.DisconnectedAt).To(Equal(*before.DisconnectedAt))
+		})
+
 		It("purges a departure older than the retention and keeps a recent one", func() {
 			oldEpoch, err := reg.Claim(ctx, "old", "inst-a")
 			Expect(err).ToNot(HaveOccurred())

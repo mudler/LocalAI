@@ -178,6 +178,56 @@ var _ = Describe("Reaping dead replicas", func() {
 		Expect(owner).To(Equal("staying"), "deregistering one replica took another replica's claim")
 	})
 
+	It("does not restamp a departure when a replica with no id deregisters", func() {
+		// Deregister matches an owner id, and a departed row carries an empty
+		// one, so an empty id would match every departure in the table and reset
+		// each one's age. Nothing generates an empty id today, which is exactly
+		// why the filter has to be in the query rather than in that habit.
+		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1")).To(Succeed())
+		epoch, err := reg.Claim(ctx, "w1", "leaving")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reg.Release(ctx, "w1", "leaving", epoch)).To(Succeed())
+		var before cluster.NodeConnection
+		Expect(db.WithContext(ctx).Where("node_id = ?", "w1").First(&before).Error).To(Succeed())
+
+		Expect(reg.Deregister(ctx, "")).To(Succeed())
+
+		var after cluster.NodeConnection
+		Expect(db.WithContext(ctx).Where("node_id = ?", "w1").First(&after).Error).To(Succeed())
+		Expect(after.DisconnectedAt).ToNot(BeNil())
+		Expect(*after.DisconnectedAt).To(Equal(*before.DisconnectedAt),
+			"a departure that had already been recorded was stamped again, so its age restarted")
+	})
+
+	It("purges a departure that has aged past the retention, from the loop that sweeps it", func() {
+		// The retention exists only if something applies it, and this loop is
+		// the only thing that does. A PurgeDepartedBefore nobody calls leaves a
+		// row per worker that ever dialled this deployment, which is the state
+		// the sweep's held-ness filter exists to make reachable in the first
+		// place.
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		epoch, err := reg.Claim(ctx, "w1", "me")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reg.Release(ctx, "w1", "me", epoch)).To(Succeed())
+		// Aged on the database clock, past the retention the loop applies.
+		Expect(db.WithContext(ctx).Exec(
+			`UPDATE node_connections SET disconnected_at = now() - make_interval(secs => ?) WHERE node_id = ?`,
+			(cluster.DepartedRetention + time.Minute).Seconds(), "w1").Error).To(Succeed())
+
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		Expect(membership.Start(ctx)).To(Succeed())
+		DeferCleanup(membership.Stop)
+
+		// Polled rather than slept: the loop ticks on its own schedule, and the
+		// spec is about the call happening at all, not about when.
+		Eventually(func() (int64, error) {
+			var rows int64
+			err := db.WithContext(ctx).Model(&cluster.NodeConnection{}).Count(&rows).Error
+			return rows, err
+		}, "20s", "250ms").Should(BeZero(),
+			"the loop that sweeps dead replicas never applied the departure retention")
+	})
+
 	It("deregisters when the membership loop stops", func() {
 		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
 		Expect(membership.Start(ctx)).To(Succeed())

@@ -70,8 +70,16 @@ type NodeConnection struct {
 	// liveness clock for the owner: whether the OWNING replica is alive is
 	// still Instance.LastSeen and nothing else. It ticks once, on departure.
 	//
-	// Null while the row is held, and stamped on the database clock by whoever
-	// records the departure, so a row with an owner never also carries one.
+	// Every writer in this package leaves it null while the row is held: Claim
+	// clears it in the statement that writes the owner, and only a departure
+	// sets it. That is a property of these writers, not of the table, and a
+	// mixed-version deployment breaks it: a replica running a binary from
+	// before this column existed claims without clearing the stamp, so a held
+	// row can carry the departure a newer replica recorded.
+	//
+	// So held-ness is the question, and the stamp only refines it. Ask
+	// connectionIsHeld first and read this second; a reader that reads the
+	// stamp alone reports a connected worker as gone.
 	DisconnectedAt *time.Time `gorm:"index" json:"disconnected_at,omitempty"`
 }
 
@@ -83,8 +91,11 @@ type NodeConnection struct {
 // drift, and the drift here would show up as a departed worker resolving to a
 // replica that holds nothing.
 //
-// Deregister is the one write that does not use it, because it matches an owner
-// id, which is narrower: a departed row carries no owner and so cannot match.
+// The writes ask it too, and for the same reason Owner does rather than leaning
+// on its join: Release and Deregister already match an owner id, but that only
+// excludes a departed row while no owner id is ever empty, which is an accident
+// of who registers. An empty one would match every departure in the table and
+// reset its age.
 //
 // The column is table-qualified because Owner reads it across a join, where an
 // unqualified name is ambiguous; qualifying it costs the single-table readers
@@ -340,7 +351,11 @@ func (r *Registry) Release(ctx context.Context, nodeID, ownerID string, epoch in
 	// read off RowsAffected.
 	res := r.db.WithContext(ctx).
 		Model(&NodeConnection{}).
-		Where("node_id = ? AND owner_instance_id = ? AND epoch = ?", nodeID, ownerID, epoch).
+		// The held-ness filter is not implied by the owner match: a departed row
+		// keeps its epoch, so a release naming an empty owner would match it and
+		// stamp a fresh departure over the old one, making a worker that left
+		// long ago look like one that has only just gone.
+		Where("node_id = ? AND owner_instance_id = ? AND epoch = ? AND "+connectionIsHeld, nodeID, ownerID, epoch).
 		Updates(departure())
 	if res.Error != nil {
 		return fmt.Errorf("releasing connection for node %q held by %q at epoch %d: %w", nodeID, ownerID, epoch, res.Error)
