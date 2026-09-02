@@ -41,8 +41,11 @@ func (r *SmartRouter) nodeAnswersOnBus(node *BackendNode) bool {
 	return !errors.Is(err, nats.ErrNoResponders)
 }
 
-// pickReachableNode calls selectNode until it yields a node that still answers
-// on the bus, and returns nil when it cannot find one.
+// pickReachableNode calls selectNode until it yields a node that nodeAnswersOnBus
+// does not exclude, and returns nil when it cannot find one.
+//
+// No control-RPC outcome excludes, so today this returns the first node the
+// selector offers. The loop stays until the scheduler reads cluster.Presence.
 //
 // A node that does not answer is marked unhealthy before the next attempt. That
 // both removes it from the next selection, which queries only healthy nodes,
@@ -57,7 +60,7 @@ func (r *SmartRouter) pickReachableNode(ctx context.Context, selectNode func() *
 		if r.nodeAnswersOnBus(node) {
 			return node
 		}
-		xlog.Warn("Scheduled node is not answering on the bus, marking unhealthy and re-scheduling",
+		xlog.Warn("Scheduled node was excluded by the liveness probe, marking unhealthy and re-scheduling",
 			"node", node.Name, "nodeID", node.ID)
 		if err := r.registry.MarkUnhealthy(ctx, node.ID); err != nil {
 			// Without the demotion the next selection would hand back the same

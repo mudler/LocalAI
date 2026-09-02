@@ -947,6 +947,29 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			Expect(rows[0].Attempts).To(Equal(1))
 		})
 
+		// A failed op must not DEMOTE the node, and this is the second of the
+		// rule's three call sites. Marking unhealthy here takes the node out of
+		// ListDuePendingBackendOps and out of scheduling at the same time, so a
+		// frontend replica that has just lost its tunnels would evict every node
+		// with a queued op, fleet-wide, for a reason that is about the frontend.
+		//
+		// The surviving row is the negative control: it witnesses that the drain
+		// actually ran and actually failed, so "still healthy" cannot pass by
+		// nothing having happened.
+		It("does NOT demote a node whose queued op it could not route", func() {
+			workers.scriptUnroutable(node.ID)
+
+			rc.drainPendingBackendOps(context.Background())
+
+			rows := queuedOps()
+			Expect(rows).To(HaveLen(1), "the drain must have run and failed")
+			Expect(rows[0].Attempts).To(Equal(1))
+
+			after, err := registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(after.Status).To(Equal(StatusHealthy))
+		})
+
 		// The same rule for the other non-answer: no route at all. The install
 		// is unreachable too here, so the witness is the error the drain
 		// RECORDED, which names the verb that actually failed.
