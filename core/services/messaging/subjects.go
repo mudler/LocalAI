@@ -279,30 +279,6 @@ type BackendStopRequest struct {
 	Force   bool   `json:"force,omitempty"`
 }
 
-// BackendStopReply is the worker's answer to a backend.stop request.
-//
-// backend.stop had no reply until this type existed. The controller published
-// and returned success as soon as the local publish succeeded, so a stop that
-// killed nothing, and a stop that failed outright, both looked identical to a
-// stop that worked. An operator calling the unload endpoint got HTTP 200 while
-// the backend kept running and holding its VRAM.
-type BackendStopReply struct {
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
-
-	// StoppedProcessKeys names every `modelID#replica` process the worker
-	// terminated while serving this request.
-	StoppedProcessKeys []string `json:"stopped_process_keys,omitempty"`
-
-	// ReportsStoppedProcesses distinguishes "this worker enumerates what it
-	// stopped and stopped nothing" from "this worker predates the field", the
-	// same way BackendDeleteReply does. Both send an empty list and only the
-	// first is authoritative, so a controller that cannot tell them apart would
-	// read silence as a completed stop — the exact conclusion this reply exists
-	// to prevent.
-	ReportsStoppedProcesses bool `json:"reports_stopped_processes,omitempty"`
-}
-
 // SubjectNodeBackendStop tells an AGENT worker that a backend is going away, so
 // it can close the MCP sessions it cached for that backend.
 //
@@ -400,38 +376,9 @@ type RunningModelInfo struct {
 	Address      string `json:"address,omitempty"`
 }
 
-// File Staging (Request-Reply — targeted to specific nodes)
-// These subjects use request-reply for synchronous file operations.
-
-// SubjectNodeFilesEnsure tells a serve-backend node to download an S3 key to its local cache.
-// Reply: {local_path, error}
-func SubjectNodeFilesEnsure(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.ensure"
-}
-
-// SubjectNodeFilesStage tells a serve-backend node to upload a local file to S3.
-// Reply: {key, error}
-func SubjectNodeFilesStage(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.stage"
-}
-
-// SubjectNodeFilesRelease tells a serve-backend node to evict one request's ephemeral cache keys.
-// Reply: {error}
-func SubjectNodeFilesRelease(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.release"
-}
-
-// SubjectNodeFilesTemp tells a serve-backend node to allocate a temp file.
-// Reply: {local_path, error}
-func SubjectNodeFilesTemp(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.temp"
-}
-
-// SubjectNodeFilesListDir tells a serve-backend node to list files in a directory.
-// Reply: {files: [...], error}
-func SubjectNodeFilesListDir(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.listdir"
-}
+// File staging is no longer carried here. The four nodes.<id>.files.* subjects
+// are HTTP routes under workerctl.Prefix, served on the worker's own server and
+// reached through its tunnel, so no subject is minted for them.
 
 // Cache Invalidation (Pub/Sub — broadcast to all instances)
 const (
@@ -484,28 +431,7 @@ const subjectSyncStatePrefix = "state."
 const (
 	SubjectPrefixCacheObserve    = "prefixcache.observe"
 	SubjectPrefixCacheInvalidate = "prefixcache.invalidate"
-	SubjectPrefixCachePressure   = "prefixcache.pressure"
-	SubjectPrefixCacheResidency  = "prefixcache.residency"
 )
-
-// PrefixCacheOperation describes a backend-reported KV-cache residency change.
-type PrefixCacheOperation string
-
-const (
-	PrefixCacheStore  PrefixCacheOperation = "store"
-	PrefixCacheRemove PrefixCacheOperation = "remove"
-	PrefixCacheClear  PrefixCacheOperation = "clear"
-)
-
-// PrefixCacheResidencyEvent reports exact backend KV-cache residency. Chain is
-// the compatible shallow-to-deep prefix hash chain used by the router.
-type PrefixCacheResidencyEvent struct {
-	Operation PrefixCacheOperation `json:"operation"`
-	Model     string               `json:"model"`
-	NodeID    string               `json:"node_id"`
-	Replica   int                  `json:"replica"`
-	Chain     []uint64             `json:"chain,omitempty"`
-}
 
 // PrefixCacheObserveEvent announces that the replica (NodeID, Replica) served a
 // request whose prefix chain ends at the given hashes for model. Chain is the
@@ -527,13 +453,4 @@ type PrefixCacheInvalidateEvent struct {
 	Model   string `json:"model"`
 	NodeID  string `json:"node_id"`
 	Replica int    `json:"replica"`
-}
-
-// PrefixCachePressureEvent announces one forced-disturb observed by a frontend.
-// ID lets the publisher ignore its own NATS echo and all frontends ignore
-// redelivery without inflating the autoscale signal.
-type PrefixCachePressureEvent struct {
-	ID    string `json:"id"`
-	Model string `json:"model"`
-	Reset bool   `json:"reset,omitempty"`
 }
