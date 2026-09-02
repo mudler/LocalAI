@@ -72,6 +72,26 @@ var _ = Describe("extra authenticated routes on the worker HTTP server", func() 
 		Expect(get("/healthz", "").StatusCode).To(Equal(http.StatusOK))
 	})
 
+	It("refuses to start when a route set names no prefix", func() {
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = lis.Close() })
+		dir := GinkgoT().TempDir()
+		_, err = StartFileTransferServerWithRoutes(lis, dir, dir, dir, token, 0, nil,
+			&AuthenticatedRoutes{Register: func(*http.ServeMux) {}})
+		Expect(err).To(MatchError(ContainSubstring("prefix")))
+	})
+
+	It("refuses to start when a route set names no registrar", func() {
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = lis.Close() })
+		dir := GinkgoT().TempDir()
+		_, err = StartFileTransferServerWithRoutes(lis, dir, dir, dir, token, 0, nil,
+			&AuthenticatedRoutes{Prefix: "/v1/control/"})
+		Expect(err).To(MatchError(ContainSubstring("registrar")))
+	})
+
 	It("mounts nothing when no route set is given", func() {
 		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		Expect(err).NotTo(HaveOccurred())
