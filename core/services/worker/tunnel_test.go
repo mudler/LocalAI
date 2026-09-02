@@ -444,6 +444,48 @@ var _ = Describe("Worker tunnel client", func() {
 			Expect(cluster.IsWorkerAnswer(got)).To(BeFalse())
 		})
 
+		DescribeTable("keeps a classification the local service already made",
+			// The latent instance of the same shape, found by the gate rather
+			// than by anything reaching it. This function preserved exactly ONE
+			// of the four codes, which was faithful to its own comment for as
+			// long as there was one worth keeping. Once ErrStreamNotServed
+			// existed, a service returning the code whose whole job is to say
+			// "I learned nothing" had it PROMOTED to ErrStreamTargetUnavailable,
+			// which every reap guard acts on.
+			//
+			// No in-tree service produced it, which is the "unreachable,
+			// therefore safe" argument that let the request-frame merge survive
+			// a whole phase. LocalService and TunnelConfig.Services are both
+			// exported, so out-of-tree is a real place, and the same standard
+			// applies.
+			func(classified error, wantEvidence bool) {
+				frontend = newFakeFrontend(false)
+				start(func(c *TunnelConfig) {
+					c.Services[cluster.StreamTagGRPC] = func(context.Context, string) (net.Conn, error) {
+						return nil, fmt.Errorf("the service decided for itself: %w", classified)
+					}
+				})
+
+				stream, err := session().OpenStream(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cluster.WriteStreamRequest(stream, cluster.StreamTagGRPC, "127.0.0.1:41000")).To(Succeed())
+
+				reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+				var got error
+				Eventually(reply, "10s").Should(Receive(&got))
+				Expect(got).To(MatchError(classified),
+					"re-classifying overwrites a decision made closer to the failure")
+				Expect(cluster.IsWorkerAnswer(got)).To(Equal(wantEvidence))
+			},
+			// The one the promotion broke: not evidence before, evidence after.
+			Entry("I learned nothing", cluster.ErrStreamNotServed, false),
+			// Promoted too. Both sides reap, so it cost nothing, which is
+			// exactly why nothing caught it.
+			Entry("I do not serve that tag", cluster.ErrStreamTagUnknown, true),
+			Entry("that request was malformed", cluster.ErrStreamRequestInvalid, true),
+			Entry("I could not reach the target", cluster.ErrStreamTargetUnavailable, true),
+		)
+
 		It("still reports a refused local dial as an unavailable target, which reaps", func() {
 			// The other direction for the deny-list: the ordinary shape of a
 			// crashed backend must keep producing the code the reap guards act
