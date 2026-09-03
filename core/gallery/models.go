@@ -622,35 +622,41 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		lconfig.ApplyInferenceDefaults(&modelConfig, name, modelConfig.Model)
 
 		// Merge inference defaults into configMap so they are persisted without losing unknown fields.
+		defaults := make(map[string]any)
 		if modelConfig.Temperature != nil {
-			if _, exists := configMap["temperature"]; !exists {
-				configMap["temperature"] = *modelConfig.Temperature
-			}
+			defaults["temperature"] = *modelConfig.Temperature
 		}
 		if modelConfig.TopP != nil {
-			if _, exists := configMap["top_p"]; !exists {
-				configMap["top_p"] = *modelConfig.TopP
-			}
+			defaults["top_p"] = *modelConfig.TopP
 		}
 		if modelConfig.TopK != nil {
-			if _, exists := configMap["top_k"]; !exists {
-				configMap["top_k"] = *modelConfig.TopK
-			}
+			defaults["top_k"] = *modelConfig.TopK
 		}
 		if modelConfig.MinP != nil {
-			if _, exists := configMap["min_p"]; !exists {
-				configMap["min_p"] = *modelConfig.MinP
-			}
+			defaults["min_p"] = *modelConfig.MinP
 		}
 		if modelConfig.RepeatPenalty != 0 {
-			if _, exists := configMap["repeat_penalty"]; !exists {
-				configMap["repeat_penalty"] = modelConfig.RepeatPenalty
-			}
+			defaults["repeat_penalty"] = modelConfig.RepeatPenalty
 		}
 		if modelConfig.PresencePenalty != 0 {
-			if _, exists := configMap["presence_penalty"]; !exists {
-				configMap["presence_penalty"] = modelConfig.PresencePenalty
+			defaults["presence_penalty"] = modelConfig.PresencePenalty
+		}
+		if len(defaults) > 0 {
+			parameters, ok := configMap["parameters"].(map[string]any)
+			if !ok {
+				parameters = make(map[string]any)
+				configMap["parameters"] = parameters
 			}
+			for key, value := range defaults {
+				if _, exists := parameters[key]; !exists {
+					parameters[key] = value
+				}
+			}
+		}
+
+		updatedConfigYAML, err = yaml.Marshal(configMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
 		}
 
 		if valid, err := modelConfig.Validate(); !valid {
