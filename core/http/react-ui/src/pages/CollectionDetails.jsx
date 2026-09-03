@@ -432,10 +432,12 @@ export default function CollectionDetails() {
               <input
                 id="source-interval"
                 className="input"
-                type="text"
+                type="number"
+                min="1"
+                step="1"
                 value={newSourceInterval}
                 onChange={(e) => setNewSourceInterval(e.target.value)}
-                placeholder="e.g. 1h, 30m"
+                placeholder="e.g. 60 (minutes)"
               />
             </div>
             <button className="btn btn-primary" type="submit" disabled={!newSourceUrl.trim() || addingSource}>
