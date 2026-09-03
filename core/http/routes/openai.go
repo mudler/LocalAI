@@ -238,6 +238,8 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 
 	app.POST("/v1/audio/speech", audioSpeechHandler, audioSpeechMiddleware...)
 	app.POST("/audio/speech", audioSpeechHandler, audioSpeechMiddleware...)
+	app.GET("/v1/audio/voices", localai.TTSVoicesEndpoint(application.ModelConfigLoader(), application.AuthDB()))
+	app.GET("/audio/voices", localai.TTSVoicesEndpoint(application.ModelConfigLoader(), application.AuthDB()))
 
 	// images
 	imageHandler := openai.ImageEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())

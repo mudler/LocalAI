@@ -33,6 +33,15 @@ definitions:
         description: NotBefore is an RFC3339 timestamp. Empty disables the time check.
         type: string
     type: object
+  config.TTSVoice:
+    properties:
+      gender:
+        type: string
+      language:
+        type: string
+      name:
+        type: string
+    type: object
   functions.Function:
     properties:
       description:
@@ -430,6 +439,22 @@ definitions:
         type: integer
       success:
         type: boolean
+    type: object
+  localai.TTSModelVoices:
+    properties:
+      model:
+        type: string
+      voices:
+        items:
+          $ref: '#/definitions/config.TTSVoice'
+        type: array
+    type: object
+  localai.TTSVoicesResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/localai.TTSModelVoices'
+        type: array
     type: object
   localai.UpdateMaxReplicasPerModelRequest:
     properties:
@@ -4973,6 +4998,29 @@ paths:
               type: string
             type: object
       summary: Transcribes audio into the input language.
+      tags:
+      - audio
+  /v1/audio/voices:
+    get:
+      description: List named voices and their language and gender metadata. Use the
+        optional model query parameter to filter the response.
+      parameters:
+      - description: Installed model name
+        in: query
+        name: model
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.TTSVoicesResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List text-to-speech voices
       tags:
       - audio
   /v1/chat/completions:

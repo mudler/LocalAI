@@ -878,6 +878,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "input",
 			Order:       91,
 		},
+		"tts.voices": {
+			Section:     "tts",
+			Label:       "Named Voices",
+			Description: "Named voices that this model accepts. Each entry requires a name and can include language and gender metadata.",
+			Component:   "json-editor",
+			Order:       92,
+		},
 
 		// --- Diffusers ---
 		"diffusers.pipeline_type": {
