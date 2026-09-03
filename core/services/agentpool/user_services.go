@@ -29,9 +29,9 @@ type UserServicesManager struct {
 	// Shared distributed backends (set once, inherited by per-user job services)
 	jobDispatcher DistributedDispatcher
 	jobDBStore    *jobs.JobStore
-	// jobNats keeps per-user agent tasks consistent across replicas (nil in
+	// jobBus keeps per-user agent tasks consistent across replicas (nil in
 	// standalone). Inherited by each per-user AgentJobService.
-	jobNats messaging.MessagingClient
+	jobBus messaging.Broadcaster
 }
 
 // NewUserServicesManager creates a new UserServicesManager.
@@ -166,10 +166,14 @@ func (m *UserServicesManager) GetJobs(userID string) (*AgentJobService, error) {
 	if m.jobDispatcher != nil {
 		svc.SetDistributedBackends(m.jobDispatcher)
 	}
-	// Inherit the NATS client so per-user tasks broadcast across replicas. Must be
-	// set before the hydrate below (LoadFromDB / LoadTasksFromFile) so the tasks
-	// SyncedMap is rebuilt with the client while it is still empty.
-	svc.SetTaskSyncNATS(m.jobNats)
+	// Inherit the broadcast carrier so per-user tasks fan out across replicas.
+	// Must be set before the hydrate below (LoadFromDB / LoadTasksFromFile) so the
+	// tasks SyncedMap is rebuilt with the carrier while it is still empty.
+	//
+	// This is a second wiring site for the same rule, and it is the one that is
+	// invisible: fixing the global service alone leaves every tenant's map on
+	// whatever carrier this manager was handed, with nothing failing.
+	svc.SetTaskSyncBus(m.jobBus)
 	if m.jobDBStore != nil {
 		svc.SetDistributedJobStore(m.jobDBStore)
 		// Load tasks/jobs from DB immediately (per-user services skip Start())
@@ -197,10 +201,11 @@ func (m *UserServicesManager) SetJobDBStore(s *jobs.JobStore) {
 	m.jobDBStore = s
 }
 
-// SetJobSyncNATS sets the NATS client used to keep per-user agent tasks consistent
-// across replicas.
-func (m *UserServicesManager) SetJobSyncNATS(nats messaging.MessagingClient) {
-	m.jobNats = nats
+// SetJobSyncBus sets the broadcast carrier used to keep per-user agent tasks
+// consistent across replicas. Every per-user service built afterwards inherits
+// it; see the call in the builder above.
+func (m *UserServicesManager) SetJobSyncBus(bus messaging.Broadcaster) {
+	m.jobBus = bus
 }
 
 // ListAllUserIDs returns all user IDs that have scoped data directories.

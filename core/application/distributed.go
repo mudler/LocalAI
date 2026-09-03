@@ -733,6 +733,33 @@ func requireBroadcastCarrier(ds *DistributedServices) error {
 	return nil
 }
 
+// Broadcast is the ONE place a wiring site gets the deployment's fan-out
+// carrier, and it exists so that "this family travels on the broadcast carrier
+// and not on NATS" is decided once instead of at every adopter.
+//
+// It was five sites before this: the fine-tune service, the quantization
+// service, the agent-task setter (twice, on two startup paths), the per-user
+// services manager and the Open Responses store. Every one of them takes a
+// messaging.Broadcaster, and *messaging.Client satisfies that interface too, so
+// a site left holding ds.Nats compiles, starts, publishes and is delivered -
+// onto a carrier the deployment is being taken off. Nothing would fail until
+// NATS went away. Collapsing the choice to one function makes it a fact a spec
+// can pin, which five scattered field reads were not.
+//
+// The return is the interface and not *pgbus.Bus on purpose: handing a nil
+// *pgbus.Bus to an adopter would produce a non-nil interface wrapping a nil
+// pointer, and every adopter reads a nil carrier as "standalone, do not
+// broadcast". A typed nil would instead panic on the first Set. initDistributed
+// already refuses to return a deployment with no carrier (see
+// requireBroadcastCarrier), so the nil branch here is belt and braces for a
+// zero-valued struct in a test.
+func (ds *DistributedServices) Broadcast() messaging.Broadcaster {
+	if ds == nil || ds.Bus == nil {
+		return nil
+	}
+	return ds.Bus
+}
+
 // newBroadcastBus opens the deployment's fan-out carrier on the auth database.
 //
 // The DSN is cfg.Auth.DatabaseURL and it may never be anything else. A second

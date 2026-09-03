@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/distributed"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
@@ -22,7 +23,7 @@ import (
 // The model/config loaders are nil because the read/sync paths under test never
 // touch them; the data dir is a throwaway temp dir so the disk Loader finds
 // nothing.
-func newTestService(bus *testutil.FakeBus) *QuantizationService {
+func newTestService(bus messaging.Broadcaster) *QuantizationService {
 	appConfig := &config.ApplicationConfig{
 		Context:  context.Background(),
 		DataPath: GinkgoT().TempDir(),
@@ -77,6 +78,29 @@ var _ = Describe("QuantizationService", func() {
 
 			_, err = b.GetJob("user-1", "job-2")
 			Expect(err).To(HaveOccurred(), "a delete on A must remove the job from B")
+		})
+
+		It("publishes on the carrier it was handed, and on the quantization family's own subject", func() {
+			// S2 in the wiring table. The negative half is the one that matters:
+			// finetune and quant land on the SAME LISTEN channel in distributed
+			// mode, so the subject is all that separates them.
+			job := &schema.QuantizationJob{ID: "job-subject", UserID: "user-1", Status: "queued", CreatedAt: "2026-06-27T10:00:00Z"}
+			Expect(a.jobs.Set(ctx, job)).To(Succeed())
+
+			Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("quant.jobs"))).To(Equal(1))
+			Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("finetune.jobs"))).To(Equal(0))
+		})
+
+		It("broadcasts nothing at all when it is built with no carrier", func() {
+			solo := newTestService(nil)
+			DeferCleanup(func() { Expect(solo.Close()).To(Succeed()) })
+
+			Expect(solo.jobs.Set(ctx, &schema.QuantizationJob{ID: "solo", UserID: "u", CreatedAt: "2026-06-27T10:00:00Z"})).To(Succeed())
+			Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("quant.jobs"))).To(Equal(0))
+
+			got, err := solo.GetJob("u", "solo")
+			Expect(err).ToNot(HaveOccurred(), "a carrier-less service must still serve its own reads")
+			Expect(got.ID).To(Equal("solo"))
 		})
 
 		It("propagates a status update from A to B", func() {

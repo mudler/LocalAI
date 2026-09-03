@@ -58,7 +58,7 @@ var _ = Describe("DELETE /api/agent/tasks/:id across tenants", func() {
 		mine := app.AgentJobService()
 		Expect(mine).ToNot(BeNil())
 		mine.SetUserID("u1")
-		mine.SetTaskSyncNATS(bus)
+		mine.SetTaskSyncBus(bus)
 		Expect(mine.LoadTasksFromFile()).To(Succeed())
 
 		otherDir := GinkgoT().TempDir()
@@ -70,7 +70,7 @@ var _ = Describe("DELETE /api/agent/tasks/:id across tenants", func() {
 		other = agentpool.NewAgentJobServiceWithPaths(otherCfg, nil, nil, nil,
 			filepath.Join(otherDir, "tasks.json"), filepath.Join(otherDir, "jobs.json"))
 		other.SetUserID("u2")
-		other.SetTaskSyncNATS(bus)
+		other.SetTaskSyncBus(bus)
 		Expect(other.LoadTasksFromFile()).To(Succeed())
 
 		taskID, err = other.CreateTask(schema.Task{Name: "u2 only", Model: "m", Prompt: "p"})

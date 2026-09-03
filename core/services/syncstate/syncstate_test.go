@@ -23,6 +23,12 @@ func jobKey(j *job) string { return j.ID }
 
 const stateName = "test.jobs"
 
+// The retype this whole change rests on. Config.Bus is messaging.Broadcaster,
+// so anything a spec or a deployment hands it must satisfy that and nothing
+// wider; a fake that quietly needed MessagingClient would mean the component
+// still could not be handed the PostgreSQL carrier.
+var _ messaging.Broadcaster = (*testutil.FakeBus)(nil)
+
 func deltaSubject() string { return messaging.SubjectSyncStateDelta(stateName) }
 
 // fakeStore is an in-memory Store that records call counts so specs can assert
@@ -96,8 +102,8 @@ var _ = Describe("SyncedMap", func() {
 
 		BeforeEach(func() {
 			bus = testutil.NewFakeBus()
-			a = syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
-			b = syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
+			a = syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
+			b = syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
 			Expect(a.Start(ctx)).To(Succeed())
 			Expect(b.Start(ctx)).To(Succeed())
 		})
@@ -157,8 +163,8 @@ var _ = Describe("SyncedMap", func() {
 	Describe("echo-loop guard", func() {
 		It("applies its own broadcast once and does not re-publish", func() {
 			bus := testutil.NewFakeBus()
-			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
-			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
+			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
+			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
 			Expect(a.Start(ctx)).To(Succeed())
 			Expect(b.Start(ctx)).To(Succeed())
 			defer func() {
@@ -183,8 +189,8 @@ var _ = Describe("SyncedMap", func() {
 			bus := testutil.NewFakeBus()
 			storeA := newFakeStore()
 			storeB := newFakeStore()
-			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus, Store: storeA})
-			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus, Store: storeB})
+			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus, Store: storeA})
+			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus, Store: storeB})
 			Expect(a.Start(ctx)).To(Succeed())
 			Expect(b.Start(ctx)).To(Succeed())
 			defer func() {
@@ -215,9 +221,9 @@ var _ = Describe("SyncedMap", func() {
 				ops  []string
 				keys []string
 			)
-			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
+			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
 			b := syncstate.New(syncstate.Config[string, *job]{
-				Name: stateName, Key: jobKey, Nats: bus,
+				Name: stateName, Key: jobKey, Bus: bus,
 				OnApply: func(op string, k string, _ *job) {
 					mu.Lock()
 					ops = append(ops, op)
@@ -242,7 +248,32 @@ var _ = Describe("SyncedMap", func() {
 		})
 	})
 
-	Describe("standalone (nil Nats)", func() {
+	Describe("standalone (nil Bus)", func() {
+		It("registers nothing and broadcasts nothing, and still serves reads from hydrate", func() {
+			// The bus exists in this spec and is deliberately NOT handed over.
+			// Zero publishes and zero subscribers is the assertion: "nothing was
+			// delivered" cannot tell a strict no-op apart from a subscription
+			// nobody happened to publish to, and a component that reached for a
+			// carrier of its own would pass that weaker check.
+			bus := testutil.NewFakeBus()
+			store := newFakeStore(&job{ID: "seeded", Status: "completed"})
+
+			m := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Store: store})
+			Expect(m.Start(ctx)).To(Succeed())
+			defer func() { Expect(m.Close()).To(Succeed()) }()
+
+			Expect(bus.Subscribers()).To(Equal(0), "a standalone map must register no subscription anywhere")
+
+			got, ok := m.Get("seeded")
+			Expect(ok).To(BeTrue(), "hydrate must serve reads with no carrier at all")
+			Expect(got.Status).To(Equal("completed"))
+			Expect(m.List()).To(HaveLen(1))
+
+			Expect(m.Set(ctx, &job{ID: "local", Status: "running"})).To(Succeed())
+			Expect(m.Delete(ctx, "seeded")).To(Succeed())
+			Expect(bus.PublishCount(deltaSubject())).To(Equal(0), "a standalone map must not broadcast")
+		})
+
 		It("works in-memory with no panic and nothing to broadcast", func() {
 			m := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey})
 			Expect(m.Start(ctx)).To(Succeed())
@@ -268,7 +299,7 @@ var _ = Describe("SyncedMap", func() {
 		It("re-reads the source when the messaging client reconnects", func() {
 			bus := testutil.NewFakeBus()
 			store := newFakeStore(&job{ID: "init", Status: "running"})
-			m := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus, Store: store})
+			m := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus, Store: store})
 			Expect(m.Start(ctx)).To(Succeed())
 			defer func() { Expect(m.Close()).To(Succeed()) }()
 
@@ -305,7 +336,7 @@ var _ = Describe("SyncedMap per-tenant subjects", func() {
 		m := syncstate.New(syncstate.Config[string, *job]{
 			Name:      stateName,
 			Key:       jobKey,
-			Nats:      bus,
+			Bus:       bus,
 			PerTenant: true,
 			Tenant:    tenant,
 		})
@@ -437,8 +468,8 @@ var _ = Describe("SyncedMap per-tenant subjects", func() {
 			// finetune.jobs, quantization and the responses store are unscoped
 			// adopters. Pin that this change moved none of them.
 			bus := testutil.NewFakeBus()
-			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
-			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
+			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
+			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
 			Expect(a.Start(ctx)).To(Succeed())
 			Expect(b.Start(ctx)).To(Succeed())
 			tenant := newTenantMap(bus, "u1")

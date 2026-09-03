@@ -5,9 +5,18 @@
 // that is surfaced to the HTTP/UI API; without cross-replica sync a poll that
 // lands on a replica which did not originate a change sees stale or missing data.
 // SyncedMap collapses the three legs each feature otherwise hand-wires - an
-// in-memory map, a NATS broadcast/apply path, and optional durable read-through -
-// into one well-tested component so cross-replica consistency is a configuration
-// choice rather than a bespoke re-implementation.
+// in-memory map, a broadcast/apply path over the deployment's fan-out carrier,
+// and optional durable read-through - into one well-tested component so
+// cross-replica consistency is a configuration choice rather than a bespoke
+// re-implementation.
+//
+// The carrier is messaging.Broadcaster and nothing narrower, so a deployment
+// can carry these deltas on PostgreSQL LISTEN/NOTIFY. That is not a detail of
+// the transport: LISTEN/NOTIFY is at most once to CONNECTED listeners and never
+// replays, so a map whose only convergence path were the deltas would answer
+// from state it can never repair. Store (or Loader) is what hydrate, the
+// reconnect callback and the reconcile ticker read, and it is the reason a
+// dropped delta is a gap that closes rather than a value that was never set.
 package syncstate
 
 import (
@@ -36,9 +45,20 @@ type Store[K comparable, V any] interface {
 
 // Config configures a SyncedMap.
 type Config[K comparable, V any] struct {
-	Name      string                                 // subject namespace, e.g. "finetune.jobs"
-	Key       func(V) K                              // extract the key from a value
-	Nats      messaging.MessagingClient              // nil => standalone: in-memory only, no broadcast/subscribe
+	Name string    // subject namespace, e.g. "finetune.jobs"
+	Key  func(V) K // extract the key from a value
+
+	// Bus is the fan-out carrier. nil => standalone: in-memory only, no
+	// broadcast and no subscribe.
+	//
+	// It is messaging.Broadcaster rather than messaging.MessagingClient because
+	// this component only ever publishes and subscribes: request/reply and
+	// queue groups are not part of what a replicated map needs, and demanding
+	// them would rule out every carrier that does not have them. The field is
+	// not called Nats because a field of that name holding a PostgreSQL carrier
+	// is a comment that claims more than the code does.
+	Bus messaging.Broadcaster
+
 	Store     Store[K, V]                            // optional read-through persistence
 	Loader    func(ctx context.Context) ([]V, error) // source when there is no Store (e.g. disk reload)
 	OnApply   func(op string, k K, v V)              // optional hook after an applied change (e.g. ShutdownModel)
@@ -144,21 +164,24 @@ func (m *SyncedMap[K, V]) Start(ctx context.Context) error {
 	// goroutines, so it cannot be cancelled or deferred within this scope.
 	m.lifeCtx, m.cancel = context.WithCancel(context.Background()) // #nosec G118 -- cancel is invoked in Close()
 
-	if m.cfg.Nats != nil {
+	if m.cfg.Bus != nil {
 		for _, filter := range m.subscribeFilters() {
-			sub, err := messaging.SubscribeJSON(m.cfg.Nats, filter, m.apply)
+			sub, err := messaging.SubscribeJSON(m.cfg.Bus, filter, m.apply)
 			if err != nil {
 				return err
 			}
 			m.subs = append(m.subs, sub)
 		}
 
-		// nats.go transparently resubscribes on reconnect, but it cannot know we
-		// kept derived in-memory state that may have drifted while the link was
-		// down, so re-hydrate from the durable source. Detected via an optional
-		// interface so MessagingClient itself stays minimal; standalone/test
-		// clients without the method simply fall back to the reconcile ticker.
-		if r, ok := m.cfg.Nats.(interface{ OnReconnect(func()) }); ok {
+		// A carrier that reconnects restores its own registrations, but it
+		// cannot know we kept derived in-memory state that drifted while the
+		// link was down: every delta published in that window was delivered to
+		// the replicas that were connected and to nobody else, and neither
+		// carrier replays. Re-hydrating from the durable source is what turns
+		// that gap into a delay instead of a permanently wrong map. Detected
+		// via an optional interface so Broadcaster itself stays minimal;
+		// carriers without the method fall back to the reconcile ticker.
+		if r, ok := m.cfg.Bus.(interface{ OnReconnect(func()) }); ok {
 			r.OnReconnect(func() {
 				if err := m.hydrate(m.lifeCtx); err != nil {
 					xlog.Warn("syncstate: reconnect re-hydrate failed", "name", m.cfg.Name, "error", err)
@@ -261,12 +284,12 @@ func (m *SyncedMap[K, V]) Snapshot() map[K]V {
 	return out
 }
 
-// publish broadcasts a delta. Standalone (nil Nats) is a strict no-op.
+// publish broadcasts a delta. Standalone (nil Bus) is a strict no-op.
 func (m *SyncedMap[K, V]) publish(op string, k K, v V) {
-	if m.cfg.Nats == nil {
+	if m.cfg.Bus == nil {
 		return
 	}
-	if err := m.cfg.Nats.Publish(m.publishSubject(), delta[K, V]{Op: op, Key: k, Value: v}); err != nil {
+	if err := m.cfg.Bus.Publish(m.publishSubject(), delta[K, V]{Op: op, Key: k, Value: v}); err != nil {
 		xlog.Warn("syncstate: failed to broadcast delta", "name", m.cfg.Name, "op", op, "error", err)
 	}
 }

@@ -38,7 +38,7 @@ Each model gets its own gRPC backend process, so a single worker can serve multi
 ## Prerequisites
 
 - **PostgreSQL** (with pgvector extension recommended for RAG) - used for node registry, job store, auth, and shared state
-  - Each frontend replica holds **one extra PostgreSQL session** beyond its connection pool, pinned for the life of the process, and creates a `bus_messages` table. Both belong to the broadcast carrier that is replacing NATS for cross-replica fan-out. Size `max_connections` for one additional session per frontend replica.
+  - Each frontend replica holds **one extra PostgreSQL session** beyond its connection pool, pinned for the life of the process, and creates a `bus_messages` table. Both belong to the broadcast carrier that is replacing NATS for cross-replica fan-out; it already carries the four `state.*.delta` families (see [Cross-replica in-memory state](#cross-replica-in-memory-state)). Size `max_connections` for one additional session per frontend replica.
   - That session reports an `application_name` of `localai_pgbus_<id>`, so `SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'` counts the replicas currently listening. If the carrier loses its session it redials and re-registers on its own; a broadcast published while it was down is not replayed, which is why nothing that must survive a gap is carried by a broadcast alone.
   - `bus_messages` holds only broadcasts too large for a PostgreSQL notification, and every replica retires rows older than ten minutes. The table is a spill buffer, not a log: it is not a place to read past events from.
 - **NATS** server - used for agent-worker coordination and the frontend's own cross-replica events. **Serve-backend workers do not connect to it at all**: every verb they take, and file staging with it, is an HTTP route on the worker's tunnel. Set no `LOCALAI_NATS_URL` on a `local-ai worker`. The frontend and any `local-ai agent-worker` still need one.
@@ -121,6 +121,25 @@ The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_R
 **The peer link has no per-replica credential yet.** It checks the shared registration token and takes the replica id in `?id=` on trust. Anything already holding that token - every worker holds it - can therefore open a peer link, relay through it to every worker tunnel a replica owns, by declaring another replica's id displace that replica's inbound link, and hold sessions open against the per-session receive window, which the peer-link code sizes at roughly 31 GiB of unread data per session and which on this route is also a memory budget an attacker can point at one replica. Treat `LOCALAI_REGISTRATION_TOKEN` as a cluster-wide secret with the blast radius of the whole fleet: give it its own value per deployment, do not reuse it elsewhere, and keep `/api/cluster/peer` on a network only your replicas and workers can reach. Per-replica credentials for this route are planned.
 {{% /notice %}}
 
+### Cross-replica in-memory state
+
+Several features keep state in a frontend's process memory and surface it over the API: fine-tune jobs, quantization jobs, agent tasks and Open Responses metadata. A round-robin load balancer sends a follow-up request to any replica, so each of those maps is kept current on every replica by a broadcast.
+
+**Those four families travel on PostgreSQL, not on NATS.** Each mutation is a `NOTIFY` on the database the deployment already runs, and each replica holds one `LISTEN` session for it. There is nothing to configure: the carrier uses the same database URL as `--auth-database-url` / `LOCALAI_AUTH_DATABASE_URL`.
+
+| Map | Subject |
+|-----|---------|
+| Fine-tune jobs | `state.finetune-jobs.delta` |
+| Quantization jobs | `state.quant-jobs.delta` |
+| Agent tasks | `state.agent-tasks.delta` and `state.agent-tasks.<user_id>.delta` |
+| Open Responses metadata | `state.responses-metadata.delta` |
+
+Two carrier details are visible to an operator.
+
+**The 8000-byte notification cap.** PostgreSQL refuses a `pg_notify` payload of 8000 bytes or more, and that limit is measured against the whole encoded notification, not just the value being replicated. A broadcast that does not fit is written to the `bus_messages` table and the notification carries the row id instead; the receiving replica reads the row and delivers the original bytes. This is an ordinary path and not an error: a fine-tune job carrying a long training message spills every time. Rows are retired ten minutes after they are written, by every replica, so `bus_messages` is a spill buffer and never a log of past events.
+
+**A broadcast is at most once, and is never replayed.** A `NOTIFY` reaches the sessions that are listening when it is issued and nobody else. A replica whose session was down in that window never receives the change, and no error is reported anywhere. That is why every one of these maps is backed by a durable table: the broadcast says only that something changed, and the table says what it changed to. A replica re-reads its table when its listener reconnects, so a missed delta is a delay and never a value that reads as though it had never been set.
+
 ### Open Responses across replicas
 
 A response created by `POST /v1/responses` is held by the replica that served the request. A round-robin load balancer sends the follow-up poll, the `previous_response_id` chain and the cancel to any replica, so that metadata is replicated to every frontend and is also written to a `response_metadata` table in PostgreSQL.
@@ -135,20 +154,26 @@ What crosses replicas and what does not:
 | Cancellation | The request is, the `CancelFunc` is not | The cancel is forwarded to the owning replica, which holds the function that stops generation |
 | Stream resume buffer (`starting_after`) | No | It is the full token log; replicating it would put every generated token on the bus. A resume request that lands on the wrong replica is refused with an explicit error, never with a silently truncated event list |
 
-**Retention.** Rows carry the expiry of the response they describe, and each replica sweeps expired rows every five minutes. The expiry comes from the Open Responses store TTL, which is **`0` (no expiration) by default**:
+**Retention.** Each replica sweeps dead rows out of `response_metadata` every five minutes, and a row is dead when either of two things is true.
 
-```yaml
-environment:
-  LOCALAI_OPEN_RESPONSES_STORE_TTL: "1h"
-```
+- It carries the expiry of the response it describes, and that expiry has passed. The expiry comes from the Open Responses store TTL, which is `0` (no expiration) by default:
 
-Leave it at `0` in distributed mode and nothing ever expires: `response_metadata` grows for the life of the deployment, and every replica that restarts re-hydrates every response the cluster has ever created. Set a TTL that matches how long clients are allowed to poll for a response.
+  ```yaml
+  environment:
+    LOCALAI_OPEN_RESPONSES_STORE_TTL: "1h"
+  ```
 
-These rows carry the request body and the generated output, not just identifiers. They live in the same database as the rest of the cluster state, and the TTL above is the only thing that removes them.
+- It carries no expiry, because the TTL is `0`, and it is more than **24 hours** old.
+
+The 24-hour floor is the table's own bound and it is independent of the TTL. A TTL of `0` is a reasonable answer for the in-memory map it governs, which dies with the process; a table has no such bound, so without a floor `response_metadata` would grow for the life of the deployment and every restarting replica would re-hydrate every response the cluster had ever created.
+
+The floor never overrides a TTL you set. A row that names an expiry is judged on that expiry alone, longer or shorter than 24 hours. What the floor bounds is only how long a response stays resolvable **on a replica that did not create it**: the owning replica keeps it in memory for exactly as long as the TTL says. Set a TTL that matches how long clients are allowed to poll for a response.
+
+These rows carry the request body and the generated output, not just identifiers. They live in the same database as the rest of the cluster state.
 
 ### Agent tasks are scoped to their tenant
 
-Every frontend replica keeps agent task definitions in memory so that `GET /api/agent/tasks` answers from any replica. That in-memory copy is kept current by a broadcast on the cluster bus, and the broadcast carries the owning user in the subject:
+Every frontend replica keeps agent task definitions in memory so that `GET /api/agent/tasks` answers from any replica. That in-memory copy is kept current by a broadcast on the PostgreSQL carrier described above, and the broadcast carries the owning user in the subject:
 
 | Map | Subject it publishes on | Subjects it applies |
 |-----|------------------------|---------------------|
