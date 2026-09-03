@@ -301,6 +301,33 @@ var _ = Describe("ResponseStore cross-replica", func() {
 	})
 
 	Describe("wiring", func() {
+		It("publishes response metadata on the carrier it was handed, on the responses family's subject", func() {
+			// S5 in the wiring table. EnableDistributed takes a
+			// messaging.Broadcaster, and route registration hands it the
+			// deployment's broadcast carrier; the subject is asserted by name
+			// because every state.* family shares one LISTEN channel and the
+			// subject is the only thing that separates them.
+			const id = "resp_subject"
+			replicaA.Store(id, &schema.OpenResponsesRequest{Model: "test-model"}, newResponse(id, schema.ORStatusCompleted))
+
+			Expect(bus.PublishCount(messaging.SubjectSyncStateDelta(syncStateName))).To(BeNumerically(">=", 1))
+			Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("finetune.jobs"))).To(Equal(0))
+			Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("agent.tasks"))).To(Equal(0))
+		})
+
+		It("subscribes for delegated cancels on that same carrier", func() {
+			// The second leg EnableDistributed wires. It rides the same carrier
+			// as the metadata map, and a cancel that lands on the wrong replica
+			// reaches nothing without it.
+			solo := NewResponseStore(0)
+			own := testutil.NewFakeBus()
+			Expect(solo.EnableDistributed(ctx, own, "replica-solo", store)).To(Succeed())
+			DeferCleanup(func() { Expect(solo.Close()).To(Succeed()) })
+
+			Expect(own.Subscribers()).To(BeNumerically(">=", 2),
+				"one subscription for the metadata map and one for the cancel wildcard")
+		})
+
 		It("refuses to enable replication without a durable store", func() {
 			// A nil store here is a wiring bug, not a deployment shape: this is
 			// reached only from the distributed branch of route registration.

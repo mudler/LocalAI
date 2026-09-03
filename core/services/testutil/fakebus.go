@@ -43,6 +43,15 @@ type fakeBusSub struct {
 	handler func([]byte)
 }
 
+// The two interfaces this double stands in for. Broadcaster is asserted here
+// and not left to the first adopter: every cross-replica map now takes a
+// messaging.Broadcaster, and a fake that drifted out of that interface would
+// break each adopter's suite in turn rather than the package that owns it.
+var (
+	_ messaging.MessagingClient = (*FakeBus)(nil)
+	_ messaging.Broadcaster     = (*FakeBus)(nil)
+)
+
 // NewFakeBus returns a ready-to-use in-memory bus.
 func NewFakeBus() *FakeBus {
 	return &FakeBus{publishCounts: map[string]int{}}
@@ -72,6 +81,17 @@ func (b *FakeBus) PublishCount(subject string) int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.publishCounts[subject]
+}
+
+// Subscribers reports how many live subscriptions this bus is carrying.
+//
+// It exists so a spec can assert the NEGATIVE: a component configured
+// standalone must register nothing at all, and "nothing was delivered" cannot
+// tell that apart from "a subscription exists and nobody published".
+func (b *FakeBus) Subscribers() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return len(b.subs)
 }
 
 type fakeBusSubscription struct {
