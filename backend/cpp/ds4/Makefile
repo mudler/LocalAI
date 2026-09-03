@@ -18,6 +18,67 @@ UNAME_S := $(shell uname -s)
 
 CMAKE_ARGS ?= -DCMAKE_BUILD_TYPE=Release
 
+# nvcc must be told the target architecture explicitly for a cublas build, and
+# this is not a tuning knob. Upstream's Makefile leaves CUDA_ARCH empty and its
+# `cuda` target REFUSES to build without one, offering `cuda-spark`
+# (CUDA_ARCH=sm_121) and `cuda-generic` (CUDA_ARCH=native) instead. We drive its
+# object targets directly, which bypasses that guard: nvcc then compiles with no
+# -arch at all, and the kernels run as JIT'd PTX for its default architecture.
+# On GB10 (sm_121) that silently produced corrupt inference output above a
+# ~128-token prefill batch and ~77x slower prefill (4.21 t/s vs 325.70 t/s,
+# measured on the same box with the same model). No CI runner has a GPU, so
+# `native` has nothing to enumerate there.
+#
+# Upstream's CUDA_ARCH takes a SINGLE value (see its sm_120/sm_121 special cases
+# and the `-arch=$(CUDA_ARCH)` fallback), so it cannot express the fat binary
+# these images need. NVCC_ARCH_FLAGS is overridden instead: a command-line
+# assignment wins over the `:=` in upstream's Makefile, and its NVCCFLAGS
+# expands whatever we pass.
+#
+# The architecture lists are copied from backend/go/vllm-cpp/Makefile rather
+# than invented, so the two CUDA images cover the same GPUs: amd64 datacenter +
+# consumer, and l4t/arm64 covering Orin (87), Thor (110) and GB10 (121a).
+#
+# -DDS4_CUDA_HAVE_MXF4=1 is deliberately NOT set. Upstream only defines it for
+# single-arch sm_120/sm_121 builds and guards the code with a plain #ifdef
+# rather than __CUDA_ARCH__, so it cannot be combined with older archs in one
+# fat binary. It gates an optional MXFP4 indexer fast path whose #ifndef branch
+# returns 0 and falls back to the generic path, so omitting it costs some speed
+# on GB10, not correctness. Revisit if upstream adds __CUDA_ARCH__ guards.
+#
+# An EMPTY CUDA_MAJOR_VERSION means a local developer build, not CI: fall back
+# to upstream's own `native` handling, which needs a GPU present but is what a
+# developer building on their own machine wants. Both variables are `?=` so an
+# explicit value on the command line always wins.
+UNAME_M := $(shell uname -m)
+CUDA_MAJOR_VERSION ?=
+ifeq ($(BUILD_TYPE),cublas)
+ifeq ($(CUDA_MAJOR_VERSION),13)
+ifeq ($(UNAME_M),aarch64)
+    DS4_NVCC_ARCH_FLAGS ?= -gencode arch=compute_87,code=sm_87 \
+                           -gencode arch=compute_90a,code=sm_90a \
+                           -gencode arch=compute_100a,code=sm_100a \
+                           -gencode arch=compute_110,code=sm_110 \
+                           -gencode arch=compute_121a,code=sm_121a
+else
+    DS4_NVCC_ARCH_FLAGS ?= -gencode arch=compute_80,code=sm_80 \
+                           -gencode arch=compute_86,code=sm_86 \
+                           -gencode arch=compute_89,code=sm_89 \
+                           -gencode arch=compute_90a,code=sm_90a \
+                           -gencode arch=compute_100a,code=sm_100a \
+                           -gencode arch=compute_103a,code=sm_103a \
+                           -gencode arch=compute_120a,code=sm_120a \
+                           -gencode arch=compute_121a,code=sm_121a
+endif
+    DS4_ARCH_MAKEVARS := NVCC_ARCH_FLAGS="$(DS4_NVCC_ARCH_FLAGS)"
+else ifeq ($(CUDA_MAJOR_VERSION),)
+    # Local build: let upstream resolve the host GPU.
+    DS4_ARCH_MAKEVARS := CUDA_ARCH=native
+else
+    $(error CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) has no architecture list here (13 does). Leave it empty for a native build, or pass DS4_NVCC_ARCH_FLAGS explicitly.)
+endif
+endif
+
 # Upstream splits distributed inference, tensor-parallel transport, the SSD
 # expert cache, and layer placement into GPU-agnostic translation units. They
 # are shared by every GPU mode, so append them unconditionally below.
@@ -57,7 +118,7 @@ ds4:
 # the right per-platform compile flags (Objective-C/Metal on Darwin, nvcc on Linux+CUDA).
 ds4/ds4.o: ds4
 ifeq ($(BUILD_TYPE),cublas)
-	+$(MAKE) -C ds4 $(DS4_OBJ_TARGET)
+	+$(MAKE) -C ds4 $(DS4_ARCH_MAKEVARS) $(DS4_OBJ_TARGET)
 else ifeq ($(UNAME_S),Darwin)
 	+$(MAKE) -C ds4 ds4.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
 else

@@ -10,6 +10,7 @@ FROM ${BASE_IMAGE} AS builder
 ARG BUILD_TYPE
 ARG TARGETARCH
 ARG TARGETVARIANT
+ARG CUDA_MAJOR_VERSION
 
 ENV BUILD_TYPE=${BUILD_TYPE} \
     DEBIAN_FRONTEND=noninteractive \
@@ -35,7 +36,8 @@ RUN apt-get update && \
 COPY . /LocalAI
 
 RUN --mount=type=cache,target=/root/.ccache,id=ds4-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
-    make -C /LocalAI/backend/cpp/ds4 BUILD_TYPE=${BUILD_TYPE} NATIVE=false grpc-server package
+    make -C /LocalAI/backend/cpp/ds4 BUILD_TYPE=${BUILD_TYPE} \
+        CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} NATIVE=false grpc-server package
 
 FROM scratch
 COPY --from=builder /LocalAI/backend/cpp/ds4/package/. ./
