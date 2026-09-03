@@ -186,3 +186,12 @@ LocalAI supports various types of backends:
 - **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store)
 
 See the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}) for the full catalog.
+
+### DS4 request cancellation
+
+The DS4 backend stops inference when a client cancels or disconnects, including
+when a streaming response can no longer be written. Already-streamed chunks
+cannot be retracted; DS4 does not flush incomplete buffered parser state or
+persist an abandoned request to the disk KV cache. Cancellation is cooperative:
+DS4 checks it at safe prompt-prefill and decode-loop boundaries, so a GPU kernel
+already in flight may finish before the request stops.
