@@ -573,7 +573,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout handling", func() {
 		// The input has to be an ERROR carrying the phrase. A successful reply
 		// whose Error field carries it comes back with a nil error and never
 		// reaches the classifier at all, so a spec built on one stays green
-		// with the string match restored — which is exactly what the previous
+		// with the string match restored, which is exactly what the previous
 		// version of this spec did.
 		workers := newScriptedControlWorkers()
 		workers.scriptServerError(controlKey("n1", workerctl.PathBackendInstall),

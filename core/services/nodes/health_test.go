@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"time"
@@ -9,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/cluster"
 
 	"github.com/mudler/LocalAI/core/services/testutil"
@@ -33,7 +35,7 @@ var _ = Describe("HealthMonitor", func() {
 
 		// Use a 30-second stale threshold for tests.
 		// Pass nil db to avoid advisory lock path (no distributed mode in tests).
-		hm = NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false)
+		hm = NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, nil, 0)
 	})
 
 	makeNode := func(name, address string, vram uint64) *BackendNode {
@@ -404,5 +406,209 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			hm.doCheckAll(context.Background())
 			Expect(store.getCalls()).NotTo(ContainElement(ContainSubstring("RemoveNodeModel")))
 		})
+	})
+})
+
+// The wedge this check exists to end.
+//
+// A worker's heartbeat says its supervisor is alive. It says nothing about
+// whether anything in this deployment can reach the worker's BACKENDS, because
+// those are reached over the worker's tunnel. Before these specs the two were
+// conflated, and a worker that heartbeated with a permanently dead tunnel (a
+// proxy that stopped upgrading WebSockets, a rotated credential, a reconnect
+// loop longer than the grace) stayed listed HEALTHY forever while every request
+// for a model already loaded on it failed "no route to that worker". No reaper
+// was scheduled for it: every reaper keys on the heartbeat, and the heartbeat
+// was fine.
+//
+// Driven through a real cluster.Registry with the departures aged on the
+// DATABASE clock, because a double that answers a Presence value cannot show
+// that the window is measured where every replica agrees on it.
+var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
+	var (
+		ctx      context.Context
+		db       *gorm.DB
+		registry *NodeRegistry
+		clusterR *cluster.Registry
+		hm       *HealthMonitor
+	)
+
+	const (
+		grace    = 60 * time.Second
+		instance = "inst-health"
+	)
+
+	BeforeEach(func() {
+		if runtime.GOOS == "darwin" {
+			Skip("testcontainers requires Docker, not available on macOS CI")
+		}
+		ctx = context.Background()
+		db = testutil.SetupTestDB()
+		var err error
+		registry, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
+		clusterR = cluster.NewRegistry(db)
+		Expect(clusterR.Register(ctx, instance, "10.0.0.1:8080", "v1")).To(Succeed())
+		hm = NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, clusterR, grace)
+	})
+
+	// register creates a heartbeating backend worker. Its heartbeat stays fresh
+	// for the whole spec, which is the precondition the wedge needs: a stale
+	// heartbeat would take the OTHER branch and prove nothing about this one.
+	register := func(name string) *BackendNode {
+		GinkgoHelper()
+		node := &BackendNode{Name: name, NodeType: NodeTypeBackend, TotalVRAM: 8_000_000_000, AvailableVRAM: 8_000_000_000}
+		Expect(registry.Register(ctx, node, true)).To(Succeed())
+		Expect(node.Status).To(Equal(StatusHealthy))
+		return node
+	}
+
+	statusOf := func(id string) string {
+		GinkgoHelper()
+		n, err := registry.Get(ctx, id)
+		Expect(err).ToNot(HaveOccurred())
+		return n.Status
+	}
+
+	// departTunnel gives a node a connection row, releases it, and ages the
+	// departure by `by` ON THE DATABASE CLOCK. A Go-side timestamp would be
+	// compared against the database's, which is the skew this window is written
+	// to be immune to.
+	departTunnel := func(nodeID string, by time.Duration) {
+		GinkgoHelper()
+		epoch, err := clusterR.Claim(ctx, nodeID, instance)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(clusterR.Release(ctx, nodeID, instance, epoch)).To(Succeed())
+		res := db.WithContext(ctx).Exec(
+			`UPDATE node_connections SET disconnected_at = now() - make_interval(secs => ?) WHERE node_id = ?`,
+			by.Seconds(), nodeID)
+		Expect(res.Error).ToNot(HaveOccurred())
+		Expect(res.RowsAffected).To(Equal(int64(1)),
+			"precondition: the departure this spec ages must exist, or the spec proves nothing")
+	}
+
+	It("stops reporting a heartbeating node healthy once its tunnel has been gone past the grace", func() {
+		node := register("wedged-worker")
+		departTunnel(node.ID, grace+5*time.Second)
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusUnhealthy))
+	})
+
+	It("does not delete the node's model rows, because a demotion is enough to unwedge it", func() {
+		// Routing and eviction both select on status=healthy, so demoting stops
+		// the model being served from here and the next request places it
+		// somewhere reachable. Deleting rows would give any future defect in
+		// the presence read the largest blast radius in the system, for nothing
+		// the demotion does not already deliver.
+		node := register("wedged-with-models")
+		Expect(registry.SetNodeModel(ctx, node.ID, "llama", 0, "loaded", "127.0.0.1:50100", 0)).To(Succeed())
+		departTunnel(node.ID, grace+5*time.Second)
+
+		hm.doCheckAll(ctx)
+
+		models, err := registry.GetNodeModels(ctx, node.ID)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(models).To(HaveLen(1))
+	})
+
+	It("does not re-promote a demoted node whose tunnel is still gone, however fresh its heartbeat", func() {
+		// The re-promotion branch used to fire on a fresh heartbeat alone, so
+		// the scheduler's demotion was undone on the next tick, every tick. Its
+		// cross-replica value was about one health interval.
+		node := register("still-gone")
+		departTunnel(node.ID, grace+5*time.Second)
+		Expect(registry.MarkUnhealthy(ctx, node.ID)).To(Succeed())
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusUnhealthy))
+	})
+
+	It("re-promotes a demoted node once its tunnel is back", func() {
+		// The negative control for the spec above: without this, refusing to
+		// re-promote ANYTHING would satisfy it.
+		node := register("recovered")
+		departTunnel(node.ID, grace+5*time.Second)
+		Expect(registry.MarkUnhealthy(ctx, node.ID)).To(Succeed())
+		_, err := clusterR.Claim(ctx, node.ID, instance)
+		Expect(err).ToNot(HaveOccurred())
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+	})
+
+	It("leaves a node whose tunnel went inside the grace alone", func() {
+		// A worker re-dialling the load balancer right now. Demoting it is the
+		// fleet-wide eviction on a rolling frontend restart.
+		node := register("re-homing")
+		departTunnel(node.ID, grace/2)
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+	})
+
+	It("leaves a node that has never dialled a tunnel alone", func() {
+		// No connection row at all, which is also every worker in the window
+		// between registering and dialling.
+		node := register("never-dialled")
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+	})
+
+	It("leaves an AGENT node alone even when its tunnel would read as gone", func() {
+		// Agent workers hold no tunnel and still take their one verb over the
+		// bus. A departure row for one is not a fact about it.
+		node := &BackendNode{Name: "agent-worker", NodeType: NodeTypeAgent}
+		Expect(registry.Register(ctx, node, true)).To(Succeed())
+		departTunnel(node.ID, grace+5*time.Second)
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+	})
+
+	It("leaves every node alone when it has no presence reader", func() {
+		// A single-node deployment has nothing that can say a worker is gone.
+		node := register("no-cluster-registry")
+		departTunnel(node.ID, grace+5*time.Second)
+		plain := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, nil, 0)
+
+		plain.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+		Expect(plain.ReadsAbsence()).To(BeFalse())
+	})
+
+	It("falls back to the documented grace when built with a presence reader and no grace", func() {
+		// Symmetric with the scheduler's default. A zero window here would make
+		// every departure a verdict the instant it was stamped, and every spec
+		// above passes an explicit grace, so nothing else reaches this.
+		node := register("no-grace")
+		stub := &stubPresence{answer: cluster.PresenceConnected}
+		defaulted := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, stub, 0)
+
+		defaulted.doCheckAll(ctx)
+
+		Expect(stub.nodes).To(ContainElement(node.ID))
+		Expect(stub.graces).To(ContainElement(config.DefaultWorkerReconnectGrace))
+	})
+
+	It("leaves a node alone when the presence query fails", func() {
+		// A database hiccup must not demote the fleet. Driven with a stub,
+		// because a real registry cannot be made to fail on demand.
+		node := register("query-fails")
+		broken := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false,
+			&stubPresence{err: errors.New("connection reset")}, grace)
+
+		broken.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
 	})
 })

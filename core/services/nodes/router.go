@@ -1181,11 +1181,12 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// If freeSlotNodes is empty (everyone full), candidateNodeIDs is whatever
 	// it was — we'll fall through to eviction below.
 
-	// Node choice is wrapped in a liveness check: a node's stored status comes
-	// from its HTTP heartbeat, which is a different channel from the bus that
-	// carries the install. A worker that has died stops answering on the bus at
-	// once but stays healthy in the database until its heartbeat ages out, so
-	// without this the scheduler could commit to a node it cannot reach.
+	// Node choice is wrapped in an absence check: a node's stored status comes
+	// from its HTTP heartbeat, which is a different channel from the tunnel
+	// every install and every request travels over. A worker can heartbeat with
+	// no tunnel at all, so without this the scheduler could commit to a node
+	// nothing in the deployment can reach. See nodeMayTakeWork for which of the
+	// four presence answers is allowed to exclude, and which three are not.
 	selectNode := func() *BackendNode {
 		var candidate *BackendNode
 		var selErr error
@@ -2203,20 +2204,58 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 		})
 
 		if err == nil {
+			node, nodeErr := r.registry.Get(ctx, lru.NodeID)
+			if nodeErr != nil {
+				return nil, fmt.Errorf("node %s not found after eviction: %w", lru.NodeID, nodeErr)
+			}
+
+			// The third place work is committed to a node, and it has to read
+			// absence for the same reason the other two do.
+			//
+			// The query above chose on stored status, which comes from the
+			// heartbeat. A worker that heartbeats with a departed tunnel is
+			// demoted by the health monitor, but only on its next cycle, so
+			// between the departure ageing past the grace and that cycle this
+			// query still offers the node. pickReachableNode does not cover it:
+			// it only sees what the VRAM and idle selectors offer, and a node
+			// full enough to be an eviction target is exactly the node those
+			// selectors skip.
+			//
+			// Returning such a node hands the caller an install that cannot
+			// land. Demote and evict again instead: the demotion takes the node
+			// out of the next query, which selects on status, so the loop makes
+			// progress rather than re-picking it.
+			//
+			// The row this attempt deleted stays deleted, and presence is read
+			// after the transaction rather than inside it deliberately. Reading
+			// it inside would hold a FOR UPDATE lock across a query that needs a
+			// second pooled connection, which is how concurrent evictions
+			// deadlock a connection pool. The deleted row costs nothing: it
+			// named a backend on a worker no replica can reach, so nothing was
+			// serving from it to lose.
+			if !r.nodeMayTakeWork(ctx, node) {
+				xlog.Warn("Eviction target has no tunnel and its departure outlived the reconnect grace, marking unhealthy and evicting again",
+					"node", node.Name, "nodeID", node.ID, "model", lru.ModelName, "grace", r.reconnectGrace)
+				if markErr := r.registry.MarkUnhealthy(ctx, node.ID); markErr != nil {
+					// Without the demotion the next query hands back the same
+					// node, so stop rather than spin.
+					xlog.Warn("Failed to mark departed eviction target unhealthy",
+						"node", node.Name, "nodeID", node.ID, "error", markErr)
+					return nil, ErrEvictionBusy
+				}
+				continue
+			}
+
 			xlog.Info("Evicted LRU model to free capacity",
 				"node", lru.NodeID, "model", lru.ModelName, "lastUsed", lru.LastUsed)
 
-			// Unload outside the transaction (NATS call)
+			// Unload outside the transaction.
 			if r.unloader != nil {
 				if uerr := r.unloader.UnloadModelOnNode(lru.NodeID, lru.ModelName); uerr != nil {
 					xlog.Warn("eviction unload failed (model already removed from registry)", "error", uerr)
 				}
 			}
 
-			node, nodeErr := r.registry.Get(ctx, lru.NodeID)
-			if nodeErr != nil {
-				return nil, fmt.Errorf("node %s not found after eviction: %w", lru.NodeID, nodeErr)
-			}
 			return node, nil
 		}
 

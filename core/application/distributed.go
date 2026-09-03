@@ -340,11 +340,18 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		routerGalleriesJSON = string(galleriesJSON)
 	}
 
+	// The health monitor is the SECOND reader of absence, and it reads it from
+	// the same place and against the same window as the scheduler: a heartbeat
+	// says the worker's supervisor is alive, presence says whether anything
+	// here can still reach its backends, and a worker can be the first without
+	// being the second indefinitely.
 	healthMon := nodes.NewHealthMonitor(registry, authDB,
 		cfg.Distributed.HealthCheckIntervalOrDefault(),
 		cfg.Distributed.StaleNodeThresholdOrDefault(),
 		routerAuthToken,
 		!cfg.Distributed.DisablePerModelHealthCheck,
+		clusterRegistry,
+		cfg.Distributed.ReconnectGraceOrDefault(),
 		backendClients,
 	)
 
@@ -515,15 +522,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		conflictResolver = configLoader
 	}
 	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
-	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
-		Unloader: remoteUnloader,
-		// Absence, and the only source of it the scheduler has. It is a fact
-		// read from the database, so every replica answers it identically;
-		// the bus sentinel it replaces was one frontend's observation that
-		// nobody answered IT within a budget, and two replicas asking at the
-		// same moment could disagree and demote each other's workers.
-		Presence:         clusterRegistry,
-		ReconnectGrace:   cfg.Distributed.ReconnectGraceOrDefault(),
+	// Absence is stamped on by distributedSchedulerOptions rather than written
+	// here. It is the only source of absence the scheduler has -- a fact read
+	// from the database, so every replica answers it identically, where the bus
+	// sentinel it replaces was one frontend's observation that nobody answered
+	// IT within a budget -- and a field carrying that in a literal this size is
+	// the easiest thing in this file to lose without a symptom.
+	router := nodes.NewSmartRouter(registry, distributedSchedulerOptions(cfg.Distributed, clusterRegistry, nodes.SmartRouterOptions{
+		Unloader:         remoteUnloader,
 		ModelCleanup:     modelCleanup,
 		FileStager:       fileStager,
 		GalleriesJSON:    routerGalleriesJSON,
@@ -559,7 +565,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		// Bounds the REQUEST, not the load: a caller out of budget gets 503 with
 		// live staging progress while the job keeps running underneath.
 		ModelLoadWait: cfg.Distributed.ModelLoadWait,
-	})
+	}))
 
 	// Wire staging-progress broadcasting so file-staging shows up on every
 	// replica, not just the one performing the transfer. Without this, a
@@ -595,6 +601,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Pressure:          pressure,
 		PressureThreshold: prefixCfg.PressureScaleThreshold,
 	})
+
+	// Both readers of absence, checked once, here. See requireAbsenceWiring for
+	// why a missing assignment has no other symptom.
+	if err := requireAbsenceWiring(router, healthMon); err != nil {
+		return nil, err
+	}
 
 	// Create ModelRouterAdapter to wire into ModelLoader
 	modelAdapter := nodes.NewModelRouterAdapter(router)
