@@ -11,8 +11,13 @@ run: fish-speech
 	bash run.sh
 	@echo "fish-speech run."
 
+.PHONY: test-unit
+test-unit:
+	python3 -m unittest -v prepare_upstream_test.py
+	bash run_test.sh
+
 .PHONY: test
-test: fish-speech
+test: fish-speech test-unit
 	@echo "Testing fish-speech..."
 	bash test.sh
 	@echo "fish-speech tested."
