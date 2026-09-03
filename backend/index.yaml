@@ -1060,6 +1060,21 @@
     nvidia-l4t: "nvidia-l4t-mlx"
     nvidia-l4t-cuda-12: "nvidia-l4t-mlx"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-mlx"
+- &mlx-video
+  name: "mlx-video"
+  icon: https://avatars.githubusercontent.com/u/102832242?s=200&v=4
+  urls:
+    - https://github.com/Blaizzy/mlx-video
+  license: MIT
+  description: |
+      Generate videos with LTX-2 and converted Wan2.1/Wan2.2 checkpoints using
+      MLX on Apple Silicon.
+  tags:
+    - text-to-video
+    - image-to-video
+    - MLX
+  capabilities:
+    metal: "metal-mlx-video"
 - &mlx-vlm
   name: "mlx-vlm"
   icon: https://avatars.githubusercontent.com/u/102832242?s=200&v=4
@@ -2164,6 +2179,20 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx"
   mirrors:
     - localai/localai-backends:latest-metal-darwin-arm64-mlx
+- !!merge <<: *mlx-video
+  name: "metal-mlx-video"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-video"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-mlx-video
+- !!merge <<: *mlx-video
+  name: "metal-mlx-video-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx-video"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-mlx-video
+- !!merge <<: *mlx-video
+  name: "mlx-video-development"
+  capabilities:
+    metal: "metal-mlx-video-development"
 - !!merge <<: *mlx
   name: "metal-mlx-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx"

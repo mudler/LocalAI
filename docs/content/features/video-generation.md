@@ -6,7 +6,32 @@ url = "/features/video-generation/"
 aliases = ["/features/longcat-video/"]
 +++
 
-LocalAI can generate videos from text prompts and optional image or audio conditioning via the `/video` endpoint. Supported backends include `diffusers`, `stablediffusion`, `vllm-omni`, `vllm-cpp` (MiniMax-H3, which generates video **and** audio together), and the dedicated `longcat-video` backend.
+LocalAI can generate videos from text prompts and optional image or audio conditioning via the `/video` endpoint. Supported backends include `diffusers`, `stablediffusion`, `vllm-omni`, `vllm-cpp` (MiniMax-H3, which generates video **and** audio together), `mlx-video` on Apple Silicon, and the dedicated `longcat-video` backend.
+
+## MLX-Video on Apple Silicon
+
+Install the native Metal backend, then configure an LTX-2 repository:
+
+```bash
+local-ai backends install mlx-video
+```
+
+```yaml
+name: ltx2-mlx
+backend: mlx-video
+parameters:
+  model: prince-canuma/LTX-2.3-distilled-mlx
+usecases:
+  - video
+options:
+  - pipeline:distilled
+```
+
+The backend accepts text-to-video and start-image conditioning through `/video`.
+LTX-2 also accepts an `end_image`. Converted Wan2.1/Wan2.2 checkpoints must be
+configured as a local model directory and do not support `end_image`. Useful
+backend-specific `params` include `pipeline` and `tiling` for LTX-2, and
+`scheduler`, `shift`, and `tiling` for Wan.
 
 ## API
 
