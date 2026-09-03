@@ -17,13 +17,11 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
 )
@@ -33,7 +31,7 @@ import (
 func Run(ctx *cliContext.Context, cfg *Config) error {
 	xlog.Info("Starting worker", "basePort", cfg.effectiveBasePort())
 
-	// Fail fast, before prefetch, registration and NATS, on any configuration
+	// Fail fast, before prefetch and registration, on any configuration
 	// that would produce a worker the cluster believes in and cannot use. See
 	// validateStartup for what those are and why each is fatal rather than
 	// degraded.
@@ -65,7 +63,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 
 	// Prefetch gallery models over the worker's outbound internet before we
-	// start accepting backend.install events. Non-fatal on every failure path:
+	// serve backend installs. Non-fatal on every failure path:
 	// if the gallery is unreachable, an ID is unknown, or LOCALAI_GALLERIES is
 	// malformed, the worker still starts and the master can push files on
 	// demand (existing fallback behaviour). Placed BEFORE registration so a
@@ -87,93 +85,46 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	defer shutdownCancel()
 
 	registrationBody := cfg.registrationBody()
-	natsTLS := messaging.TLSFiles{CA: cfg.NatsTLSCA, Cert: cfg.NatsTLSCert, Key: cfg.NatsTLSKey}
 
-	// Resolve how to connect to NATS. Static env credentials cannot be re-minted,
-	// so register once and use them directly. Otherwise the credential manager
-	// (re)registers to obtain credentials — waiting through admin approval — and
-	// refreshes them before the minted JWT expires, so the connection survives
-	// expiry via a transparent reconnect.
-	var (
-		nodeID      string
-		connectNats func() (*messaging.Client, error)
-		// tunnelToken reads the node's CURRENT tunnel credential. It is a
-		// function because the frontend rotates the credential on every
-		// registration, so the value a reconnect must present is not
-		// necessarily the one this worker started with.
-		tunnelToken func() string
-	)
-	if cfg.NatsJWT != "" || cfg.NatsUserSeed != "" {
-		res, regErr := regClient.RegisterFullWithRetry(shutdownCtx, registrationBody, 10)
-		if regErr != nil {
-			return fmt.Errorf("failed to register with frontend: %w", regErr)
-		}
-		nodeID = res.ID
-		// This path registers exactly once and never again, so the credential
-		// it holds cannot go stale by rotation from its own side.
-		//
-		// It CAN be superseded from outside: Register upserts by NAME, so a
-		// second worker registering under this node's name rotates the row's
-		// credential, and this worker then fails every tunnel dial with 401 for
-		// the life of the process. It logs that once per backoff and never
-		// recovers on its own; a restart fixes it only until the other worker
-		// registers again.
-		//
-		// Still deliberately not auto-re-registered, and now for a concrete
-		// reason rather than a deferral. Register CLEARS this node's NodeModel
-		// rows, on the assumption that a re-registering worker restarted with
-		// nothing loaded, so re-registering on a 401 would delete a live
-		// worker's replica rows on every retry, and under the name collision
-		// that produces the 401 the two workers would take turns doing it
-		// forever. That is a credential failure causing model reclamation,
-		// which is the one outcome this whole design exists to prevent.
-		//
-		// The fix belongs to whichever comes first: a re-auth path that mints a
-		// tunnel credential WITHOUT the rest of registration's side effects, or
-		// a worker identity that is not the operator-chosen name, which is what
-		// would make a collision detectable instead of silent. Until then the
-		// 401 is loud, names both causes, and the operator acts on it.
-		staticTunnelToken := res.TunnelToken
-		tunnelToken = func() string { return staticTunnelToken }
-		connectNats = func() (*messaging.Client, error) {
-			return connectNATS(cfg.NatsURL, cfg.NatsJWT, cfg.NatsUserSeed, "", "", cfg.NatsAuthRequired(), natsTLS)
-		}
-	} else {
-		credMgr := workerregistry.NewNATSCredentialManager(
-			func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
-				return regClient.RegisterFull(ctx, registrationBody)
-			},
-			cfg.NatsAuthRequired(),
-		)
-		res, regErr := credMgr.Acquire(shutdownCtx)
-		if regErr != nil {
-			return fmt.Errorf("failed to register with frontend: %w", regErr)
-		}
-		nodeID = res.ID
-		// The manager re-registers to refresh NATS credentials, and every
-		// registration rotates the tunnel credential too, so this reads the
-		// manager rather than capturing a value.
-		tunnelToken = credMgr.TunnelToken
-		connectNats = func() (*messaging.Client, error) {
-			var opts []messaging.Option
-			if credMgr.HasCredentials() {
-				opts = append(opts, messaging.WithUserJWTProvider(credMgr.Provider()))
-			}
-			if natsTLS.Enabled() {
-				opts = append(opts, messaging.WithTLS(natsTLS))
-			}
-			client, cerr := messaging.New(cfg.NatsURL, opts...)
-			if cerr == nil && credMgr.HasCredentials() {
-				go func() {
-					if err := credMgr.RefreshLoop(shutdownCtx); err != nil {
-						xlog.Error("NATS credential refresh permanently failed; shutting down worker", "error", err)
-						shutdownCancel()
-					}
-				}()
-			}
-			return client, cerr
-		}
+	// One registration, and the tunnel credential it returns is the only
+	// credential a backend worker holds. There is no second acquisition path:
+	// the bus this worker used to also authenticate against is gone from its
+	// startup entirely.
+	//
+	// This path registers exactly once and never again, so the credential it
+	// holds cannot go stale by rotation from its own side.
+	//
+	// It CAN be superseded from outside: Register upserts by NAME, so a second
+	// worker registering under this node's name rotates the row's credential,
+	// and this worker then fails every tunnel dial with 401 for the life of the
+	// process. It logs that once per backoff and never recovers on its own; a
+	// restart fixes it only until the other worker registers again.
+	//
+	// Still deliberately not auto-re-registered, and now for a concrete reason
+	// rather than a deferral. Register CLEARS this node's NodeModel rows, on
+	// the assumption that a re-registering worker restarted with nothing
+	// loaded, so re-registering on a 401 would delete a live worker's replica
+	// rows on every retry, and under the name collision that produces the 401
+	// the two workers would take turns doing it forever. That is a credential
+	// failure causing model reclamation, which is the one outcome this whole
+	// design exists to prevent. It is also why the NATS credential manager,
+	// whose refresh loop re-registered on a timer, is no longer on this path:
+	// it was wiping a live worker's rows every time it renewed a JWT.
+	//
+	// The fix belongs to whichever comes first: a re-auth path that mints a
+	// tunnel credential WITHOUT the rest of registration's side effects, or a
+	// worker identity that is not the operator-chosen name, which is what would
+	// make a collision detectable instead of silent. Until then the 401 is
+	// loud, names both causes, and the operator acts on it.
+	res, err := regClient.RegisterFullWithRetry(shutdownCtx, registrationBody, 10)
+	if err != nil {
+		return fmt.Errorf("failed to register with frontend: %w", err)
 	}
+	nodeID := res.ID
+	// Read through a function because StartTunnel presents the credential at
+	// DIAL time, not at start time; there is one value behind it today and the
+	// indirection is what keeps a future rotation from needing a new dial path.
+	tunnelToken := func() string { return res.TunnelToken }
 
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cfg.RegisterTo)
 	heartbeatInterval, err := time.ParseDuration(cfg.HeartbeatInterval)
@@ -191,9 +142,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// today would each stay self consistent if one moved, and the symptom would
 	// be a verb that lists files the file server does not serve.
 	dataDir := cfg.stagingDataDir()
-	// The readiness gate is created here but only armed once NATS is up, below.
-	// Until then /readyz reports ready, which is correct: reaching this line
-	// means the worker has already registered with the frontend, so it is
+	// The readiness gate is created here but only armed once the tunnel exists,
+	// below. Until then /readyz reports ready, which is correct: reaching this
+	// line means the worker has already registered with the frontend, so it is
 	// mid-startup rather than broken.
 	readiness := &nodes.WorkerReadiness{}
 
@@ -274,7 +225,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// before this point, so there is no configuration that reaches here without
 	// one. A guard here would be a branch nothing can take, which reads as a
 	// supported no-tunnel mode that does not exist.
-	tunnel, terr := StartTunnel(shutdownCtx, TunnelConfig{
+	tunnel, terr := startTunnelAndArmReadiness(shutdownCtx, readiness, TunnelConfig{
 		FrontendURL: cfg.RegisterTo,
 		NodeID:      nodeID,
 		Token:       tunnelToken,
@@ -293,59 +244,73 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}
 	}()
 
-	// Connect to NATS
-	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))
-	natsClient, err := connectNats()
-	if err != nil {
-		nodes.ShutdownFileTransferServer(httpServer)
-		return fmt.Errorf("connecting to NATS: %w", err)
-	}
-	defer natsClient.Close()
-
-	// Arm the readiness gate now that the worker can actually receive work.
-	// From here /readyz tracks the live NATS link, so a worker that is up but
-	// cut off from the bus reports 503 instead of a meaningless 200 (#10987).
-	readiness.Set(nodes.NATSReadiness(natsClient))
-
-	// Start heartbeat goroutine (after NATS is connected so IsConnected check works)
-	go func() {
-		ticker := time.NewTicker(heartbeatInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-shutdownCtx.Done():
-				return
-			case <-ticker.C:
-				if !natsClient.IsConnected() {
-					xlog.Warn("Skipping heartbeat: NATS disconnected")
-					continue
-				}
-				body := cfg.heartbeatBody()
-				if err := regClient.Heartbeat(shutdownCtx, nodeID, body); err != nil {
-					xlog.Warn("Heartbeat failed", "error", err)
-				}
-			}
-		}
-	}()
+	ticker := time.NewTicker(heartbeatInterval)
+	defer ticker.Stop()
+	go heartbeatLoop(shutdownCtx, ticker.C, func(ctx context.Context) error {
+		return regClient.Heartbeat(ctx, nodeID, cfg.heartbeatBody())
+	})
 
 	xlog.Info("Worker ready, serving its control plane over the tunnel")
-	// Exit on an OS signal or on an internal fatal condition (e.g. NATS
-	// credentials became unrenewable), so the worker restarts and re-acquires
-	// rather than lingering unable to serve.
-	var runErr error
-	select {
-	case <-sigCh:
-	case <-shutdownCtx.Done():
-		runErr = fmt.Errorf("worker shutting down: NATS credentials unavailable")
-		xlog.Error("Internal shutdown requested", "error", runErr)
-	}
+	<-sigCh
 
 	xlog.Info("Shutting down worker")
 	shutdownCancel() // stop heartbeat loop immediately
 	regClient.GracefulDeregister(nodeID)
 	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
-	return runErr
+	return nil
+}
+
+// heartbeatLoop posts this worker's heartbeat on every tick until ctx ends.
+//
+// It is given no view of the tunnel, and that absence is the point rather than
+// an omission. The heartbeat is the WORKER'S OWN ANSWER that its process is
+// alive; whether the frontend can REACH this worker is a separate fact, which
+// the frontend reads from the tunnel session it holds and ages against
+// LOCALAI_WORKER_RECONNECT_GRACE. Withholding the heartbeat while the tunnel
+// re-homes would report an unreachable worker as an absent one, on the one path
+// that has no grace at all: the health monitor marks a silent node offline or
+// unhealthy and its pending backend ops are deleted behind it.
+//
+// A failed post is likewise not a reason to stop. The frontend being briefly
+// unreachable is the exact moment a worker must keep trying, and a loop that
+// returned here would silence a healthy worker for the rest of its life after
+// one frontend restart.
+func heartbeatLoop(ctx context.Context, tick <-chan time.Time, send func(context.Context) error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick:
+			if err := send(ctx); err != nil {
+				xlog.Warn("Heartbeat failed", "error", err)
+			}
+		}
+	}
+}
+
+// startTunnelAndArmReadiness starts the worker's tunnel and points the
+// readiness gate at it.
+//
+// One call rather than two lines at the call site, because the gate and the
+// tunnel are one fact. /readyz means "the frontend can reach me", and a live
+// tunnel session is the only thing that makes that true: the worker binds
+// loopback, advertises no address, and every request the frontend makes of it
+// arrives as a stream inside that session. Armed as a separate statement, the
+// arming is a line whose loss has no symptom - the gate fails open, so the
+// worker answers 200 forever with no session, which is issue #10987 back
+// again and nothing else in the process would say a word.
+//
+// A tunnel that fails to START leaves the gate as it found it. There is no
+// worker to report on: Run turns that into a fatal error before anything else
+// happens.
+func startTunnelAndArmReadiness(ctx context.Context, readiness *nodes.WorkerReadiness, cfg TunnelConfig) (*Tunnel, error) {
+	t, err := StartTunnel(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	readiness.Set(nodes.TunnelReadiness(t))
+	return t, nil
 }
 
 // startWorkerHTTPServer starts the worker's loopback HTTP server with sup's

@@ -111,9 +111,14 @@ services:
     # No HEALTHCHECK_ENDPOINT override is needed either: the image's healthcheck
     # detects worker mode and derives the port from LOCALAI_SERVE_ADDR below
     # (gRPC base port - 1 = 50050). It runs inside the container, so a loopback
-    # bind is enough for it. The worker's /readyz reports 503 while its NATS
-    # connection is down, so `unhealthy` here means the worker genuinely cannot
-    # receive work.
+    # bind is enough for it. The worker's /readyz reports 503 while it holds no
+    # tunnel session, so `unhealthy` here means the frontend genuinely cannot
+    # reach this worker.
+    #
+    # No LOCALAI_NATS_URL and no dependency on the nats service: a backend
+    # worker connects to no bus. Everything the frontend asks of it travels the
+    # tunnel this container dials out to localai:8080. The frontend and the
+    # agent worker below still need NATS.
     environment:
       LOCALAI_SERVE_ADDR: "0.0.0.0:50051"
       DEBUG: "true"
@@ -121,15 +126,12 @@ services:
       LOCALAI_NODE_NAME: "worker-1"
       LOCALAI_REGISTRATION_TOKEN: "changeme"  # Must match frontend token
       LOCALAI_HEARTBEAT_INTERVAL: "10s"
-      LOCALAI_NATS_URL: "nats://nats:4222"
       GODEBUG: "netdns=go"  # See note in localai service
       MODELS_PATH: /models
     volumes:
       - worker_1_models:/models
     depends_on:
       localai:
-        condition: service_started
-      nats:
         condition: service_started
 
     # --- GPU Support (NVIDIA) ---

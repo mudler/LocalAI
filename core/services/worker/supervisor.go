@@ -167,8 +167,8 @@ type backendSupervisor struct {
 // reply and drops the NodeModel rows naming that address, a row still resolves
 // to a live listener. probeHealth verifies liveness, not identity, so a port
 // re-bound inside that window is dispatched to as if it were the original
-// backend. The window is a NATS round-trip plus a row delete, so seconds of
-// slack are ample.
+// backend. The window is one control-plane round-trip plus a row delete, so
+// seconds of slack are ample.
 //
 // Deliberately NOT derived from the controller's HealthCheckInterval or from
 // the per-model miss threshold. Tying a worker-local constant to a
@@ -627,7 +627,7 @@ func (s *backendSupervisor) releaseBackendStart(key string, bp *backendProcess) 
 
 // resolveProcessKeys turns a caller-supplied identifier into the set of
 // process map keys it refers to. PR #9583 changed s.processes to be keyed by
-// `modelID#replicaIndex`, but external NATS handlers still pass the bare
+// `modelID#replicaIndex`, but external callers still pass the bare
 // model ID — without this resolver, those lookups silently no-op'd, so
 // admin "Unload model" / "Delete backend" left the worker process alive.
 //

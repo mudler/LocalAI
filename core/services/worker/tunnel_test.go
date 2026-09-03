@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/nodes"
 )
 
 // awaitErr runs fn on its own goroutine and reports its result on a channel.
@@ -724,6 +725,141 @@ var _ = Describe("Worker tunnel client", func() {
 			Expect(second.token).To(Equal("token-2"))
 			Expect(first.nodeID).To(Equal("node-1"))
 			Expect(second.nodeID).To(Equal("node-1"))
+		})
+	})
+
+	// Connected is what the worker's /readyz reports, so these specs run
+	// against the real WebSocket and the real yamux handshake rather than a
+	// flag someone sets. A double that never touches the transport cannot go
+	// false the way a dropped session does.
+	Describe("reporting whether it holds a session", func() {
+		It("reports connected once the frontend has accepted its dial", func() {
+			frontend = newFakeFrontend(false)
+			start(nil)
+			sess := session()
+			Expect(sess).ToNot(BeNil())
+			Eventually(tunnel.Connected, "10s").Should(BeTrue())
+		})
+
+		It("reports disconnected once the session is gone", func() {
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) {
+				// Park the reconnect so the spec observes the gap between
+				// sessions rather than racing the next dial.
+				c.sleep = func(ctx context.Context, _ time.Duration) error {
+					<-ctx.Done()
+					return ctx.Err()
+				}
+			})
+			sess := session()
+			Eventually(tunnel.Connected, "10s").Should(BeTrue())
+
+			Expect(sess.Close()).To(Succeed())
+			Eventually(tunnel.Connected, "10s").Should(BeFalse())
+		})
+
+		It("reports disconnected before the first dial has landed", func() {
+			// The frontend is never started, so nothing can accept. A worker
+			// that answered ready here would announce itself the moment its
+			// process came up, which is exactly the 200-on-a-useless-port that
+			// the readiness probe exists to stop.
+			frontend = newFakeFrontend(false)
+			frontend.srv.Close()
+			start(func(c *TunnelConfig) {
+				c.sleep = func(ctx context.Context, _ time.Duration) error {
+					<-ctx.Done()
+					return ctx.Err()
+				}
+			})
+			Consistently(tunnel.Connected, "500ms", "50ms").Should(BeFalse())
+		})
+
+		It("reports disconnected while it still holds a session that has been closed", func() {
+			// The window this closes is real and is not the same as the one
+			// the loop's own clear closes. When a session dies, the loop waits
+			// for every stream already in flight before it returns and clears
+			// the field, and for the whole of that wait the tunnel still HOLDS
+			// a session that can carry nothing new. Reading only "the field is
+			// set" would answer ready for the length of that wait.
+			c1, c2 := net.Pipe()
+			DeferCleanup(func() { _ = c1.Close(); _ = c2.Close() })
+			sess, err := yamux.Client(c1, nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			held := &Tunnel{}
+			held.setSession(sess)
+			Expect(held.Connected()).To(BeTrue())
+
+			Expect(sess.Close()).To(Succeed())
+			Expect(held.Connected()).To(BeFalse())
+		})
+
+		It("reports disconnected on a nil tunnel rather than panicking", func() {
+			var absent *Tunnel
+			Expect(absent.Connected()).To(BeFalse())
+		})
+	})
+
+	// The worker's /readyz is armed on the tunnel, and the arming is the kind
+	// of line whose loss has no symptom: WorkerReadiness fails open, so a
+	// worker that never armed it answers 200 forever with no session. These
+	// specs are what makes that line's absence visible.
+	Describe("arming the readiness gate", func() {
+		It("answers not ready until the frontend has accepted the dial", func() {
+			frontend = newFakeFrontend(false)
+			frontend.srv.Close()
+			readiness := &nodes.WorkerReadiness{}
+			var err error
+			tunnel, err = startTunnelAndArmReadiness(ctx, readiness, TunnelConfig{
+				FrontendURL: frontend.srv.URL,
+				NodeID:      "node-1",
+				Token:       func() string { return "tunnel-secret" },
+				sleep: func(ctx context.Context, _ time.Duration) error {
+					<-ctx.Done()
+					return ctx.Err()
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Consistently(readiness.Check, "500ms", "50ms").Should(MatchError(nodes.ErrTunnelDisconnected))
+		})
+
+		It("answers ready once the tunnel holds a session, and not ready again once it goes", func() {
+			// Both halves, in one spec, on purpose. WorkerReadiness fails open
+			// when no probe is installed, so "ready once connected" passes just
+			// as well against a gate that was never armed at all. Only the
+			// return to ErrTunnelDisconnected tells those two apart.
+			frontend = newFakeFrontend(false)
+			readiness := &nodes.WorkerReadiness{}
+			var err error
+			tunnel, err = startTunnelAndArmReadiness(ctx, readiness, TunnelConfig{
+				FrontendURL: frontend.srv.URL,
+				NodeID:      "node-1",
+				Token:       func() string { return "tunnel-secret" },
+				sleep: func(ctx context.Context, _ time.Duration) error {
+					<-ctx.Done()
+					return ctx.Err()
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			sess := session()
+			Eventually(readiness.Check, "10s").Should(Succeed())
+
+			Expect(sess.Close()).To(Succeed())
+			Eventually(readiness.Check, "10s").Should(MatchError(nodes.ErrTunnelDisconnected))
+		})
+
+		It("leaves the gate alone when the tunnel cannot start at all", func() {
+			// A configuration refusal is not a readiness answer: Run turns it
+			// into a fatal error, and a gate armed on a tunnel that does not
+			// exist would report on nothing.
+			readiness := &nodes.WorkerReadiness{}
+			t, err := startTunnelAndArmReadiness(ctx, readiness, TunnelConfig{
+				FrontendURL: "http://frontend:8080",
+				Token:       func() string { return "tunnel-secret" },
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(t).To(BeNil())
+			Expect(readiness.Check()).To(Succeed())
 		})
 	})
 })

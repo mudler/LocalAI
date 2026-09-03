@@ -8,15 +8,11 @@ import "fmt"
 // which embeds Config; this package does NOT import kong and the tags are inert
 // here.
 //
-// Workers are backend-agnostic — they wait for backend.install NATS events
-// from the SmartRouter to install and start the required backend.
-//
-// NATS is required. The worker acts as a process supervisor:
-// - Receives backend.install → installs backend from gallery, starts gRPC process, replies success
-// - Receives backend.stop → stops the gRPC process
-// - Receives stop → full shutdown (deregister + exit)
-//
-// Model loading (LoadModel) is always via direct gRPC — no NATS needed for that.
+// Workers are backend-agnostic: they install and start whichever backend the
+// frontend asks for. The worker acts as a process supervisor, and every verb
+// the frontend gives it is an HTTP route on its own loopback server, served to
+// the frontend through this worker's outbound tunnel (see control_routes.go and
+// core/services/workerctl). A backend worker connects to no message bus.
 type Config struct {
 	// Addr and ServeAddr are read for their PORT only. A worker binds nothing
 	// on a routable interface: backend processes and the file-transfer server
@@ -49,8 +45,7 @@ type Config struct {
 	// cluster-internal path is slow (slirp/circuit-relay, CGNAT) but outbound NAT
 	// works fine. Resolution reuses the same gallery installer the master uses, so
 	// the on-disk /models layout is identical. Errors are non-fatal — if the gallery
-	// is unreachable on boot, the worker logs a warning and starts the NATS loop
-	// anyway; the master can still push the file on demand (existing behaviour).
+	// is unreachable on boot, the worker logs a warning and starts anyway; the master can still push the file on demand (existing behaviour).
 	PrefetchModels []string `env:"LOCALAI_PREFETCH_MODELS,PREFETCH_MODELS" help:"Comma-separated gallery model IDs to download from LOCALAI_GALLERIES at worker boot (e.g. 'llama-3.2-1b-instruct,phi-3-mini-4k'). Skipped if already on disk and SHA matches." group:"server"`
 
 	// HTTPAddr binds the HTTP file-transfer server. Default is loopback on
@@ -62,7 +57,7 @@ type Config struct {
 	NodeName                string `env:"LOCALAI_NODE_NAME" help:"Node name for registration (defaults to hostname)" group:"registration"`
 	RegistrationToken       string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token for authenticating with the frontend" group:"registration"`
 	RegistrationRequireAuth bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Refuse to start the HTTP file-transfer server when no registration token is set (otherwise it fails open and serves read/write to models/staging/data unauthenticated)" group:"registration"`
-	DistributedRequireAuth  bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch implying both --nats-require-auth and --registration-require-auth" group:"distributed"`
+	DistributedRequireAuth  bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch implying --registration-require-auth" group:"distributed"`
 	HeartbeatInterval       string `env:"LOCALAI_HEARTBEAT_INTERVAL" default:"10s" help:"Interval between heartbeats" group:"registration"`
 	// WorkerTunnel holds one outbound multiplexed connection to the frontend
 	// and serves the frontend's requests over it, so the worker needs no
@@ -97,14 +92,14 @@ type Config struct {
 	// enforces it against the raw VRAM this worker reports. Empty = no cap.
 	VRAMBudget string `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this worker node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB)." group:"registration"`
 
-	// NATS (required)
-	NatsURL         string `env:"LOCALAI_NATS_URL" required:"" help:"NATS server URL" group:"distributed"`
-	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (normally from registration nats_jwt)" group:"distributed"`
-	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"NATS user signing seed override (normally from registration nats_user_seed)" group:"distributed"`
-	NatsRequireAuth bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT+seed from registration or env" group:"distributed"`
-	NatsTLSCA       string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI)" group:"distributed"`
-	NatsTLSCert     string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
-	NatsTLSKey      string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+	// NatsURL is accepted and ignored. A backend worker no longer connects to
+	// NATS at all, and the credential and TLS flags that went with it are gone
+	// from this command. This one is kept so that an operator whose worker
+	// command line or unit file still carries --nats-url gets a worker that
+	// starts, rather than a kong parse error on an upgrade whose whole point is
+	// that the bus is no longer needed here. The frontend and agent workers
+	// still take it and still mean it.
+	NatsURL string `env:"LOCALAI_NATS_URL" help:"Ignored. A backend worker connects to no message bus; the frontend reaches it over its outbound tunnel. Accepted so an existing worker command line still starts." group:"distributed" hidden:""`
 
 	// S3 storage for distributed file transfer
 	StorageURL       string `env:"LOCALAI_STORAGE_URL" help:"S3 endpoint URL" group:"distributed"`
@@ -112,12 +107,6 @@ type Config struct {
 	StorageRegion    string `env:"LOCALAI_STORAGE_REGION" help:"S3 region" group:"distributed"`
 	StorageAccessKey string `env:"LOCALAI_STORAGE_ACCESS_KEY" help:"S3 access key" group:"distributed"`
 	StorageSecretKey string `env:"LOCALAI_STORAGE_SECRET_KEY" help:"S3 secret key" group:"distributed"`
-}
-
-// NatsAuthRequired reports whether NATS JWT credentials must be present — the
-// granular flag or the umbrella (LOCALAI_DISTRIBUTED_REQUIRE_AUTH).
-func (c Config) NatsAuthRequired() bool {
-	return c.NatsRequireAuth || c.DistributedRequireAuth
 }
 
 // RegistrationAuthRequired reports whether a registration token must be set
@@ -129,13 +118,20 @@ func (c Config) RegistrationAuthRequired() bool {
 // validateStartup reports a configuration this worker must refuse to boot on,
 // as opposed to one it can degrade under.
 //
-// It runs before prefetch, registration and NATS, so a refusal happens while
-// the worker is still invisible to the cluster. That ordering is the point of
-// checking here at all: both conditions below produce a worker that would
-// register, heartbeat and be scheduled onto, so discovering them later means
-// discovering them as failed inferences on a node the frontend believes is
-// healthy.
+// It runs before prefetch and registration, so a refusal happens while the
+// worker is still invisible to the cluster. That ordering is the point of
+// checking here at all: these conditions produce a worker that would register,
+// heartbeat and be scheduled onto, so discovering them later means discovering
+// them as failed inferences on a node the frontend believes is healthy.
 func (c Config) validateStartup() error {
+	// kong marks --register-to required, so a worker started from the CLI
+	// cannot miss it. Checked again here because this is the fail-fast site the
+	// other startup refusals live at, and because RegisterTo is now load
+	// bearing twice over: it is where the worker registers AND the endpoint its
+	// tunnel dials, which is the only way anything reaches it.
+	if c.RegisterTo == "" {
+		return fmt.Errorf("no frontend URL: set LOCALAI_REGISTER_TO (or --register-to). It is where this worker registers and the endpoint its tunnel dials, and nothing can reach a worker without it")
+	}
 	// The file-transfer server fails open on an empty token (see
 	// nodes.checkBearerToken), so enforcement plus no token is a request to
 	// serve the models directory unauthenticated.

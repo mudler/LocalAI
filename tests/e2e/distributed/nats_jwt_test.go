@@ -18,10 +18,10 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 	})
 
 	It("connects with a minted backend worker JWT and publishes on its one remaining allowed subject", func() {
-		// A backend worker's publish grant is `_INBOX.>` and nothing else now.
+		// A backend worker's whole grant is `_INBOX.>` now, on both sides.
 		// Every verb a frontend gives it, file staging included, is an HTTP
-		// route on its tunnel, so the `nodes.<id>.files.>` grant went with the
-		// subjects. See pkg/natsauth.WorkerPermissions.
+		// route on its tunnel, and it no longer opens a bus connection at all;
+		// the JWT is minted and unused. See pkg/natsauth.WorkerPermissions.
 		Expect(infra.NC.Publish("_INBOX.probe", map[string]string{"path": "/tmp/model"})).To(Succeed())
 		Expect(infra.NC.Conn().FlushTimeout(2 * time.Second)).To(Succeed())
 		Expect(infra.NC.Conn().LastError()).ToNot(HaveOccurred())
@@ -43,13 +43,20 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 		}, "3s", "50ms").Should(HaveOccurred())
 	})
 
-	It("allows backend subscribe on the node prefix", func() {
+	It("denies backend subscribe on the node prefix it no longer listens to", func() {
+		// The node subtree was granted while a backend worker still held a
+		// connection with nothing under it subscribed. It does not hold one at
+		// all now, so the grant went too; asserting the denial is what would
+		// catch a subject quietly coming back to the bus.
 		wild := nodeSubjectPrefix(infra.NodeID) + ".>"
 		sub, err := infra.NC.Subscribe(wild, func(_ []byte) {})
-		Expect(err).ToNot(HaveOccurred())
-		defer func() { _ = sub.Unsubscribe() }()
-		Expect(infra.NC.Conn().FlushTimeout(2 * time.Second)).To(Succeed())
-		Expect(infra.NC.Conn().IsConnected()).To(BeTrue())
+		if err == nil {
+			defer func() { _ = sub.Unsubscribe() }()
+			Eventually(func() error {
+				_ = infra.NC.Conn().FlushTimeout(500 * time.Millisecond)
+				return infra.NC.Conn().LastError()
+			}, "3s", "50ms").Should(HaveOccurred())
+		}
 	})
 
 	It("rejects anonymous publish on the JWT-enabled server", func() {

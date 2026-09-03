@@ -93,13 +93,28 @@ var _ = Describe("Worker address resolution", func() {
 
 var _ = Describe("Worker startup validation", func() {
 	// A Config as kong would hand it over with nothing unusual set: the tunnel
-	// on by its default, no auth enforcement.
+	// on by its default, the required frontend URL present, no auth
+	// enforcement. Every case below starts here and changes ONE thing, so a
+	// refusal it asserts is the clause it names and not an earlier one.
 	newConfig := func() *Config {
-		return &Config{WorkerTunnel: true}
+		return &Config{WorkerTunnel: true, RegisterTo: "http://frontend:8080"}
 	}
 
 	It("accepts the default configuration", func() {
 		Expect(newConfig().validateStartup()).To(Succeed())
+	})
+
+	It("starts a backend worker with no NATS URL", func() {
+		// The point of this phase: a backend worker's work arrives over its
+		// tunnel, so a bus address is no longer part of its startup contract.
+		// newConfig sets none, and there is no longer a field to set.
+		Expect(newConfig().validateStartup()).To(Succeed())
+	})
+
+	It("still refuses a worker with no frontend URL", func() {
+		cfg := newConfig()
+		cfg.RegisterTo = ""
+		Expect(cfg.validateStartup()).To(MatchError(ContainSubstring("LOCALAI_REGISTER_TO")))
 	})
 
 	It("refuses to start with the tunnel turned off", func() {
