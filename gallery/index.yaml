@@ -104,6 +104,35 @@
     - filename: llama-cpp/models/GLM-5.3-UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00016-of-00016.gguf
       sha256: 79af2211278ac07dfe4c789751d7de7d7caf0a4516486f8a9b6eedb1f3fb6e9b
       uri: https://huggingface.co/unsloth/GLM-5.3-GGUF/resolve/main/UD-Q6_K_XL/GLM-5.3-UD-Q6_K_XL-00016-of-00016.gguf
+- name: "supra2-100m-instruct"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  urls:
+    - https://huggingface.co/SupraLabs/Supra2-100M-Instruct
+  description: |
+    Supra2-100M-Instruct is a compact English chat model trained from scratch by
+    SupraLabs on the Qwen3 architecture. It has 100 million parameters, a
+    2,048-token context window, and is intended for lightweight experiments and
+    constrained edge deployments. This entry uses the publisher's official F16
+    GGUF build.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - chat
+    - qwen3
+    - edge
+    - english
+  last_checked: "2026-08-11"
+  overrides:
+    parameters:
+      context_size: 2048
+      model: Supra2-100M-SFT-F16.gguf
+  files:
+    - filename: Supra2-100M-SFT-F16.gguf
+      uri: huggingface://SupraLabs/Supra2-100M-Instruct/Supra2-100M-SFT-F16.gguf
+      sha256: f88228c3dcc13b5ee2333cbb6fc2416de908e5b8adabd39bf9ee4378f28451eb
 - &qwen3-8-flash-next
   name: "qwen3.8-flash-next-q4"
   variants:
