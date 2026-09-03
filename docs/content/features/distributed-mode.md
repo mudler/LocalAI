@@ -146,6 +146,23 @@ Leave it at `0` in distributed mode and nothing ever expires: `response_metadata
 
 These rows carry the request body and the generated output, not just identifiers. They live in the same database as the rest of the cluster state, and the TTL above is the only thing that removes them.
 
+### Agent tasks are scoped to their tenant
+
+Every frontend replica keeps agent task definitions in memory so that `GET /api/agent/tasks` answers from any replica. That in-memory copy is kept current by a broadcast on the cluster bus, and the broadcast carries the owning user in the subject:
+
+| Map | Subject it publishes on | Subjects it applies |
+|-----|------------------------|---------------------|
+| One user's tasks | `state.agent-tasks.<user_id>.delta` | that subject alone |
+| The administrative, cluster-wide view | `state.agent-tasks.delta` | `state.agent-tasks.delta` and `state.agent-tasks.*.delta` |
+
+The user id is its own subject token, so one user's subject can never match another user's. A user's agent tasks are therefore visible only to that user and to the administrative view, which is the same scope the `agent_tasks` table already applies to reads.
+
+`DELETE /api/agent/tasks/{id}` is scoped the same way. The delete carries the calling user down to the database, so a request naming a task id that belongs to another user removes nothing and answers `404`. The administrative view keeps the unscoped delete, matching how an empty user id already means "every user" for the task and job listings.
+
+Deployments that ran a release before this scoping existed may have in-memory copies of other users' tasks on their replicas. Nothing is written to the database by that, and a restart of the frontend clears it.
+
+Per-user scoping needs the agent pool running, because that is what creates the per-user services. With `LOCALAI_DISABLE_AGENTS=true`, the agent task routes are still served, and they are served by one cluster-wide service that every authenticated caller shares.
+
 ### Worker tunnels
 
 A worker can open one long-lived, multiplexed tunnel to the frontend instead of listening on a port of its own. It dials `GET /api/cluster/connect?id=<node id>`, the connection is upgraded to a WebSocket, and every subsequent request the frontend makes to that worker travels as a stream inside it. Nothing dials *into* the worker, so a worker behind NAT, in another Kubernetes cluster or on a laptop needs no inbound port and no reachable address.

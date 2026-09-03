@@ -405,6 +405,33 @@ func SubjectSyncStateDelta(name string) string {
 
 const subjectSyncStatePrefix = "state."
 
+// SubjectSyncStateTenantDelta returns the delta subject for ONE tenant's slice
+// of a per-tenant SyncedMap: state.<name>.<tenant>.delta.
+//
+// Four tokens where the unscoped builder makes three, deliberately. A filter
+// matches on token COUNT first (see SubjectMatches), so the cluster-wide map's
+// three-token subject and a tenant's four-token subject can never cross-match,
+// and neither can two different tenants. Putting the tenant INSIDE the name
+// token would not do that: sanitizeSubjectToken replaces '.' with '-', so
+// "agent.tasks."+userID collapses to one token and the only filter that could
+// span tenants would be state.*.delta, which spans every other family too.
+//
+// An empty tenant is not routed here - the SyncedMap sends that case to the
+// cluster-wide subject - and would mint an empty token, which ValidFilter
+// refuses at subscribe time rather than leaving a subscription that never
+// fires.
+func SubjectSyncStateTenantDelta(name, tenant string) string {
+	return subjectSyncStatePrefix + sanitizeSubjectToken(name) + "." + sanitizeSubjectToken(tenant) + ".delta"
+}
+
+// SubjectSyncStateTenantWildcard returns the filter matching EVERY tenant's
+// deltas for name: state.<name>.*.delta. Only the cluster-wide administrative
+// view subscribes to it; a tenant map that used it would be back to reading
+// every other tenant's writes.
+func SubjectSyncStateTenantWildcard(name string) string {
+	return subjectSyncStatePrefix + sanitizeSubjectToken(name) + ".*.delta"
+}
+
 // Prefix-Cache Routing Sync (Pub/Sub - broadcast to all frontends)
 //
 // Frontends share prefix-cache observations so a request routed to any replica

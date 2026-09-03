@@ -43,6 +43,24 @@ type Config[K comparable, V any] struct {
 	Loader    func(ctx context.Context) ([]V, error) // source when there is no Store (e.g. disk reload)
 	OnApply   func(op string, k K, v V)              // optional hook after an applied change (e.g. ShutdownModel)
 	Reconcile time.Duration                          // optional periodic re-hydrate; 0 = off
+
+	// PerTenant declares that this map is instantiated once per tenant, so its
+	// deltas must not reach another tenant's copy. A map with PerTenant false
+	// keeps exactly the subject it has today, which is why the finetune, quant
+	// and responses adopters need no change.
+	PerTenant bool
+
+	// Tenant scopes this map when PerTenant is set. Non-empty publishes and
+	// subscribes on that tenant's subject ALONE.
+	//
+	// Empty with PerTenant set is the CLUSTER-WIDE view: it publishes on the
+	// unscoped subject, and it subscribes on that subject AND on the per-tenant
+	// wildcard. That asymmetry is not an oversight. This map hydrates from a
+	// Store that returns every tenant's rows, so a view that hydrates across
+	// tenants must apply deltas across tenants or it is stale the moment any
+	// tenant writes. A tenant map hydrates from its own rows and must apply
+	// only its own deltas.
+	Tenant string
 }
 
 // delta is the JSON wire envelope broadcast on every local mutation. Value is
@@ -66,7 +84,9 @@ type SyncedMap[K comparable, V any] struct {
 	mu   sync.RWMutex
 	data map[K]V
 
-	sub Subscription
+	// subs holds every filter this map applies deltas from. Only the
+	// cluster-wide view of a per-tenant map has more than one.
+	subs []Subscription
 
 	// lifeCtx outlives Start's argument: a reconnect callback or reconcile tick
 	// can fire long after Start returns, so they must not be tied to a ctx the
@@ -84,8 +104,31 @@ func New[K comparable, V any](cfg Config[K, V]) *SyncedMap[K, V] {
 	return &SyncedMap[K, V]{cfg: cfg, data: make(map[K]V)}
 }
 
-func (m *SyncedMap[K, V]) subject() string {
+// publishSubject is the subject a local mutation broadcasts on, and the SINGLE
+// definition of "the subject this map's tenant owns". subscribeFilters reads it
+// rather than restating the rule, so a per-tenant map cannot end up publishing
+// on one subject and subscribing on another - the split that would leak exactly
+// as before while every publish assertion still passed.
+func (m *SyncedMap[K, V]) publishSubject() string {
+	if m.cfg.PerTenant && m.cfg.Tenant != "" {
+		return messaging.SubjectSyncStateTenantDelta(m.cfg.Name, m.cfg.Tenant)
+	}
 	return messaging.SubjectSyncStateDelta(m.cfg.Name)
+}
+
+// subscribeFilters is the filter or filters this map applies deltas from.
+//
+// Every map subscribes to what it publishes on. The cluster-wide view of a
+// per-tenant map additionally takes the tenant wildcard, because it hydrates
+// from every tenant's rows and would otherwise be stale the moment any tenant
+// wrote. No other case gets a second filter: a tenant that took the wildcard
+// would read every other tenant's writes, which is the leak this exists to
+// close.
+func (m *SyncedMap[K, V]) subscribeFilters() []string {
+	if m.cfg.PerTenant && m.cfg.Tenant == "" {
+		return []string{m.publishSubject(), messaging.SubjectSyncStateTenantWildcard(m.cfg.Name)}
+	}
+	return []string{m.publishSubject()}
 }
 
 // Start hydrates from the source, subscribes for peer deltas, registers a
@@ -102,11 +145,13 @@ func (m *SyncedMap[K, V]) Start(ctx context.Context) error {
 	m.lifeCtx, m.cancel = context.WithCancel(context.Background()) // #nosec G118 -- cancel is invoked in Close()
 
 	if m.cfg.Nats != nil {
-		sub, err := messaging.SubscribeJSON(m.cfg.Nats, m.subject(), m.apply)
-		if err != nil {
-			return err
+		for _, filter := range m.subscribeFilters() {
+			sub, err := messaging.SubscribeJSON(m.cfg.Nats, filter, m.apply)
+			if err != nil {
+				return err
+			}
+			m.subs = append(m.subs, sub)
 		}
-		m.sub = sub
 
 		// nats.go transparently resubscribes on reconnect, but it cannot know we
 		// kept derived in-memory state that may have drifted while the link was
@@ -129,16 +174,27 @@ func (m *SyncedMap[K, V]) Start(ctx context.Context) error {
 	return nil
 }
 
-// Close unsubscribes and stops the reconcile ticker.
+// Close unsubscribes every filter and stops the reconcile ticker. It keeps
+// going after a failure and returns the first error, so one unsubscribe that
+// fails cannot strand the others: a live handler on a closed map keeps writing
+// into memory nobody reads, and for the cluster-wide view that handler is the
+// one carrying other tenants' rows.
 func (m *SyncedMap[K, V]) Close() error {
 	if m.cancel != nil {
 		m.cancel()
 	}
 	m.wg.Wait()
-	if m.sub != nil {
-		return m.sub.Unsubscribe()
+	var firstErr error
+	for _, sub := range m.subs {
+		if sub == nil {
+			continue
+		}
+		if err := sub.Unsubscribe(); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
-	return nil
+	m.subs = nil
+	return firstErr
 }
 
 // Set updates the value locally, writes through the Store, then broadcasts.
@@ -210,7 +266,7 @@ func (m *SyncedMap[K, V]) publish(op string, k K, v V) {
 	if m.cfg.Nats == nil {
 		return
 	}
-	if err := m.cfg.Nats.Publish(m.subject(), delta[K, V]{Op: op, Key: k, Value: v}); err != nil {
+	if err := m.cfg.Nats.Publish(m.publishSubject(), delta[K, V]{Op: op, Key: k, Value: v}); err != nil {
 		xlog.Warn("syncstate: failed to broadcast delta", "name", m.cfg.Name, "op", op, "error", err)
 	}
 }
