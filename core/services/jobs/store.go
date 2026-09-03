@@ -143,9 +143,18 @@ func (s *JobStore) ListTasks(userID string) ([]TaskRecord, error) {
 	return tasks, nil
 }
 
-// DeleteTask removes a task by ID.
-func (s *JobStore) DeleteTask(id string) error {
-	return s.db.Where("id = ?", id).Delete(&TaskRecord{}).Error
+// DeleteTask removes a task by ID, scoped to its owner.
+//
+// An empty userID is the administrative "any owner" scope, the same convention
+// ListTasks and ListJobs already use. A non-empty one deletes NOTHING when the
+// row belongs to somebody else and reports no error: "not yours" and "not
+// there" are the same answer to the caller, and neither is a store failure.
+func (s *JobStore) DeleteTask(userID, id string) error {
+	q := s.db.Where("id = ?", id)
+	if userID != "" {
+		q = q.Where("user_id = ?", userID)
+	}
+	return q.Delete(&TaskRecord{}).Error
 }
 
 // ListCronTasks returns all tasks that have a cron schedule and are enabled.

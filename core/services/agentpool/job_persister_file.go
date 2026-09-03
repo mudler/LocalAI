@@ -41,7 +41,9 @@ func (p *fileJobPersister) SaveTask(_ string, task schema.Task) error {
 	return p.writeTasksLocked()
 }
 
-func (p *fileJobPersister) DeleteTask(taskID string) error {
+// DeleteTask ignores the user id: the file persister writes one file per user,
+// so the file it was constructed with already IS the scope.
+func (p *fileJobPersister) DeleteTask(_ string, taskID string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	delete(p.taskSet, taskID)
