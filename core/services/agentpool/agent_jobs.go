@@ -46,15 +46,17 @@ type AgentJobService struct {
 	evaluator    *templates.Evaluator
 
 	// tasks is the cross-replica task store: an in-memory map kept consistent
-	// across replicas via NATS, with read-through to the configured persister
+	// across replicas over the deployment's fan-out carrier, with read-through
+	// to the configured persister
 	// (file in standalone, PostgreSQL in distributed). Unlike jobs - which already
 	// converge via the dispatcher + DB read-through - tasks previously read
 	// in-memory only, so ListTasks went stale on non-originating replicas.
 	tasks *syncstate.SyncedMap[string, schema.Task]
-	// taskNats is the distributed NATS client backing the tasks SyncedMap. It is
-	// not available at construction time, so it is injected via SetTaskSyncNATS
-	// during distributed wiring; nil keeps tasks in-memory-only (standalone).
-	taskNats messaging.MessagingClient
+	// taskBus is the deployment's broadcast carrier backing the tasks SyncedMap.
+	// It is not available at construction time, so it is injected via
+	// SetTaskSyncBus during distributed wiring; nil keeps tasks in-memory-only
+	// (standalone).
+	taskBus messaging.Broadcaster
 
 	// Storage (in-memory primary, persister for secondary persistence)
 	jobs      *xsync.SyncedMap[string, schema.Job]
@@ -101,8 +103,8 @@ func (s *AgentJobService) SetDistributedBackends(dispatcher DistributedDispatche
 //
 // The rebuild is what makes the two setters order-independent. Without it the
 // map keeps whichever tenant it was built with, so wiring that happened to call
-// SetTaskSyncNATS first would publish this user's tasks on the CLUSTER-WIDE
-// subject and every other tenant would apply them. Like SetTaskSyncNATS, this
+// SetTaskSyncBus first would publish this user's tasks on the CLUSTER-WIDE
+// subject and every other tenant would apply them. Like SetTaskSyncBus, this
 // is only ever called before Start / hydrate, while the map is still empty, so
 // rebuilding loses no state.
 func (s *AgentJobService) SetUserID(id string) {
@@ -117,27 +119,32 @@ func (s *AgentJobService) SetDistributedJobStore(store *jobs.JobStore) {
 	s.persister = &dbJobPersister{store: store}
 }
 
-// SetTaskSyncNATS wires the distributed NATS client used to keep agent *tasks*
-// consistent across replicas (jobs already converge via the dispatcher + DB
-// read-through, so they are left untouched). The client is not available when the
-// service is constructed, so it is injected here during distributed wiring and the
-// tasks SyncedMap is rebuilt to pick it up. It is always called before Start /
+// SetTaskSyncBus wires the deployment's broadcast carrier used to keep agent
+// *tasks* consistent across replicas (jobs already converge via the dispatcher +
+// DB read-through, so they are left untouched). The carrier is not available when
+// the service is constructed, so it is injected here during distributed wiring and
+// the tasks SyncedMap is rebuilt to pick it up. It is always called before Start /
 // hydrate, while the map is still empty, so rebuilding loses no state. Passing nil
 // (standalone) keeps the map in-memory-only with no broadcast.
-func (s *AgentJobService) SetTaskSyncNATS(nats messaging.MessagingClient) {
-	s.taskNats = nats
+//
+// The parameter is messaging.Broadcaster, so in distributed mode this family
+// travels on PostgreSQL LISTEN/NOTIFY. The name says Bus and not NATS because
+// the two are no longer the same thing and a stale name here would be the only
+// documentation a wiring site reads.
+func (s *AgentJobService) SetTaskSyncBus(bus messaging.Broadcaster) {
+	s.taskBus = bus
 	s.buildTasksMap()
 }
 
 // buildTasksMap (re)constructs the cross-replica tasks SyncedMap from the current
-// taskNats. The Store adapter reads s.persister/s.userID live, so a persister swap
-// (SetDistributedJobStore) needs no rebuild; only the NATS client, fixed at
-// New-time, forces one - hence SetTaskSyncNATS calls this.
+// taskBus. The Store adapter reads s.persister/s.userID live, so a persister swap
+// (SetDistributedJobStore) needs no rebuild; only the carrier, fixed at map-build
+// time, forces one - hence SetTaskSyncBus calls this.
 func (s *AgentJobService) buildTasksMap() {
 	s.tasks = syncstate.New(syncstate.Config[string, schema.Task]{
 		Name:  "agent.tasks",
 		Key:   func(t schema.Task) string { return t.ID },
-		Nats:  s.taskNats,
+		Bus:   s.taskBus,
 		Store: &taskStoreAdapter{svc: s},
 		// There is one AgentJobService per user, so this map is per-tenant and
 		// its deltas must not reach another tenant's copy. The empty userID is
@@ -276,7 +283,7 @@ func NewAgentJobServiceWithPaths(
 		cronEntries:   xsync.NewSyncedMap[string, cron.EntryID](),
 		retentionDays: retentionDays,
 	}
-	// Build the cross-replica tasks map standalone (nil NATS); SetTaskSyncNATS
+	// Build the cross-replica tasks map standalone (nil carrier); SetTaskSyncBus
 	// rebuilds it with the distributed client once that is available, before Start.
 	s.buildTasksMap()
 	return s

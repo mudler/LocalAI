@@ -680,7 +680,7 @@ func (a *Application) StartAgentPool() {
 	}
 	// Keep per-user agent tasks consistent across replicas (nil in standalone).
 	if d := a.Distributed(); d != nil {
-		usm.SetJobSyncNATS(d.Nats)
+		usm.SetJobSyncBus(d.Broadcast())
 	}
 	aps.SetUserServicesManager(usm)
 
