@@ -71,6 +71,13 @@ func NewJobStore(db *gorm.DB) (*JobStore, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("migrating job tables: %w", err)
 	}
+	// The claim queue's table, migrated here rather than by whoever happens to
+	// dispatch first. Enqueue writes a claim row on every job, so a deployment
+	// whose job store came up without this table accepts jobs and dispatches
+	// none, which is the exact failure the row was introduced to make visible.
+	if err := MigrateClaims(context.Background(), db); err != nil {
+		return nil, err
+	}
 	return &JobStore{db: db}, nil
 }
 
