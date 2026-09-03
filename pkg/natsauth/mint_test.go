@@ -36,7 +36,12 @@ var _ = Describe("MintWorkerJWT", func() {
 
 		uc, err := jwt.DecodeUserClaims(token)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(uc.Permissions.Sub.Allow).To(ContainElement("nodes.550e8400-e29b-41d4-a716-446655440000.>"))
+		// A backend worker opens no bus connection at all, so its node subtree
+		// went with it. The JWT is still minted at registration and simply
+		// unused; asserting BOTH lists are exactly the inbox is what keeps it
+		// from silently becoming an unrestricted credential, since NATS reads
+		// an empty allow list as no restriction.
+		Expect(uc.Permissions.Sub.Allow).To(ConsistOf("_INBOX.>"))
 		// The install-progress subject is gone with the carrier: progress is a
 		// line in the install response now, so a minted worker JWT must not
 		// still be granted a publish right for it. File staging went the same

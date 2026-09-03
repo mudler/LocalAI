@@ -332,10 +332,14 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		// rest of its life: the loop posts to the URL it was given at boot and
 		// never re-resolves it (core/cli/workerregistry/client.go), so killing a
 		// worker's registrar orphans that worker rather than failing it over.
+		//
+		// No LOCALAI_NATS_URL: a backend worker connects to no bus, and passing
+		// one would make every spec here prove the tunnel-only path works while
+		// quietly handing the worker the thing it is supposed to do without.
+		// The frontends above still get it.
 		"LOCALAI_REGISTER_TO="+c.workerFrontendURL(i),
 		"LOCALAI_NODE_NAME="+name,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
-		"LOCALAI_NATS_URL="+c.opts.NatsURL,
 		"DEBUG=true",
 	)
 
