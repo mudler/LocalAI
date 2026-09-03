@@ -117,7 +117,11 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 				Name: "range-node", Address: "range:9000",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "db-only-model", 0, "loaded", "", 0)).To(Succeed())
+			// The replica address is load-bearing, not decoration. Range lists a
+			// remote replica by the endpoint its OWN backend process listens on;
+			// a row that names none is skipped, because workers advertise nothing
+			// and there is no node address left to fall back to.
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "db-only-model", 0, "loaded", "127.0.0.1:59001", 0)).To(Succeed())
 
 			visited := map[string]bool{}
 			dStore.Range(func(id string, m *model.Model) bool {
@@ -132,7 +136,11 @@ var _ = Describe("DistributedModelStore", Label("Distributed"), func() {
 				Name: "dup-node", Address: "dup:9000",
 			}
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
-			Expect(registry.SetNodeModel(context.Background(), node.ID, "shared-model", 0, "loaded", "", 0)).To(Succeed())
+			// A named replica address is what makes this spec test deduplication
+			// at all: an unnamed row is dropped by Range before the seen-set is
+			// ever consulted, so the count would stay at one even with the
+			// dedup check removed.
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "shared-model", 0, "loaded", "127.0.0.1:59002", 0)).To(Succeed())
 
 			// Also in local store
 			localStore.Set("shared-model", model.NewModel("shared-model", "dup:9000", nil))
