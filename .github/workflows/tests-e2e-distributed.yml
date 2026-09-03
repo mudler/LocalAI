@@ -154,11 +154,6 @@ jobs:
         run: |
           mkdir -p core/http/react-ui/dist
           printf '<!doctype html><title>stub</title>\n' > core/http/react-ui/dist/index.html
-      - name: Build local-ai
-        # Not `make build`: that target pulls in the React UI build. The specs
-        # exec this binary directly via LOCALAI_E2E_BINARY.
-        run: |
-          PATH="$PATH:$HOME/go/bin" go build -o local-ai ./cmd/local-ai
       - name: Pre-pull test images
         # Same reasoning as the job above: pulling here keeps container-start
         # timing out of the spec timeouts and makes a registry outage read as a
@@ -168,7 +163,14 @@ jobs:
           docker pull nats:2-alpine
       - name: Cluster E2E
         env:
-          LOCALAI_E2E_BINARY: ${{ github.workspace }}/local-ai
+          # No LOCALAI_E2E_BINARY and no separate build step: make test-e2e-cluster
+          # builds ./local-ai itself, AFTER the protogen-go it also depends on.
+          # Building it in a step of its own put the generated .pb.go files newer
+          # than the binary, which the harness's staleness check reads, correctly,
+          # as a binary that does not contain the tree it is about to be measured
+          # against. One owner for the build is also what makes a local run and
+          # this job exercise the same bytes.
+          #
           # Must live under the workspace so the upload step below can reach it.
           # The harness defaults to GinkgoT().TempDir(), which lands under
           # TMPDIR and would leave the artifact glob matching nothing.
