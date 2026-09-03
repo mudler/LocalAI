@@ -20,6 +20,16 @@ var _ = Describe("ParseSchedulingSeed", func() {
 		Expect(configs[0].NodeSelector).To(Equal(`{"tier":"gpu"}`))
 	})
 
+	It("parses per-model routing scorer weights", func() {
+		configs, err := ParseSchedulingSeed(
+			`[{"model_name":"chat","route_policy":"prefix_cache","scorer_weights":{"prefix_cache":0.4}}]`,
+			"",
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(configs).To(HaveLen(1))
+		Expect(configs[0].ScorerWeights).To(Equal(map[string]float64{"prefix_cache": 0.4}))
+	})
+
 	It("maps replicas: all to SpreadAll", func() {
 		configs, err := ParseSchedulingSeed(`[{"model_name":"m","replicas":"all"}]`, "")
 		Expect(err).ToNot(HaveOccurred())

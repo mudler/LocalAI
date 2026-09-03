@@ -1,5 +1,7 @@
 package prefixcache
 
+import "sort"
+
 // ReplicaKey identifies a specific loaded replica (a backend process). Affinity
 // is tracked per replica, not per node, because each replica is a separate
 // process with its own KV cache.
@@ -47,47 +49,81 @@ func Select(cands []Candidate, d PrefixDecision, cfg Config) (ReplicaKey, bool) 
 	if len(cands) == 0 {
 		return ReplicaKey{}, false
 	}
-	minIF := cands[0].InFlight
-	for _, c := range cands {
-		minIF = min(minIF, c.InFlight)
+	pipeline := RoutingPipeline{
+		Filters: []CandidateFilter{loadGuardFilter{cfg: cfg}},
+		Scorers: []WeightedScorer{{
+			Weight: scorerWeight(cfg.ScorerWeights, ScorerPrefixCache, 1),
+			Scorer: newPrefixPreferenceScorer(cands, d, cfg),
+		}},
 	}
-	eligible := map[ReplicaKey]bool{}
-	for _, c := range cands {
-		withinAbs := c.InFlight <= minIF+cfg.BalanceAbsThreshold
-		// +1 softens the relative guard when minIF==0 so a zero baseline does
-		// not require exact-zero in-flight; the absolute guard governs near 0.
-		withinRel := float64(c.InFlight) <= float64(minIF)*cfg.BalanceRelThreshold+1
+	return pipeline.Pick(cands)
+}
+
+func scorerWeight(weights map[string]float64, name string, fallback float64) float64 {
+	if weight, ok := weights[name]; ok {
+		return weight
+	}
+	return fallback
+}
+
+type loadGuardFilter struct {
+	cfg Config
+}
+
+func (f loadGuardFilter) Filter(candidates []Candidate) []Candidate {
+	if len(candidates) == 0 {
+		return nil
+	}
+	minInFlight := candidates[0].InFlight
+	for _, candidate := range candidates[1:] {
+		minInFlight = min(minInFlight, candidate.InFlight)
+	}
+	filtered := make([]Candidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		withinAbs := candidate.InFlight <= minInFlight+f.cfg.BalanceAbsThreshold
+		// +1 softens the relative guard when minInFlight is zero; the absolute
+		// guard remains the controlling signal near zero.
+		withinRel := float64(candidate.InFlight) <= float64(minInFlight)*f.cfg.BalanceRelThreshold+1
 		if withinAbs && withinRel {
-			eligible[c.Key] = true
+			filtered = append(filtered, candidate)
 		}
 	}
-	// Hot match wins if eligible and strong enough.
-	if d.HasHot && d.MatchRatio >= cfg.MinPrefixMatch && eligible[d.Hot] {
-		return d.Hot, true
-	}
-	// Cold placement: lowest cacheWeight eligible replica.
-	for _, k := range d.ColdOrder {
-		if eligible[k] {
-			return k, true
+	return filtered
+}
+
+type prefixPreferenceScorer struct {
+	scores map[ReplicaKey]float64
+}
+
+func newPrefixPreferenceScorer(candidates []Candidate, decision PrefixDecision, cfg Config) prefixPreferenceScorer {
+	scores := make(map[ReplicaKey]float64, len(candidates))
+
+	// The fallback occupies the bottom quarter of the normalized range. It
+	// preserves the previous least-in-flight, then replica-key ordering.
+	fallback := append([]Candidate(nil), candidates...)
+	sort.Slice(fallback, func(i, j int) bool {
+		if fallback[i].InFlight != fallback[j].InFlight {
+			return fallback[i].InFlight < fallback[j].InFlight
 		}
+		return fallback[i].Key.less(fallback[j].Key)
+	})
+	for i, candidate := range fallback {
+		scores[candidate.Key] = 0.25 * float64(len(fallback)-i) / float64(len(fallback)+1)
 	}
-	// Deterministic eligible fallback: least in-flight, tiebreak NodeID then
-	// Replica. ColdOrder may not cover the eligible set (the caller may pass an
-	// empty ColdOrder), so this guarantees Select still returns the best eligible
-	// replica rather than failing.
-	var best Candidate
-	found := false
-	for _, c := range cands {
-		if !eligible[c.Key] {
-			continue
-		}
-		if !found || c.InFlight < best.InFlight ||
-			(c.InFlight == best.InFlight && c.Key.less(best.Key)) {
-			best, found = c, true
-		}
+
+	// Cold placement occupies the middle half, in cache-weight order.
+	for i, key := range decision.ColdOrder {
+		scores[key] = 0.75 - 0.25*float64(i)/float64(len(decision.ColdOrder)+1)
 	}
-	if found {
-		return best.Key, true
+
+	// A sufficiently strong hot match remains the highest-scoring signal.
+	if decision.HasHot && decision.MatchRatio >= cfg.MinPrefixMatch {
+		scores[decision.Hot] = 1
 	}
-	return ReplicaKey{}, false
+	return prefixPreferenceScorer{scores: scores}
+}
+
+func (s prefixPreferenceScorer) Score(candidate Candidate) (float64, bool) {
+	score, ok := s.scores[candidate.Key]
+	return score, ok
 }
