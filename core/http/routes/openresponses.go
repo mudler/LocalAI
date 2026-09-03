@@ -5,7 +5,6 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	localai "github.com/mudler/LocalAI/core/http/endpoints/localai"
-	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
@@ -16,11 +15,9 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
 	application *application.Application) {
 
-	// NATS client for distributed MCP tool routing (nil when not in distributed mode)
-	var natsClient mcpTools.MCPNATSClient
+	// How the MCP endpoints reach an agent worker; nil outside distributed mode.
+	agentControl := mcpAgentControl(application)
 	if d := application.Distributed(); d != nil {
-		natsClient = d.Nats
-
 		// Replicate response metadata across frontend replicas and subscribe to
 		// delegated cancels. Without this a GET, a previous_response_id lookup or
 		// a cancel that the load balancer sends to a replica other than the
@@ -38,7 +35,7 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 		application.ModelLoader(),
 		application.TemplatesEvaluator(),
 		application.ApplicationConfig(),
-		natsClient,
+		agentControl,
 	)
 
 	responsesMiddleware := []echo.MiddlewareFunc{

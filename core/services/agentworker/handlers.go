@@ -11,6 +11,8 @@
 // This package is the worker half of moving them onto the same HTTP control
 // plane a backend worker already serves. The frontend half, which chooses WHICH
 // agent worker to ask, is not here: this package answers, it does not select.
+// That selection is nodes.AgentSelector, and it is a query against the
+// connection rows rather than anything a broker does.
 package agentworker
 
 import (
