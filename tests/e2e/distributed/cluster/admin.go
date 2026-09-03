@@ -128,6 +128,38 @@ func (c *Cluster) GetJSON(client *http.Client, frontend int, path string, out an
 	return nil
 }
 
+// PostJSON performs an authenticated POST against a frontend and decodes the
+// body, reporting the status it got so a caller can act on it.
+//
+// It returns the status rather than requiring 200 the way GetJSON does,
+// because the control-plane endpoints a spec drives through here answer 202
+// (an install was accepted and runs asynchronously) and the failure cases a
+// negative control is about are statuses, not transport errors. out may be nil
+// for a caller that only wants the status.
+func (c *Cluster) PostJSON(client *http.Client, frontend int, path string, body any, out any) (int, error) {
+	base, err := c.frontendBaseURL(frontend)
+	if err != nil {
+		return 0, err
+	}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return 0, fmt.Errorf("marshalling the body for %s: %w", path, err)
+	}
+	resp, err := client.Post(base+path, "application/json", bytes.NewReader(encoded))
+	if err != nil {
+		return 0, fmt.Errorf("POST %s on frontend %d: %w", path, frontend, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if out == nil {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, bodyExcerptLimit))
+		return resp.StatusCode, nil
+	}
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return resp.StatusCode, fmt.Errorf("decoding the %s response from frontend %d (status %d): %w", path, frontend, resp.StatusCode, err)
+	}
+	return resp.StatusCode, nil
+}
+
 // frontendBaseURL validates the index before FrontendURL indexes the slice: a
 // bare index panic in a helper every failover spec calls is far harder to read
 // than a named error.

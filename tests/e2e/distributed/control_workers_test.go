@@ -3,6 +3,7 @@ package distributed_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
@@ -109,4 +112,79 @@ func (c *ControlWorkers) serve(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	// The reply line, and it is the last thing on the body by contract.
 	Expect(json.NewEncoder(w).Encode(workerctl.Envelope{Reply: raw})).To(Succeed())
+}
+
+// ServeBackendLifecycle registers the three verbs every routing spec needs from
+// a worker: install, the running-model list, and the backend list.
+//
+// The install reply NAMES the address of the backend process the fake worker
+// started, and that is the half these suites used to leave out. Since phase 2 a
+// worker advertises no address of its own, so this string is the only thing
+// that tells the frontend WHICH process on that worker a model was loaded into,
+// and installBackendOnNode refuses a success reply that omits it rather than
+// substituting anything. Every one of these suites runs its mock gRPC backend
+// on loopback and records where it listens in the node row it registers, so
+// that row is where this reads it back from. It is the spec's own bookkeeping
+// standing in for what a real worker reports about its own process; nothing in
+// production reads BackendNode.Address any more.
+func (c *ControlWorkers) ServeBackendLifecycle(registry *nodes.NodeRegistry) {
+	c.On(AnyNode, workerctl.PathBackendInstall, func(nodeID string, _ []byte) any {
+		node, err := registry.Get(context.Background(), nodeID)
+		if err != nil {
+			return messaging.BackendInstallReply{Success: false, Error: err.Error()}
+		}
+		return messaging.BackendInstallReply{Success: true, WorkerLocalAddress: node.Address}
+	})
+	c.On(AnyNode, workerctl.PathModelsRunning, func(string, []byte) any {
+		return messaging.ModelsRunningReply{}
+	})
+	c.On(AnyNode, workerctl.PathBackendList, func(string, []byte) any {
+		return messaging.BackendListReply{}
+	})
+}
+
+// workerBackendDialerFor stands in for the worker tunnel on the gRPC path.
+//
+// A frontend no longer dials a backend process: it opens a stream on the
+// worker's tunnel and names the process by its worker-local address. These
+// suites run the process on loopback, so a TCP dial to that address is the
+// stand-in, and NewTunnelClientFactory below is what makes the specs go through
+// a dialer at all rather than through the direct dial the default factory now
+// refuses.
+//
+// The refusal is translated, and that is the load-bearing half. A real worker
+// whose backend process has died answers the stream with
+// ErrStreamTargetUnavailable, which cluster.IsWorkerAnswer reads as the WORKER
+// speaking about its backend, and every reap guard in core/services/nodes acts
+// only on that. A bare ECONNREFUSED from net.Dialer carries no such thing and
+// reaches those guards as "no route", which reaps nothing. A double that
+// reported the raw syscall error could therefore never fail the way production
+// fails, and the stale-record spec in router_tracking_test.go would be
+// asserting against a transport that cannot produce the condition it is about.
+// That is not a hypothetical: replacing this translation with the raw error
+// reddens exactly that spec and nothing else.
+func workerBackendDialerFor(_ string) func(ctx context.Context, addr string) (net.Conn, error) {
+	return func(ctx context.Context, addr string) (net.Conn, error) {
+		var d net.Dialer
+		conn, err := d.DialContext(ctx, "tcp", addr)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", clustersvc.ErrStreamTargetUnavailable, err)
+		}
+		return conn, nil
+	}
+}
+
+// tunnelBackendClients is the BackendClientFactory a SmartRouter needs in these
+// suites.
+//
+// It is NewTunnelClientFactory and not a bespoke double on purpose: the default
+// factory refuses every request now (see nodes.ErrNoWorkerDialer), so a spec
+// that omitted this would fail at the first inference with a boot-time
+// misconfiguration rather than testing anything, and a bespoke factory that
+// dialled directly would put back the bypass the phase removed.
+func tunnelBackendClients() nodes.BackendClientFactory {
+	GinkgoHelper()
+	factory, err := nodes.NewTunnelClientFactory("", workerBackendDialerFor)
+	Expect(err).ToNot(HaveOccurred())
+	return factory
 }
