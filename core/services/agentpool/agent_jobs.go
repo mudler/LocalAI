@@ -96,9 +96,18 @@ func (s *AgentJobService) SetDistributedBackends(dispatcher DistributedDispatche
 	s.dispatcher = dispatcher
 }
 
-// SetUserID sets the user ID for per-user scoping of DB queries.
+// SetUserID sets the user ID for per-user scoping of DB queries, and rebuilds
+// the tasks map so the id lands in its subject.
+//
+// The rebuild is what makes the two setters order-independent. Without it the
+// map keeps whichever tenant it was built with, so wiring that happened to call
+// SetTaskSyncNATS first would publish this user's tasks on the CLUSTER-WIDE
+// subject and every other tenant would apply them. Like SetTaskSyncNATS, this
+// is only ever called before Start / hydrate, while the map is still empty, so
+// rebuilding loses no state.
 func (s *AgentJobService) SetUserID(id string) {
 	s.userID = id
+	s.buildTasksMap()
 }
 
 // SetDistributedJobStore sets the database-backed job store for persisting tasks/jobs.
@@ -130,6 +139,12 @@ func (s *AgentJobService) buildTasksMap() {
 		Key:   func(t schema.Task) string { return t.ID },
 		Nats:  s.taskNats,
 		Store: &taskStoreAdapter{svc: s},
+		// There is one AgentJobService per user, so this map is per-tenant and
+		// its deltas must not reach another tenant's copy. The empty userID is
+		// the cluster-wide administrative service, which hydrates from every
+		// tenant's rows and therefore also applies every tenant's deltas.
+		PerTenant: true,
+		Tenant:    s.userID,
 	})
 }
 

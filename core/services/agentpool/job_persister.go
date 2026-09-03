@@ -12,7 +12,10 @@ import (
 type JobPersister interface {
 	// Write-through persistence (called after in-memory mutation)
 	SaveTask(userID string, task schema.Task) error
-	DeleteTask(taskID string) error
+	// DeleteTask removes one task. The user id scopes the removal in DB mode;
+	// an empty user id is the administrative "any owner" scope, matching what
+	// it already means for LoadTasks and ListJobs.
+	DeleteTask(userID, taskID string) error
 	SaveJob(userID string, job schema.Job) error
 	DeleteJob(jobID string) error
 

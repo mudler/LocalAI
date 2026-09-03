@@ -22,6 +22,11 @@ import (
 type FakeBus struct {
 	mu   sync.Mutex
 	subs []fakeBusSub
+	// nextSubID names each subscription uniquely. Unsubscribe used to match on
+	// the filter string, which silently removed a DIFFERENT subscriber's entry
+	// whenever two subscribers shared one filter - and two subscribers sharing
+	// one filter is exactly the topology every cross-replica spec builds.
+	nextSubID int64
 	// publishCounts records how many messages were published per subject, so a
 	// spec can assert the echo-loop guard (an applied delta must not re-publish).
 	publishCounts map[string]int
@@ -33,6 +38,7 @@ type FakeBus struct {
 }
 
 type fakeBusSub struct {
+	id      int64
 	subject string
 	handler func([]byte)
 }
@@ -73,11 +79,14 @@ type fakeBusSubscription struct {
 	subRef fakeBusSub
 }
 
+// Unsubscribe removes THIS subscription and no other. Identity is the id
+// minted at Subscribe time, not the filter: a map that subscribes to the same
+// filter as a peer must not be able to deafen the peer by closing itself.
 func (s *fakeBusSubscription) Unsubscribe() error {
 	s.bus.mu.Lock()
 	defer s.bus.mu.Unlock()
 	for i, candidate := range s.bus.subs {
-		if candidate.subject == s.subRef.subject {
+		if candidate.id == s.subRef.id {
 			s.bus.subs = append(s.bus.subs[:i], s.bus.subs[i+1:]...)
 			return nil
 		}
@@ -91,8 +100,9 @@ func (b *FakeBus) Subscribe(subject string, handler func([]byte)) (messaging.Sub
 	if err := messaging.ValidFilter(subject); err != nil {
 		return nil, err
 	}
-	sub := fakeBusSub{subject: subject, handler: handler}
 	b.mu.Lock()
+	b.nextSubID++
+	sub := fakeBusSub{id: b.nextSubID, subject: subject, handler: handler}
 	b.subs = append(b.subs, sub)
 	b.mu.Unlock()
 	return &fakeBusSubscription{bus: b, subRef: sub}, nil

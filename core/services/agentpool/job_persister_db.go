@@ -19,8 +19,8 @@ func (p *dbJobPersister) SaveTask(userID string, task schema.Task) error {
 	return p.store.SaveTask(rec)
 }
 
-func (p *dbJobPersister) DeleteTask(taskID string) error {
-	return p.store.DeleteTask(taskID)
+func (p *dbJobPersister) DeleteTask(userID, taskID string) error {
+	return p.store.DeleteTask(userID, taskID)
 }
 
 func (p *dbJobPersister) SaveJob(userID string, job schema.Job) error {

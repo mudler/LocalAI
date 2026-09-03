@@ -284,8 +284,10 @@ var _ = Describe("JobStore", func() {
 	})
 
 	Describe("DeleteTask", func() {
-		It("removes a task and confirms it is gone", func() {
-			task := &TaskRecord{
+		var task *TaskRecord
+
+		BeforeEach(func() {
+			task = &TaskRecord{
 				UserID:  "user-del",
 				Name:    "to-delete",
 				Model:   "gpt-4",
@@ -296,10 +298,45 @@ var _ = Describe("JobStore", func() {
 
 			_, err := store.GetTask(task.ID)
 			Expect(err).ToNot(HaveOccurred())
+		})
 
-			Expect(store.DeleteTask(task.ID)).To(Succeed())
+		It("removes a task and confirms it is gone", func() {
+			Expect(store.DeleteTask("user-del", task.ID)).To(Succeed())
 
-			_, err = store.GetTask(task.ID)
+			_, err := store.GetTask(task.ID)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("deletes nothing when the caller is not the owner", func() {
+			// "not yours" and "not there" are the same outcome for the caller
+			// and neither is an error: a delete by primary key with no user
+			// predicate lets any tenant who learns another tenant's task id
+			// destroy that tenant's row.
+			Expect(store.DeleteTask("someone-else", task.ID)).To(Succeed())
+
+			survivor, err := store.GetTask(task.ID)
+			Expect(err).ToNot(HaveOccurred(), "the owner's row must still be readable")
+			Expect(survivor.UserID).To(Equal("user-del"))
+		})
+
+		It("leaves the owner's other rows alone when a foreign delete is refused", func() {
+			second := &TaskRecord{UserID: "user-del", Name: "keep-me", Model: "gpt-4", Prompt: "test"}
+			Expect(store.CreateTask(second)).To(Succeed())
+
+			Expect(store.DeleteTask("someone-else", task.ID)).To(Succeed())
+
+			remaining, err := store.ListTasks("user-del")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(remaining).To(HaveLen(2))
+		})
+
+		It("deletes for the administrative empty user id", func() {
+			// The empty user id already means "every user" for ListTasks and
+			// ListJobs in this store; the delete has to read it the same way or
+			// the cluster-wide agent job service can no longer clean up.
+			Expect(store.DeleteTask("", task.ID)).To(Succeed())
+
+			_, err := store.GetTask(task.ID)
 			Expect(err).To(HaveOccurred())
 		})
 	})
