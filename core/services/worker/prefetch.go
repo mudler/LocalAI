@@ -38,8 +38,8 @@ var realModelInstaller modelInstaller = func(
 ) error {
 	// enforceScan=false: workers fetch from the same gallery the master already
 	// trusts, and the master would have scanned at install time anyway.
-	// autoloadBackendGalleries=false: the worker installs backends on demand via
-	// backend.install NATS events; prefetching the backend here would race the
+	// autoloadBackendGalleries=false: the worker installs backends on demand when
+	// the frontend calls its install control route; prefetching one here would race the
 	// supervisor's own install path and double-trigger gallery work.
 	// requireBackendIntegrity=false: same reason — we're not installing a backend.
 	return gallery.InstallModelFromGallery(
@@ -57,13 +57,15 @@ var realModelInstaller modelInstaller = func(
 
 // prefetchModels resolves each configured gallery ID against the model gallery
 // and downloads the artifact into the worker's /models. It is called once at
-// worker startup, BEFORE the NATS lifecycle subscription, so that the steady
-// state has the file already on disk and the master never needs to stream it.
+// worker startup, BEFORE the worker registers or opens its tunnel, so that the
+// steady state has the file already on disk and the master never needs to
+// stream it.
 //
 // Errors are intentionally non-fatal: on a fresh worker with no outbound
 // connectivity (or a misconfigured gallery JSON), we want the worker to still
 // register and serve traffic — the master will fall back to pushing files
-// on-demand over NATS/HTTP, which is the pre-existing behavior. Per-model
+// on-demand over the worker's file-transfer routes, which is the pre-existing
+// behavior. Per-model
 // failures are logged at warn level and the loop continues with the next ID.
 //
 // Idempotency comes for free from pkg/downloader.URI.DownloadFileWithContext:
@@ -98,7 +100,7 @@ func prefetchModels(
 		installer = realModelInstaller
 	}
 
-	xlog.Info("Prefetching models from gallery before entering NATS loop", "count", len(models), "models", models)
+	xlog.Info("Prefetching models from gallery before registering", "count", len(models), "models", models)
 	for _, name := range models {
 		xlog.Info("Prefetching model", "model", name)
 		if err := installer(ctx, modelGalleries, backendGalleries, systemState, ml, name); err != nil {
