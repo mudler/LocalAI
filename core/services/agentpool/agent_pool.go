@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/distributed"
+	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	skillsManager "github.com/mudler/LocalAI/core/services/skills"
 
@@ -148,8 +149,8 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 	s.apiURL = apiURL
 	s.apiKey = apiKey
 
-	// Distributed mode: use native executor + NATSDispatcher.
-	// No LocalAGI pool, no collections, no skills service — all stateless.
+	// Distributed mode: the frontend enqueues claims and agent workers execute
+	// them. No LocalAGI pool, no collections, no skills service, all stateless.
 	if s.distributed.natsClient != nil {
 		return s.startDistributed(ctx, apiURL, apiKey)
 	}
@@ -217,8 +218,9 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 	s.users.userStorage = NewUserScopedStorage(stateDir, dataDir)
 
 	// Start the background agent scheduler on the frontend.
-	// It needs DB access to list configs and update LastRunAt — the worker doesn't have DB.
-	// The advisory lock ensures only one frontend instance runs the scheduler.
+	// It needs DB access to list configs, update LastRunAt and write the claim
+	// rows, because the worker has no database. The advisory lock ensures only one
+	// frontend instance runs the scheduler.
 	if s.users.authDB != nil && s.distributed.natsClient != nil && s.distributed.agentStore != nil {
 		var schedulerOpts []agents.AgentSchedulerOpt
 		if s.distributed.skillStore != nil {
@@ -226,9 +228,7 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 		}
 		scheduler := agents.NewAgentScheduler(
 			s.users.authDB,
-			s.distributed.natsClient,
 			s.distributed.agentStore,
-			messaging.SubjectAgentExecute,
 			schedulerOpts...,
 		)
 		go scheduler.Start(ctx)
@@ -385,7 +385,7 @@ func (s *AgentPoolService) SetAgentStore(store *agents.AgentStore) {
 
 // Agent execution in distributed mode is handled by the dedicated agent-worker process
 // using the NATSDispatcher from core/services/agents/dispatcher.go.
-// The frontend only dispatches chat events to NATS via dispatchChat().
+// The frontend only enqueues chat claims via dispatchChat().
 
 // --- Agent CRUD ---
 
@@ -970,9 +970,9 @@ func (s *AgentPoolService) ChatForUser(userID, name, message string) (string, er
 	return s.configBackend.Chat(userID, name, message)
 }
 
-// dispatchChat publishes a chat event to the NATS agent execution queue.
-// The event is enriched with the full agent config and resolved skills so that
-// the worker does not need direct database access.
+// dispatchChat writes an agent-run claim for one chat message.
+// The claim payload is enriched with the full agent config and resolved skills
+// so that the worker, which has no database, needs no database access.
 func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, error) {
 	messageID := fmt.Sprintf("%d", time.Now().UnixNano())
 
@@ -1014,7 +1014,11 @@ func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, e
 		Config:    cfg,
 		Skills:    skills,
 	}
-	if err := s.distributed.natsClient.Publish(messaging.SubjectAgentExecute, evt); err != nil {
+	// A claim row rather than a publish onto a queue group. A publish onto a
+	// group nobody had joined succeeded and the chat was simply never answered,
+	// with nothing anywhere recording that it had been asked for; a row that no
+	// dispatch loop takes is still a row.
+	if _, err := jobs.EnqueueClaim(context.Background(), s.users.authDB, jobs.ClaimKindAgentRun, evt); err != nil {
 		return "", fmt.Errorf("failed to dispatch agent chat: %w", err)
 	}
 	return messageID, nil
@@ -1139,7 +1143,7 @@ func (s *AgentPoolService) ExecuteAction(ctx context.Context, actionName string,
 }
 
 // loadSkillsForUser loads full skill info (name, description, content) for a user.
-// Used by dispatchChat and the scheduler to enrich NATS events.
+// Used by dispatchChat and the scheduler to enrich claim payloads.
 func (s *AgentPoolService) loadSkillsForUser(userID string) ([]agents.SkillInfo, error) {
 	mgr, err := s.SkillManagerForUser(userID)
 	if err != nil {

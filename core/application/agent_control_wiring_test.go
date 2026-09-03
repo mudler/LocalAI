@@ -16,13 +16,36 @@ import (
 )
 
 // recordingConnections captures the owner id the selection was made with. It is
-// how this spec sees the one argument whose loss has no other symptom.
-type recordingConnections struct{ owners []string }
+// how these specs see the one argument whose loss has no other symptom.
+//
+// The channel is what lets a spec observe a selection made on ANOTHER
+// goroutine, which is what the dispatch loop's own tick is. A slice read from
+// the spec goroutine would be a data race, and waiting on it would be a sleep.
+type recordingConnections struct {
+	owners []string
+	seen   chan string
+}
 
 func (r *recordingConnections) ConnectedAmong(_ context.Context, _ []string, owner string) ([]string, []string, error) {
 	r.owners = append(r.owners, owner)
+	if r.seen != nil {
+		select {
+		case r.seen <- owner:
+		default:
+		}
+	}
 	return nil, nil, nil
 }
+
+// newRecordingConnections returns a reader whose channel is ready BEFORE any
+// loop can be started against it. Creating it lazily from the spec goroutine
+// would race the loop's own goroutine reading it.
+func newRecordingConnections() *recordingConnections {
+	return &recordingConnections{seen: make(chan string, 8)}
+}
+
+// calledBy delivers the owner id of each selection this reader answers.
+func (r *recordingConnections) calledBy() chan string { return r.seen }
 
 // The wiring that connects MCP to the agent workers, guarded the way the
 // absence wiring is and for the same reason: initDistributed opens a database
@@ -54,7 +77,7 @@ var _ = Describe("building the frontend's agent control client", func() {
 			Name: "agent-1", NodeType: nodes.NodeTypeAgent, Address: "a:50051",
 		}, true)).To(Succeed())
 
-		conns := &recordingConnections{}
+		conns := newRecordingConnections()
 		client, err := newAgentControl(
 			config.DistributedConfig{InstanceID: "replica-7"}, registry, conns,
 			nodes.NewControlClient(nil, "token"))
@@ -67,7 +90,7 @@ var _ = Describe("building the frontend's agent control client", func() {
 	})
 
 	It("refuses to build with no instance id", func() {
-		_, err := newAgentControl(config.DistributedConfig{}, registry, &recordingConnections{},
+		_, err := newAgentControl(config.DistributedConfig{}, registry, newRecordingConnections(),
 			nodes.NewControlClient(nil, "token"))
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("instance id"))
@@ -82,7 +105,7 @@ var _ = Describe("building the frontend's agent control client", func() {
 
 	It("refuses to build with no control transport", func() {
 		_, err := newAgentControl(config.DistributedConfig{InstanceID: "replica-7"}, registry,
-			&recordingConnections{}, nil)
+			newRecordingConnections(), nil)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("control transport"))
 	})

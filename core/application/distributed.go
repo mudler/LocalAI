@@ -90,6 +90,10 @@ type DistributedServices struct {
 	// to come up without it rather than leaving the endpoints to discover it
 	// one request at a time.
 	AgentControl *nodes.AgentControlClient
+	// JobDispatch takes queued work off the job store and drives it on an agent
+	// worker over that worker's tunnel. It is what replaces the three NATS
+	// queue groups: dispatch is a claim, and a claim is a row and a lock.
+	JobDispatch *jobs.DispatchLoop
 
 	shutdownOnce sync.Once
 }
@@ -119,6 +123,9 @@ func (ds *DistributedServices) Shutdown() {
 		}
 		if ds.Health != nil {
 			ds.Health.Stop()
+		}
+		if ds.JobDispatch != nil {
+			ds.JobDispatch.Stop()
 		}
 		if ds.Dispatcher != nil {
 			ds.Dispatcher.Stop()
@@ -400,7 +407,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	xlog.Info("Distributed job store initialized")
 
 	// Initialize job dispatcher
-	dispatcher := jobs.NewDispatcher(jobStore, natsClient, authDB, cfg.Distributed.InstanceID, cfg.Distributed.JobWorkerConcurrency)
+	dispatcher := jobs.NewDispatcher(jobStore, natsClient, authDB, cfg.Distributed.InstanceID)
 
 	// Initialize agent store
 	agentStore, err := agents.NewAgentStore(authDB)
@@ -453,6 +460,13 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	agentControl, err := newAgentControl(cfg.Distributed, registry, clusterRegistry, controlClient)
 	if err != nil {
 		return nil, fmt.Errorf("wiring the agent control client: %w", err)
+	}
+
+	// The consumer side of the claim queue, built and started in one act: see
+	// startJobDispatchLoop for why those are not two lines.
+	jobDispatch, err := startJobDispatchLoop(cfg.Context, cfg.Distributed, authDB, jobStore, registry, clusterRegistry, controlClient, natsClient)
+	if err != nil {
+		return nil, fmt.Errorf("wiring the job dispatch loop: %w", err)
 	}
 
 	// Create FileStager for distributed file transfer
@@ -683,6 +697,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		WorkerDialer:   workerDialer,
 		BackendClients: backendClients,
 		AgentControl:   agentControl,
+		JobDispatch:    jobDispatch,
 		Bus:            bus,
 	}
 	// Checked once, here, on the assembled struct. See requireBroadcastCarrier.
