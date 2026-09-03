@@ -113,7 +113,25 @@ func sharedPostgres() string {
 // SetupTestDB returns a gorm.DB on a PostgreSQL database created for the calling
 // spec. The database is dropped, and its connection pool closed, when the spec
 // ends.
+//
+// It is a wrapper rather than a second implementation, so a caller that also
+// needs the DSN cannot end up on a database created differently from the one
+// every other suite gets.
 func SetupTestDB() *gorm.DB {
+	GinkgoHelper()
+	db, _ := SetupTestDBWithDSN()
+	return db
+}
+
+// SetupTestDBWithDSN is SetupTestDB, and additionally returns the DSN of the
+// database it created.
+//
+// The DSN exists for callers that have to open a connection of their own rather
+// than borrow one from the pool. A PostgreSQL LISTEN connection is the case
+// that motivated it: LISTEN registrations belong to one backend session, so a
+// pooled handle would register them on whichever connection it happened to hand
+// out and lose them on the next one.
+func SetupTestDBWithDSN() (*gorm.DB, string) {
 	GinkgoHelper()
 	if runtime.GOOS == "darwin" {
 		Skip("testcontainers requires Docker, not available on macOS CI")
@@ -135,7 +153,8 @@ func SetupTestDB() *gorm.DB {
 		Expect(admin.Exec(fmt.Sprintf("CREATE DATABASE %q", name)).Error).To(Succeed())
 	}()
 
-	db, err := gorm.Open(postgres.Open(replaceDBName(dsn, name)), &gorm.Config{
+	specDSN := replaceDBName(dsn, name)
+	db, err := gorm.Open(postgres.Open(specDSN), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	Expect(err).ToNot(HaveOccurred())
@@ -162,7 +181,7 @@ func SetupTestDB() *gorm.DB {
 		}
 	})
 
-	return db
+	return db, specDSN
 }
 
 // maintenanceDSN is dsn with every server-side timeout disabled as a CONNECTION
