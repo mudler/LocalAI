@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/pgbus"
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
@@ -46,6 +47,13 @@ type DistributedServices struct {
 	ModelAdapter *nodes.ModelRouterAdapter
 	Unloader     *nodes.RemoteUnloaderAdapter
 	ModelCleanup *nodes.ModelCleanupService
+
+	// Bus is the deployment's fan-out carrier, riding the auth database's
+	// PostgreSQL rather than a message broker. Nothing publishes on it and
+	// nothing subscribes yet; it is built at boot because its DSN has exactly
+	// one legitimate source and that has to be settled once, here, rather than
+	// invented by whichever call site is migrated onto it first.
+	Bus *pgbus.Bus
 
 	// Cluster is the replica-membership registry: which frontend replicas are
 	// alive, at which address, and which of them holds a given worker's tunnel.
@@ -115,6 +123,13 @@ func (ds *DistributedServices) Shutdown() {
 		// when the NATS client is closed below.
 		if ds.Nats != nil {
 			ds.Nats.Close()
+		}
+		// The broadcast carrier holds a PostgreSQL session pinned for the life
+		// of the process, plus the goroutine parked on it. A replica that
+		// leaves one behind on every restart runs the server out of
+		// connections, and the symptom lands on whatever connects next.
+		if ds.Bus != nil {
+			ds.Bus.Close()
 		}
 		xlog.Info("Distributed services shut down")
 	})
@@ -204,6 +219,21 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if authDB == nil {
 		return nil, fmt.Errorf("distributed mode requires auth database to be initialized first")
 	}
+
+	// The fan-out carrier, opened before anything that might want it. It is
+	// built here and not by its first adopter because its DSN has one
+	// legitimate source, and a setting that decides whether every broadcast in
+	// the deployment is delivered should not be settled under the time pressure
+	// of a migration.
+	bus, err := newBroadcastBus(cfg.Context, cfg, authDB)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if !success {
+			bus.Close()
+		}
+	}()
 
 	registry, err := nodes.NewNodeRegistry(authDB)
 	if err != nil {
@@ -636,7 +666,33 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Tunnels:        tunnels,
 		WorkerDialer:   workerDialer,
 		BackendClients: backendClients,
+		Bus:            bus,
 	}, nil
+}
+
+// newBroadcastBus opens the deployment's fan-out carrier on the auth database.
+//
+// The DSN is cfg.Auth.DatabaseURL and it may never be anything else. A second
+// source, a flag of its own or a value read from the environment, would let the
+// pinned LISTEN connection and the connection pool address two different
+// databases; that carrier publishes successfully, delivers nothing, on every
+// replica, and reports no error anywhere. isPostgresURL above has already
+// refused a value this carrier could not use.
+//
+// It is a function rather than four lines inside initDistributed so that the
+// equality can be pinned by a spec. initDistributed opens NATS before it
+// reaches this point and so cannot be called from a unit test, which would
+// leave the assignment as one line in a long function that compiles perfectly
+// well when it names the wrong field.
+func newBroadcastBus(ctx context.Context, cfg *config.ApplicationConfig, authDB *gorm.DB) (*pgbus.Bus, error) {
+	if err := pgbus.Migrate(ctx, authDB); err != nil {
+		return nil, fmt.Errorf("migrating the broadcast carrier: %w", err)
+	}
+	bus, err := pgbus.New(ctx, pgbus.Config{DSN: cfg.Auth.DatabaseURL, DB: authDB})
+	if err != nil {
+		return nil, fmt.Errorf("opening the broadcast carrier: %w", err)
+	}
+	return bus, nil
 }
 
 // unadvertisedNagInterval is how often a replica that could not advertise
