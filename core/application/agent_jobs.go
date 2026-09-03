@@ -37,8 +37,11 @@ func (a *Application) RestartAgentJobService() error {
 		if d.JobStore != nil {
 			agentJobService.SetDistributedJobStore(d.JobStore)
 		}
-		// Keep agent tasks consistent across replicas (same client the dispatcher uses).
-		agentJobService.SetTaskSyncNATS(d.Nats)
+		// Keep agent tasks consistent across replicas, on the deployment's
+		// broadcast carrier. This is the restart path and it is a second site
+		// for the same rule: a fix applied only in startup.go leaves every
+		// service the settings UI restarts on whatever carrier it picked here.
+		agentJobService.SetTaskSyncBus(d.Broadcast())
 	}
 
 	// Start the service

@@ -328,8 +328,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 			application.agentJobService.SetDistributedBackends(distSvc.Dispatcher)
 			application.agentJobService.SetDistributedJobStore(distSvc.JobStore)
 			// Keep agent tasks consistent across replicas (jobs already sync via the
-			// dispatcher + DB read-through). Same NATS client the dispatcher uses.
-			application.agentJobService.SetTaskSyncNATS(distSvc.Nats)
+			// dispatcher + DB read-through), on the deployment's broadcast carrier.
+			application.agentJobService.SetTaskSyncBus(distSvc.Broadcast())
 		}
 		// Wire skill store into AgentPoolService (wired at pool start time via closure)
 		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
