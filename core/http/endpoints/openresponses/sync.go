@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/syncstate"
 	"github.com/mudler/xlog"
@@ -75,12 +76,28 @@ type responseCancelEvent struct {
 //   - a wildcard subscription on the response-cancel subject, so a cancel that
 //     lands on the wrong replica still reaches the context.CancelFunc.
 //
-// The SyncedMap has no durable Store: responses are ephemeral, TTL-bounded
-// state that today does not survive a process restart either, so peers converge
-// through deltas alone. A replica that joins later does not learn about
-// responses created before it started; that is the same visibility a client had
-// before this change and strictly better than the 404 it got from every peer.
-func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.MessagingClient, replicaID string) error {
+// The SyncedMap is backed by a durable Store, and that is what makes a gap in
+// the carrier survivable. Both carriers deliver at most once to CONNECTED
+// subscribers and neither replays: a replica whose subscription was down while a
+// response was created never receives that delta, and with deltas as the only
+// convergence path it would answer 404 for that response forever while its peers
+// answered 200. The Store is what the reconnect re-hydrate and the periodic
+// reconcile actually read, so the gap closes rather than becoming permanent.
+//
+// What is NOT durable is unchanged and deliberate: the resume buffer and the
+// CancelFunc never leave the owning replica (see syncedResponse), so the write
+// through is one row per response state change, not one per generated token.
+//
+// The store is required rather than optional. This is called only from the
+// distributed branch of route registration, so a nil store there is a wiring bug
+// and not a deployment shape; tolerating it would silently restore the
+// deltas-only map this parameter exists to replace, and a non-nil interface
+// wrapping a nil pointer would instead surface as a panic on a request.
+func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.MessagingClient,
+	replicaID string, store *distributed.ResponseMetadataStore) error {
+	if store == nil {
+		return errors.New("enabling cross-replica Open Responses: the store parameter is nil, so a reconnecting replica would have nothing to re-hydrate from")
+	}
 	if nats == nil {
 		return nil
 	}
@@ -91,9 +108,10 @@ func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.Me
 	lifeCtx, lifeCancel := context.WithCancel(context.Background()) //#nosec G118 -- cancelled in Close()
 
 	synced := syncstate.New(syncstate.Config[string, *syncedResponse]{
-		Name: syncStateName,
-		Key:  func(v *syncedResponse) string { return v.ID },
-		Nats: nats,
+		Name:  syncStateName,
+		Key:   func(v *syncedResponse) string { return v.ID },
+		Nats:  nats,
+		Store: &responseMetadataStoreAdapter{store: store},
 	})
 	if err := synced.Start(ctx); err != nil {
 		lifeCancel()
@@ -121,8 +139,68 @@ func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.Me
 	s.cancelSub = sub
 	s.mu.Unlock()
 
+	s.startMetadataPurge(lifeCtx, store)
+
 	xlog.Info("Open Responses store replicating across replicas", "replica_id", replicaID)
 	return nil
+}
+
+// DefaultResponseMetadataPurgeInterval is how often a replica sweeps rows whose
+// TTL has passed out of the durable metadata table.
+//
+// Every replica runs the sweep; the DELETE is idempotent and rows are selected
+// on the database clock, so two replicas sweeping at once cost one extra
+// statement and never disagree about which rows are dead.
+const DefaultResponseMetadataPurgeInterval = 5 * time.Minute
+
+// startMetadataPurge launches the sweep goroutine on the store's own lifetime
+// context, so Close stops it.
+//
+// purgeTicks is the seam that makes the sweep testable without a clock: a spec
+// installs its own channel and sends one tick, which is deterministic where a
+// five-minute ticker and a sleep are not.
+func (s *ResponseStore) startMetadataPurge(lifeCtx context.Context, store *distributed.ResponseMetadataStore) {
+	s.mu.Lock()
+	ticks := s.purgeTicks
+	s.mu.Unlock()
+
+	var stop func()
+	if ticks == nil {
+		t := time.NewTicker(DefaultResponseMetadataPurgeInterval)
+		ticks, stop = t.C, t.Stop
+	}
+
+	s.purgeWG.Add(1)
+	go s.purgeExpiredMetadata(lifeCtx, store, ticks, stop)
+}
+
+// purgeExpiredMetadata sweeps expired rows until the store is closed.
+//
+// A failed sweep is logged and retried on the next tick rather than ending the
+// loop: an unreachable database is not evidence that there is nothing to purge,
+// and a loop that exited on the first transient error would leave the table
+// growing for the rest of the process's life.
+func (s *ResponseStore) purgeExpiredMetadata(ctx context.Context, store *distributed.ResponseMetadataStore,
+	ticks <-chan time.Time, stop func()) {
+	defer s.purgeWG.Done()
+	if stop != nil {
+		defer stop()
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticks:
+			n, err := store.PurgeExpired(ctx)
+			if err != nil {
+				xlog.Warn("failed to purge expired Open Responses metadata", "error", err)
+				continue
+			}
+			if n > 0 {
+				xlog.Debug("Purged expired Open Responses metadata", "rows", n)
+			}
+		}
+	}
 }
 
 // Close tears down the distributed wiring. It is idempotent so a test (or a
@@ -141,6 +219,11 @@ func (s *ResponseStore) Close() error {
 	if cancel != nil {
 		cancel()
 	}
+	// Wait for the purge sweep before returning: a Close that raced its own
+	// goroutine would let a sweep issue a statement against a database the
+	// caller has already torn down, which a spec sees as a flake and a
+	// deployment sees as an error line during shutdown.
+	s.purgeWG.Wait()
 	if sub != nil {
 		if err := sub.Unsubscribe(); err != nil {
 			return err
