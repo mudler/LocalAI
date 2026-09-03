@@ -14,12 +14,12 @@ import (
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
-// Agent workers hold no tunnel and serve no control plane, so asking one to
-// list its backends can only fail. ListBackends read that failure as a node
-// that had gone away and marked it unhealthy; the node's next heartbeat marked
-// it healthy again. Every poll of the backends view therefore flapped every
-// agent node in the cluster, and while it was unhealthy the router would not
-// schedule onto it.
+// Agent workers run no backend processes and mount no backend.list route on
+// the tunnel they hold, so asking one to list its backends can only fail.
+// ListBackends read that failure as a node that had gone away and marked it
+// unhealthy; the node's next heartbeat marked it healthy again. Every poll of
+// the backends view therefore flapped every agent node in the cluster, and
+// while it was unhealthy the router would not schedule onto it.
 var _ = Describe("Backend listing across mixed node types", func() {
 	var (
 		db       *gorm.DB
