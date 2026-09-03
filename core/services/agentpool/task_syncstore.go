@@ -42,6 +42,12 @@ func (a *taskStoreAdapter) Upsert(_ context.Context, task schema.Task) error {
 
 // Delete write-through removes a task locally; the SyncedMap then broadcasts the
 // removal to peers.
+//
+// The user id travels with the id, read live from the service exactly as List
+// and Upsert already read it. A delete by primary key alone reaches every
+// tenant's row with that key, and the in-memory map is not the authority on who
+// owns a row - the store is - so the predicate belongs on the query and not on
+// a lookup before it.
 func (a *taskStoreAdapter) Delete(_ context.Context, id string) error {
-	return a.svc.persister.DeleteTask(id)
+	return a.svc.persister.DeleteTask(a.svc.userID, id)
 }

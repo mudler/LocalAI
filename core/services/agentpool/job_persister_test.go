@@ -53,7 +53,7 @@ var _ = Describe("JobPersister", func() {
 			Expect(p.SaveTask("", schema.Task{ID: "t1", Name: "Keep"})).To(Succeed())
 			Expect(p.SaveTask("", schema.Task{ID: "t2", Name: "Delete"})).To(Succeed())
 
-			Expect(p.DeleteTask("t2")).To(Succeed())
+			Expect(p.DeleteTask("", "t2")).To(Succeed())
 
 			data, err := os.ReadFile(p.tasksFile)
 			Expect(err).NotTo(HaveOccurred())
@@ -167,10 +167,23 @@ var _ = Describe("JobPersister", func() {
 			task := schema.Task{ID: "t1", Name: "Gone", Model: "m", Prompt: "p"}
 			Expect(p.SaveTask("user1", task)).To(Succeed())
 
-			Expect(p.DeleteTask("t1")).To(Succeed())
+			Expect(p.DeleteTask("user1", "t1")).To(Succeed())
 
 			_, err := p.store.GetTask("t1")
 			Expect(err).To(HaveOccurred()) // record not found
+		})
+
+		It("DeleteTask leaves another user's row in the DB", func() {
+			// The DB persister is the one shared across tenants, so it is the
+			// one that has to carry the owner down to the query.
+			task := schema.Task{ID: "t1", Name: "Theirs", Model: "m", Prompt: "p"}
+			Expect(p.SaveTask("user1", task)).To(Succeed())
+
+			Expect(p.DeleteTask("user2", "t1")).To(Succeed())
+
+			rec, err := p.store.GetTask("t1")
+			Expect(err).NotTo(HaveOccurred(), "user1's row must survive user2's delete")
+			Expect(rec.UserID).To(Equal("user1"))
 		})
 
 		It("SaveJob persists to PostgreSQL", func() {

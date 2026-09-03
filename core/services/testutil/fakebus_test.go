@@ -54,3 +54,28 @@ var _ = Describe("FakeBus subject routing", func() {
 		Expect(sub).To(BeNil())
 	})
 })
+
+var _ = Describe("FakeBus subscription identity", func() {
+	It("unsubscribing one of two subscribers on the same filter leaves the other receiving", func() {
+		// Two SyncedMaps in one process legitimately share a filter (the
+		// cluster-wide view and any other unscoped map on the same name). If
+		// Unsubscribe removed the first entry matching the FILTER, closing one
+		// map would silently deafen the other, and the resulting spec failure
+		// would read as a broken carrier rather than as a broken double.
+		bus := testutil.NewFakeBus()
+
+		firstSeen := 0
+		first, err := bus.Subscribe("state.jobs.delta", func([]byte) { firstSeen++ })
+		Expect(err).ToNot(HaveOccurred())
+
+		secondSeen := 0
+		_, err = bus.Subscribe("state.jobs.delta", func([]byte) { secondSeen++ })
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(first.Unsubscribe()).To(Succeed())
+		Expect(bus.Publish("state.jobs.delta", map[string]string{"op": "set"})).To(Succeed())
+
+		Expect(firstSeen).To(Equal(0), "the unsubscribed handler must not fire")
+		Expect(secondSeen).To(Equal(1), "the surviving subscriber must still receive")
+	})
+})
