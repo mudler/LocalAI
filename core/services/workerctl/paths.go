@@ -125,12 +125,12 @@ func AllPaths() []string {
 
 // Envelope is one line of a streaming control response.
 //
-// Exactly one of the two is set. Zero or more Progress lines are followed by
-// exactly ONE Reply line, and the Reply line is the last thing on the body.
-// That ordering is the contract: it is what lets the frontend stop reading, and
-// it is what replaces the subscribe-before-request dance the NATS carrier
-// needed, since progress and reply now share one response and nothing can
-// arrive before the caller is listening.
+// Exactly one of Progress and Reply is set. Zero or more Progress lines are
+// followed by exactly ONE Reply line, and the Reply line is the last thing on
+// the body. That ordering is the contract: it is what lets the frontend stop
+// reading, and it is what replaces the subscribe-before-request dance the NATS
+// carrier needed, since progress and reply now share one response and nothing
+// can arrive before the caller is listening.
 //
 // Progress carrying the reply's own bytes is also why the 8000-byte
 // notification cap that bounded the NATS progress subject has no analogue here:
@@ -138,6 +138,20 @@ func AllPaths() []string {
 type Envelope struct {
 	Progress json.RawMessage `json:"progress,omitempty"`
 	Reply    json.RawMessage `json:"reply,omitempty"`
+
+	// Subject names the broadcast this progress line asks the frontend reading
+	// the stream to make on its behalf. Empty means the line is for this caller
+	// alone, which is what every pre-existing progress line is.
+	//
+	// It is a REQUEST and not an instruction: the frontend checks it against an
+	// allow list derived from the node's type before publishing anything. A
+	// worker naming a subject it has no business on is refused and logged, and
+	// the stream continues.
+	//
+	// It qualifies a Progress line and never a Reply line. A reply is the
+	// worker's verdict about the work, and there is no version of "publish my
+	// verdict for me" that this control plane has to carry.
+	Subject string `json:"subject,omitempty"`
 }
 
 // ContentTypeStream is the media type of a streaming control response.
