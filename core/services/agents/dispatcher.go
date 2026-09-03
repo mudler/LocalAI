@@ -26,7 +26,8 @@ const (
 	RoleAgent  = "agent"
 )
 
-// AgentChatEvent is the NATS message payload for agent chat jobs.
+// AgentChatEvent is the payload of an agent-run claim, and the request body of
+// the agent execution control verb that carries it to a worker.
 type AgentChatEvent struct {
 	AgentName string `json:"agent_name"`
 	UserID    string `json:"user_id"`
@@ -34,14 +35,16 @@ type AgentChatEvent struct {
 	MessageID string `json:"message_id"`
 	Role      string `json:"role,omitempty"` // "user" or "system" (for periodic runs)
 
-	// Enriched payload: set by the frontend/scheduler so that the worker
-	// does not need direct database access.
+	// Enriched payload: set by the frontend/scheduler so that the worker,
+	// which has no database, needs no database access.
 	Config *AgentConfig `json:"config,omitempty"` // full agent configuration
 	Skills []SkillInfo  `json:"skills,omitempty"` // resolved per-user skills
 }
 
 // Dispatcher routes agent chat requests to the executor.
-// Two implementations: LocalDispatcher (direct goroutine) and NATSDispatcher (queue).
+// The standalone implementation is LocalDispatcher (direct goroutine); in
+// distributed mode the frontend writes a claim row instead (see
+// agentpool.dispatchChat) and a worker runs it through WorkerExecutor.
 type Dispatcher interface {
 	// Dispatch sends a chat message to an agent and returns immediately.
 	// The response is delivered asynchronously via the configured event delivery mechanism.
@@ -220,105 +223,62 @@ func (d *LocalDispatcher) buildLocalCallbacks(writer SSEWriter, messageID string
 	}
 }
 
-// --- NATS Dispatcher (distributed) ---
+// --- Worker-side agent executor (distributed) ---
 
-// NATSDispatcher dispatches agent chats via NATS queue group.
-type NATSDispatcher struct {
-	nats        messaging.MessagingClient
+// WorkerExecutor runs agent chats on an agent worker.
+//
+// It used to be a NATS queue-group subscriber, which is where the name
+// NATSDispatcher came from and why it had a subject and a queue. It has
+// neither now: a queue group only ever SELECTED one consumer, the frontend
+// makes that selection itself (nodes.AgentSelector), and what reaches this
+// worker is a streaming control RPC carrying one claim. So this type no longer
+// dispatches anything; it executes what it is handed and writes everything it
+// produces onto the response body of that RPC.
+type WorkerExecutor struct {
 	eventBridge *EventBridge
 	configs     ConfigProvider
 	apiURL      string
 	apiKey      string
-	subject     string
-	queue       string
-	sub         messaging.Subscription // stored subscription for cleanup
-	sem         chan struct{}          // concurrency limiter; nil = unlimited
-	wg          sync.WaitGroup
 }
 
-// NewNATSDispatcher creates a dispatcher that uses NATS for distribution.
-// maxConcurrent limits the number of concurrent agent jobs; 0 means unlimited.
-func NewNATSDispatcher(nats messaging.MessagingClient, bridge *EventBridge, configs ConfigProvider, apiURL, apiKey, subject, queue string, maxConcurrent int) *NATSDispatcher {
-	d := &NATSDispatcher{
-		nats:        nats,
+// NewWorkerExecutor creates the executor an agent worker serves
+// workerctl.PathAgentExecute with.
+func NewWorkerExecutor(bridge *EventBridge, configs ConfigProvider, apiURL, apiKey string) *WorkerExecutor {
+	return &WorkerExecutor{
 		eventBridge: bridge,
 		configs:     configs,
 		apiURL:      apiURL,
 		apiKey:      apiKey,
-		subject:     subject,
-		queue:       queue,
 	}
-	if maxConcurrent > 0 {
-		d.sem = make(chan struct{}, maxConcurrent)
-	}
-	return d
 }
 
-func (d *NATSDispatcher) Start(ctx context.Context) error {
-	sub, err := d.nats.QueueSubscribe(d.subject, d.queue, func(data []byte) {
-		var evt AgentChatEvent
-		if err := json.Unmarshal(data, &evt); err != nil {
-			xlog.Error("Failed to unmarshal agent chat event", "error", err)
-			return
-		}
-		if d.sem != nil {
-			select {
-			case d.sem <- struct{}{}:
-			case <-ctx.Done():
-				return
-			}
-		}
-		d.wg.Add(1)
-		concurrency.SafeGo(func() {
-			defer d.wg.Done()
-			if d.sem != nil {
-				defer func() { <-d.sem }()
-			}
-			d.handleJob(ctx, evt)
-		})
-	})
-	if err != nil {
-		return fmt.Errorf("subscribing to %s: %w", d.subject, err)
+// Execute runs one agent chat and answers the control verb.
+//
+// pub is where every event this run produces goes: the agent's stream events,
+// its status changes, its tool results and its messages. On the control plane
+// that is the response body the claiming replica is already reading, so a
+// caller cannot miss an event by having subscribed too late, and the terminal
+// answer below cannot be published to nobody.
+//
+// A returned ERROR means this worker could not serve the verb at all, and the
+// claiming replica must not read it as a verdict about the work: it releases
+// the claim. Everything this worker LEARNED by running the agent, including a
+// failure, comes back as the reply below.
+func (d *WorkerExecutor) Execute(ctx context.Context, raw json.RawMessage, pub messaging.Publisher) (json.RawMessage, error) {
+	var evt AgentChatEvent
+	if err := json.Unmarshal(raw, &evt); err != nil {
+		return nil, fmt.Errorf("reading an agent execution request: %w", err)
 	}
-	d.sub = sub
-	xlog.Info("NATS agent dispatcher started", "subject", d.subject, "queue", d.queue)
-	return nil
+	bridge := d.eventBridge.WithPublisher(pub)
+	status, errMsg := d.handleJob(ctx, evt, bridge)
+	// The reply names no job: an agent run has no job row, and its output has
+	// already travelled as events. What it carries is the fact that this worker
+	// ran it to a conclusion, which is what lets the claim be completed rather
+	// than retried on another worker.
+	return json.Marshal(map[string]string{"status": status, "error": errMsg})
 }
 
-// Stop unsubscribes from the NATS queue, stopping message delivery.
-func (d *NATSDispatcher) Stop() error {
-	if d.sub != nil {
-		err := d.sub.Unsubscribe()
-		d.sub = nil
-		d.wg.Wait()
-		return err
-	}
-	return nil
-}
-
-func (d *NATSDispatcher) Dispatch(userID, agentName, message string) (string, error) {
-	messageID := uuid.New().String()
-
-	// Send user message to SSE immediately
-	if d.eventBridge != nil {
-		d.eventBridge.PublishMessage(agentName, userID, RoleUser, message, messageID+"-user")
-		d.eventBridge.PublishStatus(agentName, userID, "processing")
-	}
-
-	evt := AgentChatEvent{
-		AgentName: agentName,
-		UserID:    userID,
-		Message:   message,
-		MessageID: messageID,
-		Role:      RoleUser,
-	}
-	if err := d.nats.Publish(d.subject, evt); err != nil {
-		return "", fmt.Errorf("failed to dispatch agent chat: %w", err)
-	}
-	return messageID, nil
-}
-
-func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
+func (d *WorkerExecutor) handleJob(ctx context.Context, evt AgentChatEvent, bridge *EventBridge) (status, errMsg string) {
 	xlog.Info("Processing agent chat job", "agent", evt.AgentName, "user", evt.UserID)
 
 	// Prefer config from the enriched payload (no DB needed).
@@ -329,33 +289,29 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
 		cfg, err = d.configs.GetAgentConfig(evt.UserID, evt.AgentName)
 		if err != nil {
 			xlog.Error("Failed to load agent config", "agent", evt.AgentName, "error", err)
-			if d.eventBridge != nil {
-				d.eventBridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
-			}
-			return
+			dropped(bridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found"), "status", evt.AgentName)
+			return "failed", "agent config not found"
 		}
 	}
 	if cfg == nil {
 		xlog.Error("No agent config available", "agent", evt.AgentName)
-		if d.eventBridge != nil {
-			d.eventBridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found")
-		}
-		return
+		dropped(bridge.PublishStatus(evt.AgentName, evt.UserID, "error: agent config not found"), "status", evt.AgentName)
+		return "failed", "agent config not found"
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Register cancellation
-	if d.eventBridge != nil {
-		d.eventBridge.RegisterCancel(evt.MessageID, cancel)
-		defer d.eventBridge.DeregisterCancel(evt.MessageID)
-	}
+	// Register cancellation on the SHARED registry, which the bus-backed cancel
+	// listener also reads: a cancel arrives on the bus and has to reach an
+	// execution that is publishing onto a stream.
+	bridge.RegisterCancel(evt.MessageID, cancel)
+	defer bridge.DeregisterCancel(evt.MessageID)
 
-	cb := d.buildNATSCallbacks(evt)
+	cb := d.buildCallbacks(evt, bridge)
 
-	// Build execution options: skills come from the enriched NATS payload
-	// (workers have no database access).
+	// Build execution options: skills come from the enriched payload (workers
+	// have no database access).
 	opts := ExecuteChatOpts{
 		UserID:    evt.UserID,
 		MessageID: evt.MessageID,
@@ -364,27 +320,39 @@ func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {
 		opts.SkillProvider = &staticSkillProvider{skills: evt.Skills}
 	}
 
-	var response string
 	var execErr error
 
 	if evt.Role == RoleSystem {
 		// Background/autonomous run — use inner monologue template + permanent goal
-		response, execErr = ExecuteBackgroundRun(ctx, d.apiURL, d.apiKey, cfg, cb, opts)
+		_, execErr = ExecuteBackgroundRun(ctx, d.apiURL, d.apiKey, cfg, cb, opts)
 	} else {
-		response, execErr = ExecuteChat(ctx, d.apiURL, d.apiKey, cfg, evt.Message, cb, opts)
+		_, execErr = ExecuteChat(ctx, d.apiURL, d.apiKey, cfg, evt.Message, cb, opts)
 	}
 
 	if execErr != nil {
 		xlog.Error("Distributed agent execution failed", "agent", evt.AgentName, "error", execErr)
-		if d.eventBridge != nil {
-			d.eventBridge.PublishStatus(evt.AgentName, evt.UserID, "error")
-			d.eventBridge.PublishMessage(evt.AgentName, evt.UserID, RoleAgent,
-				fmt.Sprintf("Agent execution failed: %v", execErr), evt.MessageID+"-error")
-		}
-		return
+		dropped(bridge.PublishStatus(evt.AgentName, evt.UserID, "error"), "status", evt.AgentName)
+		dropped(bridge.PublishMessage(evt.AgentName, evt.UserID, RoleAgent,
+			fmt.Sprintf("Agent execution failed: %v", execErr), evt.MessageID+"-error"), "message", evt.AgentName)
+		// An agent that RAN and failed is this worker's own answer, not a
+		// failure to serve the verb: the claiming replica must complete the
+		// claim rather than offer the same run to another worker.
+		return "failed", execErr.Error()
 	}
 
-	_ = response // already published via callbacks
+	// The response itself has already travelled as events.
+	return "completed", ""
+}
+
+// dropped logs an agent event that could not be published, and never returns it.
+//
+// An event is a NOTIFICATION about a run. A failure to publish one says nothing
+// about whether the run succeeded, and turning it into the verb's error would
+// report a finished agent run as a failure the claiming replica must retry.
+func dropped(err error, event, agentName string) {
+	if err != nil {
+		xlog.Debug("An agent event could not be published", "event", event, "agent", agentName, "error", err)
+	}
 }
 
 // staticSkillProvider provides skills from an in-memory list (from the NATS payload).
@@ -396,7 +364,7 @@ func (p *staticSkillProvider) ListSkills() ([]SkillInfo, error) {
 	return p.skills, nil
 }
 
-func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
+func (d *WorkerExecutor) buildCallbacks(evt AgentChatEvent, bridge *EventBridge) Callbacks {
 	// Observable tracking: build LocalAGI-compatible observable records
 	// from cogito callbacks so the UI can render them properly.
 	//
@@ -430,7 +398,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 
 	return Callbacks{
 		OnStream: func(ev cogito.StreamEvent) {
-			if d.eventBridge == nil {
+			if bridge == nil {
 				return
 			}
 			data := map[string]any{"timestamp": time.Now().Format(time.RFC3339)}
@@ -472,7 +440,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 			default:
 				return
 			}
-			d.eventBridge.PublishStreamEvent(evt.AgentName, evt.UserID, data)
+			dropped(bridge.PublishStreamEvent(evt.AgentName, evt.UserID, data), "stream", evt.AgentName)
 		},
 		OnReasoning: func(text string) {
 			// Reasoning is buffered via OnStream
@@ -482,13 +450,13 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 		},
 		OnToolResult: func(name, result string) {
 			// Emit tool_result stream event for real-time UI display
-			if d.eventBridge != nil {
-				d.eventBridge.PublishStreamEvent(evt.AgentName, evt.UserID, map[string]any{
+			if bridge != nil {
+				dropped(bridge.PublishStreamEvent(evt.AgentName, evt.UserID, map[string]any{
 					"type":        "tool_result",
 					"tool_name":   name,
 					"tool_result": result,
 					"timestamp":   time.Now().Format(time.RFC3339),
-				})
+				}), "tool_result", evt.AgentName)
 			}
 			// Persist tool result: complete the current tool observable
 			mu.Lock()
@@ -499,23 +467,23 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 				obs.Completion = &coreTypes.Completion{
 					ActionResult: result,
 				}
-				if d.eventBridge != nil {
-					d.eventBridge.PersistObservable(evt.AgentName, evt.UserID, "tool_result", obs)
+				if bridge != nil {
+					bridge.PersistObservable(evt.AgentName, evt.UserID, "tool_result", obs)
 				}
 			}
 		},
 		OnStatus: func(status string) {
-			if d.eventBridge != nil {
-				d.eventBridge.PublishStatus(evt.AgentName, evt.UserID, status)
+			if bridge != nil {
+				dropped(bridge.PublishStatus(evt.AgentName, evt.UserID, status), "status", evt.AgentName)
 			}
 		},
 		OnMessage: func(sender, content, msgID string) {
-			if d.eventBridge != nil {
-				d.eventBridge.PublishMessage(evt.AgentName, evt.UserID, sender, content, msgID)
+			if bridge != nil {
+				dropped(bridge.PublishMessage(evt.AgentName, evt.UserID, sender, content, msgID), "message", evt.AgentName)
 			}
 
 			// On agent response, persist the root observable with completion
-			if sender == RoleAgent && d.eventBridge != nil {
+			if sender == RoleAgent && bridge != nil {
 				rootObs.Completion = &coreTypes.Completion{
 					ActionResult: content,
 				}
@@ -529,7 +497,7 @@ func (d *NATSDispatcher) buildNATSCallbacks(evt AgentChatEvent) Callbacks {
 						},
 					}
 				}
-				d.eventBridge.PersistObservable(evt.AgentName, evt.UserID, "chat", rootObs)
+				bridge.PersistObservable(evt.AgentName, evt.UserID, "chat", rootObs)
 			}
 		},
 	}

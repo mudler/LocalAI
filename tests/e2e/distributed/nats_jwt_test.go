@@ -85,7 +85,12 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 
 		claims, err := natsauth.DecodeUserClaims(token)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(claims.Permissions.Sub.Allow).To(ContainElement("agent.execute"))
+		// agent.execute has left this list: agent execution is a streaming
+		// control verb on the tunnel now, driven by a claim a frontend replica
+		// took off the job store. What must still be here is the cancel
+		// broadcast, which cannot become an RPC.
+		Expect(claims.Permissions.Sub.Allow).To(ContainElement("agent.*.cancel"))
+		Expect(claims.Permissions.Sub.Allow).ToNot(ContainElement("agent.execute"))
 		for _, subj := range claims.Permissions.Sub.Allow {
 			Expect(subj).NotTo(ContainSubstring("backend.install"))
 		}
@@ -109,15 +114,19 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 		DeferCleanup(nc.Close)
 
 		// Mirror core/cli/agent_worker.go exactly. MCP tool execution and
-		// discovery are absent, and so is the per-node backend.stop, because
-		// none of the three is a bus subject any more: the frontend selects an
-		// agent worker itself and reaches it with a control RPC over the tunnel
-		// that worker holds.
-		_, err = nc.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func([]byte) {})
-		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (MCP CI jobs)", messaging.SubjectMCPCIJobsNew)
+		// discovery are absent, so is the per-node backend.stop, and so now are
+		// agent execution and MCP CI runs: none of them is a bus subject any
+		// more. The frontend selects an agent worker itself and reaches it with
+		// a control RPC over the tunnel that worker holds, and the work it
+		// hands over is a row it claimed on the job store.
+		//
+		// What is left is the cancel broadcast, which cannot become an RPC: the
+		// replica holding a run is not the one an API cancel lands on.
+		_, err = nc.Subscribe(messaging.SubjectAgentCancelWildcard, func([]byte) {})
+		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (cancellation)", messaging.SubjectAgentCancelWildcard)
 
-		_, err = nc.Subscribe(messaging.SubjectAgentExecute, func([]byte) {})
-		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (job dispatch)", messaging.SubjectAgentExecute)
+		_, err = nc.Subscribe(messaging.SubjectJobProgressWildcard, func([]byte) {})
+		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (progress bridging)", messaging.SubjectJobProgressWildcard)
 	})
 
 	// The narrowing, proved against the enforcing server rather than against
@@ -142,4 +151,26 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 		Expect(err).To(HaveOccurred(),
 			"backend.stop is a control RPC on the worker's tunnel; the bus must not carry it")
 	})
+
+	// The same narrowing for the two queue subjects that became claim rows.
+	// Written out by hand for the same reason: those literals are what a worker
+	// from an older release would still subscribe to, and this is what the
+	// server now answers it.
+	DescribeTable("refuses an agent-minted JWT a retired queue subject",
+		func(subject string) {
+			cfg := natsauth.Config{AccountSeed: infra.AccountSeed, WorkerJWTTTL: time.Hour}
+			token, seed, err := cfg.MintWorkerJWT("agent-node-queues", "agent")
+			Expect(err).ToNot(HaveOccurred())
+
+			nc, err := messaging.New(infra.NatsURL, messaging.WithUserJWT(token, seed))
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(nc.Close)
+
+			_, err = nc.Subscribe(subject, func([]byte) {})
+			Expect(err).To(HaveOccurred(),
+				"%s became a claim on the job store; the bus must not carry it", subject)
+		},
+		Entry("agent execution", "agent.execute"),
+		Entry("mcp ci jobs", "jobs.mcp-ci.new"),
+	)
 })

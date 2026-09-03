@@ -27,10 +27,14 @@ import (
 )
 
 // AgentWorkerCMD starts a dedicated agent worker process for distributed mode.
-// It registers with the frontend, subscribes to the NATS agent execution queue,
-// and executes agent chats using cogito. The worker is a pure executor — it
-// receives the full agent config and skills in the NATS job payload, so it
-// does not need direct database access.
+// It registers with the frontend and serves agent execution and MCP CI runs as
+// STREAMING CONTROL VERBS on the tunnel it holds. The worker is a pure
+// executor: it receives the full agent config and skills in the request body,
+// so it does not need direct database access.
+//
+// It joins no queue group, and there is none left to join: a queue group only
+// ever selected one consumer out of a set, the frontend makes that selection
+// itself, and the work it hands over is a row it claimed on the job store.
 //
 // It also holds one tunnel to the frontend, so the frontend can reach its
 // control verbs by RPC without the worker opening an inbound port. No verb the
@@ -54,10 +58,6 @@ type AgentWorkerCMD struct {
 	// API access
 	APIURL   string `env:"LOCALAI_API_URL" help:"LocalAI API URL for inference (auto-derived from RegisterTo if not set)" group:"api"`
 	APIToken string `env:"LOCALAI_API_TOKEN" help:"API token for LocalAI inference (auto-provisioned during registration if not set)" group:"api"`
-
-	// NATS subjects
-	Subject string `env:"LOCALAI_AGENT_SUBJECT" default:"agent.execute" help:"NATS subject for agent execution" group:"distributed"`
-	Queue   string `env:"LOCALAI_AGENT_QUEUE" default:"agent-workers" help:"NATS queue group name" group:"distributed"`
 
 	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (defaults to nats_jwt from registration)" group:"distributed"`
 	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"NATS user seed override (defaults to nats_user_seed from registration)" group:"distributed"`
@@ -177,13 +177,30 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 	defer natsClient.Close()
 
+	// The executor and the event bridge the control plane serves, built BEFORE
+	// the tunnel because a verb mounted with a nil handler answers a 404, which
+	// a frontend reads as a worker too old to serve it.
+	//
+	// No ConfigProvider and no SkillStore: config and skills arrive in the
+	// request body, exactly as they arrived in the job payload before, because
+	// an agent worker still has no database.
+	eventBridge := agents.NewEventBridge(natsClient, nil, "agent-worker-"+nodeID)
+	executor := agents.NewWorkerExecutor(eventBridge, nil, apiURL, cmd.APIToken)
+
+	mcpCIJobTimeout, err := time.ParseDuration(cmd.MCPCIJobTimeout)
+	if err != nil && cmd.MCPCIJobTimeout != "" {
+		xlog.Warn("invalid MCP CI job timeout, using default 10m", "input", cmd.MCPCIJobTimeout, "error", err)
+	}
+	mcpCIJobTimeout = cmp.Or(mcpCIJobTimeout, config.DefaultMCPCIJobTimeout)
+
 	// The tunnel, and the loopback control plane behind it.
 	//
-	// This is now the ONLY way MCP tool execution and discovery reach this
-	// worker: their queue-group subjects are gone, because a queue group was
-	// only ever a way of SELECTING a worker and the frontend makes that
-	// selection itself (nodes.AgentSelector). The remaining verbs below still
-	// arrive on NATS and will until the tasks that move them land.
+	// It is now the ONLY way anything the frontend addresses to THIS worker
+	// arrives: MCP tool execution, MCP discovery, backend.stop, agent execution
+	// and MCP CI runs. Every one of their subjects is gone. The two queue
+	// groups went last, because a queue group was only ever a way of SELECTING
+	// a worker: the frontend makes that selection itself
+	// (nodes.AgentSelector) and hands over a claim it took off the job store.
 	//
 	// The worker opens no inbound port for any of it: it dials out and the
 	// control plane rides the tunnel it holds.
@@ -194,17 +211,13 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// JWT refresh.
 	//
 	// It is started AFTER registration, which is what supplies both the node
-	// identity the dial names and the credential it presents, and BEFORE the
-	// remaining NATS subscriptions, so that a frontend that reaches this worker
-	// over the tunnel finds its verbs mounted rather than a 404 it would read
-	// as a version skew. backend.stop is among those verbs, and it is the only
-	// way a frontend states it now: there is no node subject left to publish on.
+	// identity the dial names and the credential it presents.
 	agentCtl, err := agentworker.Start(shutdownCtx, agentworker.Options{
 		FrontendURL:  cmd.RegisterTo,
 		NodeID:       nodeID,
 		TunnelToken:  credMgr.TunnelToken,
 		ControlToken: cmd.RegistrationToken,
-		Handlers:     agentWorkerControlHandlers(),
+		Handlers:     agentWorkerControlHandlers(executor, apiURL, cmd.APIToken, mcpCIJobTimeout),
 	})
 	if err != nil {
 		return fmt.Errorf("starting the agent worker control plane: %w", err)
@@ -215,48 +228,17 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	// Create event bridge for publishing results back via NATS
-	eventBridge := agents.NewEventBridge(natsClient, nil, "agent-worker-"+nodeID)
-
-	// Start cancel listener
+	// The cancel listener is the ONE thing still on the bus here: a cancel is a
+	// broadcast to every replica and every worker, because the replica holding
+	// the run is not the one the cancel request lands on.
 	cancelSub, err := eventBridge.StartCancelListener()
 	if err != nil {
 		xlog.Warn("Failed to start cancel listener", "error", err)
 	} else {
-		defer cancelSub.Unsubscribe()
+		defer func() { _ = cancelSub.Unsubscribe() }()
 	}
 
-	// Create and start the NATS dispatcher.
-	// No ConfigProvider or SkillStore needed — config and skills arrive in the job payload.
-	dispatcher := agents.NewNATSDispatcher(
-		natsClient,
-		eventBridge,
-		nil, // no ConfigProvider: config comes in the enriched NATS payload
-		apiURL, cmd.APIToken,
-		cmd.Subject, cmd.Queue,
-		0, // no concurrency limit (CLI worker)
-	)
-
-	if err := dispatcher.Start(shutdownCtx); err != nil {
-		return fmt.Errorf("starting dispatcher: %w", err)
-	}
-
-	// Subscribe to MCP CI job execution (load-balanced across agent workers).
-	// In distributed mode, MCP CI jobs are routed here because the frontend
-	// cannot create MCP sessions (e.g., stdio servers using docker).
-	mcpCIJobTimeout, err := time.ParseDuration(cmd.MCPCIJobTimeout)
-	if err != nil && cmd.MCPCIJobTimeout != "" {
-		xlog.Warn("invalid MCP CI job timeout, using default 10m", "input", cmd.MCPCIJobTimeout, "error", err)
-	}
-	mcpCIJobTimeout = cmp.Or(mcpCIJobTimeout, config.DefaultMCPCIJobTimeout)
-
-	if _, err := natsClient.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func(data []byte) {
-		handleMCPCIJob(shutdownCtx, data, apiURL, cmd.APIToken, natsClient, mcpCIJobTimeout)
-	}); err != nil {
-		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPCIJobsNew, err)
-	}
-
-	xlog.Info("Agent worker ready, waiting for jobs", "subject", cmd.Subject, "queue", cmd.Queue)
+	xlog.Info("Agent worker ready, serving agent execution and MCP CI runs on its tunnel", "node", nodeID)
 
 	// Wait for an OS signal or an internal fatal condition (e.g. NATS
 	// credentials became unrenewable), so the worker restarts and re-acquires
@@ -273,7 +255,6 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	xlog.Info("Shutting down agent worker")
 	shutdownCancel() // stop heartbeat loop immediately
-	dispatcher.Stop()
 	mcpTools.CloseAllMCPSessions()
 	regClient.GracefulDeregister(nodeID)
 	return runErr
@@ -421,44 +402,51 @@ func encodeMCPReply(resp any) (json.RawMessage, error) {
 
 // handleMCPCIJob processes an MCP CI job on the agent worker.
 // The agent worker can create MCP sessions (has docker) and call the LocalAI API for inference.
-func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken string, natsClient messaging.MessagingClient, jobTimeout time.Duration) {
+//
+// Everything it publishes now goes onto pub, which is the response body of the
+// control verb rather than the bus. The subjects are unchanged, and they are
+// still what the claiming replica checks against this worker's allow list
+// before re-broadcasting, so an SSE stream open on any replica still sees the
+// same events on the same subjects.
+//
+// It returns the terminal answer rather than only publishing it. That is the
+// structural half of the fix: the claiming replica persists this before it
+// releases the claim, so a job that finished on a worker cannot be left
+// `running` because a result message went to a subject nobody was reading.
+func handleMCPCIJob(ctx context.Context, data []byte, apiURL, apiToken string, pub messaging.Publisher, jobTimeout time.Duration) jobs.ClaimReply {
 	var evt jobs.JobEvent
 	if err := json.Unmarshal(data, &evt); err != nil {
 		xlog.Error("Failed to unmarshal job event", "error", err)
-		return
+		return jobs.ClaimReply{Status: "failed", Error: "unreadable job event"}
 	}
 
 	job := evt.Job
 	task := evt.Task
 	if job == nil || task == nil {
 		xlog.Error("MCP CI job missing enriched data", "jobID", evt.JobID)
-		publishJobResult(natsClient, evt.JobID, "failed", "", "job or task data missing from NATS event")
-		return
+		return mcpCIAnswer(pub, evt.JobID, "failed", "", "job or task data missing from NATS event")
 	}
 
 	modelCfg := evt.ModelConfig
 	if modelCfg == nil {
-		publishJobResult(natsClient, evt.JobID, "failed", "", "model config missing from job event")
-		return
+		return mcpCIAnswer(pub, evt.JobID, "failed", "", "model config missing from job event")
 	}
 
 	xlog.Info("Processing MCP CI job", "jobID", evt.JobID, "taskID", evt.TaskID, "model", task.Model)
 
 	// Publish running status
-	natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+	dropTrace(pub.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 		JobID: evt.JobID, Status: "running", Message: "Job started on agent worker",
-	})
+	}), evt.JobID)
 
 	// Parse MCP config
 	if modelCfg.MCP.Servers == "" && modelCfg.MCP.Stdio == "" {
-		publishJobResult(natsClient, evt.JobID, "failed", "", "no MCP servers configured for model")
-		return
+		return mcpCIAnswer(pub, evt.JobID, "failed", "", "no MCP servers configured for model")
 	}
 
 	remote, stdio, err := modelCfg.MCP.MCPConfigFromYAML()
 	if err != nil {
-		publishJobResult(natsClient, evt.JobID, "failed", "", fmt.Sprintf("failed to parse MCP config: %v", err))
-		return
+		return mcpCIAnswer(pub, evt.JobID, "failed", "", fmt.Sprintf("failed to parse MCP config: %v", err))
 	}
 
 	// Create MCP sessions locally (agent worker has docker)
@@ -468,8 +456,7 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 		if err != nil {
 			errMsg = fmt.Sprintf("failed to create MCP sessions: %v", err)
 		}
-		publishJobResult(natsClient, evt.JobID, "failed", "", errMsg)
-		return
+		return mcpCIAnswer(pub, evt.JobID, "failed", "", errMsg)
 	}
 
 	// Build prompt from template
@@ -497,11 +484,11 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 	llm := clients.NewLocalAILLM(task.Model, apiToken, apiURL)
 
 	// Build cogito options
-	ctx, cancel := context.WithTimeout(shutdownCtx, jobTimeout)
+	ctx, cancel := context.WithTimeout(ctx, jobTimeout)
 	defer cancel()
 
 	// Update job status to running in DB
-	publishJobStatus(natsClient, evt.JobID, "running", "")
+	publishJobStatus(pub, evt.JobID, "running", "")
 
 	// Buffer stream tokens and flush as complete blocks
 	var reasoningBuf, contentBuf strings.Builder
@@ -509,15 +496,15 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 
 	flushStreamBuf := func() {
 		if reasoningBuf.Len() > 0 {
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			dropTrace(pub.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "reasoning", TraceContent: reasoningBuf.String(),
-			})
+			}), evt.JobID)
 			reasoningBuf.Reset()
 		}
 		if contentBuf.Len() > 0 {
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			dropTrace(pub.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "content", TraceContent: contentBuf.String(),
-			})
+			}), evt.JobID)
 			contentBuf.Reset()
 		}
 	}
@@ -528,15 +515,15 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 		cogito.WithMCPs(sessions...),
 		cogito.WithStatusCallback(func(status string) {
 			flushStreamBuf()
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			dropTrace(pub.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "status", TraceContent: status,
-			})
+			}), evt.JobID)
 		}),
 		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
 			flushStreamBuf()
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			dropTrace(pub.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "tool_result", TraceContent: fmt.Sprintf("%s: %s", t.Name, t.Result),
-			})
+			}), evt.JobID)
 		}),
 		cogito.WithStreamCallback(func(ev cogito.StreamEvent) {
 			// Flush if stream type changed (e.g., reasoning → content)
@@ -550,9 +537,9 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 			case cogito.StreamEventContent:
 				contentBuf.WriteString(ev.Content)
 			case cogito.StreamEventToolCall:
-				natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+				dropTrace(pub.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
 					JobID: evt.JobID, TraceType: "tool_call", TraceContent: fmt.Sprintf("%s(%s)", ev.ToolName, ev.ToolArgs),
-				})
+				}), evt.JobID)
 			}
 		}),
 	)
@@ -565,24 +552,42 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 	flushStreamBuf() // flush any remaining buffered tokens
 
 	if err != nil {
-		publishJobResult(natsClient, evt.JobID, "failed", "", fmt.Sprintf("cogito execution failed: %v", err))
-		return
+		return mcpCIAnswer(pub, evt.JobID, "failed", "", fmt.Sprintf("cogito execution failed: %v", err))
 	}
 
 	result := ""
 	if msg := f.LastMessage(); msg != nil {
 		result = msg.Content
 	}
-	publishJobResult(natsClient, evt.JobID, "completed", result, "")
 	xlog.Info("MCP CI job completed", "jobID", evt.JobID, "resultLen", len(result))
+	return mcpCIAnswer(pub, evt.JobID, "completed", result, "")
 }
 
-func publishJobStatus(nc messaging.MessagingClient, jobID, status, message string) {
-	jobs.PublishJobProgress(nc, jobID, status, message)
+// dropTrace logs a progress line that could not be written, and never returns
+// it. A progress line is a NOTIFICATION about a run; a failure to write one says
+// nothing about the run, and returning it would make the claiming replica read
+// a finished job as a verb this worker could not serve.
+func dropTrace(err error, jobID string) {
+	if err != nil {
+		xlog.Debug("An MCP CI progress line could not be written", "jobID", jobID, "error", err)
+	}
 }
 
-func publishJobResult(nc messaging.MessagingClient, jobID, status, result, errMsg string) {
-	jobs.PublishJobResult(nc, jobID, status, result, errMsg)
+// mcpCIAnswer is the ONE place an MCP CI run's terminal state is stated.
+//
+// It says it TWICE and on purpose, on two carriers with different jobs. The
+// publish drives the SSE streams, on the same jobs.<id>.result subject it always
+// used, re-broadcast by the claiming replica after its allow-list check. The
+// returned reply is the answer to the control verb, which the claiming replica
+// persists BEFORE it releases the claim; that is what makes a finished job
+// impossible to leave `running`, where the publish alone could reach nobody.
+func mcpCIAnswer(pub messaging.Publisher, jobID, status, result, errMsg string) jobs.ClaimReply {
+	jobs.PublishJobResult(pub, jobID, status, result, errMsg)
+	return jobs.ClaimReply{JobID: jobID, Status: status, Result: result, Error: errMsg}
+}
+
+func publishJobStatus(pub messaging.Publisher, jobID, status, message string) {
+	jobs.PublishJobProgress(pub, jobID, status, message)
 }
 
 // agentWorkerControlHandlers is every verb this worker serves on the tunnel it
@@ -594,12 +599,32 @@ func publishJobResult(nc messaging.MessagingClient, jobID, status, result, errMs
 // node subject backend.stop arrived on are all gone, so a field silently
 // dropped here is a 404 at runtime, which the frontend reads as a worker too
 // old to serve the verb.
-func agentWorkerControlHandlers() agentworker.Config {
+func agentWorkerControlHandlers(executor *agents.WorkerExecutor, apiURL, apiToken string, mcpCITimeout time.Duration) agentworker.Config {
 	return agentworker.Config{
 		MCPTool:      serveMCPToolRequest,
 		MCPDiscovery: serveMCPDiscoveryRequest,
 		// Drops the MCP sessions cached for a backend that went away, on the
 		// path a backend worker serves by killing the process instead.
 		BackendStop: dropMCPSessionsForBackend,
+		// The two verbs that replace the queue groups. Both STREAM: their
+		// progress, their agent events and their terminal answer all travel on
+		// the response body the claiming replica is already reading, which is
+		// what lets that replica persist the terminal line before it releases
+		// the claim.
+		AgentExecute: executor.Execute,
+		MCPCIRun:     serveMCPCIRun(apiURL, apiToken, mcpCITimeout),
+	}
+}
+
+// serveMCPCIRun answers workerctl.PathMCPCIRun.
+//
+// The handler's ctx is the REQUEST's, not this process's shutdown context, and
+// that is the point: when the claiming replica goes away the response body dies
+// with it, the run stops, and the claim is reaped for another replica to take.
+// Bound to this worker's shutdown context instead, the run would keep going
+// with nobody reading it.
+func serveMCPCIRun(apiURL, apiToken string, jobTimeout time.Duration) agentworker.StreamHandler {
+	return func(ctx context.Context, raw json.RawMessage, pub messaging.Publisher) (json.RawMessage, error) {
+		return json.Marshal(handleMCPCIJob(ctx, raw, apiURL, apiToken, pub, jobTimeout))
 	}
 }
