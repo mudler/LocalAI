@@ -272,6 +272,20 @@ func (u URI) LooksLikeURL() bool {
 		strings.HasPrefix(string(u), GithubURI2)
 }
 
+// hasLocalSource reports whether the URI names a local file to copy from
+// rather than a URL to fetch. DownloadFileWithContext both decides whether the
+// destination is reachable and picks its source with this, so that the two
+// cannot drift apart: they did, and every "file://" install failed because the
+// reachability check admitted http(s) only, leaving the local-source branch
+// unreachable for any destination that did not already exist.
+func (u URI) hasLocalSource() bool {
+	if strings.HasPrefix(string(u), LocalPrefix) {
+		return true
+	}
+	_, err := os.Stat(u.ResolveURL())
+	return err == nil
+}
+
 func (u URI) LooksLikeHTTPURL() bool {
 	return strings.HasPrefix(string(u), HTTPPrefix) ||
 		strings.HasPrefix(string(u), HTTPSPrefix)
@@ -643,7 +657,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 				return nil
 			}
 		}
-	} else if !os.IsNotExist(err) || !URI(url).LooksLikeHTTPURL() {
+	} else if !os.IsNotExist(err) || !(URI(url).LooksLikeHTTPURL() || uri.hasLocalSource()) {
 		// Error occurred while checking file existence
 		return fmt.Errorf("could not fetch %q: local file does not exist (%v) and %q is not a recognized downloadable URL (supported schemes: %s)", filePath, err, url, strings.Join([]string{HTTPPrefix, HTTPSPrefix, LocalPrefix, HuggingFacePrefix, HuggingFacePrefix1, OllamaPrefix, OCIPrefix, OCIFilePrefix, GithubURI2}, ", "))
 	}
@@ -720,7 +734,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 
 	var source io.ReadCloser
 	var contentLength int64
-	if _, e := os.Stat(uri.ResolveURL()); strings.HasPrefix(string(uri), LocalPrefix) || e == nil {
+	if uri.hasLocalSource() {
 		file, err := os.Open(uri.ResolveURL())
 		if err != nil {
 			return fmt.Errorf("failed to open file %q: %v", uri.ResolveURL(), err)
