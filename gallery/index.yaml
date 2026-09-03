@@ -1,4 +1,68 @@
 ---
+- name: "qwen3.8-27b-turbo-fable-cold-fusion-735-882-heretic-uncensored-neo-coder-max-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF
+  description: |
+    RELEASE #1 GGUFS [including detailed notes, how to use, benches and much more]:
+    https://huggingface.co/DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF
+
+    Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NM-DAU (release #1, others pending...)
+
+    ( repo has 10+ other versions (and 3 branches) noted below that EXCEED the performance of all QWEN 27B models, including fine tunes. )
+
+    First, special thanks to Nightmedia for working on the first three stages prior to heretic'ing/post staging and benching everything (3 sections below).
+
+    A number of my finetunes - both released and non-released - were used here as well as some third parties. Full details will be disclosed upon final release as the project shores up.
+
+    THREE example generations [snippets] from STAGE1-PART2, STAGE1b-PART2 and STAGE2-rplus2 at the bottom of the page.
+
+    Release(s) will be GGUFS first (linked here directly) then source code shortly thereafter [now released/open].
+
+    Some additional work and/ spawning of new branches from branch(es) below is still going on.
+
+    NEW: Branch 3 added, see below.
+
+    COMPLETED AND PENDING RELEASES:
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M.gguf
+      sha256: bc7a6cf2bcc78d1190aaf04d1ab1c5cb845b6ff23aa0e7d24fe0d2ea6d3a7c7c
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF/resolve/main/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.8-27B-TurboFCFusion-735-882-Here-Uncen-NEO-CODER-MAX-MTP-Q4_K_M/mmproj-F32.gguf
+      sha256: 815ee690ba80c42c0ec589a21792f4e0ed7e15c8d3e47e45a114a4f3951d9963
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-TURBO-Fable-Cold-Fusion-735-882-Heretic-Uncensored-NEO-CODER-MAX-MTP-GGUF/resolve/main/mmproj-F32.gguf
 - name: "glm-5.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
