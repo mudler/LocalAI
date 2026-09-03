@@ -59,7 +59,7 @@ var _ = Describe("MintWorkerJWT", func() {
 
 		uc, err := jwt.DecodeUserClaims(token)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(uc.Permissions.Sub.Allow).To(ContainElement("agent.execute"))
+		Expect(uc.Permissions.Sub.Allow).To(ContainElement("agent.*.cancel"))
 		for _, subj := range uc.Permissions.Sub.Allow {
 			Expect(subj).NotTo(ContainSubstring("backend.install"))
 		}

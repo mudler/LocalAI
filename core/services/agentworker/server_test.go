@@ -260,10 +260,11 @@ var _ = Describe("The agent worker's control verbs", func() {
 })
 
 var _ = Describe("The agent worker's streaming verbs", func() {
-	// Nothing sets a StreamHandler in this task. These specs exist so the shape
-	// is decided and pinned now: a later task adds two handlers and changes
-	// nothing else, and it can only do that if what a stream looks like on the
-	// wire is already fixed.
+	// The shape both dispatched verbs answer with. PathAgentExecute and
+	// PathMCPCIRun are now set by the CLI's agentWorkerControlHandlers, and the
+	// claiming replica reads exactly this: zero or more progress lines followed
+	// by exactly one reply line, the reply last, which is what lets it persist
+	// the terminal state before it releases the claim.
 
 	// lines reads an NDJSON body into its envelopes.
 	lines := func(resp *http.Response) []workerctl.Envelope {

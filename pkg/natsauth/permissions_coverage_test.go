@@ -100,9 +100,12 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 		// node_type "agent"; subjects from core/cli/agent_worker.go.
 		pub, sub := natsauth.WorkerPermissions(nodeID, "agent")
 
+		// The subjects an agent worker still subscribes to. Both queue-group
+		// workloads have left this list: agent execution and MCP CI runs are
+		// streaming control verbs on the tunnel now, driven by a claim a
+		// frontend replica took off the job store.
 		subscribed := []string{
-			messaging.SubjectAgentExecute, // dispatcher (default --agent-subject)
-			messaging.SubjectMCPCIJobsNew, // QueueSubscribe — jobs.mcp-ci.new
+			messaging.SubjectAgentCancelWildcard,
 		}
 
 		// The half that catches a narrowing going too far. NATS reads an EMPTY
@@ -115,17 +118,19 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 				"an empty allow list is unrestricted in NATS, not restrictive")
 		})
 
-		// MCP execution and discovery, and now backend.stop too, are control
-		// RPCs on the worker's tunnel, addressed by the frontend rather than
-		// by a subject. An agent worker subscribes to none of them, so a JWT
-		// that still granted one would be granting a subscription nothing
-		// serves. The backend.stop entry is spelled out by hand rather than
-		// built from a deleted builder, which is the only way this can still
-		// name the subject that used to be granted.
+		// MCP execution and discovery, backend.stop, and now agent execution
+		// and MCP CI runs, are all control RPCs on the worker's tunnel,
+		// addressed by the frontend rather than by a subject. An agent worker
+		// subscribes to none of them, so a JWT that still granted one would be
+		// granting a subscription nothing serves. Every entry is spelled out by
+		// hand rather than built from a deleted constant, which is the only way
+		// this can still name the subject that used to be granted.
 		for _, subject := range []string{
 			"mcp.tools.execute",
 			"mcp.discovery",
 			"nodes." + workerSubjectTokenForTest(nodeID) + ".backend.stop",
+			"agent.execute",
+			"jobs.mcp-ci.new",
 		} {
 			It("no longer grants an agent worker "+subject, func() {
 				Expect(anyAllows(sub, subject)).To(BeFalse(),
@@ -138,9 +143,9 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 		// NATS. Naming what must survive is what tells a narrowing from an
 		// escalation, so the queue workloads an agent worker still consumes are
 		// asserted present just above, and the list is asserted non-empty here.
-		It("still grants the agent worker the queue subjects it lives on", func() {
-			Expect(sub).To(ContainElement("agent.execute"))
-			Expect(sub).To(ContainElement("jobs.mcp-ci.new"))
+		It("still grants the agent worker the broadcast subjects it lives on", func() {
+			Expect(sub).To(ContainElement("agent.*.cancel"))
+			Expect(sub).To(ContainElement("jobs.*.progress"))
 			Expect(sub).To(ContainElement("_INBOX.>"))
 		})
 		for _, subject := range subscribed {

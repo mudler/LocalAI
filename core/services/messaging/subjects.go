@@ -12,13 +12,19 @@ func sanitizeSubjectToken(s string) string {
 // NATS subject constants for the distributed architecture.
 // Following the notetaker pattern: <entity>.<action>
 
-// Job Distribution (Queue Groups — load-balanced, one consumer gets each message)
-const (
-	SubjectJobsNew      = "jobs.new"
-	SubjectMCPCIJobsNew = "jobs.mcp-ci.new"
-	SubjectAgentExecute = "agent.execute"
-	QueueWorkers        = "workers"
-)
+// Job Distribution
+//
+// There is no subject here and no queue group left to name. Dispatching work is
+// a CLAIM on the job store: jobs.EnqueueClaim writes a row, one frontend
+// replica takes it with SELECT ... FOR UPDATE SKIP LOCKED, and it drives the
+// work on an agent worker over that worker's tunnel. A queue group was never a
+// broker feature this design has to reproduce; what it did was deliver one
+// message to exactly one of several competing consumers, which is a row and a
+// lock.
+//
+// The difference is not only the carrier. A publish onto a queue group nobody
+// had joined SUCCEEDED, so a deployment with no agent worker accepted jobs and
+// silently ran none; a claim row nobody takes is still in the table.
 
 // Status Updates (Pub/Sub — all subscribers get every message, for SSE bridging)
 // These use parameterized subjects: e.g. SubjectAgentEvents("myagent", "user1")

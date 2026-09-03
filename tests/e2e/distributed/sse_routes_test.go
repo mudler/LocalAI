@@ -36,7 +36,7 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 			jobStore, err := jobs.NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			dispatcher := jobs.NewDispatcher(jobStore, infra.NC, db, "sse-instance", 0)
+			dispatcher := jobs.NewDispatcher(jobStore, infra.NC, db, "sse-instance")
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()

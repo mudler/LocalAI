@@ -1,17 +1,21 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/agents"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
@@ -80,7 +84,12 @@ var _ = Describe("The agent worker's control-plane wiring", func() {
 
 	BeforeEach(func() {
 		mux := http.NewServeMux()
-		agentWorkerControlHandlers().Register(mux)
+		// Built exactly as Run builds it, from an executor and the MCP CI
+		// timeout, so a field this function forgets to set is a 404 here.
+		executor := agents.NewWorkerExecutor(
+			agents.NewEventBridge(testutil.NewFakeBus(), nil, "agent-worker-spec"),
+			nil, "http://127.0.0.1:1", "token")
+		agentWorkerControlHandlers(executor, "http://127.0.0.1:1", "token", time.Second).Register(mux)
 		srv := httptest.NewServer(mux)
 		DeferCleanup(srv.Close)
 		base = srv.URL
@@ -97,5 +106,41 @@ var _ = Describe("The agent worker's control-plane wiring", func() {
 		Entry("backend stop", workerctl.PathBackendStop),
 		Entry("mcp tool execute", workerctl.PathMCPToolExecute),
 		Entry("mcp discovery", workerctl.PathMCPDiscovery),
+		// The two verbs that replaced the queue groups. An unwired one answers
+		// a 404, which is EXACTLY what an older worker answers, so nothing else
+		// in the tree can tell the two apart and only this spec can.
+		Entry("agent execute", workerctl.PathAgentExecute),
+		Entry("mcp ci run", workerctl.PathMCPCIRun),
+	)
+
+	DescribeTable("answers a dispatched verb as a stream, so progress and the terminal line share one body",
+		func(path string) {
+			resp, err := http.Post(base+path, "application/json", strings.NewReader(`{}`)) //nolint:gosec,noctx // httptest server, no redirects to follow
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = resp.Body.Close() })
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(resp.Header.Get("Content-Type")).To(Equal(workerctl.ContentTypeStream))
+
+			// Exactly one reply line, and it is the last thing on the body.
+			// That is what the claiming replica stops reading on.
+			var envs []workerctl.Envelope
+			sc := bufio.NewScanner(resp.Body)
+			for sc.Scan() {
+				if strings.TrimSpace(sc.Text()) == "" {
+					continue
+				}
+				var env workerctl.Envelope
+				Expect(json.Unmarshal(sc.Bytes(), &env)).To(Succeed())
+				envs = append(envs, env)
+			}
+			Expect(sc.Err()).ToNot(HaveOccurred())
+			Expect(envs).ToNot(BeEmpty())
+			Expect(envs[len(envs)-1].Reply).ToNot(BeEmpty(), "the reply line must be last")
+			for _, env := range envs[:len(envs)-1] {
+				Expect(env.Reply).To(BeEmpty(), "only the last line may be a reply")
+			}
+		},
+		Entry("agent execute", workerctl.PathAgentExecute),
+		Entry("mcp ci run", workerctl.PathMCPCIRun),
 	)
 })

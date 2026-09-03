@@ -27,7 +27,7 @@ type AgentEvent struct {
 	Content        string `json:"content,omitempty"`
 	MessageID      string `json:"message_id,omitempty"`
 	Metadata       string `json:"metadata,omitempty"` // JSON metadata
-	Timestamp      int64  `json:"timestamp"`                 // Unix milliseconds (set by PublishEvent)
+	Timestamp      int64  `json:"timestamp"`          // Unix milliseconds (set by PublishEvent)
 }
 
 // AgentCancelEvent is the NATS message payload for cancelling agent execution.
@@ -40,12 +40,23 @@ type AgentCancelEvent struct {
 // EventBridge bridges agent events between NATS and SSE connections.
 // It enables cross-instance SSE: user connects to Frontend 1, agent runs on Frontend 2.
 type EventBridge struct {
-	nats       messaging.MessagingClient
+	nats messaging.MessagingClient
+	// pub is where the events this bridge produces GO, which is not always the
+	// bus. On an agent worker running a dispatched claim it is the response
+	// body of the control RPC the claiming replica is reading, so the events
+	// travel back on the same stream as the result rather than on a subject
+	// nobody may be subscribed to yet. See WithPublisher.
+	pub        messaging.Publisher
 	store      *AgentStore
 	instanceID string
 
-	// Cancel registry for running agent executions
-	cancelRegistry messaging.CancelRegistry
+	// Cancel registry for running agent executions.
+	//
+	// A POINTER, because WithPublisher hands out a second view of this bridge
+	// and both views must reach the SAME registry: the cancel listener runs on
+	// the bus-backed bridge and the execution it has to reach runs on the
+	// stream-backed one. A copied sync.Map would swallow every cancel.
+	cancelRegistry *messaging.CancelRegistry
 
 	// Background NATS subscriptions owned by this bridge
 	obsPersisterSub messaging.Subscription
@@ -54,10 +65,30 @@ type EventBridge struct {
 // NewEventBridge creates a new EventBridge.
 func NewEventBridge(nc messaging.MessagingClient, store *AgentStore, instanceID string) *EventBridge {
 	return &EventBridge{
-		nats:       nc,
-		store:      store,
-		instanceID: instanceID,
+		nats:           nc,
+		pub:            nc,
+		store:          store,
+		instanceID:     instanceID,
+		cancelRegistry: &messaging.CancelRegistry{},
 	}
+}
+
+// WithPublisher returns a view of this bridge whose events go to pub.
+//
+// Everything else is SHARED with the receiver, the cancel registry above all: a
+// cancel arriving on the bus must reach an execution that is publishing onto a
+// stream, and a bridge that copied the registry would register the cancel where
+// nothing looks for it.
+//
+// A nil pub returns the receiver unchanged rather than a bridge that publishes
+// nowhere, because a handler that was given no writer still has the bus.
+func (b *EventBridge) WithPublisher(pub messaging.Publisher) *EventBridge {
+	if b == nil || pub == nil {
+		return b
+	}
+	view := *b
+	view.pub = pub
+	return &view
 }
 
 // PublishEvent publishes an agent event to NATS for SSE bridging.
@@ -70,7 +101,7 @@ func NewEventBridge(nc messaging.MessagingClient, store *AgentStore, instanceID 
 func (b *EventBridge) PublishEvent(agentName, userID string, evt AgentEvent) error {
 	evt.Timestamp = time.Now().UnixMilli()
 	subject := messaging.SubjectAgentEvents(agentName, userID)
-	return b.nats.Publish(subject, evt)
+	return b.pub.Publish(subject, evt)
 }
 
 // PersistObservable publishes an observable_update SSE event for real-time UI
