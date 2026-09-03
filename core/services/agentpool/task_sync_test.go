@@ -26,7 +26,7 @@ import (
 // newTaskSyncService builds an AgentJobService wired to the given bus and a
 // throwaway data dir (so the file persister has somewhere to write). Model/config
 // loaders are nil because the task sync paths under test never touch them.
-func newTaskSyncService(bus messaging.MessagingClient) *AgentJobService {
+func newTaskSyncService(bus messaging.Broadcaster) *AgentJobService {
 	tmpDir := GinkgoT().TempDir()
 	sysState := &system.SystemState{}
 	sysState.Model.ModelsPath = tmpDir
@@ -40,7 +40,7 @@ func newTaskSyncService(bus messaging.MessagingClient) *AgentJobService {
 		// Distinct per-replica files so the file persister write-through never
 		// crosses replicas: convergence here must be proven via the bus alone.
 		tmpDir+"/tasks.json", tmpDir+"/jobs.json")
-	svc.SetTaskSyncNATS(bus)
+	svc.SetTaskSyncBus(bus)
 	return svc
 }
 
@@ -168,7 +168,7 @@ func newTaskSyncServiceForTenant(bus messaging.MessagingClient, userID string) *
 	svc := NewAgentJobServiceWithPaths(appConfig, nil, nil, nil,
 		tmpDir+"/tasks.json", tmpDir+"/jobs.json")
 	svc.SetUserID(userID)
-	svc.SetTaskSyncNATS(bus)
+	svc.SetTaskSyncBus(bus)
 	return svc
 }
 
@@ -293,9 +293,41 @@ var _ = Describe("AgentJobService same-tenant replicas", func() {
 		Expect(got.Name).To(Equal("Shared"))
 	})
 
+	It("publishes the cluster-wide view on the carrier SetTaskSyncBus was handed", func() {
+		// S3 in the wiring table. Two startup paths call this one setter
+		// (startup.go and the settings-driven restart in agent_jobs.go), so the
+		// service must broadcast on whatever it was given and on the agent-task
+		// family's own subject, never on another family's.
+		bus := testutil.NewFakeBus()
+		svc := newTaskSyncService(bus)
+		Expect(svc.Start(context.Background())).To(Succeed())
+		defer func() { Expect(svc.Stop()).To(Succeed()) }()
+
+		_, err := svc.CreateTask(schema.Task{Name: "Cluster", Model: "m", Prompt: "p"})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("agent.tasks"))).To(Equal(1))
+		Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("finetune.jobs"))).To(Equal(0))
+	})
+
+	It("broadcasts nothing when it is handed no carrier at all", func() {
+		// The standalone half of S3: a single-binary deployment passes nil and
+		// must get a map that still works and never reaches for a carrier.
+		bus := testutil.NewFakeBus()
+		svc := newTaskSyncService(nil)
+		Expect(svc.Start(context.Background())).To(Succeed())
+		defer func() { Expect(svc.Stop()).To(Succeed()) }()
+
+		id, err := svc.CreateTask(schema.Task{Name: "Solo", Model: "m", Prompt: "p"})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = svc.GetTask(id)
+		Expect(err).NotTo(HaveOccurred(), "a carrier-less service must still serve its own reads")
+		Expect(bus.Subscribers()).To(Equal(0))
+	})
+
 	It("scopes the subject whichever order the setters are called in", func() {
 		// UserServicesManager.GetJobs happens to call SetUserID before
-		// SetTaskSyncNATS. Nothing enforces that order, and a map built from a
+		// SetTaskSyncBus. Nothing enforces that order, and a map built from a
 		// user id that had not been set yet publishes cluster-wide - the leak,
 		// reintroduced by a line move.
 		bus := testutil.NewFakeBus()
@@ -309,5 +341,58 @@ var _ = Describe("AgentJobService same-tenant replicas", func() {
 
 		Expect(bus.PublishCount(messaging.SubjectSyncStateTenantDelta("agent.tasks", "u1"))).To(Equal(1))
 		Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("agent.tasks"))).To(Equal(0))
+	})
+})
+
+// The per-user manager is the wiring site that fails silently.
+//
+// S4 in the table, and it is the reason the table has five rows rather than
+// four: the global AgentJobService and every per-user one are different
+// objects, so a carrier handed only to the global service leaves every tenant's
+// tasks unreplicated with nothing failing anywhere. The manager stores the
+// carrier once and every service it builds afterwards inherits it.
+var _ = Describe("UserServicesManager task carrier propagation", func() {
+	newManager := func() *UserServicesManager {
+		GinkgoHelper()
+		tmpDir := GinkgoT().TempDir()
+		sysState := &system.SystemState{}
+		sysState.Model.ModelsPath = tmpDir
+		appConfig := config.NewApplicationConfig(
+			config.WithDynamicConfigDir(tmpDir),
+			config.WithContext(context.Background()),
+		)
+		appConfig.SystemState = sysState
+		return NewUserServicesManager(NewUserScopedStorage(tmpDir, tmpDir), appConfig, nil, nil, nil)
+	}
+
+	It("hands the carrier it was given to each per-user service, on that tenant's subject", func() {
+		bus := testutil.NewFakeBus()
+		m := newManager()
+		m.SetJobSyncBus(bus)
+
+		svc, err := m.GetJobs("u1")
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(svc.Stop()).To(Succeed()) })
+
+		_, err = svc.CreateTask(schema.Task{Name: "Tenant", Model: "m", Prompt: "p"})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(bus.PublishCount(messaging.SubjectSyncStateTenantDelta("agent.tasks", "u1"))).To(Equal(1),
+			"a per-user service that inherited no carrier leaves that tenant unreplicated, silently")
+		Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("agent.tasks"))).To(Equal(0),
+			"and one that inherited it must not publish a tenant's tasks cluster-wide")
+	})
+
+	It("leaves per-user services carrier-less when the manager was given none", func() {
+		bus := testutil.NewFakeBus()
+		m := newManager()
+
+		svc, err := m.GetJobs("u2")
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(svc.Stop()).To(Succeed()) })
+
+		_, err = svc.CreateTask(schema.Task{Name: "Tenant", Model: "m", Prompt: "p"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(bus.Subscribers()).To(Equal(0))
 	})
 })
