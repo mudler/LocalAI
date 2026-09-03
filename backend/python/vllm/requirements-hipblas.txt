@@ -1,5 +1,8 @@
---extra-index-url https://download.pytorch.org/whl/nightly/rocm7.0
+# torch is installed separately from AMD's multi-arch ROCm 7.14 index in
+# install.sh (gfx1151 needs torch built against ROCm 7.13+; the community
+# whl/rocm7.0 wheel does not enumerate Strix Halo). vllm itself is built from
+# source there against that torch. uv aborts on the AMD index's 403-for-missing
+# -pkg, so torch is pulled there; everything below resolves from PyPI.
 accelerate
-torch
 transformers
 bitsandbytes
