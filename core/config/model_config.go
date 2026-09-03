@@ -1241,15 +1241,16 @@ type GRPC struct {
 
 // @Description Diffusers configuration
 type Diffusers struct {
-	CUDA             bool   `yaml:"cuda,omitempty" json:"cuda,omitempty"`
-	PipelineType     string `yaml:"pipeline_type,omitempty" json:"pipeline_type,omitempty"`
-	SchedulerType    string `yaml:"scheduler_type,omitempty" json:"scheduler_type,omitempty"`
-	EnableParameters string `yaml:"enable_parameters,omitempty" json:"enable_parameters,omitempty"` // A list of comma separated parameters to specify
-	IMG2IMG          bool   `yaml:"img2img,omitempty" json:"img2img,omitempty"`                     // Image to Image Diffuser
-	ClipSkip         int    `yaml:"clip_skip,omitempty" json:"clip_skip,omitempty"`                 // Skip every N frames
-	ClipModel        string `yaml:"clip_model,omitempty" json:"clip_model,omitempty"`               // Clip model to use
-	ClipSubFolder    string `yaml:"clip_subfolder,omitempty" json:"clip_subfolder,omitempty"`       // Subfolder to use for clip model
-	ControlNet       string `yaml:"control_net,omitempty" json:"control_net,omitempty"`
+	CUDA               bool   `yaml:"cuda,omitempty" json:"cuda,omitempty"`
+	PipelineType       string `yaml:"pipeline_type,omitempty" json:"pipeline_type,omitempty"`
+	SchedulerType      string `yaml:"scheduler_type,omitempty" json:"scheduler_type,omitempty"`
+	OriginalConfigFile string `yaml:"original_config_file,omitempty" json:"original_config_file,omitempty"`
+	EnableParameters   string `yaml:"enable_parameters,omitempty" json:"enable_parameters,omitempty"` // A list of comma separated parameters to specify
+	IMG2IMG            bool   `yaml:"img2img,omitempty" json:"img2img,omitempty"`                     // Image to Image Diffuser
+	ClipSkip           int    `yaml:"clip_skip,omitempty" json:"clip_skip,omitempty"`                 // Skip every N frames
+	ClipModel          string `yaml:"clip_model,omitempty" json:"clip_model,omitempty"`               // Clip model to use
+	ClipSubFolder      string `yaml:"clip_subfolder,omitempty" json:"clip_subfolder,omitempty"`       // Subfolder to use for clip model
+	ControlNet         string `yaml:"control_net,omitempty" json:"control_net,omitempty"`
 }
 
 // @Description LLMConfig is a struct that holds the configuration that are generic for most of the LLM backends.

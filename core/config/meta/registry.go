@@ -896,11 +896,19 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Options:     DiffusersSchedulerOptions,
 			Order:       81,
 		},
+		"diffusers.original_config_file": {
+			Section:     "diffusers",
+			Label:       "Original Config File",
+			Description: "Original model configuration file used when loading a single-file checkpoint",
+			Component:   "input",
+			Advanced:    true,
+			Order:       82,
+		},
 		"diffusers.cuda": {
 			Section:     "diffusers",
 			Label:       "CUDA",
 			Description: "Enable CUDA for diffusers",
-			Order:       82,
+			Order:       83,
 		},
 
 		// --- PII filtering (per-model) ---

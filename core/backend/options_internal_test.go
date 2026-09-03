@@ -44,6 +44,21 @@ var _ = Describe("grpcModelOpts EngineArgs", func() {
 	})
 })
 
+var _ = Describe("grpcModelOpts Diffusers options", func() {
+	It("forwards original_config_file without rewriting it", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Threads: &threads,
+			Diffusers: config.Diffusers{
+				OriginalConfigFile: "configs/v1-inference.yaml",
+			},
+		}
+
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.OriginalConfigFile).To(Equal("configs/v1-inference.yaml"))
+	})
+})
+
 // Guards the DisableReasoning -> enable_thinking metadata conversion that the
 // per-request reasoning_effort feature (issue #10072) relies on: the request
 // merge sets ReasoningConfig.DisableReasoning, and gRPCPredictOpts is where it

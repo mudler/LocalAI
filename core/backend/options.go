@@ -452,6 +452,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		EnableScore:          c.HasUsecases(config.FLAG_SCORE),
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
 		ControlNet:           c.Diffusers.ControlNet,
+		OriginalConfigFile:   c.Diffusers.OriginalConfigFile,
 		ContextSize:          int32(ctxSize),
 		Seed:                 getSeed(c),
 		NBatch:               int32(b),
