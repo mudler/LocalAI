@@ -238,6 +238,43 @@ var _ = Describe("retiring spilled rows", func() {
 
 		Expect(rows()).To(ConsistOf("fresh"))
 	})
+
+	Describe("PurgeBefore", func() {
+		var b *pgbus.Bus
+
+		BeforeEach(func() {
+			// A retention long enough that the carrier's own purge loop cannot
+			// fire inside a spec, so what these assert on is the call they make
+			// and not a tick that happened to land.
+			var err error
+			b, err = pgbus.New(context.Background(), pgbus.Config{DSN: dsn, DB: db, Retention: time.Hour})
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(b.Close)
+		})
+
+		It("deletes a spilled row and says how many it deleted", func() {
+			// The count is what SweepSpill cannot answer: a purge loop retiring
+			// nothing and one retiring everything both look like a statement
+			// that ran.
+			aged("gone")
+
+			deleted, err := b.PurgeBefore(context.Background(), 0)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deleted).To(BeNumerically("==", 1))
+			Expect(rows()).To(BeEmpty())
+		})
+
+		It("leaves a row younger than the cutoff alone", func() {
+			Expect(db.Create(&pgbus.BusMessage{ID: "young", Subject: "jobs.x", Payload: []byte(`{}`)}).Error).To(Succeed())
+
+			deleted, err := b.PurgeBefore(context.Background(), time.Hour)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deleted).To(BeZero())
+			Expect(rows()).To(ConsistOf("young"))
+		})
+	})
 })
 
 func mustJSON(v any) []byte {

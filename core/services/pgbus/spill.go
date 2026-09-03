@@ -4,21 +4,11 @@ package pgbus
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
 )
-
-// spillRetention is how long a spilled broadcast stays readable after it was
-// published. It is generous against the delivery it has to survive, which is
-// one notification and one primary-key SELECT, and short enough that a busy
-// deployment does not accumulate LLM outputs in this table.
-const spillRetention = 5 * time.Minute
-
-// spillSweepInterval is how often each replica retires what has aged out. Every
-// replica sweeps; the DELETE is idempotent and a replica that is down must not
-// leave the table growing.
-const spillSweepInterval = time.Minute
 
 // SpillSweepSQL retires spilled broadcasts older than the retention it is given.
 //
@@ -48,6 +38,26 @@ func Migrate(ctx context.Context, db *gorm.DB) error {
 }
 
 // SweepSpill deletes spilled broadcasts older than retention.
+//
+// For a caller that has a handle but no carrier, which is why it takes a
+// *gorm.DB. The carrier's own purge loop calls PurgeBefore instead, because it
+// needs the count; both run the one statement in SpillSweepSQL.
 func SweepSpill(ctx context.Context, db *gorm.DB, retention time.Duration) error {
 	return db.WithContext(ctx).Exec(SpillSweepSQL, retention.Seconds()).Error
+}
+
+// PurgeBefore deletes this carrier's spilled rows older than olderThan and
+// returns how many it deleted.
+//
+// The count is the point. SweepSpill answers "did the statement run", which a
+// purge loop that is retiring nothing answers just as happily, and a spill table
+// that grows without bound is a disk that fills long after the change that
+// caused it. This is also what the purge loop calls, so the count an operator
+// can ask for and the deletion the carrier performs are the same statement.
+func (b *Bus) PurgeBefore(ctx context.Context, olderThan time.Duration) (int64, error) {
+	res := b.cfg.DB.WithContext(ctx).Exec(SpillSweepSQL, olderThan.Seconds())
+	if res.Error != nil {
+		return 0, fmt.Errorf("pgbus: retiring spilled broadcasts: %w", res.Error)
+	}
+	return res.RowsAffected, nil
 }

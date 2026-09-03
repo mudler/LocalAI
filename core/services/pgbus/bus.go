@@ -55,21 +55,6 @@ const channelPrefix = "localai_"
 // of data in a notification the server rejects.
 const maxNotifyPayloadBytes = 8000
 
-// listenPollInterval bounds how long a LISTEN or UNLISTEN waits for the
-// listener goroutine to come off WaitForNotification and run it.
-//
-// It is a bound on REGISTRATION, never on delivery: a notification wakes
-// WaitForNotification immediately. The connection survives the deadline, which
-// pgx implements as a read deadline rather than a close (pgconn's peekMessage
-// closes on anything except a net timeout), so this costs one syscall per
-// interval and nothing else.
-const listenPollInterval = 25 * time.Millisecond
-
-// subscribeTimeout bounds Subscribe when the listener is busy redialling a
-// database that has gone away, so a caller gets an error instead of a
-// goroutine that never returns.
-const subscribeTimeout = 30 * time.Second
-
 // deliveryQueueDepth is how far one subscriber may fall behind before its
 // broadcasts are dropped.
 //
@@ -79,23 +64,6 @@ const subscribeTimeout = 30 * time.Second
 // drop is logged at error level: losing a broadcast loudly is recoverable,
 // wedging the carrier silently is not.
 const deliveryQueueDepth = 256
-
-// notificationQueueDepth is how many notifications may be waiting to be
-// resolved and dispatched before the carrier starts dropping them.
-//
-// It exists so that resolving a spilled broadcast, which is one SELECT, never
-// happens on the goroutine that drains PostgreSQL's notification stream. That
-// goroutine falling behind does not merely delay this replica: PostgreSQL holds
-// undelivered notifications in a shared, fixed-size async queue, and a listener
-// that stops draining it can fill that queue and block COMMIT for every
-// publisher on the SERVER, LocalAI's or not. Fourteen traffic types are moving
-// onto this carrier, several of which spill by construction, so this is a
-// hazard the carrier has to own rather than one to leave to its adopters.
-//
-// Dropping locally when the resolver falls this far behind is the right trade
-// against that: a lost broadcast is recoverable and loud, a stalled server is
-// neither.
-const notificationQueueDepth = 1024
 
 // broadcastRoots is the closed set of subject roots this carrier serves.
 // A subject whose first token is not here is REFUSED at publish and at
@@ -169,14 +137,24 @@ type Config struct {
 	DSN string
 	// DB is the pooled handle NOTIFY and the spill table are written on.
 	DB *gorm.DB
-	// SweepInterval is how often this carrier retires spilled broadcasts that
-	// have aged out. Zero means spillSweepInterval.
+	// Queue bounds how many notifications may wait for the resolver before this
+	// carrier starts dropping them. Zero means DefaultQueueDepth.
 	//
-	// It is a field rather than a constant so that the sweeper being STARTED is
-	// a testable fact. SweepSpill and SpillSweepSQL can both be exercised
-	// directly, and neither of them proves the carrier ever calls them: a
-	// deleted `go b.sweep()` left the whole suite green and bus_messages
-	// growing forever.
+	// A field so a deployment whose subjects spill heavily can buy itself more
+	// slack, and so a spec can fill the queue without publishing a thousand
+	// messages to do it.
+	Queue int
+	// Retention is how long a spilled row outlives its notification. Zero means
+	// DefaultSpillRetention.
+	Retention time.Duration
+	// SweepInterval is how often this carrier retires spilled broadcasts that
+	// have aged out. Zero means Retention / 2.
+	//
+	// It is a field rather than a derived value alone so that the purge loop
+	// being STARTED is a testable fact. PurgeBefore, SweepSpill and
+	// SpillSweepSQL can all be exercised directly, and none of them proves the
+	// carrier ever calls them: a deleted `go b.purge()` left the whole suite
+	// green and bus_messages growing forever.
 	SweepInterval time.Duration
 }
 
@@ -187,15 +165,6 @@ type notification struct {
 	Subject string          `json:"s"`
 	Data    json.RawMessage `json:"d,omitempty"`
 	SpillID string          `json:"i,omitempty"`
-}
-
-// listenCmd is a LISTEN or UNLISTEN handed to the goroutine that owns the
-// connection. The connection is not concurrency safe and the listener goroutine
-// is parked in WaitForNotification most of the time, so registrations are
-// queued to it rather than run against it.
-type listenCmd struct {
-	sql  string
-	done chan error
 }
 
 // Bus is one replica's end of the broadcast carrier.
@@ -210,11 +179,27 @@ type Bus struct {
 	// evidence would let a database hiccup evict models.
 	connected atomic.Bool
 
+	// dropped counts notifications the listener discarded because the resolver
+	// was behind. Same rule as connected: reportable, never actionable.
+	dropped atomic.Uint64
+
+	// appName identifies this carrier's LISTEN session in pg_stat_activity, and
+	// retention is Config.Retention after defaulting. Both are set once in New
+	// and read from other goroutines afterwards, so neither may be reassigned.
+	appName   string
+	retention time.Duration
+
 	cmds         chan listenCmd
 	inbound      chan inbound
 	listenerDone chan struct{}
 	resolverDone chan struct{}
 	closeOnce    sync.Once
+
+	// cbMu guards reconnectCbs. Its own lock, because a registration arrives on
+	// a caller's goroutine while the listener is redialling and neither should
+	// wait on delivery to finish.
+	cbMu         sync.Mutex
+	reconnectCbs []func()
 
 	// listenMu orders a channel's refcount decision with the LISTEN or
 	// UNLISTEN that decision implies, as ONE step.
@@ -241,13 +226,6 @@ type Bus struct {
 	subs   map[string]map[uint64]*subscription
 }
 
-// inbound is one notification as it came off the connection, before it is
-// decoded, resolved and dispatched.
-type inbound struct {
-	channel string
-	payload string
-}
-
 // New opens the carrier: one pinned LISTEN connection, and the pooled handle
 // publishes travel on.
 func New(ctx context.Context, cfg Config) (*Bus, error) {
@@ -265,7 +243,12 @@ func New(ctx context.Context, cfg Config) (*Bus, error) {
 		return nil, errors.New("pgbus: no DSN for the LISTEN connection")
 	}
 
-	conn, err := pgx.Connect(ctx, cfg.DSN)
+	// Per carrier and not per deployment, so two replicas on one database are
+	// separable in pg_stat_activity and a spec can drop one listener's session
+	// without touching the peer it is asserting against.
+	appName := applicationNamePrefix + uuid.NewString()
+
+	conn, err := dial(ctx, cfg.DSN, appName)
 	if err != nil {
 		return nil, fmt.Errorf("pgbus: opening the LISTEN connection: %w", err)
 	}
@@ -274,13 +257,24 @@ func New(ctx context.Context, cfg Config) (*Bus, error) {
 		return nil, err
 	}
 
+	queue := cfg.Queue
+	if queue <= 0 {
+		queue = DefaultQueueDepth
+	}
+	retention := cfg.Retention
+	if retention <= 0 {
+		retention = DefaultSpillRetention
+	}
+
 	busCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	b := &Bus{
 		cfg:          cfg,
 		ctx:          busCtx,
 		cancel:       cancel,
+		appName:      appName,
+		retention:    retention,
 		cmds:         make(chan listenCmd),
-		inbound:      make(chan inbound, notificationQueueDepth),
+		inbound:      make(chan inbound, queue),
 		listenerDone: make(chan struct{}),
 		resolverDone: make(chan struct{}),
 		subs:         map[string]map[uint64]*subscription{},
@@ -288,7 +282,7 @@ func New(ctx context.Context, cfg Config) (*Bus, error) {
 	b.connected.Store(true)
 	go b.listen(conn)
 	go b.resolve()
-	go b.sweep()
+	go b.purge()
 	return b, nil
 }
 
@@ -460,172 +454,6 @@ func (b *Bus) barrier(stage, op string) {
 	}
 }
 
-// command hands a LISTEN or UNLISTEN to the goroutine that owns the connection
-// and waits for it. Returning before the server had acknowledged it would lose
-// every message published in the gap.
-//
-// A Subscribe that has returned is therefore always a registration the server
-// has acknowledged, including the case where this Subscribe issued nothing
-// because the channel was already listened: listenMu means the Subscribe that
-// DID issue the LISTEN had already been acknowledged before this one could see
-// its registration.
-func (b *Bus) command(sql string) error {
-	cmd := listenCmd{sql: sql, done: make(chan error, 1)}
-	timeout := time.NewTimer(subscribeTimeout)
-	defer timeout.Stop()
-
-	select {
-	case b.cmds <- cmd:
-	case <-b.ctx.Done():
-		return errors.New("pgbus: the carrier is closed")
-	case <-timeout.C:
-		return fmt.Errorf("pgbus: %q timed out waiting for the listen connection", sql)
-	}
-	select {
-	case err := <-cmd.done:
-		return err
-	case <-b.ctx.Done():
-		return errors.New("pgbus: the carrier is closed")
-	case <-timeout.C:
-		return fmt.Errorf("pgbus: %q timed out on the listen connection", sql)
-	}
-}
-
-// listen owns the pinned connection for the life of the Bus: it is the only
-// goroutine that touches it, which is what makes a connection that is not
-// concurrency safe usable from many callers.
-func (b *Bus) listen(conn *pgx.Conn) {
-	defer close(b.listenerDone)
-	defer func() {
-		b.connected.Store(false)
-		// A background context, because b.ctx is already cancelled by the time
-		// this runs and the close still has to reach the server.
-		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = conn.Close(closeCtx)
-	}()
-
-	for {
-		if b.ctx.Err() != nil {
-			return
-		}
-		// Registrations first: a subscriber that has been waiting must not be
-		// held up behind a poll interval that has just restarted.
-		select {
-		case cmd := <-b.cmds:
-			_, err := conn.Exec(b.ctx, cmd.sql)
-			cmd.done <- err
-			continue
-		default:
-		}
-
-		waitCtx, cancel := context.WithTimeout(b.ctx, listenPollInterval)
-		n, err := conn.WaitForNotification(waitCtx)
-		deadline := waitCtx.Err() != nil
-		cancel()
-
-		switch {
-		case b.ctx.Err() != nil:
-			return
-		case deadline:
-			// The ordinary case: nothing arrived inside the poll window. pgx
-			// implements the deadline as a read deadline and keeps the
-			// connection, so this is not a failure.
-			continue
-		case err != nil:
-			xlog.Warn("Broadcast carrier lost its listen connection, redialling", "error", err)
-			replacement, ok := b.redial(conn)
-			if !ok {
-				return
-			}
-			conn = replacement
-			continue
-		}
-		b.offer(n.Channel, n.Payload)
-	}
-}
-
-// offer hands a notification to the resolver. It never blocks: the listener's
-// only job is to keep PostgreSQL's async queue draining.
-func (b *Bus) offer(channel, payload string) {
-	select {
-	case b.inbound <- inbound{channel: channel, payload: payload}:
-	default:
-		xlog.Error("Broadcast carrier dropped a notification: the resolver is not keeping up",
-			"channel", channel, "depth", notificationQueueDepth)
-	}
-}
-
-// resolve is where a spilled broadcast is read back and where every
-// notification is dispatched. Both are off the listener on purpose, and both
-// are on ONE goroutine, so a spilled message and an inline one on the same
-// subject keep the order they were published in.
-func (b *Bus) resolve() {
-	defer close(b.resolverDone)
-	for {
-		select {
-		case <-b.ctx.Done():
-			return
-		case in := <-b.inbound:
-			b.deliver(in.channel, in.payload)
-		}
-	}
-}
-
-// redial replaces a dead LISTEN connection and restores every registration on
-// it. Without the restore the carrier comes back deaf, which looks exactly like
-// a deployment where nobody is publishing any more.
-func (b *Bus) redial(dead *pgx.Conn) (*pgx.Conn, bool) {
-	b.connected.Store(false)
-	closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	_ = dead.Close(closeCtx)
-	cancel()
-
-	backoff := 100 * time.Millisecond
-	for {
-		if b.ctx.Err() != nil {
-			return nil, false
-		}
-		conn, err := pgx.Connect(b.ctx, b.cfg.DSN)
-		if err == nil {
-			if err = b.relisten(conn); err == nil {
-				b.connected.Store(true)
-				xlog.Info("Broadcast carrier reconnected")
-				return conn, true
-			}
-			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			_ = conn.Close(closeCtx)
-			cancel()
-		}
-		select {
-		case <-b.ctx.Done():
-			return nil, false
-		case <-time.After(backoff):
-		}
-		if backoff < 5*time.Second {
-			backoff *= 2
-		}
-	}
-}
-
-func (b *Bus) relisten(conn *pgx.Conn) error {
-	b.mu.Lock()
-	channels := make([]string, 0, len(b.subs))
-	for channel, subs := range b.subs {
-		if len(subs) > 0 {
-			channels = append(channels, channel)
-		}
-	}
-	b.mu.Unlock()
-
-	for _, channel := range channels {
-		if _, err := conn.Exec(b.ctx, "LISTEN "+pgx.Identifier{channel}.Sanitize()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // deliver resolves one notification and hands it to the subscribers whose
 // filters match.
 func (b *Bus) deliver(channel, payload string) {
@@ -780,26 +608,6 @@ func (b *Bus) resolveSpill(id string) ([]byte, error) {
 		return nil, err
 	}
 	return row.Payload, nil
-}
-
-// sweep retires spilled rows that every replica has had time to read.
-func (b *Bus) sweep() {
-	interval := b.cfg.SweepInterval
-	if interval <= 0 {
-		interval = spillSweepInterval
-	}
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-b.ctx.Done():
-			return
-		case <-ticker.C:
-			if err := SweepSpill(b.ctx, b.cfg.DB, spillRetention); err != nil && b.ctx.Err() == nil {
-				xlog.Warn("Broadcast carrier could not retire spilled messages", "error", err)
-			}
-		}
-	}
 }
 
 var _ messaging.Broadcaster = (*Bus)(nil)
