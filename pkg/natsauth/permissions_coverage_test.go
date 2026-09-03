@@ -99,14 +99,32 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 	Context("agent worker", func() {
 		// node_type "agent"; subjects from core/cli/agent_worker.go.
 		pub, sub := natsauth.WorkerPermissions(nodeID, "agent")
-		_ = pub
 
 		subscribed := []string{
 			messaging.SubjectAgentExecute,            // dispatcher (default --agent-subject)
-			messaging.SubjectMCPToolExecute,          // QueueSubscribeReply
-			messaging.SubjectMCPDiscovery,            // QueueSubscribeReply
 			messaging.SubjectMCPCIJobsNew,            // QueueSubscribe — jobs.mcp-ci.new
 			messaging.SubjectNodeBackendStop(nodeID), // Subscribe — MCP session cleanup
+		}
+
+		// The half that catches a narrowing going too far. NATS reads an EMPTY
+		// allow list as NO restriction, so a branch trimmed to nothing does not
+		// lock an agent worker down, it opens the whole account to it.
+		It("keeps the agent worker's allow lists non-empty", func() {
+			Expect(sub).ToNot(BeEmpty(),
+				"an empty allow list is unrestricted in NATS, not restrictive")
+			Expect(pub).ToNot(BeEmpty(),
+				"an empty allow list is unrestricted in NATS, not restrictive")
+		})
+
+		// MCP execution and discovery are control RPCs on the worker's tunnel
+		// now, chosen by the frontend rather than by a queue group. An agent
+		// worker subscribes to neither subject, so a JWT that still granted
+		// them would be granting a subscription nothing serves.
+		for _, subject := range []string{"mcp.tools.execute", "mcp.discovery"} {
+			It("no longer grants an agent worker "+subject, func() {
+				Expect(anyAllows(sub, subject)).To(BeFalse(),
+					"agent JWT sub allow-list %v still covers %s", sub, subject)
+			})
 		}
 		for _, subject := range subscribed {
 			It("allows subscribing to "+subject, func() {
