@@ -64,6 +64,17 @@ func (r *SmartRouter) nodeMayTakeWork(ctx context.Context, node *BackendNode) bo
 	return p != cluster.PresenceGone
 }
 
+// ReadsAbsence reports whether this scheduler has a source for absence.
+//
+// It exists to be asserted at wiring time (see core/application), and that is
+// worth stating because it is the only symptom the wiring has. A scheduler
+// built without a presence reader does not fail, log, or behave oddly: it
+// places work on workers that are gone and never demotes one, which is exactly
+// what a healthy fleet looks like. The field it reads is one line in a
+// twenty-field options literal, and losing that line silently returns the
+// deployment to the state this whole change removed.
+func (r *SmartRouter) ReadsAbsence() bool { return r != nil && r.presence != nil }
+
 // pickReachableNode calls selectNode until it yields a node nodeMayTakeWork
 // does not exclude, and returns nil when it cannot find one.
 //
