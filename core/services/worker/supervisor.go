@@ -955,8 +955,10 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 	return nil
 }
 
-// stopAllBackends stops all running backend processes.
-func (s *backendSupervisor) stopAllBackends(force bool) {
+// stopAllBackends stops all running backend processes and returns the process
+// keys it attempted, so a caller answering a backend.stop request can report
+// what it acted on.
+func (s *backendSupervisor) stopAllBackends(force bool) []string {
 	s.mu.Lock()
 	backends := slices.Collect(maps.Keys(s.processes))
 	s.mu.Unlock()
@@ -964,6 +966,7 @@ func (s *backendSupervisor) stopAllBackends(force bool) {
 	for _, b := range backends {
 		s.stopBackend(b, force)
 	}
+	return backends
 }
 
 // isRunning returns whether at least one backend process matching the given
