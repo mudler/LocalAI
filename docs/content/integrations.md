@@ -62,6 +62,7 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 - [ShellOracle](https://github.com/djcopley/ShellOracle) - Terminal utility
 - [Shell-Pilot](https://github.com/reid41/shell-pilot) - Interact with LLMs via pure shell scripts
 - [Mods](https://github.com/charmbracelet/mods) - AI on the command line
+- [Atomic Agent](https://github.com/AtomicBot-ai/atomic-agent) - Local-first CLI and TUI coding assistant, points at LocalAI as an OpenAI-compatible provider
 
 ### Chat Bots
 
@@ -256,6 +257,72 @@ You can ask [Charm Crush](https://charm.land/crush) to generate your config by g
 ```
 
 A list of models can be fetched with `https://<server_address>/v1/models` by crush itself and appropriate models added to the provider list. Crush does not appear to be optimized for smaller models.
+
+### Atomic Agent
+
+[Atomic Agent](https://github.com/AtomicBot-ai/atomic-agent) is a local-first CLI and TUI coding assistant with a built-in tool set (filesystem, git, browser, memory) and MCP support. It has a generic `openai-compatible` provider kind, so a LocalAI instance can be used as its model backend. Note that Atomic Agent is currently a developer preview: its APIs, commands, and config are still moving, so pin a release if you need a stable integration point.
+
+#### Prerequisites
+
+- LocalAI must be running and accessible (either locally or on a network)
+- You need to know your LocalAI server's IP address/hostname and port (default is `8080`)
+- An API key configured in your LocalAI instance, if you enabled authentication
+
+#### Configuration Steps
+
+1. **Edit the Atomic Agent configuration file**
+
+   Open `~/.atomic-agent/config.json` in your editor.
+
+2. **Add LocalAI as a provider**
+
+   Add an `openai-compatible` provider entry pointing at your LocalAI server, and make it the active text provider:
+
+   ```json
+   {
+     "llm": {
+       "activeTextProvider": "localai",
+       "providers": [
+         {
+           "id": "localai",
+           "kind": "openai-compatible",
+           "baseUrl": "http://127.0.0.1:8080",
+           "defaultChatModel": "qwen_qwen3-4b-instruct-2507"
+         }
+       ]
+     }
+   }
+   ```
+
+3. **Customize the configuration**
+
+   - **baseUrl**: Replace `http://127.0.0.1:8080` with your LocalAI server's address and port. Do not include the `/v1` suffix: Atomic Agent appends `/v1/...` to the base URL on every call, so adding it here results in requests to `/v1/v1/chat/completions`.
+   - **defaultChatModel**: Replace with a model name available in your LocalAI instance.
+   - **apiKey**: Add an `"apiKey"` field to the provider entry if your LocalAI instance requires authentication. Alternatively, export `OPENAI_COMPAT_API_KEY` in your environment.
+
+4. **Verify available models**
+
+   Check which models are available in your LocalAI instance:
+
+   ```bash
+   curl http://127.0.0.1:8080/v1/models
+   ```
+
+   Use one of the listed model IDs as `defaultChatModel`.
+
+#### Configuring from the TUI
+
+Instead of editing JSON by hand, you can add the provider from the TUI. In the LLM tab, add a new provider, choose the `openai-compatible` kind, and enter your LocalAI base URL. Atomic Agent fetches the model list from `{baseUrl}/v1/models` and offers it as a picker, so you can select a model rather than typing its ID. Use `/model` to switch models mid-session.
+
+#### Notes
+
+- Models with tool calling support work best, since the agent loop relies on tool use for file operations and code editing. Very small models tend to emit malformed tool calls more often.
+- Atomic Agent runs open-weight models entirely on your machine through a bundled llama.cpp fork by default. Pointing it at LocalAI is an alternative backend, useful when you want a shared server to serve models to several clients.
+
+#### Additional Resources
+
+- [Atomic Agent repository](https://github.com/AtomicBot-ai/atomic-agent)
+- [Atomic Agent documentation](https://atomicagent.io/docs)
 
 ### GitHub Actions
 
