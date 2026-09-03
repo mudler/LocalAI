@@ -129,8 +129,12 @@ var _ = Describe("Prefix-cache aware routing", Label("Distributed"), func() {
 		Expect(registry.Register(context.Background(), nodeY, true)).To(Succeed())
 		nodeXID = nodeX.ID
 		nodeYID = nodeY.ID
-		Expect(registry.SetNodeModel(context.Background(), nodeXID, model, 0, "loaded", "", 0)).To(Succeed())
-		Expect(registry.SetNodeModel(context.Background(), nodeYID, model, 0, "loaded", "", 0)).To(Succeed())
+		// Each replica row names the endpoint its own backend process listens
+		// on. Without one the router cannot tell a warm replica from a missing
+		// one: it treats the row as naming no backend process and cold-loads,
+		// so nothing here would exercise prefix affinity at all.
+		Expect(registry.SetNodeModel(context.Background(), nodeXID, model, 0, "loaded", "127.0.0.1:59051", 0)).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), nodeYID, model, 0, "loaded", "127.0.0.1:59052", 0)).To(Succeed())
 
 		factory := &prefixStubClientFactory{client: &prefixStubBackend{healthResult: true}}
 		router = nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
