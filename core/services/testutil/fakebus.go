@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"encoding/json"
-	"strings"
 	"sync"
 	"time"
 
@@ -11,8 +10,8 @@ import (
 
 // FakeBus is an in-memory messaging.MessagingClient that delivers each published
 // message synchronously to every registered subscriber whose subject filter
-// matches, including NATS-style wildcard subjects (`*` matches exactly one
-// token).
+// matches. Matching is messaging.SubjectMatches, the same function the real
+// carrier uses, so a filter that fires here fires in production too.
 //
 // Synchronous delivery keeps specs deterministic: the moment Publish returns,
 // every matching subscriber's handler has already run, so the spec body can read
@@ -43,28 +42,6 @@ func NewFakeBus() *FakeBus {
 	return &FakeBus{publishCounts: map[string]int{}}
 }
 
-// subjectMatches reports whether a subscription filter matches a concrete
-// subject, honoring the single-token `*` wildcard used by NATS.
-func subjectMatches(filter, subject string) bool {
-	if filter == subject {
-		return true
-	}
-	fp := strings.Split(filter, ".")
-	sp := strings.Split(subject, ".")
-	if len(fp) != len(sp) {
-		return false
-	}
-	for i := range fp {
-		if fp[i] == "*" {
-			continue
-		}
-		if fp[i] != sp[i] {
-			return false
-		}
-	}
-	return true
-}
-
 // Publish marshals data as JSON and delivers it synchronously to every matching
 // subscriber.
 func (b *FakeBus) Publish(subject string, data any) error {
@@ -77,7 +54,7 @@ func (b *FakeBus) Publish(subject string, data any) error {
 	subs := append([]fakeBusSub(nil), b.subs...)
 	b.mu.Unlock()
 	for _, s := range subs {
-		if subjectMatches(s.subject, subject) {
+		if messaging.SubjectMatches(s.subject, subject) {
 			s.handler(payload)
 		}
 	}
@@ -108,7 +85,12 @@ func (s *fakeBusSubscription) Unsubscribe() error {
 	return nil
 }
 
+// Subscribe refuses the same filters the real carrier refuses, so a spec cannot
+// register a filter that would silently never fire in production.
 func (b *FakeBus) Subscribe(subject string, handler func([]byte)) (messaging.Subscription, error) {
+	if err := messaging.ValidFilter(subject); err != nil {
+		return nil, err
+	}
 	sub := fakeBusSub{subject: subject, handler: handler}
 	b.mu.Lock()
 	b.subs = append(b.subs, sub)
