@@ -14,7 +14,8 @@ import (
 )
 
 // syncStateName is the syncstate namespace for replicated response metadata.
-// It becomes the NATS subject "state.responses.metadata.delta".
+// It becomes the broadcast subject "state.responses-metadata.delta" (the '.' in
+// the name is sanitized to '-', so the subject keeps three tokens).
 const syncStateName = "responses.metadata"
 
 // ErrResponseNotLocal is returned by the stream-resume accessors when the
@@ -93,12 +94,12 @@ type responseCancelEvent struct {
 // and not a deployment shape; tolerating it would silently restore the
 // deltas-only map this parameter exists to replace, and a non-nil interface
 // wrapping a nil pointer would instead surface as a panic on a request.
-func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.MessagingClient,
+func (s *ResponseStore) EnableDistributed(ctx context.Context, bus messaging.Broadcaster,
 	replicaID string, store *distributed.ResponseMetadataStore) error {
 	if store == nil {
 		return errors.New("enabling cross-replica Open Responses: the store parameter is nil, so a reconnecting replica would have nothing to re-hydrate from")
 	}
-	if nats == nil {
+	if bus == nil {
 		return nil
 	}
 
@@ -110,7 +111,7 @@ func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.Me
 	synced := syncstate.New(syncstate.Config[string, *syncedResponse]{
 		Name:  syncStateName,
 		Key:   func(v *syncedResponse) string { return v.ID },
-		Nats:  nats,
+		Bus:   bus,
 		Store: &responseMetadataStoreAdapter{store: store},
 	})
 	if err := synced.Start(ctx); err != nil {
@@ -122,12 +123,12 @@ func (s *ResponseStore) EnableDistributed(ctx context.Context, nats messaging.Me
 	// the store, so everything it reads has to be in place first.
 	s.mu.Lock()
 	s.replicaID = replicaID
-	s.nats = nats
+	s.bus = bus
 	s.lifeCtx, s.lifeCancel = lifeCtx, lifeCancel
 	s.synced = synced
 	s.mu.Unlock()
 
-	sub, err := messaging.SubscribeJSON(nats, messaging.SubjectResponseCancelWildcard, s.applyRemoteCancel)
+	sub, err := messaging.SubscribeJSON(bus, messaging.SubjectResponseCancelWildcard, s.applyRemoteCancel)
 	if err != nil {
 		if cerr := s.Close(); cerr != nil {
 			xlog.Warn("failed to tear down response metadata sync after subscribe error", "error", cerr)
@@ -245,14 +246,14 @@ func (s *ResponseStore) syncMap() *syncstate.SyncedMap[string, *syncedResponse] 
 // distributed returns the replication handles as a consistent snapshot. Every
 // path that broadcasts reads them through here so a concurrent Close cannot be
 // observed half-applied. A nil map means standalone mode.
-func (s *ResponseStore) distributed() (*syncstate.SyncedMap[string, *syncedResponse], context.Context, messaging.MessagingClient, string) {
+func (s *ResponseStore) distributed() (*syncstate.SyncedMap[string, *syncedResponse], context.Context, messaging.Broadcaster, string) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	ctx := s.lifeCtx
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	return s.synced, ctx, s.nats, s.replicaID
+	return s.synced, ctx, s.bus, s.replicaID
 }
 
 // replicaIdentity returns this process's replica ID (empty in standalone mode).
@@ -373,9 +374,9 @@ func (s *ResponseStore) delegateCancel(v *syncedResponse) (*schema.ORResponseRes
 		return v.Response, nil
 	}
 
-	m, ctx, nats, replicaID := s.distributed()
-	if nats != nil {
-		if err := nats.Publish(messaging.SubjectResponseCancel(v.ID),
+	m, ctx, bus, replicaID := s.distributed()
+	if bus != nil {
+		if err := bus.Publish(messaging.SubjectResponseCancel(v.ID),
 			responseCancelEvent{ResponseID: v.ID, Origin: replicaID}); err != nil {
 			xlog.Warn("failed to broadcast Open Responses cancel", "response_id", v.ID, "error", err)
 		}

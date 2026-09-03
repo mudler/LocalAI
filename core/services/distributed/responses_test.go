@@ -240,6 +240,89 @@ var _ = Describe("ResponseMetadataStore", func() {
 		})
 	})
 
+	// The bound on rows that carry no expiry of their own.
+	//
+	// The Open Responses store TTL defaults to 0, documented as "no
+	// expiration", and every response then reaches this table with a null
+	// expires_at. Zero is defensible for the in-memory map it governs, which
+	// dies with the process; a table has no such bound, so it grew for the life
+	// of the deployment and a restarting replica re-hydrated its map with every
+	// response the cluster had ever created. Neither is a condition anything
+	// reports, which is why it needed a default of its own rather than a note.
+	Describe("retention for rows with no expiry of their own", func() {
+		aged := func(id string, age time.Duration, expiresAt *time.Time) *distributed.ResponseMetadataRecord {
+			r := newRecord(id, expiresAt)
+			r.CreatedAt = time.Now().Add(-age)
+			return r
+		}
+
+		It("stops listing and then sweeps an untagged row older than the retention", func() {
+			Expect(store.Upsert(ctx, aged("resp_stale", distributed.DefaultResponseMetadataRetention+time.Hour, nil))).To(Succeed())
+			Expect(store.Upsert(ctx, aged("resp_recent", time.Minute, nil))).To(Succeed())
+
+			recs, err := store.ListUnexpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ids(recs)).To(ConsistOf("resp_recent"),
+				"a row past the retention must not re-hydrate a replica's map")
+
+			n, err := store.PurgeExpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(int64(1)), "and the sweep must actually retire it, or the table still grows forever")
+
+			recs, err = store.ListUnexpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ids(recs)).To(ConsistOf("resp_recent"))
+		})
+
+		It("honours a row's own expiry over the retention, in both directions", func() {
+			// The retention is a floor on rows that named no expiry, never a
+			// ceiling on rows that did. A deployment that configured a longer
+			// TTL must get it, and one that configured a shorter one must not
+			// have its responses kept alive by this default.
+			far := time.Now().Add(distributed.DefaultResponseMetadataRetention * 10)
+			past := time.Now().Add(-time.Minute)
+
+			Expect(store.Upsert(ctx, aged("resp_long_ttl", distributed.DefaultResponseMetadataRetention+time.Hour, &far))).To(Succeed())
+			Expect(store.Upsert(ctx, aged("resp_short_ttl", time.Minute, &past))).To(Succeed())
+
+			recs, err := store.ListUnexpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ids(recs)).To(ConsistOf("resp_long_ttl"))
+
+			n, err := store.PurgeExpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(int64(1)))
+		})
+
+		It("takes an explicit retention and reports the one it is using", func() {
+			short, err := distributed.NewResponseMetadataStoreWithRetention(db, time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(short.Retention()).To(Equal(time.Hour))
+			Expect(store.Retention()).To(Equal(distributed.DefaultResponseMetadataRetention))
+
+			Expect(short.Upsert(ctx, aged("resp_two_hours", 2*time.Hour, nil))).To(Succeed())
+
+			recs, err := short.ListUnexpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(recs).To(BeEmpty(), "the configured retention, not the default, decides")
+
+			// The same row is still live to a store with the default retention,
+			// which is what proves the bound is the store's and not the row's.
+			recs, err = store.ListUnexpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ids(recs)).To(ConsistOf("resp_two_hours"))
+		})
+
+		It("refuses a non-positive retention rather than restoring an unbounded table", func() {
+			_, err := distributed.NewResponseMetadataStoreWithRetention(db, 0)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("grow"))
+
+			_, err = distributed.NewResponseMetadataStoreWithRetention(db, -time.Hour)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	// The expiry cutoff is the database's clock, not the asking process's. The
 	// container shares this host's clock, so no behavioural spec above can tell
 	// a Go-side time.Now() bind parameter from now(); these pin the statement
@@ -260,11 +343,11 @@ var _ = Describe("ResponseMetadataStore", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			sql := rec.only()
-			Expect(sql).To(MatchRegexp(`(?i)expires_at\s+IS\s+NULL\s+OR\s+expires_at\s*>\s*now\(\)`))
+			Expect(sql).To(MatchRegexp(`(?i)expires_at\s+IS\s+NOT\s+NULL\s+AND\s+expires_at\s*<=\s*now\(\)`))
 			// A bound parameter in the comparison position is a Go-side cutoff
 			// wearing the same behaviour; gorm's logger explains binds into the
 			// text, so a time literal here is exactly that defect.
-			Expect(sql).ToNot(MatchRegexp(`expires_at\s*>\s*['$]`))
+			Expect(sql).ToNot(MatchRegexp(`expires_at\s*<=\s*['$]`))
 		})
 
 		It("compares expires_at against the database clock in PurgeExpired", func() {
@@ -274,6 +357,41 @@ var _ = Describe("ResponseMetadataStore", func() {
 			sql := rec.only()
 			Expect(sql).To(MatchRegexp(`(?i)expires_at\s+IS\s+NOT\s+NULL\s+AND\s+expires_at\s*<=\s*now\(\)`))
 			Expect(sql).ToNot(MatchRegexp(`expires_at\s*<=\s*['$]`))
+		})
+
+		It("ages an untagged row out against the database clock too, never a Go-side cutoff", func() {
+			// The retention leg is subtracted from the SERVER's now() with
+			// make_interval, so the only bind is a number of seconds. A
+			// timestamp literal here would be this process's clock deciding
+			// which rows the whole deployment can still see.
+			_, err := store.PurgeExpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+
+			sql := rec.only()
+			Expect(sql).To(MatchRegexp(`(?i)created_at\s*<=\s*now\(\)\s*-\s*make_interval\(secs\s*=>`))
+			Expect(sql).ToNot(MatchRegexp(`created_at\s*<=\s*['$]`))
+		})
+
+		It("selects and deletes on ONE predicate, so a hydrate cannot resurrect what a sweep killed", func() {
+			// Two spellings of "this row is dead" drift, and the drift is
+			// silent both ways: a row invisible to every reader that nothing
+			// deletes, or a row a sweep removed that a hydrate had just served.
+			_, err := store.ListUnexpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			listSQL := rec.only()
+
+			rec.reset()
+			_, err = store.PurgeExpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			purgeSQL := rec.only()
+
+			predicate := regexp.MustCompile(`(?is)\(\(expires_at.*?make_interval\(secs\s*=>[^)]*\)\)\)`)
+			listPredicate := predicate.FindString(listSQL)
+			Expect(listPredicate).ToNot(BeEmpty(), "ListUnexpired must carry the shared predicate")
+			Expect(purgeSQL).To(ContainSubstring(listPredicate),
+				"PurgeExpired must delete exactly what ListUnexpired refuses to return")
+			Expect(listSQL).To(ContainSubstring("NOT "+listPredicate),
+				"and ListUnexpired must be its negation rather than a second spelling")
 		})
 
 		It("issues one statement per call, so neither reads the clock into Go first", func() {

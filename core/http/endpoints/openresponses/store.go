@@ -56,7 +56,7 @@ type ResponseStore struct {
 	// (see sync.go), which is how a standalone deployment keeps exactly the
 	// previous process-local behaviour. Guarded by mu.
 	synced     *syncstate.SyncedMap[string, *syncedResponse]
-	nats       messaging.MessagingClient
+	bus        messaging.Broadcaster
 	cancelSub  messaging.Subscription
 	replicaID  string
 	lifeCtx    context.Context
