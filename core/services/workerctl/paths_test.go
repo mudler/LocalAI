@@ -32,6 +32,11 @@ var _ = Describe("control plane paths on the wire", func() {
 		Entry("files stage", workerctl.PathFilesStage, "/v1/control/files/stage"),
 		Entry("files temp", workerctl.PathFilesTemp, "/v1/control/files/temp"),
 		Entry("files listdir", workerctl.PathFilesListDir, "/v1/control/files/listdir"),
+		Entry("mcp tool execute", workerctl.PathMCPToolExecute, "/v1/control/mcp/tools/execute"),
+		Entry("mcp discovery", workerctl.PathMCPDiscovery, "/v1/control/mcp/discovery"),
+		Entry("agent execute", workerctl.PathAgentExecute, "/v1/control/agent/execute"),
+		Entry("agent cancel", workerctl.PathAgentCancel, "/v1/control/agent/cancel"),
+		Entry("mcp ci run", workerctl.PathMCPCIRun, "/v1/control/mcp/ci/run"),
 	)
 
 	It("names the prefix exactly, since the worker mounts its whole control plane behind it", func() {
@@ -44,13 +49,13 @@ var _ = Describe("control plane paths on the wire", func() {
 		}
 	})
 
-	It("lists every verb this package names, so none can be dropped from the set", func() {
+	It("lists every verb a backend worker serves, so none can be dropped from the set", func() {
 		// The claim is bounded on purpose. Go constants are not enumerable, so
-		// nothing here can see a NEW constant that was never added to AllPaths;
+		// nothing here can see a NEW constant that was never added to the set;
 		// what this catches is an EXISTING verb going missing from it, which
 		// matters because the prefix check above and the worker's mounting spec
-		// both iterate AllPaths and would silently stop covering it.
-		Expect(workerctl.AllPaths()).To(ConsistOf(
+		// both iterate these and would silently stop covering it.
+		Expect(workerctl.BackendPaths()).To(ConsistOf(
 			workerctl.PathBackendInstall,
 			workerctl.PathBackendUpgrade,
 			workerctl.PathBackendList,
@@ -66,6 +71,37 @@ var _ = Describe("control plane paths on the wire", func() {
 			workerctl.PathFilesListDir,
 			workerctl.PathFilesTemp,
 		))
+	})
+
+	It("lists every verb an agent worker serves", func() {
+		Expect(workerctl.AgentPaths()).To(ConsistOf(
+			workerctl.PathMCPToolExecute,
+			workerctl.PathMCPDiscovery,
+			workerctl.PathAgentExecute,
+			workerctl.PathAgentCancel,
+			workerctl.PathMCPCIRun,
+			workerctl.PathBackendStop,
+		))
+	})
+
+	It("is the union of the two worker kinds, with the shared verb counted once", func() {
+		// backend.stop is in both sets, and AllPaths deduping it is what makes
+		// the distinctness check below a statement about the path table rather
+		// than about which set a verb happened to be typed into. A union that
+		// repeated it would fail that check for a table that is perfectly
+		// correct.
+		Expect(workerctl.AllPaths()).To(ContainElements(workerctl.BackendPaths()))
+		Expect(workerctl.AllPaths()).To(ContainElements(workerctl.AgentPaths()))
+		Expect(workerctl.AllPaths()).To(HaveLen(
+			len(workerctl.BackendPaths()) + len(workerctl.AgentPaths()) - 1))
+	})
+
+	It("serves the agent worker's backend.stop on the SAME path the backend worker's is on", func() {
+		// One path, two implementations, one caller. The frontend's carrier
+		// split for backend.stop dies on this: it issues the same RPC to either
+		// kind of worker without branching on the node's type.
+		Expect(workerctl.AgentPaths()).To(ContainElement(workerctl.PathBackendStop))
+		Expect(workerctl.BackendPaths()).To(ContainElement(workerctl.PathBackendStop))
 	})
 
 	It("gives each verb a distinct path", func() {

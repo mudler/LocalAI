@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/core/services/agentworker"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -30,6 +31,11 @@ import (
 // and executes agent chats using cogito. The worker is a pure executor — it
 // receives the full agent config and skills in the NATS job payload, so it
 // does not need direct database access.
+//
+// It also holds one tunnel to the frontend, so the frontend can reach its MCP
+// verbs by RPC without the worker opening an inbound port. The tunnel is an
+// ADDITION: --nats-url is still required, and every job, every fan-out event
+// and the node backend.stop subject still travel on the bus.
 //
 // Usage:
 //
@@ -170,6 +176,48 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 	defer natsClient.Close()
 
+	// The tunnel, and the loopback control plane behind it.
+	//
+	// ADDED to this worker rather than swapping anything out: every verb below
+	// still arrives on NATS, and will until the tasks that move them land. What
+	// this buys today is that the frontend can reach an agent worker by RPC at
+	// all, on the same carrier and with the same failure vocabulary a backend
+	// worker already uses, without the agent worker opening an inbound port.
+	//
+	// The credential is read through credMgr rather than captured from res,
+	// because every re-registration the manager performs ROTATES it and a
+	// captured value would lock this worker out of its own tunnel at the first
+	// JWT refresh.
+	//
+	// It is started AFTER registration, which is what supplies both the node
+	// identity the dial names and the credential it presents, and BEFORE the
+	// NATS subscriptions, so that a frontend that reaches this worker over the
+	// tunnel finds its verbs mounted rather than a 404 it would read as a
+	// version skew.
+	agentCtl, err := agentworker.Start(shutdownCtx, agentworker.Options{
+		FrontendURL:  cmd.RegisterTo,
+		NodeID:       nodeID,
+		TunnelToken:  credMgr.TunnelToken,
+		ControlToken: cmd.RegistrationToken,
+		Handlers: agentworker.Config{
+			MCPTool:      serveMCPToolRequest,
+			MCPDiscovery: serveMCPDiscoveryRequest,
+			// The same cleanup the nodes.<id>.backend.stop subscription below
+			// performs, reachable over the tunnel on the path a backend worker
+			// already serves. Both are live: the subject is what the frontend
+			// still publishes on, and it is a later task that removes it.
+			BackendStop: dropMCPSessionsForBackend,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("starting the agent worker control plane: %w", err)
+	}
+	defer func() {
+		if err := agentCtl.Close(); err != nil {
+			xlog.Warn("Closing the agent worker tunnel failed", "error", err)
+		}
+	}()
+
 	// Create event bridge for publishing results back via NATS
 	eventBridge := agents.NewEventBridge(natsClient, nil, "agent-worker-"+nodeID)
 
@@ -198,16 +246,14 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	// Subscribe to MCP tool execution requests (load-balanced across workers).
 	// The frontend routes model-level MCP tool calls here via NATS request-reply.
-	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
-		handleMCPToolRequest(data, reply)
-	}); err != nil {
+	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers,
+		replyOverNATS(messaging.SubjectMCPToolExecute, serveMCPToolRequest)); err != nil {
 		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPToolExecute, err)
 	}
 
 	// Subscribe to MCP discovery requests (load-balanced across workers).
-	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
-		handleMCPDiscoveryRequest(data, reply)
-	}); err != nil {
+	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers,
+		replyOverNATS(messaging.SubjectMCPDiscovery, serveMCPDiscoveryRequest)); err != nil {
 		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPDiscovery, err)
 	}
 
@@ -229,12 +275,19 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// Subscribe to backend stop events to clean up cached MCP sessions.
 	// In the main application this is done via ml.OnModelUnload, but the agent
 	// worker has no model loader — we listen for the NATS stop event instead.
+	//
+	// It runs BESIDE the tunnel route mounted above, not instead of it, and
+	// both call dropMCPSessionsForBackend. The subject is still what the
+	// frontend publishes on; a later task is what moves it. Two carriers, one
+	// implementation, so which one delivered cannot change what happened.
 	if _, err := natsClient.Subscribe(messaging.SubjectNodeBackendStop(nodeID), func(data []byte) {
-		var req struct {
-			Backend string `json:"backend"`
+		var req messaging.BackendStopRequest
+		if err := json.Unmarshal(data, &req); err != nil {
+			xlog.Warn("Agent worker could not decode a backend stop event", "error", err)
+			return
 		}
-		if json.Unmarshal(data, &req) == nil && req.Backend != "" {
-			mcpTools.CloseMCPSessions(req.Backend)
+		if err := dropMCPSessionsForBackend(context.Background(), req); err != nil {
+			xlog.Warn("Agent worker could not drop the MCP sessions of a stopped backend", "error", err)
 		}
 	}); err != nil {
 		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectNodeBackendStop(nodeID), err)
@@ -263,72 +316,106 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	return runErr
 }
 
-// handleMCPToolRequest handles a NATS request-reply for MCP tool execution.
-// The worker creates/caches MCP sessions from the serialized config and executes the tool.
-func handleMCPToolRequest(data []byte, reply func([]byte)) {
+// The MCP verbs, written ONCE and served on two carriers.
+//
+// The bus subscription and the tunnel's control route both call the same
+// serve* function and both send the same bytes, so a worker reached either way
+// answers identically. Two implementations of one verb is the shape that lets a
+// deployment behave differently depending on which carrier a frontend happened
+// to pick, and there is no version of this migration in which that is
+// acceptable: for the whole of it, both carriers are live at once.
+//
+// The distinction the return type carries: an MCP tool that RAN and failed is
+// this worker's own answer and travels as bytes with an error field set, on a
+// 200. A returned error is this worker failing to serve the verb at all, which
+// becomes a non-2xx over the tunnel and nothing the frontend may act on.
+
+// dropMCPSessionsForBackend closes the MCP sessions this worker cached for a
+// backend that is going away.
+//
+// It is the agent worker's whole implementation of backend.stop, and it is
+// deliberately nothing like the backend worker's, which kills the process and
+// recycles its port. An agent worker runs no backend processes; what it holds
+// are sessions that were created against one.
+//
+// A backend nobody named is a no-op rather than an error. The event carries the
+// name, and a request without one asks this worker to forget nothing in
+// particular; failing it would put a malformed publish into the bucket the
+// frontend reads as a worker that could not be reached.
+func dropMCPSessionsForBackend(_ context.Context, req messaging.BackendStopRequest) error {
+	if req.Backend == "" {
+		return nil
+	}
+	mcpTools.CloseMCPSessions(req.Backend)
+	return nil
+}
+
+// serveMCPToolRequest answers an MCP tool execution request.
+func serveMCPToolRequest(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	return encodeMCPReply(runMCPTool(ctx, raw))
+}
+
+// runMCPTool creates or reuses the named MCP sessions from the request's config
+// and executes the named tool against them.
+//
+// Every failure inside it is an answer rather than an error, because every one
+// of them is something this worker LEARNED by trying: a config it could not
+// build sessions from, a discovery that failed, a tool that returned an error.
+func runMCPTool(ctx context.Context, raw json.RawMessage) mcpRemote.MCPToolResponse {
 	var req mcpRemote.MCPToolRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		sendMCPToolReply(reply, "", fmt.Sprintf("unmarshal error: %v", err))
-		return
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return mcpRemote.MCPToolResponse{Error: fmt.Sprintf("unmarshal error: %v", err)}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.DefaultMCPToolTimeout)
+	// Bounded here rather than by the caller, so the bus path and the tunnel
+	// path give a stuck MCP server the same budget.
+	ctx, cancel := context.WithTimeout(ctx, config.DefaultMCPToolTimeout)
 	defer cancel()
 
-	// Create/cache named MCP sessions from the provided config
 	namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(req.ModelName, req.RemoteServers, req.StdioServers, nil)
 	if err != nil {
-		sendMCPToolReply(reply, "", fmt.Sprintf("session error: %v", err))
-		return
+		return mcpRemote.MCPToolResponse{Error: fmt.Sprintf("session error: %v", err)}
 	}
 
 	// Discover tools to find the right session
 	tools, err := mcpTools.DiscoverMCPTools(ctx, namedSessions)
 	if err != nil {
-		sendMCPToolReply(reply, "", fmt.Sprintf("discovery error: %v", err))
-		return
+		return mcpRemote.MCPToolResponse{Error: fmt.Sprintf("discovery error: %v", err)}
 	}
 
-	// Execute the tool
 	argsJSON, _ := json.Marshal(req.Arguments)
 	result, err := mcpTools.ExecuteMCPToolCall(ctx, tools, req.ToolName, string(argsJSON))
 	if err != nil {
-		sendMCPToolReply(reply, "", err.Error())
-		return
+		return mcpRemote.MCPToolResponse{Error: err.Error()}
 	}
-
-	sendMCPToolReply(reply, result, "")
+	return mcpRemote.MCPToolResponse{Result: result}
 }
 
-func sendMCPToolReply(reply func([]byte), result, errMsg string) {
-	resp := mcpRemote.MCPToolResponse{Result: result, Error: errMsg}
-	data, _ := json.Marshal(resp)
-	reply(data)
+// serveMCPDiscoveryRequest answers an MCP tool/prompt/resource discovery
+// request.
+func serveMCPDiscoveryRequest(ctx context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	return encodeMCPReply(runMCPDiscovery(ctx, raw))
 }
 
-// handleMCPDiscoveryRequest handles a NATS request-reply for MCP tool/prompt/resource discovery.
-func handleMCPDiscoveryRequest(data []byte, reply func([]byte)) {
+// runMCPDiscovery lists the servers this worker can reach for a model, with
+// their tools, prompts and resources.
+func runMCPDiscovery(ctx context.Context, raw json.RawMessage) mcpRemote.MCPDiscoveryResponse {
 	var req mcpRemote.MCPDiscoveryRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		sendMCPDiscoveryReply(reply, nil, nil, fmt.Sprintf("unmarshal error: %v", err))
-		return
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return mcpRemote.MCPDiscoveryResponse{Error: fmt.Sprintf("unmarshal error: %v", err)}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.DefaultMCPDiscoveryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, config.DefaultMCPDiscoveryTimeout)
 	defer cancel()
 
-	// Create/cache named MCP sessions
 	namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(req.ModelName, req.RemoteServers, req.StdioServers, nil)
 	if err != nil {
-		sendMCPDiscoveryReply(reply, nil, nil, fmt.Sprintf("session error: %v", err))
-		return
+		return mcpRemote.MCPDiscoveryResponse{Error: fmt.Sprintf("session error: %v", err)}
 	}
 
-	// List servers with their tools/prompts/resources
 	serverInfos, err := mcpTools.ListMCPServers(ctx, namedSessions)
 	if err != nil {
-		sendMCPDiscoveryReply(reply, nil, nil, fmt.Sprintf("list error: %v", err))
-		return
+		return mcpRemote.MCPDiscoveryResponse{Error: fmt.Sprintf("list error: %v", err)}
 	}
 
 	// Also get tool function schemas for the frontend
@@ -342,26 +429,48 @@ func handleMCPDiscoveryRequest(data []byte, reply func([]byte)) {
 		})
 	}
 
-	// Convert server infos
 	var servers []mcpRemote.MCPServerInfo
-	for _, s := range serverInfos {
+	for _, srv := range serverInfos {
 		servers = append(servers, mcpRemote.MCPServerInfo{
-			Name:      s.Name,
-			Type:      s.Type,
-			Tools:     s.Tools,
-			Prompts:   s.Prompts,
-			Resources: s.Resources,
-			Error:     s.Error,
+			Name:      srv.Name,
+			Type:      srv.Type,
+			Tools:     srv.Tools,
+			Prompts:   srv.Prompts,
+			Resources: srv.Resources,
+			Error:     srv.Error,
 		})
 	}
-
-	sendMCPDiscoveryReply(reply, servers, toolDefs, "")
+	return mcpRemote.MCPDiscoveryResponse{Servers: servers, Tools: toolDefs}
 }
 
-func sendMCPDiscoveryReply(reply func([]byte), servers []mcpRemote.MCPServerInfo, tools []mcpRemote.MCPToolDef, errMsg string) {
-	resp := mcpRemote.MCPDiscoveryResponse{Servers: servers, Tools: tools, Error: errMsg}
-	data, _ := json.Marshal(resp)
-	reply(data)
+// encodeMCPReply turns a verb's answer into the bytes both carriers send.
+//
+// A marshalling failure is the one thing here that is NOT an answer: this
+// worker has said nothing about the request, so it is returned as an error and
+// becomes a non-2xx over the tunnel rather than an empty 200.
+func encodeMCPReply(resp any) (json.RawMessage, error) {
+	out, err := json.Marshal(resp)
+	if err != nil {
+		return nil, fmt.Errorf("encoding the reply: %w", err)
+	}
+	return out, nil
+}
+
+// replyOverNATS adapts one of the serve* functions to a NATS request-reply
+// subscription, so the bus carries exactly the bytes the tunnel does.
+func replyOverNATS(subject string, serve func(context.Context, json.RawMessage) (json.RawMessage, error)) func([]byte, func([]byte)) {
+	return func(data []byte, reply func([]byte)) {
+		out, err := serve(context.Background(), data)
+		if err != nil {
+			// Nothing is sent. A requester on the bus reads that as a timeout,
+			// which is the closest the carrier has to "this worker did not
+			// answer"; inventing a reply body here would put a failure to serve
+			// into the bucket reserved for the worker's own verdict.
+			xlog.Error("Agent worker could not serve a bus request", "subject", subject, "error", err)
+			return
+		}
+		reply(out)
+	}
 }
 
 // handleMCPCIJob processes an MCP CI job on the agent worker.

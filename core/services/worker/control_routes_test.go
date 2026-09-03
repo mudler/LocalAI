@@ -515,8 +515,11 @@ var _ = Describe("the worker's HTTP server", func() {
 		}
 	})
 
-	It("mounts every control verb, not just the one this spec reads", func() {
-		for _, p := range workerctl.AllPaths() {
+	It("mounts every control verb a BACKEND worker serves, not just the one this spec reads", func() {
+		// BackendPaths and not AllPaths. The union now includes the agent
+		// worker's verbs, which this worker deliberately does not mount and
+		// answers the catch-all 404 for.
+		for _, p := range workerctl.BackendPaths() {
 			if p == workerctl.PathNodeStop {
 				// Firing it would tear down the worker under the other specs.
 				continue
