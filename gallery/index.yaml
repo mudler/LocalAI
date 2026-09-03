@@ -54879,6 +54879,47 @@
     - model: gemma-4-26b-a4b-it-heretic-apex-i-balanced
     - model: gemma-4-26b-a4b-it-heretic-apex-i-compact
     - model: gemma-4-26b-a4b-it-heretic-apex-i-mini
+- name: audio-cpp-indextts-2.5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/IndexTeam/IndexTTS-2.5
+    - https://huggingface.co/Richasy/IndexTTS-2.5-GGUF
+    - https://github.com/0xShug0/audio.cpp
+  description: |
+    IndexTTS 2.5 is a multilingual text-to-speech model with zero-shot voice
+    cloning and emotion control, served by the audio-cpp backend. Supply a
+    server-local WAV path in the OpenAI `voice` field as the speaker reference.
+
+    This entry uses the published original-dtype GGUF. The package preserves
+    the source tensors without another quantization step, and audio.cpp records
+    the original-dtype IndexTTS2 path as passing its validation suite.
+
+    The bilibili Model Use License governs the model. Review its use,
+    redistribution, and large-scale commercial deployment terms before
+    installation.
+  license: other
+  tags:
+    - audio-cpp
+    - indextts
+    - multilingual
+    - tts
+    - text-to-speech
+    - voice-cloning
+    - emotion-control
+    - gguf
+    - ggml
+  last_checked: "2026-08-15"
+  overrides:
+    backend: audio-cpp
+    known_usecases:
+      - tts
+    name: audio-cpp-indextts-2.5
+    parameters:
+      model: audio-cpp/index-tts2_5-orig.gguf
+  files:
+    - filename: audio-cpp/index-tts2_5-orig.gguf
+      sha256: 07e9bfe77bd42b6e67b8e5a39b365635f7198951281990cb49f322ef546cb9b4
+      uri: huggingface://Richasy/IndexTTS-2.5-GGUF/IndexTTS2.5-GGUF/index-tts2_5-orig.gguf
 - name: audio-cpp-supertonic
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
