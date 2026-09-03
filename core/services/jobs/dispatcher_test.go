@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"gorm.io/gorm"
 )
 
 // publishCall records a single Publish invocation.
@@ -83,7 +84,7 @@ var _ = Describe("Dispatcher", func() {
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			disp = NewDispatcher(store, nil, db, "test-instance", 0)
+			disp = NewDispatcher(store, nil, db, "test-instance")
 		})
 
 		It("returns true when no previous job exists", func() {
@@ -209,25 +210,32 @@ var _ = Describe("Dispatcher", func() {
 	})
 
 	// -----------------------------------------------------------------------
-	// Enqueue — test NATS subject routing via real Dispatcher.Enqueue()
+	// Enqueue: the kind of claim row Dispatcher.Enqueue() writes.
+	//
+	// It used to choose between two NATS subjects. The choice is the same
+	// choice; what it now decides is the KIND stored on the row, which is what
+	// the dispatch loop maps onto a control verb. Asserted against the row
+	// rather than a publish because a publish to a queue group nobody joined
+	// succeeds, and that is the failure this change exists to remove.
 	// -----------------------------------------------------------------------
-	Describe("Enqueue subject routing", func() {
+	Describe("Enqueue claim kind", func() {
 		var (
 			store *JobStore
 			fake  *fakeMessagingClient
 			disp  *Dispatcher
+			db    *gorm.DB
 		)
 
 		BeforeEach(func() {
-			db := testutil.SetupTestDB()
+			db = testutil.SetupTestDB()
 			var err error
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 			fake = &fakeMessagingClient{}
-			disp = NewDispatcher(store, fake, db, "test-instance", 0)
+			disp = NewDispatcher(store, fake, db, "test-instance")
 		})
 
-		It("routes MCP jobs to SubjectMCPCIJobsNew", func() {
+		It("writes an mcp-ci claim for a model with MCP servers", func() {
 			task := &TaskRecord{
 				UserID:  "user-1",
 				Name:    "mcp-task",
@@ -256,11 +264,11 @@ var _ = Describe("Dispatcher", func() {
 
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			Expect(fake.calls[0].subject).To(Equal(messaging.SubjectMCPCIJobsNew))
+			Expect(onlyClaim(db).Kind).To(Equal(string(ClaimKindMCPCI)))
+			Expect(fake.calls).To(BeEmpty(), "enqueueing must not publish: a queue subject nobody joined swallows the job")
 		})
 
-		It("routes non-MCP jobs to SubjectJobsNew", func() {
+		It("writes a plain task claim for a model without MCP servers", func() {
 			task := &TaskRecord{
 				UserID:  "user-1",
 				Name:    "plain-task",
@@ -285,11 +293,11 @@ var _ = Describe("Dispatcher", func() {
 
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			Expect(fake.calls[0].subject).To(Equal(messaging.SubjectJobsNew))
+			Expect(onlyClaim(db).Kind).To(Equal(string(ClaimKindTask)))
+			Expect(fake.calls).To(BeEmpty(), "enqueueing must not publish: a queue subject nobody joined swallows the job")
 		})
 
-		It("routes to SubjectJobsNew when model config is not found", func() {
+		It("writes a plain task claim when the model config is not found", func() {
 			task := &TaskRecord{
 				UserID:  "user-1",
 				Name:    "unknown-model-task",
@@ -312,28 +320,29 @@ var _ = Describe("Dispatcher", func() {
 
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			Expect(fake.calls[0].subject).To(Equal(messaging.SubjectJobsNew))
+			Expect(onlyClaim(db).Kind).To(Equal(string(ClaimKindTask)))
+			Expect(fake.calls).To(BeEmpty(), "enqueueing must not publish: a queue subject nobody joined swallows the job")
 		})
 	})
 
 	// -----------------------------------------------------------------------
-	// Enqueue event enrichment — verify the payload published by Enqueue()
+	// Enqueue event enrichment: the payload stored on the claim row
 	// -----------------------------------------------------------------------
 	Describe("Enqueue event enrichment", func() {
 		var (
 			store *JobStore
 			fake  *fakeMessagingClient
 			disp  *Dispatcher
+			db    *gorm.DB
 		)
 
 		BeforeEach(func() {
-			db := testutil.SetupTestDB()
+			db = testutil.SetupTestDB()
 			var err error
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 			fake = &fakeMessagingClient{}
-			disp = NewDispatcher(store, fake, db, "test-instance", 0)
+			disp = NewDispatcher(store, fake, db, "test-instance")
 		})
 
 		It("includes full job and task records in the event", func() {
@@ -368,9 +377,7 @@ var _ = Describe("Dispatcher", func() {
 
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			evt, ok := fake.calls[0].data.(JobEvent)
-			Expect(ok).To(BeTrue(), "published data should be a JobEvent")
+			evt := claimEvent(onlyClaim(db))
 			Expect(evt.Job).ToNot(BeNil())
 			Expect(evt.Job.ID).To(Equal(job.ID))
 			Expect(evt.Task).ToNot(BeNil())
@@ -399,9 +406,7 @@ var _ = Describe("Dispatcher", func() {
 			// No config loader — Enqueue still works, just no model config enrichment.
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
-			Expect(fake.calls).To(HaveLen(1))
-			evt, ok := fake.calls[0].data.(JobEvent)
-			Expect(ok).To(BeTrue())
+			evt := claimEvent(onlyClaim(db))
 
 			data, err := json.Marshal(evt)
 			Expect(err).ToNot(HaveOccurred())
@@ -413,3 +418,21 @@ var _ = Describe("Dispatcher", func() {
 		})
 	})
 })
+
+// onlyClaim returns the single claim row Enqueue wrote, failing the spec if it
+// wrote any other number.
+func onlyClaim(db *gorm.DB) WorkClaim {
+	GinkgoHelper()
+	var rows []WorkClaim
+	Expect(db.Find(&rows).Error).To(Succeed())
+	Expect(rows).To(HaveLen(1), "expected exactly one claim row")
+	return rows[0]
+}
+
+// claimEvent decodes the JobEvent a claim row carries.
+func claimEvent(claim WorkClaim) JobEvent {
+	GinkgoHelper()
+	var evt JobEvent
+	Expect(json.Unmarshal(claim.Payload, &evt)).To(Succeed())
+	return evt
+}

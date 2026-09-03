@@ -107,6 +107,21 @@ func (r *Registry) Heartbeat(ctx context.Context, id string) error {
 // decide whether another replica is alive.
 const instanceIsLive = `instances.last_seen > now() - make_interval(secs => ?)`
 
+// LiveInstanceIDsSQL selects the ids of the replicas this deployment considers
+// alive. Its single bind parameter is the liveness window in seconds, exactly
+// as instanceIsLive's is.
+//
+// It exists for the one caller that has to decide liveness INSIDE somebody
+// else's statement rather than by listing rows first: the claim queue's reap,
+// which releases work held by a replica that is gone and must not release work
+// held by one that is merely slow. Read-then-update would put those two facts
+// in different statements and let a replica die, or come back, in the gap.
+//
+// It is built BY CONCATENATION from instanceIsLive rather than restating it,
+// so there is still exactly one spelling of "alive" in this deployment and a
+// change to the predicate cannot reach one reader and miss the other.
+const LiveInstanceIDsSQL = `SELECT instances.id FROM instances WHERE ` + instanceIsLive
+
 // Live returns the instances whose LastSeen is newer than now-within.
 func (r *Registry) Live(ctx context.Context, within time.Duration) ([]Instance, error) {
 	var out []Instance
