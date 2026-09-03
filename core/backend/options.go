@@ -602,6 +602,9 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 			metadata["enable_thinking"] = "true"
 		}
 	}
+	if c.ResponseFormat != "" {
+		metadata["response_format"] = c.ResponseFormat
+	}
 	// Forward the effective reasoning effort so the backend can pass it to the
 	// jinja chat template (chat_template_kwargs.reasoning_effort) — the lever
 	// models like gpt-oss / LFM2.5 actually read, distinct from enable_thinking.
