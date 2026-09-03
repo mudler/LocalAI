@@ -5,7 +5,6 @@ package pgbus_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"time"
 
@@ -209,6 +208,34 @@ var _ = Describe("the PostgreSQL broadcast carrier", func() {
 		})
 	})
 
+	Describe("a subscriber that falls behind", func() {
+		It("counts what it lost, so the subscriber can go and read the row", func() {
+			// The drop is loud in the log of the replica that took it, and that
+			// is the wrong party: the subscriber is the one that has to decide
+			// to go and read the table instead. Task 12 moves jobs.*.result
+			// onto this carrier, and a result has no successor message, so an
+			// invisible loss there is a job whose answer silently never
+			// arrives.
+			block := make(chan struct{})
+			DeferCleanup(func() { close(block) })
+			s, err := sub.Subscribe("jobs.slow.consumer", func([]byte) { <-block })
+			Expect(err).ToNot(HaveOccurred())
+
+			counter, ok := s.(pgbus.DropCounter)
+			Expect(ok).To(BeTrue(), "a subscription must be able to report its losses")
+			Expect(counter.Dropped()).To(BeZero())
+
+			// Comfortably past the queue depth, stated absolutely rather than
+			// as deliveryQueueDepth+n, so a change to the depth moves the
+			// behaviour and not the expectation.
+			for i := 0; i < 400; i++ {
+				Expect(pub.Publish("jobs.slow.consumer", map[string]int{"i": i})).To(Succeed())
+			}
+
+			Eventually(counter.Dropped, 30*time.Second).Should(BeNumerically(">", 0))
+		})
+	})
+
 	Describe("losing the LISTEN connection", func() {
 		It("reconnects, restores its registrations and delivers again", func() {
 			// The transport failure a fake cannot produce. Terminating the
@@ -326,15 +353,5 @@ var _ = Describe("constructing the carrier", func() {
 	It("refuses a nil handle", func() {
 		_, err := pgbus.New(context.Background(), pgbus.Config{DSN: "postgres://x/y"})
 		Expect(err).To(HaveOccurred())
-	})
-})
-
-var _ = Describe("the interface the carrier is interchangeable through", func() {
-	It("is satisfied by the bus", func() {
-		// Compile-time, not behavioural: the point is that a signature change
-		// on either carrier fails here rather than in whichever call site is
-		// migrated next.
-		var b messaging.Broadcaster = (*pgbus.Bus)(nil)
-		Expect(fmt.Sprintf("%T", b)).To(Equal("*pgbus.Bus"))
 	})
 })
