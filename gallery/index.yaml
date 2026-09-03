@@ -309,6 +309,35 @@
       - embeddings
     parameters:
       model: tencent/WeMM-Embedding-9B
+- name: "dfm-mimir:vllm"
+  url: github:mudler/LocalAI/gallery/vllm.yaml@master
+  urls:
+    - https://huggingface.co/danish-foundation-models/DFM-Mimir
+  description: |
+    DFM Mimir is an Apache-2.0, instruction-tuned HRM-Text model from Danish
+    Foundation Models. It has about 1 billion parameters and a 4,096-token
+    context window. The model focuses on Danish and English chat, reasoning,
+    mathematics, and code generation, and uses only permissible post-training
+    data. This entry serves the official BF16 safetensors checkpoint with vLLM.
+  license: apache-2.0
+  tags:
+    - llm
+    - chat
+    - reasoning
+    - coding
+    - instruction-tuned
+    - danish
+    - english
+    - hrm-text
+    - safetensors
+    - vllm
+    - gpu
+  last_checked: "2026-08-25"
+  overrides:
+    context_size: 4096
+    parameters:
+      max_tokens: 4096
+      model: danish-foundation-models/DFM-Mimir
 - &granite-4-2-3b
   name: "granite-4.2-3b-q4"
   variants:
