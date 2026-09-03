@@ -378,9 +378,21 @@ test-e2e-distributed: protogen-go
 # --flake-attempts is pinned to 1 rather than $(DISTRIBUTED_TEST_FLAKES), and
 # should stay there: this suite exists to catch nondeterministic cluster
 # behaviour, and a retry turns exactly that signal into a green run.
+#
+# Budget: 20 specs, measured at 800 to 830 seconds of Ginkgo time (13 to 14
+# minutes wall including the compile) on a fast developer box. It was 591 to 612
+# seconds before the phase 3 control-plane specs; those five added roughly 200
+# seconds, most of it in the two that wait out real windows rather than poll for
+# a state change (cluster.InstanceLiveness is 30s, and a departed worker cannot
+# be demoted before its reconnect grace).
+#
+# --timeout is 30m rather than 20m because of that. The margin is not slack: a
+# Ginkgo timeout kills the suite mid-spec and reports a spec name rather than a
+# cause, and 20m on a loaded CI runner was one slow health tick away from
+# turning a green suite into an unreadable red one.
 test-e2e-cluster: protogen-go build-mock-backend
 	@echo 'Running cluster e2e tests (label Cluster, real local-ai processes)'
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Cluster' --fail-on-empty --flake-attempts 1 --timeout=20m -v ./tests/e2e/distributed
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Cluster' --fail-on-empty --flake-attempts 1 --timeout=30m -v ./tests/e2e/distributed
 
 # vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
 # cpu-vllm backend from the current working tree, then drives a
