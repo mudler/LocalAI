@@ -80,6 +80,23 @@ const subscribeTimeout = 30 * time.Second
 // wedging the carrier silently is not.
 const deliveryQueueDepth = 256
 
+// notificationQueueDepth is how many notifications may be waiting to be
+// resolved and dispatched before the carrier starts dropping them.
+//
+// It exists so that resolving a spilled broadcast, which is one SELECT, never
+// happens on the goroutine that drains PostgreSQL's notification stream. That
+// goroutine falling behind does not merely delay this replica: PostgreSQL holds
+// undelivered notifications in a shared, fixed-size async queue, and a listener
+// that stops draining it can fill that queue and block COMMIT for every
+// publisher on the SERVER, LocalAI's or not. Fourteen traffic types are moving
+// onto this carrier, several of which spill by construction, so this is a
+// hazard the carrier has to own rather than one to leave to its adopters.
+//
+// Dropping locally when the resolver falls this far behind is the right trade
+// against that: a lost broadcast is recoverable and loud, a stalled server is
+// neither.
+const notificationQueueDepth = 1024
+
 // broadcastRoots is the closed set of subject roots this carrier serves.
 // A subject whose first token is not here is REFUSED at publish and at
 // subscribe, rather than being mapped to a channel of its own.
@@ -152,6 +169,15 @@ type Config struct {
 	DSN string
 	// DB is the pooled handle NOTIFY and the spill table are written on.
 	DB *gorm.DB
+	// SweepInterval is how often this carrier retires spilled broadcasts that
+	// have aged out. Zero means spillSweepInterval.
+	//
+	// It is a field rather than a constant so that the sweeper being STARTED is
+	// a testable fact. SweepSpill and SpillSweepSQL can both be exercised
+	// directly, and neither of them proves the carrier ever calls them: a
+	// deleted `go b.sweep()` left the whole suite green and bus_messages
+	// growing forever.
+	SweepInterval time.Duration
 }
 
 // notification is what travels in a pg_notify payload. The keys are one byte
@@ -185,12 +211,41 @@ type Bus struct {
 	connected atomic.Bool
 
 	cmds         chan listenCmd
+	inbound      chan inbound
 	listenerDone chan struct{}
+	resolverDone chan struct{}
 	closeOnce    sync.Once
+
+	// listenMu orders a channel's refcount decision with the LISTEN or
+	// UNLISTEN that decision implies, as ONE step.
+	//
+	// Deciding under mu and issuing outside it is a real defect and not a
+	// theoretical one. A last Unsubscribe that has decided to UNLISTEN can be
+	// overtaken by a Subscribe that has decided to LISTEN; the two reach the
+	// connection in that order; the channel ends up not listened with a live
+	// subscription on it. It does not self-heal, because the next Subscribe on
+	// that root sees first == false and never re-LISTENs, so the whole root is
+	// silently deaf on this replica until a connection drop triggers relisten.
+	//
+	// A second lock rather than mu, because command waits on the listener
+	// goroutine and delivery takes mu: holding mu across that wait would
+	// deadlock the carrier. Neither the listener nor the resolver ever takes
+	// this one.
+	listenMu sync.Mutex
+
+	// listenBarrier is a test seam and is nil in production. See barrier.
+	listenBarrier func(stage, op string)
 
 	mu     sync.Mutex
 	nextID uint64
 	subs   map[string]map[uint64]*subscription
+}
+
+// inbound is one notification as it came off the connection, before it is
+// decoded, resolved and dispatched.
+type inbound struct {
+	channel string
+	payload string
 }
 
 // New opens the carrier: one pinned LISTEN connection, and the pooled handle
@@ -225,11 +280,14 @@ func New(ctx context.Context, cfg Config) (*Bus, error) {
 		ctx:          busCtx,
 		cancel:       cancel,
 		cmds:         make(chan listenCmd),
+		inbound:      make(chan inbound, notificationQueueDepth),
 		listenerDone: make(chan struct{}),
+		resolverDone: make(chan struct{}),
 		subs:         map[string]map[uint64]*subscription{},
 	}
 	b.connected.Store(true)
 	go b.listen(conn)
+	go b.resolve()
 	go b.sweep()
 	return b, nil
 }
@@ -274,6 +332,7 @@ func (b *Bus) Close() {
 	b.closeOnce.Do(func() {
 		b.cancel()
 		<-b.listenerDone
+		<-b.resolverDone
 		b.connected.Store(false)
 	})
 }
@@ -335,6 +394,12 @@ func (b *Bus) Subscribe(subject string, handler func([]byte)) (messaging.Subscri
 		return nil, fmt.Errorf("pgbus: no handler for %q", subject)
 	}
 
+	// Before the lock, so a spec can observe that this registration has
+	// started even when the lock is what stops it going any further.
+	b.barrier("enter", "LISTEN")
+	b.listenMu.Lock()
+	defer b.listenMu.Unlock()
+
 	b.mu.Lock()
 	b.nextID++
 	sub := &subscription{
@@ -344,6 +409,7 @@ func (b *Bus) Subscribe(subject string, handler func([]byte)) (messaging.Subscri
 		id:      b.nextID,
 		queue:   make(chan []byte, deliveryQueueDepth),
 		stop:    make(chan struct{}),
+		done:    make(chan struct{}),
 	}
 	first := len(b.subs[channel]) == 0
 	if first {
@@ -355,18 +421,54 @@ func (b *Bus) Subscribe(subject string, handler func([]byte)) (messaging.Subscri
 	go sub.run(handler)
 
 	if first {
+		b.barrier("issue", "LISTEN")
 		if err := b.command("LISTEN " + pgx.Identifier{channel}.Sanitize()); err != nil {
-			_ = sub.Unsubscribe()
+			// Not Unsubscribe: the ordering lock is already held here, and the
+			// connection was never listening on this channel, so there is
+			// nothing to UNLISTEN.
+			b.forget(sub)
 			return nil, err
 		}
 	}
 	return sub, nil
 }
 
+// forget removes a registration without touching the channel's LISTEN state.
+func (b *Bus) forget(sub *subscription) {
+	sub.once.Do(func() {
+		b.mu.Lock()
+		delete(b.subs[sub.channel], sub.id)
+		if len(b.subs[sub.channel]) == 0 {
+			delete(b.subs, sub.channel)
+		}
+		b.mu.Unlock()
+		close(sub.stop)
+	})
+}
+
+// barrier is a test seam and does nothing in production.
+//
+// It exists because the ordering listenMu enforces cannot be observed from
+// outside this package and cannot be provoked from outside it either: the
+// natural window is microseconds wide, and it was measured at zero hits in
+// forty attempts while being ten out of ten once widened. A spec that waits for
+// that window to open is a spec that passes by luck, which is worse than no
+// spec at all for a defect that leaves a whole subject root deaf.
+func (b *Bus) barrier(stage, op string) {
+	if b.listenBarrier != nil {
+		b.listenBarrier(stage, op)
+	}
+}
+
 // command hands a LISTEN or UNLISTEN to the goroutine that owns the connection
-// and waits for it, so a Subscribe that has returned is a registration the
-// server has already acknowledged. Returning before that would lose every
-// message published in the gap.
+// and waits for it. Returning before the server had acknowledged it would lose
+// every message published in the gap.
+//
+// A Subscribe that has returned is therefore always a registration the server
+// has acknowledged, including the case where this Subscribe issued nothing
+// because the channel was already listened: listenMu means the Subscribe that
+// DID issue the LISTEN had already been acknowledged before this one could see
+// its registration.
 func (b *Bus) command(sql string) error {
 	cmd := listenCmd{sql: sql, done: make(chan error, 1)}
 	timeout := time.NewTimer(subscribeTimeout)
@@ -439,7 +541,34 @@ func (b *Bus) listen(conn *pgx.Conn) {
 			conn = replacement
 			continue
 		}
-		b.deliver(n.Channel, n.Payload)
+		b.offer(n.Channel, n.Payload)
+	}
+}
+
+// offer hands a notification to the resolver. It never blocks: the listener's
+// only job is to keep PostgreSQL's async queue draining.
+func (b *Bus) offer(channel, payload string) {
+	select {
+	case b.inbound <- inbound{channel: channel, payload: payload}:
+	default:
+		xlog.Error("Broadcast carrier dropped a notification: the resolver is not keeping up",
+			"channel", channel, "depth", notificationQueueDepth)
+	}
+}
+
+// resolve is where a spilled broadcast is read back and where every
+// notification is dispatched. Both are off the listener on purpose, and both
+// are on ONE goroutine, so a spilled message and an inline one on the same
+// subject keep the order they were published in.
+func (b *Bus) resolve() {
+	defer close(b.resolverDone)
+	for {
+		select {
+		case <-b.ctx.Done():
+			return
+		case in := <-b.inbound:
+			b.deliver(in.channel, in.payload)
+		}
 	}
 }
 
@@ -500,6 +629,8 @@ func (b *Bus) relisten(conn *pgx.Conn) error {
 // deliver resolves one notification and hands it to the subscribers whose
 // filters match.
 func (b *Bus) deliver(channel, payload string) {
+	b.barrier("enter", "DELIVER")
+
 	var n notification
 	if err := json.Unmarshal([]byte(payload), &n); err != nil {
 		xlog.Error("Broadcast carrier received an undecodable notification", "channel", channel, "error", err)
@@ -507,6 +638,14 @@ func (b *Bus) deliver(channel, payload string) {
 	}
 
 	data := []byte(n.Data)
+	if n.SpillID == "" && len(data) == 0 {
+		// Publish cannot produce this: json.Marshal never returns an empty
+		// encoding. It is reachable only if something other than this carrier
+		// notifies on a localai_ channel, and delivering nil to a handler
+		// would be a message that says nothing rather than no message at all.
+		xlog.Error("Broadcast carrier received a notification with no payload", "channel", channel, "subject", n.Subject)
+		return
+	}
 	if n.SpillID != "" {
 		resolved, err := b.resolveSpill(n.SpillID)
 		if err != nil {
@@ -544,12 +683,37 @@ type subscription struct {
 	filter  string
 	id      uint64
 
-	queue chan []byte
-	stop  chan struct{}
-	once  sync.Once
+	queue   chan []byte
+	stop    chan struct{}
+	done    chan struct{}
+	dropped atomic.Uint64
+	once    sync.Once
 }
 
+// DropCounter is the optional interface a Subscription satisfies when it can
+// report how many broadcasts it lost.
+//
+// It exists because the drop is otherwise invisible to the party that needs to
+// know. The error log lands on the receiving replica, there is no sequence
+// number and no gap signal, so "anything that must survive a gap belongs in a
+// table, with the broadcast as a hint to go and look" cannot be acted on by the
+// subscriber that missed the hint. A subscriber whose subject has no successor
+// message, a job result rather than a progress tick, can type-assert to this
+// and go read the row.
+//
+// It is not on messaging.Subscription: the NATS client's subscription cannot
+// answer it, and widening that interface would make every existing consumer
+// claim a guarantee it does not have.
+type DropCounter interface {
+	Dropped() uint64
+}
+
+// Dropped reports how many broadcasts this subscription lost because its
+// handler was too far behind. It only ever grows.
+func (s *subscription) Dropped() uint64 { return s.dropped.Load() }
+
 func (s *subscription) run(handler func([]byte)) {
+	defer close(s.done)
 	for {
 		select {
 		case data := <-s.queue:
@@ -566,8 +730,9 @@ func (s *subscription) enqueue(subject string, data []byte) {
 	select {
 	case s.queue <- data:
 	default:
+		s.dropped.Add(1)
 		xlog.Error("Broadcast carrier dropped a message: subscriber is not keeping up",
-			"filter", s.filter, "subject", subject, "depth", deliveryQueueDepth)
+			"filter", s.filter, "subject", subject, "depth", deliveryQueueDepth, "dropped", s.dropped.Load())
 	}
 }
 
@@ -576,17 +741,24 @@ func (s *subscription) enqueue(subject string, data []byte) {
 func (s *subscription) Unsubscribe() error {
 	var err error
 	s.once.Do(func() {
-		s.bus.mu.Lock()
-		delete(s.bus.subs[s.channel], s.id)
-		last := len(s.bus.subs[s.channel]) == 0
+		b := s.bus
+		b.barrier("enter", "UNLISTEN")
+		// The whole decision AND its issuance, as one step. See listenMu.
+		b.listenMu.Lock()
+		defer b.listenMu.Unlock()
+
+		b.mu.Lock()
+		delete(b.subs[s.channel], s.id)
+		last := len(b.subs[s.channel]) == 0
 		if last {
-			delete(s.bus.subs, s.channel)
+			delete(b.subs, s.channel)
 		}
-		s.bus.mu.Unlock()
+		b.mu.Unlock()
 
 		close(s.stop)
-		if last && s.bus.ctx.Err() == nil {
-			err = s.bus.command("UNLISTEN " + pgx.Identifier{s.channel}.Sanitize())
+		if last && b.ctx.Err() == nil {
+			b.barrier("issue", "UNLISTEN")
+			err = b.command("UNLISTEN " + pgx.Identifier{s.channel}.Sanitize())
 		}
 	})
 	return err
@@ -612,7 +784,11 @@ func (b *Bus) resolveSpill(id string) ([]byte, error) {
 
 // sweep retires spilled rows that every replica has had time to read.
 func (b *Bus) sweep() {
-	ticker := time.NewTicker(spillSweepInterval)
+	interval := b.cfg.SweepInterval
+	if interval <= 0 {
+		interval = spillSweepInterval
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {

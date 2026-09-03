@@ -642,7 +642,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	modelAdapter := nodes.NewModelRouterAdapter(router)
 
 	success = true
-	return &DistributedServices{
+	ds := &DistributedServices{
 		Nats:           natsClient,
 		Store:          store,
 		Registry:       registry,
@@ -667,7 +667,38 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		WorkerDialer:   workerDialer,
 		BackendClients: backendClients,
 		Bus:            bus,
-	}, nil
+	}
+	// Checked once, here, on the assembled struct. See requireBroadcastCarrier.
+	if err := requireBroadcastCarrier(ds); err != nil {
+		return nil, err
+	}
+	return ds, nil
+}
+
+// requireBroadcastCarrier refuses to hand back a distributed deployment whose
+// broadcast carrier is missing.
+//
+// The carrier reaches the deployment over two lines: the newBroadcastBus call
+// in initDistributed, and the Bus field in the twenty-three field literal
+// above. Deleting either one compiles and leaves every suite in this repository
+// green, and the two failures are different. Without the construction, nothing
+// can ever be published between replicas. Without the assignment the carrier is
+// opened and connected but Shutdown cannot see it, so every restart leaves a
+// pinned PostgreSQL session and its goroutines behind until the server runs out
+// of connections, and the operator sees the failure land on whatever connects
+// next rather than on LocalAI.
+//
+// Neither line can be reddened by a spec today: initDistributed opens NATS
+// before it reaches any of this, so it cannot be called from a unit test, and a
+// pointer field left out of a struct literal is not a compile error. What this
+// converts both omissions into is a deployment that refuses to start and names
+// what is missing, which is as far as they can be pinned until initDistributed
+// is testable. The guard itself is spec'd.
+func requireBroadcastCarrier(ds *DistributedServices) error {
+	if ds == nil || ds.Bus == nil {
+		return fmt.Errorf("distributed mode was initialized without a broadcast carrier: nothing could be published between replicas, and the PostgreSQL session it pins could not be closed on shutdown")
+	}
+	return nil
 }
 
 // newBroadcastBus opens the deployment's fan-out carrier on the auth database.
