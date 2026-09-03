@@ -1,6 +1,9 @@
 package distributed_test
 
 import (
+	"context"
+	"time"
+
 	"github.com/mudler/LocalAI/core/services/distributed"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -218,6 +221,31 @@ var _ = Describe("Phase 4: MCP, Skills, Gallery, Fine-Tuning", Label("Distribute
 
 			_, err := stores.FineTune.Get(job.ID)
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("Open Responses Metadata", func() {
+		It("should keep live rows and purge expired ones on the database clock", func() {
+			ctx := context.Background()
+			Expect(stores.Responses).ToNot(BeNil())
+
+			past := time.Now().Add(-time.Hour)
+			future := time.Now().Add(time.Hour)
+			Expect(stores.Responses.Upsert(ctx, &distributed.ResponseMetadataRecord{
+				ID: "resp_live", OwnerReplica: "replica-a", PayloadJSON: []byte(`{"id":"resp_live"}`), ExpiresAt: &future,
+			})).To(Succeed())
+			Expect(stores.Responses.Upsert(ctx, &distributed.ResponseMetadataRecord{
+				ID: "resp_dead", OwnerReplica: "replica-a", PayloadJSON: []byte(`{"id":"resp_dead"}`), ExpiresAt: &past,
+			})).To(Succeed())
+
+			live, err := stores.Responses.ListUnexpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(live).To(HaveLen(1))
+			Expect(live[0].ID).To(Equal("resp_live"))
+
+			purged, err := stores.Responses.PurgeExpired(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(purged).To(Equal(int64(1)))
 		})
 	})
 })
