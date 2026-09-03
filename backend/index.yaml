@@ -1194,6 +1194,7 @@
   tags:
     - image-generation
     - video-generation
+    - sound-generation
     - diffusion-models
   license: apache-2.0
   alias: "diffusers"

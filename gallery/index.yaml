@@ -928,6 +928,22 @@
     - filename: carbon-8b-q8_0.gguf
       uri: huggingface://HuggingFaceBio/Carbon-8B-GGUF/carbon-8b-q8_0.gguf
       sha256: ba5f7794d0768e639fcb0fe860ff7340b09bfaad5e0e2f2c021a4f49029352dd
+- name: audioldm2
+  url: github:mudler/LocalAI/gallery/audioldm2.yaml@master
+  urls:
+    - https://huggingface.co/cvssp/audioldm2
+    - https://github.com/haoheliu/AudioLDM2
+  description: |
+    AudioLDM 2 generates sound effects, music, and speech from natural-language
+    descriptions through the diffusers backend and LocalAI sound-generation API.
+  license: cc-by-nc-sa-4.0
+  tags:
+    - audio
+    - sound-generation
+    - text-to-audio
+    - diffusers
+    - gpu
+  last_checked: "2026-08-13"
 - &ornith-1-0-9b
   name: "ornith-1.0-9b-q4"
   variants:
