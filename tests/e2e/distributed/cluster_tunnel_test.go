@@ -383,6 +383,38 @@ var _ = Describe("Worker tunnel end to end", Label("Distributed"), Label("Cluste
 			"a worker with no advertised address must still serve inference over its tunnel")
 	})
 
+	// Scenario 1b. The AGENT worker, which used to be gated out of tunnels at
+	// the credential mint site and now dials one like any other node.
+	//
+	// A wrong implementation is silent in both directions. If the mint gate is
+	// still closed, the agent worker registers, heartbeats and works exactly as
+	// before, with its tunnel dial refused 401 forever in a log nothing reads;
+	// no other spec in this suite would notice. If the absence rules were
+	// widened to follow, the agent worker would instead start being demoted for
+	// a tunnel its real work does not travel on.
+	It("holds a tunnel for an AGENT worker, and still does not judge it by one", func() {
+		c, dsn := startClusterOnFreshDB(1, 0, withAgentWorkers(1))
+		client := controlSession(c)
+
+		probe := newRosterProbe(c, client, 0)
+		Eventually(probe.healthyNames, nodeRosterTimeout, nodeRosterPoll).
+			Should(ContainElement(c.AgentWorkerName(0)), probe.describe)
+		nodeID := probe.idOf(c.AgentWorkerName(0))
+		Expect(nodeID).ToNot(BeEmpty())
+
+		// The claim: a live replica holds this agent worker's tunnel. Read
+		// through the production Owner query, which joins against live
+		// instances, so a row left by a dead replica is not an owner.
+		owners := newTunnelOwners(openClusterDB(dsn))
+		Eventually(func() int { return owners.ownerIndexOf(c, 1, nodeID) }, tunnelOwnershipTimeout, tunnelOwnershipPoll).
+			Should(Equal(0), owners.describe)
+
+		// And it is still an agent worker: holding a tunnel changed nothing
+		// about how this deployment decides whether it is present.
+		Consistently(func() string { return probe.statusOf(c.AgentWorkerName(0)) }, "10s", "2s").
+			Should(Equal("healthy"), probe.describe)
+	})
+
 	// Scenario 2. With N replicas behind round robin this is (N-1)/N of
 	// production traffic. A wrong implementation answers it by dialling the
 	// worker from the replica that took the request, which works on one host

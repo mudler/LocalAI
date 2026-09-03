@@ -382,8 +382,8 @@ func withReconnectGrace(d time.Duration) func(*cluster.Options) {
 	return func(o *cluster.Options) { o.ReconnectGrace = d }
 }
 
-// withAgentWorkers adds agent workers, which still speak NATS and hold no
-// tunnel, to a cluster.
+// withAgentWorkers adds agent workers, which still speak NATS for everything
+// this phase has not moved, to a cluster.
 func withAgentWorkers(n int) func(*cluster.Options) {
 	return func(o *cluster.Options) { o.AgentWorkers = n }
 }
@@ -653,9 +653,11 @@ var _ = Describe("Control plane over the worker tunnel", Label("Distributed"), L
 	// every reaper keyed on the heartbeat and the heartbeat was fine.
 	//
 	// The agent worker in the same cluster is the control for the other
-	// direction. It still speaks NATS, holds no tunnel and never will, so a
-	// rule that read "no tunnel" as "gone" would take the whole agent fleet
-	// down with it.
+	// direction. It holds a tunnel too now, and the balancer below blocks its
+	// dial exactly as it blocks the backend worker's, so its departure ages
+	// past the same grace. Its real work still travels on the bus, so a rule
+	// that read "no tunnel" as "gone" would take the whole agent fleet down
+	// with it.
 	It("stops reporting a heartbeating worker healthy once its tunnel is gone past the grace, and leaves agent workers alone", func() {
 		var balancer *frontendBalancer
 		c, dsn := startClusterOnFreshDB(2, 1, withBalancer(&balancer),
@@ -703,7 +705,9 @@ var _ = Describe("Control plane over the worker tunnel", Label("Distributed"), L
 			"the worker's heartbeat is stale, so it was demoted for being gone rather than for having no route")
 
 		// The agent worker, in the same cluster, under the same grace, on the
-		// same health monitor, is untouched. It holds no tunnel either.
+		// same health monitor, is untouched. Its tunnel is blocked by the same
+		// balancer, so this is a node whose departure really has outlived the
+		// grace and which must still not be demoted for it.
 		Consistently(func() string { return atSurvivor.statusOf(c.AgentWorkerName(0)) }, "20s", "2s").
 			Should(Equal("healthy"),
 				atSurvivor.explain("an agent worker was demoted by a rule about tunnels, and agent workers never hold one"))

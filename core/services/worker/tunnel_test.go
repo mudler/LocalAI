@@ -279,6 +279,84 @@ var _ = Describe("Worker tunnel client", func() {
 		})
 	})
 
+	Describe("the HTTP-only routing table", func() {
+		// The table an AGENT worker installs. It is the security boundary of
+		// that worker's tunnel, so it is asserted directly and then over the
+		// wire, rather than only through whatever starts an agent worker.
+
+		It("offers exactly one tag, the worker's own HTTP server", func() {
+			// The grpc tag is the only entry whose target the frontend gets to
+			// influence at all, and an agent worker runs no backend processes
+			// for it to reach. Offering it would be reachable surface with
+			// nothing behind it.
+			table := HTTPOnlyServices("127.0.0.1:9999")
+			Expect(table).To(HaveLen(1))
+			Expect(table).To(HaveKey(cluster.StreamTagHTTP))
+			Expect(table).ToNot(HaveKey(cluster.StreamTagGRPC))
+		})
+
+		It("routes the http tag to the worker's own server, ignoring the address the frontend names", func() {
+			own := echoListener()
+			DeferCleanup(func() { _ = own.Close() })
+
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) { c.Services = HTTPOnlyServices(own.Addr().String()) })
+
+			stream, err := session().OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			// A target this worker must not dial. fixedService ignores it.
+			Expect(cluster.WriteStreamRequest(stream, cluster.StreamTagHTTP, "attacker.invalid:1")).To(Succeed())
+
+			reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+			Eventually(reply, "10s").Should(Receive(BeNil()))
+
+			_, err = stream.Write([]byte("own-server"))
+			Expect(err).ToNot(HaveOccurred())
+			buf := make([]byte, len("own-server"))
+			read := awaitErr(func() error {
+				_, rerr := io.ReadFull(stream, buf)
+				return rerr
+			})
+			Eventually(read, "10s").Should(Receive(BeNil()))
+			Expect(string(buf)).To(Equal("own-server"))
+		})
+
+		It("refuses a stream tagged for gRPC as an unknown tag, over the wire", func() {
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) { c.Services = HTTPOnlyServices("127.0.0.1:1") })
+
+			stream, err := session().OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cluster.WriteStreamRequest(stream, cluster.StreamTagGRPC, "127.0.0.1:50051")).To(Succeed())
+
+			reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+			var got error
+			Eventually(reply, "10s").Should(Receive(&got))
+			// The tag, not "unavailable". A frontend gives up on the first and
+			// retries the second, and retrying a tag this worker will never
+			// serve is a request that can never succeed.
+			Expect(got).To(MatchError(cluster.ErrStreamTagUnknown))
+			Expect(got).ToNot(MatchError(cluster.ErrStreamTargetUnavailable))
+			Expect(got).ToNot(MatchError(cluster.ErrStreamRequestInvalid))
+		})
+
+		It("rewrites a wildcard bind onto loopback, so the dial reaches the same listener", func() {
+			own := echoListenerOn("127.0.0.1:0")
+			DeferCleanup(func() { _ = own.Close() })
+
+			frontend = newFakeFrontend(false)
+			start(func(c *TunnelConfig) {
+				c.Services = HTTPOnlyServices(fmt.Sprintf("0.0.0.0:%d", portOf(own)))
+			})
+
+			stream, err := session().OpenStream(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cluster.WriteStreamRequest(stream, cluster.StreamTagHTTP, "")).To(Succeed())
+			reply := awaitErr(func() error { return cluster.ReadStreamReply(stream) })
+			Eventually(reply, "10s").Should(Receive(BeNil()))
+		})
+	})
+
 	Describe("refusing a stream it cannot serve", func() {
 		// The refusal specs all read with NO deadline, on another goroutine.
 		// See awaitErr: a deadline would be satisfied by a stream that was

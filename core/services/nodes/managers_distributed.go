@@ -168,9 +168,11 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 		if node.Status == StatusPending {
 			continue
 		}
-		// Backend lifecycle ops only make sense on backend-type workers.
-		// Agent workers hold no tunnel and serve no control plane, so
-		// enqueueing for them guarantees a forever-retrying row that the
+		// Backend lifecycle ops only make sense on backend-type workers. An
+		// agent worker holds a tunnel and serves a control plane, but not
+		// THESE verbs: it runs no backend processes, so it mounts none of the
+		// install/upgrade/delete routes and answers the catch-all 404 for
+		// them. Enqueueing for one guarantees a forever-retrying row that the
 		// reconciler can never drain. Silently skip - they aren't consumers.
 		if node.NodeType != "" && node.NodeType != NodeTypeBackend {
 			continue
@@ -349,11 +351,12 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 		if node.Status == StatusPending || node.Status == StatusOffline || node.Status == StatusDraining {
 			continue
 		}
-		// Only backend workers serve backend.list. An agent worker holds no
-		// tunnel, so asking one can only fail, and the failure handling used to
-		// read that as a node that had gone away: every poll of this view
-		// marked every agent node unhealthy and its next heartbeat marked it
-		// healthy again. The backend-op fan-out skips them for the same reason.
+		// Only backend workers serve backend.list. An agent worker holds a
+		// tunnel but runs no backend processes, so it mounts no such route and
+		// asking one can only 404, and the failure handling used to read that
+		// as a node that had gone away: every poll of this view marked every
+		// agent node unhealthy and its next heartbeat marked it healthy again.
+		// The backend-op fan-out skips them for the same reason.
 		if node.NodeType != "" && node.NodeType != NodeTypeBackend {
 			continue
 		}

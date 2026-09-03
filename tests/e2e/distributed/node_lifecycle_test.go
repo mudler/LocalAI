@@ -177,7 +177,9 @@ var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("
 		})
 
 		// The one node subject left, and it is addressed only to AGENT workers:
-		// they hold no tunnel and subscribe to it to drop cached MCP sessions.
+		// they subscribe to it to drop cached MCP sessions. They serve the same
+		// verb on their tunnel as well; this subject survives because the
+		// PUBLISHER has not moved onto that route yet.
 		It("should keep the agent worker's backend.stop subject", func() {
 			Expect(messaging.SubjectNodeBackendStop("node-abc")).To(Equal("nodes.node-abc.backend.stop"))
 		})
