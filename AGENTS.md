@@ -8,7 +8,7 @@ Human contributors: see [CONTRIBUTING.md](CONTRIBUTING.md) for the development w
 
 LocalAI follows the Linux kernel project's [guidelines for AI coding assistants](https://docs.kernel.org/process/coding-assistants.html). Before submitting AI-assisted code, read [.agents/ai-coding-assistants.md](.agents/ai-coding-assistants.md). Key rules:
 
-- **No `Signed-off-by` from AI.** Only the human submitter may sign off on the Developer Certificate of Origin.
+- **No `Signed-off-by` from AI.** Only the human submitter may sign off on the Developer Certificate of Origin. One exception: automation a maintainer operates signs off with *that maintainer's* identity, since no other human submitter exists to certify it. See [.agents/ai-coding-assistants.md](.agents/ai-coding-assistants.md).
 - **No `Co-Authored-By: <AI>` trailers.** The human contributor owns the change.
 - **Use an `Assisted-by:` trailer** to attribute AI involvement. Format: `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]`.
 - **The human submitter is responsible** for reviewing, testing, and understanding every line of generated code.
