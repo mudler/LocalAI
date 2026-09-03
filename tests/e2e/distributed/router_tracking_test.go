@@ -4,9 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
-	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 
@@ -58,24 +56,21 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		registry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 
-		// Mock control plane — backend.install always replies success.
+		// Mock control plane. The install reply names where the backend process
+		// listens on that worker, which is what the frontend routes to now that
+		// a worker advertises no address of its own.
 		workers := NewControlWorkers()
-		workers.On(AnyNode, workerctl.PathBackendInstall, func(string, []byte) any {
-			return messaging.BackendInstallReply{Success: true}
-		})
-		workers.On(AnyNode, workerctl.PathModelsRunning, func(string, []byte) any {
-			return messaging.ModelsRunningReply{}
-		})
-		workers.On(AnyNode, workerctl.PathBackendList, func(string, []byte) any {
-			return messaging.BackendListReply{}
-		})
+		workers.ServeBackendLifecycle(registry)
 
 		// Start a mock gRPC backend using the same helper as full flow tests
 		llm := &trackingTestLLM{}
 		grpcAddr, grpcCleanup, err = startTestGRPCServer(grpcPkg.AIModel(llm))
 		Expect(err).ToNot(HaveOccurred())
 
-		// Register a node pointing to the mock backend
+		// Register a node whose backend process is the mock server above. The
+		// address is the spec's own record of where that process listens; the
+		// fake worker reports it back on install, and nothing in production
+		// reads this column any more.
 		node := &nodes.BackendNode{
 			Name: "tracking-node", Address: grpcAddr,
 		}
@@ -85,6 +80,11 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 		router = nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
 			Unloader: unloader,
+			// Without a worker dialer the default factory refuses every
+			// request (nodes.ErrNoWorkerDialer), which is a boot-time
+			// misconfiguration rather than a routing outcome any of these
+			// specs is about.
+			ClientFactory: tunnelBackendClients(),
 		})
 	})
 

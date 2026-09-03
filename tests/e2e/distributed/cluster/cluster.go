@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -42,6 +43,35 @@ type Options struct {
 
 	Frontends int
 	Workers   int
+
+	// AgentWorkers is how many `local-ai agent-worker` processes to start
+	// alongside the backend workers.
+	//
+	// They exist so a spec can hold the two kinds of worker side by side in one
+	// cluster. An agent worker still speaks NATS and holds no tunnel at all,
+	// which is exactly the shape the tunnel-departure rules must not act on: it
+	// has no node_connections row, so its presence is PresenceUnknown forever.
+	// A spec that asserted only on backend workers could not tell "agent
+	// workers are unaffected" from "nothing here looks at them".
+	//
+	// They register through the same WorkerFrontendURL hook as backend workers,
+	// so a spec that puts a balancer in front of the fleet gets one for its
+	// agent workers too. Without that, killing a replica would orphan the agent
+	// worker's heartbeats and it would go unhealthy for a reason that has
+	// nothing to do with what the spec is about.
+	AgentWorkers int
+
+	// ReconnectGrace sets LOCALAI_WORKER_RECONNECT_GRACE on every frontend: how
+	// long a worker whose tunnel was lost is read as reconnecting rather than
+	// gone. Zero leaves the binary's own default (90s).
+	//
+	// It is an Option rather than a per-spec environment edit because two
+	// specs need it pulled in OPPOSITE directions and neither can use the
+	// default: one has to prove nothing is reaped inside the window and needs
+	// it longer than a re-home takes, and one has to prove a departed worker
+	// stops being reported healthy and would otherwise wait 90 seconds to say
+	// so.
+	ReconnectGrace time.Duration
 
 	// SpreadWorkerRegistrations sends worker i to frontend i%Frontends instead
 	// of sending every worker to frontend 0.
@@ -113,7 +143,11 @@ type Cluster struct {
 	opts      Options
 	frontends []*Process
 	workers   []*Process
-	baseDir   string
+	// agentWorkers are kept apart from workers rather than appended to it. Every
+	// index-taking method on this type means "backend worker i", and folding the
+	// two together would silently renumber them for every existing spec.
+	agentWorkers []*Process
+	baseDir      string
 }
 
 const (
@@ -184,6 +218,14 @@ func Start(opts Options) (*Cluster, error) {
 			return nil, err
 		}
 		c.workers = append(c.workers, p)
+	}
+	for i := 0; i < opts.AgentWorkers; i++ {
+		p, err := c.startAgentWorker(i)
+		if err != nil {
+			c.Stop()
+			return nil, err
+		}
+		c.agentWorkers = append(c.agentWorkers, p)
 	}
 	return c, nil
 }
@@ -258,6 +300,9 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 		"LOCALAI_AUTO_APPROVE_NODES=true",
 		"DEBUG=true",
 	)
+	if c.opts.ReconnectGrace > 0 {
+		cmd.Env = append(cmd.Env, "LOCALAI_WORKER_RECONNECT_GRACE="+c.opts.ReconnectGrace.String())
+	}
 
 	p, err := c.spawn(name, cmd, port)
 	if err != nil {
@@ -344,6 +389,77 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 	)
 
 	return c.spawn(name, cmd, grpcPort)
+}
+
+// startAgentWorker starts agent worker i.
+//
+// It is `local-ai agent-worker`, not `local-ai worker`, and the difference is
+// the whole point of having it here: an agent worker REQUIRES a NATS URL, dials
+// no tunnel, and runs no backend, so it is the control for every rule this
+// phase added about a worker whose tunnel is gone. It binds nothing, so there
+// is no port to reserve and no readiness endpoint to wait on; a spec learns it
+// is up by finding it in the roster.
+func (c *Cluster) startAgentWorker(i int) (*Process, error) {
+	name := agentWorkerName(i)
+	cmd := exec.Command(c.opts.Binary, "agent-worker")
+	cmd.Env = append(cmd.Environ(),
+		// The bus, which is what makes this worker the control: a backend
+		// worker in this same cluster is given none.
+		"LOCALAI_NATS_URL="+c.opts.NatsURL,
+		"LOCALAI_REGISTER_TO="+c.workerFrontendURL(i),
+		"LOCALAI_NODE_NAME="+name,
+		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
+		"DEBUG=true",
+	)
+	return c.spawn(name, cmd, 0)
+}
+
+// WorkerEnviron is the environment of worker i's RUNNING PROCESS, read from
+// /proc.
+//
+// Not Cmd.Env, deliberately. A spec asserting that a worker runs with no bus
+// URL is asserting about the process, and Cmd.Env is the harness telling the
+// spec what the harness meant to do: the two agree by construction, so a spec
+// reading it proves the harness consistent with itself and nothing about the
+// binary. /proc/<pid>/environ is what the kernel handed the process.
+//
+// Linux only, which this package already is (it signals with syscall.SIGKILL
+// and reserves ports by binding loopback). A platform without /proc returns the
+// read error rather than falling back to Cmd.Env, so the assertion fails loudly
+// instead of quietly becoming the weaker one.
+func (c *Cluster) WorkerEnviron(i int) ([]string, error) {
+	if err := c.checkWorkerIndex(i); err != nil {
+		return nil, err
+	}
+	p := c.workers[i]
+	if p == nil || p.Cmd == nil || p.Cmd.Process == nil {
+		return nil, fmt.Errorf("worker %d is not running", i)
+	}
+	raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/environ", p.Cmd.Process.Pid))
+	if err != nil {
+		return nil, fmt.Errorf("reading the environment of %s from /proc: %w", p.Name, err)
+	}
+	// NUL separated, with a trailing NUL on a non-empty environment.
+	entries := strings.Split(string(raw), "\x00")
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e != "" {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// AgentWorkerName is the node name agent worker i registered under.
+func (c *Cluster) AgentWorkerName(i int) string {
+	if i < 0 || i >= len(c.agentWorkers) {
+		return ""
+	}
+	return c.agentWorkers[i].Name
+}
+
+func agentWorkerName(i int) string {
+	return fmt.Sprintf("agent-worker-%d", i)
 }
 
 const (
@@ -488,6 +604,30 @@ func (c *Cluster) RegistrationToken() string {
 	return c.opts.RegistrationToken
 }
 
+// FrontendBackendsDir is the directory frontend i installs its OWN backends
+// into.
+//
+// It is exported for one assertion, and a filesystem one rather than an API
+// one: a spec proving a node backend listing came from the WORKER has to show
+// the frontend that answered does not have that backend itself, and the
+// /backends endpoint cannot say so, because in distributed mode it reports the
+// cluster's backends rather than this process's.
+func (c *Cluster) FrontendBackendsDir(i int) (string, error) {
+	if err := c.checkFrontendIndex(i); err != nil {
+		return "", err
+	}
+	return filepath.Join(c.frontendDir(i), "backends"), nil
+}
+
+// NatsURL is the bus this cluster's frontends were given.
+//
+// It is exported for one assertion: a spec proving a WORKER runs with no bus
+// has to show the deployment it joined has one, or "no NATS anywhere" would
+// satisfy it just as well.
+func (c *Cluster) NatsURL() string {
+	return c.opts.NatsURL
+}
+
 // WorkerName is the node name worker i registered under.
 func (c *Cluster) WorkerName(i int) string {
 	return c.workers[i].Name
@@ -528,7 +668,7 @@ func (c *Cluster) Stop() {
 	if c == nil {
 		return
 	}
-	for _, p := range append(append([]*Process{}, c.workers...), c.frontends...) {
+	for _, p := range append(append(append([]*Process{}, c.workers...), c.agentWorkers...), c.frontends...) {
 		p.terminate()
 	}
 	if c.baseDir != "" {
@@ -539,7 +679,7 @@ func (c *Cluster) Stop() {
 // DumpLogs writes every process log to stdout. Call from an AfterEach guarded by
 // CurrentSpecReport().Failed().
 func (c *Cluster) DumpLogs() {
-	for _, p := range append(append([]*Process{}, c.frontends...), c.workers...) {
+	for _, p := range append(append(append([]*Process{}, c.frontends...), c.workers...), c.agentWorkers...) {
 		if p == nil {
 			continue
 		}

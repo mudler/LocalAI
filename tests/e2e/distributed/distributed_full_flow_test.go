@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
@@ -226,22 +225,22 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 	// newTestSmartRouter creates a SmartRouter reaching a fleet of fake workers
 	// over the tunnelled control plane, with a backend.install handler that
-	// always replies success for every registered node.
+	// replies success for every registered node and names where that node's
+	// backend process listens.
+	//
+	// Both halves of the post-tunnel contract are here rather than in the
+	// specs, because they are the same two facts in every one of them: an
+	// install reply that names no process address is refused
+	// (installBackendOnNode), and a frontend with no worker dialer reaches no
+	// backend at all (nodes.ErrNoWorkerDialer).
 	newTestSmartRouter := func(reg *nodes.NodeRegistry, extraOpts ...nodes.SmartRouterOptions) *nodes.SmartRouter {
 		workers := NewControlWorkers()
-		workers.On(AnyNode, workerctl.PathBackendInstall, func(string, []byte) any {
-			return messaging.BackendInstallReply{Success: true}
-		})
-		workers.On(AnyNode, workerctl.PathModelsRunning, func(string, []byte) any {
-			return messaging.ModelsRunningReply{}
-		})
-		workers.On(AnyNode, workerctl.PathBackendList, func(string, []byte) any {
-			return messaging.BackendListReply{}
-		})
+		workers.ServeBackendLifecycle(reg)
 		unloader := nodes.NewRemoteUnloaderAdapter(reg, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
 
 		opts := nodes.SmartRouterOptions{
-			Unloader: unloader,
+			Unloader:      unloader,
+			ClientFactory: tunnelBackendClients(),
 		}
 		if len(extraOpts) > 0 {
 			o := extraOpts[0]
@@ -332,8 +331,12 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		Expect(registry.Register(context.Background(), node2, true)).To(Succeed())
 
 		// Set both as having the model loaded
-		Expect(registry.SetNodeModel(context.Background(), node1.ID, "test-model", 0, "loaded", "", 0)).To(Succeed())
-		Expect(registry.SetNodeModel(context.Background(), node2.ID, "test-model", 0, "loaded", "", 0)).To(Succeed())
+		// The address is where that node's backend process listens, which is
+		// what a real install reply would have recorded on the row. A row
+		// carrying none names no process, so the router would re-install rather
+		// than route to it and this spec would be measuring the install path.
+		Expect(registry.SetNodeModel(context.Background(), node1.ID, "test-model", 0, "loaded", addr1, 0)).To(Succeed())
+		Expect(registry.SetNodeModel(context.Background(), node2.ID, "test-model", 0, "loaded", addr2, 0)).To(Succeed())
 
 		// Set node-1 with high in-flight (5), node-2 with low in-flight (1)
 		for range 5 {
