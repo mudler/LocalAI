@@ -193,6 +193,24 @@ You can use the env variable COQUI_LANGUAGE to set the language used by the coqu
 
 You can also use config files to configure tts models (see section below on how to use config files).
 
+### Fish Speech
+
+Fish Speech models accept the `compile` backend option. Enabling it can improve
+inference performance on CUDA hardware, but the first request after loading the
+model includes the `torch.compile` warmup cost:
+
+```yaml
+backend: fish-speech
+options:
+  - compile:true
+```
+
+When compilation is enabled, the backend uses the CUDA toolkit's executable
+`ptxas` from `$CUDA_HOME/bin` (defaulting to `/usr/local/cuda/bin`) instead of
+the copy bundled with Triton. This allows newer GPU architectures supported by
+the installed CUDA toolkit to compile kernels. Set `TRITON_PTXAS_PATH` on the
+backend explicitly to select a different assembler.
+
 ### Piper
 
 To install the `piper` audio models manually:
