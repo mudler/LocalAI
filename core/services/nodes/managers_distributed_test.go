@@ -97,7 +97,7 @@ var _ = Describe("DistributedBackendManager", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		mc = newScriptedControlWorkers()
-		adapter = NewRemoteUnloaderAdapter(nil, nil, mc.controlClient(), 3*time.Minute, 15*time.Minute)
+		adapter = NewRemoteUnloaderAdapter(nil, mc.controlClient(), 3*time.Minute, 15*time.Minute)
 		mgr = &DistributedBackendManager{
 			local:    stubLocalBackendManager{},
 			adapter:  adapter,
@@ -741,7 +741,7 @@ var _ = Describe("DistributedBackendManager", func() {
 			mc.scriptHang(controlKey(n.ID, workerctl.PathBackendUpgrade))
 			slow := &DistributedBackendManager{
 				local:    stubLocalBackendManager{},
-				adapter:  NewRemoteUnloaderAdapter(nil, nil, mc.controlClient(), time.Minute, 200*time.Millisecond),
+				adapter:  NewRemoteUnloaderAdapter(nil, mc.controlClient(), time.Minute, 200*time.Millisecond),
 				registry: registry,
 			}
 

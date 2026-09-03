@@ -32,10 +32,11 @@ import (
 // receives the full agent config and skills in the NATS job payload, so it
 // does not need direct database access.
 //
-// It also holds one tunnel to the frontend, so the frontend can reach its MCP
-// verbs by RPC without the worker opening an inbound port. The tunnel is an
-// ADDITION: --nats-url is still required, and every job, every fan-out event
-// and the node backend.stop subject still travel on the bus.
+// It also holds one tunnel to the frontend, so the frontend can reach its
+// control verbs by RPC without the worker opening an inbound port. No verb the
+// frontend addresses to THIS worker travels on the bus any more. The tunnel is
+// still an ADDITION rather than a replacement: --nats-url is required, because
+// every job and every fan-out event does.
 //
 // Usage:
 //
@@ -196,21 +197,14 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// identity the dial names and the credential it presents, and BEFORE the
 	// remaining NATS subscriptions, so that a frontend that reaches this worker
 	// over the tunnel finds its verbs mounted rather than a 404 it would read
-	// as a version skew.
+	// as a version skew. backend.stop is among those verbs, and it is the only
+	// way a frontend states it now: there is no node subject left to publish on.
 	agentCtl, err := agentworker.Start(shutdownCtx, agentworker.Options{
 		FrontendURL:  cmd.RegisterTo,
 		NodeID:       nodeID,
 		TunnelToken:  credMgr.TunnelToken,
 		ControlToken: cmd.RegistrationToken,
-		Handlers: agentworker.Config{
-			MCPTool:      serveMCPToolRequest,
-			MCPDiscovery: serveMCPDiscoveryRequest,
-			// The same cleanup the nodes.<id>.backend.stop subscription below
-			// performs, reachable over the tunnel on the path a backend worker
-			// already serves. Both are live: the subject is what the frontend
-			// still publishes on, and it is a later task that removes it.
-			BackendStop: dropMCPSessionsForBackend,
-		},
+		Handlers:     agentWorkerControlHandlers(),
 	})
 	if err != nil {
 		return fmt.Errorf("starting the agent worker control plane: %w", err)
@@ -260,27 +254,6 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		handleMCPCIJob(shutdownCtx, data, apiURL, cmd.APIToken, natsClient, mcpCIJobTimeout)
 	}); err != nil {
 		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPCIJobsNew, err)
-	}
-
-	// Subscribe to backend stop events to clean up cached MCP sessions.
-	// In the main application this is done via ml.OnModelUnload, but the agent
-	// worker has no model loader — we listen for the NATS stop event instead.
-	//
-	// It runs BESIDE the tunnel route mounted above, not instead of it, and
-	// both call dropMCPSessionsForBackend. The subject is still what the
-	// frontend publishes on; a later task is what moves it. Two carriers, one
-	// implementation, so which one delivered cannot change what happened.
-	if _, err := natsClient.Subscribe(messaging.SubjectNodeBackendStop(nodeID), func(data []byte) {
-		var req messaging.BackendStopRequest
-		if err := json.Unmarshal(data, &req); err != nil {
-			xlog.Warn("Agent worker could not decode a backend stop event", "error", err)
-			return
-		}
-		if err := dropMCPSessionsForBackend(context.Background(), req); err != nil {
-			xlog.Warn("Agent worker could not drop the MCP sessions of a stopped backend", "error", err)
-		}
-	}); err != nil {
-		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectNodeBackendStop(nodeID), err)
 	}
 
 	xlog.Info("Agent worker ready, waiting for jobs", "subject", cmd.Subject, "queue", cmd.Queue)
@@ -610,4 +583,23 @@ func publishJobStatus(nc messaging.MessagingClient, jobID, status, message strin
 
 func publishJobResult(nc messaging.MessagingClient, jobID, status, result, errMsg string) {
 	jobs.PublishJobResult(nc, jobID, status, result, errMsg)
+}
+
+// agentWorkerControlHandlers is every verb this worker serves on the tunnel it
+// holds to the frontend.
+//
+// It is a function rather than a literal inside the start-up path so that a
+// spec can stand the same set up and post to it. Each of these is the ONLY
+// carrier for its verb: the queue subjects the two MCP verbs arrived on and the
+// node subject backend.stop arrived on are all gone, so a field silently
+// dropped here is a 404 at runtime, which the frontend reads as a worker too
+// old to serve the verb.
+func agentWorkerControlHandlers() agentworker.Config {
+	return agentworker.Config{
+		MCPTool:      serveMCPToolRequest,
+		MCPDiscovery: serveMCPDiscoveryRequest,
+		// Drops the MCP sessions cached for a backend that went away, on the
+		// path a backend worker serves by killing the process instead.
+		BackendStop: dropMCPSessionsForBackend,
+	}
 }

@@ -77,7 +77,7 @@ var _ = Describe("SmartRouter trackingKey", Label("Distributed"), func() {
 		Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 		nodeID = node.ID
 
-		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+		unloader := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 		router = nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
 			Unloader: unloader,
 			// Without a worker dialer the default factory refuses every
