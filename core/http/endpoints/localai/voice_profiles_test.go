@@ -121,6 +121,26 @@ var _ = Describe("Voice profile endpoints", func() {
 		Expect(recorder.Code).To(Equal(http.StatusCreated), recorder.Body.String())
 	})
 
+	It("creates a profile with ordered JSON references", func() {
+		payload, err := json.Marshal(CreateVoiceProfileRequest{
+			Name: "Personality", ConsentConfirmed: true,
+			References: []CreateVoiceProfileReferenceRequest{
+				{Transcript: "First reference.", AudioBase64: base64.StdEncoding.EncodeToString(voiceProfileWAV(time.Second))},
+				{Transcript: "Second reference.", AudioBase64: base64.StdEncoding.EncodeToString(voiceProfileWAV(2 * time.Second))},
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		request := httptest.NewRequest(http.MethodPost, "/api/voice-profiles", bytes.NewReader(payload))
+		request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		recorder := httptest.NewRecorder()
+		e.ServeHTTP(recorder, request)
+		Expect(recorder.Code).To(Equal(http.StatusCreated), recorder.Body.String())
+		var created voiceprofile.Profile
+		Expect(json.Unmarshal(recorder.Body.Bytes(), &created)).To(Succeed())
+		Expect(created.References).To(HaveLen(2))
+		Expect(created.Transcript).To(Equal("First reference."))
+	})
+
 	It("rejects creation without explicit consent", func() {
 		body, contentType := voiceProfileMultipart("false")
 		request := httptest.NewRequest(http.MethodPost, "/api/voice-profiles", body)

@@ -8236,6 +8236,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "references": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/voiceprofile.ReferenceMetadata"
+                    }
+                },
                 "transcript": {
                     "type": "string"
                 },
@@ -8243,6 +8249,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "voice": {
+                    "type": "string"
+                }
+            }
+        },
+        "voiceprofile.ReferenceMetadata": {
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "$ref": "#/definitions/voiceprofile.AudioMetadata"
+                },
+                "transcript": {
                     "type": "string"
                 }
             }

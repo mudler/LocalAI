@@ -3000,11 +3000,22 @@ definitions:
         type: string
       name:
         type: string
+      references:
+        items:
+          $ref: '#/definitions/voiceprofile.ReferenceMetadata'
+        type: array
       transcript:
         type: string
       updated_at:
         type: string
       voice:
+        type: string
+    type: object
+  voiceprofile.ReferenceMetadata:
+    properties:
+      audio:
+        $ref: '#/definitions/voiceprofile.AudioMetadata'
+      transcript:
         type: string
     type: object
 info:
