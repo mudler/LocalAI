@@ -83,6 +83,13 @@ type DistributedServices struct {
 	// WorkerDialer. Exposed so the model store built in startup.go reaches
 	// remote models the same way every other caller does.
 	BackendClients nodes.BackendClientFactory
+	// AgentControl carries the frontend's MCP verbs to whichever agent worker
+	// holds a tunnel this deployment can reach. It is what the chat, responses,
+	// messages and MCP endpoints reach an agent worker through; a nil one means
+	// this frontend cannot run MCP at all, which is why initDistributed refuses
+	// to come up without it rather than leaving the endpoints to discover it
+	// one request at a time.
+	AgentControl *nodes.AgentControlClient
 
 	shutdownOnce sync.Once
 }
@@ -438,6 +445,16 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// second client would open its own and the two would never share one.
 	controlClient := nodes.NewControlClient(workerHTTPDialer, cfg.Distributed.RegistrationToken)
 
+	// The caller the agent worker's control plane has been waiting for. MCP
+	// execution and discovery used to be a NATS request onto a queue group,
+	// where the bus chose the worker and neither side could say which one had
+	// answered; they are now a query against the connection rows plus an
+	// ordinary control RPC over the chosen worker's tunnel.
+	agentControl, err := newAgentControl(cfg.Distributed, registry, clusterRegistry, controlClient)
+	if err != nil {
+		return nil, fmt.Errorf("wiring the agent control client: %w", err)
+	}
+
 	// Create FileStager for distributed file transfer
 	var fileStager nodes.FileStager
 	if cfg.Distributed.StorageURL != "" {
@@ -666,6 +683,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		Tunnels:        tunnels,
 		WorkerDialer:   workerDialer,
 		BackendClients: backendClients,
+		AgentControl:   agentControl,
 		Bus:            bus,
 	}
 	// Checked once, here, on the assembled struct. See requireBroadcastCarrier.

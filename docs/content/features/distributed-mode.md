@@ -143,7 +143,7 @@ Both **backend** and **agent** nodes are issued one. Earlier releases minted a c
 
 An agent worker's tunnel carries only the `http` tag: it runs no backend processes, so it does not offer the `grpc` tag at all. Its control server binds `127.0.0.1` on a port chosen by the kernel and advertises it nowhere, so an agent worker still opens no inbound port.
 
-**An agent worker still requires `--nats-url`.** The tunnel is an addition, not a replacement: agent jobs, MCP execution, MCP CI jobs and `nodes.<id>.backend.stop` all still travel on NATS. What the tunnel changes today is that the frontend *can* reach an agent worker directly, which is what later releases move those verbs onto.
+**An agent worker still requires `--nats-url`.** The tunnel is not yet a replacement: agent jobs, MCP CI jobs and `nodes.<id>.backend.stop` still travel on NATS. MCP tool execution and MCP discovery no longer do - they are control RPCs on the tunnel, chosen by the frontend rather than by a queue group (see [MCP in Distributed Mode](#mcp-in-distributed-mode)) - and an agent worker's minted JWT no longer grants `mcp.tools.execute` or `mcp.discovery`.
 
 The tunnel lands on exactly one frontend replica, and that replica records itself as the owner of the worker's connection in the `node_connections` table. When the socket dies the claim is dropped, but the row stays behind with no owner and a `disconnected_at` stamp, so a worker that is re-dialling the load balancer can be told from one that has never connected. The row is deleted once that departure is older than ten liveness windows (five minutes). If the replica stalls long enough for its peers to reap it, it re-claims the tunnels it still holds on a live session as soon as it re-registers, skipping any whose socket has already gone. That re-claim needs the replica to have an advertised address: without one it never had an instance row to begin with, and its tunnels are usable only by the replica holding them.
 
@@ -435,7 +435,7 @@ A frontend replica that dies mid-load does not wedge the model: the job row carr
 
 **This section is about agent workers and the frontend.** A serve-backend worker opens no NATS connection, so none of it applies to one; its own credential is the tunnel token it gets at registration, and its control plane is authenticated by `LOCALAI_REGISTRATION_TOKEN`. An agent worker now has both: a NATS credential for everything still on the bus, and a tunnel token plus the same `LOCALAI_REGISTRATION_TOKEN` bearer check in front of its control server.
 
-By default, NATS connections are anonymous: any client that can reach port `4222` may publish the subjects still carried on it. Those are the agent-worker job subjects, MCP, and the frontend's own cross-replica events. `nodes.<id>.backend.install` and its nine siblings are **not** among them - they are HTTP routes on the worker's tunnel, see [The worker control plane](#the-worker-control-plane). Enable JWT auth to scope agent workers to their own subjects and give the frontend a dedicated service credential.
+By default, NATS connections are anonymous: any client that can reach port `4222` may publish the subjects still carried on it. Those are the agent-worker job subjects and the frontend's own cross-replica events. `nodes.<id>.backend.install` and its nine siblings are **not** among them - they are HTTP routes on the worker's tunnel, see [The worker control plane](#the-worker-control-plane). Enable JWT auth to scope agent workers to their own subjects and give the frontend a dedicated service credential.
 
 | Flag | Env Var | Description |
 |------|---------|-------------|
@@ -935,7 +935,7 @@ local-ai agent-worker \
 Agent workers:
 - Execute agent chat messages dispatched via NATS
 - Run MCP CI jobs (with access to MCP servers via docker)
-- Handle MCP tool discovery and execution requests from the frontend
+- Handle MCP tool discovery and execution requests, which the frontend sends over the worker's own tunnel
 - Get auto-provisioned API keys during registration for calling the inference API
 
 In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
@@ -949,11 +949,30 @@ agent-worker-1:
 
 ## MCP in Distributed Mode
 
-MCP servers configured in model configs work in distributed mode. The frontend routes MCP operations through NATS to agent workers:
+MCP servers configured in model configs work in distributed mode. The frontend holds no MCP sessions of its own - creating one usually means running `docker`, which is what an agent worker is for - so it asks an agent worker instead:
 
-- **MCP discovery** (`GET /v1/mcp/servers/:model`): routed to agent workers which create sessions and return server info
-- **MCP tool execution** (during `/v1/chat/completions`): tool calls are routed to agent workers via NATS request-reply
+- **MCP discovery** (`GET /v1/mcp/servers/:model`): the frontend picks a connected agent worker and asks it over that worker's tunnel; the worker creates the sessions and returns server info
+- **MCP tool execution** (during `/v1/chat/completions`): the same, per tool call
 - **MCP CI jobs**: executed entirely on agent workers with access to docker for stdio-based MCP servers
+
+### How a frontend picks an agent worker
+
+Discovery and tool execution used to be NATS request-reply onto a queue group, where the broker chose the worker and neither side could say which one had answered. They are now an ordinary control RPC plus a **selection**, because a queue group was only ever a way of choosing a subscriber, and choosing is a query:
+
+1. The frontend lists the approved agent nodes that are not draining.
+2. It asks the `node_connections` table, in one statement joined against live replicas, which of those tunnels a **live** frontend replica currently holds.
+3. It prefers one **this** replica holds, so the call skips the relay hop entirely, and otherwise takes any connected one at random. A broker's hidden balancing could not make that choice.
+4. It issues the control RPC over that worker's tunnel, relayed through the owning replica when another one holds it.
+
+A worker that answers with an error - "no such tool", "that MCP server refused your arguments" - is the worker's own answer and is returned to you unchanged; it is never re-tried on a second worker, because that would run a tool twice. A call that never reached a worker is re-tried, against a different worker, at most three times.
+
+If no agent worker in the deployment currently holds a tunnel, the request fails with a message saying so. That is a statement about this moment, not about any particular worker: nothing is marked unhealthy and no model is evicted because of it.
+
+### MCP prompts and resources are not available in distributed mode
+
+`GET /v1/mcp/prompts/:model`, `POST /v1/mcp/prompts/:model/:prompt`, `GET /v1/mcp/resources/:model` and `POST /v1/mcp/resources/:model/read` are served **only** from MCP sessions held by the frontend process, and in distributed mode it holds none. There is no verb that carries prompts or resources to an agent worker.
+
+In distributed mode these four endpoints answer **501 Not Implemented** with the reason in the body. Earlier releases answered `200` with an empty list, which was indistinguishable from a model that genuinely has no prompts. This is a pre-existing gap rather than a consequence of moving MCP off the bus - tools and discovery had a carrier to an agent worker and these never did - and single-binary deployments are unaffected.
 
 ## vLLM Multi-Node (Data-Parallel)
 
@@ -1386,7 +1405,7 @@ Notes:
 - It is **not** the same as the worker being gone, and nothing acts on it as if it were. A model on an unroutable worker is not reaped, its rows are left alone, and the node is not demoted: doing any of those on a lost route is how a rolling frontend restart turns into a fleet-wide eviction.
 - Check the worker process is running and that it has an open tunnel (`opened a tunnelled stream to a worker` in the frontend log, and the worker's own dial/reconnect lines). A worker behind a load balancer that keeps reconnecting is usually an idle-timeout or WebSocket-upgrade problem at the proxy; see the tunnel section above.
 - **`no route` is not `gone`, and nothing in the frontend reads it as such.** A worker is declared **gone** by one mechanism only: no live frontend replica holds its tunnel *and* its departure is older than `--worker-reconnect-grace`. That is a fact recorded in the shared database, so every replica answers it identically. "No route" is one replica failing to reach a worker right now, and it is not evidence about the worker at all.
-- Older releases decided absence from `nats: no responders available for request`, which was one frontend's observation that nobody answered *it* within a request budget. Two replicas asking at the same moment could disagree and demote each other's workers. That signal is gone from the scheduler; if you still see the message, it concerns only the subjects that remain on the bus (agent-worker jobs and MCP), never a serve-backend worker.
+- Older releases decided absence from `nats: no responders available for request`, which was one frontend's observation that nobody answered *it* within a request budget. Two replicas asking at the same moment could disagree and demote each other's workers. That signal is gone from the scheduler; if you still see the message, it concerns only the subjects that remain on the bus (agent-worker jobs and MCP CI), never a serve-backend worker.
 
 **A worker fills its own disk over time:**
 - A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.

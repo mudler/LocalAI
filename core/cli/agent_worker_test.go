@@ -11,20 +11,16 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
-// The agent worker answers its MCP verbs on two carriers at once: the NATS
-// subject it has always answered, and the control route on the tunnel it now
-// holds. These specs pin the two properties that stops those drifting apart.
+// The agent worker answers its MCP verbs on ONE carrier now: the control route
+// on the tunnel it holds. The queue-group subjects these used to arrive on are
+// gone, because a queue group was only ever a way of SELECTING a worker, and
+// the frontend now makes that selection itself (nodes.AgentSelector).
 //
-// The first is that there is ONE implementation. A frontend that reaches a
-// worker over the bus and one that reaches the same worker over its tunnel must
-// get the same bytes, because during this migration both are live and which one
-// is used is not a decision anybody makes deliberately.
-//
-// The second is the split between an ANSWER and a FAILURE TO SERVE. A tool that
-// ran and failed is the worker's own verdict and travels inside the reply; a
-// verb this worker could not serve at all is a Go error, which becomes a
-// non-2xx over the tunnel and silence on the bus, and which nothing may read as
-// evidence about anything.
+// What these specs pin is the split between an ANSWER and a FAILURE TO SERVE. A
+// tool that ran and failed is the worker's own verdict and travels inside the
+// reply, on a 200; a verb this worker could not serve at all is a Go error,
+// which becomes a non-2xx, and which nothing may read as evidence about
+// anything.
 var _ = Describe("The agent worker's MCP verbs", func() {
 	It("answers a tool request it could not decode, rather than failing to serve it", func() {
 		// The decode happened on this worker and its outcome is something the
@@ -48,36 +44,6 @@ var _ = Describe("The agent worker's MCP verbs", func() {
 		Expect(resp.Error).To(ContainSubstring("unmarshal error"))
 	})
 
-	It("puts on the bus exactly the bytes the tunnel route returns", func() {
-		// The one property that keeps the two carriers honest. A second
-		// implementation for the bus is how a deployment ends up behaving
-		// differently depending on which one a frontend happened to pick.
-		request := json.RawMessage(`{"tool_name":`)
-		overTunnel, err := serveMCPToolRequest(context.Background(), request)
-		Expect(err).ToNot(HaveOccurred())
-
-		sent := make(chan []byte, 1)
-		replyOverNATS("mcp.tools.execute", serveMCPToolRequest)(request, func(b []byte) { sent <- b })
-
-		var overBus []byte
-		Eventually(sent).Should(Receive(&overBus))
-		Expect(string(overBus)).To(Equal(string(overTunnel)))
-	})
-
-	It("sends nothing on the bus when the verb could not be served", func() {
-		// A requester reads the silence as a timeout, which is the closest the
-		// bus has to "this worker did not answer". Inventing a reply body would
-		// put a failure to serve into the bucket reserved for the worker's own
-		// verdict, which is the collapse this whole phase exists to prevent.
-		sent := make(chan []byte, 1)
-		failing := func(context.Context, json.RawMessage) (json.RawMessage, error) {
-			return nil, context.DeadlineExceeded
-		}
-
-		replyOverNATS("mcp.tools.execute", failing)(json.RawMessage(`{}`), func(b []byte) { sent <- b })
-
-		Expect(sent).ToNot(Receive())
-	})
 })
 
 var _ = Describe("The agent worker's backend stop", func() {
