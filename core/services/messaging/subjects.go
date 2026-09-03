@@ -136,27 +136,17 @@ func SubjectResponseCancel(responseID string) string {
 
 // Node Backend Lifecycle
 //
-// The frontend's control plane no longer travels on NATS. The ten verbs that
-// drove a worker's backend and model lifecycle are HTTP routes under
+// The frontend's control plane does not travel on NATS at all. The ten verbs
+// that drive a worker's backend and model lifecycle are HTTP routes under
 // workerctl.Prefix, served on the worker's own loopback server and reached
-// through its tunnel, so a subject builder for any of them would be a subject
-// nothing publishes and nothing subscribes to.
-//
-// ONE survives: backend.stop, and only for AGENT workers. They now hold a
-// tunnel and mount that verb on it, so what keeps this subject alive is the
-// PUBLISHER: nodes.RemoteUnloaderAdapter.stopBackend still sends an agent
-// node's stop here rather than over its control route. The agent worker
-// subscribes to it to drop the MCP sessions cached for a backend that is going
-// away; see core/cli/agent_worker.go for the subscriber, which shares one
-// implementation with the control route so the two carriers cannot diverge.
+// through the tunnel it dials, for AGENT workers as much as for backend ones.
+// There is no nodes.* subject left, and no builder for one, so a frontend
+// cannot address a worker over the bus even by mistake.
 //
 // The request and reply types below are UNCHANGED and still live here: they are
 // the wire format of the control routes, byte for byte what the subjects
 // carried, so a worker and a frontend from different releases still understand
 // each other.
-const (
-	subjectNodePrefix = "nodes."
-)
 
 // BackendInstallRequest is the payload for a backend.install control request.
 type BackendInstallRequest struct {
@@ -266,25 +256,14 @@ type NodeBackendInfo struct {
 	Digest  string `json:"digest,omitempty"`
 }
 
-// BackendStopRequest controls worker-side process shutdown. Force skips the
-// best-effort Free RPC so a backend stuck serving a request can still be
-// terminated by the watchdog.
+// BackendStopRequest is the body of a backend.stop control request. A backend
+// worker reads it as process shutdown and Force skips the best-effort Free RPC,
+// so a backend stuck serving a request can still be terminated by the watchdog.
+// An agent worker runs no backend processes and reads the same body as "that
+// backend went away", closing the MCP sessions it had cached for it.
 type BackendStopRequest struct {
 	Backend string `json:"backend"`
 	Force   bool   `json:"force,omitempty"`
-}
-
-// SubjectNodeBackendStop tells an AGENT worker that a backend is going away, so
-// it can close the MCP sessions it cached for that backend.
-//
-// It is the one node subject left, and it is addressed only to agent nodes. A
-// BACKEND worker takes its stop on workerctl.PathBackendStop over its tunnel,
-// where it also kills the process and recycles the port; an agent worker runs
-// no backend processes and only needs to hear that one went. An agent worker
-// serves that same path over its own tunnel as well, so this subject is what
-// the publisher has not moved off yet rather than the only way to reach one.
-func SubjectNodeBackendStop(nodeID string) string {
-	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.stop"
 }
 
 type ModelStopRequest struct {
