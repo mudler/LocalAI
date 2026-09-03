@@ -357,19 +357,16 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 				ModelConfig: modelCfg,
 			}
 
-			// Simulate the agent worker subscribing and processing
-			workerSub, err := infra.NC.QueueSubscribe(messaging.SubjectJobsNew, messaging.QueueWorkers, func(data []byte) {
-				// This is what the agent worker does — call handleMCPCIJob
-				// We import it indirectly by calling the same logic
-				go processMCPCIJobForTest(data, llmURL, "test-token", infra.NC)
-			})
+			// The agent worker is handed this body by the frontend replica that
+			// claimed the row, on a streaming control verb. There is no queue
+			// group to publish onto any more, so the body goes straight to the
+			// worker-side logic, which is what the verb's handler calls.
+			raw, err := json.Marshal(evt)
 			Expect(err).ToNot(HaveOccurred())
-			defer workerSub.Unsubscribe()
 
 			FlushNATS(infra.NC)
 
-			// Publish the job event
-			Expect(infra.NC.Publish(messaging.SubjectJobsNew, evt)).To(Succeed())
+			go processMCPCIJobForTest(raw, llmURL, "test-token", infra.NC)
 
 			// Wait for result
 			Eventually(func() bool {
