@@ -1083,6 +1083,254 @@
     - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/mmproj-Ornith-1.5-9B-BF16.gguf
       sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
+- &ornith-1-5-35b-a3b
+  name: "ornith-1.5-35b-a3b-apex"
+  variants:
+    - model: ornith-1.5-35b-a3b-apex-compact
+    - model: ornith-1.5-35b-a3b-mtp-apex
+    - model: ornith-1.5-35b-a3b-mtp-apex-compact
+    - model: ornith-1.5-35b-a3b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B
+    - https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF
+    - https://huggingface.co/mudler/Ornith-1.5-35B-A3B-APEX-GGUF
+    - https://huggingface.co/mudler/Ornith-1.5-35B-A3B-APEX-MTP-GGUF
+  description: |
+    Ornith-1.5-35B-A3B is an MIT-licensed Qwen3.5 mixture-of-experts model
+    from Ornith AI for agentic coding, reasoning, repository-level software
+    tasks, and tool use. It supports text and image input with a context window
+    of 262K tokens.
+
+    This default entry uses the APEX Balanced GGUF and BF16 vision projector.
+    Compact APEX, MTP-enabled APEX, and official Q8_0 builds are available as
+    variants.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - moe
+    - long-context
+  last_checked: "2026-08-20"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-A3B-APEX-Balanced.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-A3B-APEX-Balanced.gguf
+      uri: huggingface://mudler/Ornith-1.5-35B-A3B-APEX-GGUF/Ornith-1.5-35B-A3B-APEX-Balanced.gguf
+      sha256: b86ab34c9c767974f44e2624e6f7409c0bc96100fd96f3a97b4d12c1f3c9c223
+    - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj.gguf
+      uri: huggingface://mudler/Ornith-1.5-35B-A3B-APEX-GGUF/mmproj.gguf
+      sha256: e277123529451fbcff6d880ad5bd7ada999f9d5e6339ba3639d06c5cef4763b1
+- !!merge <<: *ornith-1-5-35b-a3b
+  name: "ornith-1.5-35b-a3b-apex-compact"
+  variants: []
+  description: |
+    Ornith-1.5-35B-A3B in the smaller APEX Compact GGUF format, with the
+    shared BF16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-A3B-APEX-Compact.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-A3B-APEX-Compact.gguf
+      uri: huggingface://mudler/Ornith-1.5-35B-A3B-APEX-GGUF/Ornith-1.5-35B-A3B-APEX-Compact.gguf
+      sha256: 846eb4121c1b28df0e2dff06c3f3d174084231a7400c649ba02023843ea41021
+    - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj.gguf
+      uri: huggingface://mudler/Ornith-1.5-35B-A3B-APEX-GGUF/mmproj.gguf
+      sha256: e277123529451fbcff6d880ad5bd7ada999f9d5e6339ba3639d06c5cef4763b1
+- !!merge <<: *ornith-1-5-35b-a3b
+  name: "ornith-1.5-35b-a3b-mtp-apex"
+  variants: []
+  description: |
+    Ornith-1.5-35B-A3B in the APEX Balanced GGUF format with native
+    multi-token prediction enabled for speculative decoding, plus the shared
+    BF16 vision projector.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - moe
+    - long-context
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-A3B-APEX-MTP-Balanced.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-A3B-APEX-MTP-Balanced.gguf
+      uri: huggingface://mudler/Ornith-1.5-35B-A3B-APEX-MTP-GGUF/Ornith-1.5-35B-A3B-APEX-MTP-Balanced.gguf
+      sha256: 964fbf455e4ecb73499341688134abc1513882690de61e5e2f383724888e18d3
+    - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj.gguf
+      uri: huggingface://mudler/Ornith-1.5-35B-A3B-APEX-MTP-GGUF/mmproj.gguf
+      sha256: e277123529451fbcff6d880ad5bd7ada999f9d5e6339ba3639d06c5cef4763b1
+- !!merge <<: *ornith-1-5-35b-a3b
+  name: "ornith-1.5-35b-a3b-mtp-apex-compact"
+  variants: []
+  description: |
+    Ornith-1.5-35B-A3B in the APEX Compact GGUF format with native multi-token
+    prediction enabled for speculative decoding, plus the shared BF16 vision
+    projector.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - moe
+    - long-context
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-A3B-APEX-MTP-Compact.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-A3B-APEX-MTP-Compact.gguf
+      uri: huggingface://mudler/Ornith-1.5-35B-A3B-APEX-MTP-GGUF/Ornith-1.5-35B-A3B-APEX-MTP-Compact.gguf
+      sha256: a7373f724cf3693e8a6a5f8209ae9a06ff8071ae2af60659bdbdf8ff6f6c10df
+    - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj.gguf
+      uri: huggingface://mudler/Ornith-1.5-35B-A3B-APEX-MTP-GGUF/mmproj.gguf
+      sha256: e277123529451fbcff6d880ad5bd7ada999f9d5e6339ba3639d06c5cef4763b1
+- !!merge <<: *ornith-1-5-35b-a3b
+  name: "ornith-1.5-35b-a3b-q8"
+  variants: []
+  description: |
+    Ornith-1.5-35B-A3B in the official higher-quality Q8_0 GGUF format, with
+    the official BF16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q8_0.gguf
+      uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/Ornith-1.5-35B-Q8_0.gguf
+      sha256: 854cf83f80cd37a061ed86df1fa7201162e4e1fb820b91068cc12a11d2746c9e
+    - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+      uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/mmproj-Ornith-1.5-35B-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
 - !!merge <<: *ornith-1-5-9b
   name: "ornith-1.5-9b-q8"
   variants: []
