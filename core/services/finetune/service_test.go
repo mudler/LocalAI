@@ -14,13 +14,14 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/distributed"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
 // newTestService builds a standalone FineTuneService wired to the given bus. The
 // model/config loaders are nil because the read/sync paths under test never touch
 // them; the data dir is a throwaway temp dir so the disk Loader finds nothing.
-func newTestService(bus *testutil.FakeBus) *FineTuneService {
+func newTestService(bus messaging.Broadcaster) *FineTuneService {
 	appConfig := &config.ApplicationConfig{
 		Context:  context.Background(),
 		DataPath: GinkgoT().TempDir(),
@@ -75,6 +76,35 @@ var _ = Describe("FineTuneService", func() {
 
 			_, err = b.GetJob("user-1", "job-2")
 			Expect(err).To(HaveOccurred(), "a delete on A must remove the job from B")
+		})
+
+		It("publishes on the carrier it was handed, and on the fine-tune family's own subject", func() {
+			// S1 in the wiring table: this service takes a
+			// messaging.Broadcaster and must broadcast on THAT and on nothing
+			// else. The subject is asserted by name rather than inferred from
+			// delivery, because a service that published on the wrong family
+			// would still reach a peer of its own kind here while colliding
+			// with quantization in production.
+			job := &schema.FineTuneJob{ID: "job-subject", UserID: "user-1", Status: "queued", CreatedAt: "2026-06-27T10:00:00Z"}
+			Expect(a.jobs.Set(ctx, job)).To(Succeed())
+
+			Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("finetune.jobs"))).To(Equal(1))
+			Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("quant.jobs"))).To(Equal(0))
+		})
+
+		It("broadcasts nothing at all when it is built with no carrier", func() {
+			// Standalone is the other half of the same wiring rule: a nil
+			// carrier must be a strict no-op rather than a panic on the first
+			// job a single-binary user starts.
+			solo := newTestService(nil)
+			DeferCleanup(func() { Expect(solo.Close()).To(Succeed()) })
+
+			Expect(solo.jobs.Set(ctx, &schema.FineTuneJob{ID: "solo", UserID: "u", CreatedAt: "2026-06-27T10:00:00Z"})).To(Succeed())
+			Expect(bus.PublishCount(messaging.SubjectSyncStateDelta("finetune.jobs"))).To(Equal(0))
+
+			got, err := solo.GetJob("u", "solo")
+			Expect(err).ToNot(HaveOccurred(), "a carrier-less service must still serve its own reads")
+			Expect(got.ID).To(Equal("solo"))
 		})
 
 		It("propagates a status update from A to B", func() {

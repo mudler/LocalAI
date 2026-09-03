@@ -9,7 +9,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/pgbus"
+	"github.com/mudler/LocalAI/core/services/syncstate"
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
@@ -106,5 +108,66 @@ var _ = Describe("shutting the distributed services down", func() {
 		(&DistributedServices{Bus: bus}).Shutdown()
 
 		Expect(bus.IsConnected()).To(BeFalse())
+	})
+})
+
+// The one place the four state.*.delta families are told which carrier they
+// travel on.
+//
+// It was five field reads before this: the fine-tune service, the quantization
+// service, the agent-task setter on two startup paths, the per-user services
+// manager and the Open Responses store. Every one of them takes a
+// messaging.Broadcaster, which *messaging.Client satisfies too, so a site left
+// holding ds.Nats compiled, started, published and was delivered onto the
+// carrier the deployment is being taken off, and nothing failed until NATS did.
+// Collapsing the choice into one function is what makes it a fact these specs
+// can hold.
+var _ = Describe("handing the broadcast carrier to its adopters", func() {
+	It("returns the carrier the deployment opened and never the NATS client", func() {
+		db, dsn := testutil.SetupTestDBWithDSN()
+		cfg := &config.ApplicationConfig{}
+		cfg.Auth.DatabaseURL = dsn
+		bus, err := newBroadcastBus(context.Background(), cfg, db)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(bus.Close)
+
+		// A NATS client is present on the struct, exactly as it is in a real
+		// deployment for as long as the request/reply and queue halves survive.
+		// Identity, not "is a Broadcaster": both fields satisfy that interface.
+		ds := &DistributedServices{Nats: &messaging.Client{}, Bus: bus}
+
+		Expect(ds.Broadcast()).To(BeIdenticalTo(messaging.Broadcaster(bus)))
+	})
+
+	It("returns an interface that reads as absent, not a typed nil, when there is no carrier", func() {
+		// Every adopter branches on `bus == nil` to mean standalone. A nil
+		// *pgbus.Bus placed in an interface is NOT nil, so that branch would be
+		// skipped and the first Set would panic on a request rather than at
+		// boot.
+		//
+		// Compared with == and not with BeNil(). Gomega's BeNil reports a nil
+		// POINTER inside an interface as nil, so it passes on exactly the value
+		// this spec exists to reject; the first draft of this spec did, and the
+		// mutation that removed the guard stayed green.
+		var ds *DistributedServices
+		Expect(ds.Broadcast() == nil).To(BeTrue(), "a nil deployment must yield an interface that is itself nil")
+		Expect((&DistributedServices{}).Broadcast() == nil).To(BeTrue(),
+			"a deployment with no carrier must yield an interface that is itself nil, not one wrapping a nil *pgbus.Bus")
+	})
+
+	It("gives an adopter a carrier-less map rather than one that panics on the first write", func() {
+		// The consequence, driven through the component every adopter builds.
+		// A typed nil satisfies `!= nil`, so Start subscribes on it and Set
+		// publishes on it, and both dereference a nil *pgbus.Bus on a request
+		// path rather than at boot.
+		m := syncstate.New(syncstate.Config[string, string]{
+			Name: "test.jobs",
+			Key:  func(v string) string { return v },
+			Bus:  (&DistributedServices{}).Broadcast(),
+		})
+		Expect(m.Start(context.Background())).To(Succeed())
+		DeferCleanup(func() { Expect(m.Close()).To(Succeed()) })
+
+		Expect(func() { Expect(m.Set(context.Background(), "v")).To(Succeed()) }).ToNot(Panic())
 	})
 })

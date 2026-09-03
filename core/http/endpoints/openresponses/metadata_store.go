@@ -52,11 +52,14 @@ func (a *responseMetadataStoreAdapter) List(ctx context.Context) ([]*syncedRespo
 // purge filter on.
 //
 // ExpiresAt is lifted out of the payload into its own column because
-// ListUnexpired and PurgeExpired compare against it on the database clock. An
-// adapter that left it null would make every response immortal in this table:
-// the map would still expire it in memory, so nothing would look broken until
-// the table had grown without bound and a restarted replica re-hydrated
-// responses that died hours earlier.
+// ListUnexpired and PurgeExpired compare against it on the database clock.
+//
+// It is null whenever the deployment runs the default Open Responses TTL of 0,
+// which is the ordinary case and not an error: the store then falls back to
+// distributed.DefaultResponseMetadataRetention, so the row is still swept and
+// still drops out of a hydrate. What the column buys is the other direction. A
+// deployment that DOES configure a TTL gets that TTL honoured here, rather than
+// having its responses outlive the map they mirror or die before it.
 func (a *responseMetadataStoreAdapter) Upsert(ctx context.Context, v *syncedResponse) error {
 	if v == nil {
 		return fmt.Errorf("replicating response metadata: nil value")

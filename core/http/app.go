@@ -523,13 +523,15 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	// Fine-tuning routes
 	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
-	// In distributed mode pass the shared NATS client + PostgreSQL store so
-	// fine-tune jobs stay consistent across replicas (the SyncedMap broadcasts
-	// mutations and hydrates from the DB); standalone passes nil for both.
-	var ftNats messaging.MessagingClient
+	// In distributed mode pass the deployment's broadcast carrier + PostgreSQL
+	// store so fine-tune jobs stay consistent across replicas (the SyncedMap
+	// broadcasts mutations and hydrates from the DB); standalone passes nil for
+	// both. The carrier comes from Broadcast() and never from a field read here:
+	// see the comment on that method for why the choice is made in one place.
+	var ftBus messaging.Broadcaster
 	var ftStore *distributed.FineTuneStore
 	if d := application.Distributed(); d != nil {
-		ftNats = d.Nats
+		ftBus = d.Broadcast()
 		if d.DistStores != nil && d.DistStores.FineTune != nil {
 			ftStore = d.DistStores.FineTune
 		}
@@ -538,20 +540,21 @@ func API(application *application.Application) (*echo.Echo, error) {
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
-		ftNats,
+		ftBus,
 		ftStore,
 	)
 	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), application, fineTuningMw)
 
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
-	// In distributed mode pass the shared NATS client + PostgreSQL store so
-	// quantization jobs stay consistent across replicas (the SyncedMap broadcasts
-	// mutations and hydrates from the DB); standalone passes nil for both.
-	var quantNats messaging.MessagingClient
+	// In distributed mode pass the deployment's broadcast carrier + PostgreSQL
+	// store so quantization jobs stay consistent across replicas (the SyncedMap
+	// broadcasts mutations and hydrates from the DB); standalone passes nil for
+	// both. Same rule and same single source as the fine-tune wiring above.
+	var quantBus messaging.Broadcaster
 	var quantStore *distributed.QuantStore
 	if d := application.Distributed(); d != nil {
-		quantNats = d.Nats
+		quantBus = d.Broadcast()
 		if d.DistStores != nil && d.DistStores.Quant != nil {
 			quantStore = d.DistStores.Quant
 		}
@@ -560,7 +563,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
-		quantNats,
+		quantBus,
 		quantStore,
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), application, quantizationMw)

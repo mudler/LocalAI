@@ -263,19 +263,6 @@ func (c *Client) QueueSubscribeReply(subject, queue string, handler func(data []
 	})
 }
 
-// SubscribeJSON creates a subscription that automatically unmarshals JSON messages.
-// Invalid JSON messages are logged and skipped.
-func SubscribeJSON[T any](c MessagingClient, subject string, handler func(T)) (Subscription, error) {
-	return c.Subscribe(subject, func(data []byte) {
-		var evt T
-		if err := json.Unmarshal(data, &evt); err != nil {
-			xlog.Warn("Failed to unmarshal NATS message", "subject", subject, "error", err)
-			return
-		}
-		handler(evt)
-	})
-}
-
 // QueueSubscribeJSON creates a queue subscription that automatically unmarshals JSON messages.
 // Invalid JSON messages are logged and skipped.
 func QueueSubscribeJSON[T any](c MessagingClient, subject, queue string, handler func(T)) (Subscription, error) {

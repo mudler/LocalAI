@@ -33,7 +33,7 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 			responseStore = d.DistStores.Responses
 		}
 		if err := openresponses.GetGlobalStore().EnableDistributed(
-			application.ApplicationConfig().Context, d.Nats, application.InstanceID(), responseStore); err != nil {
+			application.ApplicationConfig().Context, d.Broadcast(), application.InstanceID(), responseStore); err != nil {
 			xlog.Error("Failed to enable cross-replica Open Responses store", "error", err)
 		}
 	}

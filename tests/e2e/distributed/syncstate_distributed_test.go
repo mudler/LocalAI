@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/mudler/LocalAI/core/services/distributed"
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/pgbus"
 	"github.com/mudler/LocalAI/core/services/syncstate"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -42,48 +42,59 @@ func (a ftSyncStore) Delete(_ context.Context, k string) error { return a.s.Dele
 
 // This suite is the real-infrastructure counterpart to the fake-bus unit tests:
 // two SyncedMap instances stand in for two LocalAI frontend replicas, each with
-// its OWN NATS connection to a shared NATS server and a SHARED PostgreSQL store -
-// the exact distributed-mode invariant (single shared DB, per-replica process
-// state). It proves the delta path works over the wire and that a late-joining
-// replica recovers via store hydrate (the at-most-once gap a fake bus cannot
-// exercise).
-var _ = Describe("SyncedMap two-replica sync over real NATS", Label("Distributed"), func() {
+// its OWN pinned LISTEN connection to the shared PostgreSQL and a SHARED store
+// on the same database - the exact distributed-mode invariant (single shared
+// DB, per-replica process state). It proves the delta path works over the wire
+// and that a late-joining replica recovers via store hydrate (the at-most-once
+// gap a fake bus cannot exercise).
+//
+// There is no NATS here any more. This family's deltas ride the deployment's
+// PostgreSQL broadcast carrier, so a suite that still proved them over a broker
+// would be proving something the product no longer does.
+var _ = Describe("SyncedMap two-replica sync over the PostgreSQL carrier", Label("Distributed"), func() {
 	var (
 		infra   *TestInfra
+		db      *gorm.DB
 		ftStore *distributed.FineTuneStore
 	)
 
 	BeforeEach(func() {
 		infra = SetupInfra("localai_syncstate_dist_test")
 
-		db, err := gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
+		var err error
+		db, err = gorm.Open(pgdriver.Open(infra.PGURL), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		Expect(err).ToNot(HaveOccurred())
+
+		Expect(pgbus.Migrate(infra.Ctx, db)).To(Succeed())
 
 		ftStore, err = distributed.NewFineTuneStore(db)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	// newReplica builds an independent "replica": its own NATS client to the
-	// shared server plus a SyncedMap over the shared store, started (hydrate +
-	// subscribe) and cleaned up automatically.
+	// newReplica builds an independent "replica": its own carrier, with its own
+	// pinned LISTEN connection, plus a SyncedMap over the shared store, started
+	// (hydrate + subscribe) and cleaned up automatically.
+	//
+	// No flush is needed where NATS needed one: pgbus.Subscribe returns only
+	// after the server has acknowledged the LISTEN, so a subscription that has
+	// been registered cannot miss a NOTIFY issued afterwards.
 	newReplica := func() *syncstate.SyncedMap[string, *distributed.FineTuneJobRecord] {
 		GinkgoHelper()
-		nc, err := messaging.New(infra.NatsURL)
+		bus, err := pgbus.New(infra.Ctx, pgbus.Config{DSN: infra.PGURL, DB: db})
 		Expect(err).ToNot(HaveOccurred())
 
 		sm := syncstate.New(syncstate.Config[string, *distributed.FineTuneJobRecord]{
 			Name:  "finetune.jobs",
 			Key:   func(r *distributed.FineTuneJobRecord) string { return r.ID },
-			Nats:  nc,
+			Bus:   bus,
 			Store: ftSyncStore{s: ftStore},
 		})
 		Expect(sm.Start(infra.Ctx)).To(Succeed())
-		FlushNATS(nc) // ensure the subscription is registered server-side before any publish
 		DeferCleanup(func() {
 			_ = sm.Close()
-			nc.Close()
+			bus.Close()
 		})
 		return sm
 	}
@@ -102,7 +113,7 @@ var _ = Describe("SyncedMap two-replica sync over real NATS", Label("Distributed
 		Expect(a.Set(infra.Ctx, rec("job-1", "queued"))).To(Succeed())
 
 		Eventually(func() bool { _, ok := b.Get("job-1"); return ok }, "10s", "50ms").
-			Should(BeTrue(), "replica B must observe the job created on A via NATS")
+			Should(BeTrue(), "replica B must observe the job created on A over the carrier")
 
 		got, ok := b.Get("job-1")
 		Expect(ok).To(BeTrue())
