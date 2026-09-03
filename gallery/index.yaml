@@ -16456,6 +16456,76 @@
     - filename: mmproj-Qwen3-Omni-30B-A3B-Thinking-Q8_0.gguf
       sha256: 2bd5459571f8230a0c251d3d0dd36267753f0800ed145449a34f220a31f93898
       uri: huggingface://ggml-org/Qwen3-Omni-30B-A3B-Thinking-GGUF/mmproj-Qwen3-Omni-30B-A3B-Thinking-Q8_0.gguf
+- &lightonocr-2-1b
+  name: "lightonocr-2-1b"
+  variants:
+    - model: lightonocr-2-1b-f16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/lightonai/LightOnOCR-2-1B
+    - https://huggingface.co/ggml-org/LightOnOCR-2-1B-GGUF
+  description: |
+    LightOnOCR-2-1B is a compact Apache-2.0 vision-language model for optical
+    character recognition and document understanding. It extracts text,
+    tables, forms, and structured content from images and PDFs in multiple
+    languages. This default entry uses the Q8_0 model and vision projector.
+  license: apache-2.0
+  icon: https://huggingface.co/lightonai.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - image-to-text
+    - ocr
+    - multimodal
+    - cpu
+    - mistral
+  last_checked: "2026-08-13"
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-LightOnOCR-2-1B-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: LightOnOCR-2-1B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: LightOnOCR-2-1B-Q8_0.gguf
+      sha256: f4cfc0ea9765a4cac22a235191c48aefa94df223419f5ab658b6201f36206d58
+      uri: huggingface://ggml-org/LightOnOCR-2-1B-GGUF/LightOnOCR-2-1B-Q8_0.gguf
+    - filename: mmproj-LightOnOCR-2-1B-Q8_0.gguf
+      sha256: e9b45eb85b0f0afb3cc138236eec7adb75879420130e5e2049ee9af3f24e337f
+      uri: huggingface://ggml-org/LightOnOCR-2-1B-GGUF/mmproj-LightOnOCR-2-1B-Q8_0.gguf
+- !!merge <<: *lightonocr-2-1b
+  name: "lightonocr-2-1b-f16"
+  variants: []
+  description: |
+    LightOnOCR-2-1B F16 is the full-precision GGUF build for optical character
+    recognition and multilingual document understanding. It pairs the F16
+    language model with the matching F16 vision projector.
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-LightOnOCR-2-1B-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: LightOnOCR-2-1B-f16.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: LightOnOCR-2-1B-f16.gguf
+      sha256: 83f5b7a24410de69390119dd18e7866ecd0687564423846fc344ed3a46647a0b
+      uri: huggingface://ggml-org/LightOnOCR-2-1B-GGUF/LightOnOCR-2-1B-f16.gguf
+    - filename: mmproj-LightOnOCR-2-1B-f16.gguf
+      sha256: 1c4a3a27f7c5aa90b455ed5ec6dc79c9b9746739a8d840022790414376738130
+      uri: huggingface://ggml-org/LightOnOCR-2-1B-GGUF/mmproj-LightOnOCR-2-1B-f16.gguf
 - name: glm-ocr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
