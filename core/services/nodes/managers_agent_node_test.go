@@ -40,7 +40,7 @@ var _ = Describe("Backend listing across mixed node types", func() {
 		mc = newScriptedControlWorkers()
 		mgr = &DistributedBackendManager{
 			local:    stubLocalBackendManager{},
-			adapter:  NewRemoteUnloaderAdapter(nil, nil, mc.controlClient(), 3*time.Minute, 15*time.Minute),
+			adapter:  NewRemoteUnloaderAdapter(nil, mc.controlClient(), 3*time.Minute, 15*time.Minute),
 			registry: registry,
 		}
 		ctx = context.Background()

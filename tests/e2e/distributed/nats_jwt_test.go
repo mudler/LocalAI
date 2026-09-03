@@ -109,13 +109,37 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 		DeferCleanup(nc.Close)
 
 		// Mirror core/cli/agent_worker.go exactly. MCP tool execution and
-		// discovery are absent because they are no longer bus subjects at all:
-		// the frontend selects an agent worker itself and reaches it with a
-		// control RPC over the tunnel that worker holds.
+		// discovery are absent, and so is the per-node backend.stop, because
+		// none of the three is a bus subject any more: the frontend selects an
+		// agent worker itself and reaches it with a control RPC over the tunnel
+		// that worker holds.
 		_, err = nc.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func([]byte) {})
 		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (MCP CI jobs)", messaging.SubjectMCPCIJobsNew)
 
-		_, err = nc.Subscribe(messaging.SubjectNodeBackendStop(nodeID), func([]byte) {})
-		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (MCP session cleanup)", messaging.SubjectNodeBackendStop(nodeID))
+		_, err = nc.Subscribe(messaging.SubjectAgentExecute, func([]byte) {})
+		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (job dispatch)", messaging.SubjectAgentExecute)
+	})
+
+	// The narrowing, proved against the enforcing server rather than against
+	// the allow list that feeds it. The subject is written out by hand because
+	// its builder is deleted; that literal is what a worker from an older
+	// release would still send, and this is what the server now answers it.
+	//
+	// It is a narrowing and not a lockout: the two subscriptions above are made
+	// on a JWT minted the same way and both succeed, so the list this trims is
+	// demonstrably not the empty one NATS would read as unrestricted.
+	It("refuses an agent-minted JWT the retired per-node backend.stop subject", func() {
+		const nodeID = "agent-node-stop"
+		cfg := natsauth.Config{AccountSeed: infra.AccountSeed, WorkerJWTTTL: time.Hour}
+		token, seed, err := cfg.MintWorkerJWT(nodeID, "agent")
+		Expect(err).ToNot(HaveOccurred())
+
+		nc, err := messaging.New(infra.NatsURL, messaging.WithUserJWT(token, seed))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(nc.Close)
+
+		_, err = nc.Subscribe("nodes."+nodeID+".backend.stop", func([]byte) {})
+		Expect(err).To(HaveOccurred(),
+			"backend.stop is a control RPC on the worker's tunnel; the bus must not carry it")
 	})
 })

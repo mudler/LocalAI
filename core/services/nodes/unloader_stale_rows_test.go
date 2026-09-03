@@ -28,7 +28,7 @@ var _ = Describe("RemoteUnloaderAdapter stale replica rows", func() {
 	BeforeEach(func() {
 		locator = &fakeModelLocator{}
 		workers = newScriptedControlWorkers()
-		adapter = NewRemoteUnloaderAdapter(locator, nil, workers.controlClient(), 3*time.Minute, 15*time.Minute)
+		adapter = NewRemoteUnloaderAdapter(locator, workers.controlClient(), 3*time.Minute, 15*time.Minute)
 	})
 
 	Describe("DeleteBackend", func() {
