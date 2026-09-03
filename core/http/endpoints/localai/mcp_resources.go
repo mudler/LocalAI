@@ -17,6 +17,12 @@ func MCPResourcesEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applic
 			return echo.ErrBadRequest
 		}
 
+		// See the prompts endpoint: this has to come before the empty-config
+		// shortcut, which answers with the empty list this refuses to invent.
+		if refused, err := mcpLocalSessionsOnly(c, appConfig, "resources"); refused {
+			return err
+		}
+
 		cfg, exists := cl.GetModelConfig(modelName)
 		if !exists {
 			return fmt.Errorf("model %q not found", modelName)
@@ -71,6 +77,10 @@ func MCPReadResourceEndpoint(cl *config.ModelConfigLoader, appConfig *config.App
 		modelName := c.Param("model")
 		if modelName == "" {
 			return echo.ErrBadRequest
+		}
+
+		if refused, err := mcpLocalSessionsOnly(c, appConfig, "resources"); refused {
+			return err
 		}
 
 		cfg, exists := cl.GetModelConfig(modelName)

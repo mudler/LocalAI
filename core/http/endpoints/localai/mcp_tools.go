@@ -13,7 +13,7 @@ import (
 
 // MCPServersEndpoint returns the list of MCP servers and their tools for a given model.
 // GET /v1/mcp/servers/:model
-func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
+func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, agentControl mcpTools.AgentControl) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		modelName := c.Param("model")
 		if modelName == "" {
@@ -45,10 +45,10 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 			})
 		}
 
-		// In distributed mode, route discovery through NATS to an agent worker
+		// In distributed mode, ask an agent worker over the tunnel it holds
 		// that can actually connect to the MCP servers.
-		if natsClient != nil {
-			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), natsClient, cfg.Name, remote, stdio)
+		if agentControl != nil {
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), agentControl, cfg.Name, remote, stdio)
 			if err != nil {
 				return c.JSON(http.StatusOK, map[string]any{
 					"model":   modelName,
@@ -80,7 +80,7 @@ func MCPServersEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 
 // MCPServersEndpointFromMiddleware is a version that uses the middleware-resolved model config.
 // This allows it to use the same middleware chain as other endpoints.
-func MCPServersEndpointFromMiddleware(natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
+func MCPServersEndpointFromMiddleware(agentControl mcpTools.AgentControl) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		cfg, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || cfg == nil {
@@ -103,9 +103,9 @@ func MCPServersEndpointFromMiddleware(natsClient mcpTools.MCPNATSClient) echo.Ha
 			})
 		}
 
-		// In distributed mode, route discovery through NATS to an agent worker.
-		if natsClient != nil {
-			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), natsClient, cfg.Name, remote, stdio)
+		// In distributed mode, ask an agent worker over the tunnel it holds.
+		if agentControl != nil {
+			resp, err := mcpTools.DiscoverMCPToolsRemote(c.Request().Context(), agentControl, cfg.Name, remote, stdio)
 			if err != nil {
 				return c.JSON(http.StatusOK, map[string]any{
 					"model":   cfg.Name,

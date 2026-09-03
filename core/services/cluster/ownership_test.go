@@ -58,6 +58,14 @@ func (r *sqlRecorder) only() string {
 	return r.statements[0]
 }
 
+// statementCount reports how many statements were recorded, for the specs whose
+// claim is that a call issued NONE.
+func (r *sqlRecorder) statementCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.statements)
+}
+
 // writeTarget matches the table a statement writes to, anchored at the verb so
 // the UPDATE inside an upsert's ON CONFLICT clause cannot be mistaken for one.
 var writeTarget = regexp.MustCompile(`^\s*(?i:delete\s+from|update)\s+"?([a-z_]+)"?`)

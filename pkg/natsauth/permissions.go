@@ -29,6 +29,12 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 	case "agent":
 		// Agent workers consume queue workloads; they must not handle backend.install.
 		// Keep this list in sync with the subscriptions in core/cli/agent_worker.go.
+		//
+		// MCP tool execution and discovery are NOT here any more: they are
+		// control RPCs on the tunnel the worker holds, chosen by the frontend
+		// rather than by a queue group. Removing them narrowed this list; it
+		// must never be narrowed to nothing, because NATS reads an EMPTY allow
+		// list as no restriction at all.
 		subAllow = []string{
 			"agent.execute",
 			"agent.*.cancel",
@@ -37,9 +43,7 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 			"jobs.*.cancel",
 			"jobs.*.progress",
 			"jobs.*.result",
-			"jobs.mcp-ci.new", // MCP CI jobs dispatched to agent workers
-			"mcp.tools.execute",
-			"mcp.discovery",
+			"jobs.mcp-ci.new",        // MCP CI jobs dispatched to agent workers
 			prefix + ".backend.stop", // stop events drive MCP session cleanup
 			"staging.*.progress",
 			"_INBOX.>",
