@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"os"
@@ -96,12 +97,23 @@ var _ = Describe("the frontend's control client against the real worker", func()
 		}
 
 		var seen []float64
+		var subjects []string
 		var reply messaging.BackendInstallReply
 		err := client.CallStreaming(context.Background(), nodeID, workerctl.PathBackendInstall,
 			messaging.BackendInstallRequest{Backend: "mock", OpID: "op-1"}, &reply,
-			func(ev messaging.BackendInstallProgressEvent) { seen = append(seen, ev.Percentage) })
+			func(subject string, raw json.RawMessage) {
+				var ev messaging.BackendInstallProgressEvent
+				Expect(json.Unmarshal(raw, &ev)).To(Succeed())
+				subjects = append(subjects, subject)
+				seen = append(seen, ev.Percentage)
+			})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(seen).To(Equal([]float64{50, 100}))
+		// A BACKEND worker's install progress names no broadcast, over a real
+		// tunnel and a real NDJSON body rather than in a double's imagination.
+		// It is the property MayBroadcast would refuse anyway, asserted here on
+		// the bytes the worker actually wrote.
+		Expect(subjects).To(Equal([]string{"", ""}))
 		Expect(reply.Success).To(BeTrue())
 		Expect(reply.WorkerLocalAddress).To(Equal("127.0.0.1:41234"))
 	})

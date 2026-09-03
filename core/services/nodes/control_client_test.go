@@ -223,13 +223,58 @@ var _ = Describe("ControlClient", func() {
 				_ = enc.Encode(workerctl.Envelope{Progress: json.RawMessage(`{"percentage":100}`)})
 				_ = enc.Encode(workerctl.Envelope{Reply: json.RawMessage(`{"success":true}`)})
 			}
-			var seen []float64
+			var seen []string
+			var subjects []string
 			var reply messaging.BackendInstallReply
 			err := client.CallStreaming(context.Background(), "n1", workerctl.PathBackendInstall,
 				messaging.BackendInstallRequest{Backend: "mock", OpID: "op-1"}, &reply,
-				func(ev messaging.BackendInstallProgressEvent) { seen = append(seen, ev.Percentage) })
+				func(subject string, raw json.RawMessage) {
+					subjects = append(subjects, subject)
+					seen = append(seen, string(raw))
+				})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(seen).To(Equal([]float64{50, 100}))
+			Expect(seen).To(Equal([]string{`{"percentage":50}`, `{"percentage":100}`}))
+			// A line that named no broadcast reaches the caller with an empty
+			// subject, which is what every pre-existing progress line is.
+			Expect(subjects).To(Equal([]string{"", ""}))
+			Expect(reply.Success).To(BeTrue())
+		})
+
+		It("carries the subject a worker named through to the caller, and acts on it itself not at all", func() {
+			// The client is not where the authorization decision lives, and it
+			// must not become where it lives by accident: it hands the subject
+			// over and keeps reading. Whether the broadcast is made is a
+			// question about the node's type that this type cannot answer.
+			handler = func(w http.ResponseWriter, _ *http.Request) {
+				enc := json.NewEncoder(w)
+				_ = enc.Encode(workerctl.Envelope{
+					Subject:  "agent.a1.events.status",
+					Progress: json.RawMessage(`{"state":"thinking"}`),
+				})
+				_ = enc.Encode(workerctl.Envelope{
+					// A subject no worker of any type is allowed. The client
+					// still carries it: refusing here would put the policy in
+					// two places.
+					Subject:  "cache.invalidate.models",
+					Progress: json.RawMessage(`{"model":"m1"}`),
+				})
+				_ = enc.Encode(workerctl.Envelope{Reply: json.RawMessage(`{"success":true}`)})
+			}
+			type line struct {
+				subject string
+				raw     string
+			}
+			var seen []line
+			var reply messaging.BackendInstallReply
+			Expect(client.CallStreaming(context.Background(), "n1", workerctl.PathBackendInstall,
+				struct{}{}, &reply,
+				func(subject string, raw json.RawMessage) {
+					seen = append(seen, line{subject: subject, raw: string(raw)})
+				})).To(Succeed())
+			Expect(seen).To(Equal([]line{
+				{subject: "agent.a1.events.status", raw: `{"state":"thinking"}`},
+				{subject: "cache.invalidate.models", raw: `{"model":"m1"}`},
+			}))
 			Expect(reply.Success).To(BeTrue())
 		})
 
@@ -239,11 +284,11 @@ var _ = Describe("ControlClient", func() {
 				_ = enc.Encode(workerctl.Envelope{Reply: json.RawMessage(`{"success":true}`)})
 				_ = enc.Encode(workerctl.Envelope{Progress: json.RawMessage(`{"percentage":10}`)})
 			}
-			var seen []float64
+			var seen []string
 			var reply messaging.BackendInstallReply
 			Expect(client.CallStreaming(context.Background(), "n1", workerctl.PathBackendInstall,
 				struct{}{}, &reply,
-				func(ev messaging.BackendInstallProgressEvent) { seen = append(seen, ev.Percentage) })).To(Succeed())
+				func(_ string, raw json.RawMessage) { seen = append(seen, string(raw)) })).To(Succeed())
 			Expect(seen).To(BeEmpty())
 			Expect(reply.Success).To(BeTrue())
 		})
@@ -274,19 +319,26 @@ var _ = Describe("ControlClient", func() {
 			Expect(errors.Is(err, io.ErrUnexpectedEOF)).To(BeTrue())
 		})
 
-		It("keeps going past a progress line it cannot read, since progress is transient", func() {
+		It("hands over a progress line it could not have decoded, because it does not decode them", func() {
+			// The client used to unmarshal every progress line into an install
+			// event and drop the ones that would not parse. It no longer knows
+			// what a progress line means, so a line that is not an install
+			// event is carried like any other and the DECODE is the caller's.
+			// The rule that a line the frontend cannot read costs a tick and
+			// never the operation now lives in installProgressBridge, and
+			// unloader_test.go pins it there.
 			handler = func(w http.ResponseWriter, _ *http.Request) {
 				enc := json.NewEncoder(w)
 				_ = enc.Encode(workerctl.Envelope{Progress: json.RawMessage(`{"percentage":"not a number"}`)})
 				_ = enc.Encode(workerctl.Envelope{Progress: json.RawMessage(`{"percentage":70}`)})
 				_ = enc.Encode(workerctl.Envelope{Reply: json.RawMessage(`{"success":true}`)})
 			}
-			var seen []float64
+			var seen []string
 			var reply messaging.BackendInstallReply
 			Expect(client.CallStreaming(context.Background(), "n1", workerctl.PathBackendInstall,
 				struct{}{}, &reply,
-				func(ev messaging.BackendInstallProgressEvent) { seen = append(seen, ev.Percentage) })).To(Succeed())
-			Expect(seen).To(Equal([]float64{70}))
+				func(_ string, raw json.RawMessage) { seen = append(seen, string(raw)) })).To(Succeed())
+			Expect(seen).To(Equal([]string{`{"percentage":"not a number"}`, `{"percentage":70}`}))
 			Expect(reply.Success).To(BeTrue())
 		})
 
