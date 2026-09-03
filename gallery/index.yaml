@@ -309,6 +309,86 @@
       - embeddings
     parameters:
       model: tencent/WeMM-Embedding-9B
+- &ling-3-0-tiny
+  name: "ling-3.0-tiny-q4"
+  variants:
+    - model: ling-3.0-tiny-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/inclusionAI/Ling-3.0-tiny
+    - https://huggingface.co/bloomer010/Ling-3.0-tiny-GGUF
+  description: |
+    Ling-3.0-tiny is InclusionAI's MIT-licensed hybrid reasoning MoE model
+    with 7.9B total parameters and 1.3B active parameters per token. It
+    targets reasoning, coding, instruction following, and agentic tasks with
+    a native 131K-token context window.
+
+    This default entry uses the Q4_K_M GGUF. A higher-quality Q8_0 model is
+    available as a variant.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - long-context
+  last_checked: "2026-08-18"
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q4_K_M.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q4_K_M.gguf
+      uri: huggingface://bloomer010/Ling-3.0-tiny-GGUF/Ling-3.0-tiny-Q4_K_M.gguf
+      sha256: 23e0f9e8f5ad8c44079b80a2a6c98fc507d2471fd906079467cca73d9fd81e10
+- !!merge <<: *ling-3-0-tiny
+  name: "ling-3.0-tiny-q8"
+  variants: []
+  description: |
+    Ling-3.0-tiny in the higher-quality Q8_0 GGUF format. This variant
+    preserves more model fidelity for hosts with enough memory.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q8_0.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q8_0.gguf
+      uri: huggingface://bloomer010/Ling-3.0-tiny-GGUF/Ling-3.0-tiny-Q8_0.gguf
+      sha256: 326221bdef72525bd6178b072d3827cd5fb5248a55e8c44eb400417f401733bc
 - &granite-4-2-3b
   name: "granite-4.2-3b-q4"
   variants:
