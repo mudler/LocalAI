@@ -1,29 +1,17 @@
 package agents
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"gorm.io/gorm"
 )
-
-// mockPublisher records all Publish calls for assertions.
-type mockPublisher struct {
-	calls []publishCall
-}
-
-type publishCall struct {
-	subject string
-	data    any
-}
-
-func (m *mockPublisher) Publish(subject string, data any) error {
-	m.calls = append(m.calls, publishCall{subject: subject, data: data})
-	return nil
-}
 
 // mockSchedulerStore implements SchedulerStore for testing.
 type mockSchedulerStore struct {
@@ -120,19 +108,31 @@ var _ = Describe("AgentScheduler", func() {
 	// -----------------------------------------------------------------------
 	Describe("runDueAgents", func() {
 		var (
-			pub    *mockPublisher
+			db     *gorm.DB
+			ctx    context.Context
 			mStore *mockSchedulerStore
 			sched  *AgentScheduler
 		)
 
 		BeforeEach(func() {
-			db := testutil.SetupTestDB()
-			pub = &mockPublisher{}
+			db = testutil.SetupTestDB()
+			ctx = context.Background()
+			Expect(jobs.MigrateClaims(ctx, db)).To(Succeed())
 			mStore = &mockSchedulerStore{}
-			sched = NewAgentScheduler(db, pub, mStore, "agent.execute")
+			sched = NewAgentScheduler(db, mStore)
 		})
 
-		It("publishes event for a due standalone agent", func() {
+		// enqueued reads the claim rows the scheduler wrote, which is what it
+		// writes instead of a publish: a queue subject nobody had joined
+		// accepted a background run and dropped it.
+		enqueued := func() []jobs.WorkClaim {
+			GinkgoHelper()
+			var rows []jobs.WorkClaim
+			Expect(db.Find(&rows).Error).To(Succeed())
+			return rows
+		}
+
+		It("enqueues an agent-run claim for a due standalone agent", func() {
 			past := time.Now().Add(-15 * time.Minute)
 			cfg := AgentConfig{
 				StandaloneJob: true,
@@ -153,13 +153,14 @@ var _ = Describe("AgentScheduler", func() {
 				},
 			}
 
-			sched.runDueAgents()
+			sched.runDueAgents(ctx)
 
-			Expect(pub.calls).To(HaveLen(1))
-			Expect(pub.calls[0].subject).To(Equal("agent.execute"))
+			rows := enqueued()
+			Expect(rows).To(HaveLen(1))
+			Expect(rows[0].Kind).To(Equal(string(jobs.ClaimKindAgentRun)))
 
-			evt, ok := pub.calls[0].data.(AgentChatEvent)
-			Expect(ok).To(BeTrue())
+			var evt AgentChatEvent
+			Expect(json.Unmarshal(rows[0].Payload, &evt)).To(Succeed())
 			Expect(evt.AgentName).To(Equal("background-agent"))
 			Expect(evt.UserID).To(Equal("user-1"))
 			Expect(evt.Role).To(Equal(RoleSystem))
@@ -186,9 +187,9 @@ var _ = Describe("AgentScheduler", func() {
 				},
 			}
 
-			sched.runDueAgents()
+			sched.runDueAgents(ctx)
 
-			Expect(pub.calls).To(BeEmpty())
+			Expect(enqueued()).To(BeEmpty())
 		})
 
 		It("skips non-standalone agents", func() {
@@ -210,9 +211,9 @@ var _ = Describe("AgentScheduler", func() {
 				},
 			}
 
-			sched.runDueAgents()
+			sched.runDueAgents(ctx)
 
-			Expect(pub.calls).To(BeEmpty())
+			Expect(enqueued()).To(BeEmpty())
 		})
 
 		It("skips paused agents", func() {
@@ -234,9 +235,9 @@ var _ = Describe("AgentScheduler", func() {
 				},
 			}
 
-			sched.runDueAgents()
+			sched.runDueAgents(ctx)
 
-			Expect(pub.calls).To(BeEmpty())
+			Expect(enqueued()).To(BeEmpty())
 		})
 
 		It("skips agents with invalid config JSON", func() {
@@ -253,9 +254,9 @@ var _ = Describe("AgentScheduler", func() {
 				},
 			}
 
-			sched.runDueAgents()
+			sched.runDueAgents(ctx)
 
-			Expect(pub.calls).To(BeEmpty())
+			Expect(enqueued()).To(BeEmpty())
 		})
 
 		It("updates last run timestamp after publishing", func() {
@@ -276,9 +277,9 @@ var _ = Describe("AgentScheduler", func() {
 				},
 			}
 
-			sched.runDueAgents()
+			sched.runDueAgents(ctx)
 
-			Expect(pub.calls).To(HaveLen(1))
+			Expect(enqueued()).To(HaveLen(1))
 			Expect(mStore.updated).To(HaveLen(1))
 			Expect(mStore.updated[0].userID).To(Equal("user-1"))
 			Expect(mStore.updated[0].name).To(Equal("track-agent"))
@@ -312,11 +313,12 @@ var _ = Describe("AgentScheduler", func() {
 			}
 			sched.skillProvider = provider
 
-			sched.runDueAgents()
+			sched.runDueAgents(ctx)
 
-			Expect(pub.calls).To(HaveLen(1))
-			evt, ok := pub.calls[0].data.(AgentChatEvent)
-			Expect(ok).To(BeTrue())
+			rows := enqueued()
+			Expect(rows).To(HaveLen(1))
+			var evt AgentChatEvent
+			Expect(json.Unmarshal(rows[0].Payload, &evt)).To(Succeed())
 			Expect(evt.Skills).To(HaveLen(2))
 			Expect(evt.Skills[0].Name).To(Equal("search"))
 			Expect(evt.Skills[1].Name).To(Equal("code"))
@@ -349,12 +351,15 @@ var _ = Describe("AgentScheduler", func() {
 				},
 			}
 
-			sched.runDueAgents()
+			sched.runDueAgents(ctx)
 
-			Expect(pub.calls).To(HaveLen(2))
-			names := []string{
-				pub.calls[0].data.(AgentChatEvent).AgentName,
-				pub.calls[1].data.(AgentChatEvent).AgentName,
+			rows := enqueued()
+			Expect(rows).To(HaveLen(2))
+			var names []string
+			for _, row := range rows {
+				var evt AgentChatEvent
+				Expect(json.Unmarshal(row.Payload, &evt)).To(Succeed())
+				names = append(names, evt.AgentName)
 			}
 			Expect(names).To(ConsistOf("agent-a", "agent-b"))
 		})
@@ -379,9 +384,9 @@ var _ = Describe("AgentScheduler", func() {
 				},
 			}
 
-			sched.runDueAgents()
+			sched.runDueAgents(ctx)
 
-			Expect(pub.calls).To(HaveLen(1))
+			Expect(enqueued()).To(HaveLen(1))
 		})
 	})
 })
