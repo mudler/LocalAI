@@ -43,6 +43,13 @@ type scriptedControlWorkers struct {
 	matched     map[string][]matchedControlReply
 	progress    map[string][]messaging.BackendInstallProgressEvent
 
+	// rawProgress holds progress lines a spec wrote out as envelopes, for the
+	// two things scriptProgress cannot express: a line NAMING a subject, and a
+	// line whose payload is not an install-progress event at all. Both are
+	// things a real worker on another build can put on the wire, so the double
+	// has to be able to put them on the wire too.
+	rawProgress map[string][]workerctl.Envelope
+
 	// unreachable and expired are keyed by NODE, not by verb, because they are
 	// failures of the ROUTE and a route belongs to a node. They are what the
 	// dialer answers with; see scriptUnroutable and scriptTimeout.
@@ -74,6 +81,7 @@ func newScriptedControlWorkers() *scriptedControlWorkers {
 		unsupported:  map[string]bool{},
 		matched:      map[string][]matchedControlReply{},
 		progress:     map[string][]messaging.BackendInstallProgressEvent{},
+		rawProgress:  map[string][]workerctl.Envelope{},
 		unreachable:  map[string]bool{},
 		expired:      map[string]bool{},
 		hangs:        map[string]bool{},
@@ -131,6 +139,7 @@ func (s *scriptedControlWorkers) serve(w http.ResponseWriter, r *http.Request) {
 	reply := s.replies[key]
 	matchers := s.matched[key]
 	ticks := s.progress[key]
+	rawTicks := s.rawProgress[key]
 	s.mu.Unlock()
 
 	if hang {
@@ -181,6 +190,9 @@ func (s *scriptedControlWorkers) serve(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		_ = enc.Encode(workerctl.Envelope{Progress: raw})
+	}
+	for _, env := range rawTicks {
+		_ = enc.Encode(env)
 	}
 	_ = enc.Encode(workerctl.Envelope{Reply: reply})
 }
@@ -268,6 +280,14 @@ func (s *scriptedControlWorkers) scriptProgress(key string, events []messaging.B
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.progress[key] = events
+}
+
+// scriptRawProgress queues progress lines exactly as they go on the wire, after
+// any scriptProgress lines for the same verb.
+func (s *scriptedControlWorkers) scriptRawProgress(key string, lines []workerctl.Envelope) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.rawProgress[key] = lines
 }
 
 // scriptHang makes one verb on one node accept the request and never answer,

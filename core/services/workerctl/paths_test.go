@@ -124,6 +124,37 @@ var _ = Describe("control plane paths on the wire", func() {
 		Expect(string(b)).To(Equal(`{"progress":{"percentage":50}}`))
 	})
 
+	It("spells the re-broadcast key on the wire as \"subject\"", func() {
+		// Hand-written literal, like the paths above and for the same reason: a
+		// worker and a frontend built from different commits read each other's
+		// lines, and a renamed key is a re-broadcast request that silently
+		// becomes a private progress tick. Deriving the expectation from the
+		// struct tag would pin nothing.
+		b, err := json.Marshal(workerctl.Envelope{
+			Subject:  "agent.a1.events.status",
+			Progress: json.RawMessage(`{"tick":1}`),
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).To(Equal(`{"progress":{"tick":1},"subject":"agent.a1.events.status"}`))
+	})
+
+	It("omits the subject key entirely when a progress line names no broadcast", func() {
+		// omitempty is the backward-compatibility half: every pre-existing
+		// progress line has no subject, and an older frontend reading a line
+		// that carried an empty subject key would be reading a field it does
+		// not know about on every tick.
+		b, err := json.Marshal(workerctl.Envelope{Progress: json.RawMessage(`{"tick":1}`)})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).NotTo(ContainSubstring("subject"))
+	})
+
+	It("reads a subject back off the wire, which is what the frontend decides on", func() {
+		var env workerctl.Envelope
+		Expect(json.Unmarshal([]byte(`{"progress":{"tick":1},"subject":"jobs.j1.progress"}`), &env)).To(Succeed())
+		Expect(env.Subject).To(Equal("jobs.j1.progress"))
+		Expect(string(env.Progress)).To(Equal(`{"tick":1}`))
+	})
+
 	It("names the streaming media type", func() {
 		Expect(workerctl.ContentTypeStream).To(Equal("application/x-ndjson"))
 	})
