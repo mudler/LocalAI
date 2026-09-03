@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -185,6 +186,45 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, mo
 	return unloadErr
 }
 
+// installProgressBridge adapts an install or upgrade's progress sink to
+// CallStreaming's line callback, which carries a subject the client does not
+// interpret.
+//
+// It makes two decisions a caller of InstallBackend must not have to make.
+//
+// A line naming a SUBJECT is a re-broadcast request and not install progress,
+// so it is dropped here rather than delivered as a tick. backend.install and
+// backend.upgrade are a BACKEND worker's verbs, and MayBroadcast denies a
+// backend worker every subject, so this path has nothing to publish and no
+// broadcaster to publish it on. Delivering it to onProgress instead would put a
+// worker's arbitrary JSON through a decode into an install-progress event and
+// report whatever fell out as the state of a download.
+//
+// A line this frontend cannot decode costs a tick and never the operation,
+// because progress is transient by contract while the reply is the worker's
+// verdict.
+//
+// It returns nil for a nil sink so CallStreaming keeps its "no callback, no
+// work" path, rather than a non-nil closure wrapping a nil function.
+func installProgressBridge(nodeID, path string, onProgress func(messaging.BackendInstallProgressEvent)) func(string, json.RawMessage) {
+	if onProgress == nil {
+		return nil
+	}
+	return func(subject string, raw json.RawMessage) {
+		if subject != "" {
+			xlog.Warn("refusing a re-broadcast request on a backend control stream",
+				"node", nodeID, "path", path, "subject", subject)
+			return
+		}
+		var ev messaging.BackendInstallProgressEvent
+		if err := json.Unmarshal(raw, &ev); err != nil {
+			xlog.Debug("unreadable control progress line", "node", nodeID, "path", path, "error", err)
+			return
+		}
+		onProgress(ev)
+	}
+}
+
 // InstallBackend asks a worker node to install a backend and start its process.
 // Idempotent on the worker: if the (modelID, replica) process is already
 // running, the worker short-circuits and returns its address; if the binary
@@ -223,7 +263,7 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
 		OpID:             opID,
-	}, &reply, onProgress)
+	}, &reply, installProgressBridge(nodeID, workerctl.PathBackendInstall, onProgress))
 	if err != nil {
 		if isRequestTimeout(err) {
 			return nil, fmt.Errorf("%w (nodeID=%s backend=%s): %v",
@@ -258,7 +298,7 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 		Alias:            alias,
 		ReplicaIndex:     int32(replicaIndex),
 		OpID:             opID,
-	}, &reply, onProgress)
+	}, &reply, installProgressBridge(nodeID, workerctl.PathBackendUpgrade, onProgress))
 	if err != nil {
 		if isRequestTimeout(err) {
 			return nil, fmt.Errorf("%w (nodeID=%s backend=%s): %v",
@@ -291,7 +331,7 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 		ReplicaIndex:     int32(replicaIndex),
 		Force:            true,
 		OpID:             opID,
-	}, &reply, onProgress)
+	}, &reply, installProgressBridge(nodeID, workerctl.PathBackendInstall, onProgress))
 	if err != nil {
 		if isRequestTimeout(err) {
 			return nil, fmt.Errorf("%w (nodeID=%s backend=%s): %v",

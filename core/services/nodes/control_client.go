@@ -11,10 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/xlog"
-
 	"github.com/mudler/LocalAI/core/services/cluster"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
@@ -152,6 +149,14 @@ func (c *ControlClient) Call(ctx context.Context, nodeID, path string, req, repl
 // stream, invoking onProgress for each progress line and decoding the single
 // terminal reply line into reply. onProgress may be nil.
 //
+// onProgress receives the line's SUBJECT alongside its bytes, so a caller can
+// tell a private progress tick from a re-broadcast request without this client
+// understanding either. An empty subject is a line for this caller alone, which
+// is what every pre-existing progress line is. The client deliberately does no
+// authorization and no decoding of its own: whether a named broadcast may be
+// made is a policy question about the node, and what a private tick means is a
+// question about the verb, and this type knows neither.
+//
 // onProgress runs SYNCHRONOUSLY, on this goroutine. The NATS carrier ran each
 // progress callback on a goroutine of its own because a slow callback there
 // stalled the one reader thread every worker's events arrived on; here the only
@@ -159,7 +164,7 @@ func (c *ControlClient) Call(ctx context.Context, nodeID, path string, req, repl
 // caller's business. Dropping the guard is also what makes the events arrive in
 // the order the worker sent them.
 func (c *ControlClient) CallStreaming(ctx context.Context, nodeID, path string,
-	req, reply any, onProgress func(messaging.BackendInstallProgressEvent)) error {
+	req, reply any, onProgress func(subject string, raw json.RawMessage)) error {
 	resp, err := c.do(ctx, nodeID, path, req)
 	if err != nil {
 		return err
@@ -188,14 +193,7 @@ func (c *ControlClient) CallStreaming(ctx context.Context, nodeID, path string,
 		if env.Progress == nil || onProgress == nil {
 			continue
 		}
-		var ev messaging.BackendInstallProgressEvent
-		if err := json.Unmarshal(env.Progress, &ev); err != nil {
-			// Progress is transient by contract, so a line this frontend cannot
-			// read costs a tick and never the operation.
-			xlog.Debug("unreadable control progress line", "node", nodeID, "path", path, "error", err)
-			continue
-		}
-		onProgress(ev)
+		onProgress(env.Subject, env.Progress)
 	}
 	if reply == nil {
 		return nil

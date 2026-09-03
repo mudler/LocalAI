@@ -634,4 +634,104 @@ var _ = Describe("RemoteUnloaderAdapter install progress streaming", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reply.Success).To(BeTrue())
 	})
+
+	// The bridge from a control STREAM LINE to an install-progress event is one
+	// definition used at three call sites: InstallBackend, UpgradeBackend and
+	// installWithForceFallback. Each is exercised separately below, because a
+	// site that stopped calling it would leave the other two green.
+	DescribeTable("delivers a line that names no broadcast to the caller's install-progress sink, on every streaming verb",
+		func(path string, call func(*RemoteUnloaderAdapter, func(messaging.BackendInstallProgressEvent)) error) {
+			workers := newScriptedControlWorkers()
+			workers.scriptReply(controlKey("n1", path), messaging.BackendInstallReply{Success: true})
+			workers.scriptReply(controlKey("n1", workerctl.PathBackendUpgrade), messaging.BackendUpgradeReply{Success: true})
+			workers.scriptProgress(controlKey("n1", path), []messaging.BackendInstallProgressEvent{
+				{OpID: "op-abc", NodeID: "n1", Backend: "vllm", Percentage: 25},
+			})
+
+			adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), time.Second, time.Second)
+			var received []messaging.BackendInstallProgressEvent
+			Expect(call(adapter, func(ev messaging.BackendInstallProgressEvent) {
+				received = append(received, ev)
+			})).To(Succeed())
+			Expect(received).To(HaveLen(1))
+			Expect(received[0].Percentage).To(Equal(float64(25)))
+		},
+		Entry("backend.install", workerctl.PathBackendInstall,
+			func(a *RemoteUnloaderAdapter, cb func(messaging.BackendInstallProgressEvent)) error {
+				_, err := a.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "op-abc", cb)
+				return err
+			}),
+		Entry("backend.upgrade", workerctl.PathBackendUpgrade,
+			func(a *RemoteUnloaderAdapter, cb func(messaging.BackendInstallProgressEvent)) error {
+				_, err := a.UpgradeBackend("n1", "vllm", "[]", "", "", "", 0, "op-abc", cb)
+				return err
+			}),
+		Entry("the legacy force-install fallback", workerctl.PathBackendInstall,
+			func(a *RemoteUnloaderAdapter, cb func(messaging.BackendInstallProgressEvent)) error {
+				_, err := a.installWithForceFallback("n1", "vllm", "[]", "", "", "", 0, "op-abc", cb)
+				return err
+			}),
+	)
+
+	DescribeTable("refuses a line that NAMES a broadcast rather than delivering it as install progress, on every streaming verb",
+		func(path string, call func(*RemoteUnloaderAdapter, func(messaging.BackendInstallProgressEvent)) error) {
+			// backend.install and backend.upgrade are a BACKEND worker's verbs,
+			// and MayBroadcast denies a backend worker every subject, so a line
+			// naming one is not something this path publishes. What it must
+			// also not do is deliver it: the payload is a broadcast body and
+			// decoding it into an install-progress event reports a percentage
+			// nobody sent.
+			workers := newScriptedControlWorkers()
+			workers.scriptReply(controlKey("n1", path), messaging.BackendInstallReply{Success: true})
+			workers.scriptReply(controlKey("n1", workerctl.PathBackendUpgrade), messaging.BackendUpgradeReply{Success: true})
+			workers.scriptRawProgress(controlKey("n1", path), []workerctl.Envelope{
+				{Subject: "jobs.j1.progress", Progress: json.RawMessage(`{"percentage":99}`)},
+				{Subject: "agent.a1.events.status", Progress: json.RawMessage(`{"percentage":98}`)},
+			})
+
+			adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), time.Second, time.Second)
+			var received []messaging.BackendInstallProgressEvent
+			Expect(call(adapter, func(ev messaging.BackendInstallProgressEvent) {
+				received = append(received, ev)
+			})).To(Succeed())
+			// The RPC still returned the worker's reply: a refused re-broadcast
+			// costs a line and never the operation.
+			Expect(received).To(BeEmpty())
+		},
+		Entry("backend.install", workerctl.PathBackendInstall,
+			func(a *RemoteUnloaderAdapter, cb func(messaging.BackendInstallProgressEvent)) error {
+				_, err := a.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "op-abc", cb)
+				return err
+			}),
+		Entry("backend.upgrade", workerctl.PathBackendUpgrade,
+			func(a *RemoteUnloaderAdapter, cb func(messaging.BackendInstallProgressEvent)) error {
+				_, err := a.UpgradeBackend("n1", "vllm", "[]", "", "", "", 0, "op-abc", cb)
+				return err
+			}),
+		Entry("the legacy force-install fallback", workerctl.PathBackendInstall,
+			func(a *RemoteUnloaderAdapter, cb func(messaging.BackendInstallProgressEvent)) error {
+				_, err := a.installWithForceFallback("n1", "vllm", "[]", "", "", "", 0, "op-abc", cb)
+				return err
+			}),
+	)
+
+	It("keeps going past a progress line it cannot read, since progress is transient", func() {
+		// The rule the control client used to carry. It moved to the bridge
+		// with the decode, and it has to be pinned where it now lives: a line
+		// this frontend cannot read costs a tick and never the operation.
+		workers := newScriptedControlWorkers()
+		workers.scriptReply(controlKey("n1", workerctl.PathBackendInstall), messaging.BackendInstallReply{Success: true})
+		workers.scriptRawProgress(controlKey("n1", workerctl.PathBackendInstall), []workerctl.Envelope{
+			{Progress: json.RawMessage(`{"percentage":"not a number"}`)},
+			{Progress: json.RawMessage(`{"percentage":70}`)},
+		})
+
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), time.Second, time.Second)
+		var seen []float64
+		reply, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "op-abc",
+			func(ev messaging.BackendInstallProgressEvent) { seen = append(seen, ev.Percentage) })
+		Expect(err).ToNot(HaveOccurred())
+		Expect(seen).To(Equal([]float64{70}))
+		Expect(reply.Success).To(BeTrue())
+	})
 })
