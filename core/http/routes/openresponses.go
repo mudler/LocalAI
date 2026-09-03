@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/xlog"
 )
 
@@ -23,8 +24,16 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 		// a cancel that the load balancer sends to a replica other than the
 		// creator 404s, and the cancel never reaches the CancelFunc (#10993).
 		// Standalone deployments skip this entirely and stay process-local.
+		//
+		// The durable store is what a replica re-hydrates from after its
+		// subscription missed a delta; without it the same response_id answers
+		// 404 here and 200 on the peer that created it, forever.
+		var responseStore *distributed.ResponseMetadataStore
+		if d.DistStores != nil {
+			responseStore = d.DistStores.Responses
+		}
 		if err := openresponses.GetGlobalStore().EnableDistributed(
-			application.ApplicationConfig().Context, d.Nats, application.InstanceID()); err != nil {
+			application.ApplicationConfig().Context, d.Nats, application.InstanceID(), responseStore); err != nil {
 			xlog.Error("Failed to enable cross-replica Open Responses store", "error", err)
 		}
 	}
