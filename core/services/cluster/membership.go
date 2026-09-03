@@ -382,9 +382,10 @@ func (r *Registry) Deregister(ctx context.Context, id string) error {
 // The connection rows are cleared and not deleted, which is why the second
 // return is named for what it counts: rows this sweep CLEARED, never rows it
 // removed. Reading it as a delete count would make a worker that is re-dialling
-// right now look like one this deployment has forgotten. A worker whose owning replica died has not gone
-// anywhere: it is re-dialling the load balancer, and deleting its row would
-// erase the departure that says how long ago that started.
+// right now look like one this deployment has forgotten. A worker whose owning
+// replica died has not gone anywhere: it is re-dialling the load balancer, and
+// deleting its row would erase the departure that says how long ago that
+// started.
 //
 // self is never reaped. This process may fail to heartbeat for longer than the
 // window (a long stall, a database blip) and still be serving: deleting its own
