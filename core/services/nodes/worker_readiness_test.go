@@ -10,11 +10,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// fakeConn stands in for *messaging.Client, which cannot be constructed without
-// a live NATS server. Only IsConnected() is consulted by the readiness probe.
-type fakeConn struct{ connected bool }
+// fakeTunnel stands in for *worker.Tunnel, which this package cannot import
+// (worker imports nodes). Only Connected() is consulted by the readiness probe.
+type fakeTunnel struct{ connected bool }
 
-func (f *fakeConn) IsConnected() bool { return f.connected }
+func (f fakeTunnel) Connected() bool { return f.connected }
 
 var _ = Describe("WorkerReadiness", func() {
 	Describe("the gate itself", func() {
@@ -39,16 +39,24 @@ var _ = Describe("WorkerReadiness", func() {
 		})
 	})
 
-	Describe("NATSReadiness", func() {
-		It("reports ready while the NATS connection is up", func() {
-			Expect(NATSReadiness(&fakeConn{connected: true})()).To(Succeed())
+	Describe("TunnelReadiness", func() {
+		It("reports ready once the tunnel holds a session", func() {
+			Expect(TunnelReadiness(fakeTunnel{connected: true})()).To(Succeed())
 		})
 
-		It("reports not-ready once the NATS connection drops", func() {
+		It("reports not ready while the tunnel holds no session", func() {
 			// This is the failure mode issue #10987 is about: the process is
-			// up and the port is bound, but the worker can receive no work.
-			err := NATSReadiness(&fakeConn{connected: false})()
-			Expect(err).To(MatchError(ContainSubstring("NATS")))
+			// up and the port is bound, but nothing can reach this worker,
+			// because every request the frontend makes of it arrives over the
+			// tunnel.
+			Expect(TunnelReadiness(fakeTunnel{connected: false})()).To(MatchError(ErrTunnelDisconnected))
+		})
+
+		It("reports not ready for a nil tunnel rather than panicking", func() {
+			// Run installs the probe after StartTunnel, so a nil here means a
+			// wiring mistake. Reporting it beats taking the HTTP handler
+			// goroutine down with it.
+			Expect(TunnelReadiness(nil)()).To(MatchError(ErrTunnelDisconnected))
 		})
 	})
 
@@ -86,15 +94,15 @@ var _ = Describe("WorkerReadiness", func() {
 		})
 
 		It("serves /readyz 503 once the probe reports not-ready", func() {
-			ready.Set(func() error { return errors.New("NATS disconnected") })
+			ready.Set(func() error { return errors.New("tunnel disconnected") })
 			Expect(get("/readyz")).To(Equal(http.StatusServiceUnavailable))
 		})
 
 		It("keeps /healthz at 200 even when readiness fails", func() {
 			// Liveness is deliberately independent of readiness: a worker whose
-			// NATS link is briefly down must not be killed and restarted, or a
-			// NATS outage turns into a restart storm across every worker.
-			ready.Set(func() error { return errors.New("NATS disconnected") })
+			// tunnel is briefly down must not be killed and restarted, or one
+			// frontend restart turns into a restart storm across every worker.
+			ready.Set(func() error { return errors.New("tunnel disconnected") })
 			Expect(get("/healthz")).To(Equal(http.StatusOK))
 		})
 	})
