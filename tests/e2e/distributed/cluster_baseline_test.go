@@ -44,6 +44,11 @@ type node struct {
 	// have dialled instead of the tunnel.
 	Address     string `json:"address"`
 	HTTPAddress string `json:"http_address"`
+	// LastHeartbeat is what separates "the worker is gone" from "the worker is
+	// here and this deployment cannot reach it". A spec asserting the second
+	// has to show the first is false, and the heartbeat is the only evidence
+	// of that in this payload.
+	LastHeartbeat time.Time `json:"last_heartbeat"`
 	// keys is what the payload actually carried, which a decoded struct cannot
 	// tell you. Both fields above are the zero value when a worker advertises
 	// nothing AND when the key was renamed or dropped, and the whole point of
@@ -51,6 +56,17 @@ type node struct {
 	// would leave "it advertises nothing" passing for a payload that no longer
 	// says anything either way.
 	keys map[string]json.RawMessage `json:"-"`
+}
+
+// String is what a failing assertion prints for a node.
+//
+// Without it %+v renders keys, whose values are json.RawMessage, as slices of
+// byte VALUES: one node becomes several hundred numbers and a roster of two
+// buries the assertion that failed. The key set is still what advertisementOf
+// reads; it is just not something a human ever needs to see.
+func (n node) String() string {
+	return fmt.Sprintf("{name:%s status:%s id:%s lastHeartbeat:%s advertised:%q/%q}",
+		n.Name, n.Status, n.ID, n.LastHeartbeat.Format(time.RFC3339), n.Address, n.HTTPAddress)
 }
 
 // UnmarshalJSON decodes the fields above and keeps the raw key set beside them.
@@ -270,6 +286,29 @@ func (p *rosterProbe) advertisementOf(name string) (string, bool) {
 		return strings.TrimSpace(strings.Join([]string{n.Address, n.HTTPAddress}, " ")), hasAddress && hasHTTP
 	}
 	return "", false
+}
+
+// heartbeatOf is the last heartbeat the roster reported for a node, refreshed
+// on every call.
+//
+// A zero time is returned for a node the roster does not carry, which no
+// freshness assertion can accept: the spec that reads this is proving the
+// worker is still alive, and a missing node must not read as a recent
+// heartbeat.
+func (p *rosterProbe) heartbeatOf(name string) time.Time {
+	var roster []node
+	if err := p.cluster.GetJSON(p.client, p.frontend, "/api/nodes", &roster); err != nil {
+		p.lastErr = err
+		return time.Time{}
+	}
+	p.lastErr = nil
+	p.lastSeen = roster
+	for _, n := range roster {
+		if n.Name == name {
+			return n.LastHeartbeat
+		}
+	}
+	return time.Time{}
 }
 
 // describe is handed to Should as the failure message. Gomega calls a
