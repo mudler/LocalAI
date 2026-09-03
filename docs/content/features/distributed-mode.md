@@ -121,6 +121,31 @@ The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_R
 **The peer link has no per-replica credential yet.** It checks the shared registration token and takes the replica id in `?id=` on trust. Anything already holding that token - every worker holds it - can therefore open a peer link, relay through it to every worker tunnel a replica owns, by declaring another replica's id displace that replica's inbound link, and hold sessions open against the per-session receive window, which the peer-link code sizes at roughly 31 GiB of unread data per session and which on this route is also a memory budget an attacker can point at one replica. Treat `LOCALAI_REGISTRATION_TOKEN` as a cluster-wide secret with the blast radius of the whole fleet: give it its own value per deployment, do not reuse it elsewhere, and keep `/api/cluster/peer` on a network only your replicas and workers can reach. Per-replica credentials for this route are planned.
 {{% /notice %}}
 
+### Open Responses across replicas
+
+A response created by `POST /v1/responses` is held by the replica that served the request. A round-robin load balancer sends the follow-up poll, the `previous_response_id` chain and the cancel to any replica, so that metadata is replicated to every frontend and is also written to a `response_metadata` table in PostgreSQL.
+
+The table is what a replica re-hydrates from. Replication is a broadcast, and a broadcast reaches only the replicas that are subscribed at that moment: a replica whose subscription was down while a response was created never receives that notification. Without the table it would answer `404` for that response forever while its peers answered `200`. With it, the replica re-reads the table when its subscription comes back and converges.
+
+What crosses replicas and what does not:
+
+| State | Replicated | Why |
+|-------|-----------|-----|
+| Request body, response resource, output items, status, owner, expiry | Yes, in memory and in `response_metadata` | A poll, a `previous_response_id` chain or an item lookup on any replica has to resolve |
+| Cancellation | The request is, the `CancelFunc` is not | The cancel is forwarded to the owning replica, which holds the function that stops generation |
+| Stream resume buffer (`starting_after`) | No | It is the full token log; replicating it would put every generated token on the bus. A resume request that lands on the wrong replica is refused with an explicit error, never with a silently truncated event list |
+
+**Retention.** Rows carry the expiry of the response they describe, and each replica sweeps expired rows every five minutes. The expiry comes from the Open Responses store TTL, which is **`0` (no expiration) by default**:
+
+```yaml
+environment:
+  LOCALAI_OPEN_RESPONSES_STORE_TTL: "1h"
+```
+
+Leave it at `0` in distributed mode and nothing ever expires: `response_metadata` grows for the life of the deployment, and every replica that restarts re-hydrates every response the cluster has ever created. Set a TTL that matches how long clients are allowed to poll for a response.
+
+These rows carry the request body and the generated output, not just identifiers. They live in the same database as the rest of the cluster state, and the TTL above is the only thing that removes them.
+
 ### Worker tunnels
 
 A worker can open one long-lived, multiplexed tunnel to the frontend instead of listening on a port of its own. It dials `GET /api/cluster/connect?id=<node id>`, the connection is upgraded to a WebSocket, and every subsequent request the frontend makes to that worker travels as a stream inside it. Nothing dials *into* the worker, so a worker behind NAT, in another Kubernetes cluster or on a laptop needs no inbound port and no reachable address.
