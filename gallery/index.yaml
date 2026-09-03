@@ -1718,6 +1718,7 @@
   name: "qwen3.8-27b-q4"
   variants:
     - model: qwen3.8-27b-q4-mtp
+    - model: qwen3.8-27b-nvfp4-mtp
     - model: qwen3.8-27b-ridge
     - model: qwen3.8-27b-gsq-rco-iq2-xs
     - model: qwen3.8-27b-gsq-rco-iq2-s
@@ -1815,7 +1816,7 @@
     known_usecases:
       - chat
       - vision
-    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
+    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-BF16.gguf
     options:
       - use_jinja:true
       - spec_type:draft-mtp
@@ -1841,6 +1842,68 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
+- !!merge <<: *qwen3-8-27b
+  name: "qwen3.8-27b-nvfp4-mtp"
+  variants: []
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/esatapedico/Qwen3.8-27B-NVFP4-MTP-GGUF
+  description: |
+    Qwen3.8-27B in a compact NVFP4 GGUF format with its MTP draft head
+    embedded in the model file. This entry uses the medium tier, which keeps
+    the NVFP4 backbone while using higher-precision output and embedding
+    tensors. MTP speculative decoding proposes multiple tokens for the target
+    model to verify.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - coding
+    - agent
+    - tools
+    - vision
+    - multimodal
+    - long-context
+    - nvfp4
+    - mtp
+    - speculative
+  last_checked: "2026-08-19"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-NVFP4-MTP-MEDIUM.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-NVFP4-MTP-MEDIUM.gguf
+      uri: huggingface://esatapedico/Qwen3.8-27B-NVFP4-MTP-GGUF/Qwen3.8-27B-NVFP4-MTP-MEDIUM.gguf
+      sha256: f0b4c538c75037f026bde3b650f0ca639d382c128a4572769dce1183db86253a
+    - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-BF16.gguf
+      uri: huggingface://esatapedico/Qwen3.8-27B-NVFP4-MTP-GGUF/mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
 - !!merge <<: *qwen3-8-27b
   name: "qwen3.8-27b-q8"
   variants: []
