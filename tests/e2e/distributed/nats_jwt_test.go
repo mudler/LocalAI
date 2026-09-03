@@ -108,13 +108,10 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(nc.Close)
 
-		// Mirror core/cli/agent_worker.go exactly.
-		_, err = nc.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func([]byte, func([]byte)) {})
-		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s", messaging.SubjectMCPToolExecute)
-
-		_, err = nc.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func([]byte, func([]byte)) {})
-		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s", messaging.SubjectMCPDiscovery)
-
+		// Mirror core/cli/agent_worker.go exactly. MCP tool execution and
+		// discovery are absent because they are no longer bus subjects at all:
+		// the frontend selects an agent worker itself and reaches it with a
+		// control RPC over the tunnel that worker holds.
 		_, err = nc.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func([]byte) {})
 		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (MCP CI jobs)", messaging.SubjectMCPCIJobsNew)
 

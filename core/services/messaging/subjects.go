@@ -47,13 +47,6 @@ func SubjectJobResult(jobID string) string {
 	return subjectJobProgressPrefix + sanitizeSubjectToken(jobID) + ".result"
 }
 
-// MCP Tool Execution (Request-Reply via NATS — load-balanced across agent workers)
-const (
-	SubjectMCPToolExecute = "mcp.tools.execute"
-	SubjectMCPDiscovery   = "mcp.discovery"
-	QueueAgentWorkers     = "agent-workers"
-)
-
 // SubjectFineTuneProgress returns the NATS subject for fine-tune progress.
 func SubjectFineTuneProgress(jobID string) string {
 	return subjectFineTunePrefix + sanitizeSubjectToken(jobID) + ".progress"
