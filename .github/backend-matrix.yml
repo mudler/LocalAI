@@ -6313,6 +6313,68 @@ include:
     context: "./"
     ubuntu-version: '2404'
 
+  # CachyLLaMA targets the lower-spec/APU use case with CPU and Vulkan builds.
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-cachyllama'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "cachyllama"
+    dockerfile: "./backend/Dockerfile.cachyllama"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: ''
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-cpu-cachyllama'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-arm64'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "cachyllama"
+    dockerfile: "./backend/Dockerfile.cachyllama"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/amd64'
+    platform-tag: 'amd64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-cachyllama'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-amd64'
+    runs-on: 'ubuntu-latest'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "cachyllama"
+    dockerfile: "./backend/Dockerfile.cachyllama"
+    context: "./"
+    ubuntu-version: '2404'
+  - build-type: 'vulkan'
+    cuda-major-version: ""
+    cuda-minor-version: ""
+    platforms: 'linux/arm64'
+    platform-tag: 'arm64'
+    tag-latest: 'auto'
+    tag-suffix: '-gpu-vulkan-cachyllama'
+    builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-vulkan-arm64'
+    runs-on: 'ubuntu-24.04-arm'
+    base-image: "ubuntu:24.04"
+    skip-drivers: 'false'
+    backend: "cachyllama"
+    dockerfile: "./backend/Dockerfile.cachyllama"
+    context: "./"
+    ubuntu-version: '2404'
+
 # Darwin matrix (consumed by backend-jobs-darwin).
 includeDarwin:
   - backend: "diffusers"
@@ -6338,6 +6400,9 @@ includeDarwin:
     build-type: "mps"
   - backend: "llama-cpp"
     tag-suffix: "-metal-darwin-arm64-llama-cpp"
+    lang: "go"
+  - backend: "cachyllama"
+    tag-suffix: "-metal-darwin-arm64-cachyllama"
     lang: "go"
   - backend: "stablediffusion-ggml"
     tag-suffix: "-metal-darwin-arm64-stablediffusion-ggml"

@@ -74,6 +74,27 @@
     nvidia-cuda-12: "cuda12-turboquant"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant"
+- &cachyllama
+  name: "cachyllama"
+  alias: "cachyllama"
+  license: mit
+  description: |
+    llama.cpp fork for lower-spec and shared-memory systems, with persistent
+    SSD-backed prompt caching and Vulkan APU tuning.
+  urls:
+    - https://github.com/fewtarius/CachyLLama
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Vulkan
+    - Metal
+    - kv-cache
+  capabilities:
+    default: "cpu-cachyllama"
+    vulkan: "vulkan-cachyllama"
+    metal: "metal-cachyllama"
 - &bonsai
   name: "bonsai"
   alias: "bonsai"
@@ -2072,6 +2093,12 @@
     nvidia-cuda-12: "cuda12-turboquant-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-turboquant-development"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-turboquant-development"
+- !!merge <<: *cachyllama
+  name: "cachyllama-development"
+  capabilities:
+    default: "cpu-cachyllama-development"
+    vulkan: "vulkan-cachyllama-development"
+    metal: "metal-cachyllama-development"
 - !!merge <<: *bonsai
   name: "bonsai-development"
   capabilities:
@@ -2828,6 +2855,37 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-turboquant
+## cachyllama
+- !!merge <<: *cachyllama
+  name: "cpu-cachyllama"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-cachyllama"
+  mirrors:
+    - localai/localai-backends:latest-cpu-cachyllama
+- !!merge <<: *cachyllama
+  name: "cpu-cachyllama-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-cachyllama"
+  mirrors:
+    - localai/localai-backends:master-cpu-cachyllama
+- !!merge <<: *cachyllama
+  name: "vulkan-cachyllama"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-cachyllama"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-cachyllama
+- !!merge <<: *cachyllama
+  name: "vulkan-cachyllama-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-cachyllama"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-cachyllama
+- !!merge <<: *cachyllama
+  name: "metal-cachyllama"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-cachyllama"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-cachyllama
+- !!merge <<: *cachyllama
+  name: "metal-cachyllama-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-cachyllama"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-cachyllama
 ## bonsai
 - !!merge <<: *bonsai
   name: "cpu-bonsai"

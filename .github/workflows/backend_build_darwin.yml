@@ -230,6 +230,12 @@ jobs:
           make protogen-go
           make backends/llama-cpp-darwin
 
+      - name: Build CachyLLaMA backend (Darwin Metal)
+        if: inputs.backend == 'cachyllama'
+        run: |
+          make protogen-go
+          make backends/cachyllama-darwin
+
       - name: Build ds4 backend (Darwin Metal)
         if: inputs.backend == 'ds4'
         run: |
@@ -256,7 +262,7 @@ jobs:
           make backends/audio-cpp-darwin
 
       - name: Build ${{ inputs.backend }}-darwin
-        if: inputs.backend != 'llama-cpp' && inputs.backend != 'ds4' && inputs.backend != 'privacy-filter' && inputs.backend != 'audio-cpp'
+        if: inputs.backend != 'llama-cpp' && inputs.backend != 'cachyllama' && inputs.backend != 'ds4' && inputs.backend != 'privacy-filter' && inputs.backend != 'audio-cpp'
         run: |
           make protogen-go
           BACKEND=${{ inputs.backend }} BUILD_TYPE=${{ inputs.build-type }} USE_PIP=${{ inputs.use-pip }} make build-darwin-${{ inputs.lang }}-backend
