@@ -16,6 +16,10 @@ Before you begin, ensure you have a container engine installed:
 - [Install Docker](https://docs.docker.com/get-docker/) (Mac, Windows, Linux)
 - [Install Podman](https://podman.io/getting-started/installation) (Linux, macOS, Windows WSL2)
 
+Podman might not resolve short image names such as `localai/localai:latest`.
+The Podman and Compose examples use the `docker.io/` prefix to identify the
+container registry explicitly.
+
 ## Quick Start
 
 The fastest way to get started is with the CPU image:
@@ -23,7 +27,7 @@ The fastest way to get started is with the CPU image:
 ```bash
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 # Or with Podman:
-podman run -p 8080:8080 --name local-ai -ti localai/localai:latest
+podman run -p 8080:8080 --name local-ai -ti docker.io/localai/localai:latest
 ```
 
 This will:
@@ -43,7 +47,7 @@ Standard images don't include pre-configured models. Use these if you want to co
 ```bash
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 # Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 localai/localai:latest
+podman run -ti --name local-ai -p 8080:8080 docker.io/localai/localai:latest
 ```
 
 #### GPU Images
@@ -59,35 +63,35 @@ Choose the image that matches your hardware and installed drivers:
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-13
 # Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 --device nvidia.com/gpu=all localai/localai:latest-gpu-nvidia-cuda-13
+podman run -ti --name local-ai -p 8080:8080 --device nvidia.com/gpu=all docker.io/localai/localai:latest-gpu-nvidia-cuda-13
 ```
 
 **NVIDIA CUDA 12:**
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
 # Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 --device nvidia.com/gpu=all localai/localai:latest-gpu-nvidia-cuda-12
+podman run -ti --name local-ai -p 8080:8080 --device nvidia.com/gpu=all docker.io/localai/localai:latest-gpu-nvidia-cuda-12
 ```
 
 **AMD GPU (ROCm):**
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
 # Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 --device rocm.com/gpu=all localai/localai:latest-gpu-hipblas
+podman run -ti --name local-ai -p 8080:8080 --device rocm.com/gpu=all docker.io/localai/localai:latest-gpu-hipblas
 ```
 
 **Intel GPU:**
 ```bash
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel
 # Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 --device gpu.intel.com/all localai/localai:latest-gpu-intel
+podman run -ti --name local-ai -p 8080:8080 --device gpu.intel.com/all docker.io/localai/localai:latest-gpu-intel
 ```
 
 **Vulkan:**
 ```bash
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
 # Or with Podman:
-podman run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
+podman run -ti --name local-ai -p 8080:8080 docker.io/localai/localai:latest-gpu-vulkan
 ```
 
 **NVIDIA Jetson (L4T ARM64):**
@@ -114,8 +118,8 @@ The CDI approach is recommended for newer versions of the NVIDIA Container Toolk
 version: "3.9"
 services:
   api:
-    image: localai/localai:latest-gpu-nvidia-cuda-12
-    # For CUDA 13, use: localai/localai:latest-gpu-nvidia-cuda-13
+    image: docker.io/localai/localai:latest-gpu-nvidia-cuda-12
+    # For CUDA 13, use: docker.io/localai/localai:latest-gpu-nvidia-cuda-13
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
       # start_period, not timeout, is the knob for a slow first boot: startup
@@ -159,8 +163,8 @@ If you are using an older version of the NVIDIA Container Toolkit (before 1.14),
 version: "3.9"
 services:
   api:
-    image: localai/localai:latest-gpu-nvidia-cuda-12
-    # For CUDA 13, use: localai/localai:latest-gpu-nvidia-cuda-13
+    image: docker.io/localai/localai:latest-gpu-nvidia-cuda-12
+    # For CUDA 13, use: docker.io/localai/localai:latest-gpu-nvidia-cuda-13
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
       # start_period, not timeout, is the knob for a slow first boot: startup
@@ -230,7 +234,7 @@ podman run -ti --name local-ai -p 8080:8080 \
   -v $PWD/backends:/backends \
   -v $PWD/configuration:/configuration \
   -v $PWD/data:/data \
-  localai/localai:latest
+  docker.io/localai/localai:latest
 ```
 
 Or use named volumes:
@@ -256,7 +260,7 @@ podman run -ti --name local-ai -p 8080:8080 \
   -v localai-backends:/backends \
   -v localai-configuration:/configuration \
   -v localai-data:/data \
-  localai/localai:latest
+  docker.io/localai/localai:latest
 ```
 
 ## Next Steps
@@ -327,9 +331,9 @@ The quick-start examples above use the Docker Hub image names. Every image is pu
 
 | Description | Quay | Docker Hub |
 | --- | --- | --- |
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master` | `localai/localai:master` |
-| Latest tag | `quay.io/go-skynet/local-ai:latest` | `localai/localai:latest` |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}` | `localai/localai:{{< version >}}` |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master` | `docker.io/localai/localai:master` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest` | `docker.io/localai/localai:latest` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}` | `docker.io/localai/localai:{{< version >}}` |
 
 {{% /tab %}}
 
@@ -337,9 +341,9 @@ The quick-start examples above use the Docker Hub image names. Every image is pu
 
 | Description | Quay | Docker Hub |
 | --- | --- | --- |
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-12` | `localai/localai:master-gpu-nvidia-cuda-12` |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12` | `localai/localai:latest-gpu-nvidia-cuda-12` |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-12` | `localai/localai:{{< version >}}-gpu-nvidia-cuda-12` |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-12` | `docker.io/localai/localai:master-gpu-nvidia-cuda-12` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12` | `docker.io/localai/localai:latest-gpu-nvidia-cuda-12` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-12` | `docker.io/localai/localai:{{< version >}}-gpu-nvidia-cuda-12` |
 
 {{% /tab %}}
 
@@ -347,9 +351,9 @@ The quick-start examples above use the Docker Hub image names. Every image is pu
 
 | Description | Quay | Docker Hub |
 | --- | --- | --- |
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-13` | `localai/localai:master-gpu-nvidia-cuda-13` |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-13` | `localai/localai:latest-gpu-nvidia-cuda-13` |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-13` | `localai/localai:{{< version >}}-gpu-nvidia-cuda-13` |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-13` | `docker.io/localai/localai:master-gpu-nvidia-cuda-13` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-13` | `docker.io/localai/localai:latest-gpu-nvidia-cuda-13` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-13` | `docker.io/localai/localai:{{< version >}}-gpu-nvidia-cuda-13` |
 
 {{% /tab %}}
 
@@ -357,9 +361,9 @@ The quick-start examples above use the Docker Hub image names. Every image is pu
 
 | Description | Quay | Docker Hub |
 | --- | --- | --- |
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-intel` | `localai/localai:master-gpu-intel` |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel` | `localai/localai:latest-gpu-intel` |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel` | `localai/localai:{{< version >}}-gpu-intel` |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-intel` | `docker.io/localai/localai:master-gpu-intel` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel` | `docker.io/localai/localai:latest-gpu-intel` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel` | `docker.io/localai/localai:{{< version >}}-gpu-intel` |
 
 {{% /tab %}}
 
@@ -367,9 +371,9 @@ The quick-start examples above use the Docker Hub image names. Every image is pu
 
 | Description | Quay | Docker Hub |
 | --- | --- | --- |
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-hipblas` | `localai/localai:master-gpu-hipblas` |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-hipblas` | `localai/localai:latest-gpu-hipblas` |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-hipblas` | `localai/localai:{{< version >}}-gpu-hipblas` |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-hipblas` | `docker.io/localai/localai:master-gpu-hipblas` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-hipblas` | `docker.io/localai/localai:latest-gpu-hipblas` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-hipblas` | `docker.io/localai/localai:{{< version >}}-gpu-hipblas` |
 
 {{% /tab %}}
 
@@ -377,9 +381,9 @@ The quick-start examples above use the Docker Hub image names. Every image is pu
 
 | Description | Quay | Docker Hub |
 | --- | --- | --- |
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-vulkan` | `localai/localai:master-gpu-vulkan` |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-vulkan` | `localai/localai:latest-gpu-vulkan` |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-vulkan` | `localai/localai:{{< version >}}-gpu-vulkan` |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-vulkan` | `docker.io/localai/localai:master-gpu-vulkan` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-vulkan` | `docker.io/localai/localai:latest-gpu-vulkan` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-vulkan` | `docker.io/localai/localai:{{< version >}}-gpu-vulkan` |
 
 {{% /tab %}}
 
@@ -389,9 +393,9 @@ These images are compatible with Nvidia ARM64 devices with CUDA 12, such as the 
 
 | Description | Quay | Docker Hub |
 | --- | --- | --- |
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64` | `localai/localai:master-nvidia-l4t-arm64` |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64` | `localai/localai:latest-nvidia-l4t-arm64` |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64` | `localai/localai:{{< version >}}-nvidia-l4t-arm64` |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64` | `docker.io/localai/localai:master-nvidia-l4t-arm64` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64` | `docker.io/localai/localai:latest-nvidia-l4t-arm64` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64` | `docker.io/localai/localai:{{< version >}}-nvidia-l4t-arm64` |
 
 {{% /tab %}}
 
@@ -401,9 +405,9 @@ These images are compatible with Nvidia ARM64 devices with CUDA 13, such as the 
 
 | Description | Quay | Docker Hub |
 | --- | --- | --- |
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-cuda-13` | `localai/localai:master-nvidia-l4t-arm64-cuda-13` |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-cuda-13` | `localai/localai:latest-nvidia-l4t-arm64-cuda-13` |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64-cuda-13` | `localai/localai:{{< version >}}-nvidia-l4t-arm64-cuda-13` |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-cuda-13` | `docker.io/localai/localai:master-nvidia-l4t-arm64-cuda-13` |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-cuda-13` | `docker.io/localai/localai:latest-nvidia-l4t-arm64-cuda-13` |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64-cuda-13` | `docker.io/localai/localai:{{< version >}}-nvidia-l4t-arm64-cuda-13` |
 
 {{% /tab %}}
 
