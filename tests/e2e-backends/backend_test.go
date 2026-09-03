@@ -473,7 +473,7 @@ var _ = Describe("Backend container", Ordered, func() {
 			Expect(res.GetPromptTokens()).To(BeNumerically(">", 128),
 				"prompt is too short to span multiple prefill batches; this spec would not prove anything")
 		}
-		Expect(strings.ToUpper(res.GetMessage())).To(ContainSubstring(needle),
+		Expect(strings.ToUpper(string(res.GetMessage()))).To(ContainSubstring(needle),
 			"a long prompt lost information the model repeats correctly from a short one - "+
 				"batched prefill is corrupting state (check the backend's device architecture flags)")
 		GinkgoWriter.Printf("LongPrefill: prompt_tokens=%d tokens=%d msg=%q\n",

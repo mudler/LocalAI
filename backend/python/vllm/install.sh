@@ -119,14 +119,18 @@ if [ "$(uname -s)" = "Darwin" ]; then
     # can rewrite it. Darwin therefore follows vllm-metal and can lag the Linux
     # vllm pin (requirements-cublas13-after.txt, bumped independently against
     # vllm/vllm) until vllm-metal supports a newer vLLM.
-    VLLM_METAL_VERSION="v0.3.0.dev20260818075955"
+    VLLM_METAL_VERSION="v0.28.0"
 
     # The coupled vLLM source version is whatever this vllm-metal release builds
-    # against. Derive it from
-    # the PINNED tag rather than hardcoding a second value that could drift. The
-    # tag is immutable, so this stays reproducible across rebuilds.
-    VLLM_VERSION=$(curl -fsSL "https://raw.githubusercontent.com/vllm-project/vllm-metal/${VLLM_METAL_VERSION}/install.sh" \
-        | "$backend_dir/../../../scripts/lib/extract-vllm-metal-version.sh")
+    # against. Derive it from the PINNED tag rather than hardcoding a second value
+    # that could drift. The tag is immutable, so this stays reproducible across
+    # rebuilds. Since vllm-metal 0.28 the coupling is declared in
+    # .github/vllm-release-tag.commit; older releases pinned it inline in their
+    # own install.sh, so fall back to that. The extractor reads both forms.
+    _vllm_metal_raw="https://raw.githubusercontent.com/vllm-project/vllm-metal/${VLLM_METAL_VERSION}"
+    VLLM_VERSION=$( { curl -fsSL "${_vllm_metal_raw}/.github/vllm-release-tag.commit" \
+        || curl -fsSL "${_vllm_metal_raw}/install.sh"; } \
+        | "$backend_dir/../../../scripts/lib/extract-vllm-metal-version.sh" || true)
     if [ -z "${VLLM_VERSION}" ]; then
         echo "ERROR: could not derive the vLLM version from vllm-metal ${VLLM_METAL_VERSION}" >&2
         exit 1
@@ -153,10 +157,18 @@ if [ "$(uname -s)" = "Darwin" ]; then
     # 2) Install the prebuilt vllm-metal wheel for the PINNED release. It pulls
     #    mlx / mlx-metal as deps and registers the `metal` platform plugin that
     #    backend.py resolves to at engine-init time. Build the release-asset URL
-    #    deterministically (tag + the cp312/arm64 wheel name) rather than querying
-    #    api.github.com, whose unauthenticated rate limit (60/hr per IP) 403s on
-    #    shared CI runners. The wheel version is the tag without its leading 'v'.
-    _metal_wheel="vllm_metal-${VLLM_METAL_VERSION#v}-cp312-cp312-macosx_11_0_arm64.whl"
+    #    from the release's OWN asset listing rather than composing it from a
+    #    hardcoded platform tag: upstream raised its macOS deployment target
+    #    (macosx_11_0 -> macosx_15_0) and every composed URL started to 404.
+    #    expanded_assets is the plain release page, not api.github.com, whose
+    #    unauthenticated rate limit (60/hr per IP) 403s on shared CI runners.
+    #    The wheel version is the tag without its leading 'v'.
+    _metal_wheel=$(curl -fsSL "https://github.com/vllm-project/vllm-metal/releases/expanded_assets/${VLLM_METAL_VERSION}" \
+        | grep -oE "vllm_metal-${VLLM_METAL_VERSION#v}-cp312-cp312-[A-Za-z0-9_]+\.whl" | head -1 || true)
+    if [ -z "${_metal_wheel}" ]; then
+        echo "ERROR: no cp312 wheel asset on vllm-metal release ${VLLM_METAL_VERSION}" >&2
+        exit 1
+    fi
     _metal_wheel_url="https://github.com/vllm-project/vllm-metal/releases/download/${VLLM_METAL_VERSION}/${_metal_wheel}"
     echo "Installing vllm-metal wheel: ${_metal_wheel_url}"
     uv pip install "${_metal_wheel_url}"
