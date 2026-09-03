@@ -104,7 +104,7 @@ listing the keys that exist, rather than being silently ignored.
 |---|---|---|
 | `family:<name>` | read from the GGUF | The audio.cpp family. Optional for a standalone audio.cpp GGUF, which embeds `audiocpp.model_spec.family`. Required for a safetensors file or a package directory. Setting it explicitly also overrides the embedded value. |
 | `task:<name>` | routed from the RPC | Pins the task. One of `gen`, `tts`, `clon`, `vc`, `svc`, `s2s`, `asr`, `align`, `vad`, `diar`, `sep`, `vdes`, `spk`. A pinned task is honoured exactly: if the family cannot serve it, the request is refused rather than rerouted. |
-| `backend:<name>` | `cpu` | ggml compute backend: `cpu`, `cuda`, `vulkan`, `metal`, `best`. Must match the backend image you installed (a `cuda` value needs the CUDA image). |
+| `backend:<name>` | `cpu` | ggml compute backend: `cpu`, `cuda`, `hip` (`rocm` is an alias), `vulkan`, `metal`, `best`. Must match the backend image you installed (a `hip` value needs the ROCm image). |
 | `device:<n>` | `0` | GPU index for the selected compute backend. Non-negative integer. |
 | `threads:<n>` | runtime default | CPU threads. `0` leaves the choice to the runtime. |
 | `busy_timeout_ms:<n>` | `0` (unbounded) | Bounds the wait for the model's single inference lane. A request that arrives while a run has already been in flight longer than this fails immediately with `UNAVAILABLE` instead of queueing, and a request that waits this long without the lane freeing up fails the same way. `0` waits indefinitely. |
@@ -240,8 +240,11 @@ voice conversion from the same weights.
 | CPU | linux/amd64, linux/arm64 |
 | CUDA 12 | linux/amd64 |
 | CUDA 13 | linux/amd64 |
+| ROCm 7.2 | linux/amd64 |
 | Metal | darwin/arm64 |
 
-There is no ROCm image, because upstream has no HIP build configuration, and no Vulkan
-image: it would ship a Vulkan loader with no ICD inside the container. `BUILD_TYPE=vulkan`
-still works when building the backend yourself.
+The ROCm image includes kernels for these GPU targets:
+`gfx908`, `gfx90a`, `gfx942`, `gfx950`, `gfx1030`, `gfx1100`, `gfx1101`, `gfx1102`,
+`gfx1151`, `gfx1200` and `gfx1201`. Set the model option to `backend:hip` or
+`backend:rocm`. There is no Vulkan image because the container would have no Vulkan ICD.
+`BUILD_TYPE=vulkan` still works when you build the backend yourself.

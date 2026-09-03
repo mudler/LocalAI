@@ -75,6 +75,11 @@ static void test_scalar_options() {
     check(parse_model_options({"live_idle_timeout_ms:0"}).options.live_idle_timeout_ms == 0,
           "an explicit 0 turns the live idle limit off rather than reverting to "
           "the default");
+
+    check(parse_model_options({"backend:hip"}).error.empty(),
+          "HIP backend option is accepted");
+    check(parse_model_options({"backend:rocm"}).error.empty(),
+          "ROCm backend alias is accepted");
 }
 
 // Values containing colons must survive: split on the FIRST colon only.
@@ -124,6 +129,8 @@ static void test_errors() {
           "negative device is rejected");
     check(!parse_model_options({"threads:x"}).error.empty(),
           "non-numeric threads is rejected");
+    check(!parse_model_options({"backend:unknown"}).error.empty(),
+          "unknown compute backend is rejected before model loading");
 
     // Values too large for int must be rejected, not silently wrapped into a
     // negative device index that then reaches the ggml backend selector.
