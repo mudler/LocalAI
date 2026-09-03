@@ -304,7 +304,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		}
 		idx := prefixcache.NewIndex(prefixCfg)
 		prefixSync := prefixcache.NewSync(idx, natsClient)
-		pressure = prefixcache.NewPressure(prefixCfg.PressureWindow)
+		pressure = prefixcache.NewSyncedPressure(prefixCfg.PressureWindow, natsClient)
 		prefixProvider = prefixSync
 
 		// Invalidate the prefix-cache index whenever a replica row is removed.
@@ -339,6 +339,11 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			prefixSync.ApplyInvalidate(ev)
 		}); err != nil {
 			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheInvalidate, err)
+		}
+		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCachePressure, func(ev messaging.PrefixCachePressureEvent) {
+			pressure.ApplyPressure(ev, time.Now())
+		}); err != nil {
+			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCachePressure, err)
 		}
 
 		// Background eviction: sweep idle entries on the app context. Stopped

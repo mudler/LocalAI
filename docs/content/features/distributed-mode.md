@@ -1236,7 +1236,9 @@ Notes:
 
 ## Roadmap: Routing and Caching Enhancements
 
-The scheduling algorithm above is load-based (least in-flight, then least-recently-used). Work is underway to make routing **prefix-cache-aware**: bias each request toward the replica that already holds the relevant KV/prefix cache (multi-turn conversations and shared system prompts), so backends reuse cache instead of recomputing it. The first step is a router-side radix tree of prompt-prefix hashes mapped to nodes, with longest-prefix match, a load guard that preserves round-robin behavior under imbalance, and NATS sync across frontends. It is purely a routing-layer hint (no backend changes) and never routes worse than today's round-robin.
+The scheduling algorithm supports **prefix-cache-aware** routing: bias each request toward the replica that already holds the relevant KV/prefix cache (multi-turn conversations and shared system prompts), so backends reuse cache instead of recomputing it. A router-side radix tree maps prompt-prefix hashes to nodes, with longest-prefix match, a load guard that preserves round-robin behavior under imbalance, and NATS sync across frontends. It is purely a routing-layer hint (no backend changes) and never routes worse than round-robin.
+
+When the load guard must route away from a warm replica, the frontend emits a forced-disturb event. These events and the reset sent after a successful pressure-triggered scale-up are broadcast over NATS, so the rolling autoscale threshold is cluster-wide rather than per frontend. The Prometheus counter `localai_prefix_cache_forced_disturb_total{model="..."}` records events at their originating frontend; sum it across frontend replicas to inspect cluster pressure without counting the NATS copies.
 
 Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, Ray Serve, llm-d, AIBrix, and NVIDIA Dynamo, are tracked under the routing roadmap epic ([#10063](https://github.com/mudler/LocalAI/issues/10063)):
 

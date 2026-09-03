@@ -502,6 +502,7 @@ const subjectSyncStatePrefix = "state."
 const (
 	SubjectPrefixCacheObserve    = "prefixcache.observe"
 	SubjectPrefixCacheInvalidate = "prefixcache.invalidate"
+	SubjectPrefixCachePressure   = "prefixcache.pressure"
 )
 
 // PrefixCacheObserveEvent announces that the replica (NodeID, Replica) served a
@@ -524,4 +525,13 @@ type PrefixCacheInvalidateEvent struct {
 	Model   string `json:"model"`
 	NodeID  string `json:"node_id"`
 	Replica int    `json:"replica"`
+}
+
+// PrefixCachePressureEvent announces one forced-disturb observed by a frontend.
+// ID lets the publisher ignore its own NATS echo and all frontends ignore
+// redelivery without inflating the autoscale signal.
+type PrefixCachePressureEvent struct {
+	ID    string `json:"id"`
+	Model string `json:"model"`
+	Reset bool   `json:"reset,omitempty"`
 }
