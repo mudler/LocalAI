@@ -236,7 +236,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 	newTestSmartRouter := func(reg *nodes.NodeRegistry, extraOpts ...nodes.SmartRouterOptions) *nodes.SmartRouter {
 		workers := NewControlWorkers()
 		workers.ServeBackendLifecycle(reg)
-		unloader := nodes.NewRemoteUnloaderAdapter(reg, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+		unloader := nodes.NewRemoteUnloaderAdapter(reg, workers.Client(), 3*time.Minute, 15*time.Minute)
 
 		opts := nodes.SmartRouterOptions{
 			Unloader:      unloader,
@@ -397,7 +397,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		})
 
 		// Create RemoteUnloaderAdapter and unload model
-		unloader := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+		unloader := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 		Expect(unloader.UnloadRemoteModel("old-model")).To(Succeed())
 
 		// The worker got the stop over its tunnel, not over the bus.

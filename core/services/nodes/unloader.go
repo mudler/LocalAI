@@ -45,29 +45,25 @@ type NodeCommandSender interface {
 // This mirrors the local ModelLoader's startProcess()/deleteProcess() but for
 // remote nodes.
 //
-// One verb is still carried by the bus, and only for one KIND of node:
-// backend.stop to an AGENT node. An agent worker now holds a tunnel and mounts
-// that route on it, but this side has not been moved onto it yet, and until it
-// is, the agent worker's subscription to nodes.<id>.backend.stop is what
-// actually drops its cached MCP sessions. Removing that publish would strand
-// them; see stopBackend.
+// Every verb it sends, for every kind of worker, is a control RPC. It holds no
+// publisher at all, which is why re-routing any of them back onto the bus is a
+// change to this struct and to every caller of the constructor rather than to
+// one branch.
 type RemoteUnloaderAdapter struct {
 	registry       ModelLocator
-	nats           messaging.MessagingClient
 	control        *ControlClient
 	installTimeout time.Duration
 	upgradeTimeout time.Duration
 }
 
-// NewRemoteUnloaderAdapter creates a new adapter. control carries every verb
-// except backend.stop to an agent node, which stays on nats. installTimeout and
-// upgradeTimeout bound the backend.install and backend.upgrade RPCs
-// respectively; use DistributedConfig.BackendInstallTimeoutOrDefault() /
+// NewRemoteUnloaderAdapter creates a new adapter. control carries every verb.
+// installTimeout and upgradeTimeout bound the backend.install and
+// backend.upgrade RPCs respectively; use
+// DistributedConfig.BackendInstallTimeoutOrDefault() /
 // BackendUpgradeTimeoutOrDefault() at construction.
-func NewRemoteUnloaderAdapter(registry ModelLocator, nats messaging.MessagingClient, control *ControlClient, installTimeout, upgradeTimeout time.Duration) *RemoteUnloaderAdapter {
+func NewRemoteUnloaderAdapter(registry ModelLocator, control *ControlClient, installTimeout, upgradeTimeout time.Duration) *RemoteUnloaderAdapter {
 	return &RemoteUnloaderAdapter{
 		registry:       registry,
-		nats:           nats,
 		control:        control,
 		installTimeout: installTimeout,
 		upgradeTimeout: upgradeTimeout,
@@ -127,8 +123,8 @@ func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID str
 }
 
 // UnloadRemoteModel finds the node(s) hosting the given model and tells each
-// to stop its backend process. The carrier is decided per node by its type,
-// which is why stopBackend takes one: see stopBackend.
+// to stop its backend process, over that node's own tunnel whatever kind of
+// worker it is.
 // The worker process handles a bounded Free() followed by process termination;
 // forced shutdown skips Free().
 // This is called by ModelLoader.deleteProcess() when process == nil (remote model).
@@ -174,7 +170,7 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, mo
 	var unloadErr error
 	for _, node := range nodes {
 		xlog.Info("Sending backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID, "force", force)
-		if err := a.stopBackend(ctx, node.ID, node.NodeType, modelName, force); err != nil {
+		if err := a.stopBackend(ctx, node.ID, modelName, force); err != nil {
 			xlog.Warn("Failed to send backend.stop", "node", node.Name, "error", err)
 			unloadErr = errors.Join(unloadErr, fmt.Errorf("stopping model on node %s: %w", node.ID, err))
 			continue
@@ -357,50 +353,19 @@ func (a *RemoteUnloaderAdapter) ListRunningModels(nodeID string) (*messaging.Mod
 func (a *RemoteUnloaderAdapter) StopBackend(nodeID, backend string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), backendStopTimeout)
 	defer cancel()
-	return a.stopBackend(ctx, nodeID, a.nodeTypeOf(ctx, nodeID), backend, false)
+	return a.stopBackend(ctx, nodeID, backend, false)
 }
 
-// nodeTypeOf answers which KIND of worker a node id names, so stopBackend can
-// pick the carrier that node actually listens on.
+// stopBackend sends one backend.stop over the node's own tunnel.
 //
-// A lookup that fails answers NodeTypeBackend, matching the column's own
-// default and the "empty means backend" reading every other node-type branch in
-// this package takes. The failure directions are not symmetric: sending a
-// backend node's stop over the bus is silently lost, because nothing subscribes
-// to it any more, while sending an agent node's stop over the tunnel returns an
-// error the caller sees.
-func (a *RemoteUnloaderAdapter) nodeTypeOf(ctx context.Context, nodeID string) string {
-	if a.registry == nil {
-		return NodeTypeBackend
-	}
-	node, err := a.registry.Get(ctx, nodeID)
-	if err != nil || node == nil {
-		xlog.Debug("Could not resolve node type for a backend stop; assuming a backend worker",
-			"nodeID", nodeID, "error", err)
-		return NodeTypeBackend
-	}
-	return node.NodeType
-}
-
-// stopBackend sends one backend.stop, over the carrier that kind of worker
-// listens on.
-//
-// An AGENT node keeps the bus, and that is now a statement about THIS side
-// rather than about the worker. The agent worker mounts backend.stop on the
-// same control path a backend worker serves it on, so the tunnel could carry
-// it; what has not moved is this publish. Splitting on node type is the one
-// verb of the ten that is split rather than moved, and it stays split until the
-// change that switches this call onto the control route retires the subject.
-func (a *RemoteUnloaderAdapter) stopBackend(ctx context.Context, nodeID, nodeType, backend string, force bool) error {
-	if nodeType == NodeTypeAgent {
-		subject := messaging.SubjectNodeBackendStop(nodeID)
-		if backend == "" && !force {
-			return a.nats.Publish(subject, nil)
-		}
-		return a.nats.Publish(subject, messaging.BackendStopRequest{Backend: backend, Force: force})
-	}
-	// An empty Backend is what the worker reads as "stop everything", the same
-	// meaning the bus carried as an empty payload; see decodeBackendStopRequest.
+// It does not ask what KIND of worker the node is, and there is nothing left
+// for the answer to change. A backend worker kills the process and recycles
+// the port; an agent worker runs no backend processes and closes the MCP
+// sessions it cached for that backend. Both serve the verb on the same control
+// path, so the frontend states the fact and the worker decides what it means.
+func (a *RemoteUnloaderAdapter) stopBackend(ctx context.Context, nodeID, backend string, force bool) error {
+	// An empty Backend is what the worker reads as "stop everything"; see
+	// decodeBackendStopRequest.
 	return a.control.Call(ctx, nodeID, workerctl.PathBackendStop,
 		messaging.BackendStopRequest{Backend: backend, Force: force}, nil)
 }

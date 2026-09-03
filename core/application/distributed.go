@@ -478,7 +478,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
 	remoteUnloader := nodes.NewRemoteUnloaderAdapter(
 		registry,
-		natsClient,
 		controlClient,
 		cfg.Distributed.BackendInstallTimeoutOrDefault(),
 		cfg.Distributed.BackendUpgradeTimeoutOrDefault(),

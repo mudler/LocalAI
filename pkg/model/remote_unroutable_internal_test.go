@@ -104,8 +104,8 @@ var _ = Describe("the eviction wrapper on a remote model whose transport failed"
 	// The FIFTH site of the same shape, found by sweeping the decorators rather
 	// than being named. initializers.go builds this wrapper for exactly the
 	// remote models the router produces, and its evict callback runs
-	// ShutdownModel, which sends backend.stop over NATS to every node holding
-	// the model and deletes every replica row. It fires during INFERENCE, not
+	// ShutdownModel, which sends a backend.stop control RPC over the tunnel of
+	// every node holding the model and deletes every replica row. It fires during INFERENCE, not
 	// on a health check, so a tunnel blip mid-request was enough.
 	failingDial := func(cause error) grpc.Backend {
 		return grpc.NewClientWithDialer("10.0.0.1:9001", false, nil, false, "",

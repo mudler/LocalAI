@@ -143,7 +143,7 @@ Both **backend** and **agent** nodes are issued one. Earlier releases minted a c
 
 An agent worker's tunnel carries only the `http` tag: it runs no backend processes, so it does not offer the `grpc` tag at all. Its control server binds `127.0.0.1` on a port chosen by the kernel and advertises it nowhere, so an agent worker still opens no inbound port.
 
-**An agent worker still requires `--nats-url`.** The tunnel is not yet a replacement: agent jobs, MCP CI jobs and `nodes.<id>.backend.stop` still travel on NATS. MCP tool execution and MCP discovery no longer do - they are control RPCs on the tunnel, chosen by the frontend rather than by a queue group (see [MCP in Distributed Mode](#mcp-in-distributed-mode)) - and an agent worker's minted JWT no longer grants `mcp.tools.execute` or `mcp.discovery`.
+**An agent worker still requires `--nats-url`.** The tunnel is not yet a replacement: agent jobs and MCP CI jobs still travel on NATS. Nothing the frontend addresses to a specific agent worker does any more. MCP tool execution and MCP discovery are control RPCs on the tunnel, chosen by the frontend rather than by a queue group (see [MCP in Distributed Mode](#mcp-in-distributed-mode)), and so is the backend stop that flushes an agent worker's cached MCP sessions. There is no `nodes.<id>.*` subject left, and an agent worker's minted JWT no longer grants `mcp.tools.execute`, `mcp.discovery` or `nodes.<id>.backend.stop`.
 
 The tunnel lands on exactly one frontend replica, and that replica records itself as the owner of the worker's connection in the `node_connections` table. When the socket dies the claim is dropped, but the row stays behind with no owner and a `disconnected_at` stamp, so a worker that is re-dialling the load balancer can be told from one that has never connected. The row is deleted once that departure is older than ten liveness windows (five minutes). If the replica stalls long enough for its peers to reap it, it re-claims the tunnels it still holds on a live session as soon as it re-registers, skipping any whose socket has already gone. That re-claim needs the replica to have an advertised address: without one it never had an instance row to begin with, and its tunnels are usable only by the replica holding them.
 
@@ -193,7 +193,14 @@ mounted only when the deployment configured an object store). The request bodies
 are unchanged and the reply fields keep their names and types, so nothing an
 operator inspects on the wire has a new shape. The one difference is that a
 worker now OMITS an empty reply field where the NATS handlers always emitted it,
-which a client reading a missing field as the zero value cannot tell apart. Agent workers still take `nodes.<id>.backend.stop` over NATS.
+which a client reading a missing field as the zero value cannot tell apart.
+
+`POST /v1/control/backend/stop` is served by BOTH kinds of worker, and the
+frontend sends it the same way to either. A serve-backend worker kills the
+backend process and recycles its port; an agent worker runs no backend
+processes and closes the MCP sessions it had cached for that backend. No
+`nodes.<id>.*` subject remains, so a worker never takes a control verb off the
+bus whatever its type.
 
 `files/listdir` is the verb the change is most visible on. Its reply used to be
 sized against what the bus would carry, which put a wide model directory close to

@@ -75,9 +75,10 @@ func (f *fakeModelLocator) RemoveAllNodeModelReplicas(_ context.Context, nodeID,
 // fakeMessagingClient implements messaging.MessagingClient, recording Publish
 // and Request calls so we can assert on subjects and payloads.
 //
-// Only ONE verb still reaches it: backend.stop to an agent node. Every other
-// control verb travels over the tunnel, so a publish recorded here for a
-// backend node is a bug, and several specs below assert exactly that.
+// NO control verb reaches it any more, and the RemoteUnloaderAdapter cannot be
+// handed one: it holds no publisher. It survives here for the staging-progress
+// broadcasts in staging_progress_broadcast_test.go, which are cross-replica
+// events rather than anything addressed to a worker.
 type fakeMessagingClient struct {
 	mu           sync.Mutex
 	published    []publishCall
@@ -139,36 +140,43 @@ func (f *fakeMessagingClient) Request(subject string, data []byte, timeout time.
 func (f *fakeMessagingClient) IsConnected() bool { return true }
 func (f *fakeMessagingClient) Close()            {}
 
-// publishedSubjects reports what actually reached the bus.
-func (f *fakeMessagingClient) publishedSubjects() []string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	out := make([]string, 0, len(f.published))
-	for _, c := range f.published {
-		out = append(out, c.Subject)
-	}
-	return out
-}
-
 type fakeSubscription struct{}
 
 func (f *fakeSubscription) Unsubscribe() error { return nil }
+
+// stopPayloadOf decodes the backend.stop body a worker actually received on
+// one (node, verb) key. Reading the payload back off the transport is what
+// separates "a stop was sent" from "the RIGHT stop was sent"; the two node
+// types below are distinguished only by which key they arrive on.
+func stopPayloadOf(s *scriptedControlWorkers, key string) messaging.BackendStopRequest {
+	GinkgoHelper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, c := range s.calls {
+		if c.Subject != key {
+			continue
+		}
+		var payload messaging.BackendStopRequest
+		Expect(json.Unmarshal(c.Data, &payload)).To(Succeed())
+		return payload
+	}
+	Fail("no backend.stop reached " + key)
+	return messaging.BackendStopRequest{}
+}
 
 // --- Tests ---
 
 var _ = Describe("RemoteUnloaderAdapter", func() {
 	var (
 		locator *fakeModelLocator
-		bus     *fakeMessagingClient
 		workers *scriptedControlWorkers
 		adapter *RemoteUnloaderAdapter
 	)
 
 	BeforeEach(func() {
 		locator = &fakeModelLocator{}
-		bus = &fakeMessagingClient{}
 		workers = newScriptedControlWorkers()
-		adapter = NewRemoteUnloaderAdapter(locator, bus, workers.controlClient(), 3*time.Minute, 15*time.Minute)
+		adapter = NewRemoteUnloaderAdapter(locator, workers.controlClient(), 3*time.Minute, 15*time.Minute)
 	})
 
 	// scriptStop lets a backend node accept the tunnelled backend.stop, which
@@ -218,7 +226,6 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			locator.nodes = nil
 			Expect(adapter.UnloadRemoteModel("my-model")).To(Succeed())
 			Expect(workers.callSubjects()).To(BeEmpty())
-			Expect(bus.publishedSubjects()).To(BeEmpty())
 		})
 
 		It("stops the backend on every node holding the model, over their tunnels", func() {
@@ -235,7 +242,6 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 				controlKey("node-1", workerctl.PathBackendStop),
 				controlKey("node-2", workerctl.PathBackendStop),
 			}))
-			Expect(bus.publishedSubjects()).To(BeEmpty())
 
 			// Should have removed the model from each node in the registry.
 			Expect(locator.removedPairs).To(HaveLen(2))
@@ -275,69 +281,71 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(payload).To(Equal(messaging.BackendStopRequest{Backend: "llama", Force: true}))
 		})
 
-		// The carrier split has TWO call sites, which is why stopBackend takes
-		// nodeType as a parameter. StopBackend is pinned in both directions
-		// below; this is the other caller, and hardcoding NodeTypeBackend here
-		// used to leave the whole suite green. An agent node holding a
-		// node_models row would then have its stop sent over a tunnel it does
-		// not hold, the call would fail, and the replica row would be left
-		// behind.
-		It("routes each stop by ITS node's type, not by one choice for the unload", func() {
+		// This unload spans BOTH kinds of worker, and the point is that it no
+		// longer has to care which is which. It used to: an agent node's stop
+		// was published and a backend node's was called, so an unload touching
+		// one of each exercised two carriers. A single scripted node could not
+		// have caught a frontend that picked one carrier for the whole unload.
+		It("takes the same route for every node in one unload, whatever their types", func() {
 			locator.nodes = []BackendNode{
 				{ID: "agent-1", Name: "agent", NodeType: NodeTypeAgent},
 				{ID: "backend-1", Name: "gpu-1", NodeType: NodeTypeBackend},
 			}
+			scriptStop("agent-1")
 			scriptStop("backend-1")
 
 			Expect(adapter.UnloadRemoteModelContext(context.Background(), "llama", false)).To(Succeed())
 
-			// The agent's stop went to the bus and only the agent's did; the
-			// backend's went over the tunnel and only the backend's did.
-			Expect(bus.publishedSubjects()).To(Equal([]string{messaging.SubjectNodeBackendStop("agent-1")}))
-			Expect(workers.callSubjects()).To(Equal([]string{controlKey("backend-1", workerctl.PathBackendStop)}))
-			// Both rows dropped, which is the negative control: a stop put on
-			// the carrier the other kind of worker listens on fails, and a
-			// failed stop keeps its row.
+			Expect(workers.callSubjects()).To(ConsistOf(
+				controlKey("agent-1", workerctl.PathBackendStop),
+				controlKey("backend-1", workerctl.PathBackendStop),
+			))
+			// Both rows dropped, which is the negative control: a stop the
+			// worker never answered fails, and a failed stop keeps its row.
 			Expect(locator.removedPairs).To(HaveLen(2))
 		})
 	})
 
-	// The carrier split. It is the one verb of the ten that is decided by the
-	// KIND of worker, and getting it wrong is silent in both directions: a
-	// backend node's stop published on the bus reaches nothing, and an agent
-	// node's stop sent over a tunnel it does not hold reaches nothing either.
+	// backend.stop used to be the one verb of the ten decided by the KIND of
+	// worker: an agent node's went to the bus, a backend node's over the
+	// tunnel. Both kinds serve the same control path now, so the two node
+	// types are asserted SEPARATELY rather than as one parameterised case. A
+	// single case would show that some node gets the path; only two show that
+	// the two kinds no longer differ, which is the whole content of the change.
 	Describe("StopBackend and node type", func() {
-		It("sends a backend stop to a BACKEND node over the tunnel and not over the bus", func() {
+		It("sends a backend stop to a BACKEND node over the tunnel, naming the backend", func() {
 			locator.nodes = []BackendNode{{ID: "backend-1", Name: "gpu-1", NodeType: NodeTypeBackend}}
 			scriptStop("backend-1")
 
 			Expect(adapter.StopBackend("backend-1", "llama-backend")).To(Succeed())
 
 			Expect(workers.callSubjects()).To(ContainElement(controlKey("backend-1", workerctl.PathBackendStop)))
-			Expect(bus.publishedSubjects()).To(BeEmpty())
+			Expect(stopPayloadOf(workers, controlKey("backend-1", workerctl.PathBackendStop))).
+				To(Equal(messaging.BackendStopRequest{Backend: "llama-backend"}))
 		})
 
-		It("sends a backend stop to an AGENT node over the bus, because that publisher has not moved onto the tunnel", func() {
+		It("sends a backend stop to an AGENT node over the tunnel too, on the same path", func() {
 			locator.nodes = []BackendNode{{ID: "agent-1", Name: "agent", NodeType: NodeTypeAgent}}
+			scriptStop("agent-1")
 
 			Expect(adapter.StopBackend("agent-1", "llama-backend")).To(Succeed())
 
-			Expect(bus.publishedSubjects()).To(ContainElement(messaging.SubjectNodeBackendStop("agent-1")))
-			Expect(workers.callSubjects()).ToNot(ContainElement(controlKey("agent-1", workerctl.PathBackendStop)))
+			Expect(workers.callSubjects()).To(ContainElement(controlKey("agent-1", workerctl.PathBackendStop)))
+			Expect(stopPayloadOf(workers, controlKey("agent-1", workerctl.PathBackendStop))).
+				To(Equal(messaging.BackendStopRequest{Backend: "llama-backend"}))
 		})
 
-		It("treats a node whose type cannot be read as a backend worker", func() {
-			// The column defaults to backend and every other node-type branch
-			// in this package reads an empty value the same way. The lookup
-			// failing must not silently move a stop onto a carrier nothing is
-			// listening on.
+		It("does not read the node's type at all before stopping a backend on it", func() {
+			// The carrier no longer depends on what kind of worker this is, so
+			// the lookup that used to choose it is gone. A registry that cannot
+			// answer must therefore not stop a backend from being stopped: the
+			// stop is issued on the node's own tunnel regardless.
 			locator.getErr = errors.New("database is down")
 			scriptStop("unknown-1")
 
 			Expect(adapter.StopBackend("unknown-1", "llama-backend")).To(Succeed())
 
 			Expect(workers.callSubjects()).To(ContainElement(controlKey("unknown-1", workerctl.PathBackendStop)))
-			Expect(bus.publishedSubjects()).To(BeEmpty())
 		})
 
 		It("with an empty backend asks the worker to stop everything", func() {
@@ -412,7 +420,6 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(adapter.StopNode("node-abc")).To(Succeed())
 
 			Expect(workers.callSubjects()).To(Equal([]string{controlKey("node-abc", workerctl.PathNodeStop)}))
-			Expect(bus.publishedSubjects()).To(BeEmpty())
 		})
 	})
 
@@ -473,7 +480,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
 	It("gives backend.install the configured install timeout", func() {
 		workers := newScriptedControlWorkers()
 		workers.scriptHang(controlKey("n1", workerctl.PathBackendInstall))
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), installBudget, upgradeBudget)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), installBudget, upgradeBudget)
 
 		started := time.Now()
 		_, err := adapter.InstallBackend("n1", "llama-cpp", "", "[]", "", "", "", 0, "", nil)
@@ -488,7 +495,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
 	It("gives backend.upgrade the configured upgrade timeout", func() {
 		workers := newScriptedControlWorkers()
 		workers.scriptHang(controlKey("n1", workerctl.PathBackendUpgrade))
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), installBudget, upgradeBudget)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), installBudget, upgradeBudget)
 
 		started := time.Now()
 		_, err := adapter.UpgradeBackend("n1", "llama-cpp", "[]", "", "", "", 0, "", nil)
@@ -504,7 +511,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout handling", func() {
 	It("reports a spent budget as still-installing, so the operation shows as running on the worker", func() {
 		workers := newScriptedControlWorkers()
 		workers.scriptTimeout("n1")
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), 100*time.Millisecond, 1*time.Second)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), 100*time.Millisecond, 1*time.Second)
 
 		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
 		Expect(err).To(HaveOccurred())
@@ -518,7 +525,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout handling", func() {
 		// other is a plain failure. Both are non-verdicts, so neither may reap.
 		workers := newScriptedControlWorkers()
 		workers.scriptUnroutable("n1")
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), 100*time.Millisecond, 1*time.Second)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), 100*time.Millisecond, 1*time.Second)
 
 		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
 		Expect(err).To(HaveOccurred())
@@ -541,7 +548,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout handling", func() {
 		// INSTALL but is part of an upgrade, so it must wait the upgrade
 		// budget. Waiting the install one would satisfy a bare
 		// still-installing assertion while carrying the wrong deadline.
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), 100*time.Millisecond, 500*time.Millisecond)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), 100*time.Millisecond, 500*time.Millisecond)
 
 		started := time.Now()
 		_, err := adapter.installWithForceFallback("n1", "llama-cpp", "[]", "", "", "", 0, "", nil)
@@ -556,7 +563,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout handling", func() {
 		workers := newScriptedControlWorkers()
 		// The verb is not scripted, so the worker fails to SERVE it rather
 		// than answering; that is a 5xx and lands under the no-route umbrella.
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), time.Minute, time.Minute)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), time.Minute, time.Minute)
 
 		_, err := adapter.installWithForceFallback("n1", "llama-cpp", "[]", "", "", "", 0, "", nil)
 		Expect(err).To(HaveOccurred())
@@ -578,7 +585,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout handling", func() {
 		workers := newScriptedControlWorkers()
 		workers.scriptServerError(controlKey("n1", workerctl.PathBackendInstall),
 			`the worker said "nats: timeout" in its log`)
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), time.Minute, time.Minute)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), time.Minute, time.Minute)
 
 		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
 		Expect(err).To(HaveOccurred())
@@ -599,7 +606,7 @@ var _ = Describe("RemoteUnloaderAdapter install progress streaming", func() {
 			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "500 MB", Total: "1 GB", Percentage: 50},
 		})
 
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), time.Second, time.Second)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), time.Second, time.Second)
 		var received []messaging.BackendInstallProgressEvent
 		onProgress := func(ev messaging.BackendInstallProgressEvent) {
 			// No lock, and that is an assertion in itself: the callback runs
@@ -622,7 +629,7 @@ var _ = Describe("RemoteUnloaderAdapter install progress streaming", func() {
 			{OpID: "", NodeID: "n1", Percentage: 42},
 		})
 
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), time.Second, time.Second)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), time.Second, time.Second)
 		reply, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reply.Success).To(BeTrue())

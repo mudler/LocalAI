@@ -54,7 +54,7 @@ var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("
 				return messaging.BackendInstallReply{Success: true}
 			})
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 			installReply, err := adapter.InstallBackend(node.ID, "llama-cpp", "", "", "", "", "", 0, "", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(installReply.Success).To(BeTrue())
@@ -72,7 +72,7 @@ var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("
 				return messaging.BackendInstallReply{Success: false, Error: "backend not found"}
 			})
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 			installReply, err := adapter.InstallBackend(node.ID, "nonexistent", "", "", "", "", "", 0, "", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(installReply.Success).To(BeFalse())
@@ -96,7 +96,7 @@ var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("
 			})
 
 			// Frontend calls UnloadRemoteModel (triggered by UI "Stop" or WatchDog)
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 			Expect(adapter.UnloadRemoteModel("whisper-large")).To(Succeed())
 
 			Eventually(func() int32 { return stopReceived.Load() }, "5s").Should(Equal(int32(1)))
@@ -104,6 +104,36 @@ var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("
 			// Model should be removed from registry
 			nodesWithModel, _ := registry.FindNodesWithModel(context.Background(), "whisper-large")
 			Expect(nodesWithModel).To(BeEmpty())
+		})
+
+		// The same verb, on an AGENT node, over the same route. Asserted as its
+		// own spec rather than folded into the backend-node one above, because
+		// the two used to take different carriers and only two specs can show
+		// that they no longer do. The body is read back off the transport: a
+		// stop that arrived naming no backend would tell the worker to stop
+		// everything, which is a different instruction entirely.
+		It("should send backend.stop to an AGENT node over its tunnel too", func() {
+			node := &nodes.BackendNode{
+				Name: "agent-node-1", NodeType: nodes.NodeTypeAgent,
+			}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "agent-hosted", 0, "loaded", "127.0.0.1:59061", 0)).To(Succeed())
+
+			bodies := make(chan []byte, 1)
+			workers := NewControlWorkers()
+			workers.On(node.ID, workerctl.PathBackendStop, func(_ string, body []byte) any {
+				bodies <- body
+				return nil
+			})
+
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
+			Expect(adapter.UnloadRemoteModel("agent-hosted")).To(Succeed())
+
+			var body []byte
+			Eventually(bodies, "5s").Should(Receive(&body))
+			var req messaging.BackendStopRequest
+			Expect(json.Unmarshal(body, &req)).To(Succeed())
+			Expect(req).To(Equal(messaging.BackendStopRequest{Backend: "agent-hosted"}))
 		})
 
 		It("should send backend.stop to all nodes hosting the model", func() {
@@ -123,7 +153,7 @@ var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("
 				})
 			}
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 			adapter.UnloadRemoteModel("shared-model")
 
 			Eventually(func() int32 { return count.Load() }, "5s").Should(Equal(int32(2)))
@@ -139,7 +169,7 @@ var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("
 			// The same contract is pinned at unit level by "with no nodes
 			// returns nil" in core/services/nodes/unloader_test.go; keep them
 			// in step.
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, NewControlWorkers().Client(), 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, NewControlWorkers().Client(), 3*time.Minute, 15*time.Minute)
 			Expect(adapter.UnloadRemoteModel("nonexistent-model")).To(Succeed())
 		})
 	})
@@ -158,7 +188,7 @@ var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("
 				return nil
 			})
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 			Expect(adapter.StopNode(node.ID)).To(Succeed())
 
 			Eventually(func() int32 { return stopped.Load() }, "5s").Should(Equal(int32(1)))
@@ -176,13 +206,13 @@ var _ = Describe("Node Backend Lifecycle over the worker control plane", Label("
 			Expect(workerctl.PathNodeStop).To(Equal("/v1/control/node/stop"))
 		})
 
-		// The one node subject left, and it is addressed only to AGENT workers:
-		// they subscribe to it to drop cached MCP sessions. They serve the same
-		// verb on their tunnel as well; this subject survives because the
-		// PUBLISHER has not moved onto that route yet.
-		It("should keep the agent worker's backend.stop subject", func() {
-			Expect(messaging.SubjectNodeBackendStop("node-abc")).To(Equal("nodes.node-abc.backend.stop"))
-		})
+		// backend.stop was the last worker-facing node subject, and it was
+		// addressed only to AGENT workers. It has no subject any more: an agent
+		// node's stop is a control RPC on the path named above, the same one a
+		// backend node takes. There is nothing to write out by hand here,
+		// because the builder is deleted; what an e2e spec can show instead is
+		// that an AGENT node's stop reaches a worker over its tunnel, which
+		// "should send backend.stop to an AGENT node over its tunnel too" does.
 	})
 
 	// Design note: LoadModel is a gRPC call through the worker's tunnel, not a
