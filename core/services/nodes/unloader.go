@@ -417,6 +417,15 @@ func (a *RemoteUnloaderAdapter) ListRunningModels(nodeID string) (*messaging.Mod
 		a.nats, subject, messaging.ModelsRunningRequest{}, 10*time.Second)
 }
 
+// backendStopAckTimeout bounds the wait for a worker's backend.stop reply.
+//
+// A single stop is bounded by the worker's 5s best-effort Free plus the kill,
+// so this leaves comfortable headroom. It is also the stall a worker that
+// predates the reply imposes on every stop, which is why it is not generous:
+// such a worker performs the stop and simply never answers, so the controller
+// waits out the full budget before falling back to the old assumption.
+const backendStopAckTimeout = 15 * time.Second
+
 // StopBackend tells a worker node to stop a specific gRPC backend process.
 // If backend is empty, the worker stops ALL backends.
 // The node stays registered and can receive another InstallBackend later.
@@ -424,12 +433,55 @@ func (a *RemoteUnloaderAdapter) StopBackend(nodeID, backend string) error {
 	return a.stopBackend(nodeID, backend, false)
 }
 
+// stopBackend asks a worker to stop a backend and waits for it to say what it
+// did.
+//
+// This was a bare Publish, which returned nil as soon as the local publish
+// succeeded and so reported success for a stop that killed nothing or failed
+// outright. The unload endpoint answered HTTP 200 while the backend kept
+// running and holding its VRAM, and the endpoint's own "backend stop failed"
+// branch was unreachable.
+//
+// A silent worker is NOT treated as a failure. A worker that predates
+// BackendStopReply still receives the request and still stops the backend; it
+// only lacks the reply. Failing here would break every stop against a fleet
+// that has not been upgraded yet, so a timeout degrades to the previous
+// assumption and says so in the log.
+//
+// Only silence degrades. A transport error — the connection is closed, nothing
+// subscribes to this node's subject at all — is reported, because under the
+// old Publish it was reported too, and callers such as UnloadRemoteModel rely
+// on that to skip the registry cleanup for a node they could not reach.
 func (a *RemoteUnloaderAdapter) stopBackend(nodeID, backend string, force bool) error {
 	subject := messaging.SubjectNodeBackendStop(nodeID)
-	if backend == "" && !force {
-		return a.nats.Publish(subject, nil)
+	req := messaging.BackendStopRequest{Backend: backend, Force: force}
+
+	reply, err := messaging.RequestJSON[messaging.BackendStopRequest, messaging.BackendStopReply](
+		a.nats, subject, req, backendStopAckTimeout)
+	if err != nil {
+		if errors.Is(err, nats.ErrTimeout) {
+			xlog.Warn("Worker did not acknowledge backend.stop; assuming an older worker delivered it",
+				"nodeID", nodeID, "backend", backend, "force", force)
+			return nil
+		}
+		return fmt.Errorf("backend.stop on node %s: %w", nodeID, err)
 	}
-	return a.nats.Publish(subject, messaging.BackendStopRequest{Backend: backend, Force: force})
+	if !reply.Success {
+		return fmt.Errorf("backend.stop on node %s: %s", nodeID, reply.Error)
+	}
+	// An empty list from a worker that enumerates what it stopped is the answer
+	// to "was anything actually running under that name" — and the answer is
+	// no. That is not an error: stopping a backend that is not running leaves
+	// the caller in the state it asked for. It is worth saying out loud,
+	// because a caller that expected to reclaim VRAM did not.
+	if reply.ReportsStoppedProcesses && len(reply.StoppedProcessKeys) == 0 {
+		xlog.Warn("backend.stop matched no running process on the worker",
+			"nodeID", nodeID, "backend", backend)
+		return nil
+	}
+	xlog.Info("Worker stopped backend processes",
+		"nodeID", nodeID, "backend", backend, "stopped", reply.StoppedProcessKeys)
+	return nil
 }
 
 // DeleteBackend tells a worker node to delete a backend (stop + remove files).

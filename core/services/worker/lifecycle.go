@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net"
 	"slices"
+	"strings"
 	"syscall"
 
 	"github.com/mudler/LocalAI/core/gallery"
@@ -27,7 +28,7 @@ func (s *backendSupervisor) subscribeLifecycleEvents() error {
 	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeBackendUpgrade(s.nodeID), s.handleBackendUpgrade); err != nil {
 		return fmt.Errorf("subscribing to backend upgrade events: %w", err)
 	}
-	if _, err := s.nats.Subscribe(messaging.SubjectNodeBackendStop(s.nodeID), s.handleBackendStop); err != nil {
+	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeBackendStop(s.nodeID), s.handleBackendStop); err != nil {
 		return fmt.Errorf("subscribing to backend stop events: %w", err)
 	}
 	if _, err := s.nats.SubscribeReply(messaging.SubjectNodeBackendDelete(s.nodeID), s.handleBackendDelete); err != nil {
@@ -154,27 +155,58 @@ func (s *backendSupervisor) handleBackendUpgrade(data []byte, reply func([]byte)
 }
 
 // handleBackendStop is the NATS callback for backend.stop — stop a specific
-// backend process (fire-and-forget, no reply expected).
-func (s *backendSupervisor) handleBackendStop(data []byte) {
+// backend process and report what it terminated.
+//
+// The reply is what lets the controller tell a stop that worked from one that
+// matched nothing or failed. Callers that publish without a reply subject (an
+// older controller) still work: SubscribeReply drops the response.
+func (s *backendSupervisor) handleBackendStop(data []byte, reply func([]byte)) {
 	req, stopAll, err := decodeBackendStopRequest(data)
 	if err != nil {
 		xlog.Error("Ignoring malformed NATS backend.stop event", "error", err)
+		replyJSON(reply, messaging.BackendStopReply{
+			Error:                   fmt.Sprintf("invalid request: %v", err),
+			ReportsStoppedProcesses: true,
+		})
 		return
 	}
 	if stopAll {
 		xlog.Info("Received NATS backend.stop event (all)", "force", req.Force)
-		s.stopAllBackends(req.Force)
+		stopped := s.stopAllBackends(req.Force)
+		replyJSON(reply, messaging.BackendStopReply{
+			Success:                 true,
+			StoppedProcessKeys:      stopped,
+			ReportsStoppedProcesses: true,
+		})
 		return
 	}
 	xlog.Info("Received NATS backend.stop event", "backend", req.Backend, "force", req.Force)
 	// The identifier may be a backend name, a model name, or an exact
 	// modelID#replica key depending on the publisher; resolveStopTargets
 	// handles all three. stopBackend alone resolves only the model meanings.
+	var stopped []string
+	var failures []string
 	for _, key := range s.resolveStopTargets(req.Backend) {
 		if err := s.stopBackendExact(key, req.Force); err != nil {
 			xlog.Error("Failed to stop backend process", "backend", req.Backend, "processKey", key, "error", err)
+			failures = append(failures, fmt.Sprintf("%s: %v", key, err))
+			continue
 		}
+		stopped = append(stopped, key)
 	}
+	// Resolving to nothing is reported as success with an empty list, not as a
+	// failure: stopping a backend that is not running is the state the caller
+	// asked for. The empty list is what tells the caller nothing matched, and
+	// ReportsStoppedProcesses is what makes that emptiness trustworthy.
+	res := messaging.BackendStopReply{
+		Success:                 len(failures) == 0,
+		StoppedProcessKeys:      stopped,
+		ReportsStoppedProcesses: true,
+	}
+	if len(failures) > 0 {
+		res.Error = strings.Join(failures, "; ")
+	}
+	replyJSON(reply, res)
 }
 
 func decodeBackendStopRequest(data []byte) (messaging.BackendStopRequest, bool, error) {

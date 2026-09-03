@@ -124,6 +124,12 @@ type fakeSubscription struct{}
 
 func (f *fakeSubscription) Unsubscribe() error { return nil }
 
+func mustJSON(v any) []byte {
+	data, err := json.Marshal(v)
+	Expect(err).ToNot(HaveOccurred())
+	return data
+}
+
 // --- Tests ---
 
 var _ = Describe("RemoteUnloaderAdapter", func() {
@@ -136,6 +142,14 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 	BeforeEach(func() {
 		locator = &fakeModelLocator{}
 		mc = &fakeMessagingClient{}
+		// backend.stop is request-reply, so the default fake must answer the
+		// way a current worker does. Specs that care about the reply override
+		// requestReply themselves.
+		mc.requestReply = mustJSON(messaging.BackendStopReply{
+			Success:                 true,
+			StoppedProcessKeys:      []string{"llama#0"},
+			ReportsStoppedProcesses: true,
+		})
 		adapter = NewRemoteUnloaderAdapter(locator, mc, 3*time.Minute, 15*time.Minute)
 	})
 
@@ -179,7 +193,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			// tests/e2e/distributed/node_lifecycle_test.go — keep them in step.
 			locator.nodes = nil
 			Expect(adapter.UnloadRemoteModel("my-model")).To(Succeed())
-			Expect(mc.published).To(BeEmpty())
+			Expect(mc.requestCalls).To(BeEmpty())
 		})
 
 		It("broadcasts to all nodes with model", func() {
@@ -189,10 +203,10 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			}
 			Expect(adapter.UnloadRemoteModel("llama")).To(Succeed())
 
-			// Should have published a StopBackend for each node.
-			Expect(mc.published).To(HaveLen(2))
-			Expect(mc.published[0].Subject).To(Equal(messaging.SubjectNodeBackendStop("node-1")))
-			Expect(mc.published[1].Subject).To(Equal(messaging.SubjectNodeBackendStop("node-2")))
+			// Should have asked each node to stop the backend.
+			Expect(mc.requestCalls).To(HaveLen(2))
+			Expect(mc.requestCalls[0].Subject).To(Equal(messaging.SubjectNodeBackendStop("node-1")))
+			Expect(mc.requestCalls[1].Subject).To(Equal(messaging.SubjectNodeBackendStop("node-2")))
 
 			// Should have removed the model from each node in the registry.
 			Expect(locator.removedPairs).To(HaveLen(2))
@@ -205,7 +219,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 				{ID: "node-fail", Name: "worker-fail"},
 				{ID: "node-ok", Name: "worker-ok"},
 			}
-			// Use a messaging client that fails the first Publish call only.
+			// Use a messaging client that fails the first Request call only.
 			failOnce := &failOnceMessagingClient{inner: mc, failOn: 0}
 			adapter = NewRemoteUnloaderAdapter(locator, failOnce, 3*time.Minute, 15*time.Minute)
 
@@ -223,25 +237,70 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(adapter.UnloadRemoteModelContext(context.Background(), "llama", true)).To(Succeed())
 
 			var payload messaging.BackendStopRequest
-			Expect(json.Unmarshal(mc.published[0].Data, &payload)).To(Succeed())
+			Expect(json.Unmarshal(mc.requestCalls[0].Data, &payload)).To(Succeed())
 			Expect(payload).To(Equal(messaging.BackendStopRequest{Backend: "llama", Force: true}))
 		})
 	})
 
 	Describe("StopBackend", func() {
-		It("with empty backend publishes nil payload", func() {
+		It("with empty backend asks the worker to stop everything", func() {
 			Expect(adapter.StopBackend("node-1", "")).To(Succeed())
-			Expect(mc.published).To(HaveLen(1))
-			Expect(mc.published[0].Subject).To(Equal(messaging.SubjectNodeBackendStop("node-1")))
-			Expect(mc.published[0].Data).To(BeNil())
+			Expect(mc.requestCalls).To(HaveLen(1))
+			Expect(mc.requestCalls[0].Subject).To(Equal(messaging.SubjectNodeBackendStop("node-1")))
+
+			// An empty Backend is the wire signal for "stop all"; the worker's
+			// decodeBackendStopRequest reads it the same way it read the bare
+			// nil payload this replaced.
+			var payload messaging.BackendStopRequest
+			Expect(json.Unmarshal(mc.requestCalls[0].Data, &payload)).To(Succeed())
+			Expect(payload.Backend).To(BeEmpty())
 		})
 
-		It("with backend name publishes JSON", func() {
+		// The bug this reply exists for: the worker could not stop what was
+		// asked, and the caller was told everything was fine.
+		It("reports a stop the worker could not carry out", func() {
+			mc.requestReply = mustJSON(messaging.BackendStopReply{
+				Success:                 false,
+				Error:                   "llama#0: process refused to die",
+				ReportsStoppedProcesses: true,
+			})
+			err := adapter.StopBackend("node-1", "llama-backend")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("process refused to die"))
+		})
+
+		// Nothing running under that name is the state the caller asked for, so
+		// it stays a success — eviction and cleanup paths stop models that are
+		// already gone all the time.
+		It("succeeds when the worker matched no running process", func() {
+			mc.requestReply = mustJSON(messaging.BackendStopReply{
+				Success:                 true,
+				ReportsStoppedProcesses: true,
+			})
 			Expect(adapter.StopBackend("node-1", "llama-backend")).To(Succeed())
-			Expect(mc.published).To(HaveLen(1))
+		})
+
+		// A worker built before BackendStopReply performs the stop and never
+		// answers. Failing here would break every stop on a fleet mid-upgrade.
+		It("assumes delivery when an older worker never answers", func() {
+			mc.requestErr = nats.ErrTimeout
+			Expect(adapter.StopBackend("node-1", "llama-backend")).To(Succeed())
+		})
+
+		// A closed connection is not an old worker, and callers depend on
+		// hearing about it: UnloadRemoteModel skips the registry cleanup for a
+		// node it could not reach.
+		It("reports a transport failure rather than assuming delivery", func() {
+			mc.requestErr = nats.ErrConnectionClosed
+			Expect(adapter.StopBackend("node-1", "llama-backend")).To(HaveOccurred())
+		})
+
+		It("with backend name sends JSON", func() {
+			Expect(adapter.StopBackend("node-1", "llama-backend")).To(Succeed())
+			Expect(mc.requestCalls).To(HaveLen(1))
 
 			var payload messaging.BackendStopRequest
-			Expect(json.Unmarshal(mc.published[0].Data, &payload)).To(Succeed())
+			Expect(json.Unmarshal(mc.requestCalls[0].Data, &payload)).To(Succeed())
 			Expect(payload.Backend).To(Equal("llama-backend"))
 			Expect(payload.Force).To(BeFalse())
 		})
@@ -335,6 +394,13 @@ func (f *failOnceMessagingClient) SubscribeReply(subject string, handler func(da
 }
 
 func (f *failOnceMessagingClient) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	f.mu.Lock()
+	idx := f.callIdx
+	f.callIdx++
+	f.mu.Unlock()
+	if idx == f.failOn {
+		return nil, fmt.Errorf("simulated failure")
+	}
 	return f.inner.Request(subject, data, timeout)
 }
 
