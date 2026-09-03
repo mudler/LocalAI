@@ -38,6 +38,7 @@ Each model gets its own gRPC backend process, so a single worker can serve multi
 ## Prerequisites
 
 - **PostgreSQL** (with pgvector extension recommended for RAG) - used for node registry, job store, auth, and shared state
+  - Each frontend replica holds **one extra PostgreSQL session** beyond its connection pool, pinned for the life of the process, and creates a `bus_messages` table. Both belong to the broadcast carrier that is replacing NATS for cross-replica fan-out. Size `max_connections` for one additional session per frontend replica.
 - **NATS** server - used for agent-worker coordination and the frontend's own cross-replica events. **Serve-backend workers do not connect to it at all**: every verb they take, and file staging with it, is an HTTP route on the worker's tunnel. Set no `LOCALAI_NATS_URL` on a `local-ai worker`. The frontend and any `local-ai agent-worker` still need one.
 - All services must be on the same network (or reachable via configured URLs)
 
