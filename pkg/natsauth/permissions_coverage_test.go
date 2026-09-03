@@ -59,19 +59,25 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 	Context("backend worker", func() {
 		pub, sub := natsauth.WorkerPermissions(nodeID, "backend")
 
-		// A backend worker subscribes to no subject of its own on this build.
-		// Every verb a frontend gives it — the backend and model lifecycle ten,
-		// and now the four file-staging verbs — is an HTTP route on its
-		// tunnelled control plane, so there is no subject left to cover. See
+		// A backend worker opens no connection at all on this build. Every verb
+		// a frontend gives it, the backend and model lifecycle ten plus the
+		// four file-staging verbs, is an HTTP route on its tunnelled control
+		// plane, so there is no subject left to cover. See
 		// core/services/workerctl.
-		//
-		// The subscribe wildcard is asserted rather than removed because the
-		// grant is still minted and a worker mid-upgrade still uses it.
-		It("still grants a backend worker its own node subtree to subscribe on", func() {
-			Expect(sub).To(ConsistOf(
-				"nodes."+workerSubjectTokenForTest(nodeID)+".>",
-				"_INBOX.>",
-			))
+		It("no longer grants a backend worker its own node subtree to subscribe on", func() {
+			Expect(sub).ToNot(ContainElement("nodes."+workerSubjectTokenForTest(nodeID)+".>"),
+				"the node subtree went with the connection the worker no longer opens")
+		})
+
+		// The grant must be a grant of NOTHING and not an ABSENT grant: NATS
+		// treats an empty allow list as no restriction, so a branch that
+		// returned nil would silently widen every backend JWT the frontend
+		// still mints to the whole account. ConsistOf, not BeEmpty, is what
+		// tells those two apart.
+		It("grants a backend worker its own inbox and nothing else", func() {
+			Expect(sub).To(ConsistOf("_INBOX.>"))
+			Expect(sub).ToNot(BeEmpty(),
+				"an empty allow list is unrestricted in NATS, not restrictive")
 		})
 
 		// The negative half, and it is the one that would catch a verb quietly
@@ -80,6 +86,8 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 		// exception and is not any more.
 		It("grants a backend worker no publish rights outside its inbox", func() {
 			Expect(pub).To(ConsistOf("_INBOX.>"))
+			Expect(pub).ToNot(BeEmpty(),
+				"an empty allow list is unrestricted in NATS, not restrictive")
 		})
 
 		It("no longer grants a backend worker the file-staging publish subtree", func() {

@@ -142,6 +142,39 @@ type Tunnel struct {
 	cancel    context.CancelFunc
 	done      chan struct{}
 	closeOnce sync.Once
+
+	// mu guards session, which is the tunnel's CURRENT session or nil between
+	// them. It is written by the one loop goroutine and read by whatever asks
+	// Connected, which on a running worker is an HTTP handler goroutine
+	// serving /readyz.
+	mu      sync.Mutex
+	session *yamux.Session
+}
+
+// Connected reports whether the tunnel currently holds a live session.
+//
+// It is false between sessions and while the first dial is still in flight.
+// That is a statement about REACHABILITY and nothing else: a worker whose
+// tunnel is re-homing after a frontend restart reports false here and is still
+// a registered, running node. Nothing may read it as the worker being gone.
+func (t *Tunnel) Connected() bool {
+	if t == nil {
+		return false
+	}
+	t.mu.Lock()
+	sess := t.session
+	t.mu.Unlock()
+	// A session that has been closed is still the field's value until the loop
+	// clears it, and the gap between those two is exactly the window a probe
+	// must not answer 200 in.
+	return sess != nil && !sess.IsClosed()
+}
+
+// setSession publishes (or clears) the session Connected reports on.
+func (t *Tunnel) setSession(sess *yamux.Session) {
+	t.mu.Lock()
+	t.session = sess
+	t.mu.Unlock()
 }
 
 // StartTunnel dials the frontend and holds the tunnel until ctx is cancelled or
@@ -256,6 +289,14 @@ func (t *Tunnel) connectAndServe(ctx context.Context) error {
 		return fmt.Errorf("starting the worker tunnel session: %w", err)
 	}
 	xlog.Info("Worker tunnel established", "node", t.nodeID, "frontend", t.endpoint)
+
+	// Published before the accept loop starts. What makes the answer correct
+	// once the session dies is Connected's own IsClosed check, not this clear:
+	// the clear runs only after every in-flight stream has finished, which is a
+	// wait the probe must already be answering "not ready" through. The clear
+	// is here so a dead session is not held for the life of the reconnect.
+	t.setSession(sess)
+	defer t.setSession(nil)
 
 	// Streams are served under a context of the SESSION's, not the loop's. A
 	// stream goroutine parked in a local dial would otherwise outlive the
