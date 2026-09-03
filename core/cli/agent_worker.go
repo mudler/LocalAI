@@ -178,11 +178,14 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	// The tunnel, and the loopback control plane behind it.
 	//
-	// ADDED to this worker rather than swapping anything out: every verb below
-	// still arrives on NATS, and will until the tasks that move them land. What
-	// this buys today is that the frontend can reach an agent worker by RPC at
-	// all, on the same carrier and with the same failure vocabulary a backend
-	// worker already uses, without the agent worker opening an inbound port.
+	// This is now the ONLY way MCP tool execution and discovery reach this
+	// worker: their queue-group subjects are gone, because a queue group was
+	// only ever a way of SELECTING a worker and the frontend makes that
+	// selection itself (nodes.AgentSelector). The remaining verbs below still
+	// arrive on NATS and will until the tasks that move them land.
+	//
+	// The worker opens no inbound port for any of it: it dials out and the
+	// control plane rides the tunnel it holds.
 	//
 	// The credential is read through credMgr rather than captured from res,
 	// because every re-registration the manager performs ROTATES it and a
@@ -191,9 +194,9 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	//
 	// It is started AFTER registration, which is what supplies both the node
 	// identity the dial names and the credential it presents, and BEFORE the
-	// NATS subscriptions, so that a frontend that reaches this worker over the
-	// tunnel finds its verbs mounted rather than a 404 it would read as a
-	// version skew.
+	// remaining NATS subscriptions, so that a frontend that reaches this worker
+	// over the tunnel finds its verbs mounted rather than a 404 it would read
+	// as a version skew.
 	agentCtl, err := agentworker.Start(shutdownCtx, agentworker.Options{
 		FrontendURL:  cmd.RegisterTo,
 		NodeID:       nodeID,
@@ -242,19 +245,6 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	if err := dispatcher.Start(shutdownCtx); err != nil {
 		return fmt.Errorf("starting dispatcher: %w", err)
-	}
-
-	// Subscribe to MCP tool execution requests (load-balanced across workers).
-	// The frontend routes model-level MCP tool calls here via NATS request-reply.
-	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers,
-		replyOverNATS(messaging.SubjectMCPToolExecute, serveMCPToolRequest)); err != nil {
-		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPToolExecute, err)
-	}
-
-	// Subscribe to MCP discovery requests (load-balanced across workers).
-	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers,
-		replyOverNATS(messaging.SubjectMCPDiscovery, serveMCPDiscoveryRequest)); err != nil {
-		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPDiscovery, err)
 	}
 
 	// Subscribe to MCP CI job execution (load-balanced across agent workers).
@@ -454,23 +444,6 @@ func encodeMCPReply(resp any) (json.RawMessage, error) {
 		return nil, fmt.Errorf("encoding the reply: %w", err)
 	}
 	return out, nil
-}
-
-// replyOverNATS adapts one of the serve* functions to a NATS request-reply
-// subscription, so the bus carries exactly the bytes the tunnel does.
-func replyOverNATS(subject string, serve func(context.Context, json.RawMessage) (json.RawMessage, error)) func([]byte, func([]byte)) {
-	return func(data []byte, reply func([]byte)) {
-		out, err := serve(context.Background(), data)
-		if err != nil {
-			// Nothing is sent. A requester on the bus reads that as a timeout,
-			// which is the closest the carrier has to "this worker did not
-			// answer"; inventing a reply body here would put a failure to serve
-			// into the bucket reserved for the worker's own verdict.
-			xlog.Error("Agent worker could not serve a bus request", "subject", subject, "error", err)
-			return
-		}
-		reply(out)
-	}
 }
 
 // handleMCPCIJob processes an MCP CI job on the agent worker.

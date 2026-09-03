@@ -396,3 +396,95 @@ func (r *Registry) PurgeDepartedBefore(ctx context.Context, olderThan time.Durat
 	}
 	return res.RowsAffected, nil
 }
+
+// connectedAmongQuery answers, for a set of nodes at once, which of their
+// tunnels a LIVE replica holds and which of those are held by one named
+// replica.
+//
+// ONE statement rather than a read per id, for the reason Owner is one
+// statement: between two reads an owning replica can die, and the answer would
+// then be assembled from two different snapshots of the cluster. A selection
+// built that way can name a node whose owner the second read would have
+// rejected, which is the one thing this read exists to prevent.
+//
+// The join is what makes a DEAD owner's row invisible here. Without it a row
+// outlives its owner by up to a liveness window plus a heartbeat, and every
+// caller that acted on this answer would be sent at a process that is gone.
+//
+// Held-ness is asked in SQL and the departure is not asked at all, and that is
+// the whole difference between this read and Presence. This one answers a
+// ROUTING question ("can a request get there right now"), so a row nobody holds
+// is simply not a candidate, whatever its age. Deciding whether a worker has
+// GONE is Presence's job and needs the grace; nothing here may be read as
+// absence, and nothing here reports any.
+//
+// The liveness window is computed by the DATABASE, like every other window in
+// this package: it is compared across replicas, so a Go-side cutoff would make
+// the effective window depend on each replica's clock skew. The test container
+// shares this host's clock, so no behavioural spec can see the difference and
+// the statement shape is pinned instead.
+//
+// The predicates are the package's own rather than copies, so two spellings of
+// "live" or of "held" cannot drift into a node that one query calls connected
+// and another calls gone.
+//
+// The bind order is the order the placeholders appear in the text: the owner,
+// then the liveness window, then the node ids.
+const connectedAmongQuery = `
+SELECT node_connections.node_id AS node_id,
+       (node_connections.owner_instance_id = ?) AS by_owner
+FROM node_connections
+JOIN instances
+  ON instances.id = node_connections.owner_instance_id
+ AND ` + instanceIsLive + `
+WHERE ` + connectionIsHeld + `
+  AND node_connections.node_id IN ?`
+
+// ConnectedAmong returns the subset of nodeIDs whose tunnel a LIVE replica
+// currently holds, and separately those held by owner.
+//
+// It takes ids rather than asking which nodes are agents, because this package
+// is a leaf and node type lives in core/services/nodes.
+//
+// heldByOwner is a SUBSET of held, not an alternative to it. A caller that
+// prefers the ids it owns falls back to the rest, and expressing that as two
+// disjoint lists would make the fallback a union the caller had to build.
+//
+// The answer is a routing fact and NEVER an absence one. An id missing from
+// both lists means no live replica holds its tunnel at this instant, which a
+// worker reconnecting between replicas produces routinely; nothing may read it
+// as the worker having gone away. See Presence for the read that can answer
+// that question, and only that one.
+func (r *Registry) ConnectedAmong(ctx context.Context, nodeIDs []string, owner string) (held []string, heldByOwner []string, err error) {
+	if len(nodeIDs) == 0 {
+		// Answered without a statement, because `IN ()` is a syntax error in
+		// PostgreSQL and gorm's expansion of an empty slice is a filter nobody
+		// wrote. An empty candidate set has exactly one honest answer.
+		return nil, nil, nil
+	}
+	// Refused rather than attempted, for the reason Owner refuses: now() and
+	// make_interval are PostgreSQL, so on the single-binary SQLite path this
+	// would fail as a missing function and read as a missing migration. It is
+	// deliberately not an empty answer: a deployment with no cluster has
+	// nothing to say about who holds a tunnel, and an empty list would be read
+	// as "nobody does".
+	if !isPostgres(r.db) {
+		return nil, nil, fmt.Errorf("reading which of %d nodes are connected: connection ownership requires PostgreSQL, this deployment runs on %q", len(nodeIDs), r.db.Dialector.Name())
+	}
+	var rows []struct {
+		NodeID  string
+		ByOwner bool
+	}
+	if err := r.db.WithContext(ctx).Raw(connectedAmongQuery,
+		owner, InstanceLiveness.Seconds(), nodeIDs,
+	).Scan(&rows).Error; err != nil {
+		return nil, nil, fmt.Errorf("reading which of %d nodes are connected: %w", len(nodeIDs), err)
+	}
+	for _, row := range rows {
+		held = append(held, row.NodeID)
+		if row.ByOwner {
+			heldByOwner = append(heldByOwner, row.NodeID)
+		}
+	}
+	return held, heldByOwner, nil
+}

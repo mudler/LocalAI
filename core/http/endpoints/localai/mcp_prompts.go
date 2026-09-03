@@ -17,6 +17,13 @@ func MCPPromptsEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicat
 			return echo.ErrBadRequest
 		}
 
+		// Before the model lookup and before the empty-config shortcut: both
+		// answer 200 with an empty list, which is the very answer this refuses
+		// to give in a deployment that cannot look.
+		if refused, err := mcpLocalSessionsOnly(c, appConfig, "prompts"); refused {
+			return err
+		}
+
 		cfg, exists := cl.GetModelConfig(modelName)
 		if !exists {
 			return fmt.Errorf("model %q not found", modelName)
@@ -84,6 +91,10 @@ func MCPGetPromptEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applic
 		promptName := c.Param("prompt")
 		if modelName == "" || promptName == "" {
 			return echo.ErrBadRequest
+		}
+
+		if refused, err := mcpLocalSessionsOnly(c, appConfig, "prompts"); refused {
+			return err
 		}
 
 		cfg, exists := cl.GetModelConfig(modelName)
