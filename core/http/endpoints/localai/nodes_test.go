@@ -181,50 +181,98 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(second["tunnel_token"]).ToNot(Equal(plaintext))
 		})
 
-		It("does not issue a tunnel credential to an agent node", func() {
-			// An agent worker serves no gRPC backends and no file staging;
-			// nothing dials into it, so a tunnel replaces nothing for it and no
-			// client on its side would open one. Minting anyway would be
-			// credential surface with no feature behind it.
+		It("issues a tunnel credential to an agent node", func() {
+			// An agent worker holds a tunnel too. It runs no backends and
+			// stages no files, so what its tunnel carries is only its own HTTP
+			// server, but the frontend reaches its control verbs over it and
+			// therefore has to be able to dial it at all.
 			//
-			// Enforcement is structural rather than a second check: with no
-			// credential minted, the node's hash stays empty and the tunnel
-			// route refuses it like any other node without one.
+			// The gate that used to refuse this was correct while nothing
+			// dialled into an agent worker. Reopening it is deliberate, and the
+			// spec below is what keeps its other half honest.
 			resp := register(`{"name":"agent-1","node_type":"agent"}`, "", true)
 			Expect(resp["node_type"]).To(Equal(nodes.NodeTypeAgent))
-			Expect(resp).ToNot(HaveKey("tunnel_token"))
+
+			plaintext, _ := resp["tunnel_token"].(string)
+			Expect(plaintext).ToNot(BeEmpty())
 
 			node, err := registry.Get(context.Background(), resp["id"].(string))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(node.TunnelTokenHash).To(BeEmpty())
+			// Stored as a hash, never as the secret, exactly as a backend
+			// node's is; ConnectHandler compares against this column and does
+			// not look at node_type at all.
+			Expect(node.TunnelTokenHash).To(Equal(hashOf(plaintext)))
+			Expect(node.TunnelTokenHash).ToNot(Equal(plaintext))
+
+			// Per-node, not derived from anything shared. A second agent
+			// registering gets a different credential.
+			other := register(`{"name":"agent-2","node_type":"agent"}`, "", true)
+			Expect(other["tunnel_token"]).ToNot(Equal(plaintext))
 		})
 
-		It("clears a tunnel credential when a node stops being a backend node", func() {
-			// Register upserts BY NAME, so a node can change node_type in place.
-			// Skipping the mint on the way through leaves the credential the
-			// node earned as a backend sitting on a row that is now an agent:
-			// Register's struct Updates zero-skips the column while writing the
-			// new node_type, so nothing else clears it. ConnectHandler never
-			// looks at node_type, so that stale hash is a usable tunnel
-			// credential for a node type that is not supposed to hold one.
+		It("rewrites the hash, rather than leaving a stale one, when a node changes type", func() {
+			// Register upserts BY NAME, so a node can change node_type in
+			// place, and Register's struct Updates zero-skips TunnelTokenHash
+			// while writing the new node_type. The invariant is that the stored
+			// hash always matches the node's CURRENT credential: a node whose
+			// type changed must not be left holding the one it was handed
+			// under its old type, because that is a secret the worker still
+			// knows and nothing would ever retire.
 			//
 			// This is the same shape as the Register-upserts-by-name hazard
 			// already carried forward: a name is not an identity.
 			backend := register(`{"name":"shifty","address":"10.0.0.7:50051"}`, "", true)
-			Expect(backend["tunnel_token"]).ToNot(BeEmpty())
+			// Read with a comma-ok rather than a bare assertion: a build that
+			// issues no credential must fail this spec on the assertion below,
+			// naming what it is missing, rather than panic on a nil interface.
+			backendToken, _ := backend["tunnel_token"].(string)
+			Expect(backendToken).ToNot(BeEmpty())
 
 			agent := register(`{"name":"shifty","node_type":"agent"}`, "", true)
 			Expect(agent["id"]).To(Equal(backend["id"]), "re-registration must keep the node identity")
 			Expect(agent["node_type"]).To(Equal(nodes.NodeTypeAgent))
-			Expect(agent).ToNot(HaveKey("tunnel_token"))
+			agentToken, _ := agent["tunnel_token"].(string)
+			Expect(agentToken).ToNot(BeEmpty(),
+				"the node changed type and was handed no credential, so its stored hash is whatever its previous type left behind")
 
 			node, err := registry.Get(context.Background(), backend["id"].(string))
 			Expect(err).ToNot(HaveOccurred())
-			// The claim the gate makes is that an ineligible node HAS no
-			// credential, not merely that it was not handed a new one. Only
-			// then is the empty-hash refusal in ConnectHandler the enforcement.
-			Expect(node.TunnelTokenHash).To(BeEmpty(),
-				"the node kept the credential it earned as a backend, so the mint-site gate is not structural")
+			Expect(node.TunnelTokenHash).To(Equal(hashOf(agentToken)))
+			Expect(node.TunnelTokenHash).ToNot(Equal(hashOf(backendToken)),
+				"the node kept the credential it earned under its previous type")
+		})
+
+		It("clears the credential of a node whose type is entitled to none", func() {
+			// The other half of the gate, and the half that makes enforcement
+			// STRUCTURAL: ConnectHandler never looks at node_type, so what
+			// refuses an ineligible node is its empty hash. Skipping the mint
+			// would leave a live credential on the row.
+			//
+			// Driven through the registry rather than through
+			// RegisterNodeEndpoint, which rejects any node_type that is neither
+			// backend nor agent. That validation is exactly why the branch
+			// cannot be reached from the wire today, and exactly why the branch
+			// has to stay: a row's node_type is also written by other builds,
+			// and adding a type must be a decision about eligibility rather
+			// than a silent grant.
+			node := &nodes.BackendNode{Name: "shifty-future", NodeType: nodes.NodeTypeBackend}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			response := map[string]any{}
+			attachTunnelToken(context.Background(), response, registry, node)
+			Expect(response).To(HaveKey("tunnel_token"))
+			stored, err := registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.TunnelTokenHash).ToNot(BeEmpty())
+
+			node.NodeType = "some-future-worker-kind"
+			response = map[string]any{}
+			attachTunnelToken(context.Background(), response, registry, node)
+
+			Expect(response).ToNot(HaveKey("tunnel_token"))
+			stored, err = registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.TunnelTokenHash).To(BeEmpty(),
+				"an ineligible node kept a usable tunnel credential, so the mint-site gate is not structural")
 		})
 
 		It("returns nats_jwt when account seed is configured", func() {

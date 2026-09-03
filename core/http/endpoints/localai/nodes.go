@@ -302,30 +302,39 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 // path in core/services/worker/worker.go does), because approval alone does not
 // prompt a re-registration and nothing else can hand it the secret.
 //
-// Only BACKEND nodes get one, and that is a decision rather than an oversight.
-// An agent worker serves no gRPC backends and no file staging; nothing dials
-// into it at all, so a tunnel replaces nothing for it and there is no client on
-// the agent side that would ever open one. Minting anyway would hand out a
-// working credential for a pipe nobody drives, which is surface without a
-// feature, and it would contradict every comment in this change that says
-// "backend workers, the ones that tunnel".
+// BACKEND and AGENT nodes get one; anything else has its credential CLEARED.
+//
+// Both kinds of worker now dial out and hold one tunnel, and neither opens an
+// inbound port. A backend worker carries its gRPC backends and its file staging
+// on it; an agent worker carries only its own HTTP server, which is where its
+// MCP control verbs live. The gate was once backend-only, and correctly so:
+// nothing dialled into an agent worker, so a credential for it would have been
+// surface with no feature behind it. That stopped being true when the frontend
+// gained a reason to reach an agent worker by RPC.
 //
 // The gate lives HERE and not in ConnectHandler, which never looks at NodeType.
 // It does not need to, PROVIDED an ineligible node ends up with no credential
 // rather than merely being handed no new one, because the handler's empty-hash
 // branch is what does the refusing. So this CLEARS the column instead of
 // returning early, and the difference is not theoretical: Register upserts by
-// NAME, so a backend node re-registering as an agent keeps its ID, and
+// NAME, so a node re-registering under a different type keeps its ID, and
 // Register's struct Updates zero-skips TunnelTokenHash while writing the new
-// node_type. An early return left a live credential on a row that had become an
-// agent. Clearing is what makes "enforcement is structural" true.
+// node_type. An early return left a live credential on a row whose type had
+// changed. Clearing is what makes "enforcement is structural" true, and it is
+// what the eligibility list widening rather than disappearing preserves: the
+// invariant is that a node's stored hash always matches the credential its
+// CURRENT type is entitled to, which for an ineligible type is none.
 //
 // It clears unconditionally rather than only when something is there, so the
 // invariant holds without depending on what the row happened to contain. The
-// cost is one UPDATE per agent registration.
+// cost is one UPDATE per registration of an ineligible node.
 //
-// The day agent workers want a tunnel, relaxing the eligibility condition is
-// the whole change, and it has to be a deliberate one.
+// No node type reaches the clearing branch through RegisterNodeEndpoint today,
+// which rejects any node_type that is neither backend nor agent. That is a
+// reason to keep the branch rather than to drop it: a row's node_type is also
+// written by older builds and will be written by future types, and the branch
+// is what makes adding one a decision about eligibility rather than a silent
+// grant.
 //
 // A failure to mint or to store is logged and the response goes out without the
 // token. Registration is what gets a worker into the cluster at all, and
@@ -337,12 +346,12 @@ func attachTunnelToken(ctx context.Context, response map[string]any, registry *n
 	if node == nil {
 		return
 	}
-	if node.NodeType != nodes.NodeTypeBackend {
+	if !tunnelEligible(node.NodeType) {
 		// Cleared, not skipped. SetTunnelTokenHash writes the single column
 		// directly rather than through a struct update, so unlike Register it
 		// can write an empty value; see its doc.
 		if err := registry.SetTunnelTokenHash(ctx, node.ID, ""); err != nil {
-			xlog.Error("Failed to clear the tunnel credential of a node that is not a backend worker",
+			xlog.Error("Failed to clear the tunnel credential of a node whose type holds none",
 				"node", node.Name, "type", node.NodeType, "error", err)
 		}
 		return
@@ -356,6 +365,18 @@ func attachTunnelToken(ctx context.Context, response map[string]any, registry *n
 		return
 	}
 	response["tunnel_token"] = plaintext
+}
+
+// tunnelEligible reports whether a node of this type holds a tunnel credential.
+//
+// One predicate rather than a condition written into attachTunnelToken, because
+// the mint branch and the clear branch are the two halves of ONE rule and must
+// not be able to disagree: written as two conditions, widening the mint without
+// widening the clear leaves a node type that is granted a credential and never
+// stripped of one, and widening the clear without the mint strips a node type
+// on every registration it makes. Neither has a symptom until a tunnel dial.
+func tunnelEligible(nodeType string) bool {
+	return nodeType == nodes.NodeTypeBackend || nodeType == nodes.NodeTypeAgent
 }
 
 // attachNatsJWT adds a per-node NATS user JWT to a register/approve response when minting is enabled.
@@ -704,12 +725,12 @@ func DeleteBackendOnNodeEndpoint(unloader nodes.NodeCommandSender) echo.HandlerF
 func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		nodeID := c.Param("id")
-		// Agent-type workers don't run backends and never subscribe to the
-		// nodes.<id>.backend.list NATS subject, so the request would hang
-		// until timeout with "no responders". Their backend list is simply
-		// empty. Mirror the aggregate-list guard in managers_distributed.go
-		// (skip nodes whose NodeType is set and not "backend") so the
-		// single-node and cluster-wide views stay consistent.
+		// Agent-type workers don't run backends and mount no backend.list
+		// route on the tunnel they hold, so asking one can only 404. Their
+		// backend list is simply empty. Mirror the aggregate-list guard in
+		// managers_distributed.go (skip nodes whose NodeType is set and not
+		// "backend") so the single-node and cluster-wide views stay
+		// consistent.
 		if node, err := registry.Get(c.Request().Context(), nodeID); err == nil {
 			if node.NodeType != "" && node.NodeType != nodes.NodeTypeBackend {
 				return c.JSON(http.StatusOK, []messaging.NodeBackendInfo{})

@@ -111,9 +111,15 @@ func (hm *HealthMonitor) ReadsAbsence() bool { return hm != nil && hm.presence !
 // Acting on any of those would demote a fleet for a reason that has nothing to
 // do with any worker, which is the collapse this whole mechanism replaced.
 //
-// Backend workers only. An agent worker holds no tunnel at all, so it has no
-// departure to measure and would answer PresenceUnknown anyway; the type check
-// is here to save the query rather than to add a second rule.
+// Backend workers only, and since agent workers hold tunnels too that check is
+// now the RULE rather than an optimisation. It used to save a query: an agent
+// worker dialled nothing, so it had no departure to measure and would have
+// answered PresenceUnknown regardless. It now has a real node_connections row
+// that really does age past the grace, and demoting an agent node for it would
+// be a verdict about a route the agent's actual work does not travel on: an
+// agent worker still takes its jobs and its verbs over the bus. Deleting this
+// check would silently make every agent worker whose tunnel dropped go
+// unhealthy, and its next heartbeat would make it healthy again.
 func (hm *HealthMonitor) tunnelDeparted(ctx context.Context, node *BackendNode) bool {
 	if hm.presence == nil || node == nil {
 		return false

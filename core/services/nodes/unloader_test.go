@@ -317,7 +317,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(bus.publishedSubjects()).To(BeEmpty())
 		})
 
-		It("sends a backend stop to an AGENT node over the bus, because agent workers hold no tunnel", func() {
+		It("sends a backend stop to an AGENT node over the bus, because that publisher has not moved onto the tunnel", func() {
 			locator.nodes = []BackendNode{{ID: "agent-1", Name: "agent", NodeType: NodeTypeAgent}}
 
 			Expect(adapter.StopBackend("agent-1", "llama-backend")).To(Succeed())

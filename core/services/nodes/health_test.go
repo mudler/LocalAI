@@ -563,8 +563,11 @@ var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
 	})
 
 	It("leaves an AGENT node alone even when its tunnel would read as gone", func() {
-		// Agent workers hold no tunnel and still take their one verb over the
-		// bus. A departure row for one is not a fact about it.
+		// Agent workers hold a tunnel of their own now, and still take their
+		// jobs and their one remaining node verb over the bus. So a departure
+		// row for one is real and is still not a fact about whether the agent
+		// worker can work. This spec is what stops a bug in the agent tunnel
+		// client from demoting a fleet of perfectly healthy agent workers.
 		node := &BackendNode{Name: "agent-worker", NodeType: NodeTypeAgent}
 		Expect(registry.Register(ctx, node, true)).To(Succeed())
 		departTunnel(node.ID, grace+5*time.Second)

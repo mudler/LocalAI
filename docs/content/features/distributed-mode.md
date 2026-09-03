@@ -139,7 +139,11 @@ Unlike the agent worker's API key and its NATS credential, a tunnel credential *
 
 A tunnel credential does not replace `LOCALAI_REGISTRATION_TOKEN`. Without one, node registration itself is unauthenticated, so anyone who can reach the frontend can register a worker and be issued a tunnel credential for it. How far that gets them depends on auto-approve: with auto-approve on the node is healthy at once and the credential works immediately; with it off the node is pending and the credential is inert until an admin approves, so approval is the real gate. LocalAI warns about the missing token at startup.
 
-Only **backend** nodes are issued one. An agent worker has no inbound surface for the tunnel to replace and no client for it, so minting one would widen the credential surface for nothing; its row keeps an empty tunnel credential and the tunnel route refuses it like any other node without one.
+Both **backend** and **agent** nodes are issued one. Earlier releases minted a credential only for backend nodes, because nothing dialled into an agent worker; the frontend now reaches an agent worker's MCP control verbs over a tunnel of its own, so an agent worker dials one too. A node whose type is neither has its tunnel credential cleared on every registration rather than merely not renewed, so what refuses it is an empty credential and not a second check that could drift from this one.
+
+An agent worker's tunnel carries only the `http` tag: it runs no backend processes, so it does not offer the `grpc` tag at all. Its control server binds `127.0.0.1` on a port chosen by the kernel and advertises it nowhere, so an agent worker still opens no inbound port.
+
+**An agent worker still requires `--nats-url`.** The tunnel is an addition, not a replacement: agent jobs, MCP execution, MCP CI jobs and `nodes.<id>.backend.stop` all still travel on NATS. What the tunnel changes today is that the frontend *can* reach an agent worker directly, which is what later releases move those verbs onto.
 
 The tunnel lands on exactly one frontend replica, and that replica records itself as the owner of the worker's connection in the `node_connections` table. When the socket dies the claim is dropped, but the row stays behind with no owner and a `disconnected_at` stamp, so a worker that is re-dialling the load balancer can be told from one that has never connected. The row is deleted once that departure is older than ten liveness windows (five minutes). If the replica stalls long enough for its peers to reap it, it re-claims the tunnels it still holds on a live session as soon as it re-registers, skipping any whose socket has already gone. That re-claim needs the replica to have an advertised address: without one it never had an instance row to begin with, and its tunnels are usable only by the replica holding them.
 
@@ -156,7 +160,9 @@ The worker holds the tunnel with one goroutine: it dials, serves the frontend's 
 | Tag | Goes to | Target |
 |-----|---------|--------|
 | `grpc` | a backend process on this worker | the port; the host is discarded and only `127.0.0.1` is dialled, within the worker's own backend port range |
-| `http` | the worker's own file-transfer and backend-log server | ignored; there is one such server and only the worker knows where it bound |
+| `http` | the worker's own file-transfer and backend-log server (an agent worker's control server) | ignored; there is one such server and only the worker knows where it bound |
+
+An **agent worker** offers only the `http` row. It runs no backend processes, so the `grpc` tag has nothing to route to and a stream that names it is refused as an unknown tag.
 
 The `grpc` row is the security boundary of the tunnel, and it is worth being explicit about it. A tunnel terminates inside the worker process, so a stream arriving on it can reach anything the worker can reach; if the frontend could name the host, whoever holds the frontend end could make every worker in the fleet dial arbitrary addresses on its private network. The worker therefore builds the dial address from a constant `127.0.0.1` and a port it has validated, and the string from the wire never reaches the dialler at all. The port range is the one the worker's own allocator hands to backend processes, which by default runs to 65535; setting `LOCALAI_GRPC_MAX_PORT` narrows the allocator and this range together, and a worker with a known backend count should set it.
 
@@ -309,7 +315,7 @@ Registering against an upgraded frontend **clears** a node's `address` and `http
 
 A worker on this release opens **no inbound listener on a routable interface**. Its backend gRPC processes and its HTTP file-transfer server all bind loopback, and the frontend reaches both through the tunnel. Concretely:
 
-- **No inbound firewall rule, published port, Service or Ingress is needed for a worker.** A serve-backend worker needs outbound access to the frontend URL (`LOCALAI_REGISTER_TO`), and nothing else - not even to NATS. An agent worker also needs outbound access to `LOCALAI_NATS_URL`.
+- **No inbound firewall rule, published port, Service or Ingress is needed for a worker.** A serve-backend worker needs outbound access to the frontend URL (`LOCALAI_REGISTER_TO`), and nothing else - not even to NATS. An agent worker binds only loopback too, and needs outbound access to both `LOCALAI_REGISTER_TO` (registration, heartbeats and now its tunnel) and `LOCALAI_NATS_URL`.
 - **`LOCALAI_ADVERTISE_ADDR` and `LOCALAI_ADVERTISE_HTTP_ADDR` are gone.** There is nothing to advertise. Both are ignored if still set; remove them.
 - **`LOCALAI_ADDR` and `LOCALAI_SERVE_ADDR` are read for their port only.** The port is the base of the backend port range, and `port-1` is the HTTP file-transfer port. The host half names an interface nothing binds.
 - The node's `address` and `http_address` fields in `GET /api/nodes` are empty, and are cleared for nodes that reported them before the upgrade.
@@ -319,6 +325,8 @@ A worker on this release opens **no inbound listener on a routable interface**. 
 When a worker's tunnel goes, the frontend does **not** forget the worker. It records *when* the tunnel went, and for a grace period after that the worker is reported as **reconnecting**, not as gone. Only once the departure is older than the grace may anything act on the worker's absence: stop scheduling work onto it, clean up its rows, release its models.
 
 That distinction exists because a worker loses its tunnel for entirely ordinary reasons. A frontend replica restarting during a rolling upgrade drops every tunnel it held, and each of those workers immediately re-dials the load balancer and lands on another replica. Treating that as "the worker is gone" would evict models mid-upgrade for a fleet that never actually went anywhere.
+
+This applies to **backend** nodes only. An agent worker holds a tunnel and therefore has a `node_connections` row that ages exactly like a backend worker's, and nothing acts on it: an agent worker's real work travels on NATS, so a lost tunnel says nothing about whether it can run a job. The scheduler never sees agent nodes at all (every placement query selects `node_type = 'backend'`), and the health monitor skips them explicitly.
 
 Three things read this. The **scheduler** reads it before it places a cold load: a worker whose departure has outlived the grace is skipped and marked unhealthy, so every other frontend replica stops choosing it too. **LRU eviction** reads it before it hands back the node it freed capacity on, because a node full enough to be an eviction target is exactly the node the placement selectors never offer, so the scheduler's own check never sees it. The **health monitor** reads it on every cycle, which is what covers the case the heartbeat cannot see. A worker's heartbeat says its supervisor is alive; it says nothing about whether anything here can reach that worker's backends, because those are reached over the tunnel. A worker that heartbeats with a permanently dead tunnel (a proxy that stopped upgrading WebSockets, a rotated registration credential, a reconnect loop longer than the grace) is therefore marked unhealthy too, rather than staying listed healthy while every request for a model loaded on it fails "no route to that worker".
 
@@ -425,7 +433,7 @@ A frontend replica that dies mid-load does not wedge the model: the job row carr
 
 ### NATS JWT authentication (recommended for production)
 
-**This section is about agent workers and the frontend.** A serve-backend worker opens no NATS connection, so none of it applies to one; its own credential is the tunnel token it gets at registration, and its control plane is authenticated by `LOCALAI_REGISTRATION_TOKEN`.
+**This section is about agent workers and the frontend.** A serve-backend worker opens no NATS connection, so none of it applies to one; its own credential is the tunnel token it gets at registration, and its control plane is authenticated by `LOCALAI_REGISTRATION_TOKEN`. An agent worker now has both: a NATS credential for everything still on the bus, and a tunnel token plus the same `LOCALAI_REGISTRATION_TOKEN` bearer check in front of its control server.
 
 By default, NATS connections are anonymous: any client that can reach port `4222` may publish the subjects still carried on it. Those are the agent-worker job subjects, MCP, and the frontend's own cross-replica events. `nodes.<id>.backend.install` and its nine siblings are **not** among them - they are HTTP routes on the worker's tunnel, see [The worker control plane](#the-worker-control-plane). Enable JWT auth to scope agent workers to their own subjects and give the frontend a dedicated service credential.
 

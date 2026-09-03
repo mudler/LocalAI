@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
-	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -35,19 +33,16 @@ import (
 // the bucket reserved for a broken link. Only a failure to read or route the
 // request is a non-2xx.
 
-// maxControlRequestBytes bounds a control request body.
-//
-// The largest real body is BackendInstallRequest.BackendGalleries, a serialized
-// gallery list of a few hundred kilobytes. Eight megabytes is therefore not a
-// size the protocol needs: it is a defence against a body that never ends,
-// arriving on a boundary this worker now serves.
-const maxControlRequestBytes = 8 << 20
-
-// maxEchoedPathBytes bounds how much of an unknown control path the 404 body
-// repeats back. The path is caller-controlled and the answer exists to be read
-// in a log line, so a caller cannot make this worker echo a request-sized
-// string into one.
-const maxEchoedPathBytes = 128
+// The request bounds and the unknown-path answer are workerctl's, not this
+// package's. An agent worker mounts verbs under the same prefix behind the same
+// bearer check, and two workers with private copies of "how big may a body be"
+// and "what does an unmounted verb answer" is the rule-at-N-sites-pinned-at-one
+// shape phase 3 kept finding. Aliased rather than re-typed at every use so the
+// specs that reason about the cap keep naming it locally.
+const (
+	maxControlRequestBytes = workerctl.MaxRequestBytes
+	maxEchoedPathBytes     = workerctl.MaxEchoedPathBytes
+)
 
 // installFunc and upgradeFunc are the shapes of the two long-running verbs.
 // They exist as named types so the fields that override them below read as one
@@ -169,7 +164,7 @@ func (s *backendSupervisor) RegisterControlRoutes(mux *http.ServeMux) {
 		// The catch-all. A path under the control prefix that no verb claims is
 		// a frontend newer than this worker, and the body says so, because a
 		// bare 404 through a tunnel is indistinguishable from a proxy fault.
-		http.Error(w, "unknown worker control path "+truncate(r.URL.Path, maxEchoedPathBytes), http.StatusNotFound)
+		workerctl.WriteUnknownPath(w, r)
 	})
 }
 
@@ -213,45 +208,14 @@ func postControlVerb(mux *http.ServeMux, path string, h controlVerb) {
 	})
 }
 
-// readControlBody enforces the two things every control verb requires of a
-// request: that it is a POST, and that its body is bounded.
+// readControlBody is workerctl.ReadRequestBody under this package's own name.
 //
-// A GET is refused rather than served because a control verb is a command, and
-// a liveness probe, a link prefetch or a browser address bar must not be able
-// to stop a node.
+// The indirection is one line and it earns it: every verb in this file reads
+// its body through this name, so the shared rule has exactly one call shape
+// here rather than fifteen import-qualified ones that a future edit could
+// replace individually.
 func readControlBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "control verbs are POST only", http.StatusMethodNotAllowed)
-		return nil, false
-	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxControlRequestBytes))
-	if err != nil {
-		// A body this worker could not READ is not an answer about any
-		// backend, so it must not look like one: 400 is what the frontend maps
-		// onto "the request was rejected", never onto "that model is gone".
-		http.Error(w, "reading the control request body: "+err.Error(), http.StatusBadRequest)
-		return nil, false
-	}
-	return body, true
-}
-
-// truncate bounds a caller-controlled string that is about to be echoed.
-//
-// It cuts on a rune boundary. A byte-wise cut can split a multi-byte rune, and
-// the half rune then travels as a replacement character through every log and
-// UI that reads it; phase 2 shipped exactly that defect on a refusal reason and
-// pinned the rule afterwards. utf8.RuneStart is the same predicate the cluster
-// package uses for it, so the two are one rule rather than two hand-rolled
-// copies that can drift.
-func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	cut := max
-	for cut > 0 && !utf8.RuneStart(s[cut]) {
-		cut--
-	}
-	return s[:cut] + "…"
+	return workerctl.ReadRequestBody(w, r)
 }
 
 // ndjsonStream writes the Envelope lines of one streaming control response.

@@ -42,11 +42,26 @@ const (
 	PathFilesListDir = "/v1/control/files/listdir"
 )
 
-// AllPaths returns every control verb's path.
+// The verbs an AGENT worker serves.
+//
+// They live in the same package, under the same prefix and behind the same
+// bearer check as the backend worker's, because a worker is a worker to the
+// frontend: one control client, one path table, one set of failure meanings.
+// What differs is which of them a given worker MOUNTS, which is why the two
+// sets are named separately below.
+const (
+	PathMCPToolExecute = "/v1/control/mcp/tools/execute"
+	PathMCPDiscovery   = "/v1/control/mcp/discovery"
+	PathAgentExecute   = "/v1/control/agent/execute"
+	PathAgentCancel    = "/v1/control/agent/cancel"
+	PathMCPCIRun       = "/v1/control/mcp/ci/run"
+)
+
+// BackendPaths returns every control verb a BACKEND worker serves.
 //
 // It exists so a spec can assert a property of the whole set rather than of a
 // list it re-types, which would go stale the moment a verb is added.
-func AllPaths() []string {
+func BackendPaths() []string {
 	return []string{
 		PathBackendInstall,
 		PathBackendUpgrade,
@@ -63,6 +78,49 @@ func AllPaths() []string {
 		PathFilesTemp,
 		PathFilesListDir,
 	}
+}
+
+// AgentPaths returns every control verb an AGENT worker serves.
+//
+// PathBackendStop is in BOTH sets and that is the point rather than an
+// oversight: one path, two implementations, one caller. A backend worker kills
+// the process and recycles its port; an agent worker drops the MCP sessions it
+// cached for that backend. The frontend issues the same RPC to either and does
+// not branch on the node's type to pick a carrier.
+//
+// PathAgentCancel is named here with nothing mounting it yet. The frontend
+// therefore gets the catch-all's 404, which it already reads as "this worker
+// does not serve that verb" rather than as absence, and the path is fixed now
+// so the two sides cannot disagree about it later.
+func AgentPaths() []string {
+	return []string{
+		PathMCPToolExecute,
+		PathMCPDiscovery,
+		PathAgentExecute,
+		PathAgentCancel,
+		PathMCPCIRun,
+		PathBackendStop,
+	}
+}
+
+// AllPaths returns every control verb's path, each once.
+//
+// It is the union of the two sets above and is what package-wide properties
+// (every path under the prefix, no two verbs sharing a path) are asserted
+// over. A spec about what a PARTICULAR worker mounts must use BackendPaths or
+// AgentPaths instead: asserting mounting over the union would require every
+// worker to serve every verb, which is the opposite of what the split is for.
+func AllPaths() []string {
+	seen := make(map[string]bool)
+	out := make([]string, 0, len(BackendPaths())+len(AgentPaths()))
+	for _, p := range append(BackendPaths(), AgentPaths()...) {
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	return out
 }
 
 // Envelope is one line of a streaming control response.

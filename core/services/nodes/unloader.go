@@ -46,10 +46,11 @@ type NodeCommandSender interface {
 // remote nodes.
 //
 // One verb is still carried by the bus, and only for one KIND of node:
-// backend.stop to an AGENT node. Agent workers hold no tunnel yet, so they have
-// nothing to serve a control route on, and they subscribe to
-// nodes.<id>.backend.stop to drop cached MCP sessions. Removing that publish
-// would strand them; see stopBackend.
+// backend.stop to an AGENT node. An agent worker now holds a tunnel and mounts
+// that route on it, but this side has not been moved onto it yet, and until it
+// is, the agent worker's subscription to nodes.<id>.backend.stop is what
+// actually drops its cached MCP sessions. Removing that publish would strand
+// them; see stopBackend.
 type RemoteUnloaderAdapter struct {
 	registry       ModelLocator
 	nats           messaging.MessagingClient
@@ -384,11 +385,12 @@ func (a *RemoteUnloaderAdapter) nodeTypeOf(ctx context.Context, nodeID string) s
 // stopBackend sends one backend.stop, over the carrier that kind of worker
 // listens on.
 //
-// An AGENT node keeps the bus. It holds no tunnel, so it has no control route
-// to serve, and it subscribes to nodes.<id>.backend.stop to drop the MCP
-// sessions cached for a backend that is going away. This is the one verb of the
-// ten that is split rather than moved, and the split is the honest intermediate
-// state until agent workers hold tunnels too.
+// An AGENT node keeps the bus, and that is now a statement about THIS side
+// rather than about the worker. The agent worker mounts backend.stop on the
+// same control path a backend worker serves it on, so the tunnel could carry
+// it; what has not moved is this publish. Splitting on node type is the one
+// verb of the ten that is split rather than moved, and it stays split until the
+// change that switches this call onto the control route retires the subject.
 func (a *RemoteUnloaderAdapter) stopBackend(ctx context.Context, nodeID, nodeType, backend string, force bool) error {
 	if nodeType == NodeTypeAgent {
 		subject := messaging.SubjectNodeBackendStop(nodeID)
