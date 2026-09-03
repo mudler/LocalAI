@@ -654,6 +654,21 @@ func percentileIndex(n int, p float64) int {
 // slowestOf is the worst sample, which is the statistic a blocking question
 // turns on: a session that stalls one request while a transfer holds it shows
 // up in the tail and not in the middle.
+// completionRate is how many probes finished per second of the window they ran
+// in. It is the statistic the head-of-line assertion is made on, because a
+// serialised session shows up as work that does not complete rather than as one
+// probe that finished slowly.
+//
+// The window is passed in rather than summed from the samples: a probe that
+// never returns contributes no sample at all, and summing would then report a
+// stalled session as a short, healthy window.
+func completionRate(samples []time.Duration, window time.Duration) float64 {
+	if window <= 0 {
+		return 0
+	}
+	return float64(len(samples)) / window.Seconds()
+}
+
 func slowestOf(samples []time.Duration) time.Duration {
 	worst := time.Duration(0)
 	for _, d := range samples {
@@ -785,24 +800,44 @@ const (
 	// window rather than a fifth of it.
 	holStallShare = 2
 
-	// holStallControlFactor bounds the worst probe against the worst probe
-	// under the EMPTY load in the same run, which is the second half of not
-	// relaxing under load: a slower box raises the control and the bound with
-	// it, while an absolute number would simply admit more.
+	// holStallRateFactor bounds how far the probe COMPLETION RATE inside the
+	// bulk window may fall below the rate inside the empty-load window of the
+	// same run. It replaces a bound that compared the two windows' WORST probe,
+	// and the replacement is not a loosening: it is a different statistic,
+	// chosen because the old one could not answer the question it was asked.
 	//
-	// The empty load is the right thing to compare against and the plain
-	// baseline is not. Both samples then contain a cold load's contention for
-	// the worker, the router and the session, and the only thing that differs
-	// between them is 128 MiB crossing the wire. Compared against the quiet
-	// baseline instead, a transfer that cost nothing at all would still look
-	// like a regression on any box where a cold load is expensive.
+	// Why the old comparison had to go. A max over n samples is a biased
+	// estimator when the two n differ, and here they always differ: the bulk
+	// window is by construction the longer of the two, so it holds several
+	// times as many probes and therefore several times as many chances to draw
+	// an unrelated scheduling outlier. Anything that loads the box widens that
+	// gap rather than closing it, because the tail it samples from grows while
+	// the short control window keeps drawing too few samples to see the same
+	// tail. Measured: the worst probe was 57ms with the box quiet and 255ms
+	// with `make lint` running beside it, against a control-derived budget of
+	// 161ms that barely moved between the two. A spec that reddens on what else
+	// is running is not measuring this feature.
 	//
-	// Eight, from both ends of the gap it has to sit in. Healthy runs measured
-	// 1.6x to 3.8x on this box under a concurrent `-race` suite, and about 2.5x
-	// to 3x on the reviewer's; a session that stalled a probe until the
-	// transfer let go would show the whole window over the same control, which
-	// is 14x to 43x on the same runs.
-	holStallControlFactor = 8
+	// Why a rate answers it. The defect is a session that SERIALISES, and its
+	// signature is that almost nothing else completes while bytes are moving,
+	// so it shows up in how many probes finish per second and not in which one
+	// finished slowest. A rate is a mean over dozens of samples in both terms:
+	// an unrelated process slows the box, which divides both rates by much the
+	// same factor and cancels in the ratio, while one outlier moves a mean over
+	// dozens of samples by a fraction of itself. The self-scaling property the
+	// old bound was written for survives intact, since the control is still
+	// measured in the same run under the same conditions.
+	//
+	// Eight, from both ends of the gap it has to sit in, and deliberately the
+	// same number the old bound carried so that a reader comparing the two
+	// revisions sees a changed statistic and not a raised budget. A session
+	// that stalled its probes until the transfer let go completes one probe or
+	// none in a window in which the empty-load control completes dozens, which
+	// is a ratio far beyond eight. Healthy runs on this box, WITH `make lint`
+	// running beside them, measured 0.97 direct and 0.60 relayed, so the floor
+	// of 0.125 sits about five times below the worse of the two; the spec
+	// records both numbers in its report entry on every run.
+	holStallRateFactor = 8
 
 	// holStallCeiling is the coarse absolute backstop under both of those, for
 	// a transfer so slow that a quarter of its window is a latency no
@@ -962,13 +997,16 @@ var _ = Describe("Worker tunnel under load", Label("Distributed"), Label("Cluste
 				"%s: only %d probes overlapped a transfer window of %s, which is too few to say anything about head-of-line blocking",
 				label, len(underBulk), transferWindow)
 
-			line := fmt.Sprintf("%s\n  %s\n  %s\n  %s\n  transfer window: %s of a %s load (%d MiB), empty load %s",
+			line := fmt.Sprintf("%s\n  %s\n  %s\n  %s\n  transfer window: %s of a %s load (%d MiB), empty load %s\n  completion rate: %.1f/s under bulk vs %.1f/s under empty load (ratio %.2f, floor 1/%d)",
 				label,
 				summarise("baseline           ", baseline),
 				summarise("under empty load   ", underTiny),
 				summarise("under bulk load    ", underBulk),
 				transferWindow.Round(time.Millisecond), bulkElapsed.Round(time.Millisecond),
-				bulkArtifactSize>>20, tinyElapsed.Round(time.Millisecond))
+				bulkArtifactSize>>20, tinyElapsed.Round(time.Millisecond),
+				completionRate(underBulk, bulkElapsed), completionRate(underTiny, tinyElapsed),
+				completionRate(underBulk, bulkElapsed)/completionRate(underTiny, tinyElapsed),
+				holStallRateFactor)
 			report = append(report, line)
 			GinkgoWriter.Println(line)
 
@@ -976,11 +1014,13 @@ var _ = Describe("Worker tunnel under load", Label("Distributed"), Label("Cluste
 			Expect(slowest).To(BeNumerically("<", transferWindow/holStallShare),
 				"%s: a probe waited %s of the %s in which bytes were moving, which is the shape of a session that stalled the probe until the transfer let go, not of one that interleaved them",
 				label, slowest, transferWindow)
-			control := slowestOf(underTiny)
-			Expect(control).To(BeNumerically(">", 0), "%s: the empty-load control produced no samples", label)
-			Expect(slowest).To(BeNumerically("<", holStallControlFactor*control),
-				"%s: the worst probe was %s while bytes were moving against %s under the same cold load with nothing to move, which is a stall rather than the contention a shared session costs",
-				label, slowest, control)
+			bulkRate := completionRate(underBulk, bulkElapsed)
+			tinyRate := completionRate(underTiny, tinyElapsed)
+			Expect(tinyRate).To(BeNumerically(">", 0),
+				"%s: the empty-load control completed no probes, so there is nothing to compare the bulk window against", label)
+			Expect(bulkRate).To(BeNumerically(">=", tinyRate/holStallRateFactor),
+				"%s: probes completed at %.1f/s while 128 MiB was crossing the session against %.1f/s under the same cold load with nothing to move, which is a session that stopped admitting work rather than one that shared it",
+				label, bulkRate, tinyRate)
 			Expect(slowest).To(BeNumerically("<", holStallCeiling),
 				"%s: a probe waited %s while the bulk transfer held the session", label, slowest)
 		}
