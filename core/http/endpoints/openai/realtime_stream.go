@@ -145,6 +145,9 @@ func streamLLMResponse(ctx context.Context, session *Session, conv *Conversation
 		template = llmCfg.TemplateConfig.Chat
 	}
 	thinkingStartToken := reasoning.DetectThinkingStartToken(template, &llmCfg.ReasoningConfig)
+	if llmCfg.TemplateConfig.UseTokenizerTemplate {
+		thinkingStartToken = reasoning.DetectThinkingStartTokenInTemplate(template, &llmCfg.ReasoningConfig)
+	}
 
 	// The autoparser (tokenizer-template path) already delivers reasoning-free
 	// content. Prefilling the thinking start token here would re-tag that clean
