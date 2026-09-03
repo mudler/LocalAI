@@ -6,9 +6,12 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/distributed"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 )
 
 // These specs model the two-replica topology from issue #10993: two independent
@@ -18,6 +21,8 @@ import (
 var _ = Describe("ResponseStore cross-replica", func() {
 	var (
 		bus      *testutil.FakeBus
+		db       *gorm.DB
+		store    *distributed.ResponseMetadataStore
 		replicaA *ResponseStore
 		replicaB *ResponseStore
 		ctx      context.Context
@@ -27,11 +32,18 @@ var _ = Describe("ResponseStore cross-replica", func() {
 		ctx = context.Background()
 		bus = testutil.NewFakeBus()
 
+		// One database, two replicas, exactly as a deployment has it: the
+		// durable rows are shared and the in-memory maps are not.
+		db = testutil.SetupTestDB()
+		var err error
+		store, err = distributed.NewResponseMetadataStore(db)
+		Expect(err).ToNot(HaveOccurred())
+
 		replicaA = NewResponseStore(0)
 		replicaB = NewResponseStore(0)
 
-		Expect(replicaA.EnableDistributed(ctx, bus, "replica-a")).To(Succeed())
-		Expect(replicaB.EnableDistributed(ctx, bus, "replica-b")).To(Succeed())
+		Expect(replicaA.EnableDistributed(ctx, bus, "replica-a", store)).To(Succeed())
+		Expect(replicaB.EnableDistributed(ctx, bus, "replica-b", store)).To(Succeed())
 	})
 
 	AfterEach(func() {
@@ -187,6 +199,116 @@ var _ = Describe("ResponseStore cross-replica", func() {
 			events, err := replicaA.GetEventsAfter(id, 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(events).To(HaveLen(1))
+		})
+	})
+
+	Describe("re-hydrating after a gap in the carrier", func() {
+		// Both carriers deliver at most once to CONNECTED subscribers and
+		// neither replays. This is the only path by which a replica learns about
+		// a response whose delta it never received, and it is what Task 11's
+		// move of this family onto pgbus depends on.
+		It("restores from the durable rows what a missed delta had removed from memory", func() {
+			const id = "resp_rehydrate"
+			replicaA.Store(id, &schema.OpenResponsesRequest{Model: "test-model"}, newResponse(id, schema.ORStatusCompleted))
+			Expect(replicaB.Get(id)).ToNot(BeNil())
+
+			// Drop it from both maps' memory the way a peer delta would, which
+			// leaves the durable row untouched: the apply path is memory-only.
+			Expect(bus.Publish(messaging.SubjectSyncStateDelta(syncStateName),
+				map[string]any{"op": "delete", "key": id})).To(Succeed())
+			_, err := replicaB.Get(id)
+			Expect(err).To(HaveOccurred())
+
+			bus.TriggerReconnect()
+
+			stored, err := replicaB.Get(id)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored).ToNot(BeNil())
+			Expect(stored.Response.Status).To(Equal(schema.ORStatusCompleted))
+			Expect(stored.Request).ToNot(BeNil())
+		})
+
+		It("keeps what it already had when the durable source cannot be read", func() {
+			const id = "resp_outage"
+			replicaA.Store(id, &schema.OpenResponsesRequest{Model: "test-model"}, newResponse(id, schema.ORStatusCompleted))
+			Expect(replicaB.Get(id)).ToNot(BeNil())
+
+			sqlDB, err := db.DB()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sqlDB.Close()).To(Succeed())
+
+			// An unreachable database is not the same fact as an empty table. A
+			// re-hydrate that could not read must change nothing, or a transient
+			// outage would 404 every response this replica knows about.
+			bus.TriggerReconnect()
+
+			stored, err := replicaB.Get(id)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored).ToNot(BeNil())
+		})
+	})
+
+	Describe("purging expired durable metadata", func() {
+		It("sweeps rows whose TTL has passed and stops when the store is closed", func() {
+			ticks := make(chan time.Time)
+			replica := NewResponseStore(0)
+			replica.purgeTicks = ticks
+			Expect(replica.EnableDistributed(ctx, testutil.NewFakeBus(), "replica-purge", store)).To(Succeed())
+
+			past := time.Now().Add(-time.Hour)
+			Expect(store.Upsert(ctx, &distributed.ResponseMetadataRecord{
+				ID: "resp_expired_row", PayloadJSON: []byte(`{"id":"resp_expired_row"}`), ExpiresAt: &past,
+			})).To(Succeed())
+			Expect(store.Upsert(ctx, &distributed.ResponseMetadataRecord{
+				ID: "resp_live_row", PayloadJSON: []byte(`{"id":"resp_live_row"}`),
+			})).To(Succeed())
+
+			// A non-blocking send that retries: if EnableDistributed never
+			// started the sweep there is no receiver, and this fails by name
+			// instead of hanging the suite on an unbuffered send.
+			Eventually(ticks).Should(BeSent(time.Now()), "the purge sweep must be running to receive a tick")
+
+			Eventually(func() ([]string, error) {
+				recs, err := store.ListUnexpired(ctx)
+				if err != nil {
+					return nil, err
+				}
+				out := make([]string, 0, len(recs))
+				for i := range recs {
+					out = append(out, recs[i].ID)
+				}
+				return out, nil
+			}).Should(ConsistOf("resp_live_row"))
+
+			var count int64
+			Eventually(func() (int64, error) {
+				err := db.Model(&distributed.ResponseMetadataRecord{}).
+					Where("id = ?", "resp_expired_row").Count(&count).Error
+				return count, err
+			}).Should(BeZero())
+
+			// Close waits for the sweep, so a Close that returns is proof the
+			// goroutine is gone. If it never exited this would hang rather than
+			// pass, which is why nothing here polls for a flag.
+			done := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				defer close(done)
+				Expect(replica.Close()).To(Succeed())
+			}()
+			Eventually(done).Should(BeClosed())
+		})
+	})
+
+	Describe("wiring", func() {
+		It("refuses to enable replication without a durable store", func() {
+			// A nil store here is a wiring bug, not a deployment shape: this is
+			// reached only from the distributed branch of route registration.
+			// Tolerating it would silently restore a deltas-only map, whose gap
+			// is permanent.
+			err := NewResponseStore(0).EnableDistributed(ctx, bus, "replica-c", nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("store"))
 		})
 	})
 
