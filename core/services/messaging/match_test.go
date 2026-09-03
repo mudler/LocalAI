@@ -1,6 +1,8 @@
 package messaging_test
 
 import (
+	"errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -58,7 +60,11 @@ var _ = DescribeTable("ValidFilter",
 	func(filter string, wantErr bool) {
 		err := messaging.ValidFilter(filter)
 		if wantErr {
-			Expect(err).To(HaveOccurred())
+			// The CLASS, not merely "an error". Carriers match on
+			// ErrUnsupportedFilter to tell "this caller asked for something we
+			// do not implement" apart from "the store is unhappy", so the
+			// definition has to pin what the callers match on.
+			Expect(errors.Is(err, messaging.ErrUnsupportedFilter)).To(BeTrue(), "got %v", err)
 			return
 		}
 		Expect(err).ToNot(HaveOccurred())

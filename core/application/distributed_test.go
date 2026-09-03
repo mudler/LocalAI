@@ -61,6 +61,36 @@ var _ = Describe("opening the deployment's broadcast carrier", func() {
 	})
 })
 
+// The partial pin on two wiring lines that cannot be reddened by a spec: the
+// newBroadcastBus call, and `Bus: bus` in the returned literal. Neither is a
+// compile error when deleted and initDistributed cannot be unit tested while it
+// opens NATS first, so what is available is a boot refusal, and this is what
+// keeps that refusal honest.
+var _ = Describe("refusing a deployment with no broadcast carrier", func() {
+	It("accepts services that carry one", func() {
+		db, dsn := testutil.SetupTestDBWithDSN()
+		cfg := &config.ApplicationConfig{}
+		cfg.Auth.DatabaseURL = dsn
+		bus, err := newBroadcastBus(context.Background(), cfg, db)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(bus.Close)
+
+		Expect(requireBroadcastCarrier(&DistributedServices{Bus: bus})).To(Succeed())
+	})
+
+	It("refuses services whose carrier was never assigned, and says what it costs", func() {
+		err := requireBroadcastCarrier(&DistributedServices{})
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("published between replicas"))
+		Expect(err.Error()).To(ContainSubstring("shutdown"))
+	})
+
+	It("refuses a nil deployment rather than dereferencing it", func() {
+		Expect(requireBroadcastCarrier(nil)).ToNot(Succeed())
+	})
+})
+
 var _ = Describe("shutting the distributed services down", func() {
 	It("closes the broadcast carrier", func() {
 		// A pinned PostgreSQL session and the goroutine parked on it, per
