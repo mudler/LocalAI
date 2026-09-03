@@ -130,7 +130,7 @@ func missingBinary(what, path, remedy string) {
 	Skip(message)
 }
 
-// localAIBinary resolves the built binary.
+// localAIBinary resolves the built binary and refuses a stale one.
 func localAIBinary() string {
 	GinkgoHelper()
 	path := os.Getenv("LOCALAI_E2E_BINARY")
@@ -139,10 +139,103 @@ func localAIBinary() string {
 		Expect(err).ToNot(HaveOccurred())
 		path = filepath.Join(wd, "..", "..", "..", "local-ai")
 	}
-	if _, err := os.Stat(path); err != nil {
-		missingBinary("local-ai binary", path, "run `make build` or set LOCALAI_E2E_BINARY")
+	info, err := os.Stat(path)
+	if err != nil {
+		missingBinary("local-ai binary", path, "run `make test-e2e-cluster`, which builds it, or set LOCALAI_E2E_BINARY")
 	}
+	requireFreshBinary(path, info.ModTime())
 	return path
+}
+
+// requireFreshBinary fails when the binary about to be exec'd predates the
+// sources it is supposed to contain.
+//
+// A missing binary is a loud failure; a STALE one is a silent lie. The suite
+// spawns this file as its frontends and workers, so an out-of-date build makes
+// every spec a statement about code nobody can name, and the pass or fail it
+// produces belongs to a commit that is not the one under test. That has already
+// happened here once: a spec reported caller line numbers that matched no line
+// in any source file, which was the only reason anyone noticed.
+//
+// It FAILS rather than skipping, and it does so on a developer box as well as
+// under CI, which is the opposite polarity to missingBinary above. The
+// distinction is what a wrong answer costs: a skipped spec reports nothing and
+// a stale spec reports something false, so there is no environment in which
+// continuing is the kinder choice.
+//
+// _test.go files are excluded on purpose and the exclusion is load-bearing.
+// They are compiled into the ginkgo suite, never into local-ai, so counting
+// them would fire on every edit to the spec being run and would train everyone
+// to route around the check within a day.
+func requireFreshBinary(path string, built time.Time) {
+	GinkgoHelper()
+	newest, at, err := newestGoSource()
+	Expect(err).ToNot(HaveOccurred(), "walking the tree for source timestamps")
+	if at == "" || !newest.After(built) {
+		return
+	}
+	Fail(fmt.Sprintf(
+		"%s was built at %s but %s changed at %s, so this suite would exec a binary that does not contain the tree it is about to report on; run `make test-e2e-cluster`, which builds it",
+		path, built.Format(time.RFC3339), at, newest.Format(time.RFC3339)))
+}
+
+// sourceScanSkip names the directories the freshness walk does not descend
+// into. Each holds either no Go the binary links, or enough files to make the
+// walk cost more than the check is worth.
+var sourceScanSkip = map[string]bool{
+	".git":           true,
+	"node_modules":   true,
+	"dist":           true,
+	"models":         true,
+	"backends":       true,
+	"local-backends": true,
+	"vendor":         true,
+}
+
+// newestGoSource returns the newest modification time among the Go sources that
+// end up in the binary, and the path that carries it.
+//
+// go.mod and go.sum count: a dependency bump changes neither a .go file nor the
+// working tree's own code, and produces a different binary all the same.
+func newestGoSource() (time.Time, string, error) {
+	root, err := os.Getwd()
+	if err != nil {
+		return time.Time{}, "", err
+	}
+	root = filepath.Join(root, "..", "..", "..")
+	var newest time.Time
+	var at string
+	err = filepath.WalkDir(root, func(p string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			// A file that vanished mid-walk is not this check's business, and
+			// aborting on it would turn a race in someone's editor into a
+			// failed suite.
+			return nil //nolint:nilerr // see above
+		}
+		if d.IsDir() {
+			if sourceScanSkip[d.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		name := d.Name()
+		if strings.HasSuffix(name, "_test.go") {
+			return nil
+		}
+		if !strings.HasSuffix(name, ".go") && name != "go.mod" && name != "go.sum" {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return nil //nolint:nilerr // same reasoning as the walk error above
+		}
+		if info.ModTime().After(newest) {
+			newest = info.ModTime()
+			at = p
+		}
+		return nil
+	})
+	return newest, at, err
 }
 
 func mockBackendBinary() string {
