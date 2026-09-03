@@ -502,7 +502,27 @@ const subjectSyncStatePrefix = "state."
 const (
 	SubjectPrefixCacheObserve    = "prefixcache.observe"
 	SubjectPrefixCacheInvalidate = "prefixcache.invalidate"
+	SubjectPrefixCacheResidency  = "prefixcache.residency"
 )
+
+// PrefixCacheOperation describes a backend-reported KV-cache residency change.
+type PrefixCacheOperation string
+
+const (
+	PrefixCacheStore  PrefixCacheOperation = "store"
+	PrefixCacheRemove PrefixCacheOperation = "remove"
+	PrefixCacheClear  PrefixCacheOperation = "clear"
+)
+
+// PrefixCacheResidencyEvent reports exact backend KV-cache residency. Chain is
+// the compatible shallow-to-deep prefix hash chain used by the router.
+type PrefixCacheResidencyEvent struct {
+	Operation PrefixCacheOperation `json:"operation"`
+	Model     string               `json:"model"`
+	NodeID    string               `json:"node_id"`
+	Replica   int                  `json:"replica"`
+	Chain     []uint64             `json:"chain,omitempty"`
+}
 
 // PrefixCacheObserveEvent announces that the replica (NodeID, Replica) served a
 // request whose prefix chain ends at the given hashes for model. Chain is the

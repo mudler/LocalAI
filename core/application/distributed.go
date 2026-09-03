@@ -341,6 +341,14 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheInvalidate, err)
 		}
 
+		// Keep an exact-residency index current so backend producers can report
+		// their real KV state without coupling to router internals. Routing stays
+		// on the guessed provider until a backend producer is available.
+		reportedIndex := prefixcache.NewReportedIndex()
+		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCacheResidency, reportedIndex.Apply); err != nil {
+			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheResidency, err)
+		}
+
 		// Background eviction: sweep idle entries on the app context. Stopped
 		// when the app context is cancelled (mirrors the reconciler loop which
 		// also runs on options.Context). TTL/2 keeps stale entries from
