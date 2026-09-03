@@ -149,11 +149,13 @@ func SubjectResponseCancel(responseID string) string {
 // through its tunnel, so a subject builder for any of them would be a subject
 // nothing publishes and nothing subscribes to.
 //
-// ONE survives: backend.stop, and only for AGENT workers. They hold no tunnel,
-// so they have no control plane to serve, and they subscribe to it to drop the
-// MCP sessions cached for a backend that is going away. See
-// nodes.RemoteUnloaderAdapter.stopBackend for the split, and
-// core/cli/agent_worker.go for the subscriber.
+// ONE survives: backend.stop, and only for AGENT workers. They now hold a
+// tunnel and mount that verb on it, so what keeps this subject alive is the
+// PUBLISHER: nodes.RemoteUnloaderAdapter.stopBackend still sends an agent
+// node's stop here rather than over its control route. The agent worker
+// subscribes to it to drop the MCP sessions cached for a backend that is going
+// away; see core/cli/agent_worker.go for the subscriber, which shares one
+// implementation with the control route so the two carriers cannot diverge.
 //
 // The request and reply types below are UNCHANGED and still live here: they are
 // the wire format of the control routes, byte for byte what the subjects
@@ -285,7 +287,9 @@ type BackendStopRequest struct {
 // It is the one node subject left, and it is addressed only to agent nodes. A
 // BACKEND worker takes its stop on workerctl.PathBackendStop over its tunnel,
 // where it also kills the process and recycles the port; an agent worker runs
-// no backend processes and only needs to hear that one went.
+// no backend processes and only needs to hear that one went. An agent worker
+// serves that same path over its own tunnel as well, so this subject is what
+// the publisher has not moved off yet rather than the only way to reach one.
 func SubjectNodeBackendStop(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".backend.stop"
 }
