@@ -67,6 +67,10 @@ cp -r thread_params_test.cpp llama.cpp/tools/grpc-server/
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
 cp -r parent_watch.h llama.cpp/tools/grpc-server/
 cp -r parent_watch_test.cpp llama.cpp/tools/grpc-server/
+# Dead-stream tracker (included by grpc-server.cpp) and its standalone unit
+# test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
+cp -r stream_peer.h llama.cpp/tools/grpc-server/
+cp -r stream_peer_test.cpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/nlohmann/json.hpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/vendor/cpp-httplib/httplib.h llama.cpp/tools/grpc-server/
 

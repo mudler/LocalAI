@@ -130,4 +130,10 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_include_directories(model_load_error_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(model_load_error_test PRIVATE cxx_std_17)
     add_test(NAME model_load_error_test COMMAND model_load_error_test)
+
+    # Dead-stream tracker (standard library only).
+    add_executable(stream_peer_test stream_peer_test.cpp stream_peer.h)
+    target_include_directories(stream_peer_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(stream_peer_test PRIVATE cxx_std_17)
+    add_test(NAME stream_peer_test COMMAND stream_peer_test)
 endif()
