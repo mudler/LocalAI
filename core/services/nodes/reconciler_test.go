@@ -903,7 +903,7 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 				Registry:  registry,
 				Scheduler: &fakeScheduler{},
 				DB:        db,
-				Adapter:   NewRemoteUnloaderAdapter(registry, nil, workers.controlClient(), time.Minute, time.Minute),
+				Adapter:   NewRemoteUnloaderAdapter(registry, workers.controlClient(), time.Minute, time.Minute),
 			})
 		})
 
