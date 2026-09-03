@@ -139,6 +139,25 @@ var _ = Describe("broadcasts too large for a notification", func() {
 		Expect(row.CreatedAt).ToNot(BeZero())
 	})
 
+	It("delivers nothing for a notification that carries no payload at all", func() {
+		// Publish cannot produce this, because json.Marshal is never empty. It
+		// is reachable if anything else ever notifies on a localai_ channel,
+		// and a handler called with nil is a message that says nothing rather
+		// than no message, which is exactly the confusion this carrier must
+		// never create. The sentinel proves it kept carrying.
+		out := make(chan []byte, 4)
+		_, err := sub.Subscribe(subject, func(b []byte) { out <- b })
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(db.Exec("SELECT pg_notify(?, ?)", "localai_jobs",
+			fmt.Sprintf(`{"s":%q}`, subject)).Error).To(Succeed())
+		Expect(pub.Publish(subject, map[string]string{"m": "sentinel"})).To(Succeed())
+
+		var got []byte
+		Eventually(out, 10*time.Second).Should(Receive(&got))
+		Expect(got).To(MatchJSON(`{"m":"sentinel"}`))
+	})
+
 	It("delivers nothing, and keeps carrying, when a spilled row cannot be found", func() {
 		// A notification whose row is gone is a lost message, not an empty one:
 		// handing a handler nil would let a consumer read a carrier failure as
@@ -159,12 +178,30 @@ var _ = Describe("broadcasts too large for a notification", func() {
 })
 
 var _ = Describe("retiring spilled rows", func() {
-	var db *gorm.DB
+	var (
+		db  *gorm.DB
+		dsn string
+	)
 
 	BeforeEach(func() {
-		db, _ = testutil.SetupTestDBWithDSN()
+		db, dsn = testutil.SetupTestDBWithDSN()
 		Expect(pgbus.Migrate(context.Background(), db)).To(Succeed())
 	})
+
+	// aged writes one spilled row and backdates it on the DATABASE clock, which
+	// is the clock the sweep compares against.
+	aged := func(id string) {
+		GinkgoHelper()
+		Expect(db.Create(&pgbus.BusMessage{ID: id, Subject: "jobs.x", Payload: []byte(`{}`)}).Error).To(Succeed())
+		Expect(db.Exec("UPDATE bus_messages SET created_at = now() - interval '1 hour' WHERE id = ?", id).Error).To(Succeed())
+	}
+
+	rows := func() []string {
+		GinkgoHelper()
+		var ids []string
+		Expect(db.Model(&pgbus.BusMessage{}).Pluck("id", &ids).Error).To(Succeed())
+		return ids
+	}
 
 	It("leaves the cutoff to the database clock", func() {
 		// Pinned as a statement shape rather than as behaviour on purpose. The
@@ -177,18 +214,29 @@ var _ = Describe("retiring spilled rows", func() {
 		Expect(pgbus.SpillSweepSQL).ToNot(ContainSubstring("created_at < ?"))
 	})
 
+	It("runs the sweep on its own, without anyone asking it to", func() {
+		// SweepSpill and SpillSweepSQL are both spec'd directly, and neither of
+		// them proves the carrier ever CALLS them. Deleting the sweeper's `go`
+		// statement left the whole suite green and bus_messages growing
+		// forever, which is the unpinned-wiring shape this programme exists to
+		// remove. The interval is a Config field so that this spec exists.
+		aged("swept")
+		Expect(db.Create(&pgbus.BusMessage{ID: "kept", Subject: "jobs.x", Payload: []byte(`{}`)}).Error).To(Succeed())
+
+		b, err := pgbus.New(context.Background(), pgbus.Config{DSN: dsn, DB: db, SweepInterval: 20 * time.Millisecond})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(b.Close)
+
+		Eventually(rows, 30*time.Second).Should(ConsistOf("kept"))
+	})
+
 	It("deletes rows past the retention and keeps the rest", func() {
-		old := pgbus.BusMessage{ID: "old", Subject: "jobs.x", Payload: []byte(`{}`)}
-		fresh := pgbus.BusMessage{ID: "fresh", Subject: "jobs.x", Payload: []byte(`{}`)}
-		Expect(db.Create(&old).Error).To(Succeed())
-		Expect(db.Create(&fresh).Error).To(Succeed())
-		Expect(db.Exec("UPDATE bus_messages SET created_at = now() - interval '1 hour' WHERE id = 'old'").Error).To(Succeed())
+		aged("old")
+		Expect(db.Create(&pgbus.BusMessage{ID: "fresh", Subject: "jobs.x", Payload: []byte(`{}`)}).Error).To(Succeed())
 
 		Expect(pgbus.SweepSpill(context.Background(), db, 5*time.Minute)).To(Succeed())
 
-		var ids []string
-		Expect(db.Model(&pgbus.BusMessage{}).Pluck("id", &ids).Error).To(Succeed())
-		Expect(ids).To(ConsistOf("fresh"))
+		Expect(rows()).To(ConsistOf("fresh"))
 	})
 })
 
