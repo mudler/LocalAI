@@ -165,7 +165,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 			distMgr := nodes.NewDistributedModelManager(appCfg, ml, adapter)
 
 			err = distMgr.DeleteModel("big-model")
@@ -226,7 +226,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry, nil)
 
 			err = distMgr.DeleteBackend("my-backend")
@@ -269,7 +269,7 @@ var _ = Describe("Model and Backend Managers", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			appCfg.SystemState = ss
 
-			adapter := nodes.NewRemoteUnloaderAdapter(registry, infra.NC, workers.Client(), 3*time.Minute, 15*time.Minute)
+			adapter := nodes.NewRemoteUnloaderAdapter(registry, workers.Client(), 3*time.Minute, 15*time.Minute)
 			distMgr := nodes.NewDistributedBackendManager(appCfg, ml, adapter, registry, nil)
 
 			// Should NOT return an error even though the backend doesn't exist locally

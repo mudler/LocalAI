@@ -21,20 +21,24 @@ func workerSubjectToken(nodeID string) string {
 // restriction, so a function that returned nil here would upgrade every JWT the
 // frontend still mints for a backend node from "its own inbox" to "the entire
 // account". The inbox is self-scoped and reaches no cluster subject.
+//
+// nodeID no longer narrows anything: no allow list below is per-node, because
+// the only per-node subject an agent worker ever subscribed to was its
+// backend.stop, which is a control RPC on its tunnel now. It stays in the
+// signature so a future per-node grant has somewhere to come from, and because
+// mint.go names the JWT user after it.
 func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
-	tok := workerSubjectToken(nodeID)
-	prefix := "nodes." + tok
-
 	switch nodeType {
 	case "agent":
 		// Agent workers consume queue workloads; they must not handle backend.install.
 		// Keep this list in sync with the subscriptions in core/cli/agent_worker.go.
 		//
-		// MCP tool execution and discovery are NOT here any more: they are
-		// control RPCs on the tunnel the worker holds, chosen by the frontend
-		// rather than by a queue group. Removing them narrowed this list; it
-		// must never be narrowed to nothing, because NATS reads an EMPTY allow
-		// list as no restriction at all.
+		// MCP tool execution and discovery are NOT here, and neither is the
+		// per-node backend.stop: all three are control RPCs on the tunnel the
+		// worker holds, addressed by the frontend rather than by a subject.
+		// Removing them narrowed this list; it must never be narrowed to
+		// nothing, because NATS reads an EMPTY allow list as no restriction at
+		// all, which would widen an agent JWT to the whole account.
 		subAllow = []string{
 			"agent.execute",
 			"agent.*.cancel",
@@ -43,8 +47,7 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 			"jobs.*.cancel",
 			"jobs.*.progress",
 			"jobs.*.result",
-			"jobs.mcp-ci.new",        // MCP CI jobs dispatched to agent workers
-			prefix + ".backend.stop", // stop events drive MCP session cleanup
+			"jobs.mcp-ci.new", // MCP CI jobs dispatched to agent workers
 			"staging.*.progress",
 			"_INBOX.>",
 		}
