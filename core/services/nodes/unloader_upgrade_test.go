@@ -19,7 +19,7 @@ var _ = Describe("RemoteUnloaderAdapter.UpgradeBackend", func() {
 		workers.scriptReply(controlKey(nodeID, workerctl.PathBackendUpgrade),
 			messaging.BackendUpgradeReply{Success: true})
 
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), 3*time.Minute, 15*time.Minute)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), 3*time.Minute, 15*time.Minute)
 		reply, err := adapter.UpgradeBackend(nodeID, "llama-cpp", `[{"name":"x"}]`, "", "", "", 0, "", nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reply.Success).To(BeTrue())
@@ -30,7 +30,7 @@ var _ = Describe("RemoteUnloaderAdapter.UpgradeBackend", func() {
 		workers := newScriptedControlWorkers()
 		workers.scriptUnroutable("missing-node")
 
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), 3*time.Minute, 15*time.Minute)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), 3*time.Minute, 15*time.Minute)
 		_, err := adapter.UpgradeBackend("missing-node", "llama-cpp", "", "", "", "", 0, "", nil)
 		Expect(errors.Is(err, ErrWorkerUnroutable)).To(BeTrue())
 		// Not the worker's 404 either: nothing was asked of it, so it did not
@@ -60,7 +60,7 @@ var _ = Describe("RemoteUnloaderAdapter.UpgradeBackend", func() {
 			got = append(got, ev)
 		}
 
-		adapter := NewRemoteUnloaderAdapter(nil, nil, workers.controlClient(), 3*time.Minute, 15*time.Minute)
+		adapter := NewRemoteUnloaderAdapter(nil, workers.controlClient(), 3*time.Minute, 15*time.Minute)
 		reply, err := adapter.UpgradeBackend(nodeID, "llama-cpp", `[{"name":"x"}]`, "", "", "", 0, opID, onProgress)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reply.Success).To(BeTrue())

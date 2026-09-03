@@ -3,12 +3,16 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // The agent worker answers its MCP verbs on ONE carrier now: the control route
@@ -47,11 +51,11 @@ var _ = Describe("The agent worker's MCP verbs", func() {
 })
 
 var _ = Describe("The agent worker's backend stop", func() {
-	// One implementation behind both carriers, for the same reason: the bus
-	// subscription and the tunnel's control route both call this.
+	// One carrier now: the tunnel's control route. The node subject this used
+	// to arrive on is gone, so this implementation is reached one way only.
 
 	It("treats a stop that names no backend as a no-op rather than a failure", func() {
-		// A malformed publish must not become a non-2xx the frontend reads as
+		// A malformed request must not become a non-2xx the frontend reads as
 		// a worker it could not reach.
 		Expect(dropMCPSessionsForBackend(context.Background(), messaging.BackendStopRequest{})).To(Succeed())
 	})
@@ -63,4 +67,35 @@ var _ = Describe("The agent worker's backend stop", func() {
 		Expect(dropMCPSessionsForBackend(context.Background(),
 			messaging.BackendStopRequest{Backend: "a-backend-this-worker-never-saw"})).To(Succeed())
 	})
+})
+
+// The wiring, pinned through the transport rather than by reading the struct.
+//
+// Every verb below has exactly one carrier: the control route. Dropping a field
+// from agentWorkerControlHandlers mounts nothing for that path, the catch-all
+// answers 404, and the frontend reads that 404 as a worker too old to serve the
+// verb rather than as a wiring mistake. Nothing else in this repo would notice.
+var _ = Describe("The agent worker's control-plane wiring", func() {
+	var base string
+
+	BeforeEach(func() {
+		mux := http.NewServeMux()
+		agentWorkerControlHandlers().Register(mux)
+		srv := httptest.NewServer(mux)
+		DeferCleanup(srv.Close)
+		base = srv.URL
+	})
+
+	DescribeTable("mounts the verb an agent worker is the only server of",
+		func(path string) {
+			resp, err := http.Post(base+path, "application/json", strings.NewReader(`{}`)) //nolint:gosec,noctx // httptest server, no redirects to follow
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = resp.Body.Close() })
+			Expect(resp.StatusCode).ToNot(Equal(http.StatusNotFound),
+				"%s is not mounted; agentWorkerControlHandlers does not wire its handler", path)
+		},
+		Entry("backend stop", workerctl.PathBackendStop),
+		Entry("mcp tool execute", workerctl.PathMCPToolExecute),
+		Entry("mcp discovery", workerctl.PathMCPDiscovery),
+	)
 })

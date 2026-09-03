@@ -38,8 +38,8 @@ func (c *ConnectionEvictingClient) checkErr(err error) {
 	}
 	// The fifth site of the same shape, and the one reached during INFERENCE
 	// rather than a health check. evict() runs ShutdownModel, which for a remote
-	// model sends backend.stop over NATS to every node holding it and deletes
-	// every replica row. In distributed mode the client underneath reaches the
+	// model sends a backend.stop control RPC over the tunnel of every node
+	// holding it and deletes every replica row. In distributed mode the client underneath reaches the
 	// backend over the worker's tunnel, and a failure of THAT transport arrives
 	// as the same codes.Unavailable a dead backend produces; evicting on it
 	// stops a model that is loaded and serving, on a worker that is
