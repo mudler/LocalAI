@@ -9,6 +9,18 @@ func workerSubjectToken(nodeID string) string {
 }
 
 // WorkerPermissions returns NATS pub/sub allow lists for a registered node.
+//
+// It serves AGENT nodes. They are the only workers left that connect to the
+// bus: an agent worker subscribes to the queue subjects listed below, while a
+// backend worker connects to no bus at all, because every verb a frontend gives
+// it is an HTTP route on its own server reached through its outbound tunnel
+// (core/services/workerctl).
+//
+// The non-agent branch is therefore a grant of nothing, and it has to be
+// spelled that way rather than deleted. NATS reads an EMPTY allow list as no
+// restriction, so a function that returned nil here would upgrade every JWT the
+// frontend still mints for a backend node from "its own inbox" to "the entire
+// account". The inbox is self-scoped and reaches no cluster subject.
 func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 	tok := workerSubjectToken(nodeID)
 	prefix := "nodes." + tok
@@ -38,25 +50,11 @@ func WorkerPermissions(nodeID, nodeType string) (pubAllow, subAllow []string) {
 			"_INBOX.>",
 		}
 	default:
-		// Backend worker. Every verb a frontend gives it left the bus: the
-		// backend and model lifecycle verbs and now file staging too are HTTP
-		// routes under workerctl.Prefix, served on the worker's own server and
-		// reached through its tunnel, so no subject is minted for them and none
-		// is allowed here.
-		//
-		// The subscribe wildcard stays for now. A worker subscribes to nothing
-		// under it on this build, but narrowing it is a change a worker
-		// mid-upgrade would feel, and the connection itself is what the next
-		// step of this removal deletes.
-		subAllow = []string{
-			prefix + ".>",
-			"_INBOX.>",
-		}
-		// Nothing left to publish. backend.install.*.progress went with the
-		// install subject, and the file-staging replies went with theirs.
-		pubAllow = []string{
-			"_INBOX.>",
-		}
+		// Backend worker: nothing, held open at its own inbox for the reason in
+		// the doc comment. The node subtree it used to subscribe on went with
+		// the connection itself, which this worker no longer opens.
+		subAllow = []string{"_INBOX.>"}
+		pubAllow = []string{"_INBOX.>"}
 	}
 	return pubAllow, subAllow
 }
