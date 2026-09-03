@@ -808,6 +808,28 @@ func tunnelServices(cfg *Config, httpBindAddr string) map[string]LocalService {
 	}
 }
 
+// HTTPOnlyServices is the stream-tag table for a worker that serves only its
+// own HTTP server.
+//
+// An agent worker runs no backend processes, so the grpc tag has nothing to
+// route to and is not offered. That is a security statement and not a tidiness
+// one: the table IS the tunnel's boundary, and the grpc tag is the only entry
+// whose target the frontend gets to influence at all. A worker that cannot
+// serve it should not carry the code that would.
+//
+// It exists as its own function for the reason tunnelServices does: the table
+// is the security boundary of the tunnel, and building it inline in a CLI Run
+// left it reachable only by starting a worker, which meant it was covered by
+// nothing.
+//
+// httpBindAddr is this worker's own listener, and fixedService ignores whatever
+// the frontend names, so nothing derived from the wire reaches a dialler here.
+func HTTPOnlyServices(httpBindAddr string) map[string]LocalService {
+	return map[string]LocalService{
+		cluster.StreamTagHTTP: fixedService(loopbackAddr(httpBindAddr)),
+	}
+}
+
 // fixedService routes a tagged stream to one address on this worker, ignoring
 // whatever the frontend named.
 //
