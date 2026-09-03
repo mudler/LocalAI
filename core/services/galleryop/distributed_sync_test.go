@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,7 +19,8 @@ import (
 
 // fakeBus is an in-memory MessagingClient that delivers each published
 // message synchronously to every registered subscriber whose subject filter
-// matches, including NATS-style wildcard subjects (`*` matches one token).
+// matches, using messaging.SubjectMatches so this double and the carrier agree
+// on what a wildcard filter means.
 //
 // Synchronous delivery keeps the specs deterministic: the moment Publish
 // returns, every subscriber's handler has run, so the spec body can read
@@ -37,26 +37,6 @@ type fakeBusSub struct {
 
 func newFakeBus() *fakeBus { return &fakeBus{} }
 
-func subjectMatches(filter, subject string) bool {
-	if filter == subject {
-		return true
-	}
-	fp := strings.Split(filter, ".")
-	sp := strings.Split(subject, ".")
-	if len(fp) != len(sp) {
-		return false
-	}
-	for i := range fp {
-		if fp[i] == "*" {
-			continue
-		}
-		if fp[i] != sp[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func (b *fakeBus) Publish(subject string, data any) error {
 	payload, err := json.Marshal(data)
 	if err != nil {
@@ -66,7 +46,7 @@ func (b *fakeBus) Publish(subject string, data any) error {
 	subs := append([]fakeBusSub(nil), b.subs...)
 	b.mu.Unlock()
 	for _, s := range subs {
-		if subjectMatches(s.subject, subject) {
+		if messaging.SubjectMatches(s.subject, subject) {
 			s.handler(payload)
 		}
 	}
