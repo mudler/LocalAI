@@ -1,7 +1,7 @@
 
 # Pinned to the HEAD of feature/turboquant-kv-cache on https://github.com/TheTom/llama-cpp-turboquant.
 # Auto-bumped nightly by .github/workflows/bump_deps.yaml.
-TURBOQUANT_VERSION?=8a891f4b566efdbd3cea92fafee3227a0a267683
+TURBOQUANT_VERSION?=cde17625e20fdbd99b1e2c5318a88cab9e19e277
 LLAMA_REPO?=https://github.com/TheTom/llama-cpp-turboquant
 
 CMAKE_ARGS?=
