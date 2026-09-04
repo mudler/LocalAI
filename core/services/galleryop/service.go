@@ -355,6 +355,44 @@ func (g *GalleryService) UpdateNodeProgress(opID, nodeID string, np NodeProgress
 	}
 }
 
+// DropNodeProgress removes nodeID's per-node rows from every operation that is
+// still open.
+//
+// A per-node row is a claim that a node is doing something. When the node
+// departs, nothing will ever move that row off "downloading": the operation
+// stays open in /api/operations with a bar that never advances, and the node it
+// names is not in the fleet any more.
+//
+// Only OPEN operations. A processed operation's breakdown is the record of what
+// each node did, and rewriting it because a node later left would be reporting
+// history rather than state. The aggregate mirror fields are left alone for the
+// same reason: they are the last tick that happened, not a claim about now.
+func (g *GalleryService) DropNodeProgress(nodeID string) {
+	if g == nil || nodeID == "" {
+		return
+	}
+	g.Lock()
+	defer g.Unlock()
+	for _, status := range g.statuses {
+		if status == nil || status.Processed {
+			continue
+		}
+		kept := make([]NodeProgress, 0, len(status.Nodes))
+		for _, np := range status.Nodes {
+			if np.NodeID != nodeID {
+				kept = append(kept, np)
+			}
+		}
+		if len(kept) == len(status.Nodes) {
+			continue
+		}
+		// Replaced rather than written through, which is the rule GetStatus
+		// documents: a reader holding the old slice header sees a consistent
+		// older breakdown instead of a torn one.
+		status.Nodes = kept
+	}
+}
+
 // GetStatus returns a COPY of the operation's status, not the stored pointer.
 //
 // The copy is what makes the lock mean anything. Every caller of this and of

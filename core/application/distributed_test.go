@@ -9,7 +9,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/pgbus"
 	"github.com/mudler/LocalAI/core/services/syncstate"
 	"github.com/mudler/LocalAI/core/services/testutil"
@@ -171,5 +173,91 @@ var _ = Describe("handing the broadcast carrier to its adopters", func() {
 		DeferCleanup(func() { Expect(m.Close()).To(Succeed()) })
 
 		Expect(func() { Expect(m.Set(context.Background(), "v")).To(Succeed()) }).ToNot(Panic())
+	})
+})
+
+// The registration of every per-node cache a node's departure evicts.
+//
+// Four subscribers, registered in one function, on a notifier the health
+// monitor is then handed. Every one of those is a line that compiles, starts
+// and serves when it is missing: a deployment whose departed nodes keep their
+// probe entries, staging rows, prefix affinity and per-node operation progress
+// does not fail, log or slow down, it just answers with state for a node that
+// left, for the life of the process.
+//
+// Asserted by NAME and not by count. A count says a cache was forgotten; only
+// the names say which, and "which" is the entire content of the failure.
+var _ = Describe("wiring the per-node caches a departure evicts", func() {
+	// bootDistributed brings a real distributed deployment up against a fresh
+	// database, which is what makes these assertions about production wiring
+	// rather than about a notifier a spec assembled itself.
+	bootDistributed := func(arm ...func(*config.ApplicationConfig)) *DistributedServices {
+		GinkgoHelper()
+		db, dsn := testutil.SetupTestDBWithDSN()
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		cfg := &config.ApplicationConfig{DataPath: GinkgoT().TempDir(), Context: ctx}
+		cfg.Auth.Enabled = true
+		cfg.Auth.DatabaseURL = dsn
+		cfg.Distributed.Enabled = true
+		for _, a := range arm {
+			a(cfg)
+		}
+		ds, err := initDistributed(cfg, db, nil, galleryop.NewGalleryService(cfg, nil))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(ds.Shutdown)
+		return ds
+	}
+
+	It("registers every one of them, on the notifier the health monitor fires", func() {
+		// Reached through the health monitor and not through a local variable,
+		// because registering the four on a DIFFERENT notifier than the one the
+		// monitor was built with evicts nothing while every count still reads
+		// four.
+		ds := bootDistributed()
+
+		Expect(ds.Health.Departures().SubscriberNames()).To(ConsistOf(
+			departurePrefixCache,
+			departureProbeCache,
+			departureStagingTracker,
+			departureGalleryNodes,
+		))
+	})
+
+	It("registers no prefix-cache eviction when prefix-cache routing is disabled", func() {
+		// --distributed-prefix-cache=false stays a TRUE no-op: there is no
+		// index to drop from, so nothing is registered rather than a hook
+		// registered onto nothing. The other three are unaffected, which is the
+		// half that makes this a statement about S1 and not about the feature
+		// flag switching the whole mechanism off.
+		ds := bootDistributed(func(cfg *config.ApplicationConfig) {
+			cfg.Distributed.PrefixCacheDisabled = true
+		})
+
+		Expect(ds.Health.Departures().SubscriberNames()).To(ConsistOf(
+			departureProbeCache,
+			departureStagingTracker,
+			departureGalleryNodes,
+		))
+	})
+
+	It("refuses a deployment with no router, naming what its departed nodes would keep", func() {
+		err := registerDepartureEvictions(nodes.NewDepartureNotifier(), nil, nil, galleryop.NewGalleryService(&config.ApplicationConfig{}, nil))
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("probe-freshness"))
+	})
+
+	It("refuses a deployment with no gallery service", func() {
+		err := registerDepartureEvictions(nodes.NewDepartureNotifier(), nil, nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{}), nil)
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("per-node breakdown"))
+	})
+
+	It("refuses a deployment with no notifier at all", func() {
+		err := registerDepartureEvictions(nil, nil, nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{}), galleryop.NewGalleryService(&config.ApplicationConfig{}, nil))
+
+		Expect(err).To(HaveOccurred())
 	})
 })
