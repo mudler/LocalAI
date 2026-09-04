@@ -188,7 +188,7 @@ backend: llama-cpp
 			lifecycle := &endpointLifecycleRecorder{}
 			galleryService := galleryop.NewGalleryService(appConfig, nil)
 			client := &endpointRecordingClient{}
-			galleryService.SetNATSClient(client)
+			galleryService.SetBroadcaster(client)
 			endpointApp := echo.New()
 			endpointApp.PATCH("/api/models/config-json/:name", PatchConfigEndpoint(configLoader, galleryService, appConfig, lifecycle))
 

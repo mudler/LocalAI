@@ -204,7 +204,7 @@ var _ = Describe("model deletion revision lifecycle", func() {
 
 			service := NewGalleryService(appConfig, nil)
 			bus := &countingMessagingClient{}
-			service.SetNATSClient(bus)
+			service.SetBroadcaster(bus)
 			service.SetModelManager(manager)
 			service.SetModelRevisionLifecycle(lifecycle)
 			op := &ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
