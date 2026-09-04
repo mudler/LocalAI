@@ -56,11 +56,12 @@ jobs:
       - name: Pre-pull test images
         # Pulling here rather than inside the suite keeps container-start timing
         # out of the spec timeouts and makes a registry outage read as a
-        # setup failure instead of a test failure. These two are the only images
-        # the suite needs once the testcontainers reaper is disabled below.
+        # setup failure instead of a test failure. This is the only image the
+        # suite needs once the testcontainers reaper is disabled below: the
+        # suite stands up no message broker, because nothing under test dials
+        # one.
         run: |
           docker pull postgres:16-alpine
-          docker pull nats:2-alpine
       - name: Distributed E2E
         # TESTCONTAINERS_RYUK_DISABLED keeps the pre-pull above meaningful. The
         # reaper exists to clean up leaked containers on a long-lived host, but
@@ -91,9 +92,9 @@ jobs:
     #
     # Separate job from tests-e2e-distributed so the fast in-process suite is
     # not held behind a Go build of local-ai. Serial on purpose: each Ginkgo
-    # process would get its own PostgreSQL and NATS container and each spec
-    # spawns two or three local-ai children, so --procs on an unmeasured runner
-    # is a change to make with numbers, not by default.
+    # process would get its own PostgreSQL container and each spec spawns two or
+    # three local-ai children, so --procs on an unmeasured runner is a change to
+    # make with numbers, not by default.
     #
     # The two timeouts bound different things and are not alternatives. Ginkgo's
     # --timeout=20m bounds the SUITE only; this job timeout must additionally
@@ -160,7 +161,6 @@ jobs:
         # setup failure rather than a test failure.
         run: |
           docker pull postgres:16-alpine
-          docker pull nats:2-alpine
       - name: Cluster E2E
         env:
           # No LOCALAI_E2E_BINARY and no separate build step: make test-e2e-cluster
