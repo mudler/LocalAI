@@ -19,6 +19,17 @@ import (
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
+// requestCall records one control request this fake was asked to serve.
+//
+// It used to live beside a messaging double that answered NATS requests. That
+// double's Request method is gone with the carrier's, so the type now belongs
+// to the only thing that still records requests: the worker control fake, whose
+// requests are HTTP routes on a tunnel.
+type requestCall struct {
+	Subject string
+	Data    []byte
+}
+
 // controlKey names one control verb on one node.
 //
 // It replaces the NATS subject the scripted double used to key on, and it is

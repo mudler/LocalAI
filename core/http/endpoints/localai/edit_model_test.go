@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
@@ -46,20 +45,6 @@ func (c *endpointRecordingClient) Publish(subject string, data any) error {
 func (*endpointRecordingClient) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
 	return &endpointSubscription{}, nil
 }
-func (*endpointRecordingClient) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
-	return &endpointSubscription{}, nil
-}
-func (*endpointRecordingClient) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &endpointSubscription{}, nil
-}
-func (*endpointRecordingClient) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &endpointSubscription{}, nil
-}
-func (*endpointRecordingClient) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
-func (*endpointRecordingClient) IsConnected() bool { return true }
-func (*endpointRecordingClient) Close()            {}
 
 // testRenderer is a simple renderer for tests that returns JSON
 type testRenderer struct{}

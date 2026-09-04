@@ -23,9 +23,12 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 		// route on its tunnel, and it no longer opens a bus connection at all;
 		// the JWT is minted and unused. See pkg/natsauth.WorkerPermissions.
 		Expect(infra.NC.Publish("_INBOX.probe", map[string]string{"path": "/tmp/model"})).To(Succeed())
-		Expect(infra.NC.Conn().FlushTimeout(2 * time.Second)).To(Succeed())
-		Expect(infra.NC.Conn().LastError()).ToNot(HaveOccurred())
-		Expect(infra.NC.Conn().IsConnected()).To(BeTrue())
+		// ConfirmRoundTrip is the flush AND the server's verdict in one call.
+		// Read separately they were two assertions that could drift apart; the
+		// verdict is the one that matters, because a permission violation does
+		// not close the connection.
+		Expect(infra.NC.ConfirmRoundTrip(2 * time.Second)).To(Succeed())
+		Expect(infra.NC.IsConnected()).To(BeTrue())
 	})
 
 	It("denies a backend worker the file-staging subjects it no longer serves", func() {
@@ -38,8 +41,7 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 		subject := nodeSubjectPrefix(infra.NodeID) + ".files.stage"
 		Expect(infra.NC.Publish(subject, map[string]string{"path": "/tmp/model"})).To(Succeed())
 		Eventually(func() error {
-			_ = infra.NC.Conn().FlushTimeout(500 * time.Millisecond)
-			return infra.NC.Conn().LastError()
+			return infra.NC.ConfirmRoundTrip(500 * time.Millisecond)
 		}, "3s", "50ms").Should(HaveOccurred())
 	})
 
@@ -53,8 +55,7 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 		if err == nil {
 			defer func() { _ = sub.Unsubscribe() }()
 			Eventually(func() error {
-				_ = infra.NC.Conn().FlushTimeout(500 * time.Millisecond)
-				return infra.NC.Conn().LastError()
+				return infra.NC.ConfirmRoundTrip(500 * time.Millisecond)
 			}, "3s", "50ms").Should(HaveOccurred())
 		}
 	})
@@ -66,15 +67,14 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 
 		err = anon.Publish("nodes.any.files.x", map[string]string{"x": "1"})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(anon.Conn().FlushTimeout(2 * time.Second)).To(HaveOccurred())
+		Expect(anon.ConfirmRoundTrip(2 * time.Second)).To(HaveOccurred())
 	})
 
 	It("denies backend publish to another node's subjects", func() {
 		other := nodeSubjectPrefix("other-node-id") + ".files.stage"
 		Expect(infra.NC.Publish(other, map[string]string{"stage": "nope"})).To(Succeed())
 		Eventually(func() error {
-			_ = infra.NC.Conn().FlushTimeout(500 * time.Millisecond)
-			return infra.NC.Conn().LastError()
+			return infra.NC.ConfirmRoundTrip(500 * time.Millisecond)
 		}, "3s", "50ms").Should(HaveOccurred())
 	})
 

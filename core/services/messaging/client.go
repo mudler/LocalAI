@@ -18,7 +18,22 @@ import (
 // subscription was rejected (e.g. by JWT permissions) before returning to the caller.
 const subscribeConfirmTimeout = 5 * time.Second
 
-// Client wraps a NATS connection and provides helpers for pub/sub and queue subscriptions.
+// Client is a NATS connection, and it is the carrier for exactly one family.
+//
+// agent.<name>.cancel is the one fan-out family that did not move to the
+// PostgreSQL carrier. Its only subscriber is the agent WORKER, which has no
+// database and cannot join that carrier at all, so a cancel published there
+// would reach no worker while reporting that it was sent. Both ends of that
+// family still dial this client, which is why it, its connect options and its
+// TLS plumbing are all still here.
+//
+// Everything else it used to carry is gone, and so are the methods that carried
+// it: queue subscriptions became a claim on the job store, and request/reply
+// became a streaming control RPC on the tunnel each worker dials. Deleting the
+// METHODS rather than only the call sites is what makes putting a family back
+// on this carrier a build error, instead of a line that compiles, publishes
+// successfully, and is delivered onto a carrier the deployment is being taken
+// off.
 type Client struct {
 	conn *nats.Conn
 	mu   sync.RWMutex
@@ -122,8 +137,8 @@ func New(url string, opts ...Option) (*Client, error) {
 
 // OnReconnect registers a callback invoked after the NATS connection is
 // re-established. It is consumed via an optional interface type-assertion
-// (interface{ OnReconnect(func()) }) rather than being added to MessagingClient,
-// so the messaging abstraction stays minimal and standalone/test clients are not
+// (interface{ OnReconnect(func()) }) rather than being added to Broadcaster, so
+// the messaging abstraction stays minimal and standalone/test clients are not
 // forced to implement reconnect semantics. A nil callback is ignored.
 func (c *Client) OnReconnect(cb func()) {
 	if cb == nil {
@@ -160,16 +175,6 @@ func (c *Client) Publish(subject string, data any) error {
 func (c *Client) Subscribe(subject string, handler func([]byte)) (Subscription, error) {
 	return c.confirmSubscription(subject, func(conn *nats.Conn) (*nats.Subscription, error) {
 		return conn.Subscribe(subject, func(msg *nats.Msg) {
-			handler(msg.Data)
-		})
-	})
-}
-
-// QueueSubscribe creates a queue subscription. Within the same queue group,
-// only one subscriber receives each message (load-balanced).
-func (c *Client) QueueSubscribe(subject, queue string, handler func([]byte)) (Subscription, error) {
-	return c.confirmSubscription(subject, func(conn *nats.Conn) (*nats.Subscription, error) {
-		return conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
 			handler(msg.Data)
 		})
 	})
@@ -219,91 +224,41 @@ func (c *Client) confirmSubscription(subject string, mk func(*nats.Conn) (*nats.
 	return sub, nil
 }
 
-// Request sends a request and waits for a reply (request-reply pattern).
-// Returns the raw reply data.
-func (c *Client) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	msg, err := c.conn.Request(subject, data, timeout)
-	if err != nil {
-		return nil, fmt.Errorf("request to %s: %w", subject, err)
-	}
-	return msg.Data, nil
-}
-
-// SubscribeReply creates a subscription that supports replying to requests.
-// The handler receives the raw request data and the reply subject.
-func (c *Client) SubscribeReply(subject string, handler func(data []byte, reply func([]byte))) (Subscription, error) {
-	return c.confirmSubscription(subject, func(conn *nats.Conn) (*nats.Subscription, error) {
-		return conn.Subscribe(subject, func(msg *nats.Msg) {
-			handler(msg.Data, func(replyData []byte) {
-				if msg.Reply != "" {
-					if err := msg.Respond(replyData); err != nil {
-						xlog.Warn("Failed to send NATS reply", "subject", subject, "error", err)
-					}
-				}
-			})
-		})
-	})
-}
-
-// QueueSubscribeReply creates a queue subscription that supports replying to requests.
-// Load-balanced across subscribers in the same queue group, with request-reply support.
-func (c *Client) QueueSubscribeReply(subject, queue string, handler func(data []byte, reply func([]byte))) (Subscription, error) {
-	return c.confirmSubscription(subject, func(conn *nats.Conn) (*nats.Subscription, error) {
-		return conn.QueueSubscribe(subject, queue, func(msg *nats.Msg) {
-			handler(msg.Data, func(replyData []byte) {
-				if msg.Reply != "" {
-					if err := msg.Respond(replyData); err != nil {
-						xlog.Warn("Failed to send NATS reply", "subject", subject, "error", err)
-					}
-				}
-			})
-		})
-	})
-}
-
-// QueueSubscribeJSON creates a queue subscription that automatically unmarshals JSON messages.
-// Invalid JSON messages are logged and skipped.
-func QueueSubscribeJSON[T any](c MessagingClient, subject, queue string, handler func(T)) (Subscription, error) {
-	return c.QueueSubscribe(subject, queue, func(data []byte) {
-		var evt T
-		if err := json.Unmarshal(data, &evt); err != nil {
-			xlog.Warn("Failed to unmarshal NATS message", "subject", subject, "error", err)
-			return
-		}
-		handler(evt)
-	})
-}
-
-// RequestJSON sends a JSON request-reply via NATS, marshaling the request and
-// unmarshaling the reply. This eliminates the repeated marshal/request/unmarshal
-// boilerplate across all NATS request-reply call sites.
-func RequestJSON[Req, Reply any](c MessagingClient, subject string, req Req, timeout time.Duration) (*Reply, error) {
-	data, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling request: %w", err)
-	}
-	replyData, err := c.Request(subject, data, timeout)
-	if err != nil {
-		return nil, fmt.Errorf("NATS request to %s: %w", subject, err)
-	}
-	var reply Reply
-	if err := json.Unmarshal(replyData, &reply); err != nil {
-		return nil, fmt.Errorf("unmarshaling reply from %s: %w", subject, err)
-	}
-	return &reply, nil
-}
-
-// Conn returns the underlying NATS connection for advanced usage.
+// ConfirmRoundTrip forces a round trip to the server and returns whatever the
+// server pushed back asynchronously, so that a refusal becomes an error a
+// caller holds rather than a line in a log.
 //
-// Deprecated: Prefer using the MessagingClient interface methods (Publish, Subscribe, etc.)
-// instead of accessing the raw NATS connection. This method couples callers to the
-// concrete Client type and bypasses the abstraction layer.
-func (c *Client) Conn() *nats.Conn {
+// It replaces a Conn() accessor that handed out the raw *nats.Conn. That
+// accessor was the hole in this type's method set: every half deleted above is
+// still one call away on a *nats.Conn, so a family could be put back on this
+// carrier through it without a single build error, which is the whole thing the
+// deletions are for.
+//
+// What it does is the publish-side twin of confirmSubscription. NATS reports a
+// permission violation asynchronously and does NOT close the connection, so a
+// denied publish is indistinguishable from an accepted one until something
+// round-trips and reads the connection's last error. A flush that fails is
+// returned as-is: the caller could not reach the server at all, which is a
+// different fact from the server refusing it, and neither is evidence about any
+// node.
+//
+// No production path calls it. The carrier's production users publish cancels
+// and act on the delivery, not on the verdict; what needs the verdict is
+// pkg/natsauth's permission grants, which are asserted against a real enforcing
+// server and would otherwise be asserted against nothing, since an allow list
+// that is EMPTY means unrestricted in NATS and a spec that only checks
+// IsConnected cannot tell a granted publish from a denied one.
+func (c *Client) ConfirmRoundTrip(timeout time.Duration) error {
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.conn
+	conn := c.conn
+	c.mu.RUnlock()
+	if conn == nil {
+		return fmt.Errorf("confirming a round trip: nil NATS connection")
+	}
+	if err := conn.FlushTimeout(timeout); err != nil {
+		return fmt.Errorf("round trip to the NATS server: %w", err)
+	}
+	return conn.LastError()
 }
 
 // IsConnected returns true if the client is currently connected to a NATS server.

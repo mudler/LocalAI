@@ -38,9 +38,15 @@ import (
 //
 // It also holds one tunnel to the frontend, so the frontend can reach its
 // control verbs by RPC without the worker opening an inbound port. No verb the
-// frontend addresses to THIS worker travels on the bus any more. The tunnel is
-// still an ADDITION rather than a replacement: --nats-url is required, because
-// every job and every fan-out event does.
+// frontend addresses to THIS worker travels on the bus any more.
+//
+// --nats-url is still required, and for one thing only: agent.<name>.cancel.
+// That family runs the other way, from a frontend replica to whichever worker
+// holds the execution, and it could not move to the broadcast carrier because
+// that carrier rides PostgreSQL and this process has no database. A worker that
+// came up without a bus would register, serve, run agents and ignore every
+// cancel, with nothing in the deployment reporting it. The flag goes when a
+// cancel rides the tunnel as a control verb.
 //
 // Usage:
 //
@@ -141,9 +147,9 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	go regClient.HeartbeatLoop(shutdownCtx, nodeID, heartbeatInterval, func() map[string]any { return map[string]any{} })
 
-	// Resolve NATS credentials with precedence: explicit env override, then
-	// frontend-minted (auto-refreshed before expiry), then service fallback.
-	// Each static source must supply JWT and seed together.
+	// Resolve the cancel carrier's credentials with precedence: explicit env
+	// override, then frontend-minted (auto-refreshed before expiry), then
+	// service fallback. Each static source must supply JWT and seed together.
 	natsTLS := messaging.TLSFiles{CA: cmd.NatsTLSCA, Cert: cmd.NatsTLSCert, Key: cmd.NatsTLSKey}
 	var natsOpts []messaging.Option
 	switch {
@@ -228,9 +234,12 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	// The cancel listener is the ONE thing still on the bus here: a cancel is a
-	// broadcast to every replica and every worker, because the replica holding
-	// the run is not the one the cancel request lands on.
+	// The cancel listener is the ONE thing still on the bus here, and the only
+	// reason this process dialled one. A cancel is a broadcast to every replica
+	// and every worker, because the replica holding the run is not the one the
+	// cancel request lands on, and this worker cannot join the carrier the rest
+	// of the deployment fans out on: that carrier is the auth database, and an
+	// agent worker has no database access at all.
 	cancelSub, err := eventBridge.StartCancelListener()
 	if err != nil {
 		xlog.Warn("Failed to start cancel listener", "error", err)

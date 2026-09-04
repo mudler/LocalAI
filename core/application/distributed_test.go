@@ -118,12 +118,12 @@ var _ = Describe("shutting the distributed services down", func() {
 // service, the agent-task setter on two startup paths, the per-user services
 // manager and the Open Responses store. Every one of them takes a
 // messaging.Broadcaster, which *messaging.Client satisfies too, so a site left
-// holding ds.Nats compiled, started, published and was delivered onto the
-// carrier the deployment is being taken off, and nothing failed until NATS did.
-// Collapsing the choice into one function is what makes it a fact these specs
-// can hold.
+// holding the struct's NATS field compiled, started, published and was
+// delivered onto a carrier only agent workers read, and nothing failed until
+// NATS did. Collapsing the choice into one function is what makes it a fact
+// these specs can hold.
 var _ = Describe("handing the broadcast carrier to its adopters", func() {
-	It("returns the carrier the deployment opened and never the NATS client", func() {
+	It("returns the carrier the deployment opened and never the cancel carrier", func() {
 		db, dsn := testutil.SetupTestDBWithDSN()
 		cfg := &config.ApplicationConfig{}
 		cfg.Auth.DatabaseURL = dsn
@@ -131,10 +131,13 @@ var _ = Describe("handing the broadcast carrier to its adopters", func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(bus.Close)
 
-		// A NATS client is present on the struct, exactly as it is in a real
-		// deployment for as long as the request/reply and queue halves survive.
-		// Identity, not "is a Broadcaster": both fields satisfy that interface.
-		ds := &DistributedServices{Nats: &messaging.Client{}, Bus: bus}
+		// The cancel carrier is present on the struct, exactly as it is in a
+		// real deployment: agent.<name>.cancel is the one family that could not
+		// move, because its only subscriber is an agent worker and a worker has
+		// no database. Identity, not "is a Broadcaster": both fields satisfy
+		// that interface, which is the whole reason a field read could pick the
+		// wrong one and stay green.
+		ds := &DistributedServices{CancelCarrier: &messaging.Client{}, Bus: bus}
 
 		Expect(ds.Broadcast()).To(BeIdenticalTo(messaging.Broadcaster(bus)))
 	})
