@@ -1,4 +1,62 @@
 ---
+- name: "hy4-preview"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/AngelSlim/Hy4-preview-GGUF
+  description: |
+    # Hy4-preview GGUF
+
+    Three GGUF builds of Hy4-Preview: https://huggingface.co/tencent/Hy4-preview
+
+    **Language / 语言:** English · 中文
+
+    **Neither file runs on stock llama.cpp.** The `hyv4` architecture is not upstream. Apply the
+    patches in `hy4-preview-patch/`
+
+    ## English
+
+    ### 1. What these are
+
+    **`Hy4-preview-Q4_K_M.gguf`** — a conventional Q4_K_M. Most tensors are Q4_K; `ffn_down_exps`
+    gets Q6_K on 37 layers via llama.cpp's own logic. Use this unless you are memory-constrained.
+
+    **`Hy4-preview-UD-IQ1_M.gguf`** -  mixed precision with UD-IQ1_M strategy at ~2.44 bpw, roughly **half the size** for the
+    same model. The routed-expert `gate`/`up` projections run at 1.75 bpw (IQ1_M) and 2.0625 bpw (IQ2_XXS).
+
+    **`Hy4-preview-STQ1_0.gguf`** — mixed precision with MIX-STQ1_0 strategy at ~2.38 bpw, roughly **half the size** for the
+    same model. The routed-expert `gate`/`up` projections run at 1.3125 bpw (STQ1_0) on 29 layers and
+    2.0625 bpw (IQ2_XXS) on the other 48. See section 3.
+
+    ### 2. Running them
+
+    Build a patched llama.cpp
+
+    ```bash
+    git clone https://github.com/ggml-org/llama.cpp && cd llama.cpp
+    git checkout 0cea36222
+
+    ...
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Hy4-preview-Q4_K_M/Hy4-preview-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hy4-preview-Q4_K_M/Hy4-preview-Q4_K_M.gguf
+      sha256: 58d0703ef860841dd9b605bfe567af89b62fc7bc367cd57303fc742c6386fffb
+      uri: https://huggingface.co/AngelSlim/Hy4-preview-GGUF/resolve/main/Hy4-preview-Q4_K_M.gguf
 - name: "glm-5.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
