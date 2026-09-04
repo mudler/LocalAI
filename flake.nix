@@ -18,6 +18,9 @@
           npmRoot = ./core/http/react-ui;
         };
         npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+        # Avoid EOVERRIDE when importNpmLock rewrites the same-version hono
+        # override to a file: tarball that conflicts with the direct dependency.
+        npmFlags = [ "--legacy-peer-deps" ];
         npmBuildScript = "build";
 
         installPhase = ''
