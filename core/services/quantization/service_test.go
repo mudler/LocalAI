@@ -175,6 +175,28 @@ var _ = Describe("QuantizationService", func() {
 		})
 	})
 
+	Describe("imported model backend", func() {
+		It("strips the quantization channel suffix so the config pins the serving engine", func() {
+			Expect(inferenceBackendFor("llama-cpp-quantization")).To(Equal("llama-cpp"))
+		})
+
+		It("leaves a backend that both quantizes and serves unchanged", func() {
+			Expect(inferenceBackendFor("rocmfp4")).To(Equal("rocmfp4"))
+		})
+
+		It("keeps a pinned hardware variant, which is a valid backend value", func() {
+			Expect(inferenceBackendFor("rocm-rocmfp4-quantization")).To(Equal("rocm-rocmfp4"))
+		})
+
+		It("normalizes dots the way gallery names are written", func() {
+			Expect(inferenceBackendFor("llama.cpp-quantization")).To(Equal("llama-cpp"))
+		})
+
+		It("returns empty for an unset backend so the detected default is kept", func() {
+			Expect(inferenceBackendFor("")).To(BeEmpty())
+		})
+	})
+
 	Describe("compile-time adapter contract", func() {
 		It("satisfies syncstate.Store for *distributed.QuantStore", func() {
 			// Guards against drift between the adapter and the component interface;
