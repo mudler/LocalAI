@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/storage"
 
@@ -83,16 +83,41 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 		})
 	})
 
-	Context("NATS client", func() {
-		It("should connect, publish, and subscribe", func() {
+	// The one carrier a deployment still dials besides PostgreSQL, and the one
+	// family left on it.
+	//
+	// agent.<name>.cancel did not move to the broadcast carrier: its only
+	// subscriber is the agent WORKER, which has no database and cannot join
+	// that carrier at all. So this round trip is no longer "the messaging layer
+	// works" - it is the cancel path for every agent a worker runs, and if it
+	// stops working the symptom is a cancel that is published, succeeds, and
+	// reaches nobody.
+	//
+	// Two Its that used to sit here went with the halves of the client they
+	// exercised. "should support queue subscriptions for load balancing" pinned
+	// that work reaches exactly one of N consumers; a queue group no longer
+	// selects anything and that property is now core/services/jobs
+	// claim_test.go's competing-claimants specs, which race eight claimants for
+	// eight rows and then for one. "should reconnect after disconnect" pinned
+	// that the carrier survives a drop, and said in its own body that it
+	// asserted nothing of the kind; the property is now
+	// core/services/pgbus/listener_test.go, which actually kills the session
+	// with pg_terminate_backend and waits for delivery to resume.
+	Context("the cancel carrier", func() {
+		It("connects, publishes and subscribes, which is the agent cancel path", func() {
 			client, err := messaging.New(infra.NatsURL)
 			Expect(err).ToNot(HaveOccurred())
 			defer client.Close()
 
 			Expect(client.IsConnected()).To(BeTrue())
 
+			// The real subject and the real filter, not a placeholder pair.
+			// A worker subscribes to the wildcard and a frontend publishes to
+			// one agent's subject, so a round trip on "test.subject" would
+			// stay green through a filter that no longer matches what the
+			// builder mints - which is the failure this family actually has.
 			received := make(chan []byte, 1)
-			sub, err := client.Subscribe("test.subject", func(data []byte) {
+			sub, err := client.Subscribe(messaging.SubjectAgentCancelWildcard, func(data []byte) {
 				received <- data
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -101,58 +126,14 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			// Small delay to ensure subscription is active
 			FlushNATS(client)
 
-			err = client.Publish("test.subject", map[string]string{"msg": "hello"})
+			err = client.Publish(messaging.SubjectAgentCancel("a1"), agents.AgentCancelEvent{
+				AgentName: "a1", UserID: "u1", MessageID: "msg-1",
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(received, "5s").Should(Receive())
 		})
 
-		It("should support queue subscriptions for load balancing", func() {
-			client, err := messaging.New(infra.NatsURL)
-			Expect(err).ToNot(HaveOccurred())
-			defer client.Close()
-
-			var worker1Count, worker2Count atomic.Int32
-
-			sub1, err := client.QueueSubscribe("test.queue", "workers", func(data []byte) {
-				worker1Count.Add(1)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub1.Unsubscribe()
-
-			sub2, err := client.QueueSubscribe("test.queue", "workers", func(data []byte) {
-				worker2Count.Add(1)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub2.Unsubscribe()
-
-			FlushNATS(client)
-
-			// Publish multiple messages
-			for i := range 10 {
-				err = client.Publish("test.queue", map[string]int{"n": i})
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			// Wait for all messages to be processed
-			Eventually(func() int32 {
-				return worker1Count.Load() + worker2Count.Load()
-			}, "5s").Should(Equal(int32(10)))
-
-			// Both workers should have received some messages (load-balanced)
-			// Note: with only 10 messages, distribution may not be perfectly even
-			Expect(worker1Count.Load() + worker2Count.Load()).To(Equal(int32(10)))
-		})
-
-		It("should reconnect after disconnect", func() {
-			client, err := messaging.New(infra.NatsURL)
-			Expect(err).ToNot(HaveOccurred())
-			defer client.Close()
-
-			Expect(client.IsConnected()).To(BeTrue())
-			// The reconnect behavior is tested implicitly by the RetryOnFailedConnect option
-			// A full reconnect test would require stopping/restarting the NATS container
-		})
 	})
 
 	Context("ObjectStore filesystem adapter", func() {

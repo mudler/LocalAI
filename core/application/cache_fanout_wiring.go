@@ -19,7 +19,8 @@ import (
 // one function here, and none of them by a call site naming a carrier.
 //
 // Two are methods on DistributedServices and take NO carrier at all, because
-// their call sites hold the whole struct and could otherwise reach for ds.Nats.
+// their call sites hold the whole struct and could otherwise reach for the
+// cancel carrier.
 // The other two run inside initDistributed before that struct exists, so they
 // take the CONCRETE *pgbus.Bus rather than messaging.Broadcaster.
 //

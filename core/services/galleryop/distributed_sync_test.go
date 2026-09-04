@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"sync"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
-// fakeBus is an in-memory MessagingClient that delivers each published
+// fakeBus is an in-memory messaging.Broadcaster that delivers each published
 // message synchronously to every registered subscriber whose subject filter
 // matches, using messaging.SubjectMatches so this double and the carrier agree
 // on what a wildcard filter means.
@@ -77,25 +76,6 @@ func (b *fakeBus) Subscribe(subject string, handler func([]byte)) (messaging.Sub
 	b.mu.Unlock()
 	return &fakeBusSubscription{bus: b, subRef: sub}, nil
 }
-
-func (b *fakeBus) QueueSubscribe(subject, _ string, handler func([]byte)) (messaging.Subscription, error) {
-	return b.Subscribe(subject, handler)
-}
-
-func (b *fakeBus) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeBusSubscription{bus: b}, nil
-}
-
-func (b *fakeBus) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeBusSubscription{bus: b}, nil
-}
-
-func (b *fakeBus) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
-
-func (b *fakeBus) IsConnected() bool { return true }
-func (b *fakeBus) Close()            {}
 
 var _ = Describe("OpStatus JSON wire format", func() {
 	It("round-trips a non-nil Error through Marshal/Unmarshal as a string", func() {

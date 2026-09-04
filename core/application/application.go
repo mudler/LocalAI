@@ -636,7 +636,6 @@ func (a *Application) StartAgentPool() {
 		if d.DistStores != nil && d.DistStores.Skills != nil {
 			opts.SkillStore = d.DistStores.Skills
 		}
-		opts.NATSClient = d.Nats
 		opts.EventBridge = d.AgentBridge
 		opts.AgentStore = d.AgentStore
 	}

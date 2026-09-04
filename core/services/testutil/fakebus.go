@@ -3,12 +3,11 @@ package testutil
 import (
 	"encoding/json"
 	"sync"
-	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
-// FakeBus is an in-memory messaging.MessagingClient that delivers each published
+// FakeBus is an in-memory messaging.Broadcaster that delivers each published
 // message synchronously to every registered subscriber whose subject filter
 // matches. Matching is messaging.SubjectMatches, the same function the real
 // carrier uses, so a filter that fires here fires in production too.
@@ -33,7 +32,7 @@ type FakeBus struct {
 
 	// reconnectCbs back the optional OnReconnect/TriggerReconnect pair, letting a
 	// spec exercise the component's reconnect re-hydrate path without a real
-	// NATS server.
+	// carrier.
 	reconnectCbs []func()
 }
 
@@ -43,14 +42,14 @@ type fakeBusSub struct {
 	handler func([]byte)
 }
 
-// The two interfaces this double stands in for. Broadcaster is asserted here
-// and not left to the first adopter: every cross-replica map now takes a
-// messaging.Broadcaster, and a fake that drifted out of that interface would
-// break each adopter's suite in turn rather than the package that owns it.
-var (
-	_ messaging.MessagingClient = (*FakeBus)(nil)
-	_ messaging.Broadcaster     = (*FakeBus)(nil)
-)
+// The one interface this double stands in for, asserted here and not left to
+// the first adopter: every cross-replica map takes a messaging.Broadcaster, and
+// a fake that drifted out of that interface would break each adopter's suite in
+// turn rather than the package that owns it. Asserted again from
+// core/services/messaging/interfaces_test.go, beside the same assertion for the
+// two real carriers, so the double and the carriers are held to one contract in
+// one place.
+var _ messaging.Broadcaster = (*FakeBus)(nil)
 
 // NewFakeBus returns a ready-to-use in-memory bus.
 func NewFakeBus() *FakeBus {
@@ -128,29 +127,22 @@ func (b *FakeBus) Subscribe(subject string, handler func([]byte)) (messaging.Sub
 	return &fakeBusSubscription{bus: b, subRef: sub}, nil
 }
 
-func (b *FakeBus) QueueSubscribe(subject, _ string, handler func([]byte)) (messaging.Subscription, error) {
-	return b.Subscribe(subject, handler)
-}
-
-func (b *FakeBus) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeBusSubscription{bus: b}, nil
-}
-
-func (b *FakeBus) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeBusSubscription{bus: b}, nil
-}
-
-func (b *FakeBus) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
+// A queue group and a request/reply are NOT stubbed here, and their absence is
+// the point. This double used to answer both, which meant a consumer that had
+// not been migrated off them kept passing against a fake that load-balanced
+// nothing (QueueSubscribe delivered to every subscriber) and replied nothing
+// (Request returned a nil answer and a nil error, which reads as a peer that
+// answered emptily rather than one that was never asked). Both halves are gone
+// from the real carrier now, so a call site that needs either fails to compile
+// against the carrier AND against the double.
 
 func (b *FakeBus) IsConnected() bool { return true }
 func (b *FakeBus) Close()            {}
 
-// OnReconnect mirrors *messaging.Client.OnReconnect so a spec can drive the
+// OnReconnect mirrors the carriers' OnReconnect so a spec can drive the
 // component's reconnect re-hydrate path. The component detects this method via an
 // optional interface assertion; implementing it here keeps the fake a faithful
-// stand-in for the concrete client.
+// stand-in for the concrete carriers.
 func (b *FakeBus) OnReconnect(cb func()) {
 	if cb == nil {
 		return
@@ -160,8 +152,8 @@ func (b *FakeBus) OnReconnect(cb func()) {
 	b.mu.Unlock()
 }
 
-// TriggerReconnect runs every registered reconnect callback, simulating a NATS
-// reconnect event.
+// TriggerReconnect runs every registered reconnect callback, simulating a
+// carrier reconnect event.
 func (b *FakeBus) TriggerReconnect() {
 	b.mu.Lock()
 	cbs := append([]func(){}, b.reconnectCbs...)

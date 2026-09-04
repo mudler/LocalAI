@@ -101,6 +101,48 @@ var _ = Describe("wiring the job and agent fan-out bridges", func() {
 		}, "20s").Should(Equal("completed"))
 	})
 
+	// S1b. WHICH carrier the cancel family rides, asserted by receipt on both
+	// carriers rather than by reading the argument list.
+	//
+	// The nil refusal above only says a carrier was passed. Passing bus for it
+	// - one token's difference at the one call site, and the natural edit for
+	// anyone finishing the migration - satisfies that refusal, compiles, and
+	// publishes successfully onto the PostgreSQL carrier, where the agent
+	// worker that has to act on the cancel is not and cannot be: it has no
+	// database. Every unit suite in agents and in application stays green and
+	// every cancel of a worker-run agent is lost while CancelExecution returns
+	// nil.
+	//
+	// So this asserts the cancel ARRIVES on the worker's carrier and, in the
+	// same spec, that it does NOT arrive on a peer replica's broadcast carrier.
+	// The negative half is the load-bearing one: the positive half alone passes
+	// for a bridge wired to both.
+	It("publishes agent cancels on the worker's carrier and not on the broadcast carrier", func() {
+		workerCarrier := testutil.NewFakeBus()
+		_, bridge, _, err := newFanoutBridges(busA, workerCarrier, jobStore, agentStore, db, "replica-1")
+		Expect(err).ToNot(HaveOccurred())
+
+		onBroadcast := make(chan []byte, 4)
+		_, err = busB.Subscribe(messaging.SubjectAgentCancelWildcard, func(data []byte) { onBroadcast <- data })
+		Expect(err).ToNot(HaveOccurred())
+
+		onWorker := make(chan []byte, 4)
+		_, err = workerCarrier.Subscribe(messaging.SubjectAgentCancelWildcard, func(data []byte) { onWorker <- data })
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(bridge.CancelExecution("a1", "u1", "msg-1")).To(Succeed())
+
+		// Expect and not Eventually: the worker's carrier here is the shared
+		// in-memory double, which delivers synchronously inside Publish, so by
+		// the time CancelExecution has returned the handler has already run. An
+		// Eventually would turn a mis-wiring into a timeout, which reports as
+		// slowness rather than as the wiring fact it is.
+		Expect(onWorker).To(Receive(),
+			"the agent cancel did not reach the worker's carrier; a worker has no database and cannot read the broadcast carrier, so this cancel reached nobody and was reported as sent")
+		Consistently(onBroadcast, "2s").ShouldNot(Receive(),
+			"the agent cancel was published on the broadcast carrier, where no agent worker is or can be subscribed")
+	})
+
 	// S2. The observable persister writes what a peer broadcast, which it can
 	// only do if it was started AND is on the same carrier AND its filter has
 	// the right number of tokens.
