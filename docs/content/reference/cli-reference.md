@@ -211,7 +211,7 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai mcp-server` - Run the LocalAI admin tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP)
 - `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic; needs only an outbound route to the frontend, no message bus)
 - `local-ai p2p-worker` - Run workers to distribute workload via p2p (llama.cpp-only)
-- `local-ai agent-worker` - Start an agent worker for distributed mode (serves agent execution and MCP CI runs as control verbs on the tunnel it holds; still needs `--nats-url`, for cancellation and nothing else: an agent cancel has to reach the worker running the execution, and a worker has no database and so cannot read the PostgreSQL carrier every other broadcast travels on)
+- `local-ai agent-worker` - Start an agent worker for distributed mode (serves agent execution, MCP CI runs and cancellation as control verbs on the tunnel it holds; it connects to no message bus, so `--nats-url` is accepted and ignored)
 - `local-ai util` - Utility commands
 - `local-ai explorer` - Run P2P explorer
 - `local-ai federated` - Run LocalAI in federated mode

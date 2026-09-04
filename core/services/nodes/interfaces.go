@@ -102,12 +102,11 @@ type NodeHealthStore interface {
 
 // ModelLocator is used by RemoteUnloaderAdapter for model discovery.
 //
-// Get is here for one reason: backend.stop is the only control verb whose
-// carrier depends on what KIND of worker it is addressed to, because an agent
-// node's stop is still published on the bus rather than issued over the tunnel
-// it now holds. The callers that come through NodeCommandSender carry a node id
-// and nothing else, so the type is read here rather than threaded through every
-// one of them.
+// Get is here for the node reads that need the whole row rather than a routing
+// answer. It is no longer needed to pick a CARRIER for backend.stop: an agent
+// worker and a backend worker serve that verb on the same control path over
+// their own tunnels, and the frontend states the fact without asking what kind
+// of worker it reached (see RemoteUnloaderAdapter.stopBackend).
 type ModelLocator interface {
 	FindNodesWithModel(ctx context.Context, modelName string) ([]BackendNode, error)
 	RemoveNodeModel(ctx context.Context, nodeID, modelName string, replicaIndex int) error

@@ -270,6 +270,39 @@ type BackendStopRequest struct {
 	Force   bool   `json:"force,omitempty"`
 }
 
+// AgentCancelRequest is the body of an agent cancel control request.
+//
+// It carries the same three fields the agent.<name>.cancel broadcast carried,
+// because it says the same thing; what changed is the carrier. The cancel used
+// to be published onto a bus every agent worker had to dial, and is now a
+// control RPC on the tunnel the worker already holds, which is why an agent
+// worker needs no bus credentials.
+//
+// MessageID is what identifies the execution, and it identifies exactly one:
+// an agent run registers its cancel function under it on the process that is
+// running it, and nowhere else.
+type AgentCancelRequest struct {
+	AgentName string `json:"agent_name"`
+	UserID    string `json:"user_id"`
+	MessageID string `json:"message_id,omitempty"`
+}
+
+// AgentCancelReply is an agent worker's OWN ANSWER to a cancel.
+//
+// Cancelled false is that answer too, and it means one thing only: this worker
+// is not running that execution. It is deliberately not spelled as an error,
+// and no caller may read it as "the run does not exist" on its own, because a
+// worker can only speak for itself.
+//
+// There is no Error field, and its absence is stated rather than left to be
+// inferred. A cancel this worker could not read, or could not serve, is a
+// non-2xx like every other verb's failure to serve, which the frontend reads
+// as an answer it did not obtain; there is no third thing a worker can learn
+// by looking in its own cancel registry.
+type AgentCancelReply struct {
+	Cancelled bool `json:"cancelled"`
+}
+
 type ModelStopRequest struct {
 	ModelName       string `json:"model_name"`
 	ProcessKey      string `json:"process_key"`

@@ -5,7 +5,7 @@ weight = 71
 url = "/features/distributed-mode/"
 +++
 
-Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state, node registry and cross-replica fan-out. A **NATS** server is still needed for one thing: delivering an agent cancel to the agent worker running the execution. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
+Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state, node registry and cross-replica fan-out. No message bus is needed: a deployment runs PostgreSQL and the frontends' own HTTP listener, and every worker is reached over the tunnel it dials outward. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
 
 {{% notice note %}}
 Distributed mode requires authentication enabled with a **PostgreSQL** database - SQLite is not supported. This is because the node registry, job store, and other distributed state are stored in PostgreSQL tables.
@@ -41,7 +41,7 @@ Each model gets its own gRPC backend process, so a single worker can serve multi
   - Each frontend replica holds **one extra PostgreSQL session** beyond its connection pool, pinned for the life of the process, and creates a `bus_messages` table. Both belong to the broadcast carrier that is replacing NATS for cross-replica fan-out; it already carries the four `state.*.delta` families (see [Cross-replica in-memory state](#cross-replica-in-memory-state)). Size `max_connections` for one additional session per frontend replica.
   - That session reports an `application_name` of `localai_pgbus_<id>`, so `SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'` counts the replicas currently listening. If the carrier loses its session it redials and re-registers on its own; a broadcast published while it was down is not replayed, which is why nothing that must survive a gap is carried by a broadcast alone.
   - `bus_messages` holds only broadcasts too large for a PostgreSQL notification, and every replica retires rows older than ten minutes. The table is a spill buffer, not a log: it is not a place to read past events from.
-- **NATS** server - used for ONE subject family, `agent.<agent>.cancel`, which is the only thing a frontend still sends over a bus and the only thing an agent worker still subscribes to. Everything else a frontend broadcasts travels on the PostgreSQL the deployment already runs, and every verb a frontend addresses to a worker is an HTTP route on that worker's tunnel. **Serve-backend workers do not connect to it at all**: every verb they take, and file staging with it, is an HTTP route on the worker's tunnel. Set no `LOCALAI_NATS_URL` on a `local-ai worker`. The frontend and any `local-ai agent-worker` still need one.
+- **No message bus.** Nothing in a distributed deployment connects to NATS any more. Everything a frontend broadcasts travels on the PostgreSQL the deployment already runs; every verb a frontend addresses to a worker, including an agent cancel, is an HTTP route on that worker's own tunnel. `LOCALAI_NATS_URL` is accepted and ignored everywhere - on the frontend, on `local-ai worker` and on `local-ai agent-worker` - so an existing command line still starts.
 - All services must be on the same network (or reachable via configured URLs)
 
 ## Quick Start with Docker Compose
@@ -52,10 +52,10 @@ The easiest way to try distributed mode locally is with the provided Docker Comp
 docker compose -f docker-compose.distributed.yaml up
 ```
 
-This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
+This starts PostgreSQL, a LocalAI frontend, and one worker node. The compose file still stands a NATS container up; nothing connects to it and you may delete that service. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
 
 {{% notice tip %}}
-Use `docker-compose.distributed.yaml` for quick local testing. For production, deploy PostgreSQL and NATS as managed services and run frontends/workers on separate hosts.
+Use `docker-compose.distributed.yaml` for quick local testing. For production, deploy PostgreSQL as a managed service and run frontends/workers on separate hosts. There is no message bus to deploy.
 {{% /notice %}}
 
 ## Frontend Configuration
@@ -66,11 +66,11 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 |------|---------|---------|-------------|
 | `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode |
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS server URL (e.g., `nats://localhost:4222`) |
+| `--nats-url` | `LOCALAI_NATS_URL` | *(ignored)* | **Accepted and ignored.** A frontend opens no message-bus connection. Kept so an existing command line still starts. |
 | `--distributed-advertise-addr` | `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` | *(derived)* | `host:port` the **other frontend replicas** dial to reach this one. See [Replica peer links](#replica-peer-links). |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
-| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
+| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies `--registration-require-auth`, which is what guards registration, the worker control planes and file transfer. It also implies the inert `--nats-require-auth`. Set this in production instead of the granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
 | `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
@@ -185,10 +185,9 @@ The same carrier moves the traffic whose subscriber is an open HTTP response rat
 | Job result | `jobs.<job_id>.result` | The result persister on every replica |
 | Job cancel | `jobs.<job_id>.cancel` | Every replica, so the one holding the run can stop it |
 | Agent events | `agent.<agent>.events.<user_id>` | `GET /api/agents/{name}/sse/distributed` on any replica, and the observable persister |
-| Agent cancel | `agent.<agent>.cancel` | Every agent worker, and so still on NATS: see below |
 | Open Responses cancel | `responses.<response_id>.cancel` | The replica holding the generation |
 
-One family on that list is not on this carrier. An `agent.<agent>.cancel` has to reach the agent WORKER running the execution, and an agent worker has no database, so it cannot listen on PostgreSQL at all; that cancel is published on NATS, where the worker is listening, and it stays there until a cancel rides the worker's tunnel like every other verb the frontend addresses to a worker. Everything else in the table is on the PostgreSQL carrier.
+An agent cancel is deliberately NOT on that list. It has to reach the agent WORKER running the execution, and an agent worker has no database, so it can never listen on PostgreSQL; it is a control verb on that worker's own tunnel instead. See [Cancelling an agent run](#cancelling-an-agent-run).
 
 This is what lets a user watch a job or an agent on one frontend while the work runs against another. **No broadcast on this list is the only path to anything durable.** A job's terminal state is written to its row by the replica that claimed the work, before that claim is released, so a dropped result costs an open stream its promptness and never costs the job its answer: a stream that is still open re-reads the row and closes on it. A cancel is a request and not a verdict: if it reaches nobody it has not been refused, and nothing in the API reports it as such.
 
@@ -262,7 +261,7 @@ A worker that presents a credential belonging to no node, or names a node ID the
 
 **A node that has not registered since upgrading cannot tunnel.** Its row has no tunnel credential and the column cannot be back-filled, because the plaintext only ever existed in the response that minted it. Such a node is refused with `401` until it registers again, which a worker restart does. The frontend does *not* fall back to the registration token for these nodes.
 
-Unlike the agent worker's API key and its NATS credential, a tunnel credential **is** issued to a node still awaiting approval. It is inert until then: the tunnel route re-reads the node's status on every dial and refuses a pending one. Withholding it would instead strand workers that register exactly once, since approval on its own prompts no re-registration.
+Unlike the agent worker's API key, a tunnel credential **is** issued to a node still awaiting approval. It is inert until then: the tunnel route re-reads the node's status on every dial and refuses a pending one. Withholding it would instead strand workers that register exactly once, since approval on its own prompts no re-registration.
 
 A tunnel credential does not replace `LOCALAI_REGISTRATION_TOKEN`. Without one, node registration itself is unauthenticated, so anyone who can reach the frontend can register a worker and be issued a tunnel credential for it. How far that gets them depends on auto-approve: with auto-approve on the node is healthy at once and the credential works immediately; with it off the node is pending and the credential is inert until an admin approves, so approval is the real gate. LocalAI warns about the missing token at startup.
 
@@ -270,7 +269,21 @@ Both **backend** and **agent** nodes are issued one. Earlier releases minted a c
 
 An agent worker's tunnel carries only the `http` tag: it runs no backend processes, so it does not offer the `grpc` tag at all. Its control server binds `127.0.0.1` on a port chosen by the kernel and advertises it nowhere, so an agent worker still opens no inbound port.
 
-**An agent worker still requires `--nats-url`, and one thing only still reaches it on the bus.** Every verb the frontend addresses to a specific agent worker is now a control RPC on the tunnel that worker holds: MCP tool execution, MCP discovery, the backend stop that flushes cached MCP sessions, agent execution, and MCP CI runs. The progress and result lines the worker asks the frontend to re-publish on its behalf travel back on that same response body, and the frontend re-publishes them on the PostgreSQL carrier, not on NATS. One subject in the other direction is still NATS and is the reason `--nats-url` is still required: `agent.<agent>.cancel`, which the worker subscribes to so a cancel can reach the execution it is running.
+**An agent worker no longer needs `--nats-url`, and connects to no message bus at all.** Every verb the frontend addresses to a specific agent worker is a control RPC on the tunnel that worker holds: MCP tool execution, MCP discovery, the backend stop that flushes cached MCP sessions, agent execution, MCP CI runs, and now the cancel. The progress and result lines the worker asks the frontend to re-publish on its behalf travel back on that same response body, and the frontend re-publishes them on the PostgreSQL carrier.
+
+#### Cancelling an agent run
+
+A cancel names one execution by its message id, and nothing in the deployment records which worker holds it: the claim that dispatched the run names the claiming *replica*, and it is deleted when the run ends. So the frontend offers the cancel to **every agent worker a live replica can reach**, over each worker's own tunnel (`POST /v1/control/agent/cancel`), and each worker answers only for itself.
+
+A caller gets one of three answers, and they are deliberately different facts:
+
+| Outcome | What it means |
+|---------|---------------|
+| success | A worker answered that it cancelled the run, or the run was held by the replica the request landed on. |
+| *could not be delivered* | At least one agent worker that might have been running it was not reached: its tunnel was lost inside the [reconnect grace](#a-lost-tunnel-is-a-departure-not-an-absence), its control plane refused the stream, or a peer holding it was unreachable. Nothing was learned. It is **not** a refusal and **not** a missing run. |
+| *no agent worker is running that execution* | Every agent worker was reached and every one of them answered that it does not hold the run. |
+
+A worker that is **reconnecting** always produces the second answer. The cancel is not retried inside the request and not queued: retrying would hold the caller for the length of the reconnect grace, and the retry belongs with whoever owns the budget. Re-issue the cancel once the worker is connected again.
 
 There is no `nodes.<id>.*` subject left, and an agent worker's minted JWT no longer grants `mcp.tools.execute`, `mcp.discovery`, `nodes.<id>.backend.stop`, `agent.execute` or `jobs.mcp-ci.new`. The `--agent-subject` and `--agent-queue` flags (`LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`) are gone: there is no subject for an agent worker to subscribe to and no queue group to be one of.
 
@@ -465,7 +478,7 @@ Registering against an upgraded frontend **clears** a node's `address` and `http
 
 A worker on this release opens **no inbound listener on a routable interface**. Its backend gRPC processes and its HTTP file-transfer server all bind loopback, and the frontend reaches both through the tunnel. Concretely:
 
-- **No inbound firewall rule, published port, Service or Ingress is needed for a worker.** A serve-backend worker needs outbound access to the frontend URL (`LOCALAI_REGISTER_TO`), and nothing else - not even to NATS. An agent worker binds only loopback too, and needs outbound access to both `LOCALAI_REGISTER_TO` (registration, heartbeats and now its tunnel) and `LOCALAI_NATS_URL`.
+- **No inbound firewall rule, published port, Service or Ingress is needed for a worker.** A serve-backend worker needs outbound access to the frontend URL (`LOCALAI_REGISTER_TO`), and nothing else - not even to NATS. An agent worker binds only loopback too, and needs outbound access to `LOCALAI_REGISTER_TO` and nothing else either: registration, heartbeats, its tunnel and every verb the frontend addresses to it all go there.
 - **`LOCALAI_ADVERTISE_ADDR` and `LOCALAI_ADVERTISE_HTTP_ADDR` are gone.** There is nothing to advertise. Both are ignored if still set; remove them.
 - **`LOCALAI_ADDR` and `LOCALAI_SERVE_ADDR` are read for their port only.** The port is the base of the backend port range, and `port-1` is the HTTP file-transfer port. The host half names an interface nothing binds.
 - The node's `address` and `http_address` fields in `GET /api/nodes` are empty, and are cleared for nodes that reported them before the upgrade.
@@ -581,50 +594,25 @@ The chat UI renders this state inline and retries automatically once the model r
 A frontend replica that dies mid-load does not wedge the model: the job row carries a heartbeat and another replica reclaims a job whose heartbeat has stopped. The heartbeat is time-based, not byte-based, because a checkpoint load legitimately transfers zero bytes for many minutes.
 {{% /notice %}}
 
-### NATS JWT authentication (recommended for production)
+### NATS credentials (inert)
 
-**This section is about agent workers and the frontend.** A serve-backend worker opens no NATS connection, so none of it applies to one; its own credential is the tunnel token it gets at registration, and its control plane is authenticated by `LOCALAI_REGISTRATION_TOKEN`. An agent worker now has both: a NATS credential, which covers the one subject family still on the bus, and a tunnel token plus the same `LOCALAI_REGISTRATION_TOKEN` bearer check in front of its control server.
+**No LocalAI component connects to NATS.** The frontend's cross-replica fan-out is on PostgreSQL, a serve-backend worker takes every verb on its own tunnel, and an agent worker now does too, including the cancel that was the last family on a bus.
 
-By default, NATS connections are anonymous: any client that can reach port `4222` may publish the one subject family still carried on it, `agent.<agent>.cancel`. Anyone who can reach an unauthenticated bus can therefore cancel any running agent. Nothing else is on it: the agent-worker job subjects became rows in a claim table, the frontend's cross-replica events travel on PostgreSQL, and `nodes.<id>.backend.install` and its nine siblings are HTTP routes on the worker's tunnel, see [The worker control plane](#the-worker-control-plane). Enable JWT auth to scope agent workers to their own subjects and give the frontend a dedicated service credential.
+Every `LOCALAI_NATS_*` setting is therefore accepted and inert, so an existing command line, unit file or Helm values file starts unchanged:
 
-| Flag | Env Var | Description |
-|------|---------|-------------|
-| `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | Account signing seed (`SU...`). The frontend mints a per-node user JWT at registration (`nats_jwt` in the register response). |
-| `--nats-service-jwt` | `LOCALAI_NATS_SERVICE_JWT` | User JWT for the frontend (and optional fallback for agent workers). The frontend publishes one subject family with it: `agent.<agent>.cancel`. |
-| `--nats-service-seed` | `LOCALAI_NATS_SERVICE_SEED` | User signing seed (`SU...`) paired with the service JWT. |
-| `--nats-worker-jwt-ttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Lifetime of minted worker JWTs (default `24h`). |
-| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | Fail startup if JWT credentials are missing when distributed mode is enabled. |
+| Flag | Env Var | Status |
+|------|---------|--------|
+| `--nats-url` | `LOCALAI_NATS_URL` | Accepted and ignored on the frontend, `local-ai worker` and `local-ai agent-worker`. |
+| `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | The frontend still mints a per-node user JWT at registration (`nats_jwt` in the register response). Nothing consumes it. |
+| `--nats-service-jwt` / `--nats-service-seed` | `LOCALAI_NATS_SERVICE_JWT` / `LOCALAI_NATS_SERVICE_SEED` | Accepted, unused: the frontend opens no bus connection to present them on. |
+| `--nats-worker-jwt-ttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Lifetime of the minted-but-unused worker JWTs. |
+| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | On an agent worker this still makes registration **wait through admin approval** rather than starting against a pending node. It no longer gates any bus connection. |
+| `--nats-tls-ca` / `--nats-tls-cert` / `--nats-tls-key` | `LOCALAI_NATS_TLS_*` | Accepted, unused. |
 
-### NATS TLS / mTLS (optional)
-
-Use `tls://` in `--nats-url` / `LOCALAI_NATS_URL` for encrypted transport. When the server uses a private CA or requires client certificates, set:
-
-| Flag | Env Var | Description |
-|------|---------|-------------|
-| `--nats-tls-ca` | `LOCALAI_NATS_TLS_CA` | PEM file to verify the NATS server (private CA) |
-| `--nats-tls-cert` | `LOCALAI_NATS_TLS_CERT` | Client certificate for NATS mTLS |
-| `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | Client private key (required with `--nats-tls-cert`) |
-
-The same env vars apply to backend workers and `local-ai agent-worker`. If the server cert is already trusted by the OS, `tls://` alone is enough.
-
-**Worker register response** (when minting is enabled and the node is approved):
-
-```json
-{
-  "id": "…",
-  "nats_jwt": "eyJ…",
-  "nats_user_seed": "SU…"
-}
-```
-
-Agent workers connect with that JWT and seed automatically (shown once; store securely). Override with `LOCALAI_NATS_JWT` / `LOCALAI_NATS_USER_SEED` if needed. Set `LOCALAI_NATS_REQUIRE_AUTH=true` on an agent worker when the bus requires credentials; `local-ai worker` has no such flag, because it opens no connection to require credentials for. A JWT is still minted for a serve-backend node at registration and is simply unused; it grants nothing but that connection's own reply inbox.
-
-When `LOCALAI_NATS_REQUIRE_AUTH=true` and no static credentials are provided, an agent worker that registers while still **pending admin approval** keeps re-registering (with backoff) until an admin approves it and the frontend mints its JWT - it does not start unauthenticated. This retry is **bounded**: if the node is never approved (or no credentials are minted) after a large number of attempts, the worker exits non-zero so the failure is visible (a crash-looping or failed worker) rather than hanging silently. Minted worker JWTs are also **refreshed automatically** before they expire (the worker re-registers at ~75% of the JWT lifetime), so long-running workers survive past `LOCALAI_NATS_WORKER_JWT_TTL`; the NATS connection picks up the new JWT on its next reconnect. If refresh fails persistently, the worker exits (to restart and re-acquire) rather than drifting toward an expired, unrenewable JWT. Statically configured (`LOCALAI_NATS_JWT`) and service (`LOCALAI_NATS_SERVICE_JWT`) credentials are used as-is and not refreshed.
-
-Generate operator/account material with [`scripts/nats-auth-setup.sh`](https://github.com/mudler/LocalAI/blob/master/scripts/nats-auth-setup.sh) (requires [nsc](https://docs.nats.io/running-a-nats-service/configuration/securing_nats/auth_intro/nsc)). Configure the NATS server with account resolver JWTs before enabling `LOCALAI_NATS_REQUIRE_AUTH`.
+You may stop running a NATS server, and remove these settings at your convenience.
 
 {{% notice note %}}
-`LOCALAI_AUTH` (HTTP users/sessions) and NATS JWTs are separate: end-user API keys do not connect to NATS. HTTP registration still uses `LOCALAI_REGISTRATION_TOKEN`.
+`LOCALAI_AUTH` (HTTP users/sessions) is unrelated. HTTP registration still uses `LOCALAI_REGISTRATION_TOKEN`, and every worker control plane sits behind that same bearer check.
 {{% /notice %}}
 
 ### Optional: S3 Object Storage
@@ -674,7 +662,7 @@ during installation as well as the committed snapshot.
 {{% /notice %}}
 
 {{% notice warning %}}
-The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector), **and to the `/v1/control/` routes that install, upgrade and delete backends and stop the node**. The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token a hard startup error rather than a silent fail-open. On the frontend and on agent workers it also makes missing NATS credentials fatal; on a serve-backend worker it means the registration token alone, since that worker uses no bus credential.
+The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector), **and to the `/v1/control/` routes that install, upgrade and delete backends and stop the node**. The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token a hard startup error rather than a silent fail-open. On an agent worker it additionally makes registration wait through admin approval instead of starting against a pending node.
 
 By default the server binds loopback, so "anyone who can reach the port" means a process on the worker host, and no firewall rule is required. Setting `LOCALAI_HTTP_ADDR` to a routable address opts back out of that and puts the fail-open case back on the network - if you do it, firewall the port.
 {{% /notice %}}
@@ -1078,12 +1066,11 @@ Agent workers are dedicated processes for executing agent chats and MCP CI jobs.
 ```bash
 local-ai agent-worker \
   --register-to http://frontend:8080 \
-  --nats-url nats://nats:4222 \
   --registration-token changeme
 ```
 
 Agent workers:
-- Execute agent chat messages dispatched via NATS
+- Execute agent chat messages dispatched to it as streaming control verbs on its tunnel
 - Run MCP CI jobs (with access to MCP servers via docker)
 - Handle MCP tool discovery and execution requests, which the frontend sends over the worker's own tunnel
 - Get auto-provisioned API keys during registration for calling the inference API
@@ -1300,7 +1287,7 @@ local-ai worker \
   --registration-token changeme
 ```
 
-**Multiple frontend replicas:** Run multiple LocalAI frontends behind a load balancer. Since all state is in PostgreSQL and coordination is via NATS, frontends are fully stateless and interchangeable.
+**Multiple frontend replicas:** Run multiple LocalAI frontends behind a load balancer. Since all state is in PostgreSQL and coordination is via PostgreSQL and the workers' own tunnels, frontends are fully stateless and interchangeable.
 
 ## Model Scheduling
 
@@ -1503,12 +1490,12 @@ Notes:
 |---|---|---|
 | **Discovery** | Automatic via libp2p token | Self-registration to frontend URL |
 | **State storage** | In-memory / ledger | PostgreSQL |
-| **Coordination** | Gossip protocol | The worker's own tunnel for serve-backend work; PostgreSQL `LISTEN`/`NOTIFY` for cross-replica frontend events; NATS for agent workers |
+| **Coordination** | Gossip protocol | Each worker's own tunnel for every verb addressed to it, agent workers included; PostgreSQL `LISTEN`/`NOTIFY` for cross-replica frontend events |
 | **Node management** | Automatic | REST API + WebUI |
 | **Health monitoring** | Peer heartbeats | Centralized HealthMonitor |
 | **Backend management** | Manual per node | Dynamic via the worker's `backend.install` control route |
 | **Best for** | Ad-hoc clusters, community sharing | Production, Kubernetes, managed infrastructure |
-| **Setup complexity** | Minimal (share a token) | Requires PostgreSQL on the frontend, plus NATS if you run agent workers. Serve-backend workers need neither: only an outbound route to the frontend URL. |
+| **Setup complexity** | Minimal (share a token) | Requires PostgreSQL on the frontend, and nothing else. Workers of either kind need only an outbound route to the frontend URL. |
 
 ## Troubleshooting
 
@@ -1518,9 +1505,7 @@ Notes:
 - Ensure auth is enabled on the frontend (`LOCALAI_AUTH=true`)
 
 **NATS connection errors:**
-- These concern the **frontend** and **agent workers** only. A `local-ai worker` opens no NATS connection; if one is failing to join, look at its tunnel and its `--register-to` instead.
-- Confirm NATS is running and reachable (`nats-server --signal ldm` or check port 4222)
-- Check that `--nats-url` uses the correct hostname/IP from that component's network perspective
+- Nothing in LocalAI connects to NATS any more, on any component. If a release you are running still logs one, it predates the tunnel migration; on this release, look at the failing component's tunnel and its `--register-to` instead.
 
 **PostgreSQL connection errors:**
 - Verify the connection URL format: `postgresql://user:password@host:5432/dbname?sslmode=disable`
@@ -1555,7 +1540,7 @@ Notes:
 - It is **not** the same as the worker being gone, and nothing acts on it as if it were. A model on an unroutable worker is not reaped, its rows are left alone, and the node is not demoted: doing any of those on a lost route is how a rolling frontend restart turns into a fleet-wide eviction.
 - Check the worker process is running and that it has an open tunnel (`opened a tunnelled stream to a worker` in the frontend log, and the worker's own dial/reconnect lines). A worker behind a load balancer that keeps reconnecting is usually an idle-timeout or WebSocket-upgrade problem at the proxy; see the tunnel section above.
 - **`no route` is not `gone`, and nothing in the frontend reads it as such.** A worker is declared **gone** by one mechanism only: no live frontend replica holds its tunnel *and* its departure is older than `--worker-reconnect-grace`. That is a fact recorded in the shared database, so every replica answers it identically. "No route" is one replica failing to reach a worker right now, and it is not evidence about the worker at all.
-- Older releases decided absence from `nats: no responders available for request`, which was one frontend's observation that nobody answered *it* within a request budget. Two replicas asking at the same moment could disagree and demote each other's workers. That signal is gone from the scheduler; if you still see the message, it concerns only the subjects that remain on the bus (agent-worker jobs and MCP CI), never a serve-backend worker.
+- Older releases decided absence from `nats: no responders available for request`, which was one frontend's observation that nobody answered *it* within a request budget. Two replicas asking at the same moment could disagree and demote each other's workers. That signal is gone from the scheduler, and no component opens a bus connection to produce it.
 
 **A worker fills its own disk over time:**
 - A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.

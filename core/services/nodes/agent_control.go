@@ -8,7 +8,9 @@ import (
 	"fmt"
 
 	mcpremote "github.com/mudler/LocalAI/core/services/mcp"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/xlog"
 )
 
 // maxAgentPicks bounds how many agent workers one verb is offered to before it
@@ -28,6 +30,28 @@ const maxAgentPicks = 3
 // cluster.IsWorkerAnswer accepts: it is a fact about this process's own wiring
 // and says nothing about any worker.
 var ErrNoAgentControl = errors.New("nodes: this deployment has no agent control client")
+
+// ErrAgentCancelUndelivered reports that a cancel may have reached nobody: at
+// least one agent worker that could be running the execution was not asked, or
+// did not answer.
+//
+// It is the answer this whole family was held back for. A cancel that could not
+// be delivered is NOT a cancel that was refused and NOT a run that does not
+// exist, and a caller told any of those three in place of another acts on
+// something that did not happen. It says nothing about any particular worker
+// either, which is why it is its own sentinel and carries neither
+// ErrWorkerUnroutable nor anything cluster.IsWorkerAnswer accepts: no node may
+// be reaped, demoted or evicted because a cancel went undelivered.
+var ErrAgentCancelUndelivered = errors.New("nodes: an agent cancel could not be delivered to every agent worker that might be running it")
+
+// ErrAgentRunNotOnAnyWorker reports that every agent worker this deployment
+// could reach answered that it is not running the named execution.
+//
+// It is assembled ONLY from workers' own answers, and only when every worker
+// was reached; the moment one was not, ErrAgentCancelUndelivered is the answer
+// instead. It still does not say the run does not exist: it says no agent
+// worker is running it, which is the largest claim the evidence supports.
+var ErrAgentRunNotOnAnyWorker = errors.New("nodes: no agent worker of this deployment is running that execution")
 
 // AgentControlClient issues the frontend's control RPCs to whichever agent
 // worker the selector picks.
@@ -62,6 +86,88 @@ func (a *AgentControlClient) ExecuteMCPTool(ctx context.Context, req mcpremote.M
 func (a *AgentControlClient) DiscoverMCPTools(ctx context.Context, req mcpremote.MCPDiscoveryRequest) (*mcpremote.MCPDiscoveryResponse, error) {
 	return agentVerb(ctx, a, workerctl.PathMCPDiscovery, req,
 		func(r *mcpremote.MCPDiscoveryResponse) string { return r.Error })
+}
+
+// CancelAgentRun asks the agent workers of this deployment to stop one
+// execution, and reports which of three different things happened.
+//
+// A FAN-OUT and not a pick, which is what makes it the one agent verb that does
+// not go through agentVerb. A message id names exactly one execution, running
+// on exactly one worker, and no row in this deployment records which: the claim
+// that dispatched it names the claiming REPLICA, not the worker, and it is
+// deleted when the run ends. So the cancel is offered to every worker a live
+// replica can reach, exactly as the broadcast it replaces was, and each worker
+// answers only for itself.
+//
+// The three answers, and why none may stand in for another:
+//
+//   - nil. A worker answered that it cancelled the run. That is a worker's own
+//     answer and it is conclusive, even if another worker could not be reached:
+//     the execution has been cancelled, and there is only one of it.
+//   - ErrAgentCancelUndelivered. Some worker that might have been running it
+//     was not reached. Nothing was learned, and the caller may not report the
+//     run as missing or the cancel as declined.
+//   - ErrAgentRunNotOnAnyWorker. Every worker was reached and every one of them
+//     answered that it is not running that execution.
+//
+// A worker that is RECONNECTING is counted undelivered, and this is the
+// decision rather than an omission: it is not retried here and it is not
+// queued. Retrying would hold the caller for the length of the reconnect grace
+// with no bound it chose, and queueing would need durable state whose only
+// consumer is a run whose control stream died with the tunnel. Reporting it,
+// once, as a cancel that may not have arrived is the only thing this frontend
+// actually knows, and it leaves the retry where the budget lives: with the
+// caller.
+func (a *AgentControlClient) CancelAgentRun(ctx context.Context, req messaging.AgentCancelRequest) error {
+	if a == nil || a.sel == nil || a.cc == nil {
+		return fmt.Errorf("control rpc %s: %w", workerctl.PathAgentCancel, ErrNoAgentControl)
+	}
+	reach, err := a.sel.Reachable(ctx)
+	if err != nil {
+		return err
+	}
+
+	if len(reach.Connected) == 0 && len(reach.Absent) == 0 {
+		// Nothing was asked of anyone and nothing was learned. This must not
+		// become ErrAgentRunNotOnAnyWorker, which is assembled from workers'
+		// own answers: a deployment with no agent worker has produced no
+		// answers at all, and reporting one would tell a caller that a run it
+		// can still see is not running anywhere.
+		return fmt.Errorf("cancelling message %q of agent %q: %w", req.MessageID, req.AgentName, ErrNoAgentWorker)
+	}
+
+	cancelled := false
+	// Seeded with the workers nobody could ask at all: a tunnel lost inside the
+	// reconnect grace, or a presence this replica could not read. They are part
+	// of the fleet this cancel did not finish asking, and dropping them here is
+	// what would turn an unfinished fan-out into "no worker is running it".
+	undelivered := append([]string(nil), reach.Absent...)
+	for _, nodeID := range reach.Connected {
+		var reply messaging.AgentCancelReply
+		if err := a.cc.Call(ctx, nodeID, workerctl.PathAgentCancel, req, &reply); err != nil {
+			// An unreachable peer, a refused stream, a tunnel that died between
+			// the connection read and the dial, or a worker too old to serve
+			// the verb. None of them is an answer about this execution.
+			xlog.Warn("An agent worker could not be asked to cancel an execution",
+				"nodeID", nodeID, "agent", req.AgentName, "messageID", req.MessageID, "error", err)
+			undelivered = append(undelivered, nodeID)
+			continue
+		}
+		if reply.Cancelled {
+			cancelled = true
+		}
+	}
+
+	switch {
+	case cancelled:
+		return nil
+	case len(undelivered) > 0:
+		return fmt.Errorf("cancelling message %q of agent %q: %d of %d agent workers could not be asked (%v): %w",
+			req.MessageID, req.AgentName, len(undelivered), len(reach.Connected)+len(reach.Absent), undelivered, ErrAgentCancelUndelivered)
+	default:
+		return fmt.Errorf("cancelling message %q of agent %q: all %d reachable agent workers answered that they are not running it: %w",
+			req.MessageID, req.AgentName, len(reach.Connected), ErrAgentRunNotOnAnyWorker)
+	}
 }
 
 // agentVerb is the ONE place the select-call-retry rule lives, and the one

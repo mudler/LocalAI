@@ -22,7 +22,9 @@ type DistributedConfig struct {
 	// answer is only usable when the database is remote, so a deployment with
 	// a local or sidecar database has to set this.
 	AdvertiseAddr     string // LOCALAI_DISTRIBUTED_ADVERTISE_ADDR
-	NatsURL           string // --nats-url / LOCALAI_NATS_URL
+	// NatsURL is accepted and ignored. No component of a distributed
+	// deployment dials a message bus any more.
+	NatsURL string // --nats-url / LOCALAI_NATS_URL
 	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
 	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
 	// RegistrationRequireAuth fails startup when distributed mode is enabled but
@@ -156,9 +158,11 @@ func (c DistributedConfig) Validate() error {
 	if !c.Enabled {
 		return nil
 	}
-	if c.NatsURL == "" {
-		return fmt.Errorf("distributed mode requires --nats-url / LOCALAI_NATS_URL")
-	}
+	// No message-bus URL is required, and none is dialled. The last family
+	// that needed one was agent.<agent>.cancel, which now rides the agent
+	// worker's own tunnel as a control verb; a distributed deployment needs
+	// PostgreSQL and the frontends' own HTTP listener. The flag is still
+	// accepted so an existing command line starts unchanged.
 	// S3 credentials must be paired
 	if (c.StorageAccessKey != "" && c.StorageSecretKey == "") ||
 		(c.StorageAccessKey == "" && c.StorageSecretKey != "") {

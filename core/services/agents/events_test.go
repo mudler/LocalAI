@@ -42,7 +42,7 @@ var _ = Describe("EventBridge", func() {
 		// safe-integer range. The timestamp must be in milliseconds.
 		It("emits the timestamp in Unix milliseconds", func() {
 			fake := &recordingBus{}
-			bridge := NewEventBridge(fake, nil, "instance-1")
+			bridge := NewEventBridge(fake, nil, "instance-1", nil)
 
 			before := time.Now().UnixMilli()
 			err := bridge.PublishMessage("agent", "user", "agent", "hello", "msg-1")

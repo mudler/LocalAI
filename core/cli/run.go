@@ -162,9 +162,9 @@ type RunCMD struct {
 	DefaultAPIKeyExpiry  string `env:"LOCALAI_DEFAULT_API_KEY_EXPIRY" help:"Default expiry for API keys (e.g. 90d, 1y; empty = no expiry)" group:"auth"`
 
 	// Distributed / Horizontal Scaling
-	Distributed                  bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL + NATS)" group:"distributed"`
+	Distributed                  bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL; no message bus)" group:"distributed"`
 	InstanceID                   string `env:"LOCALAI_INSTANCE_ID" help:"Unique instance ID for distributed mode (auto-generated UUID if empty)" group:"distributed"`
-	NatsURL                      string `env:"LOCALAI_NATS_URL" help:"NATS server URL (e.g., nats://localhost:4222)" group:"distributed"`
+	NatsURL                      string `env:"LOCALAI_NATS_URL" help:"Ignored. No component of a distributed deployment connects to a message bus; state and fan-out ride PostgreSQL and workers are reached over their own tunnels. Accepted so an existing command line still starts." group:"distributed"`
 	DistributedAdvertiseAddr     string `env:"LOCALAI_DISTRIBUTED_ADVERTISE_ADDR" help:"host:port other frontend replicas dial to reach this one (peer link). Empty = derived from the local address that routes to PostgreSQL, which only works when the database is on another host." group:"distributed"`
 	StorageURL                   string `env:"LOCALAI_STORAGE_URL" help:"S3-compatible storage endpoint URL (e.g., http://minio:9000)" group:"distributed"`
 	StorageBucket                string `env:"LOCALAI_STORAGE_BUCKET" default:"localai" help:"S3 bucket name for object storage" group:"distributed"`

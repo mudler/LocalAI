@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"runtime"
 	"sync/atomic"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/libp2p/go-yamux/v5"
@@ -21,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/agentworker"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	mcpremote "github.com/mudler/LocalAI/core/services/mcp"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/worker"
@@ -38,6 +40,12 @@ import (
 // a candidate whose owner is dead) exists only on the wire.
 
 const agentControlToken = "agent-control-token"
+
+// agentReconnectGrace is the window these specs read a lost tunnel as
+// reconnecting rather than gone. Long enough that a worker registered in this
+// spec and never connected is never GONE, which is what makes the undelivered
+// answer reachable here.
+const agentReconnectGrace = time.Hour
 
 // fakeFrontend is the far side of a worker's tunnel: the real WebSocket
 // upgrade and the real yamux server handshake.
@@ -241,7 +249,7 @@ var _ = Describe("AgentControlClient", func() {
 
 	agentControl := func() *nodes.AgentControlClient {
 		return nodes.NewAgentControlClient(
-			nodes.NewAgentSelector(registry, clusterReg, selfInstance), control)
+			nodes.NewAgentSelector(registry, clusterReg, selfInstance, agentReconnectGrace), control)
 	}
 
 	toolRequest := mcpremote.MCPToolRequest{
@@ -360,6 +368,170 @@ var _ = Describe("AgentControlClient", func() {
 		Expect(err).To(MatchError(nodes.ErrNoAgentWorker))
 		Expect(errors.Is(err, nodes.ErrWorkerUnroutable)).To(BeFalse())
 		Expect(cluster.IsWorkerAnswer(err)).To(BeFalse())
+	})
+
+	// The cancel, over the same real transport as everything above it.
+	//
+	// A cancel is a FAN-OUT and not a pick: no row in this deployment records
+	// which worker holds a given execution, so the cancel is offered to every
+	// worker a live replica can reach and each answers only for itself. What
+	// these pin is that the three answers stay apart, because a caller told any
+	// one of them in place of another acts on something that did not happen.
+	Describe("cancelling one agent run", func() {
+		// cancelHandler answers the cancel verb the way a worker does: true
+		// when it holds the named run, false when it does not.
+		cancelHandler := func(mine string, seen *atomic.Int32) agentworker.UnaryHandler {
+			return func(_ context.Context, raw json.RawMessage) (json.RawMessage, error) {
+				seen.Add(1)
+				var req messaging.AgentCancelRequest
+				Expect(json.Unmarshal(raw, &req)).To(Succeed())
+				return json.Marshal(messaging.AgentCancelReply{Cancelled: req.MessageID == mine})
+			}
+		}
+
+		cancelOf := func(messageID string) messaging.AgentCancelRequest {
+			return messaging.AgentCancelRequest{AgentName: "a1", UserID: "u1", MessageID: messageID}
+		}
+
+		It("reaches the worker holding the run over the tunnel THIS replica holds", func() {
+			var asked atomic.Int32
+			startAgent("agent-holder", mine, agentworker.Config{
+				AgentCancel: cancelHandler("msg-1", &asked),
+			})
+
+			Expect(agentControl().CancelAgentRun(ctx, cancelOf("msg-1"))).To(Succeed())
+			Expect(asked.Load()).To(Equal(int32(1)))
+		})
+
+		It("reaches a worker whose tunnel a PEER holds, by relaying through that peer", func() {
+			// The hop the broadcast used to hide. This replica holds nothing,
+			// so the only way the cancel arrives is the connection row naming
+			// the peer and the peer's relay splicing the stream onto the tunnel
+			// it holds.
+			var asked atomic.Int32
+			startAgent("agent-remote", theirs, agentworker.Config{
+				AgentCancel: cancelHandler("msg-1", &asked),
+			})
+			Expect(mine.Held()).To(BeEmpty(), "this spec is only about the relayed path")
+
+			Expect(agentControl().CancelAgentRun(ctx, cancelOf("msg-1"))).To(Succeed())
+			Expect(asked.Load()).To(Equal(int32(1)))
+		})
+
+		It("asks EVERY reachable worker, because nothing records which one holds the run", func() {
+			// A pick would ask one and, four times in five, report a run that
+			// is running as one no worker is running.
+			var first, second atomic.Int32
+			startAgent("agent-a", mine, agentworker.Config{AgentCancel: cancelHandler("nothing-here", &first)})
+			startAgent("agent-b", theirs, agentworker.Config{AgentCancel: cancelHandler("msg-1", &second)})
+
+			Expect(agentControl().CancelAgentRun(ctx, cancelOf("msg-1"))).To(Succeed())
+			Expect(first.Load()).To(Equal(int32(1)))
+			Expect(second.Load()).To(Equal(int32(1)))
+		})
+
+		It("reports a run no reachable worker holds as exactly that, and never as undelivered", func() {
+			var asked atomic.Int32
+			startAgent("agent-a", mine, agentworker.Config{AgentCancel: cancelHandler("some-other-run", &asked)})
+
+			err := agentControl().CancelAgentRun(ctx, cancelOf("msg-1"))
+			Expect(err).To(MatchError(nodes.ErrAgentRunNotOnAnyWorker))
+			Expect(err).ToNot(MatchError(nodes.ErrAgentCancelUndelivered))
+			Expect(asked.Load()).To(Equal(int32(1)))
+		})
+
+		It("reports a worker it could not reach as UNDELIVERED and never as a run that does not exist", func() {
+			// The refusing worker's tunnel is real and its control server will
+			// not open, which is what a worker with a dead control plane looks
+			// like from here. Nothing was learned about the run, so the answer
+			// may not be "no worker is running it".
+			var refusals atomic.Int32
+			startRefusingAgent("agent-dead", mine, &refusals)
+
+			err := agentControl().CancelAgentRun(ctx, cancelOf("msg-1"))
+			Expect(err).To(MatchError(nodes.ErrAgentCancelUndelivered))
+			Expect(err).ToNot(MatchError(nodes.ErrAgentRunNotOnAnyWorker))
+			Expect(refusals.Load()).To(Equal(int32(1)))
+		})
+
+		It("counts a RECONNECTING worker as undelivered, which is the decision this task made", func() {
+			// A registered, approved agent worker with no live tunnel and a
+			// departure inside the grace. Nobody may act on that condition, so
+			// the cancel is reported as one that may not have arrived rather
+			// than retried here, queued, or folded into "no worker holds it".
+			var asked atomic.Int32
+			startAgent("agent-alive", mine, agentworker.Config{AgentCancel: cancelHandler("some-other-run", &asked)})
+			registerAgent("agent-reconnecting")
+
+			err := agentControl().CancelAgentRun(ctx, cancelOf("msg-1"))
+			Expect(err).To(MatchError(nodes.ErrAgentCancelUndelivered))
+			Expect(err).ToNot(MatchError(nodes.ErrAgentRunNotOnAnyWorker))
+			Expect(asked.Load()).To(Equal(int32(1)), "the worker that WAS reachable must still have been asked")
+		})
+
+		It("reports a worker's cancellation even when another worker could not be reached", func() {
+			// There is one execution and one worker cancelled it. Reporting
+			// undelivered here would tell the caller nothing happened when
+			// something did.
+			var refusals, asked atomic.Int32
+			startRefusingAgent("agent-dead", mine, &refusals)
+			startAgent("agent-holder", theirs, agentworker.Config{AgentCancel: cancelHandler("msg-1", &asked)})
+
+			Expect(agentControl().CancelAgentRun(ctx, cancelOf("msg-1"))).To(Succeed())
+			Expect(refusals.Load()).To(Equal(int32(1)))
+			Expect(asked.Load()).To(Equal(int32(1)))
+		})
+
+		It("reports an empty fleet as neither a route verdict nor a worker answer", func() {
+			err := agentControl().CancelAgentRun(ctx, cancelOf("msg-1"))
+			Expect(err).To(MatchError(nodes.ErrNoAgentWorker))
+			Expect(errors.Is(err, nodes.ErrWorkerUnroutable)).To(BeFalse())
+			Expect(cluster.IsWorkerAnswer(err)).To(BeFalse())
+		})
+
+		It("refuses on a nil client rather than panicking inside a request", func() {
+			var missing *nodes.AgentControlClient
+			Expect(missing.CancelAgentRun(ctx, cancelOf("msg-1"))).To(MatchError(nodes.ErrNoAgentControl))
+		})
+
+		// The reap guard's two predicates, asserted on the errors a REAL
+		// fan-out over a real tunnel actually returns.
+		//
+		// A cancel is offered to many workers and its answer is assembled from
+		// all of them, so no answer it produces speaks about any one node. The
+		// guard that reaps, demotes and evicts decides on exactly these two
+		// predicates, and a cancel that satisfied either would let one worker
+		// whose control server happened to be down take a node out of the
+		// deployment.
+		//
+		// The edit that breaks this is small and reads like an improvement:
+		// wrapping the per-worker Call failure with %w instead of naming the
+		// nodes with %v. cluster.ErrStreamTargetUnavailable then travels out of
+		// the fan-out, every spec above still passes, and an undelivered cancel
+		// has become a routing verdict about a node.
+		DescribeTable("produces no answer a reap guard may act on, whichever of the three it is",
+			func(fleet func(), sentinel error) {
+				fleet()
+				err := agentControl().CancelAgentRun(ctx, cancelOf("msg-1"))
+				Expect(err).To(MatchError(sentinel))
+				Expect(errors.Is(err, nodes.ErrWorkerUnroutable)).To(BeFalse(),
+					"a cancel answer was readable as a routing verdict about a worker, which the scheduler may act on")
+				Expect(cluster.IsWorkerAnswer(err)).To(BeFalse(),
+					"a cancel answer was readable as a worker's own answer, which a reap guard may act on")
+			},
+			Entry("a worker that could not be asked", func() {
+				var refusals atomic.Int32
+				startRefusingAgent("agent-dead", mine, &refusals)
+			}, nodes.ErrAgentCancelUndelivered),
+			Entry("a worker that is reconnecting", func() {
+				registerAgent("agent-reconnecting")
+			}, nodes.ErrAgentCancelUndelivered),
+			Entry("every reachable worker answering that it does not hold the run", func() {
+				var asked atomic.Int32
+				startAgent("agent-a", mine, agentworker.Config{AgentCancel: cancelHandler("some-other-run", &asked)})
+			}, nodes.ErrAgentRunNotOnAnyWorker),
+			Entry("a deployment with no agent worker at all", func() {}, nodes.ErrNoAgentWorker),
+		)
 	})
 
 	It("refuses on a nil client rather than panicking inside a request", func() {
