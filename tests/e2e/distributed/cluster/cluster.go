@@ -48,13 +48,12 @@ type Options struct {
 	// alongside the backend workers.
 	//
 	// They exist so a spec can hold the two kinds of worker side by side in one
-	// cluster. An agent worker still speaks NATS, and now holds a tunnel of its
-	// own as well, which is exactly the shape the tunnel-departure rules must
-	// not act on: it gets a real node_connections row whose departure really
-	// does age past the grace, and demoting it for that would take out a fleet
-	// whose actual work travels on the bus. A spec that asserted only on
-	// backend workers could not tell "agent workers are unaffected" from
-	// "nothing here looks at them".
+	// cluster. An agent worker holds a tunnel of its own and is reached through
+	// it and through nothing else, so it gets a real node_connections row whose
+	// departure really does age past the grace and it is subject to every
+	// tunnel-departure rule a backend worker is. A spec that asserted only on
+	// backend workers could not tell "the rule reaches both fleets" from
+	// "nothing here looks at agent workers".
 	//
 	// They register through the same WorkerFrontendURL hook as backend workers,
 	// so a spec that puts a balancer in front of the fleet gets one for its
@@ -396,18 +395,19 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 // startAgentWorker starts agent worker i.
 //
 // It is `local-ai agent-worker`, not `local-ai worker`, and the difference is
-// the whole point of having it here: an agent worker REQUIRES a NATS URL and
-// runs no backend, so it is the control for every rule this phase added about a
-// worker whose tunnel is gone. It dials a tunnel of its own, but binds only
-// loopback for the control plane behind it, so there is still no port to
-// reserve and no reachable readiness endpoint to wait on; a spec learns it is
-// up by finding it in the roster.
+// the whole point of having it here: an agent worker runs no backend processes,
+// so it is the second worker KIND every rule about a departed tunnel now has to
+// hold for. It dials a tunnel of its own, but binds only loopback for the
+// control plane behind it, so there is still no port to reserve and no
+// reachable readiness endpoint to wait on; a spec learns it is up by finding it
+// in the roster.
 func (c *Cluster) startAgentWorker(i int) (*Process, error) {
 	name := agentWorkerName(i)
 	cmd := exec.Command(c.opts.Binary, "agent-worker")
 	cmd.Env = append(cmd.Environ(),
-		// The bus, which is what makes this worker the control: a backend
-		// worker in this same cluster is given none.
+		// Still set, and still ignored. It is left here so this suite keeps
+		// covering the promise that an operator's existing --nats-url does not
+		// break an agent worker; nothing in the process reads it any more.
 		"LOCALAI_NATS_URL="+c.opts.NatsURL,
 		"LOCALAI_REGISTER_TO="+c.workerFrontendURL(i),
 		"LOCALAI_NODE_NAME="+name,

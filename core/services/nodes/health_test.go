@@ -35,7 +35,7 @@ var _ = Describe("HealthMonitor", func() {
 
 		// Use a 30-second stale threshold for tests.
 		// Pass nil db to avoid advisory lock path (no distributed mode in tests).
-		hm = NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, nil, 0)
+		hm = NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, nil, 0, nil)
 	})
 
 	makeNode := func(name, address string, vram uint64) *BackendNode {
@@ -431,6 +431,12 @@ var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
 		registry *NodeRegistry
 		clusterR *cluster.Registry
 		hm       *HealthMonitor
+		// departed is what the monitor ANNOUNCED, which is a different
+		// question from what it demoted: a departure notification is an act on
+		// absence, so the three answers nobody may act on must announce
+		// nothing even where they also demote nothing.
+		departed   []DepartedNode
+		departures *DepartureNotifier
 	)
 
 	const (
@@ -450,7 +456,10 @@ var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR = cluster.NewRegistry(db)
 		Expect(clusterR.Register(ctx, instance, "10.0.0.1:8080", "v1")).To(Succeed())
-		hm = NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, clusterR, grace)
+		departed = nil
+		departures = NewDepartureNotifier()
+		departures.OnDeparture("spec", func(node DepartedNode) { departed = append(departed, node) })
+		hm = NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, clusterR, grace, departures)
 	})
 
 	// register creates a heartbeating backend worker. Its heartbeat stays fresh
@@ -459,6 +468,16 @@ var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
 	register := func(name string) *BackendNode {
 		GinkgoHelper()
 		node := &BackendNode{Name: name, NodeType: NodeTypeBackend, TotalVRAM: 8_000_000_000, AvailableVRAM: 8_000_000_000}
+		Expect(registry.Register(ctx, node, true)).To(Succeed())
+		Expect(node.Status).To(Equal(StatusHealthy))
+		return node
+	}
+
+	// registerAgent creates a heartbeating AGENT worker, the same way register
+	// creates a backend one.
+	registerAgent := func(name string) *BackendNode {
+		GinkgoHelper()
+		node := &BackendNode{Name: name, NodeType: NodeTypeAgent}
 		Expect(registry.Register(ctx, node, true)).To(Succeed())
 		Expect(node.Status).To(Equal(StatusHealthy))
 		return node
@@ -550,6 +569,22 @@ var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
 		hm.doCheckAll(ctx)
 
 		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+		Expect(departed).To(BeEmpty())
+	})
+
+	It("leaves an AGENT node whose tunnel went inside the grace alone, and announces nothing for it", func() {
+		// Asserted per node type because this task widened the set of nodes the
+		// rule applies to, and a reconnecting agent worker is a case the rule
+		// was never reachable by before. A departure notification is an act on
+		// absence: firing one here would evict the caches of a worker that is
+		// re-dialling right now.
+		node := registerAgent("agent-re-homing")
+		departTunnel(node.ID, grace/2)
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+		Expect(departed).To(BeEmpty())
 	})
 
 	It("leaves a node that has never dialled a tunnel alone", func() {
@@ -560,28 +595,125 @@ var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
 		hm.doCheckAll(ctx)
 
 		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+		Expect(departed).To(BeEmpty())
 	})
 
-	It("leaves an AGENT node alone even when its tunnel would read as gone", func() {
-		// Agent workers hold a tunnel of their own now, and still take their
-		// jobs and their one remaining node verb over the bus. So a departure
-		// row for one is real and is still not a fact about whether the agent
-		// worker can work. This spec is what stops a bug in the agent tunnel
-		// client from demoting a fleet of perfectly healthy agent workers.
-		node := &BackendNode{Name: "agent-worker", NodeType: NodeTypeAgent}
-		Expect(registry.Register(ctx, node, true)).To(Succeed())
-		departTunnel(node.ID, grace+5*time.Second)
+	It("leaves an AGENT node that has never dialled a tunnel alone", func() {
+		node := registerAgent("agent-never-dialled")
 
 		hm.doCheckAll(ctx)
 
 		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+		Expect(departed).To(BeEmpty())
+	})
+
+	It("stops reporting an AGENT node healthy once its tunnel has been gone past the grace", func() {
+		// The inverse of the scaffold this replaces. That spec asserted an
+		// agent node was NOT demoted, and it was true while an agent worker
+		// took its jobs and its verbs over the message bus: a departure row
+		// said nothing about whether it could work. There is no bus. An agent
+		// worker is reachable through its tunnel and through nothing else, so
+		// its departed tunnel means what a backend worker's does.
+		node := registerAgent("agent-worker")
+		departTunnel(node.ID, grace+5*time.Second)
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusUnhealthy))
+	})
+
+	It("does not touch a BACKEND node in the same fleet whose tunnel is fine", func() {
+		// The negative control for the widening: demoting everything would
+		// satisfy the spec above.
+		agent := registerAgent("agent-worker-2")
+		backend := register("backend-worker-2")
+		departTunnel(agent.ID, grace+5*time.Second)
+		_, err := clusterR.Claim(ctx, backend.ID, instance)
+		Expect(err).ToNot(HaveOccurred())
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(agent.ID)).To(Equal(StatusUnhealthy))
+		Expect(statusOf(backend.ID)).To(Equal(StatusHealthy))
+	})
+
+	It("announces a departure for a node whose tunnel is gone past the grace, naming it", func() {
+		// The eviction edge. Every per-node cache in the deployment is dropped
+		// from here, and from nowhere else.
+		node := register("announced")
+		departTunnel(node.ID, grace+5*time.Second)
+
+		hm.doCheckAll(ctx)
+
+		Expect(departed).To(ConsistOf(DepartedNode{ID: node.ID, Name: "announced", Type: NodeTypeBackend}))
+	})
+
+	It("announces an AGENT node's departure with its type, so a subscriber can tell the fleets apart", func() {
+		node := registerAgent("announced-agent")
+
+		departTunnel(node.ID, grace+5*time.Second)
+
+		hm.doCheckAll(ctx)
+
+		Expect(departed).To(ConsistOf(DepartedNode{ID: node.ID, Name: "announced-agent", Type: NodeTypeAgent}))
+	})
+
+	It("announces a node's departure once, not once per tick, however long it stays gone", func() {
+		// Level triggered, every cache in the deployment would be re-evicted
+		// every health interval for as long as the worker is away.
+		node := register("still-departed")
+		departTunnel(node.ID, grace+5*time.Second)
+
+		hm.doCheckAll(ctx)
+		hm.doCheckAll(ctx)
+		hm.doCheckAll(ctx)
+
+		Expect(departed).To(HaveLen(1))
+	})
+
+	It("announces a second departure after the node has been seen present again", func() {
+		node := register("left-twice")
+		departTunnel(node.ID, grace+5*time.Second)
+		hm.doCheckAll(ctx)
+		// Back, and SEEN back: the re-arm happens on a tick where the node is
+		// present, not on the claim itself.
+		epoch, err := clusterR.Claim(ctx, node.ID, instance)
+		Expect(err).ToNot(HaveOccurred())
+		hm.doCheckAll(ctx)
+		Expect(clusterR.Release(ctx, node.ID, instance, epoch)).To(Succeed())
+		res := db.WithContext(ctx).Exec(
+			`UPDATE node_connections SET disconnected_at = now() - make_interval(secs => ?) WHERE node_id = ?`,
+			(grace + 5*time.Second).Seconds(), node.ID)
+		Expect(res.Error).ToNot(HaveOccurred())
+		Expect(res.RowsAffected).To(Equal(int64(1)))
+
+		hm.doCheckAll(ctx)
+
+		Expect(departed).To(HaveLen(2))
+	})
+
+	It("announces NOTHING for a node whose stale heartbeat took it offline", func() {
+		// Firing here too would double-evict and, worse, would make the
+		// notification mean two things: an offline node's rows are DELETED and
+		// the registry's replica-removed hooks already run for it.
+		node := register("dead-supervisor")
+		departTunnel(node.ID, grace+5*time.Second)
+		res := db.WithContext(ctx).Exec(
+			`UPDATE backend_nodes SET last_heartbeat = now() - make_interval(secs => 600) WHERE id = ?`, node.ID)
+		Expect(res.Error).ToNot(HaveOccurred())
+		Expect(res.RowsAffected).To(Equal(int64(1)))
+
+		hm.doCheckAll(ctx)
+
+		Expect(statusOf(node.ID)).To(Equal(StatusOffline))
+		Expect(departed).To(BeEmpty())
 	})
 
 	It("leaves every node alone when it has no presence reader", func() {
 		// A single-node deployment has nothing that can say a worker is gone.
 		node := register("no-cluster-registry")
 		departTunnel(node.ID, grace+5*time.Second)
-		plain := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, nil, 0)
+		plain := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, nil, 0, nil)
 
 		plain.doCheckAll(ctx)
 
@@ -595,7 +727,7 @@ var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
 		// above passes an explicit grace, so nothing else reaches this.
 		node := register("no-grace")
 		stub := &stubPresence{answer: cluster.PresenceConnected}
-		defaulted := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, stub, 0)
+		defaulted := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false, stub, 0, nil)
 
 		defaulted.doCheckAll(ctx)
 
@@ -603,15 +735,23 @@ var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
 		Expect(stub.graces).To(ContainElement(config.DefaultWorkerReconnectGrace))
 	})
 
-	It("leaves a node alone when the presence query fails", func() {
-		// A database hiccup must not demote the fleet. Driven with a stub,
-		// because a real registry cannot be made to fail on demand.
-		node := register("query-fails")
+	It("leaves a node alone when the presence query fails, and announces nothing", func() {
+		// A database hiccup must not demote the fleet, and must not evict its
+		// caches either. Driven with a stub, because a real registry cannot be
+		// made to fail on demand. Both node types are in the fleet, because the
+		// rule now reaches both.
+		backend := register("query-fails")
+		agent := registerAgent("agent-query-fails")
+		var announced []DepartedNode
+		notifier := NewDepartureNotifier()
+		notifier.OnDeparture("spec", func(node DepartedNode) { announced = append(announced, node) })
 		broken := NewHealthMonitor(registry, nil, 15*time.Second, 30*time.Second, "", false,
-			&stubPresence{err: errors.New("connection reset")}, grace)
+			&stubPresence{err: errors.New("connection reset")}, grace, notifier)
 
 		broken.doCheckAll(ctx)
 
-		Expect(statusOf(node.ID)).To(Equal(StatusHealthy))
+		Expect(statusOf(backend.ID)).To(Equal(StatusHealthy))
+		Expect(statusOf(agent.ID)).To(Equal(StatusHealthy))
+		Expect(announced).To(BeEmpty())
 	})
 })

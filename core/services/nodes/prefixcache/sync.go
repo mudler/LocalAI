@@ -131,6 +131,20 @@ func (s *Sync) InvalidateNode(model, node string) {
 	}
 }
 
+// DropNode drops the local entries for ALL replicas of nodeID in every model.
+//
+// It does NOT broadcast, and that is the one place it parts company with its
+// per-model siblings. A departure is decided by the health monitor, which runs
+// under an advisory lock so exactly one replica reaches this; the peers keep
+// their entries for a node that the same decision has just marked unhealthy in
+// the database, and selection filters on healthy status in SQL, so those
+// entries cannot route work to the departed node and expire on their own TTL.
+// Inventing a node-wide invalidation event to carry this would add a wire
+// meaning whose only reader is a set of entries that are already unreachable.
+func (s *Sync) DropNode(nodeID string) {
+	s.idx.DropNode(nodeID)
+}
+
 // ApplyObserve applies a peer observe event locally (no re-broadcast).
 func (s *Sync) ApplyObserve(ev messaging.PrefixCacheObserveEvent, now time.Time) {
 	s.idx.Observe(ev.Model, ev.Chain, ReplicaKey{NodeID: ev.NodeID, Replica: ev.Replica}, now)

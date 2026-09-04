@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -66,6 +67,26 @@ func (c *probeCache) Invalidate(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.seen, key)
+}
+
+// InvalidateNode drops every cached probe for nodeID.
+//
+// Keys are "<nodeID>|<addr>", so this is a prefix scan and not a lookup: a
+// departed worker that comes back with recycled ports would otherwise serve one
+// request per still-fresh address with no probe at all, which is the one moment
+// the cache is asked about a process that certainly is not the one it saw.
+func (c *probeCache) InvalidateNode(nodeID string) {
+	if nodeID == "" {
+		return
+	}
+	prefix := nodeID + "|"
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for k := range c.seen {
+		if strings.HasPrefix(k, prefix) {
+			delete(c.seen, k)
+		}
+	}
 }
 
 // DoOrCachedResult returns true if key is fresh; otherwise it runs probe
