@@ -57,10 +57,6 @@ type StreamHandler func(ctx context.Context, raw json.RawMessage, pub messaging.
 // as "this worker does not serve that verb" (nodes.ErrWorkerControlUnsupported)
 // rather than as absence. It is why a later task can add two handlers without
 // any other file changing shape.
-//
-// workerctl.PathAgentCancel is named in the path table with no field here. It
-// gets the same 404 for the same reason, and the path is fixed now so the two
-// sides cannot disagree about it later.
 type Config struct {
 	// MCPTool answers workerctl.PathMCPToolExecute.
 	MCPTool UnaryHandler
@@ -73,6 +69,15 @@ type Config struct {
 	// caller, which is what lets the frontend stop branching on node type to
 	// pick a carrier.
 	BackendStop func(ctx context.Context, req messaging.BackendStopRequest) error
+
+	// AgentCancel answers workerctl.PathAgentCancel. It is the LAST family a
+	// worker needed a message bus for: the cancel used to be a broadcast this
+	// process had to dial a bus to hear, and is now an ordinary control RPC on
+	// the tunnel it already holds.
+	//
+	// Unary and not streaming: a cancel has one answer and no progress. That
+	// answer is messaging.AgentCancelReply and it speaks only for this worker.
+	AgentCancel UnaryHandler
 
 	// AgentExecute answers workerctl.PathAgentExecute and MCPCIRun answers
 	// workerctl.PathMCPCIRun. Both are nil in this task and both are set later,
@@ -98,6 +103,9 @@ func (c Config) Register(mux *http.ServeMux) {
 	}
 	if c.BackendStop != nil {
 		mux.HandleFunc(workerctl.PathBackendStop, serveBackendStop(c.BackendStop))
+	}
+	if c.AgentCancel != nil {
+		mux.HandleFunc(workerctl.PathAgentCancel, serveUnary(workerctl.PathAgentCancel, c.AgentCancel))
 	}
 	if c.AgentExecute != nil {
 		mux.HandleFunc(workerctl.PathAgentExecute, serveStream(workerctl.PathAgentExecute, c.AgentExecute))

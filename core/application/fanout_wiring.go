@@ -7,7 +7,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/jobs"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/pgbus"
 	"github.com/mudler/xlog"
@@ -44,15 +43,16 @@ import (
 // Written as one expression shared with the dispatcher and the bridge, that
 // mis-wiring stops being a line a spec has to guess at: there is no second
 // carrier in scope to point it at.
-// cancelCarrier is NOT the same carrier and must not be folded into bus. Every
-// family this function wires has both of its ends on a frontend replica and so
-// moves to the broadcast carrier whole, with one exception: the only subscriber
-// to agent.<name>.cancel is the agent WORKER, which has no database and cannot
-// join the PostgreSQL carrier at all. A cancel published on bus would therefore
-// reach no worker, and every cancel of a worker-run agent would be lost while
-// reporting success. It stays on the carrier the worker reads until a cancel
-// rides the worker's tunnel instead of a broadcast.
-func newFanoutBridges(bus *pgbus.Bus, cancelCarrier messaging.Broadcaster,
+// canceller is NOT a carrier and must never become one. Every family this
+// function wires has both of its ends on a frontend replica and so travels on
+// the broadcast carrier, with one exception: the process that holds a
+// worker-run agent's cancel function is the agent WORKER, which has no database
+// and cannot join the PostgreSQL carrier at all. A cancel published on bus
+// would reach no worker, and every cancel of a worker-run agent would be lost
+// while reporting success. So it does not travel on bus, or on any bus: it is a
+// control RPC on the tunnel the worker already holds, issued by the agent
+// control client this takes.
+func newFanoutBridges(bus *pgbus.Bus, canceller agents.AgentWorkerCanceller,
 	jobStore *jobs.JobStore, agentStore *agents.AgentStore,
 	db *gorm.DB, instanceID string) (*jobs.Dispatcher, *agents.EventBridge, *nodes.Rebroadcaster, error) {
 	// A nil check on the CONCRETE pointer, before it is widened. Once it is a
@@ -63,12 +63,12 @@ func newFanoutBridges(bus *pgbus.Bus, cancelCarrier messaging.Broadcaster,
 		return nil, nil, nil, fmt.Errorf("the job and agent fan-out bridges were built with no broadcast carrier: every job's progress and every agent's events would reach no SSE stream in the deployment")
 	}
 
-	if cancelCarrier == nil {
-		return nil, nil, nil, fmt.Errorf("the agent event bridge was built with no carrier for agent cancels: every cancel of a worker-run agent would be published where no worker listens and reported as sent")
+	if canceller == nil {
+		return nil, nil, nil, fmt.Errorf("the agent event bridge was built with no way to cancel a worker-run agent: every cancel of one would be sent nowhere")
 	}
 
 	dispatcher := jobs.NewDispatcher(jobStore, bus, db, instanceID)
-	bridge := agents.NewEventBridge(bus, agentStore, instanceID).WithCancelCarrier(cancelCarrier)
+	bridge := agents.NewEventBridge(bus, agentStore, instanceID, canceller)
 
 	// Warned rather than refused, and deliberately: the persister needs a store
 	// and a deployment without one still serves live SSE correctly. What it
@@ -82,3 +82,10 @@ func newFanoutBridges(bus *pgbus.Bus, cancelCarrier messaging.Broadcaster,
 
 	return dispatcher, bridge, nodes.NewRebroadcaster(bus), nil
 }
+
+// The real canceller, asserted where both packages are already imported.
+//
+// agents may not import nodes, so the port there is satisfied structurally and
+// a signature drift between the two would otherwise surface as a nil field in
+// this file's argument list, which compiles. Here it is a build failure.
+var _ agents.AgentWorkerCanceller = (*nodes.AgentControlClient)(nil)
