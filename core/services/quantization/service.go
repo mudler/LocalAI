@@ -455,6 +455,21 @@ func sanitizeQuantModelName(s string) string {
 	return strings.ToLower(s)
 }
 
+// inferenceBackendFor returns the backend that can load what a quantization
+// backend produced.
+//
+// The gallery publishes a quantizer as a release channel of the engine that
+// runs its output: "llama-cpp-quantization" is llama.cpp's quantizer, and the
+// GGUF it writes is served by "llama-cpp". The suffix is a channel marker and
+// carries no engine information, so stripping it yields the backend to pin in
+// the imported model's config. Names that carry no channel suffix (a backend
+// that both quantizes and serves, such as "rocmfp4") are already the engine
+// name and pass through unchanged, as do pinned hardware variants
+// ("rocm-rocmfp4"), which are valid values for a config's `backend:`.
+func inferenceBackendFor(quantBackend string) string {
+	return strings.TrimSuffix(config.NormalizeBackendName(quantBackend), "-quantization")
+}
+
 // ImportModel imports a quantized model into LocalAI asynchronously.
 func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID string, req schema.QuantizationImportRequest) (string, error) {
 	s.mu.Lock()
@@ -552,6 +567,17 @@ func (s *QuantizationService) ImportModel(ctx context.Context, userID, jobID str
 		}
 
 		cfg.Name = modelName
+
+		// The importer detects the file format and defaults to llama-cpp for any
+		// GGUF. That is wrong for a model this service just quantized with a
+		// backend stock llama.cpp cannot read: the job knows which backend
+		// produced the file, so pin that one instead of the detected default.
+		if backend := inferenceBackendFor(job.Backend); backend != "" {
+			cfg.Backend = backend
+		}
+		if job.QuantizationType != "" {
+			cfg.Description = "Quantized model (" + job.QuantizationType + ", GGUF)"
+		}
 
 		// Write YAML config
 		yamlData, err := yaml.Marshal(cfg)
