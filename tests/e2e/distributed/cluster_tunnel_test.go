@@ -386,13 +386,17 @@ var _ = Describe("Worker tunnel end to end", Label("Distributed"), Label("Cluste
 	// Scenario 1b. The AGENT worker, which used to be gated out of tunnels at
 	// the credential mint site and now dials one like any other node.
 	//
-	// A wrong implementation is silent in both directions. If the mint gate is
-	// still closed, the agent worker registers, heartbeats and works exactly as
-	// before, with its tunnel dial refused 401 forever in a log nothing reads;
-	// no other spec in this suite would notice. If the absence rules were
-	// widened to follow, the agent worker would instead start being demoted for
-	// a tunnel its real work does not travel on.
-	It("holds a tunnel for an AGENT worker, and still does not judge it by one", func() {
+	// A wrong implementation is silent. If the mint gate is still closed, the
+	// agent worker registers, heartbeats and works exactly as before, with its
+	// tunnel dial refused 401 forever in a log nothing reads, and no other spec
+	// in this suite would notice.
+	//
+	// The healthy assertion at the end is the NEGATIVE CONTROL for the rule
+	// that now demotes an agent worker whose tunnel has departed past the
+	// grace: a rule that condemned agent workers outright, rather than for
+	// their route, would take out an agent worker whose tunnel is right here
+	// and held. The demotion itself is asserted in cluster_control_test.go.
+	It("holds a tunnel for an AGENT worker, and reports it healthy for as long as it does", func() {
 		c, dsn := startClusterOnFreshDB(1, 0, withAgentWorkers(1))
 		client := controlSession(c)
 
@@ -409,8 +413,9 @@ var _ = Describe("Worker tunnel end to end", Label("Distributed"), Label("Cluste
 		Eventually(func() int { return owners.ownerIndexOf(c, 1, nodeID) }, tunnelOwnershipTimeout, tunnelOwnershipPoll).
 			Should(Equal(0), owners.describe)
 
-		// And it is still an agent worker: holding a tunnel changed nothing
-		// about how this deployment decides whether it is present.
+		// A live tunnel is a live route, so nothing demotes it. This is what
+		// separates "demoted for having no route" from "demoted for being an
+		// agent worker", and only the two specs together can say which.
 		Consistently(func() string { return probe.statusOf(c.AgentWorkerName(0)) }, "10s", "2s").
 			Should(Equal("healthy"), probe.describe)
 	})

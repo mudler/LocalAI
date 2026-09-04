@@ -382,8 +382,8 @@ func withReconnectGrace(d time.Duration) func(*cluster.Options) {
 	return func(o *cluster.Options) { o.ReconnectGrace = d }
 }
 
-// withAgentWorkers adds agent workers, which still speak NATS for everything
-// this phase has not moved, to a cluster.
+// withAgentWorkers adds agent workers, the second worker kind, to a cluster.
+// They hold a tunnel and are reached through it and through nothing else.
 func withAgentWorkers(n int) func(*cluster.Options) {
 	return func(o *cluster.Options) { o.AgentWorkers = n }
 }
@@ -645,20 +645,21 @@ var _ = Describe("Control plane over the worker tunnel", Label("Distributed"), L
 			"the survivor must serve the re-homed worker")
 	})
 
-	// Scenario 5, the wedge task 6 fixed, plus the agent-worker control.
+	// Scenario 5, the wedge task 6 fixed, now for BOTH worker types.
 	//
 	// A worker with a FRESH heartbeat and a tunnel that is gone past the grace
 	// must stop being reported healthy. Before task 6 it stayed healthy
 	// forever, with every request for a model on it failing "no route", because
 	// every reaper keyed on the heartbeat and the heartbeat was fine.
 	//
-	// The agent worker in the same cluster is the control for the other
-	// direction. It holds a tunnel too now, and the balancer below blocks its
-	// dial exactly as it blocks the backend worker's, so its departure ages
-	// past the same grace. Its real work still travels on the bus, so a rule
-	// that read "no tunnel" as "gone" would take the whole agent fleet down
-	// with it.
-	It("stops reporting a heartbeating worker healthy once its tunnel is gone past the grace, and leaves agent workers alone", func() {
+	// The agent worker in the same cluster used to be the control for the other
+	// direction: it was skipped by name, because its real work travelled on the
+	// message bus and a departed tunnel said nothing about it. There is no bus.
+	// The balancer below blocks its tunnel dial exactly as it blocks the backend
+	// worker's, its departure ages past the same grace, and it is now reachable
+	// through that tunnel and through nothing else, so it must be demoted for
+	// the same reason and on the same evidence.
+	It("stops reporting a heartbeating worker healthy once its tunnel is gone past the grace, for agent workers too", func() {
 		var balancer *frontendBalancer
 		c, dsn := startClusterOnFreshDB(2, 1, withBalancer(&balancer),
 			withAgentWorkers(1), withReconnectGrace(10*time.Second))
@@ -669,6 +670,8 @@ var _ = Describe("Control plane over the worker tunnel", Label("Distributed"), L
 			Should(And(ContainElement(c.WorkerName(0)), ContainElement(c.AgentWorkerName(0))), probe.describe)
 		nodeID := probe.idOf(c.WorkerName(0))
 		Expect(nodeID).ToNot(BeEmpty())
+		agentID := probe.idOf(c.AgentWorkerName(0))
+		Expect(agentID).ToNot(BeEmpty())
 
 		owners := newTunnelOwners(openClusterDB(dsn))
 		var owner int
@@ -677,6 +680,17 @@ var _ = Describe("Control plane over the worker tunnel", Label("Distributed"), L
 			return owner
 		}, tunnelOwnershipTimeout, tunnelOwnershipPoll).Should(BeNumerically(">=", 0), owners.describe)
 		survivor := 1 - owner
+
+		// The precondition the agent half of this spec rests on, asserted and
+		// not assumed. The balancer forwards to the FIRST target that accepts a
+		// connection, so both workers land on the same replica and killing it
+		// takes both tunnels; if that ever changes, the agent worker's tunnel
+		// survives on the replica this spec keeps, its departure never ages,
+		// and the assertion below would be waiting for a demotion that is
+		// correctly not coming.
+		Eventually(func() int { return owners.ownerIndexOf(c, 2, agentID) }, tunnelOwnershipTimeout, tunnelOwnershipPoll).
+			Should(Equal(owner),
+				"the agent worker's tunnel is not on the replica this spec kills, so its departure would never age and the agent assertion below would prove nothing")
 
 		// Take the tunnel away permanently: block the dial, then kill the
 		// replica holding the live session. The worker keeps registering and
@@ -705,12 +719,20 @@ var _ = Describe("Control plane over the worker tunnel", Label("Distributed"), L
 			"the worker's heartbeat is stale, so it was demoted for being gone rather than for having no route")
 
 		// The agent worker, in the same cluster, under the same grace, on the
-		// same health monitor, is untouched. Its tunnel is blocked by the same
-		// balancer, so this is a node whose departure really has outlived the
-		// grace and which must still not be demoted for it.
-		Consistently(func() string { return atSurvivor.statusOf(c.AgentWorkerName(0)) }, "20s", "2s").
-			Should(Equal("healthy"),
-				atSurvivor.explain("an agent worker was demoted by a rule about tunnels, and agent workers never hold one"))
+		// same health monitor. Its tunnel is blocked by the same balancer, so
+		// its departure really has outlived the grace, and the skip that used
+		// to exempt it by node type is gone: an agent worker is reached through
+		// its tunnel and through nothing else now, so a departed tunnel is the
+		// only symptom an unreachable one has.
+		Eventually(func() string { return atSurvivor.statusOf(c.AgentWorkerName(0)) }, departedTimeout, departedPoll).
+			Should(Equal("unhealthy"),
+				atSurvivor.explain("an agent worker whose tunnel is gone past the grace is still reported healthy, so nothing in the deployment can tell that it is unreachable"))
+
+		// And it was the ROUTE, for the agent worker as much as for the backend
+		// one. Without this the assertion above is satisfied by an agent worker
+		// that simply died.
+		Expect(atSurvivor.heartbeatOf(c.AgentWorkerName(0))).To(BeTemporally(">", time.Now().Add(-1*time.Minute)),
+			"the agent worker's heartbeat is stale, so it was demoted for being gone rather than for having no route")
 
 		// And the demotion reverses when the route comes back, so it is a
 		// statement about the route rather than a one-way condemnation.
