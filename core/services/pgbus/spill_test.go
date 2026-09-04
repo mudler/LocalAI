@@ -127,6 +127,47 @@ var _ = Describe("broadcasts too large for a notification", func() {
 		Expect(spilledRows()).To(Equal(int64(1)))
 	})
 
+	// FitsInline and Publish, asserted TOGETHER on the same payload.
+	//
+	// FitsInline exists so a family with a known worst case can prove at
+	// startup that it never spills, and that proof is worth nothing if the
+	// predicate and the publisher can disagree: a family told "you fit" that
+	// then spills on every request is exactly the invisible cost the check was
+	// added to prevent. Both rows below state an ABSOLUTE size and assert both
+	// halves, so a second size decision anywhere splits them.
+	DescribeTable("answers the same size question Publish answers",
+		func(total int, wantFits bool, wantRows int64) {
+			data := payloadEncodingTo(subject, total)
+
+			fits, err := pgbus.FitsInline(subject, data)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fits).To(Equal(wantFits))
+
+			_ = deliver(data)
+
+			Expect(spilledRows()).To(Equal(wantRows))
+		},
+		Entry("one byte under the cap", notifyCap-1, true, int64(0)),
+		Entry("exactly at the cap", notifyCap, false, int64(1)),
+	)
+
+	It("refuses to call a megabyte inline", func() {
+		// Absolute, not derived from the cap, for the same reason the spill row
+		// above is: this must stay red-for-the-right-reason under a mutated
+		// constant.
+		fits, err := pgbus.FitsInline(subject, map[string]string{"k": strings.Repeat("a", 1<<20)})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(fits).To(BeFalse())
+	})
+
+	It("reports the encoding failure rather than guessing at a size", func() {
+		// A payload that cannot be marshalled has no size, and answering
+		// "false" would let a caller read an encoder bug as a payload that is
+		// merely large.
+		_, err := pgbus.FitsInline(subject, make(chan int))
+		Expect(err).To(HaveOccurred())
+	})
+
 	It("stores the caller's payload in the spill row, not the envelope", func() {
 		data := payloadEncodingTo(subject, notifyCap)
 
