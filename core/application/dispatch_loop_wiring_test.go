@@ -26,6 +26,7 @@ var _ = Describe("building the job dispatch loop", func() {
 	var registry *nodes.NodeRegistry
 	var conns *recordingConnections
 	var ctx context.Context
+	var broadcast *nodes.Rebroadcaster
 
 	BeforeEach(func() {
 		if runtime.GOOS == "darwin" {
@@ -36,6 +37,14 @@ var _ = Describe("building the job dispatch loop", func() {
 		registry, err = nodes.NewNodeRegistry(testutil.SetupTestDB())
 		Expect(err).ToNot(HaveOccurred())
 		conns = newRecordingConnections()
+
+		// A double is enough HERE, and only here. Which carrier this
+		// re-broadcaster publishes on is not this function's decision any more:
+		// it is handed one already built by newFanoutBridges, and that is where
+		// the carrier is pinned, by receipt on a second connection. What is
+		// left for these to say is that the loop refuses to be built without
+		// one and starts when it is.
+		broadcast = nodes.NewRebroadcaster(testutil.NewFakeBus())
 	})
 
 	// The silent one. A loop with no broadcaster dispatches work perfectly
@@ -48,10 +57,25 @@ var _ = Describe("building the job dispatch loop", func() {
 		Expect(err.Error()).To(ContainSubstring("broadcaster"))
 	})
 
+	// The nil that the interface would have hidden. The loop stores its
+	// re-broadcaster as the jobs.ProgressBroadcaster interface, and widened to
+	// that here a nil *nodes.Rebroadcaster is a NON-nil value holding a nil
+	// pointer, so the refusal above would never fire for the way one is
+	// actually absent: newFanoutBridges returns a typed nil alongside its
+	// error. This drives that exact value, which is why the parameter is the
+	// concrete type.
+	It("refuses a typed-nil broadcaster, which an interface parameter would have accepted", func() {
+		var absent *nodes.Rebroadcaster
+		_, err := startJobDispatchLoop(ctx, config.DistributedConfig{InstanceID: "replica-7"},
+			testutil.SetupTestDB(), nil, registry, conns, nodes.NewControlClient(nil, "token"), absent)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("broadcaster"))
+	})
+
 	It("refuses to build with no instance id", func() {
 		_, err := startJobDispatchLoop(ctx, config.DistributedConfig{},
 			testutil.SetupTestDB(), nil, registry, conns, nodes.NewControlClient(nil, "token"),
-			testutil.NewFakeBus())
+			broadcast)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("instance id"))
 	})
@@ -59,7 +83,7 @@ var _ = Describe("building the job dispatch loop", func() {
 	It("refuses to build with nothing to read connections through", func() {
 		_, err := startJobDispatchLoop(ctx, config.DistributedConfig{InstanceID: "replica-7"},
 			testutil.SetupTestDB(), nil, registry, nil, nodes.NewControlClient(nil, "token"),
-			testutil.NewFakeBus())
+			broadcast)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("connected agent worker"))
 	})
@@ -81,7 +105,7 @@ var _ = Describe("building the job dispatch loop", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		loop, err := startJobDispatchLoop(ctx, config.DistributedConfig{InstanceID: "replica-7"},
-			db, nil, registry, conns, nodes.NewControlClient(nil, "token"), testutil.NewFakeBus())
+			db, nil, registry, conns, nodes.NewControlClient(nil, "token"), broadcast)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(loop.Stop)
 

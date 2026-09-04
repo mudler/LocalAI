@@ -67,7 +67,7 @@ type CancelEvent struct {
 // no concurrency limiter: there is nothing here to limit.
 type Dispatcher struct {
 	store        *JobStore
-	nats         messaging.MessagingClient
+	bus          messaging.Broadcaster
 	db           *gorm.DB
 	instanceID   string
 	configLoader ModelConfigLoader // optional: to enrich job events with model config
@@ -75,21 +75,44 @@ type Dispatcher struct {
 	// Cancel registry (notetaker pattern)
 	cancelRegistry messaging.CancelRegistry
 
-	// NATS subscriptions
+	// The broadcast subscriptions this dispatcher owns for the life of the
+	// process. The per-request one SubscribeProgress opens is not here: it
+	// belongs to the HTTP handler that opened it and is closed with it.
 	cancelSub   messaging.Subscription
 	resultSub   messaging.Subscription
 	progressSub messaging.Subscription
+
+	// terminalRecheck is how often an open SSE stream re-reads the job row.
+	// Zero means DefaultTerminalRecheck. Set once, before Start, and read from
+	// HTTP handler goroutines afterwards.
+	terminalRecheck time.Duration
 
 	// Lifecycle
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
+// SetTerminalRecheck sets how often an open job-progress SSE stream re-reads
+// the job row while it waits.
+//
+// It exists so a spec can drive the recovery from a dropped terminal broadcast
+// without waiting out DefaultTerminalRecheck. Call it before Start.
+func (d *Dispatcher) SetTerminalRecheck(interval time.Duration) {
+	d.terminalRecheck = interval
+}
+
 // NewDispatcher creates a new distributed job Dispatcher.
-func NewDispatcher(store *JobStore, nc messaging.MessagingClient, db *gorm.DB, instanceID string) *Dispatcher {
+//
+// The carrier is a messaging.Broadcaster because fan-out is all this type does
+// with it and all it may have: everything else a job needs from another replica
+// travels on the claim row or on the control RPC's response body, and a
+// dispatcher that could reach a request/reply or a queue group through this
+// field would be able to reintroduce the publish-to-nobody the claim queue
+// replaced.
+func NewDispatcher(store *JobStore, bus messaging.Broadcaster, db *gorm.DB, instanceID string) *Dispatcher {
 	return &Dispatcher{
 		store:      store,
-		nats:       nc,
+		bus:        bus,
 		db:         db,
 		instanceID: instanceID,
 	}
@@ -133,9 +156,15 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 	var err error
 
 	// Subscribe to cancel events (broadcast to all — each instance checks its registry)
-	d.cancelSub, err = messaging.SubscribeJSON(d.nats, messaging.SubjectJobCancelWildcard, func(evt CancelEvent) {
+	// A cancel that does not arrive is not a cancel that was refused. This
+	// carrier is at-most-once with no replay, so a broadcast that is dropped or
+	// that lands while this replica is reconnecting reaches nobody, and the
+	// registry simply never hears about it. Nothing here may report that as the
+	// execution having declined to stop: the only thing this subscription can
+	// say is that a cancel DID arrive.
+	d.cancelSub, err = messaging.SubscribeJSON(d.bus, messaging.SubjectJobCancelWildcard, func(evt CancelEvent) {
 		if d.cancelRegistry.Cancel(evt.JobID) {
-			xlog.Info("Cancelled job via NATS", "jobID", evt.JobID)
+			xlog.Info("Cancelled a job on this replica after a broadcast cancel", "jobID", evt.JobID)
 		}
 	})
 	if err != nil {
@@ -144,15 +173,30 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 
 	// Subscribe to job result events from workers (persist to DB)
 	if d.store != nil {
-		d.resultSub, err = messaging.SubscribeJSON(d.nats, messaging.SubjectJobResultWildcard, func(evt JobResultEvent) {
-			d.store.UpdateJobStatus(evt.JobID, evt.Status, evt.Result, evt.Error)
+		// The fan-out COPY of a terminal result, and never the only one.
+		//
+		// This carrier drops a broadcast rather than blocking when one
+		// subscriber falls behind, and a result has no successor message, so a
+		// subscriber that missed one would never hear about that job again.
+		// That is survivable here only because it is not the path the answer
+		// travels: the replica that claimed the work persists the terminal line
+		// through DispatchLoop.settleClaim BEFORE it releases the claim, so the
+		// job row already carries the answer when this broadcast is published.
+		// A dropped result therefore costs a live SSE stream its promptness,
+		// which jobs/sse.go recovers from by reading the row, and never costs
+		// the job its answer. Nothing may be moved onto this subscription that
+		// is not also written to a table first.
+		d.resultSub, err = messaging.SubscribeJSON(d.bus, messaging.SubjectJobResultWildcard, func(evt JobResultEvent) {
+			if err := d.store.UpdateJobStatus(evt.JobID, evt.Status, evt.Result, evt.Error); err != nil {
+				xlog.Error("Failed to persist a broadcast job result", "job_id", evt.JobID, "error", err)
+			}
 		})
 		if err != nil {
 			return fmt.Errorf("subscribing to result events: %w", err)
 		}
 
 		// Subscribe to trace events from workers (persist to DB)
-		d.progressSub, err = messaging.SubscribeJSON(d.nats, messaging.SubjectJobProgressWildcard, func(evt ProgressEvent) {
+		d.progressSub, err = messaging.SubscribeJSON(d.bus, messaging.SubjectJobProgressWildcard, func(evt ProgressEvent) {
 			if evt.TraceType != "" && evt.TraceContent != "" {
 				if err := d.store.AppendJobTrace(evt.JobID, evt.TraceType, evt.TraceContent); err != nil {
 					xlog.Error("Failed to append job trace", "job_id", evt.JobID, "trace_type", evt.TraceType, "error", err)
@@ -172,8 +216,8 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 	return nil
 }
 
-// unsubscribeAll nil-checks, unsubscribes, and nils out each NATS subscription.
-// Safe to call multiple times.
+// unsubscribeAll nil-checks, unsubscribes, and nils out each broadcast
+// subscription this dispatcher owns. Safe to call multiple times.
 func (d *Dispatcher) unsubscribeAll() {
 	if d.cancelSub != nil {
 		d.cancelSub.Unsubscribe()
@@ -247,31 +291,44 @@ func (d *Dispatcher) Enqueue(jobID, taskID, userID string) error {
 	return nil
 }
 
-// Cancel publishes a cancel event to NATS (broadcast to all instances).
+// Cancel broadcasts a cancel request to every replica.
+//
+// Its error says whether the request was PUBLISHED and nothing else. There is
+// no reply, and there is deliberately no attempt to synthesise one: a cancel
+// that reached no subscriber and a cancel an execution declined are different
+// facts, and this carrier cannot tell them apart, so neither may be reported as
+// the other.
 func (d *Dispatcher) Cancel(jobID string) error {
-	return d.nats.Publish(messaging.SubjectJobCancel(jobID), CancelEvent{
+	return d.bus.Publish(messaging.SubjectJobCancel(jobID), CancelEvent{
 		JobID: jobID,
 	})
 }
 
-// PublishProgress publishes a progress event for SSE bridging.
+// PublishProgress broadcasts a progress event for SSE bridging.
 func (d *Dispatcher) PublishProgress(jobID, status, message string) error {
-	return d.nats.Publish(messaging.SubjectJobProgress(jobID), ProgressEvent{
+	return d.bus.Publish(messaging.SubjectJobProgress(jobID), ProgressEvent{
 		JobID:   jobID,
 		Status:  status,
 		Message: message,
 	})
 }
 
-// SubscribeProgress subscribes to progress events for a specific job (for SSE bridging).
+// SubscribeProgress subscribes to progress events for ONE job, for SSE
+// bridging.
+//
+// The subject is the exact one SubjectJobProgress builds and never the
+// wildcard. On the wildcard this would be a stream showing every job in the
+// deployment to every client watching any of them, which is a data-boundary
+// rather than a display bug, and the subscription is opened and closed per HTTP
+// request so the caller MUST close it.
 func (d *Dispatcher) SubscribeProgress(jobID string, handler func(ProgressEvent)) (messaging.Subscription, error) {
-	return messaging.SubscribeJSON(d.nats, messaging.SubjectJobProgress(jobID), handler)
+	return messaging.SubscribeJSON(d.bus, messaging.SubjectJobProgress(jobID), handler)
 }
 
-// PublishTrace publishes a trace event for a running job via NATS.
-// The frontend subscribes and persists traces to DB.
+// PublishTrace broadcasts a trace event for a running job. The frontend
+// subscribes and persists traces to the database.
 func (d *Dispatcher) PublishTrace(jobID, traceType, traceContent string) error {
-	return d.nats.Publish(messaging.SubjectJobProgress(jobID), ProgressEvent{
+	return d.bus.Publish(messaging.SubjectJobProgress(jobID), ProgressEvent{
 		JobID:        jobID,
 		TraceType:    traceType,
 		TraceContent: traceContent,
