@@ -7,8 +7,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/agents"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/storage"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -83,16 +81,6 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 		})
 	})
 
-	// The one carrier a deployment still dials besides PostgreSQL, and the one
-	// family left on it.
-	//
-	// agent.<name>.cancel did not move to the broadcast carrier: its only
-	// subscriber is the agent WORKER, which has no database and cannot join
-	// that carrier at all. So this round trip is no longer "the messaging layer
-	// works" - it is the cancel path for every agent a worker runs, and if it
-	// stops working the symptom is a cancel that is published, succeeds, and
-	// reaches nobody.
-	//
 	// Two Its that used to sit here went with the halves of the client they
 	// exercised. "should support queue subscriptions for load balancing" pinned
 	// that work reaches exactly one of N consumers; a queue group no longer
@@ -103,38 +91,12 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 	// asserted nothing of the kind; the property is now
 	// core/services/pgbus/listener_test.go, which actually kills the session
 	// with pg_terminate_backend and waits for delivery to resume.
-	Context("the cancel carrier", func() {
-		It("connects, publishes and subscribes, which is the agent cancel path", func() {
-			client, err := messaging.New(infra.NatsURL)
-			Expect(err).ToNot(HaveOccurred())
-			defer client.Close()
-
-			Expect(client.IsConnected()).To(BeTrue())
-
-			// The real subject and the real filter, not a placeholder pair.
-			// A worker subscribes to the wildcard and a frontend publishes to
-			// one agent's subject, so a round trip on "test.subject" would
-			// stay green through a filter that no longer matches what the
-			// builder mints - which is the failure this family actually has.
-			received := make(chan []byte, 1)
-			sub, err := client.Subscribe(messaging.SubjectAgentCancelWildcard, func(data []byte) {
-				received <- data
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			// Small delay to ensure subscription is active
-			FlushNATS(client)
-
-			err = client.Publish(messaging.SubjectAgentCancel("a1"), agents.AgentCancelEvent{
-				AgentName: "a1", UserID: "u1", MessageID: "msg-1",
-			})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(received, "5s").Should(Receive())
-		})
-
-	})
+	//
+	// The third went with the family it carried. A cancel used to be published
+	// on NATS because its subscriber was an agent worker that could not read
+	// the broadcast carrier; it is a control verb on that worker's own tunnel
+	// now, and the deployment dials no message bus at all. The path is driven
+	// end to end, over a real tunnel, in agent_distributed_test.go.
 
 	Context("ObjectStore filesystem adapter", func() {
 		var store *storage.FilesystemStore

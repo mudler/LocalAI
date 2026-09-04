@@ -6,11 +6,13 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
@@ -32,6 +34,31 @@ type stubConnections struct {
 	owners []string
 	// asked records the candidate list of each call.
 	asked [][]string
+
+	// presence is what Presence answers per node, and presenceErr makes it
+	// fail. graces records the window each Presence call was made with: a
+	// selector that passed zero would call every worker that lost its tunnel a
+	// moment ago GONE, and silently drop the cancels addressed to it.
+	presence    map[string]cluster.Presence
+	presenceErr error
+	graces      []time.Duration
+}
+
+// testGrace is the reconnect window these specs pass. A real value rather than
+// zero, because zero is what NewAgentSelector substitutes a default for, and a
+// spec that passed it could not tell the substitution from the value.
+const testGrace = 42 * time.Second
+
+// presenceOf answers what the deployment can say about a node's tunnel. The
+// zero value is cluster.PresenceUnknown, which is the value nobody may act on,
+// so a spec that forgets to state a node's presence cannot accidentally get the
+// one answer (PresenceGone) that licenses a caller to conclude something.
+func (s *stubConnections) Presence(_ context.Context, nodeID string, grace time.Duration) (cluster.Presence, error) {
+	s.graces = append(s.graces, grace)
+	if s.presenceErr != nil {
+		return cluster.PresenceUnknown, s.presenceErr
+	}
+	return s.presence[nodeID], nil
 }
 
 func (s *stubConnections) ConnectedAmong(_ context.Context, nodeIDs []string, owner string) ([]string, []string, error) {
@@ -106,7 +133,7 @@ var _ = Describe("AgentSelector", func() {
 		conns.held = []string{mine, theirs}
 		conns.heldByOwner = []string{mine}
 
-		sel := NewAgentSelector(registry, conns, "me")
+		sel := NewAgentSelector(registry, conns, "me", testGrace)
 		for range picks {
 			id, nodeType, err := sel.PickConnected(ctx)
 			Expect(err).ToNot(HaveOccurred())
@@ -126,7 +153,7 @@ var _ = Describe("AgentSelector", func() {
 		theirs := register("agent-theirs", NodeTypeAgent)
 		conns.held = []string{theirs}
 
-		sel := NewAgentSelector(registry, conns, "me")
+		sel := NewAgentSelector(registry, conns, "me", testGrace)
 		for range picks {
 			id, nodeType, err := sel.PickConnected(ctx)
 			Expect(err).ToNot(HaveOccurred())
@@ -144,7 +171,7 @@ var _ = Describe("AgentSelector", func() {
 		conns.held = []string{a, b}
 		conns.heldByOwner = []string{a, b}
 
-		sel := NewAgentSelector(registry, conns, "me")
+		sel := NewAgentSelector(registry, conns, "me", testGrace)
 		seen := map[string]int{}
 		// 40 draws of a fair two-way choice miss one side with probability
 		// 2^-39, which is far below the flake floor of anything else here.
@@ -177,17 +204,17 @@ var _ = Describe("AgentSelector", func() {
 
 		It("refuses when registered agents exist but none is connected", func() {
 			register("agent-a", NodeTypeAgent)
-			sel := NewAgentSelector(registry, conns, "me")
+			sel := NewAgentSelector(registry, conns, "me", testGrace)
 			assertNoWorker(sel.PickConnected(ctx))
 		})
 
 		It("refuses when the deployment has no agent nodes at all", func() {
-			sel := NewAgentSelector(registry, conns, "me")
+			sel := NewAgentSelector(registry, conns, "me", testGrace)
 			assertNoWorker(sel.PickConnected(ctx))
 		})
 
 		It("refuses when it was built with no way to read connections", func() {
-			assertNoWorker(NewAgentSelector(registry, nil, "me").PickConnected(ctx))
+			assertNoWorker(NewAgentSelector(registry, nil, "me", testGrace).PickConnected(ctx))
 		})
 	})
 
@@ -201,7 +228,7 @@ var _ = Describe("AgentSelector", func() {
 		conns.held = []string{backend, agent}
 		conns.heldByOwner = []string{backend, agent}
 
-		sel := NewAgentSelector(registry, conns, "me")
+		sel := NewAgentSelector(registry, conns, "me", testGrace)
 		for range picks {
 			id, _, err := sel.PickConnected(ctx)
 			Expect(err).ToNot(HaveOccurred())
@@ -219,7 +246,7 @@ var _ = Describe("AgentSelector", func() {
 		conns.held = []string{pending.ID}
 		conns.heldByOwner = []string{pending.ID}
 
-		sel := NewAgentSelector(registry, conns, "me")
+		sel := NewAgentSelector(registry, conns, "me", testGrace)
 		_, _, err = sel.PickConnected(ctx)
 		Expect(err).To(MatchError(ErrNoAgentWorker))
 		Expect(conns.asked[0]).To(BeEmpty())
@@ -231,7 +258,7 @@ var _ = Describe("AgentSelector", func() {
 		conns.held = []string{id}
 		conns.heldByOwner = []string{id}
 
-		sel := NewAgentSelector(registry, conns, "me")
+		sel := NewAgentSelector(registry, conns, "me", testGrace)
 		_, _, err := sel.PickConnected(ctx)
 		Expect(err).To(MatchError(ErrNoAgentWorker))
 	})
@@ -247,17 +274,126 @@ var _ = Describe("AgentSelector", func() {
 		conns.held = []string{id}
 		conns.heldByOwner = []string{id}
 
-		sel := NewAgentSelector(registry, conns, "me")
+		sel := NewAgentSelector(registry, conns, "me", testGrace)
 		picked, _, err := sel.PickConnected(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(picked).To(Equal(id))
+	})
+
+	// Reachable is what a FAN-OUT verb asks, and it differs from a pick in
+	// exactly one way that matters: it has to say what happened to the workers
+	// it could not reach. A cancel assembled from a fleet it only partly asked
+	// reports "no worker is running that execution" about a run that is.
+	Describe("Reachable", func() {
+		It("separates a worker that is GONE from one that is merely reconnecting", func() {
+			// The whole invariant in one spec. A departure older than the grace
+			// is the one routing fact a caller may act on, so it disappears; a
+			// departure inside it is an absent connection nobody may act on, so
+			// it must be named.
+			live := register("agent-live", NodeTypeAgent)
+			reconnecting := register("agent-reconnecting", NodeTypeAgent)
+			gone := register("agent-gone", NodeTypeAgent)
+			conns.held = []string{live}
+			conns.presence = map[string]cluster.Presence{
+				reconnecting: cluster.PresenceReconnecting,
+				gone:         cluster.PresenceGone,
+			}
+
+			reach, err := NewAgentSelector(registry, conns, "me", testGrace).Reachable(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reach.Connected).To(ConsistOf(live))
+			Expect(reach.Absent).To(ConsistOf(reconnecting))
+		})
+
+		It("counts a worker that has never dialled as absent, not as gone", func() {
+			// PresenceUnknown is a worker that has never dialled or whose
+			// departure aged out of retention, and the registry cannot say
+			// which. Reading it as gone would license a caller to conclude
+			// something about a worker it has learned nothing about.
+			never := register("agent-never", NodeTypeAgent)
+
+			reach, err := NewAgentSelector(registry, conns, "me", testGrace).Reachable(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reach.Connected).To(BeEmpty())
+			Expect(reach.Absent).To(ConsistOf(never))
+		})
+
+		It("counts a presence it could not read as absent, because a failed read is not an answer", func() {
+			id := register("agent-a", NodeTypeAgent)
+			conns.presenceErr = errors.New("the database would not answer")
+
+			reach, err := NewAgentSelector(registry, conns, "me", testGrace).Reachable(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reach.Absent).To(ConsistOf(id))
+		})
+
+		It("measures a departure against the grace it was built with", func() {
+			// A zero window would call every worker that lost its tunnel a
+			// moment ago GONE, and the cancels addressed to it would be
+			// reported as a run nobody is running.
+			register("agent-a", NodeTypeAgent)
+
+			_, err := NewAgentSelector(registry, conns, "me", testGrace).Reachable(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(conns.graces).To(ConsistOf(testGrace))
+		})
+
+		It("substitutes the deployment default for a grace of zero", func() {
+			register("agent-a", NodeTypeAgent)
+
+			_, err := NewAgentSelector(registry, conns, "me", 0).Reachable(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(conns.graces).To(ConsistOf(config.DefaultWorkerReconnectGrace))
+		})
+
+		It("excludes a PENDING node, which can hold no execution to cancel", func() {
+			// An unapproved node is refused by the tunnel route on every dial.
+			// Counting it would make every cancel in a deployment with one
+			// unapproved agent node report undelivered for ever.
+			pending := &BackendNode{Name: "agent-pending", NodeType: NodeTypeAgent, Address: "p:50051"}
+			Expect(registry.Register(ctx, pending, false)).To(Succeed())
+
+			reach, err := NewAgentSelector(registry, conns, "me", testGrace).Reachable(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reach.Connected).To(BeEmpty())
+			Expect(reach.Absent).To(BeEmpty())
+		})
+
+		It("still offers a DRAINING worker, which may take no new work but is finishing what it holds", func() {
+			// The one status where a fan-out and a pick must disagree. A
+			// draining worker is still running the executions it took, so
+			// leaving it out would report the cancel of a live run as a run
+			// that no worker is running.
+			id := register("agent-draining", NodeTypeAgent)
+			Expect(registry.MarkDraining(ctx, id)).To(Succeed())
+			conns.held = []string{id}
+
+			reach, err := NewAgentSelector(registry, conns, "me", testGrace).Reachable(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reach.Connected).To(ConsistOf(id))
+
+			// And the pick still refuses it, which is what the two sets are for.
+			_, _, err = NewAgentSelector(registry, conns, "me", testGrace).PickConnected(ctx)
+			Expect(err).To(MatchError(ErrNoAgentWorker))
+		})
+
+		It("reports a connection read that failed as neither an answer nor a route verdict", func() {
+			register("agent-a", NodeTypeAgent)
+			conns.err = errors.New("the database would not answer")
+
+			_, err := NewAgentSelector(registry, conns, "me", testGrace).Reachable(ctx)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrWorkerUnroutable)).To(BeFalse())
+			Expect(cluster.IsWorkerAnswer(err)).To(BeFalse())
+			Expect(errors.Is(err, ErrNoAgentWorker)).To(BeFalse())
+		})
 	})
 
 	It("reports a connection read that failed as neither an answer nor a route verdict", func() {
 		register("agent-a", NodeTypeAgent)
 		conns.err = errors.New("the database would not answer")
 
-		sel := NewAgentSelector(registry, conns, "me")
+		sel := NewAgentSelector(registry, conns, "me", testGrace)
 		id, nodeType, err := sel.PickConnected(ctx)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("the database would not answer"))

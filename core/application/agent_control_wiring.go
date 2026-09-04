@@ -26,6 +26,11 @@ import (
 // nothing to select from and a client with no transport reaches nobody, and
 // both would present as MCP being quietly unavailable in a deployment that
 // looks healthy.
+//
+// This client is also the deployment's agent CANCELLER, which is why the agent
+// event bridge takes it: a cancel is a control RPC on the tunnels the workers
+// hold, and the reconnect grace it is built with is what decides whether a
+// worker that is not connected makes a cancel undelivered or is simply gone.
 func newAgentControl(cfg config.DistributedConfig, registry *nodes.NodeRegistry,
 	conns nodes.AgentConnectionReader, control *nodes.ControlClient) (*nodes.AgentControlClient, error) {
 	if cfg.InstanceID == "" {
@@ -37,5 +42,5 @@ func newAgentControl(cfg config.DistributedConfig, registry *nodes.NodeRegistry,
 	if control == nil {
 		return nil, fmt.Errorf("the agent control client was built with no control transport to reach an agent worker over")
 	}
-	return nodes.NewAgentControlClient(nodes.NewAgentSelector(registry, conns, cfg.InstanceID), control), nil
+	return nodes.NewAgentControlClient(nodes.NewAgentSelector(registry, conns, cfg.InstanceID, cfg.WorkerReconnectGrace), control), nil
 }

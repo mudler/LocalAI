@@ -61,17 +61,18 @@ var _ = Describe("wiring the job and agent fan-out bridges", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	// The cancel carrier is a SEPARATE argument, and its absence is refused
-	// separately. Folding it into bus would put every agent cancel on a carrier
-	// no worker can read, and CancelExecution would go on returning nil.
-	It("refuses to build with no carrier for agent cancels", func() {
+	// The canceller is a SEPARATE argument, and its absence is refused
+	// separately. A bridge built without one has nowhere to send the cancel of
+	// an agent running on a worker, and the failure would present as
+	// CancelExecution reporting success on a cancel that reached nobody.
+	It("refuses to build with no way to cancel a worker-run agent", func() {
 		_, _, _, err := newFanoutBridges(busA, nil, jobStore, agentStore, db, "replica-1")
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("agent cancels"))
+		Expect(err.Error()).To(ContainSubstring("cancel a worker-run agent"))
 	})
 
 	It("refuses to build with no carrier", func() {
-		_, _, _, err := newFanoutBridges(nil, testutil.NewFakeBus(), jobStore, agentStore, db, "replica-1")
+		_, _, _, err := newFanoutBridges(nil, &stubCanceller{}, jobStore, agentStore, db, "replica-1")
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("broadcast carrier"))
 	})
@@ -80,7 +81,7 @@ var _ = Describe("wiring the job and agent fan-out bridges", func() {
 	// it can only do if its wildcard subscription is on the carrier the peer
 	// published to.
 	It("subscribes the job dispatcher to results a peer replica broadcasts", func() {
-		dispatcher, _, _, err := newFanoutBridges(busA, testutil.NewFakeBus(), jobStore, agentStore, db, "replica-1")
+		dispatcher, _, _, err := newFanoutBridges(busA, &stubCanceller{}, jobStore, agentStore, db, "replica-1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(dispatcher.Start(ctx)).To(Succeed())
 		DeferCleanup(dispatcher.Stop)
@@ -101,44 +102,35 @@ var _ = Describe("wiring the job and agent fan-out bridges", func() {
 		}, "20s").Should(Equal("completed"))
 	})
 
-	// S1b. WHICH carrier the cancel family rides, asserted by receipt on both
-	// carriers rather than by reading the argument list.
+	// S1b. A cancel does NOT travel on a carrier, asserted by where it goes and
+	// by where it does not.
 	//
-	// The nil refusal above only says a carrier was passed. Passing bus for it
-	// - one token's difference at the one call site, and the natural edit for
-	// anyone finishing the migration - satisfies that refusal, compiles, and
-	// publishes successfully onto the PostgreSQL carrier, where the agent
-	// worker that has to act on the cancel is not and cannot be: it has no
-	// database. Every unit suite in agents and in application stays green and
-	// every cancel of a worker-run agent is lost while CancelExecution returns
-	// nil.
+	// The nil refusal above only says a canceller was passed. What it cannot
+	// say is that the bridge uses it instead of publishing onto the broadcast
+	// carrier, which is the edit anyone finishing this migration would reach
+	// for: it compiles, it publishes successfully onto PostgreSQL, and the
+	// agent worker that has to act on the cancel is not and cannot be there.
+	// Every unit suite stays green and every cancel of a worker-run agent is
+	// lost while CancelExecution returns nil.
 	//
-	// So this asserts the cancel ARRIVES on the worker's carrier and, in the
-	// same spec, that it does NOT arrive on a peer replica's broadcast carrier.
-	// The negative half is the load-bearing one: the positive half alone passes
-	// for a bridge wired to both.
-	It("publishes agent cancels on the worker's carrier and not on the broadcast carrier", func() {
-		workerCarrier := testutil.NewFakeBus()
-		_, bridge, _, err := newFanoutBridges(busA, workerCarrier, jobStore, agentStore, db, "replica-1")
+	// So this asserts the cancel reaches the CANCELLER and, in the same spec,
+	// that nothing is published on a peer replica's broadcast carrier. The
+	// negative half is the load-bearing one: the positive half alone passes for
+	// a bridge that does both.
+	It("sends an agent cancel to the agent workers and publishes nothing on the broadcast carrier", func() {
+		canceller := &stubCanceller{}
+		_, bridge, _, err := newFanoutBridges(busA, canceller, jobStore, agentStore, db, "replica-1")
 		Expect(err).ToNot(HaveOccurred())
 
 		onBroadcast := make(chan []byte, 4)
 		_, err = busB.Subscribe(messaging.SubjectAgentCancelWildcard, func(data []byte) { onBroadcast <- data })
 		Expect(err).ToNot(HaveOccurred())
 
-		onWorker := make(chan []byte, 4)
-		_, err = workerCarrier.Subscribe(messaging.SubjectAgentCancelWildcard, func(data []byte) { onWorker <- data })
-		Expect(err).ToNot(HaveOccurred())
+		Expect(bridge.CancelExecution(ctx, "a1", "u1", "msg-1")).To(Succeed())
 
-		Expect(bridge.CancelExecution("a1", "u1", "msg-1")).To(Succeed())
-
-		// Expect and not Eventually: the worker's carrier here is the shared
-		// in-memory double, which delivers synchronously inside Publish, so by
-		// the time CancelExecution has returned the handler has already run. An
-		// Eventually would turn a mis-wiring into a timeout, which reports as
-		// slowness rather than as the wiring fact it is.
-		Expect(onWorker).To(Receive(),
-			"the agent cancel did not reach the worker's carrier; a worker has no database and cannot read the broadcast carrier, so this cancel reached nobody and was reported as sent")
+		Expect(canceller.requests).To(ConsistOf(messaging.AgentCancelRequest{
+			AgentName: "a1", UserID: "u1", MessageID: "msg-1",
+		}), "the cancel did not reach the agent workers, so it reached nobody and was reported as sent")
 		Consistently(onBroadcast, "2s").ShouldNot(Receive(),
 			"the agent cancel was published on the broadcast carrier, where no agent worker is or can be subscribed")
 	})
@@ -147,7 +139,7 @@ var _ = Describe("wiring the job and agent fan-out bridges", func() {
 	// only do if it was started AND is on the same carrier AND its filter has
 	// the right number of tokens.
 	It("subscribes the agent observable persister to events a peer replica broadcasts", func() {
-		_, bridge, _, err := newFanoutBridges(busA, testutil.NewFakeBus(), jobStore, agentStore, db, "replica-1")
+		_, bridge, _, err := newFanoutBridges(busA, &stubCanceller{}, jobStore, agentStore, db, "replica-1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(bridge).ToNot(BeNil())
 
@@ -180,7 +172,7 @@ var _ = Describe("wiring the job and agent fan-out bridges", func() {
 	// value, which is true for a publish that went nowhere.
 	DescribeTable("re-broadcasts a worker's line onto the carrier a peer replica reads",
 		func(subject string, payload string) {
-			_, _, rebroadcast, err := newFanoutBridges(busA, testutil.NewFakeBus(), jobStore, agentStore, db, "replica-1")
+			_, _, rebroadcast, err := newFanoutBridges(busA, &stubCanceller{}, jobStore, agentStore, db, "replica-1")
 			Expect(err).ToNot(HaveOccurred())
 
 			delivered := make(chan []byte, 4)
@@ -196,7 +188,7 @@ var _ = Describe("wiring the job and agent fan-out bridges", func() {
 	)
 
 	It("re-broadcasts an agent's events onto the carrier a peer replica reads", func() {
-		_, _, rebroadcast, err := newFanoutBridges(busA, testutil.NewFakeBus(), jobStore, agentStore, db, "replica-1")
+		_, _, rebroadcast, err := newFanoutBridges(busA, &stubCanceller{}, jobStore, agentStore, db, "replica-1")
 		Expect(err).ToNot(HaveOccurred())
 
 		delivered := make(chan []byte, 4)
@@ -209,3 +201,16 @@ var _ = Describe("wiring the job and agent fan-out bridges", func() {
 		Eventually(delivered, "20s").Should(Receive(MatchJSON(`{"event_type":"json_message"}`)))
 	})
 })
+
+// stubCanceller stands in for the frontend's agent control client, which
+// reaches workers over their tunnels and is driven over a real one in
+// core/services/nodes. What these specs need from it is only that the bridge
+// asks it at all.
+type stubCanceller struct {
+	requests []messaging.AgentCancelRequest
+}
+
+func (s *stubCanceller) CancelAgentRun(_ context.Context, req messaging.AgentCancelRequest) error {
+	s.requests = append(s.requests, req)
+	return nil
+}
