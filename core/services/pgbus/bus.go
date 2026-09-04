@@ -406,38 +406,59 @@ func (b *Bus) Subscribe(subject string, handler func([]byte)) (messaging.Subscri
 		done:    make(chan struct{}),
 	}
 	first := len(b.subs[channel]) == 0
+	b.mu.Unlock()
+
+	// The LISTEN before the registration, not after it.
+	//
+	// Both orders satisfy "Subscribe has listened by the time it returns", so
+	// the CALLER cannot tell them apart. An observer can: with the registration
+	// first, Subscribers() counts a handler whose channel is not listened yet,
+	// so anything waiting on that count as a readiness signal proceeds into a
+	// window where a publish is silently lost, which is at-most-once delivery
+	// doing exactly what it says while looking like a broken subscription.
+	// Registering last makes the counter mean what its name says, and it
+	// removes the failed-LISTEN rollback: a registration never made needs no
+	// undoing.
 	if first {
+		b.barrier("issue", "LISTEN")
+		if err := b.command("LISTEN " + pgx.Identifier{channel}.Sanitize()); err != nil {
+			close(sub.stop)
+			return nil, err
+		}
+	}
+
+	b.mu.Lock()
+	if b.subs[channel] == nil {
 		b.subs[channel] = map[uint64]*subscription{}
 	}
 	b.subs[channel][sub.id] = sub
 	b.mu.Unlock()
 
 	go sub.run(handler)
-
-	if first {
-		b.barrier("issue", "LISTEN")
-		if err := b.command("LISTEN " + pgx.Identifier{channel}.Sanitize()); err != nil {
-			// Not Unsubscribe: the ordering lock is already held here, and the
-			// connection was never listening on this channel, so there is
-			// nothing to UNLISTEN.
-			b.forget(sub)
-			return nil, err
-		}
-	}
 	return sub, nil
 }
 
-// forget removes a registration without touching the channel's LISTEN state.
-func (b *Bus) forget(sub *subscription) {
-	sub.once.Do(func() {
-		b.mu.Lock()
-		delete(b.subs[sub.channel], sub.id)
-		if len(b.subs[sub.channel]) == 0 {
-			delete(b.subs, sub.channel)
-		}
-		b.mu.Unlock()
-		close(sub.stop)
-	})
+// Subscribers reports how many handlers are registered right now, across every
+// channel. A counted handler is a LIVE one: its channel was listened before it
+// was counted, so this number is usable as a readiness signal and not only as a
+// figure to compare against itself.
+//
+// It exists to be asserted, because the leak it makes visible has no other
+// symptom. Two subscriptions in this deployment are opened and closed PER HTTP
+// REQUEST (a job's progress stream and an agent's event stream), and on this
+// carrier only the FIRST subscriber of a channel issues a LISTEN: every later
+// one just registers an in-process filter. An Unsubscribe that failed to remove
+// its filter would therefore leave a replica that has served ten thousand SSE
+// requests running ten thousand closures per notification, and nothing in the
+// tree would fail. It would just get slower.
+func (b *Bus) Subscribers() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	n := 0
+	for _, channel := range b.subs {
+		n += len(channel)
+	}
+	return n
 }
 
 // barrier is a test seam and does nothing in production.

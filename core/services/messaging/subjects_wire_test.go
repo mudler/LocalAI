@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"encoding/json"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -112,5 +113,37 @@ var _ = Describe("per-tenant SyncedMap subjects", func() {
 		// an empty token is a subscription that never fires, and a caller must
 		// meet that as a refusal rather than as silence.
 		Expect(ValidFilter(SubjectSyncStateTenantDelta("agent.tasks", ""))).To(MatchError(ErrUnsupportedFilter))
+	})
+})
+
+// The agent-events wildcard used to be a hand-written literal at the one place
+// that subscribes to it, three files away from the builder it has to match.
+// These pin the pairing itself, not the string: the filter is only useful if
+// every subject SubjectAgentEvents can produce matches it, and if the near
+// misses that a shorter filter would swallow do not.
+var _ = Describe("the agent-events wildcard", func() {
+	It("matches what SubjectAgentEvents builds, for any agent and any user", func() {
+		for _, agent := range []string{"a", "my-agent", "agent.with.dots"} {
+			for _, user := range []string{"u", "", "user id"} {
+				subject := SubjectAgentEvents(agent, user)
+				Expect(SubjectMatches(SubjectAgentEventsWildcard, subject)).To(BeTrue(),
+					"filter %q must match %q", SubjectAgentEventsWildcard, subject)
+			}
+		}
+	})
+
+	It("has the same token count as the subjects it matches", func() {
+		// SubjectMatches compares token counts before anything else, so a
+		// filter one token short matches NOTHING and the persister goes silent
+		// with no error anywhere. Stated as a count so a builder that grows a
+		// token reddens here rather than in a suite that only checks delivery.
+		Expect(strings.Count(SubjectAgentEventsWildcard, ".")).
+			To(Equal(strings.Count(SubjectAgentEvents("a", "u"), ".")))
+	})
+
+	It("does not match a subject with the events token in another position", func() {
+		Expect(SubjectMatches(SubjectAgentEventsWildcard, "agent.a.events")).To(BeFalse())
+		Expect(SubjectMatches(SubjectAgentEventsWildcard, "agent.a.b.events.u")).To(BeFalse())
+		Expect(SubjectMatches(SubjectAgentEventsWildcard, "agent.a.cancel")).To(BeFalse())
 	})
 })
