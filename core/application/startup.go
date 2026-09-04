@@ -334,9 +334,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 		// Wire skill store into AgentPoolService (wired at pool start time via closure)
 		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
 
-		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
+		// Wire the broadcast carrier and gallery store into GalleryService for
+		// cross-instance progress/cancel. The carrier is wired below, next to
+		// the subscriptions it feeds, so the two cannot name different carriers.
 		if application.galleryService != nil {
-			application.galleryService.SetNATSClient(distSvc.Nats)
 			if distSvc.DistStores != nil && distSvc.DistStores.Gallery != nil {
 				// Clean up stale in-progress operations from previous crashed instances
 				if _, err := distSvc.DistStores.Gallery.CleanStale(30 * time.Minute); err != nil {
@@ -396,7 +397,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 					xlog.Warn("Failed to apply peer model config change", "error", err)
 				}
 			}
-			if err := application.galleryService.SubscribeBroadcasts(); err != nil {
+			// S2. One call sets the carrier and opens the wildcard
+			// subscriptions, and it names no carrier, so the NATS client on
+			// distSvc cannot be passed here by accident.
+			if err := distSvc.wireGallery(application.galleryService); err != nil {
 				xlog.Warn("Gallery service subscribe failed", "error", err)
 			}
 			// Wire distributed model/backend managers so delete propagates to workers

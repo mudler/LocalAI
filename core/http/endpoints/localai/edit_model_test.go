@@ -126,7 +126,7 @@ var _ = Describe("Edit Model test", func() {
 			Expect(loader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
 			galleryService := galleryop.NewGalleryService(applicationConfig, nil)
 			client := &endpointRecordingClient{}
-			galleryService.SetNATSClient(client)
+			galleryService.SetBroadcaster(client)
 
 			app := echo.New()
 			app.POST("/models/edit/:name", EditModelEndpoint(loader, galleryService, applicationConfig))
@@ -152,7 +152,7 @@ var _ = Describe("Edit Model test", func() {
 			Expect(loader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
 			galleryService := galleryop.NewGalleryService(applicationConfig, nil)
 			client := &endpointRecordingClient{}
-			galleryService.SetNATSClient(client)
+			galleryService.SetBroadcaster(client)
 
 			app := echo.New()
 			app.POST("/models/edit/:name", EditModelEndpoint(loader, galleryService, applicationConfig))
@@ -276,7 +276,7 @@ var _ = Describe("Edit Model test", func() {
 			Expect(peerLoader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
 			galleryService := galleryop.NewGalleryService(applicationConfig, nil)
 			client := &endpointRecordingClient{}
-			galleryService.SetNATSClient(client)
+			galleryService.SetBroadcaster(client)
 			lifecycle := &endpointLifecycleRecorder{pendingCleanup: 2}
 			app := echo.New()
 			app.POST("/models/edit/:name", EditModelEndpoint(loader, galleryService, applicationConfig, lifecycle))
