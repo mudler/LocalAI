@@ -27,8 +27,6 @@ function WorkerHintCard({ addToast, nodeType = 'backend', hasWorkers }) {
   const { selected, setSelected, option, dev, setDev } = useImageSelector('cpu')
   const isAgent = nodeType === 'agent'
   const workerCmd = isAgent ? 'agent-worker' : 'worker'
-  const natsFlag = isAgent ? '  --nats-url "nats://nats:4222" \\\n' : ''
-  const natsEnv = isAgent ? '  -e LOCALAI_NATS_URL="nats://nats:4222" \\\n' : ''
   const flags = dockerFlags(option)
   const flagsString = flags ? `${flags} \
   ` : ''
@@ -41,10 +39,10 @@ function WorkerHintCard({ addToast, nodeType = 'backend', hasWorkers }) {
       <div className="stack">
         <div><p className="form-label">CLI</p><CommandBlock command={`local-ai ${workerCmd} \
   --register-to "${frontendUrl}" \
-${natsFlag}  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`} addToast={addToast} /></div>
+  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`} addToast={addToast} /></div>
         <div><p className="form-label">Docker</p><CommandBlock command={`docker run --net host ${flagsString}\
   -e LOCALAI_REGISTER_TO="${frontendUrl}" \
-${natsEnv}  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \
+  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \
   ${dockerImage(option, dev)} ${workerCmd}`} addToast={addToast} /></div>
       </div>
     </div>
@@ -58,7 +56,7 @@ function ScaleOutCard({ addToast }) {
     <div className="card p2p-enable pad-lg mb-xl" data-testid="scale-out">
       <h3 className="panel-title"><i className="fas fa-rocket text-accent" />Distributed mode is not enabled</h3>
       <p className="text-base text-secondary mb-md">Distributed mode spreads models across worker machines and routes inference across the fleet. Start LocalAI with it enabled, then register a worker.</p>
-      <CommandBlock command={'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db" \\\n  --distributed-nats "nats://host:4222"'} addToast={addToast} />
+        <CommandBlock command={'local-ai run --distributed \\\n  --auth-database-url "postgres://user:pass@host/db"'} addToast={addToast} />
       <p className="text-note mt-md">See the <a href="https://localai.io/features/distributed-mode/" target="_blank" rel="noopener noreferrer" className="text-primary">Distributed Mode documentation</a> for production setup.</p>
     </div>
   )
