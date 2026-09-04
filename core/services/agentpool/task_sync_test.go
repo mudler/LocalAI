@@ -155,7 +155,7 @@ var _ = Describe("AgentJobService task cross-replica sync", func() {
 // newTaskSyncServiceForTenant builds a per-user AgentJobService the way
 // UserServicesManager.GetJobs does: a user id, then the shared bus. Each
 // service gets its own task file so nothing converges except over the bus.
-func newTaskSyncServiceForTenant(bus messaging.MessagingClient, userID string) *AgentJobService {
+func newTaskSyncServiceForTenant(bus messaging.Broadcaster, userID string) *AgentJobService {
 	tmpDir := GinkgoT().TempDir()
 	sysState := &system.SystemState{}
 	sysState.Model.ModelsPath = tmpDir

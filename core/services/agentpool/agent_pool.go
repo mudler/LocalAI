@@ -19,7 +19,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	skillsManager "github.com/mudler/LocalAI/core/services/skills"
 
 	"github.com/mudler/LocalAGI/core/agent"
@@ -43,9 +42,17 @@ type localAGICore struct {
 	actionsConfig map[string]string
 }
 
-// distributedBridge connects to the NATS-based distributed agent system.
+// distributedBridge holds what this service needs to run agents across a
+// distributed deployment.
+//
+// There is no carrier here. There used to be: a messaging.Publisher named
+// natsClient, which nothing ever published on. Its only job was to be non-nil,
+// standing in for "this deployment is distributed", and it was the last hold a
+// frontend's agent pool had on a message bus. That made the mode a deployment
+// runs its agents in depend on whether a bus connection happened to be handed
+// in, so retiring the bus would have flipped every frontend replica back to the
+// in-process pool silently, on a code path with no error and no log line.
 type distributedBridge struct {
-	natsClient  messaging.Publisher     // NATS client for distributed agent execution
 	agentStore  *agents.AgentStore      // PostgreSQL agent config store
 	eventBridge AgentEventBridge        // Event bridge for SSE + persistence
 	skillStore  *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
@@ -99,7 +106,6 @@ type AgentConfigStore interface {
 type AgentPoolOptions struct {
 	AuthDB      *gorm.DB
 	SkillStore  *distributed.SkillStore
-	NATSClient  messaging.Publisher
 	EventBridge AgentEventBridge
 	AgentStore  *agents.AgentStore
 }
@@ -115,9 +121,6 @@ func NewAgentPoolService(appConfig *config.ApplicationConfig, opts ...AgentPoolO
 		}
 		if o.SkillStore != nil {
 			svc.distributed.skillStore = o.SkillStore
-		}
-		if o.NATSClient != nil {
-			svc.distributed.natsClient = o.NATSClient
 		}
 		if o.EventBridge != nil {
 			svc.distributed.eventBridge = o.EventBridge
@@ -151,7 +154,7 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 
 	// Distributed mode: the frontend enqueues claims and agent workers execute
 	// them. No LocalAGI pool, no collections, no skills service, all stateless.
-	if s.distributed.natsClient != nil {
+	if s.runsDistributed() {
 		return s.startDistributed(ctx, apiURL, apiKey)
 	}
 
@@ -221,7 +224,7 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 	// It needs DB access to list configs, update LastRunAt and write the claim
 	// rows, because the worker has no database. The advisory lock ensures only one
 	// frontend instance runs the scheduler.
-	if s.users.authDB != nil && s.distributed.natsClient != nil && s.distributed.agentStore != nil {
+	if s.users.authDB != nil && s.distributed.agentStore != nil {
 		var schedulerOpts []agents.AgentSchedulerOpt
 		if s.distributed.skillStore != nil {
 			schedulerOpts = append(schedulerOpts, agents.WithSchedulerSkillProvider(s.buildSkillProvider()))
@@ -365,12 +368,6 @@ func (s *AgentPoolService) Pool() *state.AgentPool {
 	return s.localAGI.pool
 }
 
-// SetNATSClient sets the NATS client for distributed agent execution.
-// Deprecated: prefer passing NATSClient via AgentPoolOptions at construction time.
-func (s *AgentPoolService) SetNATSClient(nc messaging.Publisher) {
-	s.distributed.natsClient = nc
-}
-
 // SetEventBridge sets the event bridge for distributed SSE + persistence.
 // Deprecated: prefer passing EventBridge via AgentPoolOptions at construction time.
 func (s *AgentPoolService) SetEventBridge(eb AgentEventBridge) {
@@ -383,9 +380,28 @@ func (s *AgentPoolService) SetAgentStore(store *agents.AgentStore) {
 	s.distributed.agentStore = store
 }
 
-// Agent execution in distributed mode is handled by the dedicated agent-worker process
-// using the NATSDispatcher from core/services/agents/dispatcher.go.
-// The frontend only enqueues chat claims via dispatchChat().
+// runsDistributed reports whether this service runs agents across the
+// deployment rather than in an in-process pool.
+//
+// The agent STORE is the condition, and it is the condition because it is what
+// the mode actually requires: distributed mode reads and writes every agent
+// config through it, its config backend is built from it, and the background
+// scheduler cannot write a claim row without it. A deployment that has one runs
+// agents distributed; a deployment that does not cannot, whatever else it was
+// handed.
+//
+// It replaced a nil-check on a message-bus connection that nothing published
+// on. That check gave the same answer for the wrong reason, and would have kept
+// giving it right up until the bus was retired, at which point every frontend
+// would have quietly started running agents in-process against a database full
+// of distributed state.
+//
+// Agent execution in that mode is handled by the dedicated agent-worker
+// process, which runs what a frontend replica claims and hands it over that
+// worker's tunnel. The frontend only enqueues chat claims via dispatchChat().
+func (s *AgentPoolService) runsDistributed() bool {
+	return s.distributed.agentStore != nil
+}
 
 // --- Agent CRUD ---
 

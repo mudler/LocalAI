@@ -31,28 +31,49 @@ import (
 
 // DistributedServices holds all services initialized for distributed mode.
 type DistributedServices struct {
-	Nats         *messaging.Client
-	Store        storage.ObjectStore
-	Registry     *nodes.NodeRegistry
-	Router       *nodes.SmartRouter
-	Health       *nodes.HealthMonitor
-	Reconciler   *nodes.ReplicaReconciler
-	JobStore     *jobs.JobStore
-	Dispatcher   *jobs.Dispatcher
-	AgentStore   *agents.AgentStore
-	AgentBridge  *agents.EventBridge
-	DistStores   *distributed.Stores
-	FileMgr      *storage.FileManager
-	FileStager   nodes.FileStager
-	ModelAdapter *nodes.ModelRouterAdapter
-	Unloader     *nodes.RemoteUnloaderAdapter
-	ModelCleanup *nodes.ModelCleanupService
+	// CancelCarrier is the NATS connection, and it is here for exactly one
+	// family: agent.<name>.cancel.
+	//
+	// Every other family this deployment fans out on moved to Bus below. That
+	// one could not, and the reason is structural rather than incidental: its
+	// only subscriber is the agent WORKER, which has no database and so cannot
+	// join a carrier that rides PostgreSQL. A cancel published on Bus would be
+	// published where no worker listens, succeed, and be reported as sent.
+	//
+	// It is named CancelCarrier and not Nats so that reaching for it to carry
+	// anything else has to be a decision. The field used to be Nats, and
+	// *messaging.Client satisfies messaging.Broadcaster, so any adopter that
+	// took it instead of Broadcast() compiled, started, published, and was
+	// delivered onto the carrier this deployment is being taken off, with no
+	// error anywhere. The client's queue and request/reply halves are deleted
+	// now, so the smaller mistakes are build failures; this name is what is
+	// left to make the remaining one visible.
+	//
+	// It goes when a cancel rides the worker's tunnel as a control verb.
+	CancelCarrier *messaging.Client
+	Store         storage.ObjectStore
+	Registry      *nodes.NodeRegistry
+	Router        *nodes.SmartRouter
+	Health        *nodes.HealthMonitor
+	Reconciler    *nodes.ReplicaReconciler
+	JobStore      *jobs.JobStore
+	Dispatcher    *jobs.Dispatcher
+	AgentStore    *agents.AgentStore
+	AgentBridge   *agents.EventBridge
+	DistStores    *distributed.Stores
+	FileMgr       *storage.FileManager
+	FileStager    nodes.FileStager
+	ModelAdapter  *nodes.ModelRouterAdapter
+	Unloader      *nodes.RemoteUnloaderAdapter
+	ModelCleanup  *nodes.ModelCleanupService
 
 	// Bus is the deployment's fan-out carrier, riding the auth database's
-	// PostgreSQL rather than a message broker. Nothing publishes on it and
-	// nothing subscribes yet; it is built at boot because its DSN has exactly
-	// one legitimate source and that has to be settled once, here, rather than
-	// invented by whichever call site is migrated onto it first.
+	// PostgreSQL rather than a message broker. Every cross-replica family the
+	// frontend broadcasts is on it now, with the single exception named above.
+	// Adopters reach it through Broadcast() rather than through this field, so
+	// that "which carrier does this family travel on" is decided once instead
+	// of at every adopter; its DSN likewise has exactly one legitimate source,
+	// settled in newBroadcastBus rather than invented per call site.
 	Bus *pgbus.Bus
 
 	// Cluster is the replica-membership registry: which frontend replicas are
@@ -133,10 +154,10 @@ func (ds *DistributedServices) Shutdown() {
 		if closer, ok := ds.Store.(io.Closer); ok {
 			closer.Close()
 		}
-		// AgentBridge has no Close method — its NATS subscriptions are cleaned up
-		// when the NATS client is closed below.
-		if ds.Nats != nil {
-			ds.Nats.Close()
+		// AgentBridge has no Close method: the cancel subscription it holds is
+		// cleaned up when the carrier below is closed.
+		if ds.CancelCarrier != nil {
+			ds.CancelCarrier.Close()
 		}
 		// The broadcast carrier holds a PostgreSQL session pinned for the life
 		// of the process, plus the goroutine parked on it. A replica that
@@ -180,7 +201,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Distributed instance", "id", cfg.Distributed.InstanceID)
 
-	// Connect to NATS
+	// Connect to the cancel carrier.
+	//
+	// This is the ONE bus connection a frontend replica still opens, and it
+	// carries one family: agent.<name>.cancel, whose subscriber is an agent
+	// worker that has no database and cannot read the broadcast carrier opened
+	// below. Everything else a replica fans out travels on that one.
 	natsAuth := cfg.Distributed.NatsAuthConfig()
 	if natsAuth.RequireAuth && (natsAuth.ServiceUserJWT == "" || natsAuth.ServiceUserSeed == "") {
 		return nil, fmt.Errorf("LOCALAI_NATS_REQUIRE_AUTH requires LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED")
@@ -190,9 +216,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if err != nil {
 		return nil, fmt.Errorf("connecting to NATS: %w", err)
 	}
-	xlog.Info("Connected to NATS", "url", sanitize.URL(cfg.Distributed.NatsURL))
+	xlog.Info("Connected to the agent cancel carrier", "url", sanitize.URL(cfg.Distributed.NatsURL))
 
-	// Ensure NATS is closed if any subsequent initialization step fails.
+	// Ensure the carrier is closed if any subsequent initialization step fails.
 	success := false
 	defer func() {
 		if !success {
@@ -662,7 +688,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	success = true
 	ds := &DistributedServices{
-		Nats:           natsClient,
+		CancelCarrier:  natsClient,
 		Store:          store,
 		Registry:       registry,
 		Router:         router,
@@ -730,10 +756,11 @@ func requireBroadcastCarrier(ds *DistributedServices) error {
 // service, the agent-task setter (twice, on two startup paths), the per-user
 // services manager and the Open Responses store. Every one of them takes a
 // messaging.Broadcaster, and *messaging.Client satisfies that interface too, so
-// a site left holding ds.Nats compiles, starts, publishes and is delivered -
-// onto a carrier the deployment is being taken off. Nothing would fail until
-// NATS went away. Collapsing the choice to one function makes it a fact a spec
-// can pin, which five scattered field reads were not.
+// a site left holding ds.CancelCarrier compiles, starts, publishes and is
+// delivered - onto a carrier only agent workers read, and only for cancels.
+// Nothing would fail until NATS went away. Collapsing the choice to one
+// function makes it a fact a spec can pin, which five scattered field reads
+// were not.
 //
 // The return is the interface and not *pgbus.Bus on purpose: handing a nil
 // *pgbus.Bus to an adopter would produce a non-nil interface wrapping a nil

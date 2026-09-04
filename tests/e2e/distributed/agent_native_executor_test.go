@@ -314,7 +314,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 		})
 	})
 
-	Context("NATSDispatcher", func() {
+	Context("WorkerExecutor", func() {
 		It("should dispatch chat via NATS and receive response", func() {
 			bridge := agents.NewEventBridge(infra.NC, nil, "test-instance")
 

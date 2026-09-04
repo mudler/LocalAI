@@ -5,7 +5,7 @@ weight = 71
 url = "/features/distributed-mode/"
 +++
 
-Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state and node registry, and **NATS** for real-time coordination. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
+Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state, node registry and cross-replica fan-out. A **NATS** server is still needed for one thing: delivering an agent cancel to the agent worker running the execution. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
 
 {{% notice note %}}
 Distributed mode requires authentication enabled with a **PostgreSQL** database - SQLite is not supported. This is because the node registry, job store, and other distributed state are stored in PostgreSQL tables.
@@ -15,7 +15,7 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 ![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared NATS/PostgreSQL/S3 plane, with generic workers running per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
 
-**Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
+**Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL, which also carries every cross-replica event they broadcast.
 
 **Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type - the SmartRouter dynamically installs the required backend by calling the worker's `backend.install` control route through its tunnel when a model request arrives.
 
@@ -41,7 +41,7 @@ Each model gets its own gRPC backend process, so a single worker can serve multi
   - Each frontend replica holds **one extra PostgreSQL session** beyond its connection pool, pinned for the life of the process, and creates a `bus_messages` table. Both belong to the broadcast carrier that is replacing NATS for cross-replica fan-out; it already carries the four `state.*.delta` families (see [Cross-replica in-memory state](#cross-replica-in-memory-state)). Size `max_connections` for one additional session per frontend replica.
   - That session reports an `application_name` of `localai_pgbus_<id>`, so `SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'` counts the replicas currently listening. If the carrier loses its session it redials and re-registers on its own; a broadcast published while it was down is not replayed, which is why nothing that must survive a gap is carried by a broadcast alone.
   - `bus_messages` holds only broadcasts too large for a PostgreSQL notification, and every replica retires rows older than ten minutes. The table is a spill buffer, not a log: it is not a place to read past events from.
-- **NATS** server - used for agent-worker coordination. The frontend's own cross-replica events do not use it: they travel on the PostgreSQL the deployment already runs. **Serve-backend workers do not connect to it at all**: every verb they take, and file staging with it, is an HTTP route on the worker's tunnel. Set no `LOCALAI_NATS_URL` on a `local-ai worker`. The frontend and any `local-ai agent-worker` still need one.
+- **NATS** server - used for ONE subject family, `agent.<agent>.cancel`, which is the only thing a frontend still sends over a bus and the only thing an agent worker still subscribes to. Everything else a frontend broadcasts travels on the PostgreSQL the deployment already runs, and every verb a frontend addresses to a worker is an HTTP route on that worker's tunnel. **Serve-backend workers do not connect to it at all**: every verb they take, and file staging with it, is an HTTP route on the worker's tunnel. Set no `LOCALAI_NATS_URL` on a `local-ai worker`. The frontend and any `local-ai agent-worker` still need one.
 - All services must be on the same network (or reachable via configured URLs)
 
 ## Quick Start with Docker Compose
@@ -476,7 +476,7 @@ When a worker's tunnel goes, the frontend does **not** forget the worker. It rec
 
 That distinction exists because a worker loses its tunnel for entirely ordinary reasons. A frontend replica restarting during a rolling upgrade drops every tunnel it held, and each of those workers immediately re-dials the load balancer and lands on another replica. Treating that as "the worker is gone" would evict models mid-upgrade for a fleet that never actually went anywhere.
 
-This applies to **backend** nodes only. An agent worker holds a tunnel and therefore has a `node_connections` row that ages exactly like a backend worker's, and nothing acts on it: an agent worker's real work travels on NATS, so a lost tunnel says nothing about whether it can run a job. The scheduler never sees agent nodes at all (every placement query selects `node_type = 'backend'`), and the health monitor skips them explicitly.
+This applies to **backend** nodes only. An agent worker holds a tunnel and therefore has a `node_connections` row that ages exactly like a backend worker's, and nothing acts on it: the scheduler never sees agent nodes at all (every placement query selects `node_type = 'backend'`), and the health monitor skips them explicitly.
 
 Three things read this. The **scheduler** reads it before it places a cold load: a worker whose departure has outlived the grace is skipped and marked unhealthy, so every other frontend replica stops choosing it too. **LRU eviction** reads it before it hands back the node it freed capacity on, because a node full enough to be an eviction target is exactly the node the placement selectors never offer, so the scheduler's own check never sees it. The **health monitor** reads it on every cycle, which is what covers the case the heartbeat cannot see. A worker's heartbeat says its supervisor is alive; it says nothing about whether anything here can reach that worker's backends, because those are reached over the tunnel. A worker that heartbeats with a permanently dead tunnel (a proxy that stopped upgrading WebSockets, a rotated registration credential, a reconnect loop longer than the grace) is therefore marked unhealthy too, rather than staying listed healthy while every request for a model loaded on it fails "no route to that worker".
 
@@ -583,14 +583,14 @@ A frontend replica that dies mid-load does not wedge the model: the job row carr
 
 ### NATS JWT authentication (recommended for production)
 
-**This section is about agent workers and the frontend.** A serve-backend worker opens no NATS connection, so none of it applies to one; its own credential is the tunnel token it gets at registration, and its control plane is authenticated by `LOCALAI_REGISTRATION_TOKEN`. An agent worker now has both: a NATS credential for everything still on the bus, and a tunnel token plus the same `LOCALAI_REGISTRATION_TOKEN` bearer check in front of its control server.
+**This section is about agent workers and the frontend.** A serve-backend worker opens no NATS connection, so none of it applies to one; its own credential is the tunnel token it gets at registration, and its control plane is authenticated by `LOCALAI_REGISTRATION_TOKEN`. An agent worker now has both: a NATS credential, which covers the one subject family still on the bus, and a tunnel token plus the same `LOCALAI_REGISTRATION_TOKEN` bearer check in front of its control server.
 
-By default, NATS connections are anonymous: any client that can reach port `4222` may publish the subjects still carried on it. Those are the agent-worker job subjects and the frontend's own cross-replica events. `nodes.<id>.backend.install` and its nine siblings are **not** among them - they are HTTP routes on the worker's tunnel, see [The worker control plane](#the-worker-control-plane). Enable JWT auth to scope agent workers to their own subjects and give the frontend a dedicated service credential.
+By default, NATS connections are anonymous: any client that can reach port `4222` may publish the one subject family still carried on it, `agent.<agent>.cancel`. Anyone who can reach an unauthenticated bus can therefore cancel any running agent. Nothing else is on it: the agent-worker job subjects became rows in a claim table, the frontend's cross-replica events travel on PostgreSQL, and `nodes.<id>.backend.install` and its nine siblings are HTTP routes on the worker's tunnel, see [The worker control plane](#the-worker-control-plane). Enable JWT auth to scope agent workers to their own subjects and give the frontend a dedicated service credential.
 
 | Flag | Env Var | Description |
 |------|---------|-------------|
 | `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | Account signing seed (`SU...`). The frontend mints a per-node user JWT at registration (`nats_jwt` in the register response). |
-| `--nats-service-jwt` | `LOCALAI_NATS_SERVICE_JWT` | User JWT for the frontend (and optional fallback for agent workers) to publish install/upgrade and related subjects. |
+| `--nats-service-jwt` | `LOCALAI_NATS_SERVICE_JWT` | User JWT for the frontend (and optional fallback for agent workers). The frontend publishes one subject family with it: `agent.<agent>.cancel`. |
 | `--nats-service-seed` | `LOCALAI_NATS_SERVICE_SEED` | User signing seed (`SU...`) paired with the service JWT. |
 | `--nats-worker-jwt-ttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Lifetime of minted worker JWTs (default `24h`). |
 | `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | Fail startup if JWT credentials are missing when distributed mode is enabled. |
