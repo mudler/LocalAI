@@ -413,8 +413,11 @@ var _ = Describe("Control plane over the worker tunnel", Label("Distributed"), L
 			Expect(entry).ToNot(HavePrefix("LOCALAI_NATS_URL="),
 				"the worker was handed a bus URL, so this spec is not about a worker that has none")
 		}
-		// And the deployment it joined DOES have a bus, so "no NATS anywhere"
-		// is not what makes this pass.
+		// And the harness DOES still hand a LOCALAI_NATS_URL to the other
+		// processes in this cluster, so the worker's lack of one is a property
+		// of the worker and not of a harness that stopped setting the variable
+		// at all. There is no broker behind that URL any more, which is the
+		// point: nothing dials it, so nothing notices.
 		Expect(c.NatsURL()).ToNot(BeEmpty())
 
 		probe := newRosterProbe(c, client, 0)
