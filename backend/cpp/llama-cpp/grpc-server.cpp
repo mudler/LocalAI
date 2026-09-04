@@ -56,6 +56,7 @@
 #include "thread_params.h"
 #include "message_content.h"
 #include "passthrough_options.h"
+#include "stream_peer.h"
 #include "tts_request_options.h"
 #include <getopt.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
@@ -2266,6 +2267,11 @@ public:
         // such concept, so there is nothing to emit — the real tokens arrive in
         // the loop below. Feeding this null into build_reply_from_json would
         // throw (uncaught) and surface as a generic RPC error.
+        // A write that returns false means the peer is gone for good. Track it
+        // so the loop below stops decoding instead of feeding a dead stream —
+        // see stream_peer.h for why that matters to everyone else's requests.
+        llama_grpc::StreamPeer peer;
+
         if (first_res_json.is_null()) {
             // skip the begin-of-stream marker
         } else if (first_res_json.is_array()) {
@@ -2278,17 +2284,21 @@ public:
                 if (!is_role_init) {
                     attach_chat_deltas(reply, first_result.get());
                 }
-                writer->Write(reply);
+                peer.observe_write(writer->Write(reply));
+                if (peer.gone()) {
+                    break;
+                }
             }
         } else {
             auto reply = build_reply_from_json(first_res_json, first_result.get());
             attach_chat_deltas(reply, first_result.get());
-            writer->Write(reply);
+            peer.observe_write(writer->Write(reply));
         }
 
         // Process subsequent results
         while (rd.has_next()) {
-            if (context->IsCancelled()) {
+            peer.observe_cancelled(context->IsCancelled());
+            if (peer.gone()) {
                 break;
             }
 
@@ -2309,17 +2319,22 @@ public:
                     if (!is_role_init) {
                         attach_chat_deltas(reply, result.get());
                     }
-                    writer->Write(reply);
+                    peer.observe_write(writer->Write(reply));
+                    if (peer.gone()) {
+                        break;
+                    }
                 }
             } else {
                 auto reply = build_reply_from_json(res_json, result.get());
                 attach_chat_deltas(reply, result.get());
-                writer->Write(reply);
+                peer.observe_write(writer->Write(reply));
             }
         }
 
-        // Check if context was cancelled during processing
-        if (context->IsCancelled()) {
+        // Returning here is what releases the slot: ~server_response_reader()
+        // posts SERVER_TASK_TYPE_CANCEL for whatever is still decoding.
+        peer.observe_cancelled(context->IsCancelled());
+        if (peer.gone()) {
             return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
         }
 

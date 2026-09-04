@@ -195,3 +195,26 @@ cannot be retracted; DS4 does not flush incomplete buffered parser state or
 persist an abandoned request to the disk KV cache. Cancellation is cooperative:
 DS4 checks it at safe prompt-prefill and decode-loop boundaries, so a GPU kernel
 already in flight may finish before the request stops.
+
+### llama.cpp request cancellation
+
+The llama.cpp backend stops a streaming generation as soon as the response can
+no longer be written to the client, not only when the RPC is formally cancelled.
+A stream never recovers once a write fails, so the backend treats the first
+failed write as final and returns, which releases the slot the generation held.
+
+This matters most for a model configured without a generation cap. With
+`max_tokens: 0` and a large `context_size`, an abandoned request that keeps
+decoding occupies its slot until it reaches the context limit — tens of minutes
+on a large model — and every other request for that model queues behind it. A
+couple of abandoned requests is enough to make a healthy node look wedged.
+
+Cancellation is cooperative and checked between decoded results, so a batch
+already in flight may finish before the request stops.
+
+{{% notice tip %}}
+A generation cap is still worth setting. Cancellation only helps once a client
+has actually gone away; a client that waits receives the full context worth of
+tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
+`1` so a repetition loop terminates on its own.
+{{% /notice %}}
