@@ -106,36 +106,49 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 	// Conversation history is managed client-side (browser localStorage).
 	// No server-side conversation storage tests needed.
 
-	Context("Agent SSE Events via NATS", func() {
-		It("should bridge agent SSE events via NATS", func() {
-			bridge := agents.NewEventBridge(infra.NC, store, "instance-1")
+	Context("Agent SSE events on the broadcast carrier", func() {
+		It("bridges an agent's SSE events from a peer replica's carrier", func() {
+			// Two carriers, because the whole point of this bridge is that the
+			// user's SSE connection and the replica running the agent are not
+			// the same process.
+			watcher := agents.NewEventBridge(infra.Bus(), store, "instance-1")
+			runner := agents.NewEventBridge(infra.Bus(), store, "instance-2")
 
-			var received []agents.AgentEvent
-			sub, err := bridge.SubscribeEvents("my-agent", "user1", func(evt agents.AgentEvent) {
-				received = append(received, evt)
+			received := make(chan agents.AgentEvent, 16)
+			sub, err := watcher.SubscribeEvents("my-agent", "user1", func(evt agents.AgentEvent) {
+				received <- evt
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			FlushNATS(infra.NC)
+			// Published on the OTHER replica, as an agent execution there would.
+			Expect(runner.PublishMessage("my-agent", "user1", "user", "What's the weather?", "msg-1")).To(Succeed())
+			Expect(runner.PublishStatus("my-agent", "user1", "processing")).To(Succeed())
+			Expect(runner.PublishMessage("my-agent", "user1", "agent", "The weather is sunny.", "msg-2")).To(Succeed())
+			Expect(runner.PublishStatus("my-agent", "user1", "completed")).To(Succeed())
 
-			// Publish events (simulating agent execution on another instance)
-			bridge.PublishMessage("my-agent", "user1", "user", "What's the weather?", "msg-1")
-			bridge.PublishStatus("my-agent", "user1", "processing")
-			bridge.PublishMessage("my-agent", "user1", "agent", "The weather is sunny.", "msg-2")
-			bridge.PublishStatus("my-agent", "user1", "completed")
-
-			Eventually(func() int { return len(received) }, "5s").Should(Equal(4))
-			Expect(received[0].EventType).To(Equal("json_message"))
-			Expect(received[0].Sender).To(Equal("user"))
-			Expect(received[1].EventType).To(Equal("json_message_status"))
-			Expect(received[2].Sender).To(Equal("agent"))
+			var evts []agents.AgentEvent
+			for i := 0; i < 4; i++ {
+				var evt agents.AgentEvent
+				Eventually(received, "20s").Should(Receive(&evt))
+				evts = append(evts, evt)
+			}
+			Expect(evts[0].EventType).To(Equal("json_message"))
+			Expect(evts[0].Sender).To(Equal("user"))
+			Expect(evts[1].EventType).To(Equal("json_message_status"))
+			Expect(evts[2].Sender).To(Equal("agent"))
 		})
 
 		// Conversation persistence removed — chat history is browser-only.
 
-		It("should cancel running agent via NATS", func() {
-			bridge := agents.NewEventBridge(infra.NC, store, "instance-1")
+		// Two FRONTEND replicas, which share a carrier. A cancel bound for an
+		// agent WORKER does not travel this way: a worker has no database, so
+		// it cannot listen on the PostgreSQL carrier and the frontend publishes
+		// its cancels where the worker is listening instead. That pairing is
+		// pinned in core/services/agents; this pins the replica-to-replica half.
+		It("cancels a running agent from another replica", func() {
+			bridge := agents.NewEventBridge(infra.Bus(), store, "instance-1")
+			canceller := agents.NewEventBridge(infra.Bus(), store, "instance-2")
 
 			// Start cancel listener
 			cancelSub, err := bridge.StartCancelListener()
@@ -151,12 +164,12 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 			})
 			bridge.RegisterCancel("test-msg-id", wrappedCancel)
 
-			FlushNATS(infra.NC)
+			// Issued on the replica that does NOT hold the execution, which is
+			// the case the broadcast exists for. Its error says only that the
+			// request was published, so what is asserted is the effect.
+			Expect(canceller.CancelExecution("my-agent", "user1", "test-msg-id")).To(Succeed())
 
-			// Cancel via NATS
-			Expect(bridge.CancelExecution("my-agent", "user1", "test-msg-id")).To(Succeed())
-
-			Eventually(func() bool { return cancelled.Load() }, "5s").Should(BeTrue())
+			Eventually(func() bool { return cancelled.Load() }, "20s").Should(BeTrue())
 		})
 
 		// Agent execution is now dispatched via AgentPoolService.dispatchChat(),

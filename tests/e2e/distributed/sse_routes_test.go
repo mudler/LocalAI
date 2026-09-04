@@ -32,63 +32,90 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 	})
 
 	Context("Job progress SSE endpoint", func() {
-		It("should register job progress SSE endpoint when dispatcher active", func() {
+		// Frontend 0 publishes, frontend 1 is where the SSE reader is attached.
+		// One carrier hearing itself would pass with the dispatcher wired to
+		// any carrier at all, which is the wiring defect that leaves every unit
+		// spec green and only the stream empty.
+		It("delivers a job's progress to a reader attached to another frontend", func() {
 			jobStore, err := jobs.NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			dispatcher := jobs.NewDispatcher(jobStore, infra.NC, db, "sse-instance")
+			frontend0 := jobs.NewDispatcher(jobStore, infra.Bus(), db, "frontend-0")
+			frontend1 := jobs.NewDispatcher(jobStore, infra.Bus(), db, "frontend-1")
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
-			Expect(dispatcher.Start(dCtx)).To(Succeed())
-			defer dispatcher.Stop()
+			Expect(frontend1.Start(dCtx)).To(Succeed())
+			defer frontend1.Stop()
 
-			// Subscribe to progress for a job — verifies the dispatcher can bridge
-			// NATS progress events that an SSE endpoint would consume
-			var events []jobs.ProgressEvent
-			sub, err := dispatcher.SubscribeProgress("job-sse-test", func(evt jobs.ProgressEvent) {
-				events = append(events, evt)
+			mine := make(chan jobs.ProgressEvent, 16)
+			sub, err := frontend1.SubscribeProgress("job-sse-test", func(evt jobs.ProgressEvent) {
+				mine <- evt
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			FlushNATS(infra.NC)
+			// A reader on a DIFFERENT job, which must be shown nothing. The
+			// per-request subscription is a data boundary: on the wildcard,
+			// every client watching any job sees every other job.
+			theirs := make(chan jobs.ProgressEvent, 16)
+			otherSub, err := frontend1.SubscribeProgress("job-someone-else", func(evt jobs.ProgressEvent) {
+				theirs <- evt
+			})
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = otherSub.Unsubscribe() }()
 
-			dispatcher.PublishProgress("job-sse-test", "running", "step 1")
-			dispatcher.PublishProgress("job-sse-test", "running", "step 2")
-			dispatcher.PublishProgress("job-sse-test", "completed", "done")
+			Expect(frontend0.PublishProgress("job-sse-test", "running", "step 1")).To(Succeed())
+			Expect(frontend0.PublishProgress("job-sse-test", "running", "step 2")).To(Succeed())
+			Expect(frontend0.PublishProgress("job-sse-test", "completed", "done")).To(Succeed())
 
-			Eventually(func() int { return len(events) }, "5s").Should(Equal(3))
-			Expect(events[0].Status).To(Equal("running"))
-			Expect(events[2].Status).To(Equal("completed"))
+			var seen []jobs.ProgressEvent
+			for i := 0; i < 3; i++ {
+				var evt jobs.ProgressEvent
+				Eventually(mine, "20s").Should(Receive(&evt))
+				seen = append(seen, evt)
+			}
+			Expect(seen[0].Status).To(Equal("running"))
+			Expect(seen[2].Status).To(Equal("completed"))
+			Expect(theirs).ToNot(Receive(), "a reader on another job id must be shown nothing")
 		})
 	})
 
 	Context("Agent SSE endpoint", func() {
-		It("should register agent SSE endpoint when event bridge active", func() {
+		It("delivers an agent's events to a reader attached to another frontend", func() {
 			agentStore, err := agents.NewAgentStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			bridge := agents.NewEventBridge(infra.NC, agentStore, "sse-instance")
+			frontend0 := agents.NewEventBridge(infra.Bus(), agentStore, "frontend-0")
+			frontend1 := agents.NewEventBridge(infra.Bus(), agentStore, "frontend-1")
 
-			// Subscribe to agent events — verifies the bridge can deliver
-			// NATS events that an SSE endpoint would consume
-			var received []agents.AgentEvent
-			sub, err := bridge.SubscribeEvents("test-agent", "user1", func(evt agents.AgentEvent) {
-				received = append(received, evt)
+			received := make(chan agents.AgentEvent, 16)
+			sub, err := frontend1.SubscribeEvents("test-agent", "user1", func(evt agents.AgentEvent) {
+				received <- evt
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			FlushNATS(infra.NC)
+			other := make(chan agents.AgentEvent, 16)
+			otherSub, err := frontend1.SubscribeEvents("test-agent", "user2", func(evt agents.AgentEvent) {
+				other <- evt
+			})
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = otherSub.Unsubscribe() }()
 
-			bridge.PublishMessage("test-agent", "user1", "user", "Hello", "msg-1")
-			bridge.PublishStatus("test-agent", "user1", "processing")
-			bridge.PublishMessage("test-agent", "user1", "agent", "Hi!", "msg-2")
+			Expect(frontend0.PublishMessage("test-agent", "user1", "user", "Hello", "msg-1")).To(Succeed())
+			Expect(frontend0.PublishStatus("test-agent", "user1", "processing")).To(Succeed())
+			Expect(frontend0.PublishMessage("test-agent", "user1", "agent", "Hi!", "msg-2")).To(Succeed())
 
-			Eventually(func() int { return len(received) }, "5s").Should(Equal(3))
-			Expect(received[0].EventType).To(Equal("json_message"))
-			Expect(received[1].EventType).To(Equal("json_message_status"))
+			var seen []agents.AgentEvent
+			for i := 0; i < 3; i++ {
+				var evt agents.AgentEvent
+				Eventually(received, "20s").Should(Receive(&evt))
+				seen = append(seen, evt)
+			}
+			Expect(seen[0].EventType).To(Equal("json_message"))
+			Expect(seen[1].EventType).To(Equal("json_message_status"))
+			Expect(other).ToNot(Receive(), "another user's stream must be shown nothing")
 		})
 	})
 
@@ -97,7 +124,7 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 			appCfg := config.NewApplicationConfig()
 			Expect(appCfg.Distributed.Enabled).To(BeFalse())
 
-			// Without distributed mode, NATS-backed SSE routes are not registered.
+			// Without distributed mode, carrier-backed SSE routes are not registered.
 			// Agent SSE events use the in-process LocalAGI SSE manager instead.
 			// Job progress is tracked in-memory.
 			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())

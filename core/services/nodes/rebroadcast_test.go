@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -8,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/pgbus"
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
@@ -149,5 +151,78 @@ var _ = Describe("worker re-broadcast authorization", func() {
 			Expect(NewRebroadcaster(nil).Handle(NodeTypeAgent, "jobs.j1.progress",
 				json.RawMessage(`{"percentage":10}`))).To(BeFalse())
 		})
+	})
+})
+
+// The re-broadcast path across TWO carriers, which is the shape production has
+// and the shape a single in-memory double cannot have.
+//
+// This is the wiring failure that leaves every unit spec in every package green:
+// point the Rebroadcaster at one carrier while the dispatcher subscribes on
+// another and the rebroadcaster publishes, the publish succeeds, Handle returns
+// true, and the only symptom anywhere is an SSE stream with no progress in it.
+// So these assert the RECEIPT and never the return value.
+var _ = Describe("re-broadcasting onto the carrier the subscriber reads", func() {
+	var (
+		busA, busB *pgbus.Bus
+		rb         *Rebroadcaster
+	)
+
+	BeforeEach(func() {
+		db, dsn := testutil.SetupTestDBWithDSN()
+		Expect(pgbus.Migrate(context.Background(), db)).To(Succeed())
+		newBus := func() *pgbus.Bus {
+			b, err := pgbus.New(context.Background(), pgbus.Config{DSN: dsn, DB: db})
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(b.Close)
+			return b
+		}
+		busA, busB = newBus(), newBus()
+		rb = NewRebroadcaster(busA)
+	})
+
+	It("reaches a job-progress subscriber on the other replica's carrier", func() {
+		delivered := make(chan []byte, 4)
+		_, err := busB.Subscribe(messaging.SubjectJobProgressWildcard, func(payload []byte) { delivered <- payload })
+		Expect(err).ToNot(HaveOccurred())
+
+		rb.Handle(NodeTypeAgent, messaging.SubjectJobProgress("j1"), json.RawMessage(`{"job_id":"j1","status":"running"}`))
+
+		Eventually(delivered, "20s").Should(Receive(MatchJSON(`{"job_id":"j1","status":"running"}`)))
+	})
+
+	It("reaches a job-result subscriber on the other replica's carrier", func() {
+		delivered := make(chan []byte, 4)
+		_, err := busB.Subscribe(messaging.SubjectJobResultWildcard, func(payload []byte) { delivered <- payload })
+		Expect(err).ToNot(HaveOccurred())
+
+		rb.Handle(NodeTypeAgent, messaging.SubjectJobResult("j1"), json.RawMessage(`{"job_id":"j1","status":"completed"}`))
+
+		Eventually(delivered, "20s").Should(Receive(MatchJSON(`{"job_id":"j1","status":"completed"}`)))
+	})
+
+	It("reaches an agent-events subscriber on the other replica's carrier", func() {
+		delivered := make(chan []byte, 4)
+		_, err := busB.Subscribe(messaging.SubjectAgentEventsWildcard, func(payload []byte) { delivered <- payload })
+		Expect(err).ToNot(HaveOccurred())
+
+		rb.Handle(NodeTypeAgent, messaging.SubjectAgentEvents("a1", "u1"), json.RawMessage(`{"event_type":"json_message"}`))
+
+		Eventually(delivered, "20s").Should(Receive(MatchJSON(`{"event_type":"json_message"}`)))
+	})
+
+	It("delivers nothing at all for a subject the worker is refused", func() {
+		// The negative half without a clock: a refused subject followed by an
+		// allowed one, and the allowed one arriving first is the proof.
+		delivered := make(chan []byte, 4)
+		_, err := busB.Subscribe(messaging.SubjectJobProgressWildcard, func(payload []byte) { delivered <- payload })
+		Expect(err).ToNot(HaveOccurred())
+
+		rb.Handle(NodeTypeBackend, messaging.SubjectJobProgress("j1"), json.RawMessage(`{"job_id":"refused"}`))
+		rb.Handle(NodeTypeAgent, messaging.SubjectJobProgress("j2"), json.RawMessage(`{"job_id":"allowed"}`))
+
+		var first []byte
+		Eventually(delivered, "20s").Should(Receive(&first))
+		Expect(first).To(MatchJSON(`{"job_id":"allowed"}`))
 	})
 })

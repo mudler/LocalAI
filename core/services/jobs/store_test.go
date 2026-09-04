@@ -402,3 +402,50 @@ var _ = Describe("JobStore", func() {
 		})
 	})
 })
+
+// The terminal-status set, asserted as ONE fact rather than as two agreeing
+// lists.
+//
+// It was written out at four call sites and pinned at none: twice in the SSE
+// bridge, which decides when to close a stream, and twice in the store, which
+// decides when to stamp completed_at and which rows are still writable. Drift
+// between those two is a stream that closes on a status the store still
+// considers open, or a row that accepts a second terminal write. These drive
+// both readers from the same exported set, so a status added to one of them
+// cannot be missing from the other.
+var _ = Describe("the statuses a job never leaves", func() {
+	var store *JobStore
+
+	BeforeEach(func() {
+		var err error
+		store, err = NewJobStore(testutil.SetupTestDB())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("names at least one status", func() {
+		// An empty set would make every assertion below vacuous.
+		Expect(TerminalJobStatuses).ToNot(BeEmpty())
+	})
+
+	It("refuses a further write to a row in any of them", func() {
+		for _, status := range TerminalJobStatuses {
+			Expect(IsTerminalJobStatus(status)).To(BeTrue(), status)
+
+			job := &JobRecord{TaskID: "t", UserID: "u", Status: "running", TriggeredBy: "manual"}
+			Expect(store.CreateJob(job)).To(Succeed())
+			Expect(store.UpdateJobStatus(job.ID, status, "first", "")).To(Succeed())
+
+			Expect(store.UpdateJobStatus(job.ID, "running", "second", "")).To(Succeed())
+			stored, err := store.GetJob(job.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Status).To(Equal(status), "a settled job must not be reopened")
+			Expect(stored.CompletedAt).ToNot(BeNil(), status)
+		}
+	})
+
+	It("does not claim a status a job can still leave", func() {
+		for _, status := range []string{"pending", "running", "", "queued"} {
+			Expect(IsTerminalJobStatus(status)).To(BeFalse(), status)
+		}
+	})
+})
