@@ -88,10 +88,9 @@ func BackendPaths() []string {
 // cached for that backend. The frontend issues the same RPC to either and does
 // not branch on the node's type to pick a carrier.
 //
-// PathAgentCancel is named here with nothing mounting it yet. The frontend
-// therefore gets the catch-all's 404, which it already reads as "this worker
-// does not serve that verb" rather than as absence, and the path is fixed now
-// so the two sides cannot disagree about it later.
+// PathAgentCancel is served by an agent worker and by nothing else. It is what
+// replaced the agent.<name>.cancel broadcast, and moving that family here is
+// what removed the last reason an agent worker dialled a message bus.
 func AgentPaths() []string {
 	return []string{
 		PathMCPToolExecute,

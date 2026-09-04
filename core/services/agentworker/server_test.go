@@ -93,6 +93,7 @@ func fullConfig() agentworker.Config {
 	return agentworker.Config{
 		MCPTool:      echoHandler(`{"result":"tool-ran"}`),
 		MCPDiscovery: echoHandler(`{"servers":[]}`),
+		AgentCancel:  echoHandler(`{"cancelled":true}`),
 		BackendStop:  func(context.Context, messaging.BackendStopRequest) error { return nil },
 	}
 }
@@ -108,6 +109,13 @@ var _ = Describe("The agent worker's control verbs", func() {
 		disc := post(base, workerctl.PathMCPDiscovery, `{"model_name":"m"}`)
 		Expect(disc.StatusCode).To(Equal(http.StatusOK))
 		Expect(bodyOf(disc)).To(Equal(`{"servers":[]}`))
+
+		// The cancel is unary and its answer is the worker's own: a 200 body
+		// saying whether THIS worker cancelled the run. Anything else the
+		// frontend reads as an answer it did not obtain.
+		cancel := post(base, workerctl.PathAgentCancel, `{"message_id":"m"}`)
+		Expect(cancel.StatusCode).To(Equal(http.StatusOK))
+		Expect(bodyOf(cancel)).To(Equal(`{"cancelled":true}`))
 	})
 
 	It("answers backend.stop with the 204 a BACKEND worker answers on that same path", func() {
@@ -161,7 +169,6 @@ var _ = Describe("The agent worker's control verbs", func() {
 		},
 		Entry("agent execute, whose handler is nil until it is wired", workerctl.PathAgentExecute),
 		Entry("mcp ci run, whose handler is nil until it is wired", workerctl.PathMCPCIRun),
-		Entry("agent cancel, which has no handler field at all yet", workerctl.PathAgentCancel),
 		Entry("a backend worker's verb, which an agent worker never serves", workerctl.PathBackendInstall),
 		Entry("a path no build has ever named", workerctl.Prefix+"nothing/here"),
 	)
@@ -178,6 +185,7 @@ var _ = Describe("The agent worker's control verbs", func() {
 		Entry("mcp tool execute", workerctl.PathMCPToolExecute, func(c *agentworker.Config) { c.MCPTool = nil }),
 		Entry("mcp discovery", workerctl.PathMCPDiscovery, func(c *agentworker.Config) { c.MCPDiscovery = nil }),
 		Entry("backend stop", workerctl.PathBackendStop, func(c *agentworker.Config) { c.BackendStop = nil }),
+		Entry("agent cancel", workerctl.PathAgentCancel, func(c *agentworker.Config) { c.AgentCancel = nil }),
 	)
 
 	// A rule stated at every verb has to be pinned at every verb. The exit
@@ -212,6 +220,9 @@ var _ = Describe("The agent worker's control verbs", func() {
 			c.BackendStop = func(context.Context, messaging.BackendStopRequest) error {
 				return errors.New("the session cache is wedged")
 			}
+		}),
+		Entry("agent cancel", workerctl.PathAgentCancel, func(c *agentworker.Config) {
+			c.AgentCancel = failingHandler(errors.New("the cancel registry is unreadable"))
 		}),
 		Entry("agent execute, before it has published anything", workerctl.PathAgentExecute, func(c *agentworker.Config) {
 			c.AgentExecute = func(context.Context, json.RawMessage, messaging.Publisher) (json.RawMessage, error) {

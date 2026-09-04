@@ -5,12 +5,15 @@ package application
 import (
 	"context"
 	"runtime"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	mcpremote "github.com/mudler/LocalAI/core/services/mcp"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
@@ -24,6 +27,12 @@ import (
 type recordingConnections struct {
 	owners []string
 	seen   chan string
+	// graces records the reconnect window each presence read was made with. It
+	// is the other argument with no other symptom: with a zero one every worker
+	// that lost its tunnel a moment ago reads as GONE, and a cancel addressed to
+	// it is reported as a run no worker is running rather than as one this
+	// deployment could not deliver.
+	graces []time.Duration
 }
 
 func (r *recordingConnections) ConnectedAmong(_ context.Context, _ []string, owner string) ([]string, []string, error) {
@@ -35,6 +44,11 @@ func (r *recordingConnections) ConnectedAmong(_ context.Context, _ []string, own
 		}
 	}
 	return nil, nil, nil
+}
+
+func (r *recordingConnections) Presence(_ context.Context, _ string, grace time.Duration) (cluster.Presence, error) {
+	r.graces = append(r.graces, grace)
+	return cluster.PresenceReconnecting, nil
 }
 
 // newRecordingConnections returns a reader whose channel is ready BEFORE any
@@ -87,6 +101,28 @@ var _ = Describe("building the frontend's agent control client", func() {
 		// be true is that the id reaches the SELECTION, not that it was stored.
 		_, _ = client.ExecuteMCPTool(ctx, mcpremote.MCPToolRequest{ModelName: "m"})
 		Expect(conns.owners).To(ConsistOf("replica-7"))
+	})
+
+	It("makes the reconnect grace the one a cancel measures a lost tunnel against", func() {
+		// The other silent argument. With a zero grace every registered agent
+		// worker that is not connected right now reads as GONE, so a cancel
+		// addressed to one that is merely re-homing is reported as "no worker
+		// is running that execution" rather than as one that was not delivered.
+		// The only symptom is a wrong answer to a caller.
+		Expect(registry.Register(ctx, &nodes.BackendNode{
+			Name: "agent-grace", NodeType: nodes.NodeTypeAgent, Address: "a:50051",
+		}, true)).To(Succeed())
+
+		conns := newRecordingConnections()
+		client, err := newAgentControl(
+			config.DistributedConfig{InstanceID: "replica-7", WorkerReconnectGrace: 7 * time.Minute},
+			registry, conns, nodes.NewControlClient(nil, "token"))
+		Expect(err).ToNot(HaveOccurred())
+
+		// Driven through a real cancel, so what is asserted is the value that
+		// reached the presence read rather than one stored on a field.
+		_ = client.CancelAgentRun(ctx, messaging.AgentCancelRequest{AgentName: "a", MessageID: "m"})
+		Expect(conns.graces).To(ConsistOf(7 * time.Minute))
 	})
 
 	It("refuses to build with no instance id", func() {

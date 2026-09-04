@@ -18,22 +18,25 @@ import (
 // subscription was rejected (e.g. by JWT permissions) before returning to the caller.
 const subscribeConfirmTimeout = 5 * time.Second
 
-// Client is a NATS connection, and it is the carrier for exactly one family.
+// Client is a NATS connection, and NO PRODUCTION PATH CONSTRUCTS ONE.
 //
-// agent.<name>.cancel is the one fan-out family that did not move to the
-// PostgreSQL carrier. Its only subscriber is the agent WORKER, which has no
-// database and cannot join that carrier at all, so a cancel published there
-// would reach no worker while reporting that it was sent. Both ends of that
-// family still dial this client, which is why it, its connect options and its
-// TLS plumbing are all still here.
+// The last family that needed a bus was agent.<name>.cancel, whose subscriber is
+// the agent WORKER: it has no database, so it could never join the PostgreSQL
+// carrier the rest of the deployment fans out on. It does not need a bus either
+// now, because it holds an outward tunnel and a cancel is a control verb on it
+// (workerctl.PathAgentCancel). Nothing in core/ or pkg/ calls messaging.New.
 //
-// Everything else it used to carry is gone, and so are the methods that carried
-// it: queue subscriptions became a claim on the job store, and request/reply
-// became a streaming control RPC on the tunnel each worker dials. Deleting the
-// METHODS rather than only the call sites is what makes putting a family back
-// on this carrier a build error, instead of a line that compiles, publishes
-// successfully, and is delivered onto a carrier the deployment is being taken
-// off.
+// What survives here is this type, its connect options and its TLS plumbing,
+// still exercised by the NATS JWT permission specs. Deleting them is a
+// demolition of its own, together with the JWT minting at registration and
+// pkg/natsauth's permission tables.
+//
+// The methods that carried everything else are already gone: queue
+// subscriptions became a claim on the job store, and request/reply became a
+// streaming control RPC on the tunnel each worker dials. Deleting the METHODS
+// rather than only the call sites is what makes putting a family back on this
+// carrier a build error, instead of a line that compiles, publishes
+// successfully, and is delivered onto a carrier nothing reads.
 type Client struct {
 	conn *nats.Conn
 	mu   sync.RWMutex
@@ -242,12 +245,12 @@ func (c *Client) confirmSubscription(subject string, mk func(*nats.Conn) (*nats.
 // different fact from the server refusing it, and neither is evidence about any
 // node.
 //
-// No production path calls it. The carrier's production users publish cancels
-// and act on the delivery, not on the verdict; what needs the verdict is
-// pkg/natsauth's permission grants, which are asserted against a real enforcing
-// server and would otherwise be asserted against nothing, since an allow list
-// that is EMPTY means unrestricted in NATS and a spec that only checks
-// IsConnected cannot tell a granted publish from a denied one.
+// No production path calls it, and this carrier no longer has production users
+// at all. What needs the verdict is pkg/natsauth's permission grants, which are
+// asserted against a real enforcing server and would otherwise be asserted
+// against nothing, since an allow list that is EMPTY means unrestricted in NATS
+// and a spec that only checks IsConnected cannot tell a granted publish from a
+// denied one.
 func (c *Client) ConfirmRoundTrip(timeout time.Duration) error {
 	c.mu.RLock()
 	conn := c.conn

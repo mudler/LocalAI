@@ -20,7 +20,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/jobs"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
-	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/cogito"
 	"github.com/mudler/cogito/clients"
 	"github.com/mudler/xlog"
@@ -40,20 +39,23 @@ import (
 // control verbs by RPC without the worker opening an inbound port. No verb the
 // frontend addresses to THIS worker travels on the bus any more.
 //
-// --nats-url is still required, and for one thing only: agent.<name>.cancel.
-// That family runs the other way, from a frontend replica to whichever worker
-// holds the execution, and it could not move to the broadcast carrier because
-// that carrier rides PostgreSQL and this process has no database. A worker that
-// came up without a bus would register, serve, run agents and ignore every
-// cancel, with nothing in the deployment reporting it. The flag goes when a
-// cancel rides the tunnel as a control verb.
+// It dials NO message bus. The last family that needed one was
+// agent.<name>.cancel, which ran the other way, from a frontend replica to
+// whichever worker held the execution; it is now a control verb on this
+// worker's own tunnel (workerctl.PathAgentCancel), so a cancel reaches the
+// worker running the agent without either side touching a broker.
 //
 // Usage:
 //
-//	localai agent-worker --nats-url nats://... --register-to http://localai:8080
+//	localai agent-worker --register-to http://localai:8080
 type AgentWorkerCMD struct {
-	// NATS (required)
-	NatsURL string `env:"LOCALAI_NATS_URL" required:"" help:"NATS server URL" group:"distributed"`
+	// NatsURL is accepted and ignored, exactly as the backend worker's is (see
+	// core/services/worker/config.go). An agent worker connects to no message
+	// bus: every verb a frontend addresses to it arrives on the tunnel it
+	// dials, and a cancel now arrives the same way. It stays here, without
+	// required, so an existing command line or unit file that still carries
+	// --nats-url starts rather than failing to parse.
+	NatsURL string `env:"LOCALAI_NATS_URL" help:"Ignored. An agent worker connects to no message bus; the frontend reaches it over its outbound tunnel. Accepted so an existing worker command line still starts." group:"distributed" hidden:""`
 
 	// Registration (required)
 	RegisterTo        string `env:"LOCALAI_REGISTER_TO" required:"" help:"Frontend URL for registration" group:"registration"`
@@ -88,7 +90,7 @@ func (cmd *AgentWorkerCMD) natsAuthRequired() bool {
 }
 
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
-	xlog.Info("Starting agent worker", "nats", sanitize.URL(cmd.NatsURL), "register_to", cmd.RegisterTo)
+	xlog.Info("Starting agent worker", "register_to", cmd.RegisterTo)
 
 	// Resolve API URL
 	apiURL := cmp.Or(cmd.APIURL, strings.TrimRight(cmd.RegisterTo, "/"))
@@ -117,9 +119,14 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 	defer shutdownCancel()
 
-	// Acquire credentials via (re)registration. When the bus requires auth and no
-	// static fallback is configured, wait through admin approval until the
-	// frontend mints credentials rather than starting unauthenticated.
+	// Register, and obtain this node's identity and its tunnel credential.
+	//
+	// The manager is still the NATS credential manager and still gated on the
+	// NATS auth flags, and that is deliberate rather than left over: what the
+	// gate decides is whether registration WAITS THROUGH ADMIN APPROVAL instead
+	// of returning a pending response, and that behaviour is unchanged by this
+	// worker no longer dialling a bus. What it no longer does is dial one: the
+	// only value read off it below is TunnelToken.
 	credMgr := workerregistry.NewNATSCredentialManager(
 		func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
 			return regClient.RegisterFull(ctx, registrationBody)
@@ -147,42 +154,6 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	go regClient.HeartbeatLoop(shutdownCtx, nodeID, heartbeatInterval, func() map[string]any { return map[string]any{} })
 
-	// Resolve the cancel carrier's credentials with precedence: explicit env
-	// override, then frontend-minted (auto-refreshed before expiry), then
-	// service fallback. Each static source must supply JWT and seed together.
-	natsTLS := messaging.TLSFiles{CA: cmd.NatsTLSCA, Cert: cmd.NatsTLSCert, Key: cmd.NatsTLSKey}
-	var natsOpts []messaging.Option
-	switch {
-	case cmd.NatsJWT != "" || cmd.NatsUserSeed != "":
-		if (cmd.NatsJWT == "") != (cmd.NatsUserSeed == "") {
-			return fmt.Errorf("LOCALAI_NATS_JWT and LOCALAI_NATS_USER_SEED must be set together")
-		}
-		natsOpts = append(natsOpts, messaging.WithUserJWT(cmd.NatsJWT, cmd.NatsUserSeed))
-	case credMgr.HasCredentials():
-		natsOpts = append(natsOpts, messaging.WithUserJWTProvider(credMgr.Provider()))
-		go func() {
-			if err := credMgr.RefreshLoop(shutdownCtx); err != nil {
-				xlog.Error("NATS credential refresh permanently failed; shutting down agent worker", "error", err)
-				shutdownCancel()
-			}
-		}()
-	case cmd.NatsServiceJWT != "" || cmd.NatsServiceSeed != "":
-		if (cmd.NatsServiceJWT == "") != (cmd.NatsServiceSeed == "") {
-			return fmt.Errorf("LOCALAI_NATS_SERVICE_JWT and LOCALAI_NATS_SERVICE_SEED must be set together")
-		}
-		natsOpts = append(natsOpts, messaging.WithUserJWT(cmd.NatsServiceJWT, cmd.NatsServiceSeed))
-	case cmd.natsAuthRequired():
-		return fmt.Errorf("NATS JWT+seed required: enable frontend minting or set LOCALAI_NATS_* env vars")
-	}
-	if natsTLS.Enabled() {
-		natsOpts = append(natsOpts, messaging.WithTLS(natsTLS))
-	}
-	natsClient, err := messaging.New(cmd.NatsURL, natsOpts...)
-	if err != nil {
-		return fmt.Errorf("connecting to NATS: %w", err)
-	}
-	defer natsClient.Close()
-
 	// The executor and the event bridge the control plane serves, built BEFORE
 	// the tunnel because a verb mounted with a nil handler answers a 404, which
 	// a frontend reads as a worker too old to serve it.
@@ -190,7 +161,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// No ConfigProvider and no SkillStore: config and skills arrive in the
 	// request body, exactly as they arrived in the job payload before, because
 	// an agent worker still has no database.
-	eventBridge := agents.NewEventBridge(natsClient, nil, "agent-worker-"+nodeID)
+	eventBridge := agents.NewWorkerEventBridge("agent-worker-" + nodeID)
 	executor := agents.NewWorkerExecutor(eventBridge, nil, apiURL, cmd.APIToken)
 
 	mcpCIJobTimeout, err := time.ParseDuration(cmd.MCPCIJobTimeout)
@@ -212,9 +183,9 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	// control plane rides the tunnel it holds.
 	//
 	// The credential is read through credMgr rather than captured from res,
-	// because every re-registration the manager performs ROTATES it and a
-	// captured value would lock this worker out of its own tunnel at the first
-	// JWT refresh.
+	// because every registration the manager performs ROTATES it: the frontend
+	// stores only the hash of the newest one, so a captured value would lock
+	// this worker out of its own tunnel after any re-registration.
 	//
 	// It is started AFTER registration, which is what supplies both the node
 	// identity the dial names and the credential it presents.
@@ -234,39 +205,20 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	// The cancel listener is the ONE thing still on the bus here, and the only
-	// reason this process dialled one. A cancel is a broadcast to every replica
-	// and every worker, because the replica holding the run is not the one the
-	// cancel request lands on, and this worker cannot join the carrier the rest
-	// of the deployment fans out on: that carrier is the auth database, and an
-	// agent worker has no database access at all.
-	cancelSub, err := eventBridge.StartCancelListener()
-	if err != nil {
-		xlog.Warn("Failed to start cancel listener", "error", err)
-	} else {
-		defer func() { _ = cancelSub.Unsubscribe() }()
-	}
-
 	xlog.Info("Agent worker ready, serving agent execution and MCP CI runs on its tunnel", "node", nodeID)
 
-	// Wait for an OS signal or an internal fatal condition (e.g. NATS
-	// credentials became unrenewable), so the worker restarts and re-acquires
-	// rather than lingering unable to serve.
+	// Wait for an OS signal. There is no internal fatal condition left to wait
+	// on: the one that existed was a NATS credential this worker could no
+	// longer renew, and it renews none.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	var runErr error
-	select {
-	case <-sigCh:
-	case <-shutdownCtx.Done():
-		runErr = fmt.Errorf("agent worker shutting down: NATS credentials unavailable")
-		xlog.Error("Internal shutdown requested", "error", runErr)
-	}
+	<-sigCh
 
 	xlog.Info("Shutting down agent worker")
 	shutdownCancel() // stop heartbeat loop immediately
 	mcpTools.CloseAllMCPSessions()
 	regClient.GracefulDeregister(nodeID)
-	return runErr
+	return nil
 }
 
 // The MCP verbs, written ONCE and served on two carriers.
@@ -612,6 +564,11 @@ func agentWorkerControlHandlers(executor *agents.WorkerExecutor, apiURL, apiToke
 	return agentworker.Config{
 		MCPTool:      serveMCPToolRequest,
 		MCPDiscovery: serveMCPDiscoveryRequest,
+		// The verb that removed this process's last reason to dial a bus. It
+		// reaches the SAME cancel registry the executor registers a run on,
+		// because it is the same bridge: a cancel arriving on the tunnel has to
+		// find an execution that is publishing onto a control stream.
+		AgentCancel: executor.Cancel,
 		// Drops the MCP sessions cached for a backend that went away, on the
 		// path a backend worker serves by killing the process instead.
 		BackendStop: dropMCPSessionsForBackend,
