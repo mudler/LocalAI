@@ -147,3 +147,88 @@ var _ = Describe("the agent-events wildcard", func() {
 		Expect(SubjectMatches(SubjectAgentEventsWildcard, "agent.a.cancel")).To(BeFalse())
 	})
 })
+
+// Every subject this package still mints, pinned to the exact literal it must
+// produce.
+//
+// The table exists because of what is being deleted around it. Four builders
+// went in this commit: fine-tune progress and cancel, whose families moved off
+// this carrier, and skills and collection cache invalidation, which had no
+// production publisher or subscriber to move. The only thing that had ever
+// exercised any of the four was an e2e spec that published on a subject and
+// subscribed to the same subject, which passes for any literal at all. A
+// builder taken out by mistake alongside them would have had no unit failure
+// anywhere: its call sites publish, the publish succeeds, and the symptom is a
+// subscriber that never fires.
+//
+// So the pin is the LITERAL, not a round trip through the builder, and it
+// covers every survivor rather than the ones a reviewer thought were at risk.
+// A subject is also a wire format: two releases in one deployment agree on
+// these strings and on nothing else, so a rename that looks internal is a
+// rolling upgrade in which half the fleet stops hearing the other half.
+var _ = Describe("the subjects this package mints", func() {
+	DescribeTable("builds the exact subject its subscribers filter on",
+		func(got, want string) { Expect(got).To(Equal(want)) },
+
+		Entry("agent events", SubjectAgentEvents("a1", "u1"), "agent.a1.events.u1"),
+		Entry("agent events, anonymous user", SubjectAgentEvents("a1", ""), "agent.a1.events.anonymous"),
+		Entry("agent events wildcard", SubjectAgentEventsWildcard, "agent.*.events.*"),
+		Entry("agent cancel", SubjectAgentCancel("a1"), "agent.a1.cancel"),
+		Entry("agent cancel wildcard", SubjectAgentCancelWildcard, "agent.*.cancel"),
+
+		Entry("job progress", SubjectJobProgress("j1"), "jobs.j1.progress"),
+		Entry("job progress wildcard", SubjectJobProgressWildcard, "jobs.*.progress"),
+		Entry("job result", SubjectJobResult("j1"), "jobs.j1.result"),
+		Entry("job result wildcard", SubjectJobResultWildcard, "jobs.*.result"),
+		Entry("job cancel", SubjectJobCancel("j1"), "jobs.j1.cancel"),
+		Entry("job cancel wildcard", SubjectJobCancelWildcard, "jobs.*.cancel"),
+
+		Entry("gallery progress", SubjectGalleryProgress("op1"), "gallery.op1.progress"),
+		Entry("gallery progress wildcard", SubjectGalleryProgressWildcard, "gallery.*.progress"),
+		Entry("gallery cancel", SubjectGalleryCancel("op1"), "gallery.op1.cancel"),
+		Entry("gallery cancel wildcard", SubjectGalleryCancelWildcard, "gallery.*.cancel"),
+		Entry("gallery opcache start", SubjectGalleryOpStart, "gallery.opcache.start"),
+		Entry("gallery opcache end", SubjectGalleryOpEnd, "gallery.opcache.end"),
+
+		Entry("staging progress", SubjectStagingProgress("m1"), "staging.m1.progress"),
+		Entry("staging progress wildcard", SubjectStagingProgressWildcard, "staging.*.progress"),
+
+		Entry("response cancel", SubjectResponseCancel("r1"), "responses.r1.cancel"),
+		Entry("response cancel wildcard", SubjectResponseCancelWildcard, "responses.*.cancel"),
+
+		Entry("model cache invalidation", SubjectCacheInvalidateModels, "cache.invalidate.models"),
+		Entry("backend cache invalidation", SubjectCacheInvalidateBackends, "cache.invalidate.backends"),
+
+		Entry("syncstate delta", SubjectSyncStateDelta("agent.tasks"), "state.agent-tasks.delta"),
+		Entry("syncstate tenant delta", SubjectSyncStateTenantDelta("agent.tasks", "u1"), "state.agent-tasks.u1.delta"),
+		Entry("syncstate tenant wildcard", SubjectSyncStateTenantWildcard("agent.tasks"), "state.agent-tasks.*.delta"),
+
+		Entry("prefix-cache observe", SubjectPrefixCacheObserve, "prefixcache.observe"),
+		Entry("prefix-cache invalidate", SubjectPrefixCacheInvalidate, "prefixcache.invalidate"),
+	)
+
+	It("mints nothing for the families that left this carrier", func() {
+		// Stated as an absence of PREFIXES rather than of identifiers, because
+		// an identifier that is gone cannot be named here at all: the file
+		// would not compile. What can be asserted is that no survivor mints
+		// into the retired namespaces, which is what a half-finished deletion
+		// would leave behind.
+		//
+		// finetune.* went when fine-tune progress and cancel moved to the
+		// broadcast carrier's own subjects; cache.invalidate.skills and
+		// cache.invalidate.collections went with the skills and collection
+		// caches.
+		for _, subject := range []string{
+			SubjectAgentEvents("a1", "u1"), SubjectAgentCancel("a1"),
+			SubjectJobProgress("j1"), SubjectJobResult("j1"), SubjectJobCancel("j1"),
+			SubjectGalleryProgress("op1"), SubjectGalleryCancel("op1"),
+			SubjectStagingProgress("m1"), SubjectResponseCancel("r1"),
+			SubjectCacheInvalidateModels, SubjectCacheInvalidateBackends,
+			SubjectSyncStateDelta("agent.tasks"),
+		} {
+			Expect(subject).ToNot(HavePrefix("finetune."))
+			Expect(subject).ToNot(HavePrefix("cache.invalidate.skills"))
+			Expect(subject).ToNot(HavePrefix("cache.invalidate.collections"))
+		}
+	})
+})

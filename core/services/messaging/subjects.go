@@ -31,7 +31,6 @@ func sanitizeSubjectToken(s string) string {
 const (
 	subjectAgentEventsPrefix = "agent."
 	subjectJobProgressPrefix = "jobs."
-	subjectFineTunePrefix    = "finetune."
 	subjectGalleryPrefix     = "gallery."
 )
 
@@ -61,11 +60,6 @@ func SubjectJobProgress(jobID string) string {
 // SubjectJobResult returns the NATS subject for the final job result (terminal state).
 func SubjectJobResult(jobID string) string {
 	return subjectJobProgressPrefix + sanitizeSubjectToken(jobID) + ".result"
-}
-
-// SubjectFineTuneProgress returns the NATS subject for fine-tune progress.
-func SubjectFineTuneProgress(jobID string) string {
-	return subjectFineTunePrefix + sanitizeSubjectToken(jobID) + ".progress"
 }
 
 // SubjectGalleryProgress returns the NATS subject for gallery download progress.
@@ -103,7 +97,6 @@ const (
 const (
 	subjectJobCancelPrefix      = "jobs."
 	subjectAgentCancelPrefix    = "agent."
-	subjectFineTuneCancelPrefix = "finetune."
 	subjectGalleryCancelPrefix  = "gallery."
 	subjectResponseCancelPrefix = "responses."
 )
@@ -127,11 +120,6 @@ func SubjectJobCancel(jobID string) string {
 // SubjectAgentCancel returns the NATS subject to cancel agent execution.
 func SubjectAgentCancel(agentID string) string {
 	return subjectAgentCancelPrefix + sanitizeSubjectToken(agentID) + ".cancel"
-}
-
-// SubjectFineTuneCancel returns the NATS subject to stop fine-tuning.
-func SubjectFineTuneCancel(jobID string) string {
-	return subjectFineTuneCancelPrefix + sanitizeSubjectToken(jobID) + ".cancel"
 }
 
 // SubjectGalleryCancel returns the NATS subject to cancel a gallery download.
@@ -373,8 +361,13 @@ type RunningModelInfo struct {
 // reached through its tunnel, so no subject is minted for them.
 
 // Cache Invalidation (Pub/Sub — broadcast to all instances)
+// Skills and collection cache invalidation are no longer minted here.
+// cache.invalidate.skills and cache.invalidate.collections.<name> had NO
+// production publisher and no production subscriber: their only callers were
+// e2e specs that published on a subject and subscribed to the same subject
+// through one client, which passes for any literal at all. They are deleted
+// rather than migrated, because there was no traffic to migrate.
 const (
-	SubjectCacheInvalidateSkills = "cache.invalidate.skills"
 	// SubjectCacheInvalidateModels is broadcast by the replica that completed
 	// a model install/delete. Peers subscribe and re-run
 	// ModelConfigLoader.LoadModelConfigsFromPath so a chat completion routed
@@ -394,11 +387,6 @@ type CacheInvalidateEvent struct {
 	Element        string `json:"element,omitempty"`
 	Op             string `json:"op,omitempty"` // "install" | "delete" | "upgrade"
 	ConfigRevision string `json:"config_revision,omitempty"`
-}
-
-// SubjectCacheInvalidateCollection returns the NATS subject for collection cache invalidation.
-func SubjectCacheInvalidateCollection(name string) string {
-	return "cache.invalidate.collections." + sanitizeSubjectToken(name)
 }
 
 // SyncedMap State Sync (Pub/Sub — broadcast to all frontends)

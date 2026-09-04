@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/alecthomas/kong"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -143,4 +145,53 @@ var _ = Describe("The agent worker's control-plane wiring", func() {
 		Entry("agent execute", workerctl.PathAgentExecute),
 		Entry("mcp ci run", workerctl.PathMCPCIRun),
 	)
+})
+
+// The last reason an agent worker dials a message bus, pinned so that removing
+// it is a decision rather than an accident.
+//
+// Every verb a frontend addresses to THIS worker now arrives on the tunnel it
+// dials, and the two queue groups it used to join are gone. One family is left,
+// in the other direction: agent.<name>.cancel. Its publisher is a frontend
+// replica and its ONLY subscriber is this process, and a worker has no database
+// and so cannot join the PostgreSQL carrier every other family moved to. A
+// worker that came up without a bus would register, serve, run agents, and
+// ignore every cancel, returning nothing to say so - the cancel would be
+// published, would succeed, and would reach nobody.
+//
+// So --nats-url stays required here, and it is required for this and for
+// nothing else. When a cancel rides the tunnel as a control verb, this spec is
+// what has to be deleted for the flag to become optional, and deleting it is
+// then the visible half of that change.
+var _ = Describe("The agent worker's remaining bus requirement", func() {
+	parse := func(args ...string) error {
+		// kong resolves env: tags from the process environment, and a
+		// LOCALAI_NATS_URL that is SET BUT EMPTY satisfies a required flag.
+		// Left in place, this spec would pass on a developer's shell and on
+		// nothing else.
+		if prior, had := os.LookupEnv("LOCALAI_NATS_URL"); had {
+			Expect(os.Unsetenv("LOCALAI_NATS_URL")).To(Succeed())
+			DeferCleanup(func() { _ = os.Setenv("LOCALAI_NATS_URL", prior) })
+		}
+		var cli struct {
+			AgentWorker AgentWorkerCMD `cmd:""`
+		}
+		parser, err := kong.New(&cli)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = parser.Parse(append([]string{"agent-worker"}, args...))
+		return err
+	}
+
+	It("refuses to start without a bus to hear cancels on", func() {
+		// Refused at parse time and not at first use. A worker that started
+		// and only failed to subscribe would already have registered itself as
+		// available to run agents nobody can cancel.
+		Expect(parse("--register-to", "http://frontend:8080")).
+			To(MatchError(ContainSubstring("--nats-url")),
+				"the agent worker started with no bus: every cancel of an agent it runs would be published to nobody and reported as sent")
+	})
+
+	It("parses once the bus is named", func() {
+		Expect(parse("--register-to", "http://frontend:8080", "--nats-url", "nats://bus:4222")).To(Succeed())
+	})
 })
