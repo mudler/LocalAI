@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,38 +20,35 @@ type publishCall struct {
 	data    any
 }
 
-// fakeMessagingClient implements messaging.MessagingClient and records published messages.
-type fakeMessagingClient struct {
+// recordingBus is a messaging.Broadcaster that records what was published.
+//
+// A Broadcaster and NOT a MessagingClient, which is the point of the type
+// rather than tidiness: the dispatcher may only fan out, and a double that
+// still offered Request or QueueSubscribe would let a spec exercise a surface
+// the production type can no longer reach.
+type recordingBus struct {
+	mu    sync.Mutex
 	calls []publishCall
 }
 
-func (f *fakeMessagingClient) Publish(subject string, data any) error {
+func (f *recordingBus) Publish(subject string, data any) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.calls = append(f.calls, publishCall{subject: subject, data: data})
 	return nil
 }
 
-func (f *fakeMessagingClient) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
+func (f *recordingBus) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
 	return &fakeSub{}, nil
 }
 
-func (f *fakeMessagingClient) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
+func (f *recordingBus) published() []publishCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]publishCall(nil), f.calls...)
 }
 
-func (f *fakeMessagingClient) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
-}
-
-func (f *fakeMessagingClient) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeSub{}, nil
-}
-
-func (f *fakeMessagingClient) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
-
-func (f *fakeMessagingClient) IsConnected() bool { return true }
-func (f *fakeMessagingClient) Close()            {}
+var _ messaging.Broadcaster = (*recordingBus)(nil)
 
 // fakeSub implements messaging.Subscription.
 type fakeSub struct{}
@@ -221,7 +219,7 @@ var _ = Describe("Dispatcher", func() {
 	Describe("Enqueue claim kind", func() {
 		var (
 			store *JobStore
-			fake  *fakeMessagingClient
+			fake  *recordingBus
 			disp  *Dispatcher
 			db    *gorm.DB
 		)
@@ -231,7 +229,7 @@ var _ = Describe("Dispatcher", func() {
 			var err error
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
-			fake = &fakeMessagingClient{}
+			fake = &recordingBus{}
 			disp = NewDispatcher(store, fake, db, "test-instance")
 		})
 
@@ -265,7 +263,7 @@ var _ = Describe("Dispatcher", func() {
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
 			Expect(onlyClaim(db).Kind).To(Equal(string(ClaimKindMCPCI)))
-			Expect(fake.calls).To(BeEmpty(), "enqueueing must not publish: a queue subject nobody joined swallows the job")
+			Expect(fake.published()).To(BeEmpty(), "enqueueing must not publish: a queue subject nobody joined swallows the job")
 		})
 
 		It("writes a plain task claim for a model without MCP servers", func() {
@@ -294,7 +292,7 @@ var _ = Describe("Dispatcher", func() {
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
 			Expect(onlyClaim(db).Kind).To(Equal(string(ClaimKindTask)))
-			Expect(fake.calls).To(BeEmpty(), "enqueueing must not publish: a queue subject nobody joined swallows the job")
+			Expect(fake.published()).To(BeEmpty(), "enqueueing must not publish: a queue subject nobody joined swallows the job")
 		})
 
 		It("writes a plain task claim when the model config is not found", func() {
@@ -321,7 +319,7 @@ var _ = Describe("Dispatcher", func() {
 			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
 
 			Expect(onlyClaim(db).Kind).To(Equal(string(ClaimKindTask)))
-			Expect(fake.calls).To(BeEmpty(), "enqueueing must not publish: a queue subject nobody joined swallows the job")
+			Expect(fake.published()).To(BeEmpty(), "enqueueing must not publish: a queue subject nobody joined swallows the job")
 		})
 	})
 
@@ -331,7 +329,7 @@ var _ = Describe("Dispatcher", func() {
 	Describe("Enqueue event enrichment", func() {
 		var (
 			store *JobStore
-			fake  *fakeMessagingClient
+			fake  *recordingBus
 			disp  *Dispatcher
 			db    *gorm.DB
 		)
@@ -341,7 +339,7 @@ var _ = Describe("Dispatcher", func() {
 			var err error
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
-			fake = &fakeMessagingClient{}
+			fake = &recordingBus{}
 			disp = NewDispatcher(store, fake, db, "test-instance")
 		})
 
