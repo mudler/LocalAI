@@ -13,7 +13,7 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 ## Architecture Overview
 
-![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared NATS/PostgreSQL/S3 plane, with generic workers running per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
+![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared PostgreSQL/S3 plane, with generic workers reached over the tunnel each one dials out and running per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
 
 **Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL, which also carries every cross-replica event they broadcast.
 
@@ -38,10 +38,10 @@ Each model gets its own gRPC backend process, so a single worker can serve multi
 ## Prerequisites
 
 - **PostgreSQL** (with pgvector extension recommended for RAG) - used for node registry, job store, auth, and shared state
-  - Each frontend replica holds **one extra PostgreSQL session** beyond its connection pool, pinned for the life of the process, and creates a `bus_messages` table. Both belong to the broadcast carrier that is replacing NATS for cross-replica fan-out; it already carries the four `state.*.delta` families (see [Cross-replica in-memory state](#cross-replica-in-memory-state)). Size `max_connections` for one additional session per frontend replica.
+  - Each frontend replica holds **one extra PostgreSQL session** beyond its connection pool, pinned for the life of the process, and creates a `bus_messages` table. Both belong to the broadcast carrier that carries every cross-replica fan-out, including the four `state.*.delta` families (see [Cross-replica in-memory state](#cross-replica-in-memory-state)). Size `max_connections` for one additional session per frontend replica.
   - That session reports an `application_name` of `localai_pgbus_<id>`, so `SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'` counts the replicas currently listening. If the carrier loses its session it redials and re-registers on its own; a broadcast published while it was down is not replayed, which is why nothing that must survive a gap is carried by a broadcast alone.
   - `bus_messages` holds only broadcasts too large for a PostgreSQL notification, and every replica retires rows older than ten minutes. The table is a spill buffer, not a log: it is not a place to read past events from.
-- **No message bus.** Nothing in a distributed deployment connects to NATS any more. Everything a frontend broadcasts travels on the PostgreSQL the deployment already runs; every verb a frontend addresses to a worker, including an agent cancel, is an HTTP route on that worker's own tunnel. `LOCALAI_NATS_URL` is accepted and ignored everywhere - on the frontend, on `local-ai worker` and on `local-ai agent-worker` - so an existing command line still starts.
+- **No message broker. Do not deploy one.** Everything a frontend broadcasts travels on the PostgreSQL the deployment already runs; every verb a frontend addresses to a worker, including an agent cancel, is an HTTP route on that worker's own tunnel. If you are upgrading from a release that ran one, see [Migrating off the message broker](#migrating-off-the-message-broker): your existing command lines keep working and the broker can be shut down.
 - All services must be on the same network (or reachable via configured URLs)
 
 ## Quick Start with Docker Compose
@@ -52,7 +52,7 @@ The easiest way to try distributed mode locally is with the provided Docker Comp
 docker compose -f docker-compose.distributed.yaml up
 ```
 
-This starts PostgreSQL, a LocalAI frontend, and one worker node. The compose file still stands a NATS container up; nothing connects to it and you may delete that service. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
+This starts PostgreSQL, a LocalAI frontend, one worker node and one agent worker. Those four services are the whole deployment: there is no broker in the file and none to add. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
 
 {{% notice tip %}}
 Use `docker-compose.distributed.yaml` for quick local testing. For production, deploy PostgreSQL as a managed service and run frontends/workers on separate hosts. There is no message bus to deploy.
@@ -66,11 +66,10 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 |------|---------|---------|-------------|
 | `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode |
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(ignored)* | **Accepted and ignored.** A frontend opens no message-bus connection. Kept so an existing command line still starts. |
 | `--distributed-advertise-addr` | `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` | *(derived)* | `host:port` the **other frontend replicas** dial to reach this one. See [Replica peer links](#replica-peer-links). |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
-| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies `--registration-require-auth`, which is what guards registration, the worker control planes and file transfer. It also implies the inert `--nats-require-auth`. Set this in production instead of the granular flags. |
+| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies `--registration-require-auth`, which is what guards registration, the worker control planes and file transfer. Set this in production instead of the granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
 | `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
@@ -82,6 +81,8 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
 | `--worker-reconnect-grace` | `LOCALAI_WORKER_RECONNECT_GRACE` | `90s` | How long a worker whose tunnel was lost is treated as **reconnecting** rather than **gone**. Only after this window may the scheduler stop placing work on that worker, clean up its rows and release its models. Set it below the worker's own reconnect worst case and you will condemn workers that are re-homing exactly as designed. Measured on the database clock, so every replica agrees. See [A lost tunnel is a departure, not an absence](#a-lost-tunnel-is-a-departure-not-an-absence). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
+
+The three `LOCALAI_NATS_*_TIMEOUT` names above are **control-RPC budgets, not broker settings**, and are still read and enforced. They carry that prefix only because they were introduced alongside the message bus that distributed mode used to require; renaming them would break every existing deployment for cosmetics. Do not delete them when you [shut the broker down](#migrating-off-the-message-broker).
 
 ### Replica peer links
 
@@ -125,7 +126,7 @@ The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_R
 
 Several features keep state in a frontend's process memory and surface it over the API: fine-tune jobs, quantization jobs, agent tasks and Open Responses metadata. A round-robin load balancer sends a follow-up request to any replica, so each of those maps is kept current on every replica by a broadcast.
 
-**Those four families travel on PostgreSQL, not on NATS.** Each mutation is a `NOTIFY` on the database the deployment already runs, and each replica holds one `LISTEN` session for it. There is nothing to configure: the carrier uses the same database URL as `--auth-database-url` / `LOCALAI_AUTH_DATABASE_URL`.
+**Those four families travel on PostgreSQL.** Each mutation is a `NOTIFY` on the database the deployment already runs, and each replica holds one `LISTEN` session for it. There is nothing to configure: the carrier uses the same database URL as `--auth-database-url` / `LOCALAI_AUTH_DATABASE_URL`.
 
 | Map | Subject |
 |-----|---------|
@@ -141,7 +142,7 @@ for the life of a request: which gallery operations are in flight and how far
 along they are, which admin operations have been admitted, which model files are
 being staged onto a worker, and which replica already holds the KV/prefix cache
 for a prompt. Each of those is kept current on every replica by a broadcast, and
-**every one of them is on PostgreSQL**. Nothing in this table uses NATS.
+**every one of them is on PostgreSQL**.
 
 | Family | Subject | What a peer does with it |
 |--------|---------|--------------------------|
@@ -478,7 +479,7 @@ Registering against an upgraded frontend **clears** a node's `address` and `http
 
 A worker on this release opens **no inbound listener on a routable interface**. Its backend gRPC processes and its HTTP file-transfer server all bind loopback, and the frontend reaches both through the tunnel. Concretely:
 
-- **No inbound firewall rule, published port, Service or Ingress is needed for a worker.** A serve-backend worker needs outbound access to the frontend URL (`LOCALAI_REGISTER_TO`), and nothing else - not even to NATS. An agent worker binds only loopback too, and needs outbound access to `LOCALAI_REGISTER_TO` and nothing else either: registration, heartbeats, its tunnel and every verb the frontend addresses to it all go there.
+- **No inbound firewall rule, published port, Service or Ingress is needed for a worker.** A serve-backend worker needs outbound access to the frontend URL (`LOCALAI_REGISTER_TO`), and nothing else. An agent worker binds only loopback too, and needs outbound access to `LOCALAI_REGISTER_TO` and nothing else either: registration, heartbeats, its tunnel and every verb the frontend addresses to it all go there.
 - **`LOCALAI_ADVERTISE_ADDR` and `LOCALAI_ADVERTISE_HTTP_ADDR` are gone.** There is nothing to advertise. Both are ignored if still set; remove them.
 - **`LOCALAI_ADDR` and `LOCALAI_SERVE_ADDR` are read for their port only.** The port is the base of the backend port range, and `port-1` is the HTTP file-transfer port. The host half names an interface nothing binds.
 - The node's `address` and `http_address` fields in `GET /api/nodes` are empty, and are cleared for nodes that reported them before the upgrade.
@@ -596,22 +597,26 @@ The chat UI renders this state inline and retries automatically once the model r
 A frontend replica that dies mid-load does not wedge the model: the job row carries a heartbeat and another replica reclaims a job whose heartbeat has stopped. The heartbeat is time-based, not byte-based, because a checkpoint load legitimately transfers zero bytes for many minutes.
 {{% /notice %}}
 
-### NATS credentials (inert)
+### Migrating off the message broker
 
-**No LocalAI component connects to NATS.** The frontend's cross-replica fan-out is on PostgreSQL, a serve-backend worker takes every verb on its own tunnel, and an agent worker now does too, including the cancel that was the last family on a bus.
+Earlier releases of distributed mode required a NATS cluster alongside PostgreSQL. **They no longer do. Shut the broker down.** Nothing in LocalAI opens a connection to one: the frontend's cross-replica fan-out is on PostgreSQL, queued work is a claim on a PostgreSQL table, a serve-backend worker takes every verb on its own tunnel, and an agent worker does too, including the cancel that was the last family on a bus.
 
-Every `LOCALAI_NATS_*` setting is therefore accepted and inert, so an existing command line, unit file or Helm values file starts unchanged:
+There is no migration step and no cutover window. Stop the broker, delete its service from your compose file, chart or unit files, and delete the credentials you generated for it. A deployment that keeps running one is paying for infrastructure that carries nothing.
+
+**Your existing command lines still start.** Every `LOCALAI_NATS_*` setting below is parsed and then ignored, so an unedited command line, unit file or Helm values file needs no change on the day you upgrade. Remove them at your convenience.
 
 | Flag | Env Var | Status |
 |------|---------|--------|
-| `--nats-url` | `LOCALAI_NATS_URL` | Accepted and ignored on the frontend, `local-ai worker` and `local-ai agent-worker`. |
+| `--nats-url` | `LOCALAI_NATS_URL` | Accepted and ignored on the frontend, `local-ai worker` and `local-ai agent-worker`. The value is never dialled, so it may point at a broker that is already gone. |
 | `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | The frontend still mints a per-node user JWT at registration (`nats_jwt` in the register response). Nothing consumes it. |
 | `--nats-service-jwt` / `--nats-service-seed` | `LOCALAI_NATS_SERVICE_JWT` / `LOCALAI_NATS_SERVICE_SEED` | Accepted, unused: the frontend opens no bus connection to present them on. |
 | `--nats-worker-jwt-ttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Lifetime of the minted-but-unused worker JWTs. |
-| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | On an agent worker this still makes registration **wait through admin approval** rather than starting against a pending node. It no longer gates any bus connection. |
+| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | On an agent worker this still makes registration **wait through admin approval** rather than starting against a pending node. It gates no connection. |
 | `--nats-tls-ca` / `--nats-tls-cert` / `--nats-tls-key` | `LOCALAI_NATS_TLS_*` | Accepted, unused. |
 
-You may stop running a NATS server, and remove these settings at your convenience.
+{{% notice warning %}}
+`LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT`, `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` and `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` are **not** in the table above and must **not** be removed. Despite their names they were never broker settings: each one is a control-RPC budget the frontend applies to a worker, and each is still read and still enforced. They are documented with the other frontend flags in [Frontend Configuration](#frontend-configuration). The names are kept because renaming them would break every existing deployment for cosmetics.
+{{% /notice %}}
 
 {{% notice note %}}
 `LOCALAI_AUTH` (HTTP users/sessions) is unrelated. HTTP registration still uses `LOCALAI_REGISTRATION_TOKEN`, and every worker control plane sits behind that same bearer check.
@@ -655,7 +660,7 @@ absolute snapshot path and skip transfer. Otherwise, the controller stages the
 complete snapshot tree to each worker before loading the backend. With an object
 store configured the controller uploads to the bucket and commands the worker to
 fetch over its tunnel; without one it pushes the files to the worker's HTTP file
-transfer server directly. Neither path uses NATS.
+transfer server directly.
 
 {{% notice warning %}}
 Every controller and worker must have enough disk space for its own snapshot
@@ -713,7 +718,7 @@ local-ai worker \
   --registration-token changeme
 ```
 
-There is no `--nats-url` here. A serve-backend worker connects to no message bus: it dials one outbound tunnel to `--register-to` and serves every request the frontend makes of it over that. The flag is still accepted and ignored, so an existing command line keeps working.
+There is no broker flag here. A serve-backend worker dials one outbound tunnel to `--register-to` and serves every request the frontend makes of it over that. A `--nats-url` left over from an older command line is still accepted and ignored; see [Migrating off the message broker](#migrating-off-the-message-broker).
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
@@ -728,7 +733,6 @@ There is no `--nats-url` here. A serve-backend worker connects to no message bus
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying `--registration-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
 | `--worker-tunnel` | `LOCALAI_WORKER_TUNNEL` | `true` | Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port (see [Worker tunnels](#worker-tunnels)). Setting it to `false` is a **fatal startup error**, not a degraded mode: the frontend has no path that dials a worker's advertised address, so a worker without its tunnel is a worker nothing can reach. To run without tunnels, run the pre-tunnel release on both the worker and the frontend. |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(ignored)* | **Accepted and ignored.** A serve-backend worker opens no NATS connection. Kept so an existing worker command line still starts. |
 | `--backends-path` | `LOCALAI_BACKENDS_PATH` | `./backends` | Path to backend binaries |
 | `--models-path` | `LOCALAI_MODELS_PATH` | `./models` | Path to model files |
 | `--vram-budget` | `LOCALAI_VRAM_BUDGET` | *(empty)* | Cap the VRAM this node advertises for model placement, as a percentage (e.g. `80%`) or an absolute amount (e.g. `12GB`). Empty uses all detected VRAM. See [Per-node VRAM budget](#per-node-vram-budget). |
@@ -1208,7 +1212,7 @@ engine_args:
 
 The ds4 backend (DeepSeek V4 Flash) supports **layer-parallel** distributed inference: a single model that is too large for one machine is split by transformer layer across several machines. Each machine must have the GGUF present locally, but loads **only its own slice** of the layers. This lets you run a model whose weights exceed any single host's memory.
 
-This is **not** routed through the SmartRouter: it is a model-internal split, configured manually (Phase 1). It is unrelated to the NATS/PostgreSQL distributed mode described above.
+This is **not** routed through the SmartRouter: it is a model-internal split, configured manually (Phase 1). It is unrelated to the PostgreSQL-backed distributed mode described above.
 
 ### Topology
 
@@ -1506,8 +1510,8 @@ Notes:
 - Check that `--registration-token` matches on both frontend and worker
 - Ensure auth is enabled on the frontend (`LOCALAI_AUTH=true`)
 
-**NATS connection errors:**
-- Nothing in LocalAI connects to NATS any more, on any component. If a release you are running still logs one, it predates the tunnel migration; on this release, look at the failing component's tunnel and its `--register-to` instead.
+**Message-broker connection errors:**
+- Nothing in LocalAI connects to a broker any more, on any component. A release that logs such an error predates the tunnel migration; on this release, look at the failing component's tunnel and its `--register-to` instead. See [Migrating off the message broker](#migrating-off-the-message-broker).
 
 **PostgreSQL connection errors:**
 - Verify the connection URL format: `postgresql://user:password@host:5432/dbname?sslmode=disable`
@@ -1562,7 +1566,7 @@ Notes:
 - The HTTP file transfer server runs on the base port - 1 (default: 50050)
 - All of those bind loopback, so a firewall cannot be the cause. What can is another service on the same host already holding a port in the range: move the worker's range with `LOCALAI_ADDR` (see [Worker Port Configuration](#worker-port-configuration)) or bound it with `LOCALAI_GRPC_MAX_PORT`
 - Verify the backend gallery configuration is correct
-- The worker needs OUTBOUND network access to the gallery and to `LOCALAI_REGISTER_TO`. It needs no inbound access at all, and no access to NATS
+- The worker needs OUTBOUND network access to the gallery and to `LOCALAI_REGISTER_TO`. It needs no inbound access at all
 
 ## Roadmap: Routing and Caching Enhancements
 

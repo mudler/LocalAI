@@ -65,9 +65,17 @@ test.describe('Nodes roster panels', () => {
 
 test.describe('Nodes join command', () => {
   // The panel emits BOTH the backend and the agent join command from one
-  // component, so the bus flag has to differ per tab rather than be deleted.
-  // Backend workers connect to no NATS server; agent workers still do.
-  test('omits the NATS flag for a backend worker and keeps it for an agent worker', async ({ page }) => {
+  // component. Neither worker kind dials a message bus any more: each holds one
+  // outward tunnel to --register-to and takes every verb on it. A join command
+  // carrying --nats-url would tell an operator to stand up, secure and pay for a
+  // broker that nothing in the deployment connects to, which is the one way this
+  // migration can still cost money after the code stopped using it.
+  //
+  // Asserted on the RENDERED command text rather than on the component's
+  // variables, because the variables are what the fix deletes: a spec reading
+  // them would stop compiling instead of failing, and a compile error is not
+  // evidence about what an operator is shown.
+  test('emits no bus flag for either worker kind', async ({ page }) => {
     await mockCluster(page, [])
     await page.goto('/app/nodes')
 
@@ -76,14 +84,21 @@ test.describe('Nodes join command', () => {
     await expect(backendCli).toContainText('local-ai worker', { timeout: 15_000 })
     await expect(backendCli).not.toContainText('--nats-url')
     const backendDocker = page.locator('.p2p-cmd pre').nth(1)
+    await expect(backendDocker).toContainText('LOCALAI_REGISTER_TO')
     await expect(backendDocker).not.toContainText('LOCALAI_NATS_URL')
 
+    // The agent tab is the one that regressed: it was the last surface still
+    // emitting the flag, and it kept emitting it for two tasks after the agent
+    // worker stopped dialling.
     await page.getByRole('radio', { name: /^Agent$/ }).click()
     const agentCli = page.locator('.p2p-cmd pre').first()
     await expect(agentCli).toContainText('local-ai agent-worker', { timeout: 15_000 })
-    await expect(agentCli).toContainText('--nats-url')
+    await expect(agentCli).toContainText('--register-to',
+    )
+    await expect(agentCli).not.toContainText('--nats-url')
     const agentDocker = page.locator('.p2p-cmd pre').nth(1)
-    await expect(agentDocker).toContainText('LOCALAI_NATS_URL')
+    await expect(agentDocker).toContainText('LOCALAI_REGISTER_TO')
+    await expect(agentDocker).not.toContainText('LOCALAI_NATS_URL')
   })
 
   test('does not advertise flags the CLI does not have', async ({ page }) => {
@@ -102,8 +117,12 @@ test.describe('Nodes join command', () => {
     // command carrying them fails at kong before LocalAI does anything.
     await expect(card).not.toContainText('--distributed-nats')
     await expect(card).not.toContainText('--distributed-db')
-    // And the worker step no longer tells an operator to point a backend
-    // worker at a bus it does not dial.
+    // Neither step tells an operator to point anything at a bus. The FRONTEND
+    // command is asserted first and by itself: it is the one that used to carry
+    // --nats-url as a required flag, so an operator following this card would
+    // have stood a broker up before starting LocalAI at all.
+    await expect(card.locator('.p2p-cmd pre').nth(0)).toContainText('--auth-database-url')
+    await expect(card.locator('.p2p-cmd pre').nth(0)).not.toContainText('--nats-url')
     await expect(card.locator('.p2p-cmd pre').nth(1)).not.toContainText('--nats-url')
   })
 })

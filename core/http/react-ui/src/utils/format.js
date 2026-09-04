@@ -16,7 +16,8 @@ export function percentColor(pct) {
 // milliseconds, regardless of its encoding. The agent SSE bridge emits the
 // json_message timestamp in three different shapes depending on deploy mode:
 // an RFC3339 string (standalone agent pool), Unix milliseconds (local
-// dispatcher), or Unix nanoseconds (older NATS path). A numeric value is
+// dispatcher), or Unix nanoseconds (releases before the tunnel migration,
+// which a rolling upgrade still has in flight). A numeric value is
 // classified by magnitude (s / ms / us / ns) so any of them yields a sane
 // epoch. Falls back to Date.now() for null/empty/unparseable input.
 export function normalizeTimestampMs(ts) {

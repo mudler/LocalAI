@@ -41,13 +41,6 @@ function WorkerHintCard({ addToast, activeTab, hasWorkers }) {
   const { selected, setSelected, option, dev, setDev } = useImageSelector('cpu')
   const isAgent = activeTab === 'agent'
   const workerCmd = isAgent ? 'agent-worker' : 'worker'
-  // Only the agent worker still uses the bus. A backend worker reaches this
-  // frontend over one outbound tunnel and connects to no NATS server, so
-  // emitting --nats-url on its join command would tell an operator to stand up
-  // infrastructure the command does not use. Both commands come from this one
-  // panel, which is why the flag is conditional rather than deleted.
-  const natsFlag = isAgent ? '  --nats-url "nats://nats:4222" \\\n' : ''
-  const natsEnv = isAgent ? '  -e LOCALAI_NATS_URL="nats://nats:4222" \\\n' : ''
   const flags = dockerFlags(option)
   const flagsStr = flags ? `${flags} \\\n  ` : ''
 
@@ -74,14 +67,14 @@ function WorkerHintCard({ addToast, activeTab, hasWorkers }) {
         <div>
           <p className="form-label">CLI</p>
           <CommandBlock
-            command={`local-ai ${workerCmd} \\\n  --register-to "${frontendUrl}" \\\n${natsFlag}  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`}
+            command={`local-ai ${workerCmd} \\\n  --register-to "${frontendUrl}" \\\n  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`}
             addToast={addToast}
           />
         </div>
         <div>
           <p className="form-label">Docker</p>
           <CommandBlock
-            command={`docker run --net host ${flagsStr}\\\n  -e LOCALAI_REGISTER_TO="${frontendUrl}" \\\n${natsEnv}  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${dockerImage(option, dev)} ${workerCmd}`}
+            command={`docker run --net host ${flagsStr}\\\n  -e LOCALAI_REGISTER_TO="${frontendUrl}" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${dockerImage(option, dev)} ${workerCmd}`}
             addToast={addToast}
           />
         </div>
@@ -247,7 +240,7 @@ export default function Nodes() {
               <div className="flex-1">
                 <p className="fw-medium mb-xs">Start LocalAI with distributed mode</p>
                 <CommandBlock
-                  command={`local-ai run --distributed \\\n  --auth-database-url "postgres://user:pass@host/db" \\\n  --nats-url "nats://host:4222"`}
+                  command={`local-ai run --distributed \\\n  --auth-database-url "postgres://user:pass@host/db"`}
                   addToast={addToast}
                 />
               </div>

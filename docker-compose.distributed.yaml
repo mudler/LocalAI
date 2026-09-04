@@ -1,7 +1,11 @@
 # Docker Compose for LocalAI Distributed Mode
 #
-# Starts a full distributed stack: PostgreSQL, NATS, a LocalAI frontend,
-# and one llama-cpp backend node.
+# Starts a full distributed stack: PostgreSQL, a LocalAI frontend, one
+# llama-cpp backend node and one agent worker.
+#
+# There is no message broker in this file and none is needed. PostgreSQL carries
+# every cross-replica broadcast, and each worker dials one outbound tunnel to the
+# frontend and takes every verb on it.
 #
 # Model files are transferred from the frontend to backend nodes via HTTP
 # — no shared volumes needed between frontend and backends.
@@ -28,13 +32,6 @@ services:
       timeout: 3s
       retries: 10
 
-  nats:
-    image: nats:2-alpine
-    ports:
-      - "4222:4222"   # Client connections
-      - "8222:8222"   # HTTP monitoring (optional, useful for debugging)
-    command: ["--js", "-m", "8222"]  # Enable JetStream + monitoring
-
   # --- LocalAI Frontend ---
   # Stateless API server that routes requests to backend nodes.
   # Add more replicas behind a load balancer for HA.
@@ -52,7 +49,6 @@ services:
     environment:
       # Distributed mode
       LOCALAI_DISTRIBUTED: "true"
-      LOCALAI_NATS_URL: "nats://nats:4222"
       LOCALAI_AGENT_POOL_EMBEDDING_MODEL: "granite-embedding-107m-multilingual"
       LOCALAI_AGENT_POOL_VECTOR_ENGINE: "postgres"
       LOCALAI_AGENT_POOL_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
@@ -68,7 +64,7 @@ services:
       # Force pure-Go DNS resolver. The default cgo resolver follows the
       # container's nsswitch.conf and ends up forwarding to host
       # systemd-resolved (127.0.0.53), which isn't reachable from inside
-      # the container — failing every postgres/nats hostname lookup at
+      # the container, failing every postgres hostname lookup at
       # boot. The pure-Go path reads /etc/resolv.conf directly and uses
       # Docker's embedded DNS at 127.0.0.11.
       GODEBUG: "netdns=go"
@@ -83,13 +79,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      nats:
-        condition: service_started
 
   # --- Worker Node ---
   # A generic worker that self-registers with the frontend.
   # The same LocalAI image is used — no separate image needed.
-  # The SmartRouter dynamically tells workers which backend to install via NATS.
+  # The SmartRouter tells a worker which backend to install over that worker's
+  # own tunnel.
   #
   # Model files are transferred from the frontend via HTTP file staging.
   # The worker has its own independent models volume.
@@ -115,10 +110,9 @@ services:
     # tunnel session, so `unhealthy` here means the frontend genuinely cannot
     # reach this worker.
     #
-    # No LOCALAI_NATS_URL and no dependency on the nats service: a backend
-    # worker connects to no bus. Everything the frontend asks of it travels the
-    # tunnel this container dials out to localai:8080. The frontend and the
-    # agent worker below still need NATS.
+    # This worker connects to nothing but the frontend. Everything the frontend
+    # asks of it travels the tunnel this container dials out to localai:8080, so
+    # the only service it depends on is localai itself.
     environment:
       LOCALAI_SERVE_ADDR: "0.0.0.0:50051"
       DEBUG: "true"
@@ -186,15 +180,15 @@ services:
   # LOCALAI_NODE_NAME really must differ: the registry upserts by name, so two
   # workers sharing one steal each other's row and each other's tunnel credential.
   #
-  # Workers are generic — no backend type needed. The SmartRouter
-  # will dynamically install the required backend via NATS when
-  # a model request arrives.
+  # Workers are generic: no backend type needed. The SmartRouter installs the
+  # required backend over the worker's tunnel when a model request arrives.
 
   # --- Agent Worker ---
   # Dedicated process for agent chat execution.
-  # Receives chat jobs from NATS, runs cogito LLM calls via the LocalAI API,
-  # and publishes results back via NATS for SSE delivery.
-  # No database access needed — config and skills are sent in the NATS payload.
+  # The frontend claims a queued run from PostgreSQL and drives it as a
+  # streaming control RPC over this container's own outbound tunnel; progress,
+  # agent events and the terminal result all come back on that same response.
+  # No database access needed: config and skills are sent in the request.
 
   agent-worker-1:
     # image: localai/localai:latest-cpu
@@ -212,11 +206,10 @@ services:
       - |
         apt-get update -qq && apt-get install -y -qq docker.io >/dev/null 2>&1
         exec /entrypoint.sh agent-worker
-    # The agent worker is NATS-only — no HTTP server to probe. The image's
-    # healthcheck detects that mode and reports healthy rather than probing a
-    # port that will never bind, so no override is needed here.
+    # The agent worker binds its control server on loopback only and publishes
+    # no port. The image's healthcheck detects that mode and reports healthy
+    # rather than probing a port that will never bind, so no override is needed.
     environment:
-      LOCALAI_NATS_URL: "nats://nats:4222"
       LOCALAI_REGISTER_TO: "http://localai:8080"
       LOCALAI_NODE_NAME: "agent-worker-1"
       LOCALAI_REGISTRATION_TOKEN: "changeme"  # Must match frontend token
@@ -225,8 +218,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       localai:
-        condition: service_started
-      nats:
         condition: service_started
 
 volumes:

@@ -1,8 +1,6 @@
 package natsauth_test
 
 import (
-	"os"
-	"regexp"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -157,32 +155,10 @@ var _ = Describe("WorkerPermissions subject coverage", func() {
 	})
 })
 
-var allowPubRe = regexp.MustCompile(`--allow-pub "([^"]*)"`)
-
-var _ = Describe("Documented NATS service-user permissions", func() {
-	// scripts/nats-auth-setup.sh ships the recommended service (frontend) JWT
-	// permissions. They must cover every subject the frontend actually publishes,
-	// or prefix-cache sync (and friends) break once LOCALAI_NATS_REQUIRE_AUTH is on.
-	const scriptPath = "../../scripts/nats-auth-setup.sh"
-
-	// Representative subjects the frontend publishes on the control plane.
-	// prefixcache.* is emitted by prefixcache.Sync in core/application/distributed.go.
-	frontendPublishes := []string{
-		messaging.SubjectPrefixCacheObserve,
-		messaging.SubjectPrefixCacheInvalidate,
-		messaging.SubjectGalleryProgress("op-1"),
-	}
-
-	It("cover every subject the frontend publishes", func() {
-		raw, err := os.ReadFile(scriptPath)
-		Expect(err).ToNot(HaveOccurred(), "cannot read %s", scriptPath)
-		m := allowPubRe.FindStringSubmatch(string(raw))
-		Expect(m).To(HaveLen(2), "no --allow-pub list found in %s", scriptPath)
-		allow := strings.Split(m[1], ",")
-
-		for _, subject := range frontendPublishes {
-			Expect(anyAllows(allow, subject)).To(BeTrue(),
-				"service-user --allow-pub %v does not cover %s (frontend publishes it)", allow, subject)
-		}
-	})
-})
+// The "Documented NATS service-user permissions" suite that stood here read
+// scripts/nats-auth-setup.sh and required its --allow-pub list to cover every
+// subject the frontend publishes. Both the script and the frontend's bus
+// connection are gone: cross-replica fan-out is a PostgreSQL NOTIFY, which has
+// no allow-list to fall out of sync with. The property was retired with the
+// artifact it guarded, not moved, and the surviving suites above still pin the
+// MINTED credentials, which are Task 17's to remove.

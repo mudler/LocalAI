@@ -30,7 +30,6 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 		It("should reject --distributed without PostgreSQL configured", func() {
 			appCfg := config.NewApplicationConfig(
 				config.EnableDistributed,
-				config.WithNatsURL(infra.NatsURL),
 				// No auth/PostgreSQL configured
 			)
 			Expect(appCfg.Distributed.Enabled).To(BeTrue())
@@ -38,26 +37,30 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			Expect(appCfg.Auth.Enabled).To(BeFalse())
 		})
 
-		It("should reject --distributed without NATS configured", func() {
+		It("leaves the inert bus URL empty when nothing sets it", func() {
 			appCfg := config.NewApplicationConfig(
 				config.EnableDistributed,
 				config.WithAuthEnabled(true),
 				config.WithAuthDatabaseURL(infra.PGURL),
-				// No NATS URL
 			)
 			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
 		})
 
 		It("should accept valid distributed configuration", func() {
+			// staleBusURL points at nothing on purpose. It is the shape of an
+			// operator's existing command line after the broker was shut down,
+			// and the promise this spec holds is that such a command line still
+			// STARTS: the value is parsed, stored and never dialled. Pointing
+			// it at a live server would let a regression that dialled it pass.
 			appCfg := config.NewApplicationConfig(
 				config.EnableDistributed,
 				config.WithAuthEnabled(true),
 				config.WithAuthDatabaseURL(infra.PGURL),
-				config.WithNatsURL(infra.NatsURL),
+				config.WithNatsURL(staleBusURL),
 			)
 			Expect(appCfg.Distributed.Enabled).To(BeTrue())
 			Expect(appCfg.Auth.Enabled).To(BeTrue())
-			Expect(appCfg.Distributed.NatsURL).To(Equal(infra.NatsURL))
+			Expect(appCfg.Distributed.NatsURL).To(Equal(staleBusURL))
 		})
 
 		It("should generate unique frontend ID on startup", func() {
