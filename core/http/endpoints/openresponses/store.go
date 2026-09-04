@@ -164,6 +164,12 @@ func NewResponseStore(ttl time.Duration) *ResponseStore {
 
 // Store stores a response with its request and items
 func (s *ResponseStore) Store(responseID string, request *schema.OpenResponsesRequest, response *schema.ORResponseResource) {
+	s.StoreOwned(responseID, request, response, "")
+}
+
+// StoreOwned stores a response with its owner set before the response becomes
+// visible locally or through distributed replication.
+func (s *ResponseStore) StoreOwned(responseID string, request *schema.OpenResponsesRequest, response *schema.ORResponseResource, owner string) {
 	s.mu.Lock()
 
 	// Build item index for quick lookup
@@ -182,6 +188,7 @@ func (s *ResponseStore) Store(responseID string, request *schema.OpenResponsesRe
 		StoredAt:       time.Now(),
 		ExpiresAt:      nil,
 		droppedThrough: -1,
+		Owner:          owner,
 	}
 
 	// Set expiration if TTL is configured
@@ -368,6 +375,12 @@ func (s *ResponseStore) Count() int {
 
 // StoreBackground stores a background response with cancel function and optional streaming support
 func (s *ResponseStore) StoreBackground(responseID string, request *schema.OpenResponsesRequest, response *schema.ORResponseResource, cancelFunc context.CancelFunc, streamEnabled bool) {
+	s.StoreBackgroundOwned(responseID, request, response, cancelFunc, streamEnabled, "")
+}
+
+// StoreBackgroundOwned stores a background response with its owner set before
+// the response becomes visible locally or through distributed replication.
+func (s *ResponseStore) StoreBackgroundOwned(responseID string, request *schema.OpenResponsesRequest, response *schema.ORResponseResource, cancelFunc context.CancelFunc, streamEnabled bool, owner string) {
 	s.mu.Lock()
 
 	// Build item index for quick lookup
@@ -391,6 +404,7 @@ func (s *ResponseStore) StoreBackground(responseID string, request *schema.OpenR
 		IsBackground:   true,
 		EventsChan:     make(chan struct{}, 100), // Buffered channel for event notifications
 		droppedThrough: -1,
+		Owner:          owner,
 	}
 
 	// Set expiration if TTL is configured
@@ -465,6 +479,17 @@ func (s *ResponseStore) UpdateResponse(responseID string, response *schema.ORRes
 
 // AppendEvent appends a streaming event to the buffer for resume support
 func (s *ResponseStore) AppendEvent(responseID string, event *schema.ORStreamEvent) error {
+	return s.appendEvent(responseID, event, false)
+}
+
+// AppendEventNext atomically assigns the sequence number immediately after the
+// last buffered or evicted event, then appends the event. This is used for
+// terminal events synthesized outside the normal stream producer.
+func (s *ResponseStore) AppendEventNext(responseID string, event *schema.ORStreamEvent) error {
+	return s.appendEvent(responseID, event, true)
+}
+
+func (s *ResponseStore) appendEvent(responseID string, event *schema.ORStreamEvent, assignNext bool) error {
 	s.mu.RLock()
 	stored, exists := s.responses[responseID]
 	s.mu.RUnlock()
@@ -473,13 +498,23 @@ func (s *ResponseStore) AppendEvent(responseID string, event *schema.ORStreamEve
 		return fmt.Errorf("response not found: %s", responseID)
 	}
 
-	// Serialize the event
+	stored.mu.Lock()
+	defer stored.mu.Unlock()
+
+	if assignNext {
+		event.SequenceNumber = stored.droppedThrough + 1
+		if n := len(stored.StreamEvents); n > 0 {
+			event.SequenceNumber = stored.StreamEvents[n-1].SequenceNumber + 1
+		}
+	}
+
+	// Serialize while holding the response lock so the assigned sequence and
+	// append remain one atomic operation with respect to other producers.
 	data, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
-	stored.mu.Lock()
 	stored.StreamEvents = append(stored.StreamEvents, StreamedEvent{
 		SequenceNumber: event.SequenceNumber,
 		EventType:      event.Type,
@@ -504,8 +539,6 @@ func (s *ResponseStore) AppendEvent(responseID string, event *schema.ORStreamEve
 		stored.StreamEvents[0].Data = nil
 		stored.StreamEvents = stored.StreamEvents[1:]
 	}
-	stored.mu.Unlock()
-
 	// Notify any subscribers of new event
 	select {
 	case stored.EventsChan <- struct{}{}:
@@ -513,6 +546,28 @@ func (s *ResponseStore) AppendEvent(responseID string, event *schema.ORStreamEve
 		// Channel full, subscribers will catch up
 	}
 
+	return nil
+}
+
+// ClearEvents releases the resume buffer while retaining the stored request
+// and final response needed by previous_response_id continuation.
+func (s *ResponseStore) ClearEvents(responseID string) error {
+	s.mu.RLock()
+	stored, exists := s.responses[responseID]
+	s.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("response not found: %s", responseID)
+	}
+
+	stored.mu.Lock()
+	for i := range stored.StreamEvents {
+		stored.StreamEvents[i].Data = nil
+	}
+	stored.StreamEvents = nil
+	stored.streamBytes = 0
+	stored.droppedThrough = -1
+	stored.mu.Unlock()
 	return nil
 }
 
