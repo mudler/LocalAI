@@ -86,8 +86,8 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 			agentStore, err := agents.NewAgentStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			frontend0 := agents.NewEventBridge(infra.Bus(), agentStore, "frontend-0")
-			frontend1 := agents.NewEventBridge(infra.Bus(), agentStore, "frontend-1")
+			frontend0 := agents.NewEventBridge(infra.Bus(), agentStore, "frontend-0", nil)
+			frontend1 := agents.NewEventBridge(infra.Bus(), agentStore, "frontend-1", nil)
 
 			received := make(chan agents.AgentEvent, 16)
 			sub, err := frontend1.SubscribeEvents("test-agent", "user1", func(evt agents.AgentEvent) {

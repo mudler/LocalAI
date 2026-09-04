@@ -48,6 +48,13 @@ import (
 // The SELECTOR is built here rather than borrowed from newAgentControl, and
 // deliberately: nodes.AgentSelector holds no per-caller state, and sharing one
 // would couple the dispatch loop's lifetime to MCP's for nothing.
+//
+// The reconnect grace it is built with is INERT on this path and is passed
+// correctly anyway. The selector reads it only in Reachable, which is what a
+// fan-out verb (an agent cancel) asks; this loop asks PickConnected, which
+// never needs it, because a worker that is not connected cannot be picked
+// whatever the reason. Passing a value this loop cannot observe is still
+// cheaper than a second constructor.
 func startJobDispatchLoop(ctx context.Context, cfg config.DistributedConfig, db *gorm.DB, store *jobs.JobStore,
 	registry *nodes.NodeRegistry, conns nodes.AgentConnectionReader,
 	control *nodes.ControlClient, broadcast *nodes.Rebroadcaster) (*jobs.DispatchLoop, error) {
@@ -63,7 +70,7 @@ func startJobDispatchLoop(ctx context.Context, cfg config.DistributedConfig, db 
 	loop, err := jobs.NewDispatchLoop(jobs.DispatchConfig{
 		DB:       db,
 		Owner:    cfg.InstanceID,
-		Selector: nodes.NewAgentSelector(registry, conns, cfg.InstanceID),
+		Selector: nodes.NewAgentSelector(registry, conns, cfg.InstanceID, cfg.WorkerReconnectGrace),
 		Control:  control,
 		// The allow list lives in nodes and is keyed on the worker's node type;
 		// nothing here decides what a worker may broadcast on.
