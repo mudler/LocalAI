@@ -16,7 +16,7 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// AgentEvent is the NATS message payload for agent SSE events.
+// AgentEvent is the broadcast payload for agent SSE events.
 type AgentEvent struct {
 	AgentName      string `json:"agent_name"`
 	UserID         string `json:"user_id"`
@@ -30,17 +30,41 @@ type AgentEvent struct {
 	Timestamp      int64  `json:"timestamp"`          // Unix milliseconds (set by PublishEvent)
 }
 
-// AgentCancelEvent is the NATS message payload for cancelling agent execution.
+// AgentCancelEvent is the broadcast payload for cancelling agent execution.
 type AgentCancelEvent struct {
 	AgentName string `json:"agent_name"`
 	UserID    string `json:"user_id"`
 	MessageID string `json:"message_id,omitempty"`
 }
 
-// EventBridge bridges agent events between NATS and SSE connections.
-// It enables cross-instance SSE: user connects to Frontend 1, agent runs on Frontend 2.
+// EventBridge bridges agent events between the broadcast carrier and SSE
+// connections. It enables cross-instance SSE: a user connects to Frontend 1
+// while the agent runs on Frontend 2.
 type EventBridge struct {
-	nats messaging.MessagingClient
+	// bus is the fan-out carrier this bridge subscribes on. A Broadcaster and
+	// not a MessagingClient because fan-out is all a bridge needs: an agent's
+	// events go to whoever is watching, and there is nothing here to request or
+	// to queue.
+	bus messaging.Broadcaster
+
+	// cancelBus is where agent.<name>.cancel is published and heard, and it is
+	// a SEPARATE field from bus because in this deployment the two ends of that
+	// family cannot be on the same carrier yet.
+	//
+	// Every other family here has both ends on a frontend replica, so both move
+	// to the broadcast carrier together. This one does not: its only subscriber
+	// is the agent WORKER (core/cli/agent_worker.go), the cancel has to reach
+	// the worker actually running the execution, and a worker has no database
+	// and so cannot join the PostgreSQL carrier at all. Publishing a cancel
+	// where no worker is listening would report a cancel that reached nobody as
+	// a cancel the execution declined, which is the one thing this whole
+	// programme may not do.
+	//
+	// So it is named, and it is separate, and it stays on the carrier the
+	// worker reads until a cancel rides the worker's tunnel instead. Folding it
+	// back into bus is not a simplification: it is silent loss of every cancel
+	// for every worker-run agent.
+	cancelBus messaging.Broadcaster
 	// pub is where the events this bridge produces GO, which is not always the
 	// bus. On an agent worker running a dispatched claim it is the response
 	// body of the control RPC the claiming replica is reading, so the events
@@ -58,19 +82,47 @@ type EventBridge struct {
 	// stream-backed one. A copied sync.Map would swallow every cancel.
 	cancelRegistry *messaging.CancelRegistry
 
-	// Background NATS subscriptions owned by this bridge
+	// The process-lifetime subscription this bridge owns. The per-request one
+	// SubscribeEvents opens belongs to the HTTP handler that opened it.
 	obsPersisterSub messaging.Subscription
 }
 
-// NewEventBridge creates a new EventBridge.
-func NewEventBridge(nc messaging.MessagingClient, store *AgentStore, instanceID string) *EventBridge {
+// NewEventBridge creates a new EventBridge on the deployment's fan-out carrier.
+//
+// Cancels go on that same carrier unless WithCancelCarrier says otherwise,
+// which is right for the agent worker, where there is only one carrier to be
+// on, and wrong for a frontend replica, which reads fan-out from PostgreSQL and
+// has to reach workers that cannot.
+func NewEventBridge(bus messaging.Broadcaster, store *AgentStore, instanceID string) *EventBridge {
 	return &EventBridge{
-		nats:           nc,
-		pub:            nc,
+		bus:            bus,
+		cancelBus:      bus,
+		pub:            bus,
 		store:          store,
 		instanceID:     instanceID,
 		cancelRegistry: &messaging.CancelRegistry{},
 	}
+}
+
+// WithCancelCarrier puts agent.<name>.cancel on carrier instead of on the
+// fan-out bus, and returns the receiver so it can be written as one expression
+// with the constructor.
+//
+// A frontend replica needs it and an agent worker does not. The cancel has to
+// reach the worker running the execution; a worker has no database and cannot
+// join the PostgreSQL carrier; so a frontend that published its cancels there
+// would publish them where no worker listens, and a cancel that reached nobody
+// is not a cancel that was refused.
+//
+// A nil carrier leaves the bridge on the fan-out bus rather than on nothing,
+// because a bridge that publishes cancels nowhere is the failure this exists to
+// prevent.
+func (b *EventBridge) WithCancelCarrier(carrier messaging.Broadcaster) *EventBridge {
+	if b == nil || carrier == nil {
+		return b
+	}
+	b.cancelBus = carrier
+	return b
 }
 
 // WithPublisher returns a view of this bridge whose events go to pub.
@@ -91,7 +143,7 @@ func (b *EventBridge) WithPublisher(pub messaging.Publisher) *EventBridge {
 	return &view
 }
 
-// PublishEvent publishes an agent event to NATS for SSE bridging.
+// PublishEvent broadcasts an agent event for SSE bridging.
 //
 // Timestamp is emitted in Unix milliseconds to match the local dispatcher's
 // json_message events (see dispatcher.go) and the React UI, which feeds the
@@ -106,8 +158,8 @@ func (b *EventBridge) PublishEvent(agentName, userID string, evt AgentEvent) err
 
 // PersistObservable publishes an observable_update SSE event for real-time UI
 // updates and, if a database store is available, writes the record to the DB.
-// When the store is nil (e.g. on agent workers), the NATS event is still
-// published so the frontend can persist it via StartObservablePersister.
+// When the store is nil (e.g. on agent workers), the event is still published so
+// the frontend can persist it via StartObservablePersister.
 func (b *EventBridge) PersistObservable(agentName, userID, eventType string, obs any) {
 	payload := dbutil.MarshalJSON(obs)
 	recordID := uuid.New().String()
@@ -123,7 +175,7 @@ func (b *EventBridge) PersistObservable(agentName, userID, eventType string, obs
 		})
 	}
 
-	// Always publish NATS event — enables real-time SSE and remote persistence.
+	// Always broadcast, which is what enables real-time SSE and remote persistence.
 	b.PublishEvent(agentName, userID, AgentEvent{
 		AgentName:      agentName,
 		UserID:         userID,
@@ -135,7 +187,7 @@ func (b *EventBridge) PersistObservable(agentName, userID, eventType string, obs
 	})
 }
 
-// PublishMessage publishes a chat message event via NATS for SSE bridging.
+// PublishMessage broadcasts a chat message event for SSE bridging.
 // Uses "json_message" event type to match the React UI's expected SSE format.
 // Conversation history is managed client-side (browser localStorage), not server-side.
 func (b *EventBridge) PublishMessage(agentName, userID, sender, content, messageID string) error {
@@ -172,10 +224,10 @@ func (b *EventBridge) PublishStatus(agentName, userID, status string) error {
 // SubscribeEvents subscribes to agent events for a specific agent+user.
 func (b *EventBridge) SubscribeEvents(agentName, userID string, handler func(AgentEvent)) (messaging.Subscription, error) {
 	subject := messaging.SubjectAgentEvents(agentName, userID)
-	return messaging.SubscribeJSON(b.nats, subject, handler)
+	return messaging.SubscribeJSON(b.bus, subject, handler)
 }
 
-// PublishStreamEvent publishes a stream event (reasoning, content, tool_call, done) via NATS.
+// PublishStreamEvent broadcasts a stream event (reasoning, content, tool_call, done).
 // These are forwarded as "stream_event" SSE events matching the React UI's expected format.
 func (b *EventBridge) PublishStreamEvent(agentName, userID string, data map[string]any) error {
 	return b.PublishEvent(agentName, userID, AgentEvent{
@@ -193,8 +245,13 @@ func (b *EventBridge) CancelExecution(agentName, userID, messageID string) error
 		xlog.Info("Cancelled agent execution locally", "agent", agentName, "user", userID, "messageID", messageID)
 	}
 
-	// Also publish via NATS for other instances
-	return b.nats.Publish(messaging.SubjectAgentCancel(agentName), AgentCancelEvent{
+	// Broadcast so the replica that actually holds the execution can act on it.
+	//
+	// The error says whether the request was PUBLISHED and nothing more. This
+	// carrier is at-most-once with no replay, so a cancel that reached nobody
+	// and a cancel an execution declined are different facts that cannot be
+	// told apart from here, and neither may be reported as the other.
+	return b.cancelBus.Publish(messaging.SubjectAgentCancel(agentName), AgentCancelEvent{
 		AgentName: agentName,
 		UserID:    userID,
 		MessageID: messageID,
@@ -211,28 +268,32 @@ func (b *EventBridge) DeregisterCancel(key string) {
 	b.cancelRegistry.Deregister(key)
 }
 
-// StartCancelListener subscribes to NATS cancel events (broadcast to all instances).
+// StartCancelListener subscribes to the cancel broadcasts every replica sees.
 func (b *EventBridge) StartCancelListener() (messaging.Subscription, error) {
-	return messaging.SubscribeJSON(b.nats, messaging.SubjectAgentCancelWildcard, func(evt AgentCancelEvent) {
+	return messaging.SubscribeJSON(b.cancelBus, messaging.SubjectAgentCancelWildcard, func(evt AgentCancelEvent) {
 		if evt.MessageID != "" {
 			if b.cancelRegistry.Cancel(evt.MessageID) {
-				xlog.Info("Cancelled agent via NATS", "agent", evt.AgentName, "user", evt.UserID, "messageID", evt.MessageID)
+				xlog.Info("Cancelled an agent execution on this replica after a broadcast cancel", "agent", evt.AgentName, "user", evt.UserID, "messageID", evt.MessageID)
 			}
 		}
 	})
 }
 
-// StartObservablePersister subscribes to all agent events via NATS and persists
-// observable_update events to the database. This runs on the frontend to capture
-// observables published by workers (which have no database access).
-// The subscription is stored on the EventBridge and cleaned up when the NATS
-// connection closes.
+// StartObservablePersister subscribes to every agent's events and persists the
+// observable_update ones to the database. This runs on the frontend, to capture
+// observables published by workers, which have no database access.
+//
+// The subscription lives for the life of this bridge and is one per replica, not
+// one per request.
 func (b *EventBridge) StartObservablePersister() error {
 	if b.store == nil {
 		return fmt.Errorf("no store available for observable persistence")
 	}
-	// Subscribe to all agent events using wildcard: agent.*.events.*
-	sub, err := messaging.SubscribeJSON(b.nats, "agent.*.events.*", func(evt AgentEvent) {
+	// The filter is the constant next to the builder it has to match. It used
+	// to be a literal here, four tokens spelled by hand three files from
+	// SubjectAgentEvents, and a filter one token short of its subject matches
+	// nothing at all with no error anywhere.
+	sub, err := messaging.SubscribeJSON(b.bus, messaging.SubjectAgentEventsWildcard, func(evt AgentEvent) {
 		if evt.EventType != "observable_update" {
 			return
 		}
@@ -267,7 +328,7 @@ func (b *EventBridge) StartObservablePersister() error {
 	return nil
 }
 
-// HandleSSE bridges NATS agent events to SSE for a specific agent and user.
+// HandleSSE bridges an agent's event broadcasts to SSE for one agent and user.
 func (b *EventBridge) HandleSSE(c echo.Context, agentName, userID string) error {
 	if agentName == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "agent name required"})
@@ -275,8 +336,8 @@ func (b *EventBridge) HandleSSE(c echo.Context, agentName, userID string) error 
 	return b.handleSSEInternal(c, agentName, userID)
 }
 
-// SSEHandler returns an Echo handler that bridges NATS agent events to SSE.
-// This is the distributed version of the SSE endpoint.
+// SSEHandler returns an Echo handler that bridges an agent's event broadcasts
+// to SSE. This is the distributed version of the SSE endpoint.
 func (b *EventBridge) SSEHandler() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		agentName := c.Param("name")
@@ -348,9 +409,20 @@ func (b *EventBridge) handleSSEInternal(c echo.Context, agentName, userID string
 		writeSSE("json_error", `{"error":"failed to subscribe to agent events"}`)
 		return nil
 	}
+	// Deferred, not called on the way out. This subscription is opened and
+	// closed PER HTTP REQUEST, and on the PostgreSQL carrier only the first
+	// subscriber of a channel issues a LISTEN while every later one registers
+	// an in-process filter, so a return that skipped this would leave a replica
+	// running one extra closure per notification for every stream it has ever
+	// served, and nothing in the tree would fail.
+	defer func() {
+		closed.Store(true)
+		if uerr := sub.Unsubscribe(); uerr != nil {
+			xlog.Warn("Failed to close an agent event subscription", "agent", agentName, "user", userID, "error", uerr)
+		}
+	}()
+
 	// Wait for client disconnect
 	<-c.Request().Context().Done()
-	closed.Store(true)
-	sub.Unsubscribe()
 	return nil
 }

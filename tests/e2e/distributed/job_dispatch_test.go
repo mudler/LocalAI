@@ -53,7 +53,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 			// not be told from ones a dead replica left.
 			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8080", "v1")).To(Succeed())
 
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, owner)
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 
 			task := &jobs.TaskRecord{UserID: "u1", Name: "dispatch-task", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
@@ -100,7 +100,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 			const owner = "plain-instance"
 			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8081", "v1")).To(Succeed())
 
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, owner)
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 			task := &jobs.TaskRecord{UserID: "u1", Name: "plain-task", Model: "m1", Prompt: "p1"}
 			Expect(store.CreateTask(task)).To(Succeed())
 			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
@@ -158,12 +158,18 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 		})
 	})
 
-	Context("NATS job cancellation", func() {
+	Context("job cancellation", func() {
 		// Cancellation stays a BROADCAST and is not part of the claim queue: the
 		// replica holding a run is not the one an API cancel lands on, so the
 		// signal has to reach every replica and every worker.
+		//
+		// Asserted across TWO carriers, because one carrier hearing itself
+		// proves nothing about the replica that actually holds the execution.
+		// A cancel that does not arrive is not a cancel that was refused, so
+		// what is pinned here is arrival and never the publisher's error.
 		It("broadcasts a cancel for a job on the job's own cancel subject", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "cancel-instance")
+			publisher, listener := infra.Bus(), infra.Bus()
+			dispatcher := jobs.NewDispatcher(store, publisher, db, "cancel-instance")
 
 			task := &jobs.TaskRecord{UserID: "u1", Name: "cancel-task", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
@@ -171,7 +177,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 			store.CreateJob(job)
 
 			seen := make(chan string, 1)
-			sub, err := infra.NC.Subscribe(messaging.SubjectJobCancelWildcard, func(data []byte) {
+			sub, err := listener.Subscribe(messaging.SubjectJobCancelWildcard, func(data []byte) {
 				var evt jobs.CancelEvent
 				if json.Unmarshal(data, &evt) == nil {
 					select {
@@ -182,7 +188,6 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer func() { _ = sub.Unsubscribe() }()
-			FlushNATS(infra.NC)
 
 			Expect(dispatcher.Cancel(job.ID)).To(Succeed())
 			Eventually(seen, "10s").Should(Receive(Equal(job.ID)))

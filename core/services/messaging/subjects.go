@@ -43,6 +43,16 @@ func SubjectAgentEvents(agentName, userID string) string {
 	return subjectAgentEventsPrefix + sanitizeSubjectToken(agentName) + ".events." + sanitizeSubjectToken(userID)
 }
 
+// SubjectAgentEventsWildcard matches every agent's SSE events for every user.
+//
+// It is a constant here rather than the string literal it used to be inside
+// agents.StartObservablePersister, because that literal was the only
+// hand-written subject filter left in the tree, and a filter that is not next
+// to the builder it must match is a filter that outlives it. SubjectAgentEvents
+// makes four tokens; this makes four, and SubjectMatches matches on token count
+// first, so a three-token filter here would deliver nothing at all.
+const SubjectAgentEventsWildcard = "agent.*.events.*"
+
 // SubjectJobProgress returns the NATS subject for job progress updates.
 func SubjectJobProgress(jobID string) string {
 	return subjectJobProgressPrefix + sanitizeSubjectToken(jobID) + ".progress"

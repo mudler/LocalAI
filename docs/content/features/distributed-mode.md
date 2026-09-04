@@ -134,11 +134,30 @@ Several features keep state in a frontend's process memory and surface it over t
 | Agent tasks | `state.agent-tasks.delta` and `state.agent-tasks.<user_id>.delta` |
 | Open Responses metadata | `state.responses-metadata.delta` |
 
+### Job and agent streams across replicas
+
+The same carrier moves the traffic whose subscriber is an open HTTP response rather than a cache: a job's progress stream, its result, its cancel, an agent's SSE events, an agent cancel and an Open Responses cancel.
+
+| Family | Subject | Read by |
+|--------|---------|---------|
+| Job progress | `jobs.<job_id>.progress` | `GET /api/agent/jobs/{id}/progress` on any replica, and the trace persister on every replica |
+| Job result | `jobs.<job_id>.result` | The result persister on every replica |
+| Job cancel | `jobs.<job_id>.cancel` | Every replica, so the one holding the run can stop it |
+| Agent events | `agent.<agent>.events.<user_id>` | `GET /api/agents/{name}/sse/distributed` on any replica, and the observable persister |
+| Agent cancel | `agent.<agent>.cancel` | Every agent worker, and so still on NATS: see below |
+| Open Responses cancel | `responses.<response_id>.cancel` | The replica holding the generation |
+
+One family on that list is not on this carrier. An `agent.<agent>.cancel` has to reach the agent WORKER running the execution, and an agent worker has no database, so it cannot listen on PostgreSQL at all; that cancel is published on NATS, where the worker is listening, and it stays there until a cancel rides the worker's tunnel like every other verb the frontend addresses to a worker. Everything else in the table is on the PostgreSQL carrier.
+
+This is what lets a user watch a job or an agent on one frontend while the work runs against another. **No broadcast on this list is the only path to anything durable.** A job's terminal state is written to its row by the replica that claimed the work, before that claim is released, so a dropped result costs an open stream its promptness and never costs the job its answer: a stream that is still open re-reads the row and closes on it. A cancel is a request and not a verdict: if it reaches nobody it has not been refused, and nothing in the API reports it as such.
+
 Two carrier details are visible to an operator.
 
 **The 8000-byte notification cap.** PostgreSQL refuses a `pg_notify` payload of 8000 bytes or more, and that limit is measured against the whole encoded notification, not just the value being replicated. A broadcast that does not fit is written to the `bus_messages` table and the notification carries the row id instead; the receiving replica reads the row and delivers the original bytes. This is an ordinary path and not an error: a fine-tune job carrying a long training message spills every time. Rows are retired ten minutes after they are written, by every replica, so `bus_messages` is a spill buffer and never a log of past events.
 
 **A broadcast is at most once, and is never replayed.** A `NOTIFY` reaches the sessions that are listening when it is issued and nobody else. A replica whose session was down in that window never receives the change, and no error is reported anywhere. That is why every one of these maps is backed by a durable table: the broadcast says only that something changed, and the table says what it changed to. A replica re-reads its table when its listener reconnects, so a missed delta is a delay and never a value that reads as though it had never been set.
+
+**A slow subscriber loses broadcasts rather than stalling the carrier.** Each subscription buffers 256 messages; past that, its broadcasts are dropped and logged at error level on the replica that took them. One blocked SSE writer must not be able to stop delivery for the whole deployment, which is what the alternative would mean. The same rule follows from it: what must survive a gap lives in a table.
 
 ### Open Responses across replicas
 
@@ -210,7 +229,7 @@ Both **backend** and **agent** nodes are issued one. Earlier releases minted a c
 
 An agent worker's tunnel carries only the `http` tag: it runs no backend processes, so it does not offer the `grpc` tag at all. Its control server binds `127.0.0.1` on a port chosen by the kernel and advertises it nowhere, so an agent worker still opens no inbound port.
 
-**An agent worker still requires `--nats-url`, and nothing the frontend sends it travels on the bus.** Every verb the frontend addresses to a specific agent worker is now a control RPC on the tunnel that worker holds: MCP tool execution, MCP discovery, the backend stop that flushes cached MCP sessions, agent execution, and MCP CI runs. What the bus still carries for an agent worker is the other direction and the broadcasts: cancellation, and the progress and result lines a worker asks the frontend to re-publish on its behalf.
+**An agent worker still requires `--nats-url`, and one thing only still reaches it on the bus.** Every verb the frontend addresses to a specific agent worker is now a control RPC on the tunnel that worker holds: MCP tool execution, MCP discovery, the backend stop that flushes cached MCP sessions, agent execution, and MCP CI runs. The progress and result lines the worker asks the frontend to re-publish on its behalf travel back on that same response body, and the frontend re-publishes them on the PostgreSQL carrier, not on NATS. One subject in the other direction is still NATS and is the reason `--nats-url` is still required: `agent.<agent>.cancel`, which the worker subscribes to so a cancel can reach the execution it is running.
 
 There is no `nodes.<id>.*` subject left, and an agent worker's minted JWT no longer grants `mcp.tools.execute`, `mcp.discovery`, `nodes.<id>.backend.stop`, `agent.execute` or `jobs.mcp-ci.new`. The `--agent-subject` and `--agent-queue` flags (`LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`) are gone: there is no subject for an agent worker to subscribe to and no queue group to be one of.
 

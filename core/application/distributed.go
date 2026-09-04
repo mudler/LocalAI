@@ -406,9 +406,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Distributed job store initialized")
 
-	// Initialize job dispatcher
-	dispatcher := jobs.NewDispatcher(jobStore, natsClient, authDB, cfg.Distributed.InstanceID)
-
 	// Initialize agent store
 	agentStore, err := agents.NewAgentStore(authDB)
 	if err != nil {
@@ -416,15 +413,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Distributed agent store initialized")
 
-	// Initialize agent event bridge
-	agentBridge := agents.NewEventBridge(natsClient, agentStore, cfg.Distributed.InstanceID)
-
-	// Start observable persister — captures observable_update events from workers
-	// (which have no DB access) and persists them to PostgreSQL.
-	if err := agentBridge.StartObservablePersister(); err != nil {
-		xlog.Warn("Failed to start observable persister", "error", err)
-	} else {
-		xlog.Info("Observable persister started")
+	// The job dispatcher and the agent event bridge, both on the broadcast
+	// carrier. See newFanoutBridges for why the two constructors are reached
+	// through one function that names *pgbus.Bus.
+	dispatcher, agentBridge, rebroadcast, err := newFanoutBridges(bus, natsClient, jobStore, agentStore, authDB, cfg.Distributed.InstanceID)
+	if err != nil {
+		return nil, err
 	}
 
 	// Initialize Phase 4 stores (MCP, Gallery, FineTune, Skills)
@@ -464,7 +458,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	// The consumer side of the claim queue, built and started in one act: see
 	// startJobDispatchLoop for why those are not two lines.
-	jobDispatch, err := startJobDispatchLoop(cfg.Context, cfg.Distributed, authDB, jobStore, registry, clusterRegistry, controlClient, natsClient)
+	jobDispatch, err := startJobDispatchLoop(cfg.Context, cfg.Distributed, authDB, jobStore, registry, clusterRegistry, controlClient, rebroadcast)
 	if err != nil {
 		return nil, fmt.Errorf("wiring the job dispatch loop: %w", err)
 	}

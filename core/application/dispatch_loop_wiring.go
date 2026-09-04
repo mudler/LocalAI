@@ -8,7 +8,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/jobs"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"gorm.io/gorm"
 )
@@ -35,19 +34,30 @@ import (
 // they reload. That is a whole feature lost to a nil field, with no error
 // anywhere, so it is refused here.
 //
+// The re-broadcaster is taken already built, from newFanoutBridges, and is a
+// *nodes.Rebroadcaster rather than the jobs.ProgressBroadcaster interface the
+// loop stores it as. Both of those are deliberate. Taking it built leaves ONE
+// expression in the tree that decides which carrier job and agent fan-out goes
+// on, next to the dispatcher and the bridge that must read the same one, so
+// there is no separate line here to point at a carrier nobody subscribes to:
+// that mis-wiring publishes successfully, returns true, reddens no spec in any
+// package, and shows up only as an SSE stream with no progress in it. Naming
+// the concrete type is what makes the refusal below fire, too: widened to the
+// interface, a nil re-broadcaster is a non-nil value holding a nil pointer.
+//
 // The SELECTOR is built here rather than borrowed from newAgentControl, and
 // deliberately: nodes.AgentSelector holds no per-caller state, and sharing one
 // would couple the dispatch loop's lifetime to MCP's for nothing.
 func startJobDispatchLoop(ctx context.Context, cfg config.DistributedConfig, db *gorm.DB, store *jobs.JobStore,
 	registry *nodes.NodeRegistry, conns nodes.AgentConnectionReader,
-	control *nodes.ControlClient, bus messaging.Broadcaster) (*jobs.DispatchLoop, error) {
+	control *nodes.ControlClient, broadcast *nodes.Rebroadcaster) (*jobs.DispatchLoop, error) {
 	if cfg.InstanceID == "" {
 		return nil, fmt.Errorf("the job dispatch loop was built with no instance id: its claims could not be told from ones a dead replica left")
 	}
 	if registry == nil || conns == nil {
 		return nil, fmt.Errorf("the job dispatch loop was built with no way to find a connected agent worker")
 	}
-	if bus == nil {
+	if broadcast == nil {
 		return nil, fmt.Errorf("the job dispatch loop was built with no broadcaster: every job would run with its progress and its result reaching no SSE stream in the deployment")
 	}
 	loop, err := jobs.NewDispatchLoop(jobs.DispatchConfig{
@@ -57,7 +67,7 @@ func startJobDispatchLoop(ctx context.Context, cfg config.DistributedConfig, db 
 		Control:  control,
 		// The allow list lives in nodes and is keyed on the worker's node type;
 		// nothing here decides what a worker may broadcast on.
-		Broadcast: nodes.NewRebroadcaster(bus),
+		Broadcast: broadcast,
 		Store:     store,
 	})
 	if err != nil {

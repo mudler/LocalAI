@@ -18,9 +18,13 @@ import (
 // subjects NOT added.
 var workerBroadcastAllow = map[string][]string{
 	NodeTypeAgent: {
-		"jobs.*.progress",
-		"jobs.*.result",
-		"agent.*.events.*",
+		// The constants and not the strings. A filter written out here is a
+		// filter that stops matching the day its builder grows a token, and
+		// SubjectMatches compares token counts first, so the drift presents as
+		// a worker being refused everything rather than as anything readable.
+		messaging.SubjectJobProgressWildcard,
+		messaging.SubjectJobResultWildcard,
+		messaging.SubjectAgentEventsWildcard,
 	},
 	// A backend worker asks for no broadcasts. Spelled as an empty list rather
 	// than omitted, so the reader sees the decision.
