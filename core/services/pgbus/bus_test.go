@@ -191,6 +191,81 @@ var _ = Describe("the PostgreSQL broadcast carrier", func() {
 		})
 	})
 
+	Describe("subscriptions that come and go", func() {
+		// The accumulation assertion, and it is deliberately NOT a delivery
+		// one. Two subscriptions in this deployment are opened and closed per
+		// HTTP REQUEST, so a filter that outlives its Unsubscribe is a replica
+		// that gets steadily slower and never fails. Delivery specs cannot see
+		// it: the leaked handlers deliver correctly, there are just more of
+		// them every request.
+		It("registers nothing that outlives its Unsubscribe", func() {
+			delivered := make(chan []byte, 8)
+			survivor, err := sub.Subscribe("jobs.churn.progress", func(data []byte) { delivered <- data })
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = survivor.Unsubscribe() })
+
+			start := sub.Subscribers()
+			Expect(start).To(Equal(1))
+
+			for i := 0; i < 1000; i++ {
+				s, err := sub.Subscribe("jobs.churn.progress", func([]byte) {})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(s.Unsubscribe()).To(Succeed())
+			}
+
+			Expect(sub.Subscribers()).To(Equal(start),
+				"a subscription that is opened and closed must leave the register where it found it")
+
+			// And the survivor is still exactly one subscriber, not zero and
+			// not a thousand. A counter rather than a boolean, because
+			// "something arrived" is true for every wrong answer here.
+			Expect(pub.Publish("jobs.churn.progress", map[string]string{"m": "after"})).To(Succeed())
+			Eventually(delivered).Should(Receive(MatchJSON(`{"m":"after"}`)))
+			Consistently(delivered, "500ms", "50ms").ShouldNot(Receive(),
+				"a leaked handler would deliver the same notification again")
+		})
+
+		It("keeps the channel listened while a subscriber remains", func() {
+			// The churn above cycles LISTEN and UNLISTEN a thousand times on a
+			// channel that still has a live subscriber. If the refcount and the
+			// UNLISTEN it implies were not decided as one step, the channel
+			// ends up unlistened with a live subscription on it, and it does
+			// not self-heal: the next Subscribe sees first == false and never
+			// re-LISTENs.
+			out, _ := received(sub, "jobs.abc.progress")
+			for i := 0; i < 50; i++ {
+				s, err := sub.Subscribe("jobs.other.progress", func([]byte) {})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(s.Unsubscribe()).To(Succeed())
+			}
+
+			Expect(pub.Publish("jobs.abc.progress", map[string]string{"m": "still here"})).To(Succeed())
+			Eventually(out).Should(Receive(MatchJSON(`{"m":"still here"}`)))
+		})
+	})
+
+	Describe("what Subscribe has finished doing when it returns", func() {
+		// The per-request subscriptions are why this matters. An SSE client
+		// connects and then triggers the work; if Subscribe returns before the
+		// LISTEN is on the wire, the first events go nowhere and the stream
+		// looks hung with no error on either side.
+		//
+		// There is deliberately no Eventually around the PUBLISH. Retrying the
+		// publish is exactly the thing that would hide an asynchronous LISTEN.
+		It("has already issued the LISTEN, every time", func() {
+			for i := 0; i < 50; i++ {
+				out := make(chan []byte, 1)
+				s, err := sub.Subscribe("jobs.race.progress", func(data []byte) { out <- data })
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pub.Publish("jobs.race.progress", map[string]int{"i": i})).To(Succeed())
+
+				Eventually(out, "10s").Should(Receive(), "iteration %d subscribed and then missed its own first message", i)
+				Expect(s.Unsubscribe()).To(Succeed())
+			}
+		})
+	})
+
 	Describe("a handler that does not return", func() {
 		It("does not stop delivery to the other subscribers", func() {
 			// A carrier whose handlers run on one goroutine is a carrier one

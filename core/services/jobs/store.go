@@ -229,6 +229,27 @@ func (s *JobStore) DeleteJob(id string) error {
 	return s.db.Where("id = ?", id).Delete(&JobRecord{}).Error
 }
 
+// TerminalJobStatuses are the statuses a job never leaves.
+//
+// ONE spelling for the whole package, because the rule was stated at four call
+// sites and pinned at none of them: twice in the SSE bridge, which decides when
+// to close a stream, and twice here, which decides when to stamp completed_at
+// and which rows are still writable. A set that drifts between those two is a
+// stream that closes on a status the store still considers open, or a row that
+// accepts a second terminal write. Adding a status now means adding it here,
+// and every reader follows.
+var TerminalJobStatuses = []string{"completed", "failed", "cancelled"}
+
+// IsTerminalJobStatus reports whether a job in this status has finished.
+func IsTerminalJobStatus(status string) bool {
+	for _, terminal := range TerminalJobStatuses {
+		if status == terminal {
+			return true
+		}
+	}
+	return false
+}
+
 // UpdateJobStatus updates just the status (and optionally result/error) of a job.
 func (s *JobStore) UpdateJobStatus(id, status, result, errMsg string) error {
 	updates := map[string]any{
@@ -245,11 +266,11 @@ func (s *JobStore) UpdateJobStatus(id, status, result, errMsg string) error {
 	if status == "running" {
 		updates["started_at"] = &now
 	}
-	if status == "completed" || status == "failed" || status == "cancelled" {
+	if IsTerminalJobStatus(status) {
 		updates["completed_at"] = &now
 	}
 	return s.db.Model(&JobRecord{}).
-		Where("id = ? AND status NOT IN ?", id, []string{"completed", "failed", "cancelled"}).
+		Where("id = ? AND status NOT IN ?", id, TerminalJobStatuses).
 		Updates(updates).Error
 }
 

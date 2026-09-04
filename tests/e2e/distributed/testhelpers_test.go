@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/pgbus"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -235,4 +236,29 @@ func SetupNATSOnly() *TestInfra {
 func FlushNATS(nc *messaging.Client) {
 	GinkgoHelper()
 	Expect(nc.Conn().Flush()).To(Succeed())
+}
+
+// Bus opens a broadcast carrier on THIS spec's database.
+//
+// It is the carrier the job, agent and response families travel on, and it is
+// what these specs must build their dispatchers and bridges with. Publishing on
+// one carrier while the subscriber reads another is a defect with no error
+// anywhere: the publish succeeds and the SSE stream is simply empty, so a spec
+// that used the NATS client here would keep passing after production had gone
+// silent.
+//
+// Every call returns a SEPARATE carrier on the same database, so a spec can
+// build two and assert across them, which is the shape a deployment has.
+func (i *TestInfra) Bus() *pgbus.Bus {
+	GinkgoHelper()
+	Expect(i.PGURL).ToNot(BeEmpty(), "Bus needs a database; use SetupInfra rather than SetupNATSOnly")
+
+	db, err := gorm.Open(postgres.Open(i.PGURL), &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pgbus.Migrate(i.Ctx, db)).To(Succeed())
+
+	bus, err := pgbus.New(i.Ctx, pgbus.Config{DSN: i.PGURL, DB: db})
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(bus.Close)
+	return bus
 }

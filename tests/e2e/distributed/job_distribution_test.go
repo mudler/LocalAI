@@ -176,7 +176,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			const owner = "test-instance"
 			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8090", "v1")).To(Succeed())
 
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, owner)
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 
 			task := &jobs.TaskRecord{UserID: "u1", Name: "dispatch-test", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
@@ -204,7 +204,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			const owner = "lossy-instance"
 			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8091", "v1")).To(Succeed())
 
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, owner)
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 			task := &jobs.TaskRecord{UserID: "u1", Name: "lossy-test", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
 			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
@@ -231,9 +231,13 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("broadcasts a cancel on the job's own cancel subject", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance")
+			// Two carriers, because the replica that holds the execution is
+			// never the one an API cancel lands on. A cancel that does not
+			// arrive is not a cancel that was refused, so this pins ARRIVAL.
+			publisher, listener := infra.Bus(), infra.Bus()
+			dispatcher := jobs.NewDispatcher(store, publisher, db, "test-instance")
 			seen := make(chan string, 1)
-			sub, err := infra.NC.Subscribe(messaging.SubjectJobCancelWildcard, func(data []byte) {
+			sub, err := listener.Subscribe(messaging.SubjectJobCancelWildcard, func(data []byte) {
 				var evt jobs.CancelEvent
 				if json.Unmarshal(data, &evt) == nil {
 					select {
@@ -244,14 +248,13 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer func() { _ = sub.Unsubscribe() }()
-			FlushNATS(infra.NC)
 
 			Expect(dispatcher.Cancel("job-to-cancel")).To(Succeed())
 			Eventually(seen, "10s").Should(Receive(Equal("job-to-cancel")))
 		})
 
 		It("reports job progress on the job's own progress subject", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance")
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "test-instance")
 
 			var progressEvents []jobs.ProgressEvent
 			var mu sync.Mutex
@@ -262,7 +265,6 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer func() { _ = sub.Unsubscribe() }()
-			FlushNATS(infra.NC)
 
 			Expect(dispatcher.PublishProgress("progress-job", "running", "step 1")).To(Succeed())
 			Expect(dispatcher.PublishProgress("progress-job", "running", "step 2")).To(Succeed())
@@ -318,9 +320,9 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 	})
 
-	Context("Progress Streaming (NATS → SSE bridge)", func() {
-		It("should bridge NATS progress events", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance")
+	Context("Progress streaming to the SSE bridge", func() {
+		It("bridges progress events to a per-job subscription", func() {
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "test-instance")
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -335,8 +337,6 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer func() { _ = sub.Unsubscribe() }()
 
-			FlushNATS(infra.NC)
-
 			// Publish progress events
 			dispatcher.PublishProgress("job-123", "running", "processing")
 			dispatcher.PublishProgress("job-123", "running", "almost done")
@@ -348,7 +348,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should filter SSE events by job ID", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance")
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "test-instance")
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -361,8 +361,6 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 				eventsA = append(eventsA, evt)
 			})
 			defer subA.Unsubscribe()
-
-			FlushNATS(infra.NC)
 
 			// Publish to both job-A and job-B
 			dispatcher.PublishProgress("job-A", "running", "A progress")
@@ -379,7 +377,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Enriched claim payload (DB-free worker)", func() {
 		It("stores the full Job and Task on the claim row, so the worker needs no database", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "enrichment-test")
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "enrichment-test")
 
 			task := &jobs.TaskRecord{UserID: "u1", Name: "enrich-task", Model: "m1", Prompt: "hello {{.name}}"}
 			store.CreateTask(task)
@@ -406,7 +404,8 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		// every replica persists them, because the SSE stream a user is watching
 		// may be open on a replica that claimed nothing.
 		It("persists a result a worker's re-broadcast carried, whichever replica reads it", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "result-test")
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "result-test")
+			peer := infra.Bus()
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
@@ -416,9 +415,11 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			store.CreateTask(task)
 			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "running", TriggeredBy: "api"}
 			store.CreateJob(job)
-			FlushNATS(infra.NC)
 
-			jobs.PublishJobResult(infra.NC, job.ID, "completed", "job finished successfully", "")
+			// Published by a PEER replica's carrier: this is the fan-out copy of
+			// a terminal line the claiming replica already persisted, and the
+			// replica asserted on here claimed nothing.
+			jobs.PublishJobResult(peer, job.ID, "completed", "job finished successfully", "")
 
 			Eventually(func() string {
 				j, _ := store.GetJob(job.ID)
@@ -430,7 +431,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("appends a trace a worker's re-broadcast carried", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "trace-test")
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, "trace-test")
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
 			Expect(dispatcher.Start(dCtx)).To(Succeed())
@@ -440,7 +441,6 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 			store.CreateTask(task)
 			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "running", TriggeredBy: "api"}
 			store.CreateJob(job)
-			FlushNATS(infra.NC)
 
 			Expect(dispatcher.PublishTrace(job.ID, "reasoning", "thinking about the problem")).To(Succeed())
 			Expect(dispatcher.PublishTrace(job.ID, "tool_call", "calling search tool")).To(Succeed())
