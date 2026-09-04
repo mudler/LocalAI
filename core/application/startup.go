@@ -271,7 +271,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// the model configs are loaded, so it is declared out here.
 	var revisionStore modeladmin.RevisionStore
 
-	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader())
+	// The gallery service is handed in rather than set afterwards: it owns one
+	// of the per-node caches a node departure evicts, and every one of those is
+	// registered inside initDistributed. It exists by now because start() built
+	// it above.
+	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader(), application.galleryService)
 	if err != nil {
 		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
 	}

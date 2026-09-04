@@ -47,10 +47,13 @@ type HealthMonitor struct {
 	// tunnelDeparted. nil disables the second mechanism entirely.
 	presence       NodePresenceReader
 	reconnectGrace time.Duration
-	missesMu       sync.Mutex
-	misses         map[modelKey]int // consecutive failed-probe counts; reset on success or model removal
-	cancel         context.CancelFunc
-	cancelMu       sync.Mutex
+	// departures is the one place a node's departure evicts per-node state.
+	// See DepartureNotifier: this monitor is its only caller.
+	departures *DepartureNotifier
+	missesMu   sync.Mutex
+	misses     map[modelKey]int // consecutive failed-probe counts; reset on success or model removal
+	cancel     context.CancelFunc
+	cancelMu   sync.Mutex
 }
 
 // NewHealthMonitor creates a new HealthMonitor.
@@ -68,7 +71,14 @@ type HealthMonitor struct {
 // is correct for a single-node install and wrong for a distributed one; a zero
 // grace with a non-nil reader takes the documented default, because a zero
 // window would make every departure a verdict the instant it was stamped.
-func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, staleThreshold time.Duration, authToken string, perModelHealthCheck bool, presence NodePresenceReader, reconnectGrace time.Duration, clientFactory ...BackendClientFactory) *HealthMonitor {
+//
+// departures is positional and REQUIRED for the same reason, not a setter and
+// not an option: a caller that does not pass one fails to COMPILE. A monitor
+// with no notifier is a deployment where a departed node's per-node caches are
+// never dropped, and there is no other symptom. Passing nil is still legal and
+// still says something, namely that this deployment has no caches to drop; a
+// distributed one always passes the notifier its subscribers were registered on.
+func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, staleThreshold time.Duration, authToken string, perModelHealthCheck bool, presence NodePresenceReader, reconnectGrace time.Duration, departures *DepartureNotifier, clientFactory ...BackendClientFactory) *HealthMonitor {
 	checkInterval = cmp.Or(checkInterval, 15*time.Second)
 	staleThreshold = cmp.Or(staleThreshold, 60*time.Second)
 	var factory BackendClientFactory
@@ -87,6 +97,7 @@ func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, stal
 		perModelHealthCheck: perModelHealthCheck,
 		presence:            presence,
 		reconnectGrace:      cmp.Or(reconnectGrace, config.DefaultWorkerReconnectGrace),
+		departures:          departures,
 		misses:              make(map[modelKey]int),
 	}
 }
@@ -101,6 +112,20 @@ func NewHealthMonitor(registry NodeHealthStore, db *gorm.DB, checkInterval, stal
 // what a healthy fleet looks like.
 func (hm *HealthMonitor) ReadsAbsence() bool { return hm != nil && hm.presence != nil }
 
+// Departures returns the notifier this monitor fires departures on.
+//
+// Exposed so the wiring can be asserted on the object production built rather
+// than on a notifier a spec assembled itself: the subscribers are registered by
+// core/application on a notifier it then hands to this constructor, and a
+// deployment that registered them on a DIFFERENT notifier evicts nothing while
+// a listing of that other notifier's registrations still names all four.
+func (hm *HealthMonitor) Departures() *DepartureNotifier {
+	if hm == nil {
+		return nil
+	}
+	return hm.departures
+}
+
 // tunnelDeparted reports whether this deployment has decided that a node's
 // tunnel is gone: no live replica holds it and the departure has outlived the
 // reconnect grace.
@@ -111,20 +136,18 @@ func (hm *HealthMonitor) ReadsAbsence() bool { return hm != nil && hm.presence !
 // Acting on any of those would demote a fleet for a reason that has nothing to
 // do with any worker, which is the collapse this whole mechanism replaced.
 //
-// Backend workers only, and since agent workers hold tunnels too that check is
-// now the RULE rather than an optimisation. It used to save a query: an agent
-// worker dialled nothing, so it had no departure to measure and would have
-// answered PresenceUnknown regardless. It now has a real node_connections row
-// that really does age past the grace, and demoting an agent node for it would
-// be a verdict about a route the agent's actual work does not travel on: an
-// agent worker still takes its jobs and its verbs over the bus. Deleting this
-// check would silently make every agent worker whose tunnel dropped go
-// unhealthy, and its next heartbeat would make it healthy again.
+// EVERY worker type, and that is the change this rule most recently absorbed.
+// It used to skip agent nodes, because an agent worker dialled no tunnel and
+// took its jobs and its verbs over the message bus instead, so a departure row
+// for one said nothing about whether it could work. There is no bus left: an
+// agent worker is reachable through its tunnel and through nothing else, so a
+// departed agent tunnel means exactly what a departed backend tunnel means and
+// the skip would now hide the only symptom an unreachable agent worker has.
+//
+// The rule itself did not widen, only the set of nodes it applies to. The three
+// answers nobody may act on stay unacted on for both types.
 func (hm *HealthMonitor) tunnelDeparted(ctx context.Context, node *BackendNode) bool {
 	if hm.presence == nil || node == nil {
-		return false
-	}
-	if node.NodeType != "" && node.NodeType != NodeTypeBackend {
 		return false
 	}
 	p, err := hm.presence.Presence(ctx, node.ID, hm.reconnectGrace)
@@ -254,17 +277,29 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		if hm.tunnelDeparted(ctx, &node) {
 			if node.Status != StatusUnhealthy && node.Status != StatusOffline {
 				xlog.Warn("Node is heartbeating but its tunnel has been gone longer than the reconnect grace; marking unhealthy",
-					"node", node.Name, "nodeID", node.ID, "grace", hm.reconnectGrace)
+					"node", node.Name, "nodeID", node.ID, "type", node.NodeType, "grace", hm.reconnectGrace)
 				if err := hm.registry.MarkUnhealthy(ctx, node.ID); err != nil {
 					xlog.Error("Failed to mark a departed node unhealthy", "node", node.Name, "error", err)
 				}
 			}
+			// The ONE place a departure evicts per-node state, and it is fired
+			// from THIS branch only. The stale-heartbeat branch above already
+			// marks the node offline, which deletes its rows and runs the
+			// registry's replica-removed hooks; firing here as well would
+			// double-evict and, worse, would make the notification mean two
+			// different things at its subscribers.
+			hm.departures.Departed(DepartedNode{ID: node.ID, Name: node.Name, Type: node.NodeType})
 			// No re-promotion, and no per-model probes. The probes would dial a
 			// worker there is no route to, once per model per tick, and decline
 			// to count any of it; the re-promotion below is what used to undo
 			// this demotion on the very next tick.
 			continue
 		}
+
+		// Present, so the NEXT departure of this node is announced again. This
+		// runs on every tick for every live node and must stay a map delete:
+		// the notifier is edge triggered, and re-arming here is the edge.
+		hm.departures.Present(node.ID)
 
 		// Heartbeat is fresh and the tunnel is not gone: the node is alive
 		if node.Status == StatusUnhealthy || node.Status == StatusOffline {

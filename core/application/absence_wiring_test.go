@@ -77,7 +77,7 @@ var _ = Describe("stamping the absence wiring onto the scheduler's options", fun
 var _ = Describe("the absence wiring a distributed deployment refuses to start without", func() {
 	present := func() (*nodes.SmartRouter, *nodes.HealthMonitor) {
 		router := nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{Presence: presenceStub{}})
-		health := nodes.NewHealthMonitor(nil, nil, time.Second, time.Minute, "", false, presenceStub{}, time.Minute)
+		health := nodes.NewHealthMonitor(nil, nil, time.Second, time.Minute, "", false, presenceStub{}, time.Minute, nil)
 		return router, health
 	}
 
@@ -98,7 +98,7 @@ var _ = Describe("the absence wiring a distributed deployment refuses to start w
 
 	It("refuses a health monitor built without one, and says what it would do", func() {
 		router, _ := present()
-		blind := nodes.NewHealthMonitor(nil, nil, time.Second, time.Minute, "", false, nil, 0)
+		blind := nodes.NewHealthMonitor(nil, nil, time.Second, time.Minute, "", false, nil, 0, nil)
 
 		err := requireAbsenceWiring(router, blind)
 		Expect(err).To(HaveOccurred())
@@ -112,7 +112,7 @@ var _ = Describe("the absence wiring a distributed deployment refuses to start w
 	// the monitor's leaves it listed healthy while its models are unreachable.
 	It("names the scheduler and the health monitor as separate requirements", func() {
 		blindRouter := nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{})
-		blindHealth := nodes.NewHealthMonitor(nil, nil, time.Second, time.Minute, "", false, nil, 0)
+		blindHealth := nodes.NewHealthMonitor(nil, nil, time.Second, time.Minute, "", false, nil, 0, nil)
 		router, health := present()
 
 		Expect(requireAbsenceWiring(blindRouter, health)).ToNot(Succeed())

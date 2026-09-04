@@ -230,6 +230,29 @@ func (t *StagingTracker) Complete(modelID string) {
 	}
 }
 
+// DropNode ends every staging operation attributed to nodeName.
+//
+// A staging op has no terminal state of its own when its destination node
+// leaves: the copy loop that would call Complete is blocked on a worker that is
+// no longer reachable, so /api/operations shows it copying files forever.
+//
+// It drops what THIS tracker holds, locally owned ops and mirrored ones alike,
+// and broadcasts nothing. A Done event could not end a peer's locally owned op
+// anyway (ApplyRemote treats a local op as authoritative, on purpose), and the
+// peer performing such a transfer ends it itself when the transfer fails.
+func (t *StagingTracker) DropNode(nodeName string) {
+	if nodeName == "" {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for modelID, e := range t.active {
+		if e.status.NodeName == nodeName {
+			delete(t.active, modelID)
+		}
+	}
+}
+
 // ApplyRemote merges a peer replica's staging broadcast into this tracker. It
 // never re-broadcasts (no echo loop). A locally-owned op is authoritative: a
 // remote event for the same model is ignored, so the origin replica receiving

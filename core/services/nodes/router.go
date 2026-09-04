@@ -294,6 +294,20 @@ func (r *SmartRouter) Unloader() NodeCommandSender { return r.unloader }
 // StagingTracker returns the staging progress tracker for UI visibility.
 func (r *SmartRouter) StagingTracker() *StagingTracker { return r.stagingTracker }
 
+// InvalidateNodeProbes drops every cached probe freshness entry for nodeID.
+//
+// The router owns the probe cache, so this is how a departure reaches it. It is
+// a method rather than an exported cache because the cache's keys are the
+// router's own composition of node ID and worker-local address, and a caller
+// that had to build one of those keys would be a second place that decides the
+// key format.
+func (r *SmartRouter) InvalidateNodeProbes(nodeID string) {
+	if r == nil || r.probeCache == nil {
+		return
+	}
+	r.probeCache.InvalidateNode(nodeID)
+}
+
 // scheduleLoadResult holds the result of scheduling and loading a model on a node.
 type scheduleLoadResult struct {
 	Node         *BackendNode

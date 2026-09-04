@@ -1376,6 +1376,7 @@ type fakePrefixProvider struct {
 	observed        []observeRecord
 	invalidated     []invalidateRecord
 	invalidatedNode []string
+	droppedNodes    []string
 	decision        prefixcache.PrefixDecision
 }
 
@@ -1395,6 +1396,12 @@ func (f *fakePrefixProvider) Invalidate(model string, key prefixcache.ReplicaKey
 
 func (f *fakePrefixProvider) InvalidateNode(model, nodeID string) {
 	f.invalidatedNode = append(f.invalidatedNode, model+":"+nodeID)
+}
+
+// DropNode is the departure eviction: every model, one node. Recorded the same
+// way its per-model sibling is, so a spec can tell the two apart.
+func (f *fakePrefixProvider) DropNode(nodeID string) {
+	f.droppedNodes = append(f.droppedNodes, nodeID)
 }
 
 func (f *fakePrefixProvider) Evict(_ time.Time) {}

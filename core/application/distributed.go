@@ -153,7 +153,13 @@ func (ds *DistributedServices) Shutdown() {
 // Returns nil if distributed mode is not enabled.
 // configLoader is used by the SmartRouter to compute concurrency-group
 // anti-affinity at placement time (#9659); it may be nil in tests.
-func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader) (*DistributedServices, error) {
+//
+// galleryProgress is the gallery service, narrowed to the one method a node
+// departure needs. It is a PARAMETER and not a later setter because the
+// registration of every per-node cache a departure evicts happens here, in one
+// place, and a cache registered somewhere else is a cache a reader cannot find
+// by reading this function.
+func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader, galleryProgress nodeProgressDropper) (*DistributedServices, error) {
 	if !cfg.Distributed.Enabled {
 		return nil, nil
 	}
@@ -379,6 +385,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// says the worker's supervisor is alive, presence says whether anything
 	// here can still reach its backends, and a worker can be the first without
 	// being the second indefinitely.
+	//
+	// The departure notifier is built HERE, before its only caller, and its
+	// subscribers are registered further down once the caches they drop exist.
+	// One object, one caller, so "what does a departure evict" is answered by
+	// reading registerDepartureEvictions and nothing else.
+	departures := nodes.NewDepartureNotifier()
 	healthMon := nodes.NewHealthMonitor(registry, authDB,
 		cfg.Distributed.HealthCheckIntervalOrDefault(),
 		cfg.Distributed.StaleNodeThresholdOrDefault(),
@@ -386,6 +398,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		!cfg.Distributed.DisablePerModelHealthCheck,
 		clusterRegistry,
 		cfg.Distributed.ReconnectGraceOrDefault(),
+		departures,
 		backendClients,
 	)
 
@@ -496,6 +509,11 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	var prefixProvider prefixcache.Provider
 	var pressure *prefixcache.Pressure
 	var prefixCfg prefixcache.Config
+	// The CONCRETE Sync, declared out here so the departure wiring below can be
+	// handed it. Concrete and not prefixProvider, because a nil interface value
+	// carrying a nil *Sync is not nil, and the disabled deployment would then
+	// register an eviction that dereferences it.
+	var prefixDrop *prefixcache.Sync
 	if !cfg.Distributed.PrefixCacheDisabled {
 		prefixCfg = prefixcache.DefaultConfig()
 		if cfg.Distributed.PrefixCacheTTL > 0 {
@@ -514,6 +532,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		}
 		pressure = prefixcache.NewPressure(prefixCfg.PressureWindow)
 		prefixProvider = prefixSync
+		prefixDrop = prefixSync
 
 		// Invalidate the prefix-cache index whenever a replica row is removed.
 		// AddReplicaRemovedHook fires from the single chokepoint all removal paths
@@ -627,6 +646,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		xlog.Warn("Failed to subscribe to staging progress broadcasts", "error", err)
 	}
 
+	// Every per-node cache a departure leaves stale, onto the one notification
+	// point, after the router that owns two of them exists.
+	if err := registerDepartureEvictions(departures, prefixDrop, router, galleryProgress); err != nil {
+		return nil, err
+	}
+
 	// Create ReplicaReconciler for auto-scaling model replicas. Adapter +
 	// RegistrationToken feed the state-reconciliation passes: pending op
 	// drain uses the adapter, and model health probes use the token to auth
@@ -688,6 +713,78 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, err
 	}
 	return ds, nil
+}
+
+// nodeProgressDropper is the gallery service narrowed to the one method a node
+// departure needs. An interface so the wiring below cannot reach for anything
+// else on the gallery service from inside an eviction hook.
+type nodeProgressDropper interface {
+	DropNodeProgress(nodeID string)
+}
+
+// The names each per-node cache is registered under. They are constants because
+// they are asserted: a wiring spec that spelled them itself would keep passing
+// after a subscriber was renamed and lost.
+const (
+	departurePrefixCache    = "prefix-cache"
+	departureProbeCache     = "probe-cache"
+	departureStagingTracker = "staging-tracker"
+	departureGalleryNodes   = "gallery-node-progress"
+)
+
+// registerDepartureEvictions registers every per-node cache that a node's
+// departure leaves stale on the deployment's one departure notification point.
+//
+// One function, and every subscriber in it, because the reason the notifier
+// exists is that a reader cannot otherwise enumerate what a demotion
+// invalidates: before it, one node type could depart and each stale cache was
+// dropped from wherever its owner happened to notice. Adding a per-node cache
+// without adding a line here is the failure this shape exists to make visible,
+// which is why the subscribers are NAMED and the names are asserted.
+//
+// It REFUSES rather than skipping when the router or the gallery service is
+// missing. A deployment whose departed nodes keep their probe entries, staging
+// rows and per-node operation progress does not fail, log or slow down: it
+// answers with state for a node that left, indefinitely.
+//
+// prefix may be nil, and only prefix. That is --distributed-prefix-cache=false,
+// where there is no index to drop from, and it stays a true no-op: nothing is
+// registered rather than a hook registered onto nothing. It is the CONCRETE
+// *prefixcache.Sync for that decision to be safe, since a nil provider inside
+// an interface would compare non-nil here and dereference on the first
+// departure.
+func registerDepartureEvictions(departures *nodes.DepartureNotifier, prefix *prefixcache.Sync, router *nodes.SmartRouter, gallery nodeProgressDropper) error {
+	if departures == nil {
+		return fmt.Errorf("wiring departure evictions: no departure notifier, so a departed node would keep every per-node cache entry it has for the life of the process")
+	}
+	if router == nil {
+		return fmt.Errorf("wiring departure evictions: no router, so a departed node would keep its probe-freshness entries and its staging operations")
+	}
+	if gallery == nil {
+		return fmt.Errorf("wiring departure evictions: no gallery service, so a departed node would stay in every open operation's per-node breakdown")
+	}
+	// S1. Inside a nil check and not inside the prefix-cache-enabled block, so
+	// that "the disabled deployment registers nothing" is a fact a spec can
+	// hold rather than a property of where a line was written.
+	if prefix != nil {
+		departures.OnDeparture(departurePrefixCache, func(node nodes.DepartedNode) {
+			prefix.DropNode(node.ID)
+		})
+	}
+	// S2 and S3 are two registrations and not one, because they are two rules:
+	// a probe entry is keyed by node ID and a staging op by node NAME, and a
+	// single hook doing both would hide which of them was lost.
+	departures.OnDeparture(departureProbeCache, func(node nodes.DepartedNode) {
+		router.InvalidateNodeProbes(node.ID)
+	})
+	departures.OnDeparture(departureStagingTracker, func(node nodes.DepartedNode) {
+		router.StagingTracker().DropNode(node.Name)
+	})
+	// S4.
+	departures.OnDeparture(departureGalleryNodes, func(node nodes.DepartedNode) {
+		gallery.DropNodeProgress(node.ID)
+	})
+	return nil
 }
 
 // requireBroadcastCarrier refuses to hand back a distributed deployment whose
