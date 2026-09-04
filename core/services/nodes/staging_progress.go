@@ -30,9 +30,14 @@ const (
 	// FileComplete, Complete) always publish so peers never miss them.
 	stagingBroadcastInterval = time.Second
 	// stagingRemoteTTL drops a mirrored (remote) op whose last update is older
-	// than this. NATS pub/sub is fire-and-forget, so a missed Done event would
-	// otherwise leave a phantom staging row on a peer forever; a live op
+	// than this. The broadcast carrier is at-most-once, so a missed Done event
+	// would otherwise leave a phantom staging row on a peer forever; a live op
 	// refreshes its mirror at least every stagingBroadcastInterval.
+	//
+	// This is the direction the TTL is allowed to be wrong in, and it is the
+	// invariant this family has to keep: a missed event ages a mirror out, so
+	// a staging op that never happened is never invented, and one that is
+	// still running is re-asserted on the next tick.
 	stagingRemoteTTL = 60 * time.Second
 )
 
@@ -51,13 +56,17 @@ type stagingEntry struct {
 // Used by SmartRouter to publish progress and by /api/operations to surface it.
 //
 // In distributed mode each frontend replica runs its own tracker. The replica
-// performing a transfer owns the op locally and broadcasts progress over NATS
-// (SetPublisher); peers mirror it via ApplyRemote (SubscribeBroadcasts) so a
+// performing a transfer owns the op locally and broadcasts progress on the
+// deployment's fan-out carrier; peers mirror it via ApplyRemote, so a
 // /api/operations poll that round-robins onto any replica surfaces the op.
+// SetBroadcaster wires both halves at once, and it is one method for a reason
+// written there.
 type StagingTracker struct {
-	mu        sync.RWMutex
-	active    map[string]*stagingEntry
-	publisher messaging.Publisher
+	mu     sync.RWMutex
+	active map[string]*stagingEntry
+	// broadcaster is where this tracker publishes AND where it mirrors from.
+	// One field, set by one method, so the two cannot name different carriers.
+	broadcaster messaging.Broadcaster
 }
 
 // StagingProgressEvent is the wire payload a frontend replica broadcasts on
@@ -76,19 +85,24 @@ func NewStagingTracker() *StagingTracker {
 	}
 }
 
-// SetPublisher wires the NATS publisher used to broadcast staging progress to
-// peer replicas. No-op publisher (nil) keeps the tracker standalone.
-func (t *StagingTracker) SetPublisher(p messaging.Publisher) {
+// SetBroadcaster puts this tracker's publishing AND its mirroring of peers onto
+// ONE carrier, and returns the mirror subscription for cleanup. A nil
+// broadcaster keeps the tracker standalone and registers nothing.
+//
+// One method rather than a setter and a subscriber, because they were never two
+// decisions. A tracker that publishes on one carrier and listens on another
+// shows a staging progress bar on the replica performing the transfer and on no
+// other, which is the exact symptom SubjectStagingProgress exists to prevent,
+// and neither half reports an error while it happens. With one argument that
+// deployment cannot be spelled.
+func (t *StagingTracker) SetBroadcaster(b messaging.Broadcaster) (messaging.Subscription, error) {
 	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.publisher = p
-}
-
-// SubscribeBroadcasts subscribes to peer replicas' staging-progress broadcasts
-// and mirrors them into this tracker, so /api/operations on any replica surfaces
-// staging ops it did not originate. Returns the subscription for cleanup.
-func (t *StagingTracker) SubscribeBroadcasts(nc messaging.MessagingClient) (messaging.Subscription, error) {
-	return messaging.SubscribeJSON(nc, messaging.SubjectStagingProgressWildcard, func(evt StagingProgressEvent) {
+	t.broadcaster = b
+	t.mu.Unlock()
+	if b == nil {
+		return nil, nil
+	}
+	return messaging.SubscribeJSON(b, messaging.SubjectStagingProgressWildcard, func(evt StagingProgressEvent) {
 		if evt.ModelID == "" {
 			return
 		}
@@ -96,9 +110,9 @@ func (t *StagingTracker) SubscribeBroadcasts(nc messaging.MessagingClient) (mess
 	})
 }
 
-// publishStaging emits an event to the per-model staging subject. The publisher
+// publishStaging emits an event to the per-model staging subject. The carrier
 // is captured by the caller under the lock and passed in, so publishing happens
-// outside the lock (a slow NATS link must not stall the staging copy loop).
+// outside the lock (a slow carrier must not stall the staging copy loop).
 func publishStaging(p messaging.Publisher, evt StagingProgressEvent) {
 	if p == nil {
 		return
@@ -121,7 +135,7 @@ func (t *StagingTracker) Start(modelID, nodeName string, totalFiles int) {
 		// lastPub stays zero so the first UpdateFile tick always broadcasts.
 	}
 	t.active[modelID] = e
-	pub := t.publisher
+	pub := t.broadcaster
 	snap := e.status
 	t.mu.Unlock()
 
@@ -167,7 +181,7 @@ func (t *StagingTracker) UpdateFile(modelID, fileName string, fileIndex int, byt
 	var snap StagingStatus
 	if time.Since(e.lastPub) >= stagingBroadcastInterval {
 		e.lastPub = time.Now()
-		pub = t.publisher
+		pub = t.broadcaster
 		snap = e.status
 	}
 	t.mu.Unlock()
@@ -194,7 +208,7 @@ func (t *StagingTracker) FileComplete(modelID string, fileIndex, totalFiles int)
 	s.Speed = ""
 	e.updatedAt = time.Now()
 	e.lastPub = time.Now()
-	pub := t.publisher
+	pub := t.broadcaster
 	snap := e.status
 	t.mu.Unlock()
 
@@ -207,7 +221,7 @@ func (t *StagingTracker) Complete(modelID string) {
 	t.mu.Lock()
 	_, ok := t.active[modelID]
 	delete(t.active, modelID)
-	pub := t.publisher
+	pub := t.broadcaster
 	t.mu.Unlock()
 
 	if ok {

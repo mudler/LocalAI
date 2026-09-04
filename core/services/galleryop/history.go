@@ -118,7 +118,7 @@ func newOpHistory(limit int) *opHistory {
 
 // add appends rec unless its job ID was already recorded. Returns false when
 // the record was a duplicate. The originating replica both evicts locally and
-// receives its own NATS end broadcast, so without this every distributed
+// receives its own end broadcast, so without this every distributed
 // operation would be recorded twice.
 func (h *opHistory) add(rec OpRecord) bool {
 	h.mu.Lock()
