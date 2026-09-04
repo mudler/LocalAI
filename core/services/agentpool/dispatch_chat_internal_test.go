@@ -6,11 +6,25 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/agents"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
+
+// noopEventBridge stands in for the real bridge in the mode-selection specs
+// below, which need every optional dependency present EXCEPT the one under
+// test. It publishes nowhere on purpose: nothing here reads what it sent.
+type noopEventBridge struct{}
+
+func (noopEventBridge) PublishMessage(_, _, _, _, _ string) error              { return nil }
+func (noopEventBridge) PublishStatus(_, _, _ string) error                     { return nil }
+func (noopEventBridge) PublishStreamEvent(_, _ string, _ map[string]any) error { return nil }
+func (noopEventBridge) RegisterCancel(_ string, _ context.CancelFunc)          {}
+func (noopEventBridge) DeregisterCancel(_ string)                              {}
 
 // The third producer of a claim row, pinned separately from the other two.
 //
@@ -72,5 +86,44 @@ var _ = Describe("Dispatching an agent chat in distributed mode", func() {
 		var n int64
 		Expect(svc.users.authDB.Model(&jobs.WorkClaim{}).Count(&n).Error).To(Succeed())
 		Expect(n).To(BeZero())
+	})
+})
+
+// Which mode this service runs agents in, pinned against the dependency the
+// mode actually requires rather than against whichever one happened to be
+// non-nil.
+//
+// The gate used to be a nil-check on a message-bus connection that nothing ever
+// published on. It gave the right answer for the wrong reason, and it would
+// have gone on giving it until the bus was retired: at that moment every
+// frontend replica would have started running agents in an in-process pool,
+// against a database full of distributed agent state, with no error and no log
+// line to say the mode had changed. The bus field is gone, so that particular
+// mistake is no longer expressible; this is what keeps the replacement from
+// drifting onto another incidental dependency.
+//
+// Each It below supplies EVERY other optional dependency and withholds only the
+// store, which is what makes it discriminating: a gate moved to the auth DB, to
+// the skill store or to the event bridge passes a spec that only checks the
+// store's presence, and fails these.
+var _ = Describe("choosing how a deployment runs its agents", func() {
+	It("runs them distributed when there is an agent store", func() {
+		svc, err := NewAgentPoolService(&config.ApplicationConfig{}, AgentPoolOptions{
+			AgentStore: &agents.AgentStore{},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(svc.runsDistributed()).To(BeTrue(),
+			"a deployment with an agent store must run agents distributed; running them in-process would serve every replica its own view of state the store owns")
+	})
+
+	It("runs them in process when there is no agent store, however much else is wired", func() {
+		svc, err := NewAgentPoolService(&config.ApplicationConfig{}, AgentPoolOptions{
+			AuthDB:      &gorm.DB{},
+			SkillStore:  &distributed.SkillStore{},
+			EventBridge: noopEventBridge{},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(svc.runsDistributed()).To(BeFalse(),
+			"the mode was decided by something other than the agent store; distributed mode reads and writes every agent config through that store and cannot run without it")
 	})
 })

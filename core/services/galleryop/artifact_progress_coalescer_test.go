@@ -93,26 +93,6 @@ func (c *recordingProgressClient) Subscribe(string, func([]byte)) (messaging.Sub
 	return nil, nil
 }
 
-func (c *recordingProgressClient) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
-	return nil, nil
-}
-
-func (c *recordingProgressClient) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return nil, nil
-}
-
-func (c *recordingProgressClient) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return nil, nil
-}
-
-func (c *recordingProgressClient) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
-
-func (c *recordingProgressClient) IsConnected() bool { return true }
-
-func (c *recordingProgressClient) Close() {}
-
 func (c *recordingProgressClient) Updates() []*OpStatus {
 	c.mu.Lock()
 	defer c.mu.Unlock()

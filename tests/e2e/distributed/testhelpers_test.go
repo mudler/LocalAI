@@ -233,9 +233,14 @@ func SetupNATSOnly() *TestInfra {
 }
 
 // FlushNATS ensures all subscriptions are registered server-side before publishing.
+//
+// It asserts the server's verdict too, not only that the round trip completed:
+// on a permission-enforcing server a denied SUB leaves the connection open and
+// the flush succeeding, so a helper that checked the flush alone would let a
+// spec proceed to publish into a subscription the server had already refused.
 func FlushNATS(nc *messaging.Client) {
 	GinkgoHelper()
-	Expect(nc.Conn().Flush()).To(Succeed())
+	Expect(nc.ConfirmRoundTrip(5 * time.Second)).To(Succeed())
 }
 
 // Bus opens a broadcast carrier on THIS spec's database.

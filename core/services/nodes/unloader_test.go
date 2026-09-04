@@ -72,31 +72,25 @@ func (f *fakeModelLocator) RemoveAllNodeModelReplicas(_ context.Context, nodeID,
 	return nil
 }
 
-// fakeMessagingClient implements messaging.MessagingClient, recording Publish
-// and Request calls so we can assert on subjects and payloads.
+// fakeMessagingClient is a messaging.Broadcaster that records Publish calls so
+// we can assert on subjects and payloads.
 //
 // NO control verb reaches it any more, and the RemoteUnloaderAdapter cannot be
 // handed one: it holds no publisher. It survives here for the staging-progress
 // broadcasts in staging_progress_broadcast_test.go, which are cross-replica
-// events rather than anything addressed to a worker.
+// events rather than anything addressed to a worker. Its Request half went with
+// the carrier's: a request/reply is a control RPC on the worker's tunnel now,
+// and a double that still answered one would let a spec exercise a shape
+// production can no longer take.
 type fakeMessagingClient struct {
-	mu           sync.Mutex
-	published    []publishCall
-	publishErr   error // error to return from Publish
-	requestReply []byte
-	requestErr   error
-	requestCalls []requestCall
+	mu         sync.Mutex
+	published  []publishCall
+	publishErr error // error to return from Publish
 }
 
 type publishCall struct {
 	Subject string
 	Data    []byte
-}
-
-type requestCall struct {
-	Subject string
-	Data    []byte
-	Timeout time.Duration
 }
 
 func (f *fakeMessagingClient) Publish(subject string, data any) error {
@@ -118,27 +112,6 @@ func (f *fakeMessagingClient) Subscribe(_ string, _ func([]byte)) (messaging.Sub
 	return &fakeSubscription{}, nil
 }
 
-func (f *fakeMessagingClient) QueueSubscribe(_ string, _ string, _ func([]byte)) (messaging.Subscription, error) {
-	return &fakeSubscription{}, nil
-}
-
-func (f *fakeMessagingClient) QueueSubscribeReply(_ string, _ string, _ func(data []byte, reply func([]byte))) (messaging.Subscription, error) {
-	return &fakeSubscription{}, nil
-}
-
-func (f *fakeMessagingClient) SubscribeReply(_ string, _ func(data []byte, reply func([]byte))) (messaging.Subscription, error) {
-	return &fakeSubscription{}, nil
-}
-
-func (f *fakeMessagingClient) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.requestCalls = append(f.requestCalls, requestCall{Subject: subject, Data: data, Timeout: timeout})
-	return f.requestReply, f.requestErr
-}
-
-func (f *fakeMessagingClient) IsConnected() bool { return true }
-func (f *fakeMessagingClient) Close()            {}
 
 type fakeSubscription struct{}
 
