@@ -152,8 +152,8 @@ var _ = Describe("OpCache distributed sync", func() {
 		svcB = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
 		opA = galleryop.NewOpCache(svcA)
 		opB = galleryop.NewOpCache(svcB)
-		opA.SetMessagingClient(bus)
-		opB.SetMessagingClient(bus)
+		opA.SetBroadcaster(bus)
+		opB.SetBroadcaster(bus)
 		Expect(opA.Start(context.Background())).To(Succeed())
 		Expect(opB.Start(context.Background())).To(Succeed())
 	})
@@ -241,8 +241,8 @@ var _ = Describe("GalleryService broadcast sync", func() {
 		bus = newFakeBus()
 		svcA = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
 		svcB = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
-		svcA.SetNATSClient(bus)
-		svcB.SetNATSClient(bus)
+		svcA.SetBroadcaster(bus)
+		svcB.SetBroadcaster(bus)
 		Expect(svcA.SubscribeBroadcasts()).To(Succeed())
 		Expect(svcB.SubscribeBroadcasts()).To(Succeed())
 	})
@@ -329,8 +329,8 @@ var _ = Describe("GalleryService cache invalidation broadcasts", func() {
 		bus = newFakeBus()
 		svcA = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
 		svcB = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
-		svcA.SetNATSClient(bus)
-		svcB.SetNATSClient(bus)
+		svcA.SetBroadcaster(bus)
+		svcB.SetBroadcaster(bus)
 	})
 
 	AfterEach(func() {
@@ -417,7 +417,7 @@ var _ = Describe("GalleryService cache invalidation broadcasts", func() {
 
 	It("BroadcastModelsChanged is a no-op when NATS is not wired (standalone)", func() {
 		standalone := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
-		// No SetNATSClient: must not panic and must simply do nothing.
+		// No SetBroadcaster: must not panic and must simply do nothing.
 		Expect(func() { standalone.BroadcastModelsChanged("x", "delete") }).ToNot(Panic())
 	})
 })

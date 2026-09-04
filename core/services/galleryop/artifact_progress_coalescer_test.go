@@ -180,7 +180,7 @@ var _ = Describe("artifact progress coalescer", func() {
 		progressClient := &recordingProgressClient{}
 		service := NewGalleryService(&config.ApplicationConfig{}, nil)
 		service.modelManager = &modelOperationProgressManager{err: installErr}
-		service.natsClient = progressClient
+		service.broadcaster = progressClient
 		op := &ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 "model-operation",
 			GalleryElementName: "model",
@@ -205,7 +205,7 @@ var _ = Describe("artifact progress coalescer", func() {
 		progressClient := &recordingProgressClient{}
 		service := NewGalleryService(&config.ApplicationConfig{}, nil)
 		service.modelManager = &legacyModelOperationProgressManager{err: installErr}
-		service.natsClient = progressClient
+		service.broadcaster = progressClient
 		op := &ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 "legacy-model-operation",
 			GalleryElementName: "model",

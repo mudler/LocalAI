@@ -68,8 +68,20 @@ var _ = Describe("Gallery Distributed", Label("Distributed"), func() {
 		})
 	})
 
-	Context("NATS progress updates", func() {
-		It("should publish progress updates via NATS", func() {
+	// The gallery families ride the broadcast carrier, not NATS.
+	//
+	// These used to publish and subscribe on infra.NC, which asserted that NATS
+	// delivers to itself and nothing about this deployment: they would have
+	// stayed green through the whole migration while the gallery service had
+	// already moved. Two carriers on the deployment's own database is the shape
+	// a fleet has, and it is the shape that fails when one end moves and the
+	// other does not.
+	//
+	// No flush, unlike the NATS version: pgbus.Subscribe has already issued its
+	// LISTEN by the time it returns, and Subscribers() counts only live
+	// handlers, so there is no window to wait out.
+	Context("gallery progress on the broadcast carrier", func() {
+		It("delivers a peer replica's progress updates", func() {
 			op := &distributed.GalleryOperationRecord{
 				GalleryElementName: "whisper-large",
 				OpType:             "model_install",
@@ -77,35 +89,28 @@ var _ = Describe("Gallery Distributed", Label("Distributed"), func() {
 			}
 			Expect(galleryStore.Create(op)).To(Succeed())
 
-			// Subscribe to gallery progress
+			publisher, subscriber := infra.Bus(), infra.Bus()
+
 			var received atomic.Int32
-			sub, err := infra.NC.Subscribe(messaging.SubjectGalleryProgress(op.ID), func(data []byte) {
+			sub, err := subscriber.Subscribe(messaging.SubjectGalleryProgress(op.ID), func([]byte) {
 				received.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
+			defer func() { Expect(sub.Unsubscribe()).To(Succeed()) }()
 
-			FlushNATS(infra.NC)
-
-			// Publish progress events
-			Expect(infra.NC.Publish(messaging.SubjectGalleryProgress(op.ID), map[string]any{
-				"op_id":    op.ID,
-				"progress": 0.25,
-				"message":  "25%",
+			Expect(publisher.Publish(messaging.SubjectGalleryProgress(op.ID), map[string]any{
+				"op_id": op.ID, "progress": 0.25, "message": "25%",
+			})).To(Succeed())
+			Expect(publisher.Publish(messaging.SubjectGalleryProgress(op.ID), map[string]any{
+				"op_id": op.ID, "progress": 0.50, "message": "50%",
 			})).To(Succeed())
 
-			Expect(infra.NC.Publish(messaging.SubjectGalleryProgress(op.ID), map[string]any{
-				"op_id":    op.ID,
-				"progress": 0.50,
-				"message":  "50%",
-			})).To(Succeed())
-
-			Eventually(func() int32 { return received.Load() }, "5s").Should(Equal(int32(2)))
+			Eventually(func() int32 { return received.Load() }, "20s").Should(Equal(int32(2)))
 		})
 	})
 
-	Context("NATS cancel across instances", func() {
-		It("should cancel operation across instances via NATS", func() {
+	Context("gallery cancel on the broadcast carrier", func() {
+		It("delivers a cancel to the replica holding the operation", func() {
 			op := &distributed.GalleryOperationRecord{
 				GalleryElementName: "cancel-model",
 				OpType:             "model_install",
@@ -114,24 +119,23 @@ var _ = Describe("Gallery Distributed", Label("Distributed"), func() {
 			}
 			Expect(galleryStore.Create(op)).To(Succeed())
 
-			// Simulate another instance listening for cancel
+			publisher, subscriber := infra.Bus(), infra.Bus()
+
 			var cancelReceived atomic.Bool
-			sub, err := infra.NC.Subscribe(messaging.SubjectGalleryCancel(op.ID), func(data []byte) {
+			sub, err := subscriber.Subscribe(messaging.SubjectGalleryCancel(op.ID), func([]byte) {
 				cancelReceived.Store(true)
 			})
 			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
+			defer func() { Expect(sub.Unsubscribe()).To(Succeed()) }()
 
-			FlushNATS(infra.NC)
-
-			// Send cancel from this instance
-			Expect(infra.NC.Publish(messaging.SubjectGalleryCancel(op.ID), map[string]string{
+			Expect(publisher.Publish(messaging.SubjectGalleryCancel(op.ID), map[string]string{
 				"op_id": op.ID,
 			})).To(Succeed())
 
-			Eventually(func() bool { return cancelReceived.Load() }, "5s").Should(BeTrue())
+			Eventually(func() bool { return cancelReceived.Load() }, "20s").Should(BeTrue())
 
-			// Mark cancelled in the store
+			// The row is what survives a replica that was not listening. The
+			// broadcast is the hint to go and look at it.
 			Expect(galleryStore.Cancel(op.ID)).To(Succeed())
 			updated, _ := galleryStore.Get(op.ID)
 			Expect(updated.Status).To(Equal("cancelled"))
