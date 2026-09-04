@@ -8,14 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/pgbus"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/testcontainers/testcontainers-go"
-	tcnats "github.com/testcontainers/testcontainers-go/modules/nats"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/driver/postgres"
@@ -23,37 +21,44 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 )
 
-// TestInfra holds shared test containers and connection strings.
+// TestInfra holds the shared test container and the connection strings derived
+// from it.
 //
-// PGContainer and NATSContainer are the SUITE-WIDE containers, shared by every
-// spec. Never call Terminate or Stop on them from a spec: it ends the run for
-// everything after it. They are exposed only because nats_jwt_helpers_test.go
-// builds its own TestInfra around a dedicated NATS container.
+// PGContainer is the SUITE-WIDE container, shared by every spec. Never call
+// Terminate or Stop on it from a spec: it ends the run for everything after it.
+//
+// There is one container and not two. Every carrier these specs exercise is a
+// PostgreSQL LISTEN/NOTIFY channel and every worker verb is an HTTP route on a
+// tunnel, so a message broker in this suite would be infrastructure no spec and
+// no production path can reach.
 type TestInfra struct {
-	Ctx           context.Context
-	PGContainer   *tcpostgres.PostgresContainer
-	NATSContainer *tcnats.NATSContainer
-	PGURL         string
-	NatsURL       string
-	NC            *messaging.Client
+	Ctx         context.Context
+	PGContainer *tcpostgres.PostgresContainer
+	PGURL       string
 }
 
-// Containers are suite-scoped, not spec-scoped. Starting a Postgres (~10s) and a
-// NATS (~3.5s) per spec cost roughly 48 minutes of pure startup across the 213
-// specs behind SetupInfra, which is why this suite was never wired into CI.
-// Isolation now comes from a database per spec (~67ms), which is what the dbName
-// argument was always describing.
+// staleBusURL is the address of a broker that is not running, and is not meant
+// to be. LOCALAI_NATS_URL and --nats-url are still accepted and ignored so an
+// operator's existing command line, unit file or Helm values file starts
+// unchanged after the broker is shut down; specs that exercise that promise
+// hand over THIS value, because a value pointing at a live server would let a
+// regression that dialled it pass unnoticed.
+const staleBusURL = "nats://127.0.0.1:1"
+
+// The container is suite-scoped, not spec-scoped. Starting a Postgres (~10s) per
+// spec cost roughly 36 minutes of pure startup across the 213 specs behind
+// SetupInfra, which is why this suite was never wired into CI. Isolation now
+// comes from a database per spec (~67ms), which is what the dbName argument was
+// always describing.
 //
 // Plain BeforeSuite rather than SynchronizedBeforeSuite is deliberate: under
-// `ginkgo -p` each process gets its own container pair, which keeps NATS subjects
-// isolated per process. A single shared NATS across parallel processes would let
-// specs on different processes see each other's messages on the same subject.
+// `ginkgo -p` each process gets its own container, and a database per spec on
+// top of that keeps two processes from reading each other's notifications on a
+// channel of the same name.
 var (
-	suitePG      *tcpostgres.PostgresContainer
-	suiteNATS    *tcnats.NATSContainer
-	suitePGDSN   string
-	suiteNatsURL string
-	dbCounter    atomic.Int64
+	suitePG    *tcpostgres.PostgresContainer
+	suitePGDSN string
+	dbCounter  atomic.Int64
 )
 
 var _ = BeforeSuite(func() {
@@ -74,21 +79,12 @@ var _ = BeforeSuite(func() {
 
 	suitePGDSN, err = suitePG.ConnectionString(ctx, "sslmode=disable")
 	Expect(err).ToNot(HaveOccurred())
-
-	suiteNATS, err = tcnats.Run(ctx, "nats:2-alpine")
-	Expect(err).ToNot(HaveOccurred())
-
-	suiteNatsURL, err = suiteNATS.ConnectionString(ctx)
-	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
 	ctx := context.Background()
 	if suitePG != nil {
 		_ = suitePG.Terminate(ctx)
-	}
-	if suiteNATS != nil {
-		_ = suiteNATS.Terminate(ctx)
 	}
 })
 
@@ -156,18 +152,16 @@ func closeDB(db *gorm.DB) {
 	}
 }
 
-// SetupInfra provisions a dedicated database on the suite-scoped Postgres and
-// returns a client connected to the suite-scoped NATS. Call in BeforeEach;
-// cleanup is registered with DeferCleanup.
+// SetupInfra provisions a dedicated database on the suite-scoped Postgres. Call
+// in BeforeEach; cleanup is registered with DeferCleanup. A spec that needs a
+// broadcast carrier opens one with Bus().
 func SetupInfra(dbName string) *TestInfra {
 	GinkgoHelper()
-	Expect(suitePG).ToNot(BeNil(), "SetupInfra called before BeforeSuite started the shared containers")
+	Expect(suitePG).ToNot(BeNil(), "SetupInfra called before BeforeSuite started the shared container")
 
 	infra := &TestInfra{
-		Ctx:           context.Background(),
-		PGContainer:   suitePG,
-		NATSContainer: suiteNATS,
-		NatsURL:       suiteNatsURL,
+		Ctx:         context.Background(),
+		PGContainer: suitePG,
 	}
 
 	db := fmt.Sprintf("%s_%d", sanitizeDBName(dbName), dbCounter.Add(1))
@@ -180,12 +174,9 @@ func SetupInfra(dbName string) *TestInfra {
 		Expect(admin.Exec(fmt.Sprintf("CREATE DATABASE %q", db)).Error).To(Succeed())
 	}()
 
-	// Registered before anything else can fail: a NATS connect error below would
-	// otherwise leave the database behind for the rest of the suite.
+	// Registered immediately after the CREATE, so no later failure in this
+	// helper can leave the database behind for the rest of the suite.
 	DeferCleanup(func() {
-		if infra.NC != nil {
-			infra.NC.Close()
-		}
 		drop, err := tryAdminDB()
 		if err != nil {
 			AddReportEntry("drop database skipped", fmt.Sprintf("%s: %v", db, err))
@@ -200,47 +191,7 @@ func SetupInfra(dbName string) *TestInfra {
 
 	infra.PGURL = replaceDBName(suitePGDSN, db)
 
-	var err error
-	infra.NC, err = messaging.New(infra.NatsURL)
-	Expect(err).ToNot(HaveOccurred())
-
 	return infra
-}
-
-// SetupNATSOnly returns a client on the suite-scoped NATS for specs that need no
-// database.
-func SetupNATSOnly() *TestInfra {
-	GinkgoHelper()
-	Expect(suiteNATS).ToNot(BeNil(), "SetupNATSOnly called before BeforeSuite started the shared containers")
-
-	infra := &TestInfra{
-		Ctx:           context.Background(),
-		NATSContainer: suiteNATS,
-		NatsURL:       suiteNatsURL,
-	}
-
-	var err error
-	infra.NC, err = messaging.New(infra.NatsURL)
-	Expect(err).ToNot(HaveOccurred())
-
-	DeferCleanup(func() {
-		if infra.NC != nil {
-			infra.NC.Close()
-		}
-	})
-
-	return infra
-}
-
-// FlushNATS ensures all subscriptions are registered server-side before publishing.
-//
-// It asserts the server's verdict too, not only that the round trip completed:
-// on a permission-enforcing server a denied SUB leaves the connection open and
-// the flush succeeding, so a helper that checked the flush alone would let a
-// spec proceed to publish into a subscription the server had already refused.
-func FlushNATS(nc *messaging.Client) {
-	GinkgoHelper()
-	Expect(nc.ConfirmRoundTrip(5 * time.Second)).To(Succeed())
 }
 
 // Bus opens a broadcast carrier on THIS spec's database.
@@ -249,14 +200,14 @@ func FlushNATS(nc *messaging.Client) {
 // what these specs must build their dispatchers and bridges with. Publishing on
 // one carrier while the subscriber reads another is a defect with no error
 // anywhere: the publish succeeds and the SSE stream is simply empty, so a spec
-// that used the NATS client here would keep passing after production had gone
-// silent.
+// that reached for a message-bus client here would keep passing after
+// production had gone silent.
 //
 // Every call returns a SEPARATE carrier on the same database, so a spec can
 // build two and assert across them, which is the shape a deployment has.
 func (i *TestInfra) Bus() *pgbus.Bus {
 	GinkgoHelper()
-	Expect(i.PGURL).ToNot(BeEmpty(), "Bus needs a database; use SetupInfra rather than SetupNATSOnly")
+	Expect(i.PGURL).ToNot(BeEmpty(), "Bus needs a database; call SetupInfra first")
 
 	db, err := gorm.Open(postgres.Open(i.PGURL), &gorm.Config{Logger: gormlogger.Default.LogMode(gormlogger.Silent)})
 	Expect(err).ToNot(HaveOccurred())
