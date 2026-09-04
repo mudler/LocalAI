@@ -1,4 +1,51 @@
 ---
+- name: "deepseek-v4-flash-vision-exp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
+  description: |
+    # DeepSeek-V4-Flash-Vision-Exp
+
+    ## Introduction
+
+    We are excited to introduce **DeepSeek-V4-Flash-Vision-Exp**, our first experimental multimodal model in the DeepSeek-V4 family. It builds on the DeepSeek-V4-Flash architecture by incorporating visual modules and undergoing continued training to unlock visual understanding capabilities.
+
+    Compared to DeepSeek-V4-Flash-0731, DeepSeek-V4-Flash-Vision-Exp achieves substantial improvements on its multimodal agent capabilities, while maintaining comparable performance on text-only agent tasks.
+
+    Notes:
+
+    1. For the text agent benchmarks above, DeepSeek models are evaluated with the minimal mode of DeepSeek Harness as the agent framework, using the `max` reasoning effort level with `temperature = 1.0, top_p = 0.95`.
+    2. † For ApexBench and Agents' Last Exam, DeepSeek-V4-Flash-0731 ignores the multimodal elements in the input.
+
+    ## Repository layout
+
+    This repository contains the tokenizer, prompt encoding reference, and a
+    minimal PyTorch inference implementation for DeepSeek-V4 Flash Vision. The
+    reference inference covers the vision encoder and aligner, DFlash attention,
+    MoE, Hyper-Connections, and the DSpark forward path.
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - deepseek
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
+  overrides:
+    backend: ds4
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    parameters:
+      model: ds4flash.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: ds4flash.gguf
+      sha256: ""
+      uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
 - name: "glm-5.3"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
