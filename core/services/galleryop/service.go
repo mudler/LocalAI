@@ -31,10 +31,14 @@ type GalleryService struct {
 	cancellations  map[string]cancellationActions
 
 	// Distributed mode (nil when not in distributed mode).
-	// natsClient is the wider MessagingClient (Publisher + subscribe methods)
-	// when wired by the distributed startup path; broadcastSubs holds the
-	// progress + cancel subscriptions opened by SubscribeBroadcasts.
-	natsClient    messaging.MessagingClient
+	//
+	// broadcaster is the deployment's fan-out carrier, and it is ONE field on
+	// purpose: the progress and cancel publishes and the wildcard
+	// subscriptions SubscribeBroadcasts opens all read it, so this service
+	// cannot end up publishing on one carrier and listening on another. A
+	// replica in that state shows every gallery operation it started and none
+	// of its peers', with no error anywhere.
+	broadcaster   messaging.Broadcaster
 	galleryStore  *distributed.GalleryStore
 	broadcastSubs []messaging.Subscription
 
@@ -117,14 +121,18 @@ func (g *GalleryService) ModelArtifactMaterializer() config.ArtifactMaterializer
 	return g.appConfig.ModelArtifactMaterializer
 }
 
-// SetNATSClient sets the NATS client for distributed progress publishing.
-// Accepting the wider MessagingClient (vs. plain Publisher) lets
-// SubscribeBroadcasts wire the wildcard subscriptions that keep peer
-// replicas' statuses + cancellations in sync.
-func (g *GalleryService) SetNATSClient(nc messaging.MessagingClient) {
+// SetBroadcaster wires the deployment's fan-out carrier, which is PostgreSQL
+// LISTEN/NOTIFY. Both halves of this service's cross-replica sync ride it: the
+// progress and cancel publishes, and the wildcard subscriptions
+// SubscribeBroadcasts opens.
+//
+// It takes messaging.Broadcaster, which is Publish plus Subscribe and nothing
+// else. Neither half needs request/reply or a queue group, and a wider
+// parameter here would let this service acquire one without anyone deciding to.
+func (g *GalleryService) SetBroadcaster(b messaging.Broadcaster) {
 	g.Lock()
 	defer g.Unlock()
-	g.natsClient = nc
+	g.broadcaster = b
 }
 
 // SetGalleryStore sets the PostgreSQL gallery store for distributed persistence.
@@ -178,10 +186,10 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 	}
 	g.statuses[s] = op
 	store := g.galleryStore
-	nc := g.natsClient
+	nc := g.broadcaster
 	g.Unlock()
 
-	// I/O happens after Unlock. The NATS broadcast loops back into our own
+	// I/O happens after Unlock. The broadcast loops back into our own
 	// wildcard subscriber (mergeStatus), which would deadlock on this mutex
 	// if we still held it. Holding the lock across a PostgreSQL round-trip
 	// would also stall every concurrent reader on each progress tick.
@@ -208,9 +216,14 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 		}
 	}
 
-	// Publish progress to NATS in distributed mode. The payload wraps the
-	// OpStatus with the opID so peer replicas reading the wildcard subject
-	// don't need to parse it back out of the NATS subject string.
+	// Broadcast progress in distributed mode. The payload wraps the OpStatus
+	// with the opID so peer replicas reading the wildcard subject don't need
+	// to parse it back out of the subject string.
+	//
+	// A progress event carries one entry per node, so on a fleet of a few tens
+	// of workers it outgrows the notification cap and travels as a spilled row
+	// instead. That is the carrier's ordinary path and not an error: the peer
+	// receives the same bytes either way.
 	if nc != nil {
 		if err := nc.Publish(messaging.SubjectGalleryProgress(s), GalleryProgressEvent{
 			JobID:  s,
@@ -222,11 +235,17 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 }
 
 // publishCacheInvalidate broadcasts a cache invalidation event so peer
-// replicas refresh whatever in-memory state mirrors disk. No-op when
-// natsClient is not wired (standalone mode).
+// replicas refresh whatever in-memory state mirrors disk. No-op when no
+// carrier is wired (standalone mode).
+//
+// An invalidation is not a hint and is never traded away for a cheaper
+// publish: a peer that misses one keeps serving from a cache it believes is
+// valid, which is the one reading of a missed message this programme forbids.
+// It goes out through Publish, which spills a message too large for a
+// notification rather than refusing it.
 func (g *GalleryService) publishCacheInvalidate(subject string, evt messaging.CacheInvalidateEvent) {
 	g.Lock()
-	nc := g.natsClient
+	nc := g.broadcaster
 	g.Unlock()
 	if nc == nil {
 		return
@@ -242,7 +261,7 @@ func (g *GalleryService) publishCacheInvalidate(subject string, evt messaging.Ca
 // /models/toggle-state endpoints, which write the YAML and reload only the
 // local in-memory loader). Peers receive it via OnModelsChanged and refresh
 // their own ModelConfigLoader so a request load-balanced to any replica sees
-// the same config. No-op in standalone mode (no NATS client).
+// the same config. No-op in standalone mode (no carrier).
 //
 // op is "install" for a create/edit (the element must be (re)loaded from
 // disk) or "delete" for a removal (the element must be pruned from memory,
@@ -262,7 +281,7 @@ func (g *GalleryService) BroadcastModelsChangedRevision(element, op, configRevis
 }
 
 // mergeStatus is the broadcast-side merge: it updates the in-memory map from
-// a peer's GalleryProgressEvent without re-publishing to NATS or re-writing
+// a peer's GalleryProgressEvent without re-publishing to the carrier or re-writing
 // to PostgreSQL. UpdateStatus is the local-write entry point and does both;
 // mergeStatus is what the wildcard subscriber calls. Splitting them avoids
 // an echo loop (replica publishes → its own subscriber receives → mergeStatus
@@ -273,8 +292,22 @@ func (g *GalleryService) mergeStatus(opID string, op *OpStatus) {
 	}
 	g.Lock()
 	defer g.Unlock()
+	prev := g.statuses[opID]
+	// A cancellation is terminal and a progress tick is not, and the carrier
+	// puts no order on the two. The owning replica's last tick is published
+	// before the admin's cancel and can be DELIVERED after it, on the owner's
+	// own echo as readily as on a peer; merging it wholesale would clear
+	// Cancelled and leave the operation reading as still running on that
+	// replica while every other one shows it stopped. A missed or late message
+	// must never read as an operation that was not cancelled, so a stale tick
+	// is dropped rather than merged. A terminal status that carries the
+	// cancellation still merges, which is how the final "cancelled" message
+	// arrives.
+	if prev != nil && prev.Cancelled && !op.Cancelled {
+		return
+	}
 	if len(op.Nodes) == 0 {
-		if prev := g.statuses[opID]; prev != nil && len(prev.Nodes) > 0 {
+		if prev != nil && len(prev.Nodes) > 0 {
 			op.Nodes = prev.Nodes
 		}
 	}
@@ -322,18 +355,48 @@ func (g *GalleryService) UpdateNodeProgress(opID, nodeID string, np NodeProgress
 	}
 }
 
+// GetStatus returns a COPY of the operation's status, not the stored pointer.
+//
+// The copy is what makes the lock mean anything. Every caller of this and of
+// GetAllStatus only reads what it gets back, but the broadcast subscribers
+// mutate the stored OpStatus IN PLACE - applyCancel sets Cancelled on the
+// struct a peer's event names, mergeStatus rewrites the fields a peer sent - so
+// handing out the pointer let an /api/operations response be marshalled while a
+// peer's cancel was being written into it. Returning the pointer under a mutex
+// serialises the map lookup and nothing else.
+//
+// Nodes is shared with the stored status and not deep-copied: UpdateNodeProgress
+// replaces that slice rather than writing through it, so a reader holding the
+// old header sees a consistent older breakdown rather than a torn one.
 func (g *GalleryService) GetStatus(s string) *OpStatus {
 	g.Lock()
 	defer g.Unlock()
 
-	return g.statuses[s]
+	status, ok := g.statuses[s]
+	if !ok || status == nil {
+		return nil
+	}
+	copied := *status
+	return &copied
 }
 
+// GetAllStatus returns a snapshot of every operation's status. Same rule as
+// GetStatus, and for the same reason: the map and the statuses in it are both
+// copied, because this one is handed straight to a JSON encoder while peers'
+// broadcasts are still arriving.
 func (g *GalleryService) GetAllStatus() map[string]*OpStatus {
 	g.Lock()
 	defer g.Unlock()
 
-	return g.statuses
+	snapshot := make(map[string]*OpStatus, len(g.statuses))
+	for id, status := range g.statuses {
+		if status == nil {
+			continue
+		}
+		copied := *status
+		snapshot[id] = &copied
+	}
+	return snapshot
 }
 
 // ReapStaleOperations marks abandoned in-progress operations (pending/
@@ -364,7 +427,7 @@ func (g *GalleryService) ReapStaleOperations(age time.Duration) (int64, error) {
 	}
 	// The database row is only half the picture. GET /models/jobs/<id> and
 	// /api/operations read the in-memory statuses map, which is populated
-	// locally and via the NATS progress broadcast and never expires. An op
+	// locally and via the progress broadcast and never expires. An op
 	// orphaned by a replica that died mid-download therefore kept serving its
 	// last frozen tick (phase=downloading, processed=false, error=none) on
 	// every replica indefinitely, long after the reaper had already given up
@@ -430,7 +493,7 @@ func (g *GalleryService) stopOperation(id string, pause bool) error {
 		delete(g.cancellations, id)
 	}
 
-	nc := g.natsClient
+	nc := g.broadcaster
 	store := g.galleryStore
 
 	if !localExists && nc == nil {
@@ -484,7 +547,7 @@ func (g *GalleryService) stopOperation(id string, pause bool) error {
 
 // applyCancel is the broadcast-side counterpart to CancelOperation. The
 // wildcard subscriber calls it when a peer publishes a cancel event:
-// run the local cancel func if we have one (no echo via NATS), and reflect
+// run the local cancel func if we have one (no echo via the carrier), and reflect
 // the cancellation in the local statuses map. Idempotent: a replica that
 // already cancelled this op locally treats the inbound event as a no-op.
 func (g *GalleryService) applyCancel(id string, pause bool) {
@@ -699,7 +762,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 // the pre-existing operations before live updates start flowing.
 func (g *GalleryService) SubscribeBroadcasts() error {
 	g.Lock()
-	nc := g.natsClient
+	nc := g.broadcaster
 	g.Unlock()
 	if nc == nil {
 		return nil
@@ -752,7 +815,7 @@ func (g *GalleryService) SubscribeBroadcasts() error {
 		g.Unlock()
 		if cb != nil {
 			// Run off-goroutine so a slow UpgradeChecker doesn't stall the
-			// NATS receive loop. Matches the local fire-after-install path.
+			// carrier's delivery loop. Matches the local fire-after-install path.
 			go cb()
 		}
 	})
