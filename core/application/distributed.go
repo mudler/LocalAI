@@ -495,8 +495,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// with --distributed-prefix-cache=false, which leaves prefixProvider and
 	// pressure nil so the SmartRouter and reconciler behave exactly as the
 	// round-robin floor (true no-op). When enabled we build the local index,
-	// wrap it in a NATS-backed Sync (publishes our observations, applies peers'
-	// via the subscriptions below), install the extraction hook used by
+	// wrap it in a Sync on the broadcast carrier (which both publishes our
+	// observations and applies peers'), install the extraction hook used by
 	// core/backend/llm.go, and run a background eviction ticker on the app ctx.
 	var prefixProvider prefixcache.Provider
 	var pressure *prefixcache.Pressure
@@ -510,7 +510,13 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			return nil, fmt.Errorf("invalid prefix-cache configuration: %w", err)
 		}
 		idx := prefixcache.NewIndex(prefixCfg)
-		prefixSync := prefixcache.NewSync(idx, natsClient)
+		// S4. One call puts this replica's observations and its peers' on the
+		// same carrier, and it takes the concrete carrier so the NATS client
+		// still in scope here cannot be handed to it by accident.
+		prefixSync, err := wirePrefixCacheBroadcasts(bus, prefixCfg, idx)
+		if err != nil {
+			return nil, err
+		}
 		pressure = prefixcache.NewPressure(prefixCfg.PressureWindow)
 		prefixProvider = prefixSync
 
@@ -532,20 +538,6 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 		distributedhdr.PrefixChainHook = func(model, prompt string) []uint64 {
 			return prefixcache.ExtractChain(model, prompt, prefixCfg)
-		}
-
-		// Apply peers' observations/invalidations to the same Sync. ApplyObserve
-		// and ApplyInvalidate update only the local index and do not re-publish,
-		// so there is no broadcast loop.
-		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCacheObserve, func(ev messaging.PrefixCacheObserveEvent) {
-			prefixSync.ApplyObserve(ev, time.Now())
-		}); err != nil {
-			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheObserve, err)
-		}
-		if _, err := messaging.SubscribeJSON(natsClient, messaging.SubjectPrefixCacheInvalidate, func(ev messaging.PrefixCacheInvalidateEvent) {
-			prefixSync.ApplyInvalidate(ev)
-		}); err != nil {
-			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheInvalidate, err)
 		}
 
 		// Background eviction: sweep idle entries on the app context. Stopped
@@ -624,7 +616,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Wire staging-progress broadcasting so file-staging shows up on every
 	// replica, not just the one performing the transfer. Without this, a
 	// /api/operations poll that round-robins onto a peer sees no staging row and
-	// the progress flickers. The origin publishes; peers mirror via the wildcard.
+	// the progress flickers. The origin publishes; peers mirror via the
+	// wildcard, on the same carrier.
 	// A silently disabled safety check is how the original incident stayed
 	// invisible for sixteen minutes. Say so once, loudly, at startup.
 	if cfg.Distributed.DiskHeadroomDisabled {
@@ -632,8 +625,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			"knob", config.FlagDiskHeadroomCheck, "env", "LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK")
 	}
 
-	router.StagingTracker().SetPublisher(natsClient)
-	if _, err := router.StagingTracker().SubscribeBroadcasts(natsClient); err != nil {
+	// S3, and it is ONE call rather than a publisher and a subscriber: see
+	// StagingTracker.SetBroadcaster for why a tracker that could name two
+	// carriers is a progress bar that only the originating replica shows.
+	if _, err := wireStagingBroadcasts(bus, router.StagingTracker()); err != nil {
 		xlog.Warn("Failed to subscribe to staging progress broadcasts", "error", err)
 	}
 

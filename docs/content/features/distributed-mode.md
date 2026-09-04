@@ -41,7 +41,7 @@ Each model gets its own gRPC backend process, so a single worker can serve multi
   - Each frontend replica holds **one extra PostgreSQL session** beyond its connection pool, pinned for the life of the process, and creates a `bus_messages` table. Both belong to the broadcast carrier that is replacing NATS for cross-replica fan-out; it already carries the four `state.*.delta` families (see [Cross-replica in-memory state](#cross-replica-in-memory-state)). Size `max_connections` for one additional session per frontend replica.
   - That session reports an `application_name` of `localai_pgbus_<id>`, so `SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'` counts the replicas currently listening. If the carrier loses its session it redials and re-registers on its own; a broadcast published while it was down is not replayed, which is why nothing that must survive a gap is carried by a broadcast alone.
   - `bus_messages` holds only broadcasts too large for a PostgreSQL notification, and every replica retires rows older than ten minutes. The table is a spill buffer, not a log: it is not a place to read past events from.
-- **NATS** server - used for agent-worker coordination and the frontend's own cross-replica events. **Serve-backend workers do not connect to it at all**: every verb they take, and file staging with it, is an HTTP route on the worker's tunnel. Set no `LOCALAI_NATS_URL` on a `local-ai worker`. The frontend and any `local-ai agent-worker` still need one.
+- **NATS** server - used for agent-worker coordination. The frontend's own cross-replica events do not use it: they travel on the PostgreSQL the deployment already runs. **Serve-backend workers do not connect to it at all**: every verb they take, and file staging with it, is an HTTP route on the worker's tunnel. Set no `LOCALAI_NATS_URL` on a `local-ai worker`. The frontend and any `local-ai agent-worker` still need one.
 - All services must be on the same network (or reachable via configured URLs)
 
 ## Quick Start with Docker Compose
@@ -133,6 +133,47 @@ Several features keep state in a frontend's process memory and surface it over t
 | Quantization jobs | `state.quant-jobs.delta` |
 | Agent tasks | `state.agent-tasks.delta` and `state.agent-tasks.<user_id>.delta` |
 | Open Responses metadata | `state.responses-metadata.delta` |
+
+### Cross-replica caches
+
+A frontend also keeps caches that live for the life of the process rather than
+for the life of a request: which gallery operations are in flight and how far
+along they are, which admin operations have been admitted, which model files are
+being staged onto a worker, and which replica already holds the KV/prefix cache
+for a prompt. Each of those is kept current on every replica by a broadcast, and
+**every one of them is on PostgreSQL**. Nothing in this table uses NATS.
+
+| Family | Subject | What a peer does with it |
+|--------|---------|--------------------------|
+| Gallery progress | `gallery.<op_id>.progress` | Merges the status so `/api/operations` answers the same on any replica |
+| Gallery cancel | `gallery.<op_id>.cancel` | Stops the install, on whichever replica is running it |
+| Operation cache admit | `gallery.opcache.start` | Learns that an operation was admitted, and whether it is a backend install |
+| Operation cache dismiss | `gallery.opcache.end` | Drops the operation from its own map |
+| Model cache invalidation | `cache.invalidate.models` | Reloads the model config from disk, or prunes a deleted one |
+| Backend cache invalidation | `cache.invalidate.backends` | Refreshes its upgrade-available cache |
+| Staging progress | `staging.<model_id>.progress` | Mirrors a transfer it did not perform, so the progress bar does not flicker |
+| Prefix-cache observation | `prefixcache.observe` | Learns which replica already holds the prefix for a prompt |
+| Prefix-cache invalidation | `prefixcache.invalidate` | Stops routing to a replica that is gone |
+
+**An invalidation that does not arrive must never read as a cache that is
+valid.** The two `cache.invalidate.*` families and `prefixcache.invalidate` are
+therefore published like any other broadcast: one too large for a notification
+is written to `bus_messages` and read back by the peer, never dropped to save
+the write. A missed staging event ages the peer's mirrored row out after a
+minute rather than inventing a transfer, for the same reason.
+
+**Gallery progress spills, routinely.** A progress event carries one entry per
+worker, so on a fleet of a few tens of nodes it is past the 8000-byte cap on
+every tick and travels as a row. That is the ordinary path, not an error.
+
+**A prefix-cache observation never spills.** It carries one hash per prefix
+block, and the extractor caps a chain at 64 blocks, so the largest observation a
+frontend can publish is a few kilobytes and fits in the notification itself.
+That bound is checked at startup: a build that raised the cap past what a
+notification carries would put a table write and a read-back on the inference
+path for every request whose prefix changed, so the frontend refuses to start
+and says so rather than running slowly and quietly. Nothing here drops an
+observation to stay under the cap.
 
 ### Job and agent streams across replicas
 
@@ -1462,7 +1503,7 @@ Notes:
 |---|---|---|
 | **Discovery** | Automatic via libp2p token | Self-registration to frontend URL |
 | **State storage** | In-memory / ledger | PostgreSQL |
-| **Coordination** | Gossip protocol | The worker's own tunnel for serve-backend work; NATS for agent workers and cross-replica frontend events |
+| **Coordination** | Gossip protocol | The worker's own tunnel for serve-backend work; PostgreSQL `LISTEN`/`NOTIFY` for cross-replica frontend events; NATS for agent workers |
 | **Node management** | Automatic | REST API + WebUI |
 | **Health monitoring** | Peer heartbeats | Centralized HealthMonitor |
 | **Backend management** | Manual per node | Dynamic via the worker's `backend.install` control route |
@@ -1538,7 +1579,7 @@ Notes:
 
 ## Roadmap: Routing and Caching Enhancements
 
-The scheduling algorithm above is load-based (least in-flight, then least-recently-used). Work is underway to make routing **prefix-cache-aware**: bias each request toward the replica that already holds the relevant KV/prefix cache (multi-turn conversations and shared system prompts), so backends reuse cache instead of recomputing it. The first step is a router-side radix tree of prompt-prefix hashes mapped to nodes, with longest-prefix match, a load guard that preserves round-robin behavior under imbalance, and NATS sync across frontends. It is purely a routing-layer hint (no backend changes) and never routes worse than today's round-robin.
+The scheduling algorithm above is load-based (least in-flight, then least-recently-used). Work is underway to make routing **prefix-cache-aware**: bias each request toward the replica that already holds the relevant KV/prefix cache (multi-turn conversations and shared system prompts), so backends reuse cache instead of recomputing it. The first step is a router-side radix tree of prompt-prefix hashes mapped to nodes, with longest-prefix match, a load guard that preserves round-robin behavior under imbalance, and cross-frontend sync on the PostgreSQL broadcast carrier. It is purely a routing-layer hint (no backend changes) and never routes worse than today's round-robin.
 
 Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, Ray Serve, llm-d, AIBrix, and NVIDIA Dynamo, are tracked under the routing roadmap epic ([#10063](https://github.com/mudler/LocalAI/issues/10063)):
 

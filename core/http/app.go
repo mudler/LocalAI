@@ -502,17 +502,17 @@ func API(application *application.Application) (*echo.Echo, error) {
 	var opcache *galleryop.OpCache
 	if !application.ApplicationConfig().DisableWebUI {
 		opcache = galleryop.NewOpCache(application.GalleryService())
-		// In distributed mode, wire the NATS client + gallery store so this
-		// replica's OpCache stays in sync with peers — without this the
+		// In distributed mode, wire the broadcast carrier + gallery store so
+		// this replica's OpCache stays in sync with peers. Without this the
 		// /api/operations endpoint returns whatever this single replica
 		// happened to admit, and a load-balanced UI poll alternates between
 		// "operation visible" and "operation gone" between replicas.
+		//
+		// S1. The carrier choice lives in core/application with the other three
+		// caches, and this call names no carrier at all, so the NATS client
+		// hanging off the same struct cannot be handed over here by accident.
 		if d := application.Distributed(); d != nil {
-			opcache.SetMessagingClient(d.Nats)
-			if d.DistStores != nil && d.DistStores.Gallery != nil {
-				opcache.SetGalleryStore(d.DistStores.Gallery)
-			}
-			if err := opcache.Start(application.ApplicationConfig().Context); err != nil {
+			if err := d.WireOpCache(application.ApplicationConfig().Context, opcache); err != nil {
 				xlog.Warn("OpCache distributed subscribe failed; running standalone", "error", err)
 			}
 		}

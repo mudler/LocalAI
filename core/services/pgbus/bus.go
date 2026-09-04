@@ -331,6 +331,53 @@ func (b *Bus) Close() {
 	})
 }
 
+// inlineNotification encodes what Publish puts on the wire when a message fits
+// in the notification itself, and returns it together with the caller's encoded
+// payload so the spill path does not marshal a second time.
+//
+// It is the ONE place the wire form of an inline broadcast is built. Publish
+// measures what it returns and FitsInline asks about the same bytes, so a
+// caller that has proved its worst case fits cannot be proved wrong later by a
+// change to the envelope's keys.
+func inlineNotification(subject string, data any) ([]byte, json.RawMessage, error) {
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return nil, nil, fmt.Errorf("pgbus: encoding a broadcast on %q: %w", subject, err)
+	}
+	encoded, err := json.Marshal(notification{Subject: subject, Data: payload})
+	if err != nil {
+		return nil, nil, fmt.Errorf("pgbus: encoding the notification for %q: %w", subject, err)
+	}
+	return encoded, payload, nil
+}
+
+// FitsInline reports whether Publish would carry this message in the
+// notification itself rather than writing it to a row and notifying the id.
+//
+// It is a PREDICATE and never an action: nothing here refuses, drops or
+// truncates a message, and no caller may use it to decide not to publish. The
+// spill path is correct for every family on this carrier, and a message that
+// does not fit costs a row and a SELECT, never its contents.
+//
+// It exists for the one question that is worth asking BEFORE a message is ever
+// published: can a family whose payload has a known upper bound put that bound
+// on the wrong side of the cap? A family whose worst case fits is a family that
+// never spills, and a configuration change that moves the bound past the cap
+// can then be refused at startup instead of turning every request on the
+// inference path into a table write nobody notices. See
+// requirePrefixCacheFitsInline in core/application.
+//
+// It shares its size decision with Publish rather than restating one: the same
+// encoder, the same comparison against the same constant. A second comparison
+// would be a second constant in disguise.
+func FitsInline(subject string, data any) (bool, error) {
+	encoded, _, err := inlineNotification(subject, data)
+	if err != nil {
+		return false, err
+	}
+	return len(encoded) < maxNotifyPayloadBytes, nil
+}
+
 // Publish fans a message out to every subscriber of the subject on every
 // replica, including this one.
 func (b *Bus) Publish(subject string, data any) error {
@@ -338,14 +385,9 @@ func (b *Bus) Publish(subject string, data any) error {
 	if err != nil {
 		return err
 	}
-	payload, err := json.Marshal(data)
+	encoded, payload, err := inlineNotification(subject, data)
 	if err != nil {
-		return fmt.Errorf("pgbus: encoding a broadcast on %q: %w", subject, err)
-	}
-
-	encoded, err := json.Marshal(notification{Subject: subject, Data: payload})
-	if err != nil {
-		return fmt.Errorf("pgbus: encoding the notification for %q: %w", subject, err)
+		return err
 	}
 	// The one size decision in this package. Several subjects on this carrier
 	// exceed the cap in normal operation (a job result carries a whole LLM
