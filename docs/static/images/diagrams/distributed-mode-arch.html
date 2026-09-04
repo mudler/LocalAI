@@ -54,7 +54,7 @@
     </header>
     <div class="stage"><svg viewBox="0 0 1480 560" id="svg"></svg></div>
     <footer>
-      <div class="note">Stateless frontends, a shared <b>NATS/Postgres</b> plane, and generic workers running per-model backends.</div>
+      <div class="note">Stateless frontends, a shared <b>PostgreSQL</b> plane, and generic workers reached over the tunnel each one dials out.</div>
       <div class="url">localai.io<span>/features/distributed-mode</span></div>
     </footer>
   </div>
@@ -99,15 +99,17 @@ fY.forEach((y,i)=>{
 
 // ---------- STATE PLANE ----------
 txt(560,30,"SHARED STATE PLANE",{w:700,sz:13,ls:".2em",fill:SOFT});
-const SPX=560, SPW=300, SPY=46, SPH=470;
+const SPX=560, SPW=300, SPY=46, SPH=326;
 shadowRect(SPX,SPY,SPW,SPH,PAPER,INK,4);
 svg.appendChild(el("rect",{x:SPX,y:SPY,width:SPW,height:58,fill:RUST}));
 svg.appendChild(el("line",{x1:SPX,y1:SPY+58,x2:SPX+SPW,y2:SPY+58,stroke:INK,"stroke-width":4}));
 txt(SPX+22,SPY+38,"Control plane",{f:"Bricolage Grotesque",w:800,sz:26,fill:PAPER});
 // chips
+// No broker chip. Every cross-replica broadcast and every queued job is a row
+// or a NOTIFY on the database below, and no worker connects to this plane at
+// all: a worker is reached over the tunnel it dials out to a frontend.
 const chips=[
-  {n:"PostgreSQL", s:"shared config & state"},
-  {n:"NATS",       s:"jobs · messaging bus"},
+  {n:"PostgreSQL", s:"state · registry · broadcast · jobs"},
   {n:"S3 (optional)", s:"model & artifact store"},
 ];
 const CHX=SPX+24, CHW=SPW-48, CHH=104; let cy=SPY+82;
@@ -151,14 +153,15 @@ fY.forEach((y)=>{
   arrow(FX+FW, y+FH/2, SPX, ty, INK);
 });
 
-// NATS messaging bus -> workers (dashed). Workers coordinate via NATS;
-// PostgreSQL is the frontends' shared state, not something workers connect to.
-const natsY = SPY+82+CHH+18 + CHH/2; // NATS chip center y
-wY.forEach((y)=> arrow(SPX+SPW, natsY, WX, y+WH/2, RUSTD, "2 8"));
-// label the NATS bus arrows
-const labW=140, labH=26, labX=(SPX+SPW+WX)/2-labW/2, labY=natsY-46;
+// frontends -> workers over the tunnel (dashed), routed in the clear band BELOW
+// the state plane. The route is the point: control verbs go frontend to worker
+// and never touch the plane, and the worker opened the connection outward, so
+// nothing dials into a worker and no port is published on one.
+const tunY = 430;
+arrow(FX+FW, tunY, WX, tunY, RUSTD, "2 8");
+const labW=250, labH=26, labX=(FX+FW+WX)/2-labW/2, labY=tunY-40;
 svg.appendChild(el("rect",{x:labX,y:labY,width:labW,height:labH,fill:PAPER,stroke:RUSTD,"stroke-width":2}));
-txt(labX+labW/2,labY+18,"backend.install",{f:"Bricolage Grotesque",w:700,sz:14,a:"middle",fill:RUSTD});
+txt(labX+labW/2,labY+18,"backend.install \u00b7 worker-dialled tunnel",{f:"Bricolage Grotesque",w:700,sz:14,a:"middle",fill:RUSTD});
 
 // ---- annotated arrow: frontend -> worker : LoadModel (gRPC) ----
 arrow(FX+FW, fY[2]+FH-24, WX, wY[2]+WH-30, COLD, "4 7");

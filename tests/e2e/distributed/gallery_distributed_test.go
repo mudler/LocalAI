@@ -70,8 +70,9 @@ var _ = Describe("Gallery Distributed", Label("Distributed"), func() {
 
 	// The gallery families ride the broadcast carrier, not NATS.
 	//
-	// These used to publish and subscribe on infra.NC, which asserted that NATS
-	// delivers to itself and nothing about this deployment: they would have
+	// These used to publish and subscribe on a message-bus client, which
+	// asserted that the bus delivers to itself and nothing about this
+	// deployment: they would have
 	// stayed green through the whole migration while the gallery service had
 	// already moved. Two carriers on the deployment's own database is the shape
 	// a fleet has, and it is the shape that fails when one end moves and the
