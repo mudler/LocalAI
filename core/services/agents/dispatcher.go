@@ -278,6 +278,32 @@ func (d *WorkerExecutor) Execute(ctx context.Context, raw json.RawMessage, pub m
 	return json.Marshal(map[string]string{"status": status, "error": errMsg})
 }
 
+// Cancel answers workerctl.PathAgentCancel on an agent worker.
+//
+// The reply is this worker's OWN ANSWER and travels as bytes on a 200:
+// cancelled true when this process was running the named execution and its
+// context has now been cancelled, false when it was not. False says nothing
+// about any other worker and nothing about whether the run exists, and the
+// frontend that fans the cancel out is the only thing that may assemble those
+// answers into a verdict.
+//
+// A body this worker cannot read is the one thing here that is NOT an answer:
+// it has learned nothing about any execution, so it is returned as an error,
+// becomes a non-2xx over the tunnel, and is counted by the caller as a cancel
+// it could not deliver rather than as one that found nothing.
+func (d *WorkerExecutor) Cancel(_ context.Context, raw json.RawMessage) (json.RawMessage, error) {
+	var req messaging.AgentCancelRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return nil, fmt.Errorf("reading an agent cancel request: %w", err)
+	}
+	cancelled := d.eventBridge.CancelLocalExecution(req.MessageID)
+	if cancelled {
+		xlog.Info("Cancelled an agent execution on this worker after a control cancel",
+			"agent", req.AgentName, "user", req.UserID, "messageID", req.MessageID)
+	}
+	return json.Marshal(messaging.AgentCancelReply{Cancelled: cancelled})
+}
+
 func (d *WorkerExecutor) handleJob(ctx context.Context, evt AgentChatEvent, bridge *EventBridge) (status, errMsg string) {
 	xlog.Info("Processing agent chat job", "agent", evt.AgentName, "user", evt.UserID)
 
@@ -302,9 +328,9 @@ func (d *WorkerExecutor) handleJob(ctx context.Context, evt AgentChatEvent, brid
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Register cancellation on the SHARED registry, which the bus-backed cancel
-	// listener also reads: a cancel arrives on the bus and has to reach an
-	// execution that is publishing onto a stream.
+	// Register cancellation on the SHARED registry, which the cancel control
+	// verb also reads: a cancel arrives on this worker's tunnel and has to
+	// reach an execution that is publishing onto a control stream.
 	bridge.RegisterCancel(evt.MessageID, cancel)
 	defer bridge.DeregisterCancel(evt.MessageID)
 

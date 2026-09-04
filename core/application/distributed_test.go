@@ -123,7 +123,7 @@ var _ = Describe("shutting the distributed services down", func() {
 // NATS did. Collapsing the choice into one function is what makes it a fact
 // these specs can hold.
 var _ = Describe("handing the broadcast carrier to its adopters", func() {
-	It("returns the carrier the deployment opened and never the cancel carrier", func() {
+	It("returns the carrier the deployment opened", func() {
 		db, dsn := testutil.SetupTestDBWithDSN()
 		cfg := &config.ApplicationConfig{}
 		cfg.Auth.DatabaseURL = dsn
@@ -131,13 +131,12 @@ var _ = Describe("handing the broadcast carrier to its adopters", func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(bus.Close)
 
-		// The cancel carrier is present on the struct, exactly as it is in a
-		// real deployment: agent.<name>.cancel is the one family that could not
-		// move, because its only subscriber is an agent worker and a worker has
-		// no database. Identity, not "is a Broadcaster": both fields satisfy
-		// that interface, which is the whole reason a field read could pick the
-		// wrong one and stay green.
-		ds := &DistributedServices{CancelCarrier: &messaging.Client{}, Bus: bus}
+		// Identity and not "is a Broadcaster". There is no second carrier on
+		// this struct any more: the family that needed one, agent.<name>.cancel,
+		// rides the agent worker's own tunnel now. The identity assertion stays
+		// because what it pins is that adopters get THIS bus rather than
+		// anything else that satisfies the interface.
+		ds := &DistributedServices{Bus: bus}
 
 		Expect(ds.Broadcast()).To(BeIdenticalTo(messaging.Broadcaster(bus)))
 	})

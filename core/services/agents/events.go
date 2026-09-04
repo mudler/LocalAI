@@ -30,11 +30,24 @@ type AgentEvent struct {
 	Timestamp      int64  `json:"timestamp"`          // Unix milliseconds (set by PublishEvent)
 }
 
-// AgentCancelEvent is the broadcast payload for cancelling agent execution.
-type AgentCancelEvent struct {
-	AgentName string `json:"agent_name"`
-	UserID    string `json:"user_id"`
-	MessageID string `json:"message_id,omitempty"`
+// AgentWorkerCanceller carries a cancel to the agent workers of this
+// deployment, over the tunnels they hold.
+//
+// A narrow port rather than the control client itself, because this package
+// must not import core/services/nodes, and because the only thing a cancel
+// needs from the frontend's control plane is this one verb.
+//
+// Its error vocabulary is the caller's whole answer and each value means
+// something different: nil is a worker's own answer that it cancelled the run,
+// nodes.ErrAgentCancelUndelivered is a cancel that may have reached nobody, and
+// nodes.ErrAgentRunNotOnAnyWorker is every reachable worker answering that it
+// is not running that execution. Nothing here may collapse them.
+//
+// The real implementation is *nodes.AgentControlClient, asserted where both
+// packages are already imported (core/application), so a signature drift is a
+// build failure rather than a nil field.
+type AgentWorkerCanceller interface {
+	CancelAgentRun(ctx context.Context, req messaging.AgentCancelRequest) error
 }
 
 // EventBridge bridges agent events between the broadcast carrier and SSE
@@ -47,24 +60,20 @@ type EventBridge struct {
 	// to queue.
 	bus messaging.Broadcaster
 
-	// cancelBus is where agent.<name>.cancel is published and heard, and it is
-	// a SEPARATE field from bus because in this deployment the two ends of that
-	// family cannot be on the same carrier yet.
+	// workers is how a cancel reaches an agent WORKER, and it is a separate
+	// field from bus because the two travel on different carriers on purpose.
 	//
-	// Every other family here has both ends on a frontend replica, so both move
-	// to the broadcast carrier together. This one does not: its only subscriber
-	// is the agent WORKER (core/cli/agent_worker.go), the cancel has to reach
-	// the worker actually running the execution, and a worker has no database
-	// and so cannot join the PostgreSQL carrier at all. Publishing a cancel
-	// where no worker is listening would report a cancel that reached nobody as
-	// a cancel the execution declined, which is the one thing this whole
-	// programme may not do.
+	// Every other family here has both of its ends on a frontend replica, so
+	// both live on the broadcast carrier. This one does not: the process that
+	// holds a worker-run execution's cancel function is the agent worker, and a
+	// worker has no database and so cannot join the PostgreSQL carrier at all.
+	// It holds an outward-dialled tunnel instead, and a cancel is an ordinary
+	// control RPC on it, addressed to the workers a live replica can reach.
 	//
-	// So it is named, and it is separate, and it stays on the carrier the
-	// worker reads until a cancel rides the worker's tunnel instead. Folding it
-	// back into bus is not a simplification: it is silent loss of every cancel
-	// for every worker-run agent.
-	cancelBus messaging.Broadcaster
+	// It is nil on an agent worker, which has nobody to forward a cancel to:
+	// there, a cancel ARRIVES as that control verb and is applied to the
+	// registry below.
+	workers AgentWorkerCanceller
 	// pub is where the events this bridge produces GO, which is not always the
 	// bus. On an agent worker running a dispatched claim it is the response
 	// body of the control RPC the claiming replica is reading, so the events
@@ -88,52 +97,69 @@ type EventBridge struct {
 }
 
 // NewEventBridge creates a new EventBridge on the deployment's fan-out carrier.
+// A cancel it cannot apply itself is forwarded to the agent workers through
+// workers.
 //
-// Cancels go on that same carrier unless WithCancelCarrier says otherwise,
-// which is right for the agent worker, where there is only one carrier to be
-// on, and wrong for a frontend replica, which reads fan-out from PostgreSQL and
-// has to reach workers that cannot.
-func NewEventBridge(bus messaging.Broadcaster, store *AgentStore, instanceID string) *EventBridge {
+// The canceller is a CONSTRUCTOR PARAMETER and not a builder call, and that is
+// the whole reason it is spelled here. As a WithWorkerCanceller line it is one
+// statement whose loss compiles, passes every suite in this package, and turns
+// every cancel of a worker-run agent into a cancel that reached nobody and
+// reported nothing: the local registry has no entry, and there is no longer
+// anywhere for the cancel to go.
+//
+// A nil workers is legitimate on an agent worker, which forwards nothing. See
+// NewWorkerEventBridge, which is how a worker builds one.
+func NewEventBridge(bus messaging.Broadcaster, store *AgentStore, instanceID string, workers AgentWorkerCanceller) *EventBridge {
 	return &EventBridge{
 		bus:            bus,
-		cancelBus:      bus,
 		pub:            bus,
+		workers:        workers,
 		store:          store,
 		instanceID:     instanceID,
 		cancelRegistry: &messaging.CancelRegistry{},
 	}
 }
 
-// WithCancelCarrier puts agent.<name>.cancel on carrier instead of on the
-// fan-out bus, and returns the receiver so it can be written as one expression
-// with the constructor.
+// NewWorkerEventBridge returns the bridge an AGENT WORKER runs on.
 //
-// A frontend replica needs it and an agent worker does not. The cancel has to
-// reach the worker running the execution; a worker has no database and cannot
-// join the PostgreSQL carrier; so a frontend that published its cancels there
-// would publish them where no worker listens, and a cancel that reached nobody
-// is not a cancel that was refused.
+// It joins no carrier, because there is none for it to join: every event it
+// produces is written onto the response body of the control RPC that asked for
+// the work (see WithPublisher), and every cancel it must act on arrives as a
+// control verb rather than as a broadcast. What it keeps is the cancel
+// registry, which is the one piece of state a worker's bridge exists for.
 //
-// A nil carrier leaves the bridge on the fan-out bus rather than on nothing,
-// because a bridge that publishes cancels nowhere is the failure this exists to
-// prevent.
-func (b *EventBridge) WithCancelCarrier(carrier messaging.Broadcaster) *EventBridge {
-	if b == nil || carrier == nil {
-		return b
-	}
-	b.cancelBus = carrier
-	return b
+// The publisher it holds until a verb hands it a stream REFUSES rather than
+// drops. A worker that publishes with no stream to write to has produced an
+// event that reached nobody, and a no-op default would make that indetectable.
+func NewWorkerEventBridge(instanceID string) *EventBridge {
+	return NewEventBridge(unroutedCarrier{}, nil, instanceID, nil)
+}
+
+// unroutedCarrier is the carrier an agent worker's bridge holds: there is none.
+//
+// Both methods fail rather than silently succeeding, because both would
+// otherwise be undetectable. A dropped publish is an agent event nobody sees; a
+// subscription that never delivers is a listener that never fires.
+type unroutedCarrier struct{}
+
+func (unroutedCarrier) Publish(subject string, _ any) error {
+	return fmt.Errorf("agents: an agent worker tried to publish %q with no control stream to write it to: a worker joins no carrier, so this event would have reached nobody", subject)
+}
+
+func (unroutedCarrier) Subscribe(subject string, _ func([]byte)) (messaging.Subscription, error) {
+	return nil, fmt.Errorf("agents: an agent worker tried to subscribe to %q: a worker joins no carrier, so nothing would ever be delivered", subject)
 }
 
 // WithPublisher returns a view of this bridge whose events go to pub.
 //
 // Everything else is SHARED with the receiver, the cancel registry above all: a
-// cancel arriving on the bus must reach an execution that is publishing onto a
-// stream, and a bridge that copied the registry would register the cancel where
-// nothing looks for it.
+// cancel arriving as a control verb must reach an execution that is publishing
+// onto a stream, and a bridge that copied the registry would register the
+// cancel where nothing looks for it.
 //
 // A nil pub returns the receiver unchanged rather than a bridge that publishes
-// nowhere, because a handler that was given no writer still has the bus.
+// nowhere: on a frontend that leaves the events on the fan-out carrier, and on
+// a worker it leaves them on the carrier that refuses loudly.
 func (b *EventBridge) WithPublisher(pub messaging.Publisher) *EventBridge {
 	if b == nil || pub == nil {
 		return b
@@ -238,24 +264,57 @@ func (b *EventBridge) PublishStreamEvent(agentName, userID string, data map[stri
 	})
 }
 
-// CancelExecution publishes a cancel event and also checks the local registry.
-func (b *EventBridge) CancelExecution(agentName, userID, messageID string) error {
-	// Try local cancel first
+// CancelExecution stops one agent execution wherever in the deployment it is
+// running, and reports which of three different things happened.
+//
+// The three, because a caller that cannot tell them apart is the defect this
+// family has been held back for:
+//
+//   - nil means the execution was cancelled. Either it was running in THIS
+//     process, or an agent worker answered that it had cancelled it.
+//   - nodes.ErrAgentCancelUndelivered means the cancel may have reached nobody:
+//     an agent worker that might be running it could not be reached. It is not
+//     a refusal and it is not a missing task.
+//   - nodes.ErrAgentRunNotOnAnyWorker means every agent worker this deployment
+//     could reach answered that it is not running that execution.
+//
+// The local registry is tried FIRST and short-circuits. A message id names
+// exactly one execution, so a local hit is this process's own answer about it,
+// and there is nothing a worker could add.
+func (b *EventBridge) CancelExecution(ctx context.Context, agentName, userID, messageID string) error {
 	if b.cancelRegistry.Cancel(messageID) {
 		xlog.Info("Cancelled agent execution locally", "agent", agentName, "user", userID, "messageID", messageID)
+		return nil
 	}
 
-	// Broadcast so the replica that actually holds the execution can act on it.
-	//
-	// The error says whether the request was PUBLISHED and nothing more. This
-	// carrier is at-most-once with no replay, so a cancel that reached nobody
-	// and a cancel an execution declined are different facts that cannot be
-	// told apart from here, and neither may be reported as the other.
-	return b.cancelBus.Publish(messaging.SubjectAgentCancel(agentName), AgentCancelEvent{
+	if b.workers == nil {
+		// Not a cancel that was refused and not a task that does not exist:
+		// this process has nowhere to send the cancel, which is a fact about
+		// its own wiring and says nothing about the run.
+		return fmt.Errorf("cancelling agent %q for user %q: this process holds no way to reach an agent worker, so the cancel of message %q was sent nowhere",
+			agentName, userID, messageID)
+	}
+
+	return b.workers.CancelAgentRun(ctx, messaging.AgentCancelRequest{
 		AgentName: agentName,
 		UserID:    userID,
 		MessageID: messageID,
 	})
+}
+
+// CancelLocalExecution cancels an execution running in THIS process and reports
+// whether it found one.
+//
+// It is what an agent worker's cancel control verb applies, and the bool is
+// that worker's whole answer: true is "I cancelled it", false is "I am not
+// running it". False is deliberately not an error, because it is not one: a
+// deployment fans a cancel out to every worker it can reach and all but one of
+// them are expected to say no.
+func (b *EventBridge) CancelLocalExecution(messageID string) bool {
+	if b == nil || messageID == "" {
+		return false
+	}
+	return b.cancelRegistry.Cancel(messageID)
 }
 
 // RegisterCancel registers a cancel function for a running agent execution.
@@ -266,17 +325,6 @@ func (b *EventBridge) RegisterCancel(key string, cancel context.CancelFunc) {
 // DeregisterCancel removes a cancel function from the registry.
 func (b *EventBridge) DeregisterCancel(key string) {
 	b.cancelRegistry.Deregister(key)
-}
-
-// StartCancelListener subscribes to the cancel broadcasts every replica sees.
-func (b *EventBridge) StartCancelListener() (messaging.Subscription, error) {
-	return messaging.SubscribeJSON(b.cancelBus, messaging.SubjectAgentCancelWildcard, func(evt AgentCancelEvent) {
-		if evt.MessageID != "" {
-			if b.cancelRegistry.Cancel(evt.MessageID) {
-				xlog.Info("Cancelled an agent execution on this replica after a broadcast cancel", "agent", evt.AgentName, "user", evt.UserID, "messageID", evt.MessageID)
-			}
-		}
-	})
 }
 
 // StartObservablePersister subscribes to every agent's events and persists the

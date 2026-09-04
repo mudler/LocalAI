@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -17,7 +18,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/agents"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
-	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
@@ -83,14 +83,14 @@ var _ = Describe("The agent worker's backend stop", func() {
 // verb rather than as a wiring mistake. Nothing else in this repo would notice.
 var _ = Describe("The agent worker's control-plane wiring", func() {
 	var base string
+	var bridge *agents.EventBridge
 
 	BeforeEach(func() {
 		mux := http.NewServeMux()
 		// Built exactly as Run builds it, from an executor and the MCP CI
 		// timeout, so a field this function forgets to set is a 404 here.
-		executor := agents.NewWorkerExecutor(
-			agents.NewEventBridge(testutil.NewFakeBus(), nil, "agent-worker-spec"),
-			nil, "http://127.0.0.1:1", "token")
+		bridge = agents.NewWorkerEventBridge("agent-worker-spec")
+		executor := agents.NewWorkerExecutor(bridge, nil, "http://127.0.0.1:1", "token")
 		agentWorkerControlHandlers(executor, "http://127.0.0.1:1", "token", time.Second).Register(mux)
 		srv := httptest.NewServer(mux)
 		DeferCleanup(srv.Close)
@@ -113,7 +113,49 @@ var _ = Describe("The agent worker's control-plane wiring", func() {
 		// in the tree can tell the two apart and only this spec can.
 		Entry("agent execute", workerctl.PathAgentExecute),
 		Entry("mcp ci run", workerctl.PathMCPCIRun),
+		// The verb that removed this process's last reason to dial a bus.
+		// Unwired it answers a 404, which the frontend reads as a worker too
+		// old to serve it, and every cancel of an agent this worker is running
+		// is then reported as one that could not be delivered - for ever.
+		Entry("agent cancel", workerctl.PathAgentCancel),
 	)
+
+	// The cancel verb end to end through the mux, because the thing that must
+	// be true is that the path reaches the SAME cancel registry the executor
+	// registers a run on. Two bridges would compile, mount, answer 200 and
+	// cancel nothing.
+	It("cancels a run registered on the executor's own bridge, and says so", func() {
+		cancelled := make(chan struct{})
+		bridge.RegisterCancel("msg-1", func() { close(cancelled) })
+
+		post := func(messageID string) messaging.AgentCancelReply {
+			GinkgoHelper()
+			body, err := json.Marshal(messaging.AgentCancelRequest{AgentName: "a1", UserID: "u1", MessageID: messageID})
+			Expect(err).ToNot(HaveOccurred())
+			resp, err := http.Post(base+workerctl.PathAgentCancel, "application/json", bytes.NewReader(body)) //nolint:gosec,noctx // httptest server, no redirects to follow
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() { _ = resp.Body.Close() })
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var reply messaging.AgentCancelReply
+			Expect(json.NewDecoder(resp.Body).Decode(&reply)).To(Succeed())
+			return reply
+		}
+
+		Expect(post("msg-nobody-is-running").Cancelled).To(BeFalse(),
+			"a worker answers only for itself, and false is that answer rather than a failure")
+		Expect(post("msg-1").Cancelled).To(BeTrue())
+		Eventually(cancelled, "20s").Should(BeClosed())
+	})
+
+	It("fails to serve a cancel it cannot read, rather than answering that it found nothing", func() {
+		// The two are different facts. A 200 with cancelled false would be read
+		// as this worker's own answer about the run; a body it could not decode
+		// is not an answer about anything.
+		resp, err := http.Post(base+workerctl.PathAgentCancel, "application/json", strings.NewReader(`{"message_id":`)) //nolint:gosec,noctx // httptest server, no redirects to follow
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = resp.Body.Close() })
+		Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
+	})
 
 	DescribeTable("answers a dispatched verb as a stream, so progress and the terminal line share one body",
 		func(path string) {
@@ -147,28 +189,23 @@ var _ = Describe("The agent worker's control-plane wiring", func() {
 	)
 })
 
-// The last reason an agent worker dials a message bus, pinned so that removing
-// it is a decision rather than an accident.
+// The agent worker dials NO message bus, pinned so that a flag reappearing as
+// required is a decision rather than an accident.
 //
-// Every verb a frontend addresses to THIS worker now arrives on the tunnel it
-// dials, and the two queue groups it used to join are gone. One family is left,
-// in the other direction: agent.<name>.cancel. Its publisher is a frontend
-// replica and its ONLY subscriber is this process, and a worker has no database
-// and so cannot join the PostgreSQL carrier every other family moved to. A
-// worker that came up without a bus would register, serve, run agents, and
-// ignore every cancel, returning nothing to say so - the cancel would be
-// published, would succeed, and would reach nobody.
+// Every verb a frontend addresses to this worker arrives on the tunnel it
+// dials, and that now includes the cancel: agent.<name>.cancel was the last
+// family in the other direction, from a frontend replica to whichever worker
+// held the execution, and it could not move to the broadcast carrier because
+// that carrier rides PostgreSQL and this process has no database. It is a
+// control verb on the worker's own tunnel instead.
 //
-// So --nats-url stays required here, and it is required for this and for
-// nothing else. When a cancel rides the tunnel as a control verb, this spec is
-// what has to be deleted for the flag to become optional, and deleting it is
-// then the visible half of that change.
-var _ = Describe("The agent worker's remaining bus requirement", func() {
+// --nats-url is still ACCEPTED, and ignored, so an existing command line or
+// unit file starts unchanged.
+var _ = Describe("The agent worker's bus requirement", func() {
 	parse := func(args ...string) error {
-		// kong resolves env: tags from the process environment, and a
-		// LOCALAI_NATS_URL that is SET BUT EMPTY satisfies a required flag.
-		// Left in place, this spec would pass on a developer's shell and on
-		// nothing else.
+		// kong resolves env: tags from the process environment, so a
+		// LOCALAI_NATS_URL inherited from a developer's shell would make the
+		// first spec below pass for the wrong reason.
 		if prior, had := os.LookupEnv("LOCALAI_NATS_URL"); had {
 			Expect(os.Unsetenv("LOCALAI_NATS_URL")).To(Succeed())
 			DeferCleanup(func() { _ = os.Setenv("LOCALAI_NATS_URL", prior) })
@@ -182,16 +219,14 @@ var _ = Describe("The agent worker's remaining bus requirement", func() {
 		return err
 	}
 
-	It("refuses to start without a bus to hear cancels on", func() {
-		// Refused at parse time and not at first use. A worker that started
-		// and only failed to subscribe would already have registered itself as
-		// available to run agents nobody can cancel.
-		Expect(parse("--register-to", "http://frontend:8080")).
-			To(MatchError(ContainSubstring("--nats-url")),
-				"the agent worker started with no bus: every cancel of an agent it runs would be published to nobody and reported as sent")
+	It("starts with no bus named at all", func() {
+		Expect(parse("--register-to", "http://frontend:8080")).To(Succeed(),
+			"an agent worker connects to no message bus and must not demand the URL of one")
 	})
 
-	It("parses once the bus is named", func() {
+	It("still accepts a command line that names one", func() {
+		// Ignored, not rejected. An operator upgrading a fleet must not have to
+		// edit every unit file in the same change.
 		Expect(parse("--register-to", "http://frontend:8080", "--nats-url", "nats://bus:4222")).To(Succeed())
 	})
 })
