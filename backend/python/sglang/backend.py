@@ -40,6 +40,7 @@ import grpc
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
+from python_utils import attach_media_parts
 from grpc_auth import get_auth_interceptors
 from model_utils import resolve_model_reference
 
@@ -366,6 +367,24 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         _thinking = request.Metadata.get("enable_thinking", "").lower()
         if _thinking in ("true", "false"):
             template_kwargs["enable_thinking"] = (_thinking == "true")
+
+        # sglang locates the attached images/videos by scanning the rendered
+        # prompt for the model's own media token, so the template has to be
+        # given content *parts* - string content renders a prompt with no
+        # placeholder and the media are dropped without a word (#11621).
+        media_dicts = attach_media_parts(
+            messages_dicts, len(request.Images), len(request.Videos)
+        )
+        if media_dicts is not None:
+            try:
+                return self.tokenizer.apply_chat_template(media_dicts, **template_kwargs)
+            except Exception as e:
+                # A text-only template cannot iterate content parts; fall
+                # through to the text-only prompt instead of failing.
+                print(
+                    f"chat template rejected multimodal content parts: {e!r}",
+                    file=sys.stderr,
+                )
 
         try:
             return self.tokenizer.apply_chat_template(messages_dicts, **template_kwargs)

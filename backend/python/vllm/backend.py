@@ -20,6 +20,7 @@ import backend_pb2_grpc
 import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
+from python_utils import attach_media_parts
 from grpc_auth import get_auth_interceptors
 from model_utils import resolve_model_reference
 from vllm_utils import apply_options_to_engine_args, normalize_option_key
@@ -595,13 +596,33 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if _thinking in ("true", "false"):
                 template_kwargs["enable_thinking"] = (_thinking == "true")
 
-            try:
-                prompt = self.tokenizer.apply_chat_template(messages_dicts, **template_kwargs)
-            except TypeError:
-                # Some tokenizers don't support tools/enable_thinking kwargs — retry without them
-                prompt = self.tokenizer.apply_chat_template(
-                    messages_dicts, tokenize=False, add_generation_prompt=True
-                )
+            # vLLM substitutes multi_modal_data into the model's own media
+            # token, so the template has to be given content *parts* - string
+            # content renders a prompt with no placeholder and the media are
+            # dropped without a word (#11621).
+            prompt = None
+            media_dicts = attach_media_parts(
+                messages_dicts, len(image_data), len(video_data)
+            )
+            if media_dicts is not None:
+                try:
+                    prompt = self.tokenizer.apply_chat_template(media_dicts, **template_kwargs)
+                except Exception as e:
+                    # A text-only template cannot iterate content parts; fall
+                    # through to the text-only prompt instead of failing.
+                    print(
+                        f"chat template rejected multimodal content parts: {e!r}",
+                        file=sys.stderr,
+                    )
+
+            if prompt is None:
+                try:
+                    prompt = self.tokenizer.apply_chat_template(messages_dicts, **template_kwargs)
+                except TypeError:
+                    # Some tokenizers don't support tools/enable_thinking kwargs — retry without them
+                    prompt = self.tokenizer.apply_chat_template(
+                        messages_dicts, tokenize=False, add_generation_prompt=True
+                    )
 
         # Generate text using the LLM engine
         request_id = random_uuid()
