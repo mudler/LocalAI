@@ -60,6 +60,12 @@ except ImportError:
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
+# proto3 has no field presence, so an explicit 0 is indistinguishable from
+# "unset". These two fields have a meaningful zero a caller can intend:
+# temperature 0 is greedy decoding, and 0 is a valid seed.
+_EXPLICIT_ZERO_FIELDS = ("Temperature", "Seed")
+
+
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 
@@ -553,7 +559,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         for request_field, param_field in request_to_sampling_params.items():
             if hasattr(request, request_field):
                 value = getattr(request, request_field)
-                if request_field == "Temperature" or value not in (None, 0, [], False):
+                # See _EXPLICIT_ZERO_FIELDS: temperature 0 is greedy decoding
+                # and 0 is a valid seed, so neither may be filtered out.
+                if request_field in _EXPLICIT_ZERO_FIELDS or value not in (None, 0, [], False):
                     setattr(sampling_params, param_field, value)
 
         return sampling_params
