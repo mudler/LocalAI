@@ -417,4 +417,4 @@ fi
 |-------------------------------|------------------------------------------------|
 | `LOCALAI_API_KEY`             | Comma-separated list of valid API keys         |
 | `LOCALAI_OPAQUE_ERRORS`       | Set to `true` to hide error details (returns empty body with status code only) |
-| `LOCALAI_SUBTLEKEY_COMPARISON`| Use constant-time key comparison for timing-attack resistance |
+| `LOCALAI_SUBTLE_KEY_COMPARISON`| Use constant-time key comparison for timing-attack resistance |
