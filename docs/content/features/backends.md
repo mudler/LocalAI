@@ -174,6 +174,7 @@ For getting started, see the available backends in LocalAI here: https://github.
 LocalAI supports various types of backends:
 
 - **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX)
+- **AMD FP4 Backend**: `rocmfp4` — a llama.cpp fork reading the ROCmFP4 / ROCmFPx 4-bit weight formats (ggml types 100-107) on AMD RDNA3.5 APUs (Strix Point / Strix Halo / Gorgon). Stock llama.cpp rejects these tensor types. The format trades memory, not arithmetic: ~22% smaller than Q4_K_M at perplexity parity, with the matmul running as int8 dot products since RDNA3.5 has no FP4 matrix instruction. `llama-cpp` remains the recommendation for everything else.
 - **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, [NeMo-Speech.cpp]({{%relref "features/nemo-speech-cpp" %}}), faster-whisper, NeMo, [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [NeMo-Speech.cpp]({{%relref "features/nemo-speech-cpp" %}}), [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "features/audio-cpp" %}}))

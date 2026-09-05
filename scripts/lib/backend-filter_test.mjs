@@ -66,6 +66,12 @@ const includes = [
     "base-image": "ubuntu:24.04",
   },
   {
+    backend: "rocmfp4",
+    dockerfile: "./backend/Dockerfile.rocmfp4",
+    "tag-suffix": "-rocmfp4",
+    "base-image": "ubuntu:24.04",
+  },
+  {
     backend: "audio-cpp",
     dockerfile: "./backend/Dockerfile.audio-cpp",
     "tag-suffix": "-cpu-audio-cpp",
@@ -213,10 +219,23 @@ test("tests for the packaging scripts do not rebuild anything", () => {
   assert.deepEqual(filteredDarwin, []);
 });
 
-test("turboquant still retriggers on llama-cpp source changes", () => {
+test("llama.cpp forks still retrigger on llama-cpp source changes", () => {
   const { filtered } = run(["backend/cpp/llama-cpp/grpc-server.cpp"]);
 
-  assert.deepEqual(names(filtered), ["llama-cpp", "turboquant"]);
+  assert.deepEqual(names(filtered), ["llama-cpp", "rocmfp4", "turboquant"]);
+});
+
+// ---------------------------------------------------------------------------
+// rocmfp4: its inferBackendPath case must sit ABOVE the generic llama-cpp
+// suffix test. Without it "Dockerfile.rocmfp4" would not resolve to its own
+// directory and a PR touching only this backend would get no CI job at all.
+// ---------------------------------------------------------------------------
+
+test("rocmfp4 source changes rebuild rocmfp4 and nothing else", () => {
+  const { filtered, changedBackends } = run(["backend/cpp/rocmfp4/Makefile"]);
+
+  assert.deepEqual(names(filtered), ["rocmfp4"]);
+  assert.ok(changedBackends.has("rocmfp4"));
 });
 
 // ---------------------------------------------------------------------------
