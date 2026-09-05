@@ -85,7 +85,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | `--max-concurrent-backend-requests` | `1024` | Process-wide ceiling for concurrent backend inference operations. Excess inference receives HTTP 503 with `Retry-After`; UI and administrative endpoints remain available | `$LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS`, `$MAX_CONCURRENT_BACKEND_REQUESTS` |
 | `--cors` | `false` | Enable CORS (Cross-Origin Resource Sharing) | `$LOCALAI_CORS`, `$CORS` |
 | `--cors-allow-origins` | | Comma-separated list of allowed CORS origins | `$LOCALAI_CORS_ALLOW_ORIGINS`, `$CORS_ALLOW_ORIGINS` |
-| `--csrf` | `false` | Enable Fiber CSRF middleware | `$LOCALAI_CSRF` |
+| `--disable-csrf` | `false` | Disable CSRF middleware (enabled by default) | `$LOCALAI_DISABLE_CSRF` |
 | `--disable-http-compression` | `false` | Disable gzip compression of HTTP responses. Compression is enabled by default; streaming endpoints (streaming chat completions, SSE bridges, WebSocket upgrades) and already-compressed formats are never compressed | `$LOCALAI_DISABLE_HTTP_COMPRESSION` |
 | `--http-compression-min-length` | `1024` | Minimum response size in bytes before gzip compression is applied. Smaller responses are sent as-is because the gzip envelope would outweigh the saving | `$LOCALAI_HTTP_COMPRESSION_MIN_LENGTH` |
 | `--upload-limit` | `15` | Default upload-limit in MB | `$LOCALAI_UPLOAD_LIMIT`, `$UPLOAD_LIMIT` |
