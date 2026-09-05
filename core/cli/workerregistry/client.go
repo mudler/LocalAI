@@ -68,15 +68,19 @@ type RegisterResponse struct {
 	// hash, so this is the ONLY time the plaintext exists anywhere but in this
 	// worker's memory: a worker that discards it cannot get it back without
 	// registering again.
-	TunnelToken  string `json:"tunnel_token,omitempty"`
-	NatsJWT      string `json:"nats_jwt,omitempty"`
-	NatsUserSeed string `json:"nats_user_seed,omitempty"`
+	TunnelToken string `json:"tunnel_token,omitempty"`
+	// There are no nats_jwt / nats_user_seed fields. A frontend that predates
+	// this release still sends them and this decodes fine: encoding/json
+	// ignores a key with no field, so an old frontend talking to a new worker
+	// is a no-op rather than a decode failure.
 }
 
 // RegisterFull sends a single registration request and returns the full
-// response (node ID, approval status, and optional API token / NATS creds).
+// response (node ID, approval status, and optional API and tunnel tokens).
 // Re-registration is idempotent: the frontend preserves the node row and mints
-// a fresh NATS JWT each call, so this doubles as the credential-refresh call.
+// a fresh TUNNEL token each call, so this doubles as the rotation call. It is
+// the only credential a registration mints; the per-node broker JWT it used to
+// carry went with the bus.
 func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]any) (*RegisterResponse, error) {
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/register"
@@ -157,26 +161,20 @@ func isRegistrationRejection(status int) bool {
 	return status >= 400 && status < 500
 }
 
-// Register sends a single registration request and returns the node ID and
-// optional credentials (API token for agent workers, NATS JWT when configured).
-func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
-	res, err := c.RegisterFull(ctx, body)
-	if err != nil {
-		return "", "", "", "", err
-	}
-	return res.ID, res.APIToken, res.NatsJWT, res.NatsUserSeed, nil
-}
-
 // RegisterWithRetry retries registration with exponential backoff.
 //
 // It drops every field of the response it does not name, the tunnel credential
 // among them. Callers that need one use RegisterFullWithRetry.
-func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
+//
+// The two broker-credential returns it used to carry are gone with the bus, and
+// so is the Register one-shot that existed only to carry them: it had no caller
+// left once nothing dialled a broker.
+func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (nodeID, apiToken string, err error) {
 	res, err := c.RegisterFullWithRetry(ctx, body, maxRetries)
 	if err != nil {
-		return "", "", "", "", err
+		return "", "", err
 	}
-	return res.ID, res.APIToken, res.NatsJWT, res.NatsUserSeed, nil
+	return res.ID, res.APIToken, nil
 }
 
 // RegisterFullWithRetry retries registration with exponential backoff and

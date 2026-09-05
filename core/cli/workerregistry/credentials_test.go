@@ -6,9 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mudler/LocalAI/pkg/natsauth"
-	"github.com/nats-io/nkeys"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -50,20 +47,20 @@ func (f *fakeRegister) count() int {
 	return f.calls
 }
 
-var _ = Describe("NATSCredentialManager", func() {
-	approved := func(jwt, seed string) *RegisterResponse {
-		return &RegisterResponse{ID: "node-1", Status: "healthy", NatsJWT: jwt, NatsUserSeed: seed}
+var _ = Describe("CredentialManager", func() {
+	approved := func(tunnelToken string) *RegisterResponse {
+		return &RegisterResponse{ID: "node-1", Status: "healthy", TunnelToken: tunnelToken}
 	}
 	pending := &RegisterResponse{ID: "node-1", Status: "pending"}
 
-	Describe("Acquire (#4 — wait through admin approval)", func() {
-		It("keeps re-registering until the node is approved and credentials are minted", func() {
+	Describe("Acquire (wait through admin approval)", func() {
+		It("keeps re-registering until the node is approved", func() {
 			f := &fakeRegister{steps: []step{
-				{res: pending},                     // not approved yet
-				{res: approved("", "")},            // approved but JWT not minted yet
-				{res: approved("jwt-1", "seed-1")}, // finally minted
+				{res: pending},              // not approved yet
+				{res: pending},              // still not approved
+				{res: approved("tunnel-1")}, // approved, and handed its tunnel credential
 			}}
-			m := NewNATSCredentialManager(f.fn(), true /* requireCreds */)
+			m := NewCredentialManager(f.fn(), true /* requireApproval */)
 			m.initialBackoff = time.Millisecond
 			m.maxBackoff = time.Millisecond
 
@@ -71,28 +68,24 @@ var _ = Describe("NATSCredentialManager", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.ID).To(Equal("node-1"))
 			Expect(f.count()).To(Equal(3))
-
-			jwt, seed := m.Current()
-			Expect(jwt).To(Equal("jwt-1"))
-			Expect(seed).To(Equal("seed-1"))
-			Expect(m.HasCredentials()).To(BeTrue())
+			Expect(m.TunnelToken()).To(Equal("tunnel-1"))
 			Expect(m.NodeID()).To(Equal("node-1"))
 		})
 
-		It("returns immediately on the first success when credentials are not required (anonymous NATS)", func() {
+		It("returns immediately on the first success when approval is not required", func() {
 			f := &fakeRegister{steps: []step{{res: pending}}}
-			m := NewNATSCredentialManager(f.fn(), false /* requireCreds */)
+			m := NewCredentialManager(f.fn(), false /* requireApproval */)
 
 			res, err := m.Acquire(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.Status).To(Equal("pending"))
 			Expect(f.count()).To(Equal(1))
-			Expect(m.HasCredentials()).To(BeFalse())
+			Expect(m.TunnelToken()).To(BeEmpty())
 		})
 
 		It("aborts when the context is cancelled while waiting for approval", func() {
 			f := &fakeRegister{steps: []step{{res: pending}}}
-			m := NewNATSCredentialManager(f.fn(), true)
+			m := NewCredentialManager(f.fn(), true)
 			m.initialBackoff = 10 * time.Millisecond
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -103,7 +96,7 @@ var _ = Describe("NATSCredentialManager", func() {
 
 		It("gives up after a bounded number of attempts so the worker exits and alerts", func() {
 			f := &fakeRegister{steps: []step{{res: pending}}} // never approved
-			m := NewNATSCredentialManager(f.fn(), true)
+			m := NewCredentialManager(f.fn(), true)
 			m.initialBackoff = time.Millisecond
 			m.maxBackoff = time.Millisecond
 			m.maxAttempts = 5
@@ -116,83 +109,48 @@ var _ = Describe("NATSCredentialManager", func() {
 		})
 	})
 
-	Describe("RefreshLoop (#5 — renew before the JWT expires)", func() {
-		It("re-registers before expiry and updates the credentials served to new connections", func() {
-			f := &fakeRegister{steps: []step{{res: approved("jwt-2", "seed-2")}}}
-			m := NewNATSCredentialManager(f.fn(), true)
-			m.refreshLead = 0.5
-			m.refreshRetry = time.Millisecond
-			// jwt-1 expires soon; jwt-2 is long-lived so the loop then idles.
-			m.expiryOf = func(jwt string) (time.Time, bool) {
-				switch jwt {
-				case "jwt-1":
-					return time.Now().Add(40 * time.Millisecond), true
-				case "jwt-2":
-					return time.Now().Add(time.Hour), true
-				default:
-					return time.Time{}, false
-				}
-			}
-			m.store(approved("jwt-1", "seed-1"))
+	// The behaviour that survived the rename, and which nothing pinned while
+	// the manager was about a JWT.
+	//
+	// The frontend mints a FRESH tunnel token on every registration and keeps
+	// only its hash, so the previous one stops working the moment a new one is
+	// issued. A manager that handed out the first value it saw would lock the
+	// worker out of its own tunnel after any re-registration, and the symptom
+	// would be a 401 on a dial rather than anything at registration time.
+	Describe("TunnelToken (rotation)", func() {
+		It("serves the token from the most recent registration, not the first", func() {
+			m := NewCredentialManager(nil, false)
+			m.store(approved("tunnel-1"))
+			Expect(m.TunnelToken()).To(Equal("tunnel-1"))
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			go func() { _ = m.RefreshLoop(ctx) }()
-
-			Eventually(func() string {
-				jwt, _ := m.Current()
-				return jwt
-			}, "2s", "10ms").Should(Equal("jwt-2"))
+			m.store(approved("tunnel-2"))
+			Expect(m.TunnelToken()).To(Equal("tunnel-2"),
+				"the frontend keeps only the newest token's hash, so serving the first one locks this worker out of its own tunnel")
 		})
 
-		It("returns an error after the bounded number of consecutive failures so the caller can exit", func() {
-			f := &fakeRegister{steps: []step{{err: context.DeadlineExceeded}}} // refresh always fails
-			m := NewNATSCredentialManager(f.fn(), true)
-			m.refreshLead = 0.5
-			m.refreshRetry = time.Millisecond
-			m.maxAttempts = 3
-			m.expiryOf = func(string) (time.Time, bool) { return time.Now().Add(time.Millisecond), true }
-			m.store(approved("jwt-1", "seed-1"))
-
-			errCh := make(chan error, 1)
-			go func() { errCh <- m.RefreshLoop(context.Background()) }()
-			Eventually(errCh, "2s").Should(Receive(MatchError(ContainSubstring("3 times in a row"))))
-		})
-
-		It("exits promptly when the current credential has no expiry (nothing to refresh)", func() {
-			f := &fakeRegister{steps: []step{{res: approved("x", "y")}}}
-			m := NewNATSCredentialManager(f.fn(), true)
-			m.expiryOf = func(string) (time.Time, bool) { return time.Time{}, false }
-			m.store(approved("static", "seed"))
-
-			done := make(chan struct{})
-			go func() { _ = m.RefreshLoop(context.Background()); close(done) }()
-			Eventually(done, "1s").Should(BeClosed())
-			Expect(f.count()).To(Equal(0)) // never tried to re-register
-		})
-	})
-
-	Describe("jwtExpiry default", func() {
-		It("decodes the expiry of a real minted worker JWT", func() {
-			akp, err := nkeys.CreateAccount()
-			Expect(err).ToNot(HaveOccurred())
-			seed, err := akp.Seed()
-			Expect(err).ToNot(HaveOccurred())
-
-			cfg := natsauth.Config{AccountSeed: string(seed), WorkerJWTTTL: time.Hour}
-			token, _, err := cfg.MintWorkerJWT("node-1", "backend")
-			Expect(err).ToNot(HaveOccurred())
-
-			exp, ok := jwtExpiry(token)
-			Expect(ok).To(BeTrue())
-			Expect(exp).To(BeTemporally("~", time.Now().Add(time.Hour), 2*time.Minute))
-		})
-
-		It("reports no expiry for an empty or undecodable token", func() {
-			_, ok := jwtExpiry("")
-			Expect(ok).To(BeFalse())
-			_, ok = jwtExpiry("not-a-jwt")
-			Expect(ok).To(BeFalse())
+		It("keeps a working token when a registration carries none", func() {
+			// A frontend that predates tunnel tokens, or one whose minting
+			// failed, sends the field empty. Empty means "nothing new", not
+			// "revoked": overwriting would lock the tunnel out until the next
+			// registration that did carry one.
+			m := NewCredentialManager(nil, false)
+			m.store(approved("tunnel-1"))
+			m.store(approved(""))
+			Expect(m.TunnelToken()).To(Equal("tunnel-1"))
 		})
 	})
 })
+
+// Deleted with the bus: the "RefreshLoop" Describe and the "jwtExpiry default"
+// Describe.
+//
+// RefreshLoop pinned that a worker re-registers before its minted broker JWT
+// expires and serves the new credential to the next connection. Every noun in
+// that sentence is gone: there is no JWT, no expiry to read, and no connection
+// to serve it to. It is retired rather than moved. The one credential a
+// registration still mints, the tunnel token, is rotated by a REGISTRATION
+// rather than by a clock, and the property that matters about it is that the
+// dialer reads the current value, which the rotation Describe above pins.
+//
+// jwtExpiry pinned that a real minted worker JWT's expiry decoded, which was
+// the only thing in this package that needed a broker library at all.

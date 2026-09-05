@@ -119,11 +119,12 @@ var _ = Describe("shutting the distributed services down", func() {
 // It was five field reads before this: the fine-tune service, the quantization
 // service, the agent-task setter on two startup paths, the per-user services
 // manager and the Open Responses store. Every one of them takes a
-// messaging.Broadcaster, which *messaging.Client satisfies too, so a site left
-// holding the struct's NATS field compiled, started, published and was
+// messaging.Broadcaster, which the broker client on the same struct satisfied
+// too, so a site left holding that field compiled, started, published and was
 // delivered onto a carrier only agent workers read, and nothing failed until
-// NATS did. Collapsing the choice into one function is what makes it a fact
-// these specs can hold.
+// the broker went away. That field and its type are now gone; collapsing the
+// choice into one function is what keeps it a fact these specs can hold, rather
+// than a property that lasted only as long as there was one carrier.
 var _ = Describe("handing the broadcast carrier to its adopters", func() {
 	It("returns the carrier the deployment opened", func() {
 		db, dsn := testutil.SetupTestDBWithDSN()

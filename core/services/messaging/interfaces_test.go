@@ -12,21 +12,24 @@ import (
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
-// The three things that must answer one contract, asserted where the contract
+// The two things that must answer one contract, asserted where the contract
 // lives rather than at whichever adopter is migrated next.
 //
-// *pgbus.Bus is the carrier a deployment runs on, *messaging.Client is the one
-// carrier left that a deployment still dials (see below), and *testutil.FakeBus
-// is what every consumer's spec runs against. A double that drifts out of the
-// interface makes each adopter's suite fail in turn, in packages that do not
-// own the interface and cannot say why.
+// *pgbus.Bus is the carrier a deployment runs on and *testutil.FakeBus is what
+// every consumer's spec runs against. A double that drifts out of the interface
+// makes each adopter's suite fail in turn, in packages that do not own the
+// interface and cannot say why.
+//
+// There were three. *messaging.Client, the NATS connection, is deleted: it
+// carried one family, agent.<name>.cancel, and that family is a control verb on
+// the agent worker's own tunnel now, so the type had no caller and the module
+// had no reason to require a broker client.
 //
 // This file is package messaging_test because messaging cannot import testutil
 // or pgbus: both import messaging.
 var (
 	_ messaging.Broadcaster = (*testutil.FakeBus)(nil)
 	_ messaging.Broadcaster = (*pgbus.Bus)(nil)
-	_ messaging.Broadcaster = (*messaging.Client)(nil)
 )
 
 // exportedMethods names the exported method set of t, sorted, so a spec can
@@ -64,43 +67,16 @@ var _ = Describe("the messaging surface", func() {
 	})
 })
 
-// The NATS client survives this commit, and it survives for exactly one family.
+// The two Describes that stood here pinned the NATS client's method set: that
+// it was a Broadcaster plus its own lifecycle, and that QueueSubscribe,
+// QueueSubscribeReply, SubscribeReply, Request and Conn could not come back on
+// it. They are retired rather than moved, because a method set is a property of
+// a type and the type is gone.
 //
-// agent.<name>.cancel is the one fan-out family that did not move to the
-// PostgreSQL carrier: its only subscriber is the agent WORKER, which has no
-// database and cannot join that carrier at all, so a cancel published there
-// would reach no worker and be reported as sent. Both ends of that family still
-// dial NATS, which is why messaging.New, the connect options and the TLS files
-// are all still here.
-//
-// What the client may no longer do is everything else. Its queue and
-// request/reply halves are deleted, so a family being put BACK on NATS is now a
-// build error at the call site rather than a line that compiles, publishes
-// successfully, and is delivered onto a carrier nobody subscribes to.
-//
-// The method set is pinned by NAME and not by a conformance assertion, because
-// a conformance assertion cannot express absence: *messaging.Client satisfying
-// Broadcaster stays true no matter how many methods are added back.
-var _ = Describe("the NATS client's method set", func() {
-	It("is a Broadcaster plus its own lifecycle, and nothing more", func() {
-		Expect(exportedMethods(reflect.TypeOf((*messaging.Client)(nil)))).
-			To(Equal([]string{"Close", "ConfirmRoundTrip", "IsConnected", "OnReconnect", "Publish", "Subscribe"}),
-				"the NATS client grew a method back: it is the cancel family's carrier and may carry nothing else")
-	})
-
-	It("cannot be handed a queue group or a request", func() {
-		// Named individually so the failure message says WHICH half came back.
-		// As a set assertion alone, re-adding Request reads as an off-by-one.
-		t := reflect.TypeOf((*messaging.Client)(nil))
-		// Conn is in this list and is the reason the list is checkable at all:
-		// while it existed, every name above it was one c.Conn().X() away, so
-		// the deletions would have been a naming convention rather than a
-		// constraint. ConfirmRoundTrip is what replaced it, and it hands back
-		// an error rather than the connection.
-		for _, retired := range []string{"QueueSubscribe", "QueueSubscribeReply", "SubscribeReply", "Request", "Conn"} {
-			_, found := t.MethodByName(retired)
-			Expect(found).To(BeFalse(),
-				"%s is back on *messaging.Client; that half of the carrier was retired and its call sites moved to the worker's tunnel or to the claim queue", retired)
-		}
-	})
-})
+// What they were really guarding is the carrier, not the type, and that guard
+// survives twice over. The retired halves cannot come back on the interface,
+// which the "is fan-out and nothing else" spec above still asserts by count.
+// And the connection itself cannot come back at all without a broker client in
+// the module, which nats_absent_test.go asserts against go.mod and go.sum: a
+// deleted method is one file away from being written again, while a deleted
+// require has to be re-added on purpose and shows up in a diff.

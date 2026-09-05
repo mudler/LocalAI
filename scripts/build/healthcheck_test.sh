@@ -135,8 +135,9 @@ echo "== a 503 from a still-preloading frontend is unhealthy, not a crash"
 run_hc 1 "local-ai run" STUB_CURL_EXIT=22
 
 echo "== modes with no HTTP surface report healthy rather than false-unhealthy"
-# agent-worker is NATS-only. Reporting `unhealthy` forever for a process that
-# was never going to bind a port is the same bug as #10987, one mode over.
+# agent-worker binds no port: it dials a tunnel out to a frontend and is
+# reached over that. Reporting `unhealthy` forever for a process that was never
+# going to bind a port is the same bug as #10987, one mode over.
 run_hc 0 "local-ai agent-worker"
 expect_url ""
 

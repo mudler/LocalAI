@@ -416,9 +416,14 @@ var _ = Describe("Control plane over the worker tunnel", Label("Distributed"), L
 		// And the harness DOES still hand a LOCALAI_NATS_URL to the other
 		// processes in this cluster, so the worker's lack of one is a property
 		// of the worker and not of a harness that stopped setting the variable
-		// at all. There is no broker behind that URL any more, which is the
-		// point: nothing dials it, so nothing notices.
-		Expect(c.NatsURL()).ToNot(BeEmpty())
+		// at all. Read from the FRONTEND's running process for the same reason
+		// the worker's absence is: the harness options would only say what was
+		// assembled. There is no broker behind that URL, which is the point:
+		// nothing dials it, so nothing notices.
+		frontendEnviron, err := c.FrontendEnviron(0)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(frontendEnviron).To(ContainElement(HavePrefix("LOCALAI_NATS_URL=")),
+			"the harness stopped handing a bus URL to anything, so the worker's lack of one proves nothing")
 
 		probe := newRosterProbe(c, client, 0)
 		Eventually(probe.healthyNames, nodeRosterTimeout, nodeRosterPoll).

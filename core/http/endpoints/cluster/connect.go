@@ -128,13 +128,14 @@ func ConnectHandler(registry *nodes.NodeRegistry, tunnels *clustersvc.TunnelRegi
 		// 401 would send an operator looking at tokens.
 		//
 		// Only StatusPending is refused. The rest of /api/node/ self-service
-		// gates on nothing at all, but the two places that hand a node something
-		// DURABLE both refuse a pending one: the agent worker's API key
-		// (provisionAgentWorkerKey, guarded at its call site in
-		// core/http/endpoints/localai/nodes.go) and its NATS credential
-		// (attachNatsJWT in the same file). Cited by NAME, not by line: the
-		// previous version of this comment cited line numbers into a file this
-		// same commit was editing, and both were stale before it landed.
+		// gates on nothing at all, but the one place that hands a node
+		// something DURABLE refuses a pending one too: the agent worker's API
+		// key (provisionAgentWorkerKey, guarded at its call site in
+		// core/http/endpoints/localai/nodes.go). Cited by NAME, not by line:
+		// an earlier version of this comment cited line numbers into a file the
+		// same commit was editing, and both were stale before it landed. The
+		// per-node broker credential this used to name alongside it is gone
+		// with the bus, and so is the function that minted it.
 		//
 		// A tunnel is that kind of grant, not a heartbeat: it is
 		// a standing pipe into the worker recorded in node_connections and
