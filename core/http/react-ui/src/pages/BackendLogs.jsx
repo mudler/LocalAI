@@ -415,7 +415,7 @@ export default function BackendLogs() {
   const { modelId } = useParams()
 
   if (modelId) {
-    return <BackendLogsRouter modelId={decodeURIComponent(modelId)} />
+    return <BackendLogsRouter modelId={modelId} />
   }
 
   // No model specified — redirect to System page
