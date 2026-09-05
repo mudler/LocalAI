@@ -8,6 +8,9 @@ package quantization
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
 // newTestService builds a standalone QuantizationService wired to the given bus.
@@ -172,6 +176,156 @@ var _ = Describe("QuantizationService", func() {
 			Expect(back.ExtraOptions).To(Equal(original.ExtraOptions))
 			Expect(back.Config).ToNot(BeNil())
 			Expect(back.Config.QuantizationType).To(Equal("q4_k_m"))
+		})
+	})
+
+	Describe("progress recording", func() {
+		var (
+			bus *testutil.FakeBus
+			s   *QuantizationService
+		)
+
+		BeforeEach(func() {
+			bus = testutil.NewFakeBus()
+			s = newTestService(bus)
+		})
+
+		AfterEach(func() {
+			Expect(s.Close()).To(Succeed())
+		})
+
+		// The reported failure: a job that ran with no SSE client attached stayed
+		// "queued" forever, because the only code that advanced job state lived
+		// inside StreamProgress' stream callback. The transition is now applied by
+		// the job's own watcher, so it lands with nobody watching.
+		It("advances job state and rewrites state.json with no subscriber attached", func() {
+			job := &schema.QuantizationJob{ID: "job-np", UserID: "user-1", Status: "queued", CreatedAt: "2026-09-05T10:00:00Z"}
+			Expect(s.jobs.Set(ctx, job)).To(Succeed())
+			Expect(s.progressSubs).To(BeEmpty())
+
+			s.applyProgressUpdate(ctx, "job-np", &pb.QuantizationProgressUpdate{
+				JobId:      "job-np",
+				Status:     "completed",
+				Message:    "Quantization complete",
+				OutputFile: "/data/quantization/job-np/model-q4_k_m.gguf",
+			})
+
+			got, err := s.GetJob("user-1", "job-np")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.Status).To(Equal("completed"))
+			Expect(got.Message).To(Equal("Quantization complete"))
+			Expect(got.OutputFile).To(Equal("/data/quantization/job-np/model-q4_k_m.gguf"))
+
+			data, err := os.ReadFile(filepath.Join(s.jobDir("job-np"), "state.json"))
+			Expect(err).ToNot(HaveOccurred())
+			var persisted schema.QuantizationJob
+			Expect(json.Unmarshal(data, &persisted)).To(Succeed())
+			Expect(persisted.Status).To(Equal("completed"))
+			Expect(persisted.OutputFile).To(Equal("/data/quantization/job-np/model-q4_k_m.gguf"))
+		})
+
+		It("does not let a late update overwrite a terminal status", func() {
+			job := &schema.QuantizationJob{ID: "job-stopped", UserID: "user-1", Status: "stopped", CreatedAt: "2026-09-05T10:00:00Z"}
+			Expect(s.jobs.Set(ctx, job)).To(Succeed())
+
+			s.applyProgressUpdate(ctx, "job-stopped", &pb.QuantizationProgressUpdate{
+				JobId:  "job-stopped",
+				Status: "quantizing",
+			})
+
+			got, err := s.GetJob("user-1", "job-stopped")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.Status).To(Equal("stopped"))
+		})
+
+		// The backend hands each update to a single consumer, so every client has
+		// to be served from one in-process fan-out rather than its own stream.
+		It("delivers one update to every attached subscriber", func() {
+			first := s.subscribeProgress("job-fan")
+			second := s.subscribeProgress("job-fan")
+			defer s.unsubscribeProgress("job-fan", first)
+			defer s.unsubscribeProgress("job-fan", second)
+
+			s.publishProgress("job-fan", &schema.QuantizationProgressEvent{JobID: "job-fan", Status: "quantizing"})
+
+			Expect((<-first).Status).To(Equal("quantizing"))
+			Expect((<-second).Status).To(Equal("quantizing"))
+		})
+
+		It("unsubscribing removes the job's entry once the last client leaves", func() {
+			ch := s.subscribeProgress("job-leave")
+			Expect(s.progressSubs).To(HaveKey("job-leave"))
+			s.unsubscribeProgress("job-leave", ch)
+			Expect(s.progressSubs).ToNot(HaveKey("job-leave"))
+		})
+
+		// A client attaching after the job finished — including a job restored from
+		// disk as "stopped" after a restart, which has no watcher — must not block
+		// waiting for an event that will never come.
+		It("returns a final event immediately for a job that already finished", func() {
+			job := &schema.QuantizationJob{
+				ID: "job-done", UserID: "user-1", Status: "completed",
+				Message: "Quantization complete", OutputFile: "/data/quantization/job-done/model-q4_k_m.gguf",
+				CreatedAt: "2026-09-05T10:00:00Z",
+			}
+			Expect(s.jobs.Set(ctx, job)).To(Succeed())
+
+			var seen []*schema.QuantizationProgressEvent
+			Expect(s.StreamProgress(ctx, "user-1", "job-done", func(e *schema.QuantizationProgressEvent) {
+				seen = append(seen, e)
+			})).To(Succeed())
+
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Status).To(Equal("completed"))
+			Expect(seen[0].OutputFile).To(Equal("/data/quantization/job-done/model-q4_k_m.gguf"))
+			Expect(s.progressSubs).ToNot(HaveKey("job-done"))
+		})
+
+		// StopJob kills the backend, so the watcher will never forward a terminal
+		// update; without an explicit release an attached client would hang.
+		It("releases an attached client when the job is stopped", func() {
+			job := &schema.QuantizationJob{ID: "job-stop", UserID: "user-1", Status: "quantizing", CreatedAt: "2026-09-05T10:00:00Z"}
+			Expect(s.jobs.Set(ctx, job)).To(Succeed())
+
+			ch := s.subscribeProgress("job-stop")
+			defer s.unsubscribeProgress("job-stop", ch)
+
+			// nil modelLoader: exercise the release without standing up a backend.
+			s.mu.Lock()
+			job.Status = "stopped"
+			s.mu.Unlock()
+			s.publishProgress("job-stop", &schema.QuantizationProgressEvent{
+				JobID: "job-stop", Status: "stopped", Message: "Quantization stopped by user",
+			})
+
+			event := <-ch
+			Expect(event.Status).To(Equal("stopped"))
+			Expect(isTerminalStatus(event.Status)).To(BeTrue())
+		})
+
+		It("streams published events to a client until a terminal status arrives", func() {
+			job := &schema.QuantizationJob{ID: "job-live", UserID: "user-1", Status: "queued", CreatedAt: "2026-09-05T10:00:00Z"}
+			Expect(s.jobs.Set(ctx, job)).To(Succeed())
+
+			var seen []string
+			done := make(chan error, 1)
+			go func() {
+				done <- s.StreamProgress(ctx, "user-1", "job-live", func(e *schema.QuantizationProgressEvent) {
+					seen = append(seen, e.Status)
+				})
+			}()
+
+			Eventually(func() bool {
+				s.progressMu.Lock()
+				defer s.progressMu.Unlock()
+				return len(s.progressSubs["job-live"]) == 1
+			}).Should(BeTrue())
+
+			s.publishProgress("job-live", &schema.QuantizationProgressEvent{JobID: "job-live", Status: "quantizing"})
+			s.publishProgress("job-live", &schema.QuantizationProgressEvent{JobID: "job-live", Status: "completed"})
+
+			Eventually(done).Should(Receive(BeNil()))
+			Expect(seen).To(Equal([]string{"quantizing", "completed"}))
 		})
 	})
 
