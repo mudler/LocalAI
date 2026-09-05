@@ -289,7 +289,7 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 		}
 
 		// Generate grammar from function definitions
-		jsStruct := functions.Functions(funcs).ToJSONStructure(turnCfg.FunctionsConfig.FunctionNameKey, turnCfg.FunctionsConfig.FunctionNameKey)
+		jsStruct := turnCfg.FunctionsConfig.ToJSONStructure(functions.Functions(funcs))
 		g, err := jsStruct.Grammar(turnCfg.FunctionsConfig.GrammarOptions()...)
 		if err == nil {
 			turnCfg.Grammar = g
