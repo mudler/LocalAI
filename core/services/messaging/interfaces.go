@@ -35,13 +35,14 @@ type Broadcaster interface {
 	Subscribe(subject string, handler func([]byte)) (Subscription, error)
 }
 
-// One of the two carriers a deployment dials, asserted in the package that owns
-// the interface rather than at whichever call site is migrated next.
+// Broadcaster has one implementation a deployment runs on, *pgbus.Bus, and it
+// cannot be named here, because pgbus imports this package. The conformance
+// assertion lives in interfaces_test.go alongside the test double's, which is
+// also where the method-set pin lives: a conformance assertion stays true
+// however many methods grow back, so it cannot say that the retired halves are
+// gone.
 //
-// *pgbus.Bus is the other and cannot be named here, because it imports this
-// package; it is asserted from interfaces_test.go, which also pins that
-// *Client's method set is this interface plus its own lifecycle and nothing
-// else. That pin is the guard, not this line: a conformance assertion stays
-// true however many methods grow back, so it cannot say that the retired halves
-// are gone.
-var _ Broadcaster = (*Client)(nil)
+// The NATS client that used to be asserted on this line is deleted. There is no
+// second carrier: the last family that needed one, agent.<name>.cancel, is a
+// control verb on the agent worker's own tunnel, and no component of a
+// distributed deployment opens a connection to a message broker.

@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
-	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/xlog"
 )
 
 // DistributedConfig holds configuration for horizontal scaling mode.
-// When Enabled is true, PostgreSQL and NATS are required.
+// When Enabled is true, PostgreSQL is required. Nothing else is: fan-out rides
+// PostgreSQL and every worker is reached over the tunnel it dials out.
 type DistributedConfig struct {
 	Enabled    bool   // --distributed / LOCALAI_DISTRIBUTED
 	InstanceID string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
@@ -22,22 +21,19 @@ type DistributedConfig struct {
 	// answer is only usable when the database is remote, so a deployment with
 	// a local or sidecar database has to set this.
 	AdvertiseAddr     string // LOCALAI_DISTRIBUTED_ADVERTISE_ADDR
-	// NatsURL is accepted and ignored. No component of a distributed
-	// deployment dials a message bus any more.
-	NatsURL string // --nats-url / LOCALAI_NATS_URL
 	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
 	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
 	// RegistrationRequireAuth fails startup when distributed mode is enabled but
 	// RegistrationToken is empty. The default (false) keeps the historical
 	// fail-open behavior with a loud warning; production should set it so the
 	// node-register endpoints and the worker file-transfer server cannot run
-	// unauthenticated. Mirrors NatsRequireAuth for the NATS bus.
+	// unauthenticated.
 	RegistrationRequireAuth bool // LOCALAI_REGISTRATION_REQUIRE_AUTH
 	// RequireAuth is the umbrella switch (LOCALAI_DISTRIBUTED_REQUIRE_AUTH) for
-	// distributed-mode auth: when true it implies BOTH NatsRequireAuth and
-	// RegistrationRequireAuth, so a single knob locks down the bus and the
-	// registration/file-transfer layer together. The granular flags remain
-	// available to enforce just one layer.
+	// distributed-mode auth. It implies RegistrationRequireAuth, and that is
+	// now ALL it implies: it used to imply a NatsRequireAuth as well, and there
+	// is no message bus left for that half to lock down. The granular flag
+	// remains available.
 	RequireAuth      bool // LOCALAI_DISTRIBUTED_REQUIRE_AUTH
 	AutoApproveNodes bool // --auto-approve-nodes / LOCALAI_AUTO_APPROVE_NODES (skip admin approval for new workers)
 	// SharedModels asserts that every node (frontend and workers) mounts the
@@ -48,16 +44,6 @@ type DistributedConfig struct {
 	// subdirectory only re-downloads what is already present (#10556). Default
 	// false preserves the historical per-node staging behavior.
 	SharedModels bool // --distributed-shared-models / LOCALAI_DISTRIBUTED_SHARED_MODELS
-
-	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
-	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
-	NatsServiceJWT   string        // LOCALAI_NATS_SERVICE_JWT — user JWT for frontends / agent workers
-	NatsServiceSeed  string        // LOCALAI_NATS_SERVICE_SEED — signing seed paired with service JWT
-	NatsWorkerJWTTTL time.Duration // LOCALAI_NATS_WORKER_JWT_TTL — minted worker JWT lifetime (default 24h)
-	NatsRequireAuth  bool          // LOCALAI_NATS_REQUIRE_AUTH — fail startup if NATS credentials are missing
-	NatsTLSCA        string        // LOCALAI_NATS_TLS_CA — PEM file for private CA (server verify)
-	NatsTLSCert      string        // LOCALAI_NATS_TLS_CERT — client cert for NATS mTLS
-	NatsTLSKey       string        // LOCALAI_NATS_TLS_KEY — client key paired with NatsTLSCert
 
 	// S3 configuration (used when StorageURL is set)
 	StorageBucket    string // --storage-bucket / LOCALAI_STORAGE_BUCKET
@@ -94,8 +80,8 @@ type DistributedConfig struct {
 	// database clock, so every replica agrees on when the window ends.
 	WorkerReconnectGrace time.Duration // LOCALAI_WORKER_RECONNECT_GRACE
 
-	BackendInstallTimeout time.Duration // NATS round-trip timeout for backend.install (default 15m)
-	BackendUpgradeTimeout time.Duration // NATS round-trip timeout for backend.upgrade (default 15m)
+	BackendInstallTimeout time.Duration // control round-trip timeout for backend.install (default 15m)
+	BackendUpgradeTimeout time.Duration // control round-trip timeout for backend.upgrade (default 15m)
 	// ModelLoadTimeout is the gRPC deadline for the remote LoadModel call the
 	// router issues once a worker has the backend installed and the model files
 	// staged. It therefore covers only the backend's own checkpoint load and
@@ -178,13 +164,6 @@ func (c DistributedConfig) Validate() error {
 		}
 		xlog.Warn("distributed mode running without registration token — node endpoints and the worker file-transfer server are unprotected; set LOCALAI_REGISTRATION_TOKEN, or LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true to fail closed")
 	}
-	if err := c.NatsAuthConfig().Validate(); err != nil {
-		return err
-	}
-	if err := c.NatsTLSFiles().Validate(); err != nil {
-		return err
-	}
-	c.NatsAuthConfig().WarnIfInsecure(true)
 	// Check for negative durations
 	for name, d := range map[string]time.Duration{
 		FlagMCPToolTimeout:        c.MCPToolTimeout,
@@ -226,44 +205,10 @@ func WithDistributedAdvertiseAddr(addr string) AppOption {
 	}
 }
 
-func WithNatsURL(url string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsURL = url
-	}
-}
-
 func WithRegistrationToken(token string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.RegistrationToken = token
 	}
-}
-
-func WithNatsAccountSeed(seed string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsAccountSeed = seed
-	}
-}
-
-func WithNatsServiceJWT(jwt string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsServiceJWT = jwt
-	}
-}
-
-func WithNatsServiceSeed(seed string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsServiceSeed = seed
-	}
-}
-
-func WithNatsWorkerJWTTTL(d time.Duration) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsWorkerJWTTTL = d
-	}
-}
-
-var EnableNatsRequireAuth = func(o *ApplicationConfig) {
-	o.Distributed.NatsRequireAuth = true
 }
 
 // EnableRegistrationRequireAuth makes an empty registration token a hard error
@@ -272,8 +217,8 @@ var EnableRegistrationRequireAuth = func(o *ApplicationConfig) {
 	o.Distributed.RegistrationRequireAuth = true
 }
 
-// EnableDistributedRequireAuth is the umbrella switch implying both
-// NatsRequireAuth and RegistrationRequireAuth (see DistributedConfig.RequireAuth).
+// EnableDistributedRequireAuth is the umbrella switch implying
+// RegistrationRequireAuth (see DistributedConfig.RequireAuth).
 var EnableDistributedRequireAuth = func(o *ApplicationConfig) {
 	o.Distributed.RequireAuth = true
 }
@@ -282,30 +227,6 @@ var EnableDistributedRequireAuth = func(o *ApplicationConfig) {
 // treated as a fatal misconfiguration — the granular flag or the umbrella.
 func (c DistributedConfig) RegistrationAuthRequired() bool {
 	return c.RegistrationRequireAuth || c.RequireAuth
-}
-
-// NatsAuthRequired reports whether NATS JWT credentials must be present — the
-// granular flag or the umbrella.
-func (c DistributedConfig) NatsAuthRequired() bool {
-	return c.NatsRequireAuth || c.RequireAuth
-}
-
-func WithNatsTLSCA(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsTLSCA = path
-	}
-}
-
-func WithNatsTLSCert(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsTLSCert = path
-	}
-}
-
-func WithNatsTLSKey(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsTLSKey = path
-	}
 }
 
 func WithStorageURL(url string) AppOption {
@@ -501,44 +422,6 @@ const ModelLoadWaitUnbounded = -1 * time.Second
 
 // DefaultMaxUploadSize is the default maximum upload body size (50 GB).
 const DefaultMaxUploadSize int64 = 50 << 30
-
-// NatsTLSFiles returns NATS TLS/mTLS PEM paths for the messaging client.
-func (c DistributedConfig) NatsTLSFiles() messaging.TLSFiles {
-	return messaging.TLSFiles{
-		CA:   c.NatsTLSCA,
-		Cert: c.NatsTLSCert,
-		Key:  c.NatsTLSKey,
-	}
-}
-
-// NatsMessagingOptions builds messaging client options (JWT + TLS) for distributed components.
-// Pass explicit userJWT/userSeed when set (e.g. worker overrides); empty uses service JWT from config.
-func (c DistributedConfig) NatsMessagingOptions(userJWT, userSeed string) []messaging.Option {
-	var opts []messaging.Option
-	jwt, seed := userJWT, userSeed
-	if jwt == "" && seed == "" {
-		auth := c.NatsAuthConfig()
-		jwt, seed = auth.ServiceUserJWT, auth.ServiceUserSeed
-	}
-	if jwt != "" && seed != "" {
-		opts = append(opts, messaging.WithUserJWT(jwt, seed))
-	}
-	if tls := c.NatsTLSFiles(); tls.Enabled() {
-		opts = append(opts, messaging.WithTLS(tls))
-	}
-	return opts
-}
-
-// NatsAuthConfig builds pkg/natsauth settings from distributed configuration.
-func (c DistributedConfig) NatsAuthConfig() natsauth.Config {
-	return natsauth.Config{
-		AccountSeed:     c.NatsAccountSeed,
-		ServiceUserJWT:  c.NatsServiceJWT,
-		ServiceUserSeed: c.NatsServiceSeed,
-		WorkerJWTTTL:    c.NatsWorkerJWTTTL,
-		RequireAuth:     c.NatsAuthRequired(),
-	}
-}
 
 // ReconnectGraceOrDefault returns the configured worker reconnect grace or the
 // default.

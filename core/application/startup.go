@@ -402,8 +402,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 				}
 			}
 			// S2. One call sets the carrier and opens the wildcard
-			// subscriptions, and it names no carrier, so the NATS client on
-			// distSvc cannot be passed here by accident.
+			// subscriptions, and it names no carrier at all, so no carrier that
+			// happens to hang off distSvc can be passed here by accident. See
+			// cache_fanout_wiring.go for why that shape is kept now that the
+			// broker's client is no longer one of them.
 			if err := distSvc.wireGallery(application.galleryService); err != nil {
 				xlog.Warn("Gallery service subscribe failed", "error", err)
 			}

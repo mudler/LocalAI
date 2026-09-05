@@ -592,9 +592,10 @@ type subscription struct {
 // message, a job result rather than a progress tick, can type-assert to this
 // and go read the row.
 //
-// It is not on messaging.Subscription: the NATS client's subscription cannot
-// answer it, and widening that interface would make every existing consumer
-// claim a guarantee it does not have.
+// It is not on messaging.Subscription: a subscription only this carrier can
+// answer for does not belong on the interface every carrier implements, and
+// widening that interface would make every existing consumer claim a guarantee
+// it does not have.
 type DropCounter interface {
 	Dropped() uint64
 }

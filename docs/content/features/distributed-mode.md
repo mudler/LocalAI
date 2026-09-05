@@ -601,18 +601,26 @@ A frontend replica that dies mid-load does not wedge the model: the job row carr
 
 Earlier releases of distributed mode required a NATS cluster alongside PostgreSQL. **They no longer do. Shut the broker down.** Nothing in LocalAI opens a connection to one: the frontend's cross-replica fan-out is on PostgreSQL, queued work is a claim on a PostgreSQL table, a serve-backend worker takes every verb on its own tunnel, and an agent worker does too, including the cancel that was the last family on a bus.
 
+A distributed deployment needs **PostgreSQL and the frontends' own HTTP listener, and nothing else.** Workers dial out to that listener and hold the tunnel open, so no worker needs an inbound port either. There is no broker client left in LocalAI at all: as of this release the `nats-io` modules are not in the build, so the binary cannot open a broker connection even if something asked it to.
+
 There is no migration step and no cutover window. Stop the broker, delete its service from your compose file, chart or unit files, and delete the credentials you generated for it. A deployment that keeps running one is paying for infrastructure that carries nothing.
 
-**Your existing command lines still start.** Every `LOCALAI_NATS_*` setting below is parsed and then ignored, so an unedited command line, unit file or Helm values file needs no change on the day you upgrade. Remove them at your convenience.
+**Your existing command lines still start.** Every `LOCALAI_NATS_*` setting below is parsed and then ignored, so an unedited command line, unit file or Helm values file needs no change on the day you upgrade. They are hidden from `--help`, because there is nothing left to configure with them. **They are scheduled for removal in the release after next**; remove them from your own files at your convenience before then.
 
 | Flag | Env Var | Status |
 |------|---------|--------|
 | `--nats-url` | `LOCALAI_NATS_URL` | Accepted and ignored on the frontend, `local-ai worker` and `local-ai agent-worker`. The value is never dialled, so it may point at a broker that is already gone. |
-| `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | The frontend still mints a per-node user JWT at registration (`nats_jwt` in the register response). Nothing consumes it. |
-| `--nats-service-jwt` / `--nats-service-seed` | `LOCALAI_NATS_SERVICE_JWT` / `LOCALAI_NATS_SERVICE_SEED` | Accepted, unused: the frontend opens no bus connection to present them on. |
-| `--nats-worker-jwt-ttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Lifetime of the minted-but-unused worker JWTs. |
-| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | On an agent worker this still makes registration **wait through admin approval** rather than starting against a pending node. It gates no connection. |
-| `--nats-tls-ca` / `--nats-tls-cert` / `--nats-tls-key` | `LOCALAI_NATS_TLS_*` | Accepted, unused. |
+| `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | Accepted and ignored. The frontend mints no per-node broker credential: a register or approve response carries no `nats_jwt` and no `nats_user_seed`, and a worker that reads those keys finds nothing. Nodes are authenticated by their registration token and their tunnel token. |
+| `--nats-service-jwt` / `--nats-service-seed` | `LOCALAI_NATS_SERVICE_JWT` / `LOCALAI_NATS_SERVICE_SEED` | Accepted and ignored: the frontend opens no bus connection to present them on. |
+| `--nats-worker-jwtttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Accepted and ignored. No per-node broker credential is minted, so none has a lifetime. |
+| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | Accepted and ignored. It used to make an agent worker wait through admin approval; use `--distributed-require-auth` for that (see below). |
+| `--nats-tlsca` / `--nats-tls-cert` / `--nats-tls-key` | `LOCALAI_NATS_TLS_*` | Accepted and ignored. The paths are no longer checked for existence either, so a certificate deleted with the broker does not fail startup. |
+
+{{% notice warning %}}
+**One behaviour changed, on the agent worker.** `--nats-require-auth` used to make `local-ai agent-worker` wait through admin approval at registration instead of starting against a pending node. That wait is now asked for with `--distributed-require-auth` / `LOCALAI_DISTRIBUTED_REQUIRE_AUTH`, which already implied it. An agent worker started with only `--nats-require-auth` no longer waits: it registers, starts, and its tunnel dials are refused with 403 until an admin approves it, which is the historical default behaviour. If you relied on the wait, set `--distributed-require-auth`.
+
+On the **frontend**, `--distributed-require-auth` now implies only `--registration-require-auth`. It used to also require broker credentials, and there are none to require.
+{{% /notice %}}
 
 {{% notice warning %}}
 `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT`, `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` and `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` are **not** in the table above and must **not** be removed. Despite their names they were never broker settings: each one is a control-RPC budget the frontend applies to a worker, and each is still read and still enforced. They are documented with the other frontend flags in [Frontend Configuration](#frontend-configuration). The names are kept because renaming them would break every existing deployment for cosmetics.

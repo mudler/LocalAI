@@ -347,8 +347,10 @@ run-e2e-aio: protogen-go
 # you are bisecting something unrelated.
 DISTRIBUTED_TEST_FLAKES?=1
 
-# Distributed architecture e2e (PostgreSQL + NATS via testcontainers).
-# Includes NatsJWT specs (JWT-enabled NATS). Requires Docker.
+# Distributed architecture e2e (PostgreSQL via testcontainers). Requires Docker.
+# There is no broker container and no NatsJWT label any more: a distributed
+# deployment needs PostgreSQL and the frontends' own HTTP listener, and this
+# suite stands up exactly that.
 # VLLMMultinode is excluded here; use test-e2e-vllm-multinode for that.
 # Cluster is excluded too and runs in test-e2e-cluster below, which needs a
 # built binary. The argument-validation specs under tests/e2e/distributed/cluster
@@ -364,7 +366,7 @@ DISTRIBUTED_TEST_FLAKES?=1
 # in this file that does exec a prebuilt binary is test-e2e-cluster below, and
 # the reason it now BUILDS it is written there.
 test-e2e-distributed: protogen-go
-	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
+	@echo 'Running distributed e2e tests (label Distributed)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode && !Cluster' --fail-on-empty --flake-attempts $(DISTRIBUTED_TEST_FLAKES) --timeout=40m -v -r ./tests/e2e/distributed
 
 # The local-ai binary the cluster e2e execs as its frontend and worker
@@ -390,7 +392,7 @@ e2e-binary: protogen-go
 	fi
 
 # Cluster e2e: runs local-ai as real child processes (frontend replicas +
-# workers) against PostgreSQL and NATS, and kills them to assert failover.
+# workers) against PostgreSQL, and kills them to assert failover.
 # It BUILDS that binary rather than checking that a file by that name exists,
 # and that is a correctness fix rather than a convenience. This target used to
 # take ./local-ai as given, so an edit to core/ that was never rebuilt left the
@@ -407,8 +409,8 @@ e2e-binary: protogen-go
 # the harness makes every other path loud.
 #
 # The argument-validation specs in tests/e2e/distributed/cluster deliberately
-# stay in test-e2e-distributed above: they need no binary, no PostgreSQL and no
-# NATS, so no -r here and that package is simply out of scope.
+# stay in test-e2e-distributed above: they need no binary and no PostgreSQL, so
+# no -r here and that package is simply out of scope.
 #
 # --fail-on-empty is load-bearing, not tidiness. Ginkgo exits 0 when a label
 # filter selects nothing, so without it a refactor that renames or drops

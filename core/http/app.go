@@ -509,8 +509,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 		// "operation visible" and "operation gone" between replicas.
 		//
 		// S1. The carrier choice lives in core/application with the other three
-		// caches, and this call names no carrier at all, so the NATS client
-		// hanging off the same struct cannot be handed over here by accident.
+		// caches, and this call names no carrier at all, so nothing hanging off
+		// the same struct can be handed over here by accident. See
+		// core/application/cache_fanout_wiring.go for why that shape is kept
+		// now that the broker's client is no longer one of those things.
 		if d := application.Distributed(); d != nil {
 			if err := d.WireOpCache(application.ApplicationConfig().Context, opcache); err != nil {
 				xlog.Warn("OpCache distributed subscribe failed; running standalone", "error", err)
@@ -587,9 +589,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 			}
 		}
 	}
-	natsCfg := distCfg.NatsAuthConfig()
-	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDialFor)
+	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, workerHTTPDialFor)
 
 	// Replica-to-replica peer link. Registered only in distributed mode: in
 	// single-node mode there are no peers, and the route authenticates with the

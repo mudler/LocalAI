@@ -11,11 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
-	"github.com/mudler/LocalAI/pkg/natsauth"
-	"github.com/nats-io/nkeys"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -73,7 +72,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
@@ -92,7 +91,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, expectedToken, autoApprove, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, expectedToken, autoApprove, nil, "")
 			ExpectWithOffset(1, handler(c)).To(Succeed())
 			ExpectWithOffset(1, rec.Code).To(Equal(http.StatusCreated))
 
@@ -275,27 +274,61 @@ var _ = Describe("Node HTTP handlers", func() {
 				"an ineligible node kept a usable tunnel credential, so the mint-site gate is not structural")
 		})
 
-		It("returns nats_jwt when account seed is configured", func() {
-			akp, err := nkeys.CreateAccount()
-			Expect(err).ToNot(HaveOccurred())
-			seed, err := akp.Seed()
-			Expect(err).ToNot(HaveOccurred())
-
+		// The register path, and the approve path is asserted separately below:
+		// the helper that attached a per-node broker credential had two call
+		// sites, and one restored call site is exactly the regression a single
+		// spec would miss.
+		//
+		// Asserted on the DECODED MAP with ToNot(HaveKey(...)), not on a struct.
+		// A struct assertion would pass vacuously: the response is assembled as a
+		// map[string]any, so the only way a key can be present is if something put
+		// it there, and the only way to see that is to look at the keys.
+		It("mints no broker credential into a registration response", func() {
 			e := echo.New()
-			body := `{"name":"worker-nats","address":"10.0.0.2:50051"}`
+			body := `{"name":"worker-no-bus","address":"10.0.0.2:50051"}`
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			natsCfg := natsauth.Config{AccountSeed: string(seed)}
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsCfg)
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
 			var resp map[string]any
 			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
-			Expect(resp["nats_jwt"]).ToNot(BeEmpty())
+			// The keys it DOES carry, so the two absences below are facts about
+			// the response and not about a decode that produced an empty map.
+			Expect(resp).To(HaveKey("id"))
+			Expect(resp).To(HaveKey("tunnel_token"))
+			Expect(resp).ToNot(HaveKey("nats_jwt"))
+			Expect(resp).ToNot(HaveKey("nats_user_seed"))
+		})
+
+		It("mints no broker credential into an approval response either", func() {
+			node := &nodes.BackendNode{
+				ID:       uuid.New().String(),
+				Name:     "worker-approve-no-bus",
+				Address:  "10.0.0.3:50051",
+				NodeType: nodes.NodeTypeBackend,
+			}
+			Expect(registry.Register(context.Background(), node, false)).To(Succeed())
+
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("id")
+			c.SetParamValues(node.ID)
+
+			Expect(ApproveNodeEndpoint(registry, nil, "")(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var resp map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp).To(HaveKey("id"))
+			Expect(resp).ToNot(HaveKey("nats_jwt"))
+			Expect(resp).ToNot(HaveKey("nats_user_seed"))
 		})
 
 		It("returns 400 when name is missing", func() {
@@ -306,7 +339,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 
@@ -326,7 +359,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 
@@ -349,7 +382,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
@@ -372,7 +405,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
@@ -390,7 +423,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 
@@ -409,7 +442,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "correct-token", true, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, "correct-token", true, nil, "")
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 		})
@@ -422,7 +455,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			handler := RegisterNodeEndpoint(registry, "", false, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, "", false, nil, "")
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
@@ -445,7 +478,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			req1 := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body1))
 			req1.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec1 := httptest.NewRecorder()
-			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
+			handler := RegisterNodeEndpoint(registry, "", true, nil, "")
 			Expect(handler(e.NewContext(req1, rec1))).To(Succeed())
 			Expect(rec1.Code).To(Equal(http.StatusCreated))
 

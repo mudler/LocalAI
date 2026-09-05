@@ -31,7 +31,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/pkg/httpclient"
-	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 )
 
@@ -117,7 +116,7 @@ type RegisterNodeRequest struct {
 // RegisterNodeEndpoint registers a new backend node.
 // expectedToken is the registration token configured on the frontend (may be empty to disable auth).
 // autoApprove controls whether new nodes go directly to "healthy" or require admin approval.
-func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
+func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req RegisterNodeRequest
 		if err := c.Bind(&req); err != nil {
@@ -242,7 +241,6 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		}
 
 		attachTunnelToken(ctx, response, registry, node)
-		attachNatsJWT(response, node, natsCfg)
 
 		return c.JSON(http.StatusCreated, response)
 	}
@@ -250,7 +248,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 
 // ApproveNodeEndpoint approves a pending node, setting its status to healthy.
 // For agent workers, it also provisions an API key so they can call the inference API.
-func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
+func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
@@ -280,8 +278,6 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 			}
 		}
 
-		attachNatsJWT(response, node, natsCfg)
-
 		return c.JSON(http.StatusOK, response)
 	}
 }
@@ -290,11 +286,11 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 // hash, and puts the plaintext in the registration response.
 //
 // It is minted for EVERY node that registers, pending ones included, which is a
-// deliberate divergence from the two other per-node credentials in this file:
-// the agent worker's API key (provisionAgentWorkerKey) and its NATS JWT
-// (attachNatsJWT) are both withheld from a node awaiting approval. Those two
-// are bearer grants that WORK the moment they are issued, so issuing one to an
-// unapproved node would route around the admin. A tunnel credential is not:
+// deliberate divergence from the other per-node credential in this file: the
+// agent worker's API key (provisionAgentWorkerKey) is withheld from a node
+// awaiting approval. It is a bearer grant that WORKS the moment it is issued,
+// so issuing one to an unapproved node would route around the admin. A tunnel
+// credential is not:
 // core/http/endpoints/cluster/connect.go re-reads the node's status on every
 // dial and refuses a pending node with 403, so the credential is inert until an
 // admin approves and stays inert if approval is revoked. Withholding it would
@@ -377,20 +373,6 @@ func attachTunnelToken(ctx context.Context, response map[string]any, registry *n
 // on every registration it makes. Neither has a symptom until a tunnel dial.
 func tunnelEligible(nodeType string) bool {
 	return nodeType == nodes.NodeTypeBackend || nodeType == nodes.NodeTypeAgent
-}
-
-// attachNatsJWT adds a per-node NATS user JWT to a register/approve response when minting is enabled.
-func attachNatsJWT(response map[string]any, node *nodes.BackendNode, natsCfg natsauth.Config) {
-	if !natsCfg.CanMintWorkers() || node == nil || node.Status == nodes.StatusPending {
-		return
-	}
-	jwt, seed, err := natsCfg.MintWorkerJWT(node.ID, node.NodeType)
-	if err != nil {
-		xlog.Warn("Failed to mint NATS JWT for node", "node", node.Name, "id", node.ID, "error", err)
-		return
-	}
-	response["nats_jwt"] = jwt
-	response["nats_user_seed"] = seed
 }
 
 // provisionAgentWorkerKey creates a dedicated user and API key for an agent worker node.

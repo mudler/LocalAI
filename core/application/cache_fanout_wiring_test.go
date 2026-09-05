@@ -25,10 +25,12 @@ import (
 //
 // Every case here wires the cache on busA and drives it from busB. A cache
 // talking to itself would pass with the wiring pointed at any carrier at all,
-// which is the defect these exist to catch: the NATS client is in scope at
-// three of the four call sites and satisfies the same interface, so a site left
-// holding it publishes successfully and is delivered, to nobody the deployment
-// will still be listening on.
+// which is the defect these exist to catch: a site holding a carrier other than
+// the deployment's publishes successfully and is delivered, to nobody the
+// deployment will still be listening on. The second carrier that made that
+// concrete went with the message broker, and these stay because they are what
+// would catch it on the day a third arrives: busB IS the other carrier, so the
+// defect is exercised rather than argued about.
 var _ = Describe("wiring the process-lifetime caches onto the broadcast carrier", func() {
 	var (
 		ctx        context.Context

@@ -50,9 +50,10 @@ type QuantizationService struct {
 // consistent across replicas; pass nil for both in standalone mode, where the
 // disk Loader hydrates the map and there is nothing to broadcast.
 //
-// bus is messaging.Broadcaster and not the NATS client: this state.*.delta
+// bus is messaging.Broadcaster and not a concrete carrier: this state.*.delta
 // family travels on whatever the deployment's fan-out carrier is, and in
-// distributed mode that is PostgreSQL LISTEN/NOTIFY.
+// distributed mode that is PostgreSQL LISTEN/NOTIFY. Which one it gets is
+// decided in core/application, not here.
 func NewQuantizationService(
 	appConfig *config.ApplicationConfig,
 	modelLoader *model.ModelLoader,

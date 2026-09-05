@@ -31,21 +31,21 @@ import (
 
 // DistributedServices holds all services initialized for distributed mode.
 type DistributedServices struct {
-	Store         storage.ObjectStore
-	Registry      *nodes.NodeRegistry
-	Router        *nodes.SmartRouter
-	Health        *nodes.HealthMonitor
-	Reconciler    *nodes.ReplicaReconciler
-	JobStore      *jobs.JobStore
-	Dispatcher    *jobs.Dispatcher
-	AgentStore    *agents.AgentStore
-	AgentBridge   *agents.EventBridge
-	DistStores    *distributed.Stores
-	FileMgr       *storage.FileManager
-	FileStager    nodes.FileStager
-	ModelAdapter  *nodes.ModelRouterAdapter
-	Unloader      *nodes.RemoteUnloaderAdapter
-	ModelCleanup  *nodes.ModelCleanupService
+	Store        storage.ObjectStore
+	Registry     *nodes.NodeRegistry
+	Router       *nodes.SmartRouter
+	Health       *nodes.HealthMonitor
+	Reconciler   *nodes.ReplicaReconciler
+	JobStore     *jobs.JobStore
+	Dispatcher   *jobs.Dispatcher
+	AgentStore   *agents.AgentStore
+	AgentBridge  *agents.EventBridge
+	DistStores   *distributed.Stores
+	FileMgr      *storage.FileManager
+	FileStager   nodes.FileStager
+	ModelAdapter *nodes.ModelRouterAdapter
+	Unloader     *nodes.RemoteUnloaderAdapter
+	ModelCleanup *nodes.ModelCleanupService
 
 	// Bus is the deployment's fan-out carrier, riding the auth database's
 	// PostgreSQL rather than a message broker. Every cross-replica family the
@@ -524,8 +524,11 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		}
 		idx := prefixcache.NewIndex(prefixCfg)
 		// S4. One call puts this replica's observations and its peers' on the
-		// same carrier, and it takes the concrete carrier so the NATS client
-		// still in scope here cannot be handed to it by accident.
+		// same carrier, and it takes the CONCRETE carrier so that no other
+		// thing satisfying messaging.Broadcaster can be handed to it by
+		// accident. There is no second carrier in this scope to hand over any
+		// more; the type stays narrow so there is still none on the day one is
+		// added. See cache_fanout_wiring.go for the whole argument.
 		prefixSync, err := wirePrefixCacheBroadcasts(bus, prefixCfg, idx)
 		if err != nil {
 			return nil, err

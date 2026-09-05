@@ -1,6 +1,8 @@
 package config_test
 
 import (
+	"reflect"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -73,7 +75,6 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 	It("rejects a negative BackendInstallTimeout with the flag name in the error", func() {
 		c := config.DistributedConfig{
 			Enabled:               true,
-			NatsURL:               "nats://localhost:4222",
 			BackendInstallTimeout: -1 * time.Second,
 		}
 		err := c.Validate()
@@ -85,7 +86,6 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 	It("rejects a negative BackendUpgradeTimeout with the flag name in the error", func() {
 		c := config.DistributedConfig{
 			Enabled:               true,
-			NatsURL:               "nats://localhost:4222",
 			BackendUpgradeTimeout: -1 * time.Second,
 		}
 		err := c.Validate()
@@ -96,7 +96,6 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 	It("rejects a negative ModelLoadTimeout with the flag name in the error", func() {
 		c := config.DistributedConfig{
 			Enabled:          true,
-			NatsURL:          "nats://localhost:4222",
 			ModelLoadTimeout: -1 * time.Second,
 		}
 		err := c.Validate()
@@ -108,7 +107,6 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 	It("accepts all-zero durations as valid (defaults apply)", func() {
 		c := config.DistributedConfig{
 			Enabled: true,
-			NatsURL: "nats://localhost:4222",
 		}
 		Expect(c.Validate()).To(Succeed())
 	})
@@ -118,7 +116,6 @@ var _ = Describe("DistributedConfig.Validate registration auth", func() {
 	It("rejects an empty registration token when RequireAuth is set", func() {
 		c := config.DistributedConfig{
 			Enabled:                 true,
-			NatsURL:                 "nats://localhost:4222",
 			RegistrationRequireAuth: true,
 		}
 		err := c.Validate()
@@ -130,7 +127,6 @@ var _ = Describe("DistributedConfig.Validate registration auth", func() {
 	It("accepts a set registration token when RequireAuth is set", func() {
 		c := config.DistributedConfig{
 			Enabled:                 true,
-			NatsURL:                 "nats://localhost:4222",
 			RegistrationToken:       "s3cret",
 			RegistrationRequireAuth: true,
 		}
@@ -140,7 +136,6 @@ var _ = Describe("DistributedConfig.Validate registration auth", func() {
 	It("warns but succeeds with an empty token when RequireAuth is unset", func() {
 		c := config.DistributedConfig{
 			Enabled: true,
-			NatsURL: "nats://localhost:4222",
 		}
 		Expect(c.Validate()).To(Succeed())
 	})
@@ -148,12 +143,7 @@ var _ = Describe("DistributedConfig.Validate registration auth", func() {
 	It("rejects an empty token when the umbrella RequireAuth is set", func() {
 		c := config.DistributedConfig{
 			Enabled:     true,
-			NatsURL:     "nats://localhost:4222",
 			RequireAuth: true,
-			// Provide NATS creds so only the registration-token gap remains.
-			NatsServiceJWT:  "jwt",
-			NatsServiceSeed: "seed",
-			NatsAccountSeed: "acct",
 		}
 		err := c.Validate()
 		Expect(err).To(HaveOccurred())
@@ -161,19 +151,25 @@ var _ = Describe("DistributedConfig.Validate registration auth", func() {
 		Expect(err.Error()).To(ContainSubstring("LOCALAI_REGISTRATION_TOKEN"))
 	})
 
-	It("the umbrella implies NATS auth is required", func() {
+	// The umbrella used to imply two things, and now implies one.
+	//
+	// The It that stood here pinned "LOCALAI_DISTRIBUTED_REQUIRE_AUTH makes a
+	// missing broker service JWT fatal". That is retired, not moved: there is
+	// no broker connection to demand a credential for, so a startup that failed
+	// on a missing one would fail on the absence of something nothing uses. The
+	// half of the umbrella that survives is the registration layer, and the It
+	// above it pins exactly that: an empty registration token under the
+	// umbrella is still fatal, and still says which knob to set.
+	It("implies the registration layer and nothing else", func() {
 		c := config.DistributedConfig{
 			Enabled:           true,
-			NatsURL:           "nats://localhost:4222",
-			RegistrationToken: "tok", // registration layer satisfied
-			RequireAuth:       true,  // umbrella → NATS creds now required
+			RegistrationToken: "tok",
+			RequireAuth:       true,
 		}
-		Expect(c.NatsAuthRequired()).To(BeTrue())
 		Expect(c.RegistrationAuthRequired()).To(BeTrue())
-		// Missing NATS service JWT/seed must now be fatal.
-		err := c.Validate()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("LOCALAI_NATS_REQUIRE_AUTH"))
+		// And with the registration layer satisfied there is nothing else left
+		// for the umbrella to demand, so startup succeeds.
+		Expect(c.Validate()).To(Succeed())
 	})
 })
 
@@ -210,7 +206,6 @@ var _ = Describe("DistributedConfig worker reconnect grace", func() {
 		// a caller may reap and evict on.
 		c := config.DistributedConfig{
 			Enabled:              true,
-			NatsURL:              "nats://localhost:4222",
 			RegistrationToken:    "tok",
 			WorkerReconnectGrace: -1 * time.Second,
 		}
@@ -223,5 +218,27 @@ var _ = Describe("DistributedConfig worker reconnect grace", func() {
 		o := &config.ApplicationConfig{}
 		config.WithWorkerReconnectGrace(90 * time.Second)(o)
 		Expect(o.Distributed.ReconnectGraceOrDefault()).To(Equal(90 * time.Second))
+	})
+})
+
+// The frontend's distributed configuration has nowhere to put a broker URL, and
+// that absence is what makes the accepted-and-ignored CLI flags ignored.
+//
+// A help string saying "ignored" is a promise; a missing field is the mechanism.
+// Asserted by reflection rather than by reading a value, because a value
+// assertion needs a field to read and would therefore stop compiling exactly
+// when the property it guards is restored, which is the failure mode this
+// replaces: a spec that vanishes with the regression it was meant to catch.
+var _ = Describe("the distributed configuration's broker surface", func() {
+	It("carries no NATS credential, TLS or URL field", func() {
+		t := reflect.TypeOf(config.DistributedConfig{})
+		var carried []string
+		for i := range t.NumField() {
+			if strings.HasPrefix(t.Field(i).Name, "Nats") {
+				carried = append(carried, t.Field(i).Name)
+			}
+		}
+		Expect(carried).To(BeEmpty(),
+			"DistributedConfig grew %v back: a value the frontend can store is a value something can dial, and no component of a distributed deployment dials a message bus", carried)
 	})
 })

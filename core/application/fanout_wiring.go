@@ -20,12 +20,13 @@ import (
 // parameter type is the reason. jobs.NewDispatcher and agents.NewEventBridge
 // both take a messaging.Broadcaster, which they must: neither may know which
 // carrier a deployment runs, and their specs publish through a double. But that
-// also means *messaging.Client satisfies them, so wiring either of them to the
-// NATS client instead of the carrier COMPILES, passes every unit spec in both
-// packages, and presents only as an SSE stream that stays empty while the work
-// it is watching runs to completion on the other side of a carrier nobody is
-// subscribed to. Naming *pgbus.Bus here is what makes that a build failure
-// rather than a silent one, and it is why this exists as a function instead of
+// also means ANY type satisfying the interface can be wired to them, so while a
+// second carrier existed, pointing either of them at it COMPILED, passed every
+// unit spec in both packages, and presented only as an SSE stream that stayed
+// empty while the work it was watching ran to completion on the other side of a
+// carrier nobody subscribed to. The second carrier went with the message
+// broker. Naming *pgbus.Bus here is what would make that a build failure rather
+// than a silent one again, and it is why this exists as a function instead of
 // as two lines and a comment asking the reader to be careful.
 //
 // The observable persister is STARTED here for the reason startJobDispatchLoop
