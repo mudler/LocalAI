@@ -422,17 +422,20 @@ e2e-binary: protogen-go
 # should stay there: this suite exists to catch nondeterministic cluster
 # behaviour, and a retry turns exactly that signal into a green run.
 #
-# Budget: 20 specs, measured at 800 to 830 seconds of Ginkgo time (13 to 14
-# minutes wall including the compile) on a fast developer box. It was 591 to 612
-# seconds before the phase 3 control-plane specs; those five added roughly 200
-# seconds, most of it in the two that wait out real windows rather than poll for
-# a state change (cluster.InstanceLiveness is 30s, and a departed worker cannot
-# be demoted before its reconnect grace).
+# Budget: 24 specs, measured at 897 to 907 seconds of Ginkgo time (15 minutes
+# wall including the compile) on a fast developer box. It was 591 to 612 seconds
+# before the phase 3 control-plane specs and 800 to 830 after them; the three
+# two-frontend two-worker specs in cluster_busless_test.go added 118 to 127
+# seconds (3s, 70s and 46 to 53s), nearly all of it in the churn spec, which
+# cannot be shortened: it waits for a killed replica to leave the live set
+# (cluster.InstanceLiveness is 30s, measured at 27s) before it may assert
+# anything, and then holds a window inside the reconnect grace.
 #
 # --timeout is 30m rather than 20m because of that. The margin is not slack: a
 # Ginkgo timeout kills the suite mid-spec and reports a spec name rather than a
 # cause, and 20m on a loaded CI runner was one slow health tick away from
-# turning a green suite into an unreadable red one.
+# turning a green suite into an unreadable red one. At 15 minutes measured, 30m
+# is still twice the budget.
 test-e2e-cluster: protogen-go build-mock-backend e2e-binary
 	@echo 'Running cluster e2e tests (label Cluster, real local-ai processes)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Cluster' --fail-on-empty --flake-attempts 1 --timeout=30m -v ./tests/e2e/distributed
