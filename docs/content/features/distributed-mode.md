@@ -560,6 +560,21 @@ The responses from `GET /api/node/:id/models` and `GET /api/nodes/:id/models` in
 
 `model.unload` releases model memory inside a running backend. It does not replace the exact process stop that configuration cleanup requires. The `backend.stop` operation remains an administrative backend operation.
 
+#### `backend.stop` is acknowledged
+
+`backend.stop` is request-reply. The worker answers with what it terminated, so the controller can tell a stop that worked from one that matched nothing or failed outright.
+
+This matters for `POST /api/nodes/:id/models/unload`, which stops the backend after unloading the model. The stop used to be fire-and-forget, so the endpoint answered `200` as soon as the message left the frontend — including when the backend was still running and still holding its VRAM. It now returns an error when the worker reports that the stop failed.
+
+Two outcomes are deliberately **not** errors:
+
+- **Nothing matched.** The worker reports an empty stopped-process list, logged as `backend.stop matched no running process`. Stopping a backend that is not running leaves the caller in the state it asked for, and eviction and cleanup paths stop already-gone models routinely.
+- **No answer.** A worker built before this reply performs the stop and never responds. The controller waits 15 seconds, logs `Worker did not acknowledge backend.stop`, and assumes delivery, so a fleet mid-upgrade keeps working. A transport failure is reported rather than assumed.
+
+{{% notice note %}}
+On a mixed fleet, every stop against a worker that predates the reply costs the full 15-second wait before falling back. Upgrading the workers removes the delay.
+{{% /notice %}}
+
 ### Per-node VRAM budget
 
 Each worker advertises its detected VRAM, and the SmartRouter uses that number when picking a node with enough free memory. You can cap the VRAM a node offers for placement so it never gets scheduled beyond a chosen limit, leaving headroom for other workloads on that machine.
