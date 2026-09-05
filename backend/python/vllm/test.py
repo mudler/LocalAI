@@ -549,3 +549,116 @@ class TestStreamingToolParser(unittest.TestCase):
             intermediate, ["Hello ", "world", "!"],
             f"plain streaming changed; got {intermediate!r}",
         )
+
+
+class TestReasoningSplit(unittest.TestCase):
+    """Server-less tests for BackendServicer._split_reasoning.
+
+    vLLM's BaseThinkingReasoningParser returns the whole completion as
+    reasoning and None as content whenever the end token is missing. Taken
+    literally that duplicates a thinking-disabled answer into both fields.
+    """
+
+    class _Parser:
+        start_token = "<think>"
+        end_token = "</think>"
+
+    def _split(self, generated, prompt, reasoning, content):
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        return BackendServicer._split_reasoning(
+            self._Parser(), generated, prompt, reasoning, content,
+        )
+
+    def test_thinking_off_is_not_duplicated_into_reasoning(self):
+        """No tags anywhere: the answer is content, and only content."""
+        r, c = self._split(
+            "391", "user: 17*23?\n<think>\n\n</think>\n\n",
+            reasoning="391", content=None,
+        )
+        self.assertEqual(r, "")
+        self.assertEqual(c, "391")
+
+    def test_prefilled_start_tag_keeps_truncated_reasoning(self):
+        """Prompt left the block open and the end token never arrived
+        (budget exhausted): that really is all reasoning."""
+        r, c = self._split(
+            "thinking and thinking", "user: hi\n<think>\n",
+            reasoning="thinking and thinking", content=None,
+        )
+        self.assertEqual(r, "thinking and thinking")
+        self.assertEqual(c, "")
+
+    def test_end_token_present_keeps_parser_split(self):
+        r, c = self._split(
+            "adding two and two</think>4", "user: hi\n<think>\n",
+            reasoning="adding two and two", content="4",
+        )
+        self.assertEqual(r, "adding two and two")
+        self.assertEqual(c, "4")
+
+    def test_stop_right_after_end_token_yields_empty_content(self):
+        """Content must not fall back to the raw text — that would put the
+        reasoning into the answer."""
+        r, c = self._split(
+            "reasoned</think>", "user: hi\n<think>\n",
+            reasoning="reasoned", content=None,
+        )
+        self.assertEqual(r, "reasoned")
+        self.assertEqual(c, "")
+
+    def test_unknown_token_layout_keeps_previous_behaviour(self):
+        class _Bare:
+            pass
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        r, c = BackendServicer._split_reasoning(
+            _Bare(), "raw", "prompt", "raw", None,
+        )
+        self.assertEqual(r, "raw")
+        self.assertEqual(c, "raw")
+
+
+class TestReasoningParserConstruction(unittest.TestCase):
+    """The parser must learn whether thinking was on for this request.
+
+    vLLM's engine-based parsers (Qwen3Parser and friends) read
+    chat_template_kwargs["enable_thinking"] and default to True, so a parser
+    built without it treats a thinking-disabled completion as pure reasoning.
+    """
+
+    def _servicer(self):
+        import sys, os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from backend import BackendServicer
+        s = BackendServicer()
+        s.tokenizer = object()
+        return s
+
+    def test_chat_template_kwargs_are_forwarded(self):
+        seen = {}
+
+        class _Parser:
+            def __init__(self, tokenizer, **kwargs):
+                seen.update(kwargs)
+
+        s = self._servicer()
+        s.reasoning_parser_cls = _Parser
+        s._new_reasoning_parser({"enable_thinking": False})
+        self.assertEqual(
+            seen.get("chat_template_kwargs"), {"enable_thinking": False},
+        )
+
+    def test_parser_without_the_kwarg_still_builds(self):
+        """Older parsers take only the tokenizer — must not break them."""
+        class _Old:
+            def __init__(self, tokenizer):
+                self.tokenizer = tokenizer
+
+        s = self._servicer()
+        s.reasoning_parser_cls = _Old
+        self.assertIsInstance(
+            s._new_reasoning_parser({"enable_thinking": False}), _Old,
+        )
