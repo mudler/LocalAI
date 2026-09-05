@@ -239,7 +239,9 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 
 			// Without distributed mode, jobs use local in-process dispatch.
 			// The JobStore can still be used standalone with SQLite or in-memory.
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
+			//
+			// The bus-URL half of this assertion went with the field it read;
+			// core/config's "broker surface" spec pins its absence.
 		})
 	})
 })

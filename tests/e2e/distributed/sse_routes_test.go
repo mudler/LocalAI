@@ -127,7 +127,9 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 			// Without distributed mode, carrier-backed SSE routes are not registered.
 			// Agent SSE events use the in-process LocalAGI SSE manager instead.
 			// Job progress is tracked in-memory.
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
+			//
+			// The bus-URL half of this assertion went with the field it read;
+			// core/config's "broker surface" spec pins its absence.
 		})
 	})
 })

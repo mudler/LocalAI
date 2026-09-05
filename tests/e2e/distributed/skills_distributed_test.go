@@ -109,8 +109,10 @@ var _ = Describe("Skills Distributed", Label("Distributed"), func() {
 			Expect(appCfg.Distributed.Enabled).To(BeFalse())
 
 			// Without distributed mode, skills are stored on the local
-			// filesystem. No PostgreSQL metadata or NATS cache invalidation.
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
+			// filesystem. No PostgreSQL metadata and no cache invalidation.
+			//
+			// The bus-URL half of this assertion went with the field it read;
+			// core/config's "broker surface" spec pins its absence.
 		})
 	})
 })
