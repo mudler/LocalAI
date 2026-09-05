@@ -2,6 +2,7 @@ package importers
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 	"go.yaml.in/yaml/v2"
 )
 
@@ -115,7 +117,48 @@ func (i *DS4Importer) Import(details Details) (gallery.ModelConfig, error) {
 	// filename to "ds4flash.gguf" to match ds4's own convention (its CLI
 	// defaults to that path), so users can run the model without extra
 	// config.
-	uri := downloader.URI(details.URI)
+	selectedURI := details.URI
+	uriFilename, _ := downloader.URI(details.URI).FilenameFromUrl()
+	if !strings.HasSuffix(strings.ToLower(uriFilename), ".gguf") {
+		if details.HuggingFace == nil {
+			return gallery.ModelConfig{}, fmt.Errorf("cannot select a compatible GGUF from repository %q without HuggingFace file metadata", details.URI)
+		}
+
+		quantizations, _ := preferencesMap["quantizations"].(string)
+		var compatible []hfapi.ModelFile
+		for _, file := range details.HuggingFace.Files {
+			base := strings.ToLower(filepath.Base(file.Path))
+			if strings.HasPrefix(base, "deepseek-v4-flash-") && strings.HasSuffix(base, ".gguf") {
+				compatible = append(compatible, file)
+			}
+		}
+		if len(compatible) == 0 {
+			return gallery.ModelConfig{}, fmt.Errorf("no compatible GGUF found in repository %q", details.URI)
+		}
+
+		selected := compatible[0].URL
+		if quantizations != "" {
+			selected = compatible[len(compatible)-1].URL
+			matched := false
+			for _, quantization := range strings.Split(quantizations, ",") {
+				quantization = strings.ToLower(strings.TrimSpace(quantization))
+				for _, file := range compatible {
+					base := strings.ToLower(filepath.Base(file.Path))
+					if quantTokenMatches(base, quantization) {
+						selected = file.URL
+						matched = true
+						break
+					}
+				}
+				if matched {
+					break
+				}
+			}
+		}
+		selectedURI = selected
+	}
+
+	uri := downloader.URI(selectedURI)
 	cfg.Files = append(cfg.Files, gallery.File{
 		Filename: "ds4flash.gguf",
 		URI:      string(uri),
