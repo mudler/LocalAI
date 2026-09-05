@@ -443,6 +443,50 @@ func (c *Cluster) startAgentWorker(i int) (*Process, error) {
 	return c.spawn(name, cmd, 0)
 }
 
+// ProcKind names which of a cluster's three process families an environment
+// read is about.
+type ProcKind string
+
+const (
+	ProcFrontend    ProcKind = "frontend"
+	ProcWorker      ProcKind = "worker"
+	ProcAgentWorker ProcKind = "agent-worker"
+)
+
+// ProcessEnviron reads the LIVE environment of process i of kind k from
+// /proc/<pid>/environ.
+//
+// Generalised from WorkerEnviron, which an earlier phase added for exactly this
+// assertion and which could only see workers. Reading /proc rather than Cmd.Env
+// is the whole point: Cmd.Env is what the harness INTENDED, and an assertion
+// about intent cannot fail when a variable arrives from the parent environment,
+// a profile or a wrapper.
+//
+// Linux only, like the rest of this package. A platform without /proc returns
+// the read error rather than falling back, so the assertion fails loudly
+// instead of quietly becoming the weaker one.
+func (c *Cluster) ProcessEnviron(k ProcKind, i int) ([]string, error) {
+	switch k {
+	case ProcFrontend:
+		if err := c.checkFrontendIndex(i); err != nil {
+			return nil, err
+		}
+		return processEnviron(c.frontends[i])
+	case ProcWorker:
+		if err := c.checkWorkerIndex(i); err != nil {
+			return nil, err
+		}
+		return processEnviron(c.workers[i])
+	case ProcAgentWorker:
+		if i < 0 || i >= len(c.agentWorkers) {
+			return nil, fmt.Errorf("agent worker %d out of range (cluster has %d)", i, len(c.agentWorkers))
+		}
+		return processEnviron(c.agentWorkers[i])
+	default:
+		return nil, fmt.Errorf("unknown process kind %q", k)
+	}
+}
+
 // WorkerEnviron is the environment of worker i's RUNNING PROCESS, read from
 // /proc.
 //
@@ -452,15 +496,11 @@ func (c *Cluster) startAgentWorker(i int) (*Process, error) {
 // reading it proves the harness consistent with itself and nothing about the
 // binary. /proc/<pid>/environ is what the kernel handed the process.
 //
-// Linux only, which this package already is (it signals with syscall.SIGKILL
-// and reserves ports by binding loopback). A platform without /proc returns the
-// read error rather than falling back to Cmd.Env, so the assertion fails loudly
-// instead of quietly becoming the weaker one.
+// Kept as a named wrapper rather than replaced by ProcessEnviron at its call
+// sites: cluster_control_test.go calls it and re-aiming a passing spec for a
+// rename is churn that hides the new coverage.
 func (c *Cluster) WorkerEnviron(i int) ([]string, error) {
-	if err := c.checkWorkerIndex(i); err != nil {
-		return nil, err
-	}
-	return processEnviron(c.workers[i])
+	return c.ProcessEnviron(ProcWorker, i)
 }
 
 // FrontendEnviron is the environment of frontend i's RUNNING PROCESS, read the
@@ -472,10 +512,7 @@ func (c *Cluster) WorkerEnviron(i int) ([]string, error) {
 // assertion just as well. Read from /proc rather than from the harness options
 // for the same reason the worker's is: it is a fact about the process.
 func (c *Cluster) FrontendEnviron(i int) ([]string, error) {
-	if err := c.checkFrontendIndex(i); err != nil {
-		return nil, err
-	}
-	return processEnviron(c.frontends[i])
+	return c.ProcessEnviron(ProcFrontend, i)
 }
 
 // processEnviron reads a running child's environment out of /proc.
