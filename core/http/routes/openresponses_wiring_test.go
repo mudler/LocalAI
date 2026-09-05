@@ -24,10 +24,11 @@ import (
 // EnableDistributed takes a messaging.Broadcaster, which it must: its own specs
 // publish through a double, and it cannot be made to name a concrete carrier
 // without dragging that dependency through the whole endpoint package. The
-// consequence is that handing it the NATS client instead of the deployment's
-// carrier compiles and reddens nothing, and the only symptom is a cancel that
-// answers 404 on every replica but the creator. So it is pinned here, by
-// watching what actually arrives on the carrier.
+// consequence is that handing it any carrier other than the deployment's
+// compiles and reddens nothing, and the only symptom is a cancel that answers
+// 404 on every replica but the creator. So it is pinned here, by watching what
+// actually arrives on the carrier: busB below IS the other carrier, which is
+// why this spec keeps its force now that the broker's client is gone.
 var _ = Describe("wiring the Open Responses store to a carrier", func() {
 	var (
 		ctx        context.Context
