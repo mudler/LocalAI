@@ -127,7 +127,7 @@ export const API_CONFIG = {
     modelsImport: '/models/import',
     vramEstimate: '/api/models/vram-estimate',
     modelsJobStatus: (uid) => `/models/jobs/${uid}`,
-    modelEditGet: (name) => `/api/models/edit/${name}`,
+    modelEditGet: (name) => `/api/models/edit/${encodeURIComponent(name)}`,
     modelEdit: (name) => `/models/edit/${name}`,
     modelToggleState: (name, action) => `/models/toggle-state/${name}/${action}`,
     modelTogglePinned: (name, action) => `/models/toggle-pinned/${name}/${action}`,
