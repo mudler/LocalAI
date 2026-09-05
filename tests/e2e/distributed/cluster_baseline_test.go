@@ -288,13 +288,12 @@ func startClusterOnFreshDB(frontends, workers int, customise ...func(*cluster.Op
 		Binary:      binary,
 		MockBackend: mockBackend,
 		PGDSN:       infra.PGURL,
-		// Deliberately a dead address. Frontends and agent workers are still
-		// handed LOCALAI_NATS_URL so this suite keeps covering the promise that
-		// an operator's existing command line starts unchanged after the broker
-		// is shut down. Pointing it at a running server would make a regression
-		// that dialled it invisible; pointing it at nothing makes such a
-		// regression a startup failure in every cluster spec.
-		NatsURL:   staleBusURL,
+		// There is no bus URL to pass. Frontends and agent workers are still
+		// handed a dead LOCALAI_NATS_URL, so this suite keeps covering the
+		// promise that an operator's existing command line starts unchanged
+		// after the broker is shut down, but the value is the harness's own
+		// cluster.StaleBusURL rather than a caller's choice: no process reads
+		// it, so there was nothing left for a caller to choose.
 		LogDir:    logDir,
 		Frontends: frontends,
 		Workers:   workers,

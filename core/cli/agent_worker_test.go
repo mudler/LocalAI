@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -228,5 +229,77 @@ var _ = Describe("The agent worker's bus requirement", func() {
 		// Ignored, not rejected. An operator upgrading a fleet must not have to
 		// edit every unit file in the same change.
 		Expect(parse("--register-to", "http://frontend:8080", "--nats-url", "nats://bus:4222")).To(Succeed())
+	})
+
+	It("still accepts the broker credentials that came with it", func() {
+		// The whole set, because an operator's unit file carries the whole set:
+		// a command line that parses --nats-url and then dies on --nats-jwt has
+		// bought the fleet nothing.
+		Expect(parse("--register-to", "http://frontend:8080",
+			"--nats-url", "nats://bus:4222",
+			"--nats-jwt", "eyJ0",
+			"--nats-user-seed", "SUUSER",
+			"--nats-service-jwt", "eyJ0",
+			"--nats-service-seed", "SUSERVICE",
+			"--nats-require-auth")).To(Succeed())
+	})
+
+	It("does not stat the TLS material it no longer presents", func() {
+		// These paths were validated as existing files while they were dialled
+		// with. Keeping that on an ignored flag would fail a worker at startup
+		// over a certificate for a broker the operator has already deleted,
+		// which is the exact upgrade the acceptance exists to survive.
+		missing := filepath.Join(GinkgoT().TempDir(), "a-broker-ca-that-was-deleted.pem")
+		Expect(parse("--register-to", "http://frontend:8080",
+			"--nats-tlsca", missing,
+			"--nats-tls-cert", missing,
+			"--nats-tls-key", missing)).To(Succeed())
+	})
+
+	It("keeps every accepted bus flag hidden from --help", func() {
+		var cli struct {
+			AgentWorker AgentWorkerCMD `cmd:""`
+		}
+		parser, err := kong.New(&cli)
+		Expect(err).ToNot(HaveOccurred())
+		var visible []string
+		for _, node := range parser.Model.Children {
+			for _, flag := range node.Flags {
+				if strings.HasPrefix(flag.Name, "nats-") && !flag.Hidden {
+					visible = append(visible, flag.Name)
+				}
+			}
+		}
+		Expect(visible).To(BeEmpty(),
+			"%v are still offered in --help while doing nothing", visible)
+	})
+})
+
+// Which flag makes an agent worker wait through admin approval.
+//
+// The docs promise this specifically, and it is the one behavioural change in
+// the broker removal that an operator can be surprised by, so it is asserted
+// both ways round. The positive half alone would stay green if the gate were
+// widened back to OR --nats-require-auth; the negative half is what says the
+// change actually happened.
+var _ = Describe("The agent worker's approval gate", func() {
+	It("waits when --distributed-require-auth is set", func() {
+		cmd := &AgentWorkerCMD{DistributedRequireAuth: true}
+		Expect(cmd.waitThroughApproval()).To(BeTrue())
+	})
+
+	It("does not wait for the broker flag that used to imply it", func() {
+		// --nats-require-auth named a bus this worker does not dial. An
+		// operator who set only that one now gets the historical default:
+		// register, start, and be refused at every tunnel dial with 403 until
+		// an admin approves. Documented in the migration section of
+		// docs/content/features/distributed-mode.md.
+		cmd := &AgentWorkerCMD{NatsRequireAuth: true}
+		Expect(cmd.waitThroughApproval()).To(BeFalse(),
+			"an ignored flag is gating a real behaviour again")
+	})
+
+	It("does not wait when neither is set", func() {
+		Expect((&AgentWorkerCMD{}).waitThroughApproval()).To(BeFalse())
 	})
 })

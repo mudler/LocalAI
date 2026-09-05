@@ -94,9 +94,11 @@ func setOpenResponsesRequestContext(re *middleware.RequestExtractor) echo.Middle
 //
 // A named function rather than a block inside route registration, and that is
 // the point of it. EnableDistributed takes a messaging.Broadcaster, as it must:
-// its own specs publish through a double. So handing it the NATS client instead
-// of the deployment's carrier COMPILES and reddens nothing anywhere, and the
-// only symptom is a cancel that answers 404 on every replica but one. Registering
+// its own specs publish through a double. So handing it any carrier other than
+// the deployment's COMPILES and reddens nothing anywhere, and the only symptom
+// is a cancel that answers 404 on every replica but one. The broker client that
+// used to be the second carrier in scope is gone; what pins the choice is the
+// spec beside this file, which drives it from the OTHER carrier. Registering
 // routes needs a whole Application and therefore has no spec; this needs a
 // DistributedServices and a store, and therefore has one.
 func enableDistributedResponses(ctx context.Context, d *application.DistributedServices,

@@ -37,30 +37,28 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			Expect(appCfg.Auth.Enabled).To(BeFalse())
 		})
 
-		It("leaves the inert bus URL empty when nothing sets it", func() {
+		// Two Its stood here: "leaves the inert bus URL empty when nothing sets
+		// it" and "should accept valid distributed configuration", which passed
+		// config.WithNatsURL and read the value back. Both are retired with the
+		// field and the option they used, and neither property is lost.
+		//
+		// "The value is never dialled" is no longer a promise about a stored
+		// value; there is nowhere to store one, which core/config's "broker
+		// surface" spec asserts by reflection so it cannot silently stop
+		// compiling when the field returns. "An existing command line still
+		// starts" moved DOWN a level, to where it is actually at risk: kong is
+		// what rejects an unknown flag, so core/cli's "frontend's broker flags"
+		// specs parse the real command line, and the cluster suite starts real
+		// frontends with a dead LOCALAI_NATS_URL in their environment.
+		It("should accept a valid distributed configuration", func() {
 			appCfg := config.NewApplicationConfig(
 				config.EnableDistributed,
 				config.WithAuthEnabled(true),
 				config.WithAuthDatabaseURL(infra.PGURL),
-			)
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
-		})
-
-		It("should accept valid distributed configuration", func() {
-			// staleBusURL points at nothing on purpose. It is the shape of an
-			// operator's existing command line after the broker was shut down,
-			// and the promise this spec holds is that such a command line still
-			// STARTS: the value is parsed, stored and never dialled. Pointing
-			// it at a live server would let a regression that dialled it pass.
-			appCfg := config.NewApplicationConfig(
-				config.EnableDistributed,
-				config.WithAuthEnabled(true),
-				config.WithAuthDatabaseURL(infra.PGURL),
-				config.WithNatsURL(staleBusURL),
 			)
 			Expect(appCfg.Distributed.Enabled).To(BeTrue())
 			Expect(appCfg.Auth.Enabled).To(BeTrue())
-			Expect(appCfg.Distributed.NatsURL).To(Equal(staleBusURL))
+			Expect(appCfg.Distributed.Validate()).To(Succeed())
 		})
 
 		It("should generate unique frontend ID on startup", func() {

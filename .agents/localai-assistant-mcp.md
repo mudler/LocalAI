@@ -94,4 +94,4 @@ The user chose KISS. Every mutating tool has a safety rule (`prompts/10_safety.m
 
 ## Distributed mode
 
-The in-memory MCP server runs only on the head node (where the chat handler runs). `inproc.Client` wraps services that are already distributed-aware (`GalleryService` coordinates with workers; `ListNodes` reads the NATS-populated registry). No NATS routing of MCP tools — the admin surface lives on the head, period.
+The in-memory MCP server runs only on the head node (where the chat handler runs). `inproc.Client` wraps services that are already distributed-aware (`GalleryService` coordinates with workers; `ListNodes` reads the PostgreSQL-backed node registry). MCP tools are not routed anywhere: the admin surface lives on the head, period.

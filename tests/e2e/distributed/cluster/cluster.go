@@ -4,7 +4,8 @@
 // process to kill, no second replica to race, and no real HTTP boundary between
 // a worker and the frontend it registered with. This package starts the same
 // binary an operator runs, one process per frontend replica and one per worker,
-// against containerised Postgres and NATS.
+// against containerised Postgres. Postgres is the only container: a distributed
+// deployment needs it and the frontends' own HTTP listener, and nothing else.
 package cluster
 
 import (
@@ -23,6 +24,21 @@ import (
 	"github.com/phayes/freeport"
 )
 
+// StaleBusURL is the address of a broker that is not running, and is not meant
+// to be.
+//
+// LOCALAI_NATS_URL is still accepted and ignored by every process this harness
+// starts, so an operator's existing command line, unit file or Helm values file
+// starts unchanged after the broker is shut down. This suite covers that
+// promise by handing over THIS value: a value pointing at a live server would
+// let a regression that dialled it pass unnoticed, while a dead one turns the
+// same regression into a startup failure in every cluster spec.
+//
+// It is a constant here rather than an Options field, because there is nothing
+// left for a caller to choose: no process reads the variable, so a per-cluster
+// value would only be a knob that changes nothing.
+const StaleBusURL = "nats://127.0.0.1:1"
+
 // Options configures a cluster. Every field without a default is required.
 type Options struct {
 	// Binary is the path to a built local-ai.
@@ -31,9 +47,12 @@ type Options struct {
 	// into each worker's backends directory as "mock-backend", which is the name
 	// model YAML refers to (see tests/e2e/e2e_suite_test.go:75).
 	MockBackend string
-	// PGDSN and NatsURL point at infrastructure the caller already started.
-	PGDSN   string
-	NatsURL string
+	// PGDSN points at infrastructure the caller already started.
+	//
+	// There is no NatsURL beside it any more. Removing the FIELD rather than
+	// ignoring it means a spec that still sets one fails to compile, which is
+	// the only way a harness option stops being set by accident.
+	PGDSN string
 	// LogDir receives one file per process. Never empty: a cluster failure is
 	// unreadable without them.
 	LogDir string
@@ -275,7 +294,13 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 	// the children need PATH, HOME and the Go/CI environment intact.
 	cmd.Env = append(cmd.Environ(),
 		"LOCALAI_DISTRIBUTED=true",
-		"LOCALAI_NATS_URL="+c.opts.NatsURL,
+		// Deliberately handed a broker URL, and deliberately a dead one. This
+		// is the shape of an operator's existing unit file on the day they shut
+		// the broker down, and the promise it covers is that such a command
+		// line still STARTS. A live address would let a regression that dialled
+		// it pass; this one turns such a regression into a startup failure in
+		// every cluster spec.
+		"LOCALAI_NATS_URL="+StaleBusURL,
 		"LOCALAI_AUTH=true",
 		"LOCALAI_AUTH_DATABASE_URL="+c.opts.PGDSN,
 		"LOCALAI_ADMIN_EMAIL="+c.opts.AdminEmail,
@@ -405,10 +430,11 @@ func (c *Cluster) startAgentWorker(i int) (*Process, error) {
 	name := agentWorkerName(i)
 	cmd := exec.Command(c.opts.Binary, "agent-worker")
 	cmd.Env = append(cmd.Environ(),
-		// Still set, and still ignored. It is left here so this suite keeps
-		// covering the promise that an operator's existing --nats-url does not
-		// break an agent worker; nothing in the process reads it any more.
-		"LOCALAI_NATS_URL="+c.opts.NatsURL,
+		// Still set, and still ignored, on the same terms as the frontend's
+		// above: this suite keeps covering the promise that an operator's
+		// existing --nats-url does not break an agent worker. Nothing in the
+		// process reads it.
+		"LOCALAI_NATS_URL="+StaleBusURL,
 		"LOCALAI_REGISTER_TO="+c.workerFrontendURL(i),
 		"LOCALAI_NODE_NAME="+name,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
@@ -434,9 +460,28 @@ func (c *Cluster) WorkerEnviron(i int) ([]string, error) {
 	if err := c.checkWorkerIndex(i); err != nil {
 		return nil, err
 	}
-	p := c.workers[i]
+	return processEnviron(c.workers[i])
+}
+
+// FrontendEnviron is the environment of frontend i's RUNNING PROCESS, read the
+// same way.
+//
+// It exists so a spec proving a WORKER runs with no broker URL can show that
+// the deployment it joined was handed one: without that half, a harness which
+// simply stopped setting the variable anywhere would satisfy the worker
+// assertion just as well. Read from /proc rather than from the harness options
+// for the same reason the worker's is: it is a fact about the process.
+func (c *Cluster) FrontendEnviron(i int) ([]string, error) {
+	if err := c.checkFrontendIndex(i); err != nil {
+		return nil, err
+	}
+	return processEnviron(c.frontends[i])
+}
+
+// processEnviron reads a running child's environment out of /proc.
+func processEnviron(p *Process) ([]string, error) {
 	if p == nil || p.Cmd == nil || p.Cmd.Process == nil {
-		return nil, fmt.Errorf("worker %d is not running", i)
+		return nil, fmt.Errorf("process is not running")
 	}
 	raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/environ", p.Cmd.Process.Pid))
 	if err != nil {
@@ -476,8 +521,8 @@ const (
 	// starts at 32768 by default. That is not tidiness. Ports the kernel hands
 	// out for outbound connections are exactly the ports a long-lived process
 	// full of outbound connections is liable to be holding when a backend tries
-	// to bind one, and this suite's workers hold a tunnel, a NATS connection
-	// and a registration client each.
+	// to bind one, and this suite's workers hold a tunnel and a registration
+	// client each.
 	workerPortFloor   = 20000
 	workerPortCeiling = 31000
 
@@ -620,15 +665,6 @@ func (c *Cluster) FrontendBackendsDir(i int) (string, error) {
 		return "", err
 	}
 	return filepath.Join(c.frontendDir(i), "backends"), nil
-}
-
-// NatsURL is the bus this cluster's frontends were given.
-//
-// It is exported for one assertion: a spec proving a WORKER runs with no bus
-// has to show the deployment it joined has one, or "no NATS anywhere" would
-// satisfy it just as well.
-func (c *Cluster) NatsURL() string {
-	return c.opts.NatsURL
 }
 
 // WorkerName is the node name worker i registered under.

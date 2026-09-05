@@ -12,7 +12,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/nodes"
-	"github.com/mudler/LocalAI/pkg/natsauth"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 )
@@ -114,7 +113,6 @@ func newNodeSelfServiceTestApp(db *gorm.DB, appConfig *config.ApplicationConfig,
 		false,
 		nil,
 		"",
-		natsauth.Config{},
 	)
 	return e
 }

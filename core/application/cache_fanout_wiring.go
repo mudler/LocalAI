@@ -18,22 +18,21 @@ import (
 // The four process-lifetime caches, each wired onto the broadcast carrier by
 // one function here, and none of them by a call site naming a carrier.
 //
-// Two are methods on DistributedServices and take NO carrier at all, because
-// their call sites hold the whole struct and could otherwise reach for the
-// cancel carrier.
-// The other two run inside initDistributed before that struct exists, so they
-// take the CONCRETE *pgbus.Bus rather than messaging.Broadcaster.
+// Two are methods on DistributedServices and take NO carrier at all. The other
+// two run inside initDistributed before that struct exists, so they take the
+// CONCRETE *pgbus.Bus rather than messaging.Broadcaster.
 //
-// Concrete on purpose. *messaging.Client satisfies messaging.Broadcaster just
-// as well as the carrier does, so an interface parameter at these sites lets a
-// caller hand over the NATS client that is also in scope: it compiles, it
-// starts, it publishes, it is delivered, onto a carrier the deployment is being
-// taken off, and nothing fails until NATS goes away. With the concrete type
-// that mistake is a build error rather than a deployment that looks healthy.
+// Concrete on purpose, and the purpose has outlived what prompted it. It was
+// written against a SECOND carrier that was in scope at these call sites and
+// satisfied the same interface, so an interface parameter let a caller hand
+// over the wrong one: it compiled, started, published and was delivered, to
+// nobody the deployment would still be listening on. That carrier went with the
+// message broker and there is one left. The narrowing stays because a second
+// carrier is exactly what it guards against, and widening these parameters back
+// would give the guard away silently on the day another one arrives.
 //
 // The adopters themselves still take the interface, so their own specs drive
-// them with an in-memory double. The narrowing is only here, where the wrong
-// carrier is in scope.
+// them with an in-memory double. The narrowing is only here.
 
 // wireGalleryBroadcasts puts the gallery service's progress, cancel and
 // cache-invalidation traffic on the carrier, and opens the wildcard
@@ -62,8 +61,8 @@ func (ds *DistributedServices) wireGallery(gs *galleryop.GalleryService) error {
 //
 // Exported, unlike its siblings, because the OpCache is built in the HTTP layer
 // rather than in initDistributed. It takes neither a carrier nor a store: both
-// come off this struct, so the HTTP layer cannot pass the NATS client that
-// hangs off it beside them.
+// come off this struct, so the HTTP layer names no carrier and cannot pass one
+// that is merely in scope beside them.
 //
 // A hydrate failure is the OpCache's own business and is logged there; a
 // subscribe failure is returned, because a cache that hydrated and did not
