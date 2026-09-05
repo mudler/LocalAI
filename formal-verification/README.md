@@ -24,11 +24,11 @@ then the implementation is checked against them.
 | `fizzbee.sha256` | Pinned checksum(s) of the FizzBee release the gate uses (created on first `install-fizzbee.sh` run). |
 
 The implementations under test live in
-[`core/http/endpoints/openai/respcoord`](../../../core/http/endpoints/openai/respcoord) (M3),
-[`core/http/endpoints/openai/turncoord`](../../../core/http/endpoints/openai/turncoord) (M2),
-[`core/http/endpoints/openai/conncoord`](../../../core/http/endpoints/openai/conncoord) (M1),
-[`core/http/endpoints/openai/compactcoord`](../../../core/http/endpoints/openai/compactcoord) (M4),
-and [`core/http/endpoints/openai/ttscoord`](../../../core/http/endpoints/openai/ttscoord) (M5).
+[`core/http/endpoints/openai/respcoord`](../core/http/endpoints/openai/respcoord) (M3),
+[`core/http/endpoints/openai/turncoord`](../core/http/endpoints/openai/turncoord) (M2),
+[`core/http/endpoints/openai/conncoord`](../core/http/endpoints/openai/conncoord) (M1),
+[`core/http/endpoints/openai/compactcoord`](../core/http/endpoints/openai/compactcoord) (M4),
+and [`core/http/endpoints/openai/ttscoord`](../core/http/endpoints/openai/ttscoord) (M5).
 
 ## Running the realtime gate
 
