@@ -438,7 +438,7 @@ export default function ModelEditor() {
           <p className="page-subtitle">
             {isCreateMode
               ? (showTemplateSelector ? t('subtitle.chooseModelType') : `${t('subtitle.newModel')}${selectedTemplate ? ` — ${selectedTemplate.label}` : ''}`)
-              : decodeURIComponent(name)}
+              : name}
           </p>
         </div>
         <div className="hstack">
