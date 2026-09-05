@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/xlog"
 )
 
@@ -16,40 +15,44 @@ import (
 // package (and its gorm/DB dependencies).
 const statusPending = "pending"
 
-// defaultMaxAttempts bounds how many times Acquire registers (and how many
-// consecutive times RefreshLoop may fail) before giving up. It is high enough
-// to ride out a slow admin approval or a transient frontend outage, but finite
-// so an unauthorized/unapprovable worker exits and surfaces the problem (via a
-// non-zero exit and the resulting restart) rather than waiting forever.
+// defaultMaxAttempts bounds how many times Acquire registers before giving up.
+// It is high enough to ride out a slow admin approval or a transient frontend
+// outage, but finite so an unauthorized/unapprovable worker exits and surfaces
+// the problem (via a non-zero exit and the resulting restart) rather than
+// waiting forever.
 const defaultMaxAttempts = 100
 
 // RegisterFunc performs one idempotent registration round-trip.
 type RegisterFunc func(ctx context.Context) (*RegisterResponse, error)
 
-// NATSCredentialManager acquires NATS credentials at startup — waiting through
-// admin approval when required — and refreshes them before the minted JWT
-// expires, by re-registering (which mints a fresh JWT). The live NATS
-// connection adopts a refreshed JWT on its next reconnect via Provider. Safe
-// for concurrent use.
+// CredentialManager acquires a node's own credentials at startup, waiting
+// through admin approval when that is required, and holds the tunnel token the
+// most recent registration minted. Safe for concurrent use.
 //
-// It addresses two failure modes: a worker that needs credentials but registers
-// while still pending approval (it would otherwise give up and never connect),
-// and a long-running worker whose 24h JWT expires with no way to renew it.
-type NATSCredentialManager struct {
-	register     RegisterFunc
-	requireCreds bool // block until credentials are present (frontend minting in use)
+// Renamed from NATSCredentialManager and stripped rather than deleted. The JWT
+// half went with the message bus: nothing mints a broker credential and nothing
+// opens a connection to present one on. The tunnel token did not go with it,
+// and it is the reason a manager is still worth having: it is ROTATED by a
+// registration rather than expiring on a clock, and the frontend keeps only its
+// hash, so the dialer has to read the current value at dial time instead of
+// being handed one at startup.
+type CredentialManager struct {
+	register RegisterFunc
+	// requireApproval blocks Acquire until the node is out of pending.
+	//
+	// Narrower than the requireCreds it replaces: there is no credential left
+	// to wait for being MINTED, only an admin decision to wait through. A
+	// worker that proceeds while pending registers and heartbeats fine, and is
+	// then refused at every tunnel dial, so an operator who wants the wait
+	// rather than the refusal loop asks for it here.
+	requireApproval bool
 
-	// Tunables; defaults set by NewNATSCredentialManager, overridable in tests.
+	// Tunables; defaults set by NewCredentialManager, overridable in tests.
 	initialBackoff time.Duration
 	maxBackoff     time.Duration
-	maxAttempts    int     // bound on Acquire attempts / consecutive refresh failures (<=0 = unlimited)
-	refreshLead    float64 // refresh once this fraction of the JWT lifetime has elapsed
-	refreshRetry   time.Duration
-	expiryOf       func(jwt string) (time.Time, bool)
+	maxAttempts    int // bound on Acquire attempts (<=0 = unlimited)
 
 	mu     sync.RWMutex
-	jwt    string
-	seed   string
 	nodeID string
 	// tunnelToken is the node's own tunnel credential from the most recent
 	// registration. It is kept here because every re-registration this manager
@@ -58,46 +61,28 @@ type NATSCredentialManager struct {
 	tunnelToken string
 }
 
-// NewNATSCredentialManager builds a manager over register. When requireCreds is
-// true, Acquire blocks until the node is approved and credentials are minted.
-func NewNATSCredentialManager(register RegisterFunc, requireCreds bool) *NATSCredentialManager {
-	return &NATSCredentialManager{
-		register:       register,
-		requireCreds:   requireCreds,
-		initialBackoff: 2 * time.Second,
-		maxBackoff:     30 * time.Second,
-		maxAttempts:    defaultMaxAttempts,
-		refreshLead:    0.75,
-		refreshRetry:   30 * time.Second,
-		expiryOf:       jwtExpiry,
+// NewCredentialManager builds a manager over register. When requireApproval is
+// true, Acquire blocks through admin approval instead of returning a pending
+// response.
+func NewCredentialManager(register RegisterFunc, requireApproval bool) *CredentialManager {
+	return &CredentialManager{
+		register:        register,
+		requireApproval: requireApproval,
+		initialBackoff:  2 * time.Second,
+		maxBackoff:      30 * time.Second,
+		maxAttempts:     defaultMaxAttempts,
 	}
 }
 
-// jwtExpiry decodes the expiry of a minted user JWT. ok is false when the token
-// is empty/undecodable or carries no expiry (e.g. a non-expiring service JWT).
-func jwtExpiry(token string) (time.Time, bool) {
-	if token == "" {
-		return time.Time{}, false
-	}
-	uc, err := natsauth.DecodeUserClaims(token)
-	if err != nil || uc.Expires == 0 {
-		return time.Time{}, false
-	}
-	return time.Unix(uc.Expires, 0), true
-}
-
-func (m *NATSCredentialManager) store(res *RegisterResponse) {
+func (m *CredentialManager) store(res *RegisterResponse) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.nodeID = res.ID
-	if res.NatsJWT != "" && res.NatsUserSeed != "" {
-		m.jwt, m.seed = res.NatsJWT, res.NatsUserSeed
-	}
-	// Guarded the same way the NATS pair is: a response that carries no tunnel
-	// token (a frontend that predates them, or one whose minting failed) must
-	// not wipe a working credential this worker already holds. Overwriting with
-	// "" would lock the tunnel out until the next registration that did carry
-	// one, which is the opposite of what an empty field means.
+	// A response that carries no tunnel token (a frontend that predates them,
+	// or one whose minting failed) must not wipe a working credential this
+	// worker already holds. Overwriting with "" would lock the tunnel out until
+	// the next registration that did carry one, which is the opposite of what
+	// an empty field means.
 	if res.TunnelToken != "" {
 		m.tunnelToken = res.TunnelToken
 	}
@@ -105,43 +90,23 @@ func (m *NATSCredentialManager) store(res *RegisterResponse) {
 
 // TunnelToken returns the node's current tunnel credential, empty until one has
 // been issued. It is the callback the tunnel client reads on every dial.
-func (m *NATSCredentialManager) TunnelToken() string {
+func (m *CredentialManager) TunnelToken() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.tunnelToken
 }
 
-// Current returns the latest NATS credentials (both empty until acquired).
-func (m *NATSCredentialManager) Current() (jwt, seed string) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.jwt, m.seed
-}
-
 // NodeID returns the node ID from the most recent registration.
-func (m *NATSCredentialManager) NodeID() string {
+func (m *CredentialManager) NodeID() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.nodeID
 }
 
-// Provider returns a callback compatible with messaging.WithUserJWTProvider,
-// supplying the current credentials on each (re)connect.
-func (m *NATSCredentialManager) Provider() func() (string, string) {
-	return m.Current
-}
-
-// HasCredentials reports whether complete NATS credentials have been obtained.
-func (m *NATSCredentialManager) HasCredentials() bool {
-	jwt, seed := m.Current()
-	return jwt != "" && seed != ""
-}
-
-// Acquire registers and, when requireCreds is set, keeps re-registering with
-// exponential backoff until the node is approved (status != pending) and
-// credentials are minted. Without requireCreds it returns the first successful
-// response (the historical one-shot behavior, preserved for anonymous NATS).
-func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse, error) {
+// Acquire registers and, when requireApproval is set, keeps re-registering with
+// exponential backoff until the node is approved (status != pending). Without
+// requireApproval it returns the first successful response.
+func (m *CredentialManager) Acquire(ctx context.Context) (*RegisterResponse, error) {
 	backoff := m.initialBackoff
 	var lastReason error
 	for attempt := 1; m.maxAttempts <= 0 || attempt <= m.maxAttempts; attempt++ {
@@ -155,15 +120,12 @@ func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse,
 		case err != nil:
 			lastReason = err
 			xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
-		case !m.requireCreds:
+		case !m.requireApproval:
 			m.store(res)
 			return res, nil
 		case res.Status == statusPending:
 			lastReason = fmt.Errorf("node %s still pending admin approval", res.ID)
 			xlog.Info("Node pending admin approval; waiting", "node", res.ID, "attempt", attempt, "next_retry", backoff)
-		case res.NatsJWT == "" || res.NatsUserSeed == "":
-			lastReason = fmt.Errorf("node %s approved but NATS credentials not minted", res.ID)
-			xlog.Info("Node approved but NATS credentials not yet minted; waiting", "node", res.ID, "attempt", attempt, "next_retry", backoff)
 		default:
 			m.store(res)
 			return res, nil
@@ -175,53 +137,5 @@ func (m *NATSCredentialManager) Acquire(ctx context.Context) (*RegisterResponse,
 		}
 		backoff = min(backoff*2, m.maxBackoff)
 	}
-	return nil, fmt.Errorf("giving up acquiring NATS credentials after %d attempts: %w", m.maxAttempts, lastReason)
-}
-
-// RefreshLoop re-registers to mint a fresh JWT before the current one expires,
-// updating the credentials returned by Current/Provider so the NATS connection
-// adopts them on its next reconnect. It returns nil when ctx is cancelled or
-// when the current credential has no expiry (nothing to refresh), and a non-nil
-// error after maxAttempts consecutive refresh failures — letting the caller
-// exit the worker so it restarts and re-acquires (or surfaces the outage)
-// rather than silently drifting toward an expired, unrenewable JWT.
-func (m *NATSCredentialManager) RefreshLoop(ctx context.Context) error {
-	failures := 0
-	for {
-		jwt, _ := m.Current()
-		exp, ok := m.expiryOf(jwt)
-		if !ok {
-			xlog.Debug("NATS credential has no expiry; refresh loop exiting")
-			return nil
-		}
-		wait := max(time.Duration(float64(time.Until(exp))*m.refreshLead), 0)
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(wait):
-		}
-
-		res, err := m.register(ctx)
-		if err == nil && res.NatsJWT != "" && res.NatsUserSeed != "" {
-			m.store(res)
-			failures = 0
-			xlog.Info("Refreshed NATS credentials", "node", res.ID)
-			continue
-		}
-		failures++
-		if err != nil {
-			xlog.Warn("NATS credential refresh failed; will retry", "attempt", failures, "error", err)
-		} else {
-			xlog.Warn("NATS credential refresh returned no credentials; will retry", "attempt", failures)
-		}
-		if m.maxAttempts > 0 && failures >= m.maxAttempts {
-			return fmt.Errorf("NATS credential refresh failed %d times in a row", failures)
-		}
-		// Back off before retrying so a persistent failure near expiry does not spin.
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(m.refreshRetry):
-		}
-	}
+	return nil, fmt.Errorf("giving up registering after %d attempts: %w", m.maxAttempts, lastReason)
 }

@@ -67,26 +67,54 @@ type AgentWorkerCMD struct {
 	APIURL   string `env:"LOCALAI_API_URL" help:"LocalAI API URL for inference (auto-derived from RegisterTo if not set)" group:"api"`
 	APIToken string `env:"LOCALAI_API_TOKEN" help:"API token for LocalAI inference (auto-provisioned during registration if not set)" group:"api"`
 
-	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (defaults to nats_jwt from registration)" group:"distributed"`
-	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"NATS user seed override (defaults to nats_user_seed from registration)" group:"distributed"`
-	NatsServiceJWT  string `env:"LOCALAI_NATS_SERVICE_JWT" help:"Fallback NATS service JWT when registration does not mint agent JWT" group:"distributed"`
-	NatsServiceSeed string `env:"LOCALAI_NATS_SERVICE_SEED" help:"Fallback NATS service seed paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
-	NatsRequireAuth bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT+seed to connect" group:"distributed"`
+	// The broker credential and TLS flags, accepted and ignored, hidden, on the
+	// same terms as NatsURL above. There is no connection left to present a
+	// credential on.
+	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"Ignored. An agent worker opens no bus connection to present a credential on." group:"distributed" hidden:""`
+	NatsUserSeed    string `env:"LOCALAI_NATS_USER_SEED" help:"Ignored. Paired with LOCALAI_NATS_JWT, which is itself ignored." group:"distributed" hidden:""`
+	NatsServiceJWT  string `env:"LOCALAI_NATS_SERVICE_JWT" help:"Ignored. An agent worker opens no bus connection to present a credential on." group:"distributed" hidden:""`
+	NatsServiceSeed string `env:"LOCALAI_NATS_SERVICE_SEED" help:"Ignored. Paired with LOCALAI_NATS_SERVICE_JWT, which is itself ignored." group:"distributed" hidden:""`
+	NatsRequireAuth bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Ignored. Use --distributed-require-auth to make this worker wait through admin approval." group:"distributed" hidden:""`
 	// DistributedRequireAuth is the umbrella switch; for the agent worker (which
-	// has no file-transfer server) it implies NATS auth is required.
-	DistributedRequireAuth bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch implying --nats-require-auth (agent workers have no file-transfer server)" group:"distributed"`
-	NatsTLSCA              string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI)" group:"distributed"`
-	NatsTLSCert            string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
-	NatsTLSKey             string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+	// has no file-transfer server) it makes registration WAIT THROUGH ADMIN
+	// APPROVAL rather than starting against a pending node.
+	//
+	// It used to imply --nats-require-auth as well, and the wait was a side
+	// effect of that: the worker was waiting for a broker credential to be
+	// minted. There is no credential and no broker, so the wait is now what the
+	// switch is FOR, and it is described that way rather than by what it used
+	// to imply.
+	DistributedRequireAuth bool `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Wait through admin approval at registration instead of starting against a node an admin has not approved" group:"distributed"`
+	// type:"existingfile" is deliberately NOT kept: validating a path this
+	// process never opens would fail a worker at startup over a certificate for
+	// a broker the operator has already shut down.
+	NatsTLSCA   string `env:"LOCALAI_NATS_TLS_CA" help:"Ignored. No bus connection is opened, so no server certificate is verified." group:"distributed" hidden:""`
+	NatsTLSCert string `env:"LOCALAI_NATS_TLS_CERT" help:"Ignored. No bus connection is opened, so no client certificate is presented." group:"distributed" hidden:""`
+	NatsTLSKey  string `env:"LOCALAI_NATS_TLS_KEY" help:"Ignored. Paired with LOCALAI_NATS_TLS_CERT, which is itself ignored." group:"distributed" hidden:""`
 
 	// Timeouts
 	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Timeout for MCP CI job execution" group:"distributed"`
 }
 
-// natsAuthRequired reports whether NATS JWT credentials must be present — the
-// granular flag or the umbrella (LOCALAI_DISTRIBUTED_REQUIRE_AUTH).
-func (cmd *AgentWorkerCMD) natsAuthRequired() bool {
-	return cmd.NatsRequireAuth || cmd.DistributedRequireAuth
+// waitThroughApproval reports whether registration should block until an admin
+// approves this node, instead of returning a pending response and starting.
+//
+// A method rather than the field read it wraps, because the answer CHANGED and
+// the change is the one thing in this command an operator can be surprised by.
+// It used to be --distributed-require-auth OR --nats-require-auth, narrowed
+// further by whether the operator had supplied a broker JWT by hand. Every term
+// but the first was about a credential that no longer exists, so the gate is
+// now the first term alone.
+//
+// An operator who set ONLY --nats-require-auth therefore loses the wait and
+// gets the historical default: register, start, and let the tunnel dialer be
+// refused with 403 until an admin approves. That is a visible change, it is
+// documented in docs/content/features/distributed-mode.md, and it is a seam so
+// that it is also pinned: inlined at the call site it sat inside a Run that
+// dials a frontend, where no spec could reach it and swapping the two flags
+// back would have stayed green.
+func (cmd *AgentWorkerCMD) waitThroughApproval() bool {
+	return cmd.DistributedRequireAuth
 }
 
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
@@ -121,17 +149,15 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 
 	// Register, and obtain this node's identity and its tunnel credential.
 	//
-	// The manager is still the NATS credential manager and still gated on the
-	// NATS auth flags, and that is deliberate rather than left over: what the
-	// gate decides is whether registration WAITS THROUGH ADMIN APPROVAL instead
-	// of returning a pending response, and that behaviour is unchanged by this
-	// worker no longer dialling a bus. What it no longer does is dial one: the
-	// only value read off it below is TunnelToken.
-	credMgr := workerregistry.NewNATSCredentialManager(
+	// The manager holds one thing now: the tunnel token, which every
+	// re-registration rotates. Its gate decides whether registration WAITS
+	// THROUGH ADMIN APPROVAL instead of returning a pending response; which
+	// flag decides that, and what changed about it, is on waitThroughApproval.
+	credMgr := workerregistry.NewCredentialManager(
 		func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
 			return regClient.RegisterFull(ctx, registrationBody)
 		},
-		cmd.natsAuthRequired() && cmd.NatsJWT == "" && cmd.NatsServiceJWT == "",
+		cmd.waitThroughApproval(),
 	)
 	res, err := credMgr.Acquire(shutdownCtx)
 	if err != nil {
@@ -208,8 +234,8 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	xlog.Info("Agent worker ready, serving agent execution and MCP CI runs on its tunnel", "node", nodeID)
 
 	// Wait for an OS signal. There is no internal fatal condition left to wait
-	// on: the one that existed was a NATS credential this worker could no
-	// longer renew, and it renews none.
+	// on: the one that existed was a broker credential this worker could no
+	// longer renew, and there is no credential and no broker.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
@@ -385,7 +411,7 @@ func handleMCPCIJob(ctx context.Context, data []byte, apiURL, apiToken string, p
 	task := evt.Task
 	if job == nil || task == nil {
 		xlog.Error("MCP CI job missing enriched data", "jobID", evt.JobID)
-		return mcpCIAnswer(pub, evt.JobID, "failed", "", "job or task data missing from NATS event")
+		return mcpCIAnswer(pub, evt.JobID, "failed", "", "job or task data missing from the job event")
 	}
 
 	modelCfg := evt.ModelConfig

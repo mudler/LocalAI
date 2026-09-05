@@ -103,8 +103,12 @@ var _ = Describe("Fine-Tune Distributed", Label("Distributed"), func() {
 			Expect(appCfg.Distributed.Enabled).To(BeFalse())
 
 			// Without distributed mode, fine-tune jobs use local in-memory
-			// state tracking. No PostgreSQL or NATS needed.
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
+			// state tracking. No PostgreSQL needed.
+			//
+			// The "and no bus URL" half of this assertion is gone with the
+			// field it read: DistributedConfig has nowhere to hold one, which
+			// core/config's "broker surface" spec pins for every config rather
+			// than for this one.
 		})
 	})
 })

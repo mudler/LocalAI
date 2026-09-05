@@ -5,7 +5,7 @@ import { test, expect } from './coverage-fixtures.js'
 //   - a delete affordance is present and goes through ConfirmDialog
 //
 // We mock the distributed-mode API so the tests can run against the
-// standalone ui-test-server without spinning up workers/NATS.
+// standalone ui-test-server without spinning up workers.
 
 const NODE_ID = 'test-node-1'
 const NODE_NAME = 'worker-test'

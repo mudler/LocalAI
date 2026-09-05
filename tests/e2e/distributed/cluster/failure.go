@@ -51,7 +51,7 @@ func (c *Cluster) KillWorker(i int) error {
 // TIME_WAIT on an accepted connection does not block the bind.
 //
 // The data directory is wiped so the replica must rehydrate node, session and
-// job state from the shared Postgres and NATS. Keeping it would model a pod
+// job state from the shared Postgres. Keeping it would model a pod
 // with a persistent volume and would hide the very class of bug these tests
 // exist to find. This is only safe because startFrontend pins
 // LOCALAI_AUTH_HMAC_SECRET: the secret otherwise lives at

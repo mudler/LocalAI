@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync/atomic"
 	"time"
 
@@ -128,11 +129,49 @@ var _ = Describe("Registration client refusals", func() {
 		// The default worker path goes through Acquire, not the ladder above,
 		// and its bound is 100 attempts rather than 10. A refusal there is the
 		// same verdict and has to end the same way.
-		mgr := NewNATSCredentialManager(func(ctx context.Context) (*RegisterResponse, error) {
+		mgr := NewCredentialManager(func(ctx context.Context) (*RegisterResponse, error) {
 			return client.RegisterFull(ctx, map[string]any{"name": "w1"})
 		}, true)
 		_, err := mgr.Acquire(context.Background())
 		Expect(err).To(MatchError(ErrRegistrationRejected))
 		Expect(attempts.Load()).To(Equal(int32(1)))
+	})
+})
+
+// The other direction of the same upgrade: a worker of this release registering
+// against a frontend that still mints a per-node broker credential.
+//
+// The fields are gone from RegisterResponse, so the only question is what
+// happens to the keys still on the wire. encoding/json ignores a key with no
+// field, and that is asserted rather than assumed, because a decoder switched
+// to DisallowUnknownFields would turn every registration against an older
+// frontend into a hard failure with no other symptom.
+var _ = Describe("Registering against a frontend that still mints broker credentials", func() {
+	It("decodes the response and drops the keys it no longer has fields for", func() {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":"node-7","status":"healthy","api_token":"key-7","tunnel_token":"tunnel-7","nats_jwt":"eyJ0","nats_user_seed":"SUUSER"}`))
+		}))
+		DeferCleanup(server.Close)
+
+		client := &RegistrationClient{FrontendURL: server.URL, HTTPTimeout: 2 * time.Second}
+		res, err := client.RegisterFull(context.Background(), map[string]any{"name": "w1"})
+		Expect(err).ToNot(HaveOccurred())
+
+		// The fields it DOES have, so the assertion below is about the two
+		// unknown keys and not about a decode that produced nothing.
+		Expect(res.ID).To(Equal("node-7"))
+		Expect(res.APIToken).To(Equal("key-7"))
+		Expect(res.TunnelToken).To(Equal("tunnel-7"))
+
+		// And nowhere for a broker credential to land: asserted on the struct's
+		// own type, because a value assertion would need a field to read and
+		// would stop compiling exactly when the field came back.
+		t := reflect.TypeOf(*res)
+		for _, gone := range []string{"NatsJWT", "NatsUserSeed"} {
+			_, found := t.FieldByName(gone)
+			Expect(found).To(BeFalse(),
+				"RegisterResponse.%s is back: a worker that stores a broker credential is a worker something expects to dial a broker", gone)
+		}
 	})
 })

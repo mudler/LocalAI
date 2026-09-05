@@ -17,7 +17,6 @@ var _ = Describe("Cluster options", Label("Distributed"), func() {
 		_, err := cluster.Start(cluster.Options{
 			Binary:    filepath.Join(os.TempDir(), "definitely-not-local-ai"),
 			PGDSN:     "postgres://test:test@127.0.0.1:5432/x?sslmode=disable",
-			NatsURL:   "nats://127.0.0.1:4222",
 			LogDir:    GinkgoT().TempDir(),
 			Frontends: 1,
 		})
@@ -29,7 +28,6 @@ var _ = Describe("Cluster options", Label("Distributed"), func() {
 		_, err := cluster.Start(cluster.Options{
 			Binary:    "/bin/true",
 			PGDSN:     "postgres://test:test@127.0.0.1:5432/x?sslmode=disable",
-			NatsURL:   "nats://127.0.0.1:4222",
 			LogDir:    GinkgoT().TempDir(),
 			Frontends: 0,
 		})
@@ -39,9 +37,9 @@ var _ = Describe("Cluster options", Label("Distributed"), func() {
 })
 
 // The HTTP flow inside AdminSession and GetJSON cannot run here: it needs a
-// built local-ai plus real Postgres and NATS, which arrive with the failover
-// suites. These specs cover the argument validation that would otherwise panic
-// on an out-of-range slice index inside a helper every later spec calls.
+// built local-ai plus real Postgres, which arrives with the failover suites.
+// These specs cover the argument validation that would otherwise panic on an
+// out-of-range slice index inside a helper every later spec calls.
 var _ = Describe("Admin session", Label("Distributed"), func() {
 	It("reports a clear error when the frontend index is out of range", func() {
 		c := cluster.ForTestingEmpty()
@@ -59,8 +57,8 @@ var _ = Describe("Admin session", Label("Distributed"), func() {
 })
 
 // Like the admin specs above, these cover argument validation only. Killing,
-// stopping and restarting a real replica needs a built local-ai plus Postgres
-// and NATS, so those paths stay unexecuted until the failover suites land.
+// stopping and restarting a real replica needs a built local-ai plus Postgres,
+// so those paths stay unexecuted until the failover suites land.
 var _ = Describe("Failure primitives", Label("Distributed"), func() {
 	It("rejects an out-of-range frontend index rather than panicking", func() {
 		c := cluster.ForTestingEmpty()

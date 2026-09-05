@@ -171,7 +171,9 @@ var _ = Describe("Gallery Distributed", Label("Distributed"), func() {
 
 			// Without distributed mode, gallery operations use the existing
 			// in-memory galleryApplier map. No PostgreSQL needed.
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
+			//
+			// The bus-URL half of this assertion went with the field it read;
+			// core/config's "broker surface" spec pins its absence.
 		})
 	})
 })

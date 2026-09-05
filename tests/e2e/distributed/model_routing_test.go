@@ -117,7 +117,9 @@ var _ = Describe("Model Routing", Label("Distributed"), func() {
 			// Without distributed mode, no SmartRouter is created.
 			// The ModelLoader uses its local process management.
 			// This test documents the design decision.
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
+			//
+			// The bus-URL half of this assertion went with the field it read;
+			// core/config's "broker surface" spec pins its absence.
 		})
 	})
 })

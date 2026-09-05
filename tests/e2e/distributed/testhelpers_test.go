@@ -37,14 +37,6 @@ type TestInfra struct {
 	PGURL       string
 }
 
-// staleBusURL is the address of a broker that is not running, and is not meant
-// to be. LOCALAI_NATS_URL and --nats-url are still accepted and ignored so an
-// operator's existing command line, unit file or Helm values file starts
-// unchanged after the broker is shut down; specs that exercise that promise
-// hand over THIS value, because a value pointing at a live server would let a
-// regression that dialled it pass unnoticed.
-const staleBusURL = "nats://127.0.0.1:1"
-
 // The container is suite-scoped, not spec-scoped. Starting a Postgres (~10s) per
 // spec cost roughly 36 minutes of pure startup across the 213 specs behind
 // SetupInfra, which is why this suite was never wired into CI. Isolation now
