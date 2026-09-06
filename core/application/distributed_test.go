@@ -222,6 +222,8 @@ var _ = Describe("wiring the per-node caches a departure evicts", func() {
 			departureProbeCache,
 			departureStagingTracker,
 			departureGalleryNodes,
+			departureControlClients,
+			departureStagerClients,
 		))
 	})
 
@@ -239,26 +241,54 @@ var _ = Describe("wiring the per-node caches a departure evicts", func() {
 			departureProbeCache,
 			departureStagingTracker,
 			departureGalleryNodes,
+			departureControlClients,
+			departureStagerClients,
 		))
 	})
 
 	It("refuses a deployment with no router, naming what its departed nodes would keep", func() {
-		err := registerDepartureEvictions(nodes.NewDepartureNotifier(), nil, nil, galleryop.NewGalleryService(&config.ApplicationConfig{}, nil))
+		err := registerDepartureEvictions(nodes.NewDepartureNotifier(), nil, nil, galleryop.NewGalleryService(&config.ApplicationConfig{}, nil), specControlClient(), specFileStager())
 
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("probe-freshness"))
 	})
 
 	It("refuses a deployment with no gallery service", func() {
-		err := registerDepartureEvictions(nodes.NewDepartureNotifier(), nil, nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{}), nil)
+		err := registerDepartureEvictions(nodes.NewDepartureNotifier(), nil, nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{}), nil, specControlClient(), specFileStager())
 
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("per-node breakdown"))
 	})
 
+	It("refuses a deployment with no control client, naming the streams a departed node would keep", func() {
+		err := registerDepartureEvictions(nodes.NewDepartureNotifier(), nil, nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{}), galleryop.NewGalleryService(&config.ApplicationConfig{}, nil), nil, specFileStager())
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("idle streams"))
+	})
+
+	It("refuses a deployment with no file stager", func() {
+		err := registerDepartureEvictions(nodes.NewDepartureNotifier(), nil, nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{}), galleryop.NewGalleryService(&config.ApplicationConfig{}, nil), specControlClient(), nil)
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("cached HTTP client"))
+	})
+
 	It("refuses a deployment with no notifier at all", func() {
-		err := registerDepartureEvictions(nil, nil, nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{}), galleryop.NewGalleryService(&config.ApplicationConfig{}, nil))
+		err := registerDepartureEvictions(nil, nil, nodes.NewSmartRouter(nil, nodes.SmartRouterOptions{}), galleryop.NewGalleryService(&config.ApplicationConfig{}, nil), specControlClient(), specFileStager())
 
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+// specControlClient and specFileStager build the two per-node client caches a
+// registration needs. Neither is dialled: what the refusal specs assert is that
+// the wiring refuses a MISSING one, and what the registration specs assert is
+// that a subscriber was registered for it.
+func specControlClient() *nodes.ControlClient {
+	return nodes.NewControlClient(nil, "")
+}
+
+func specFileStager() nodes.FileStager {
+	return nodes.NewHTTPFileStager(func(string) (string, error) { return "", nil }, "", nil)
+}
