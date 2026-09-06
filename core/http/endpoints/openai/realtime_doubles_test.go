@@ -17,12 +17,14 @@ import (
 // so streaming behaviour can be asserted without a real WebSocket/WebRTC peer.
 // It is not a *WebRTCTransport, so handler code takes the WebSocket path.
 //
-// Every field is behind the mutex, and the recorded slices are read only
-// through recordedEvents and recordedAudio. A real transport is written to by
-// the response and turn coordinators' goroutines while the spec goroutine
-// reads what has arrived so far, so a double that appended without a lock could
-// not be driven the way production drives it. Both fields are named with a
-// `Log` suffix so a raw read from another spec file does not compile.
+// Every field is behind the mutex, and the events are read only through
+// recordedEvents. A real transport is written to by the response and turn
+// coordinators' goroutines while the spec goroutine reads what has arrived so
+// far, so a double that appended without a lock could not be driven the way
+// production drives it. Both fields are named with a `Log` suffix so a raw read
+// from another spec file does not compile; audioLog has no reader yet, and the
+// accessor for it is left to whichever spec first needs one, because an unread
+// one does not build.
 type fakeTransport struct {
 	mu       sync.Mutex
 	eventLog []types.ServerEvent
@@ -58,13 +60,6 @@ func (f *fakeTransport) recordedEvents() []types.ServerEvent {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]types.ServerEvent(nil), f.eventLog...)
-}
-
-// recordedAudio returns a snapshot of the audio chunks sent so far.
-func (f *fakeTransport) recordedAudio() []fakeAudioChunk {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return append([]fakeAudioChunk(nil), f.audioLog...)
 }
 
 // countEvents returns how many recorded events have the given type.
