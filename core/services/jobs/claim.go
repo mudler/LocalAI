@@ -46,7 +46,12 @@ type WorkClaim struct {
 	ClaimedBy string     `gorm:"size:64;index"`
 	ClaimedAt *time.Time `gorm:"index"`
 	Attempts  int
-	CreatedAt time.Time `gorm:"index"`
+	// NotBefore is the earliest this row may be claimed again, stamped by
+	// ReleaseClaim from the DATABASE clock. NULL means "now", which is what
+	// every freshly enqueued row carries and what a reaped row goes back to.
+	// See claimBackoff.
+	NotBefore *time.Time `gorm:"index"`
+	CreatedAt time.Time  `gorm:"index"`
 }
 
 // TableName pins the table this maps onto, because ReapAbandoned and ClaimNext
@@ -116,6 +121,7 @@ func EnqueueClaim(ctx context.Context, db *gorm.DB, kind ClaimKind, payload any)
 		"claimed_by": "",
 		"claimed_at": nil,
 		"attempts":   0,
+		"not_before": nil,
 		"created_at": gorm.Expr("now()"),
 	}).Error; err != nil {
 		return "", fmt.Errorf("enqueueing a %s claim: %w", kind, err)
@@ -143,11 +149,12 @@ SET claimed_by = ?, claimed_at = now()
 WHERE id = (
 	SELECT id FROM ` + claimsTable + `
 	WHERE claimed_at IS NULL AND kind IN ?
+	  AND (not_before IS NULL OR not_before <= now())
 	ORDER BY created_at, id
 	FOR UPDATE SKIP LOCKED
 	LIMIT 1
 )
-RETURNING id, kind, payload, claimed_by, claimed_at, attempts, created_at`
+RETURNING id, kind, payload, claimed_by, claimed_at, attempts, not_before, created_at`
 
 // ClaimNext takes at most one unclaimed row of any kind in kinds, marking it
 // claimed by owner. It returns ErrNoWork when there is none.
@@ -180,19 +187,69 @@ func ClaimNext(ctx context.Context, db *gorm.DB, owner string, kinds []ClaimKind
 	return &claim, nil
 }
 
-// ReleaseClaim returns a row to the pool, incrementing Attempts.
+// The retry schedule a released claim comes back on.
+//
+// There is no dead letter here, and that is a decision rather than an omission.
+// Read settleClaim: the only outcome that reaches ReleaseClaim is one where
+// NOTHING was learned about the work. No agent worker was connected, the tunnel
+// broke, a peer could not be reached, the stream was refused before the request
+// body left this replica. Not one of those is the worker saying it ran the job
+// and it failed, and failing a job on any of them would report an absent
+// connection as a worker's verdict, which is the one collapse this whole design
+// exists to prevent. A deployment whose fleet is down for a day must run its
+// queued work when the fleet comes back, not find it failed.
+//
+// What IS a defect is retrying at the poll interval for ever. At the default
+// two seconds a permanently undispatchable row costs ~43000 UPDATEs a day, and
+// it costs more than writes: rows are claimed oldest-first, so the oldest
+// stuck row is re-claimed ahead of every newer one on every single tick and
+// holds a dispatch slot while it fails. One poison row starves the queue behind
+// it.
+//
+// So the retry is unbounded and the RATE is not. Each release stamps the row
+// with the earliest it may be claimed again, doubling per attempt from
+// claimBackoffBase up to claimBackoffCap. A first failure costs the base delay,
+// a fleet that has been down for a minute retries at the cap, and work becomes
+// claimable again within one cap of the fleet returning. The exponent is
+// clamped so the arithmetic cannot overflow however long a row has been stuck.
+const (
+	// claimBackoffBase is the delay after the first failed dispatch. One poll
+	// interval: a row that failed because nothing was connected should not be
+	// re-tried before the loop would have looked again anyway.
+	claimBackoffBase = 2 * time.Second
+	// claimBackoffCap bounds the delay, and with it how long queued work waits
+	// after a fleet comes back. Kept short for that reason: the point of the
+	// backoff is to stop a stuck row from spinning, not to give up on it.
+	claimBackoffCap = 60 * time.Second
+	// claimBackoffMaxShift clamps the exponent. 2^16 base seconds is already
+	// far past the cap, so this only keeps power() away from infinity for a row
+	// that has been retried for months.
+	claimBackoffMaxShift = 16
+)
+
+// releaseClaimSQL returns a row to the pool and stamps its next eligibility.
+//
+// One statement, and the delay computed IN the statement, because it reads the
+// row's own attempts count and stamps now() from the DATABASE clock. Competing
+// replicas order the queue on that clock; a Go-side deadline would make how
+// long a row waits depend on the clock skew of whichever replica happened to
+// fail it.
+const releaseClaimSQL = `UPDATE ` + claimsTable + `
+SET claimed_by = '', claimed_at = NULL, attempts = attempts + 1,
+    not_before = now() + make_interval(secs => LEAST(?, ? * power(2, LEAST(attempts, ?))))
+WHERE id = ?`
+
+// ReleaseClaim returns a row to the pool, incrementing Attempts and stamping
+// the backoff described above.
 //
 // It is what a TRANSPORT failure does: nothing was learned about the work, so
 // it must be retried, possibly by another replica against another worker.
 func ReleaseClaim(ctx context.Context, db *gorm.DB, id string) error {
-	if db == nil {
-		return errors.New("releasing a claim: no database handle")
+	if err := requirePostgres(db, "releasing a claim"); err != nil {
+		return err
 	}
-	res := db.WithContext(ctx).Model(&WorkClaim{}).Where("id = ?", id).Updates(map[string]any{
-		"claimed_by": "",
-		"claimed_at": nil,
-		"attempts":   gorm.Expr("attempts + 1"),
-	})
+	res := db.WithContext(ctx).Exec(releaseClaimSQL,
+		claimBackoffCap.Seconds(), claimBackoffBase.Seconds(), claimBackoffMaxShift, id)
 	if res.Error != nil {
 		return fmt.Errorf("releasing claim %q: %w", id, res.Error)
 	}
@@ -227,8 +284,12 @@ func CompleteClaim(ctx context.Context, db *gorm.DB, id string) error {
 // so this reap and every other reader of replica absence in the deployment move
 // together, and it runs as ONE statement so a replica cannot die, or come back,
 // between deciding who is live and acting on it.
+// It stamps NO backoff, unlike ReleaseClaim. A claim abandoned because its
+// replica died was never dispatched anywhere: there is nothing to back off
+// from, and delaying it would punish the work for the death of the process that
+// held it. It becomes claimable at once, by whichever replica polls next.
 const reapAbandonedSQL = `UPDATE ` + claimsTable + `
-SET claimed_by = '', claimed_at = NULL, attempts = attempts + 1
+SET claimed_by = '', claimed_at = NULL, attempts = attempts + 1, not_before = NULL
 WHERE claimed_at IS NOT NULL
   AND claimed_by NOT IN (` + cluster.LiveInstanceIDsSQL + `)`
 
