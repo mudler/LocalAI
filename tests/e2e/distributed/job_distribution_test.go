@@ -174,7 +174,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		It("enqueues a claim and drives it on a worker, persisting what the worker answered", func() {
 			Expect(cluster.Migrate(infra.Ctx, db)).To(Succeed())
 			const owner = "test-instance"
-			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8090", "v1")).To(Succeed())
+			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8090", "v1", "")).To(Succeed())
 
 			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 
@@ -202,7 +202,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		It("returns a claim to the pool when the dispatch obtained no answer, rather than losing the work", func() {
 			Expect(cluster.Migrate(infra.Ctx, db)).To(Succeed())
 			const owner = "lossy-instance"
-			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8091", "v1")).To(Succeed())
+			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8091", "v1", "")).To(Succeed())
 
 			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 			task := &jobs.TaskRecord{UserID: "u1", Name: "lossy-test", Model: "m1", Prompt: "p1"}

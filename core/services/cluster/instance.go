@@ -31,6 +31,21 @@ type Instance struct {
 	AdvertisedAddr string    `gorm:"size:255" json:"advertised_addr"` // host:port other replicas dial
 	Version        string    `gorm:"size:64" json:"version"`
 	LastSeen       time.Time `gorm:"index" json:"last_seen"`
+	// PeerTokenHash is the SHA-256 of the credential this replica presents when
+	// it dials GET /api/cluster/peer, and is what turns the ?id= on that route
+	// from a self-declared label into a claim something checks. The replica
+	// mints the secret itself, publishes only this hash, and never sends the
+	// plaintext anywhere but the peer dial itself; see PeerCredential.
+	//
+	// Empty means the row was written by a release that predates per-replica
+	// peer identity. Such a replica is refused, loudly, rather than waved
+	// through: the column cannot be back-filled, because only the process that
+	// minted the secret has it, and treating "no credential" as "any
+	// credential" is the exposure this column exists to close.
+	//
+	// json:"-" because this is a stored secret's hash. Instance is serialised
+	// nowhere today, and the tag is what keeps that true if it ever is.
+	PeerTokenHash string `gorm:"size:64" json:"-"`
 }
 
 // Registry reads and writes the instances table.
@@ -49,7 +64,14 @@ func NewRegistry(db *gorm.DB) *Registry {
 // Register records this replica's address, refreshing LastSeen. It upserts on
 // the primary key rather than deleting and re-inserting, so a concurrent Live
 // never observes a live replica as missing.
-func (r *Registry) Register(ctx context.Context, id, addr, version string) error {
+//
+// peerTokenHash is the hash half of this replica's PeerCredential, written in
+// the SAME statement as the address rather than by a follow-up update. A
+// registration is what publishes a replica to its peers, and a row that exists
+// with an address but without an identity is a replica every peer refuses; a
+// process that died between two statements would leave one behind until its
+// next registration, which for a healthy replica is never.
+func (r *Registry) Register(ctx context.Context, id, addr, version, peerTokenHash string) error {
 	// last_seen is stamped by the database, never by this process. Liveness is
 	// compared across replicas, so it has to be measured on the one clock they
 	// all share; with per-replica clocks the effective Live window becomes
@@ -60,12 +82,14 @@ func (r *Registry) Register(ctx context.Context, id, addr, version string) error
 		DoUpdates: clause.Assignments(map[string]any{
 			"advertised_addr": addr,
 			"version":         version,
+			"peer_token_hash": peerTokenHash,
 			"last_seen":       gorm.Expr("now()"),
 		}),
 	}).Create(map[string]any{
 		"id":              id,
 		"advertised_addr": addr,
 		"version":         version,
+		"peer_token_hash": peerTokenHash,
 		"last_seen":       gorm.Expr("now()"),
 	}).Error; err != nil {
 		return fmt.Errorf("registering instance %q: %w", id, err)
