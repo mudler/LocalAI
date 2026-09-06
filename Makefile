@@ -422,14 +422,17 @@ e2e-binary: protogen-go
 # should stay there: this suite exists to catch nondeterministic cluster
 # behaviour, and a retry turns exactly that signal into a green run.
 #
-# Budget: 24 specs, measured at 897 to 907 seconds of Ginkgo time (15 minutes
-# wall including the compile) on a fast developer box. It was 591 to 612 seconds
+# Budget: 26 specs, measured at 933.8 seconds of Ginkgo time (15m37s wall
+# including the compile) on a fast developer box. It was 591 to 612 seconds
 # before the phase 3 control-plane specs and 800 to 830 after them; the three
 # two-frontend two-worker specs in cluster_busless_test.go added 118 to 127
 # seconds (3s, 70s and 46 to 53s), nearly all of it in the churn spec, which
 # cannot be shortened: it waits for a killed replica to leave the live set
 # (cluster.InstanceLiveness is 30s, measured at 27s) before it may assert
-# anything, and then holds a window inside the reconnect grace.
+# anything, and then holds a window inside the reconnect grace. The two
+# cross-replica fan-out specs added 7.0 seconds of spec time (5.0s and 2.0s):
+# they run two frontends and no workers, so they pay for no registration, and
+# what they wait on is a broadcast rather than a threshold.
 #
 # --timeout is 30m rather than 20m because of that. The margin is not slack: a
 # Ginkgo timeout kills the suite mid-spec and reports a spec name rather than a
