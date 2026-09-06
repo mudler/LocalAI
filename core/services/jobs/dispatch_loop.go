@@ -372,6 +372,14 @@ func (l *DispatchLoop) rebroadcast(nodeType, subject string, raw json.RawMessage
 //	|                             | CompleteClaim                       | |
 //	| anything else               | ReleaseClaim                        | an unreachable peer, a lost tunnel or a refused stream is not a verdict |
 //
+// The second row has no attempt ceiling, and there is deliberately no dead
+// letter on it. Nothing that reaches it is the worker refusing the work: the
+// row exists precisely for the outcomes where nothing was learned, and a
+// ceiling would turn "the fleet was away long enough" into a job failure
+// nobody reported. What bounds the retry is its RATE and not its count; see
+// claimBackoff in claim.go, which is also what stops one stuck row from being
+// re-claimed ahead of every newer one on every tick.
+//
 // The line between the two rows is whether a REPLY LINE was decoded, and it is
 // deliberately NOT cluster.IsWorkerAnswer, though the plan for this task said
 // it should be. IsWorkerAnswer accepts the tunnel's stream-refusal vocabulary,
@@ -390,7 +398,12 @@ func (l *DispatchLoop) rebroadcast(nodeType, subject string, raw json.RawMessage
 // which is the dropped-result defect the bus carrier had.
 func (l *DispatchLoop) settleClaim(ctx context.Context, claim *WorkClaim, reply *ClaimReply, callErr error) error {
 	if callErr != nil {
-		xlog.Warn("Releasing a claim whose dispatch obtained no answer", "claim", claim.ID, "kind", claim.Kind, "error", callErr)
+		// attempts is the count BEFORE this release, so the line names the
+		// attempt that just failed. A row that has been stuck for a while
+		// prints this at the backoff cap rather than at the poll interval,
+		// which is what makes it readable as a growing number.
+		xlog.Warn("Releasing a claim whose dispatch obtained no answer; it will be retried after a backoff",
+			"claim", claim.ID, "kind", claim.Kind, "attempt", claim.Attempts+1, "error", callErr)
 		if err := ReleaseClaim(ctx, l.db, claim.ID); err != nil {
 			return fmt.Errorf("%w (and the claim could not be released: %w)", callErr, err)
 		}
