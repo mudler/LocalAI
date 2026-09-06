@@ -886,14 +886,38 @@ range does fill, backend starts fail with:
 
 ```
 no free gRPC port in range: 50051-50150 is fully consumed by 100 running
-backend(s) and 12 port(s) still in quarantine; raise LOCALAI_GRPC_MAX_PORT to
-widen the range
+backend(s), 12 port(s) still in quarantine and 0 port(s) already bound by
+something outside this worker; raise LOCALAI_GRPC_MAX_PORT to widen the range
 ```
 
 Raise `LOCALAI_GRPC_MAX_PORT` (or reduce how many models you schedule onto that
 worker). A value above 65535 is clamped, and a value below the base port is
 ignored in favour of the full range, so a typo degrades the setting rather than
 wedging every backend start on the node.
+
+**The worker checks that a port is actually free before it hands it out.** Its
+own bookkeeping records only what this worker did, and the collision it cannot
+see is with something this worker never did: the default base port sits inside
+Linux's default ephemeral range (`32768-60999`, see
+`net.ipv4.ip_local_port_range`), so the kernel can give a port in the range to
+an outbound connection, or to any process that binds port `0`, while the
+allocator still believes it free. A backend handed one of those dies on bind.
+Each candidate is therefore probed, and a port something else holds is skipped
+and retried later rather than dropped, since whatever holds it is usually an
+ephemeral connection that gives it back. The last count in the message above is
+how many candidates were skipped that way, and the worker logs one line per
+allocation when it skips any:
+
+```
+Skipped gRPC ports in this worker's range that something outside the worker
+already holds ... skipped=3 allocated=50054
+```
+
+Seeing that regularly means the worker's range overlaps what the kernel is
+handing out. Move the range with `LOCALAI_ADDR` to a base port outside
+`net.ipv4.ip_local_port_range` (for example `61000`) and the overlap goes away
+entirely. Nothing dials these ports from outside the worker, so the base port
+is free to be anything bindable.
 
 ### NVIDIA GPU support
 
