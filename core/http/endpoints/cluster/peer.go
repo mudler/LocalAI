@@ -8,6 +8,7 @@ package cluster
 
 import (
 	"crypto/subtle"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -21,10 +22,17 @@ import (
 // PeerHandler upgrades an authenticated peer dial to a WebSocket, wraps it as
 // a yamux server session and hands it to onSession.
 //
+// TWO credentials are checked, and both must pass. token is the deployment's
+// shared cluster token and says the dialler belongs here at all; instances
+// resolves the replica id in ?id= to its row and checks the dialler's OWN peer
+// credential against the hash that row publishes. Neither replaces the other:
+// the shared check is unchanged, and identity is added in front of the
+// multiplexer it guards.
+//
 // onSession runs on the request goroutine, so it must return promptly; the
 // session outlives the handler because the upgrade hijacks the connection, and
 // closing it is the caller's job.
-func PeerHandler(token string, onSession func(peerID string, sess *yamux.Session)) echo.HandlerFunc {
+func PeerHandler(token string, instances *clustersvc.Registry, onSession func(peerID string, sess *yamux.Session)) echo.HandlerFunc {
 	// gorilla's default CheckOrigin already restricts a browser to same-origin
 	// and lets a header-less client (which every peer is) through, so the
 	// zero value is what this link wants.
@@ -38,37 +46,92 @@ func PeerHandler(token string, onSession func(peerID string, sess *yamux.Session
 			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
 		}
 
-		// SELF-DECLARED, and knowingly so. Unlike the worker route next door,
-		// which resolves ?id= to a node row and checks that node's OWN minted
-		// credential, this route has only the shared cluster token to check,
-		// so the id is a label and not a claim anything verifies.
+		// Not 401. A frontend with no cluster registry cannot resolve any
+		// replica's identity, and answering "unauthorized" would send an operator
+		// hunting a token problem that does not exist. Checked after the shared
+		// token so an anonymous dial still gets the 401 first, which is the same
+		// ordering ConnectHandler takes next door and for the same reason.
 		//
-		// What that costs, exactly, for anything already holding the shared
-		// token (every worker holds it, and it is the same token that
-		// authenticates registration): it can relay to every worker tunnel this
-		// replica owns, reaching every backend gRPC process and every worker's
-		// file-transfer server; by declaring a legitimate replica's id it can
-		// make SessionStore.Accept evict that replica's inbound link, at will;
-		// and it can aim the per-session receive window, which PeerLinkConfig
-		// sizes at roughly 31 GiB of unread data per session, at one replica's
-		// memory. The first two are not new capabilities in KIND - before
-		// workers stopped listening, a holder of that token could already dial
-		// any worker's advertised ports directly - but the token is now the
-		// only thing between an attacker and the whole fleet's tunnels, and the
-		// third is a figure written down as sizing guidance that is also a
-		// budget on a route this open.
-		//
-		// It is deferred rather than patched, because the cheap patch does not
-		// work: checking ?id= against the instances table stops an invented id
-		// and stops nothing else, since the attack declares a REAL replica's
-		// id, and it would buy a false sense of a closed hole. Closing it takes
-		// a credential per replica, minted where a replica joins the instances
-		// table and presented here, which is a design with its own migration
-		// and its own specs. Tracked as the phase-3 item named at
-		// nodes.BackendNode.TunnelTokenHash.
+		// This route is registered only in distributed mode, where the registry is
+		// never nil, so the branch is defence against a future wiring that
+		// registers it more widely. Failing closed is the point: a handler that
+		// treated a nil registry as "nothing to check" would publish exactly the
+		// unauthenticated multiplexer this argument was added to prevent.
+		if instances == nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "distributed mode not enabled")
+		}
+
+		// Read before the credential so a dial that names nobody is still a 400.
+		// The id is no longer taken on trust: everything below turns it from a
+		// label into a claim, by resolving it to a row and requiring the dialler to
+		// present that row's secret.
 		peerID := c.QueryParam("id")
 		if peerID == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "missing peer id")
+		}
+
+		// The identity half, read before any database work so a dial carrying no
+		// credential costs no query.
+		//
+		// A missing header is refused, not waved through, and the choice is the
+		// whole migration story of this route. Accepting a credential-less dial
+		// "for compatibility" would leave the hole exactly as open as it was,
+		// because an attacker simply omits the header too; there is no version of
+		// a downgrade here that is safe, only versions that are quiet. So the
+		// failure is loud instead: this is the one line that tells an operator
+		// mid-rollout why an old replica cannot reach a new one, and it names the
+		// upgrade rather than the network.
+		presented := c.Request().Header.Get(clustersvc.PeerIdentityHeader)
+		if presented == "" {
+			xlog.Warn("Refusing a peer link: the dialling replica presented no peer credential. It is running a release from before per-replica peer identity, or it never registered a credential of its own. Upgrade it; this replica will not accept an unproven peer id",
+				"peer", peerID, "header", clustersvc.PeerIdentityHeader)
+			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+		}
+
+		inst, err := instances.Get(c.Request().Context(), peerID)
+		switch {
+		case errors.Is(err, clustersvc.ErrInstanceNotFound):
+			// A replica id this deployment has no row for. Reported as 401 rather
+			// than 404 so a caller cannot enumerate replica ids by status code,
+			// which is the same choice the worker tunnel makes for node ids.
+			xlog.Warn("Refusing a peer link: the dial named a replica this deployment has no row for",
+				"peer", peerID)
+			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+		case err != nil:
+			// A query that FAILED is neither a rejection nor an absence, and this
+			// is that rule in its HTTP form. Answering 401 on an unreadable
+			// database would tell a healthy replica its credentials are wrong, and
+			// nothing above the transport may conclude anything about a WORKER
+			// from it either: a peer that cannot be linked to is not a worker that
+			// has gone away.
+			xlog.Error("Looking up a replica for its peer dial failed", "peer", peerID, "error", err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "peer lookup failed")
+		}
+
+		// Split from the mismatch below because they are different operator
+		// problems with different fixes, exactly as the worker tunnel splits them.
+		// An empty stored hash means that replica last registered against a
+		// LocalAI that predates peer credentials, so there is no secret to check
+		// and it must register again, which a restart does. A mismatch means the
+		// dialler is presenting the wrong one.
+		//
+		// Empty is refused. It is not "no restriction": an empty credential that
+		// matched would mean every replica registered by an older frontend could
+		// be impersonated by anyone holding the shared token, which is the whole
+		// exposure being closed.
+		if inst.PeerTokenHash == "" {
+			xlog.Warn("Refusing a peer link: the replica it claims to be has no peer credential published, so nothing here can verify the claim. That replica has not registered since per-replica peer identity was introduced",
+				"peer", peerID)
+			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
+		}
+		if !clustersvc.PeerTokenMatches(presented, inst.PeerTokenHash) {
+			// This is the impostor case, and it is a WARN rather than a debug
+			// line: holding the shared token and declaring somebody else's id is
+			// precisely the attack this check exists for, and it should not be
+			// invisible at default log level.
+			xlog.Warn("Refusing a peer link: the dial presented the wrong credential for the replica it claims to be",
+				"peer", peerID)
+			return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
 		}
 
 		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)

@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
 
+	"github.com/gorilla/websocket"
 	"github.com/libp2p/go-yamux/v5"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -129,6 +132,20 @@ func awaitReplicas(roster *instanceRoster, addrs ...string) {
 		Should(ConsistOf(addrs), roster.describe)
 }
 
+// joinAsPeer gives this spec process a replica identity of its own: a freshly
+// minted credential, with only its hash published in the instances table.
+//
+// It exists because the peer route no longer takes ?id= on trust. A spec that
+// plays a sibling replica has to join the cluster the way a replica does, which
+// is the point rather than a chore: the address it publishes is never dialled,
+// but the credential it publishes is what every dial below is checked against.
+func joinAsPeer(roster *instanceRoster, id string) clustersvc.PeerCredential {
+	GinkgoHelper()
+	cred := clustersvc.NewPeerCredential()
+	Expect(roster.registry.Register(roster.ctx, id, "127.0.0.1:1", "e2e", cred.Hash())).To(Succeed())
+	return cred
+}
+
 var _ = Describe("Cluster peer link", Label("Distributed"), Label("Cluster"), func() {
 	It("publishes an address for every replica that peers can actually dial", func() {
 		// A wrong implementation registers nothing (the whole of phase 1 had no
@@ -175,7 +192,11 @@ var _ = Describe("Cluster peer link", Label("Distributed"), Label("Cluster"), fu
 		ctx, cancel := context.WithTimeout(context.Background(), peerDialTimeout)
 		defer cancel()
 
-		pool := clustersvc.NewPeerPool("e2e-peer", c.RegistrationToken(), roster.registry)
+		// The spec joins as a replica before it dials as one. Without this the
+		// frontend refuses the link: the id would be a claim it cannot check,
+		// which is exactly what a peer dial is now required to prove.
+		selfCred := joinAsPeer(roster, "e2e-peer")
+		pool := clustersvc.NewPeerPool("e2e-peer", c.RegistrationToken(), selfCred, roster.registry)
 		DeferCleanup(pool.Close)
 
 		// OpenStream is only acknowledged once the far side accepts, so this
@@ -214,14 +235,130 @@ var _ = Describe("Cluster peer link", Label("Distributed"), Label("Cluster"), fu
 		Expect(err).To(SatisfyAny(MatchError(io.EOF), MatchError(yamux.ErrStreamReset)),
 			"the peer refused the stream and then left it open: %v", err)
 
-		// The same dial with the wrong credentials must be refused, otherwise
-		// the success above says nothing about authentication.
-		impostor := clustersvc.NewPeerPool("e2e-peer", "not-the-cluster-token", roster.registry)
+		// The same dial with the wrong shared token must be refused, otherwise
+		// the success above says nothing about authentication. The identity
+		// credential is correct here, so what this pins is that adding identity
+		// did not replace the token check with it.
+		impostor := clustersvc.NewPeerPool("e2e-peer", "not-the-cluster-token", selfCred, roster.registry)
 		DeferCleanup(impostor.Close)
 		_, err = impostor.Open(ctx, peerID)
 		Expect(err).To(MatchError(clustersvc.ErrPeerUnreachable))
 		Expect(err).ToNot(MatchError(clustersvc.ErrInstanceNotFound),
 			"a peer refusing credentials is a live peer; reading it as absence is how a replica evicts healthy workers")
+	})
+
+	It("refuses a peer that declares a replica id it cannot prove, and leaves that replica's link alone", func() {
+		// The security gap this route carried for the whole phase, closed here
+		// against real processes. The attacker's position is the realistic one:
+		// it holds LOCALAI_REGISTRATION_TOKEN, which every worker in the
+		// deployment holds, and it knows a replica id, which any log line or
+		// roster read gives it. Before per-replica credentials that was the
+		// entire check, so it could open a link and relay through it to every
+		// worker tunnel the replica it dialled owns, and by declaring somebody
+		// else's id evict that replica's inbound link at will.
+		//
+		// It is also the case the cheap fix does not reach. Validating ?id=
+		// against the instances table passes every dial below except the last:
+		// the ids ARE in the table. Only a secret the impostor does not hold
+		// refuses them.
+		c, dsn := startClusterOnFreshDB(2, 0)
+
+		roster := newInstanceRoster(openClusterDB(dsn))
+		awaitReplicas(roster, hostPortOf(c.FrontendURL(0)), hostPortOf(c.FrontendURL(1)))
+
+		target := roster.idAt(hostPortOf(c.FrontendURL(1)))
+		victim := roster.idAt(hostPortOf(c.FrontendURL(0)))
+		Expect(target).ToNot(BeEmpty())
+		Expect(victim).ToNot(BeEmpty())
+
+		ctx, cancel := context.WithTimeout(context.Background(), peerDialTimeout)
+		defer cancel()
+
+		// A legitimate link first, so there is something for an impostor to
+		// displace and so the refusals below are not passing because the route
+		// is broken for everyone.
+		selfCred := joinAsPeer(roster, "e2e-peer")
+		legit := clustersvc.NewPeerPool("e2e-peer", c.RegistrationToken(), selfCred, roster.registry)
+		DeferCleanup(legit.Close)
+		held, err := legit.Open(ctx, target)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { _ = held.Close() })
+
+		// Declaring a REAL frontend replica's id. This is the dial that used to
+		// succeed, and the one a scheduler must never be told anything about a
+		// worker from.
+		asReplica := clustersvc.NewPeerPool(victim, c.RegistrationToken(), clustersvc.NewPeerCredential(), roster.registry)
+		DeferCleanup(asReplica.Close)
+		_, err = asReplica.Open(ctx, target)
+		Expect(err).To(MatchError(clustersvc.ErrPeerRejected),
+			"a frontend accepted a peer link from something that could not prove it was the replica it named")
+		Expect(err).ToNot(MatchError(clustersvc.ErrInstanceNotFound),
+			"a rejected peer is an authorization failure; read as absence it makes the scheduler reap rows and evict models")
+		Expect(err).ToNot(MatchError(clustersvc.ErrNoConnection),
+			"a rejected peer must never be readable as a worker with no connection")
+
+		// And declaring the id whose link is currently held, which is the
+		// eviction half: SessionStore keeps one link per id, so an accepted
+		// dial closes whatever was there.
+		displacer := clustersvc.NewPeerPool("e2e-peer", c.RegistrationToken(), clustersvc.NewPeerCredential(), roster.registry)
+		DeferCleanup(displacer.Close)
+		_, err = displacer.Open(ctx, target)
+		Expect(err).To(MatchError(clustersvc.ErrPeerRejected))
+
+		// The link opened before the attempts still carries a request. It is
+		// the stream taken above, not a fresh one: a fresh Open would simply
+		// re-dial and succeed, which would say nothing about whether the old
+		// session survived.
+		Expect(held.SetWriteDeadline(time.Now().Add(peerRefusalTimeout))).To(Succeed())
+		Expect(clustersvc.WriteRelayRequest(held, unheldNodeID, peerRefusalTimeout)).To(Succeed(),
+			"the impostor closed the real peer's link")
+		Expect(held.SetReadDeadline(time.Now().Add(peerRefusalTimeout))).To(Succeed())
+		Expect(clustersvc.ReadRelayReply(held)).To(MatchError(clustersvc.ErrNotOwner),
+			"the impostor closed the real peer's link")
+	})
+
+	It("refuses a peer that presents no credential at all, the way a replica running an older release dials", func() {
+		// The mixed-version window, made explicit. An upgraded frontend refuses
+		// a peer that sends no credential, rather than falling back to the
+		// shared token, and the refusal is a plain 401 before the WebSocket
+		// upgrade so the dialler reads a status and not a framing error.
+		//
+		// This is dialled raw rather than through PeerPool, because PeerPool on
+		// this release always sends the header: an old replica is the only
+		// thing that does not, and it is what this reproduces.
+		c, dsn := startClusterOnFreshDB(1, 0)
+
+		roster := newInstanceRoster(openClusterDB(dsn))
+		awaitReplicas(roster, hostPortOf(c.FrontendURL(0)))
+		target := roster.idAt(hostPortOf(c.FrontendURL(0)))
+		Expect(target).ToNot(BeEmpty())
+
+		// A credential that would be perfectly valid if it were sent.
+		joinAsPeer(roster, "e2e-old-peer")
+
+		endpoint := url.URL{
+			Scheme:   "ws",
+			Host:     hostPortOf(c.FrontendURL(0)),
+			Path:     clustersvc.PeerPath,
+			RawQuery: url.Values{"id": []string{"e2e-old-peer"}}.Encode(),
+		}
+		header := http.Header{}
+		header.Set("Authorization", "Bearer "+c.RegistrationToken())
+
+		dialer := &websocket.Dialer{HandshakeTimeout: peerDialTimeout}
+		conn, resp, err := dialer.Dial(endpoint.String(), header)
+		if conn != nil {
+			DeferCleanup(func() { _ = conn.Close() })
+		}
+		Expect(resp).ToNot(BeNil())
+		if resp.Body != nil {
+			DeferCleanup(func() { _ = resp.Body.Close() })
+		}
+		Expect(err).To(HaveOccurred(),
+			"an upgraded frontend accepted a peer link carrying only the shared token")
+		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+		Expect(resp.Header.Get("Upgrade")).To(BeEmpty(),
+			"the frontend upgraded a dial it then refused; a peer reads the status, not a WebSocket error")
 	})
 
 	It("stops being dialled as soon as a replica shuts down cleanly", func() {
@@ -250,7 +387,7 @@ var _ = Describe("Cluster peer link", Label("Distributed"), Label("Cluster"), fu
 		// replica said it was going. A caller may act on this.
 		ctx, cancel := context.WithTimeout(context.Background(), peerDialTimeout)
 		defer cancel()
-		pool := clustersvc.NewPeerPool("e2e-peer", c.RegistrationToken(), roster.registry)
+		pool := clustersvc.NewPeerPool("e2e-peer", c.RegistrationToken(), joinAsPeer(roster, "e2e-peer"), roster.registry)
 		DeferCleanup(pool.Close)
 		_, err := pool.Open(ctx, departingID)
 		Expect(err).To(MatchError(clustersvc.ErrInstanceNotFound))
@@ -305,7 +442,7 @@ var _ = Describe("Cluster peer link", Label("Distributed"), Label("Cluster"), fu
 		// case that matters: the peer is KNOWN and will not answer.
 		dialCtx, cancel := context.WithTimeout(ctx, peerDialTimeout)
 		defer cancel()
-		pool := clustersvc.NewPeerPool("e2e-peer", c.RegistrationToken(), roster.registry)
+		pool := clustersvc.NewPeerPool("e2e-peer", c.RegistrationToken(), joinAsPeer(roster, "e2e-peer"), roster.registry)
 		DeferCleanup(pool.Close)
 		_, err = pool.Open(dialCtx, doomedID)
 		Expect(err).To(MatchError(clustersvc.ErrPeerUnreachable))

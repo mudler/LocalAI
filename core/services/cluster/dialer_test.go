@@ -175,7 +175,7 @@ var _ = Describe("The worker dialer", func() {
 		db = testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg = cluster.NewRegistry(db)
-		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		mine = cluster.NewTunnelRegistry(reg, "me")
 	})
 
@@ -184,7 +184,7 @@ var _ = Describe("The worker dialer", func() {
 	// the worker's own half of the tunnel.
 	ownerRelay := func(nodeID string) (*stubPeers, *yamux.Session) {
 		GinkgoHelper()
-		Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		ownerTunnels := cluster.NewTunnelRegistry(reg, "owner")
 		frontend, worker := workerTunnel()
 		_, err := ownerTunnels.Attach(ctx, nodeID, frontend)
@@ -432,7 +432,7 @@ var _ = Describe("The worker dialer", func() {
 			// client will wait, and this replica is the only one that holds it.
 			// This spec plays the owner by hand so it can read the frame rather
 			// than infer it from a timing.
-			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1", "")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "owner")
 			Expect(err).ToNot(HaveOccurred())
 			dialling, ownerSide := yamuxPair()
@@ -469,7 +469,7 @@ var _ = Describe("The worker dialer", func() {
 			// Zero on the wire would be read by the owner as a caller with
 			// nothing left, and it would refuse traffic that is perfectly
 			// healthy. "Not stated" has to stay distinguishable from "expired".
-			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1", "")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "owner")
 			Expect(err).ToNot(HaveOccurred())
 			dialling, ownerSide := yamuxPair()
@@ -500,11 +500,11 @@ var _ = Describe("The worker dialer", func() {
 			// The catastrophe this phase exists to prevent. A scheduler ACTS on
 			// absence: told a connected worker is gone, it reclaims every model
 			// the worker is running.
-			Expect(reg.Register(ctx, "owner", "127.0.0.1:1", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "owner", "127.0.0.1:1", "v1", "")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "owner")
 			Expect(err).ToNot(HaveOccurred())
 
-			pool := cluster.NewPeerPool("me", "tok", reg)
+			pool := cluster.NewPeerPool("me", "tok", cluster.NewPeerCredential(), reg)
 			DeferCleanup(pool.Close)
 			d := cluster.NewWorkerDialer(mine, pool)
 
@@ -518,7 +518,7 @@ var _ = Describe("The worker dialer", func() {
 			// The owner's table row survives a tunnel that has gone. The relay
 			// answers ErrNotOwner, and only that answer tells this replica to
 			// resolve the owner again rather than give up on the worker.
-			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1", "")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "owner")
 			Expect(err).ToNot(HaveOccurred())
 			ownerTunnels := cluster.NewTunnelRegistry(reg, "owner")
@@ -549,7 +549,7 @@ var _ = Describe("The worker dialer", func() {
 		})
 
 		It("reports having no way to relay as its own condition", func() {
-			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1", "")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "owner")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -588,7 +588,7 @@ var _ = Describe("The worker dialer", func() {
 			// is not. The join is what stops this replica dialling a process
 			// that is gone, which is why the spec asserts no peer was dialled
 			// as well as what came back.
-			Expect(reg.Register(ctx, "ghost", "10.0.0.9:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "ghost", "10.0.0.9:8080", "v1", "")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "ghost")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(db.Exec(
@@ -613,7 +613,7 @@ var _ = Describe("The worker dialer", func() {
 			// dial comes back as ErrInstanceNotFound. That is absence of a
 			// REPLICA, and a consumer matching absence would read it as absence
 			// of the WORKER.
-			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "owner", "10.0.0.2:8080", "v1", "")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "owner")
 			Expect(err).ToNot(HaveOccurred())
 

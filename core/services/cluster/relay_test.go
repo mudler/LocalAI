@@ -98,7 +98,7 @@ var _ = Describe("The inter-replica relay", func() {
 		ctx = context.Background()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg = cluster.NewRegistry(db)
-		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		tun = cluster.NewTunnelRegistry(reg, "me")
 
 		store := cluster.NewSessionStore(cluster.NewRelay(tun).Stream)
@@ -207,7 +207,7 @@ var _ = Describe("The inter-replica relay", func() {
 		// A relay that resolved the owner and relayed onward would make a
 		// stale row into a loop between two replicas, each certain the other
 		// holds the worker. One hop, always: the dialling replica re-resolves.
-		Expect(reg.Register(ctx, "other", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "other", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		_, err := reg.Claim(ctx, "w1", "other")
 		Expect(err).ToNot(HaveOccurred())
 

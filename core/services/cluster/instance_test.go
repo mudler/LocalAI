@@ -28,7 +28,7 @@ var _ = Describe("Instance registry", func() {
 	})
 
 	It("registers an instance and reads it back", func() {
-		Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 
 		got, err := reg.Get(ctx, "inst-a")
 		Expect(err).ToNot(HaveOccurred())
@@ -37,8 +37,8 @@ var _ = Describe("Instance registry", func() {
 	})
 
 	It("re-registering the same id updates the address instead of duplicating", func() {
-		Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
-		Expect(reg.Register(ctx, "inst-a", "10.0.0.9:9090", "v2")).To(Succeed())
+		Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
+		Expect(reg.Register(ctx, "inst-a", "10.0.0.9:9090", "v2", "")).To(Succeed())
 
 		live, err := reg.Live(ctx, time.Hour)
 		Expect(err).ToNot(HaveOccurred())
@@ -52,7 +52,7 @@ var _ = Describe("Instance registry", func() {
 	})
 
 	It("excludes instances whose heartbeat has aged out", func() {
-		Expect(reg.Register(ctx, "stale", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "stale", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		// Age the row directly; sleeping in a spec is forbidden.
 		Expect(db.Model(&cluster.Instance{}).Where("id = ?", "stale").
 			Update("last_seen", time.Now().Add(-10*time.Minute)).Error).To(Succeed())
@@ -63,7 +63,7 @@ var _ = Describe("Instance registry", func() {
 	})
 
 	It("brings a stale instance back with a heartbeat", func() {
-		Expect(reg.Register(ctx, "revive", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "revive", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		Expect(db.Model(&cluster.Instance{}).Where("id = ?", "revive").
 			Update("last_seen", time.Now().Add(-10*time.Minute)).Error).To(Succeed())
 		Expect(reg.Heartbeat(ctx, "revive")).To(Succeed())
