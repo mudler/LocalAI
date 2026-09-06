@@ -35,8 +35,8 @@ var _ = Describe("Reaping dead replicas", func() {
 	})
 
 	It("deletes a replica that stopped heartbeating, and the connections it owned", func() {
-		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1")).To(Succeed())
-		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1", "")).To(Succeed())
+		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		_, err := reg.Claim(ctx, "w1", "dead")
 		Expect(err).ToNot(HaveOccurred())
 		age("dead", time.Hour)
@@ -55,8 +55,8 @@ var _ = Describe("Reaping dead replicas", func() {
 		// The row is what tells "this worker's owner died a moment ago" from
 		// "this worker has never connected". Deleting it on the sweep erased
 		// exactly the departure a reconnect grace has to be measured from.
-		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1")).To(Succeed())
-		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1", "")).To(Succeed())
+		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		_, err := reg.Claim(ctx, "w1", "dead")
 		Expect(err).ToNot(HaveOccurred())
 		age("dead", time.Hour)
@@ -76,8 +76,8 @@ var _ = Describe("Reaping dead replicas", func() {
 		// would push its departure forward on every pass, so the departure
 		// would never age out of any window and the row would be reported as
 		// swept for as long as it existed.
-		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1")).To(Succeed())
-		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1", "")).To(Succeed())
+		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		_, err := reg.Claim(ctx, "w1", "dead")
 		Expect(err).ToNot(HaveOccurred())
 		age("dead", time.Hour)
@@ -102,7 +102,7 @@ var _ = Describe("Reaping dead replicas", func() {
 	It("records a departure rather than erasing the connection when a replica deregisters", func() {
 		// The announced form of the same thing the sweeper does by inference,
 		// and the two must not disagree about what "gone" leaves behind.
-		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		_, err := reg.Claim(ctx, "w1", "leaving")
 		Expect(err).ToNot(HaveOccurred())
 
@@ -115,8 +115,8 @@ var _ = Describe("Reaping dead replicas", func() {
 	})
 
 	It("leaves the connections of a live replica alone", func() {
-		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1")).To(Succeed())
-		Expect(reg.Register(ctx, "other", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "live", "10.0.0.1:8080", "v1", "")).To(Succeed())
+		Expect(reg.Register(ctx, "other", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		epoch, err := reg.Claim(ctx, "w1", "other")
 		Expect(err).ToNot(HaveOccurred())
 
@@ -135,7 +135,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		// serving the workers connected to it. Reaping its own row would delete
 		// their connection rows in the same pass, re-homing workers that never
 		// went anywhere.
-		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		_, err := reg.Claim(ctx, "w1", "me")
 		Expect(err).ToNot(HaveOccurred())
 		age("me", time.Hour)
@@ -154,8 +154,8 @@ var _ = Describe("Reaping dead replicas", func() {
 		// Without this a cleanly stopped replica is indistinguishable from a
 		// crashed one, and every peer keeps dialling it for the whole liveness
 		// window.
-		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1")).To(Succeed())
-		Expect(reg.Register(ctx, "staying", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1", "")).To(Succeed())
+		Expect(reg.Register(ctx, "staying", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		_, err := reg.Claim(ctx, "w1", "leaving")
 		Expect(err).ToNot(HaveOccurred())
 		_, err = reg.Claim(ctx, "w2", "staying")
@@ -183,7 +183,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		// one, so an empty id would match every departure in the table and reset
 		// each one's age. Nothing generates an empty id today, which is exactly
 		// why the filter has to be in the query rather than in that habit.
-		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		epoch, err := reg.Claim(ctx, "w1", "leaving")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reg.Release(ctx, "w1", "leaving", epoch)).To(Succeed())
@@ -205,7 +205,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		// row per worker that ever dialled this deployment, which is the state
 		// the sweep's held-ness filter exists to make reachable in the first
 		// place.
-		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		epoch, err := reg.Claim(ctx, "w1", "me")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reg.Release(ctx, "w1", "me", epoch)).To(Succeed())
@@ -214,7 +214,7 @@ var _ = Describe("Reaping dead replicas", func() {
 			`UPDATE node_connections SET disconnected_at = now() - make_interval(secs => ?) WHERE node_id = ?`,
 			(cluster.DepartedRetention + time.Minute).Seconds(), "w1").Error).To(Succeed())
 
-		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1", cluster.NewPeerCredential())
 		Expect(membership.Start(ctx)).To(Succeed())
 		DeferCleanup(membership.Stop)
 
@@ -239,7 +239,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		// the two rows below straddle the difference and one answer cannot
 		// stand in for the other.
 		const grace = 10 * time.Minute
-		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		depart := func(node string, ago time.Duration) {
 			epoch, err := reg.Claim(ctx, node, "me")
 			Expect(err).ToNot(HaveOccurred())
@@ -259,7 +259,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		// ticked, and the spec would pass on nothing happening.
 		depart("w-past-derived-retention", cluster.DepartedRetentionFor(grace)+time.Minute)
 
-		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1", cluster.NewPeerCredential())
 		membership.SetReconnectGrace(grace)
 		Expect(membership.Start(ctx)).To(Succeed())
 		DeferCleanup(membership.Stop)
@@ -276,7 +276,7 @@ var _ = Describe("Reaping dead replicas", func() {
 	})
 
 	It("deregisters when the membership loop stops", func() {
-		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1", cluster.NewPeerCredential())
 		Expect(membership.Start(ctx)).To(Succeed())
 
 		live, err := reg.Live(ctx, time.Minute)
@@ -297,7 +297,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		// The order is asserted on the SQL because the alternative, racing two
 		// transactions until they actually deadlock, is exactly the flaky spec
 		// this one replaces.
-		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "leaving", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		_, err := reg.Claim(ctx, "w1", "leaving")
 		Expect(err).ToNot(HaveOccurred())
 
@@ -316,7 +316,7 @@ var _ = Describe("Reaping dead replicas", func() {
 	})
 
 	It("tolerates a repeated deregistration, because a sweeper may have got there first", func() {
-		Expect(reg.Register(ctx, "gone", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "gone", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		Expect(reg.Deregister(ctx, "gone")).To(Succeed())
 		Expect(reg.Deregister(ctx, "gone")).To(Succeed())
 	})
@@ -325,7 +325,7 @@ var _ = Describe("Reaping dead replicas", func() {
 		// Nothing calls this today. It exists because the loop channel is only
 		// ever closed by a started loop, so joining an unstarted one blocks
 		// forever, and phase 2 adds callers to this shutdown path.
-		membership := cluster.NewMembership(reg, "never-started", "10.0.0.1:8080", "v1")
+		membership := cluster.NewMembership(reg, "never-started", "10.0.0.1:8080", "v1", cluster.NewPeerCredential())
 		done := make(chan struct{})
 		go func() {
 			defer GinkgoRecover()
@@ -336,10 +336,10 @@ var _ = Describe("Reaping dead replicas", func() {
 	})
 
 	It("keeps this replica's row alive and reaps the dead while it runs", func() {
-		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "dead", "10.0.0.2:8080", "v1", "")).To(Succeed())
 		age("dead", time.Hour)
 
-		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1", cluster.NewPeerCredential())
 		Expect(membership.Start(ctx)).To(Succeed())
 		DeferCleanup(membership.Stop)
 

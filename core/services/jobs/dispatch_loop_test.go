@@ -155,7 +155,7 @@ var _ = Describe("The dispatch loop", func() {
 		Expect(MigrateClaims(ctx, db)).To(Succeed())
 		// This replica is registered and heartbeating, which is what makes it
 		// eligible to claim at all.
-		Expect(cluster.NewRegistry(db).Register(ctx, owner, "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(cluster.NewRegistry(db).Register(ctx, owner, "10.0.0.1:8080", "v1", "")).To(Succeed())
 
 		picker = &fakePicker{nodeID: "agent-1", nodeType: nodes.NodeTypeAgent}
 		caller = &fakeCaller{reply: &ClaimReply{}}
@@ -532,7 +532,7 @@ var _ = Describe("The dispatch loop", func() {
 	Describe("reaping while it dispatches", func() {
 		It("returns work a departed replica was holding, and takes it on the same tick", func() {
 			id := enqueue(ClaimKindMCPCI, JobEvent{JobID: "j-orphan"})
-			Expect(cluster.NewRegistry(db).Register(ctx, "inst-dead", "10.0.0.9:8080", "v1")).To(Succeed())
+			Expect(cluster.NewRegistry(db).Register(ctx, "inst-dead", "10.0.0.9:8080", "v1", "")).To(Succeed())
 			_, err := ClaimNext(ctx, db, "inst-dead", []ClaimKind{ClaimKindMCPCI})
 			Expect(err).ToNot(HaveOccurred())
 			ageInstance(db, "inst-dead", 10*time.Minute)
@@ -546,7 +546,7 @@ var _ = Describe("The dispatch loop", func() {
 
 		It("does not take work a live replica is still holding", func() {
 			enqueue(ClaimKindMCPCI, JobEvent{JobID: "j-busy"})
-			Expect(cluster.NewRegistry(db).Register(ctx, "inst-busy", "10.0.0.8:8080", "v1")).To(Succeed())
+			Expect(cluster.NewRegistry(db).Register(ctx, "inst-busy", "10.0.0.8:8080", "v1", "")).To(Succeed())
 			_, err := ClaimNext(ctx, db, "inst-busy", []ClaimKind{ClaimKindMCPCI})
 			Expect(err).ToNot(HaveOccurred())
 			ageClaim(db, "j-busy-irrelevant", time.Hour) // no-op: proves nothing is keyed on age

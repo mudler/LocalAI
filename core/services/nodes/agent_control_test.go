@@ -156,8 +156,8 @@ var _ = Describe("AgentControlClient", func() {
 		registry, err = nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 		clusterReg = cluster.NewRegistry(db)
-		Expect(clusterReg.Register(ctx, selfInstance, "10.0.0.1:8080", "v1")).To(Succeed())
-		Expect(clusterReg.Register(ctx, peerInstance, "10.0.0.2:8080", "v1")).To(Succeed())
+		Expect(clusterReg.Register(ctx, selfInstance, "10.0.0.1:8080", "v1", "")).To(Succeed())
+		Expect(clusterReg.Register(ctx, peerInstance, "10.0.0.2:8080", "v1", "")).To(Succeed())
 
 		mine = cluster.NewTunnelRegistry(clusterReg, selfInstance)
 		theirs = cluster.NewTunnelRegistry(clusterReg, peerInstance)

@@ -84,7 +84,7 @@ var _ = Describe("Worker tunnel handler", func() {
 		Expect(nodeID).ToNot(BeEmpty())
 
 		reg = clustersvc.NewRegistry(db)
-		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		tun = clustersvc.NewTunnelRegistry(reg, "me")
 
 		e := echo.New()

@@ -165,7 +165,7 @@ var _ = Describe("Phase 3: Agent Conversations & SSE", Label("Distributed"), fun
 			registry, err := nodes.NewNodeRegistry(db)
 			Expect(err).ToNot(HaveOccurred())
 			clusterReg := cluster.NewRegistry(db)
-			Expect(clusterReg.Register(infra.Ctx, replica, "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(clusterReg.Register(infra.Ctx, replica, "10.0.0.1:8080", "v1", "")).To(Succeed())
 			tunnels := cluster.NewTunnelRegistry(clusterReg, replica)
 
 			// The worker's own bridge, and the run registered on it. This is

@@ -65,6 +65,56 @@ func unreachablePeer(peerID string, cause error) error {
 	return &unreachableError{peerID: peerID, cause: cause}
 }
 
+// ErrPeerRejected reports that a peer answered and REFUSED this replica's
+// credentials: either the deployment's shared cluster token or, since
+// per-replica peer identity, this replica's own peer credential.
+//
+// It is its own sentinel because an authorization failure has a different cure
+// from every other way a dial can end. A peer that will not answer is a
+// transport problem an operator waits out; a peer that answers "no" is a
+// configuration problem, and during a rolling upgrade it is the specific,
+// expected one of a replica running a release that predates peer credentials
+// dialling one that requires them. A single sentinel for both would leave that
+// window looking like a network fault.
+//
+// It is emphatically NOT absence. What it says is that a peer is up, listening
+// and talking; concluding from it that a worker has gone away is the mistake
+// this phase is built to make impossible, because acting on absence reaps rows
+// and evicts models.
+var ErrPeerRejected = errors.New("cluster: peer refused this replica's credentials")
+
+// rejectedError reports a peer that refused the dial.
+//
+// It unwraps to BOTH ErrPeerRejected and ErrPeerUnreachable, and each half is
+// load bearing. ErrPeerUnreachable is the condition every existing caller
+// already handles correctly for a refused dial (ErrPeerUnreachable's own doc
+// has named "the peer refused the credentials" from the start), so keeping it
+// means adding an identity check cannot change how one single consumer treats a
+// refusal. ErrPeerRejected is what lets a caller that WANTS to tell the two
+// apart do so, without any consumer having to opt in first.
+//
+// What it never unwraps to is any absence sentinel, and the cause is kept out
+// of the chain for exactly the reason unreachableError keeps its own out: the
+// dial path resolves a peer through the registry, so ErrInstanceNotFound is a
+// cause this error could genuinely be built over, and an unwrapped one would
+// satisfy an absence check on an authorization failure.
+type rejectedError struct {
+	peerID string
+	cause  error
+}
+
+func (e *rejectedError) Error() string {
+	return fmt.Sprintf("cluster: peer %q refused this replica's credentials: %v", e.peerID, e.cause)
+}
+
+// Unwrap reports the two sentinels and nothing else. The cause reaches a human
+// through Error() and reaches no error-matching caller at all.
+func (e *rejectedError) Unwrap() []error { return []error{ErrPeerRejected, ErrPeerUnreachable} }
+
+func rejectedPeer(peerID string, cause error) error {
+	return &rejectedError{peerID: peerID, cause: cause}
+}
+
 // ErrPoolClosed reports an Open on a pool that has been shut down. It is a
 // third condition on purpose: the pool being closed is a fact about this
 // process and says nothing about whether the peer exists or answers.
@@ -140,7 +190,16 @@ func PeerLinkConfig() *yamux.Config {
 type PeerPool struct {
 	selfID string
 	token  string
-	reg    *Registry
+	// cred is this replica's OWN peer credential, the plaintext half. It is
+	// what makes selfID a claim rather than a label: the peer resolves selfID
+	// to an instances row and checks this against the hash that row publishes.
+	//
+	// Held by value beside selfID on purpose. The two are one identity, and a
+	// pool that could be built with one and not the other would dial as a
+	// replica it cannot prove it is, which every peer refuses and which looks
+	// from the outside like a peer running an older release.
+	cred PeerCredential
+	reg  *Registry
 
 	dialer *websocket.Dialer
 
@@ -158,11 +217,21 @@ type peerLink struct {
 }
 
 // NewPeerPool returns a pool that dials peers as selfID, authenticating with
-// the deployment's cluster token.
-func NewPeerPool(selfID, token string, reg *Registry) *PeerPool {
+// the deployment's cluster token AND with this replica's own peer credential.
+//
+// Both, never one. The cluster token says the dialler belongs to this
+// deployment and the credential says which replica it is, and the peer checks
+// them separately: the first is what has always been checked and is not
+// weakened by the second existing.
+//
+// cred must be the SAME value the membership loop published the hash of. Pass
+// the one PeerCredential this process minted, which is what makes that
+// unstateable rather than merely required.
+func NewPeerPool(selfID, token string, cred PeerCredential, reg *Registry) *PeerPool {
 	return &PeerPool{
 		selfID: selfID,
 		token:  token,
+		cred:   cred,
 		reg:    reg,
 		dialer: &websocket.Dialer{
 			HandshakeTimeout: peerLinkHandshakeTimeout,
@@ -333,15 +402,35 @@ func (p *PeerPool) dial(ctx context.Context, peerID string) (*yamux.Session, err
 	}
 	header := http.Header{}
 	header.Set("Authorization", "Bearer "+p.token)
+	// The identity half. Sent unconditionally, including when it is empty: an
+	// empty value is refused by the peer, which is the right outcome for a
+	// process that never minted a credential, and omitting the header instead
+	// would make that indistinguishable from an older release at the only place
+	// that can tell an operator which one it is looking at.
+	header.Set(PeerIdentityHeader, p.cred.Token())
 
 	ws, resp, err := p.dialer.DialContext(ctx, endpoint.String(), header)
-	if resp != nil && resp.Body != nil {
-		// gorilla hands back the failed handshake's response so a caller can
-		// read the status; nothing here needs the body, but it has to be
-		// drained or the connection is not returned to the transport.
-		_ = resp.Body.Close()
+	status := 0
+	if resp != nil {
+		status = resp.StatusCode
+		if resp.Body != nil {
+			// gorilla hands back the failed handshake's response so a caller can
+			// read the status; nothing here needs the body, but it has to be
+			// drained or the connection is not returned to the transport.
+			_ = resp.Body.Close()
+		}
 	}
 	if err != nil {
+		// A peer that ANSWERED 401 is up and talking, and what it refused is a
+		// credential. Reported as its own condition so the log names the cure:
+		// during a frontend rollout this is what a replica running a release
+		// without peer credentials gets from one that requires them, and it
+		// must not be read as, or logged as, a network fault.
+		if status == http.StatusUnauthorized {
+			xlog.Warn("A peer refused this replica's credentials. Either the deployment's registration token differs between the two, or this replica has no peer credential published in the instances table; during a rolling upgrade this is what an older replica sees until it is upgraded",
+				"peer", peerID, "self", p.selfID, "addr", inst.AdvertisedAddr)
+			return nil, rejectedPeer(peerID, err)
+		}
 		return nil, unreachablePeer(peerID, err)
 	}
 
