@@ -250,8 +250,8 @@ var _ = Describe("triggerResponse", func() {
 		// The single terminal carries the produced output item and the usage —
 		// both empty in the legacy code.
 		var done *types.ResponseDoneEvent
-		for i := range t.events {
-			if d, ok := t.events[i].(types.ResponseDoneEvent); ok {
+		for _, e := range t.recordedEvents() {
+			if d, ok := e.(types.ResponseDoneEvent); ok {
 				done = &d
 			}
 		}
@@ -287,8 +287,8 @@ var _ = Describe("triggerResponse", func() {
 
 		var created *types.ResponseCreatedEvent
 		var done *types.ResponseDoneEvent
-		for i := range t.events {
-			switch e := t.events[i].(type) {
+		for _, sent := range t.recordedEvents() {
+			switch e := sent.(type) {
 			case types.ResponseCreatedEvent:
 				created = &e
 			case types.ResponseDoneEvent:
@@ -317,8 +317,8 @@ var _ = Describe("triggerResponse", func() {
 
 		triggerResponse(context.Background(), session, &Conversation{}, t, nil)
 
-		for i := range t.events {
-			if d, ok := t.events[i].(types.ResponseDoneEvent); ok {
+		for _, e := range t.recordedEvents() {
+			if d, ok := e.(types.ResponseDoneEvent); ok {
 				Expect(d.Response.Metadata).To(BeEmpty())
 			}
 		}

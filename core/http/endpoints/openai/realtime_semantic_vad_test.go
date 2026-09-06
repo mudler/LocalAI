@@ -269,7 +269,7 @@ var _ = Describe("liveTurnState", func() {
 			lts.drainEvents(1.0)
 
 			var got []types.ConversationItemInputAudioTranscriptionDeltaEvent
-			for _, e := range ftr.events {
+			for _, e := range ftr.recordedEvents() {
 				if d, ok := e.(types.ConversationItemInputAudioTranscriptionDeltaEvent); ok {
 					got = append(got, d)
 				}
@@ -335,7 +335,7 @@ var _ = Describe("commitUtteranceWithTranscript", func() {
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
 
 		var completed types.ConversationItemInputAudioTranscriptionCompletedEvent
-		for _, e := range tr.events {
+		for _, e := range tr.recordedEvents() {
 			if c, ok := e.(types.ConversationItemInputAudioTranscriptionCompletedEvent); ok {
 				completed = c
 			}
@@ -394,7 +394,7 @@ var _ = Describe("emitPrecomputedTranscription", func() {
 
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionDelta)).To(Equal(2), "empty deltas skipped")
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
-		for _, e := range tr.events {
+		for _, e := range tr.recordedEvents() {
 			switch ev := e.(type) {
 			case types.ConversationItemInputAudioTranscriptionDeltaEvent:
 				Expect(ev.ItemID).To(Equal("item42"))
