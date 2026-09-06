@@ -142,7 +142,7 @@ var _ = Describe("The relay's own budgets", func() {
 		db := testutil.SetupTestDB()
 		Expect(Migrate(ctx, db)).To(Succeed())
 		reg = NewRegistry(db)
-		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		tun = NewTunnelRegistry(reg, "me")
 	})
 

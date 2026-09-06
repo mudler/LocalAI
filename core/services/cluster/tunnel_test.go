@@ -158,7 +158,7 @@ var _ = Describe("The worker tunnel registry", func() {
 		ctx = context.Background()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg = cluster.NewRegistry(db)
-		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		tun = cluster.NewTunnelRegistry(reg, "me")
 	})
 
@@ -498,7 +498,7 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 		ctx = context.Background()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg = cluster.NewRegistry(db)
-		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(reg.Register(ctx, "me", "10.0.0.1:8080", "v1", "")).To(Succeed())
 		tun = cluster.NewTunnelRegistry(reg, "me")
 	})
 
@@ -522,7 +522,7 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 		epoch, err := tun.Attach(ctx, "w1", frontend)
 		Expect(err).ToNot(HaveOccurred())
 
-		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1", cluster.NewPeerCredential())
 		membership.SetTunnels(tun)
 		Expect(membership.Start(ctx)).To(Succeed())
 		DeferCleanup(membership.Stop)
@@ -565,7 +565,7 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 		Expect(deadWorker.Close()).To(Succeed())
 		Eventually(dead.IsClosed, "10s").Should(BeTrue())
 
-		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1", cluster.NewPeerCredential())
 		membership.SetTunnels(tun)
 		Expect(membership.Start(ctx)).To(Succeed())
 		DeferCleanup(membership.Stop)
@@ -730,7 +730,7 @@ var _ = Describe("Re-claiming tunnels after this replica's rows were reaped", fu
 		epoch, err := tun.Attach(ctx, "w1", frontend)
 		Expect(err).ToNot(HaveOccurred())
 
-		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1")
+		membership := cluster.NewMembership(reg, "me", "10.0.0.1:8080", "v1", cluster.NewPeerCredential())
 		membership.SetTunnels(tun)
 		Expect(membership.Start(ctx)).To(Succeed())
 		DeferCleanup(membership.Stop)
