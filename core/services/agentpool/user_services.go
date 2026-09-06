@@ -16,12 +16,22 @@ import (
 // UserServicesManager lazily creates per-user service instances for
 // collections, skills, and jobs.
 type UserServicesManager struct {
-	mu               sync.RWMutex
-	storage          *UserScopedStorage
-	appConfig        *config.ApplicationConfig
-	modelLoader      *model.ModelLoader
-	configLoader     *config.ModelConfigLoader
-	evaluator        *templates.Evaluator
+	mu           sync.RWMutex
+	storage      *UserScopedStorage
+	appConfig    *config.ApplicationConfig
+	modelLoader  *model.ModelLoader
+	configLoader *config.ModelConfigLoader
+	evaluator    *templates.Evaluator
+	// collectionsCache and skillsCache hold one SERVICE HANDLE per user, and
+	// neither is a cache of replicated data. Nothing invalidates them across
+	// replicas, and nothing should: both handles derive everything they answer
+	// with from this replica's own state directory (see
+	// UserScopedStorage.SkillsDir and CollectionsDir), which no other replica
+	// reads or writes. A peer told to drop an entry would rebuild it from a
+	// directory that does not contain the change, so the invalidation could
+	// not make that change visible. What is missing is shared storage, not a
+	// broadcast; see "Skills and collections are NOT replicated" in
+	// docs/content/features/distributed-mode.md.
 	collectionsCache map[string]collections.Backend
 	skillsCache      map[string]*skills.Service
 	jobsCache        map[string]*AgentJobService
