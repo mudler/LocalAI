@@ -44,3 +44,6 @@ var _ = Describe("FileStagingClient 3D output", func() {
 		Expect(backend.request.Dst).To(Equal("/remote/tmp"))
 	})
 })
+
+// ForgetNode drops per-node state, which this double keeps none of.
+func (*failingFetchStager) ForgetNode(string) {}
