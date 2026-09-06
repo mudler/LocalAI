@@ -38,7 +38,7 @@ var _ = Describe("emitSoundDetection", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(t.countEvents(types.ServerEventTypeConversationItemSoundDetection)).To(Equal(1))
 
-		ev, ok := t.events[0].(types.ConversationItemSoundDetectionEvent)
+		ev, ok := t.recordedEvents()[0].(types.ConversationItemSoundDetectionEvent)
 		Expect(ok).To(BeTrue())
 		Expect(ev.ItemID).To(Equal("item1"))
 		Expect(ev.ContentIndex).To(Equal(0))
@@ -62,7 +62,7 @@ var _ = Describe("emitSoundDetection", func() {
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(t.countEvents(types.ServerEventTypeConversationItemSoundDetection)).To(Equal(1))
-		ev, ok := t.events[0].(types.ConversationItemSoundDetectionEvent)
+		ev, ok := t.recordedEvents()[0].(types.ConversationItemSoundDetectionEvent)
 		Expect(ok).To(BeTrue())
 		Expect(ev.Detections).To(BeEmpty())
 	})
