@@ -216,6 +216,22 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 	collectionsBackend, _ := collections.NewInProcessBackend(s.buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets))
 	s.collectionsBackend = collectionsBackend
 
+	// Said once, at startup, because it is the one thing about skills and
+	// collections that a multi-replica deployment cannot discover from its own
+	// behaviour: both are served out of THIS replica's state directory and
+	// nothing replicates either of them. The skills list is the exception and
+	// it is the misleading one, because it comes from skills_metadata and is
+	// therefore the same on every replica, while reading, searching, exporting
+	// or fetching the resources of that same skill works only here.
+	//
+	// There is no broadcast that would fix it and none is wired: a peer told to
+	// invalidate would re-read a directory that does not hold the change. See
+	// "Skills and collections are NOT replicated" in
+	// docs/content/features/distributed-mode.md for the two deployments that
+	// avoid it.
+	xlog.Warn("Skills and collections are served from this replica's own state directory and are not replicated to peer frontends. A skill written here is listed everywhere but readable only here, and a collection created here is invisible elsewhere. Mount one shared state directory on every frontend replica, or route the skills and collections endpoints to a single replica",
+		"stateDir", stateDir, "collectionDBPath", collectionDBPath)
+
 	// User-scoped storage
 	dataDir := cmp.Or(s.appConfig.DataPath, s.appConfig.DynamicConfigsDir)
 	s.users.userStorage = NewUserScopedStorage(stateDir, dataDir)

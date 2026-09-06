@@ -207,6 +207,46 @@ path for every request whose prefix changed, so the frontend refuses to start
 and says so rather than running slowly and quietly. Nothing here drops an
 observation to stay under the cap.
 
+### Skills and collections are NOT replicated
+
+Agent **skills** and RAG **collections** are the two features whose state is not
+on this list, and they are absent from it deliberately rather than by omission.
+Neither has a cross-replica invalidation, and neither should be given one,
+because there is nothing coherent for an invalidation to say.
+
+Both are backed by the frontend's own state directory:
+
+| State | Where it lives | What is shared |
+|-------|----------------|----------------|
+| Skill content, skill resources, git-repo clones, the skill search index | `<state dir>/skills`, or `<state dir>/users/<user id>/skills` | nothing |
+| Collection contents and its file list | `<state dir>/collections/collection_<name>.json` plus the assets directory | nothing |
+| Skill name, description and source | `skills_metadata` in PostgreSQL | the row |
+| Collection vectors, with the `postgres` vector engine | the vector table in PostgreSQL | the vectors |
+
+A frontend replica writes a skill or a collection to its OWN disk. No replica
+copies it, and no broadcast could: a peer told to drop a cache entry would
+re-read a directory that does not contain the change, so the invalidation would
+be a guaranteed no-op for skills and, for a `postgres` collection, worse than
+one, since re-deriving the collection on a replica that has no local index file
+would produce a collection that answers with an empty file list against a
+populated vector store. The cache is not what is missing here; the shared
+storage is.
+
+What that means when you run more than one frontend replica:
+
+- A skill created on one replica is **listed** on every replica, because the
+  list comes from `skills_metadata`. Reading it, searching it, exporting it or
+  fetching its resources works only on the replica that wrote it.
+- A collection created on one replica is not listed, searched or uploaded to on
+  any other replica.
+
+Two deployments avoid it. Mount ONE `ReadWriteMany` volume as the state
+directory (`LOCALAI_AGENT_POOL_STATE_DIR`, else `LOCALAI_DATA_PATH`) on every
+frontend replica, so all replicas read and write the same files; or route
+`/api/agents/skills*` and `/api/agents/collections*` to a single replica. A
+frontend running distributed logs this limitation once at startup, so it is
+visible in a deployment that did neither.
+
 ### Job and agent streams across replicas
 
 The same carrier moves the traffic whose subscriber is an open HTTP response rather than a cache: a job's progress stream, its result, its cancel, an agent's SSE events, an agent cancel and an Open Responses cancel.
