@@ -133,6 +133,24 @@ type Options struct {
 	// that never started proves nothing about a worker reachable some other
 	// way.
 	WorkerFrontendURL func(worker int, registrar string, frontends []string) string
+
+	// Galleries is the model-gallery list every frontend runs with, in the JSON
+	// form --galleries takes. Empty leaves the binary's own default list, which
+	// is what every spec that does not name this option keeps.
+	//
+	// It exists for the fan-out specs, which need the thing a gallery operation
+	// blocks on to be something the spec can hold open. A model install's first
+	// act is to fetch its gallery's index, and the gallery worker runs one
+	// operation at a time, so an index served by a gate the spec controls is
+	// what turns "the queued broadcast went out before the terminal one" from a
+	// timing coincidence into an arrangement.
+	//
+	// Setting it also turns the startup estimate warmer OFF, and that is not
+	// tidiness. The warmer fetches the same index in the background at boot, so
+	// with it on the process-wide index cache can be filled by something other
+	// than the operation the spec is holding, and the operation then never
+	// blocks at all. The spec would still pass, on an ordering nothing enforced.
+	Galleries string
 }
 
 // Process is one running local-ai.
@@ -328,6 +346,13 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 	)
 	if c.opts.ReconnectGrace > 0 {
 		cmd.Env = append(cmd.Env, "LOCALAI_WORKER_RECONNECT_GRACE="+c.opts.ReconnectGrace.String())
+	}
+	if c.opts.Galleries != "" {
+		// Both, together, or neither: see Options.Galleries for why the warmer
+		// has to be off wherever the gallery index is a spec's gate.
+		cmd.Env = append(cmd.Env,
+			"LOCALAI_GALLERIES="+c.opts.Galleries,
+			"LOCALAI_AUTOLOAD_GALLERIES=false")
 	}
 
 	p, err := c.spawn(name, cmd, port)
