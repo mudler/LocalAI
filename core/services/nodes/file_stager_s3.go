@@ -29,6 +29,17 @@ func NewS3FileStager(fm *storage.FileManager, control *ControlClient) *S3FileSta
 	return &S3FileStager{fm: fm, control: control}
 }
 
+// ForgetNode has nothing of its own to drop: this stager keeps no per-node
+// state at all. Bytes travel through the object store, and the only per-node
+// client involved is the ControlClient's, which the deployment shares with
+// every other control verb and registers on the departure notifier itself.
+//
+// Deliberately NOT forwarded to that client. Dropping it from here as well
+// would close a cache this stager does not own, on a departure it would then
+// be reacting to twice, and the second drop would be invisible in the
+// subscriber names the wiring spec reads.
+func (s *S3FileStager) ForgetNode(string) {}
+
 // The two budgets a file-staging RPC gets. They are the ones the NATS
 // request-reply timeouts carried, kept verbatim: a transfer verb waits out a
 // multi-gigabyte copy, and a metadata verb does not.

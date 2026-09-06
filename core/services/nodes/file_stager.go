@@ -35,4 +35,15 @@ type FileStager interface {
 	// ListRemoteDir returns relative file paths within a directory on the remote node.
 	// keyPrefix is a storage-style key prefix (e.g. "models/mymodel").
 	ListRemoteDir(ctx context.Context, nodeID, keyPrefix string) ([]string, error)
+
+	// ForgetNode drops whatever this stager holds for one node, and is called
+	// when the deployment decides that node has departed.
+	//
+	// On the INTERFACE rather than on the one implementation that has state to
+	// drop, so that a stager which grows a per-node map later cannot be added
+	// without answering this question, and so that the wiring in
+	// core/application can name a FileStager and still fail to compile if the
+	// registration is deleted. An implementation with nothing per-node is a
+	// documented no-op.
+	ForgetNode(nodeID string)
 }

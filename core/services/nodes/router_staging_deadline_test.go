@@ -219,3 +219,6 @@ var _ = Describe("cold-load staging deadline", func() {
 		Expect(time.Until(deadline)).To(BeNumerically("~", 3*time.Hour, time.Minute))
 	})
 })
+
+// ForgetNode drops per-node state, which this double keeps none of.
+func (*progressingStager) ForgetNode(string) {}

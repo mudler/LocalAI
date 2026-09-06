@@ -56,20 +56,31 @@ type ControlClient struct {
 	// row reuses the tunnel stream its transport already holds instead of
 	// opening a new one.
 	//
-	// Entries are never pruned, and that is judged rather than overlooked: the
-	// map is bounded by the number of distinct workers this frontend has ever
-	// commanded, which is bounded by the fleet, and a departed worker's entry
-	// holds a map slot plus a transport whose idle connections IdleConnTimeout
-	// reclaims. It is the same shape, and would need the same missing
-	// node-departure signal to fix, as HTTPFileStager.clients.
+	// Entries are dropped by ForgetNode, on the deployment's one departure
+	// notification, the same way HTTPFileStager.clients is. Without that the
+	// map grew once per distinct worker for the life of the process, which is
+	// bounded by the fleet only in a deployment whose nodes never change
+	// identity.
 	clientsMu sync.Mutex
-	clients   map[string]*http.Client
+	clients   map[string]*nodeHTTPClient
+}
+
+// nodeHTTPClient is one cached per-node client together with the transport it
+// was built on.
+//
+// The transport is kept beside the client rather than read back off
+// http.Client.Transport, because what is stored there is whatever the shared
+// httpclient constructor decided to wrap it in, and a per-node cache that
+// cannot close its own idle connections has only half a ForgetNode.
+type nodeHTTPClient struct {
+	client    *http.Client
+	transport *http.Transport
 }
 
 // NewControlClient returns the control client for the workers dialFor can
 // reach, authenticating with the deployment's registration token.
 func NewControlClient(dialFor WorkerNetDialerFor, token string) *ControlClient {
-	return &ControlClient{dialFor: dialFor, token: token, clients: map[string]*http.Client{}}
+	return &ControlClient{dialFor: dialFor, token: token, clients: map[string]*nodeHTTPClient{}}
 }
 
 // clientFor returns the HTTP client that reaches one worker, building it on
@@ -96,7 +107,7 @@ func (c *ControlClient) clientFor(nodeID string) (*http.Client, error) {
 	c.clientsMu.Lock()
 	defer c.clientsMu.Unlock()
 	if cl, ok := c.clients[nodeID]; ok {
-		return cl, nil
+		return cl.client, nil
 	}
 	dial := c.dialFor(nodeID)
 	if dial == nil {
@@ -111,8 +122,28 @@ func (c *ControlClient) clientFor(nodeID string) (*http.Client, error) {
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 	cl := httpclient.New(httpclient.WithTransport(transport))
-	c.clients[nodeID] = cl
+	c.clients[nodeID] = &nodeHTTPClient{client: cl, transport: transport}
 	return cl, nil
+}
+
+// ForgetNode drops the cached client for a departed node and closes the idle
+// tunnel streams its transport is holding. See HTTPFileStager.ForgetNode: the
+// two are one rule applied to the two per-node client caches this frontend
+// keeps, and both are registered on the departure notifier.
+//
+// Safe on a nil receiver, because the notifier's subscribers are registered at
+// wiring time and a deployment can reach it with no control client.
+func (c *ControlClient) ForgetNode(nodeID string) {
+	if c == nil {
+		return
+	}
+	c.clientsMu.Lock()
+	entry, ok := c.clients[nodeID]
+	delete(c.clients, nodeID)
+	c.clientsMu.Unlock()
+	if ok {
+		entry.transport.CloseIdleConnections()
+	}
 }
 
 // Call issues one control RPC and decodes its reply. reply may be nil for the

@@ -673,7 +673,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 
 	// Every per-node cache a departure leaves stale, onto the one notification
 	// point, after the router that owns two of them exists.
-	if err := registerDepartureEvictions(departures, prefixDrop, router, galleryProgress); err != nil {
+	if err := registerDepartureEvictions(departures, prefixDrop, router, galleryProgress, controlClient, fileStager); err != nil {
 		return nil, err
 	}
 
@@ -755,6 +755,8 @@ const (
 	departureProbeCache     = "probe-cache"
 	departureStagingTracker = "staging-tracker"
 	departureGalleryNodes   = "gallery-node-progress"
+	departureControlClients = "control-http-clients"
+	departureStagerClients  = "file-stager-http-clients"
 )
 
 // registerDepartureEvictions registers every per-node cache that a node's
@@ -778,7 +780,7 @@ const (
 // *prefixcache.Sync for that decision to be safe, since a nil provider inside
 // an interface would compare non-nil here and dereference on the first
 // departure.
-func registerDepartureEvictions(departures *nodes.DepartureNotifier, prefix *prefixcache.Sync, router *nodes.SmartRouter, gallery nodeProgressDropper) error {
+func registerDepartureEvictions(departures *nodes.DepartureNotifier, prefix *prefixcache.Sync, router *nodes.SmartRouter, gallery nodeProgressDropper, control *nodes.ControlClient, stager nodes.FileStager) error {
 	if departures == nil {
 		return fmt.Errorf("wiring departure evictions: no departure notifier, so a departed node would keep every per-node cache entry it has for the life of the process")
 	}
@@ -787,6 +789,12 @@ func registerDepartureEvictions(departures *nodes.DepartureNotifier, prefix *pre
 	}
 	if gallery == nil {
 		return fmt.Errorf("wiring departure evictions: no gallery service, so a departed node would stay in every open operation's per-node breakdown")
+	}
+	if control == nil {
+		return fmt.Errorf("wiring departure evictions: no control client, so a departed node would keep its cached HTTP client and that client's idle streams on a tunnel that is gone")
+	}
+	if stager == nil {
+		return fmt.Errorf("wiring departure evictions: no file stager, so a departed node would keep the cached HTTP client its transfers ran on")
 	}
 	// S1. Inside a nil check and not inside the prefix-cache-enabled block, so
 	// that "the disabled deployment registers nothing" is a fact a spec can
@@ -808,6 +816,22 @@ func registerDepartureEvictions(departures *nodes.DepartureNotifier, prefix *pre
 	// S4.
 	departures.OnDeparture(departureGalleryNodes, func(node nodes.DepartedNode) {
 		gallery.DropNodeProgress(node.ID)
+	})
+	// S5 and S6, the two per-node http.Client caches. Two registrations again,
+	// because they are two caches with two owners: the control client's entry
+	// is built on the first verb issued to a node and the stager's on the first
+	// file staged to it, so a node can be in either without being in the other,
+	// and one hook doing both would say only that some client was kept.
+	//
+	// Both are keyed by node ID and both are DROPPED rather than emptied. A
+	// worker that comes back builds a fresh client on its next verb, over
+	// whatever tunnel it has by then; keeping the old one would keep a
+	// transport whose idle streams belong to a session that has ended.
+	departures.OnDeparture(departureControlClients, func(node nodes.DepartedNode) {
+		control.ForgetNode(node.ID)
+	})
+	departures.OnDeparture(departureStagerClients, func(node nodes.DepartedNode) {
+		stager.ForgetNode(node.ID)
 	})
 	return nil
 }

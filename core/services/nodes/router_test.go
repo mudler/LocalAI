@@ -1712,3 +1712,6 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		})
 	})
 })
+
+// ForgetNode drops per-node state, which this double keeps none of.
+func (*fakeFileStager) ForgetNode(string) {}

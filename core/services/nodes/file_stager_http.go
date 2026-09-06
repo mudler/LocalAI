@@ -42,16 +42,13 @@ type HTTPFileStager struct {
 	// connection pool: a client built per request would open a fresh tunnel
 	// stream for every chunk of a multi-gigabyte upload.
 	//
-	// Entries are never pruned, and that is judged acceptable rather than
-	// overlooked. The map is bounded by the number of distinct workers this
-	// frontend has ever staged to, which is bounded by the fleet; each entry is
-	// a transport whose idle connections the 90s IdleConnTimeout above reclaims,
-	// so a departed worker's entry holds a map slot and nothing else. It is the
-	// same shape as PeerPool.links and would need the same thing to fix
-	// properly: a signal that a node has left, which the deregistration path
-	// does not publish today.
+	// Entries are dropped by ForgetNode, on the deployment's one departure
+	// notification. Without that the map grew once per distinct worker for the
+	// life of the process, which is bounded by the fleet only in a deployment
+	// whose nodes never change identity; a Kubernetes worker pool that
+	// re-registers under a new id on every rollout is not one.
 	clientsMu       sync.Mutex
-	clients         map[string]*http.Client
+	clients         map[string]*nodeHTTPClient
 	responseTimeout time.Duration // timeout waiting for server response after upload
 	maxRetries      int           // number of retry attempts for transient failures
 }
@@ -79,7 +76,7 @@ func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token st
 		httpAddrFor:     httpAddrFor,
 		token:           token,
 		dialFor:         dialFor,
-		clients:         map[string]*http.Client{},
+		clients:         map[string]*nodeHTTPClient{},
 		responseTimeout: responseTimeout,
 		maxRetries:      maxRetries,
 	}
@@ -110,7 +107,7 @@ func (h *HTTPFileStager) clientFor(nodeID string) (*http.Client, error) {
 	h.clientsMu.Lock()
 	defer h.clientsMu.Unlock()
 	if c, ok := h.clients[nodeID]; ok {
-		return c, nil
+		return c.client, nil
 	}
 	dial := h.dialFor(nodeID)
 	if dial == nil {
@@ -127,8 +124,25 @@ func (h *HTTPFileStager) clientFor(nodeID string) (*http.Client, error) {
 		ReadBufferSize:        256 << 10, // 256 KB
 	}
 	c := httpclient.New(httpclient.WithTransport(transport))
-	h.clients[nodeID] = c
+	h.clients[nodeID] = &nodeHTTPClient{client: c, transport: transport}
 	return c, nil
+}
+
+// ForgetNode drops the cached client for a departed node and closes the idle
+// tunnel streams its transport is holding.
+//
+// Closing and not merely deleting: the map slot is the smaller half. A
+// transport left only to the garbage collector keeps its idle connections
+// until IdleConnTimeout, and each of those is a stream on a tunnel that is
+// already gone.
+func (h *HTTPFileStager) ForgetNode(nodeID string) {
+	h.clientsMu.Lock()
+	entry, ok := h.clients[nodeID]
+	delete(h.clients, nodeID)
+	h.clientsMu.Unlock()
+	if ok {
+		entry.transport.CloseIdleConnections()
+	}
 }
 
 func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, key string) (string, error) {
