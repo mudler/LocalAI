@@ -16,6 +16,22 @@ func mustAllocate(s *backendSupervisor, key string) int {
 	return port
 }
 
+// bookkeepingProbe is the port probe every supervisor in this file and in
+// port_quarantine_test.go runs with, and it always says yes.
+//
+// Those specs are about the allocator's own bookkeeping, and each names the
+// ports it expects literally. Those literals sit inside Linux's default
+// ephemeral range (32768-60999), so with the real probe every one of them asks
+// this host whether 50051 happens to be bindable at that instant. Anything
+// holding one turns the spec red: another suite in the same run, or any other
+// process on the machine. Eleven of them failed together the first time
+// something else on the box held 50051, 50052, 50060 and 50061.
+//
+// Scripting the kernel out is what keeps these specs about the bookkeeping. The
+// probe itself is covered against real sockets in port_bindable_test.go, which
+// leaves this field unset on purpose.
+func bookkeepingProbe(int) bool { return true }
+
 var _ = Describe("Backend gRPC port allocator", func() {
 	Describe("range exhaustion", func() {
 		It("reports an explicit error instead of handing out an unbindable port", func() {
@@ -25,6 +41,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 			// at the allocator. Exhaustion must be named as exhaustion.
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				minPort:        50051,
 				nextPort:       50051,
 				maxPort:        50052,
@@ -47,6 +64,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 		It("does not hand out a port beyond the end of the range", func() {
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				minPort:        50051,
 				nextPort:       50051,
 				maxPort:        50053,
@@ -71,6 +89,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 			bp := &backendProcess{port: 50051}
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{"model#0": bp},
+				portIsFree:     bookkeepingProbe,
 				minPort:        50051,
 				nextPort:       50052,
 				maxPort:        50060,
@@ -91,6 +110,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 			// the range. Before the fix this consumed a fresh port per restart.
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				minPort:        50051,
 				nextPort:       50051,
 				maxPort:        50053,
@@ -140,6 +160,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 			// by construction rather than by racing a quarantine timer.
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				minPort:        50051,
 				nextPort:       50051,
 				maxPort:        50060,
@@ -161,6 +182,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 		It("reuses an unowned port before growing the range", func() {
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				minPort:        50051,
 				nextPort:       50051,
 				maxPort:        50060,
@@ -181,6 +203,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 			// vanishingly rare misroute for a guaranteed outage.
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				minPort:        50051,
 				nextPort:       50051,
 				maxPort:        50051,
@@ -207,6 +230,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 			// problem.
 			s := &backendSupervisor{
 				processes:          map[string]*backendProcess{},
+				portIsFree:         bookkeepingProbe,
 				minPort:            50051,
 				nextPort:           50051,
 				maxPort:            50060,
@@ -228,6 +252,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 			// zero would hand a just-released port straight to another model.
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				minPort:        50051,
 				nextPort:       50051,
 				maxPort:        50060,
@@ -248,6 +273,7 @@ var _ = Describe("Backend gRPC port allocator", func() {
 			// range has ports, however many distinct keys the worker sees.
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				minPort:        50051,
 				nextPort:       50051,
 				maxPort:        50052,

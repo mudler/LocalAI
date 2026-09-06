@@ -28,6 +28,7 @@ var _ = Describe("Backend port quarantine", func() {
 			bp := &backendProcess{port: 50051}
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{"model#0": bp},
+				portIsFree:     bookkeepingProbe,
 				nextPort:       50060,
 				portQuarantine: time.Hour,
 			}
@@ -49,6 +50,7 @@ var _ = Describe("Backend port quarantine", func() {
 			bp := &backendProcess{port: 50051}
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{"model#0": bp},
+				portIsFree:     bookkeepingProbe,
 				nextPort:       50060,
 				portQuarantine: time.Millisecond,
 			}
@@ -68,6 +70,7 @@ var _ = Describe("Backend port quarantine", func() {
 			bp := &backendProcess{port: 50051}
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{"model#0": bp},
+				portIsFree:     bookkeepingProbe,
 				nextPort:       50060,
 				portQuarantine: time.Hour,
 			}
@@ -83,6 +86,7 @@ var _ = Describe("Backend port quarantine", func() {
 		It("prefers a released port over growing the range", func() {
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				nextPort:       50060,
 				portQuarantine: time.Millisecond,
 			}
@@ -98,6 +102,7 @@ var _ = Describe("Backend port quarantine", func() {
 		It("does not sweep a port whose quarantine is still running", func() {
 			s := &backendSupervisor{
 				processes:      map[string]*backendProcess{},
+				portIsFree:     bookkeepingProbe,
 				nextPort:       50060,
 				portQuarantine: time.Hour,
 			}
@@ -113,8 +118,9 @@ var _ = Describe("Backend port quarantine", func() {
 			// The zero value must not degrade to "no quarantine": every
 			// supervisor built outside the tests leaves the field unset.
 			s := &backendSupervisor{
-				processes: map[string]*backendProcess{},
-				nextPort:  50060,
+				processes:  map[string]*backendProcess{},
+				portIsFree: bookkeepingProbe,
+				nextPort:   50060,
 			}
 
 			s.releasePort(50051)
