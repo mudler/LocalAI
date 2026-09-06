@@ -53,6 +53,24 @@ func (f *fakeNodeHealthStore) addNodeModel(nodeID string, nm NodeModel) {
 	f.models[nodeID] = append(f.models[nodeID], nm)
 }
 
+// setNodeModels replaces a node's model rows, so a spec can make a row
+// disappear the way an unload, a scale-down or an eviction does.
+func (f *fakeNodeHealthStore) setNodeModels(nodeID string, models ...NodeModel) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.models[nodeID] = models
+}
+
+// setHeartbeat backdates a node's heartbeat so a spec can drive the stale
+// branch without waiting.
+func (f *fakeNodeHealthStore) setHeartbeat(nodeID string, at time.Time) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if n, ok := f.nodes[nodeID]; ok {
+		n.LastHeartbeat = at
+	}
+}
+
 func (f *fakeNodeHealthStore) getNode(id string) *BackendNode {
 	f.mu.Lock()
 	defer f.mu.Unlock()

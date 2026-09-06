@@ -51,9 +51,13 @@ type HealthMonitor struct {
 	// See DepartureNotifier: this monitor is its only caller.
 	departures *DepartureNotifier
 	missesMu   sync.Mutex
-	misses     map[modelKey]int // consecutive failed-probe counts; reset on success or model removal
-	cancel     context.CancelFunc
-	cancelMu   sync.Mutex
+	// misses holds one consecutive-failed-probe count per (node, model,
+	// replica). It is bounded to the rows the LAST completed pass actually
+	// walked; see forgetUnseenMisses for why that, and not a departure
+	// subscription, is what bounds it.
+	misses   map[modelKey]int
+	cancel   context.CancelFunc
+	cancelMu sync.Mutex
 }
 
 // NewHealthMonitor creates a new HealthMonitor.
@@ -224,8 +228,14 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 	nodes, err := hm.registry.List(ctx)
 	if err != nil {
 		xlog.Error("Health monitor: failed to list nodes", "error", err)
+		// No prune. A pass that could not read the fleet observed nothing, and
+		// pruning against nothing would wipe every streak in progress.
 		return
 	}
+
+	// Every model row this pass walked, whether or not it managed to probe it.
+	// See forgetUnseenMisses.
+	seen := make(map[modelKey]struct{})
 
 	for _, node := range nodes {
 		if node.Status == StatusDraining {
@@ -326,6 +336,14 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				if m.WorkerLocalAddress == "" {
 					continue
 				}
+				// Marked seen BEFORE the probe, so that a row this pass could
+				// not reach keeps the streak it already had. The unreachable
+				// branch below leaves that streak exactly as it was, and a
+				// prune that only counted PROBED rows would clear it instead,
+				// forgiving a backend that really has died every time a peer
+				// link blipped.
+				key := modelKey{NodeID: node.ID, ModelName: m.ModelName, ReplicaIndex: m.ReplicaIndex}
+				seen[key] = struct{}{}
 				// Through the node's tunnel, never a direct dial to m.WorkerLocalAddress:
 				// that address is a port inside the worker. A worker this
 				// replica cannot reach is not evidence that its backend died,
@@ -359,7 +377,6 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 					continue
 				}
 
-				key := modelKey{NodeID: node.ID, ModelName: m.ModelName, ReplicaIndex: m.ReplicaIndex}
 				hm.missesMu.Lock()
 				if ok {
 					// Probe succeeded — wipe any previous miss streak.
@@ -393,4 +410,55 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 			}
 		}
 	}
+
+	hm.forgetUnseenMisses(seen)
+}
+
+// forgetUnseenMisses drops every miss streak whose model row this pass did not
+// walk, so the map is bounded by the fleet's live rows rather than by every
+// (node, model, replica) the process has ever seen.
+//
+// It is level triggered and it is deliberately NOT a subscriber on the
+// departure notifier, though the notifier is where the rest of the per-node
+// caches are evicted from and it would have been the shorter change.
+//
+// A departure subscription would fix ONE of the four ways a streak is
+// stranded. The others are a node marked offline or unhealthy on a stale
+// heartbeat, a node the operator set draining, and a model row removed by
+// anything other than this loop (an unload, a scale-down, an eviction). Each
+// leaves a counter with no row behind it, and each would need its own hook.
+// What all four have in common is exactly the thing this reads: the row was
+// not there when the pass looked. So the notifier keeps its one meaning, "no
+// live replica holds this node's tunnel", and this keeps its own, "there is no
+// longer a row to count misses against".
+//
+// Forgetting is safe in one direction only, and it is the safe one: a cleared
+// streak DELAYS a reap by up to perModelMissThreshold passes and can never
+// cause one. That is what makes it sound to prune on a pass whose
+// GetNodeModels call failed, which is otherwise indistinguishable here from a
+// node with no models.
+func (hm *HealthMonitor) forgetUnseenMisses(seen map[modelKey]struct{}) {
+	hm.missesMu.Lock()
+	defer hm.missesMu.Unlock()
+	for key := range hm.misses {
+		if _, ok := seen[key]; !ok {
+			delete(hm.misses, key)
+		}
+	}
+}
+
+// missCount reports the streak recorded for one model row. It exists for the
+// specs that assert this map is bounded, which is otherwise a property with no
+// observable effect until the process runs out of memory.
+func (hm *HealthMonitor) missCount(nodeID, modelName string, replicaIndex int) int {
+	hm.missesMu.Lock()
+	defer hm.missesMu.Unlock()
+	return hm.misses[modelKey{NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}]
+}
+
+// trackedMisses reports how many model rows currently hold a miss streak.
+func (hm *HealthMonitor) trackedMisses() int {
+	hm.missesMu.Lock()
+	defer hm.missesMu.Unlock()
+	return len(hm.misses)
 }
