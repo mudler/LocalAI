@@ -78,3 +78,6 @@ var _ = Describe("Route cold-load staging context", func() {
 			"staging context must survive cancellation of the triggering request")
 	})
 })
+
+// ForgetNode drops per-node state, which this double keeps none of.
+func (*cancelOnStageStager) ForgetNode(string) {}
