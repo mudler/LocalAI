@@ -67,7 +67,7 @@ func itSession(gate *voiceGate) (*Session, *fakeModel) {
 // hasSpeakerNotAuthorized reports whether a speaker_not_authorized error event
 // was emitted to the client.
 func hasSpeakerNotAuthorized(tr *fakeTransport) bool {
-	for _, e := range tr.events {
+	for _, e := range tr.recordedEvents() {
 		if ev, ok := e.(types.ErrorEvent); ok && ev.Error.Code == "speaker_not_authorized" {
 			return true
 		}

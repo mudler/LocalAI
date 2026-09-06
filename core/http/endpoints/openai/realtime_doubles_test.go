@@ -16,9 +16,17 @@ import (
 // fakeTransport records the server events and audio sent to a realtime client
 // so streaming behaviour can be asserted without a real WebSocket/WebRTC peer.
 // It is not a *WebRTCTransport, so handler code takes the WebSocket path.
+//
+// Every field is behind the mutex, and the recorded slices are read only
+// through recordedEvents and recordedAudio. A real transport is written to by
+// the response and turn coordinators' goroutines while the spec goroutine
+// reads what has arrived so far, so a double that appended without a lock could
+// not be driven the way production drives it. Both fields are named with a
+// `Log` suffix so a raw read from another spec file does not compile.
 type fakeTransport struct {
-	events []types.ServerEvent
-	audio  []fakeAudioChunk
+	mu       sync.Mutex
+	eventLog []types.ServerEvent
+	audioLog []fakeAudioChunk
 }
 
 type fakeAudioChunk struct {
@@ -27,23 +35,42 @@ type fakeAudioChunk struct {
 }
 
 func (f *fakeTransport) SendEvent(e types.ServerEvent) error {
-	f.events = append(f.events, e)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.eventLog = append(f.eventLog, e)
 	return nil
 }
 
 func (f *fakeTransport) ReadEvent() ([]byte, error) { return nil, nil }
 
 func (f *fakeTransport) SendAudio(_ context.Context, pcm []byte, sampleRate int) error {
-	f.audio = append(f.audio, fakeAudioChunk{pcm: pcm, sampleRate: sampleRate})
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.audioLog = append(f.audioLog, fakeAudioChunk{pcm: pcm, sampleRate: sampleRate})
 	return nil
 }
 
 func (f *fakeTransport) Close() error { return nil }
 
+// recordedEvents returns a snapshot of the events sent so far. A COPY, because
+// the caller ranges over it while the coordinators may still be sending.
+func (f *fakeTransport) recordedEvents() []types.ServerEvent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]types.ServerEvent(nil), f.eventLog...)
+}
+
+// recordedAudio returns a snapshot of the audio chunks sent so far.
+func (f *fakeTransport) recordedAudio() []fakeAudioChunk {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]fakeAudioChunk(nil), f.audioLog...)
+}
+
 // countEvents returns how many recorded events have the given type.
 func (f *fakeTransport) countEvents(et types.ServerEventType) int {
 	n := 0
-	for _, e := range f.events {
+	for _, e := range f.recordedEvents() {
 		if e.ServerEventType() == et {
 			n++
 		}
@@ -55,7 +82,7 @@ func (f *fakeTransport) countEvents(et types.ServerEventType) int {
 // delta event — i.e. the text streamed to the client as it is generated.
 func (f *fakeTransport) transcriptDeltaText() string {
 	var b strings.Builder
-	for _, e := range f.events {
+	for _, e := range f.recordedEvents() {
 		if d, ok := e.(types.ResponseOutputAudioTranscriptDeltaEvent); ok {
 			b.WriteString(d.Delta)
 		}
