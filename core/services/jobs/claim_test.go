@@ -103,6 +103,15 @@ var _ = Describe("The claim queue", func() {
 		return got
 	}
 
+	// expireBackoff brings a released row's next-eligible stamp into the past,
+	// so a spec can assert what happens AFTER the backoff without waiting out a
+	// real one. Sleeping for the delay would make every one of these specs a
+	// spec that fails one run in ten.
+	expireBackoff := func(id string) {
+		GinkgoHelper()
+		Expect(db.Exec(`UPDATE `+claimsTable+` SET not_before = now() - interval '1 hour' WHERE id = ?`, id).Error).To(Succeed())
+	}
+
 	Describe("taking work", func() {
 		It("reports an empty queue distinguishably rather than as a failure", func() {
 			_, err := ClaimNext(ctx, db, "inst-a", []ClaimKind{ClaimKindMCPCI})
@@ -273,6 +282,10 @@ var _ = Describe("The claim queue", func() {
 			Expect(row.ClaimedBy).To(BeEmpty())
 			Expect(row.Attempts).To(Equal(1))
 
+			// Claimable again, once the backoff this release stamped has
+			// passed. The wait is brought forward rather than slept through:
+			// see "backing a failed dispatch off".
+			expireBackoff(id)
 			again, err := ClaimNext(ctx, db, "inst-b", []ClaimKind{ClaimKindMCPCI})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(again.ID).To(Equal(id))
@@ -290,6 +303,112 @@ var _ = Describe("The claim queue", func() {
 			Expect(n).To(BeZero())
 			_, err = ClaimNext(ctx, db, "inst-b", []ClaimKind{ClaimKindMCPCI})
 			Expect(err).To(MatchError(ErrNoWork))
+		})
+	})
+
+	Describe("backing a failed dispatch off", func() {
+		// A release means NOTHING was learned about the work: no worker was
+		// connected, the tunnel broke, the stream was refused before the
+		// request left. So the work is retried for ever and is never failed.
+		// What is bounded is the RATE, because at the poll interval a
+		// permanently undispatchable row costs an UPDATE every two seconds and,
+		// worse, is re-claimed ahead of every newer row on every tick.
+		It("does not offer a just-released row again immediately", func() {
+			id := enqueue(ClaimKindMCPCI, JobEvent{JobID: "j1"})
+			_, err := ClaimNext(ctx, db, "inst-a", []ClaimKind{ClaimKindMCPCI})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(ReleaseClaim(ctx, db, id)).To(Succeed())
+
+			_, err = ClaimNext(ctx, db, "inst-b", []ClaimKind{ClaimKindMCPCI})
+			Expect(err).To(MatchError(ErrNoWork),
+				"a row re-claimed on the very next tick spins at the poll interval for as long as the fleet is away")
+		})
+
+		It("stamps a longer delay on each successive failure", func() {
+			id := enqueue(ClaimKindMCPCI, JobEvent{JobID: "j1"})
+
+			delays := make([]time.Duration, 0, 3)
+			for i := 0; i < 3; i++ {
+				expireBackoff(id)
+				_, err := ClaimNext(ctx, db, "inst-a", []ClaimKind{ClaimKindMCPCI})
+				Expect(err).ToNot(HaveOccurred())
+				before := time.Now()
+				Expect(ReleaseClaim(ctx, db, id)).To(Succeed())
+				row := rowOf(id)
+				Expect(row.NotBefore).ToNot(BeNil())
+				delays = append(delays, row.NotBefore.Sub(before))
+			}
+
+			Expect(delays[1]).To(BeNumerically(">", delays[0]))
+			Expect(delays[2]).To(BeNumerically(">", delays[1]))
+		})
+
+		It("never delays a retry past the cap, however long the row has been stuck", func() {
+			// The retry is unbounded and the wait is not: work has to become
+			// claimable again within one cap of the fleet coming back.
+			id := enqueue(ClaimKindMCPCI, JobEvent{JobID: "j1"})
+			Expect(db.Model(&WorkClaim{}).Where("id = ?", id).
+				Update("attempts", 100000).Error).To(Succeed())
+
+			_, err := ClaimNext(ctx, db, "inst-a", []ClaimKind{ClaimKindMCPCI})
+			Expect(err).ToNot(HaveOccurred())
+			before := time.Now()
+			Expect(ReleaseClaim(ctx, db, id)).To(Succeed())
+
+			row := rowOf(id)
+			Expect(row.NotBefore).ToNot(BeNil())
+			Expect(row.NotBefore.Sub(before)).To(BeNumerically("<=", claimBackoffCap+time.Second))
+		})
+
+		It("keeps a stuck row from starving the newer work behind it", func() {
+			// Rows are claimed oldest first. Before the backoff, the oldest
+			// undispatchable row was taken again on every tick and held a
+			// dispatch slot while it failed, so nothing behind it ever ran.
+			stuck := enqueue(ClaimKindMCPCI, JobEvent{JobID: "stuck"})
+			_, err := ClaimNext(ctx, db, "inst-a", []ClaimKind{ClaimKindMCPCI})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ReleaseClaim(ctx, db, stuck)).To(Succeed())
+
+			behind := enqueue(ClaimKindMCPCI, JobEvent{JobID: "behind"})
+
+			got, err := ClaimNext(ctx, db, "inst-b", []ClaimKind{ClaimKindMCPCI})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got.ID).To(Equal(behind))
+		})
+
+		It("retries a stuck row for ever rather than failing work nobody refused", func() {
+			// The decision this Describe records. A release carries no verdict,
+			// so there is no attempt count after which the claim is discarded:
+			// a deployment whose fleet was down for a day runs its queued work
+			// when the fleet comes back.
+			id := enqueue(ClaimKindMCPCI, JobEvent{JobID: "j1"})
+			for i := 0; i < 25; i++ {
+				expireBackoff(id)
+				_, err := ClaimNext(ctx, db, "inst-a", []ClaimKind{ClaimKindMCPCI})
+				Expect(err).ToNot(HaveOccurred(), "the row was discarded after %d attempts", i)
+				Expect(ReleaseClaim(ctx, db, id)).To(Succeed())
+			}
+
+			Expect(rowOf(id).Attempts).To(Equal(25))
+		})
+
+		It("does not delay a claim its replica died holding", func() {
+			// A reap is not a failed dispatch: the work was never handed to
+			// anyone, so there is nothing to back off from and delaying it
+			// would punish the work for the death of the process holding it.
+			id := enqueue(ClaimKindMCPCI, JobEvent{JobID: "j1"})
+			_, err := ClaimNext(ctx, db, "dead-replica", []ClaimKind{ClaimKindMCPCI})
+			Expect(err).ToNot(HaveOccurred())
+
+			released, err := ReapAbandoned(ctx, db, time.Minute)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(released).To(Equal(int64(1)))
+
+			Expect(rowOf(id).NotBefore).To(BeNil())
+			again, err := ClaimNext(ctx, db, "inst-b", []ClaimKind{ClaimKindMCPCI})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(again.ID).To(Equal(id))
 		})
 	})
 
@@ -404,6 +523,24 @@ var _ = Describe("The claim queue", func() {
 				"created_at must not be a literal timestamp from this process's clock")
 		})
 
+		It("releases in ONE statement that stamps the backoff on the database clock", func() {
+			id := enqueue(ClaimKindMCPCI, JobEvent{JobID: "j1"})
+			_, err := ClaimNext(ctx, db, "inst-a", []ClaimKind{ClaimKindMCPCI})
+			Expect(err).ToNot(HaveOccurred())
+
+			rec := newClaimSQLRecorder()
+			Expect(ReleaseClaim(ctx, db.Session(&gorm.Session{Logger: rec}), id)).To(Succeed())
+
+			sql := strings.ToLower(rec.only())
+			// Read-then-compute-then-update would show up as two statements,
+			// and would compute the delay from this process's clock.
+			Expect(sql).To(ContainSubstring("make_interval"))
+			Expect(sql).To(ContainSubstring("now()"))
+			Expect(sql).To(ContainSubstring("attempts"))
+			Expect(sql).ToNot(MatchRegexp(`not_before\s*=\s*'`),
+				"the next-eligible stamp must not be a literal timestamp from this process's clock")
+		})
+
 		It("reaps in ONE statement whose predicate is replica liveness on the database clock, not claim age", func() {
 			enqueue(ClaimKindMCPCI, JobEvent{JobID: "j1"})
 			rec := newClaimSQLRecorder()
@@ -452,6 +589,13 @@ var _ = Describe("The claim queue", func() {
 			Expect(err).To(MatchError(ContainSubstring("requires PostgreSQL")))
 		})
 
+		It("refuses to release", func() {
+			// make_interval and power() are the backoff's, and they fail on
+			// SQLite with a parse error that reads like a missing column.
+			Expect(ReleaseClaim(ctx, lite, "some-claim")).To(
+				MatchError(ContainSubstring("requires PostgreSQL")))
+		})
+
 		It("runs no statement at all when it refuses, so the failure cannot be read as a missing table", func() {
 			rec := newClaimSQLRecorder()
 			guarded := lite.Session(&gorm.Session{Logger: rec})
@@ -459,6 +603,7 @@ var _ = Describe("The claim queue", func() {
 			_, _ = EnqueueClaim(ctx, guarded, ClaimKindMCPCI, JobEvent{JobID: "j1"})
 			_, _ = ReapAbandoned(ctx, guarded, time.Minute)
 			_, _ = OwnerIsLive(ctx, guarded, "inst-a", time.Minute)
+			_ = ReleaseClaim(ctx, guarded, "some-claim")
 			Expect(rec.count()).To(BeZero())
 		})
 	})
