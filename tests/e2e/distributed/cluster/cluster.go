@@ -599,20 +599,24 @@ const (
 //
 // A contiguous block rather than two independent freeport allocations, and the
 // difference is a defect this suite actually hit. The allocator hands backend
-// processes basePort, basePort+1, basePort+2 and so on with no check that
-// anything else holds them (core/services/worker/supervisor.go, allocatePort),
-// so the moment freeport returned two ADJACENT ports the second backend started
-// on a worker was handed the worker's own HTTP server's port and died at
-// startup with "address already in use". freeport returns adjacent ports often,
-// and no spec started two backends on one worker until the tunnel load
-// measurement did, so it presented as a spec that failed about one run in
-// three.
+// processes basePort, basePort+1, basePort+2 and so on, and it used to do that
+// from its own bookkeeping alone, so the moment freeport returned two ADJACENT
+// ports the second backend started on a worker was handed the worker's own HTTP
+// server's port and died at startup with "address already in use". freeport
+// returns adjacent ports often, and no spec started two backends on one worker
+// until the tunnel load measurement did, so it presented as a spec that failed
+// about one run in three.
 //
-// This is not race free and cannot be: the probe closes each listener before
-// the worker binds it. It removes the deterministic self-collision, keeps the
-// block out of the range the kernel allocates from, and bounds the allocator to
-// the block, which together is the difference between "sometimes" and "not
-// observed".
+// core/services/worker/supervisor.go, allocatePort, now probes every candidate
+// before handing it out, which removes that collision at the other end too.
+// This block is kept for the reasons that survive the fix: it keeps the whole
+// range out of the ports the kernel allocates from, so the probe has nothing to
+// skip, and it bounds the allocator to a known block so an exhausted range in
+// this suite is a bug in this suite.
+//
+// Neither is race free and neither can be: both probes close each listener
+// before anything binds it. Together they are the difference between
+// "sometimes" and "not observed".
 func reserveWorkerPorts() (int, error) {
 	for attempt := 0; attempt < workerPortAttempts; attempt++ {
 		base := workerPortFloor + rand.IntN(workerPortCeiling-workerPortFloor)
