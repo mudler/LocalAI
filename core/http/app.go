@@ -605,7 +605,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 			xlog.Warn("Replica peer link will refuse every dial: no registration token is configured",
 				"route", clustersvc.PeerPath, "knob", "LOCALAI_REGISTRATION_TOKEN")
 		}
-		routes.RegisterClusterRoutes(e, distCfg.RegistrationToken, d.PeerSessions.Accept)
+		// d.Cluster is what the handler resolves a dialling replica's id
+		// against, so the route can check WHICH replica is on the far end and
+		// not merely that it holds the deployment's shared token.
+		routes.RegisterClusterRoutes(e, distCfg.RegistrationToken, d.Cluster, d.PeerSessions.Accept)
 	}
 
 	// The worker tunnel, registered unconditionally. Both arguments are nil

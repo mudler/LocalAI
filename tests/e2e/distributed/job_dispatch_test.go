@@ -51,7 +51,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 			const owner = "dispatch-instance"
 			// A replica that is not registered may not claim: its claims could
 			// not be told from ones a dead replica left.
-			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8080", "v1")).To(Succeed())
+			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8080", "v1", "")).To(Succeed())
 
 			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 
@@ -98,7 +98,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 		It("leaves a plain task job failed with a reason, since no worker in this deployment serves that kind", func() {
 			Expect(cluster.Migrate(infra.Ctx, db)).To(Succeed())
 			const owner = "plain-instance"
-			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8081", "v1")).To(Succeed())
+			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8081", "v1", "")).To(Succeed())
 
 			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 			task := &jobs.TaskRecord{UserID: "u1", Name: "plain-task", Model: "m1", Prompt: "p1"}
