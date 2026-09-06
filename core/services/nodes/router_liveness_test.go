@@ -242,7 +242,7 @@ var _ = Describe("Scheduling against the cluster registry that answers presence"
 		db = testutil.SetupTestDB()
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR = cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, instance, "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(clusterR.Register(ctx, instance, "10.0.0.1:8080", "v1", "")).To(Succeed())
 		reg = &fakeModelRouter{}
 		router = NewSmartRouter(reg, SmartRouterOptions{Presence: clusterR, ReconnectGrace: grace})
 	})
@@ -337,7 +337,7 @@ var _ = Describe("Eviction and a worker whose tunnel is gone", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR = cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, instance, "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(clusterR.Register(ctx, instance, "10.0.0.1:8080", "v1", "")).To(Succeed())
 		router = NewSmartRouter(registry, SmartRouterOptions{DB: db, Presence: clusterR, ReconnectGrace: grace})
 	})
 

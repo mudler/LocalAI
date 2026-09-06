@@ -94,7 +94,9 @@ That only holds while the database is on **another host**. If PostgreSQL runs on
 
 ```
 ERROR This replica is not registered in the cluster: no advertised address. Peers cannot reach it,
-      and any worker whose tunnel lands here will be unroutable from every other replica
+      any worker whose tunnel lands here will be unroutable from every other replica, and this
+      replica cannot relay OUT either, because a peer link is authenticated by the credential an
+      instance row publishes and this replica has no row
 ```
 
 The replica keeps serving every request that reaches it directly. What it cannot do is be reached by another replica, and on a multi-replica deployment that is worse than it sounds: a **worker whose tunnel lands on this replica is unroutable from every other replica**, because the ownership lookup only accepts an owner that is registered and live. This replica serves that worker fine; the others answer requests for it with `no route from this replica to that worker`. Behind a round-robin load balancer with N replicas, that is (N-1)/N of the traffic for that worker.
@@ -116,10 +118,39 @@ environment:
   LOCALAI_DISTRIBUTED_ADVERTISE_ADDR: "10.0.1.7:8080"   # or the pod IP, service DNS name, etc.
 ```
 
-The peer link is served at `/api/cluster/peer` and authenticates with `LOCALAI_REGISTRATION_TOKEN`, the same shared secret workers register with. Replicas that disagree about it cannot link. A replica that stops heartbeating for 30 seconds is dropped from the table by the others, along with the worker-connection rows it owned.
+The peer link is served at `/api/cluster/peer`. A replica that stops heartbeating for 30 seconds is dropped from the table by the others, along with the worker-connection rows it owned.
+
+#### A peer proves which replica it is
+
+The route checks **two** credentials, and a dial needs both.
+
+| Credential | Sent as | Says |
+|---|---|---|
+| `LOCALAI_REGISTRATION_TOKEN` | `Authorization: Bearer <token>` | the dialler belongs to this deployment |
+| The replica's own peer credential | `X-LocalAI-Peer-Token: <secret>` | the dialler **is** the replica named in `?id=` |
+
+Each replica mints its own peer credential at startup, publishes only its SHA-256 in the `instances` table beside its address, and never sends the plaintext anywhere but the peer dial itself. The receiving replica resolves `?id=` to that row and compares. This is the same shape as the [worker tunnel credential](#worker-tunnels), in the stronger direction: a worker's credential is minted by the frontend and handed to it once, while a replica's never leaves the process that made it.
+
+Nothing needs configuring and nothing needs rotating. A restart mints a new secret, and the same registration that republishes a replica's address republishes the hash beside it.
+
+What that closes: holding `LOCALAI_REGISTRATION_TOKEN` - which every worker does - no longer lets its holder open a peer link **as some other replica**. It can therefore no longer relay through that link to every worker tunnel a replica owns, no longer displace a real replica's inbound link by declaring its id, and no longer point the per-session receive window (roughly 31 GiB of unread data per session) at a replica of its choosing. Only replicas registered in the `instances` table, each proving its own row, can open a peer link at all.
+
+What it does not close: replica-to-replica traffic is not encrypted, so anything that can read the wire between two replicas can read a credential off it, exactly as it could read the registration token. Keep `/api/cluster/peer` on a network only your replicas reach, and keep `LOCALAI_REGISTRATION_TOKEN` per-deployment.
 
 {{% notice note %}}
-**The peer link has no per-replica credential yet.** It checks the shared registration token and takes the replica id in `?id=` on trust. Anything already holding that token - every worker holds it - can therefore open a peer link, relay through it to every worker tunnel a replica owns, by declaring another replica's id displace that replica's inbound link, and hold sessions open against the per-session receive window, which the peer-link code sizes at roughly 31 GiB of unread data per session and which on this route is also a memory budget an attacker can point at one replica. Treat `LOCALAI_REGISTRATION_TOKEN` as a cluster-wide secret with the blast radius of the whole fleet: give it its own value per deployment, do not reuse it elsewhere, and keep `/api/cluster/peer` on a network only your replicas and workers can reach. Per-replica credentials for this route are planned.
+**A replica with no advertised address cannot peer in either direction.** It has no row in the `instances` table, so it has no credential published, so peers refuse its dials as an unproven identity - on top of already being unreachable itself. The startup error above names this. Set `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR`.
+{{% /notice %}}
+
+{{% notice warning %}}
+**A replica that presents no peer credential is refused, not waved through.** There is no fallback to the shared token alone: an old replica and an attacker send exactly the same thing, so accepting one accepts the other. During a rolling frontend upgrade this means an **old** replica cannot open a peer link to an **upgraded** one, and each refusal is logged by the upgraded replica:
+
+```
+WARN Refusing a peer link: the dialling replica presented no peer credential. It is running a
+     release from before per-replica peer identity, or it never registered a credential of its
+     own. Upgrade it; this replica will not accept an unproven peer id   peer=<replica id>
+```
+
+The dialling side logs the matching `A peer refused this replica's credentials`. The window closes as each frontend restarts, and it is bounded by the same [frontend-first rollout](#upgrade-the-frontends-first) the tunnel already requires. A refused peer is an **authorization failure**, never node absence: nothing is rescheduled, nothing is reaped, and requests that cannot be relayed during the window fail with `no route from this replica to that worker`.
 {{% /notice %}}
 
 ### Cross-replica in-memory state
@@ -254,7 +285,7 @@ A worker can open one long-lived, multiplexed tunnel to the frontend instead of 
 
 #### Each worker has its own tunnel credential
 
-The dial is authenticated against **that node's own tunnel credential**, which is not the registration token. Registration mints a fresh random secret per node, returns the plaintext once in the registration response as `tunnel_token`, and stores only its SHA-256. So a leaked registration token no longer opens a tunnel: an attacker who has it, and who knows a node ID, still cannot authenticate as that worker.
+The dial is authenticated against **that node's own tunnel credential**, which is not the registration token. Registration mints a fresh random secret per node, returns the plaintext once in the registration response as `tunnel_token`, and stores only its SHA-256. So a leaked registration token no longer opens a tunnel: an attacker who has it, and who knows a node ID, still cannot authenticate as that worker. It cannot reach a worker through the [peer link](#a-peer-proves-which-replica-it-is) either, which is authenticated per replica in the same way.
 
 A worker that presents a credential belonging to no node, or names a node ID the frontend has never seen, is refused with `401` before the WebSocket upgrade happens. A node still awaiting admin approval is refused with `403`. A frontend that cannot read its node table answers `500` rather than `401`, so a worker retries instead of re-registering under a new identity.
 
@@ -460,6 +491,7 @@ That distinction is the whole point rather than a nicety. A scheduler told that 
 
 - **Frontends first (correct).** Old workers keep running, keep heartbeating and keep their `node_models` rows: the new frontend reports them as unroutable rather than as gone, so nothing is rescheduled and nothing is reaped. What fails is requests for models on a worker that has not been restarted yet. That is a real degraded window, but it is bounded by how fast you roll the workers, it heals itself as each one comes back, and no state is lost.
   - **What you will see while it lasts:** requests for models on a not-yet-restarted worker fail with "no route to the worker", while `GET /api/nodes` still shows that node healthy and heartbeating and its models still listed. Restart the worker and it clears. Nothing needs fixing; you are watching the window close.
+  - **While the frontends themselves are rolling**, a frontend you have not restarted yet cannot open a [peer link](#a-peer-proves-which-replica-it-is) to one you have: it holds no peer credential and the upgraded replica refuses unproven ids. An upgraded replica dialling an older one still works, so the loss is one-directional. What it costs is relayed requests that land on a not-yet-restarted replica for a worker an upgraded replica owns; they fail with `no route from this replica to that worker`, which is a routing fact and not absence, so nothing is rescheduled or reaped. Both sides log it by name. Restart the remaining frontends and it clears.
 - **Workers first (this fails, do not do it).** An old frontend has no `/api/cluster/connect` route for the worker to dial *and* rejects the new worker's registration outright, because the worker no longer sends an address and the old frontend requires one. A 4xx is a verdict rather than an outage, so the worker reports the reason on the **first** attempt and exits instead of retrying. Every worker you restart is a worker you take out of the fleet until the frontends are upgraded.
   - **What you will see if you do it anyway:** each restarted worker exits within a second or two of starting, with
 

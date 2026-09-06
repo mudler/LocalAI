@@ -254,6 +254,18 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// Replica membership. NewNodeRegistry has just migrated the tables this
 	// reads, so it has to come after it.
 	clusterRegistry := cluster.NewRegistry(authDB)
+	// This replica's proof of which replica it is, minted ONCE per process and
+	// handed to both halves of the peer mesh: the membership loop publishes its
+	// hash in the instances row, and the peer pool presents its plaintext on
+	// every outbound dial. Two mints would leave a replica whose published hash
+	// and presented secret disagree, which every peer refuses and which reads
+	// from the logs like a peer running an older release.
+	//
+	// The plaintext never leaves this process except in a peer dial's header.
+	// There is nothing to configure and nothing to rotate: a restart mints a
+	// new one, and the same registration that republishes this replica's
+	// address republishes the hash beside it.
+	peerCredential := cluster.NewPeerCredential()
 	var membership *cluster.Membership
 	if advertised, err := advertisedPeerAddr(cfg); err != nil {
 		// Not fatal, and the cost is worth stating exactly rather than as
@@ -280,10 +292,16 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		// obvious reading is "the worker is broken". So this is an ERROR, not a
 		// warning, and nagUnadvertisedReplica below repeats it for as long as
 		// the state lasts, naming the workers it is currently costing.
-		xlog.Error("This replica is not registered in the cluster: no advertised address. Peers cannot reach it, and any worker whose tunnel lands here will be unroutable from every other replica",
+		//
+		// It now costs the OTHER direction too, which is why the line says so.
+		// A peer link is authenticated by the dialling replica's own credential,
+		// published in the instances row this replica never writes, so this
+		// replica cannot dial a peer either: its own relayed requests are
+		// refused as an unproven identity rather than merely arriving nowhere.
+		xlog.Error("This replica is not registered in the cluster: no advertised address. Peers cannot reach it, any worker whose tunnel lands here will be unroutable from every other replica, and this replica cannot relay OUT either, because a peer link is authenticated by the credential an instance row publishes and this replica has no row",
 			"error", err, "knob", "LOCALAI_DISTRIBUTED_ADVERTISE_ADDR")
 	} else {
-		membership = cluster.NewMembership(clusterRegistry, cfg.Distributed.InstanceID, advertised, internal.PrintableVersion())
+		membership = cluster.NewMembership(clusterRegistry, cfg.Distributed.InstanceID, advertised, internal.PrintableVersion(), peerCredential)
 		// Before Start, so the first sweep already purges on the retention this
 		// deployment's grace requires rather than on the floor.
 		membership.SetReconnectGrace(cfg.Distributed.ReconnectGraceOrDefault())
@@ -327,7 +345,11 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// authenticates with the registration token because that is the token the
 	// peer route checks (see RegisterClusterRoutes); two different tokens here
 	// would make every peer dial 401 with nothing naming the mismatch.
-	peers := cluster.NewPeerPool(cfg.Distributed.InstanceID, cfg.Distributed.RegistrationToken, clusterRegistry)
+	//
+	// And with this replica's own credential, which is the half that says WHICH
+	// replica is dialling. It is the same value membership published the hash
+	// of, by construction: there is one mint above and both call sites read it.
+	peers := cluster.NewPeerPool(cfg.Distributed.InstanceID, cfg.Distributed.RegistrationToken, peerCredential, clusterRegistry)
 	// The one door to every worker. Nothing in the frontend may dial a worker's
 	// advertised address any more: a worker holds ONE tunnel, it lands on ONE
 	// replica, and this resolves which replica that is and relays through it

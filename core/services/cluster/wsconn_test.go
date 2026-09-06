@@ -2,6 +2,7 @@ package cluster_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"io"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/testutil"
 
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -237,13 +239,21 @@ var _ = Describe("WebsocketConn framing", func() {
 var _ = Describe("Peer link payloads", func() {
 	It("carries a payload far larger than one yamux frame end to end", func() {
 		sessions := make(chan *yamux.Session, 1)
+		ctx := context.Background()
+		db := testutil.SetupTestDB()
+		Expect(cluster.Migrate(ctx, db)).To(Succeed())
+		reg := cluster.NewRegistry(db)
+		cred := cluster.NewPeerCredential()
+		Expect(reg.Register(ctx, "peer-1", "10.0.0.1:8080", "v1", cred.Hash())).To(Succeed())
+
 		e := echo.New()
-		servePeerRoute(e, "peer-token", func(_ string, s *yamux.Session) { sessions <- s })
+		servePeerRoute(e, "peer-token", reg, func(_ string, s *yamux.Session) { sessions <- s })
 		srv := httptest.NewServer(e)
 		DeferCleanup(srv.Close)
 
 		h := http.Header{}
 		h.Set("Authorization", "Bearer peer-token")
+		h.Set(cluster.PeerIdentityHeader, cred.Token())
 		conn, _, err := websocket.DefaultDialer.Dial(
 			"ws"+strings.TrimPrefix(srv.URL, "http")+"/api/cluster/peer?id=peer-1", h)
 		Expect(err).ToNot(HaveOccurred())
