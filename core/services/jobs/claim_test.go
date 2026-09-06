@@ -300,7 +300,7 @@ var _ = Describe("The claim queue", func() {
 		// it, however long it has held it.
 		It("releases a claim whose owner is no longer live", func() {
 			id := enqueue(ClaimKindMCPCI, JobEvent{JobID: "j1"})
-			Expect(reg(db).Register(ctx, "inst-dead", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg(db).Register(ctx, "inst-dead", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			_, err := ClaimNext(ctx, db, "inst-dead", []ClaimKind{ClaimKindMCPCI})
 			Expect(err).ToNot(HaveOccurred())
 			ageInstance(db, "inst-dead", 10*time.Minute)
@@ -316,7 +316,7 @@ var _ = Describe("The claim queue", func() {
 
 		It("leaves a live replica's claim alone however old the claim is", func() {
 			id := enqueue(ClaimKindMCPCI, JobEvent{JobID: "j1"})
-			Expect(reg(db).Register(ctx, "inst-slow", "10.0.0.2:8080", "v1")).To(Succeed())
+			Expect(reg(db).Register(ctx, "inst-slow", "10.0.0.2:8080", "v1", "")).To(Succeed())
 			_, err := ClaimNext(ctx, db, "inst-slow", []ClaimKind{ClaimKindMCPCI})
 			Expect(err).ToNot(HaveOccurred())
 			// The claim is hours old; its owner heartbeated a moment ago. Age is
@@ -356,14 +356,14 @@ var _ = Describe("The claim queue", func() {
 
 	Describe("whether this replica may claim at all", func() {
 		It("says yes for a replica that is registered and heartbeating", func() {
-			Expect(reg(db).Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg(db).Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			live, err := OwnerIsLive(ctx, db, "inst-a", time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(live).To(BeTrue())
 		})
 
 		It("says no for a replica whose heartbeat has aged out", func() {
-			Expect(reg(db).Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg(db).Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			ageInstance(db, "inst-a", 10*time.Minute)
 			live, err := OwnerIsLive(ctx, db, "inst-a", time.Minute)
 			Expect(err).ToNot(HaveOccurred())

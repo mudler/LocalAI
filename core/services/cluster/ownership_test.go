@@ -225,7 +225,7 @@ var _ = Describe("Connection ownership", func() {
 		}
 
 		It("names an owner whose replica is live", func() {
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			claimed, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -236,7 +236,7 @@ var _ = Describe("Connection ownership", func() {
 		})
 
 		It("still names an owner whose heartbeat is old but inside the window", func() {
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			claimed, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 			age("inst-a", agedButLive)
@@ -261,7 +261,7 @@ var _ = Describe("Connection ownership", func() {
 		It("refuses to name an owner whose heartbeat has aged past the liveness window", func() {
 			// The window this task exists to close: the replica is dead, no peer
 			// has swept it yet, and the row still names it.
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 			age("inst-a", agedOut)
@@ -274,7 +274,7 @@ var _ = Describe("Connection ownership", func() {
 			// Liveness is a window, not a latch: a replica that stalls and
 			// recovers still owns the sockets it never dropped, so resolution
 			// has to follow last_seen rather than remember a verdict.
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			claimed, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 			age("inst-a", agedOut)
@@ -287,7 +287,7 @@ var _ = Describe("Connection ownership", func() {
 		})
 
 		It("still reports the dead owner through OwnerRow, which is why the two reads are separate", func() {
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			claimed, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 			age("inst-a", agedOut)
@@ -307,7 +307,7 @@ var _ = Describe("Connection ownership", func() {
 		})
 
 		It("resolves in one joined statement measured on the database clock", func() {
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			_, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -433,7 +433,7 @@ var _ = Describe("Connection ownership", func() {
 		})
 
 		It("reports a released row as no connection from both reads", func() {
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			epoch, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(reg.Release(ctx, "w1", "inst-a", epoch)).To(Succeed())
@@ -452,7 +452,7 @@ var _ = Describe("Connection ownership", func() {
 			// instances join to miss it. The join only misses an empty owner
 			// for as long as no instance row carries an empty id, which is an
 			// accident of who registers rather than a property of ownership.
-			Expect(reg.Register(ctx, "", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			epoch, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(reg.Release(ctx, "w1", "inst-a", epoch)).To(Succeed())
@@ -462,7 +462,7 @@ var _ = Describe("Connection ownership", func() {
 		})
 
 		It("clears the departure when the worker reconnects", func() {
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			epoch, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(reg.Release(ctx, "w1", "inst-a", epoch)).To(Succeed())
@@ -481,7 +481,7 @@ var _ = Describe("Connection ownership", func() {
 		})
 
 		It("does not let a fenced-out replica stamp a departure onto the live claim", func() {
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			stale, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 			live, err := reg.Claim(ctx, "w1", "inst-a")
@@ -564,7 +564,7 @@ var _ = Describe("Connection ownership", func() {
 		})
 
 		It("never purges a row that is still held, whatever timestamp it carries", func() {
-			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1")).To(Succeed())
+			Expect(reg.Register(ctx, "inst-a", "10.0.0.1:8080", "v1", "")).To(Succeed())
 			claimed, err := reg.Claim(ctx, "w1", "inst-a")
 			Expect(err).ToNot(HaveOccurred())
 			// No writer produces a held row carrying a departure, so it is

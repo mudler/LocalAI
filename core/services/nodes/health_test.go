@@ -455,7 +455,7 @@ var _ = Describe("HealthMonitor and a worker whose tunnel is gone", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		clusterR = cluster.NewRegistry(db)
-		Expect(clusterR.Register(ctx, instance, "10.0.0.1:8080", "v1")).To(Succeed())
+		Expect(clusterR.Register(ctx, instance, "10.0.0.1:8080", "v1", "")).To(Succeed())
 		departed = nil
 		departures = NewDepartureNotifier()
 		departures.OnDeparture("spec", func(node DepartedNode) { departed = append(departed, node) })

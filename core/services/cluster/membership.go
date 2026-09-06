@@ -92,6 +92,10 @@ type Membership struct {
 	id      string
 	addr    string
 	version string
+	// peerTokenHash is the published half of this replica's peer credential.
+	// Every registration writes it, so the row that tells peers where to dial
+	// this replica is the same row that tells them how to recognise it.
+	peerTokenHash string
 
 	interval time.Duration
 	liveness time.Duration
@@ -115,17 +119,26 @@ type Membership struct {
 // NewMembership returns the membership loop for one replica. The address is
 // what peers will dial, so it must be reachable from another host, not the
 // address this process binds.
-func NewMembership(reg *Registry, id, addr, version string) *Membership {
+//
+// cred is this replica's peer credential, and only its hash is used here: the
+// loop publishes it, and the peer pool presents the matching plaintext. It is
+// taken as a required argument rather than a setter because a replica that
+// registered without one is a replica every peer refuses, and a refusal on this
+// route is indistinguishable from an older release. The whole value is passed,
+// not the hash, so a caller cannot hand the pool one credential and the loop
+// another.
+func NewMembership(reg *Registry, id, addr, version string, cred PeerCredential) *Membership {
 	return &Membership{
-		reg:       reg,
-		id:        id,
-		addr:      addr,
-		version:   version,
-		interval:  InstanceHeartbeat,
-		liveness:  InstanceLiveness,
-		retention: DepartedRetention,
-		stop:      make(chan struct{}),
-		done:      make(chan struct{}),
+		reg:           reg,
+		id:            id,
+		addr:          addr,
+		version:       version,
+		peerTokenHash: cred.Hash(),
+		interval:      InstanceHeartbeat,
+		liveness:      InstanceLiveness,
+		retention:     DepartedRetention,
+		stop:          make(chan struct{}),
+		done:          make(chan struct{}),
 	}
 }
 
@@ -173,7 +186,7 @@ func (m *Membership) SetReconnectGrace(grace time.Duration) {
 // address never reaches the table is invisible to its peers, and starting
 // anyway would hide that behind a background log line.
 func (m *Membership) Start(ctx context.Context) error {
-	if err := m.reg.Register(ctx, m.id, m.addr, m.version); err != nil {
+	if err := m.reg.Register(ctx, m.id, m.addr, m.version, m.peerTokenHash); err != nil {
 		return err
 	}
 	xlog.Info("Cluster instance registered", "id", m.id, "addr", m.addr)
@@ -258,7 +271,7 @@ func (m *Membership) tick(ctx context.Context) {
 		// again or this replica serves workers that, as far as every other
 		// replica can see, are connected nowhere.
 		xlog.Warn("Cluster instance row was reaped, re-registering", "id", m.id)
-		if err := m.reg.Register(ctx, m.id, m.addr, m.version); err == nil {
+		if err := m.reg.Register(ctx, m.id, m.addr, m.version, m.peerTokenHash); err == nil {
 			m.reclaimTunnels(ctx)
 		} else {
 			// Re-claiming is skipped and only re-claiming: a claim written now

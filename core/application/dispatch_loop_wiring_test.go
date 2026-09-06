@@ -100,7 +100,7 @@ var _ = Describe("building the job dispatch loop", func() {
 		Expect(jobs.MigrateClaims(ctx, db)).To(Succeed())
 		// Registered, because a replica that is not in the instances table
 		// refuses to claim: its claims could not be told from a dead one's.
-		Expect(cluster.NewRegistry(db).Register(ctx, "replica-7", "127.0.0.1:8080", "v1")).To(Succeed())
+		Expect(cluster.NewRegistry(db).Register(ctx, "replica-7", "127.0.0.1:8080", "v1", "")).To(Succeed())
 		_, err := jobs.EnqueueClaim(ctx, db, jobs.ClaimKindAgentRun, json.RawMessage(`{}`))
 		Expect(err).ToNot(HaveOccurred())
 

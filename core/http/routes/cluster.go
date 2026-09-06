@@ -13,6 +13,12 @@ import (
 // receives every authenticated session; see clusterep.PeerHandler for what it
 // is expected to do with it.
 //
+// instances is what turns the ?id= on that route from a self-declared label
+// into a claim: the handler resolves the id to a replica row and checks the
+// dialler's own peer credential against the hash it publishes. It is a required
+// argument rather than an option, so a deployment cannot register this route
+// with nothing to verify against; a nil one makes the handler answer 503.
+//
 // The path is core/services/cluster's own constant, so the handler and the
 // dialler cannot be registered and dialled at different paths. That the path
 // also falls under auth.ClusterPathPrefix, and so bypasses the global session
@@ -21,8 +27,8 @@ import (
 //
 // The route carries no auth middleware: it authenticates itself against the
 // cluster token, because a peer replica has no session and no user.
-func RegisterClusterRoutes(e *echo.Echo, token string, onPeer func(string, *yamux.Session)) {
-	e.GET(clustersvc.PeerPath, clusterep.PeerHandler(token, onPeer))
+func RegisterClusterRoutes(e *echo.Echo, token string, instances *clustersvc.Registry, onPeer func(string, *yamux.Session)) {
+	e.GET(clustersvc.PeerPath, clusterep.PeerHandler(token, instances, onPeer))
 }
 
 // RegisterWorkerTunnelRoute registers the endpoint a worker dials to open its

@@ -26,8 +26,8 @@ import (
 // lives in core/http/routes, which imports half the server, and these specs are
 // about the handler and the dialler rather than about the route table. The path
 // comes from the same constant the registrar uses, so the two cannot drift.
-func servePeerRoute(e *echo.Echo, token string, onPeer func(string, *yamux.Session)) {
-	e.GET(cluster.PeerPath, clusterep.PeerHandler(token, onPeer))
+func servePeerRoute(e *echo.Echo, token string, instances *cluster.Registry, onPeer func(string, *yamux.Session)) {
+	e.GET(cluster.PeerPath, clusterep.PeerHandler(token, instances, onPeer))
 }
 
 // deadlinePassed is a context whose deadline has elapsed and whose
@@ -46,20 +46,25 @@ var _ = Describe("Peer pool", func() {
 		db       *gorm.DB
 		reg      *cluster.Registry
 		pool     *cluster.PeerPool
+		selfCred cluster.PeerCredential
 		srv      *httptest.Server
 		accepted chan *yamux.Session
 		ctx      context.Context
 	)
 
 	// startPeer stands up a real peer server and registers it under peerID.
+	//
+	// Every server here is the PRODUCTION handler over a real WebSocket, so a
+	// dial that this pool cannot prove its identity for is refused by the same
+	// code path a deployment runs, at the same point, before the upgrade.
 	startPeer := func(peerID string) *httptest.Server {
 		e := echo.New()
-		servePeerRoute(e, "peer-token", func(_ string, s *yamux.Session) {
+		servePeerRoute(e, "peer-token", reg, func(_ string, s *yamux.Session) {
 			accepted <- s
 		})
 		ts := httptest.NewServer(e)
 		addr := strings.TrimPrefix(ts.URL, "http://")
-		Expect(reg.Register(ctx, peerID, addr, "test")).To(Succeed())
+		Expect(reg.Register(ctx, peerID, addr, "test", "")).To(Succeed())
 		return ts
 	}
 
@@ -69,7 +74,14 @@ var _ = Describe("Peer pool", func() {
 		Expect(cluster.Migrate(ctx, db)).To(Succeed())
 		reg = cluster.NewRegistry(db)
 		accepted = make(chan *yamux.Session, 4)
-		pool = cluster.NewPeerPool("self", "peer-token", reg)
+		// This replica's own identity, published before it dials anything. A
+		// pool whose id has no matching hash in the instances table is refused
+		// by every peer, which is the point of the credential and also the
+		// reason these specs must register one: a spec that skipped it would
+		// exercise the refusal path everywhere and prove nothing else.
+		selfCred = cluster.NewPeerCredential()
+		Expect(reg.Register(ctx, "self", "10.0.0.1:8080", "test", selfCred.Hash())).To(Succeed())
+		pool = cluster.NewPeerPool("self", "peer-token", selfCred, reg)
 		DeferCleanup(pool.Close)
 		srv = startPeer("peer-1")
 		DeferCleanup(srv.Close)
@@ -109,10 +121,10 @@ var _ = Describe("Peer pool", func() {
 		// link anonymous and indistinguishable from every other.
 		ids := make(chan string, 1)
 		e := echo.New()
-		servePeerRoute(e, "peer-token", func(id string, _ *yamux.Session) { ids <- id })
+		servePeerRoute(e, "peer-token", reg, func(id string, _ *yamux.Session) { ids <- id })
 		ts := httptest.NewServer(e)
 		DeferCleanup(ts.Close)
-		Expect(reg.Register(ctx, "peer-named", strings.TrimPrefix(ts.URL, "http://"), "test")).To(Succeed())
+		Expect(reg.Register(ctx, "peer-named", strings.TrimPrefix(ts.URL, "http://"), "test", "")).To(Succeed())
 
 		st, err := pool.Open(ctx, "peer-named")
 		Expect(err).ToNot(HaveOccurred())
@@ -152,10 +164,10 @@ var _ = Describe("Peer pool", func() {
 		// row. Reporting absence here would evict every worker behind a peer
 		// that was merely rolled out with a stale secret.
 		e := echo.New()
-		servePeerRoute(e, "a-different-token", func(_ string, s *yamux.Session) { accepted <- s })
+		servePeerRoute(e, "a-different-token", reg, func(_ string, s *yamux.Session) { accepted <- s })
 		ts := httptest.NewServer(e)
 		DeferCleanup(ts.Close)
-		Expect(reg.Register(ctx, "peer-strict", strings.TrimPrefix(ts.URL, "http://"), "test")).To(Succeed())
+		Expect(reg.Register(ctx, "peer-strict", strings.TrimPrefix(ts.URL, "http://"), "test", "")).To(Succeed())
 
 		_, err := pool.Open(ctx, "peer-strict")
 		Expect(err).To(MatchError(cluster.ErrPeerUnreachable))
@@ -261,7 +273,7 @@ var _ = Describe("Peer pool", func() {
 				held = append(held, c)
 			}
 		}()
-		Expect(reg.Register(ctx, "peer-silent", ln.Addr().String(), "test")).To(Succeed())
+		Expect(reg.Register(ctx, "peer-silent", ln.Addr().String(), "test", "")).To(Succeed())
 
 		deadlined, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
 		DeferCleanup(cancel)
@@ -293,7 +305,7 @@ var _ = Describe("Peer pool", func() {
 		Expect(err).ToNot(HaveOccurred())
 		addr := refused.Addr().String()
 		Expect(refused.Close()).To(Succeed())
-		Expect(reg.Register(ctx, "peer-refusing", addr, "test")).To(Succeed())
+		Expect(reg.Register(ctx, "peer-refusing", addr, "test", "")).To(Succeed())
 
 		_, err = pool.Open(deadlinePassed{ctx}, "peer-refusing")
 		Expect(err).To(MatchError(context.DeadlineExceeded))
