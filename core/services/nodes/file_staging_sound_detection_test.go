@@ -28,7 +28,37 @@ func (s *soundStagingFailure) EnsureRemote(context.Context, string, string, stri
 	return "", errors.New("upload failed")
 }
 
+type soundRouteFactory struct{ client grpc.Backend }
+
+func (f *soundRouteFactory) NewClient(string, bool) grpc.Backend { return f.client }
+
 var _ = Describe("FileStagingClient sound detection", func() {
+	It("stages sound audio through the client returned by SmartRouter.Route", func(ctx SpecContext) {
+		node := &BackendNode{ID: "worker-1", Name: "worker", Address: "10.0.0.1:50051"}
+		reg := &fakeModelRouter{
+			findAndLockNode: node,
+			findAndLockNM:   &NodeModel{NodeID: node.ID, ModelName: "ced", Address: "10.0.0.1:9001"},
+		}
+		backend := &soundStagingBackend{Backend: &stubBackend{healthResult: true}}
+		stager := &fakeFileStager{}
+		router := NewSmartRouter(reg, SmartRouterOptions{
+			ClientFactory: &soundRouteFactory{client: backend},
+			FileStager:    stager,
+			Unloader:      &fakeUnloader{},
+		})
+		result, err := router.Route(ctx, "ced", "ced.gguf", "ced", "", nil, false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).NotTo(BeNil())
+		defer result.Release()
+		request := &pb.SoundDetectionRequest{Src: "/tmp/realtime-sound-window-test.wav", ModelIdentity: "ced.gguf"}
+		_, err = result.Client.SoundDetection(ctx, request)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stager.ensureCalls).To(HaveLen(1))
+		Expect(stager.ensureCalls[0].localPath).To(Equal(request.Src))
+		Expect(backend.request.Src).To(Equal("/remote/" + stager.ensureCalls[0].key))
+		Expect(request.Src).To(Equal("/tmp/realtime-sound-window-test.wav"))
+	})
+
 	It("stages audio on the worker without changing the caller's request", func(ctx SpecContext) {
 		backend := &soundStagingBackend{}
 		stager := &fakeFileStager{}
