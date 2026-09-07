@@ -1190,6 +1190,10 @@ Notes:
 - Verify `--heartbeat-interval` is not set too high
 - Offline nodes automatically restore to healthy when they re-register (no re-approval needed)
 
+**InsightFace reports a missing MiniFASNet file after staging:**
+- Gallery models such as `insightface-buffalo-m` use a virtual primary name and load their files through options. The frontend derives the worker's model directory from successfully staged companion files or directories, so relative options resolve inside the model's staging directory.
+- If logs show matching hashes for the staged files but InsightFace still reports a bare filename such as `MiniFASNetV2.onnx` as missing, upgrade the frontend to include this path-resolution fix. Re-uploading the same files does not correct the directory passed to the backend.
+
 **Backend not installing:**
 - Check the worker logs for `backend.install` events
 
