@@ -401,7 +401,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *params_backend_arg = "";
     const char *rpc_servers_arg = "";
     const char *max_vram_arg = "";
-    bool stream_layers = false;
 
     int n_threads = threads;
     enum sd_type_t wtype = SD_TYPE_COUNT;
@@ -510,7 +509,10 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "params_backend")) params_backend_arg = strdup(optval);
         if (!strcmp(optname, "rpc_servers")) rpc_servers_arg = strdup(optval);
         if (!strcmp(optname, "max_vram")) max_vram_arg = strdup(optval);
-        if (!strcmp(optname, "stream_layers")) stream_layers = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
+        if (!strcmp(optname, "stream_layers")) {
+            // Retained as a no-op for existing configurations. Upstream now
+            // selects segmented weight streaming automatically.
+        }
 
         // vae_decode_only is still accepted for backwards compatibility with
         // existing gallery configs, but upstream dropped the option (the model
@@ -650,11 +652,9 @@ int load_model(const char *model, char *model_path, char* options[], int threads
             ctx_params.rpc_servers = env_rpc_servers;
         }
     }
-    // max_vram: GiB budget or per-backend spec for graph-cut segmented param
-    // offload ("0" = disabled, "-1" = auto). stream_layers only has effect when
-    // max_vram is set.
+    // max_vram is an optional GiB budget or per-backend spec for automatic
+    // graph-cut execution. A zero value uses the live free-VRAM budget.
     if (strlen(max_vram_arg) > 0) ctx_params.max_vram = max_vram_arg;
-    ctx_params.stream_layers = stream_layers;
     ctx_params.diffusion_flash_attn = diffusion_flash_attn;
     ctx_params.tae_preview_only = tae_preview_only;
     ctx_params.diffusion_conv_direct = diffusion_conv_direct;
@@ -1438,4 +1438,3 @@ int unload() {
     free_sd_ctx(sd_c);
     return 0;
 }
-
