@@ -32,8 +32,9 @@ const (
 	HeaderFileSize      = "X-File-Size"
 	// HeaderTargetSHA256 is set on HEAD responses for partial (resumable) uploads
 	// to expose the expected final SHA-256 of the in-progress file. When set,
-	// the file on disk is not yet the full content — the client may resume by
-	// PUT'ing the remainder with a matching X-Content-SHA256 header.
+	// the file on disk is not yet verified — the client may resume by
+	// PUT'ing the remainder with a matching X-Content-SHA256 header. A full-size
+	// file can still carry this marker if finalization was interrupted.
 	HeaderTargetSHA256 = "X-Target-SHA256"
 	hashSidecarSuffix  = ".sha256"
 	// targetSidecarSuffix stores the expected final SHA-256 of a partially
@@ -428,6 +429,13 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 			_ = os.Remove(dstPath + hashSidecarSuffix)
 			_ = os.Remove(targetSidecar)
 			currentSize = 0
+		} else if currentSize == cr.total {
+			// The final bytes may have landed before a worker stopped during
+			// verification. Clients retry from zero when HEAD reports the full
+			// size without a committed hash. Verify the actual bytes, not the
+			// target sidecar, so this retry can finish without a 416 loop.
+			finalizeRangeUpload(w, dstPath, key, currentSize, expectedFinalHash)
+			return
 		}
 	}
 
@@ -499,7 +507,13 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 		return
 	}
 
-	// Upload complete — compute the final hash by re-reading the file.
+	finalizeRangeUpload(w, dstPath, key, newSize, expectedFinalHash)
+}
+
+// finalizeRangeUpload also recovers transfers interrupted after the last byte
+// was written, so it must hash the file rather than trust cached metadata.
+func finalizeRangeUpload(w http.ResponseWriter, dstPath, key string, size int64, expectedFinalHash string) {
+	targetSidecar := dstPath + targetSidecarSuffix
 	finalHash, err := downloader.CalculateSHA(dstPath)
 	if err != nil {
 		xlog.Error("Failed to compute final hash on range upload", "path", dstPath, "error", err)
@@ -521,7 +535,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	// Clear the in-progress sidecar — upload is committed.
 	_ = os.Remove(targetSidecar)
 
-	xlog.Info("Resumable file upload complete", "key", key, "path", dstPath, "size", newSize, "sha256", finalHash)
+	xlog.Info("Resumable file upload complete", "key", key, "path", dstPath, "size", size, "sha256", finalHash)
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"local_path": dstPath}); err != nil {

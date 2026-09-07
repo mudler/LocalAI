@@ -1193,6 +1193,10 @@ Notes:
 **Backend not installing:**
 - Check the worker logs for `backend.install` events
 
+**Model staging repeatedly fails with HTTP 416 after all bytes have arrived:**
+- An interrupted upload can leave a full-size file marked as unfinished (`.sha256.target`). On retry, the worker verifies the file's SHA-256 and finalizes it if it matches, without rewriting the model. Corrupt content fails integrity validation and is removed.
+- Upgrade the affected worker to get this recovery behavior. Older workers can repeatedly reject retries from byte zero with `Content-Range start 0 does not match current file size`. File size alone is not proof that an upload is valid.
+
 **Requests still report an old context size or another old load option:**
 - Query `/api/nodes/:id/models` for every worker that hosts the model.
 - Confirm that every routable replica has `state: loaded` and the same current `config_revision`.
