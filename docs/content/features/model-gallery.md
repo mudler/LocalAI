@@ -233,6 +233,16 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
+The `huihui-qwen3.8-27b-abliterated` entry offers BF16, Q4_K, and Q8_0 GGUF
+builds for llama.cpp. Each build includes a BF16 vision projector and enables
+MTP speculative decoding. To install a specific quantization directly:
+
+```bash
+local-ai models install huihui-qwen3.8-27b-abliterated-q4
+# Or use the larger Q8_0 build:
+local-ai models install huihui-qwen3.8-27b-abliterated-q8
+```
+
 ### Collapsing the listing to one row per model
 
 By default the listing returns every entry, including the individual builds a
