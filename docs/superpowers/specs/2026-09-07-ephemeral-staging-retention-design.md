@@ -1,86 +1,141 @@
-# Ephemeral staging retention
+# Request-owned ephemeral staging
 
 ## Problem
 
-Distributed requests copy transient inputs to a worker below
-`<staging>/ephemeral/<category>/<request-id>`. LocalAI already has a worker
-cleanup loop, but its six-hour retention and 30-minute sweep defaults are too
-large for high-frequency inputs. A Reachy Mini sending camera and sound data
-about once per second created more than 21,000 request directories and filled
-the Mac worker before the first entries became eligible for deletion.
+Distributed requests copy transient inputs below
+`<staging>/ephemeral/<category>/<request-id>`. The worker currently removes
+these files only when a periodic age sweep considers them stale. A Reachy Mini
+sending camera and sound data about once per second created more than 21,000
+request directories and filled its Mac worker before the six-hour retention
+window elapsed.
 
-The current cleanup also decides whether a request directory is stale from the
-directory's own modification time. Creating a payload updates that timestamp,
-but continuing to write the payload does not. A sufficiently long upload can
-therefore look stale while its payload is still changing.
+Reducing the retention window is insufficient. A time limit bounds residence
+time, but the retained bytes still scale with request rate and input size. A
+quota sweeper would also have to infer whether an old file is still in use.
+Neither rule prevents concurrent uploads from consuming the worker's last free
+space.
 
 ## Goals
 
-- Bound worker-local ephemeral retention to one hour, matching LocalAI's
-  existing object-storage retention default.
-- Sweep immediately at worker startup and every 15 minutes afterward.
-- Preserve a request directory when any file within it is newer than the
-  retention cutoff.
-- Apply the policy to every ephemeral category and to both HTTP and S3/NATS
-  worker-local staging.
+- Give every ephemeral input an explicit owner and release it when that request
+  finishes, fails, or is cancelled.
+- Keep cleanup transport-independent for HTTP and S3/NATS workers.
+- Reserve capacity before accepting ephemeral bytes so concurrent requests
+  cannot consume configured disk headroom.
+- Reject a request cleanly when its input does not fit; never evict an input
+  that a running request may still be reading.
+- Recover abandoned files after frontend or worker crashes.
 - Never inspect or remove models, data, configuration, or paths outside the
-  worker's `staging/ephemeral` tree.
-- Keep cleanup best-effort: an unreadable or undeletable entry is logged and
-  does not stop the worker or the rest of the sweep.
+  worker's ephemeral staging tree.
 
 ## Non-goals
 
-- Immediate deletion at the end of each RPC.
-- A byte quota that can evict inputs belonging to long-running requests.
-- Cleanup of model files or other persistent worker data.
-- Deployment configuration changes for individual workers.
+- Retaining request inputs as a cache.
+- Evicting persistent model or data files to make an inference request fit.
+- Treating modification timestamps as proof that a request is active.
 
-## Design
+## Request ownership
 
-Keep `StartEphemeralStagingCleanup` as the lifecycle owner. A zero or negative
-TTL selects one hour, and a zero or negative interval selects 15 minutes. The
-cleanup goroutine performs one sweep when it starts, repeats on the interval,
-and exits when the worker shutdown context is cancelled.
+The `FileStagingClient` already creates one request ID before staging inputs and
+waits for synchronous and streaming backend calls to finish. It will track each
+ephemeral key before attempting to stage it and defer release of those exact
+keys. Release runs after the backend call returns, including error and
+cancellation paths, using a short background timeout so cancellation of the
+request does not cancel its cleanup.
 
-`CleanEphemeralStaging` continues to enumerate only the category and request
-levels below `<staging>/ephemeral`. Before deleting a request entry, it computes
-that entry's newest modification time, including descendants. If any payload or
-upload sidecar has been modified at or after the cutoff, the entire request is
-kept. Directory symlinks are not followed. A symlink encountered as a request
-entry may be unlinked, but cleanup must never traverse through it.
+Request IDs will use the full UUID rather than the current eight-character
+prefix. Cleanup addresses exact keys instead of deleting an inferred directory,
+so it cannot remove another request's input even if names collide.
 
-The default one-hour TTL plus the 15-minute interval gives completed or
-abandoned requests a maximum normal residence of about 75 minutes. The startup
-sweep handles files left by a prior worker crash without waiting for the first
-timer tick.
+`FileStager` will expose an idempotent `ReleaseRemote` operation:
+
+- HTTP sends `DELETE /v1/files/<ephemeral-key>`. The worker accepts deletion
+  only for a validated key below `ephemeral/`, removes that exact file, and
+  prunes empty request and category directories without following symlinks.
+- S3/NATS tells the selected worker to evict the exact local cached key and
+  deletes the matching object from shared storage. Either deletion may already
+  have happened and still counts as success.
+
+If staging fails partway through a request, the deferred release still includes
+the planned key, allowing it to remove a partial file when the transport can
+identify one. Cleanup errors are logged and do not replace the inference result.
+
+## Capacity admission
+
+A worker-local ephemeral capacity guard is shared by its HTTP and S3/NATS input
+paths. It accounts for both `<staging>/ephemeral`, used by HTTP, and
+`<cache>/ephemeral`, used by S3 downloads. Before writing an ephemeral object,
+the transport reserves its declared size. HTTP obtains the size from the upload
+metadata; S3/NATS obtains it from object metadata. Reservations are serialized
+in memory, cover both committed ephemeral bytes and concurrent writes, and are
+returned on release or failed transfer.
+
+Admission succeeds only when both conditions remain true after the reservation:
+
+1. Total ephemeral bytes remain below the configured ephemeral staging limit.
+2. The filesystem retains the configured minimum free-space headroom.
+
+The guard rejects the transfer before inference when either condition fails.
+An input with unknown size is written through a bounded accounting writer that
+reserves fixed-size chunks before writing each chunk and stops before crossing
+the limit. The existing maximum-upload-size check remains the per-file ceiling.
+
+The limit and headroom are worker settings. By default, ephemeral data may use
+the smaller of 10 GiB or 10 percent of filesystem capacity, while the worker
+preserves the larger of 1 GiB or 5 percent as free-space headroom. The worker
+logs the effective values at startup. A zero or negative operator value selects
+the default rather than disabling protection. The guard scans the ephemeral
+tree at startup to account for abandoned committed bytes. Filesystem free-space
+checks are repeated at reservation time because other processes may share the
+volume.
+
+## Crash recovery
+
+The existing periodic cleanup remains as a fallback for ownership messages lost
+when a frontend or worker process dies. It uses a one-hour recovery TTL,
+performs one startup sweep, and repeats every 15 minutes. It skips every key
+held by an active reservation, considers the newest modification time in each
+remaining request tree, and does not follow directory symlinks. It removes only
+request directories below the registered `<staging>/ephemeral` and
+`<cache>/ephemeral` roots.
+
+The recovery window does not control normal storage growth. Request completion
+and capacity reservations do. A recovery deletion updates the capacity guard's
+accounted bytes.
 
 ## Error handling and observability
 
-Missing ephemeral roots are normal and produce no warning. Read, stat, and
-remove failures include the affected path in a warning and allow the sweep to
-continue. A successful sweep logs the number of request entries removed. The
-startup log reports the effective TTL and interval.
+Admission failures report the requested bytes, current ephemeral usage, limit,
+available bytes, and required headroom. Successful release and recovery update
+usage counters. Read, stat, and remove failures include the affected path and
+allow unrelated cleanup to continue. Missing ephemeral files and directories
+are normal for idempotent release.
 
 ## Testing
 
 Regression tests will establish the following behavior:
 
-1. With default settings, a request two hours old is removed by the startup
-   sweep. This fails with the current six-hour default.
-2. A request directory older than the cutoff is retained when a nested payload
-   was modified recently. This fails with the current directory-only age test.
-3. A request whose directory and descendants are stale is removed.
-4. Fresh requests, persistent paths outside `ephemeral`, and symlink targets
-   outside the staging tree remain untouched.
-5. Cancellation stops the periodic cleanup loop.
+1. Successful, failed, cancelled, and streaming calls release every exact key
+   only after the backend has returned.
+2. Partial staging failures release the planned key without changing the main
+   error returned to the caller.
+3. HTTP and S3/NATS release remove local files; S3/NATS also removes the object.
+4. Release rejects persistent keys and path traversal, does not follow
+   symlinks, and leaves paths outside `ephemeral` untouched.
+5. Concurrent reservations cannot exceed the byte limit or free-space
+   headroom, and failed transfers return their reservations.
+6. Unknown-length writes stop at the capacity boundary.
+7. Startup accounting includes abandoned ephemeral files, and the recovery
+   sweep removes only stale, inactive leftovers and updates accounting.
 
-Focused worker tests will run with race detection after the red/green cycle,
-followed by the repository's relevant lint and vet checks.
+Focused package tests will run with race detection, followed by the relevant
+repository lint and vet checks.
 
 ## Rollout
 
-The change requires a new LocalAI worker build. On startup, the Mac worker will
-remove the backlog older than one hour using its existing root privileges. No
-manual deletion or model removal is required. After deployment, verification
-will check available disk space, the cleanup log, and that new sound, vision,
-and transcription requests still succeed.
+The change requires a new LocalAI worker and frontend build because both sides
+participate in release. The Mac worker starts by accounting for its existing
+backlog and removing recovery-expired files. The deployment check will verify
+available space, admission and release logs, stable ephemeral usage under
+continuous camera and audio traffic, and successful vision, sound detection,
+and transcription requests.
