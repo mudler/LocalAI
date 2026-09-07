@@ -7,6 +7,7 @@ import time
 from unittest.mock import patch, MagicMock
 
 # Import dynamic loader for testing (these don't need gRPC)
+import backend
 import diffusers_dynamic_loader as loader
 from diffusers import DiffusionPipeline, StableDiffusionPipeline
 
@@ -425,3 +426,22 @@ class TestGenerateImageOptionsKwargsMerge(unittest.TestCase):
             self.assertEqual(pipeline.kwargs["num_inference_steps"], 4)
         finally:
             os.unlink(dst_path)
+
+
+class TestDeviceSelection(unittest.TestCase):
+    """Unit tests for backend.select_device (no GPU required)."""
+
+    def test_autodetect_cuda(self):
+        self.assertEqual(backend.select_device(False, None, True, False, False), "cuda")
+
+    def test_cpu_fallback(self):
+        self.assertEqual(backend.select_device(False, None, False, False, False), "cpu")
+
+    def test_forced_cuda(self):
+        self.assertEqual(backend.select_device(True, None, False, False, False), "cuda")
+
+    def test_device_option_wins(self):
+        self.assertEqual(backend.select_device(True, "cpu", True, True, True), "cpu")
+
+    def test_mps_overrides(self):
+        self.assertEqual(backend.select_device(False, None, True, False, True), "mps")

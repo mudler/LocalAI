@@ -739,7 +739,7 @@ For image generation models using the `diffusers` backend:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `diffusers.cuda` | bool | Enable CUDA for diffusers |
+| `diffusers.cuda` | bool | Force CUDA. By default the backend auto-detects and uses CUDA when a compatible GPU is present (ROCm builds included). Pin the CPU with `options: ["device:cpu"]` |
 | `diffusers.pipeline_type` | string | Pipeline type (e.g., `stable-diffusion`, `stable-diffusion-xl`) |
 | `diffusers.scheduler_type` | string | Scheduler type (e.g., `euler`, `ddpm`) |
 | `diffusers.enable_parameters` | string | Comma-separated parameters to enable |
