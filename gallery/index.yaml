@@ -14484,6 +14484,202 @@
             - vae/**
     parameters:
       model: meituan-longcat/LongCat-Video-Avatar-1.5
+- name: qwen3.8-27b-exl3-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3.8-27B EXL3 3.5bpw served by vllm.cpp, LocalAI's C++ vLLM-style
+    runtime. The published checkpoint generates on CUDA and measured 16.7
+    tokens/s on GB10 with the pinned revision and the limits configured here.
+
+    This is the target-only setup. Use the DFlash2 variant for the measured
+    speculative-decoding configuration. The entry downloads the complete
+    revision-pinned repository, including its configuration, tokenizer, index,
+    and safetensors shards.
+  tags:
+    - llm
+    - qwen
+    - qwen3.8
+    - exl3
+    - vllm-cpp
+    - reasoning
+    - tool-calling
+    - gpu
+    - cuda
+  size: 15.4GB
+  last_checked: "2026-09-07"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 8192
+    engine_args:
+      num_blocks: 2048
+      max_num_seqs: 8
+      max_num_batched_tokens: 16384
+      enable_prefix_caching: false
+    parameters:
+      model: Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+          revision: 19441ac874c4018295da848e250f23511361cda4
+- name: qwen3.8-27b-dflash2-exl3-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+    - https://huggingface.co/Mia-AiLab/Qwen3.8-27B-DFlash2-EXL3-5.0bpw
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3.8-27B EXL3 with its EXL3 DFlash2 companion, served by vllm.cpp. On
+    GB10 this pinned pair measured 48.7 tokens/s at a seven-token draft budget,
+    versus 16.7 tokens/s target-only, with token-identical greedy output.
+
+    LocalAI stages both complete Hugging Face repositories before load. The
+    content-addressed companion snapshot is passed to the backend as the draft
+    model, while the speculative method and seven-token budget remain fixed.
+  tags:
+    - llm
+    - qwen
+    - qwen3.8
+    - exl3
+    - vllm-cpp
+    - speculative-decoding
+    - dflash
+    - reasoning
+    - tool-calling
+    - gpu
+    - cuda
+  size: 16.9GB
+  last_checked: "2026-09-07"
+  variants:
+    - model: qwen3.8-27b-exl3-vllm-cpp
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 8192
+    engine_args:
+      num_blocks: 2048
+      max_num_seqs: 8
+      max_num_batched_tokens: 16384
+      enable_prefix_caching: false
+      speculative_config:
+        method: dflash
+        model: Mia-AiLab/Qwen3.8-27B-DFlash2-EXL3-5.0bpw
+        num_speculative_tokens: 7
+    parameters:
+      model: Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+          revision: 19441ac874c4018295da848e250f23511361cda4
+      - name: draft_model
+        target: companion
+        source:
+          type: huggingface
+          repo: Mia-AiLab/Qwen3.8-27B-DFlash2-EXL3-5.0bpw
+          revision: 4f0436269bca761b071f05319e8e04a87cc633f9
+- name: deepseek-v4-flash-spark-exl3-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/0xSero/deepseek-v4-flash-0731-spark
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    DeepSeek V4 Flash's Spark and GB10-oriented REAP-K216 EXL3 checkpoint,
+    served by vllm.cpp. It needs CUDA and roughly 100 GiB for its large
+    rank-sliced checkpoint.
+
+    The repository is pinned to its latest recorded revision. vllm.cpp's
+    existing runtime evidence measured the older 22f28d32b9b29b4352eaa380ff8c2c170b2847ab
+    revision; this entry does not claim that the newer revision has passed the
+    same end-to-end gate.
+  tags:
+    - llm
+    - deepseek
+    - deepseek-v4
+    - exl3
+    - vllm-cpp
+    - gpu
+    - cuda
+    - gb10
+  size: 100GB
+  last_checked: "2026-09-07"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: 0xSero/deepseek-v4-flash-0731-spark
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: 0xSero/deepseek-v4-flash-0731-spark
+          revision: ce5ff0f1efb2e184aafc759d281bfae47d3a359c
+- name: deepseek-v4-flash-exl3-3bpw-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/0xSero/DeepSeek-V4-Flash-0731-EXL3-3.0bpw
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Experimental non-Spark DeepSeek V4 Flash EXL3 3.0bpw checkpoint served by
+    vllm.cpp. This is the complete, non-REAP layout and requires a large
+    multi-GPU CUDA system.
+
+    The publisher describes the artifact as structurally complete but has not
+    passed end-to-end generation. Treat this entry as an integration target,
+    not as a correctness- or performance-gated configuration.
+  tags:
+    - llm
+    - deepseek
+    - deepseek-v4
+    - exl3
+    - vllm-cpp
+    - experimental
+    - gpu
+    - cuda
+  last_checked: "2026-09-07"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: 0xSero/DeepSeek-V4-Flash-0731-EXL3-3.0bpw
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: 0xSero/DeepSeek-V4-Flash-0731-EXL3-3.0bpw
+          revision: e0bf84ac76a5100e8790c22ad10b70b1e2d06d71
 - name: qwen3.6-27b-nvfp4-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
