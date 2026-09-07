@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -56,6 +57,9 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 	fm, err := storage.NewFileManager(s3Store, cacheDir)
 	if err != nil {
 		return fmt.Errorf("initializing file manager: %w", err)
+	}
+	if err := subscribeFileRelease(natsClient, nodeID, fm, cacheDir); err != nil {
+		return err
 	}
 
 	// Subscribe: files.ensure — download S3 key to local, reply with local path
@@ -197,5 +201,121 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 	}
 
 	xlog.Info("Subscribed to file staging NATS subjects", "nodeID", nodeID)
+	return nil
+}
+
+func subscribeFileRelease(natsClient messaging.MessagingClient, nodeID string, fm *storage.FileManager, cacheDir string) error {
+	if _, err := natsClient.SubscribeReply(messaging.SubjectNodeFilesRelease(nodeID), func(data []byte, reply func([]byte)) {
+		var req struct {
+			Key string `json:"key"`
+		}
+		if err := json.Unmarshal(data, &req); err != nil {
+			replyJSON(reply, map[string]string{"error": "invalid request"})
+			return
+		}
+		cachePath, err := fm.CachePath(req.Key)
+		if err == nil {
+			err = releaseEphemeralCachePath(cacheDir, req.Key, cachePath)
+		}
+		if err != nil {
+			replyJSON(reply, map[string]string{"error": err.Error()})
+			return
+		}
+		replyJSON(reply, map[string]string{})
+	}); err != nil {
+		return fmt.Errorf("subscribing to files.release events: %w", err)
+	}
+	return nil
+}
+
+func releaseEphemeralCacheKey(cacheDir, key string) error {
+	return releaseEphemeralCachePath(cacheDir, key, filepath.Join(cacheDir, filepath.FromSlash(key)))
+}
+
+func releaseEphemeralCachePath(cacheDir, key, filePath string) error {
+	if err := validateEphemeralCacheKey(key); err != nil {
+		return err
+	}
+	if err := validateReleasePath(filePath, cacheDir); err != nil {
+		return err
+	}
+	if info, err := os.Lstat(filePath); err == nil && info.IsDir() {
+		return fmt.Errorf("release key identifies a directory")
+	} else if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	for _, path := range []string{filePath, filePath + ".sha256", filePath + ".sha256.target"} {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	for _, dir := range []string{filepath.Dir(filePath), filepath.Dir(filepath.Dir(filePath))} {
+		entries, err := os.ReadDir(dir)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if len(entries) == 0 {
+			if err := os.Remove(dir); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateEphemeralCacheKey(key string) error {
+	if strings.Contains(key, "\\") || path.Clean(key) != key {
+		return fmt.Errorf("invalid ephemeral key %q", key)
+	}
+	parts := strings.Split(key, "/")
+	if len(parts) != 4 || parts[0] != "ephemeral" {
+		return fmt.Errorf("release key %q must identify one file below ephemeral/", key)
+	}
+	for _, part := range parts[1:] {
+		if part == "" || part == "." || part == ".." {
+			return fmt.Errorf("invalid ephemeral key %q", key)
+		}
+	}
+	return nil
+}
+
+func validateReleasePath(targetPath, baseDir string) error {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return err
+	}
+	realBase, err := filepath.EvalSymlinks(absBase)
+	if err != nil {
+		return err
+	}
+	absTarget, err := filepath.Abs(targetPath)
+	if err != nil {
+		return err
+	}
+	realTarget, err := filepath.EvalSymlinks(absTarget)
+	if err != nil {
+		remaining := filepath.Base(absTarget)
+		dir := filepath.Dir(absTarget)
+		for {
+			resolved, resolveErr := filepath.EvalSymlinks(dir)
+			if resolveErr == nil {
+				realTarget = filepath.Join(resolved, remaining)
+				break
+			}
+			remaining = filepath.Join(filepath.Base(dir), remaining)
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				realTarget = filepath.Clean(absTarget)
+				break
+			}
+			dir = parent
+		}
+	}
+	if realTarget != realBase && !strings.HasPrefix(realTarget, realBase+string(filepath.Separator)) {
+		return fmt.Errorf("path %q resolves outside ephemeral cache", targetPath)
+	}
 	return nil
 }

@@ -1,6 +1,11 @@
 package nodes
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"path"
+	"strings"
+)
 
 // FileStager abstracts file transfer between frontend and backend nodes
 // in distributed mode. Two implementations exist:
@@ -29,7 +34,26 @@ type FileStager interface {
 	// StageRemoteToStore uploads a remote file to shared storage.
 	StageRemoteToStore(ctx context.Context, nodeID, remotePath, key string) error
 
+	// ReleaseRemote removes one ephemeral key from the remote node.
+	ReleaseRemote(ctx context.Context, nodeID, key string) error
+
 	// ListRemoteDir returns relative file paths within a directory on the remote node.
 	// keyPrefix is a storage-style key prefix (e.g. "models/mymodel").
 	ListRemoteDir(ctx context.Context, nodeID, keyPrefix string) ([]string, error)
+}
+
+func validateEphemeralReleaseKey(key string) error {
+	if strings.Contains(key, "\\") || path.Clean(key) != key {
+		return fmt.Errorf("invalid ephemeral key %q", key)
+	}
+	parts := strings.Split(key, "/")
+	if len(parts) != 4 || parts[0] != "ephemeral" {
+		return fmt.Errorf("release key %q must identify one file below ephemeral/", key)
+	}
+	for _, part := range parts[1:] {
+		if part == "" || part == "." || part == ".." {
+			return fmt.Errorf("invalid ephemeral key %q", key)
+		}
+	}
+	return nil
 }

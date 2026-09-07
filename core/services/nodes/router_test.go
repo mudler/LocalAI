@@ -52,6 +52,8 @@ func (f *fakeFileStager) AllocRemoteTemp(_ context.Context, _ string) (string, e
 
 func (f *fakeFileStager) StageRemoteToStore(_ context.Context, _, _, _ string) error { return nil }
 
+func (f *fakeFileStager) ReleaseRemote(_ context.Context, _, _ string) error { return nil }
+
 func (f *fakeFileStager) ListRemoteDir(_ context.Context, _, _ string) ([]string, error) {
 	return nil, nil
 }

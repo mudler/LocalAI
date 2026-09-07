@@ -48,6 +48,14 @@ type fileStageReply struct {
 	Error string `json:"error,omitempty"`
 }
 
+type fileReleaseRequest struct {
+	Key string `json:"key"`
+}
+
+type fileReleaseReply struct {
+	Error string `json:"error,omitempty"`
+}
+
 type fileTempRequest struct{}
 
 type fileTempReply struct {
@@ -179,5 +187,29 @@ func (s *S3NATSFileStager) StageRemoteToStore(ctx context.Context, nodeID, remot
 		return fmt.Errorf("backend stage failed: %s", reply.Error)
 	}
 
+	return nil
+}
+
+// ReleaseRemote evicts one exact ephemeral key from the worker before deleting
+// the shared object.
+func (s *S3NATSFileStager) ReleaseRemote(ctx context.Context, nodeID, key string) error {
+	if err := validateEphemeralReleaseKey(key); err != nil {
+		return err
+	}
+	reply, err := messaging.RequestJSON[fileReleaseRequest, fileReleaseReply](
+		s.nats,
+		messaging.SubjectNodeFilesRelease(nodeID),
+		fileReleaseRequest{Key: key},
+		30*time.Second,
+	)
+	if err != nil {
+		return err
+	}
+	if reply.Error != "" {
+		return fmt.Errorf("backend release failed: %s", reply.Error)
+	}
+	if err := s.fm.Delete(ctx, key); err != nil {
+		return fmt.Errorf("deleting shared object %q: %w", key, err)
+	}
 	return nil
 }

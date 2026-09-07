@@ -119,6 +119,8 @@ func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDi
 			handleUpload(w, r, stagingDir, modelsDir, dataDir, key, maxUploadSize)
 		case http.MethodGet:
 			handleDownload(w, r, stagingDir, modelsDir, dataDir, key)
+		case http.MethodDelete:
+			handleRelease(w, r, stagingDir, key)
 		case http.MethodPost:
 			if key == "temp" {
 				handleAllocTemp(w, r, stagingDir)
@@ -180,6 +182,57 @@ func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDi
 	}()
 
 	return server, nil
+}
+
+func handleRelease(w http.ResponseWriter, _ *http.Request, stagingDir, key string) {
+	if err := validateEphemeralReleaseKey(key); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	filePath := filepath.Join(stagingDir, filepath.FromSlash(key))
+	if err := validatePathInDir(filePath, stagingDir); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if info, err := os.Lstat(filePath); err == nil && info.IsDir() {
+		http.Error(w, "release key identifies a directory", http.StatusBadRequest)
+		return
+	} else if err != nil && !os.IsNotExist(err) {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, path := range []string{filePath, filePath + hashSidecarSuffix, filePath + targetSidecarSuffix} {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	categoryDir := filepath.Dir(filePath)
+	requestDir := filepath.Dir(categoryDir)
+	for _, dir := range []string{categoryDir, requestDir} {
+		if err := pruneEmptyDir(dir); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func pruneEmptyDir(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if len(entries) != 0 {
+		return nil
+	}
+	if err := os.Remove(dir); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func handleHead(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string) {

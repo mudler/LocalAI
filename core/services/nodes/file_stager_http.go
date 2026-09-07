@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -79,6 +80,35 @@ func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token st
 		responseTimeout: responseTimeout,
 		maxRetries:      maxRetries,
 	}
+}
+
+// ReleaseRemote removes one exact ephemeral key from a backend node.
+func (h *HTTPFileStager) ReleaseRemote(ctx context.Context, nodeID, key string) error {
+	if err := validateEphemeralReleaseKey(key); err != nil {
+		return err
+	}
+	addr, err := h.httpAddrFor(nodeID)
+	if err != nil {
+		return fmt.Errorf("resolving HTTP address for node %s: %w", nodeID, err)
+	}
+	releaseURL := (&url.URL{Scheme: "http", Host: addr, Path: "/v1/files/" + key}).String()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, releaseURL, nil)
+	if err != nil {
+		return fmt.Errorf("creating release request for %q: %w", key, err)
+	}
+	if h.token != "" {
+		req.Header.Set("Authorization", "Bearer "+h.token)
+	}
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("releasing %q from node %s: %w", key, nodeID, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("releasing %q from node %s: status %d: %s", key, nodeID, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
 }
 
 func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, key string) (string, error) {
