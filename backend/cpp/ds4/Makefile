@@ -79,21 +79,22 @@ else
 endif
 endif
 
-# Upstream splits distributed inference, tensor-parallel transport, the SSD
-# expert cache, and layer placement into GPU-agnostic translation units. They
-# are shared by every GPU mode, so append them unconditionally below.
+# Upstream splits image preprocessing, distributed inference, tensor-parallel
+# transport, the SSD expert cache, and layer placement into GPU-agnostic
+# translation units. They are shared by every GPU mode, so append them
+# unconditionally below.
 ifeq ($(BUILD_TYPE),cublas)
     CMAKE_ARGS += -DDS4_GPU=cuda
-    DS4_OBJ_TARGET := ds4.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o \
+    DS4_OBJ_TARGET := ds4.o ds4_image.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o \
         cuda/mmq/ds4_ggml_stubs.o cuda/mmq/ds4_mmq.o cuda/mmq/ds4_mmq_d2r.o \
         cuda/mmq/quantize.o cuda/mmq/mmid.o cuda/mmq/mmvq.o cuda/mmq/ds4_repack.o
 else ifeq ($(UNAME_S),Darwin)
     CMAKE_ARGS += -DDS4_GPU=metal
-    DS4_OBJ_TARGET := ds4.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+    DS4_OBJ_TARGET := ds4.o ds4_image.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
 else
     # CPU reference path (Linux only - macOS CPU path is broken by VM bug per ds4 README).
     CMAKE_ARGS += -DDS4_GPU=cpu
-    DS4_OBJ_TARGET := ds4_cpu.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+    DS4_OBJ_TARGET := ds4_cpu.o ds4_image.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
 endif
 
 ifneq ($(NATIVE),true)
@@ -120,9 +121,9 @@ ds4/ds4.o: ds4
 ifeq ($(BUILD_TYPE),cublas)
 	+$(MAKE) -C ds4 $(DS4_ARCH_MAKEVARS) $(DS4_OBJ_TARGET)
 else ifeq ($(UNAME_S),Darwin)
-	+$(MAKE) -C ds4 ds4.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+	+$(MAKE) -C ds4 ds4.o ds4_image.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
 else
-	+$(MAKE) -C ds4 ds4_cpu.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+	+$(MAKE) -C ds4 ds4_cpu.o ds4_image.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
 endif
 
 grpc-server: ds4/ds4.o
