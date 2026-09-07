@@ -56,5 +56,6 @@ type Match struct {
 var (
 	ErrNotFound          = errors.New("facerecognition: id not found")
 	ErrEmptyEmbedding    = errors.New("facerecognition: embedding is empty")
+	ErrInvalidEmbedding  = errors.New("facerecognition: embedding must be finite and nonzero")
 	ErrDimensionMismatch = errors.New("facerecognition: embedding dimension mismatch")
 )

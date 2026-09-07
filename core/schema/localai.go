@@ -353,10 +353,12 @@ type FaceEmbedResponse struct {
 // FaceRegisterRequest enrolls a face into the 1:N recognition store.
 type FaceRegisterRequest struct {
 	BasicModelRequest
-	Img    string            `json:"img"`
-	Name   string            `json:"name"`
-	Labels map[string]string `json:"labels,omitempty"`
-	Store  string            `json:"store,omitempty"` // vector store model; empty = local-store default
+	RegisteredAt time.Time         `json:"registered_at,omitempty"` // original enrollment time when replaying a saved embedding
+	Embedding    []float32         `json:"embedding,omitempty"`
+	Img          string            `json:"img"`
+	Name         string            `json:"name"`
+	Labels       map[string]string `json:"labels,omitempty"`
+	Store        string            `json:"store,omitempty"` // vector store model; empty = local-store default
 }
 
 type FaceRegisterResponse struct {
