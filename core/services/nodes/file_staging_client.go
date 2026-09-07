@@ -16,6 +16,7 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 	ggrpc "google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // FileStagingClient wraps a grpc.Backend to transparently handle file transfer
@@ -340,6 +341,19 @@ func (f *FileStagingClient) SoundGeneration(ctx context.Context, in *pb.SoundGen
 	}
 
 	return result, nil
+}
+
+func (f *FileStagingClient) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest, opts ...ggrpc.CallOption) (*pb.SoundDetectionResponse, error) {
+	if in.Src != "" && isFilePath(in.Src) {
+		backendPath, _, err := f.stageInputFile(ctx, requestID(), in.Src, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging audio for sound detection: %w", err)
+		}
+		// Keep the frontend path available if the caller retries on another node.
+		in = proto.Clone(in).(*pb.SoundDetectionRequest)
+		in.Src = backendPath
+	}
+	return f.Backend.SoundDetection(ctx, in, opts...)
 }
 
 func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
