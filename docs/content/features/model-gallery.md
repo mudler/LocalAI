@@ -193,6 +193,12 @@ where:
 
 ### Model variants
 
+For example, `qwopus3.8-27b-flash` offers Q4_K_M and Q8_0 GGUF builds
+with llama.cpp MTP speculative decoding and the F32 vision projector.
+Install `qwopus3.8-27b-flash-q8` directly to select Q8_0 explicitly.
+Both builds use the embedded chat template. The publisher reports a known
+Python code indentation issue.
+
 Some gallery entries offer several builds of the same model: different
 quantizations, or the same weights served by a different engine. Such an entry
 carries a `variants` list, and installing it normally lets LocalAI choose:
