@@ -79,4 +79,30 @@ test.describe('Traces - bounded list and on-demand detail', () => {
     await expect(page.locator('text=hello from the response body')).toBeVisible()
     await expect(page.locator('text=203.0.113.9').first()).toBeVisible()
   })
+
+  test('keeps the expanded trace open when a refresh prepends a new row', async ({ page }) => {
+    await page.locator('tr', { hasText: '/v1/chat/completions' }).first().click()
+    await expect(page.locator('text=hello from the request body')).toBeVisible()
+
+    await page.route('**/api/traces?*', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        headers: { 'X-Total-Count': '843' },
+        body: JSON.stringify([
+          {
+            id: '8',
+            request: { method: 'GET', path: '/v1/models', body: null },
+            response: { status: 200, body: null },
+          },
+          ...LIST_BODY,
+        ]),
+      })
+    })
+
+    await page.getByRole('button', { name: 'Refresh' }).click()
+
+    await expect(page.locator('text=hello from the request body')).toBeVisible()
+    const originalRow = page.locator('tr', { hasText: '/v1/chat/completions' }).first()
+    await expect(originalRow.locator('i.fa-chevron-down')).toBeVisible()
+  })
 })

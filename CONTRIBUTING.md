@@ -218,7 +218,7 @@ LocalAI follows the **same guidelines as the Linux kernel project** for AI-assis
 
 The full policy for this repository lives in [`.agents/ai-coding-assistants.md`](.agents/ai-coding-assistants.md). Summary:
 
-- **AI agents MUST NOT add `Signed-off-by` tags.** Only humans can certify the Developer Certificate of Origin.
+- **AI agents MUST NOT add `Signed-off-by` tags.** Only humans can certify the Developer Certificate of Origin. Automation operated by a maintainer is the one exception: it signs off with that maintainer's identity, because there is no other human submitter to certify it.
 - **AI agents MUST NOT add `Co-Authored-By` trailers** attributing themselves as co-authors.
 - **Attribute AI involvement with an `Assisted-by` trailer** in the commit message:
 

@@ -107,8 +107,7 @@ services:
     # detects worker mode and derives the port from LOCALAI_SERVE_ADDR below
     # (gRPC base port - 1 = 50050). It runs inside the container, so a loopback
     # bind is enough for it. The worker's /readyz reports 503 while it holds no
-    # tunnel session, so `unhealthy` here means the frontend genuinely cannot
-    # reach this worker.
+    # tunnel session or a serving backend no longer answers its gRPC port.
     #
     # This worker connects to nothing but the frontend. Everything the frontend
     # asks of it travels the tunnel this container dials out to localai:8080, so

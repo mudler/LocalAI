@@ -16,6 +16,7 @@ import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
+from transcript_utils import require_diarization_token, seconds_to_nanoseconds
 
 
 
@@ -81,6 +82,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         import whisperx
         from whisperx.diarize import DiarizationPipeline
 
+        try:
+            require_diarization_token(request.diarize, self.hf_token)
+        except ValueError as err:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(err))
+
         resultSegments = []
         text = ""
         try:
@@ -117,8 +123,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Build result segments
             for idx, seg in enumerate(transcript["segments"]):
                 seg_text = seg.get("text", "")
-                start = int(seg.get("start", 0))
-                end = int(seg.get("end", 0))
+                start = seconds_to_nanoseconds(seg.get("start", 0))
+                end = seconds_to_nanoseconds(seg.get("end", 0))
                 speaker = seg.get("speaker", "")
 
                 resultSegments.append(backend_pb2.TranscriptSegment(

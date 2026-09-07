@@ -128,11 +128,66 @@ class TestSglangHelpers(unittest.TestCase):
         self.assertNotIn("enable_thinking", kwargs_for({}))
         self.assertIs(kwargs_for({"enable_thinking": "FALSE"})["enable_thinking"], False)
 
-    def test_explicit_zero_temperature_is_preserved(self):
-        """Temperature=0 is valid greedy decoding, not an unset value."""
+    def test_reasoning_parser_forced_when_template_prefills_think_tag(self):
+        """Qwen3's template puts ``<think>`` in the prompt, so the completion
+        never contains it. Without force_reasoning the detector treats the whole
+        completion as normal text and reasoning_content stays empty."""
+        servicer = self._servicer()
+        servicer.reasoning_parser_name = "qwen3"
+
+        # What the model actually emits when the prompt ends in "<think>".
+        completion = "adding two and two</think>4"
+
+        forced = servicer._new_reasoning_parser(False, prompt="user: hi\n<think>\n")
+        reasoning, content = forced.parse_non_stream(completion)
+        self.assertEqual(reasoning, "adding two and two")
+        self.assertEqual(content, "4")
+
+        # No prefilled tag in the prompt: detector default, unchanged behaviour.
+        unforced = servicer._new_reasoning_parser(False, prompt="user: hi\n")
+        reasoning, content = unforced.parse_non_stream(completion)
+        self.assertFalse(reasoning)
+        self.assertEqual(content, completion)
+
+    def test_reasoning_parser_not_forced_when_thinking_is_off(self):
+        """Thinking off means no ``<think>`` in the prompt either, so the answer
+        must not be swallowed into reasoning_content."""
+        servicer = self._servicer()
+        servicer.reasoning_parser_name = "qwen3"
+
+        parser = servicer._new_reasoning_parser(False, prompt="user: primes?\n")
+        reasoning, content = parser.parse_non_stream("2,3,5,7,11")
+        self.assertFalse(reasoning)
+        self.assertEqual(content, "2,3,5,7,11")
+
+    def test_grammar_constrained_output_is_not_forced_into_reasoning(self):
+        """Structured decoding applies from the first token, so the model cannot
+        emit the closing tag even though the template opened the block. The whole
+        completion is schema output and must stay in content."""
+        servicer = self._servicer()
+        servicer.reasoning_parser_name = "qwen3"
+
+        schema_out = '{"findings": [{"line": 42, "issue": "off-by-one"}]}'
+        parser = servicer._new_reasoning_parser(
+            False, prompt="audit this\n<think>\n", grammar_constrained=True,
+        )
+        reasoning, content = parser.parse_non_stream(schema_out)
+        self.assertFalse(reasoning)
+        self.assertEqual(content, schema_out)
+
+    def test_reasoning_parser_absent_without_configured_parser(self):
+        servicer = self._servicer()
+        servicer.reasoning_parser_name = None
+        self.assertIsNone(servicer._new_reasoning_parser(False, prompt="<think>"))
+
+    def test_explicit_zero_temperature_and_seed_are_preserved(self):
+        """Temperature=0 is greedy decoding and 0 is a valid seed — neither is
+        an unset value. A dropped seed turns a reproducible request random."""
         from types import SimpleNamespace
 
         servicer = self._servicer()
+        import sys as _sys
+        _SEED_KEY_FOR_TEST = _sys.modules["backend"]._SEED_KEY
         request = SimpleNamespace(
             Temperature=0,
             N=0,
@@ -154,8 +209,12 @@ class TestSglangHelpers(unittest.TestCase):
 
         params = servicer._build_sampling_params(request)
         self.assertEqual(params["temperature"], 0)
-        # Other protobuf-default scalar fields must remain filtered.
+        self.assertEqual(params[_SEED_KEY_FOR_TEST], 0)
+        # Other protobuf-default scalar fields must remain filtered. top_k=0 in
+        # particular is not a value sglang accepts (-1 disables it), so it must
+        # keep falling through to the engine default.
         self.assertNotIn("top_p", params)
+        self.assertNotIn("top_k", params)
 
 
 if __name__ == "__main__":

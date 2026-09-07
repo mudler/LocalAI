@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/pgbus"
@@ -250,6 +251,17 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, fmt.Errorf("initializing node registry: %w", err)
 	}
 	xlog.Info("Node registry initialized")
+
+	// Bound durable heartbeat writes: a beat that only carries a fresher
+	// timestamp is what turned backend_nodes into a 460 MB six-row table.
+	registry.SetHeartbeatCheckpoint(cfg.Distributed.NodeHeartbeatCheckpointOrDefault())
+
+	// Measure the vacuum horizon. The 42 days it stayed open went unnoticed
+	// because no gauge reported it until models started failing to load.
+	if err := monitoring.RegisterControlPlaneDBMetrics(authDB, 30*time.Second); err != nil {
+		// Metrics are diagnostic; a failure here must not stop the frontend.
+		xlog.Warn("Control-plane database metrics unavailable", "error", err)
+	}
 
 	// Replica membership. NewNodeRegistry has just migrated the tables this
 	// reads, so it has to come after it.

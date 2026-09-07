@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -249,6 +250,17 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	go heartbeatLoop(shutdownCtx, ticker.C, func(ctx context.Context) error {
 		return regClient.Heartbeat(ctx, nodeID, cfg.heartbeatBody())
 	})
+
+	readiness.Set(nodes.CompositeReadiness(
+		nodes.TunnelReadiness(tunnel),
+		nodes.BackendDataPathReadiness(supervisor, func(addr string) error {
+			conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+			if err != nil {
+				return err
+			}
+			return conn.Close()
+		}),
+	))
 
 	xlog.Info("Worker ready, serving its control plane over the tunnel")
 	<-sigCh

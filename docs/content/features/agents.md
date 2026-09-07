@@ -288,6 +288,9 @@ All agent endpoints are grouped under `/api/agents/`:
 | `POST` | `/api/agents/collections/:name/upload` | Upload a document |
 | `GET` | `/api/agents/collections/:name/entries` | List entries |
 | `POST` | `/api/agents/collections/:name/search` | Search a collection |
+| `GET` | `/api/agents/collections/:name/sources` | List external sources |
+| `POST` | `/api/agents/collections/:name/sources` | Add an external source (`update_interval` is an integer number of minutes; defaults to 60) |
+| `DELETE` | `/api/agents/collections/:name/sources` | Remove an external source |
 | `POST` | `/api/agents/collections/:name/reset` | Reset a collection |
 
 ### Actions

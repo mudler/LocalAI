@@ -52,12 +52,13 @@ type DistributedConfig struct {
 	StorageSecretKey string // --storage-secret-key / LOCALAI_STORAGE_SECRET_KEY
 
 	// Timeout configuration (all have sensible defaults — zero means use default)
-	MCPToolTimeout      time.Duration // MCP tool execution timeout (default 360s)
-	MCPDiscoveryTimeout time.Duration // MCP discovery timeout (default 60s)
-	WorkerWaitTimeout   time.Duration // Max wait for healthy worker at startup (default 5m)
-	DrainTimeout        time.Duration // Time to wait for in-flight requests during drain (default 30s)
-	HealthCheckInterval time.Duration // Health monitor check interval (default 15s)
-	StaleNodeThreshold  time.Duration // Time before a node is considered stale (default 60s)
+	MCPToolTimeout          time.Duration // MCP tool execution timeout (default 360s)
+	MCPDiscoveryTimeout     time.Duration // MCP discovery timeout (default 60s)
+	WorkerWaitTimeout       time.Duration // Max wait for healthy worker at startup (default 5m)
+	DrainTimeout            time.Duration // Time to wait for in-flight requests during drain (default 30s)
+	HealthCheckInterval     time.Duration // Health monitor check interval (default 15s)
+	StaleNodeThreshold      time.Duration // Time before a node is considered stale (default 5m)
+	NodeHeartbeatCheckpoint time.Duration // Minimum gap between durable heartbeat writes (default 60s, 0 = every beat)
 	// DisablePerModelHealthCheck turns off the health monitor's per-model
 	// gRPC probe. When enabled (the default), the monitor pings each model's
 	// gRPC address and removes stale node_models rows whose backend has
@@ -166,17 +167,18 @@ func (c DistributedConfig) Validate() error {
 	}
 	// Check for negative durations
 	for name, d := range map[string]time.Duration{
-		FlagMCPToolTimeout:        c.MCPToolTimeout,
-		FlagMCPDiscoveryTimeout:   c.MCPDiscoveryTimeout,
-		FlagWorkerWaitTimeout:     c.WorkerWaitTimeout,
-		FlagDrainTimeout:          c.DrainTimeout,
-		FlagHealthCheckInterval:   c.HealthCheckInterval,
-		FlagStaleNodeThreshold:    c.StaleNodeThreshold,
-		FlagMCPCIJobTimeout:       c.MCPCIJobTimeout,
-		FlagBackendInstallTimeout: c.BackendInstallTimeout,
-		FlagBackendUpgradeTimeout: c.BackendUpgradeTimeout,
-		FlagModelLoadTimeout:      c.ModelLoadTimeout,
-		FlagWorkerReconnectGrace:  c.WorkerReconnectGrace,
+		FlagMCPToolTimeout:          c.MCPToolTimeout,
+		FlagMCPDiscoveryTimeout:     c.MCPDiscoveryTimeout,
+		FlagWorkerWaitTimeout:       c.WorkerWaitTimeout,
+		FlagDrainTimeout:            c.DrainTimeout,
+		FlagHealthCheckInterval:     c.HealthCheckInterval,
+		FlagStaleNodeThreshold:      c.StaleNodeThreshold,
+		FlagMCPCIJobTimeout:         c.MCPCIJobTimeout,
+		FlagBackendInstallTimeout:   c.BackendInstallTimeout,
+		FlagBackendUpgradeTimeout:   c.BackendUpgradeTimeout,
+		FlagModelLoadTimeout:        c.ModelLoadTimeout,
+		FlagWorkerReconnectGrace:    c.WorkerReconnectGrace,
+		FlagNodeHeartbeatCheckpoint: c.NodeHeartbeatCheckpoint,
 	} {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
@@ -297,6 +299,27 @@ func WithModelLoadWait(d time.Duration) AppOption {
 	}
 }
 
+// WithStaleNodeThreshold sets how long a node may go without a durable
+// heartbeat before the health monitor marks it offline. It has to be raised
+// alongside WithNodeHeartbeatCheckpoint: a checkpoint interval wider than this
+// threshold makes every healthy node look dead the moment its beats start
+// being suppressed.
+func WithStaleNodeThreshold(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.StaleNodeThreshold = d
+	}
+}
+
+// WithNodeHeartbeatCheckpoint bounds durable heartbeat writes. A zero d is
+// deliberately not special-cased into "unbounded": NodeHeartbeatCheckpointOrDefault
+// reads zero as unset, and an operator who wants a write per beat sets a value
+// below the worker's heartbeat interval instead.
+func WithNodeHeartbeatCheckpoint(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.NodeHeartbeatCheckpoint = d
+	}
+}
+
 var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 	o.Distributed.AutoApproveNodes = true
 }
@@ -363,8 +386,9 @@ const (
 	FlagModelLoadTimeout      = "model-load-timeout"
 	// FlagWorkerReconnectGrace names the reconnect-grace knob. Validate quotes
 	// it when the operator hands it a negative duration.
-	FlagWorkerReconnectGrace = "worker-reconnect-grace"
-	FlagModelLoadWait        = "model-load-wait"
+	FlagWorkerReconnectGrace    = "worker-reconnect-grace"
+	FlagModelLoadWait           = "model-load-wait"
+	FlagNodeHeartbeatCheckpoint = "node-heartbeat-checkpoint"
 	// FlagDiskHeadroomCheck names the disk-headroom toggle. It is quoted in
 	// the warning the check emits while disabled, so the operator reading a
 	// log line knows exactly which knob produced it.
@@ -373,16 +397,22 @@ const (
 
 // Defaults for distributed timeouts.
 const (
-	DefaultMCPToolTimeout        = 360 * time.Second
-	DefaultMCPDiscoveryTimeout   = 60 * time.Second
-	DefaultWorkerWaitTimeout     = 5 * time.Minute
-	DefaultDrainTimeout          = 30 * time.Second
-	DefaultHealthCheckInterval   = 15 * time.Second
-	DefaultStaleNodeThreshold    = 60 * time.Second
-	DefaultMCPCIJobTimeout       = 10 * time.Minute
-	DefaultBackendInstallTimeout = 15 * time.Minute
-	DefaultBackendUpgradeTimeout = 15 * time.Minute
-	DefaultModelLoadTimeout      = 5 * time.Minute
+	DefaultMCPToolTimeout      = 360 * time.Second
+	DefaultMCPDiscoveryTimeout = 60 * time.Second
+	DefaultWorkerWaitTimeout   = 5 * time.Minute
+	DefaultDrainTimeout        = 30 * time.Second
+	DefaultHealthCheckInterval = 15 * time.Second
+	// A beat that only refreshes the timestamp is now dropped until the
+	// checkpoint interval elapses, so the persisted column is up to one
+	// interval stale by design. The threshold covers that plus jitter.
+	// A genuinely dead node is still caught sooner by the per-model gRPC
+	// health check and by request-time failure, neither of which reads this.
+	DefaultStaleNodeThreshold      = 5 * time.Minute
+	DefaultNodeHeartbeatCheckpoint = 60 * time.Second
+	DefaultMCPCIJobTimeout         = 10 * time.Minute
+	DefaultBackendInstallTimeout   = 15 * time.Minute
+	DefaultBackendUpgradeTimeout   = 15 * time.Minute
+	DefaultModelLoadTimeout        = 5 * time.Minute
 	// DefaultModelLoadWait is how long a request waits for a cold-loading model
 	// before it is answered with 503 and live progress. Chosen to sit under the
 	// idle timeout of typical ingress/LB defaults, so the answer comes from
@@ -483,6 +513,14 @@ func (c DistributedConfig) HealthCheckIntervalOrDefault() time.Duration {
 // StaleNodeThresholdOrDefault returns the configured threshold or the default.
 func (c DistributedConfig) StaleNodeThresholdOrDefault() time.Duration {
 	return cmp.Or(c.StaleNodeThreshold, DefaultStaleNodeThreshold)
+}
+
+// NodeHeartbeatCheckpointOrDefault returns the configured interval or the
+// default. A configured zero is indistinguishable from unset here, which is
+// intentional: cmp.Or falls back to the default, and an operator who wants a
+// write per beat sets a value below the heartbeat interval instead.
+func (c DistributedConfig) NodeHeartbeatCheckpointOrDefault() time.Duration {
+	return cmp.Or(c.NodeHeartbeatCheckpoint, DefaultNodeHeartbeatCheckpoint)
 }
 
 // MCPCIJobTimeoutOrDefault returns the configured MCP CI job timeout or the default.

@@ -20,6 +20,7 @@ import backend_pb2_grpc
 import grpc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
+from python_utils import attach_media_parts
 from grpc_auth import get_auth_interceptors
 from model_utils import resolve_model_reference
 from vllm_utils import apply_options_to_engine_args, normalize_option_key
@@ -59,6 +60,12 @@ except ImportError:
     HAS_GUIDED_DECODING = False
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
+
+# proto3 has no field presence, so an explicit 0 is indistinguishable from
+# "unset". These two fields have a meaningful zero a caller can intend:
+# temperature 0 is greedy decoding, and 0 is a valid seed.
+_EXPLICIT_ZERO_FIELDS = ("Temperature", "Seed")
+
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
@@ -553,10 +560,79 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         for request_field, param_field in request_to_sampling_params.items():
             if hasattr(request, request_field):
                 value = getattr(request, request_field)
-                if request_field == "Temperature" or value not in (None, 0, [], False):
+                # See _EXPLICIT_ZERO_FIELDS: temperature 0 is greedy decoding
+                # and 0 is a valid seed, so neither may be filtered out.
+                if request_field in _EXPLICIT_ZERO_FIELDS or value not in (None, 0, [], False):
                     setattr(sampling_params, param_field, value)
 
         return sampling_params
+
+    def _new_reasoning_parser(self, chat_template_kwargs):
+        """Build the reasoning parser, telling it whether thinking is on.
+
+        vLLM's newer parser engines decide their *initial state* from
+        ``chat_template_kwargs``: ``Qwen3Parser`` reads
+        ``chat_template_kwargs["enable_thinking"]`` and defaults to ``True``,
+        starting in the REASONING state. Constructed without it, a completion
+        produced with thinking disabled is classified as reasoning end to end,
+        and the answer is reported in both ``reasoning_content`` and
+        ``content``.
+
+        vLLM's own OpenAI server forwards the request's chat template kwargs
+        here; this backend renders the template itself, so it forwards the
+        same dict. Older parsers do not accept the argument — fall back to the
+        plain constructor for those.
+        """
+        try:
+            return self.reasoning_parser_cls(
+                self.tokenizer, chat_template_kwargs=chat_template_kwargs or {},
+            )
+        except TypeError:
+            return self.reasoning_parser_cls(self.tokenizer)
+
+    @staticmethod
+    def _split_reasoning(rp, generated_text, prompt, reasoning, content):
+        """Decide what the reasoning parser's output actually means.
+
+        Covers the *older* parser shape, which has no initial state to set:
+        ``BaseThinkingReasoningParser.extract_reasoning`` documents its own
+        fallback — "For models that may not generate start token, assume the
+        reasoning content is always at the start." When no end token is
+        present it returns *everything* as reasoning and ``None`` as content,
+        which is right for a truncated reasoning run and wrong for a
+        completion that never contained reasoning at all.
+
+        Taking ``None`` content to mean "keep the raw text" then duplicates
+        the answer into both fields.
+
+        The prompt says which case it is. A template with thinking on leaves
+        the reasoning block open (the prompt ends with the start token); with
+        thinking off it closes the block in the prompt, so the completion is
+        plain content. Parsers that expose no token pair (the engine-based
+        adapters, which take the ``chat_template_kwargs`` route above) keep
+        the parser's verdict unchanged.
+        """
+        start = getattr(rp, "start_token", None)
+        end = getattr(rp, "end_token", None)
+
+        if end and end in generated_text:
+            # The parser split on the end token. Empty content here means the
+            # model stopped right after it, not that parsing failed.
+            return reasoning or "", content or ""
+
+        if not start:
+            # Unknown token layout — keep the previous behaviour rather than
+            # guess.
+            return reasoning or "", content if content is not None else generated_text
+
+        if not (start in generated_text or (prompt or "").rstrip().endswith(start)):
+            # No end token and the block was never open: the "reasoning starts
+            # at the beginning" fallback does not apply to this completion.
+            return "", generated_text
+
+        # Block was open and the end token never arrived — reasoning ran out of
+        # budget. It is all reasoning, and there is no answer to report.
+        return reasoning or "", content or ""
 
     async def _predict(self, request, context, streaming=False):
         # Build the sampling parameters
@@ -572,6 +648,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # Extract image paths and process images
         prompt = request.Prompt
+        # Kept in scope: the reasoning parser needs to know which chat
+        # template kwargs produced this prompt.
+        template_kwargs = {}
 
         image_paths = request.Images
         image_data = [self.load_image(img_path) for img_path in image_paths]
@@ -582,7 +661,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # If tokenizer template is enabled and messages are provided instead of prompt, apply the tokenizer template
         if not request.Prompt and request.UseTokenizerTemplate and request.Messages:
             messages_dicts = self._messages_to_dicts(request.Messages)
-            template_kwargs = {"tokenize": False, "add_generation_prompt": True}
+            template_kwargs.update({"tokenize": False, "add_generation_prompt": True})
 
             # Pass tools for tool calling
             if request.Tools:
@@ -595,13 +674,33 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if _thinking in ("true", "false"):
                 template_kwargs["enable_thinking"] = (_thinking == "true")
 
-            try:
-                prompt = self.tokenizer.apply_chat_template(messages_dicts, **template_kwargs)
-            except TypeError:
-                # Some tokenizers don't support tools/enable_thinking kwargs — retry without them
-                prompt = self.tokenizer.apply_chat_template(
-                    messages_dicts, tokenize=False, add_generation_prompt=True
-                )
+            # vLLM substitutes multi_modal_data into the model's own media
+            # token, so the template has to be given content *parts* - string
+            # content renders a prompt with no placeholder and the media are
+            # dropped without a word (#11621).
+            prompt = None
+            media_dicts = attach_media_parts(
+                messages_dicts, len(image_data), len(video_data)
+            )
+            if media_dicts is not None:
+                try:
+                    prompt = self.tokenizer.apply_chat_template(media_dicts, **template_kwargs)
+                except Exception as e:
+                    # A text-only template cannot iterate content parts; fall
+                    # through to the text-only prompt instead of failing.
+                    print(
+                        f"chat template rejected multimodal content parts: {e!r}",
+                        file=sys.stderr,
+                    )
+
+            if prompt is None:
+                try:
+                    prompt = self.tokenizer.apply_chat_template(messages_dicts, **template_kwargs)
+                except TypeError:
+                    # Some tokenizers don't support tools/enable_thinking kwargs — retry without them
+                    prompt = self.tokenizer.apply_chat_template(
+                        messages_dicts, tokenize=False, add_generation_prompt=True
+                    )
 
         # Generate text using the LLM engine
         request_id = random_uuid()
@@ -757,10 +856,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         if self.reasoning_parser_cls:
             try:
-                rp = self.reasoning_parser_cls(self.tokenizer)
+                rp = self._new_reasoning_parser(template_kwargs)
                 r, c = rp.extract_reasoning(generated_text, request=None)
-                reasoning_content = r or ""
-                content = c if c is not None else generated_text
+                reasoning_content, content = self._split_reasoning(
+                    rp, generated_text, prompt, r, c,
+                )
             except Exception as e:
                 print(f"Reasoning parser error: {e}", file=sys.stderr)
 
