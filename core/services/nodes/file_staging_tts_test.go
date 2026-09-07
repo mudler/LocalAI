@@ -39,7 +39,8 @@ var _ = Describe("FileStagingClient TTS references", func() {
 		Expect(stager.ensureCalls).To(HaveLen(1))
 		Expect(stager.ensureCalls[0].localPath).To(Equal("/data/voice-profiles/profile/reference.wav"))
 		Expect(backend.ttsRequest.Voice).To(HavePrefix("/remote/ephemeral/"))
-		Expect(backend.ttsRequest.Voice).To(MatchRegexp(`/inputs/[0-9a-f]{8}/reference\.wav$`))
+		voicePathPattern := `/inputs/` + fullUUIDPattern + `/reference\.wav$`
+		Expect(backend.ttsRequest.Voice).To(MatchRegexp(voicePathPattern))
 	})
 
 	It("stages a reference WAV before streaming synthesis", func(ctx SpecContext) {

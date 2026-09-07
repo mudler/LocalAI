@@ -28,6 +28,10 @@ func (s *soundStagingFailure) EnsureRemote(context.Context, string, string, stri
 	return "", errors.New("upload failed")
 }
 
+func (s *soundStagingFailure) ReleaseRemote(context.Context, string, string) error {
+	return nil
+}
+
 type soundRouteFactory struct{ client grpc.Backend }
 
 func (f *soundRouteFactory) NewClient(string, bool) grpc.Backend { return f.client }
