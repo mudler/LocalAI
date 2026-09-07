@@ -479,11 +479,13 @@ prepare-e2e:
 run-e2e-image:
 	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --name e2e-tests-$(RANDOM) localai-tests
 
+# Distributed subpackages have separate targets that provision PostgreSQL and
+# build the host binaries; this target exercises the container-backed API only.
 test-e2e: build-mock-backend build-cloud-proxy-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
 	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390 \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v ./tests/e2e
 	$(MAKE) clean-mock-backend
 	$(MAKE) clean-cloud-proxy-backend
 	$(MAKE) teardown-e2e
