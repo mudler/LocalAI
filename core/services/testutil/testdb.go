@@ -87,6 +87,9 @@ var _ = AfterSuite(func() {
 // true thing.
 func sharedPostgres() string {
 	GinkgoHelper()
+	if runtime.GOOS == "darwin" {
+		Skip("testcontainers requires Docker, not available on macOS CI")
+	}
 
 	sharedOnce.Do(func() {
 		ctx := context.Background()
@@ -133,9 +136,6 @@ func SetupTestDB() *gorm.DB {
 // out and lose them on the next one.
 func SetupTestDBWithDSN() (*gorm.DB, string) {
 	GinkgoHelper()
-	if runtime.GOOS == "darwin" {
-		Skip("testcontainers requires Docker, not available on macOS CI")
-	}
 
 	dsn := sharedPostgres()
 	name := fmt.Sprintf("testdb_%d", dbCounter.Add(1))
