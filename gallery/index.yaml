@@ -24779,6 +24779,68 @@
     - filename: minicpm-v-4_6-mmproj-f16.gguf
       sha256: ca931d861d0801d9003e50697cd764721a334107c0e0415a51168ee1938462de
       uri: huggingface://openbmb/MiniCPM-V-4.6-gguf/mmproj-model-f16.gguf
+- &minicpm5-2b
+  name: minicpm5-2b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM5-2B
+    - https://huggingface.co/openbmb/MiniCPM5-2B-GGUF
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+  description: |
+    MiniCPM5-2B is OpenBMB's compact Llama-based language model for English
+    and Chinese chat, coding, and reasoning. This entry uses the official
+    Q4_K_M GGUF quantization and the model's embedded chat template.
+  variants:
+    - model: minicpm5-2b-q8
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf
+      context_size: 8192
+      temperature: 1.0
+      top_p: 0.95
+  files:
+    - filename: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-Q4_K_M.gguf
+      uri: huggingface://openbmb/MiniCPM5-2B-GGUF/MiniCPM5-2B-Q4_K_M.gguf
+      sha256: ec2d5801640099e97d8d7e8003ad4d81f336e757811f03a26173dddf386602fd
+- !!merge <<: *minicpm5-2b
+  name: minicpm5-2b-q8
+  description: |
+    MiniCPM5-2B is OpenBMB's compact Llama-based language model for English
+    and Chinese chat, coding, and reasoning. This entry uses the official
+    Q8_0 GGUF quantization and the model's embedded chat template.
+  variants: null
+  overrides:
+    backend: llama-cpp
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-Q8_0.gguf
+      context_size: 8192
+      temperature: 1.0
+      top_p: 0.95
+  files:
+    - filename: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-Q8_0.gguf
+      uri: huggingface://openbmb/MiniCPM5-2B-GGUF/MiniCPM5-2B-Q8_0.gguf
+      sha256: c5415f8989bf88a8288f1b55a3cc371af53c07b0faa220a63bd7a990cfaba078
 - &minicpm5-1b
   name: minicpm5-1b
   url: github:mudler/LocalAI/gallery/chatml.yaml@master

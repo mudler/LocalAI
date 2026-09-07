@@ -233,6 +233,21 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
+### MiniCPM5-2B
+
+[MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B) is available as
+`minicpm5-2b` (Q4_K_M) and `minicpm5-2b-q8` (Q8_0) for the llama.cpp
+backend. The Q4 entry offers Q8 as a variant, so LocalAI can select a build
+that fits the host. Both use the model's embedded chat template, an 8,192-token
+context, temperature 1.0, and top-p 0.95. These entries support text chat;
+OpenAI-compatible tool calling has not been verified.
+
+To select the Q4 build explicitly:
+
+```bash
+local-ai models install minicpm5-2b --variant minicpm5-2b
+```
+
 ### Collapsing the listing to one row per model
 
 By default the listing returns every entry, including the individual builds a
