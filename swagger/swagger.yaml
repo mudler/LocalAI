@@ -1138,6 +1138,10 @@ definitions:
     type: object
   schema.FaceRegisterRequest:
     properties:
+      embedding:
+        items:
+          type: number
+        type: array
       img:
         type: string
       labels:
@@ -1147,6 +1151,9 @@ definitions:
       model:
         type: string
       name:
+        type: string
+      registered_at:
+        description: original enrollment time when replaying a saved embedding
         type: string
       store:
         description: vector store model; empty = local-store default

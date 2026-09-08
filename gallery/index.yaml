@@ -56579,6 +56579,8 @@
     known_usecases:
       - tts
     name: audio-cpp-indextts-2.5
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/index-tts2_5-orig.gguf
   files:
@@ -56616,6 +56618,8 @@
     known_usecases:
       - tts
     name: audio-cpp-supertonic
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/supertonic-3-orig.gguf
   files:
@@ -56658,6 +56662,8 @@
     known_usecases:
       - tts
     name: audio-cpp-higgs-audio-v3
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf
   files:
@@ -56707,6 +56713,8 @@
       - tts
       - audio_transform
     name: audio-cpp-chatterbox
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/chatterbox-q8_0.gguf
   files:
@@ -56743,6 +56751,8 @@
     known_usecases:
       - transcript
     name: audio-cpp-citrinet-asr
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/citrinet-asr-q8_0.gguf
   files:
@@ -56779,6 +56789,8 @@
     known_usecases:
       - transcript
     name: audio-cpp-nemotron-asr
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/nemotron-3.5-asr-streaming-0.6b-f16.gguf
   files:
@@ -56816,6 +56828,8 @@
     known_usecases:
       - diarization
     name: audio-cpp-sortformer-diarization
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
   files:
@@ -56853,6 +56867,8 @@
     known_usecases:
       - audio_transform
     name: audio-cpp-htdemucs
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/htdemucs-f16.gguf
   files:
@@ -56892,6 +56908,8 @@
     known_usecases:
       - sound_generation
     name: audio-cpp-stable-audio-sfx
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/stable-audio-3-small-sfx-q8_0.gguf
   files:
@@ -56930,6 +56948,8 @@
     known_usecases:
       - transcript
     name: audio-cpp-forced-aligner
+    options:
+      - backend:best
     parameters:
       language: en
       model: audio-cpp/qwen3-forced-aligner-0.6b-q8_0.gguf
@@ -56959,6 +56979,7 @@
       - vad
     name: audio-cpp-silero-vad
     options:
+      - backend:best
       - family:silero_vad
     parameters:
       model: bundled:silero_vad
@@ -56986,6 +57007,7 @@
       - vad
     name: audio-cpp-marblenet-vad
     options:
+      - backend:best
       - family:marblenet_vad
     parameters:
       model: bundled:marblenet_vad
@@ -57025,6 +57047,8 @@
     known_usecases:
       - tts
     name: audio-cpp-irodori-voicedesign
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/irodori-tts-600m-v3-voicedesign-q8_0.gguf
   files:
@@ -57069,6 +57093,7 @@
       - audio_transform
     name: audio-cpp-seedvc-singing
     options:
+      - backend:best
       - task:svc
     parameters:
       model: audio-cpp/seed-vc-mlx-q8_0.gguf
@@ -57121,6 +57146,7 @@
       - audio_transform
     name: audio-cpp-vevo2-speech-to-speech
     options:
+      - backend:best
       - task:s2s
     parameters:
       model: audio-cpp/vevo2-q8_0.gguf

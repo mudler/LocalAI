@@ -14,9 +14,9 @@ const (
 	// outlive the request that needed it. Inference reads these files while the
 	// request runs, so the window has to cover a slow multimodal request; it
 	// does not have to cover anything longer.
-	defaultEphemeralStagingTTL = 6 * time.Hour
+	defaultEphemeralStagingTTL = time.Hour
 	// defaultEphemeralStagingSweep is how often the worker sweeps.
-	defaultEphemeralStagingSweep = 30 * time.Minute
+	defaultEphemeralStagingSweep = 15 * time.Minute
 )
 
 // StartEphemeralStagingCleanup sweeps the worker's own staging directory for
@@ -32,6 +32,15 @@ func StartEphemeralStagingCleanup(ctx context.Context, stagingDir string, ttl, i
 	if stagingDir == "" {
 		return
 	}
+	StartEphemeralRootsCleanup(ctx, []string{filepath.Join(stagingDir, "ephemeral")}, nil, ttl, interval)
+}
+
+// StartEphemeralRootsCleanup removes abandoned request inputs for every worker
+// transport while sharing accounting with live reservations.
+func StartEphemeralRootsCleanup(ctx context.Context, roots []string, guard *EphemeralCapacityGuard, ttl, interval time.Duration) {
+	if len(roots) == 0 {
+		return
+	}
 	if ttl <= 0 {
 		ttl = defaultEphemeralStagingTTL
 	}
@@ -39,31 +48,41 @@ func StartEphemeralStagingCleanup(ctx context.Context, stagingDir string, ttl, i
 		interval = defaultEphemeralStagingSweep
 	}
 
+	// Reclaim crash leftovers before the caller starts accepting new work.
+	CleanEphemeralRoots(roots, ttl, guard)
+
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
-		// Sweep once at startup: a worker that crashed with staged files leaves
-		// them behind, and waiting a full interval to reclaim that space is the
-		// case that hurts on a volume that is already close to full.
-		CleanEphemeralStaging(stagingDir, ttl)
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				CleanEphemeralStaging(stagingDir, ttl)
+				CleanEphemeralRoots(roots, ttl, guard)
 			}
 		}
 	}()
 
-	xlog.Info("Ephemeral staging cleanup started", "dir", stagingDir, "ttl", ttl, "interval", interval)
+	xlog.Info("Ephemeral staging cleanup started", "roots", roots, "ttl", ttl, "interval", interval)
 }
 
 // CleanEphemeralStaging removes staged per-request directories older than ttl.
 // It only ever descends into <stagingDir>/ephemeral, so staged model weights,
 // which live alongside it and are not scratch, are never considered.
 func CleanEphemeralStaging(stagingDir string, ttl time.Duration) {
-	root := filepath.Join(stagingDir, "ephemeral")
+	CleanEphemeralRoots([]string{filepath.Join(stagingDir, "ephemeral")}, ttl, nil)
+}
+
+// CleanEphemeralRoots removes stale request directories from explicit
+// ephemeral roots. WalkDir never follows directory symlinks.
+func CleanEphemeralRoots(roots []string, ttl time.Duration, guard *EphemeralCapacityGuard) {
+	for _, root := range roots {
+		cleanEphemeralRoot(root, ttl, guard)
+	}
+}
+
+func cleanEphemeralRoot(root string, ttl time.Duration, guard *EphemeralCapacityGuard) {
 	categories, err := os.ReadDir(root)
 	if err != nil {
 		// A worker that has never served a file-bearing request has no
@@ -87,19 +106,31 @@ func CleanEphemeralStaging(stagingDir string, ttl time.Duration) {
 			continue
 		}
 		for _, entry := range entries {
-			path := filepath.Join(categoryDir, entry.Name())
-			info, err := entry.Info()
+			if !entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
+				continue
+			}
+			requestPath := filepath.Join(categoryDir, entry.Name())
+			newest, err := newestEphemeralModTime(requestPath)
 			if err != nil {
-				xlog.Warn("Ephemeral staging cleanup: cannot stat entry", "path", path, "error", err)
+				xlog.Warn("Ephemeral staging cleanup: cannot inspect request", "path", requestPath, "error", err)
 				continue
 			}
-			// A request rewrites nothing after staging, so the entry's own
-			// modification time is when its request was served.
-			if !info.ModTime().Before(cutoff) {
+			if !newest.Before(cutoff) {
 				continue
 			}
-			if err := os.RemoveAll(path); err != nil {
-				xlog.Warn("Ephemeral staging cleanup: cannot remove", "path", path, "error", err)
+			if guard != nil {
+				removedTree, err := guard.RemoveTreeIfInactive(requestPath, func() error {
+					return os.RemoveAll(requestPath)
+				})
+				if err != nil {
+					xlog.Warn("Ephemeral staging cleanup: cannot remove", "path", requestPath, "error", err)
+					continue
+				}
+				if !removedTree {
+					continue
+				}
+			} else if err := os.RemoveAll(requestPath); err != nil {
+				xlog.Warn("Ephemeral staging cleanup: cannot remove", "path", requestPath, "error", err)
 				continue
 			}
 			removed++
@@ -109,4 +140,25 @@ func CleanEphemeralStaging(stagingDir string, ttl time.Duration) {
 	if removed > 0 {
 		xlog.Info("Ephemeral staging cleanup removed stale request files", "count", removed, "dir", root)
 	}
+}
+
+func newestEphemeralModTime(root string) (time.Time, error) {
+	var newest time.Time
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.ModTime().After(newest) {
+			newest = info.ModTime()
+		}
+		if entry.Type()&os.ModeSymlink != 0 && entry.IsDir() {
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	return newest, err
 }

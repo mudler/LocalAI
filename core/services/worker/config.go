@@ -50,7 +50,9 @@ type Config struct {
 
 	// HTTPAddr binds the HTTP file-transfer server. Default is loopback on
 	// basePort-1; an explicit value is bound exactly as given.
-	HTTPAddr string `env:"LOCALAI_HTTP_ADDR" default:"" help:"HTTP file transfer server bind address (default: loopback on the gRPC base port - 1)" group:"server" hidden:""`
+	HTTPAddr                     string `env:"LOCALAI_HTTP_ADDR" default:"" help:"HTTP file transfer server bind address (default: loopback on the gRPC base port - 1)" group:"server" hidden:""`
+	EphemeralStagingByteLimit    int64  `env:"LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT" default:"0" help:"Maximum bytes used by worker request-input staging across HTTP and S3 caches. Zero or negative uses min(10 GiB, 10% of filesystem capacity)." group:"server"`
+	EphemeralStagingMinFreeBytes int64  `env:"LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES" default:"0" help:"Filesystem space kept free while staging request inputs. Zero or negative uses max(1 GiB, 5% of filesystem capacity)." group:"server"`
 
 	// Registration (required)
 	RegisterTo              string `env:"LOCALAI_REGISTER_TO" required:"" help:"Frontend URL for registration" group:"registration"`

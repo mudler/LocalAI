@@ -818,6 +818,8 @@ There is no broker flag here. A serve-backend worker dials one outbound tunnel t
 | `--serve-addr` | `LOCALAI_SERVE_ADDR` | `0.0.0.0:50051` | Same, used when `--addr` is unset |
 | `--grpc-max-port` | `LOCALAI_GRPC_MAX_PORT` | `65535` | Highest port the worker may assign to a backend gRPC process. Each backend gets its own port, allocated upward from the base port, so the width of `[base port, this]` caps how many backends this worker can run at once (see [Backend gRPC port range](#backend-grpc-port-range)) |
 | `--http-addr` | `LOCALAI_HTTP_ADDR` | `127.0.0.1:{gRPC port - 1}` | HTTP file transfer server bind address |
+| `--ephemeral-staging-byte-limit` | `LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT` | `0` (automatic) | Maximum bytes held by request-input staging across the worker's HTTP staging directory and S3 cache. Automatic mode uses the smaller of 10 GiB and 10% of filesystem capacity. |
+| `--ephemeral-staging-min-free-bytes` | `LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES` | `0` (automatic) | Free filesystem space preserved while staging request inputs. Automatic mode uses the larger of 1 GiB and 5% of filesystem capacity. |
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(required)* | Frontend URL for self-registration |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
@@ -834,6 +836,14 @@ There is no broker flag here. A serve-backend worker dials one outbound tunnel t
 
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). It listens on loopback at the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded.
 {{% /notice %}}
+
+### Ephemeral request-input storage
+
+Workers reserve local capacity before accepting per-request audio, image, and other ephemeral inputs. The limit covers both direct HTTP staging and the worker's S3 download cache. A request is rejected before inference when accepting its input would exceed the byte limit or the configured free-space headroom. One request-scoped cleanup operation releases all exact input keys and their reservations after inference, while a one-hour recovery sweep removes abandoned files after crashes. The sweep runs at startup and every 15 minutes, preserves active requests, and considers the newest file in each request directory.
+
+For S3 staging, the frontend releases request inputs with `POST /v1/control/files/release` through the worker tunnel. The worker applies the same capacity limits to `files/ensure` downloads and direct HTTP uploads.
+
+Set both capacity variables to positive byte counts when a worker needs fixed limits. Leaving either value at zero selects its filesystem-based default. These settings apply only below the two `ephemeral` roots; model, data, and configuration files are excluded.
 
 ### Worker Health Probes
 
@@ -1777,8 +1787,9 @@ Notes:
 - Older releases decided absence from `nats: no responders available for request`, which was one frontend's observation that nobody answered *it* within a request budget. Two replicas asking at the same moment could disagree and demote each other's workers. That signal is gone from the scheduler, and no component opens a bus connection to produce it.
 
 **A worker fills its own disk over time:**
-- A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.
-- Releases before this sweep existed kept every staged input for the lifetime of the worker. Delete `<models>/../staging/ephemeral/` on an affected worker once, as the user the worker runs as; the sweep keeps it bounded from then on.
+- A request that carries a file (an image, an audio clip, a video) stages that file below the worker's HTTP staging or S3 cache `ephemeral/` directory. The frontend releases each request-owned input when inference finishes, and the worker reserves capacity before accepting it.
+- A one-hour recovery sweep runs at startup and every 15 minutes to reclaim inputs left by interrupted requests. It preserves active reservations and uses the newest file timestamp in each request directory.
+- Releases before request-owned cleanup existed can leave a legacy backlog. Delete the affected `ephemeral/` directory once, as the user the worker runs as; capacity admission and recovery cleanup keep new staging bounded.
 - Staged **model** files are not touched by this. They live beside the ephemeral directory and are not per-request scratch.
 - A worker whose volume is genuinely full reports `creating backend process state directory under ...: no space left on device` when a backend starts.
 

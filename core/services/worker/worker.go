@@ -138,11 +138,26 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// the top of Run so the worker fails before registering.)
 	httpAddr := cfg.resolveHTTPAddr()
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
-	// Derived through the same helper the listdir verb resolves `data/` keys
-	// against, and not a second time here. Two independent joins that agreed
-	// today would each stay self consistent if one moved, and the symptom would
-	// be a verb that lists files the file server does not serve.
+	cacheDir := cfg.stagingCacheDir()
 	dataDir := cfg.stagingDataDir()
+	ephemeralRoots := []string{
+		filepath.Join(stagingDir, "ephemeral"),
+		filepath.Join(cacheDir, "ephemeral"),
+	}
+	byteLimit, minFreeBytes, err := effectiveEphemeralCapacity(
+		ephemeralRoots,
+		cfg.EphemeralStagingByteLimit,
+		cfg.EphemeralStagingMinFreeBytes,
+	)
+	if err != nil {
+		return fmt.Errorf("resolving ephemeral staging capacity: %w", err)
+	}
+	ephemeralCapacity, err := NewEphemeralCapacityGuard(ephemeralRoots, byteLimit, minFreeBytes)
+	if err != nil {
+		return fmt.Errorf("initializing ephemeral staging capacity: %w", err)
+	}
+	xlog.Info("Ephemeral staging capacity configured", "roots", ephemeralRoots, "byteLimit", byteLimit, "minFreeBytes", minFreeBytes)
+	StartEphemeralRootsCleanup(shutdownCtx, ephemeralRoots, ephemeralCapacity, 0, 0)
 	// The readiness gate is created here but only armed once the tunnel exists,
 	// below. Until then /readyz reports ready, which is correct: reaching this
 	// line means the worker has already registered with the frontend, so it is
@@ -201,14 +216,10 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 
 	httpServer, err := startWorkerHTTPServer(httpAddr, stagingDir, cfg.ModelsPath, dataDir,
-		cfg.RegistrationToken, readiness, supervisor, cfg, stagingFM, ml.BackendLogs())
+		cfg.RegistrationToken, readiness, supervisor, cfg, stagingFM, ml.BackendLogs(), ephemeralCapacity)
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
-
-	// Per-request input files land in stagingDir over that server and nothing
-	// used to remove them, so a long-lived worker filled its own disk.
-	StartEphemeralStagingCleanup(shutdownCtx, stagingDir, 0, 0)
 
 	// The tunnel is started here, after the HTTP server it fronts is listening
 	// and before any backend process exists. Both orders are deliberate: a
@@ -336,9 +347,17 @@ func startTunnelAndArmReadiness(ctx context.Context, readiness *nodes.WorkerRead
 // healthy while answering 404 to every command.
 func startWorkerHTTPServer(addr, stagingDir, modelsDir, dataDir, token string,
 	readiness *nodes.WorkerReadiness, sup *backendSupervisor, cfg *Config,
-	stagingFM *storage.FileManager, logStore *model.BackendLogStore) (*http.Server, error) {
-	return nodes.StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token,
-		config.DefaultMaxUploadSize, readiness, &nodes.AuthenticatedRoutes{
+	stagingFM *storage.FileManager, logStore *model.BackendLogStore, capacities ...*EphemeralCapacityGuard) (*http.Server, error) {
+	var capacity *EphemeralCapacityGuard
+	if len(capacities) > 0 {
+		capacity = capacities[0]
+	}
+	var httpCapacity nodes.EphemeralCapacity
+	if capacity != nil {
+		httpCapacity = capacity
+	}
+	return nodes.StartFileTransferServerWithCapacityAndRoutes(addr, stagingDir, modelsDir, dataDir, token,
+		config.DefaultMaxUploadSize, readiness, httpCapacity, &nodes.AuthenticatedRoutes{
 			Prefix: workerctl.Prefix,
 			// One registrar for both route sets, because there is ONE control
 			// prefix and AuthenticatedRoutes mounts one mux behind one bearer
@@ -346,7 +365,7 @@ func startWorkerHTTPServer(addr, stagingDir, modelsDir, dataDir, token string,
 			Register: func(mux *http.ServeMux) {
 				sup.RegisterControlRoutes(mux)
 				if stagingFM != nil {
-					cfg.RegisterFileControlRoutes(mux, stagingFM)
+					cfg.RegisterFileControlRoutesWithCapacity(mux, stagingFM, capacity)
 				}
 			},
 		}, logStore)

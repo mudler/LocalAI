@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -97,6 +98,15 @@ type fileStageRequest struct {
 
 type fileStageReply struct {
 	Key   string `json:"key"`
+	Error string `json:"error,omitempty"`
+}
+
+type fileReleaseRequest struct {
+	Key       string `json:"key,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
+}
+
+type fileReleaseReply struct {
 	Error string `json:"error,omitempty"`
 }
 
@@ -249,5 +259,59 @@ func (s *S3FileStager) StageRemoteToStore(ctx context.Context, nodeID, remotePat
 		return fmt.Errorf("backend stage failed: %s", reply.Error)
 	}
 
+	return nil
+}
+
+// ReleaseRemote evicts one exact ephemeral key from the worker before deleting
+// the shared object.
+func (s *S3FileStager) ReleaseRemote(ctx context.Context, nodeID, key string) error {
+	if err := validateEphemeralReleaseKey(key); err != nil {
+		return err
+	}
+	if err := s.releaseWorkerKeys(ctx, nodeID, fileReleaseRequest{Key: key}); err != nil {
+		return err
+	}
+	if err := s.fm.Delete(ctx, key); err != nil {
+		return fmt.Errorf("deleting shared object %q: %w", key, err)
+	}
+	return nil
+}
+
+// ReleaseRemoteRequest evicts one inference's inputs with one control request.
+// A worker that only understands the exact-key payload returns an error, so the
+// frontend retries each key during a rolling upgrade.
+func (s *S3FileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, requestID string, keys []string) error {
+	if err := validateEphemeralRequestRelease(requestID, keys); err != nil {
+		return err
+	}
+	if err := s.releaseWorkerKeys(ctx, nodeID, fileReleaseRequest{RequestID: requestID}); err != nil {
+		var fallbackErrors []error
+		for _, key := range keys {
+			if fallbackErr := s.ReleaseRemote(ctx, nodeID, key); fallbackErr != nil {
+				fallbackErrors = append(fallbackErrors, fallbackErr)
+			}
+		}
+		if fallbackErr := errors.Join(fallbackErrors...); fallbackErr != nil {
+			return errors.Join(err, fmt.Errorf("exact-key release fallback: %w", fallbackErr))
+		}
+		return nil
+	}
+	var deleteErrors []error
+	for _, key := range keys {
+		if err := s.fm.Delete(ctx, key); err != nil {
+			deleteErrors = append(deleteErrors, fmt.Errorf("deleting shared object %q: %w", key, err))
+		}
+	}
+	return errors.Join(deleteErrors...)
+}
+
+func (s *S3FileStager) releaseWorkerKeys(ctx context.Context, nodeID string, request fileReleaseRequest) error {
+	var reply fileReleaseReply
+	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesRelease, request, &reply); err != nil {
+		return err
+	}
+	if reply.Error != "" {
+		return fmt.Errorf("backend release failed: %s", reply.Error)
+	}
 	return nil
 }

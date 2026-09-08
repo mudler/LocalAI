@@ -36,6 +36,7 @@ const (
 	// them not at all, and the catch-all under Prefix answers for them. That is
 	// the same 404 an older build gives, which is what the frontend already
 	// reads as "this worker does not serve that verb" rather than as absence.
+	PathFilesRelease = "/v1/control/files/release"
 	PathFilesEnsure  = "/v1/control/files/ensure"
 	PathFilesStage   = "/v1/control/files/stage"
 	PathFilesTemp    = "/v1/control/files/temp"
@@ -73,6 +74,7 @@ func BackendPaths() []string {
 		PathModelDelete,
 		PathModelsRunning,
 		PathNodeStop,
+		PathFilesRelease,
 		PathFilesEnsure,
 		PathFilesStage,
 		PathFilesTemp,

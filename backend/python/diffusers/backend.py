@@ -122,6 +122,21 @@ from diffusers.schedulers import (
     UniPCMultistepScheduler,
 )
 
+def select_device(request_cuda, device_option, cuda_available, xpu, mps_available):
+    """Pick the pipeline device. An explicit `device:` model option wins;
+    otherwise CUDA is used whenever torch reports it available (ROCm
+    builds included) or the model config forces it with `cuda: true`,
+    keeping the pre-existing XPU/MPS overrides. CPU is the fallback, not
+    the default."""
+    if device_option:
+        return device_option
+    device = "cuda" if (request_cuda or cuda_available) else "cpu"
+    if xpu:
+        device = "xpu"
+    if mps_available:
+        device = "mps"
+    return device
+
 def is_float(s):
     """Check if a string can be converted to float."""
     try:
@@ -627,12 +642,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 # modify LoraAdapter to be relative to modelFileBase
                 request.LoraAdapter = os.path.join(request.ModelPath, request.LoraAdapter)
 
-            device = "cpu" if not request.CUDA else "cuda"
-            if XPU:
-                device = "xpu"
-            mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
-            if mps_available:
-                device = "mps"
+            device = select_device(
+                request.CUDA,
+                self.options.pop("device", None),
+                torch.cuda.is_available(),
+                XPU,
+                hasattr(torch.backends, "mps") and torch.backends.mps.is_available(),
+            )
             self.device = device
             if request.LoraAdapter:
                 # Check if its a local file and not a directory ( we load lora differently for a safetensor file )

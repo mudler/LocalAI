@@ -448,7 +448,7 @@ var _ = Describe("the worker's HTTP server", func() {
 				return nil, nil
 			},
 		}
-		// A real object store, because the four file verbs are only mounted for
+		// A real object store, because the five file verbs are only mounted for
 		// a worker that has one, and the mounting assertion below walks every
 		// path this package names.
 		store, err := storage.NewFilesystemStore(filepath.Join(dir, "objectstore"))
@@ -492,7 +492,7 @@ var _ = Describe("the worker's HTTP server", func() {
 
 	It("serves no file verb at all when the deployment configured no object store", func() {
 		// Not a degraded mount: a worker with nowhere to stage to answers the
-		// four file paths the way a build that never had them does, which is
+		// five file paths the way a build that never had them does, which is
 		// the 404 the frontend already reads as "this worker does not serve
 		// that verb" rather than as a file that is not there.
 		dir := GinkgoT().TempDir()
@@ -503,7 +503,7 @@ var _ = Describe("the worker's HTTP server", func() {
 
 		for _, p := range []string{
 			workerctl.PathFilesEnsure, workerctl.PathFilesStage,
-			workerctl.PathFilesTemp, workerctl.PathFilesListDir,
+			workerctl.PathFilesTemp, workerctl.PathFilesListDir, workerctl.PathFilesRelease,
 		} {
 			req, reqErr := http.NewRequest(http.MethodPost, "http://"+bare.Addr+p, strings.NewReader("{}"))
 			Expect(reqErr).NotTo(HaveOccurred())

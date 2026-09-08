@@ -12,11 +12,12 @@ import (
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/xlog"
+	"golang.org/x/sync/singleflight"
 )
 
-// The worker's file-staging control plane: four verbs that move model and job
+// The worker's file-staging control plane: five verbs that move model and job
 // artifacts between the object store both sides share and this worker's disk.
-// They replace the four nodes.<id>.files.* NATS subjects.
+// They replace the five nodes.<id>.files.* NATS subjects.
 //
 // The reply shapes are the ones those subjects already carried, unchanged, so
 // an operator reading the wire sees the same fields. What DID change is that a
@@ -76,7 +77,7 @@ func (cfg *Config) stagingDataDir() string {
 // from, over the same object store the frontend uses.
 //
 // It returns an error rather than degrading, because a worker whose deployment
-// asked for object storage and could not reach it would otherwise mount four
+// asked for object storage and could not reach it would otherwise mount five
 // verbs that fail every call, which the frontend cannot tell from a worker out
 // of disk.
 func (cfg *Config) NewStagingFileManager(ctx context.Context) (*storage.FileManager, error) {
@@ -98,13 +99,19 @@ func (cfg *Config) NewStagingFileManager(ctx context.Context) (*storage.FileMana
 	return fm, nil
 }
 
-// RegisterFileControlRoutes mounts the four file-staging verbs on mux.
+// RegisterFileControlRoutes mounts the five file-staging verbs on mux.
 //
 // The caller is responsible for putting mux behind authentication; see
 // nodes.AuthenticatedRoutes, which is how the worker mounts this so the file
 // verbs share one bearer check with the lifecycle verbs and the file routes
 // rather than growing a third one.
 func (cfg *Config) RegisterFileControlRoutes(mux *http.ServeMux, fm *storage.FileManager) {
+	cfg.RegisterFileControlRoutesWithCapacity(mux, fm, nil)
+}
+
+// RegisterFileControlRoutesWithCapacity applies worker staging capacity to the tunnel control verbs.
+func (cfg *Config) RegisterFileControlRoutesWithCapacity(mux *http.ServeMux, fm *storage.FileManager, capacity *EphemeralCapacityGuard) {
+	var ensureGroup singleflight.Group
 	cacheDir := cfg.stagingCacheDir()
 
 	// files.ensure: download an object-store key into this worker's cache and
@@ -120,14 +127,22 @@ func (cfg *Config) RegisterFileControlRoutes(mux *http.ServeMux, fm *storage.Fil
 		if err := json.Unmarshal(body, &req); err != nil {
 			return nil, fmt.Errorf("invalid files.ensure request: %w", err)
 		}
-		localPath, err := fm.Download(ctx, req.Key)
+		value, err, _ := ensureGroup.Do(req.Key, func() (any, error) {
+			return ensureWorkerFile(ctx, fm, capacity, req.Key)
+		})
 		if err != nil {
 			xlog.Error("File ensure failed", "key", req.Key, "error", err)
 			return fileEnsureReply{Error: err.Error()}, nil
 		}
+		localPath, ok := value.(string)
+		if !ok {
+			return fileEnsureReply{Error: fmt.Sprintf("unexpected file ensure result %T", value)}, nil
+		}
 		xlog.Debug("File ensured locally", "key", req.Key, "path", localPath)
 		return fileEnsureReply{LocalPath: localPath}, nil
 	})
+
+	registerFileReleaseControlRoute(mux, fm, cacheDir, capacity)
 
 	// files.stage: upload one of this worker's files to the object store.
 	//
@@ -265,4 +280,33 @@ func listStagedFiles(ctx context.Context, dirPath string) ([]string, error) {
 		return nil, err
 	}
 	return files, nil
+}
+
+func registerFileReleaseControlRoute(mux *http.ServeMux, fm *storage.FileManager, cacheDir string, capacity *EphemeralCapacityGuard) {
+	postControlVerb(mux, workerctl.PathFilesRelease, func(ctx context.Context, body []byte) (any, error) {
+		var req struct {
+			Key       string `json:"key"`
+			RequestID string `json:"request_id"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			return nil, fmt.Errorf("invalid files.release request: %w", err)
+		}
+		var err error
+		if req.RequestID != "" {
+			err = releaseEphemeralCacheRequest(ctx, cacheDir, req.RequestID, capacity)
+		} else {
+			var cachePath string
+			cachePath, err = fm.CachePath(req.Key)
+			if err == nil {
+				err = releaseEphemeralCachePathWithCapacity(cacheDir, req.Key, cachePath, capacity)
+			}
+		}
+		reply := struct {
+			Error string `json:"error,omitempty"`
+		}{}
+		if err != nil {
+			reply.Error = err.Error()
+		}
+		return reply, nil
+	})
 }
