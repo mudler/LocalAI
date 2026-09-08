@@ -16,6 +16,40 @@ import (
 
 const ephemeralCapacityWriteChunk int64 = 64 << 10
 
+const (
+	defaultEphemeralByteLimitCeiling = int64(10 << 30)
+	defaultEphemeralMinFreeFloor     = int64(1 << 30)
+)
+
+func effectiveEphemeralCapacity(roots []string, byteLimit, minFreeBytes int64) (int64, int64, error) {
+	if byteLimit > 0 && minFreeBytes > 0 {
+		return byteLimit, minFreeBytes, nil
+	}
+	var smallestTotal int64
+	var largestTotal int64
+	for _, root := range roots {
+		diskInfo, err := xsysinfo.GetDiskInfo(root)
+		if err != nil {
+			return 0, 0, fmt.Errorf("reading ephemeral filesystem capacity for %q: %w", root, err)
+		}
+		total := int64(min(diskInfo.Total, uint64(math.MaxInt64)))
+		if smallestTotal == 0 || total < smallestTotal {
+			smallestTotal = total
+		}
+		largestTotal = max(largestTotal, total)
+	}
+	if smallestTotal == 0 {
+		return 0, 0, fmt.Errorf("at least one ephemeral root is required")
+	}
+	if byteLimit <= 0 {
+		byteLimit = min(defaultEphemeralByteLimitCeiling, smallestTotal/10)
+	}
+	if minFreeBytes <= 0 {
+		minFreeBytes = max(defaultEphemeralMinFreeFloor, largestTotal/20)
+	}
+	return byteLimit, minFreeBytes, nil
+}
+
 // EphemeralCapacityError reports the values used to reject a reservation.
 type EphemeralCapacityError struct {
 	RequestedBytes int64
@@ -294,6 +328,35 @@ func (g *EphemeralCapacityGuard) ReleaseTree(path string) error {
 	return nil
 }
 
+// RemoveTreeIfInactive serializes recovery deletion with new reservations so
+// cleanup cannot remove a request tree between an activity check and Reserve.
+func (g *EphemeralCapacityGuard) RemoveTreeIfInactive(path string, remove func() error) (bool, error) {
+	if remove == nil {
+		return false, fmt.Errorf("ephemeral tree remover is nil")
+	}
+	cleanPath, _, err := g.registeredPath(path)
+	if err != nil {
+		return false, err
+	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	for entryPath, entry := range g.entries {
+		if entry.isActive() && ephemeralPathAtOrBelow(entryPath, cleanPath) {
+			return false, nil
+		}
+	}
+	if err := remove(); err != nil {
+		return false, err
+	}
+	for entryPath := range g.entries {
+		if ephemeralPathAtOrBelow(entryPath, cleanPath) {
+			g.releaseLocked(entryPath)
+		}
+	}
+	return true, nil
+}
+
 // HasActiveReservation reports whether path itself or a descendant has an
 // active reservation. Recovery cleanup uses it to avoid active request trees.
 func (g *EphemeralCapacityGuard) HasActiveReservation(path string) bool {
@@ -350,6 +413,12 @@ func (g *EphemeralCapacityGuard) NewWriter(path string, destination io.Writer) (
 	entry.openWriters++
 	g.entries[cleanPath] = entry
 	return &EphemeralCapacityWriter{guard: g, path: cleanPath, destination: destination}, nil
+}
+
+// CapacityWriter exposes NewWriter through the transport-facing interface
+// without leaking the concrete writer type across packages.
+func (g *EphemeralCapacityGuard) CapacityWriter(path string, destination io.Writer) (io.WriteCloser, error) {
+	return g.NewWriter(path, destination)
 }
 
 // EphemeralCapacityWriter bounds writes through an EphemeralCapacityGuard.

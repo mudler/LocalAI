@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -49,17 +50,23 @@ const (
 // Auth is via Bearer token (registration token), using constant-time comparison.
 // A nil readiness fails open, keeping /readyz's historical always-200 answer.
 func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return StartFileTransferServerWithCapacity(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+}
+
+// StartFileTransferServerWithCapacity starts the file transfer server with a
+// worker-local guard for per-request ephemeral inputs.
+func StartFileTransferServerWithCapacity(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return StartFileTransferServerWithReadiness(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, logStore...)
+	return startFileTransferServer(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, logStore...)
 }
 
 // StartFileTransferServerWithListener starts the server on an existing listener.
 // This avoids the TOCTOU race of closing a listener and re-binding to the same port.
 func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return StartFileTransferServerWithReadiness(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, nil, logStore...)
+	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, nil, nil, logStore...)
 }
 
 // StartFileTransferServerWithReadiness is StartFileTransferServerWithListener
@@ -67,6 +74,10 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 // the probe keeps its historical always-200 behaviour for callers that have no
 // meaningful readiness signal to report.
 func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+}
+
+func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
@@ -116,11 +127,11 @@ func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDi
 		case http.MethodHead:
 			handleHead(w, r, stagingDir, modelsDir, dataDir, key)
 		case http.MethodPut:
-			handleUpload(w, r, stagingDir, modelsDir, dataDir, key, maxUploadSize)
+			handleUploadWithCapacity(w, r, stagingDir, modelsDir, dataDir, key, maxUploadSize, capacity)
 		case http.MethodGet:
 			handleDownload(w, r, stagingDir, modelsDir, dataDir, key)
 		case http.MethodDelete:
-			handleRelease(w, r, stagingDir, key)
+			handleReleaseWithCapacity(w, r, stagingDir, key, capacity)
 		case http.MethodPost:
 			if key == "temp" {
 				handleAllocTemp(w, r, stagingDir)
@@ -185,6 +196,10 @@ func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDi
 }
 
 func handleRelease(w http.ResponseWriter, _ *http.Request, stagingDir, key string) {
+	handleReleaseWithCapacity(w, nil, stagingDir, key, nil)
+}
+
+func handleReleaseWithCapacity(w http.ResponseWriter, _ *http.Request, stagingDir, key string, capacity EphemeralCapacity) {
 	if err := validateEphemeralReleaseKey(key); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -205,6 +220,12 @@ func handleRelease(w http.ResponseWriter, _ *http.Request, stagingDir, key strin
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if capacity != nil {
+			if err := capacity.Release(path); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 	categoryDir := filepath.Dir(filePath)
@@ -303,6 +324,66 @@ type contentRange struct {
 	total int64
 }
 
+// EphemeralCapacity bounds worker-local request input storage. Implementations
+// must reserve before bytes reach disk and may reconcile reservations with the
+// resulting file after a write ends.
+type EphemeralCapacity interface {
+	Reserve(path string, size int64) error
+	Commit(path string) error
+	Release(path string) error
+	CapacityWriter(path string, destination io.Writer) (io.WriteCloser, error)
+}
+
+type uploadStatusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *uploadStatusWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *uploadStatusWriter) Write(payload []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	return w.ResponseWriter.Write(payload)
+}
+
+type capacityRequestBody struct {
+	io.ReadCloser
+	writer io.WriteCloser
+}
+
+type ephemeralCapacityWriteError struct{ err error }
+
+func (e *ephemeralCapacityWriteError) Error() string { return e.err.Error() }
+func (e *ephemeralCapacityWriteError) Unwrap() error { return e.err }
+
+func (r *capacityRequestBody) Read(payload []byte) (int, error) {
+	n, readErr := r.ReadCloser.Read(payload)
+	if n == 0 {
+		return n, readErr
+	}
+	written, writeErr := r.writer.Write(payload[:n])
+	if writeErr != nil {
+		return written, &ephemeralCapacityWriteError{err: writeErr}
+	}
+	if written != n {
+		return written, io.ErrShortWrite
+	}
+	return n, readErr
+}
+
+func uploadWriteStatus(err error) int {
+	var capacityErr *ephemeralCapacityWriteError
+	if errors.As(err, &capacityErr) {
+		return http.StatusInsufficientStorage
+	}
+	return http.StatusInternalServerError
+}
+
 // parseContentRange parses a Content-Range header value of the form
 // "bytes <start>-<end>/<total>". RFC 9110 §14.4.
 // Returns (nil, nil) when the header is empty (no range request).
@@ -344,6 +425,10 @@ func parseContentRange(h string) (*contentRange, error) {
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string, maxUploadSize int64) {
+	handleUploadWithCapacity(w, r, stagingDir, modelsDir, dataDir, key, maxUploadSize, nil)
+}
+
+func handleUploadWithCapacity(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string, maxUploadSize int64, capacity EphemeralCapacity) {
 	if key == "" {
 		http.Error(w, "key is required", http.StatusBadRequest)
 		return
@@ -382,13 +467,68 @@ func handleUpload(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir,
 		return
 	}
 
-	if cr == nil {
-		// Non-resumable (legacy) path: truncate-create, single fire-and-forget.
-		handleFullUpload(w, r, dstPath, key, expectedFinalHash)
-		return
+	var capacityBody *capacityRequestBody
+	capacityEnabled := capacity != nil && targetDir == stagingDir && strings.HasPrefix(key, "ephemeral/")
+	capacityPaths := []string{dstPath, dstPath + hashSidecarSuffix, dstPath + targetSidecarSuffix}
+	if capacityEnabled {
+		if r.ContentLength >= 0 {
+			if err := capacity.Reserve(dstPath, r.ContentLength); err != nil {
+				http.Error(w, err.Error(), http.StatusInsufficientStorage)
+				return
+			}
+		} else {
+			writer, err := capacity.CapacityWriter(dstPath, io.Discard)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInsufficientStorage)
+				return
+			}
+			capacityBody = &capacityRequestBody{ReadCloser: r.Body, writer: writer}
+			r.Body = capacityBody
+		}
+		for _, sidecarPath := range capacityPaths[1:] {
+			if err := capacity.Reserve(sidecarPath, sha256.Size*2); err != nil {
+				if capacityBody != nil {
+					_ = capacityBody.writer.Close()
+				}
+				for _, reservedPath := range capacityPaths {
+					reconcileEphemeralCapacity(capacity, reservedPath, 0)
+				}
+				http.Error(w, err.Error(), http.StatusInsufficientStorage)
+				return
+			}
+		}
 	}
 
-	handleRangeUpload(w, r, dstPath, key, cr, expectedFinalHash)
+	statusWriter := &uploadStatusWriter{ResponseWriter: w}
+
+	if cr == nil {
+		// Non-resumable (legacy) path: truncate-create, single fire-and-forget.
+		handleFullUpload(statusWriter, r, dstPath, key, expectedFinalHash)
+	} else {
+		handleRangeUpload(statusWriter, r, dstPath, key, cr, expectedFinalHash)
+	}
+
+	if !capacityEnabled {
+		return
+	}
+	if capacityBody != nil {
+		if err := capacityBody.writer.Close(); err != nil {
+			xlog.Warn("Closing ephemeral capacity writer failed", "path", dstPath, "error", err)
+		}
+	}
+	for _, capacityPath := range capacityPaths {
+		reconcileEphemeralCapacity(capacity, capacityPath, statusWriter.status)
+	}
+}
+
+func reconcileEphemeralCapacity(capacity EphemeralCapacity, path string, status int) {
+	if info, err := os.Lstat(path); err == nil && info.Mode().IsRegular() {
+		if err := capacity.Commit(path); err != nil {
+			xlog.Error("Committing ephemeral capacity failed", "path", path, "status", status, "error", err)
+		}
+	} else if err := capacity.Release(path); err != nil {
+		xlog.Warn("Rolling back ephemeral capacity failed", "path", path, "error", err)
+	}
 }
 
 // handleFullUpload writes the entire request body to dstPath, replacing any
@@ -410,7 +550,7 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 		os.Remove(dstPath)
 		os.Remove(dstPath + hashSidecarSuffix)
 		xlog.Error("File upload failed", "key", key, "bytesReceived", n, "contentLength", r.ContentLength, "remote", r.RemoteAddr, "error", err)
-		http.Error(w, fmt.Sprintf("writing file: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("writing file: %v", err), uploadWriteStatus(err))
 		return
 	}
 
@@ -537,7 +677,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	n, err := io.Copy(f, limited)
 	if err != nil {
 		xlog.Error("Range upload chunk failed", "key", key, "bytesReceived", n, "expected", expectedChunkLen, "remote", r.RemoteAddr, "error", err)
-		http.Error(w, fmt.Sprintf("writing file: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("writing file: %v", err), uploadWriteStatus(err))
 		return
 	}
 	if n != expectedChunkLen {

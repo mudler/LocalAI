@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/xlog"
+	"golang.org/x/sync/singleflight"
 )
 
 // isPathAllowed checks if path is within one of the allowed directories.
@@ -38,7 +39,7 @@ func isPathAllowed(path string, allowedDirs []string) bool {
 }
 
 // subscribeFileStaging subscribes to NATS file staging subjects for this node.
-func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, nodeID string) error {
+func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, nodeID string, capacity *EphemeralCapacityGuard) error {
 	// Create FileManager with same S3 config as the frontend
 	// TODO: propagate a caller-provided context once Config carries one
 	s3Store, err := storage.NewS3Store(context.Background(), storage.S3Config{
@@ -58,9 +59,10 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 	if err != nil {
 		return fmt.Errorf("initializing file manager: %w", err)
 	}
-	if err := subscribeFileRelease(natsClient, nodeID, fm, cacheDir); err != nil {
+	if err := subscribeFileReleaseWithCapacity(natsClient, nodeID, fm, cacheDir, capacity); err != nil {
 		return err
 	}
+	var ensureGroup singleflight.Group
 
 	// Subscribe: files.ensure — download S3 key to local, reply with local path
 	if _, err := natsClient.SubscribeReply(messaging.SubjectNodeFilesEnsure(nodeID), func(data []byte, reply func([]byte)) {
@@ -72,10 +74,17 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 			return
 		}
 
-		localPath, err := fm.Download(context.Background(), req.Key)
+		value, err, _ := ensureGroup.Do(req.Key, func() (any, error) {
+			return ensureWorkerFile(context.Background(), fm, capacity, req.Key)
+		})
 		if err != nil {
 			xlog.Error("File ensure failed", "key", req.Key, "error", err)
 			replyJSON(reply, map[string]string{"error": err.Error()})
+			return
+		}
+		localPath, ok := value.(string)
+		if !ok {
+			replyJSON(reply, map[string]string{"error": fmt.Sprintf("unexpected file ensure result %T", value)})
 			return
 		}
 
@@ -205,6 +214,10 @@ func (cfg *Config) subscribeFileStaging(natsClient messaging.MessagingClient, no
 }
 
 func subscribeFileRelease(natsClient messaging.MessagingClient, nodeID string, fm *storage.FileManager, cacheDir string) error {
+	return subscribeFileReleaseWithCapacity(natsClient, nodeID, fm, cacheDir, nil)
+}
+
+func subscribeFileReleaseWithCapacity(natsClient messaging.MessagingClient, nodeID string, fm *storage.FileManager, cacheDir string, capacity *EphemeralCapacityGuard) error {
 	if _, err := natsClient.SubscribeReply(messaging.SubjectNodeFilesRelease(nodeID), func(data []byte, reply func([]byte)) {
 		var req struct {
 			Key string `json:"key"`
@@ -215,7 +228,7 @@ func subscribeFileRelease(natsClient messaging.MessagingClient, nodeID string, f
 		}
 		cachePath, err := fm.CachePath(req.Key)
 		if err == nil {
-			err = releaseEphemeralCachePath(cacheDir, req.Key, cachePath)
+			err = releaseEphemeralCachePathWithCapacity(cacheDir, req.Key, cachePath, capacity)
 		}
 		if err != nil {
 			replyJSON(reply, map[string]string{"error": err.Error()})
@@ -233,6 +246,10 @@ func releaseEphemeralCacheKey(cacheDir, key string) error {
 }
 
 func releaseEphemeralCachePath(cacheDir, key, filePath string) error {
+	return releaseEphemeralCachePathWithCapacity(cacheDir, key, filePath, nil)
+}
+
+func releaseEphemeralCachePathWithCapacity(cacheDir, key, filePath string, capacity *EphemeralCapacityGuard) error {
 	if err := validateEphemeralCacheKey(key); err != nil {
 		return err
 	}
@@ -247,6 +264,11 @@ func releaseEphemeralCachePath(cacheDir, key, filePath string) error {
 	for _, path := range []string{filePath, filePath + ".sha256", filePath + ".sha256.target"} {
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 			return err
+		}
+		if capacity != nil {
+			if err := capacity.Release(path); err != nil {
+				return err
+			}
 		}
 	}
 	for _, dir := range []string{filepath.Dir(filePath), filepath.Dir(filepath.Dir(filePath))} {
@@ -264,6 +286,49 @@ func releaseEphemeralCachePath(cacheDir, key, filePath string) error {
 		}
 	}
 	return nil
+}
+
+func ensureWorkerFile(ctx context.Context, fm *storage.FileManager, capacity *EphemeralCapacityGuard, key string) (string, error) {
+	if capacity == nil || !strings.HasPrefix(key, "ephemeral/") {
+		return fm.Download(ctx, key)
+	}
+	if err := validateEphemeralCacheKey(key); err != nil {
+		return "", err
+	}
+	cachePath, err := fm.CachePath(key)
+	if err != nil {
+		return "", err
+	}
+	if info, statErr := os.Lstat(cachePath); statErr == nil {
+		if !info.Mode().IsRegular() {
+			return "", fmt.Errorf("ephemeral cache path %q is not a regular file", cachePath)
+		}
+		if err := capacity.Account(cachePath, info.Size()); err != nil {
+			return "", err
+		}
+		return cachePath, nil
+	} else if !os.IsNotExist(statErr) {
+		return "", statErr
+	}
+
+	meta, err := fm.Head(ctx, key)
+	if err != nil {
+		return "", fmt.Errorf("reading size for %s: %w", key, err)
+	}
+	if err := capacity.Reserve(cachePath, meta.Size); err != nil {
+		return "", err
+	}
+	localPath, err := fm.Download(ctx, key)
+	if err != nil {
+		_ = capacity.Release(cachePath)
+		return "", err
+	}
+	if err := capacity.Commit(cachePath); err != nil {
+		_ = fm.EvictCache(key)
+		_ = capacity.Release(cachePath)
+		return "", err
+	}
+	return localPath, nil
 }
 
 func validateEphemeralCacheKey(key string) error {

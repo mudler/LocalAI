@@ -21,6 +21,35 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type recordingEphemeralCapacity struct {
+	reserved   int64
+	reserveErr error
+	writerErr  error
+}
+
+type nopWriteCloser struct{ io.Writer }
+
+func (nopWriteCloser) Close() error { return nil }
+
+type failingWriteCloser struct{ err error }
+
+func (w failingWriteCloser) Write([]byte) (int, error) { return 0, w.err }
+func (failingWriteCloser) Close() error                { return nil }
+
+func (g *recordingEphemeralCapacity) Reserve(_ string, size int64) error {
+	g.reserved = size
+	return g.reserveErr
+}
+
+func (*recordingEphemeralCapacity) Commit(string) error  { return nil }
+func (*recordingEphemeralCapacity) Release(string) error { return nil }
+func (g *recordingEphemeralCapacity) CapacityWriter(_ string, destination io.Writer) (io.WriteCloser, error) {
+	if g.writerErr != nil {
+		return failingWriteCloser{err: g.writerErr}, nil
+	}
+	return nopWriteCloser{Writer: destination}, nil
+}
+
 var _ = Describe("FileTransferServer", func() {
 	setupTestServer := func(token string, maxUploadSize int64) (*httptest.Server, string, string, string) {
 		stagingDir := GinkgoT().TempDir()
@@ -54,6 +83,33 @@ var _ = Describe("FileTransferServer", func() {
 	}
 
 	Describe("Upload and Download", func() {
+		It("rejects a declared ephemeral upload before writing when capacity is exhausted", func() {
+			stagingDir := GinkgoT().TempDir()
+			modelsDir := GinkgoT().TempDir()
+			dataDir := GinkgoT().TempDir()
+			guard := &recordingEphemeralCapacity{reserveErr: fmt.Errorf("full")}
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPut, "/v1/files/ephemeral/audio/request/input.wav", strings.NewReader("payload"))
+
+			handleUploadWithCapacity(recorder, request, stagingDir, modelsDir, dataDir, "ephemeral/audio/request/input.wav", 0, guard)
+
+			Expect(recorder.Code).To(Equal(http.StatusInsufficientStorage))
+			Expect(guard.reserved).To(Equal(int64(len("payload"))))
+			Expect(filepath.Join(stagingDir, "ephemeral", "audio", "request", "input.wav")).NotTo(BeAnExistingFile())
+		})
+
+		It("returns insufficient storage when a chunked upload reaches its bound", func() {
+			stagingDir := GinkgoT().TempDir()
+			guard := &recordingEphemeralCapacity{writerErr: fmt.Errorf("full")}
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPut, "/v1/files/ephemeral/audio/request/input.wav", strings.NewReader("payload"))
+			request.ContentLength = -1
+
+			handleUploadWithCapacity(recorder, request, stagingDir, GinkgoT().TempDir(), GinkgoT().TempDir(), "ephemeral/audio/request/input.wav", 0, guard)
+
+			Expect(recorder.Code).To(Equal(http.StatusInsufficientStorage))
+		})
+
 		It("round-trips file content correctly", func() {
 			ts, _, _, _ := setupTestServer("secret-token", 0)
 

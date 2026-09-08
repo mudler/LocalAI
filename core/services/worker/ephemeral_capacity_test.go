@@ -39,6 +39,20 @@ func (capacityShortWriter) Write(p []byte) (int, error) {
 }
 
 var _ = Describe("EphemeralCapacityGuard", func() {
+	It("derives bounded defaults and preserves positive overrides", func() {
+		root := GinkgoT().TempDir()
+		limit, headroom, err := effectiveEphemeralCapacity([]string{root}, 0, -1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(limit).To(BeNumerically(">", 0))
+		Expect(limit).To(BeNumerically("<=", defaultEphemeralByteLimitCeiling))
+		Expect(headroom).To(BeNumerically(">=", defaultEphemeralMinFreeFloor))
+
+		limit, headroom, err = effectiveEphemeralCapacity([]string{root}, 123, 456)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(limit).To(Equal(int64(123)))
+		Expect(headroom).To(Equal(int64(456)))
+	})
+
 	It("accounts existing regular files without following symlinks", func() {
 		root := GinkgoT().TempDir()
 		outside := filepath.Join(GinkgoT().TempDir(), "outside.bin")

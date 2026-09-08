@@ -1,9 +1,13 @@
 package worker
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -11,6 +15,29 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+type stagingObjectStore struct {
+	payload  []byte
+	getCalls int
+	getErr   error
+}
+
+func (*stagingObjectStore) Put(context.Context, string, io.Reader) error { return nil }
+func (s *stagingObjectStore) Get(context.Context, string) (io.ReadCloser, error) {
+	s.getCalls++
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	return io.NopCloser(strings.NewReader(string(s.payload))), nil
+}
+func (s *stagingObjectStore) Head(_ context.Context, key string) (*storage.ObjectMeta, error) {
+	return &storage.ObjectMeta{Key: key, Size: int64(len(s.payload))}, nil
+}
+func (*stagingObjectStore) Exists(context.Context, string) (bool, error) { return true, nil }
+func (*stagingObjectStore) Delete(context.Context, string) error         { return nil }
+func (*stagingObjectStore) List(context.Context, string) ([]string, error) {
+	return nil, nil
+}
 
 type releaseSubscription struct{}
 
@@ -43,6 +70,53 @@ func (m *releaseMessagingClient) IsConnected() bool { return true }
 func (m *releaseMessagingClient) Close()            {}
 
 var _ = Describe("Worker exact-key staging release", func() {
+	It("reserves S3 object size before download and releases it with the exact key", func() {
+		cacheDir := GinkgoT().TempDir()
+		root := filepath.Join(cacheDir, "ephemeral")
+		store := &stagingObjectStore{payload: []byte("data")}
+		fm, err := storage.NewFileManager(store, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 4, 0)
+		Expect(err).NotTo(HaveOccurred())
+		key := "ephemeral/audio/request-id/input.wav"
+
+		localPath, err := ensureWorkerFile(context.Background(), fm, guard, key)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(localPath).To(BeAnExistingFile())
+		Expect(store.getCalls).To(Equal(1))
+		Expect(guard.Reserve(filepath.Join(root, "audio", "other", "input.wav"), 1)).NotTo(Succeed())
+
+		Expect(releaseEphemeralCachePathWithCapacity(cacheDir, key, localPath, guard)).To(Succeed())
+		Expect(guard.Reserve(filepath.Join(root, "audio", "other", "input.wav"), 4)).To(Succeed())
+	})
+
+	It("rejects an oversized S3 object before starting its download", func() {
+		cacheDir := GinkgoT().TempDir()
+		store := &stagingObjectStore{payload: []byte("oversized")}
+		fm, err := storage.NewFileManager(store, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+		guard, err := NewEphemeralCapacityGuard([]string{filepath.Join(cacheDir, "ephemeral")}, 4, 0)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = ensureWorkerFile(context.Background(), fm, guard, "ephemeral/audio/request-id/input.wav")
+		Expect(err).To(HaveOccurred())
+		Expect(store.getCalls).To(BeZero())
+	})
+
+	It("rolls back an S3 reservation when the download fails", func() {
+		cacheDir := GinkgoT().TempDir()
+		root := filepath.Join(cacheDir, "ephemeral")
+		store := &stagingObjectStore{payload: []byte("data"), getErr: errors.New("download failed")}
+		fm, err := storage.NewFileManager(store, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 4, 0)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = ensureWorkerFile(context.Background(), fm, guard, "ephemeral/audio/request-id/input.wav")
+		Expect(err).To(MatchError(ContainSubstring("download failed")))
+		Expect(guard.Reserve(filepath.Join(root, "audio", "replacement", "input.wav"), 4)).To(Succeed())
+	})
+
 	It("removes only the exact cache file and upload sidecars", func() {
 		cacheDir := GinkgoT().TempDir()
 		categoryDir := filepath.Join(cacheDir, "ephemeral", "request-id", "audio")
