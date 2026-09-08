@@ -633,6 +633,17 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		sendError(t, "model_load_error", "Failed to load model", "", "")
 		return
 	}
+	if wrapped, ok := m.(*wrappedModel); ok {
+		resolvedVoice, params, release, resolveErr := resolveRealtimeVoice(context.Background(), session.Voice, wrapped.TTSConfig, application.VoiceProfileStore())
+		if resolveErr != nil {
+			xlog.Error("failed to resolve realtime voice", "error", resolveErr)
+			sendError(t, "voice_profile_error", resolveErr.Error(), "", "")
+			return
+		}
+		defer release()
+		session.Voice = resolvedVoice
+		wrapped.ttsParams = params
+	}
 	session.ModelInterface = m
 	// A pipeline-seeded option list gets its scoring prompt prewarmed
 	// alongside the model warm-up below, so the session's first turn
