@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -222,15 +223,24 @@ func subscribeFileRelease(natsClient messaging.MessagingClient, nodeID string, f
 func subscribeFileReleaseWithCapacity(natsClient messaging.MessagingClient, nodeID string, fm *storage.FileManager, cacheDir string, capacity *EphemeralCapacityGuard) error {
 	if _, err := natsClient.SubscribeReply(messaging.SubjectNodeFilesRelease(nodeID), func(data []byte, reply func([]byte)) {
 		var req struct {
-			Key string `json:"key"`
+			Key       string `json:"key"`
+			RequestID string `json:"request_id"`
 		}
 		if err := json.Unmarshal(data, &req); err != nil {
 			replyJSON(reply, map[string]string{"error": "invalid request"})
 			return
 		}
-		cachePath, err := fm.CachePath(req.Key)
-		if err == nil {
-			err = releaseEphemeralCachePathWithCapacity(cacheDir, req.Key, cachePath, capacity)
+		var err error
+		if req.RequestID != "" {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			err = releaseEphemeralCacheRequest(ctx, cacheDir, req.RequestID, capacity)
+			cancel()
+		} else {
+			cachePath, cacheErr := fm.CachePath(req.Key)
+			err = cacheErr
+			if err == nil {
+				err = releaseEphemeralCachePathWithCapacity(cacheDir, req.Key, cachePath, capacity)
+			}
 		}
 		if err != nil {
 			replyJSON(reply, map[string]string{"error": err.Error()})
@@ -273,6 +283,63 @@ func releaseEphemeralCachePathWithCapacity(cacheDir, key, filePath string, capac
 	return nil
 }
 
+func releaseEphemeralCacheRequest(ctx context.Context, cacheDir, requestID string, capacity *EphemeralCapacityGuard) error {
+	if err := validateEphemeralCacheRequestID(requestID); err != nil {
+		return err
+	}
+	if capacity != nil {
+		if err := capacity.BeginRequestRelease(ctx, requestID); err != nil {
+			return fmt.Errorf("beginning release for request %q: %w", requestID, err)
+		}
+		defer capacity.EndRequestRelease(requestID)
+	}
+	root := filepath.Join(cacheDir, "ephemeral")
+	categories, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	var releaseErrors []error
+	for _, category := range categories {
+		if !category.IsDir() || category.Type()&os.ModeSymlink != 0 {
+			continue
+		}
+		requestDir := filepath.Join(root, category.Name(), requestID)
+		info, err := os.Lstat(requestDir)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				releaseErrors = append(releaseErrors, fmt.Errorf("stating request directory %q: %w", requestDir, err))
+			}
+			continue
+		}
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			releaseErrors = append(releaseErrors, fmt.Errorf("ephemeral request path %q is not a real directory", requestDir))
+			continue
+		}
+		entries, err := os.ReadDir(requestDir)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				releaseErrors = append(releaseErrors, fmt.Errorf("reading request directory %q: %w", requestDir, err))
+			}
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				releaseErrors = append(releaseErrors, fmt.Errorf("unexpected directory in ephemeral request %q", filepath.Join(requestDir, entry.Name())))
+				continue
+			}
+			key := filepath.ToSlash(filepath.Join("ephemeral", category.Name(), requestID, entry.Name()))
+			filePath := filepath.Join(cacheDir, filepath.FromSlash(key))
+			if err := releaseEphemeralCachePathWithCapacity(cacheDir, key, filePath, capacity); err != nil {
+				releaseErrors = append(releaseErrors, fmt.Errorf("releasing %q: %w", key, err))
+			}
+		}
+	}
+	return errors.Join(releaseErrors...)
+}
+
 type ephemeralStagingCapacity interface {
 	Reserve(path string, size int64) error
 	Commit(path string) error
@@ -283,6 +350,16 @@ type ephemeralStagingCapacity interface {
 func ensureWorkerFile(ctx context.Context, fm *storage.FileManager, capacity *EphemeralCapacityGuard, key string) (string, error) {
 	if capacity == nil {
 		return fm.Download(ctx, key)
+	}
+	if strings.HasPrefix(key, "ephemeral/") {
+		if err := validateEphemeralCacheKey(key); err != nil {
+			return "", err
+		}
+		requestID := strings.Split(key, "/")[2]
+		if err := capacity.BeginRequestOperation(requestID); err != nil {
+			return "", err
+		}
+		defer capacity.EndRequestOperation(requestID)
 	}
 	return ensureWorkerFileWithCapacity(ctx, fm, capacity, key)
 }
@@ -345,6 +422,13 @@ func validateEphemeralCacheKey(key string) error {
 		if part == "" || part == "." || part == ".." {
 			return fmt.Errorf("invalid ephemeral key %q", key)
 		}
+	}
+	return nil
+}
+
+func validateEphemeralCacheRequestID(requestID string) error {
+	if requestID == "" || strings.ContainsAny(requestID, "/\\") || path.Clean(requestID) != requestID || requestID == "." || requestID == ".." {
+		return fmt.Errorf("invalid ephemeral request ID %q", requestID)
 	}
 	return nil
 }

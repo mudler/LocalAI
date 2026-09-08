@@ -38,27 +38,44 @@ space.
 
 The `FileStagingClient` already creates one request ID before staging inputs and
 waits for synchronous and streaming backend calls to finish. It will track each
-ephemeral key before attempting to stage it and defer release of those exact
-keys. Release runs after the backend call returns, including error and
-cancellation paths, using a short background timeout so cancellation of the
-request does not cancel its cleanup.
+ephemeral key before attempting to stage it and defer one request-scoped
+release identified by the request ID. Release runs after the backend call
+returns, including error and cancellation paths, using a short background
+timeout so cancellation of the request does not cancel its cleanup.
 
 Request IDs will use the full UUID rather than the current eight-character
-prefix. Cleanup addresses exact keys instead of deleting an inferred directory,
-so it cannot remove another request's input even if names collide.
+prefix. The worker enumerates only category directories for that validated
+request ID and removes each entry with exact, symlink-safe deletion.
 
-`FileStager` will expose an idempotent `ReleaseRemote` operation:
+`FileStager` will expose an idempotent exact-key `ReleaseRemote` operation and
+an optional request-scoped operation. The client uses one fixed-size request
+message for the normal path and retains exact-key calls as a rolling-upgrade
+fallback:
 
-- HTTP sends `DELETE /v1/files/<ephemeral-key>`. The worker accepts deletion
-  only for a validated key below `ephemeral/`, removes that exact file, and
-  prunes empty request and category directories without following symlinks.
-- S3/NATS tells the selected worker to evict the exact local cached key and
-  deletes the matching object from shared storage. Either deletion may already
-  have happened and still counts as success.
+- HTTP sends one authenticated request containing the fixed-size request ID.
+  The worker derives and removes that request's exact files, then prunes empty
+  request and category directories without following symlinks.
+- S3/NATS sends one request-reply containing the request ID so the selected
+  worker evicts the request's local cached files. The frontend then deletes the
+  matching objects from its tracked exact-key list.
+  Either deletion may already have happened and still counts as success.
 
 If staging fails partway through a request, the deferred release still includes
 the planned key, allowing it to remove a partial file when the transport can
 identify one. Cleanup errors are logged and do not replace the inference result.
+
+HTTP and S3 ingress register request operations before any pre-reservation
+work. Before enumerating files, the capacity guard marks the request released
+and waits for registered operations and admitted writes to finish. Later
+operations, reservations, and cache claims for that request are rejected.
+Markers expire after one hour and are capped at 16,384 entries, but a marker is
+never evicted while its registered operation or cleanup scan is active.
+Concurrent operation and cleanup state have the same hard cap. Disk bytes
+remain independently bounded by capacity admission.
+Cleanup waits within its deadline when all cleanup-pin slots are occupied.
+If that deadline expires, existing entries lose active ownership so recovery
+can reclaim them; registered ingress for the request remains closed until it
+exits.
 
 ## Capacity admission
 
@@ -115,8 +132,8 @@ are normal for idempotent release.
 
 Regression tests will establish the following behavior:
 
-1. Successful, failed, cancelled, and streaming calls release every exact key
-   only after the backend has returned.
+1. Successful, failed, cancelled, and streaming calls issue one request-scoped
+   worker cleanup only after the backend has returned.
 2. Partial staging failures release the planned key without changing the main
    error returned to the caller.
 3. HTTP and S3/NATS release remove local files; S3/NATS also removes the object.

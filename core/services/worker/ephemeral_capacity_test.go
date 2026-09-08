@@ -4,11 +4,14 @@ package worker
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -329,5 +332,153 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 		Expect(guard.Reserve(filepath.Join(root, "replacement.bin"), 6)).To(Succeed())
 		Expect(guard.ReleaseTree(root)).To(Succeed())
 		Expect(guard.HasActiveReservation(root)).To(BeFalse())
+	})
+
+	It("waits for pre-release reservations before request cleanup scans", func() {
+		root := GinkgoT().TempDir()
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
+		Expect(err).NotTo(HaveOccurred())
+		path := filepath.Join(root, "audio", "request-1", "input.wav")
+		Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+		Expect(guard.Reserve(path, 4)).To(Succeed())
+
+		released := make(chan error, 1)
+		go func() {
+			released <- guard.BeginRequestRelease(context.Background(), "request-1")
+		}()
+		Eventually(guard.releaseTombstoneCount).Should(Equal(1))
+		Consistently(released, 50*time.Millisecond).ShouldNot(Receive())
+
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+		Expect(guard.Commit(path)).To(Succeed())
+		Eventually(released).Should(Receive(Succeed()))
+		guard.EndRequestRelease("request-1")
+		Expect(guard.HasActiveReservation(path)).To(BeFalse())
+	})
+
+	It("rejects staging after request cleanup begins", func() {
+		root := GinkgoT().TempDir()
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(guard.BeginRequestRelease(context.Background(), "request-1")).To(Succeed())
+		defer guard.EndRequestRelease("request-1")
+
+		err = guard.Reserve(filepath.Join(root, "audio", "request-1", "late.wav"), 1)
+		var releasedErr *EphemeralRequestReleasedError
+		Expect(errors.As(err, &releasedErr)).To(BeTrue())
+		Expect(releasedErr.RequestID).To(Equal("request-1"))
+	})
+
+	It("leaves a late commit recoverable when release times out", func() {
+		root := GinkgoT().TempDir()
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
+		Expect(err).NotTo(HaveOccurred())
+		path := filepath.Join(root, "audio", "request-1", "late.wav")
+		Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+		Expect(guard.Reserve(path, 4)).To(Succeed())
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		Expect(guard.BeginRequestRelease(ctx, "request-1")).To(MatchError(context.Canceled))
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+		Expect(guard.Commit(path)).To(Succeed())
+		Expect(guard.HasActiveReservation(path)).To(BeFalse())
+	})
+
+	It("bounds release markers without reopening registered work", func() {
+		root := GinkgoT().TempDir()
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(guard.BeginRequestOperation("request-pinned")).To(Succeed())
+		pinnedRelease := make(chan error, 1)
+		go func() {
+			pinnedRelease <- guard.BeginRequestRelease(context.Background(), "request-pinned")
+		}()
+		Eventually(guard.releaseTombstoneCount).Should(Equal(1))
+		guard.EndRequestOperation("request-pinned")
+		Eventually(pinnedRelease).Should(Receive(Succeed()))
+
+		for index := range maxEphemeralReleaseTombstones + 10 {
+			requestID := fmt.Sprintf("request-%d", index)
+			Expect(guard.BeginRequestRelease(context.Background(), requestID)).To(Succeed())
+			guard.EndRequestRelease(requestID)
+		}
+		Expect(guard.releaseTombstoneCount()).To(Equal(maxEphemeralReleaseTombstones))
+		err = guard.Reserve(filepath.Join(root, "audio", "request-pinned", "late.wav"), 1)
+		var releasedErr *EphemeralRequestReleasedError
+		Expect(errors.As(err, &releasedErr)).To(BeTrue())
+		guard.EndRequestRelease("request-pinned")
+	})
+
+	It("applies backpressure at the release-pin cap and clears ownership", func() {
+		root := GinkgoT().TempDir()
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
+		Expect(err).NotTo(HaveOccurred())
+		path := filepath.Join(root, "audio", "request-target", "input.wav")
+		Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+		Expect(guard.Reserve(path, 4)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+		Expect(guard.Commit(path)).To(Succeed())
+
+		guard.mu.Lock()
+		for index := range maxEphemeralReleaseTombstones {
+			guard.releasePins[fmt.Sprintf("pinned-%d", index)] = 1
+		}
+		guard.mu.Unlock()
+		released := make(chan error, 1)
+		go func() {
+			released <- guard.BeginRequestRelease(context.Background(), "request-target")
+		}()
+		Consistently(released, 50*time.Millisecond).ShouldNot(Receive())
+
+		guard.EndRequestRelease("pinned-0")
+		Eventually(released).Should(Receive(Succeed()))
+		Expect(guard.HasActiveReservation(path)).To(BeFalse())
+		guard.EndRequestRelease("request-target")
+	})
+
+	It("makes committed files recoverable when pin backpressure expires", func() {
+		root := GinkgoT().TempDir()
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
+		Expect(err).NotTo(HaveOccurred())
+		path := filepath.Join(root, "audio", "request-target", "input.wav")
+		Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+		Expect(guard.Reserve(path, 4)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+		Expect(guard.Commit(path)).To(Succeed())
+		guard.mu.Lock()
+		for index := range maxEphemeralReleaseTombstones {
+			guard.releasePins[fmt.Sprintf("pinned-%d", index)] = 1
+		}
+		guard.mu.Unlock()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		Expect(guard.BeginRequestRelease(ctx, "request-target")).To(MatchError(context.Canceled))
+		Expect(guard.HasActiveReservation(path)).To(BeFalse())
+	})
+
+	It("rejects a registered cache-hit claim after pin backpressure expires", func() {
+		root := GinkgoT().TempDir()
+		path := filepath.Join(root, "audio", "request-target", "input.wav")
+		Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(guard.BeginRequestOperation("request-target")).To(Succeed())
+		defer guard.EndRequestOperation("request-target")
+		guard.mu.Lock()
+		for index := range maxEphemeralReleaseTombstones {
+			guard.releasePins[fmt.Sprintf("pinned-%d", index)] = 1
+		}
+		guard.mu.Unlock()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		Expect(guard.BeginRequestRelease(ctx, "request-target")).To(MatchError(context.Canceled))
+		err = guard.Claim(path)
+		var releasedErr *EphemeralRequestReleasedError
+		Expect(errors.As(err, &releasedErr)).To(BeTrue())
+		Expect(guard.HasActiveReservation(path)).To(BeFalse())
 	})
 })

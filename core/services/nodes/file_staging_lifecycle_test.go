@@ -22,6 +22,7 @@ type lifecycleStager struct {
 	ensureErrAt        int
 	releaseErr         error
 	releasedKeys       []string
+	releaseBatches     [][]string
 	releaseCtxErr      []error
 	releaseHasDeadline []bool
 	releaseDeadlines   []time.Time
@@ -37,6 +38,16 @@ func (s *lifecycleStager) EnsureRemote(ctx context.Context, nodeID, localPath, k
 
 func (s *lifecycleStager) ReleaseRemote(ctx context.Context, _ string, key string) error {
 	s.releasedKeys = append(s.releasedKeys, key)
+	s.releaseCtxErr = append(s.releaseCtxErr, ctx.Err())
+	deadline, ok := ctx.Deadline()
+	s.releaseHasDeadline = append(s.releaseHasDeadline, ok)
+	s.releaseDeadlines = append(s.releaseDeadlines, deadline)
+	return s.releaseErr
+}
+
+func (s *lifecycleStager) ReleaseRemoteRequest(ctx context.Context, _, _ string, keys []string) error {
+	s.releaseBatches = append(s.releaseBatches, append([]string(nil), keys...))
+	s.releasedKeys = append(s.releasedKeys, keys...)
 	s.releaseCtxErr = append(s.releaseCtxErr, ctx.Err())
 	deadline, ok := ctx.Deadline()
 	s.releaseHasDeadline = append(s.releaseHasDeadline, ok)
@@ -217,8 +228,9 @@ var _ = Describe("FileStagingClient request lifecycle", func() {
 			test.invoke(client)
 			Expect(stager.ensureCalls).To(HaveLen(test.keyCount))
 			Expect(stager.releasedKeys).To(Equal(keysFromEnsureCalls(stager.ensureCalls)))
-			Expect(stager.releaseCtxErr).To(ConsistOf(make([]error, test.keyCount)))
-			Expect(stager.releaseHasDeadline).To(HaveLen(test.keyCount))
+			Expect(stager.releaseBatches).To(Equal([][]string{keysFromEnsureCalls(stager.ensureCalls)}))
+			Expect(stager.releaseCtxErr).To(Equal([]error{nil}))
+			Expect(stager.releaseHasDeadline).To(HaveLen(1))
 			for _, hasDeadline := range stager.releaseHasDeadline {
 				Expect(hasDeadline).To(BeTrue())
 			}

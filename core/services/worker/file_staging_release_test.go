@@ -357,6 +357,35 @@ var _ = Describe("Worker exact-key staging release", func() {
 		Expect(path).NotTo(BeAnExistingFile())
 	})
 
+	It("releases a request batch through one worker message", func() {
+		cacheDir := GinkgoT().TempDir()
+		keys := []string{
+			"ephemeral/audio/request-id/input.wav",
+			"ephemeral/images/request-id/frame.jpg",
+		}
+		for _, key := range keys {
+			path := filepath.Join(cacheDir, filepath.FromSlash(key))
+			Expect(os.MkdirAll(filepath.Dir(path), 0750)).To(Succeed())
+			Expect(os.WriteFile(path, []byte("data"), 0640)).To(Succeed())
+		}
+		fm, err := storage.NewFileManager(nil, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+		client := &releaseMessagingClient{}
+		Expect(subscribeFileRelease(client, "node.one", fm, cacheDir)).To(Succeed())
+		request, err := json.Marshal(map[string]any{"request_id": "request-id"})
+		Expect(err).NotTo(HaveOccurred())
+		var response []byte
+
+		client.handler(request, func(data []byte) { response = append([]byte(nil), data...) })
+
+		var reply map[string]string
+		Expect(json.Unmarshal(response, &reply)).To(Succeed())
+		Expect(reply["error"]).To(BeEmpty())
+		for _, key := range keys {
+			Expect(filepath.Join(cacheDir, filepath.FromSlash(key))).NotTo(BeAnExistingFile())
+		}
+	})
+
 	It("returns validation errors through the release handler", func() {
 		cacheDir := GinkgoT().TempDir()
 		fm, err := storage.NewFileManager(nil, cacheDir)

@@ -3,7 +3,10 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +27,9 @@ type releaseTestMessaging struct {
 	payload       []byte
 	onRequest     func()
 	requestCalled bool
+	requestCount  int
 	timeout       time.Duration
+	replies       [][]byte
 }
 
 func (m *releaseTestMessaging) Publish(string, any) error { return nil }
@@ -44,9 +49,13 @@ func (m *releaseTestMessaging) Request(subject string, data []byte, timeout time
 	m.subject = subject
 	m.payload = append([]byte(nil), data...)
 	m.requestCalled = true
+	m.requestCount++
 	m.timeout = timeout
 	if m.onRequest != nil {
 		m.onRequest()
+	}
+	if m.requestCount <= len(m.replies) {
+		return append([]byte(nil), m.replies[m.requestCount-1]...), nil
 	}
 	return []byte(`{}`), nil
 }
@@ -110,6 +119,58 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(filepath.Join(stagingDir, "ephemeral", "request-id", "audio")).NotTo(BeADirectory())
 		Expect(filepath.Join(stagingDir, "ephemeral", "request-id")).NotTo(BeADirectory())
 		Expect(filepath.Join(stagingDir, "ephemeral")).To(BeADirectory())
+	})
+
+	It("releases one request's HTTP inputs in one batch", func() {
+		stagingDir := GinkgoT().TempDir()
+		keys := []string{
+			"ephemeral/audio/request-id/input.wav",
+			"ephemeral/images/request-id/frame.jpg",
+		}
+		for _, key := range keys {
+			path := filepath.Join(stagingDir, filepath.FromSlash(key))
+			Expect(os.MkdirAll(filepath.Dir(path), 0750)).To(Succeed())
+			Expect(os.WriteFile(path, []byte("data"), 0640)).To(Succeed())
+		}
+
+		stager, stop := startReleaseServer(stagingDir, "release-token")
+		DeferCleanup(stop)
+		Expect(stager.ReleaseRemoteRequest(context.Background(), "node-1", "request-id", keys)).To(Succeed())
+
+		for _, key := range keys {
+			Expect(filepath.Join(stagingDir, filepath.FromSlash(key))).NotTo(BeAnExistingFile())
+		}
+	})
+
+	It("falls back to exact HTTP releases for an older worker", func() {
+		batchCalls := 0
+		exactCalls := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/v1/files-release" {
+				batchCalls++
+				http.NotFound(w, r)
+				return
+			}
+			if strings.HasPrefix(r.URL.Path, "/v1/files/") && r.Method == http.MethodDelete {
+				exactCalls++
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			http.Error(w, "unexpected request", http.StatusInternalServerError)
+		}))
+		DeferCleanup(server.Close)
+		stager := NewHTTPFileStager(func(string) (string, error) {
+			return strings.TrimPrefix(server.URL, "http://"), nil
+		}, "")
+		keys := []string{
+			"ephemeral/audio/request-id/input.wav",
+			"ephemeral/images/request-id/frame.jpg",
+		}
+
+		Expect(stager.ReleaseRemoteRequest(context.Background(), "node-1", "request-id", keys)).To(Succeed())
+
+		Expect(batchCalls).To(Equal(1))
+		Expect(exactCalls).To(Equal(2))
 	})
 
 	It("rejects non-ephemeral and traversing keys before making a request", func() {
@@ -192,6 +253,94 @@ var _ = Describe("File stager exact-key release", func() {
 		exists, err := store.Exists(context.Background(), key)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(exists).To(BeFalse())
+	})
+
+	It("evicts a request's S3 inputs with one NATS round trip", func() {
+		storeRoot := GinkgoT().TempDir()
+		store, err := storage.NewFilesystemStore(storeRoot)
+		Expect(err).NotTo(HaveOccurred())
+		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		keys := []string{
+			"ephemeral/audio/request-id/input.wav",
+			"ephemeral/images/request-id/frame.jpg",
+		}
+		for _, key := range keys {
+			Expect(store.Put(context.Background(), key, strings.NewReader("shared"))).To(Succeed())
+		}
+		client := &releaseTestMessaging{}
+		stager := NewS3NATSFileStager(fm, client)
+
+		Expect(stager.ReleaseRemoteRequest(context.Background(), "node.one", "request-id", keys)).To(Succeed())
+
+		Expect(client.requestCount).To(Equal(1))
+		var payload fileReleaseRequest
+		Expect(json.Unmarshal(client.payload, &payload)).To(Succeed())
+		Expect(payload.Key).To(BeEmpty())
+		Expect(payload.RequestID).To(Equal("request-id"))
+		for _, key := range keys {
+			exists, existsErr := store.Exists(context.Background(), key)
+			Expect(existsErr).NotTo(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		}
+	})
+
+	It("keeps worker coordination fixed-size for large requests", func() {
+		store, err := storage.NewFilesystemStore(GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		keys := make([]string, 2048)
+		for i := range keys {
+			keys[i] = fmt.Sprintf("ephemeral/inputs/request-id/input-%d.bin", i)
+		}
+		client := &releaseTestMessaging{}
+		stager := NewS3NATSFileStager(fm, client)
+
+		Expect(stager.ReleaseRemoteRequest(context.Background(), "node.one", "request-id", keys)).To(Succeed())
+
+		Expect(client.requestCount).To(Equal(1))
+		Expect(len(client.payload)).To(BeNumerically("<", 128))
+		var payload fileReleaseRequest
+		Expect(json.Unmarshal(client.payload, &payload)).To(Succeed())
+		Expect(payload.RequestID).To(Equal("request-id"))
+	})
+
+	It("falls back to exact NATS releases for an older worker", func() {
+		store, err := storage.NewFilesystemStore(GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		keys := []string{
+			"ephemeral/audio/request-id/input.wav",
+			"ephemeral/images/request-id/frame.jpg",
+		}
+		for _, key := range keys {
+			Expect(store.Put(context.Background(), key, strings.NewReader("shared"))).To(Succeed())
+		}
+		client := &releaseTestMessaging{replies: [][]byte{
+			[]byte(`{"error":"batch payload unsupported"}`),
+			[]byte(`{}`),
+			[]byte(`{}`),
+		}}
+		stager := NewS3NATSFileStager(fm, client)
+
+		Expect(stager.ReleaseRemoteRequest(context.Background(), "node.one", "request-id", keys)).To(Succeed())
+
+		Expect(client.requestCount).To(Equal(3))
+		for _, key := range keys {
+			exists, existsErr := store.Exists(context.Background(), key)
+			Expect(existsErr).NotTo(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		}
+	})
+
+	It("rejects release batches that mix request IDs", func() {
+		keys := []string{
+			"ephemeral/audio/request-one/input.wav",
+			"ephemeral/images/request-two/frame.jpg",
+		}
+		Expect(validateEphemeralRequestRelease("request-one", keys)).To(MatchError(ContainSubstring("mixes request IDs")))
 	})
 
 	It("does not send a release request after cleanup is canceled", func() {

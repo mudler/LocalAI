@@ -113,6 +113,18 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 		handleListDir(w, r, stagingDir, modelsDir, dataDir, key)
 	})
 
+	mux.HandleFunc("/v1/files-release", func(w http.ResponseWriter, r *http.Request) {
+		if !checkBearerToken(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodDelete {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		handleReleaseBatchWithCapacity(w, r, stagingDir, capacity)
+	})
+
 	mux.HandleFunc("/v1/files/", func(w http.ResponseWriter, r *http.Request) {
 		if !checkBearerToken(r, token) {
 			xlog.Debug("HTTP file transfer: unauthorized request", "method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr)
@@ -205,6 +217,14 @@ func handleClaimWithCapacity(w http.ResponseWriter, _ *http.Request, stagingDir,
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if operations, ok := capacity.(ephemeralRequestOperationCapacity); ok {
+		requestID := strings.Split(key, "/")[2]
+		if err := operations.BeginRequestOperation(requestID); err != nil {
+			http.Error(w, err.Error(), http.StatusConflict)
+			return
+		}
+		defer operations.EndRequestOperation(requestID)
+	}
 	filePath := filepath.Join(stagingDir, filepath.FromSlash(key))
 	if err := validatePathInDir(filePath, stagingDir); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -241,29 +261,110 @@ func handleRelease(w http.ResponseWriter, _ *http.Request, stagingDir, key strin
 }
 
 func handleReleaseWithCapacity(w http.ResponseWriter, _ *http.Request, stagingDir, key string, capacity EphemeralCapacity) {
-	if err := validateEphemeralReleaseKey(key); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	relativePath := filepath.FromSlash(key)
-	filePath := filepath.Join(stagingDir, relativePath)
-	if err := safefile.RemoveExact(stagingDir, relativePath, []string{hashSidecarSuffix, targetSidecarSuffix}, 2); err != nil {
+	if err := releaseEphemeralStagingKey(stagingDir, key, capacity); err != nil {
 		status := http.StatusInternalServerError
-		if errors.Is(err, safefile.ErrUnsafePath) {
+		if errors.Is(err, safefile.ErrUnsafePath) || validateEphemeralReleaseKey(key) != nil {
 			status = http.StatusBadRequest
 		}
 		http.Error(w, err.Error(), status)
 		return
 	}
-	for _, path := range []string{filePath, filePath + hashSidecarSuffix, filePath + targetSidecarSuffix} {
-		if capacity != nil {
-			if err := capacity.Release(path); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleReleaseBatchWithCapacity(w http.ResponseWriter, r *http.Request, stagingDir string, capacity EphemeralCapacity) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	var request struct {
+		RequestID string `json:"request_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, fmt.Sprintf("decoding release batch: %v", err), http.StatusBadRequest)
+		return
+	}
+	if err := validateEphemeralRequestID(request.RequestID); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := releaseEphemeralStagingRequest(r.Context(), stagingDir, request.RequestID, capacity); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func releaseEphemeralStagingRequest(ctx context.Context, stagingDir, requestID string, capacity EphemeralCapacity) error {
+	if err := validateEphemeralRequestID(requestID); err != nil {
+		return err
+	}
+	if requestCapacity, ok := capacity.(ephemeralRequestCapacity); ok {
+		if err := requestCapacity.BeginRequestRelease(ctx, requestID); err != nil {
+			return fmt.Errorf("beginning release for request %q: %w", requestID, err)
+		}
+		defer requestCapacity.EndRequestRelease(requestID)
+	}
+	root := filepath.Join(stagingDir, "ephemeral")
+	categories, err := os.ReadDir(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	var releaseErrors []error
+	for _, category := range categories {
+		if !category.IsDir() || category.Type()&os.ModeSymlink != 0 {
+			continue
+		}
+		requestDir := filepath.Join(root, category.Name(), requestID)
+		info, err := os.Lstat(requestDir)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				releaseErrors = append(releaseErrors, fmt.Errorf("stating request directory %q: %w", requestDir, err))
+			}
+			continue
+		}
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			releaseErrors = append(releaseErrors, fmt.Errorf("ephemeral request path %q is not a real directory", requestDir))
+			continue
+		}
+		entries, err := os.ReadDir(requestDir)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				releaseErrors = append(releaseErrors, fmt.Errorf("reading request directory %q: %w", requestDir, err))
+			}
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				releaseErrors = append(releaseErrors, fmt.Errorf("unexpected directory in ephemeral request %q", filepath.Join(requestDir, entry.Name())))
+				continue
+			}
+			key := filepath.ToSlash(filepath.Join("ephemeral", category.Name(), requestID, entry.Name()))
+			if err := releaseEphemeralStagingKey(stagingDir, key, capacity); err != nil {
+				releaseErrors = append(releaseErrors, fmt.Errorf("releasing %q: %w", key, err))
 			}
 		}
 	}
-	w.WriteHeader(http.StatusNoContent)
+	return errors.Join(releaseErrors...)
+}
+
+func releaseEphemeralStagingKey(stagingDir, key string, capacity EphemeralCapacity) error {
+	if err := validateEphemeralReleaseKey(key); err != nil {
+		return err
+	}
+	relativePath := filepath.FromSlash(key)
+	filePath := filepath.Join(stagingDir, relativePath)
+	if err := safefile.RemoveExact(stagingDir, relativePath, []string{hashSidecarSuffix, targetSidecarSuffix}, 2); err != nil {
+		return err
+	}
+	for _, path := range []string{filePath, filePath + hashSidecarSuffix, filePath + targetSidecarSuffix} {
+		if capacity != nil {
+			if err := capacity.Release(path); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func handleHead(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string) {
@@ -343,6 +444,16 @@ type EphemeralCapacity interface {
 	Claim(path string) error
 	Release(path string) error
 	CapacityWriter(path string, destination io.Writer) (io.WriteCloser, error)
+}
+
+type ephemeralRequestCapacity interface {
+	BeginRequestRelease(ctx context.Context, requestID string) error
+	EndRequestRelease(requestID string)
+}
+
+type ephemeralRequestOperationCapacity interface {
+	BeginRequestOperation(requestID string) error
+	EndRequestOperation(requestID string)
 }
 
 type uploadStatusWriter struct {
@@ -441,6 +552,21 @@ func handleUploadWithCapacity(w http.ResponseWriter, r *http.Request, stagingDir
 		http.Error(w, "key is required", http.StatusBadRequest)
 		return
 	}
+	capacityEnabled := capacity != nil && strings.HasPrefix(key, "ephemeral/")
+	if capacityEnabled {
+		if err := validateEphemeralReleaseKey(key); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if operations, ok := capacity.(ephemeralRequestOperationCapacity); ok {
+			requestID := strings.Split(key, "/")[2]
+			if err := operations.BeginRequestOperation(requestID); err != nil {
+				http.Error(w, err.Error(), http.StatusConflict)
+				return
+			}
+			defer operations.EndRequestOperation(requestID)
+		}
+	}
 
 	if maxUploadSize > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
@@ -475,7 +601,7 @@ func handleUploadWithCapacity(w http.ResponseWriter, r *http.Request, stagingDir
 		return
 	}
 
-	capacityEnabled := capacity != nil && targetDir == stagingDir && strings.HasPrefix(key, "ephemeral/")
+	capacityEnabled = capacityEnabled && targetDir == stagingDir
 	unknownLengthCapacity := capacityEnabled && r.ContentLength < 0
 	capacityPaths := []string{dstPath, dstPath + hashSidecarSuffix, dstPath + targetSidecarSuffix}
 	if capacityEnabled {
@@ -521,6 +647,12 @@ func reconcileEphemeralCapacity(capacity EphemeralCapacity, path string, status 
 	if info, err := os.Lstat(path); err == nil && info.Mode().IsRegular() {
 		if err := capacity.Commit(path); err != nil {
 			xlog.Error("Committing ephemeral capacity failed", "path", path, "status", status, "error", err)
+			if removeErr := os.Remove(path); removeErr != nil && !os.IsNotExist(removeErr) {
+				xlog.Warn("Removing uncommitted ephemeral file failed", "path", path, "error", removeErr)
+			}
+			if releaseErr := capacity.Release(path); releaseErr != nil {
+				xlog.Warn("Rolling back failed ephemeral commit", "path", path, "error", releaseErr)
+			}
 		}
 	} else if err := capacity.Release(path); err != nil {
 		xlog.Warn("Rolling back ephemeral capacity failed", "path", path, "error", err)

@@ -439,7 +439,7 @@ func SubjectNodeFilesStage(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.stage"
 }
 
-// SubjectNodeFilesRelease tells a serve-backend node to evict one ephemeral cache key.
+// SubjectNodeFilesRelease tells a serve-backend node to evict one request's ephemeral cache keys.
 // Reply: {error}
 func SubjectNodeFilesRelease(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.release"

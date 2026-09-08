@@ -85,6 +85,12 @@ func (l *stagedInputLifecycle) release() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), stagedInputReleaseTimeout)
 	defer cancel()
+	if releaser, ok := l.client.stager.(RequestFileReleaser); ok {
+		if err := releaser.ReleaseRemoteRequest(ctx, l.client.nodeID, l.requestID, l.keys); err != nil {
+			xlog.Warn("Failed to release staged request inputs", "node", l.client.nodeID, "requestID", l.requestID, "keyCount", len(l.keys), "error", err)
+		}
+		return
+	}
 	for _, key := range l.keys {
 		if err := l.client.stager.ReleaseRemote(ctx, l.client.nodeID, key); err != nil {
 			xlog.Warn("Failed to release staged input", "node", l.client.nodeID, "key", key, "error", err)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -28,6 +29,10 @@ type recordingEphemeralCapacity struct {
 	writerErr  error
 	claimCalls []string
 	claimErr   error
+	commitErr  error
+	releases   []string
+	startedOps []string
+	endedOps   []string
 }
 
 type nopWriteCloser struct{ io.Writer }
@@ -59,10 +64,14 @@ type blockingDestinationCapacity struct {
 	release chan struct{}
 }
 
-func (*blockingDestinationCapacity) Reserve(string, int64) error { return nil }
-func (*blockingDestinationCapacity) Commit(string) error         { return nil }
-func (*blockingDestinationCapacity) Claim(string) error          { return nil }
-func (*blockingDestinationCapacity) Release(string) error        { return nil }
+func (*blockingDestinationCapacity) Reserve(string, int64) error                       { return nil }
+func (*blockingDestinationCapacity) BeginRequestRelease(context.Context, string) error { return nil }
+func (*blockingDestinationCapacity) EndRequestRelease(string)                          {}
+func (*blockingDestinationCapacity) BeginRequestOperation(string) error                { return nil }
+func (*blockingDestinationCapacity) EndRequestOperation(string)                        {}
+func (*blockingDestinationCapacity) Commit(string) error                               { return nil }
+func (*blockingDestinationCapacity) Claim(string) error                                { return nil }
+func (*blockingDestinationCapacity) Release(string) error                              { return nil }
 func (g *blockingDestinationCapacity) CapacityWriter(_ string, destination io.Writer) (io.WriteCloser, error) {
 	return &blockingDestinationWriteCloser{
 		destination: destination,
@@ -76,8 +85,21 @@ func (g *recordingEphemeralCapacity) Reserve(_ string, size int64) error {
 	return g.reserveErr
 }
 
-func (*recordingEphemeralCapacity) Commit(string) error  { return nil }
-func (*recordingEphemeralCapacity) Release(string) error { return nil }
+func (*recordingEphemeralCapacity) BeginRequestRelease(context.Context, string) error { return nil }
+func (*recordingEphemeralCapacity) EndRequestRelease(string)                          {}
+func (g *recordingEphemeralCapacity) BeginRequestOperation(requestID string) error {
+	g.startedOps = append(g.startedOps, requestID)
+	return nil
+}
+func (g *recordingEphemeralCapacity) EndRequestOperation(requestID string) {
+	g.endedOps = append(g.endedOps, requestID)
+}
+
+func (g *recordingEphemeralCapacity) Commit(string) error { return g.commitErr }
+func (g *recordingEphemeralCapacity) Release(path string) error {
+	g.releases = append(g.releases, path)
+	return nil
+}
 func (g *recordingEphemeralCapacity) Claim(path string) error {
 	g.claimCalls = append(g.claimCalls, path)
 	return g.claimErr
@@ -523,6 +545,17 @@ var _ = Describe("FileTransferServer", func() {
 		})
 	})
 
+	It("removes and releases a file whose capacity commit fails", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "input.wav")
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+		guard := &recordingEphemeralCapacity{commitErr: errors.New("request released")}
+
+		reconcileEphemeralCapacity(guard, path, http.StatusOK)
+
+		Expect(path).NotTo(BeAnExistingFile())
+		Expect(guard.releases).To(Equal([]string{path}))
+	})
+
 	// --- Upload sidecar tests ---
 
 	Describe("Upload hash sidecar", func() {
@@ -620,6 +653,8 @@ var _ = Describe("FileTransferServer", func() {
 				Expect(path).To(Equal(remotePath))
 			}
 			Expect(guard.claimCalls).To(Equal([]string{remotePath, remotePath}))
+			Expect(guard.startedOps).To(Equal([]string{"request", "request"}))
+			Expect(guard.endedOps).To(Equal([]string{"request", "request"}))
 		})
 
 		It("propagates an ephemeral cache-hit claim failure", func() {

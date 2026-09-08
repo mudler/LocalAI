@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -109,6 +110,57 @@ func (h *HTTPFileStager) ReleaseRemote(ctx context.Context, nodeID, key string) 
 		return fmt.Errorf("releasing %q from node %s: status %d: %s", key, nodeID, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return nil
+}
+
+// ReleaseRemoteRequest removes one inference's staged inputs with one HTTP
+// request. Older workers return 404 for the batch endpoint, so the client
+// retries through the exact-key API during rolling upgrades.
+func (h *HTTPFileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, requestID string, keys []string) error {
+	if err := validateEphemeralRequestRelease(requestID, keys); err != nil {
+		return err
+	}
+	addr, err := h.httpAddrFor(nodeID)
+	if err != nil {
+		return fmt.Errorf("resolving HTTP address for node %s: %w", nodeID, err)
+	}
+	payload, err := json.Marshal(struct {
+		RequestID string `json:"request_id"`
+	}{RequestID: requestID})
+	if err != nil {
+		return fmt.Errorf("encoding request release: %w", err)
+	}
+	releaseURL := (&url.URL{Scheme: "http", Host: addr, Path: "/v1/files-release"}).String()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, releaseURL, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("creating request release: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if h.token != "" {
+		req.Header.Set("Authorization", "Bearer "+h.token)
+	}
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("releasing request inputs from node %s: %w", nodeID, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
+		return h.releaseRemoteKeys(ctx, nodeID, keys)
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("releasing request inputs from node %s: status %d: %s", nodeID, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
+func (h *HTTPFileStager) releaseRemoteKeys(ctx context.Context, nodeID string, keys []string) error {
+	var releaseErrors []error
+	for _, key := range keys {
+		if err := h.ReleaseRemote(ctx, nodeID, key); err != nil {
+			releaseErrors = append(releaseErrors, err)
+		}
+	}
+	return errors.Join(releaseErrors...)
 }
 
 func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, key string) (string, error) {

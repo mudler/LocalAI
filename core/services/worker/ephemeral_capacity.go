@@ -3,6 +3,7 @@
 package worker
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 )
@@ -19,6 +21,8 @@ const ephemeralCapacityWriteChunk int64 = 64 << 10
 const (
 	defaultEphemeralByteLimitCeiling = int64(10 << 30)
 	defaultEphemeralMinFreeFloor     = int64(1 << 30)
+	ephemeralReleaseTombstoneTTL     = time.Hour
+	maxEphemeralReleaseTombstones    = 16384
 )
 
 func effectiveEphemeralCapacity(roots []string, byteLimit, minFreeBytes int64) (int64, int64, error) {
@@ -78,6 +82,21 @@ type EphemeralReservationConflictError struct {
 	RequestedBytes int64
 }
 
+// EphemeralRequestReleasedError reports an attempt to stage another file for
+// a request whose cleanup has already begun.
+type EphemeralRequestReleasedError struct {
+	RequestID string
+}
+
+func (e *EphemeralRequestReleasedError) Error() string {
+	return fmt.Sprintf("ephemeral request %q has already been released", e.RequestID)
+}
+
+type ephemeralReleaseTombstone struct {
+	requestID string
+	expires   time.Time
+}
+
 func (e *EphemeralReservationConflictError) Error() string {
 	return fmt.Sprintf(
 		"ephemeral path %q already has an active reservation of %d bytes; requested %d bytes",
@@ -97,13 +116,14 @@ const (
 )
 
 type ephemeralCapacityEntry struct {
-	state       ephemeralCapacityState
-	owned       bool
-	baseline    int64
-	reserved    int64
-	pending     int64
-	inflight    int64
-	openWriters int
+	state            ephemeralCapacityState
+	owned            bool
+	releaseRequested bool
+	baseline         int64
+	reserved         int64
+	pending          int64
+	inflight         int64
+	openWriters      int
 }
 
 // EphemeralCapacityGuard accounts files and in-flight writes below a fixed set
@@ -117,6 +137,11 @@ type EphemeralCapacityGuard struct {
 	usage         int64
 	entries       map[string]ephemeralCapacityEntry
 	commitWaiters map[string]int
+	released      map[string]time.Time
+	releaseOrder  []ephemeralReleaseTombstone
+	requestOps    map[string]int
+	closingOps    map[string]bool
+	releasePins   map[string]int
 }
 
 // NewEphemeralCapacityGuard creates a guard and accounts regular files already
@@ -138,6 +163,10 @@ func NewEphemeralCapacityGuard(roots []string, byteLimit, minFreeBytes int64) (*
 		minFreeBytes:  minFreeBytes,
 		entries:       make(map[string]ephemeralCapacityEntry),
 		commitWaiters: make(map[string]int),
+		released:      make(map[string]time.Time),
+		requestOps:    make(map[string]int),
+		closingOps:    make(map[string]bool),
+		releasePins:   make(map[string]int),
 	}
 	guard.changed = sync.NewCond(&guard.mu)
 	seenRoots := make(map[string]struct{}, len(roots))
@@ -164,6 +193,40 @@ func NewEphemeralCapacityGuard(roots []string, byteLimit, minFreeBytes int64) (*
 	return guard, nil
 }
 
+// BeginRequestOperation registers staging work before it performs filesystem
+// or object-store operations. A release waits for registered work and prevents
+// new work for the same request from entering.
+func (g *EphemeralCapacityGuard) BeginRequestOperation(requestID string) error {
+	if err := validateEphemeralCacheRequestID(requestID); err != nil {
+		return err
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.pruneReleaseTombstonesLocked(time.Now())
+	if _, found := g.released[requestID]; found || g.closingOps[requestID] {
+		return &EphemeralRequestReleasedError{RequestID: requestID}
+	}
+	if _, found := g.requestOps[requestID]; !found && len(g.requestOps) >= maxEphemeralReleaseTombstones {
+		return fmt.Errorf("too many concurrent ephemeral request operations")
+	}
+	g.requestOps[requestID]++
+	return nil
+}
+
+// EndRequestOperation completes work registered by BeginRequestOperation.
+func (g *EphemeralCapacityGuard) EndRequestOperation(requestID string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.requestOps[requestID] <= 1 {
+		delete(g.requestOps, requestID)
+		delete(g.closingOps, requestID)
+	} else {
+		g.requestOps[requestID]--
+	}
+	g.pruneReleaseTombstonesLocked(time.Now())
+	g.changed.Broadcast()
+}
+
 // Reserve atomically reserves size additional bytes for path. An existing or
 // committed file remains charged until the new write is committed.
 func (g *EphemeralCapacityGuard) Reserve(path string, size int64) error {
@@ -177,6 +240,9 @@ func (g *EphemeralCapacityGuard) Reserve(path string, size int64) error {
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if err := g.rejectReleasedRequestLocked(cleanPath, root); err != nil {
+		return err
+	}
 	entry, found := g.entries[cleanPath]
 	if found && entry.isActive() {
 		if entry.reserved == size {
@@ -248,12 +314,13 @@ func (g *EphemeralCapacityGuard) Commit(path string) error {
 	}
 	g.usage -= charged - info.Size()
 	entry.state = ephemeralCapacityCommitted
-	entry.owned = true
+	entry.owned = !entry.releaseRequested && !g.requestReleasedLocked(cleanPath, root)
 	entry.baseline = info.Size()
 	entry.reserved = 0
 	entry.pending = 0
 	entry.inflight = 0
 	g.entries[cleanPath] = entry
+	g.changed.Broadcast()
 	return nil
 }
 
@@ -269,6 +336,9 @@ func (g *EphemeralCapacityGuard) Claim(path string) error {
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if err := g.rejectReleasedRequestLocked(cleanPath, root); err != nil {
+		return err
+	}
 
 	info, err := os.Lstat(cleanPath)
 	if err != nil {
@@ -333,10 +403,97 @@ func (g *EphemeralCapacityGuard) Release(path string) error {
 		}
 		if entry.openWriters == 0 {
 			g.releaseLocked(cleanPath)
+			g.changed.Broadcast()
 			return nil
 		}
 		g.changed.Wait()
 	}
+}
+
+// BeginRequestRelease prevents new staging for requestID and waits until every
+// reservation that started before cleanup has either committed or rolled back.
+// The caller can then enumerate the request directories without missing a file
+// created after the enumeration.
+func (g *EphemeralCapacityGuard) BeginRequestRelease(ctx context.Context, requestID string) error {
+	if ctx == nil {
+		return fmt.Errorf("release context is nil")
+	}
+	if err := validateEphemeralCacheRequestID(requestID); err != nil {
+		return err
+	}
+
+	g.mu.Lock()
+	stop := context.AfterFunc(ctx, func() {
+		g.mu.Lock()
+		g.changed.Broadcast()
+		g.mu.Unlock()
+	})
+	defer stop()
+	pinned := false
+	keepPin := false
+	defer func() {
+		if pinned && !keepPin {
+			g.endRequestReleaseLocked(requestID)
+		}
+		g.mu.Unlock()
+	}()
+	for {
+		_, alreadyPinned := g.releasePins[requestID]
+		if alreadyPinned || len(g.releasePins) < maxEphemeralReleaseTombstones {
+			break
+		}
+		if err := ctx.Err(); err != nil {
+			g.makeRequestRecoverableLocked(requestID)
+			return err
+		}
+		g.changed.Wait()
+	}
+	g.releasePins[requestID]++
+	pinned = true
+	now := time.Now()
+	g.pruneReleaseTombstonesLocked(now)
+	if _, found := g.released[requestID]; !found {
+		expires := now.Add(ephemeralReleaseTombstoneTTL)
+		g.released[requestID] = expires
+		g.releaseOrder = append(g.releaseOrder, ephemeralReleaseTombstone{requestID: requestID, expires: expires})
+		g.pruneReleaseTombstonesLocked(now)
+	}
+	for path, entry := range g.entries {
+		_, root, err := g.registeredPathLocked(path)
+		if err == nil && ephemeralRequestID(path, root) == requestID && !entry.isActive() {
+			entry.owned = false
+			g.entries[path] = entry
+		}
+	}
+	for g.requestOps[requestID] > 0 || g.hasActiveRequestLocked(requestID) {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		g.changed.Wait()
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	keepPin = true
+	return nil
+}
+
+// EndRequestRelease allows an inactive release marker to expire or be evicted
+// after the caller has completed its request-directory scan.
+func (g *EphemeralCapacityGuard) EndRequestRelease(requestID string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.endRequestReleaseLocked(requestID)
+}
+
+func (g *EphemeralCapacityGuard) endRequestReleaseLocked(requestID string) {
+	if g.releasePins[requestID] <= 1 {
+		delete(g.releasePins, requestID)
+	} else {
+		g.releasePins[requestID]--
+	}
+	g.pruneReleaseTombstonesLocked(time.Now())
+	g.changed.Broadcast()
 }
 
 // Account records unowned bytes found by recovery after startup. Existing
@@ -452,6 +609,13 @@ func (g *EphemeralCapacityGuard) commitWaiterCount(path string) int {
 	return g.commitWaiters[cleanPath]
 }
 
+func (g *EphemeralCapacityGuard) releaseTombstoneCount() int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.pruneReleaseTombstonesLocked(time.Now())
+	return len(g.released)
+}
+
 // NewWriter returns a writer that admits unknown-length input in bounded
 // chunks. Callers must close it before committing or releasing the path.
 func (g *EphemeralCapacityGuard) NewWriter(path string, destination io.Writer) (*EphemeralCapacityWriter, error) {
@@ -465,6 +629,9 @@ func (g *EphemeralCapacityGuard) NewWriter(path string, destination io.Writer) (
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if err := g.rejectReleasedRequestLocked(cleanPath, root); err != nil {
+		return nil, err
+	}
 	entry, found := g.entries[cleanPath]
 	if !found || !entry.isActive() {
 		if err := g.checkCapacityLocked(root, 0); err != nil {
@@ -697,6 +864,86 @@ func (g *EphemeralCapacityGuard) releaseLocked(path string) {
 	delete(g.entries, path)
 }
 
+func (g *EphemeralCapacityGuard) hasActiveRequestLocked(requestID string) bool {
+	for path, entry := range g.entries {
+		if !entry.isActive() {
+			continue
+		}
+		_, root, err := g.registeredPathLocked(path)
+		if err == nil && ephemeralRequestID(path, root) == requestID {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *EphemeralCapacityGuard) rejectReleasedRequestLocked(path, root string) error {
+	requestID := ephemeralRequestID(path, root)
+	if requestID == "" {
+		return nil
+	}
+	g.pruneReleaseTombstonesLocked(time.Now())
+	if _, found := g.released[requestID]; found || g.closingOps[requestID] {
+		return &EphemeralRequestReleasedError{RequestID: requestID}
+	}
+	return nil
+}
+
+func (g *EphemeralCapacityGuard) makeRequestRecoverableLocked(requestID string) {
+	if g.requestOps[requestID] > 0 {
+		g.closingOps[requestID] = true
+	}
+	for path, entry := range g.entries {
+		_, root, err := g.registeredPathLocked(path)
+		if err != nil || ephemeralRequestID(path, root) != requestID {
+			continue
+		}
+		entry.owned = false
+		entry.releaseRequested = true
+		g.entries[path] = entry
+	}
+}
+
+func (g *EphemeralCapacityGuard) requestReleasedLocked(path, root string) bool {
+	requestID := ephemeralRequestID(path, root)
+	if requestID == "" {
+		return false
+	}
+	g.pruneReleaseTombstonesLocked(time.Now())
+	_, found := g.released[requestID]
+	return found
+}
+
+func (g *EphemeralCapacityGuard) pruneReleaseTombstonesLocked(now time.Time) {
+	kept := g.releaseOrder[:0]
+	for _, marker := range g.releaseOrder {
+		expires, found := g.released[marker.requestID]
+		if !found || !expires.Equal(marker.expires) {
+			continue
+		}
+		removable := g.requestOps[marker.requestID] == 0 && g.releasePins[marker.requestID] == 0 &&
+			(!marker.expires.After(now) || len(g.released) > maxEphemeralReleaseTombstones)
+		if removable {
+			delete(g.released, marker.requestID)
+			continue
+		}
+		kept = append(kept, marker)
+	}
+	g.releaseOrder = kept
+}
+
+func ephemeralRequestID(path, root string) string {
+	relative, err := filepath.Rel(root, path)
+	if err != nil || relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return ""
+	}
+	parts := strings.Split(relative, string(filepath.Separator))
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[1]
+}
+
 func (g *EphemeralCapacityGuard) registeredPath(path string) (string, string, error) {
 	cleanPath, err := cleanEphemeralAbsolutePath(path)
 	if err != nil {
@@ -713,6 +960,22 @@ func (g *EphemeralCapacityGuard) registeredPath(path string) (string, string, er
 	}
 	if err := rejectEphemeralSymlinkComponents(cleanPath); err != nil {
 		return "", "", fmt.Errorf("validating ephemeral path %q: %w", cleanPath, err)
+	}
+	return cleanPath, root, nil
+}
+
+// registeredPathLocked validates a path already stored by the guard. Stored
+// paths were validated on admission, so this avoids filesystem work while the
+// guard mutex is held during request scans.
+func (g *EphemeralCapacityGuard) registeredPathLocked(cleanPath string) (string, string, error) {
+	root := ""
+	for _, candidate := range g.roots {
+		if ephemeralPathAtOrBelow(cleanPath, candidate) && len(candidate) > len(root) {
+			root = candidate
+		}
+	}
+	if root == "" {
+		return "", "", fmt.Errorf("path %q is outside registered ephemeral roots", cleanPath)
 	}
 	return cleanPath, root, nil
 }

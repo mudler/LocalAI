@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -49,7 +50,8 @@ type fileStageReply struct {
 }
 
 type fileReleaseRequest struct {
-	Key string `json:"key"`
+	Key       string `json:"key,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 type fileReleaseReply struct {
@@ -196,6 +198,44 @@ func (s *S3NATSFileStager) ReleaseRemote(ctx context.Context, nodeID, key string
 	if err := validateEphemeralReleaseKey(key); err != nil {
 		return err
 	}
+	if err := s.releaseWorkerKeys(ctx, nodeID, fileReleaseRequest{Key: key}); err != nil {
+		return err
+	}
+	if err := s.fm.Delete(ctx, key); err != nil {
+		return fmt.Errorf("deleting shared object %q: %w", key, err)
+	}
+	return nil
+}
+
+// ReleaseRemoteRequest evicts one inference's inputs with one NATS round trip.
+// A worker that only understands the exact-key payload returns an error, so the
+// frontend retries each key during a rolling upgrade.
+func (s *S3NATSFileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, requestID string, keys []string) error {
+	if err := validateEphemeralRequestRelease(requestID, keys); err != nil {
+		return err
+	}
+	if err := s.releaseWorkerKeys(ctx, nodeID, fileReleaseRequest{RequestID: requestID}); err != nil {
+		var fallbackErrors []error
+		for _, key := range keys {
+			if fallbackErr := s.ReleaseRemote(ctx, nodeID, key); fallbackErr != nil {
+				fallbackErrors = append(fallbackErrors, fallbackErr)
+			}
+		}
+		if fallbackErr := errors.Join(fallbackErrors...); fallbackErr != nil {
+			return errors.Join(err, fmt.Errorf("exact-key release fallback: %w", fallbackErr))
+		}
+		return nil
+	}
+	var deleteErrors []error
+	for _, key := range keys {
+		if err := s.fm.Delete(ctx, key); err != nil {
+			deleteErrors = append(deleteErrors, fmt.Errorf("deleting shared object %q: %w", key, err))
+		}
+	}
+	return errors.Join(deleteErrors...)
+}
+
+func (s *S3NATSFileStager) releaseWorkerKeys(ctx context.Context, nodeID string, request fileReleaseRequest) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -210,7 +250,7 @@ func (s *S3NATSFileStager) ReleaseRemote(ctx context.Context, nodeID, key string
 	reply, err := messaging.RequestJSON[fileReleaseRequest, fileReleaseReply](
 		s.nats,
 		messaging.SubjectNodeFilesRelease(nodeID),
-		fileReleaseRequest{Key: key},
+		request,
 		timeout,
 	)
 	if err != nil {
@@ -224,9 +264,6 @@ func (s *S3NATSFileStager) ReleaseRemote(ctx context.Context, nodeID, key string
 	}
 	if reply.Error != "" {
 		return fmt.Errorf("backend release failed: %s", reply.Error)
-	}
-	if err := s.fm.Delete(ctx, key); err != nil {
-		return fmt.Errorf("deleting shared object %q: %w", key, err)
 	}
 	return nil
 }
