@@ -98,6 +98,7 @@ const (
 
 type ephemeralCapacityEntry struct {
 	state       ephemeralCapacityState
+	owned       bool
 	baseline    int64
 	reserved    int64
 	pending     int64
@@ -189,6 +190,7 @@ func (g *EphemeralCapacityGuard) Reserve(path string, size int64) error {
 		return err
 	}
 	entry.state = ephemeralCapacityActive
+	entry.owned = true
 	entry.reserved = size
 	entry.pending = size
 	entry.inflight = 0
@@ -198,7 +200,8 @@ func (g *EphemeralCapacityGuard) Reserve(path string, size int64) error {
 }
 
 // Commit replaces the path's baseline and reservation with the regular file's
-// actual size. It waits for every bounded writer for the path to close.
+// actual size. It waits for every bounded writer for the path to close and
+// preserves request ownership until Release.
 func (g *EphemeralCapacityGuard) Commit(path string) error {
 	cleanPath, root, err := g.registeredPath(path)
 	if err != nil {
@@ -245,6 +248,7 @@ func (g *EphemeralCapacityGuard) Commit(path string) error {
 	}
 	g.usage -= charged - info.Size()
 	entry.state = ephemeralCapacityCommitted
+	entry.owned = true
 	entry.baseline = info.Size()
 	entry.reserved = 0
 	entry.pending = 0
@@ -275,8 +279,9 @@ func (g *EphemeralCapacityGuard) Release(path string) error {
 	}
 }
 
-// Account records bytes found by recovery after startup. Existing active
-// reservations are left unchanged so recovery cannot erase in-flight charges.
+// Account records unowned bytes found by recovery after startup. Existing
+// request-owned entries are left unchanged so recovery cannot erase live
+// charges or ownership.
 func (g *EphemeralCapacityGuard) Account(path string, size int64) error {
 	if size < 0 {
 		return fmt.Errorf("accounted size must not be negative")
@@ -289,7 +294,7 @@ func (g *EphemeralCapacityGuard) Account(path string, size int64) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	entry, found := g.entries[cleanPath]
-	if found && entry.isActive() {
+	if found && entry.isOwned() {
 		return &EphemeralReservationConflictError{
 			Path: cleanPath, ActiveBytes: entry.reserved, RequestedBytes: size,
 		}
@@ -329,7 +334,7 @@ func (g *EphemeralCapacityGuard) ReleaseTree(path string) error {
 }
 
 // RemoveTreeIfInactive serializes recovery deletion with new reservations so
-// cleanup cannot remove a request tree between an activity check and Reserve.
+// cleanup cannot remove a request tree between an ownership check and Reserve.
 func (g *EphemeralCapacityGuard) RemoveTreeIfInactive(path string, remove func() error) (bool, error) {
 	if remove == nil {
 		return false, fmt.Errorf("ephemeral tree remover is nil")
@@ -342,7 +347,7 @@ func (g *EphemeralCapacityGuard) RemoveTreeIfInactive(path string, remove func()
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	for entryPath, entry := range g.entries {
-		if entry.isActive() && ephemeralPathAtOrBelow(entryPath, cleanPath) {
+		if entry.isOwned() && ephemeralPathAtOrBelow(entryPath, cleanPath) {
 			return false, nil
 		}
 	}
@@ -357,8 +362,9 @@ func (g *EphemeralCapacityGuard) RemoveTreeIfInactive(path string, remove func()
 	return true, nil
 }
 
-// HasActiveReservation reports whether path itself or a descendant has an
-// active reservation. Recovery cleanup uses it to avoid active request trees.
+// HasActiveReservation reports whether path itself or a descendant is owned
+// by a request. Recovery cleanup uses it to avoid live request trees, including
+// inputs whose upload has committed while inference is still running.
 func (g *EphemeralCapacityGuard) HasActiveReservation(path string) bool {
 	cleanPath, _, err := g.registeredPath(path)
 	if err != nil {
@@ -368,7 +374,7 @@ func (g *EphemeralCapacityGuard) HasActiveReservation(path string) bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	for entryPath, entry := range g.entries {
-		if entry.isActive() && ephemeralPathAtOrBelow(entryPath, cleanPath) {
+		if entry.isOwned() && ephemeralPathAtOrBelow(entryPath, cleanPath) {
 			return true
 		}
 	}
@@ -409,6 +415,7 @@ func (g *EphemeralCapacityGuard) NewWriter(path string, destination io.Writer) (
 		entry.pending = 0
 		entry.inflight = 0
 	}
+	entry.owned = true
 	entry.state = ephemeralCapacityWriting
 	entry.openWriters++
 	g.entries[cleanPath] = entry
@@ -478,6 +485,10 @@ func (w *EphemeralCapacityWriter) Close() error {
 
 func (e ephemeralCapacityEntry) isActive() bool {
 	return e.state == ephemeralCapacityActive || e.state == ephemeralCapacityWriting
+}
+
+func (e ephemeralCapacityEntry) isOwned() bool {
+	return e.owned
 }
 
 func (g *EphemeralCapacityGuard) accountExistingFiles(root string) error {

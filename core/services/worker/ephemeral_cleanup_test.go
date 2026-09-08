@@ -88,4 +88,27 @@ var _ = Describe("Worker ephemeral staging cleanup", func() {
 		Expect(freshChildRequest).To(BeADirectory())
 		Expect(guard.Reserve(filepath.Join(httpRoot, "audio", "replacement", "input.bin"), 4)).To(Succeed())
 	})
+
+	It("keeps committed request inputs until exact release ends ownership", func() {
+		root := filepath.Join(stagingDir, "ephemeral")
+		requestDir := filepath.Join(root, "audio", "owned")
+		path := filepath.Join(requestDir, "input.bin")
+		Expect(os.MkdirAll(requestDir, 0o750)).To(Succeed())
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 8, 0)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(guard.Reserve(path, 4)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+		Expect(guard.Commit(path)).To(Succeed())
+		old := time.Now().Add(-2 * time.Hour)
+		Expect(os.Chtimes(path, old, old)).To(Succeed())
+		Expect(os.Chtimes(requestDir, old, old)).To(Succeed())
+
+		CleanEphemeralRoots([]string{root}, time.Hour, guard)
+		Expect(requestDir).To(BeADirectory())
+
+		Expect(guard.Release(path)).To(Succeed())
+		CleanEphemeralRoots([]string{root}, time.Hour, guard)
+		Expect(requestDir).NotTo(BeADirectory())
+	})
 })

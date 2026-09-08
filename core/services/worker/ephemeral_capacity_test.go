@@ -133,7 +133,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 		Expect(guard.Reserve(path, 4)).To(Succeed())
 		Expect(os.WriteFile(path, make([]byte, 4), 0o600)).To(Succeed())
 		Expect(guard.Commit(path)).To(Succeed())
-		Expect(guard.HasActiveReservation(path)).To(BeFalse())
+		Expect(guard.HasActiveReservation(path)).To(BeTrue())
 		Expect(guard.Reserve(path, 6)).To(Succeed())
 		Expect(guard.HasActiveReservation(path)).To(BeTrue())
 
@@ -149,8 +149,10 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 		Expect(os.WriteFile(path, make([]byte, 4), 0o600)).To(Succeed())
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
+		Expect(guard.HasActiveReservation(path)).To(BeFalse())
 
 		Expect(guard.Reserve(path, 6)).To(Succeed())
+		Expect(guard.HasActiveReservation(path)).To(BeTrue())
 		err = guard.Reserve(filepath.Join(root, "overflow.bin"), 1)
 		var capacityErr *EphemeralCapacityError
 		Expect(errors.As(err, &capacityErr)).To(BeTrue())
