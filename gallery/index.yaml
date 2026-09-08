@@ -3165,6 +3165,105 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-gsq-rco/mmproj-Qwen3.8-27B-BF16.gguf
       uri: huggingface://ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 13cb7bebccbd04afc8f4090cb949ecf8937cdf7377c5799b1a0c594e7c0d3e16
+- &spark-x2-5-4b
+  name: "spark-x2.5-4b-q4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: spark-x2.5-4b-q6
+    - model: spark-x2.5-4b-q8
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.5-4B
+    - https://huggingface.co/abenzerps/Spark-X2.5-4B-GGUF
+  description: |
+    Spark-X2.5-4B is XHToken's 4B text model for conversation, reasoning,
+    coding, and multilingual tasks. This entry uses Q4_K_M GGUF weights;
+    Q6_K and Q8_0 builds are available as variants. All builds use the
+    embedded Jinja chat template and a 32K-token default context.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+    - multilingual
+  last_checked: "2026-09-08"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q4_K_M.gguf
+      uri: huggingface://abenzerps/Spark-X2.5-4B-GGUF/Spark-X2.5-4B-Q4_K_M.gguf
+      sha256: 7934660bfc5b9bf04be0a0ac6179a1d16e1d4331b448857c86b8b2801b3ef72c
+
+- !!merge <<: *spark-x2-5-4b
+  name: "spark-x2.5-4b-q6"
+  variants: []
+  description: |
+    Spark-X2.5-4B in Q6_K GGUF format, with the embedded Jinja chat
+    template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q6_K.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q6_K.gguf
+      uri: huggingface://abenzerps/Spark-X2.5-4B-GGUF/Spark-X2.5-4B-Q6_K.gguf
+      sha256: 7293e99081e032b30e481c159aa35b3f7d133a746c1096910024ea71fff82246
+
+- !!merge <<: *spark-x2-5-4b
+  name: "spark-x2.5-4b-q8"
+  variants: []
+  description: |
+    Spark-X2.5-4B in Q8_0 GGUF format, with the embedded Jinja chat
+    template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q8_0.gguf
+      uri: huggingface://abenzerps/Spark-X2.5-4B-GGUF/Spark-X2.5-4B-Q8_0.gguf
+      sha256: 58a4fc627cc2b2cbea02f81fb22960938e86bf3e62a2b3ae01c55a678481d46b
+
 - &qwen3-8-9b
   name: "qwen3.8-9b-q4"
   variants:
