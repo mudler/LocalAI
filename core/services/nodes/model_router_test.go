@@ -128,6 +128,9 @@ func (f *fakeModelRouterForSmartRouter) Get(_ context.Context, nodeID string) (*
 func (f *fakeModelRouterForSmartRouter) GetModelScheduling(_ context.Context, _ string) (*ModelSchedulingConfig, error) {
 	return nil, nil
 }
+func (f *fakeModelRouterForSmartRouter) GetGoverningScheduling(_ context.Context, _ string) (*ModelSchedulingConfig, error) {
+	return nil, nil
+}
 func (f *fakeModelRouterForSmartRouter) FindNodesBySelector(_ context.Context, _ map[string]string) ([]BackendNode, error) {
 	return nil, nil
 }

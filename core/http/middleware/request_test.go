@@ -82,6 +82,13 @@ var _ = Describe("SetModelAndConfig middleware", func() {
 			Expect(resp.Error.Message).To(ContainSubstring("not found"))
 			Expect(resp.Error.Type).To(Equal("invalid_request_error"))
 		})
+
+		It("still 404s when :latest is appended to an unknown model", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				`{"model":"nonexistent-model:latest","messages":[{"role":"user","content":"hi"}]}`)
+
+			Expect(rec.Code).To(Equal(http.StatusNotFound))
+		})
 	})
 
 	Context("when the model exists as a config file", func() {
@@ -94,6 +101,13 @@ var _ = Describe("SetModelAndConfig middleware", func() {
 		It("passes through to the handler", func() {
 			rec := postJSON(app, "/v1/chat/completions",
 				`{"model":"test-model","messages":[{"role":"user","content":"hi"}]}`)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+
+		It("accepts the Ollama :latest tag that /api/tags appends", func() {
+			rec := postJSON(app, "/v1/chat/completions",
+				`{"model":"test-model:latest","messages":[{"role":"user","content":"hi"}]}`)
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
 		})

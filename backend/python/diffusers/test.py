@@ -373,3 +373,55 @@ class TestGenerateImageOptionsKwargsMerge(unittest.TestCase):
         finally:
             os.unlink(src_file.name)
             os.unlink(dst_file.name)
+
+    def test_text_to_image_prompt_is_passed_by_keyword(self):
+        """Test compatibility with pipelines that take image before prompt."""
+        import os
+        import tempfile
+
+        from PIL import Image
+
+        from backend import BackendServicer
+
+        class Flux2CompatiblePipeline:
+            """Model the FLUX.2 call signature: image is before prompt."""
+
+            def __call__(self, image=None, prompt=None, **kwargs):
+                if prompt is None:
+                    raise ValueError("prompt was not passed by keyword")
+                self.prompt = prompt
+                self.kwargs = kwargs
+                return MagicMock(images=[Image.new("RGB", (4, 4))])
+
+        pipeline = Flux2CompatiblePipeline()
+        svc = BackendServicer.__new__(BackendServicer)
+        svc.pipe = pipeline
+        svc.cfg_scale = 7.5
+        svc.controlnet = None
+        svc.img2vid = False
+        svc.txt2vid = False
+        svc.clip_skip = 0
+        svc.PipelineType = "Flux2KleinPipeline"
+        svc.options = {}
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as dst_file:
+            dst_path = dst_file.name
+
+        try:
+            request = MagicMock()
+            request.positive_prompt = "a red apple on a wooden table"
+            request.negative_prompt = ""
+            request.step = 4
+            request.seed = 0
+            request.width = 0
+            request.height = 0
+            request.src = ""
+            request.ref_images = []
+            request.dst = dst_path
+
+            svc.GenerateImage(request, context=None)
+
+            self.assertEqual(pipeline.prompt, request.positive_prompt)
+            self.assertEqual(pipeline.kwargs["num_inference_steps"], 4)
+        finally:
+            os.unlink(dst_path)

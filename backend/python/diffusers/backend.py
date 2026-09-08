@@ -800,12 +800,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             image = image.resize((1024, 576))
 
             generator = torch.manual_seed(request.seed)
-            frames = self.pipe(image, guidance_scale=self.cfg_scale, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
+            frames = self.pipe(image=image, guidance_scale=self.cfg_scale, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
             export_to_video(frames, request.dst, fps=FPS)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
         if self.txt2vid:
-            video_frames = self.pipe(prompt, guidance_scale=self.cfg_scale, num_inference_steps=steps, num_frames=int(FRAMES)).frames
+            video_frames = self.pipe(prompt=prompt, guidance_scale=self.cfg_scale, num_inference_steps=steps, num_frames=int(FRAMES)).frames
             export_to_video(video_frames, request.dst)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
@@ -868,7 +868,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         else:
             # pass the kwargs dictionary to the self.pipe method
             image = self.pipe(
-                prompt,
+                prompt=prompt,
                 guidance_scale=self.cfg_scale,
                 **kwargs
             ).images[0]

@@ -10,7 +10,7 @@ func ParseNodeLabels(input string) map[string]string {
 	if input == "" {
 		return labels
 	}
-	for _, pair := range strings.Split(input, ",") {
+	for pair := range strings.SplitSeq(input, ",") {
 		pair = strings.TrimSpace(pair)
 		if k, v, ok := strings.Cut(pair, "="); ok {
 			labels[strings.TrimSpace(k)] = strings.TrimSpace(v)

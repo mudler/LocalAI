@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -225,6 +226,42 @@ type ModelSchedulingConfig struct {
 	UnsatisfiableTicks int       `gorm:"column:unsatisfiable_ticks;default:0" json:"unsatisfiable_ticks"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
+
+	// TargetModel is the model this rule actually governs: ModelName itself,
+	// or, when ModelName is an alias, the model that alias points at. Callers
+	// must use Target() for anything that touches a loaded replica (counting,
+	// capacity, scheduling, eviction) and ModelName for anything that touches
+	// this rule's own row.
+	//
+	// Every read re-derives it from the live alias mapping, so Go callers never
+	// see a stale value. It is stored as well, purely so the eviction guard in
+	// evictLRUAndFreeNodeFrom can match a rule to a loaded replica inside its
+	// locking transaction: that check is raw SQL and cannot resolve an alias.
+	// RefreshSchedulingTargets rewrites the stored copy on every reconciler
+	// tick, so repointing an alias reaches the guard within a tick.
+	TargetModel string `gorm:"column:target_model;size:255" json:"target_model,omitempty"`
+	// ModelIsAlias reports whether ModelName is an alias rather than a model.
+	// Also derived on every read. An alias whose TargetModel equals ModelName
+	// is one that could not be resolved (its target is gone, or points at
+	// another alias): it governs nothing loadable.
+	ModelIsAlias bool `gorm:"-" json:"model_is_alias,omitempty"`
+	// Shadowed reports that another rule already governs this rule's target, so
+	// this one has no effect. Set only by ListModelSchedulings, which sees every
+	// rule at once. Write paths reject creating such a pair, but one can still
+	// arrive from a seed file or from repointing an alias onto a model that
+	// already has a rule, and an inert rule the operator cannot see is worse
+	// than one that is labelled.
+	Shadowed bool `gorm:"-" json:"shadowed,omitempty"`
+}
+
+// Target returns the model this rule governs. It falls back to ModelName when
+// the rule was built by hand rather than read through the registry, so a rule
+// that was never alias-resolved still governs itself.
+func (c ModelSchedulingConfig) Target() string {
+	if c.TargetModel != "" {
+		return c.TargetModel
+	}
+	return c.ModelName
 }
 
 // NodeWithExtras extends BackendNode with computed fields for list views.
@@ -323,6 +360,19 @@ type NodeRegistry struct {
 	// Stored in an atomic.Pointer to an immutable slice so the startup wiring
 	// (append) and request / reconcile handling (fire) are race-free.
 	replicaRemovedHooks atomic.Pointer[[]func(modelName, nodeID string, replicaIndex int)]
+
+	// aliasResolver maps a scheduling rule's model name onto the model it
+	// governs, so a rule can be keyed by an alias. Installed once at startup
+	// (see SetAliasResolver); nil means every rule governs its own name.
+	// Held in an atomic.Pointer for the same reason as the hooks above: the
+	// startup wiring writes it while request handling reads it.
+	aliasResolver atomic.Pointer[AliasResolver]
+
+	// heartbeatCheckpoint bounds how often a beat that carries only a fresher
+	// timestamp reaches the database. Zero writes every beat.
+	heartbeatCheckpoint time.Duration
+	hbMu                sync.Mutex
+	hbLastWrite         map[string]heartbeatSnapshot
 }
 
 // AddReplicaRemovedHook registers a callback invoked after a replica row for
@@ -394,6 +444,28 @@ func (r *NodeRegistry) nodeModelNames(ctx context.Context, db *gorm.DB, nodeID s
 	return names
 }
 
+// heartbeatSnapshot is the last state actually persisted for a node, so the
+// next beat can tell an idle refresh from a real change.
+type heartbeatSnapshot struct {
+	writtenAt time.Time
+	// availableVRAM is stored CAPPED by vramCeiling, because that is what the
+	// available_vram column holds. vramCeiling is the node's resolved VRAM
+	// budget (0 = none) as read on the last durable write, cached so a
+	// suppressed beat costs no query at all.
+	availableVRAM uint64
+	vramCeiling   uint64
+	availableRAM  uint64
+	availableDisk uint64
+	totalVRAM     uint64
+	totalDisk     uint64
+	gpuVendor     string
+}
+
+// heartbeatMaterialDelta is how far a reading must move before it is worth a
+// write on its own. The scheduler places against free VRAM, so drift smaller
+// than this cannot change a placement decision.
+const heartbeatMaterialDelta = 256 << 20 // 256 MiB
+
 // NewNodeRegistry creates a NodeRegistry and auto-migrates the schema.
 // Uses a PostgreSQL advisory lock to prevent concurrent migration races
 // when multiple instances (frontend + workers) start at the same time.
@@ -403,6 +475,14 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
+
+	// Rules written before scheduling rules could be keyed by an alias have no
+	// stored target. They are all direct rules, so their target is their own
+	// name, and the eviction guard needs the column filled in to match them.
+	_ = advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
+		return db.Exec(`UPDATE model_scheduling_configs SET target_model = model_name
+			WHERE target_model IS NULL OR target_model = ''`).Error
+	})
 
 	// One-shot cleanup of queue rows that can never drain: ops targeted at
 	// agent workers (wrong subscription set), at non-existent nodes, or with
@@ -427,7 +507,13 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 		return nil
 	})
 
-	return &NodeRegistry{db: db}, nil
+	// heartbeatCheckpoint stays zero here: the registry writes every beat
+	// until the application wires the configured interval, so embedders and
+	// tests keep the historical behaviour.
+	return &NodeRegistry{
+		db:          db,
+		hbLastWrite: make(map[string]heartbeatSnapshot),
+	}, nil
 }
 
 // resolveVRAMBudgetBytes turns a budget string into an absolute byte ceiling
@@ -644,6 +730,11 @@ func (r *NodeRegistry) MarkOffline(ctx context.Context, nodeID string) error {
 	if err := r.setStatus(ctx, nodeID, StatusOffline); err != nil {
 		return err
 	}
+	// An offline node comes back only when the health monitor sees a fresh
+	// last_heartbeat, so its next beat must reach the database even if the
+	// checkpoint interval has not elapsed. The Heartbeat path forgets the
+	// checkpoint too, but only after a beat has already been suppressed.
+	r.forgetHeartbeatCheckpoint(nodeID)
 	// Clear model records — node is shutting down. Capture the distinct models
 	// and run the bulk delete inside a single transaction so the set of fired
 	// hooks equals exactly the set of rows deleted: a SetNodeModel landing
@@ -794,7 +885,142 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 	for _, m := range removedModels {
 		r.fireReplicaRemoved(m, nodeID, -1)
 	}
+	// The node row is gone, so its checkpoint state is dead weight. Dropping
+	// it keeps the map bounded by the number of live nodes on a cluster that
+	// churns workers, and makes a re-registration under the same ID write its
+	// first beat immediately.
+	r.forgetHeartbeatCheckpoint(nodeID)
 	return nil
+}
+
+// SetHeartbeatCheckpoint bounds durable heartbeat writes. Zero restores a
+// write per beat.
+func (r *NodeRegistry) SetHeartbeatCheckpoint(d time.Duration) {
+	r.hbMu.Lock()
+	defer r.hbMu.Unlock()
+	r.heartbeatCheckpoint = d
+}
+
+// skipHeartbeatWrite reports whether this beat carries nothing the database
+// needs yet. It only decides: the caller commits the beat with
+// recordHeartbeatWrite once it knows the budget ceiling the columns are
+// actually written with.
+func (r *NodeRegistry) skipHeartbeatWrite(nodeID string, update *HeartbeatUpdate) bool {
+	r.hbMu.Lock()
+	defer r.hbMu.Unlock()
+
+	if r.heartbeatCheckpoint <= 0 {
+		return false
+	}
+
+	prev, seen := r.hbLastWrite[nodeID]
+	if !seen {
+		return false
+	}
+	if heartbeatMaterial(prev, update) {
+		return false
+	}
+	return time.Since(prev.writtenAt) < r.heartbeatCheckpoint
+}
+
+// heartbeatMaterial reports whether a beat carries something the database needs
+// now, given what was last persisted for the node.
+//
+// Every field is compared against what was last PERSISTED, never merely tested
+// for presence. A backend worker's heartbeat body carries total_disk (and
+// available_disk, and free RAM) on every single beat by design, so presence
+// would make every real beat material and suppress nothing at all: the
+// empty-bodied agent workers would be the only nodes that ever benefited.
+//
+// Comparing against the last persisted value, rather than against the previous
+// beat, is also what stops small moves accumulating: drift is always measured
+// from the figure the scheduler is actually reading, so a reading that walks
+// away in sub-delta steps still writes once the total distance crosses the
+// threshold.
+func heartbeatMaterial(prev heartbeatSnapshot, update *HeartbeatUpdate) bool {
+	if update == nil {
+		return false
+	}
+	if update.GPUVendor != "" && update.GPUVendor != prev.gpuVendor {
+		return true
+	}
+	// A total is a hardware fact, not a fluctuating reading, so any change at
+	// all is worth a write and no delta applies.
+	if update.TotalVRAM != nil && *update.TotalVRAM != prev.totalVRAM {
+		return true
+	}
+	if update.TotalDisk != nil && *update.TotalDisk != prev.totalDisk {
+		return true
+	}
+	// The CAPPED reading is compared, because capAvailable is what the column
+	// stores. On a node with a VRAM budget whose raw free reading oscillates
+	// above the ceiling, comparing the raw value makes every beat look material
+	// while the persisted value never moves, so suppression is defeated on
+	// precisely the nodes that have a budget set.
+	if update.AvailableVRAM != nil &&
+		absDiff(capAvailable(*update.AvailableVRAM, prev.vramCeiling), prev.availableVRAM) > heartbeatMaterialDelta {
+		return true
+	}
+	if update.AvailableRAM != nil && absDiff(*update.AvailableRAM, prev.availableRAM) > heartbeatMaterialDelta {
+		return true
+	}
+	if update.AvailableDisk != nil && absDiff(*update.AvailableDisk, prev.availableDisk) > heartbeatMaterialDelta {
+		return true
+	}
+	return false
+}
+
+// recordHeartbeatWrite snapshots what a beat is about to persist, so the next
+// beat compares like with like. ceiling is the VRAM budget the write resolved;
+// it is kept so the next beat can cap its own reading without re-reading the
+// column, and free VRAM is stored capped for the same reason the column is.
+func (r *NodeRegistry) recordHeartbeatWrite(nodeID string, update *HeartbeatUpdate, ceiling uint64) {
+	r.hbMu.Lock()
+	defer r.hbMu.Unlock()
+
+	if r.heartbeatCheckpoint <= 0 {
+		return
+	}
+
+	next := r.hbLastWrite[nodeID]
+	next.writtenAt = time.Now()
+	next.vramCeiling = ceiling
+	if update != nil {
+		if update.GPUVendor != "" {
+			next.gpuVendor = update.GPUVendor
+		}
+		if update.TotalVRAM != nil {
+			next.totalVRAM = *update.TotalVRAM
+		}
+		if update.TotalDisk != nil {
+			next.totalDisk = *update.TotalDisk
+		}
+		if update.AvailableVRAM != nil {
+			next.availableVRAM = capAvailable(*update.AvailableVRAM, ceiling)
+		}
+		if update.AvailableRAM != nil {
+			next.availableRAM = *update.AvailableRAM
+		}
+		if update.AvailableDisk != nil {
+			next.availableDisk = *update.AvailableDisk
+		}
+	}
+	r.hbLastWrite[nodeID] = next
+}
+
+// forgetHeartbeatCheckpoint drops a node's suppression state so its next beat
+// writes unconditionally.
+func (r *NodeRegistry) forgetHeartbeatCheckpoint(nodeID string) {
+	r.hbMu.Lock()
+	defer r.hbMu.Unlock()
+	delete(r.hbLastWrite, nodeID)
+}
+
+func absDiff(a, b uint64) uint64 {
+	if a > b {
+		return a - b
+	}
+	return b - a
 }
 
 // HeartbeatUpdate contains optional fields to update on heartbeat.
@@ -816,16 +1042,28 @@ type HeartbeatUpdate struct {
 func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *HeartbeatUpdate) error {
 	db := r.db.WithContext(ctx)
 
+	// Decided BEFORE the updates map is built, because building that map costs
+	// a SELECT for the node's VRAM budget ceiling, and a beat the database does
+	// not need must not pay for a query: per-beat control-plane queries are the
+	// load this checkpointing exists to remove. The decision reuses the ceiling
+	// cached on the last durable write, so it can be at most one checkpoint
+	// interval out of date. That costs at most one extra or one late write; it
+	// cannot persist a wrong figure, because the write path below re-reads the
+	// ceiling before it caps anything.
+	if r.skipHeartbeatWrite(nodeID, update) {
+		return nil
+	}
+
 	updates := map[string]any{
 		ColLastHeartbeat: time.Now(),
 	}
 
+	var ceiling uint64
 	if update != nil {
 		if update.AvailableVRAM != nil {
 			// Cap the reported available against the node's resolved budget
 			// ceiling (0 = none) so the SQL scheduler only ever sees budgeted
 			// capacity. TotalVRAM stays raw (written below).
-			var ceiling uint64
 			db.Model(&BackendNode{}).
 				Select(ColVRAMBudgetBytes).Where("id = ?", nodeID).Scan(&ceiling)
 			updates[ColAvailableVRAM] = capAvailable(*update.AvailableVRAM, ceiling)
@@ -853,6 +1091,10 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 		}
 	}
 
+	// Recorded with the ceiling this write actually resolved, so the snapshot
+	// and the column always measure the same quantity.
+	r.recordHeartbeatWrite(nodeID, update, ceiling)
+
 	// Only update all fields (including status promotion) for active nodes.
 	// Pending and offline nodes must go through approval or re-registration.
 	result := db.Model(&BackendNode{}).
@@ -862,6 +1104,9 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 		return fmt.Errorf("heartbeat for %s: %w", nodeID, result.Error)
 	}
 	if result.RowsAffected == 0 {
+		// Pending or offline. Its recovery depends on the health monitor
+		// seeing a fresh timestamp, so this node must never be suppressed.
+		r.forgetHeartbeatCheckpoint(nodeID)
 		// May be pending or offline — still update heartbeat timestamp
 		result = db.Model(&BackendNode{}).Where("id = ?", nodeID).Update(ColLastHeartbeat, time.Now())
 		if result.Error != nil {
@@ -1968,13 +2213,14 @@ func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSche
 	if config.ID == "" {
 		config.ID = uuid.New().String()
 	}
+	r.applyTarget(config)
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "model_name"}},
 			DoUpdates: clause.AssignmentColumns([]string{
 				"node_selector", "min_replicas", "max_replicas", "spread_all",
 				"route_policy", "balance_abs_threshold", "balance_rel_threshold", "min_prefix_match",
-				"updated_at",
+				"target_model", "updated_at",
 			}),
 		}).
 		Create(config).Error
@@ -2004,6 +2250,7 @@ func (r *NodeRegistry) GetModelScheduling(ctx context.Context, modelName string)
 	if err != nil {
 		return nil, err
 	}
+	r.applyTarget(&config)
 	return &config, nil
 }
 
@@ -2011,6 +2258,10 @@ func (r *NodeRegistry) GetModelScheduling(ctx context.Context, modelName string)
 func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
 	err := r.db.WithContext(ctx).Order("model_name ASC").Find(&configs).Error
+	for i := range configs {
+		r.applyTarget(&configs[i])
+	}
+	markShadowed(configs)
 	return configs, err
 }
 
@@ -2018,6 +2269,9 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
 	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
+	for i := range configs {
+		r.applyTarget(&configs[i])
+	}
 	return configs, err
 }
 

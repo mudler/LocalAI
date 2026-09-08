@@ -142,7 +142,8 @@
     "sha256": "SHA256",
     "backToAll": "全部模型",
     "vramAt": "{{context}} 时显存",
-    "headroom": "剩余显存"
+    "headroom": "剩余显存",
+    "headroomOn": "{{node}} 上的余量"
   },
   "empty": {
     "title": "未找到模型",
@@ -216,6 +217,8 @@
     "browsing": "浏览中",
     "pickHint": "选择一个模型以查看详情。",
     "heroWithRam": "{{ram}} 系统内存，图库中有 {{count}} 个模型。",
+    "heroWithCluster": "{{node}} 上 {{vram}}，为 {{nodes}} 个节点中最大，图库中有 {{count}} 个模型。",
+    "heroWithNode": "{{node}} 上 {{vram}}，图库中有 {{count}} 个模型。",
     "byUseCase": "或从用途开始",
     "pickText": "对话、推理、向量",
     "pickVision": "读取图像与文档",

@@ -266,16 +266,26 @@ Audio is sent and received as raw PCM in the WebSocket messages, following the O
 
 ### WebRTC
 
-The WebRTC transport enables browser-based voice conversations with lower latency. Connect by POSTing an SDP offer to the REST endpoint:
+The WebRTC transport enables browser-based voice conversations with lower latency. OpenAI-compatible clients can send a raw SDP offer and select the model with the query parameter:
 
 ```
-POST http://localhost:8080/v1/realtime?model=gpt-realtime
+POST http://localhost:8080/v1/realtime/calls?model=gpt-realtime
 Content-Type: application/sdp
 
 <SDP offer body>
 ```
 
-The response contains the SDP answer to complete the WebRTC handshake.
+The response has the `application/sdp` content type and contains the bare SDP answer.
+
+The unified OpenAI interface is also supported. Send `multipart/form-data` with an `sdp` field that contains the offer and a JSON `session` field. LocalAI reads the model from the session object:
+
+```bash
+curl http://localhost:8080/v1/realtime/calls \
+  -F "sdp=<offer.sdp;type=application/sdp" \
+  -F 'session={"type":"realtime","model":"gpt-realtime"};type=application/json'
+```
+
+LocalAI also accepts its original JSON request format for compatibility. A JSON request contains top-level `sdp` and `model` fields and receives a JSON response with `sdp` and `session_id` fields.
 
 #### Opus backend requirement
 

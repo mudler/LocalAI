@@ -7,6 +7,7 @@ import { safeHref } from '../utils/url'
 import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useResources } from '../hooks/useResources'
+import { modelBudget } from '../utils/modelBudget'
 import SearchableSelect from '../components/SearchableSelect'
 import PageHeader from '../components/PageHeader'
 import GalleryLoader from '../components/GalleryLoader'
@@ -208,12 +209,13 @@ export default function Models() {
   const [useCaseOpen, setUseCaseOpen] = useState(false)
   // Rail groups the user has folded away.
   const [collapsedGroups, setCollapsedGroups] = useState(() => new Set())
-  // Total GPU memory for "fits" check
-  const totalGpuMemory = resources?.aggregate?.total_memory || 0
-  // gpu_count is 0 and gpus is null on a CPU-only host, where total_memory is
-  // system RAM. The fits check has always used it either way; only the copy
-  // has to stop calling it VRAM.
-  const hasGpu = (resources?.aggregate?.gpu_count || 0) > 0 || (resources?.gpus?.length || 0) > 0
+  // What every "will it fit" verdict on this page is measured against. In
+  // distributed mode that is the cluster's largest node rather than the
+  // controller serving the page, which is usually a GPU-less pod (see
+  // modelBudget).
+  const budget = modelBudget(resources)
+  const totalGpuMemory = budget.totalMemory
+  const hasGpu = budget.hasGpu
 
   const fetchModels = useCallback(async (params = {}) => {
     try {
@@ -865,6 +867,7 @@ export default function Models() {
                 onPickContext={setContextSize}
                 totalGpuMemory={totalGpuMemory}
                 fitsGpu={fitsGpu}
+                budgetNode={budget.scope === 'cluster' ? budget.nodeName : ''}
                 installing={isInstalling(selectedName)}
                 progress={getOperationProgress(selectedName)}
                 onInstall={handleInstall}
@@ -894,9 +897,16 @@ export default function Models() {
                         the data did not support. */}
                     {totalGpuMemory <= 0
                       ? t('shelves.heroNoGpu', { count: stats.total })
-                      : hasGpu
-                        ? t('shelves.heroWithGpu', { vram: formatBytes(totalGpuMemory), count: stats.total })
-                        : t('shelves.heroWithRam', { ram: formatBytes(totalGpuMemory), count: stats.total })}
+                      : budget.scope === 'cluster'
+                        // Naming the node is the point: a cluster figure with
+                        // no owner reads as this machine's, which is the very
+                        // confusion the cluster reading exists to end.
+                        ? t(budget.nodeCount > 1 ? 'shelves.heroWithCluster' : 'shelves.heroWithNode', {
+                          vram: formatBytes(totalGpuMemory), node: budget.nodeName, nodes: budget.nodeCount, count: stats.total,
+                        })
+                        : hasGpu
+                          ? t('shelves.heroWithGpu', { vram: formatBytes(totalGpuMemory), count: stats.total })
+                          : t('shelves.heroWithRam', { ram: formatBytes(totalGpuMemory), count: stats.total })}
                   </h2>
                   <p className="zero-pane__text">{t('shelves.heroHint')}</p>
                 </div>
@@ -1413,7 +1423,7 @@ function VramByContext({ estimate, contextSize, onPickContext, totalGpuMemory, t
 // and hands the rest to ModelDetail, which already knows how to render an
 // entry's fields and is shared with the per-variant panel.
 function DiscoverDetail({
-  model, estimate, contextSize, onPickContext, totalGpuMemory, fitsGpu,
+  model, estimate, contextSize, onPickContext, totalGpuMemory, fitsGpu, budgetNode,
   installing, progress, onInstall, installedProfile, onOpen, onManage, onBack,
   expandedFiles, setExpandedFiles, variantData, variantDetails, onLoadVariantDetail, t,
 }) {
@@ -1472,7 +1482,11 @@ function DiscoverDetail({
         { label: t('detail.size'), value: sizeDisplay && sizeDisplay !== '0 B' ? sizeDisplay : '—' },
         { label: t('detail.vramAt', { context: contextLabel }), value: vramBytes ? formatBytes(vramBytes) : '—' },
         {
-          label: t('detail.headroom'),
+          // Headroom is headroom somewhere. On a distributed controller that
+          // somewhere is a worker, and an unqualified figure reads as this
+          // machine's, which is the confusion the cluster reading exists to
+          // end.
+          label: budgetNode ? t('detail.headroomOn', { node: budgetNode }) : t('detail.headroom'),
           value: headroom === null ? '—' : (headroom < 0 ? '−' : '') + formatBytes(Math.abs(headroom)),
           tone: headroom === null ? undefined : headroom < 0 ? 'bad' : 'ok',
         },

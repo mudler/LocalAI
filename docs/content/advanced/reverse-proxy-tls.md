@@ -1,6 +1,6 @@
 ---
 title: TLS Reverse Proxy Configuration
-description: Configure LocalAI behind a TLS termination reverse proxy (HAProxy, Apache, Nginx)
+description: Configure LocalAI behind a TLS termination reverse proxy (HAProxy, Apache, Nginx, APISIX)
 weight: 100
 ---
 
@@ -146,6 +146,116 @@ the proxy stops waiting before LocalAI finishes, clients receive a proxy-generat
 `504 Gateway Time-out` even though inference may still be running. OpenResty,
 Nginx Proxy Manager, Caddy, Traefik, HAProxy, and ingress controllers have
 equivalent upstream response timeout settings.
+
+## Apache APISIX Configuration
+
+[Apache APISIX](https://apisix.apache.org/) is an open source API and AI
+gateway. Put it between clients and LocalAI when you want to manage the
+OpenAI-compatible API with the same gateway used for other services. In
+addition to TLS termination, APISIX can add authentication, rate limiting,
+load balancing, observability, and other policies through plugins without
+changing LocalAI.
+
+This is useful when LocalAI runs on a private network but its API must be
+available to several applications or teams. Clients keep using the standard
+OpenAI-compatible API while APISIX provides one public entry point where you
+can apply access and traffic policies. The configuration below starts with a
+transparent route so it works with LocalAI clients before you add those
+policies.
+
+The request path is:
+
+```text
+OpenAI-compatible client -> APISIX -> LocalAI (:8080)
+```
+
+### Create the LocalAI Route
+
+Start LocalAI with the model configuration you want to serve, and confirm that
+APISIX can reach `http://localai:8080`. When both services run in containers,
+attach them to the same container network and use the LocalAI service name as
+the upstream hostname.
+
+Install APISIX using its
+[getting started guide](https://apisix.apache.org/docs/apisix/getting-started/README/),
+then create a route that forwards the external scheme and host, allows
+long-running inference, and disables response buffering for streaming
+completions. This example assumes APISIX can resolve `localai` and reach it on
+port `8080`:
+
+```bash
+curl http://127.0.0.1:9180/apisix/admin/routes/localai \
+  --request PUT \
+  --header "X-API-KEY: ${admin_key}" \
+  --data '{
+    "uri": "/*",
+    "plugins": {
+      "proxy-rewrite": {
+        "headers": {
+          "set": {
+            "X-Forwarded-Proto": "$scheme",
+            "X-Forwarded-Host": "$host"
+          }
+        }
+      },
+      "proxy-buffering": {
+        "disable_proxy_buffering": true
+      }
+    },
+    "timeout": {
+      "connect": 60,
+      "send": 3600,
+      "read": 3600
+    },
+    "upstream": {
+      "type": "roundrobin",
+      "pass_host": "pass",
+      "nodes": {
+        "localai:8080": 1
+      }
+    }
+  }'
+```
+
+Set `X-Forwarded-Prefix` in the `proxy-rewrite` header map as well if LocalAI
+is exposed under a sub-path. Adjust the timeout values, in seconds, for the
+slowest request you expect to serve. Keep the APISIX Admin API private and
+replace `${admin_key}` with the key configured for your deployment.
+
+### Use LocalAI Through APISIX
+
+Clients continue to use LocalAI's OpenAI-compatible paths; only the base URL
+changes. First, check that model discovery reaches LocalAI through the APISIX
+data-plane port (port `9080` by default):
+
+```bash
+curl http://127.0.0.1:9080/v1/models
+```
+
+Then test a streaming chat completion. Replace `your-model` with an ID returned
+by `/v1/models`:
+
+```bash
+curl --no-buffer http://127.0.0.1:9080/v1/chat/completions \
+  --header "Content-Type: application/json" \
+  --data '{
+    "model": "your-model",
+    "messages": [{"role": "user", "content": "Hello from APISIX"}],
+    "stream": true
+  }'
+```
+
+With TLS configured on APISIX, applications use a base URL such as
+`https://localai.example.com/v1`. Keep LocalAI's own API key in the usual
+`Authorization: Bearer ...` header if LocalAI authentication is enabled. If
+you enable an APISIX authentication plugin as well, configure its consumer
+credential separately and send the header required by that plugin.
+
+For policies beyond this transparent route, see the
+[APISIX AI Gateway overview](https://apisix.apache.org/ai-gateway/) and its
+authentication, traffic management, load balancing, and observability
+plugins. A gateway-specific LocalAI guide maintained by the APISIX project can
+also be linked here when one is available.
 
 For bulk jobs on a trusted private network, you can also bypass the public
 reverse proxy and connect directly to LocalAI, for example

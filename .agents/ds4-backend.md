@@ -77,6 +77,56 @@ spectrum. **Metal (Darwin) only** - it is a no-op on CUDA/CPU. Enable with
 budget). Gallery entries built on this: `deepseek-v4-flash-q4-ssd` (153 GB Flash
 on a 128 GB Mac) and `deepseek-v4-pro-q2-ssd` (433 GB Pro, experimental).
 
+## CUDA architecture (do not build without one)
+
+`backend/cpp/ds4/Makefile` drives upstream's **object targets** directly
+(`$(MAKE) -C ds4 ds4.o ds4_cuda.o ...`), which bypasses upstream's own guard:
+its `cuda` target refuses to build unless `CUDA_ARCH` is set, and offers
+`cuda-spark` (sm_121, DGX Spark / GB10) and `cuda-generic` (native) instead.
+Built with no `-arch`, nvcc targets its default architecture and the kernels run
+as JIT'd PTX. On GB10 that silently corrupted every prefill batch of >=128
+tokens - the model emitted text unrelated to the prompt and never closed its
+thinking block, so `content` came back empty - and cost close to two orders of
+magnitude of prefill throughput (4.21 t/s vs 325.70 t/s, same box, same model).
+Short prompts stayed correct, which is why it went unnoticed.
+
+The Makefile therefore picks a gencode list from `CUDA_MAJOR_VERSION` (a build
+arg the backend matrix already declares, forwarded by `Dockerfile.ds4`) and
+`uname -m`, and passes it as `NVCC_ARCH_FLAGS` to the sub-make. Upstream's
+`CUDA_ARCH` accepts a single value, so it cannot express the fat binary the
+shipped images need; a command-line assignment beats its `:=`. An empty
+`CUDA_MAJOR_VERSION` falls back to upstream's `native` for local developer
+builds, and an unrecognised one is a hard error - no CI runner has a GPU, so a
+silent `native` there is exactly the failure mode this guards against.
+
+`DS4_CUDA_HAVE_MXF4` is deliberately unset: upstream defines it only for
+single-arch sm_120/sm_121 builds and guards it with a plain `#ifdef` rather than
+`__CUDA_ARCH__`, so it cannot be combined with older archs. It gates an optional
+MXFP4 indexer fast path whose `#ifndef` branch returns 0, so omitting it costs
+speed, not correctness.
+
+### Verifying a build
+
+Check which flags a configuration resolves to, without compiling anything:
+
+```
+make -C backend/cpp/ds4 BUILD_TYPE=cublas CUDA_MAJOR_VERSION=13 NATIVE=false \
+  --eval='show: ; @echo [$(DS4_ARCH_MAKEVARS)]' show
+```
+
+Do not use `make -n` for this: the recipe is `+$(MAKE) ...`, and the `+` prefix
+makes it run even under `-n`.
+
+Then exercise the failure mode itself against a built backend. It only appears
+above one prefill batch, so the ordinary `predict` spec cannot catch it:
+
+```
+BACKEND_BINARY=$(pwd)/backend/cpp/ds4/package/run.sh \
+BACKEND_TEST_MODEL_FILE=/path/to/ds4flash.gguf \
+BACKEND_TEST_CAPS=health,load,predict,long_prefill \
+go test -count=1 -timeout=30m -v ./tests/e2e-backends/...
+```
+
 ## Build matrix
 
 | Build | Where | Notes |

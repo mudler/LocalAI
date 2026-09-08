@@ -1,6 +1,6 @@
 package main
 
-// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v21).
+// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v23).
 //
 // The structs below are hand-mirrored PODs of the C declarations, with
 // explicit padding so the Go layout matches the C layout on linux/darwin
@@ -21,7 +21,7 @@ import (
 // the header of the VLLM_CPP_VERSION pinned in the Makefile: the build checks
 // the two against each other, because a mismatch is only caught at runtime by
 // registerLib, where it takes the backend down on every load (issue #11379).
-const abiVersion = 21
+const abiVersion = 23
 
 // The ABI's tri-state toggles (enable_prefix_caching ABI v7,
 // enable_jump_forward ABI v10) share one encoding: 0 is NOT "off", it is
@@ -83,6 +83,7 @@ type cModelParams struct {
 	LanguageModelOnly  int32   // 0 = multimodal inputs enabled (ABI v19)
 	_                  [4]byte
 	LimitMMPerPrompt   uintptr // const char* JSON; NULL = default limits (ABI v19)
+	MMProjPath         uintptr // const char*; NULL = no GGUF projector (ABI v22)
 }
 
 // cSamplingParams mirrors vllm_sampling_params (structured fields included).

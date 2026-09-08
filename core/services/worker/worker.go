@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -149,7 +150,8 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	httpAddr := cfg.resolveHTTPAddr()
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
 	dataDir := filepath.Join(cfg.ModelsPath, "..", "data")
-	// The readiness gate is created here but only armed once NATS is up, below.
+	// The readiness gate is created here but only armed once NATS is up and the
+	// backend supervisor exists, below, because the gate probes both.
 	// Until then /readyz reports ready, which is correct: reaching this line
 	// means the worker has already registered with the frontend, so it is
 	// mid-startup rather than broken.
@@ -171,11 +173,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return fmt.Errorf("connecting to NATS: %w", err)
 	}
 	defer natsClient.Close()
-
-	// Arm the readiness gate now that the worker can actually receive work.
-	// From here /readyz tracks the live NATS link, so a worker that is up but
-	// cut off from the bus reports 503 instead of a meaningless 200 (#10987).
-	readiness.Set(nodes.NATSReadiness(natsClient))
 
 	// Start heartbeat goroutine (after NATS is connected so IsConnected check works)
 	go func() {
@@ -226,6 +223,25 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		minPort:      basePort,
 		maxPort:      cfg.effectiveMaxPort(basePort),
 	}
+
+	// Arm the readiness gate now that the worker can actually receive work.
+	// NATS is already connected at this point, so a worker that is up but cut
+	// off from the bus reports 503 instead of a meaningless 200 (#10987).
+	//
+	// Readiness also covers the data path: a worker whose NATS link is fine
+	// but whose backend processes have died is up and useless, and the
+	// scheduler cannot tell the difference from the bus alone.
+	readiness.Set(nodes.CompositeReadiness(
+		nodes.NATSReadiness(natsClient),
+		nodes.BackendDataPathReadiness(supervisor, func(addr string) error {
+			conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+			if err != nil {
+				return err
+			}
+			return conn.Close()
+		}),
+	))
+
 	if err := supervisor.subscribeLifecycleEvents(); err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)
 		return fmt.Errorf("subscribing to worker lifecycle events: %w", err)

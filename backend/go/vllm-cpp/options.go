@@ -128,7 +128,38 @@ func parseOptions(opts *pb.ModelOptions) loadOptions {
 	lo := loadOptions{}
 	applyOptionsList(&lo, opts.GetOptions())
 	applyEngineArgs(&lo, opts.GetEngineArgs())
+	applyDraftModelOption(&lo, opts.GetOptions())
 	return lo
+}
+
+// applyDraftModelOption binds a managed companion snapshot after engine_args
+// has supplied the speculative document. Companion paths do not exist until
+// LocalAI materializes the artifact, so they must replace the gallery's static
+// repository reference without disturbing the method or token budget.
+func applyDraftModelOption(lo *loadOptions, options []string) {
+	if strings.TrimSpace(lo.speculativeConfig) == "" {
+		return
+	}
+	var draftModel string
+	for _, option := range options {
+		key, value, found := strings.Cut(option, ":")
+		if found && strings.TrimSpace(key) == "draft_model" {
+			draftModel = strings.TrimSpace(value)
+		}
+	}
+	if draftModel == "" {
+		return
+	}
+
+	var spec map[string]any
+	if err := json.Unmarshal([]byte(lo.speculativeConfig), &spec); err != nil {
+		return
+	}
+	spec["model"] = draftModel
+	encoded, err := json.Marshal(spec)
+	if err == nil {
+		lo.speculativeConfig = string(encoded)
+	}
 }
 
 // applyOptionsList reads the legacy free-form "key:value" list. strings.Cut

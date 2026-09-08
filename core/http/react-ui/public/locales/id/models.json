@@ -149,7 +149,8 @@
     "sha256": "SHA256",
     "backToAll": "Semua model",
     "vramAt": "VRAM pada {{context}}",
-    "headroom": "Sisa ruang"
+    "headroom": "Sisa ruang",
+    "headroomOn": "Sisa ruang di {{node}}"
   },
   "empty": {
     "title": "Model tidak ditemukan",
@@ -229,6 +230,8 @@
     "browsing": "Menjelajah",
     "pickHint": "Pilih model untuk melihat detailnya.",
     "heroWithRam": "Memori sistem {{ram}}, {{count}} model di galeri.",
+    "heroWithCluster": "{{vram}} di {{node}}, terbesar dari {{nodes}} node, {{count}} model di galeri.",
+    "heroWithNode": "{{vram}} di {{node}}, {{count}} model di galeri.",
     "byUseCase": "Atau mulai dari kasus penggunaan",
     "pickText": "Obrolan, penalaran, embedding",
     "pickVision": "Membaca gambar dan dokumen",

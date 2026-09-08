@@ -34,6 +34,11 @@ TEST_FLAKES?=5
 RANDOM := $(shell bash -c 'echo $$RANDOM')
 
 VERSION?=$(shell git describe --always --tags || echo "dev" )
+# fyne package only accepts numeric x[.y[.z]] app versions, so reduce git
+# describe output (v4.9.0, v4.9.0-14-gabc1234, or a bare sha on untagged
+# checkouts) to its numeric core; anything non-numeric falls back to 0.0.0.
+# Without this the packaged launcher reports itself as version 0.0.0 (#11673).
+LAUNCHER_APP_VERSION?=$(shell v=$$(echo "$(VERSION)" | sed -E 's/^v//; s/[+-].*$$//'); echo "$$v" | grep -qE '^[0-9]+(\.[0-9]+){0,2}$$' && echo "$$v" || echo "0.0.0")
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=-s -w
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
@@ -388,9 +393,17 @@ test-e2e: build-mock-backend build-cloud-proxy-backend prepare-e2e run-e2e-image
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
+# `docker stop` returns as soon as the container exits, but Docker reaps a
+# `--rm` container asynchronously after that. The `docker rmi localai-tests` in
+# test-e2e then loses the race against the reaper and fails on a still
+# referenced image, turning a green suite red. Removing the container ourselves
+# is synchronous, so the image reference is gone before we return. It also
+# covers the case where nothing is running, which `docker stop` could not
+# because it rejects an empty argument list.
 teardown-e2e:
 	rm -rf $(TEST_DIR) || true
-	docker stop $$(docker ps -q --filter ancestor=localai-tests)
+	@CONTAINERS=$$(docker ps -aq --filter ancestor=localai-tests 2>/dev/null); \
+	if [ -n "$$CONTAINERS" ]; then docker rm -f $$CONTAINERS || true; fi
 
 ########################################################
 ## Integration and unit tests
@@ -1622,7 +1635,7 @@ site-serve: site
 build-launcher-darwin:
 	rm -rf dist/LocalAI.app cmd/launcher/LocalAI.app
 	mkdir -p dist
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)
+	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME) --app-version $(LAUNCHER_APP_VERSION)
 	mv cmd/launcher/LocalAI.app dist/LocalAI.app
 	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.app
 
@@ -1649,4 +1662,4 @@ release-launcher-darwin: notarize-launcher-darwin
 	@echo "dist/LocalAI.dmg is ready"
 
 build-launcher-linux:
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz
+	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux --app-version $(LAUNCHER_APP_VERSION) && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz

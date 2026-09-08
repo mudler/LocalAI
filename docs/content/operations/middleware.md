@@ -45,7 +45,7 @@ routing, `/api/pii/events` for redaction and block actions.
 PII redaction is **NER-based and runs request-side (input)**. It is
 **off by default**, flipping to **on for any `cloud-proxy` backend**
 because that traffic crosses the network to a third-party provider. Pick a
-[default detector](#instance-wide-defaults) so those models are actually
+[default detector](#instance-wide-default-detector) so those models are actually
 scanned. Explicit `pii.enabled` in a model's YAML always wins over the
 backend default.
 

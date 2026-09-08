@@ -540,6 +540,29 @@ var _ = Describe("gallery/index.yaml Higgs Audio entry", func() {
 	})
 })
 
+var _ = Describe("gallery/index.yaml qwythos-9b-claude-mythos-5-1m mmproj", func() {
+	It("points at the published F16 mmproj artifact", func() {
+		entries, err := loadGalleryIndex()
+		Expect(err).ToNot(HaveOccurred())
+
+		models := make([]*gallery.GalleryModel, 0, len(entries))
+		for i := range entries {
+			models = append(models, &entries[i])
+		}
+		entry := gallery.FindGalleryElement(models, "qwythos-9b-claude-mythos-5-1m")
+		Expect(entry).ToNot(BeNil())
+		Expect(entry.Overrides).To(HaveKeyWithValue(
+			"mmproj",
+			"llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf",
+		))
+		Expect(entry.AdditionalFiles).To(ContainElement(gallery.File{
+			Filename: "llama-cpp/mmproj/Qwythos-9B-Claude-Mythos-5-1M-GGUF/mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf",
+			SHA256:   "f977efc337a2ac2ba183eea0c73e25b75fc240d56c05ed4d9b56ab451f64c82c",
+			URI:      "https://huggingface.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF/resolve/main/mmproj-Qwythos-9B-Claude-Mythos-5-1M-F16.gguf",
+		}))
+	})
+})
+
 // The lint rules above check the catalog as text. This drives the real
 // resolution path for the entry a user actually clicked and failed to install,
 // so the fix is proven at the layer that broke and not only at the layer that

@@ -14,7 +14,7 @@ import json
 import types
 import unittest
 
-from python_utils import messages_to_dicts, parse_options
+from python_utils import attach_media_parts, messages_to_dicts, parse_options
 
 
 def _msg(**fields):
@@ -116,6 +116,64 @@ class TestMessagesToDicts(unittest.TestCase):
     def test_tool_calls_invalid_json_dropped(self):
         out = messages_to_dicts([_msg(role="assistant", tool_calls="{not json")])
         self.assertNotIn("tool_calls", out[0])
+
+
+class TestAttachMediaParts(unittest.TestCase):
+    def test_image_marker_added_to_last_user_turn(self):
+        messages = [
+            {"role": "system", "content": "be brief"},
+            {"role": "user", "content": "first"},
+            {"role": "assistant", "content": "ok"},
+            {"role": "user", "content": "how high is the water?"},
+        ]
+        out = attach_media_parts(messages, n_images=1)
+        self.assertEqual(
+            out[3]["content"],
+            [{"type": "image"}, {"type": "text", "text": "how high is the water?"}],
+        )
+        # Earlier turns and the input list itself are untouched.
+        self.assertEqual(out[:3], messages[:3])
+        self.assertEqual(messages[3]["content"], "how high is the water?")
+
+    def test_counts_and_order_images_then_videos(self):
+        out = attach_media_parts(
+            [{"role": "user", "content": "describe"}], n_images=2, n_videos=1
+        )
+        self.assertEqual(
+            out[0]["content"],
+            [
+                {"type": "image"},
+                {"type": "image"},
+                {"type": "video"},
+                {"type": "text", "text": "describe"},
+            ],
+        )
+
+    def test_empty_text_yields_media_only_parts(self):
+        out = attach_media_parts([{"role": "user", "content": ""}], n_images=1)
+        self.assertEqual(out[0]["content"], [{"type": "image"}])
+
+    def test_other_message_keys_are_preserved(self):
+        out = attach_media_parts(
+            [{"role": "user", "content": "hi", "name": "bob"}], n_images=1
+        )
+        self.assertEqual(out[0]["name"], "bob")
+
+    def test_no_media_is_a_no_op(self):
+        self.assertIsNone(attach_media_parts([{"role": "user", "content": "hi"}]))
+
+    def test_no_user_turn_is_a_no_op(self):
+        self.assertIsNone(
+            attach_media_parts([{"role": "system", "content": "hi"}], n_images=1)
+        )
+
+    def test_content_already_parts_is_a_no_op(self):
+        self.assertIsNone(
+            attach_media_parts(
+                [{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
+                n_images=1,
+            )
+        )
 
 
 if __name__ == "__main__":

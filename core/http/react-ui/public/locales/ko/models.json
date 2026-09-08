@@ -148,7 +148,8 @@
     "sha256": "SHA256",
     "backToAll": "모든 모델",
     "vramAt": "{{context}}에서의 VRAM",
-    "headroom": "여유 공간"
+    "headroom": "여유 공간",
+    "headroomOn": "{{node}}의 여유 공간"
   },
   "empty": {
     "title": "모델을 찾을 수 없습니다",
@@ -200,6 +201,8 @@
     "browsing": "둘러보기",
     "pickHint": "모델을 선택하면 상세 정보가 표시됩니다.",
     "heroWithRam": "시스템 메모리 {{ram}}, 갤러리에 모델 {{count}}개.",
+    "heroWithCluster": "{{nodes}}개 노드 중 가장 큰 {{node}}에 {{vram}}, 갤러리에 모델 {{count}}개.",
+    "heroWithNode": "{{node}}에 {{vram}}, 갤러리에 모델 {{count}}개.",
     "byUseCase": "또는 용도로 시작하기",
     "pickText": "채팅, 추론, 임베딩",
     "pickVision": "이미지와 문서 읽기",

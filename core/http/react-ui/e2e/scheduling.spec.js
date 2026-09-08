@@ -36,35 +36,80 @@ async function mockScheduling(page, { rules = [rule], nodeList = nodes } = {}) {
 }
 
 test.describe('Scheduling page', () => {
-  test('groups node labels, collapses the reference, filters forgivingly, and expands results', async ({ page }) => {
+  // Node labels are only ever needed while writing a rule's node selector, so
+  // they live in that field rather than in a card standing open above the
+  // rules whether or not anyone is writing one.
+  test('keeps no standing label browser on the page', async ({ page }) => {
     await mockScheduling(page)
     await page.goto('/app/scheduling')
+    await expect(page.getByText('llama-3.3')).toBeVisible()
 
-    const reference = page.getByTestId('node-label-reference')
-    await expect(reference.getByText('Falcon GPU')).toBeVisible()
-    await expect(reference.getByText('No labels')).toBeVisible()
-    await expect(reference.locator('.scheduling-node-card')).toHaveCount(5)
-    await expect(reference.getByText('5 of 27 nodes')).toBeVisible()
+    await expect(page.getByTestId('node-label-reference')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /node labels/i })).toHaveCount(0)
+    await expect(page.locator('.scheduling-node-card')).toHaveCount(0)
+    // Falcon GPU is a node name, and nothing on this page has a reason to
+    // enumerate node names until a selector is being filled.
+    await expect(page.getByText('Falcon GPU')).toHaveCount(0)
+  })
 
-    const toggle = page.getByRole('button', { name: /node labels/i })
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    await toggle.click()
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(reference.getByRole('searchbox')).toBeHidden()
-    await toggle.click()
+  test('suggests the cluster\'s own label keys and values as the selector is typed', async ({ page }) => {
+    await mockScheduling(page)
+    await page.goto('/app/scheduling')
+    await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
 
-    await reference.getByRole('searchbox').fill('GPU.VENDOR=nvi')
-    await expect(reference.locator('.scheduling-node-card')).toHaveCount(1)
-    await expect(reference.getByText('Falcon GPU')).toBeVisible()
+    const keyInput = page.getByRole('combobox', { name: 'Selector key' })
+    await keyInput.click()
+    const suggestions = page.getByTestId('label-suggestions')
+    // Every key the cluster reports, before a single character is typed.
+    await expect(suggestions.getByRole('option', { name: 'gpu.vendor' })).toBeVisible()
+    await expect(suggestions.getByRole('option', { name: 'zone' })).toBeVisible()
 
-    await reference.getByRole('searchbox').fill('flcn')
-    await expect(reference.locator('.scheduling-node-card')).toHaveCount(1)
-    await expect(reference.getByText('Falcon GPU')).toBeVisible()
+    await keyInput.fill('vend')
+    await expect(suggestions.getByRole('option')).toHaveCount(1)
+    await suggestions.getByRole('option', { name: 'gpu.vendor' }).click()
+    await expect(keyInput).toHaveValue('gpu.vendor')
 
-    await reference.getByRole('searchbox').fill('')
-    await reference.getByRole('button', { name: 'Show 20 more nodes' }).click()
-    await expect(reference.locator('.scheduling-node-card')).toHaveCount(25)
-    await expect(reference.getByText('25 of 27 nodes')).toBeVisible()
+    // Values are scoped to the key being filled, so a selector cannot be built
+    // out of a pair no node matches.
+    const valueInput = page.getByRole('combobox', { name: 'Selector value' })
+    await valueInput.click()
+    await expect(suggestions.getByRole('option', { name: 'NVIDIA' })).toBeVisible()
+    await expect(suggestions.getByRole('option', { name: 'amd' })).toBeVisible()
+    await expect(suggestions.getByRole('option', { name: 'east' })).toHaveCount(0)
+
+    await valueInput.fill('nvi')
+    await suggestions.getByRole('option', { name: 'NVIDIA' }).click()
+    await expect(valueInput).toHaveValue('NVIDIA')
+  })
+
+  test('picks a suggestion from the keyboard', async ({ page }) => {
+    await mockScheduling(page)
+    await page.goto('/app/scheduling')
+    await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+
+    const keyInput = page.getByRole('combobox', { name: 'Selector key' })
+    await keyInput.fill('zon')
+    await keyInput.press('ArrowDown')
+    await keyInput.press('Enter')
+    await expect(keyInput).toHaveValue('zone')
+    // Enter picked the suggestion rather than committing the chip, so the
+    // half-built pair is still in the inputs.
+    await expect(page.getByLabel('Node selector').getByText('zone=', { exact: true })).toHaveCount(0)
+  })
+
+  // The cluster's vocabulary is a suggestion, never a constraint: an admin
+  // labelling nodes for a rule they are about to write must still be able to
+  // type a key no node reports yet.
+  test('still accepts a label the cluster has never reported', async ({ page }) => {
+    await mockScheduling(page)
+    await page.goto('/app/scheduling')
+    await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+
+    await page.getByRole('combobox', { name: 'Selector key' }).fill('tenant')
+    await page.getByRole('combobox', { name: 'Selector value' }).fill('acme')
+    await page.getByRole('button', { name: 'Add selector' }).click()
+
+    await expect(page.getByLabel('Node selector').getByText('tenant=acme', { exact: true })).toBeVisible()
   })
 
   test('edits all fields with a locked model and preserves values after a failed save', async ({ page }) => {
@@ -113,41 +158,97 @@ test.describe('Scheduling page', () => {
     await expect(page.getByRole('combobox', { name: '' }).first()).toBeEnabled()
   })
 
-  test('shows node loading, empty, no-match, and retry states independently from rules', async ({ page }) => {
-    let attempts = 0
+  // The roster feeds suggestions and nothing else now, so failing to load it
+  // must cost the admin nothing but the hints.
+  test('leaves the selector fully usable when the node roster fails to load', async ({ page }) => {
     await page.route('**/api/nodes/scheduling', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([rule]) }))
-    await page.route('**/api/nodes', async route => {
-      attempts++
-      if (attempts === 1) {
-        await new Promise(resolve => setTimeout(resolve, 250))
-        await route.fulfill({ status: 500, body: 'failed' })
-      } else {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-      }
-    })
+    await page.route('**/api/nodes', route => route.fulfill({ status: 500, body: 'failed' }))
     await page.goto('/app/scheduling')
-    await expect(page.getByText('Loading node labels…')).toBeVisible()
-    await expect(page.getByText('llama-3.3')).toBeVisible()
-    await expect(page.getByText('Could not load node labels.')).toBeVisible()
-    await page.getByRole('button', { name: 'Retry loading node labels' }).click()
-    await expect(page.getByText('No nodes are available yet.')).toBeVisible()
 
-    await page.unroute('**/api/nodes')
-    await page.route('**/api/nodes', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nodes) }))
-    await page.reload()
-    await page.getByRole('searchbox', { name: 'Search node labels' }).fill('not-a-real-label')
-    await expect(page.getByText('No nodes match your search.')).toBeVisible()
+    // The rules still render: the roster is not on their path.
+    await expect(page.getByText('llama-3.3')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+    await page.getByRole('combobox', { name: 'Selector key' }).fill('gpu.vendor')
+    await page.getByRole('combobox', { name: 'Selector value' }).fill('nvidia')
+    await page.getByRole('button', { name: 'Add selector' }).click()
+
+    await expect(page.getByLabel('Node selector').getByText('gpu.vendor=nvidia', { exact: true })).toBeVisible()
   })
 
-  test('uses one node column and accessible rule actions on a narrow viewport', async ({ page }) => {
+  // A rule may be keyed by an alias, in which case it governs whichever model
+  // the alias points at. The page has to say which model that is, because the
+  // rule's own name no longer tells you.
+  test.describe('rules keyed by a model alias', () => {
+    const aliasRule = {
+      model_name: 'production',
+      target_model: 'llama-3.3',
+      model_is_alias: true,
+      node_selector: { tier: 'gpu' },
+      min_replicas: 2,
+      max_replicas: 4,
+    }
+
+    async function mockAliases(page, aliases = [{ name: 'production', target: 'llama-3.3' }]) {
+      await page.route('**/api/aliases', route => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(aliases),
+      }))
+      await page.route('**/api/models/capabilities', route => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ object: 'list', data: [{ id: 'llama-3.3' }, { id: 'production' }] }),
+      }))
+    }
+
+    test('names the model an alias rule governs', async ({ page }) => {
+      await mockScheduling(page, { rules: [aliasRule] })
+      await mockAliases(page)
+      await page.goto('/app/scheduling')
+
+      await expect(page.getByText('production')).toBeVisible()
+      await expect(page.locator('.scheduling-rule-target')).toHaveText(/llama-3\.3/)
+    })
+
+    test('marks a rule another rule already governs as shadowed', async ({ page }) => {
+      await mockScheduling(page, { rules: [{ ...aliasRule, shadowed: true }, rule] })
+      await mockAliases(page)
+      await page.goto('/app/scheduling')
+
+      await expect(page.locator('.scheduling-rule-shadowed')).toHaveCount(1)
+      await expect(page.locator('.scheduling-rule-shadowed')).toContainText('Shadowed')
+    })
+
+    test('flags an alias rule that no longer resolves', async ({ page }) => {
+      await mockScheduling(page, {
+        rules: [{ model_name: 'orphan', target_model: 'orphan', model_is_alias: true, min_replicas: 1 }],
+      })
+      await mockAliases(page, [])
+      await page.goto('/app/scheduling')
+
+      await expect(page.locator('.scheduling-rule-target--broken')).toBeVisible()
+    })
+
+    test('offers aliases in the model picker, tagged with their target', async ({ page }) => {
+      await mockScheduling(page)
+      await mockAliases(page)
+      await page.goto('/app/scheduling')
+      await page.getByRole('button', { name: 'Add Scheduling Rule' }).click()
+
+      const picker = page.locator('.searchable-model-select input')
+      await picker.click()
+      await expect(page.locator('.sms-hint')).toHaveText('alias of llama-3.3')
+
+      await page.getByRole('option', { name: /production/ }).click()
+      await expect(page.getByText(/production is an alias for llama-3\.3/)).toBeVisible()
+    })
+  })
+
+  test('keeps rule actions reachable on a narrow viewport', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await mockScheduling(page, { nodeList: nodes.slice(0, 2) })
     await page.goto('/app/scheduling')
-
-    const cards = page.locator('.scheduling-node-card')
-    const first = await cards.nth(0).boundingBox()
-    const second = await cards.nth(1).boundingBox()
-    expect(second.y).toBeGreaterThan(first.y + first.height - 1)
 
     const actions = page.locator('.scheduling-rule-actions')
     await expect(actions.getByRole('button', { name: 'Edit llama-3.3' })).toBeVisible()
