@@ -1014,6 +1014,64 @@
     - filename: llama-cpp/models/llm-jp-4-33b-thinking/llm-jp-4-33b-thinking-BF16.gguf
       uri: huggingface://llm-jp/llm-jp-4-33b-thinking-gguf/llm-jp-4-33b-thinking-BF16.gguf
       sha256: 7bb8465702b5c4a5d94e03e62921d5917181a2eda56da31edfdcd47fab2e9964
+- name: "huihui-qwen3.8-flash-next-abliterated-q4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF
+  description: |
+    Huihui's abliterated Qwen3.8-Flash-Next is a vision-language
+    mixture-of-experts model modified to reduce refusals. This entry uses
+    the publisher's UD-Q4_K_XL GGUF and BF16 vision projector for text chat
+    and image input through llama.cpp. The default context is 32,768 tokens.
+    Model weights use the Qwen Community License 1.0.
+  license: other
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - vision
+    - multimodal
+    - abliterated
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/huihui-qwen3.8-flash-next-abliterated-q4/mmproj-model-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/huihui-qwen3.8-flash-next-abliterated-q4/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+      min_p: 0
+      repeat_penalty: 1
+      presence_penalty: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/huihui-qwen3.8-flash-next-abliterated-q4/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      uri: huggingface://huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      sha256: 290a31ca20b74ed2c21b257d378a5678d821ad9fdd8feb1fc52c719761668903
+    - filename: llama-cpp/models/huihui-qwen3.8-flash-next-abliterated-q4/Qwen3.8-Flash-Next-UD-Q4_K_XL-00002-of-00004.gguf
+      uri: huggingface://huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00002-of-00004.gguf
+      sha256: 0ebf70d076e0e98f74dc414a90b92c67d7267876ae524bc7799cf463e27b754b
+    - filename: llama-cpp/models/huihui-qwen3.8-flash-next-abliterated-q4/Qwen3.8-Flash-Next-UD-Q4_K_XL-00003-of-00004.gguf
+      uri: huggingface://huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00003-of-00004.gguf
+      sha256: e9b12f44e13e60d6ef9396449f7b4356b2e2911222b8183a596830c2418db19a
+    - filename: llama-cpp/models/huihui-qwen3.8-flash-next-abliterated-q4/Qwen3.8-Flash-Next-UD-Q4_K_XL-00004-of-00004.gguf
+      uri: huggingface://huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00004-of-00004.gguf
+      sha256: 983901b3e47686f56f5fcec87ba8c51e7e2c6996277dd77bc3fc804a1d563da3
+    - filename: llama-cpp/mmproj/huihui-qwen3.8-flash-next-abliterated-q4/mmproj-model-bf16.gguf
+      uri: huggingface://huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF/mmproj-model-bf16.gguf
+      sha256: dbac7334a8a433abd6cd1d1db82398ba123faa2f328696da20848e605e645ca1
 - &qwen3-8-flash-next
   name: "qwen3.8-flash-next-q4"
   variants:
