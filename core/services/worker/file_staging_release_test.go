@@ -168,6 +168,24 @@ var _ = Describe("Worker exact-key staging release", func() {
 		Expect(outsidePath).To(BeAnExistingFile())
 	})
 
+	It("rejects symlinked files and sidecars without deleting their targets", func() {
+		for _, linkedName := range []string{"input.wav", "input.wav.sha256", "input.wav.sha256.target"} {
+			cacheDir := GinkgoT().TempDir()
+			categoryDir := filepath.Join(cacheDir, "ephemeral", "request-id", "audio")
+			Expect(os.MkdirAll(categoryDir, 0750)).To(Succeed())
+			target := filepath.Join(categoryDir, "input.wav")
+			if linkedName != "input.wav" {
+				Expect(os.WriteFile(target, []byte("input"), 0640)).To(Succeed())
+			}
+			preserved := filepath.Join(cacheDir, "ephemeral", "preserved-"+linkedName)
+			Expect(os.WriteFile(preserved, []byte("keep"), 0640)).To(Succeed())
+			Expect(os.Symlink(preserved, filepath.Join(categoryDir, linkedName))).To(Succeed())
+
+			Expect(releaseEphemeralCacheKey(cacheDir, "ephemeral/request-id/audio/input.wav")).NotTo(Succeed(), linkedName)
+			Expect(preserved).To(BeAnExistingFile(), linkedName)
+		}
+	})
+
 	It("registers an exact release handler", func() {
 		cacheDir := GinkgoT().TempDir()
 		path := filepath.Join(cacheDir, "ephemeral", "request-id", "audio", "input.wav")

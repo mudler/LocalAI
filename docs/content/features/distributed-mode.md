@@ -1231,8 +1231,9 @@ Notes:
 - Check the worker process is running and its NATS connection is up. `Scheduled node is not answering on the bus` in the frontend log names each node demoted this way.
 
 **A worker fills its own disk over time:**
-- A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.
-- Releases before this sweep existed kept every staged input for the lifetime of the worker. Delete `<models>/../staging/ephemeral/` on an affected worker once, as the user the worker runs as; the sweep keeps it bounded from then on.
+- A request that carries a file (an image, an audio clip, a video) stages that file below the worker's HTTP staging or S3 cache `ephemeral/` directory. The frontend releases each request-owned input when inference finishes, and the worker reserves capacity before accepting it.
+- A one-hour recovery sweep runs at startup and every 15 minutes to reclaim inputs left by interrupted requests. It preserves active reservations and uses the newest file timestamp in each request directory.
+- Releases before request-owned cleanup existed can leave a legacy backlog. Delete the affected `ephemeral/` directory once, as the user the worker runs as; capacity admission and recovery cleanup keep new staging bounded.
 - Staged **model** files are not touched by this. They live beside the ephemeral directory and are not per-request scratch.
 - A worker whose volume is genuinely full reports `creating backend process state directory under ...: no space left on device` when a backend starts.
 

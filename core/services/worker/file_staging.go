@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/pkg/safefile"
 	"github.com/mudler/xlog"
 	"golang.org/x/sync/singleflight"
 )
@@ -253,34 +254,17 @@ func releaseEphemeralCachePathWithCapacity(cacheDir, key, filePath string, capac
 	if err := validateEphemeralCacheKey(key); err != nil {
 		return err
 	}
-	if err := validateReleasePath(filePath, cacheDir); err != nil {
-		return err
+	relativePath := filepath.FromSlash(key)
+	expectedPath := filepath.Join(cacheDir, relativePath)
+	if filepath.Clean(filePath) != expectedPath {
+		return fmt.Errorf("release path %q does not match key %q", filePath, key)
 	}
-	if info, err := os.Lstat(filePath); err == nil && info.IsDir() {
-		return fmt.Errorf("release key identifies a directory")
-	} else if err != nil && !os.IsNotExist(err) {
+	if err := safefile.RemoveExact(cacheDir, relativePath, []string{".sha256", ".sha256.target"}, 2); err != nil {
 		return err
 	}
 	for _, path := range []string{filePath, filePath + ".sha256", filePath + ".sha256.target"} {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return err
-		}
 		if capacity != nil {
 			if err := capacity.Release(path); err != nil {
-				return err
-			}
-		}
-	}
-	for _, dir := range []string{filepath.Dir(filePath), filepath.Dir(filepath.Dir(filePath))} {
-		entries, err := os.ReadDir(dir)
-		if os.IsNotExist(err) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if len(entries) == 0 {
-			if err := os.Remove(dir); err != nil && !os.IsNotExist(err) {
 				return err
 			}
 		}
@@ -343,44 +327,6 @@ func validateEphemeralCacheKey(key string) error {
 		if part == "" || part == "." || part == ".." {
 			return fmt.Errorf("invalid ephemeral key %q", key)
 		}
-	}
-	return nil
-}
-
-func validateReleasePath(targetPath, baseDir string) error {
-	absBase, err := filepath.Abs(baseDir)
-	if err != nil {
-		return err
-	}
-	realBase, err := filepath.EvalSymlinks(absBase)
-	if err != nil {
-		return err
-	}
-	absTarget, err := filepath.Abs(targetPath)
-	if err != nil {
-		return err
-	}
-	realTarget, err := filepath.EvalSymlinks(absTarget)
-	if err != nil {
-		remaining := filepath.Base(absTarget)
-		dir := filepath.Dir(absTarget)
-		for {
-			resolved, resolveErr := filepath.EvalSymlinks(dir)
-			if resolveErr == nil {
-				realTarget = filepath.Join(resolved, remaining)
-				break
-			}
-			remaining = filepath.Join(filepath.Base(dir), remaining)
-			parent := filepath.Dir(dir)
-			if parent == dir {
-				realTarget = filepath.Clean(absTarget)
-				break
-			}
-			dir = parent
-		}
-	}
-	if realTarget != realBase && !strings.HasPrefix(realTarget, realBase+string(filepath.Separator)) {
-		return fmt.Errorf("path %q resolves outside ephemeral cache", targetPath)
 	}
 	return nil
 }

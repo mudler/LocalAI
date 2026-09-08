@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/safefile"
 	"github.com/mudler/xlog"
 )
 
@@ -204,23 +205,17 @@ func handleReleaseWithCapacity(w http.ResponseWriter, _ *http.Request, stagingDi
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	filePath := filepath.Join(stagingDir, filepath.FromSlash(key))
-	if err := validatePathInDir(filePath, stagingDir); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if info, err := os.Lstat(filePath); err == nil && info.IsDir() {
-		http.Error(w, "release key identifies a directory", http.StatusBadRequest)
-		return
-	} else if err != nil && !os.IsNotExist(err) {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	relativePath := filepath.FromSlash(key)
+	filePath := filepath.Join(stagingDir, relativePath)
+	if err := safefile.RemoveExact(stagingDir, relativePath, []string{hashSidecarSuffix, targetSidecarSuffix}, 2); err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, safefile.ErrUnsafePath) {
+			status = http.StatusBadRequest
+		}
+		http.Error(w, err.Error(), status)
 		return
 	}
 	for _, path := range []string{filePath, filePath + hashSidecarSuffix, filePath + targetSidecarSuffix} {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 		if capacity != nil {
 			if err := capacity.Release(path); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -228,32 +223,7 @@ func handleReleaseWithCapacity(w http.ResponseWriter, _ *http.Request, stagingDi
 			}
 		}
 	}
-	categoryDir := filepath.Dir(filePath)
-	requestDir := filepath.Dir(categoryDir)
-	for _, dir := range []string{categoryDir, requestDir} {
-		if err := pruneEmptyDir(dir); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func pruneEmptyDir(dir string) error {
-	entries, err := os.ReadDir(dir)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if len(entries) != 0 {
-		return nil
-	}
-	if err := os.Remove(dir); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	return nil
 }
 
 func handleHead(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string) {

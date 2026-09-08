@@ -143,6 +143,26 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(outsidePath).To(BeAnExistingFile())
 	})
 
+	It("rejects symlinked files and sidecars without deleting their targets", func() {
+		for _, linkedName := range []string{"input.wav", "input.wav" + hashSidecarSuffix, "input.wav" + targetSidecarSuffix} {
+			stagingDir := GinkgoT().TempDir()
+			categoryDir := filepath.Join(stagingDir, "ephemeral", "request-id", "audio")
+			Expect(os.MkdirAll(categoryDir, 0750)).To(Succeed())
+			target := filepath.Join(categoryDir, "input.wav")
+			if linkedName != "input.wav" {
+				Expect(os.WriteFile(target, []byte("input"), 0640)).To(Succeed())
+			}
+			preserved := filepath.Join(stagingDir, "ephemeral", "preserved-"+linkedName)
+			Expect(os.WriteFile(preserved, []byte("keep"), 0640)).To(Succeed())
+			Expect(os.Symlink(preserved, filepath.Join(categoryDir, linkedName))).To(Succeed())
+
+			stager, stop := startReleaseServer(stagingDir, "release-token")
+			Expect(stager.ReleaseRemote(context.Background(), "node-1", "ephemeral/request-id/audio/input.wav")).NotTo(Succeed(), linkedName)
+			stop()
+			Expect(preserved).To(BeAnExistingFile(), linkedName)
+		}
+	})
+
 	It("evicts the worker cache before deleting the shared object", func() {
 		storeRoot := GinkgoT().TempDir()
 		cacheRoot := GinkgoT().TempDir()
