@@ -43,6 +43,27 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Spark-X2.5-1.7B
+
+Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0
+GGUF builds:
+
+```bash
+local-ai models install spark-x2.5-1.7b-q4
+```
+
+To select the Q8_0 build explicitly:
+
+```bash
+local-ai models install spark-x2.5-1.7b-q4 --variant spark-x2.5-1.7b-q8
+```
+
+These text-only builds use the llama.cpp backend and the embedded Jinja chat
+template. The gallery defaults to a 32,768-token context to limit memory use.
+The [source model](https://huggingface.co/XHToken/Spark-X2.5-1.7B) supports up to
+1,048,576 tokens; larger contexts require more memory. Use a current LocalAI
+llama.cpp backend with Spark-X2.5 support.
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.

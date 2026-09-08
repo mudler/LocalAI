@@ -3165,6 +3165,77 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-gsq-rco/mmproj-Qwen3.8-27B-BF16.gguf
       uri: huggingface://ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 13cb7bebccbd04afc8f4090cb949ecf8937cdf7377c5799b1a0c594e7c0d3e16
+- &spark-x2-5-1-7b
+  name: "spark-x2.5-1.7b-q4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: spark-x2.5-1.7b-q8
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.5-1.7B
+    - https://huggingface.co/XHToken/Spark-X2.5-1.7B-GGUF
+  description: |
+    Spark-X2.5-1.7B is XHToken's 1.7B text model for conversation, reasoning,
+    coding, and multilingual tasks. This build uses Q4_K_M GGUF weights,
+    the embedded Jinja chat template, and a 32K-token default context.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+    - multilingual
+  last_checked: "2026-09-08"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q4_K_M.gguf
+      uri: huggingface://XHToken/Spark-X2.5-1.7B-GGUF/Spark-X2.5-1.7B-Q4_K_M.gguf
+      sha256: 902bde2522394954ac17821b3e5fd0df02defbc6944f122253f2580acf0503f4
+
+- !!merge <<: *spark-x2-5-1-7b
+  name: "spark-x2.5-1.7b-q8"
+  variants: []
+  description: |
+    Spark-X2.5-1.7B is XHToken's 1.7B text model for conversation, reasoning,
+    coding, and multilingual tasks. This build uses Q8_0 GGUF weights,
+    the embedded Jinja chat template, and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q8_0.gguf
+      uri: huggingface://XHToken/Spark-X2.5-1.7B-GGUF/Spark-X2.5-1.7B-Q8_0.gguf
+      sha256: cd77c03185a834bb1162a4b7713520be5838058bfc54873645beff470bb24442
+
 - &qwen3-8-9b
   name: "qwen3.8-9b-q4"
   variants:
