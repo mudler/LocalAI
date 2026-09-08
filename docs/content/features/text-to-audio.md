@@ -124,6 +124,25 @@ Reference selection follows this order:
 
 When a saved profile is selected, LocalAI supplies both its private WAV and exact transcript for that request. It does not rewrite the model YAML or copy the recording into the model directory.
 
+### Realtime pipeline default
+
+Set `tts.voice` on a realtime pipeline model to use a saved Voice Library profile as the session default:
+
+```yaml
+name: gpt-realtime
+tts:
+  voice: localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000
+pipeline:
+  vad: silero-vad-ggml
+  transcription: whisper-large-turbo
+  llm: qwen3-4b
+  tts: qwen3-tts-base
+```
+
+LocalAI resolves this profile when the realtime session starts. The selected TTS model must support Voice Library cloning.
+
+This feature does not resolve Voice Library URIs sent later through realtime `session.update`. You can still use `session.update` with ordinary backend voice names or IDs.
+
 #### Supported backend and model variants
 
 | Backend | Automatically compatible variants |
