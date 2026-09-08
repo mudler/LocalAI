@@ -431,6 +431,10 @@ operator inspects on the wire has a new shape. The one difference is that a
 worker now OMITS an empty reply field where the NATS handlers always emitted it,
 which a client reading a missing field as the zero value cannot tell apart.
 
+`files/stage` accepts files inside the worker's models or staging-cache
+directory, including when the directory path contains a symlink. It compares
+resolved paths and rejects existing symlinks that point outside those directories.
+
 `POST /v1/control/backend/stop` is served by BOTH kinds of worker, and the
 frontend sends it the same way to either. A serve-backend worker kills the
 backend process and recycles its port; an agent worker runs no backend

@@ -21,6 +21,10 @@ func isPathAllowed(path string, allowedDirs []string) bool {
 		if err != nil {
 			continue
 		}
+		// Compare both sides after resolving aliases such as macOS /var.
+		if resolvedDir, err := filepath.EvalSymlinks(absDir); err == nil {
+			absDir = resolvedDir
+		}
 		if strings.HasPrefix(resolved, absDir+string(filepath.Separator)) || resolved == absDir {
 			return true
 		}
