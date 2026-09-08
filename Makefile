@@ -240,7 +240,7 @@ test-ci-scripts:
 ## pure stdlib on purpose so they run without any backend venv; the list is
 ## explicit because their siblings (model_identity_test) import grpc and the
 ## generated protobufs, which only exist inside a built backend.
-PYTHON_HELPER_TESTS?=python_utils_test vllm_utils_test model_utils_test mlx_utils_test parent_watch_test
+PYTHON_HELPER_TESTS?=python_utils_test vllm_utils_test model_utils_test mlx_utils_test parent_watch_test temp_utils_test
 test-python-helpers:
 	cd backend/python/common && python3 -m unittest $(PYTHON_HELPER_TESTS)
 
