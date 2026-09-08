@@ -136,6 +136,8 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 		case http.MethodPost:
 			if key == "temp" {
 				handleAllocTemp(w, r, stagingDir)
+			} else if r.URL.Query().Get("claim") == "1" {
+				handleClaimWithCapacity(w, r, stagingDir, key, capacity)
 			} else {
 				http.Error(w, "not found", http.StatusNotFound)
 			}
@@ -194,6 +196,40 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 	}()
 
 	return server, nil
+}
+
+// handleClaimWithCapacity marks an existing ephemeral file as owned by the
+// request that just verified its content.
+func handleClaimWithCapacity(w http.ResponseWriter, _ *http.Request, stagingDir, key string, capacity EphemeralCapacity) {
+	if err := validateEphemeralReleaseKey(key); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	filePath := filepath.Join(stagingDir, filepath.FromSlash(key))
+	if err := validatePathInDir(filePath, stagingDir); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	info, err := os.Lstat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.Error(w, "not found", http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+	if !info.Mode().IsRegular() {
+		http.Error(w, "ephemeral path is not a regular file", http.StatusBadRequest)
+		return
+	}
+	if capacity != nil {
+		if err := capacity.Claim(filePath); err != nil {
+			http.Error(w, err.Error(), http.StatusInsufficientStorage)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func handleRelease(w http.ResponseWriter, _ *http.Request, stagingDir, key string) {
@@ -300,6 +336,7 @@ type contentRange struct {
 type EphemeralCapacity interface {
 	Reserve(path string, size int64) error
 	Commit(path string) error
+	Claim(path string) error
 	Release(path string) error
 	CapacityWriter(path string, destination io.Writer) (io.WriteCloser, error)
 }

@@ -149,7 +149,11 @@ func (f *FileStagingClient) Predict(ctx context.Context, in *pb.PredictOptions, 
 	lifecycle := f.newStagedInputLifecycle()
 	defer lifecycle.release()
 	in = proto.Clone(in).(*pb.PredictOptions)
-	in = f.stageMultimodalInputs(ctx, lifecycle, in)
+	var err error
+	in, err = f.stageMultimodalInputs(ctx, lifecycle, in)
+	if err != nil {
+		return nil, err
+	}
 	return f.Backend.Predict(ctx, in, opts...)
 }
 
@@ -157,7 +161,11 @@ func (f *FileStagingClient) PredictStream(ctx context.Context, in *pb.PredictOpt
 	lifecycle := f.newStagedInputLifecycle()
 	defer lifecycle.release()
 	in = proto.Clone(in).(*pb.PredictOptions)
-	in = f.stageMultimodalInputs(ctx, lifecycle, in)
+	var err error
+	in, err = f.stageMultimodalInputs(ctx, lifecycle, in)
+	if err != nil {
+		return err
+	}
 	return f.Backend.PredictStream(ctx, in, fn, opts...)
 }
 
@@ -528,11 +536,21 @@ func (f *FileStagingClient) stageMultimodalInputs(
 	ctx context.Context,
 	lifecycle *stagedInputLifecycle,
 	in *pb.PredictOptions,
-) *pb.PredictOptions {
-	in.Images = f.stagePathSlice(ctx, lifecycle, in.Images, "inputs")
-	in.Videos = f.stagePathSlice(ctx, lifecycle, in.Videos, "inputs")
-	in.Audios = f.stagePathSlice(ctx, lifecycle, in.Audios, "inputs")
-	return in
+) (*pb.PredictOptions, error) {
+	var err error
+	in.Images, err = f.stagePathSlice(ctx, lifecycle, in.Images, "inputs")
+	if err != nil {
+		return nil, fmt.Errorf("staging predict images: %w", err)
+	}
+	in.Videos, err = f.stagePathSlice(ctx, lifecycle, in.Videos, "inputs")
+	if err != nil {
+		return nil, fmt.Errorf("staging predict videos: %w", err)
+	}
+	in.Audios, err = f.stagePathSlice(ctx, lifecycle, in.Audios, "inputs")
+	if err != nil {
+		return nil, fmt.Errorf("staging predict audios: %w", err)
+	}
+	return in, nil
 }
 
 func (f *FileStagingClient) stagePathSlice(
@@ -540,22 +558,20 @@ func (f *FileStagingClient) stagePathSlice(
 	lifecycle *stagedInputLifecycle,
 	paths []string,
 	category string,
-) []string {
+) ([]string, error) {
 	result := make([]string, len(paths))
 	for i, p := range paths {
 		if isFilePath(p) {
 			backendPath, err := f.stageInputFile(ctx, lifecycle, p, category)
 			if err != nil {
-				xlog.Warn("Failed to stage multimodal file, passing through", "path", p, "error", err)
-				result[i] = p
-				continue
+				return nil, fmt.Errorf("staging %q: %w", p, err)
 			}
 			result[i] = backendPath
 		} else {
 			result[i] = p
 		}
 	}
-	return result
+	return result, nil
 }
 
 // isFilePath checks if a string looks like a local file path (not base64 or URL).

@@ -2,15 +2,19 @@ package worker
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -70,6 +74,48 @@ func (m *releaseMessagingClient) IsConnected() bool { return true }
 func (m *releaseMessagingClient) Close()            {}
 
 var _ = Describe("Worker exact-key staging release", func() {
+	It("protects a startup-accounted HTTP cache hit through authenticated repeated probes", func() {
+		stagingDir := GinkgoT().TempDir()
+		root := filepath.Join(stagingDir, "ephemeral")
+		key := "ephemeral/audio/request-id/input.wav"
+		remotePath := filepath.Join(stagingDir, filepath.FromSlash(key))
+		content := []byte("data")
+		Expect(os.MkdirAll(filepath.Dir(remotePath), 0o750)).To(Succeed())
+		Expect(os.WriteFile(remotePath, content, 0o600)).To(Succeed())
+		hash := sha256.Sum256(content)
+		Expect(os.WriteFile(remotePath+".sha256", []byte(fmt.Sprintf("%x", hash)), 0o600)).To(Succeed())
+		old := time.Now().Add(-2 * time.Hour)
+		for _, path := range []string{remotePath, remotePath + ".sha256", filepath.Dir(remotePath)} {
+			Expect(os.Chtimes(path, old, old)).To(Succeed())
+		}
+		guard, err := NewEphemeralCapacityGuard([]string{root}, int64(len(content)+sha256.Size*2), 0)
+		Expect(err).NotTo(HaveOccurred())
+
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		addr := listener.Addr().String()
+		Expect(listener.Close()).To(Succeed())
+		server, err := nodes.StartFileTransferServerWithCapacity(addr, stagingDir, GinkgoT().TempDir(), GinkgoT().TempDir(), "secret", 0, nil, guard)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(nodes.ShutdownFileTransferServer, server)
+
+		localPath := filepath.Join(GinkgoT().TempDir(), "input.wav")
+		Expect(os.WriteFile(localPath, content, 0o600)).To(Succeed())
+		stager := nodes.NewHTTPFileStager(func(string) (string, error) { return addr, nil }, "secret")
+		for range 2 {
+			path, ensureErr := stager.EnsureRemote(context.Background(), "worker", localPath, key)
+			Expect(ensureErr).NotTo(HaveOccurred())
+			Expect(path).To(Equal(remotePath))
+		}
+
+		CleanEphemeralRoots([]string{root}, time.Hour, guard)
+		Expect(remotePath).To(BeAnExistingFile())
+
+		Expect(stager.ReleaseRemote(context.Background(), "worker", key)).To(Succeed())
+		CleanEphemeralRoots([]string{root}, time.Hour, guard)
+		Expect(remotePath).NotTo(BeAnExistingFile())
+	})
+
 	It("claims a startup-scanned cache hit against stale recovery until release", func() {
 		cacheDir := GinkgoT().TempDir()
 		root := filepath.Join(cacheDir, "ephemeral")

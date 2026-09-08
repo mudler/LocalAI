@@ -19,6 +19,7 @@ const fullUUIDPattern = `[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-
 type lifecycleStager struct {
 	fakeFileStager
 	ensureErr          error
+	ensureErrAt        int
 	releaseErr         error
 	releasedKeys       []string
 	releaseCtxErr      []error
@@ -28,7 +29,7 @@ type lifecycleStager struct {
 
 func (s *lifecycleStager) EnsureRemote(ctx context.Context, nodeID, localPath, key string) (string, error) {
 	s.fakeFileStager.EnsureRemote(ctx, nodeID, localPath, key)
-	if s.ensureErr != nil {
+	if s.ensureErr != nil && (s.ensureErrAt == 0 || len(s.ensureCalls) == s.ensureErrAt) {
 		return "", s.ensureErr
 	}
 	return "/remote/" + key, nil
@@ -47,11 +48,16 @@ type lifecycleBackend struct {
 	grpc.Backend
 	predictResult *pb.Reply
 	predictErr    error
+	predictCalls  int
+	predictInput  *pb.PredictOptions
+	streamCalls   int
 	streamBlock   <-chan struct{}
 	streamStarted chan<- struct{}
 }
 
-func (b *lifecycleBackend) Predict(_ context.Context, _ *pb.PredictOptions, _ ...ggrpc.CallOption) (*pb.Reply, error) {
+func (b *lifecycleBackend) Predict(_ context.Context, in *pb.PredictOptions, _ ...ggrpc.CallOption) (*pb.Reply, error) {
+	b.predictCalls++
+	b.predictInput = proto.Clone(in).(*pb.PredictOptions)
 	if b.predictResult == nil {
 		b.predictResult = &pb.Reply{}
 	}
@@ -59,6 +65,7 @@ func (b *lifecycleBackend) Predict(_ context.Context, _ *pb.PredictOptions, _ ..
 }
 
 func (b *lifecycleBackend) PredictStream(_ context.Context, _ *pb.PredictOptions, _ func(*pb.Reply), _ ...ggrpc.CallOption) error {
+	b.streamCalls++
 	if b.streamStarted != nil {
 		b.streamStarted <- struct{}{}
 	}
@@ -231,6 +238,40 @@ var _ = Describe("FileStagingClient request lifecycle", func() {
 
 		Expect(err).To(MatchError(ContainSubstring("upload failed")))
 		Expect(stager.ensureCalls).To(HaveLen(1))
+		Expect(stager.releasedKeys).To(Equal(keysFromEnsureCalls(stager.ensureCalls)))
+	})
+
+	It("does not invoke predict when multimodal staging fails", func(ctx SpecContext) {
+		uploadErr := errors.New("ephemeral capacity exceeded")
+		stager := &lifecycleStager{ensureErr: uploadErr, ensureErrAt: 2}
+		backend := &lifecycleBackend{}
+		client := NewFileStagingClient(backend, stager, "worker-1")
+		request := &pb.PredictOptions{Images: []string{"/tmp/first.png", "/tmp/second.png"}}
+		original := proto.Clone(request)
+
+		result, err := client.Predict(ctx, request)
+
+		Expect(result).To(BeNil())
+		Expect(err).To(MatchError(ContainSubstring("ephemeral capacity exceeded")))
+		Expect(backend.predictCalls).To(BeZero())
+		Expect(proto.Equal(request, original)).To(BeTrue())
+		Expect(stager.ensureCalls).To(HaveLen(2))
+		Expect(stager.releasedKeys).To(Equal(keysFromEnsureCalls(stager.ensureCalls)))
+	})
+
+	It("does not invoke streaming predict when multimodal staging fails", func(ctx SpecContext) {
+		uploadErr := errors.New("ephemeral capacity exceeded")
+		stager := &lifecycleStager{ensureErr: uploadErr}
+		backend := &lifecycleBackend{}
+		client := NewFileStagingClient(backend, stager, "worker-1")
+		request := &pb.PredictOptions{Audios: []string{"/tmp/audio.wav"}}
+		original := proto.Clone(request)
+
+		err := client.PredictStream(ctx, request, func(*pb.Reply) {})
+
+		Expect(err).To(MatchError(ContainSubstring("ephemeral capacity exceeded")))
+		Expect(backend.streamCalls).To(BeZero())
+		Expect(proto.Equal(request, original)).To(BeTrue())
 		Expect(stager.releasedKeys).To(Equal(keysFromEnsureCalls(stager.ensureCalls)))
 	})
 

@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -25,6 +26,8 @@ type recordingEphemeralCapacity struct {
 	reserved   int64
 	reserveErr error
 	writerErr  error
+	claimCalls []string
+	claimErr   error
 }
 
 type nopWriteCloser struct{ io.Writer }
@@ -43,6 +46,10 @@ func (g *recordingEphemeralCapacity) Reserve(_ string, size int64) error {
 
 func (*recordingEphemeralCapacity) Commit(string) error  { return nil }
 func (*recordingEphemeralCapacity) Release(string) error { return nil }
+func (g *recordingEphemeralCapacity) Claim(path string) error {
+	g.claimCalls = append(g.claimCalls, path)
+	return g.claimErr
+}
 func (g *recordingEphemeralCapacity) CapacityWriter(_ string, destination io.Writer) (io.WriteCloser, error) {
 	if g.writerErr != nil {
 		return failingWriteCloser{err: g.writerErr}, nil
@@ -494,6 +501,148 @@ var _ = Describe("FileTransferServer", func() {
 	// --- EnsureRemote skip tests ---
 
 	Describe("EnsureRemote skip-if-exists", func() {
+		It("claims a matching ephemeral file before returning the worker path", func() {
+			stagingDir := GinkgoT().TempDir()
+			modelsDir := GinkgoT().TempDir()
+			dataDir := GinkgoT().TempDir()
+			guard := &recordingEphemeralCapacity{}
+			key := "ephemeral/audio/request/input.wav"
+			remotePath := filepath.Join(stagingDir, filepath.FromSlash(key))
+			content := []byte("already on worker")
+			Expect(os.MkdirAll(filepath.Dir(remotePath), 0o750)).To(Succeed())
+			Expect(os.WriteFile(remotePath, content, 0o600)).To(Succeed())
+			Expect(os.WriteFile(remotePath+hashSidecarSuffix, []byte(sha256Hex(content)), 0o600)).To(Succeed())
+			localPath := filepath.Join(GinkgoT().TempDir(), "input.wav")
+			Expect(os.WriteFile(localPath, content, 0o600)).To(Succeed())
+
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v1/files/", func(w http.ResponseWriter, r *http.Request) {
+				requestKey := strings.TrimPrefix(r.URL.Path, "/v1/files/")
+				switch r.Method {
+				case http.MethodHead:
+					handleHead(w, r, stagingDir, modelsDir, dataDir, requestKey)
+				case http.MethodPost:
+					handleClaimWithCapacity(w, r, stagingDir, requestKey, guard)
+				default:
+					http.Error(w, "unexpected upload", http.StatusInternalServerError)
+				}
+			})
+			ts := httptest.NewServer(mux)
+			DeferCleanup(ts.Close)
+			stager := NewHTTPFileStager(func(string) (string, error) {
+				return strings.TrimPrefix(ts.URL, "http://"), nil
+			}, "")
+
+			for range 2 {
+				path, err := stager.EnsureRemote(context.Background(), "node-1", localPath, key)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(path).To(Equal(remotePath))
+			}
+			Expect(guard.claimCalls).To(Equal([]string{remotePath, remotePath}))
+		})
+
+		It("propagates an ephemeral cache-hit claim failure", func() {
+			content := []byte("already on worker")
+			localPath := filepath.Join(GinkgoT().TempDir(), "input.wav")
+			Expect(os.WriteFile(localPath, content, 0o600)).To(Succeed())
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v1/files/", func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodHead {
+					w.Header().Set(HeaderLocalPath, "/remote/ephemeral/audio/request/input.wav")
+					w.Header().Set(HeaderContentSHA256, sha256Hex(content))
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+				http.Error(w, "ephemeral capacity exceeded", http.StatusInsufficientStorage)
+			})
+			ts := httptest.NewServer(mux)
+			DeferCleanup(ts.Close)
+			stager := NewHTTPFileStager(func(string) (string, error) {
+				return strings.TrimPrefix(ts.URL, "http://"), nil
+			}, "")
+
+			path, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "ephemeral/audio/request/input.wav")
+
+			Expect(path).To(BeEmpty())
+			Expect(err).To(MatchError(ContainSubstring("ephemeral capacity exceeded")))
+		})
+
+		DescribeTable("uploads a matching ephemeral file when an old worker cannot claim it",
+			func(claimStatus int) {
+				stagingDir := GinkgoT().TempDir()
+				content := []byte("compatible upload")
+				localPath := filepath.Join(GinkgoT().TempDir(), "input.wav")
+				Expect(os.WriteFile(localPath, content, 0o600)).To(Succeed())
+				cacheHitPath := filepath.Join(stagingDir, "ephemeral", "audio", "stale", "input.wav")
+				putCalls := 0
+				putRemotePath := ""
+				mux := http.NewServeMux()
+				mux.HandleFunc("/v1/files/", func(w http.ResponseWriter, r *http.Request) {
+					switch r.Method {
+					case http.MethodHead:
+						w.Header().Set(HeaderLocalPath, cacheHitPath)
+						w.Header().Set(HeaderContentSHA256, sha256Hex(content))
+						w.WriteHeader(http.StatusOK)
+					case http.MethodPost:
+						http.Error(w, "claim unsupported", claimStatus)
+					case http.MethodPut:
+						putCalls++
+						key := strings.TrimPrefix(r.URL.Path, "/v1/files/")
+						putRemotePath = filepath.Join(stagingDir, filepath.FromSlash(key))
+						handleUpload(w, r, stagingDir, "", "", key, 0)
+					case http.MethodDelete:
+						w.WriteHeader(http.StatusNoContent)
+					}
+				})
+				ts := httptest.NewServer(mux)
+				DeferCleanup(ts.Close)
+				stager := NewHTTPFileStager(func(string) (string, error) {
+					return strings.TrimPrefix(ts.URL, "http://"), nil
+				}, "")
+
+				backend := &lifecycleBackend{}
+				client := NewFileStagingClient(backend, stager, "node-1")
+				request := &pb.PredictOptions{Audios: []string{localPath}}
+				_, err := client.Predict(context.Background(), request)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(putCalls).To(Equal(1))
+				Expect(backend.predictInput).NotTo(BeNil())
+				Expect(backend.predictInput.Audios).To(Equal([]string{putRemotePath}))
+			},
+			Entry("404", http.StatusNotFound),
+			Entry("405", http.StatusMethodNotAllowed),
+		)
+
+		It("keeps matching model probes read-only", func() {
+			content := []byte("model")
+			localPath := filepath.Join(GinkgoT().TempDir(), "model.bin")
+			Expect(os.WriteFile(localPath, content, 0o600)).To(Succeed())
+			unexpectedWrites := 0
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v1/files/", func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodHead {
+					unexpectedWrites++
+					http.Error(w, "unexpected write", http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set(HeaderLocalPath, "/models/tracking/model.bin")
+				w.Header().Set(HeaderContentSHA256, sha256Hex(content))
+				w.WriteHeader(http.StatusOK)
+			})
+			ts := httptest.NewServer(mux)
+			DeferCleanup(ts.Close)
+			stager := NewHTTPFileStager(func(string) (string, error) {
+				return strings.TrimPrefix(ts.URL, "http://"), nil
+			}, "")
+
+			path, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "models/tracking/model.bin")
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(path).To(Equal("/models/tracking/model.bin"))
+			Expect(unexpectedWrites).To(BeZero())
+		})
+
 		It("skips upload when file exists with matching hash", func() {
 			ts, stagingDir, _, _ := setupTestServer("tok", 0)
 
