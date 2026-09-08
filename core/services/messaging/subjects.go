@@ -439,6 +439,12 @@ func SubjectNodeFilesStage(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.stage"
 }
 
+// SubjectNodeFilesRelease tells a serve-backend node to evict one request's ephemeral cache keys.
+// Reply: {error}
+func SubjectNodeFilesRelease(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".files.release"
+}
+
 // SubjectNodeFilesTemp tells a serve-backend node to allocate a temp file.
 // Reply: {local_path, error}
 func SubjectNodeFilesTemp(nodeID string) string {

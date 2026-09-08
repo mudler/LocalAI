@@ -10,7 +10,6 @@ import os
 import json
 import time
 import gc
-import tempfile
 from typing import List
 from PIL import Image
 
@@ -23,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from python_utils import attach_media_parts
 from grpc_auth import get_auth_interceptors
 from model_utils import resolve_model_reference
+from temp_utils import materialize_base64
 from vllm_utils import apply_options_to_engine_args, normalize_option_key
 
 from vllm.engine.arg_utils import AsyncEngineArgs
@@ -1005,13 +1005,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             Video: The loaded video.
         """
         try:
-            timestamp = str(int(time.time() * 1000))  # Generate timestamp
-            p = os.path.join(tempfile.gettempdir(), f"vl-{timestamp}.data")
-            with open(p, "wb") as f:
-                f.write(base64.b64decode(video_path))
-            video = VideoAsset(name=p).np_ndarrays
-            os.remove(p)
-            return video
+            with materialize_base64(video_path, suffix=".data") as path:
+                return VideoAsset(name=path).np_ndarrays
         except Exception as e:
             print(f"Error loading video {video_path}: {e}", file=sys.stderr)
             return None

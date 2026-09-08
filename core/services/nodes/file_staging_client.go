@@ -16,7 +16,10 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 	ggrpc "google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
+
+const stagedInputReleaseTimeout = 30 * time.Second
 
 // FileStagingClient wraps a grpc.Backend to transparently handle file transfer
 // for distributed mode. Input files are staged on the backend node before the
@@ -48,21 +51,70 @@ func NewFileStagingClient(inner grpc.Backend, stager FileStager, nodeID string) 
 
 // requestID generates a unique ID for ephemeral file keys.
 func requestID() string {
-	return uuid.New().String()[:8]
+	return uuid.NewString()
+}
+
+type stagedInputLifecycle struct {
+	client    *FileStagingClient
+	requestID string
+	keys      []string
+	seen      map[string]struct{}
+}
+
+func (f *FileStagingClient) newStagedInputLifecycle() *stagedInputLifecycle {
+	return &stagedInputLifecycle{
+		client:    f,
+		requestID: requestID(),
+		keys:      []string{},
+		seen:      map[string]struct{}{},
+	}
+}
+
+func (l *stagedInputLifecycle) track(key string) {
+	if _, ok := l.seen[key]; ok {
+		return
+	}
+	l.seen[key] = struct{}{}
+	l.keys = append(l.keys, key)
+}
+
+func (l *stagedInputLifecycle) release() {
+	if len(l.keys) == 0 {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), stagedInputReleaseTimeout)
+	defer cancel()
+	if releaser, ok := l.client.stager.(RequestFileReleaser); ok {
+		if err := releaser.ReleaseRemoteRequest(ctx, l.client.nodeID, l.requestID, l.keys); err != nil {
+			xlog.Warn("Failed to release staged request inputs", "node", l.client.nodeID, "requestID", l.requestID, "keyCount", len(l.keys), "error", err)
+		}
+		return
+	}
+	for _, key := range l.keys {
+		if err := l.client.stager.ReleaseRemote(ctx, l.client.nodeID, key); err != nil {
+			xlog.Warn("Failed to release staged input", "node", l.client.nodeID, "key", key, "error", err)
+		}
+	}
 }
 
 // stageInputFile uploads a local file to the remote node via the FileStager.
-// Returns the remote-local path and the ephemeral key.
-func (f *FileStagingClient) stageInputFile(ctx context.Context, reqID, localPath, category string) (string, string, error) {
+func (f *FileStagingClient) stageInputFile(
+	ctx context.Context,
+	lifecycle *stagedInputLifecycle,
+	localPath,
+	category string,
+) (string, error) {
 	basename := filepath.Base(localPath)
-	key := storage.EphemeralKey(reqID, category, basename)
+	key := storage.EphemeralKey(lifecycle.requestID, category, basename)
+	lifecycle.track(key)
 
 	remotePath, err := f.stager.EnsureRemote(ctx, f.nodeID, localPath, key)
 	if err != nil {
-		return "", "", fmt.Errorf("staging input file: %w", err)
+		return "", fmt.Errorf("staging input file: %w", err)
 	}
 
-	return remotePath, key, nil
+	return remotePath, nil
 }
 
 // retrieveOutputFile retrieves an output file from the backend to a local path.
@@ -100,23 +152,37 @@ func (f *FileStagingClient) translateModelPath(frontendPath string) string {
 }
 
 func (f *FileStagingClient) Predict(ctx context.Context, in *pb.PredictOptions, opts ...ggrpc.CallOption) (*pb.Reply, error) {
-	reqID := requestID()
-	in, _ = f.stageMultimodalInputs(ctx, reqID, in)
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.PredictOptions)
+	var err error
+	in, err = f.stageMultimodalInputs(ctx, lifecycle, in)
+	if err != nil {
+		return nil, err
+	}
 	return f.Backend.Predict(ctx, in, opts...)
 }
 
 func (f *FileStagingClient) PredictStream(ctx context.Context, in *pb.PredictOptions, fn func(reply *pb.Reply), opts ...ggrpc.CallOption) error {
-	reqID := requestID()
-	in, _ = f.stageMultimodalInputs(ctx, reqID, in)
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.PredictOptions)
+	var err error
+	in, err = f.stageMultimodalInputs(ctx, lifecycle, in)
+	if err != nil {
+		return err
+	}
 	return f.Backend.PredictStream(ctx, in, fn, opts...)
 }
 
 func (f *FileStagingClient) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	reqID := requestID()
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.GenerateImageRequest)
 
 	// Stage input source image if present
 	if in.Src != "" && isFilePath(in.Src) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Src, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
 		if err != nil {
 			return nil, fmt.Errorf("staging image src: %w", err)
 		}
@@ -126,7 +192,7 @@ func (f *FileStagingClient) GenerateImage(ctx context.Context, in *pb.GenerateIm
 	// Stage reference images
 	for i, img := range in.RefImages {
 		if isFilePath(img) {
-			backendPath, _, err := f.stageInputFile(ctx, reqID, img, "inputs")
+			backendPath, err := f.stageInputFile(ctx, lifecycle, img, "inputs")
 			if err != nil {
 				return nil, fmt.Errorf("staging ref image: %w", err)
 			}
@@ -160,25 +226,27 @@ func (f *FileStagingClient) GenerateImage(ctx context.Context, in *pb.GenerateIm
 }
 
 func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	reqID := requestID()
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.GenerateVideoRequest)
 
 	// Stage start/end images and optional audio conditioning.
 	if in.StartImage != "" && isFilePath(in.StartImage) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, in.StartImage, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.StartImage, "inputs")
 		if err != nil {
 			return nil, fmt.Errorf("staging start image: %w", err)
 		}
 		in.StartImage = backendPath
 	}
 	if in.EndImage != "" && isFilePath(in.EndImage) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, in.EndImage, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.EndImage, "inputs")
 		if err != nil {
 			return nil, fmt.Errorf("staging end image: %w", err)
 		}
 		in.EndImage = backendPath
 	}
 	if in.Audio != "" && isFilePath(in.Audio) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Audio, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Audio, "inputs")
 		if err != nil {
 			return nil, fmt.Errorf("staging video audio: %w", err)
 		}
@@ -210,11 +278,13 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 }
 
 func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	reqID := requestID()
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.Generate3DRequest)
 
 	// Stage the conditioning image or existing GLB used by 3D post-processing.
 	if in.Src != "" && isFilePath(in.Src) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Src, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
 		if err != nil {
 			return nil, fmt.Errorf("staging 3D input asset: %w", err)
 		}
@@ -246,7 +316,9 @@ func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DReq
 }
 
 func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	reqID := requestID()
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.TTSRequest)
 
 	// Translate model path from frontend to remote worker path.
 	// The model and its companion files (e.g. .onnx.json) were already staged
@@ -257,7 +329,7 @@ func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...
 	// Voice may be a named backend speaker or a request-scoped reference WAV.
 	// Only path-shaped values are staged; speaker IDs pass through unchanged.
 	if in.Voice != "" && isFilePath(in.Voice) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Voice, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Voice, "inputs")
 		if err != nil {
 			return nil, fmt.Errorf("staging TTS voice reference: %w", err)
 		}
@@ -289,14 +361,16 @@ func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...
 }
 
 func (f *FileStagingClient) TTSStream(ctx context.Context, in *pb.TTSRequest, fn func(*pb.Reply), opts ...ggrpc.CallOption) error {
-	reqID := requestID()
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.TTSRequest)
 
 	// Translate model path from frontend to remote worker path (same as TTS above)
 	if in.Model != "" && isFilePath(in.Model) {
 		in.Model = f.translateModelPath(in.Model)
 	}
 	if in.Voice != "" && isFilePath(in.Voice) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Voice, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Voice, "inputs")
 		if err != nil {
 			return fmt.Errorf("staging streaming TTS voice reference: %w", err)
 		}
@@ -307,11 +381,13 @@ func (f *FileStagingClient) TTSStream(ctx context.Context, in *pb.TTSRequest, fn
 }
 
 func (f *FileStagingClient) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
-	reqID := requestID()
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.SoundGenerationRequest)
 
 	// Stage input source
 	if in.Src != nil && *in.Src != "" && isFilePath(*in.Src) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, *in.Src, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, *in.Src, "inputs")
 		if err != nil {
 			return nil, fmt.Errorf("staging sound src: %w", err)
 		}
@@ -342,12 +418,28 @@ func (f *FileStagingClient) SoundGeneration(ctx context.Context, in *pb.SoundGen
 	return result, nil
 }
 
+func (f *FileStagingClient) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest, opts ...ggrpc.CallOption) (*pb.SoundDetectionResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.SoundDetectionRequest)
+	if in.Src != "" && isFilePath(in.Src) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging audio for sound detection: %w", err)
+		}
+		in.Src = backendPath
+	}
+	return f.Backend.SoundDetection(ctx, in, opts...)
+}
+
 func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
-	reqID := requestID()
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.TranscriptRequest)
 
 	// Stage input audio file
 	if in.Dst != "" && isFilePath(in.Dst) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Dst, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Dst, "inputs")
 		if err != nil {
 			return nil, fmt.Errorf("staging audio for transcription: %w", err)
 		}
@@ -358,11 +450,13 @@ func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.Trans
 }
 
 func (f *FileStagingClient) AudioTranscriptionStream(ctx context.Context, in *pb.TranscriptRequest, fn func(chunk *pb.TranscriptStreamResponse), opts ...ggrpc.CallOption) error {
-	reqID := requestID()
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.TranscriptRequest)
 
 	// Stage input audio file
 	if in.Dst != "" && isFilePath(in.Dst) {
-		backendPath, _, err := f.stageInputFile(ctx, reqID, in.Dst, "inputs")
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Dst, "inputs")
 		if err != nil {
 			return fmt.Errorf("staging audio for transcription stream: %w", err)
 		}
@@ -444,31 +538,46 @@ func (f *FileStagingClient) QuantizationProgress(ctx context.Context, in *pb.Qua
 
 // stageMultimodalInputs stages Images, Videos, Audios fields in PredictOptions
 // if they are file paths (not base64 or URLs).
-func (f *FileStagingClient) stageMultimodalInputs(ctx context.Context, reqID string, in *pb.PredictOptions) (*pb.PredictOptions, []string) {
-	var keys []string
-	in.Images = f.stagePathSlice(ctx, reqID, in.Images, "inputs", &keys)
-	in.Videos = f.stagePathSlice(ctx, reqID, in.Videos, "inputs", &keys)
-	in.Audios = f.stagePathSlice(ctx, reqID, in.Audios, "inputs", &keys)
-	return in, keys
+func (f *FileStagingClient) stageMultimodalInputs(
+	ctx context.Context,
+	lifecycle *stagedInputLifecycle,
+	in *pb.PredictOptions,
+) (*pb.PredictOptions, error) {
+	var err error
+	in.Images, err = f.stagePathSlice(ctx, lifecycle, in.Images, "inputs")
+	if err != nil {
+		return nil, fmt.Errorf("staging predict images: %w", err)
+	}
+	in.Videos, err = f.stagePathSlice(ctx, lifecycle, in.Videos, "inputs")
+	if err != nil {
+		return nil, fmt.Errorf("staging predict videos: %w", err)
+	}
+	in.Audios, err = f.stagePathSlice(ctx, lifecycle, in.Audios, "inputs")
+	if err != nil {
+		return nil, fmt.Errorf("staging predict audios: %w", err)
+	}
+	return in, nil
 }
 
-func (f *FileStagingClient) stagePathSlice(ctx context.Context, reqID string, paths []string, category string, keys *[]string) []string {
+func (f *FileStagingClient) stagePathSlice(
+	ctx context.Context,
+	lifecycle *stagedInputLifecycle,
+	paths []string,
+	category string,
+) ([]string, error) {
 	result := make([]string, len(paths))
 	for i, p := range paths {
 		if isFilePath(p) {
-			backendPath, key, err := f.stageInputFile(ctx, reqID, p, category)
+			backendPath, err := f.stageInputFile(ctx, lifecycle, p, category)
 			if err != nil {
-				xlog.Warn("Failed to stage multimodal file, passing through", "path", p, "error", err)
-				result[i] = p
-				continue
+				return nil, fmt.Errorf("staging %q: %w", p, err)
 			}
 			result[i] = backendPath
-			*keys = append(*keys, key)
 		} else {
 			result[i] = p
 		}
 	}
-	return result
+	return result, nil
 }
 
 // isFilePath checks if a string looks like a local file path (not base64 or URL).

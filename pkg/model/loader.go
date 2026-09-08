@@ -106,6 +106,10 @@ type ModelLoader struct {
 	// the exit code can't, since a child killed by our own SIGTERM/SIGKILL
 	// reports -1, indistinguishable from a signal-induced crash.
 	stoppingProcs sync.Map
+	// processRuntimes keeps the owned state/scratch directory alive until the
+	// loader has consumed any exit diagnostics. The exit watcher removes the
+	// potentially large scratch contents immediately.
+	processRuntimes sync.Map
 	// loadFailures records, per modelID, the cooldown window applied after a
 	// failed load so that a client repeatedly polling a broken model does not
 	// spawn (and leak) a fresh backend process on every request. Guarded by mu.

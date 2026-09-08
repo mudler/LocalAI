@@ -113,24 +113,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF
-  description: |
-    # GLM-5.3-Flash
-
-    👋 Join our WeChat or Discord community.
-
-    📖 Check out the GLM-5.3-Flash blog and GLM-5 Technical report.
-
-    📍 Use GLM-5.3-Flash API services on Z.ai API Platform.
-
-    ## Introduction
-
-    We introduce GLM-5.3-Flash, the first natively multimodal model in the GLM-5 series. With 320B total parameters and just 18B active parameters, it outperforms GLM-5.2 across benchmarks and real-world workloads at one-tenth the price, while approaching Claude Opus 4.8 on coding and agentic benchmarks.
-
-    GLM-5.3-Flash starts from a newly trained base model, with its architecture and training recipe redesigned around capability and efficiency. For the first time in the GLM series, we introduce a hybrid architecture combining sparse and linear attention, sharply reducing long-context serving costs while preserving precise long-context capabilities. The model also adopts Manifold-Constrained Hyper-Connections (mHC) to further improve scaling efficiency. Together with our latest 30T-token multimodal pre-training corpus, these changes enable GLM-5.3-Flash to deliver more intelligence with less compute.
-
-    ## Serve GLM-5.3-Flash Locally
-
-    ...
+  description: "# GLM-5.3-Flash\n\n\U0001F44B Join our WeChat or Discord community.\n\n\U0001F4D6 Check out the GLM-5.3-Flash blog and GLM-5 Technical report.\n\n\U0001F4CD Use GLM-5.3-Flash API services on Z.ai API Platform.\n\n## Introduction\n\nWe introduce GLM-5.3-Flash, the first natively multimodal model in the GLM-5 series. With 320B total parameters and just 18B active parameters, it outperforms GLM-5.2 across benchmarks and real-world workloads at one-tenth the price, while approaching Claude Opus 4.8 on coding and agentic benchmarks.\n\nGLM-5.3-Flash starts from a newly trained base model, with its architecture and training recipe redesigned around capability and efficiency. For the first time in the GLM series, we introduce a hybrid architecture combining sparse and linear attention, sharply reducing long-context serving costs while preserving precise long-context capabilities. The model also adopts Manifold-Constrained Hyper-Connections (mHC) to further improve scaling efficiency. Together with our latest 30T-token multimodal pre-training corpus, these changes enable GLM-5.3-Flash to deliver more intelligence with less compute.\n\n## Serve GLM-5.3-Flash Locally\n\n...\n"
   license: "mit"
   tags:
     - llm
@@ -768,9 +751,7 @@
       model: llama-cpp/models/s1-mini/s1-mini-q4_k_m.gguf
       temperature: 0
     system_prompt: >-
-      You are a text normalizer for speech-to-text transcripts. The input begins
-      with a control line specifying the styling, structure, and context settings;
-      clean the transcript to match those settings and output only the cleaned text.
+      You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.
     template:
       use_tokenizer_template: true
   files:
@@ -796,9 +777,7 @@
       model: llama-cpp/models/s1-mini/s1-mini-f16.gguf
       temperature: 0
     system_prompt: >-
-      You are a text normalizer for speech-to-text transcripts. The input begins
-      with a control line specifying the styling, structure, and context settings;
-      clean the transcript to match those settings and output only the cleaned text.
+      You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.
     template:
       use_tokenizer_template: true
   files:
@@ -14131,8 +14110,8 @@
       model: kokoro-int8-multi-lang-v1_0/model.int8.onnx
   files:
     - filename: kokoro-int8-multi-lang-v1_0.tar.bz2
-      sha256: 75654a84864be26f345f020f4070c2c019e96dd1b7f9bf6e2ffd59efac6aa5a3
       uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2
+      sha256: 4c3052abaa60943a341f193888cf6abd68787dae6ab8ae5c925a706caa247e4e
 - name: supertonic-3
   url: github:mudler/LocalAI/gallery/supertonic.yaml@master
   urls:
@@ -14484,6 +14463,202 @@
             - vae/**
     parameters:
       model: meituan-longcat/LongCat-Video-Avatar-1.5
+- name: qwen3.8-27b-exl3-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3.8-27B EXL3 3.5bpw served by vllm.cpp, LocalAI's C++ vLLM-style
+    runtime. The published checkpoint generates on CUDA and measured 16.7
+    tokens/s on GB10 with the pinned revision and the limits configured here.
+
+    This is the target-only setup. Use the DFlash2 variant for the measured
+    speculative-decoding configuration. The entry downloads the complete
+    revision-pinned repository, including its configuration, tokenizer, index,
+    and safetensors shards.
+  tags:
+    - llm
+    - qwen
+    - qwen3.8
+    - exl3
+    - vllm-cpp
+    - reasoning
+    - tool-calling
+    - gpu
+    - cuda
+  size: 15.4GB
+  last_checked: "2026-09-07"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 8192
+    engine_args:
+      num_blocks: 2048
+      max_num_seqs: 8
+      max_num_batched_tokens: 16384
+      enable_prefix_caching: false
+    parameters:
+      model: Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+          revision: 19441ac874c4018295da848e250f23511361cda4
+- name: qwen3.8-27b-dflash2-exl3-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+    - https://huggingface.co/Mia-AiLab/Qwen3.8-27B-DFlash2-EXL3-5.0bpw
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3.8-27B EXL3 with its EXL3 DFlash2 companion, served by vllm.cpp. On
+    GB10 this pinned pair measured 48.7 tokens/s at a seven-token draft budget,
+    versus 16.7 tokens/s target-only, with token-identical greedy output.
+
+    LocalAI stages both complete Hugging Face repositories before load. The
+    content-addressed companion snapshot is passed to the backend as the draft
+    model, while the speculative method and seven-token budget remain fixed.
+  tags:
+    - llm
+    - qwen
+    - qwen3.8
+    - exl3
+    - vllm-cpp
+    - speculative-decoding
+    - dflash
+    - reasoning
+    - tool-calling
+    - gpu
+    - cuda
+  size: 16.9GB
+  last_checked: "2026-09-07"
+  variants:
+    - model: qwen3.8-27b-exl3-vllm-cpp
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    function:
+      grammar:
+        disable: true
+    template:
+      use_tokenizer_template: true
+    context_size: 8192
+    engine_args:
+      num_blocks: 2048
+      max_num_seqs: 8
+      max_num_batched_tokens: 16384
+      enable_prefix_caching: false
+      speculative_config:
+        method: dflash
+        model: Mia-AiLab/Qwen3.8-27B-DFlash2-EXL3-5.0bpw
+        num_speculative_tokens: 7
+    parameters:
+      model: Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Mia-AiLab/Qwen3.8-27B-EXL3-3.5bpw
+          revision: 19441ac874c4018295da848e250f23511361cda4
+      - name: draft_model
+        target: companion
+        source:
+          type: huggingface
+          repo: Mia-AiLab/Qwen3.8-27B-DFlash2-EXL3-5.0bpw
+          revision: 4f0436269bca761b071f05319e8e04a87cc633f9
+- name: deepseek-v4-flash-spark-exl3-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/0xSero/deepseek-v4-flash-0731-spark
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    DeepSeek V4 Flash's Spark and GB10-oriented REAP-K216 EXL3 checkpoint,
+    served by vllm.cpp. It needs CUDA and roughly 100 GiB for its large
+    rank-sliced checkpoint.
+
+    The repository is pinned to its latest recorded revision. vllm.cpp's
+    existing runtime evidence measured the older 22f28d32b9b29b4352eaa380ff8c2c170b2847ab
+    revision; this entry does not claim that the newer revision has passed the
+    same end-to-end gate.
+  tags:
+    - llm
+    - deepseek
+    - deepseek-v4
+    - exl3
+    - vllm-cpp
+    - gpu
+    - cuda
+    - gb10
+  size: 100GB
+  last_checked: "2026-09-07"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: 0xSero/deepseek-v4-flash-0731-spark
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: 0xSero/deepseek-v4-flash-0731-spark
+          revision: ce5ff0f1efb2e184aafc759d281bfae47d3a359c
+- name: deepseek-v4-flash-exl3-3bpw-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/0xSero/DeepSeek-V4-Flash-0731-EXL3-3.0bpw
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Experimental non-Spark DeepSeek V4 Flash EXL3 3.0bpw checkpoint served by
+    vllm.cpp. This is the complete, non-REAP layout and requires a large
+    multi-GPU CUDA system.
+
+    The publisher describes the artifact as structurally complete but has not
+    passed end-to-end generation. Treat this entry as an integration target,
+    not as a correctness- or performance-gated configuration.
+  tags:
+    - llm
+    - deepseek
+    - deepseek-v4
+    - exl3
+    - vllm-cpp
+    - experimental
+    - gpu
+    - cuda
+  last_checked: "2026-09-07"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: 0xSero/DeepSeek-V4-Flash-0731-EXL3-3.0bpw
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: 0xSero/DeepSeek-V4-Flash-0731-EXL3-3.0bpw
+          revision: e0bf84ac76a5100e8790c22ad10b70b1e2d06d71
 - name: qwen3.6-27b-nvfp4-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -56383,6 +56558,8 @@
     known_usecases:
       - tts
     name: audio-cpp-indextts-2.5
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/index-tts2_5-orig.gguf
   files:
@@ -56420,6 +56597,8 @@
     known_usecases:
       - tts
     name: audio-cpp-supertonic
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/supertonic-3-orig.gguf
   files:
@@ -56462,6 +56641,8 @@
     known_usecases:
       - tts
     name: audio-cpp-higgs-audio-v3
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/higgs-audio-v3-tts-4b-q8_0.gguf
   files:
@@ -56511,6 +56692,8 @@
       - tts
       - audio_transform
     name: audio-cpp-chatterbox
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/chatterbox-q8_0.gguf
   files:
@@ -56547,6 +56730,8 @@
     known_usecases:
       - transcript
     name: audio-cpp-citrinet-asr
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/citrinet-asr-q8_0.gguf
   files:
@@ -56583,6 +56768,8 @@
     known_usecases:
       - transcript
     name: audio-cpp-nemotron-asr
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/nemotron-3.5-asr-streaming-0.6b-f16.gguf
   files:
@@ -56620,6 +56807,8 @@
     known_usecases:
       - diarization
     name: audio-cpp-sortformer-diarization
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
   files:
@@ -56657,6 +56846,8 @@
     known_usecases:
       - audio_transform
     name: audio-cpp-htdemucs
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/htdemucs-f16.gguf
   files:
@@ -56696,6 +56887,8 @@
     known_usecases:
       - sound_generation
     name: audio-cpp-stable-audio-sfx
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/stable-audio-3-small-sfx-q8_0.gguf
   files:
@@ -56734,6 +56927,8 @@
     known_usecases:
       - transcript
     name: audio-cpp-forced-aligner
+    options:
+      - backend:best
     parameters:
       language: en
       model: audio-cpp/qwen3-forced-aligner-0.6b-q8_0.gguf
@@ -56763,6 +56958,7 @@
       - vad
     name: audio-cpp-silero-vad
     options:
+      - backend:best
       - family:silero_vad
     parameters:
       model: bundled:silero_vad
@@ -56790,6 +56986,7 @@
       - vad
     name: audio-cpp-marblenet-vad
     options:
+      - backend:best
       - family:marblenet_vad
     parameters:
       model: bundled:marblenet_vad
@@ -56829,6 +57026,8 @@
     known_usecases:
       - tts
     name: audio-cpp-irodori-voicedesign
+    options:
+      - backend:best
     parameters:
       model: audio-cpp/irodori-tts-600m-v3-voicedesign-q8_0.gguf
   files:
@@ -56873,6 +57072,7 @@
       - audio_transform
     name: audio-cpp-seedvc-singing
     options:
+      - backend:best
       - task:svc
     parameters:
       model: audio-cpp/seed-vc-mlx-q8_0.gguf
@@ -56925,6 +57125,7 @@
       - audio_transform
     name: audio-cpp-vevo2-speech-to-speech
     options:
+      - backend:best
       - task:s2s
     parameters:
       model: audio-cpp/vevo2-q8_0.gguf

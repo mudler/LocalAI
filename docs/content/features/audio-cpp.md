@@ -28,6 +28,11 @@ key stored *inside* the GGUF, which cannot be read from a remote repository, and
 upstream GGUF repository hosts every family in one place. Set `backend: audio-cpp`
 in the model YAML, or select it explicitly in the import form.
 
+The bundled audio-cpp gallery entries set `backend:best` in `options` to select
+an available compute backend, with CPU as the fallback. To force CPU execution,
+replace that option with `backend:cpu`. Model configurations that omit this
+option still default to CPU.
+
 ## What it serves
 
 One model serves one family, and a family advertises the tasks it can perform. The

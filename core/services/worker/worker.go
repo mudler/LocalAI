@@ -149,21 +149,36 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// the top of Run so the worker fails before registering.)
 	httpAddr := cfg.resolveHTTPAddr()
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
+	cacheDir := filepath.Join(cfg.ModelsPath, "..", "cache")
 	dataDir := filepath.Join(cfg.ModelsPath, "..", "data")
+	ephemeralRoots := []string{
+		filepath.Join(stagingDir, "ephemeral"),
+		filepath.Join(cacheDir, "ephemeral"),
+	}
+	byteLimit, minFreeBytes, err := effectiveEphemeralCapacity(
+		ephemeralRoots,
+		cfg.EphemeralStagingByteLimit,
+		cfg.EphemeralStagingMinFreeBytes,
+	)
+	if err != nil {
+		return fmt.Errorf("resolving ephemeral staging capacity: %w", err)
+	}
+	ephemeralCapacity, err := NewEphemeralCapacityGuard(ephemeralRoots, byteLimit, minFreeBytes)
+	if err != nil {
+		return fmt.Errorf("initializing ephemeral staging capacity: %w", err)
+	}
+	xlog.Info("Ephemeral staging capacity configured", "roots", ephemeralRoots, "byteLimit", byteLimit, "minFreeBytes", minFreeBytes)
+	StartEphemeralRootsCleanup(shutdownCtx, ephemeralRoots, ephemeralCapacity, 0, 0)
 	// The readiness gate is created here but only armed once NATS is up and the
 	// backend supervisor exists, below, because the gate probes both.
 	// Until then /readyz reports ready, which is correct: reaching this line
 	// means the worker has already registered with the frontend, so it is
 	// mid-startup rather than broken.
 	readiness := &nodes.WorkerReadiness{}
-	httpServer, err := nodes.StartFileTransferServer(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ml.BackendLogs())
+	httpServer, err := nodes.StartFileTransferServerWithCapacity(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ephemeralCapacity, ml.BackendLogs())
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
-
-	// Per-request input files land in stagingDir over that server and nothing
-	// used to remove them, so a long-lived worker filled its own disk.
-	StartEphemeralStagingCleanup(shutdownCtx, stagingDir, 0, 0)
 
 	// Connect to NATS
 	xlog.Info("Connecting to NATS", "url", sanitize.URL(cfg.NatsURL))
@@ -249,7 +264,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 
 	// Subscribe to file staging NATS subjects if S3 is configured
 	if cfg.StorageURL != "" {
-		if err := cfg.subscribeFileStaging(natsClient, nodeID); err != nil {
+		if err := cfg.subscribeFileStaging(natsClient, nodeID, ephemeralCapacity); err != nil {
 			nodes.ShutdownFileTransferServer(httpServer)
 			return fmt.Errorf("subscribing to file staging subjects: %w", err)
 		}

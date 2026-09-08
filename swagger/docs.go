@@ -5652,6 +5652,12 @@ const docTemplate = `{
         "schema.FaceRegisterRequest": {
             "type": "object",
             "properties": {
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
                 "img": {
                     "type": "string"
                 },
@@ -5665,6 +5671,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "registered_at": {
+                    "description": "original enrollment time when replaying a saved embedding",
                     "type": "string"
                 },
                 "store": {

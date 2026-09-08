@@ -47,8 +47,10 @@ type Config struct {
 	PrefetchModels []string `env:"LOCALAI_PREFETCH_MODELS,PREFETCH_MODELS" help:"Comma-separated gallery model IDs to download from LOCALAI_GALLERIES at worker boot (e.g. 'llama-3.2-1b-instruct,phi-3-mini-4k'). Skipped if already on disk and SHA matches." group:"server"`
 
 	// HTTP file transfer
-	HTTPAddr          string `env:"LOCALAI_HTTP_ADDR" default:"" help:"HTTP file transfer server address (default: gRPC port + 1)" group:"server" hidden:""`
-	AdvertiseHTTPAddr string `env:"LOCALAI_ADVERTISE_HTTP_ADDR" help:"HTTP address the frontend uses to reach this node for file transfer" group:"server" hidden:""`
+	HTTPAddr                     string `env:"LOCALAI_HTTP_ADDR" default:"" help:"HTTP file transfer server address (default: gRPC port + 1)" group:"server" hidden:""`
+	AdvertiseHTTPAddr            string `env:"LOCALAI_ADVERTISE_HTTP_ADDR" help:"HTTP address the frontend uses to reach this node for file transfer" group:"server" hidden:""`
+	EphemeralStagingByteLimit    int64  `env:"LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT" default:"0" help:"Maximum bytes used by worker request-input staging across HTTP and S3 caches. Zero or negative uses min(10 GiB, 10% of filesystem capacity)." group:"server"`
+	EphemeralStagingMinFreeBytes int64  `env:"LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES" default:"0" help:"Filesystem space kept free while staging request inputs. Zero or negative uses max(1 GiB, 5% of filesystem capacity)." group:"server"`
 
 	// Registration (required)
 	AdvertiseAddr           string `env:"LOCALAI_ADVERTISE_ADDR" help:"Address the frontend uses to reach this node (defaults to hostname:port from Addr)" group:"registration" hidden:""`

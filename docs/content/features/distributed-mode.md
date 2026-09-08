@@ -297,6 +297,8 @@ local-ai worker \
 | `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
 | `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
 | `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |
+| `--ephemeral-staging-byte-limit` | `LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT` | `0` (automatic) | Maximum bytes held by request-input staging across the worker's HTTP staging directory and S3 cache. Automatic mode uses the smaller of 10 GiB and 10% of filesystem capacity. |
+| `--ephemeral-staging-min-free-bytes` | `LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES` | `0` (automatic) | Free filesystem space preserved while staging request inputs. Automatic mode uses the larger of 1 GiB and 5% of filesystem capacity. |
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(required)* | Frontend URL for self-registration |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
@@ -319,6 +321,12 @@ local-ai worker \
 
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /notice %}}
+
+### Ephemeral request-input storage
+
+Workers reserve local capacity before accepting per-request audio, image, and other ephemeral inputs. The limit covers both direct HTTP staging and the worker's S3 download cache. A request is rejected before inference when accepting its input would exceed the byte limit or the configured free-space headroom. One request-scoped cleanup operation releases all exact input keys and their reservations after inference, while a one-hour recovery sweep removes abandoned files after crashes. The sweep runs at startup and every 15 minutes, preserves active requests, and considers the newest file in each request directory.
+
+Set both capacity variables to positive byte counts when a worker needs fixed limits. Leaving either value at zero selects its filesystem-based default. These settings apply only below the two `ephemeral` roots; model, data, and configuration files are excluded.
 
 ### Worker Health Probes
 
@@ -1190,8 +1198,16 @@ Notes:
 - Verify `--heartbeat-interval` is not set too high
 - Offline nodes automatically restore to healthy when they re-register (no re-approval needed)
 
+**InsightFace reports a missing MiniFASNet file after staging:**
+- Gallery models such as `insightface-buffalo-m` use a virtual primary name and load their files through options. The frontend derives the worker's model directory from successfully staged companion files or directories, so relative options resolve inside the model's staging directory.
+- If logs show matching hashes for the staged files but InsightFace still reports a bare filename such as `MiniFASNetV2.onnx` as missing, upgrade the frontend to include this path-resolution fix. Re-uploading the same files does not correct the directory passed to the backend.
+
 **Backend not installing:**
 - Check the worker logs for `backend.install` events
+
+**Model staging repeatedly fails with HTTP 416 after all bytes have arrived:**
+- An interrupted upload can leave a full-size file marked as unfinished (`.sha256.target`). On retry, the worker verifies the file's SHA-256 and finalizes it if it matches, without rewriting the model. Corrupt content fails integrity validation and is removed.
+- Upgrade the affected worker to get this recovery behavior. Older workers can repeatedly reject retries from byte zero with `Content-Range start 0 does not match current file size`. File size alone is not proof that an upload is valid.
 
 **Requests still report an old context size or another old load option:**
 - Query `/api/nodes/:id/models` for every worker that hosts the model.
@@ -1215,8 +1231,9 @@ Notes:
 - Check the worker process is running and its NATS connection is up. `Scheduled node is not answering on the bus` in the frontend log names each node demoted this way.
 
 **A worker fills its own disk over time:**
-- A request that carries a file (an image, an audio clip, a video) stages that file to the worker under `<models>/../staging/ephemeral/`. The worker deletes these 6 hours after the request that needed them, and sweeps every 30 minutes plus once at startup, so a worker that crashed mid-request still reclaims the space.
-- Releases before this sweep existed kept every staged input for the lifetime of the worker. Delete `<models>/../staging/ephemeral/` on an affected worker once, as the user the worker runs as; the sweep keeps it bounded from then on.
+- A request that carries a file (an image, an audio clip, a video) stages that file below the worker's HTTP staging or S3 cache `ephemeral/` directory. The frontend releases each request-owned input when inference finishes, and the worker reserves capacity before accepting it.
+- A one-hour recovery sweep runs at startup and every 15 minutes to reclaim inputs left by interrupted requests. It preserves active reservations and uses the newest file timestamp in each request directory.
+- Releases before request-owned cleanup existed can leave a legacy backlog. Delete the affected `ephemeral/` directory once, as the user the worker runs as; capacity admission and recovery cleanup keep new staging bounded.
 - Staged **model** files are not touched by this. They live beside the ephemeral directory and are not per-request scratch.
 - A worker whose volume is genuinely full reports `creating backend process state directory under ...: no space left on device` when a backend starts.
 

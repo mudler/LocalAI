@@ -55,4 +55,60 @@ var _ = Describe("Worker ephemeral staging cleanup", func() {
 	It("does nothing when no ephemeral directory exists", func() {
 		Expect(func() { CleanEphemeralStaging(stagingDir, time.Hour) }).ToNot(Panic())
 	})
+
+	It("sweeps both transport roots by newest descendant and skips active requests", func() {
+		cacheDir := GinkgoT().TempDir()
+		httpRoot := filepath.Join(stagingDir, "ephemeral")
+		s3Root := filepath.Join(cacheDir, "ephemeral")
+		guard, err := NewEphemeralCapacityGuard([]string{httpRoot, s3Root}, 8, 0)
+		Expect(err).NotTo(HaveOccurred())
+
+		staleRequest := filepath.Join(httpRoot, "audio", "stale")
+		activeRequest := filepath.Join(s3Root, "audio", "active")
+		freshChildRequest := filepath.Join(s3Root, "audio", "fresh-child")
+		for _, requestDir := range []string{staleRequest, activeRequest, freshChildRequest} {
+			Expect(os.MkdirAll(requestDir, 0o750)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(requestDir, "input.bin"), []byte("data"), 0o600)).To(Succeed())
+		}
+		old := time.Now().Add(-2 * time.Hour)
+		fresh := time.Now().Add(-5 * time.Minute)
+		for _, requestDir := range []string{staleRequest, activeRequest, freshChildRequest} {
+			Expect(os.Chtimes(requestDir, old, old)).To(Succeed())
+		}
+		Expect(os.Chtimes(filepath.Join(staleRequest, "input.bin"), old, old)).To(Succeed())
+		Expect(os.Chtimes(filepath.Join(activeRequest, "input.bin"), old, old)).To(Succeed())
+		Expect(os.Chtimes(filepath.Join(freshChildRequest, "input.bin"), fresh, fresh)).To(Succeed())
+		Expect(guard.Account(filepath.Join(staleRequest, "input.bin"), 4)).To(Succeed())
+		Expect(guard.Reserve(filepath.Join(activeRequest, "input.bin"), 4)).To(Succeed())
+
+		CleanEphemeralRoots([]string{httpRoot, s3Root}, time.Hour, guard)
+
+		Expect(staleRequest).NotTo(BeADirectory())
+		Expect(activeRequest).To(BeADirectory())
+		Expect(freshChildRequest).To(BeADirectory())
+		Expect(guard.Reserve(filepath.Join(httpRoot, "audio", "replacement", "input.bin"), 4)).To(Succeed())
+	})
+
+	It("keeps committed request inputs until exact release ends ownership", func() {
+		root := filepath.Join(stagingDir, "ephemeral")
+		requestDir := filepath.Join(root, "audio", "owned")
+		path := filepath.Join(requestDir, "input.bin")
+		Expect(os.MkdirAll(requestDir, 0o750)).To(Succeed())
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 8, 0)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(guard.Reserve(path, 4)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())
+		Expect(guard.Commit(path)).To(Succeed())
+		old := time.Now().Add(-2 * time.Hour)
+		Expect(os.Chtimes(path, old, old)).To(Succeed())
+		Expect(os.Chtimes(requestDir, old, old)).To(Succeed())
+
+		CleanEphemeralRoots([]string{root}, time.Hour, guard)
+		Expect(requestDir).To(BeADirectory())
+
+		Expect(guard.Release(path)).To(Succeed())
+		CleanEphemeralRoots([]string{root}, time.Hour, guard)
+		Expect(requestDir).NotTo(BeADirectory())
+	})
 })

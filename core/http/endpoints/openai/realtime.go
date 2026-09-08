@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -632,6 +633,17 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		xlog.Error("failed to load model", "error", err)
 		sendError(t, "model_load_error", "Failed to load model", "", "")
 		return
+	}
+	if wrapped, ok := m.(*wrappedModel); ok {
+		resolvedVoice, params, release, resolveErr := resolveRealtimeVoice(context.Background(), session.Voice, wrapped.TTSConfig, application.VoiceProfileStore())
+		if resolveErr != nil {
+			xlog.Error("failed to resolve realtime voice", "error", resolveErr)
+			sendError(t, "voice_profile_error", resolveErr.Error(), "", "")
+			return
+		}
+		defer release()
+		session.Voice = resolvedVoice
+		wrapped.ttsParams = params
 	}
 	session.ModelInterface = m
 	// A pipeline-seeded option list gets its scoring prompt prewarmed
@@ -1923,7 +1935,7 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	// Generate an LLM response only when there is a transcript to feed it. A
 	// sound-detection-only session (no transcription) has no LLM stage, so it
 	// stops here after emitting the sound-detection event.
-	if session.InputAudioTranscription != nil && !session.TranscriptionOnly {
+	if session.InputAudioTranscription != nil && !session.TranscriptionOnly && strings.TrimSpace(transcript) != "" {
 		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
 	}
 }
