@@ -567,6 +567,21 @@ var _ = Describe("FileTransferServer", func() {
 	// --- EnsureRemote skip tests ---
 
 	Describe("EnsureRemote skip-if-exists", func() {
+		It("reports a claim-time disappearance as a cache miss", func() {
+			stagingDir := GinkgoT().TempDir()
+			key := "ephemeral/audio/request/input.wav"
+			remotePath := filepath.Join(stagingDir, filepath.FromSlash(key))
+			Expect(os.MkdirAll(filepath.Dir(remotePath), 0o750)).To(Succeed())
+			Expect(os.WriteFile(remotePath, []byte("stale"), 0o600)).To(Succeed())
+			guard := &recordingEphemeralCapacity{claimErr: fmt.Errorf("claim raced recovery: %w", os.ErrNotExist)}
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/v1/files/"+key, nil)
+
+			handleClaimWithCapacity(recorder, request, stagingDir, key, guard)
+
+			Expect(recorder.Code).To(Equal(http.StatusNotFound))
+		})
+
 		It("claims a matching ephemeral file before returning the worker path", func() {
 			stagingDir := GinkgoT().TempDir()
 			modelsDir := GinkgoT().TempDir()

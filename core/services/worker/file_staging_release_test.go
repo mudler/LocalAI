@@ -26,6 +26,18 @@ type stagingObjectStore struct {
 	getErr   error
 }
 
+type disappearingStagingCapacity struct{}
+
+func (*disappearingStagingCapacity) Reserve(string, int64) error { return nil }
+func (*disappearingStagingCapacity) Commit(string) error         { return nil }
+func (*disappearingStagingCapacity) Release(string) error        { return nil }
+func (*disappearingStagingCapacity) Claim(path string) error {
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	return fmt.Errorf("claim raced recovery: %w", os.ErrNotExist)
+}
+
 func (*stagingObjectStore) Put(context.Context, string, io.Reader) error { return nil }
 func (s *stagingObjectStore) Get(context.Context, string) (io.ReadCloser, error) {
 	s.getCalls++
@@ -143,6 +155,24 @@ var _ = Describe("Worker exact-key staging release", func() {
 		Expect(guard.Release(cachePath)).To(Succeed())
 		CleanEphemeralRoots([]string{root}, time.Hour, guard)
 		Expect(cachePath).NotTo(BeAnExistingFile())
+	})
+
+	It("downloads again when a cache file disappears while being claimed", func() {
+		cacheDir := GinkgoT().TempDir()
+		key := "ephemeral/audio/request-id/input.wav"
+		cachePath := filepath.Join(cacheDir, filepath.FromSlash(key))
+		Expect(os.MkdirAll(filepath.Dir(cachePath), 0o750)).To(Succeed())
+		Expect(os.WriteFile(cachePath, []byte("stale"), 0o600)).To(Succeed())
+		store := &stagingObjectStore{payload: []byte("fresh")}
+		fm, err := storage.NewFileManager(store, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+
+		localPath, err := ensureWorkerFileWithCapacity(context.Background(), fm, &disappearingStagingCapacity{}, key)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(localPath).To(Equal(cachePath))
+		Expect(os.ReadFile(localPath)).To(Equal([]byte("fresh")))
+		Expect(store.getCalls).To(Equal(1))
 	})
 
 	It("makes repeated cache-hit claims idempotent", func() {

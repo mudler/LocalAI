@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -272,7 +273,21 @@ func releaseEphemeralCachePathWithCapacity(cacheDir, key, filePath string, capac
 	return nil
 }
 
+type ephemeralStagingCapacity interface {
+	Reserve(path string, size int64) error
+	Commit(path string) error
+	Claim(path string) error
+	Release(path string) error
+}
+
 func ensureWorkerFile(ctx context.Context, fm *storage.FileManager, capacity *EphemeralCapacityGuard, key string) (string, error) {
+	if capacity == nil {
+		return fm.Download(ctx, key)
+	}
+	return ensureWorkerFileWithCapacity(ctx, fm, capacity, key)
+}
+
+func ensureWorkerFileWithCapacity(ctx context.Context, fm *storage.FileManager, capacity ephemeralStagingCapacity, key string) (string, error) {
 	if capacity == nil || !strings.HasPrefix(key, "ephemeral/") {
 		return fm.Download(ctx, key)
 	}
@@ -288,9 +303,12 @@ func ensureWorkerFile(ctx context.Context, fm *storage.FileManager, capacity *Ep
 			return "", fmt.Errorf("ephemeral cache path %q is not a regular file", cachePath)
 		}
 		if err := capacity.Claim(cachePath); err != nil {
-			return "", err
+			if !errors.Is(err, os.ErrNotExist) {
+				return "", err
+			}
+		} else {
+			return cachePath, nil
 		}
-		return cachePath, nil
 	} else if !os.IsNotExist(statErr) {
 		return "", statErr
 	}

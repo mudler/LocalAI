@@ -225,6 +225,10 @@ func handleClaimWithCapacity(w http.ResponseWriter, _ *http.Request, stagingDir,
 	}
 	if capacity != nil {
 		if err := capacity.Claim(filePath); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				http.Error(w, "not found", http.StatusNotFound)
+				return
+			}
 			http.Error(w, err.Error(), http.StatusInsufficientStorage)
 			return
 		}
