@@ -257,6 +257,66 @@ func (g *EphemeralCapacityGuard) Commit(path string) error {
 	return nil
 }
 
+// Claim makes an existing regular file request-owned until Release. It
+// serializes with recovery deletion, preserves bytes already discovered by a
+// startup scan, and only admits growth that fits the configured capacity.
+// Repeated claims of the same committed file are idempotent.
+func (g *EphemeralCapacityGuard) Claim(path string) error {
+	cleanPath, root, err := g.registeredPath(path)
+	if err != nil {
+		return err
+	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	info, err := os.Lstat(cleanPath)
+	if err != nil {
+		return fmt.Errorf("stating claimed ephemeral file %q: %w", cleanPath, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("claimed ephemeral path %q is not a regular file", cleanPath)
+	}
+
+	entry, found := g.entries[cleanPath]
+	if found && entry.isOwned() && entry.state != ephemeralCapacityCommitted {
+		return &EphemeralReservationConflictError{
+			Path: cleanPath, ActiveBytes: entry.reserved, RequestedBytes: info.Size(),
+		}
+	}
+
+	accounted := int64(0)
+	if found {
+		accounted = entry.baseline + entry.reserved
+	}
+	delta := info.Size() - accounted
+	if delta > 0 {
+		if err := g.checkCapacityLocked(root, delta); err != nil {
+			// The file already occupies the filesystem, so keep accounting
+			// truthful even though a new request cannot claim it. Preserve
+			// ownership if an earlier claim is still awaiting Release.
+			state := ephemeralCapacityExisting
+			owned := false
+			if found && entry.state == ephemeralCapacityCommitted && entry.isOwned() {
+				state = ephemeralCapacityCommitted
+				owned = true
+			}
+			entry = ephemeralCapacityEntry{
+				state: state, owned: owned, baseline: info.Size(),
+			}
+			g.entries[cleanPath] = entry
+			g.usage += delta
+			return err
+		}
+	}
+	g.usage += delta
+	entry = ephemeralCapacityEntry{
+		state: ephemeralCapacityCommitted, owned: true, baseline: info.Size(),
+	}
+	g.entries[cleanPath] = entry
+	return nil
+}
+
 // Release forgets all accounting for path. It is safe to call repeatedly.
 func (g *EphemeralCapacityGuard) Release(path string) error {
 	cleanPath, _, err := g.registeredPath(path)

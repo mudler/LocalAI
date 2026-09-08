@@ -70,6 +70,79 @@ func (m *releaseMessagingClient) IsConnected() bool { return true }
 func (m *releaseMessagingClient) Close()            {}
 
 var _ = Describe("Worker exact-key staging release", func() {
+	It("claims a startup-scanned cache hit against stale recovery until release", func() {
+		cacheDir := GinkgoT().TempDir()
+		root := filepath.Join(cacheDir, "ephemeral")
+		key := "ephemeral/audio/request-id/input.wav"
+		cachePath := filepath.Join(cacheDir, filepath.FromSlash(key))
+		Expect(os.MkdirAll(filepath.Dir(cachePath), 0o750)).To(Succeed())
+		Expect(os.WriteFile(cachePath, []byte("data"), 0o600)).To(Succeed())
+		old := time.Now().Add(-2 * time.Hour)
+		Expect(os.Chtimes(cachePath, old, old)).To(Succeed())
+		Expect(os.Chtimes(filepath.Dir(cachePath), old, old)).To(Succeed())
+
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 4, 0)
+		Expect(err).NotTo(HaveOccurred())
+		store := &stagingObjectStore{payload: []byte("unused")}
+		fm, err := storage.NewFileManager(store, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+
+		localPath, err := ensureWorkerFile(context.Background(), fm, guard, key)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(localPath).To(Equal(cachePath))
+		Expect(store.getCalls).To(BeZero())
+		CleanEphemeralRoots([]string{root}, time.Hour, guard)
+		Expect(cachePath).To(BeAnExistingFile())
+
+		Expect(guard.Release(cachePath)).To(Succeed())
+		CleanEphemeralRoots([]string{root}, time.Hour, guard)
+		Expect(cachePath).NotTo(BeAnExistingFile())
+	})
+
+	It("makes repeated cache-hit claims idempotent", func() {
+		cacheDir := GinkgoT().TempDir()
+		root := filepath.Join(cacheDir, "ephemeral")
+		key := "ephemeral/audio/request-id/input.wav"
+		cachePath := filepath.Join(cacheDir, filepath.FromSlash(key))
+		Expect(os.MkdirAll(filepath.Dir(cachePath), 0o750)).To(Succeed())
+		Expect(os.WriteFile(cachePath, []byte("data"), 0o600)).To(Succeed())
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 4, 0)
+		Expect(err).NotTo(HaveOccurred())
+		fm, err := storage.NewFileManager(&stagingObjectStore{}, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+
+		for range 2 {
+			localPath, ensureErr := ensureWorkerFile(context.Background(), fm, guard, key)
+			Expect(ensureErr).NotTo(HaveOccurred())
+			Expect(localPath).To(Equal(cachePath))
+		}
+		err = guard.Reserve(filepath.Join(root, "other", "request-id", "input.wav"), 1)
+		var capacityErr *EphemeralCapacityError
+		Expect(errors.As(err, &capacityErr)).To(BeTrue())
+		Expect(capacityErr.UsageBytes).To(Equal(int64(4)))
+	})
+
+	It("capacity-checks growth of a startup-scanned cache file", func() {
+		cacheDir := GinkgoT().TempDir()
+		root := filepath.Join(cacheDir, "ephemeral")
+		key := "ephemeral/audio/request-id/input.wav"
+		cachePath := filepath.Join(cacheDir, filepath.FromSlash(key))
+		Expect(os.MkdirAll(filepath.Dir(cachePath), 0o750)).To(Succeed())
+		Expect(os.WriteFile(cachePath, []byte("12"), 0o600)).To(Succeed())
+		guard, err := NewEphemeralCapacityGuard([]string{root}, 4, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(cachePath, []byte("12345"), 0o600)).To(Succeed())
+		fm, err := storage.NewFileManager(&stagingObjectStore{}, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = ensureWorkerFile(context.Background(), fm, guard, key)
+		var capacityErr *EphemeralCapacityError
+		Expect(errors.As(err, &capacityErr)).To(BeTrue())
+		Expect(capacityErr.RequestedBytes).To(Equal(int64(3)))
+		Expect(capacityErr.UsageBytes).To(Equal(int64(2)))
+		Expect(guard.HasActiveReservation(cachePath)).To(BeFalse())
+	})
+
 	It("reserves S3 object size before download and releases it with the exact key", func() {
 		cacheDir := GinkgoT().TempDir()
 		root := filepath.Join(cacheDir, "ephemeral")

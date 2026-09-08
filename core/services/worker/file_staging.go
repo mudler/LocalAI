@@ -287,7 +287,7 @@ func ensureWorkerFile(ctx context.Context, fm *storage.FileManager, capacity *Ep
 		if !info.Mode().IsRegular() {
 			return "", fmt.Errorf("ephemeral cache path %q is not a regular file", cachePath)
 		}
-		if err := capacity.Account(cachePath, info.Size()); err != nil {
+		if err := capacity.Claim(cachePath); err != nil {
 			return "", err
 		}
 		return cachePath, nil
