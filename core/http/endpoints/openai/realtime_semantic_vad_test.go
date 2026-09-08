@@ -355,6 +355,19 @@ var _ = Describe("commitUtteranceWithTranscript", func() {
 
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
 	})
+
+	It("does not generate a response for a blank transcript", func() {
+		session, model := itSession(nil)
+		model.transcribeFinal = &schema.TranscriptionResult{Text: " \t\n"}
+		tr := &fakeTransport{}
+		conv := &Conversation{}
+
+		commitUtterance(context.Background(), []byte{1, 2}, session, conv, tr)
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
+		Expect(conv.Items).To(BeEmpty())
+		Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(0))
+	})
 })
 
 // transcribeUtterance is the retranscribe gate's offline decode of the

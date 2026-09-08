@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -1923,7 +1924,7 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	// Generate an LLM response only when there is a transcript to feed it. A
 	// sound-detection-only session (no transcription) has no LLM stage, so it
 	// stops here after emitting the sound-detection event.
-	if session.InputAudioTranscription != nil && !session.TranscriptionOnly {
+	if session.InputAudioTranscription != nil && !session.TranscriptionOnly && strings.TrimSpace(transcript) != "" {
 		generateResponse(ctx, session, utt, transcript, speaker, conv, t)
 	}
 }
