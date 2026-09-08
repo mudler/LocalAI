@@ -196,13 +196,30 @@ func (s *S3NATSFileStager) ReleaseRemote(ctx context.Context, nodeID, key string
 	if err := validateEphemeralReleaseKey(key); err != nil {
 		return err
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	timeout := 30 * time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return context.DeadlineExceeded
+		}
+		timeout = min(timeout, remaining)
+	}
 	reply, err := messaging.RequestJSON[fileReleaseRequest, fileReleaseReply](
 		s.nats,
 		messaging.SubjectNodeFilesRelease(nodeID),
 		fileReleaseRequest{Key: key},
-		30*time.Second,
+		timeout,
 	)
 	if err != nil {
+		if contextErr := ctx.Err(); contextErr != nil {
+			return contextErr
+		}
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if reply.Error != "" {

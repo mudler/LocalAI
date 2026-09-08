@@ -24,6 +24,7 @@ type releaseTestMessaging struct {
 	payload       []byte
 	onRequest     func()
 	requestCalled bool
+	timeout       time.Duration
 }
 
 func (m *releaseTestMessaging) Publish(string, any) error { return nil }
@@ -39,10 +40,11 @@ func (m *releaseTestMessaging) QueueSubscribeReply(string, string, func([]byte, 
 func (m *releaseTestMessaging) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
 	return releaseTestSubscription{}, nil
 }
-func (m *releaseTestMessaging) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
+func (m *releaseTestMessaging) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	m.subject = subject
 	m.payload = append([]byte(nil), data...)
 	m.requestCalled = true
+	m.timeout = timeout
 	if m.onRequest != nil {
 		m.onRequest()
 	}
@@ -190,5 +192,34 @@ var _ = Describe("File stager exact-key release", func() {
 		exists, err := store.Exists(context.Background(), key)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(exists).To(BeFalse())
+	})
+
+	It("does not send a release request after cleanup is canceled", func() {
+		store, err := storage.NewFilesystemStore(GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		client := &releaseTestMessaging{}
+		stager := NewS3NATSFileStager(fm, client)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		Expect(stager.ReleaseRemote(ctx, "node.one", "ephemeral/request-id/audio/input.wav")).To(MatchError(context.Canceled))
+		Expect(client.requestCalled).To(BeFalse())
+	})
+
+	It("bounds the NATS release wait by the remaining cleanup deadline", func() {
+		store, err := storage.NewFilesystemStore(GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		client := &releaseTestMessaging{}
+		stager := NewS3NATSFileStager(fm, client)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		Expect(stager.ReleaseRemote(ctx, "node.one", "ephemeral/request-id/audio/input.wav")).To(Succeed())
+		Expect(client.timeout).To(BeNumerically(">", time.Second))
+		Expect(client.timeout).To(BeNumerically("<=", 2*time.Second))
 	})
 })

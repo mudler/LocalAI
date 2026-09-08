@@ -358,29 +358,26 @@ func (w *uploadStatusWriter) Write(payload []byte) (int, error) {
 	return w.ResponseWriter.Write(payload)
 }
 
-type capacityRequestBody struct {
-	io.ReadCloser
-	writer io.WriteCloser
-}
-
 type ephemeralCapacityWriteError struct{ err error }
 
 func (e *ephemeralCapacityWriteError) Error() string { return e.err.Error() }
 func (e *ephemeralCapacityWriteError) Unwrap() error { return e.err }
 
-func (r *capacityRequestBody) Read(payload []byte) (int, error) {
-	n, readErr := r.ReadCloser.Read(payload)
-	if n == 0 {
-		return n, readErr
+type ephemeralCapacityWriteCloser struct{ io.WriteCloser }
+
+func (w ephemeralCapacityWriteCloser) Write(payload []byte) (int, error) {
+	written, err := w.WriteCloser.Write(payload)
+	if err != nil {
+		return written, &ephemeralCapacityWriteError{err: err}
 	}
-	written, writeErr := r.writer.Write(payload[:n])
-	if writeErr != nil {
-		return written, &ephemeralCapacityWriteError{err: writeErr}
+	return written, nil
+}
+
+func (w ephemeralCapacityWriteCloser) Close() error {
+	if err := w.WriteCloser.Close(); err != nil {
+		return &ephemeralCapacityWriteError{err: err}
 	}
-	if written != n {
-		return written, io.ErrShortWrite
-	}
-	return n, readErr
+	return nil
 }
 
 func uploadWriteStatus(err error) int {
@@ -474,8 +471,8 @@ func handleUploadWithCapacity(w http.ResponseWriter, r *http.Request, stagingDir
 		return
 	}
 
-	var capacityBody *capacityRequestBody
 	capacityEnabled := capacity != nil && targetDir == stagingDir && strings.HasPrefix(key, "ephemeral/")
+	unknownLengthCapacity := capacityEnabled && r.ContentLength < 0
 	capacityPaths := []string{dstPath, dstPath + hashSidecarSuffix, dstPath + targetSidecarSuffix}
 	if capacityEnabled {
 		if r.ContentLength >= 0 {
@@ -483,20 +480,9 @@ func handleUploadWithCapacity(w http.ResponseWriter, r *http.Request, stagingDir
 				http.Error(w, err.Error(), http.StatusInsufficientStorage)
 				return
 			}
-		} else {
-			writer, err := capacity.CapacityWriter(dstPath, io.Discard)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInsufficientStorage)
-				return
-			}
-			capacityBody = &capacityRequestBody{ReadCloser: r.Body, writer: writer}
-			r.Body = capacityBody
 		}
 		for _, sidecarPath := range capacityPaths[1:] {
 			if err := capacity.Reserve(sidecarPath, sha256.Size*2); err != nil {
-				if capacityBody != nil {
-					_ = capacityBody.writer.Close()
-				}
 				for _, reservedPath := range capacityPaths {
 					reconcileEphemeralCapacity(capacity, reservedPath, 0)
 				}
@@ -507,21 +493,20 @@ func handleUploadWithCapacity(w http.ResponseWriter, r *http.Request, stagingDir
 	}
 
 	statusWriter := &uploadStatusWriter{ResponseWriter: w}
+	var uploadCapacity EphemeralCapacity
+	if unknownLengthCapacity {
+		uploadCapacity = capacity
+	}
 
 	if cr == nil {
 		// Non-resumable (legacy) path: truncate-create, single fire-and-forget.
-		handleFullUpload(statusWriter, r, dstPath, key, expectedFinalHash)
+		handleFullUpload(statusWriter, r, dstPath, key, expectedFinalHash, uploadCapacity)
 	} else {
-		handleRangeUpload(statusWriter, r, dstPath, key, cr, expectedFinalHash)
+		handleRangeUpload(statusWriter, r, dstPath, key, cr, expectedFinalHash, uploadCapacity)
 	}
 
 	if !capacityEnabled {
 		return
-	}
-	if capacityBody != nil {
-		if err := capacityBody.writer.Close(); err != nil {
-			xlog.Warn("Closing ephemeral capacity writer failed", "path", dstPath, "error", err)
-		}
 	}
 	for _, capacityPath := range capacityPaths {
 		reconcileEphemeralCapacity(capacity, capacityPath, statusWriter.status)
@@ -540,7 +525,7 @@ func reconcileEphemeralCapacity(capacity EphemeralCapacity, path string, status 
 
 // handleFullUpload writes the entire request body to dstPath, replacing any
 // existing content. This is the legacy happy-path with no Range header.
-func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expectedFinalHash string) {
+func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expectedFinalHash string, capacity EphemeralCapacity) {
 	// Reset any in-progress resumable state.
 	_ = os.Remove(dstPath + targetSidecarSuffix)
 
@@ -551,8 +536,27 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 	}
 	defer f.Close()
 
+	var destination io.Writer = f
+	var capacityWriter io.WriteCloser
+	if capacity != nil {
+		var writer io.WriteCloser
+		writer, err = capacity.CapacityWriter(dstPath, f)
+		if err != nil {
+			_ = os.Remove(dstPath)
+			http.Error(w, err.Error(), http.StatusInsufficientStorage)
+			return
+		}
+		capacityWriter = ephemeralCapacityWriteCloser{WriteCloser: writer}
+		destination = capacityWriter
+	}
+
 	hasher := sha256.New()
-	n, err := io.Copy(f, io.TeeReader(r.Body, hasher))
+	n, err := io.Copy(destination, io.TeeReader(r.Body, hasher))
+	if capacityWriter != nil {
+		if closeErr := capacityWriter.Close(); err == nil {
+			err = closeErr
+		}
+	}
 	if err != nil {
 		os.Remove(dstPath)
 		os.Remove(dstPath + hashSidecarSuffix)
@@ -586,7 +590,7 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 // the request starts at the current file size. When the slice completes the
 // transfer (end+1 == total), it validates the optional expected final hash and
 // writes the sidecar.
-func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key string, cr *contentRange, expectedFinalHash string) {
+func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key string, cr *contentRange, expectedFinalHash string, capacity EphemeralCapacity) {
 	// Determine the current on-disk size (0 if missing).
 	var currentSize int64
 	if info, err := os.Stat(dstPath); err == nil {
@@ -670,6 +674,18 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 		return
 	}
 	defer func() { _ = f.Close() }()
+	var destination io.Writer = f
+	var capacityWriter io.WriteCloser
+	if capacity != nil {
+		var writer io.WriteCloser
+		writer, err = capacity.CapacityWriter(dstPath, f)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInsufficientStorage)
+			return
+		}
+		capacityWriter = ephemeralCapacityWriteCloser{WriteCloser: writer}
+		destination = capacityWriter
+	}
 
 	// Persist the declared expected hash so subsequent chunks can be
 	// cross-checked.
@@ -681,7 +697,12 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 
 	expectedChunkLen := cr.end - cr.start + 1
 	limited := io.LimitReader(r.Body, expectedChunkLen)
-	n, err := io.Copy(f, limited)
+	n, err := io.Copy(destination, limited)
+	if capacityWriter != nil {
+		if closeErr := capacityWriter.Close(); err == nil {
+			err = closeErr
+		}
+	}
 	if err != nil {
 		xlog.Error("Range upload chunk failed", "key", key, "bytesReceived", n, "expected", expectedChunkLen, "remote", r.RemoteAddr, "error", err)
 		http.Error(w, fmt.Sprintf("writing file: %v", err), uploadWriteStatus(err))

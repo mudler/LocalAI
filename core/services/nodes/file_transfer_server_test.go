@@ -39,6 +39,38 @@ type failingWriteCloser struct{ err error }
 func (w failingWriteCloser) Write([]byte) (int, error) { return 0, w.err }
 func (failingWriteCloser) Close() error                { return nil }
 
+type blockingDestinationWriteCloser struct {
+	destination io.Writer
+	written     chan struct{}
+	release     chan struct{}
+}
+
+func (w *blockingDestinationWriteCloser) Write(payload []byte) (int, error) {
+	n, err := w.destination.Write(payload)
+	close(w.written)
+	<-w.release
+	return n, err
+}
+
+func (*blockingDestinationWriteCloser) Close() error { return nil }
+
+type blockingDestinationCapacity struct {
+	written chan struct{}
+	release chan struct{}
+}
+
+func (*blockingDestinationCapacity) Reserve(string, int64) error { return nil }
+func (*blockingDestinationCapacity) Commit(string) error         { return nil }
+func (*blockingDestinationCapacity) Claim(string) error          { return nil }
+func (*blockingDestinationCapacity) Release(string) error        { return nil }
+func (g *blockingDestinationCapacity) CapacityWriter(_ string, destination io.Writer) (io.WriteCloser, error) {
+	return &blockingDestinationWriteCloser{
+		destination: destination,
+		written:     g.written,
+		release:     g.release,
+	}, nil
+}
+
 func (g *recordingEphemeralCapacity) Reserve(_ string, size int64) error {
 	g.reserved = size
 	return g.reserveErr
@@ -115,6 +147,40 @@ var _ = Describe("FileTransferServer", func() {
 			handleUploadWithCapacity(recorder, request, stagingDir, GinkgoT().TempDir(), GinkgoT().TempDir(), "ephemeral/audio/request/input.wav", 0, guard)
 
 			Expect(recorder.Code).To(Equal(http.StatusInsufficientStorage))
+		})
+
+		It("keeps unknown-length bytes guarded until they reach the staged file", func() {
+			stagingDir := GinkgoT().TempDir()
+			modelsDir := GinkgoT().TempDir()
+			dataDir := GinkgoT().TempDir()
+			guard := &blockingDestinationCapacity{
+				written: make(chan struct{}),
+				release: make(chan struct{}),
+			}
+			released := false
+			defer func() {
+				if !released {
+					close(guard.release)
+				}
+			}()
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPut, "/v1/files/ephemeral/audio/request/input.wav", strings.NewReader("payload"))
+			request.ContentLength = -1
+			done := make(chan struct{})
+
+			go func() {
+				defer GinkgoRecover()
+				handleUploadWithCapacity(recorder, request, stagingDir, modelsDir, dataDir, "ephemeral/audio/request/input.wav", 0, guard)
+				close(done)
+			}()
+
+			Eventually(guard.written).Should(BeClosed())
+			path := filepath.Join(stagingDir, "ephemeral", "audio", "request", "input.wav")
+			Expect(os.ReadFile(path)).To(Equal([]byte("payload")))
+			close(guard.release)
+			released = true
+			Eventually(done).Should(BeClosed())
+			Expect(recorder.Code).To(Equal(http.StatusOK))
 		})
 
 		It("round-trips file content correctly", func() {
