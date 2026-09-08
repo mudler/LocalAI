@@ -1,4 +1,49 @@
 ---
+- name: "minicpm5-2b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM5-2B-GGUF
+  description: |
+    MiniCPM Tech Report |
+    MiniCPM Wiki(Chinese) |
+    GitHub Repo |
+    UltraData |
+    Online Demo
+
+    English |
+    中文
+
+    ## Highlights
+
+    We are releasing **MiniCPM5-2B**, the second model in the **MiniCPM5** series, following MiniCPM5-1B. It is a dense 2B Transformer that scales up the same training recipe, built for on-device, local deployment, and resource-constrained scenarios, reaching 2B-class open-source SOTA.
+
+    🏆 **2B-class open-source SOTA**: compared with strong open-source models of similar size, MiniCPM5-2B achieves SOTA performance within this comparison set. It remains competitive with 4B-class models overall, while showing its advantages over models of comparable size in coding, mathematics, long-context understanding, tool use, and agentic tasks.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - llama
+  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm5/minicpm5_2b_training_recipe.jpg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/MiniCPM5-2B-Q4_K_M/MiniCPM5-2B-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/MiniCPM5-2B-Q4_K_M/MiniCPM5-2B-Q4_K_M.gguf
+      sha256: ec2d5801640099e97d8d7e8003ad4d81f336e757811f03a26173dddf386602fd
+      uri: https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/resolve/main/MiniCPM5-2B-Q4_K_M.gguf
 - name: "qwopus3.8-27b-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
