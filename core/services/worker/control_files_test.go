@@ -176,7 +176,11 @@ var _ = Describe("worker file-staging control routes", func() {
 		// allow-list. The two are separate statements of the same rule inside
 		// one handler, and a spec that only ever reaches the allow-list leaves
 		// the upload free to answer 500 for the worker's own verdict.
-		missing := filepath.Join(modelsDir, "was-never-written.bin")
+		// A missing file cannot resolve symlinked parents such as macOS /var.
+		// Use the canonical root so this tests Upload's error, not containment.
+		resolvedModelsDir, err := filepath.EvalSymlinks(modelsDir)
+		Expect(err).NotTo(HaveOccurred())
+		missing := filepath.Join(resolvedModelsDir, "was-never-written.bin")
 		resp := post(workerctl.PathFilesStage, map[string]string{"local_path": missing, "key": "data/x"})
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		var reply struct {
