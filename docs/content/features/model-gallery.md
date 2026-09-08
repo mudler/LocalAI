@@ -191,6 +191,27 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
 
+### AtomicChat Qwen3.8 Flash Next
+
+The Qwen3.8 Flash Next gallery entry offers AtomicChat's AD-3.84bpw IQ4_XS
+and AD-4.27bpw Q4_K_M builds as variants. Both include all GGUF shards and the
+F16 vision projector. To select a build directly:
+
+```bash
+local-ai models install qwen3.8-flash-next-atomic-iq4
+local-ai models install qwen3.8-flash-next-atomic-q4
+```
+
+These entries use a 32,768-token context, the embedded chat template, and the
+publisher's thinking-mode sampling settings. Memory mapping stays enabled,
+and automatic parameter fitting is disabled. The n-gram table is stored in
+its own shard so it can remain pageable. The downloads require approximately
+86 GB (IQ4_XS) or 95 GB (Q4_K_M), including the projector. Download size is
+not a measurement of runtime memory use.
+
+See the [publisher's model card](https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF)
+for loading requirements and the Qwen Community License 1.0.
+
 ### Model variants
 
 Some gallery entries offer several builds of the same model: different
