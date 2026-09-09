@@ -141,7 +141,22 @@ pipeline:
 
 LocalAI resolves this profile when the realtime session starts. The selected TTS model must support Voice Library cloning.
 
-This feature does not resolve Voice Library URIs sent later through realtime `session.update`. You can still use `session.update` with ordinary backend voice names or IDs.
+You can also change the profile during a realtime session. Set `audio.output.voice` to a Voice Library URI in a `session.update` event:
+
+```json
+{
+  "type": "session.update",
+  "session": {
+    "audio": {
+      "output": {
+        "voice": "localai://voice-profiles/550e8400-e29b-41d4-a716-446655440000"
+      }
+    }
+  }
+}
+```
+
+If the same update changes `model`, the explicit `audio.output.voice` value takes precedence over the new model's `tts.voice` default. The selected model must support Voice Library cloning.
 
 #### Supported backend and model variants
 

@@ -398,6 +398,10 @@ func (m *wrappedModel) TTS(ctx context.Context, text, voice, language string) (s
 	return backend.ModelTTS(ctx, text, voice, language, "", maps.Clone(m.ttsParams), m.modelLoader, m.appConfig, *m.TTSConfig)
 }
 
+func (m *wrappedModel) setTTSParams(params map[string]string) {
+	m.ttsParams = maps.Clone(params)
+}
+
 func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
 	return ttsStream(ctx, m.modelLoader, m.appConfig, *m.TTSConfig, text, voice, language, maps.Clone(m.ttsParams), onAudio)
 }

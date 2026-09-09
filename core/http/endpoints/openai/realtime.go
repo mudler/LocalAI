@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"strconv"
@@ -32,6 +33,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/templates"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -136,6 +138,8 @@ type Session struct {
 	Instructions           string
 	DefaultConversationID  string
 	ModelInterface         Model
+	ttsParams              map[string]string
+	voiceRelease           func()
 	// The pipeline model config or the config for an any-to-any model
 	ModelConfig      *config.ModelConfig
 	InputSampleRate  int
@@ -197,6 +201,22 @@ type Session struct {
 	// decision is serialized through respcoord.Coordinator, guaranteeing at most
 	// one live response. See realtime_respcoord.go.
 	respSink *responseSink
+}
+
+func (s *Session) installVoiceBinding(voice string, params map[string]string, release func()) {
+	if release == nil {
+		release = func() {}
+	}
+	var once sync.Once
+	s.Voice = voice
+	s.ttsParams = maps.Clone(params)
+	s.voiceRelease = func() { once.Do(release) }
+}
+
+func (s *Session) releaseVoiceBinding() {
+	if s.voiceRelease != nil {
+		s.voiceRelease()
+	}
 }
 
 func (s *Session) FromClient(session *types.SessionUnion) {
@@ -635,15 +655,15 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		return
 	}
 	if wrapped, ok := m.(*wrappedModel); ok {
-		resolvedVoice, params, release, resolveErr := resolveRealtimeVoice(context.Background(), session.Voice, wrapped.TTSConfig, application.VoiceProfileStore())
+		resolvedVoice, params, release, resolveErr := resolveRealtimeVoice(context.Background(), wrapped.TTSConfig.TTSConfig.Voice, wrapped.TTSConfig, application.VoiceProfileStore())
 		if resolveErr != nil {
 			xlog.Error("failed to resolve realtime voice", "error", resolveErr)
 			sendError(t, "voice_profile_error", resolveErr.Error(), "", "")
 			return
 		}
-		defer release()
-		session.Voice = resolvedVoice
-		wrapped.ttsParams = params
+		session.installVoiceBinding(resolvedVoice, params, release)
+		defer session.releaseVoiceBinding()
+		wrapped.setTTSParams(params)
 	}
 	session.ModelInterface = m
 	// A pipeline-seeded option list gets its scoring prompt prewarmed
@@ -838,6 +858,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					application.ApplicationConfig(),
 					evaluator,
 					buildRealtimeRoutingContext(application, session.ID),
+					application.VoiceProfileStore(),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
 					sendError(t, "session_update_error", fmt.Sprintf("Failed to update session: %v", err), "", "")
@@ -1176,7 +1197,7 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 	return nil
 }
 
-func updateSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext) error {
+func updateSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator, routing *RealtimeRoutingContext, profiles *voiceprofile.Store) error {
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
 
@@ -1184,8 +1205,13 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		return nil
 	}
 
-	session.TranscriptionOnly = false
 	rt := update.Realtime
+	explicitVoice := rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != ""
+	rebuild := rt.Model != "" || explicitVoice || (rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil)
+
+	candidateModelName := session.Model
+	candidateConfig := session.ModelConfig
+	candidateTranscription := session.InputAudioTranscription
 
 	if rt.Model != "" {
 		cfg, err := cl.LoadModelConfigFileByNameDefaultOptions(rt.Model, appConfig)
@@ -1196,40 +1222,78 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 			return fmt.Errorf("model is not a valid pipeline model: %s", rt.Model)
 		}
 
-		if session.InputAudioTranscription == nil {
-			session.InputAudioTranscription = &types.AudioTranscription{}
-		}
-		session.InputAudioTranscription.Model = cfg.Pipeline.Transcription
-		session.Voice = cfg.TTSConfig.Voice
-		session.Model = rt.Model
-		session.ModelConfig = cfg
-	}
-
-	if rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != "" {
-		session.Voice = string(rt.Audio.Output.Voice)
+		candidateModelName = rt.Model
+		candidateConfig = cfg
+		candidateTranscription = &types.AudioTranscription{Model: cfg.Pipeline.Transcription}
 	}
 
 	if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil {
-		trUpd := rt.Audio.Input.Transcription
+		trUpd := *rt.Audio.Input.Transcription
 		// A language-only update (e.g. a client forcing the STT language) carries
 		// an empty Model. Preserve the pipeline's configured transcription backend
 		// instead of blanking it — otherwise the next utterance transcribes against
 		// an empty model and the backend RPC fails with "unimplemented".
-		if trUpd.Model == "" && session.InputAudioTranscription != nil {
-			trUpd.Model = session.InputAudioTranscription.Model
+		if trUpd.Model == "" && candidateTranscription != nil {
+			trUpd.Model = candidateTranscription.Model
 		}
-		session.InputAudioTranscription = trUpd
+		candidateTranscription = &trUpd
 		if trUpd.Model != "" {
-			session.ModelConfig.Pipeline.Transcription = trUpd.Model
+			cfgCopy := *candidateConfig
+			candidateConfig = &cfgCopy
+			candidateConfig.Pipeline.Transcription = trUpd.Model
 		}
 	}
 
-	if rt.Model != "" || (rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != "") || (rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil) {
-		m, err := newModel(&session.ModelConfig.Pipeline, cl, ml, appConfig, evaluator, routing)
+	candidateModel := session.ModelInterface
+	candidateVoice := session.Voice
+	candidateParams := maps.Clone(session.ttsParams)
+	var candidateRelease func()
+	selectVoice := rt.Model != "" || explicitVoice
+	if rebuild {
+		m, err := newModel(&candidateConfig.Pipeline, cl, ml, appConfig, evaluator, routing)
 		if err != nil {
 			return err
 		}
-		session.ModelInterface = m
+		candidateModel = m
+		wrapped := m.(*wrappedModel)
+		if selectVoice {
+			configuredVoice := wrapped.TTSConfig.TTSConfig.Voice
+			if explicitVoice {
+				configuredVoice = string(rt.Audio.Output.Voice)
+			}
+			candidateVoice, candidateParams, candidateRelease, err = resolveRealtimeVoice(
+				context.Background(), configuredVoice, wrapped.TTSConfig, profiles,
+			)
+			if err != nil {
+				return err
+			}
+		}
+		wrapped.setTTSParams(candidateParams)
+	}
+
+	if rt.LocalAIClassifier != nil {
+		if err := validateClassifierActivation(candidateModel, rt.LocalAIClassifier); err != nil {
+			if candidateRelease != nil {
+				candidateRelease()
+			}
+			return err
+		}
+	}
+
+	oldRelease := session.voiceRelease
+	session.TranscriptionOnly = false
+	session.Model = candidateModelName
+	session.ModelConfig = candidateConfig
+	session.ModelInterface = candidateModel
+	session.InputAudioTranscription = candidateTranscription
+	if selectVoice {
+		session.installVoiceBinding(candidateVoice, candidateParams, candidateRelease)
+		if oldRelease != nil {
+			oldRelease()
+		}
+	}
+
+	if rebuild {
 		// A session.update that swaps the model/voice rebuilds the pipeline, so
 		// warm the new backends too (unless opted out) — otherwise the next turn
 		// pays the cold-start load the original session warm-up already avoided.
@@ -1238,9 +1302,9 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		// stall every other session. Load errors are logged (and still surface on
 		// first use); per-stage failures are already warned inside
 		// backend.PreloadStages.
-		if !session.ModelConfig.Pipeline.DisableWarmup {
+		if !candidateConfig.Pipeline.DisableWarmup {
 			go func() {
-				if err := m.Warmup(context.Background()); err != nil {
+				if err := candidateModel.Warmup(context.Background()); err != nil {
 					xlog.Error("realtime warmup failed after session.update", "error", err)
 				}
 			}()
@@ -1299,9 +1363,6 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		// Replace-not-merge, like tools: the client owns the whole option
 		// list. Invalid configs reject the update without touching the
 		// session's current classifier.
-		if err := validateClassifierActivation(session.ModelInterface, rt.LocalAIClassifier); err != nil {
-			return err
-		}
 		session.Classifier = rt.LocalAIClassifier
 		prewarmClassifier(session)
 	}
