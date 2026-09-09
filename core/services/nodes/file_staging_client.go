@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -593,8 +594,25 @@ func isFilePath(s string) bool {
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 		return false
 	}
+	// Raw JPEG base64 begins with /9j because every JPEG starts with the
+	// FF D8 FF marker. Do not mistake that leading slash for an absolute path.
+	if isRawJPEGBase64(s) {
+		return false
+	}
 	// Starts with / (absolute path) or contains path separator
 	return s[0] == '/' || filepath.IsAbs(s)
+}
+
+func isRawJPEGBase64(s string) bool {
+	if len(s) < 4 {
+		return false
+	}
+	prefix, err := base64.StdEncoding.DecodeString(s[:4])
+	if err != nil || len(prefix) != 3 || prefix[0] != 0xff || prefix[1] != 0xd8 || prefix[2] != 0xff {
+		return false
+	}
+	_, err = io.Copy(io.Discard, base64.NewDecoder(base64.StdEncoding, strings.NewReader(s)))
+	return err == nil
 }
 
 // copyFile copies src to dst.

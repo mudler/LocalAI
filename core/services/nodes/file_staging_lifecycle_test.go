@@ -127,6 +127,23 @@ var _ = Describe("FileStagingClient request lifecycle", func() {
 		Expect(requestID()).To(MatchRegexp(`^` + fullUUIDPattern + `$`))
 	})
 
+	It("passes raw JPEG base64 to predict without staging it as a path", func(ctx SpecContext) {
+		const jpegBase64 = "/9j/2Q=="
+		backend := &lifecycleBackend{}
+		stager := &lifecycleStager{}
+		client := NewFileStagingClient(backend, stager, "worker-1")
+
+		_, err := client.Predict(ctx, &pb.PredictOptions{Images: []string{jpegBase64}})
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stager.ensureCalls).To(BeEmpty())
+		Expect(backend.predictInput.Images).To(Equal([]string{jpegBase64}))
+	})
+
+	It("still recognizes an invalid JPEG-like base64 string as a path", func() {
+		Expect(isFilePath("/9j/not-a-jpeg")).To(BeTrue())
+	})
+
 	It("releases every staged key and preserves caller requests", func(ctx SpecContext) {
 		tests := []struct {
 			name     string
