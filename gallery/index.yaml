@@ -1441,6 +1441,8 @@
 - &dirk-qwen3-8-27b
   name: "dirk-qwen3.8-27b-q4"
   variants:
+    - model: dirk-qwen3.8-27b-q5
+    - model: dirk-qwen3.8-27b-q6
     - model: dirk-qwen3.8-27b-q8
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1453,7 +1455,7 @@
     262K-token context window.
 
     This default entry uses the Q4_K_XL GGUF and F16 vision projector. A
-    higher-quality Q8_K_XL build is available as a variant.
+    choice of Q5_K_XL, Q6_K_XL, and Q8_K_XL builds is available through variants.
   license: "apache-2.0"
   tags:
     - llm
@@ -1540,6 +1542,84 @@
       sha256: be2f08a260021fb471f91f2c5a52aa4afe143688e8b412beb5a36cad2d47c4cd
     - filename: llama-cpp/mmproj/dirk-qwen3.8-27b/mmproj-F16.gguf
       uri: huggingface://peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/mmproj-F16.gguf
+      sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
+- !!merge <<: *dirk-qwen3-8-27b
+  name: "dirk-qwen3.8-27b-q5"
+  variants: []
+  last_checked: "2026-09-09"
+  description: |
+    Dirk in the higher-quality Q5_K_XL GGUF format, with MTP speculative
+    decoding and the shared F16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/dirk-qwen3.8-27b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/dirk-qwen3.8-27b/Dirk-Qwen3.8-27B-UD-Q5_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/dirk-qwen3.8-27b/Dirk-Qwen3.8-27B-UD-Q5_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/resolve/52cb3e759635ab4605e08790b6c47df8adcf0744/Dirk-Qwen3.8-27B-UD-Q5_K_XL.gguf
+      sha256: 43d3b23be6e21ddc5f535fc78791ccbbe890c9cafb542a7d8ec5535d171bca3b
+    - filename: llama-cpp/mmproj/dirk-qwen3.8-27b/mmproj-F16.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/resolve/52cb3e759635ab4605e08790b6c47df8adcf0744/mmproj-F16.gguf
+      sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
+- !!merge <<: *dirk-qwen3-8-27b
+  name: "dirk-qwen3.8-27b-q6"
+  variants: []
+  last_checked: "2026-09-09"
+  description: |
+    Dirk in the higher-quality Q6_K_XL GGUF format, with MTP speculative
+    decoding and the shared F16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/dirk-qwen3.8-27b/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/dirk-qwen3.8-27b/Dirk-Qwen3.8-27B-UD-Q6_K_XL.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/dirk-qwen3.8-27b/Dirk-Qwen3.8-27B-UD-Q6_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/resolve/52cb3e759635ab4605e08790b6c47df8adcf0744/Dirk-Qwen3.8-27B-UD-Q6_K_XL.gguf
+      sha256: 3ea8eebc1ec4ef820da97cfac526ddd1eed0872d4c8b8db869f2c78a79506c42
+    - filename: llama-cpp/mmproj/dirk-qwen3.8-27b/mmproj-F16.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Dirk-Qwen3.8-27B-GGUF/resolve/52cb3e759635ab4605e08790b6c47df8adcf0744/mmproj-F16.gguf
       sha256: cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e
 - name: "qwen3.8-27b-dflash2"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
