@@ -193,6 +193,12 @@ where:
 
 ### Model variants
 
+Ornith 1.5 9B offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds with a shared BF16 vision projector. To select Q6_K explicitly:
+
+```bash
+local-ai models install ornith-1.5-9b-q4 --variant ornith-1.5-9b-q6
+```
+
 Some gallery entries offer several builds of the same model: different
 quantizations, or the same weights served by a different engine. Such an entry
 carries a `variants` list, and installing it normally lets LocalAI choose:
