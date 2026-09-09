@@ -43,7 +43,7 @@ func (capacityShortWriter) Write(p []byte) (int, error) {
 
 var _ = Describe("EphemeralCapacityGuard", func() {
 	It("derives bounded defaults and preserves positive overrides", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		limit, headroom, err := effectiveEphemeralCapacity([]string{root}, 0, -1)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(limit).To(BeNumerically(">", 0))
@@ -57,8 +57,8 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("accounts existing regular files without following symlinks", func() {
-		root := GinkgoT().TempDir()
-		outside := filepath.Join(GinkgoT().TempDir(), "outside.bin")
+		root := canonicalWorkerTempDir()
+		outside := filepath.Join(canonicalWorkerTempDir(), "outside.bin")
 		Expect(os.WriteFile(filepath.Join(root, "existing.bin"), make([]byte, 6), 0o600)).To(Succeed())
 		Expect(os.WriteFile(outside, make([]byte, 100), 0o600)).To(Succeed())
 		Expect(os.Symlink(outside, filepath.Join(root, "outside-link"))).To(Succeed())
@@ -77,7 +77,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("serializes competing reservations", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 1, 0)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -109,7 +109,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("makes only an equal active reservation idempotent", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "nested", "payload.bin")
@@ -128,7 +128,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("retains committed bytes when the same path starts another reservation", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "payload.bin")
@@ -147,7 +147,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("retains startup-accounted bytes when the path is reserved", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		path := filepath.Join(root, "payload.bin")
 		Expect(os.WriteFile(path, make([]byte, 4), 0o600)).To(Succeed())
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
@@ -163,7 +163,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("commits the regular file's actual size", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "payload.bin")
@@ -176,7 +176,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("preserves configured filesystem headroom", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 1<<30, 1<<62)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -189,7 +189,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("reserves bounded chunks before forwarding unknown-length input", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, ephemeralCapacityWriteChunk+1, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "payload.bin")
@@ -210,7 +210,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("waits for an open bounded writer before committing", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "payload.bin")
@@ -254,7 +254,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("does not share pending capacity between concurrent writers", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "payload.bin")
@@ -290,7 +290,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("rolls back bytes the destination writer does not accept", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 5, 0)
 		Expect(err).NotTo(HaveOccurred())
 		writer, err := guard.NewWriter(filepath.Join(root, "payload.bin"), capacityShortWriter{})
@@ -304,8 +304,8 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("rejects paths outside roots and through symlinks", func() {
-		root := GinkgoT().TempDir()
-		outside := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
+		outside := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 100, 0)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -319,7 +319,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("supports recovery tree accounting without dropping active reservations", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		active := filepath.Join(root, "active", "payload.bin")
@@ -335,7 +335,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("waits for pre-release reservations before request cleanup scans", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "audio", "request-1", "input.wav")
@@ -357,7 +357,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("rejects staging after request cleanup begins", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(guard.BeginRequestRelease(context.Background(), "request-1")).To(Succeed())
@@ -370,7 +370,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("leaves a late commit recoverable when release times out", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "audio", "request-1", "late.wav")
@@ -386,7 +386,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("bounds release markers without reopening registered work", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(guard.BeginRequestOperation("request-pinned")).To(Succeed())
@@ -411,7 +411,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("applies backpressure at the release-pin cap and clears ownership", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "audio", "request-target", "input.wav")
@@ -438,7 +438,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("makes committed files recoverable when pin backpressure expires", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		guard, err := NewEphemeralCapacityGuard([]string{root}, 10, 0)
 		Expect(err).NotTo(HaveOccurred())
 		path := filepath.Join(root, "audio", "request-target", "input.wav")
@@ -459,7 +459,7 @@ var _ = Describe("EphemeralCapacityGuard", func() {
 	})
 
 	It("rejects a registered cache-hit claim after pin backpressure expires", func() {
-		root := GinkgoT().TempDir()
+		root := canonicalWorkerTempDir()
 		path := filepath.Join(root, "audio", "request-target", "input.wav")
 		Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
 		Expect(os.WriteFile(path, []byte("data"), 0o600)).To(Succeed())

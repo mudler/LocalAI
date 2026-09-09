@@ -24,7 +24,7 @@ var _ = Describe("Worker ephemeral staging cleanup", func() {
 		return dir
 	}
 
-	BeforeEach(func() { stagingDir = GinkgoT().TempDir() })
+	BeforeEach(func() { stagingDir = canonicalWorkerTempDir() })
 
 	It("removes staged request directories older than the TTL", func() {
 		old := mkEphemeral("aaaa1111", 48*time.Hour)
@@ -57,7 +57,7 @@ var _ = Describe("Worker ephemeral staging cleanup", func() {
 	})
 
 	It("sweeps both transport roots by newest descendant and skips active requests", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		httpRoot := filepath.Join(stagingDir, "ephemeral")
 		s3Root := filepath.Join(cacheDir, "ephemeral")
 		guard, err := NewEphemeralCapacityGuard([]string{httpRoot, s3Root}, 8, 0)
