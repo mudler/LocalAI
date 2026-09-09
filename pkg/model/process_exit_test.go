@@ -13,8 +13,10 @@ import (
 var _ = Describe("backend process exit diagnostics", func() {
 	It("includes the exit code and final stderr line for an unexpected exit", func() {
 		tmpDir := GinkgoT().TempDir()
+		backendTempRoot := filepath.Join(tmpDir, "backend-runtime")
+		GinkgoT().Setenv(backendTempDirEnv, backendTempRoot)
 		backendPath := filepath.Join(tmpDir, "failing-backend")
-		Expect(os.WriteFile(backendPath, []byte("#!/bin/sh\necho 'first diagnostic' >&2\necho 'fatal metal pipeline error' >&2\nexit 42\n"), 0o700)).To(Succeed())
+		Expect(os.WriteFile(backendPath, []byte("#!/bin/sh\nprintf '%s' \"$TMPDIR\" > \"$0.tmpdir\"\necho 'first diagnostic' >&2\necho 'fatal metal pipeline error' >&2\nexit 42\n"), 0o700)).To(Succeed())
 
 		captured := captureLogs(slog.LevelWarn)
 		DeferCleanup(stopCapturingLogs)
@@ -23,10 +25,16 @@ var _ = Describe("backend process exit diagnostics", func() {
 		process, err := loader.startProcess(backendPath, "test-model", "127.0.0.1:65535")
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(process.Done()).Should(BeClosed())
+		backendTemp, err := os.ReadFile(backendPath + ".tmpdir")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(backendTemp)).To(Equal(filepath.Join(process.StateDir(), "tmp")))
+		Eventually(string(backendTemp)).ShouldNot(BeADirectory())
 		Eventually(captured.String).Should(And(
 			ContainSubstring("Backend process exited unexpectedly"),
 			ContainSubstring("exitCode=42"),
 			ContainSubstring(`stderr="fatal metal pipeline error"`),
 		))
+		loader.cleanupProcessRuntime(process)
+		Eventually(process.StateDir()).ShouldNot(BeADirectory())
 	})
 })

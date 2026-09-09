@@ -732,6 +732,7 @@ func (s *backendSupervisor) reapDeadProcess(key string, bp *backendProcess) {
 	if bp == nil {
 		return
 	}
+	s.cleanupProcessRuntime(bp.proc)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: dead process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
 		return
@@ -749,6 +750,7 @@ func (s *backendSupervisor) releaseBackendStart(key string, bp *backendProcess) 
 		return
 	}
 	delete(s.processes, key)
+	s.cleanupProcessRuntime(bp.proc)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: startup has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
 		return
@@ -1090,12 +1092,21 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 		return fmt.Errorf("stopping backend process %s: %w", key, stopErr)
 	}
 	delete(s.processes, key)
+	s.cleanupProcessRuntime(bp.proc)
 	if bp.port <= 0 {
 		xlog.Error("Cannot recycle backend port: process has invalid recorded port", "backend", key, "addr", bp.addr, "port", bp.port)
 		return nil
 	}
 	s.releasePortForKey(key, bp.port)
 	return nil
+}
+
+func (s *backendSupervisor) cleanupProcessRuntime(proc *process.Process) {
+	// Some focused supervisor tests provide synthetic process handles without a
+	// ModelLoader. Production processes always come from s.ml.StartProcess.
+	if s.ml != nil {
+		s.ml.CleanupProcessRuntime(proc)
+	}
 }
 
 // stopAllBackends stops all running backend processes.

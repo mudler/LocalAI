@@ -113,24 +113,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF
-  description: |
-    # GLM-5.3-Flash
-
-    👋 Join our WeChat or Discord community.
-
-    📖 Check out the GLM-5.3-Flash blog and GLM-5 Technical report.
-
-    📍 Use GLM-5.3-Flash API services on Z.ai API Platform.
-
-    ## Introduction
-
-    We introduce GLM-5.3-Flash, the first natively multimodal model in the GLM-5 series. With 320B total parameters and just 18B active parameters, it outperforms GLM-5.2 across benchmarks and real-world workloads at one-tenth the price, while approaching Claude Opus 4.8 on coding and agentic benchmarks.
-
-    GLM-5.3-Flash starts from a newly trained base model, with its architecture and training recipe redesigned around capability and efficiency. For the first time in the GLM series, we introduce a hybrid architecture combining sparse and linear attention, sharply reducing long-context serving costs while preserving precise long-context capabilities. The model also adopts Manifold-Constrained Hyper-Connections (mHC) to further improve scaling efficiency. Together with our latest 30T-token multimodal pre-training corpus, these changes enable GLM-5.3-Flash to deliver more intelligence with less compute.
-
-    ## Serve GLM-5.3-Flash Locally
-
-    ...
+  description: "# GLM-5.3-Flash\n\n\U0001F44B Join our WeChat or Discord community.\n\n\U0001F4D6 Check out the GLM-5.3-Flash blog and GLM-5 Technical report.\n\n\U0001F4CD Use GLM-5.3-Flash API services on Z.ai API Platform.\n\n## Introduction\n\nWe introduce GLM-5.3-Flash, the first natively multimodal model in the GLM-5 series. With 320B total parameters and just 18B active parameters, it outperforms GLM-5.2 across benchmarks and real-world workloads at one-tenth the price, while approaching Claude Opus 4.8 on coding and agentic benchmarks.\n\nGLM-5.3-Flash starts from a newly trained base model, with its architecture and training recipe redesigned around capability and efficiency. For the first time in the GLM series, we introduce a hybrid architecture combining sparse and linear attention, sharply reducing long-context serving costs while preserving precise long-context capabilities. The model also adopts Manifold-Constrained Hyper-Connections (mHC) to further improve scaling efficiency. Together with our latest 30T-token multimodal pre-training corpus, these changes enable GLM-5.3-Flash to deliver more intelligence with less compute.\n\n## Serve GLM-5.3-Flash Locally\n\n...\n"
   license: "mit"
   tags:
     - llm
@@ -768,9 +751,7 @@
       model: llama-cpp/models/s1-mini/s1-mini-q4_k_m.gguf
       temperature: 0
     system_prompt: >-
-      You are a text normalizer for speech-to-text transcripts. The input begins
-      with a control line specifying the styling, structure, and context settings;
-      clean the transcript to match those settings and output only the cleaned text.
+      You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.
     template:
       use_tokenizer_template: true
   files:
@@ -796,9 +777,7 @@
       model: llama-cpp/models/s1-mini/s1-mini-f16.gguf
       temperature: 0
     system_prompt: >-
-      You are a text normalizer for speech-to-text transcripts. The input begins
-      with a control line specifying the styling, structure, and context settings;
-      clean the transcript to match those settings and output only the cleaned text.
+      You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.
     template:
       use_tokenizer_template: true
   files:
@@ -14131,8 +14110,8 @@
       model: kokoro-int8-multi-lang-v1_0/model.int8.onnx
   files:
     - filename: kokoro-int8-multi-lang-v1_0.tar.bz2
-      sha256: 75654a84864be26f345f020f4070c2c019e96dd1b7f9bf6e2ffd59efac6aa5a3
       uri: https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2
+      sha256: 4c3052abaa60943a341f193888cf6abd68787dae6ab8ae5c925a706caa247e4e
 - name: supertonic-3
   url: github:mudler/LocalAI/gallery/supertonic.yaml@master
   urls:

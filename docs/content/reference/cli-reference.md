@@ -27,8 +27,15 @@ Complete reference for all LocalAI command-line interface (CLI) parameters and e
 | `--upload-path` | `TMPDIR/localai-UID/upload` | Path to store uploads from files API. Defaults under the OS temp dir (`$TMPDIR`, falling back to `/tmp`), scoped to the current user's UID. | `$LOCALAI_UPLOAD_PATH`, `$UPLOAD_PATH` |
 | `--localai-config-dir` | `BASEPATH/configuration` | Directory for dynamic loading of certain configuration files (currently runtime_settings.json, api_keys.json, and external_backends.json). See [Runtime Settings]({{%relref "features/runtime-settings" %}}) for web-based configuration. | `$LOCALAI_CONFIG_DIR` |
 | `--localai-config-dir-poll-interval` | | Time duration to poll the LocalAI Config Dir if your system has broken fsnotify events (example: `1m`) | `$LOCALAI_CONFIG_DIR_POLL_INTERVAL` |
+
 | `--models-config-file` | | YAML file containing a list of model backend configs (alias: `--config-file`) | `$LOCALAI_MODELS_CONFIG_FILE`, `$CONFIG_FILE` |
 | `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only — a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
+
+Backend processes receive a private scratch directory through `TMPDIR`, `TMP`,
+and `TEMP`. LocalAI removes that directory when the backend exits and removes
+abandoned directories left by a LocalAI crash before starting another backend.
+Set `$LOCALAI_BACKEND_TEMP_DIR` to choose their base volume. LocalAI always
+appends `localai-UID/backend-runtime`; the default base is `TMPDIR`.
 
 ## Backend Flags
 

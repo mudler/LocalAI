@@ -615,10 +615,10 @@ func (w *CrispASR) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 		return fmt.Errorf("crispasr: tempfile: %w", err)
 	}
 	dst := tmp.Name()
+	defer func() { _ = os.Remove(dst) }()
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("crispasr: close tempfile: %w", err)
 	}
-	defer func() { _ = os.Remove(dst) }()
 
 	if err := writeWAV(dst, pcm, w.sampleRate); err != nil {
 		return err
