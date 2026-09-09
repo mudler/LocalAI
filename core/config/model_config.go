@@ -1351,6 +1351,16 @@ type TemplateConfig struct {
 	// that can use the tokenizers specified in the JSON config files of the models
 	UseTokenizerTemplate bool `yaml:"use_tokenizer_template,omitempty" json:"use_tokenizer_template,omitempty"`
 
+	// SystemMessagesAfterFirst controls what happens to system-role messages that
+	// appear after the leading system block. Some tokenizer chat templates (e.g.
+	// Qwen3.8 / Flash-Next) raise "System message must be at the beginning" for
+	// them, while agent frameworks (cogito tool selection, adjustment prompts)
+	// legitimately append system instructions mid-conversation.
+	//   ""/"error": pass through unchanged (template decides)
+	//   "merge":    fold them into the leading system message
+	//   "user":     forward them as user-role instructions (keeps their position)
+	SystemMessagesAfterFirst string `yaml:"system_messages_after_first,omitempty" json:"system_messages_after_first,omitempty"`
+
 	// JoinChatMessagesByCharacter is a string that will be used to join chat messages together.
 	// It defaults to \n
 	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character,omitempty" json:"join_chat_messages_by_character,omitempty"`

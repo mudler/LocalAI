@@ -674,6 +674,7 @@ Templates use Go templates with [Sprig functions](http://masterminds.github.io/s
 | `template.multimodal` | string | Template for multimodal interactions |
 | `template.reply_prefix` | string | Prefix to add to model replies |
 | `template.use_tokenizer_template` | bool | Use tokenizer's built-in template (vLLM/transformers) |
+| `template.system_messages_after_first` | string | What to do with `system`-role messages that appear after the leading system block: `merge` folds them into the first system message, `user` forwards them as user-role turns at their position. Unset keeps them as-is. Needed for tokenizer templates that reject late system turns (e.g. Qwen3.8) while agent frameworks append instructions mid-conversation. |
 | `template.join_chat_messages_by_character` | string | Character to join chat messages (default: `\n`) |
 
 ### Template Variables

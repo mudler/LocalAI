@@ -378,6 +378,50 @@ var _ = Describe("system message helpers", func() {
 		})
 	})
 
+	Describe("normalizeLateSystemMessages", func() {
+		msgs := func() []schema.Message {
+			return []schema.Message{
+				{Role: "system", Content: "lead", StringContent: "lead"},
+				{Role: "user", Content: "q", StringContent: "q"},
+				{Role: "assistant", Content: "a", StringContent: "a"},
+				{Role: "system", Content: "late", StringContent: "late"},
+				{Role: "user", Content: "q2", StringContent: "q2"},
+			}
+		}
+		It("leaves messages untouched by default", func() {
+			out := normalizeLateSystemMessages(msgs(), "")
+			Expect(out).To(HaveLen(5))
+			Expect(out[3].Role).To(Equal("system"))
+		})
+		It("merge folds late system turns into the leading one", func() {
+			out := normalizeLateSystemMessages(msgs(), "merge")
+			Expect(out).To(HaveLen(4))
+			Expect(out[0].Role).To(Equal("system"))
+			Expect(out[0].StringContent).To(Equal("lead\n\nlate"))
+			for _, m := range out[1:] {
+				Expect(m.Role).NotTo(Equal("system"))
+			}
+		})
+		It("merge creates a leading system message when none exists", func() {
+			in := msgs()[1:]
+			out := normalizeLateSystemMessages(in, "merge")
+			Expect(out[0].Role).To(Equal("system"))
+			Expect(out[0].StringContent).To(Equal("late"))
+			Expect(out).To(HaveLen(4))
+		})
+		It("user forwards late system turns as user turns in place", func() {
+			out := normalizeLateSystemMessages(msgs(), "user")
+			Expect(out).To(HaveLen(5))
+			Expect(out[3].Role).To(Equal("user"))
+			Expect(out[3].StringContent).To(Equal("late"))
+			Expect(out[0].Role).To(Equal("system"))
+		})
+		It("does nothing when no late system turn exists", func() {
+			in := msgs()[:3]
+			Expect(normalizeLateSystemMessages(in, "user")).To(HaveLen(3))
+		})
+	})
+
 	Describe("stripEmptySystemMessages", func() {
 		It("removes blank system turns and keeps the rest", func() {
 			in := []schema.Message{
