@@ -53,16 +53,16 @@ function rank(candidates, tier, count, isNvidia) {
   }
   const limit = tier.vram * 0.95
   const fits = pool.filter(c => c.vramBytes != null && c.vramBytes <= limit)
-  const base = fits.length > 0 ? fits : pool // tiny GPU where nothing fits → fall through to smallest
   const byPreference = (a, b) => {
     // On NVIDIA, surface NVFP4 first; then largest-that-fits (best quality).
     if (isNvidia) {
       const an = isNvfp4Name(a.name), bn = isNvfp4Name(b.name)
       if (an !== bn) return an ? -1 : 1
     }
-    return fits.length > 0 ? b.sizeBytes - a.sizeBytes : a.sizeBytes - b.sizeBytes
+    return b.sizeBytes - a.sizeBytes
   }
-  return [...base].sort(byPreference).slice(0, count)
+  // An oversized or unestimated model cannot be labelled a hardware fit.
+  return [...fits].sort(byPreference).slice(0, count)
 }
 
 export function useRecommendedModels({ count = 4, candidatePool = 10 } = {}) {

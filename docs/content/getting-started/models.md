@@ -19,6 +19,8 @@ This section covers everything you need to know about installing and configuring
 
 The Model Gallery is the simplest way to install models. It provides pre-configured models ready to use.
 
+GPU recommendations require a memory estimate within 95% of the detected model memory budget at a 4096-token context. If none of the sampled candidates fit, the recommendation section is hidden. You can still browse the gallery and check individual models at your intended context size. The Home page also omits static GPU suggestions when no fitting recommendation is available.
+
 ### Via WebUI
 
 1. Open the LocalAI WebUI at `http://localhost:8080`
