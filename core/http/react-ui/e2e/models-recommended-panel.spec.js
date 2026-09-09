@@ -103,3 +103,48 @@ test.describe("Models gallery - recommended panel prominence", () => {
     await expect(grid(page).locator(".lane__tag--evidence")).toHaveCount(1);
   });
 });
+
+// Start with a fitting model so absence assertions cannot pass during loading.
+// Then change the polled hardware budget while keeping the same gallery.
+for (const view of ["models", "home"]) {
+  test(`${view} removes GPU recommendations when no candidate fits`, async ({ page }) => {
+    await mockGallery(page, 0);
+    await page.route("**/v1/models", (route) =>
+      route.fulfill({ json: { data: [] } }),
+    );
+    const gib = 1024 ** 3;
+    let budget = 24 * gib;
+    await page.route("**/api/resources", (route) =>
+      route.fulfill({ json: {
+        type: "gpu",
+        aggregate: { total_memory: budget, gpu_count: 1 },
+        gpus: [{ vendor: "nvidia", total_memory: budget }],
+      } }),
+    );
+    await page.route("**/api/models/estimate/*", (route) =>
+      route.fulfill({ json: {
+        sizeBytes: 17.4 * gib,
+        sizeDisplay: "17.4 GB",
+        estimates: { 4096: { vramBytes: 18.4 * gib, vramDisplay: "18.4 GB" } },
+      } }),
+    );
+    await page.goto(view === "models" ? "/app/models" : "/app/");
+    const section = view === "models" ? panel(page) : page.locator(".home-starters");
+    await expect(section).toBeVisible();
+    await expect(section).toContainText("tiny-chat");
+
+    // Wait for BOTH recommendation estimates, not the hook's loading render
+    // or the gallery rail's separate context-size requests.
+    const estimatesFinished = REC_MODELS.map(model => page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname.endsWith('/api/models/estimate/' + model.name) &&
+        url.searchParams.get('contexts') === '4096' && response.status() === 200;
+    }).then(response => response.finished()));
+    budget = 12 * gib;
+    await Promise.all(estimatesFinished);
+    await page.evaluate(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    ));
+    await expect(section).toHaveCount(0, { timeout: 15_000 });
+  });
+}
