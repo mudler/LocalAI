@@ -9430,6 +9430,173 @@
     - filename: llama-cpp/mmproj/gemma-4-26B-A4B-it-qat-GGUF/mmproj-F32.gguf
       sha256: ef269e294502d6ee3722cbf129681b2586c2e6ceb79d0507963c92146e058cd4
       uri: https://huggingface.co/unsloth/gemma-4-26B-A4B-it-qat-GGUF/resolve/main/mmproj-F32.gguf
+- &gemma-4-12b-it
+  name: "gemma-4-12b-it-q4"
+  variants:
+    - model: gemma-4-12b-it-q5
+    - model: gemma-4-12b-it-q6
+    - model: gemma-4-12b-it-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-12B-it
+    - https://huggingface.co/unsloth/gemma-4-12b-it-GGUF
+  license: "apache-2.0"
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma
+    - vision
+    - multimodal
+    - tools
+  last_checked: "2026-09-09"
+  description: |
+    Gemma 4 12B IT is Google's 12B instruction-tuned model for chat,
+    reasoning, tool use, and image understanding. This Unsloth Q4_K_M
+    GGUF build includes the F16 vision projector and uses the embedded
+    chat template. It defaults to a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-12b-it/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-12b-it/gemma-4-12b-it-Q4_K_M.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12b-it/gemma-4-12b-it-Q4_K_M.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q4_K_M.gguf
+      sha256: 0a270ec9fe6b34f4a0d33992b6135117b484ebc4766ab76b51d4ae8c457e4c42
+    - filename: llama-cpp/mmproj/gemma-4-12b-it/mmproj-F16.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/mmproj-F16.gguf
+      sha256: 91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e
+- !!merge <<: *gemma-4-12b-it
+  name: "gemma-4-12b-it-q5"
+  variants: []
+  description: |
+    Gemma 4 12B IT is Google's 12B instruction-tuned model for chat,
+    reasoning, tool use, and image understanding. This Unsloth Q5_K_M
+    GGUF build includes the F16 vision projector and uses the embedded
+    chat template. It defaults to a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-12b-it/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-12b-it/gemma-4-12b-it-Q5_K_M.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12b-it/gemma-4-12b-it-Q5_K_M.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q5_K_M.gguf
+      sha256: 32c554c7d1338a23837ae39b3db482213a4a642f96df3b2619f516a2375d16cd
+    - filename: llama-cpp/mmproj/gemma-4-12b-it/mmproj-F16.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/mmproj-F16.gguf
+      sha256: 91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e
+- !!merge <<: *gemma-4-12b-it
+  name: "gemma-4-12b-it-q6"
+  variants: []
+  description: |
+    Gemma 4 12B IT is Google's 12B instruction-tuned model for chat,
+    reasoning, tool use, and image understanding. This Unsloth Q6_K
+    GGUF build includes the F16 vision projector and uses the embedded
+    chat template. It defaults to a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-12b-it/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-12b-it/gemma-4-12b-it-Q6_K.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12b-it/gemma-4-12b-it-Q6_K.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q6_K.gguf
+      sha256: 6f394336500bb5409bd68c31aa9d75097b5e6104f6cf30c82a09a7b64df41faf
+    - filename: llama-cpp/mmproj/gemma-4-12b-it/mmproj-F16.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/mmproj-F16.gguf
+      sha256: 91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e
+- !!merge <<: *gemma-4-12b-it
+  name: "gemma-4-12b-it-q8"
+  variants: []
+  description: |
+    Gemma 4 12B IT is Google's 12B instruction-tuned model for chat,
+    reasoning, tool use, and image understanding. This Unsloth Q8_0
+    GGUF build includes the F16 vision projector and uses the embedded
+    chat template. It defaults to a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-12b-it/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-12b-it/gemma-4-12b-it-Q8_0.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12b-it/gemma-4-12b-it-Q8_0.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/gemma-4-12b-it-Q8_0.gguf
+      sha256: f20e7ff1be28c283eeeb18fc895733791c56a5851d5cd3fe9691b7f7d12afa72
+    - filename: llama-cpp/mmproj/gemma-4-12b-it/mmproj-F16.gguf
+      uri: https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/fc034cfff751157913579611efad8462ac1be606/mmproj-F16.gguf
+      sha256: 91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e
 - name: "gemma-4-12b-it-qat-q4_0"
   variants:
     - model: gemma-4-12b-it-qat-mtp

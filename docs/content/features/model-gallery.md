@@ -52,6 +52,23 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, the gallery shows whether the estimated VRAM fits (green) or may not fit (red) using a 95% headroom rule.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 
+## Gemma 4 12B IT
+
+Install `gemma-4-12b-it-q4` for chat, tool use, and image prompts with
+llama.cpp. The gallery offers Unsloth Q4_K_M, Q5_K_M, Q6_K, and Q8_0
+builds, each with an F16 vision projector and the embedded chat template.
+LocalAI selects a quantization based on available memory. To choose one
+explicitly, run:
+
+```bash
+local-ai models install gemma-4-12b-it-q4 --variant gemma-4-12b-it-q8
+```
+
+These entries use a 32,768-token context and sampling defaults of
+temperature 1, top_k 64, and top_p 0.95. They are separate from the
+existing QAT builds. See the [source model](https://huggingface.co/google/gemma-4-12B-it)
+and [GGUF files](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF).
+
 ## Add other galleries
 
 You can add other galleries by:
