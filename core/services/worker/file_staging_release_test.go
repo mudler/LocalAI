@@ -87,7 +87,7 @@ func (m *releaseMessagingClient) Close()            {}
 
 var _ = Describe("Worker exact-key staging release", func() {
 	It("protects a startup-accounted HTTP cache hit through authenticated repeated probes", func() {
-		stagingDir := GinkgoT().TempDir()
+		stagingDir := canonicalWorkerTempDir()
 		root := filepath.Join(stagingDir, "ephemeral")
 		key := "ephemeral/audio/request-id/input.wav"
 		remotePath := filepath.Join(stagingDir, filepath.FromSlash(key))
@@ -107,11 +107,11 @@ var _ = Describe("Worker exact-key staging release", func() {
 		Expect(err).NotTo(HaveOccurred())
 		addr := listener.Addr().String()
 		Expect(listener.Close()).To(Succeed())
-		server, err := nodes.StartFileTransferServerWithCapacity(addr, stagingDir, GinkgoT().TempDir(), GinkgoT().TempDir(), "secret", 0, nil, guard)
+		server, err := nodes.StartFileTransferServerWithCapacity(addr, stagingDir, canonicalWorkerTempDir(), canonicalWorkerTempDir(), "secret", 0, nil, guard)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(nodes.ShutdownFileTransferServer, server)
 
-		localPath := filepath.Join(GinkgoT().TempDir(), "input.wav")
+		localPath := filepath.Join(canonicalWorkerTempDir(), "input.wav")
 		Expect(os.WriteFile(localPath, content, 0o600)).To(Succeed())
 		stager := nodes.NewHTTPFileStager(func(string) (string, error) { return addr, nil }, "secret")
 		for range 2 {
@@ -129,7 +129,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("claims a startup-scanned cache hit against stale recovery until release", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		root := filepath.Join(cacheDir, "ephemeral")
 		key := "ephemeral/audio/request-id/input.wav"
 		cachePath := filepath.Join(cacheDir, filepath.FromSlash(key))
@@ -158,7 +158,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("downloads again when a cache file disappears while being claimed", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		key := "ephemeral/audio/request-id/input.wav"
 		cachePath := filepath.Join(cacheDir, filepath.FromSlash(key))
 		Expect(os.MkdirAll(filepath.Dir(cachePath), 0o750)).To(Succeed())
@@ -176,7 +176,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("makes repeated cache-hit claims idempotent", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		root := filepath.Join(cacheDir, "ephemeral")
 		key := "ephemeral/audio/request-id/input.wav"
 		cachePath := filepath.Join(cacheDir, filepath.FromSlash(key))
@@ -199,7 +199,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("capacity-checks growth of a startup-scanned cache file", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		root := filepath.Join(cacheDir, "ephemeral")
 		key := "ephemeral/audio/request-id/input.wav"
 		cachePath := filepath.Join(cacheDir, filepath.FromSlash(key))
@@ -220,7 +220,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("reserves S3 object size before download and releases it with the exact key", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		root := filepath.Join(cacheDir, "ephemeral")
 		store := &stagingObjectStore{payload: []byte("data")}
 		fm, err := storage.NewFileManager(store, cacheDir)
@@ -240,7 +240,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("rejects an oversized S3 object before starting its download", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		store := &stagingObjectStore{payload: []byte("oversized")}
 		fm, err := storage.NewFileManager(store, cacheDir)
 		Expect(err).NotTo(HaveOccurred())
@@ -253,7 +253,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("rolls back an S3 reservation when the download fails", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		root := filepath.Join(cacheDir, "ephemeral")
 		store := &stagingObjectStore{payload: []byte("data"), getErr: errors.New("download failed")}
 		fm, err := storage.NewFileManager(store, cacheDir)
@@ -267,7 +267,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("removes only the exact cache file and upload sidecars", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		categoryDir := filepath.Join(cacheDir, "ephemeral", "request-id", "audio")
 		Expect(os.MkdirAll(categoryDir, 0750)).To(Succeed())
 		target := filepath.Join(categoryDir, "input.wav")
@@ -285,7 +285,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("succeeds for a missing file and prunes empty category and request directories", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		categoryDir := filepath.Join(cacheDir, "ephemeral", "request-id", "audio")
 		Expect(os.MkdirAll(categoryDir, 0750)).To(Succeed())
 
@@ -298,8 +298,8 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("rejects traversal and symlink escapes", func() {
-		cacheDir := GinkgoT().TempDir()
-		outsideDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
+		outsideDir := canonicalWorkerTempDir()
 		outsidePath := filepath.Join(outsideDir, "input.wav")
 		Expect(os.WriteFile(outsidePath, []byte("keep"), 0640)).To(Succeed())
 		requestDir := filepath.Join(cacheDir, "ephemeral", "request-id")
@@ -319,7 +319,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 
 	It("rejects symlinked files and sidecars without deleting their targets", func() {
 		for _, linkedName := range []string{"input.wav", "input.wav.sha256", "input.wav.sha256.target"} {
-			cacheDir := GinkgoT().TempDir()
+			cacheDir := canonicalWorkerTempDir()
 			categoryDir := filepath.Join(cacheDir, "ephemeral", "request-id", "audio")
 			Expect(os.MkdirAll(categoryDir, 0750)).To(Succeed())
 			target := filepath.Join(categoryDir, "input.wav")
@@ -336,7 +336,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("registers an exact release handler", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		path := filepath.Join(cacheDir, "ephemeral", "request-id", "audio", "input.wav")
 		Expect(os.MkdirAll(filepath.Dir(path), 0750)).To(Succeed())
 		Expect(os.WriteFile(path, []byte("data"), 0640)).To(Succeed())
@@ -358,7 +358,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("releases a request batch through one worker message", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		keys := []string{
 			"ephemeral/audio/request-id/input.wav",
 			"ephemeral/images/request-id/frame.jpg",
@@ -387,7 +387,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 	})
 
 	It("returns validation errors through the release handler", func() {
-		cacheDir := GinkgoT().TempDir()
+		cacheDir := canonicalWorkerTempDir()
 		fm, err := storage.NewFileManager(nil, cacheDir)
 		Expect(err).NotTo(HaveOccurred())
 		client := &releaseMessagingClient{}
