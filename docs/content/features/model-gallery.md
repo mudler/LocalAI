@@ -233,6 +233,13 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
+The Tiel-Coder gallery entry offers Q4, Q5, Q6, and Q8 MTP builds for
+llama.cpp, each with the BF16 vision projector. To select the Q6 MTP build:
+
+```bash
+local-ai models install tiel-coder-35b-a3b-q4 --variant tiel-coder-35b-a3b-q6-mtp
+```
+
 ### Collapsing the listing to one row per model
 
 By default the listing returns every entry, including the individual builds a
