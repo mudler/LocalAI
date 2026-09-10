@@ -193,6 +193,16 @@ where:
 
 ### Model variants
 
+The `qwen3.5-9b-defiant-fable-mtp` entry offers Q4_K_M and Q8_0 builds for
+llama.cpp, with and without multi-token prediction (MTP). Each build includes
+the BF16 vision projector. To select the Q8_0 MTP build explicitly:
+
+```bash
+local-ai models install localai@qwen3.5-9b-defiant-fable-mtp --variant qwen3.5-9b-defiant-fable-q8-mtp
+```
+
+Use `--variant qwen3.5-9b-defiant-fable-q8` for Q8_0 with ordinary decoding.
+
 Some gallery entries offer several builds of the same model: different
 quantizations, or the same weights served by a different engine. Such an entry
 carries a `variants` list, and installing it normally lets LocalAI choose:
