@@ -432,8 +432,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 except json.JSONDecodeError:
                     pass
             enable_thinking = request.Metadata.get("enable_thinking", "").lower()
-            if enable_thinking == "true":
-                kwargs["enable_thinking"] = True
+            if enable_thinking in ("true", "false"):
+                kwargs["enable_thinking"] = enable_thinking == "true"
 
             try:
                 return self.tokenizer.apply_chat_template(messages, **kwargs)
