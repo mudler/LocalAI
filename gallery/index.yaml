@@ -49,11 +49,11 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.8-27B-Flash-MTP-Q4_K_M/Qwopus3.8-27B-Flash-MTP-Q4_K_M.gguf
-      sha256: 2b9a335bd33bb977d3127062061c12cc94f37ceef1850d372317fbf4ee89d9c5
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/main/Qwopus3.8-27B-Flash-MTP-Q4_K_M.gguf
+      sha256: 1b76ad1596d6afc0b6e38a2b45b404462920739bd3087960b7a18a74ca938a74
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
-      sha256: be3f444ecaedf084fd19399ba18cefcbbe3789bb81f4ad5ed67c91a1a3f48a67
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/main/mmproj-F32.gguf
+      sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
 - name: "qwen3.8-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -2511,7 +2511,7 @@
   files:
     - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL.gguf
       uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL.gguf
-      sha256: 10960d1d6477b08ed36a0e542e571b473022023c25b8315b0cf8c33c57e98ccd
+      sha256: 54f46c4ce544c225122b0f066c2336f10404be7bc53b0cc94d1dbbc5e826bdc1
     - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
       uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/mmproj-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
