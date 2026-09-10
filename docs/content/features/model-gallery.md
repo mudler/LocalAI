@@ -191,6 +191,22 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
 
+### EfficientThink GGUF builds
+
+[Qwen3.8-27B EfficientThink](https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF)
+is available as Q6_K and Q8_0 builds for llama.cpp. Both include the matching
+Q8 vision projector and use a 32,768-token context. The DFlash variants also
+install the publisher's Q8 draft and enable speculative decoding.
+
+To select a build explicitly:
+
+```bash
+local-ai models install --variant qwen3.8-27b-efficientthink-q8-dflash qwen3.8-27b-efficientthink-q6
+```
+
+Use `qwen3.8-27b-efficientthink-q6` or `qwen3.8-27b-efficientthink-q8` as the
+variant name for ordinary decoding without a draft model.
+
 ### Model variants
 
 Some gallery entries offer several builds of the same model: different
