@@ -47,7 +47,23 @@ func DownloadFilesWithConcurrency(ctx context.Context, tasks []FileTask, status 
 		concurrency = 1
 	}
 
-	if status != nil && concurrency > 1 {
+	var aggregateTotal int64
+	aggregateAvailable := status != nil && len(tasks) > 0
+	if aggregateAvailable {
+		for _, task := range tasks {
+			size, err := task.URI.ContentLength(ctx)
+			if err != nil || size < 0 {
+				aggregateAvailable = false
+				break
+			}
+			aggregateTotal += size
+		}
+	}
+	if aggregateTotal <= 0 {
+		aggregateAvailable = false
+	}
+
+	if status != nil && concurrency > 1 && !aggregateAvailable {
 		var statusMutex sync.Mutex
 		unsynchronized := status
 		status = func(fileName, current, total string, percent float64) {
@@ -63,9 +79,12 @@ func DownloadFilesWithConcurrency(ctx context.Context, tasks []FileTask, status 
 	// context.Canceled the siblings observe.
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.SetLimit(concurrency)
+	aggregateWritten := make([]int64, len(tasks))
+	var aggregateMutex sync.Mutex
 
 	for i := range tasks {
 		task := tasks[i]
+		taskIndex := i
 		if err := groupCtx.Err(); err != nil {
 			break
 		}
@@ -75,7 +94,27 @@ func DownloadFilesWithConcurrency(ctx context.Context, tasks []FileTask, status 
 			}
 			taskOpts := append([]DownloadOption{}, opts...)
 			taskOpts = append(taskOpts, task.Options...)
-			if err := downloadTaskWithRetry(groupCtx, task, status, taskOpts); err != nil {
+			taskStatus := status
+			if aggregateAvailable {
+				existingSink := applyDownloadOptions(taskOpts).transferProgress
+				taskOpts = append(taskOpts, WithTransferProgress(func(event TransferProgress) {
+					if existingSink != nil {
+						existingSink(event)
+					}
+					aggregateMutex.Lock()
+					aggregateWritten[taskIndex] = event.Written
+					var written int64
+					for _, taskWritten := range aggregateWritten {
+						written += taskWritten
+					}
+					if status != nil {
+						status(event.FileName, formatBytes(written), formatBytes(aggregateTotal), float64(written)*100/float64(aggregateTotal))
+					}
+					aggregateMutex.Unlock()
+				}))
+				taskStatus = nil
+			}
+			if err := downloadTaskWithRetry(groupCtx, task, taskStatus, taskOpts); err != nil {
 				return err
 			}
 			if task.AfterDownload != nil {

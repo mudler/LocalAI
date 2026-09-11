@@ -59,6 +59,7 @@ type RuntimeSettings struct {
 	BackendGalleries         *[]Gallery `json:"backend_galleries,omitempty"`
 	AutoloadGalleries        *bool      `json:"autoload_galleries,omitempty"`
 	AutoloadBackendGalleries *bool      `json:"autoload_backend_galleries,omitempty"`
+	VRAMPersistentCache      *bool      `json:"vram_persistent_cache,omitempty"`
 
 	// API keys - No omitempty as we need to save empty arrays to clear keys
 	ApiKeys *[]string `json:"api_keys"`

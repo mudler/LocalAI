@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -33,22 +34,31 @@ func FaceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 			return echo.NewHTTPError(http.StatusBadRequest, "name is required")
 		}
 
-		img, err := decodeImageInput(input.Img)
-		if err != nil {
-			return err
+		if (input.Img == "") == (len(input.Embedding) == 0) {
+			return echo.NewHTTPError(http.StatusBadRequest, "provide exactly one of img or embedding")
 		}
-
-		xlog.Debug("FaceRegister", "model", cfg.Name, "name", input.Name)
-		embedding, err := backend.FaceEmbed(c.Request().Context(), img, ml, appConfig, *cfg)
-		if err != nil {
-			return mapBackendError(err)
+		embedding := input.Embedding
+		if len(embedding) == 0 {
+			img, err := decodeImageInput(input.Img)
+			if err != nil {
+				return err
+			}
+			xlog.Debug("FaceRegister", "model", cfg.Name, "name", input.Name)
+			embedding, err = backend.FaceEmbed(c.Request().Context(), img, ml, appConfig, *cfg)
+			if err != nil {
+				return mapBackendError(err)
+			}
 		}
 
 		stored, err := registry.Register(c.Request().Context(), embedding, facerecognition.Metadata{
-			Name:   input.Name,
-			Labels: input.Labels,
+			Name:         input.Name,
+			RegisteredAt: input.RegisteredAt,
+			Labels:       input.Labels,
 		})
 		if err != nil {
+			if errors.Is(err, facerecognition.ErrInvalidEmbedding) || errors.Is(err, facerecognition.ErrDimensionMismatch) {
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			}
 			return err
 		}
 		return c.JSON(http.StatusOK, schema.FaceRegisterResponse{

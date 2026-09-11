@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -41,6 +42,7 @@ type DistributedServices struct {
 	FileStager   nodes.FileStager
 	ModelAdapter *nodes.ModelRouterAdapter
 	Unloader     *nodes.RemoteUnloaderAdapter
+	ModelCleanup *nodes.ModelCleanupService
 
 	shutdownOnce sync.Once
 }
@@ -160,6 +162,26 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		return nil, fmt.Errorf("initializing node registry: %w", err)
 	}
 	xlog.Info("Node registry initialized")
+
+	// Bound durable heartbeat writes: a beat that only carries a fresher
+	// timestamp is what turned backend_nodes into a 460 MB six-row table.
+	registry.SetHeartbeatCheckpoint(cfg.Distributed.NodeHeartbeatCheckpointOrDefault())
+
+	// Measure the vacuum horizon. The 42 days it stayed open went unnoticed
+	// because no gauge reported it until models started failing to load.
+	if err := monitoring.RegisterControlPlaneDBMetrics(authDB, 30*time.Second); err != nil {
+		// Metrics are diagnostic; a failure here must not stop the frontend.
+		xlog.Warn("Control-plane database metrics unavailable", "error", err)
+	}
+
+	// Let scheduling rules be keyed by a model alias. The registry resolves a
+	// rule's name through the config loader to find the model it governs, so an
+	// operator can pin placement to a stable name like "production" and have it
+	// follow the alias when the alias is repointed. Wired before the seed below
+	// and before the reconciler starts, so the first tick already resolves.
+	if configLoader != nil {
+		registry.SetAliasResolver(configLoader)
+	}
 
 	// Seed declarative per-model scheduling config (LOCALAI_MODEL_SCHEDULING /
 	// LOCALAI_MODEL_SCHEDULING_CONFIG). Authoritative: overwrites matching models
@@ -346,8 +368,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if configLoader != nil {
 		conflictResolver = configLoader
 	}
+	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
 		Unloader:         remoteUnloader,
+		ModelCleanup:     modelCleanup,
 		FileStager:       fileStager,
 		GalleriesJSON:    routerGalleriesJSON,
 		AuthToken:        routerAuthToken,
@@ -437,6 +461,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		FileStager:   fileStager,
 		ModelAdapter: modelAdapter,
 		Unloader:     remoteUnloader,
+		ModelCleanup: modelCleanup,
 	}, nil
 }
 

@@ -260,6 +260,12 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 			data, _ := json.Marshal(reply)
 			msg.Respond(data)
 		})
+		_, err := infra.NC.Conn().Subscribe("nodes.*.models.running", func(msg *nats.Msg) {
+			data, _ := json.Marshal(messaging.ModelsRunningReply{})
+			_ = msg.Respond(data)
+		})
+		Expect(err).NotTo(HaveOccurred())
+		FlushNATS(infra.NC)
 
 		return router
 	}
@@ -284,7 +290,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		router := newTestSmartRouter(registry)
 
 		// The model is not loaded yet, so Route will pick the node and call LoadModel
-		result, err := router.Route(ctx, "", "test-model", "llama-cpp", &pb.ModelOptions{
+		result, err := router.Route(ctx, "", "test-model", "llama-cpp", "", &pb.ModelOptions{
 			Model: "test-model",
 		}, false)
 		Expect(err).ToNot(HaveOccurred())
@@ -343,7 +349,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 		// Route should pick node-2 (least loaded) thanks to ORDER BY in_flight ASC
 		router := newTestSmartRouter(registry)
-		result, err := router.Route(ctx, "", "test-model", "llama-cpp", nil, false)
+		result, err := router.Route(ctx, "", "test-model", "llama-cpp", "", nil, false)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(result.Node.Name).To(Equal("node-light"))
 		result.Release()
@@ -362,7 +368,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 		// Route should pick this node and call LoadModel on it
 		router := newTestSmartRouter(registry)
-		result, err := router.Route(ctx, "", "new-model", "llama-cpp", &pb.ModelOptions{
+		result, err := router.Route(ctx, "", "new-model", "llama-cpp", "", &pb.ModelOptions{
 			Model: "new-model",
 		}, false)
 		Expect(err).ToNot(HaveOccurred())
@@ -427,7 +433,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		adapter := nodes.NewModelRouterAdapter(router)
 
 		// Call adapter.Route() (same signature ModelLoader uses)
-		m, err := adapter.Route(ctx, "llama-cpp", "test-model-id", "test-model", "",
+		m, err := adapter.Route(ctx, "llama-cpp", "test-model-id", "test-model", "", "",
 			&pb.ModelOptions{Model: "test-model"}, false)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(m).ToNot(BeNil())
@@ -489,7 +495,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
 
 		// Route with ModelOptions that have file paths — SmartRouter should stage them
-		result, err := router.Route(ctx, "", "staged-model", "llama-cpp", &pb.ModelOptions{
+		result, err := router.Route(ctx, "", "staged-model", "llama-cpp", "", &pb.ModelOptions{
 			Model:     "staged-model",
 			ModelFile: modelPath,
 			MMProj:    mmprojPath,
@@ -562,7 +568,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		modelPath := filepath.Join(modelDir, "vision.gguf")
 		Expect(os.WriteFile(modelPath, []byte("vision model data"), 0644)).To(Succeed())
 
-		result, err := router.Route(ctx, "", "vision-model", "llama-cpp", &pb.ModelOptions{
+		result, err := router.Route(ctx, "", "vision-model", "llama-cpp", "", &pb.ModelOptions{
 			Model:     "vision-model",
 			ModelFile: modelPath,
 		}, false)
@@ -660,7 +666,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
 
-		result, err := router.Route(ctx, "", modelName, backendType, &pb.ModelOptions{
+		result, err := router.Route(ctx, "", modelName, backendType, "", &pb.ModelOptions{
 			Model: modelName,
 		}, false)
 		Expect(err).ToNot(HaveOccurred())
@@ -889,7 +895,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
 
 		// Route with ModelFile pointing to the .onnx file (triggers model staging)
-		result, err := router.Route(ctx, "voice-it-paola-medium", "it-paola-medium.onnx", "piper", &pb.ModelOptions{
+		result, err := router.Route(ctx, "voice-it-paola-medium", "it-paola-medium.onnx", "piper", "", &pb.ModelOptions{
 			Model:     "it-paola-medium.onnx",
 			ModelFile: modelFile,
 		}, false)
@@ -973,7 +979,7 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		router := newTestSmartRouter(registry, nodes.SmartRouterOptions{FileStager: stager})
 
 		// Route with ModelFile pointing to the .onnx file
-		result, err := router.Route(ctx, "piper-companion-test", "my-model.onnx", "piper", &pb.ModelOptions{
+		result, err := router.Route(ctx, "piper-companion-test", "my-model.onnx", "piper", "", &pb.ModelOptions{
 			Model:     "my-model.onnx",
 			ModelFile: modelFile,
 		}, false)

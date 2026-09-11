@@ -177,12 +177,14 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 			// A concurrently crashed/already-reaped process can no longer own
 			// resources even if Stop could not read or signal its PID.
 			store.Delete(s)
+			ml.cleanupProcessRuntime(process)
 			return nil
 		}
 		return err
 	}
 
 	store.Delete(s)
+	ml.cleanupProcessRuntime(process)
 	return nil
 }
 func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
@@ -252,7 +254,12 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
-	env := os.Environ()
+	runtime, err := newBackendProcessRuntime()
+	if err != nil {
+		return nil, err
+	}
+
+	env := backendTempEnvironment(os.Environ(), runtime.tempDir)
 	// Vulkan backends are self-contained: they bundle their own loader and
 	// Mesa driver .so files in lib/ plus the matching ICD manifests in
 	// vulkan/icd.d/. Point the loader at those manifests so it doesn't rely on
@@ -261,8 +268,17 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	// and the GPU would silently fall back to CPU). No-op for other backends.
 	env = append(env, vulkanICDEnv(workDir)...)
 
+	// Resolve and own the state directory here rather than through
+	// process.WithTemporaryStateDir(). process.New applies its options but
+	// discards the error they return, so a temp directory that cannot be
+	// created leaves StateDir empty and every later option unapplied. Run()
+	// then reports "mkdir : no such file or directory" with no useful path.
+	// The same owned directory also contains backend scratch so an unexpected
+	// exit cannot strand request files directly in the host's shared /tmp.
+	stateDir := runtime.dir
+
 	grpcControlProcess := process.New(
-		process.WithTemporaryStateDir(),
+		process.WithStateDir(stateDir),
 		process.WithName(filepath.Base(grpcProcess)),
 		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
 		process.WithEnvironment(env...),
@@ -275,8 +291,10 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 
 	if err := grpcControlProcess.Run(); err != nil {
+		runtime.cleanup()
 		return grpcControlProcess, err
 	}
+	ml.processRuntimes.Store(grpcControlProcess, runtime)
 
 	xlog.Debug("GRPC Service state dir", "dir", grpcControlProcess.StateDir())
 
@@ -355,9 +373,33 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 			}
 			xlog.Warn("Backend process exited unexpectedly", fields...)
 		}
+		runtime.cleanupScratch()
+		close(runtime.diagnosticsDone)
 	}()
 
 	return grpcControlProcess, nil
+}
+
+func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {
+	if process == nil {
+		return
+	}
+	value, ok := ml.processRuntimes.LoadAndDelete(process)
+	if !ok {
+		return
+	}
+	runtime := value.(*backendProcessRuntime)
+	go func() {
+		<-runtime.diagnosticsDone
+		runtime.cleanup()
+	}()
+}
+
+// CleanupProcessRuntime releases state and scratch owned by a process started
+// through StartProcess. Callers that supervise processes outside ModelLoader's
+// model store must invoke it after they have consumed exit diagnostics.
+func (ml *ModelLoader) CleanupProcessRuntime(process *process.Process) {
+	ml.cleanupProcessRuntime(process)
 }
 
 // vulkanICDEnv returns environment overrides that point the Vulkan loader at

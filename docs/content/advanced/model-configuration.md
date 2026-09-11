@@ -173,6 +173,14 @@ These settings will be used as defaults for all the API calls to the model.
 | `tfz` | float | `1.0` | Tail free z parameter |
 | `keep` | int | `0` | Number of tokens to keep from the prompt |
 
+{{% notice note %}}
+The DS4 backend preserves its legacy behavior for omitted or non-positive
+`max_tokens` values by generating at most 256 tokens. Set `max_tokens` to a
+positive value when you need a specific DS4 output limit. After processing the
+prompt, DS4 clamps that limit to the available context space and reserves one
+context slot for safe generation.
+{{% /notice %}}
+
 ### Language and Translation
 
 | Field | Type | Description |
@@ -389,7 +397,9 @@ The canonical names match upstream llama.cpp (dash-separated). For backward comp
 Multiple types can be chained by passing a comma-separated list to `spec_type` (e.g. `spec_type:ngram-simple,ngram-mod`). The runtime tries them in order and accepts the first proposal that meets the acceptance criteria.
 
 {{% notice note %}}
-Speculative decoding is automatically disabled when multimodal models (with `mmproj`) are active. The `n_draft` parameter can also be overridden per-request.
+The current LocalAI llama.cpp backend supports speculative decoding with multimodal models that load an `mmproj`, including MTP. LocalAI passes both configurations to llama.cpp and does not disable speculation merely because an `mmproj` is present. Upstream llama.cpp removed the former general multimodal/speculative restriction in [ggml-org/llama.cpp#19493](https://github.com/ggml-org/llama.cpp/pull/19493); [ggml-org/llama.cpp#22673](https://github.com/ggml-org/llama.cpp/pull/22673) later added MTP support and explicitly documented its compatibility with vision input.
+
+Compatibility still depends on the installed backend version and the target/draft model architecture. Check the backend logs for successful projector loading and speculative-context initialization, then look for the `draft acceptance` statistics line and its `accepted / generated` counts. A representative run with zero accepted draft tokens receives no speculative speedup and can indicate that the model or settings need tuning.
 {{% /notice %}}
 
 ##### Multi-Token Prediction (MTP)
@@ -419,7 +429,7 @@ Detection runs both at **import time** (the `/import-model` UI / `POST /models/i
 | `spec_type` | `draft-mtp` | Activates MTP. Can be chained with other types (see below). |
 | `spec_n_max` / `draft_max` | `2`-`6` | Number of draft tokens per step. Upstream's PR suggests 2-3 for the tightest acceptance window; LocalAI's auto-default is 6 to favour throughput on models with high acceptance. |
 | `spec_p_min` | `0.75` | Pinned because upstream marks the current default with a "change to 0.0f" TODO; locking it here keeps acceptance thresholds stable across future llama.cpp bumps. |
-| `mmproj_use_gpu` | `false` (or unset `mmproj`) | MTP has a prompt-processing overhead; if the model is non-vision, drop the mmproj entirely to save VRAM. |
+| `mmproj_use_gpu` | `true` for vision | MTP does not require disabling the projector. Keep `mmproj` configured for image input; set this option to `false` to keep the projector on CPU when VRAM is tight. Remove `mmproj` only for text-only use when vision is not needed. |
 
 **Minimal config** (override-only, since auto-detection already covers this for MTP-capable GGUFs):
 
@@ -431,6 +441,23 @@ parameters:
 options:
   - spec_type:draft-mtp
   - spec_n_max:3
+```
+
+**With vision enabled:**
+
+```yaml
+name: qwen3-vision-mtp
+backend: llama-cpp
+known_usecases:
+  - chat
+  - vision
+parameters:
+  model: qwen3-with-mtp.gguf
+mmproj: mmproj-qwen3.gguf
+options:
+  - spec_type:draft-mtp
+  - spec_n_max:3
+  - spec_p_min:0.75
 ```
 
 **With a separate MTP head file:**
@@ -647,6 +674,7 @@ Templates use Go templates with [Sprig functions](http://masterminds.github.io/s
 | `template.multimodal` | string | Template for multimodal interactions |
 | `template.reply_prefix` | string | Prefix to add to model replies |
 | `template.use_tokenizer_template` | bool | Use tokenizer's built-in template (vLLM/transformers) |
+| `template.system_messages_after_first` | string | What to do with `system`-role messages that appear after the leading system block: `merge` folds them into the first system message, `user` forwards them as user-role turns at their position. Unset keeps them as-is. Needed for tokenizer templates that reject late system turns (e.g. Qwen3.8) while agent frameworks append instructions mid-conversation. |
 | `template.join_chat_messages_by_character` | string | Character to join chat messages (default: `\n`) |
 
 ### Template Variables
@@ -712,7 +740,7 @@ For image generation models using the `diffusers` backend:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `diffusers.cuda` | bool | Enable CUDA for diffusers |
+| `diffusers.cuda` | bool | Force CUDA. By default the backend auto-detects and uses CUDA when a compatible GPU is present (ROCm builds included). Pin the CPU with `options: ["device:cpu"]` |
 | `diffusers.pipeline_type` | string | Pipeline type (e.g., `stable-diffusion`, `stable-diffusion-xl`) |
 | `diffusers.scheduler_type` | string | Scheduler type (e.g., `euler`, `ddpm`) |
 | `diffusers.enable_parameters` | string | Comma-separated parameters to enable |

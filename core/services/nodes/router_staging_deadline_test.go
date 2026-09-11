@@ -107,8 +107,10 @@ var _ = Describe("cold-load staging deadline", func() {
 		modelFile := filepath.Join(modelDir, "big.gguf")
 		Expect(os.WriteFile(modelFile, []byte("weights"), 0o644)).To(Succeed())
 		_, err := router.Route(context.Background(), "longcat-video-avatar-1.5",
-			filepath.Join("models", "big.gguf"), "llama-cpp",
+			filepath.Join("models", "big.gguf"), "llama-cpp", "",
+
 			&pb.ModelOptions{Model: "big.gguf", ModelFile: modelFile}, false)
+
 		return err
 	}
 

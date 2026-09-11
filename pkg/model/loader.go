@@ -59,7 +59,7 @@ type RemoteModelPresenceChecker interface {
 // instead of starting a local process. When set on the ModelLoader,
 // grpcModel() will delegate to this function before attempting local loading.
 type ModelRouter func(ctx context.Context, backend, modelID, modelName, modelFile string,
-	opts *pb.ModelOptions, parallel bool) (*Model, error)
+	configRevision string, opts *pb.ModelOptions, parallel bool) (*Model, error)
 
 // BackendLoadEvent describes one actual backend load attempt: a backend
 // process spawn (or remote-address attach) followed by its LoadModel RPC.
@@ -106,6 +106,10 @@ type ModelLoader struct {
 	// the exit code can't, since a child killed by our own SIGTERM/SIGKILL
 	// reports -1, indistinguishable from a signal-induced crash.
 	stoppingProcs sync.Map
+	// processRuntimes keeps the owned state/scratch directory alive until the
+	// loader has consumed any exit diagnostics. The exit watcher removes the
+	// potentially large scratch contents immediately.
+	processRuntimes sync.Map
 	// loadFailures records, per modelID, the cooldown window applied after a
 	// failed load so that a client repeatedly polling a broken model does not
 	// spawn (and leak) a fresh backend process on every request. Guarded by mu.

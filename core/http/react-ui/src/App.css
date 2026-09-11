@@ -2685,6 +2685,138 @@ select.input {
   font-size: 0.875rem;
 }
 
+/* Scheduling */
+.scheduling-form {
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.scheduling-model-locked {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+
+/* Key-value chip builder (node selectors, node labels) */
+.kvchips__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: var(--spacing-xs);
+}
+
+.kvchips__chip {
+  align-items: center;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  gap: 4px;
+  padding: 2px 8px;
+}
+
+.kvchips__chip-remove {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.625rem;
+  padding: 0;
+}
+
+.kvchips__row {
+  align-items: stretch;
+  display: flex;
+  gap: var(--spacing-xs);
+  position: relative;
+}
+
+.kvchips__add {
+  min-height: 36px;
+}
+
+/* Anchored to the input row so the list covers what follows the field rather
+   than pushing the rest of the form down as the user types. */
+.kvchips__suggestions {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  left: 0;
+  list-style: none;
+  margin: 4px 0 0;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 20;
+}
+
+.kvchips__suggestion {
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  text-align: left;
+  width: 100%;
+}
+
+.kvchips__suggestion:hover,
+.kvchips__suggestion--active {
+  background: var(--color-bg-tertiary);
+}
+
+.scheduling-rule-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  justify-content: flex-end;
+}
+
+/* Second line of a rule's Model cell: the model an alias-keyed rule currently
+   governs. The cell itself is bold, so the weight is reset here rather than
+   inherited. */
+.scheduling-rule-target {
+  font-weight: 400;
+}
+
+.scheduling-rule-target--broken {
+  font-weight: 400;
+  color: var(--color-warning);
+}
+
+/* Status pill for a rule another rule already governs, so it has no effect.
+   Mirrors the unsatisfiable pill's shape. */
+.scheduling-rule-shadowed {
+  display: inline-block;
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+}
+
+@media (max-width: 640px) {
+  .scheduling-rule-actions {
+    width: 100%;
+  }
+
+  .scheduling-rule-actions .btn {
+    flex: 1;
+    min-height: 36px;
+  }
+}
+
 .table th {
   text-align: left;
   padding: var(--spacing-sm) var(--spacing-md);

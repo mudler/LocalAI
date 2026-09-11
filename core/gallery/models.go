@@ -622,35 +622,51 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		lconfig.ApplyInferenceDefaults(&modelConfig, name, modelConfig.Model)
 
 		// Merge inference defaults into configMap so they are persisted without losing unknown fields.
-		if modelConfig.Temperature != nil {
-			if _, exists := configMap["temperature"]; !exists {
-				configMap["temperature"] = *modelConfig.Temperature
+		// They belong under "parameters": ModelConfig embeds PredictionOptions with
+		// that yaml key, so a top level "temperature" parses without error and is
+		// then ignored for the life of the model.
+		params, mergeable := configMap["parameters"].(map[string]any)
+		if configMap["parameters"] == nil {
+			params, mergeable = map[string]any{}, true
+		}
+		if mergeable {
+			// An entry that sets one of these keeps its own value. ApplyInferenceDefaults
+			// already skipped those fields; this keeps the write side symmetric.
+			setDefault := func(key string, value any) {
+				if _, exists := params[key]; !exists {
+					params[key] = value
+				}
+			}
+			if modelConfig.Temperature != nil {
+				setDefault("temperature", *modelConfig.Temperature)
+			}
+			if modelConfig.TopP != nil {
+				setDefault("top_p", *modelConfig.TopP)
+			}
+			if modelConfig.TopK != nil {
+				setDefault("top_k", *modelConfig.TopK)
+			}
+			if modelConfig.MinP != nil {
+				setDefault("min_p", *modelConfig.MinP)
+			}
+			if modelConfig.RepeatPenalty != 0 {
+				setDefault("repeat_penalty", modelConfig.RepeatPenalty)
+			}
+			if modelConfig.PresencePenalty != 0 {
+				setDefault("presence_penalty", modelConfig.PresencePenalty)
+			}
+			if len(params) > 0 {
+				configMap["parameters"] = params
 			}
 		}
-		if modelConfig.TopP != nil {
-			if _, exists := configMap["top_p"]; !exists {
-				configMap["top_p"] = *modelConfig.TopP
-			}
-		}
-		if modelConfig.TopK != nil {
-			if _, exists := configMap["top_k"]; !exists {
-				configMap["top_k"] = *modelConfig.TopK
-			}
-		}
-		if modelConfig.MinP != nil {
-			if _, exists := configMap["min_p"]; !exists {
-				configMap["min_p"] = *modelConfig.MinP
-			}
-		}
-		if modelConfig.RepeatPenalty != 0 {
-			if _, exists := configMap["repeat_penalty"]; !exists {
-				configMap["repeat_penalty"] = modelConfig.RepeatPenalty
-			}
-		}
-		if modelConfig.PresencePenalty != 0 {
-			if _, exists := configMap["presence_penalty"]; !exists {
-				configMap["presence_penalty"] = modelConfig.PresencePenalty
-			}
+
+		// The marshal above predates this merge, and the only other re-marshal is
+		// behind the artifact binding below, which an entry carrying files: never
+		// reaches. Without this the defaults are computed and then dropped on the
+		// way to disk.
+		updatedConfigYAML, err = yaml.Marshal(configMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal config with inference defaults: %v", err)
 		}
 
 		if valid, err := modelConfig.Validate(); !valid {
@@ -937,4 +953,74 @@ func SafetyScanGalleryModel(galleryModel *GalleryModel) error {
 		}
 	}
 	return nil
+}
+
+// ClusterResolveEnv describes a CLUSTER to variant selection, where
+// HostResolveEnv describes one machine.
+//
+// It exists because a distributed controller is the wrong machine to ask. The
+// controller is typically a GPU-less pod while every model actually runs on a
+// worker, so a picker sized against it reports that a fleet of A100s can only
+// run the smallest CPU build, and auto-selection then installs exactly that.
+//
+// availableMemory is the largest single healthy node's budget, and capabilities
+// are the capability strings present in the cluster. Either may be empty: a
+// zero memory reading keeps the host's own figure and an empty capability list
+// keeps the host's own hardware verdict, so every degradation path lands back
+// on the single-node behavior rather than on a cluster described as having
+// nothing.
+func ClusterResolveEnv(ctx context.Context, systemState *system.SystemState, availableMemory uint64, capabilities []string) ResolveEnv {
+	env := HostResolveEnv(ctx, systemState)
+
+	if availableMemory > 0 {
+		env.AvailableMemory = availableMemory
+	}
+	if len(capabilities) == 0 {
+		return env
+	}
+
+	// One state pinned per capability, mirroring AvailableBackendsForCapabilities:
+	// the controller's own detection must not leak into a worker's verdict, and
+	// a forced capability on the controller image must not either.
+	nodeStates := make([]*system.SystemState, 0, len(capabilities))
+	for _, capability := range capabilities {
+		nodeStates = append(nodeStates, system.NewCapabilityState(capability,
+			system.WithBackendPath(systemState.Backend.BackendsPath)))
+	}
+
+	hostCompatible := env.BackendCompatible
+	// A union, because a variant only has to run SOMEWHERE. The controller
+	// stays in the union so a cluster whose workers all went offline still
+	// describes itself the way it did before distributed mode existed.
+	env.BackendCompatible = func(backend string) bool {
+		if hostCompatible != nil && hostCompatible(backend) {
+			return true
+		}
+		for _, nodeState := range nodeStates {
+			if nodeState.IsBackendCompatible(backend, "") {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Ranking follows the same hardware as the filter. Left on the controller's
+	// tokens, an NVIDIA fleet would be offered the GGUF build over the vLLM one
+	// even though nothing filtered the vLLM build out.
+	seen := make(map[string]struct{})
+	preference := make([]string, 0, len(nodeStates))
+	for _, nodeState := range nodeStates {
+		for _, token := range nodeState.EnginePreferenceTokens() {
+			if _, dup := seen[token]; dup {
+				continue
+			}
+			seen[token] = struct{}{}
+			preference = append(preference, token)
+		}
+	}
+	if len(preference) > 0 {
+		env.EnginePreference = preference
+	}
+
+	return env
 }

@@ -19,7 +19,6 @@ import base64
 import io
 import json
 import gc
-import tempfile
 
 from PIL import Image
 import torch
@@ -34,6 +33,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
 from grpc_auth import get_auth_interceptors
 from model_utils import resolve_model_reference
+from temp_utils import materialize_base64
 from vllm_utils import parse_options, messages_to_dicts, setup_parsers
 
 
@@ -118,13 +118,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return video_to_ndarrays(video_path, num_frames=16)
         # Try base64 decode
         try:
-            timestamp = str(int(time.time() * 1000))
-            p = os.path.join(tempfile.gettempdir(), f"vl-{timestamp}.data")
-            with open(p, "wb") as f:
-                f.write(base64.b64decode(video_path))
-            video = VideoAsset(name=p).np_ndarrays
-            os.remove(p)
-            return video
+            with materialize_base64(video_path, suffix=".data") as path:
+                return VideoAsset(name=path).np_ndarrays
         except:
             return None
 
@@ -136,15 +131,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             return (audio_signal.astype(np.float32), sr)
         # Try base64 decode
         try:
-            audio_data = base64.b64decode(audio_path)
-            # Save to temp file and load
-            timestamp = str(int(time.time() * 1000))
-            p = os.path.join(tempfile.gettempdir(), f"audio-{timestamp}.wav")
-            with open(p, "wb") as f:
-                f.write(audio_data)
-            audio_signal, sr = librosa.load(p, sr=16000)
-            os.remove(p)
-            return (audio_signal.astype(np.float32), sr)
+            with materialize_base64(audio_path, suffix=".wav") as path:
+                audio_signal, sr = librosa.load(path, sr=16000)
+                return (audio_signal.astype(np.float32), sr)
         except:
             return None
 

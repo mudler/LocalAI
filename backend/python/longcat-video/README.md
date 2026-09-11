@@ -11,7 +11,7 @@ RPC. It supports:
   systems such as NVIDIA DGX Spark.
 
 Install the `longcat-video` or `longcat-video-avatar-1.5` recipe from the
-LocalAI Model Gallery. See the [LongCat user guide](../../../docs/content/features/longcat-video.md)
+LocalAI Model Gallery. LongCat video backend
 for Studio and API examples, hardware requirements, and manual configuration.
 
 The upstream source is pinned in `Makefile` and patched at build time. The

@@ -103,8 +103,7 @@ Before diving into advanced topics, ensure you have:
 ## Related Sections
 
 - 📚 [Reference](../reference/) - API documentation and command reference
-- 🔌 [Installation](../installation/) - Deployment options and requirements
-- ⭐ [Features](../features/) - Overview of LocalAI capabilities
+- - ⭐ [Features](../features/) - Overview of LocalAI capabilities
 
 ---
 

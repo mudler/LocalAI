@@ -267,6 +267,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	// Initialize distributed mode services (NATS, object storage, node registry)
+	// revisionStore is built inside the distributed block below but used after
+	// the model configs are loaded, so it is declared out here.
+	var revisionStore modeladmin.RevisionStore
+
 	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader())
 	if err != nil {
 		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
@@ -298,6 +302,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		if distSvc.Reconciler != nil {
 			go distSvc.Reconciler.Run(options.Context)
 		}
+		go distSvc.ModelCleanup.Run(options.Context)
 		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
 		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
 		// The dispatcher still subscribes to jobs.new for persistence (result/progress subs)
@@ -370,13 +375,18 @@ func New(opts ...config.AppOption) (*Application, error) {
 			gs := application.galleryService
 			sys := options.SystemState
 			cfgLoaderOpts := options.ToConfigLoaderOptions()
+			modelRevisionLifecycle := modeladmin.NewDistributedModelRevisionLifecycle(distSvc.Registry, distSvc.ModelCleanup)
+			gs.SetModelRevisionLifecycle(modelRevisionLifecycle)
+			// Captured here, used after the model configs are loaded below: the
+			// resync reads the loader, which is still empty at this point.
+			revisionStore = modeladmin.NewRevisionStore(distSvc.Registry, modelRevisionLifecycle)
 			gs.OnModelsChanged = func(evt messaging.CacheInvalidateEvent) {
 				// ApplyRemoteChange honors the op: a "delete" prunes the element
 				// (a reload-from-path is additive and cannot drop it), anything
 				// else reloads from disk; a named element's running instance is
 				// shut down so the new config takes effect. The originating
 				// replica reloads inline and never depends on this path.
-				if err := modeladmin.ApplyRemoteChange(application.ModelConfigLoader(), application.modelLoader, sys.Model.ModelsPath, evt, cfgLoaderOpts...); err != nil {
+				if err := modeladmin.ApplyRemoteChange(options.Context, application.ModelConfigLoader(), sys.Model.ModelsPath, evt, modelRevisionLifecycle, cfgLoaderOpts...); err != nil {
 					xlog.Warn("Failed to apply peer model config change", "error", err)
 				}
 			}
@@ -416,6 +426,18 @@ func New(opts ...config.AppOption) (*Application, error) {
 		xlog.Error("error loading config files", "error", err)
 	}
 
+	// Bring the controller's stored revisions back in line with the
+	// configuration just loaded. An inference request may only establish a
+	// revision, never replace one, so a model whose stored value has drifted
+	// stays unroutable until something republishes it. This has to run after
+	// the load above: the loader is empty until then, and a resync against an
+	// empty loader silently reconciles nothing.
+	if revisionStore != nil {
+		if err := modeladmin.ResyncModelConfigRevisions(options.Context, application.ModelConfigLoader(), options, revisionStore); err != nil {
+			xlog.Warn("Failed to resync model config revisions", "error", err)
+		}
+	}
+
 	if err := gallery.RegisterBackends(options.SystemState, application.ModelLoader()); err != nil {
 		xlog.Error("error registering external backends", "error", err)
 	}
@@ -443,13 +465,20 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Wire gallery generation counter into VRAM caches so they invalidate
 	// when gallery data refreshes instead of using a fixed TTL.
 	vram.SetGalleryGenerationFunc(gallery.GalleryGeneration)
+	if options.AutoloadGalleries {
+		if options.VRAMPersistentCache {
+			// Remote GGUF probes can transfer substantial metadata. Keep successful
+			// results across restarts so the startup warmer does not repeat that work.
+			vram.ConfigurePersistentCache(filepath.Join(options.SystemState.Model.ModelsPath, "..", "cache", "vram"), 24*time.Hour)
+		}
 
-	// Fill those caches ahead of the first visitor. An estimate for an entry
-	// nobody has asked about yet costs a remote probe of its weight files, and
-	// the model gallery asks for one per row, so without this the first page
-	// spends seconds filling in its own sizes while somebody watches it.
-	// Non-blocking, and bounded: see DefaultEstimateWarmConfig.
-	gallery.WarmEstimateCache(options.Context, options.Galleries, options.SystemState, gallery.EstimateWarmConfigFromEnv())
+		// Fill those caches ahead of the first visitor. An estimate for an entry
+		// nobody has asked about yet costs a remote probe of its weight files, and
+		// the model gallery asks for one per row, so without this the first page
+		// spends seconds filling in its own sizes while somebody watches it.
+		// Non-blocking, and bounded: see DefaultEstimateWarmConfig.
+		gallery.WarmEstimateCache(options.Context, options.Galleries, options.SystemState, gallery.EstimateWarmConfigFromEnv())
+	}
 
 	if options.ConfigFile != "" {
 		if err := application.ModelConfigLoader().LoadMultipleModelConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {

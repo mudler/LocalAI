@@ -76,6 +76,8 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
 | `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
+| `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
+| `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
 
 ### The model load deadline scales with the checkpoint
@@ -295,6 +297,8 @@ local-ai worker \
 | `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
 | `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
 | `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |
+| `--ephemeral-staging-byte-limit` | `LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT` | `0` (automatic) | Maximum bytes held by request-input staging across the worker's HTTP staging directory and S3 cache. Automatic mode uses the smaller of 10 GiB and 10% of filesystem capacity. |
+| `--ephemeral-staging-min-free-bytes` | `LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES` | `0` (automatic) | Free filesystem space preserved while staging request inputs. Automatic mode uses the larger of 1 GiB and 5% of filesystem capacity. |
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(required)* | Frontend URL for self-registration |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
@@ -318,6 +322,12 @@ local-ai worker \
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /notice %}}
 
+### Ephemeral request-input storage
+
+Workers reserve local capacity before accepting per-request audio, image, and other ephemeral inputs. The limit covers both direct HTTP staging and the worker's S3 download cache. A request is rejected before inference when accepting its input would exceed the byte limit or the configured free-space headroom. One request-scoped cleanup operation releases all exact input keys and their reservations after inference, while a one-hour recovery sweep removes abandoned files after crashes. The sweep runs at startup and every 15 minutes, preserves active requests, and considers the newest file in each request directory.
+
+Set both capacity variables to positive byte counts when a worker needs fixed limits. Leaving either value at zero selects its filesystem-based default. These settings apply only below the two `ephemeral` roots; model, data, and configuration files are excluded.
+
 ### Worker Health Probes
 
 The worker's HTTP server (base port - 1, default 50050) exposes two unauthenticated probes:
@@ -325,9 +335,13 @@ The worker's HTTP server (base port - 1, default 50050) exposes two unauthentica
 | Endpoint | Meaning |
 |----------|---------|
 | `/healthz` | **Liveness.** 200 whenever the process is up and serving. Deliberately independent of readiness, so a brief NATS outage does not trigger a restart storm across every worker. |
-| `/readyz` | **Readiness.** 200 only when the worker is registered *and* its NATS connection is live; 503 otherwise. |
+| `/readyz` | **Readiness.** 200 only when the worker is registered, its NATS connection is live, *and* every backend process it is currently serving answers a short TCP dial on its gRPC address; 503 otherwise. A worker holding no backends is ready, because idle is a healthy state, and so is one whose backends are still starting up. |
 
 `/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS — a worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
+
+The same applies to the data path. A worker can hold a live NATS link while the backend processes it believes it is running have died, so it reports healthy while every load routed to it fails. `/readyz` therefore also dials the recorded gRPC address of each backend the worker is serving, and a worker whose backend port refuses connections drops out of rotation instead of absorbing work it cannot serve.
+
+Only backends in the middle of their lifecycle are dialled. A backend that is still starting is skipped until its gRPC server has answered a health check, which can take 10 to 15 seconds on a slow node, and a backend that is stopping is skipped from the moment shutdown begins. Neither a cold start nor an ordinary shutdown makes a worker report 503, so a Kubernetes `readinessProbe` at the usual 10s period does not pull a worker out of rotation every time it loads a model.
 
 The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically; no `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only to pin an explicit URL.
 
@@ -486,6 +500,74 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 
 The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
 
+### Model sizing in the WebUI
+
+The model gallery answers "will this model run here" against the cluster, not
+against the frontend. A distributed frontend is usually a GPU-less pod, so
+sizing models against its own memory would report that a fleet of GPU workers
+can only run the smallest CPU build.
+
+The budget is the **largest single healthy backend node**, not the sum of the
+fleet: a model loads into one node, so four 16GB workers do not add up to a home
+for a 40GB model. A node's operator-set VRAM budget caps its contribution, since
+the scheduler would refuse a load above that ceiling anyway, and a GPU node wins
+over a CPU node holding more system RAM. The gallery names the node its verdict
+belongs to ("Fits on dgx-01").
+
+`GET /api/resources` and `GET /api/models` carry this as an additional `cluster`
+object; their existing `aggregate` and `ram*` fields keep reporting the
+frontend's own hardware, which is what the resource monitor shows. The object is
+absent in single-node mode, and also whenever the registry cannot be read, in
+which case every sizing surface falls back to the local host:
+
+```json
+{
+  "cluster": {
+    "enabled": true,
+    "node_id": "a1b2c3",
+    "node_name": "dgx-01",
+    "total_memory": 85899345920,
+    "is_gpu": true,
+    "node_count": 4
+  }
+}
+```
+
+Variant selection (`GET /api/models/variants/:id`) uses the same reading, and
+judges backend compatibility against the union of the capabilities present in
+the cluster, so a CUDA-only build is offered when any worker can run it.
+
+### Model configuration revisions
+
+Distributed mode assigns a `config_revision` to each validated model configuration. It hashes the persisted semantic configuration, including fields such as `context_size` and parallel settings. YAML formatting, comments, and map order do not change it.
+
+The first request for a model establishes its current revision and replay information. The replica reconciler uses only replay information that matches the current revision. This lets `min_replicas` recover after an ordinary worker failure without restoring an old configuration.
+
+When you save a valid model edit, LocalAI makes replicas from the old revision ineligible immediately. New requests cannot route to those replicas. This rule applies to raw YAML edits, structured patches, renames, disabled models, and changes from another frontend.
+
+The edit response includes these fields:
+
+- `config_revision` identifies the saved semantic configuration.
+- `pending_cleanup` counts old replicas that still need cleanup when the response returns.
+
+LocalAI sends an acknowledged stop request for each exact backend process. If a worker or NATS is unreachable, LocalAI keeps the replica in the `unloading` state and retries with durable backoff. The saved edit remains successful while cleanup is pending.
+
+Workers must support the exact model-stop protocol. Upgrade all workers before you rely on revision cleanup. An older worker cannot acknowledge the request, so its stale replica remains `unloading` until cleanup succeeds or the worker re-registers.
+
+Worker re-registration removes stale live-replica rows, but it preserves the current model revision and matching replay information. A temporary worker outage therefore does not make an old revision routable. The reconciler can restore the current revision after the worker becomes healthy.
+
+The responses from `GET /api/node/:id/models` and `GET /api/nodes/:id/models` include these replica fields:
+
+| Field | Meaning |
+|-------|---------|
+| `config_revision` | Hash of the persisted semantic model configuration that created the replica. Routable replicas match the current revision. |
+| `effective_options_hash` | Hash of the final node-specific load options after defaults and file staging have been applied. Different hashes can be valid on heterogeneous workers when `config_revision` matches. |
+| `state` | Replica lifecycle state, such as `staging`, `loading`, `loaded`, or `unloading`. Only eligible `loaded` replicas receive requests. |
+| `cleanup_error` | Last exact-stop error. This field appears while cleanup is pending. |
+| `cleanup_next_retry_at` | Time of the next durable cleanup attempt. This field appears after a failed attempt. |
+
+`model.unload` releases model memory inside a running backend. It does not replace the exact process stop that configuration cleanup requires. The `backend.stop` operation remains an administrative backend operation.
+
 ### Per-node VRAM budget
 
 Each worker advertises its detected VRAM, and the SmartRouter uses that number when picking a node with enough free memory. You can cap the VRAM a node offers for placement so it never gets scheduled beyond a chosen limit, leaving headroom for other workloads on that machine.
@@ -573,6 +655,105 @@ To skip manual approval and let nodes join immediately, set `--auto-approve-node
 | `unhealthy` | Node has missed heartbeats beyond the threshold (detected by the HealthMonitor) |
 | `offline` | Node is temporarily offline (graceful shutdown or stale heartbeat). The node row is preserved so re-registration restores the previous approval status without requiring re-approval |
 | `draining` | Node is shutting down gracefully - no new requests are routed to it, existing in-flight requests are allowed to complete |
+
+### Heartbeat writes and stale-node detection
+
+Workers beat every `--heartbeat-interval` (default `10s`). Writing each beat straight
+to PostgreSQL means roughly 52,000 `UPDATE`s a day against a table that holds one row
+per node. With autovacuum healthy that is merely wasteful. With autovacuum blocked --
+by a long-lived idle transaction, for example -- the dead tuples accumulate, and a
+six-row table has been observed growing to 460 MB, at which point scanning it cost
+867 ms and the queries that place models began timing out.
+
+So the frontend **checkpoints** the write. A beat that carries nothing but a fresher
+timestamp is held in memory until `--node-heartbeat-checkpoint` (default `60s`) has
+elapsed since that node's last durable write. These beats still reach the database
+without waiting:
+
+- the node's first beat after the frontend starts, or after it was seen offline
+- any beat from a node that is not active (`pending`, `offline`), because such a node
+  recovers only when the health monitor sees a fresh timestamp
+- a GPU vendor, total VRAM or total disk that **differs** from the stored value, since
+  those are hardware facts and a change to one is a real event
+- a free VRAM, free RAM or free disk reading that has moved more than 256 MiB, because
+  the scheduler places against those figures
+
+Every figure is compared against the value **last written**, not against the previous
+beat. A worker reports its disk capacity on every single beat, so testing whether a
+field is merely *present* would make every real beat look like a change and suppress
+nothing. Measuring from the written value also means a reading that walks away in
+sub-256 MiB steps still writes once the total distance crosses the threshold, rather
+than drifting arbitrarily far from the figure the scheduler is reading.
+
+The consequence is that `last_heartbeat` is up to one checkpoint interval behind
+reality **by design**. The stale-node threshold therefore defaults to **5 minutes**
+(it was 60 seconds before checkpointing existed): the health monitor waits that long
+without a fresh timestamp before it marks a node `offline`. It is configurable with
+`--stale-node-threshold` / `LOCALAI_STALE_NODE_THRESHOLD`, and an operator who widens
+`--node-heartbeat-checkpoint` must widen this to match, or the beats that checkpointing
+suppresses will read as a dead node.
+
+{{% notice note %}}
+Marking a node `offline` from a stale heartbeat now takes up to five minutes. This is
+the slowest of the three ways a dead worker is noticed, not the only one. The per-model
+gRPC health check still probes each loaded model on the health-monitor interval
+(default `15s`) and removes replicas whose backend has died, and a request routed to a
+gone worker still fails and is retried elsewhere at request time. Neither of those
+paths reads `last_heartbeat`, so neither is slowed by this change.
+{{% /notice %}}
+
+To go back to a durable write per beat -- on a database with plenty of write headroom,
+or while debugging heartbeat delivery -- set `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` to a
+value below the worker's heartbeat interval, for example `1s`.
+
+### Operations: do not share a database with the vector store
+
+Give the control plane a PostgreSQL **database of its own**. Sharing one with the
+agent vector store, or with anything else that holds long transactions, is the fastest
+way to reproduce the 460 MB node registry described above.
+
+PostgreSQL computes the removable-tuple cutoff **per database**, not per table. One
+transaction left open anywhere in the database -- a stalled embedding batch, an idle
+`BEGIN` from a connection pool, an abandoned `psql` session -- pins that cutoff for
+**every** table in it. Autovacuum still runs, finds nothing it is allowed to reclaim,
+and moves on. The node registry is six rows rewritten tens of thousands of times a
+day, so it is the table that pays: it bloats into hundreds of megabytes, a sequential
+scan starts costing the best part of a second, and model placement begins timing out
+while the vector store that caused it looks perfectly healthy.
+
+Concretely, these two must point at different databases:
+
+| Variable | What it holds |
+|----------|---------------|
+| `LOCALAI_AUTH_DATABASE_URL` | Auth **and the distributed control plane** - nodes, replicas, load jobs |
+| `LOCALAI_AGENT_POOL_DATABASE_URL` | Agent collections and their embeddings |
+
+Different databases on the same PostgreSQL server is enough; they do not need separate
+servers. Different *schemas* in one database is **not** enough, because the cutoff is
+per database.
+
+To detect it before placement starts failing, watch the
+`localai_control_plane_oldest_xmin_age` gauge, exported on the frontend's OpenTelemetry
+meter. It reports how many transactions have elapsed
+since the oldest snapshot still held open against the control plane's database. Under
+normal load it stays small and flat. A line that climbs without coming back down means
+something is holding a transaction open and autovacuum has stopped reclaiming the node
+registry; find it with:
+
+```sql
+SELECT pid, state, age(backend_xmin) AS xmin_age, query
+  FROM pg_stat_activity
+ WHERE backend_xmin IS NOT NULL
+ ORDER BY age(backend_xmin) DESC
+ LIMIT 5;
+```
+
+Grant `pg_read_all_stats` to the role LocalAI connects as (`GRANT pg_read_all_stats TO
+localai;`), or make it a superuser. PostgreSQL blanks `backend_xmin` and `xact_start` in
+`pg_stat_activity` for sessions owned by **other** roles, so without that grant both the
+gauge and the query above see only LocalAI's own sessions -- and the transaction that
+wedges the horizon is typically the co-located vector store connecting as a different
+role, which is exactly the case they exist to catch.
 
 ## Agent Workers
 
@@ -805,6 +986,12 @@ curl -X POST http://frontend:8080/api/nodes/scheduling \
 
 Without a node selector, models can schedule on any healthy node (default behavior).
 
+In the WebUI, the node selector field completes what you type against the labels
+your cluster actually reports: start typing a key and the matching label keys
+appear inline, then the value field offers only the values that key takes. A key
+no node reports yet is still accepted as typed, so you can write a rule before
+labelling the nodes for it.
+
 ### Replica Auto-Scaling
 
 Control the number of model replicas across the cluster:
@@ -839,6 +1026,40 @@ All fields are optional and composable:
 - Node selector only: pin model to matching nodes, single replica
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
+
+### Scheduling a model alias
+
+`model_name` accepts a [model alias](/features/model-aliases/) as well as a
+model. A rule keyed by an alias governs whatever model that alias currently
+points at, and keeps governing it after you repoint the alias:
+
+```bash
+# "production" is an alias for llama3
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "production", "node_selector": {"tier": "gpu"}, "min_replicas": 2}'
+
+# Repoint the alias at a new model: the rule follows, llama4 now runs
+# two replicas on the GPU tier and llama3 falls back to on-demand placement.
+```
+
+This makes an alias a stable deployment slot: the placement policy belongs to
+the slot, and the model filling it can change without rewriting the rule. The
+WebUI lists aliases in the model picker on the **Scheduling** page, tagged with
+the model each one resolves to.
+
+Two constraints follow from replicas being shared. A single load of `llama3`
+serves both `production` and any request that names `llama3` directly, so only
+one rule can decide where it runs: a rule whose target is already governed by
+another rule is rejected with `409 Conflict` naming the rule that has it. And a
+rule keyed by an alias that resolves to nothing (its target was deleted, or it
+points at another alias) is rejected, since it would govern nothing loadable.
+
+A rule can still end up inert if the pair is created some other way, for example
+by a declarative seed or by repointing an alias onto a model that already has a
+rule. The rule that governs is the one keyed by the model's own name, or failing
+that the oldest one; the rest are listed as **Shadowed** in the WebUI and carry
+`"shadowed": true` in `GET /api/nodes/scheduling`.
 
 ### Declarative per-model scheduling (unattended installs)
 
@@ -977,8 +1198,51 @@ Notes:
 - Verify `--heartbeat-interval` is not set too high
 - Offline nodes automatically restore to healthy when they re-register (no re-approval needed)
 
+**InsightFace reports a missing MiniFASNet file after staging:**
+- Gallery models such as `insightface-buffalo-m` use a virtual primary name and load their files through options. The frontend derives the worker's model directory from successfully staged companion files or directories, so relative options resolve inside the model's staging directory.
+- If logs show matching hashes for the staged files but InsightFace still reports a bare filename such as `MiniFASNetV2.onnx` as missing, upgrade the frontend to include this path-resolution fix. Re-uploading the same files does not correct the directory passed to the backend.
+
 **Backend not installing:**
 - Check the worker logs for `backend.install` events
+
+**Model staging repeatedly fails with HTTP 416 after all bytes have arrived:**
+- An interrupted upload can leave a full-size file marked as unfinished (`.sha256.target`). On retry, the worker verifies the file's SHA-256 and finalizes it if it matches, without rewriting the model. Corrupt content fails integrity validation and is removed.
+- Upgrade the affected worker to get this recovery behavior. Older workers can repeatedly reject retries from byte zero with `Content-Range start 0 does not match current file size`. File size alone is not proof that an upload is valid.
+
+**Requests still report an old context size or another old load option:**
+- Query `/api/nodes/:id/models` for every worker that hosts the model.
+- Confirm that every routable replica has `state: loaded` and the same current `config_revision`.
+- Treat a different `effective_options_hash` as diagnostic information. Node-specific defaults can cause valid differences.
+- Check `cleanup_error` and `cleanup_next_retry_at` on replicas in the `unloading` state.
+- Check connectivity to the worker and NATS when cleanup reports a timeout or no responder.
+- Upgrade the worker when it does not support the exact model-stop request.
+- Stop and restart the stale backend only as an operational recovery action. LocalAI keeps it non-routable while durable cleanup is pending.
+
+**A model cannot be scheduled on a node that looks free (`no replica slot ... all models busy, cannot evict`):**
+- A replica row in `staging` or `loading` holds its slot: slot allocation counts every state except `unloading`. If a worker drops out mid-transfer, that row never reaches `loaded`, and eviction only ever considers `loaded` replicas, so on a node with one replica slot per model the model became unschedulable there.
+- The reconciler now reclaims a replica row stuck before serving when no load job is still driving it, and the freed slot is immediately reusable.
+- Liveness is decided by the load job's progress heartbeat, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer that is still progressing is never reclaimed however long it takes.
+- `Reconciler: reclaimed a replica slot held by a load nobody is driving` names each row reclaimed this way.
+
+**A request fails with `nats: no responders available for request`:**
+- The chosen worker was not subscribed on the bus when the frontend tried to install the backend on it. A node's status comes from its HTTP heartbeat, which is a separate channel: a worker that stops stays `healthy` until that heartbeat ages out.
+- The scheduler now checks that a node still answers on the bus before it commits to it, marks one that does not as unhealthy, and picks another. A request should therefore see this only when no reachable node is left.
+- Only a no-responders answer counts as absent. A worker that answers slowly stays eligible, because excluding it would cost capacity that is really there.
+- Check the worker process is running and its NATS connection is up. `Scheduled node is not answering on the bus` in the frontend log names each node demoted this way.
+
+**A worker fills its own disk over time:**
+- A request that carries a file (an image, an audio clip, a video) stages that file below the worker's HTTP staging or S3 cache `ephemeral/` directory. The frontend releases each request-owned input when inference finishes, and the worker reserves capacity before accepting it.
+- A one-hour recovery sweep runs at startup and every 15 minutes to reclaim inputs left by interrupted requests. It preserves active reservations and uses the newest file timestamp in each request directory.
+- Releases before request-owned cleanup existed can leave a legacy backlog. Delete the affected `ephemeral/` directory once, as the user the worker runs as; capacity admission and recovery cleanup keep new staging bounded.
+- Staged **model** files are not touched by this. They live beside the ephemeral directory and are not per-request scratch.
+- A worker whose volume is genuinely full reports `creating backend process state directory under ...: no space left on device` when a backend starts.
+
+**Requests fail with `stale model config revision` although nobody edited the model:**
+- A model's stored revision must describe its persisted configuration. Releases before this fix also hashed the per-request prediction parameters, so the first request after a restart pinned the revision to its own `temperature`, `top_p`, `stop` and similar values. Every later request that sent different values was then rejected.
+- Upgrade the frontend replicas first. After the upgrade the revision is stamped when the configuration is loaded, so it no longer depends on the request body.
+- Each frontend now reconciles the stored revisions against the configuration on disk at startup, and republishes any that disagree, so a drifted revision heals on the next restart. Only models that actually drifted are republished, because republishing quarantines the replicas loaded under the old revision.
+- A model that has never been served has no stored revision and is left alone; its first request establishes one.
+- On a release without that reconciliation, clear the row once per affected model so the next request establishes the correct revision: `DELETE FROM model_config_states WHERE model_name = '<model>';` Saving any edit through the API or the WebUI has the same effect.
 
 **Port conflicts on workers:**
 - Each model gets its own gRPC process on an incrementing port (50051, 50052, ...)

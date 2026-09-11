@@ -74,8 +74,9 @@ var _ = Describe("Route cold-load jobs", func() {
 		first := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp",
+			_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp", "",
 				&pb.ModelOptions{Model: "models/big.gguf"}, false)
+
 			first <- err
 		}()
 
@@ -88,8 +89,9 @@ var _ = Describe("Route cold-load jobs", func() {
 		second := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp",
+			_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp", "",
 				&pb.ModelOptions{Model: "models/big.gguf"}, false)
+
 			second <- err
 		}()
 
@@ -128,8 +130,9 @@ var _ = Describe("Route cold-load jobs", func() {
 		first := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := router.Route(context.Background(), "doomed", "models/doomed.gguf", "llama-cpp",
+			_, err := router.Route(context.Background(), "doomed", "models/doomed.gguf", "llama-cpp", "",
 				&pb.ModelOptions{Model: "models/doomed.gguf"}, false)
+
 			first <- err
 		}()
 		Eventually(func() *ModelLoadJob {
@@ -140,8 +143,9 @@ var _ = Describe("Route cold-load jobs", func() {
 		second := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := router.Route(context.Background(), "doomed", "models/doomed.gguf", "llama-cpp",
+			_, err := router.Route(context.Background(), "doomed", "models/doomed.gguf", "llama-cpp", "",
 				&pb.ModelOptions{Model: "models/doomed.gguf"}, false)
+
 			second <- err
 		}()
 
@@ -165,8 +169,9 @@ var _ = Describe("Route cold-load jobs", func() {
 
 		go func() {
 			defer GinkgoRecover()
-			_, _ = router.Route(context.Background(), "detached", "models/detached.gguf", "llama-cpp",
+			_, _ = router.Route(context.Background(), "detached", "models/detached.gguf", "llama-cpp", "",
 				&pb.ModelOptions{Model: "models/detached.gguf"}, false)
+
 		}()
 		Eventually(func() *ModelLoadJob {
 			job, _ := registry.GetLoadJob(context.Background(), "detached")
@@ -177,8 +182,9 @@ var _ = Describe("Route cold-load jobs", func() {
 		waiter := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := router.Route(ctx, "detached", "models/detached.gguf", "llama-cpp",
+			_, err := router.Route(ctx, "detached", "models/detached.gguf", "llama-cpp", "",
 				&pb.ModelOptions{Model: "models/detached.gguf"}, false)
+
 			waiter <- err
 		}()
 		time.Sleep(100 * time.Millisecond)
@@ -207,8 +213,9 @@ var _ = Describe("Route cold-load jobs", func() {
 		})
 
 		start := time.Now()
-		_, err := router.Route(context.Background(), "slow-model", "models/slow.gguf", "llama-cpp",
+		_, err := router.Route(context.Background(), "slow-model", "models/slow.gguf", "llama-cpp", "",
 			&pb.ModelOptions{Model: "models/slow.gguf"}, false)
+
 		Expect(err).To(HaveOccurred())
 		Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
 
@@ -239,8 +246,9 @@ var _ = Describe("Route cold-load jobs", func() {
 		done := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := router.Route(context.Background(), "patient", "models/patient.gguf", "llama-cpp",
+			_, err := router.Route(context.Background(), "patient", "models/patient.gguf", "llama-cpp", "",
 				&pb.ModelOptions{Model: "models/patient.gguf"}, false)
+
 			done <- err
 		}()
 
@@ -259,8 +267,9 @@ var _ = Describe("Route cold-load jobs", func() {
 		router := newRouter()
 		go func() {
 			defer GinkgoRecover()
-			_, _ = router.Route(context.Background(), "beating", "models/beating.gguf", "llama-cpp",
+			_, _ = router.Route(context.Background(), "beating", "models/beating.gguf", "llama-cpp", "",
 				&pb.ModelOptions{Model: "models/beating.gguf"}, false)
+
 		}()
 
 		var first *ModelLoadJob

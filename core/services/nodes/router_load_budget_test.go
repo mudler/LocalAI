@@ -114,8 +114,9 @@ var _ = Describe("size-derived remote LoadModel budget", func() {
 	})
 
 	routeFile := func(router *SmartRouter, modelFile string) {
-		_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp",
+		_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp", "",
 			&pb.ModelOptions{Model: "models/big.gguf", ModelFile: modelFile}, false)
+
 		Expect(err).ToNot(HaveOccurred())
 	}
 

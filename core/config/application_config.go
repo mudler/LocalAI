@@ -125,6 +125,7 @@ type ApplicationConfig struct {
 	ExternalGRPCBackends map[string]string
 
 	AutoloadGalleries, AutoloadBackendGalleries bool
+	VRAMPersistentCache                         bool
 	AutoUpgradeBackends                         bool
 	PreferDevelopmentBackends                   bool
 
@@ -284,6 +285,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		// toggle can still turn it off (a persisted false wins - see
 		// loadRuntimeSettingsFromFile).
 		EnableBackendLogging:        true,
+		VRAMPersistentCache:         true,
 		ArtifactDownloadConcurrency: modelartifacts.DefaultDownloadConcurrency,
 		AgentJobRetentionDays:       30,               // Default: 30 days
 		LRUEvictionMaxRetries:       30,               // Default: 30 retries
@@ -594,6 +596,10 @@ var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 
 func WithAutoUpgradeBackends(v bool) AppOption {
 	return func(o *ApplicationConfig) { o.AutoUpgradeBackends = v }
+}
+
+func WithVRAMPersistentCache(v bool) AppOption {
+	return func(o *ApplicationConfig) { o.VRAMPersistentCache = v }
 }
 
 func WithRequireBackendIntegrity(v bool) AppOption {
@@ -1140,6 +1146,7 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 		LoadOptionF16(o.F16),
 		LoadOptionThreads(o.Threads),
 		ModelPath(o.SystemState.Model.ModelsPath),
+		LoadOptionGalleryFiles(o.Galleries...),
 	}
 }
 

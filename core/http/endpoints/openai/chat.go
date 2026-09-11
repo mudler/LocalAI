@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,16 +25,104 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// messageText returns the textual content of a message, preferring the
+// middleware-populated StringContent and falling back to a string Content.
+func messageText(m schema.Message) string {
+	if m.StringContent != "" {
+		return m.StringContent
+	}
+	if s, ok := m.Content.(string); ok {
+		return s
+	}
+	return ""
+}
+
 // hasSystemMessage reports whether the message slice already contains a
-// system-role message — used to avoid clobbering a caller-supplied system
-// prompt when the LocalAI Assistant modality is on.
+// non-empty system-role message — used to avoid clobbering a caller-supplied
+// system prompt when the LocalAI Assistant modality is on. Empty / whitespace
+// system turns (historically sent by the web Chat UI) are ignored so they do
+// not suppress the model config system_prompt.
 func hasSystemMessage(messages []schema.Message) bool {
 	for _, m := range messages {
-		if m.Role == "system" {
+		if m.Role == "system" && strings.TrimSpace(messageText(m)) != "" {
 			return true
 		}
 	}
 	return false
+}
+
+// stripEmptySystemMessages drops system-role messages whose content is empty
+// or whitespace-only. An explicit blank system turn would otherwise satisfy
+// tokenizer chat templates' `messages[0].role == "system"` check and suppress
+// both the model's configured system_prompt and any template default.
+func stripEmptySystemMessages(messages []schema.Message) []schema.Message {
+	out := messages[:0:0]
+	for _, m := range messages {
+		if m.Role == "system" && strings.TrimSpace(messageText(m)) == "" {
+			continue
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+// normalizeLateSystemMessages handles system-role messages that appear after the
+// leading system block, according to template.system_messages_after_first:
+// "merge" folds them into the first system message (created if absent), "user"
+// forwards them as user-role turns at their original position. Any other value
+// returns the messages unchanged. Needed for tokenizer templates that reject
+// late system turns (Qwen3.8: "System message must be at the beginning") while
+// agent frameworks append instructions mid-conversation.
+func normalizeLateSystemMessages(messages []schema.Message, mode string) []schema.Message {
+	if mode != "merge" && mode != "user" {
+		return messages
+	}
+	lead := 0
+	for lead < len(messages) && messages[lead].Role == "system" {
+		lead++
+	}
+	late := false
+	for _, m := range messages[lead:] {
+		if m.Role == "system" {
+			late = true
+			break
+		}
+	}
+	if !late {
+		return messages
+	}
+	out := make([]schema.Message, 0, len(messages)+1)
+	out = append(out, messages[:lead]...)
+	if mode == "merge" && lead == 0 {
+		out = append(out, schema.Message{Role: "system"})
+	}
+	for _, m := range messages[lead:] {
+		if m.Role != "system" {
+			out = append(out, m)
+			continue
+		}
+		text := strings.TrimSpace(messageText(m))
+		if text == "" {
+			continue
+		}
+		switch mode {
+		case "merge":
+			first := &out[0]
+			joined := strings.TrimSpace(messageText(*first))
+			if joined != "" {
+				joined += "\n\n"
+			}
+			joined += text
+			first.Content = joined
+			first.StringContent = joined
+		case "user":
+			m.Role = "user"
+			m.Content = text
+			m.StringContent = text
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // mergeToolCallDeltas merges streaming tool call deltas into complete tool calls.
@@ -148,6 +237,19 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		}
 
 		xlog.Debug("Chat endpoint configuration read", "config", config)
+
+		// Drop blank system turns from the web UI (and similar clients) so they
+		// cannot suppress the model YAML system_prompt / tokenizer defaults.
+		input.Messages = stripEmptySystemMessages(input.Messages)
+		input.Messages = normalizeLateSystemMessages(input.Messages, config.TemplateConfig.SystemMessagesAfterFirst)
+
+		// Tokenizer-template models pass messages through to the backend as-is,
+		// so apply the configured system_prompt when the request did not supply
+		// one. Go-template models already receive SystemPrompt via PromptTemplateData.
+		if config.TemplateConfig.UseTokenizerTemplate && config.SystemPrompt != "" && !hasSystemMessage(input.Messages) {
+			prompt := config.SystemPrompt
+			input.Messages = append([]schema.Message{{Role: "system", Content: prompt, StringContent: prompt}}, input.Messages...)
+		}
 
 		// Cloud-proxy bail. Bypasses the local pipeline (templating,
 		// MCP injection, gRPC backend) and forwards via the cloud-

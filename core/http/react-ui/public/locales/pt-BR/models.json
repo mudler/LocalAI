@@ -152,7 +152,8 @@
     "sha256": "SHA256",
     "backToAll": "Todos os modelos",
     "vramAt": "VRAM em {{context}}",
-    "headroom": "Margem de sobra"
+    "headroom": "Margem de sobra",
+    "headroomOn": "Folga em {{node}}"
   },
   "empty": {
     "title": "Nenhum modelo encontrado",
@@ -232,6 +233,8 @@
     "browsing": "Explorando",
     "pickHint": "Selecione um modelo para ver seus detalhes.",
     "heroWithRam": "{{ram}} de memória do sistema, {{count}} modelos na galeria.",
+    "heroWithCluster": "{{vram}} em {{node}}, o maior de {{nodes}} nós, {{count}} modelos na galeria.",
+    "heroWithNode": "{{vram}} em {{node}}, {{count}} modelos na galeria.",
     "byUseCase": "Ou comece por um caso de uso",
     "pickText": "Chat, raciocínio, embeddings",
     "pickVision": "Leia imagens e documentos",

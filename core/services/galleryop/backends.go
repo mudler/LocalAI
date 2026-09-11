@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -55,6 +56,18 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 	// ctx. DeleteBackend takes no context and cannot be interrupted, so a Cancel
 	// button on a running removal is one the server cannot honour.
 	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("processing backend: %s", op.GalleryElementName), Progress: 0, Cancellable: !op.Delete})
+	legacyCoalescer := newLegacyProgressCoalescer(250*time.Millisecond, func(update legacyProgressUpdate) {
+		status := &OpStatus{Message: fmt.Sprintf(processingMessage, update.fileName, update.total, update.current), FileName: update.fileName, Progress: update.percentage, TotalFileSize: update.total, DownloadedFileSize: update.current, Cancellable: true}
+		if currentBytes, ok := parseDisplayedBytes(update.current); ok {
+			if totalBytes, totalOK := parseDisplayedBytes(update.total); totalOK {
+				status.CurrentBytes = currentBytes
+				status.TotalBytes = totalBytes
+			}
+		}
+		status.GalleryElementName = op.GalleryElementName
+		g.UpdateStatus(op.ID, status)
+	})
+	defer legacyCoalescer.Close()
 
 	// displayDownload displays the download progress
 	progressCallback := func(fileName string, current string, total string, percentage float64) {
@@ -66,7 +79,7 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 			default:
 			}
 		}
-		g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf(processingMessage, fileName, total, current), FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current, Cancellable: true})
+		legacyCoalescer.Sink(fileName, current, total, percentage)
 		utils.DisplayDownloadFunction(fileName, current, total, percentage)
 	}
 
@@ -88,6 +101,7 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 		}
 	}
 	if err != nil {
+		legacyCoalescer.Close()
 		// Check if error is due to cancellation
 		if op.Context != nil && errors.Is(err, op.Context.Err()) {
 			g.UpdateStatus(op.ID, &OpStatus{
@@ -136,6 +150,7 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 		Op:      opName,
 	})
 
+	legacyCoalescer.Close()
 	g.UpdateStatus(op.ID,
 		&OpStatus{
 			Deletion:           op.Delete,

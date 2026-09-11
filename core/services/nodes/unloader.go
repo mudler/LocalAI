@@ -36,6 +36,10 @@ type NodeCommandSender interface {
 	ListBackends(nodeID string) (*messaging.BackendListReply, error)
 	StopBackend(nodeID, backend string) error
 	UnloadModelOnNode(nodeID, modelName string) error
+	// PingNode reports whether the node is still subscribed on the bus. It
+	// returns nats.ErrNoResponders when nothing answers for the node, which is
+	// the only condition callers may read as "this node cannot be given work".
+	PingNode(nodeID string) error
 }
 
 // RemoteUnloaderAdapter implements NodeCommandSender and model.RemoteModelUnloader
@@ -81,7 +85,47 @@ var (
 	_ model.RemoteModelUnloader        = (*RemoteUnloaderAdapter)(nil)
 	_ model.RemoteModelContextUnloader = (*RemoteUnloaderAdapter)(nil)
 	_ model.RemoteModelPresenceChecker = (*RemoteUnloaderAdapter)(nil)
+	_ ExactModelStopper                = (*RemoteUnloaderAdapter)(nil)
 )
+
+const exactModelStopTimeout = 10 * time.Second
+
+// StopModelReplica stops only the process represented by replica. Configuration
+// cleanup intentionally has no backend.stop fallback: an old worker that does
+// not understand this request leaves the quarantine row for a later retry.
+func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID string, replica NodeModel, force bool) (messaging.ModelStopReply, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, exactModelStopTimeout)
+	defer cancel()
+
+	type result struct {
+		reply *messaging.ModelStopReply
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		reply, err := messaging.RequestJSON[messaging.ModelStopRequest, messaging.ModelStopReply](a.nats, messaging.SubjectNodeModelStop(nodeID), messaging.ModelStopRequest{
+			ModelName:       replica.ModelName,
+			ProcessKey:      model.BackendProcessKey(replica.ModelName, replica.ReplicaIndex),
+			ExpectedAddress: replica.Address,
+			Force:           force,
+			ConfigRevision:  replica.ConfigRevision,
+		}, exactModelStopTimeout)
+		done <- result{reply: reply, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return messaging.ModelStopReply{}, ctx.Err()
+	case result := <-done:
+		if result.err != nil {
+			return messaging.ModelStopReply{}, result.err
+		}
+		return *result.reply, nil
+	}
+}
 
 // UnloadRemoteModel finds the node(s) hosting the given model and tells them
 // to stop their backend process via NATS backend.stop event.
@@ -318,6 +362,46 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 	xlog.Debug("Sending NATS backend.list", "nodeID", nodeID)
 
 	return messaging.RequestJSON[messaging.BackendListRequest, messaging.BackendListReply](a.nats, subject, messaging.BackendListRequest{}, 30*time.Second)
+}
+
+// PingNode checks that a worker still has a live subscription on the bus.
+//
+// A node's status in the database comes from its HTTP heartbeat, which is a
+// separate channel from NATS. A worker that has died stops answering on NATS
+// at once but keeps its healthy status until the heartbeat ages out, so the
+// scheduler could pick a node that could not be given work and the request
+// failed with "no responders available".
+//
+// The subject asked has to be one every worker in the fleet subscribes to, or
+// this check condemns the workers that do not. models.running was the obvious
+// choice and the wrong one: it arrived in 4.6, so a 4.5 worker that is alive
+// and serving never answers it, and a model pinned to that node could never be
+// scheduled. backend.list has been part of the worker protocol far longer, so
+// it is the safer question to ask.
+//
+// A worker that answers anything is alive. Only when every subject reports no
+// responders is the node treated as absent, so adding a newer subject here can
+// never condemn an older worker.
+func (a *RemoteUnloaderAdapter) PingNode(nodeID string) error {
+	subjects := []string{
+		messaging.SubjectNodeBackendList(nodeID),
+		messaging.SubjectNodeModelsRunning(nodeID),
+	}
+	var lastErr error
+	for _, subject := range subjects {
+		_, err := messaging.RequestJSON[messaging.BackendListRequest, messaging.BackendListReply](
+			a.nats, subject, messaging.BackendListRequest{}, 5*time.Second)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, nats.ErrNoResponders) {
+			// Reached someone, or failed for a reason that is not absence.
+			// Either way the node is not proven gone.
+			return nil
+		}
+		lastErr = err
+	}
+	return lastErr
 }
 
 // ListRunningModels asks a worker node which model backend processes it

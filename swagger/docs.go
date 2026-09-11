@@ -4580,6 +4580,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "config": {},
+                "config_revision": {
+                    "type": "string"
+                },
                 "details": {
                     "type": "array",
                     "items": {
@@ -4594,6 +4597,9 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string"
+                },
+                "pending_cleanup": {
+                    "type": "integer"
                 },
                 "success": {
                     "type": "boolean"
@@ -4735,7 +4741,22 @@ const docTemplate = `{
                     "description": "e.g. \"llama-cpp\"; used by reconciler to replicate loads",
                     "type": "string"
                 },
+                "cleanup_attempts": {
+                    "type": "integer"
+                },
+                "cleanup_error": {
+                    "type": "string"
+                },
+                "cleanup_next_retry_at": {
+                    "type": "string"
+                },
+                "config_revision": {
+                    "type": "string"
+                },
                 "created_at": {
+                    "type": "string"
+                },
+                "effective_options_hash": {
                     "type": "string"
                 },
                 "id": {
@@ -5631,6 +5652,12 @@ const docTemplate = `{
         "schema.FaceRegisterRequest": {
             "type": "object",
             "properties": {
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
                 "img": {
                     "type": "string"
                 },
@@ -5644,6 +5671,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "registered_at": {
+                    "description": "original enrollment time when replaying a saved embedding",
                     "type": "string"
                 },
                 "store": {

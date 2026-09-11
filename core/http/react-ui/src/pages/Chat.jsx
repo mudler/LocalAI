@@ -21,6 +21,8 @@ import { useOperations } from '../hooks/useOperations'
 import { relativeTime } from '../utils/format'
 import { copyToClipboard } from '../utils/clipboard'
 
+const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
+
 function getLastMessagePreview(chat) {
   if (!chat.history || chat.history.length === 0) return ''
   for (let i = chat.history.length - 1; i >= 0; i--) {
@@ -405,11 +407,19 @@ export default function Chat() {
   // Focus mode: once a conversation has at least one message we slim the
   // surrounding chrome (collapse the global app rail, fade non-essential
   // header items). Esc gives the user back the full chrome for the rest of
-  // this session.
+  // this session. The settings drawer offers a persistent opt-out.
   const isInConversation = (activeChat?.history?.length || 0) > 0
   const [focusOverride, setFocusOverride] = useState(false)
-  const focusActive = isInConversation && !focusOverride
+  const [focusModeEnabled, setFocusModeEnabled] = useState(() => {
+    try { return localStorage.getItem(FOCUS_MODE_KEY) !== 'false' } catch (_) { return true }
+  })
+  const focusActive = focusModeEnabled && isInConversation && !focusOverride
   const prevAppCollapseRef = useRef(null)
+
+  const toggleFocusMode = (next) => {
+    setFocusModeEnabled(next)
+    try { localStorage.setItem(FOCUS_MODE_KEY, String(next)) } catch (_) {}
+  }
 
   const artifacts = useMemo(
     () => canvasMode ? extractCodeArtifacts(activeChat?.history, 'role', 'assistant') : [],
@@ -1110,6 +1120,20 @@ export default function Chat() {
                 />
               </div>
             )}
+            <div className="form-group chat-settings-toggle-row">
+              <div className="chat-settings-toggle-text">
+                <span className="chat-settings-toggle-title">
+                  <i className="fas fa-compress" /> {t('settings.focusMode')}
+                </span>
+                <span className="chat-settings-toggle-desc">
+                  {t('settings.focusModeDesc')}
+                </span>
+              </div>
+              <Toggle
+                checked={focusModeEnabled}
+                onChange={toggleFocusMode}
+              />
+            </div>
             <div className="form-group">
               <label className="form-label">{t('settings.systemPrompt')}</label>
               <textarea

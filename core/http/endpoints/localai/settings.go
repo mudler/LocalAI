@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -12,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
 )
@@ -185,6 +187,13 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 
 		// Apply settings using centralized method
 		watchdogChanged := appConfig.ApplyRuntimeSettings(&settings)
+		if settings.VRAMPersistentCache != nil || settings.AutoloadGalleries != nil {
+			if appConfig.VRAMPersistentCache && appConfig.AutoloadGalleries {
+				vram.ConfigurePersistentCache(filepath.Join(appConfig.SystemState.Model.ModelsPath, "..", "cache", "vram"), 24*time.Hour)
+			} else {
+				vram.DisablePersistentCache()
+			}
+		}
 
 		// Handle API keys specially (merge with startup keys)
 		if settings.ApiKeys != nil {

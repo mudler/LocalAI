@@ -42,6 +42,28 @@ type QuantizationService struct {
 	// jobs is the cross-replica job store: an in-memory map kept consistent across
 	// replicas via NATS, optionally read-through to PostgreSQL in distributed mode.
 	jobs *syncstate.SyncedMap[string, *schema.QuantizationJob]
+
+	// progressMu guards progressSubs.
+	//
+	// A backend's per-job progress stream has a single destructive consumer: the
+	// backend pops each update off one queue and hands it to whoever is reading.
+	// So the service opens that stream exactly once per job — in watchProgress,
+	// started by StartJob — and fans the updates out in-process to the SSE clients
+	// registered here. Opening a second stream per client would make the two
+	// readers race for the same updates.
+	progressMu   sync.Mutex
+	progressSubs map[string][]chan *schema.QuantizationProgressEvent
+}
+
+// progressSubBuffer is the per-subscriber event buffer. It absorbs a client that
+// is briefly slow; a client that falls further behind drops events rather than
+// stalling the single reader of the backend stream.
+const progressSubBuffer = 64
+
+// isTerminalStatus reports whether a job status is final, i.e. no further
+// progress update will follow.
+func isTerminalStatus(status string) bool {
+	return status == "stopped" || status == "completed" || status == "failed"
 }
 
 // NewQuantizationService creates a new QuantizationService. In distributed mode
@@ -59,6 +81,7 @@ func NewQuantizationService(
 		appConfig:    appConfig,
 		modelLoader:  modelLoader,
 		configLoader: configLoader,
+		progressSubs: make(map[string][]chan *schema.QuantizationProgressEvent),
 	}
 
 	// Only attach a Store interface when a concrete store exists, otherwise the
@@ -240,6 +263,13 @@ func (s *QuantizationService) StartJob(ctx context.Context, userID string, req s
 	}
 	s.saveJobState(job)
 
+	// Consume the backend's progress stream for the lifetime of the job, not for
+	// the lifetime of a client's SSE connection: a job that runs with nobody
+	// attached must still reach "completed" in the store and in state.json. The
+	// request ctx is done as soon as this HTTP handler returns, so the watcher
+	// rides the application context instead.
+	go s.watchProgress(s.appConfig.Context, jobID, backendName, modelID)
+
 	return &schema.QuantizationJobResponse{
 		ID:      jobID,
 		Status:  "queued",
@@ -311,6 +341,14 @@ func (s *QuantizationService) StopJob(ctx context.Context, userID, jobID string)
 	s.saveJobState(job)
 	s.mu.Unlock()
 
+	// Release clients attached to the progress stream: the backend process is gone,
+	// so the watcher will not see a terminal update to forward.
+	s.publishProgress(jobID, &schema.QuantizationProgressEvent{
+		JobID:   jobID,
+		Status:  "stopped",
+		Message: "Quantization stopped by user",
+	})
+
 	return nil
 }
 
@@ -377,7 +415,153 @@ func (s *QuantizationService) DeleteJob(userID, jobID string) error {
 	return nil
 }
 
-// StreamProgress opens a gRPC progress stream and calls the callback for each update.
+// watchProgress is the single reader of a job's backend progress stream. It
+// records every transition on the job — in the cross-replica store and in
+// state.json — and republishes it to the clients attached via StreamProgress.
+//
+// Recording here rather than in StreamProgress is the point: the backend hands
+// each update to one consumer, so while StreamProgress was that consumer a job's
+// state only advanced while somebody was watching it.
+func (s *QuantizationService) watchProgress(ctx context.Context, jobID, backendName, modelID string) {
+	backendModel, err := s.modelLoader.Load(
+		model.WithBackendString(backendName),
+		model.WithModel(backendName),
+		model.WithModelID(modelID),
+	)
+	if err != nil {
+		xlog.Warn("Failed to load backend for quantization progress", "job_id", jobID, "error", err)
+		return
+	}
+
+	err = backendModel.QuantizationProgress(ctx, &pb.QuantizationProgressRequest{
+		JobId: jobID,
+	}, func(update *pb.QuantizationProgressUpdate) {
+		s.publishProgress(jobID, s.applyProgressUpdate(ctx, jobID, update))
+	})
+	if err != nil {
+		xlog.Warn("Quantization progress stream ended with an error", "job_id", jobID, "error", err)
+	}
+
+	// On shutdown leave the job alone: loadJobsFromDisk already reports jobs that
+	// were running at exit as stopped.
+	if ctx.Err() != nil {
+		return
+	}
+
+	// A stream that ends without a terminal update means the backend is gone and
+	// nothing further will arrive. Record that instead of leaving the job in a
+	// running state forever — which is the failure this watcher exists to prevent —
+	// and release any client still waiting on a terminal event.
+	s.mu.Lock()
+	j, ok := s.jobs.Get(jobID)
+	stale := ok && !isTerminalStatus(j.Status)
+	if stale {
+		j.Status = "failed"
+		if j.Message == "" {
+			j.Message = "Backend progress stream ended before the job reported a result"
+		}
+		if err := s.jobs.Set(ctx, j); err != nil {
+			xlog.Warn("Failed to persist orphaned job state", "job_id", jobID, "error", err)
+		}
+		s.saveJobState(j)
+	}
+	s.mu.Unlock()
+
+	if stale {
+		s.publishProgress(jobID, &schema.QuantizationProgressEvent{
+			JobID:   jobID,
+			Status:  "failed",
+			Message: "Backend progress stream ended before the job reported a result",
+		})
+	}
+}
+
+// applyProgressUpdate records a backend progress update on the job and returns
+// the event to hand to subscribers.
+func (s *QuantizationService) applyProgressUpdate(ctx context.Context, jobID string, update *pb.QuantizationProgressUpdate) *schema.QuantizationProgressEvent {
+	s.mu.Lock()
+	if j, ok := s.jobs.Get(jobID); ok {
+		// Don't let progress updates overwrite terminal states
+		if !isTerminalStatus(j.Status) {
+			j.Status = update.Status
+		}
+		if update.Message != "" {
+			j.Message = update.Message
+		}
+		if update.OutputFile != "" {
+			j.OutputFile = update.OutputFile
+		}
+		if err := s.jobs.Set(ctx, j); err != nil {
+			xlog.Warn("Failed to persist progress update", "job_id", jobID, "error", err)
+		}
+		s.saveJobState(j)
+	}
+	s.mu.Unlock()
+
+	// Convert extra metrics
+	extraMetrics := make(map[string]float32, len(update.ExtraMetrics))
+	for k, v := range update.ExtraMetrics {
+		extraMetrics[k] = v
+	}
+
+	return &schema.QuantizationProgressEvent{
+		JobID:           update.JobId,
+		ProgressPercent: update.ProgressPercent,
+		Status:          update.Status,
+		Message:         update.Message,
+		OutputFile:      update.OutputFile,
+		ExtraMetrics:    extraMetrics,
+	}
+}
+
+// subscribeProgress registers a channel to receive a job's progress events.
+func (s *QuantizationService) subscribeProgress(jobID string) chan *schema.QuantizationProgressEvent {
+	ch := make(chan *schema.QuantizationProgressEvent, progressSubBuffer)
+	s.progressMu.Lock()
+	s.progressSubs[jobID] = append(s.progressSubs[jobID], ch)
+	s.progressMu.Unlock()
+	return ch
+}
+
+// unsubscribeProgress removes a channel registered by subscribeProgress. The
+// channel is never closed, so a publish racing with an unsubscribe cannot send
+// on a closed channel.
+func (s *QuantizationService) unsubscribeProgress(jobID string, ch chan *schema.QuantizationProgressEvent) {
+	s.progressMu.Lock()
+	defer s.progressMu.Unlock()
+
+	subs := s.progressSubs[jobID]
+	for i, c := range subs {
+		if c == ch {
+			s.progressSubs[jobID] = append(subs[:i], subs[i+1:]...)
+			break
+		}
+	}
+	if len(s.progressSubs[jobID]) == 0 {
+		delete(s.progressSubs, jobID)
+	}
+}
+
+// publishProgress fans an event out to a job's subscribers.
+func (s *QuantizationService) publishProgress(jobID string, event *schema.QuantizationProgressEvent) {
+	s.progressMu.Lock()
+	subs := append([]chan *schema.QuantizationProgressEvent(nil), s.progressSubs[jobID]...)
+	s.progressMu.Unlock()
+
+	for _, ch := range subs {
+		select {
+		case ch <- event:
+		default:
+			// A subscriber that cannot keep up must not stall the reader that is
+			// recording job state for everyone else.
+			xlog.Warn("Dropping quantization progress event for a slow subscriber", "job_id", jobID)
+		}
+	}
+}
+
+// StreamProgress calls the callback for each progress event of a job until it
+// reaches a terminal status or ctx is done. It is a pure reader: the job's own
+// watcher owns the backend stream and the state transitions.
 func (s *QuantizationService) StreamProgress(ctx context.Context, userID, jobID string, callback func(event *schema.QuantizationProgressEvent)) error {
 	s.mu.Lock()
 	job, ok := s.jobs.Get(jobID)
@@ -391,59 +575,41 @@ func (s *QuantizationService) StreamProgress(ctx context.Context, userID, jobID 
 	}
 	s.mu.Unlock()
 
-	streamModelID := job.ModelID
-	if streamModelID == "" {
-		streamModelID = job.Backend + "-quantize"
+	ch := s.subscribeProgress(jobID)
+	defer s.unsubscribeProgress(jobID, ch)
+
+	// Re-read the job after subscribing: it may have finished between the lookup
+	// above and the subscription, and no further event would ever arrive. Jobs
+	// restored from disk after a restart are terminal too, and have no watcher.
+	s.mu.Lock()
+	current, ok := s.jobs.Get(jobID)
+	terminal := ok && isTerminalStatus(current.Status)
+	var final *schema.QuantizationProgressEvent
+	if terminal {
+		final = &schema.QuantizationProgressEvent{
+			JobID:      current.ID,
+			Status:     current.Status,
+			Message:    current.Message,
+			OutputFile: current.OutputFile,
+		}
 	}
-	backendModel, err := s.modelLoader.Load(
-		model.WithBackendString(job.Backend),
-		model.WithModel(job.Backend),
-		model.WithModelID(streamModelID),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to load backend: %w", err)
+	s.mu.Unlock()
+	if terminal {
+		callback(final)
+		return nil
 	}
 
-	return backendModel.QuantizationProgress(ctx, &pb.QuantizationProgressRequest{
-		JobId: jobID,
-	}, func(update *pb.QuantizationProgressUpdate) {
-		// Update job status and persist
-		s.mu.Lock()
-		if j, ok := s.jobs.Get(jobID); ok {
-			// Don't let progress updates overwrite terminal states
-			isTerminal := j.Status == "stopped" || j.Status == "completed" || j.Status == "failed"
-			if !isTerminal {
-				j.Status = update.Status
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case event := <-ch:
+			callback(event)
+			if isTerminalStatus(event.Status) {
+				return nil
 			}
-			if update.Message != "" {
-				j.Message = update.Message
-			}
-			if update.OutputFile != "" {
-				j.OutputFile = update.OutputFile
-			}
-			if err := s.jobs.Set(ctx, j); err != nil {
-				xlog.Warn("Failed to persist progress update", "job_id", jobID, "error", err)
-			}
-			s.saveJobState(j)
 		}
-		s.mu.Unlock()
-
-		// Convert extra metrics
-		extraMetrics := make(map[string]float32)
-		for k, v := range update.ExtraMetrics {
-			extraMetrics[k] = v
-		}
-
-		event := &schema.QuantizationProgressEvent{
-			JobID:           update.JobId,
-			ProgressPercent: update.ProgressPercent,
-			Status:          update.Status,
-			Message:         update.Message,
-			OutputFile:      update.OutputFile,
-			ExtraMetrics:    extraMetrics,
-		}
-		callback(event)
-	})
+	}
 }
 
 // sanitizeQuantModelName replaces non-alphanumeric characters with hyphens and lowercases.

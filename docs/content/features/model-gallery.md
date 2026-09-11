@@ -43,6 +43,25 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Gemma 4 E4B HauhauCS Aggressive
+
+The gallery offers the [HauhauCS Aggressive Gemma 4 E4B model](https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive)
+for text chat and image input through llama.cpp. Both Q4_K_M and Q5_K_M
+builds include the publisher's F16 multimodal projector. They use an 8192-token
+context and the embedded chat template.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install gemma-4-e4b-hauhaucs-aggressive-q4
+```
+
+Select Q5_K_M explicitly:
+
+```bash
+local-ai models install --variant gemma-4-e4b-hauhaucs-aggressive-q5 gemma-4-e4b-hauhaucs-aggressive-q4
+```
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
@@ -535,6 +554,24 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 
 ## Examples
+
+### Huihui Qwen3.8 Flash Next
+
+Install the abliterated Qwen3.8-Flash-Next build for text chat and image input:
+
+```bash
+local-ai models install huihui-qwen3.8-flash-next-abliterated-q4
+```
+
+The entry downloads the publisher's four UD-Q4_K_XL GGUF shards and BF16
+vision projector, approximately 112 GB in total. It uses llama.cpp with the
+embedded chat template and a 32,768-token default context. The publisher
+currently provides one quantization, so this entry has no alternative variants.
+
+This model is modified to reduce refusals. See the
+[model card](https://huggingface.co/huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF)
+and [Qwen Community License 1.0](https://huggingface.co/huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF/blob/main/LICENSE)
+for model details and usage terms.
 
 ### Embeddings: Bert
 

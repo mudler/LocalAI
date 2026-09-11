@@ -13,6 +13,8 @@ func SchedulingConfigFromNode(config nodes.ModelSchedulingConfig) ModelSchedulin
 		BalanceAbsThreshold: config.BalanceAbsThreshold,
 		BalanceRelThreshold: config.BalanceRelThreshold,
 		MinPrefixMatch:      config.MinPrefixMatch,
+		TargetModel:         config.Target(),
+		Shadowed:            config.Shadowed,
 	}
 }
 

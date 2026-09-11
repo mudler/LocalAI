@@ -106,9 +106,11 @@ services:
       - worker
     # No HEALTHCHECK_ENDPOINT override is needed: the image's healthcheck
     # detects worker mode and derives the port from LOCALAI_SERVE_ADDR below
-    # (gRPC base port - 1 = 50050). The worker's /readyz reports 503 while its
-    # NATS connection is down, so `unhealthy` here means the worker genuinely
-    # cannot receive work.
+    # (gRPC base port - 1 = 50050). The worker's /readyz reports 503 when its
+    # NATS connection is down, and also when a backend process it is already
+    # serving no longer answers a TCP dial on its gRPC address. So `unhealthy`
+    # here means the worker genuinely cannot receive work, or cannot serve the
+    # models it is holding.
     environment:
       LOCALAI_SERVE_ADDR: "0.0.0.0:50051"
       LOCALAI_ADVERTISE_ADDR: "worker-1:50051"

@@ -382,6 +382,14 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Description: "Use the chat template from the model's tokenizer config",
 			Order:       44,
 		},
+		"template.system_messages_after_first": {
+			Section:     "templates",
+			Label:       "System Messages After First",
+			Description: "How system messages that appear after the first turn are handled before templating: merge into the first system message, or forward as user messages. Empty passes them through unchanged, which strict Jinja templates reject.",
+			Component:   "select",
+			Options:     SystemMessagesAfterFirstOptions,
+			Order:       45,
+		},
 		// Router section template — kept in the templates UI section
 		// (rather than the router section under "other") so operators
 		// editing prompt shapes find all template-typed fields in one

@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { nodesApi } from '../utils/api'
+import { nodesApi, modelsApi } from '../utils/api'
 import PageHeader from '../components/PageHeader'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ResponsiveTable from '../components/ResponsiveTable'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 import KeyValueChips from '../components/nodes/KeyValueChips'
+import { labelIndex } from '../utils/nodeLabelSuggestions'
 
 // Numeric input with quick-pick preset chips. Picked over a slider because
 // replica counts are exact specs (operator math), not fuzzy estimates. The
@@ -52,24 +53,41 @@ function ReplicaInput({ id, label, value, onChange, presets }) {
   )
 }
 
-function SchedulingForm({ onSave, onCancel }) {
-  const [mode, setMode] = useState('placement')
-  const [modelName, setModelName] = useState('')
+function selectorObject(value) {
+  if (!value) return {}
+  if (typeof value === 'object') return value
+  try { return JSON.parse(value) } catch { return {} }
+}
+
+function configMode(config) {
+  if (!config) return 'placement'
+  if (config.spread_all) return 'spread'
+  if (config.min_replicas > 0 || config.max_replicas > 0) return 'autoscaling'
+  return 'placement'
+}
+
+function SchedulingForm({ initialConfig, onSave, onCancel, labels, aliases }) {
+  const [mode, setMode] = useState(() => configMode(initialConfig))
+  const [modelName, setModelName] = useState(initialConfig?.model_name || '')
   // Selector is now a chip-builder map instead of a comma-separated string.
   // Operators were copying syntax from docs and missing commas; the chip UI
   // makes the key=value structure self-documenting.
-  const [selector, setSelector] = useState({})
-  const [minReplicas, setMinReplicas] = useState(1)
-  const [maxReplicas, setMaxReplicas] = useState(0)
+  const [selector, setSelector] = useState(() => selectorObject(initialConfig?.node_selector))
+  const [minReplicas, setMinReplicas] = useState(initialConfig?.min_replicas ?? 1)
+  const [maxReplicas, setMaxReplicas] = useState(initialConfig?.max_replicas ?? 0)
   // Prefix-cache routing controls. Empty routePolicy means "inherit the
   // cluster default"; the three thresholds at 0 likewise inherit, so they
   // stay out of the POST body's effective override only when explicitly set.
-  const [routePolicy, setRoutePolicy] = useState('')
-  const [balanceAbsThreshold, setBalanceAbsThreshold] = useState(0)
-  const [balanceRelThreshold, setBalanceRelThreshold] = useState(0)
-  const [minPrefixMatch, setMinPrefixMatch] = useState(0)
+  const [routePolicy, setRoutePolicy] = useState(initialConfig?.route_policy || '')
+  const [balanceAbsThreshold, setBalanceAbsThreshold] = useState(initialConfig?.balance_abs_threshold ?? 0)
+  const [balanceRelThreshold, setBalanceRelThreshold] = useState(initialConfig?.balance_rel_threshold ?? 0)
+  const [minPrefixMatch, setMinPrefixMatch] = useState(initialConfig?.min_prefix_match ?? 0)
 
   const hasSelector = Object.keys(selector).length > 0
+  // Aliases are listed in the picker alongside models, tagged with the model
+  // they resolve to so the two are distinguishable in one flat list.
+  const aliasHints = Object.fromEntries(Object.entries(aliases || {}).map(([name, target]) => [name, `alias of ${target}`]))
+  const aliasTarget = (aliases || {})[modelName]
 
   const isValid = () => {
     if (!modelName) return false
@@ -93,7 +111,7 @@ function SchedulingForm({ onSave, onCancel }) {
   }
 
   return (
-    <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
+    <div className="card scheduling-form">
       {/* Mode selector — uses the project's segmented control instead of two
           50%-width filled buttons that competed visually with the actual
           primary action (Save). */}
@@ -139,11 +157,26 @@ function SchedulingForm({ onSave, onCancel }) {
               you can pre-create a rule for a model that hasn't been
               installed yet, which is a real workflow when standing up a new
               node and pre-staging its scheduling policy. */}
-          <SearchableModelSelect
-            value={modelName}
-            onChange={setModelName}
-            placeholder="Type to search models, or paste a name..."
-          />
+          {initialConfig ? (
+            <input id="sched-model" className="input scheduling-model-locked" value={modelName} readOnly />
+          ) : (
+            <SearchableModelSelect
+              value={modelName}
+              onChange={setModelName}
+              placeholder="Type to search models or aliases, or paste a name..."
+              hints={aliasHints}
+            />
+          )}
+          {/* An alias is a stable name for whichever model currently serves it,
+              so a rule on one is a rule on a slot rather than on a model. Say
+              so at the point of choosing, because the consequence (repointing
+              the alias carries the rule along) is not visible anywhere else. */}
+          {aliasTarget && (
+            <span className="text-meta d-block mt-xs">
+              <i className="fas fa-link icon-before" aria-hidden="true" />
+              {modelName} is an alias for {aliasTarget}. This rule applies to whichever model the alias points at, and follows it if you repoint it.
+            </span>
+          )}
         </div>
 
         <div>
@@ -157,6 +190,10 @@ function SchedulingForm({ onSave, onCancel }) {
             placeholderKey="key (e.g. gpu.vendor)"
             placeholderValue="value (e.g. nvidia)"
             ariaLabel="Node selector"
+            ariaLabelKey="Selector key"
+            ariaLabelValue="Selector value"
+            addLabel="Add selector"
+            suggestions={labels}
           />
           <span className="text-meta d-block mt-xs">
             {mode === 'placement'
@@ -272,8 +309,36 @@ export default function Scheduling() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
   const [schedulingConfigs, setSchedulingConfigs] = useState([])
-  const [showForm, setShowForm] = useState(false)
+  const [formState, setFormState] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  // The label vocabulary the selector field completes against. A roster that
+  // will not load costs the admin the hints and nothing else, so the failure
+  // is swallowed rather than surfaced: the field still commits whatever is
+  // typed into it.
+  const [labels, setLabels] = useState(() => labelIndex([]))
+  // name -> target for every configured alias. Feeds the picker so aliases are
+  // listed as schedulable names. Failing to load costs the annotation and
+  // nothing else: an alias typed by hand still resolves server-side.
+  const [aliases, setAliases] = useState({})
+
+  useEffect(() => {
+    let cancelled = false
+    modelsApi.listAliases()
+      .then(data => {
+        if (cancelled || !Array.isArray(data)) return
+        setAliases(Object.fromEntries(data.map(a => [a.name, a.target])))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    nodesApi.list()
+      .then(data => { if (!cancelled) setLabels(labelIndex(Array.isArray(data) ? data : [])) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const fetchScheduling = useCallback(async () => {
     try {
@@ -288,7 +353,7 @@ export default function Scheduling() {
     try {
       await nodesApi.setScheduling(config)
       addToast('Scheduling rule saved', 'success')
-      setShowForm(false)
+      setFormState(null)
       fetchScheduling()
     } catch (err) { addToast(`Failed to save rule: ${err.message}`, 'error') }
   }
@@ -310,12 +375,21 @@ export default function Scheduling() {
       />
       <div>
         <button className="btn btn-primary btn-sm mb-md"
-          onClick={() => setShowForm(f => !f)}>
+          onClick={() => setFormState(current => current?.kind === 'add' ? null : { kind: 'add' })}>
           <i className="fas fa-plus icon-before" />
           Add Scheduling Rule
         </button>
-        {showForm && <SchedulingForm onSave={handleSave} onCancel={() => setShowForm(false)} />}
-        {schedulingConfigs.length === 0 && !showForm ? (
+        {formState && (
+          <SchedulingForm
+            key={formState.kind === 'edit' ? formState.config.model_name : 'add'}
+            initialConfig={formState.kind === 'edit' ? formState.config : undefined}
+            onSave={handleSave}
+            onCancel={() => setFormState(null)}
+            labels={labels}
+            aliases={aliases}
+          />
+        )}
+        {schedulingConfigs.length === 0 && !formState ? (
           <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: 'var(--spacing-xl) 0' }}>
             No scheduling rules configured. Add a rule to control how models are placed on nodes.
           </p>
@@ -344,9 +418,26 @@ export default function Scheduling() {
                   // of the model silently failing to scale.
                   const unsatisfiableUntil = cfg.unsatisfiable_until ? new Date(cfg.unsatisfiable_until) : null
                   const isUnsatisfiable = unsatisfiableUntil && unsatisfiableUntil.getTime() > Date.now()
+                  // A rule keyed by an alias names a slot, so the model it
+                  // currently governs is worth showing next to it.
+                  const governs = cfg.target_model && cfg.target_model !== cfg.model_name ? cfg.target_model : null
+                  const danglingAlias = cfg.model_is_alias && !governs
                   return (
                   <tr key={cfg.id || cfg.model_name}>
-                    <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cfg.model_name}</td>
+                    <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                      {cfg.model_name}
+                      {governs && (
+                        <div className="text-meta scheduling-rule-target">
+                          <i className="fas fa-arrow-right icon-before" aria-hidden="true" />
+                          {governs}
+                        </div>
+                      )}
+                      {danglingAlias && (
+                        <div className="text-meta scheduling-rule-target--broken">
+                          alias points at nothing
+                        </div>
+                      )}
+                    </td>
                     <td>
                       <span style={{
                         display: 'inline-block', fontSize: '0.75rem', padding: '2px 8px', borderRadius: "var(--radius-sm)",
@@ -393,7 +484,15 @@ export default function Scheduling() {
                       ) : '-'}
                     </td>
                     <td>
-                      {isUnsatisfiable ? (
+                      {cfg.shadowed ? (
+                        <span
+                          className="scheduling-rule-shadowed"
+                          title="Another rule already governs the same model, so this one has no effect. Placement decides where a single shared load runs, so only one rule per model can apply."
+                        >
+                          <i className="fas fa-eye-slash icon-before" />
+                          Shadowed
+                        </span>
+                      ) : isUnsatisfiable ? (
                         <span
                           title={`Reconciler couldn't satisfy this rule (capacity exhausted). Will retry by ${unsatisfiableUntil.toLocaleString()}, or sooner on a node lifecycle change.`}
                           style={{
@@ -412,9 +511,14 @@ export default function Scheduling() {
                       )}
                     </td>
                     <td className="text-right">
-                      <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(cfg.model_name)}>
-                        <i className="fas fa-trash" />
-                      </button>
+                      <div className="scheduling-rule-actions">
+                        <button className="btn btn-secondary btn-sm" aria-label={`Edit ${cfg.model_name}`} onClick={() => setFormState({ kind: 'edit', config: cfg })}>
+                          <i className="fas fa-edit" aria-hidden="true" />
+                        </button>
+                        <button className="btn btn-danger btn-sm" aria-label={`Delete ${cfg.model_name}`} onClick={() => setConfirmDelete(cfg.model_name)}>
+                          <i className="fas fa-trash" aria-hidden="true" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                   )

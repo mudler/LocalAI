@@ -104,6 +104,23 @@ var _ = Describe("NodeRegistry extra methods", Label("Distributed"), func() {
 		})
 	})
 
+	Context("revision-aware PostgreSQL queries", func() {
+		It("routes a current replica without adding node_models twice", func() {
+			ctx := context.Background()
+			node := &nodes.BackendNode{Name: "revision-query-node", Address: "revision-query:5000"}
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			quarantined, err := registry.AdvanceModelConfigRevision(ctx, "revision-query-model", "rev-1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(quarantined).To(BeEmpty())
+			Expect(registry.SetNodeModelRevision(ctx, node.ID, "revision-query-model", 0, "loaded", node.Address, 0, "rev-1", "hash-1")).To(Succeed())
+
+			found, replica, err := registry.FindAndLockNodeWithModel(ctx, "revision-query-model", nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found.ID).To(Equal(node.ID))
+			Expect(replica.ConfigRevision).To(Equal("rev-1"))
+		})
+	})
+
 	Context("FindNodeForModel", func() {
 		It("returns (node, true) when model is loaded on healthy node", func() {
 			node := &nodes.BackendNode{

@@ -168,8 +168,7 @@ Before using reference documentation, ensure you have:
 ## Related Sections
 
 - 📖 [Advanced](../advanced/) - Deep dive into configuration and optimization
-- 🔌 [Installation](../installation/) - Setup and deployment
-- ⭐ [Features](../features/) - Feature overview
+- - ⭐ [Features](../features/) - Feature overview
 
 ---
 

@@ -2,6 +2,7 @@ package modeladmin
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -10,8 +11,39 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/system"
 )
+
+type failingConfigMaterializer struct{ err error }
+
+func (f *failingConfigMaterializer) Ensure(context.Context, string, modelartifacts.Spec) (modelartifacts.Result, error) {
+	return modelartifacts.Result{}, f.err
+}
+
+type fakeRevisionLifecycle struct {
+	calls   []revisionLifecycleCall
+	batches [][]ModelRevisionTransition
+	pending int
+	err     error
+}
+
+type revisionLifecycleCall struct {
+	oldName, newName, revision string
+	disabled                   bool
+}
+
+func (f *fakeRevisionLifecycle) ApplyConfigRevisions(_ context.Context, transitions []ModelRevisionTransition) (int, error) {
+	f.batches = append(f.batches, append([]ModelRevisionTransition(nil), transitions...))
+	for _, transition := range transitions {
+		f.calls = append(f.calls, revisionLifecycleCall{
+			oldName: transition.ModelName, newName: transition.ModelName,
+			revision: transition.ConfigRevision, disabled: transition.Disabled,
+		})
+	}
+	return f.pending, f.err
+}
 
 // newTestService stands up a ConfigService backed by a tmp dir so the file IO
 // is real but isolated. The model loader is loaded against the same tmp path
@@ -48,6 +80,38 @@ var _ = Describe("ConfigService", func() {
 		ctx = context.Background()
 	})
 
+	It("rejects a symlink when snapshotting a mutation", func() {
+		target := filepath.Join(dir, "target.yaml")
+		Expect(os.WriteFile(target, []byte("name: target\n"), 0o600)).To(Succeed())
+		link := filepath.Join(dir, "link.yaml")
+		Expect(os.Symlink(target, link)).To(Succeed())
+
+		called := false
+		Expect(svc.withMutationRollback([]string{link}, func() error {
+			called = true
+			return nil
+		})).ToNot(Succeed())
+		Expect(called).To(BeFalse())
+	})
+
+	It("removes a symlink created at a previously absent rollback destination", func() {
+		target := filepath.Join(dir, "target.yaml")
+		Expect(os.WriteFile(target, []byte("unchanged"), 0o600)).To(Succeed())
+		destination := filepath.Join(dir, "new.yaml")
+		mutationErr := errors.New("mutation failed")
+
+		err := svc.withMutationRollback([]string{destination}, func() error {
+			Expect(os.Symlink(target, destination)).To(Succeed())
+			return mutationErr
+		})
+		Expect(err).To(MatchError(mutationErr))
+		_, statErr := os.Lstat(destination)
+		Expect(statErr).To(MatchError(os.ErrNotExist))
+		data, readErr := os.ReadFile(target)
+		Expect(readErr).NotTo(HaveOccurred())
+		Expect(data).To(Equal([]byte("unchanged")))
+	})
+
 	Describe("GetConfig", func() {
 		It("round-trips YAML from disk and exposes the parsed JSON", func() {
 			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
@@ -70,6 +134,109 @@ var _ = Describe("ConfigService", func() {
 	})
 
 	Describe("PatchConfig", func() {
+		It("rejects a patched name change before mutating any state", func() {
+			lifecycle := &fakeRevisionLifecycle{}
+			svc.Lifecycle = lifecycle
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+			path := filepath.Join(dir, "qwen.yaml")
+			before, err := os.ReadFile(path)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = svc.PatchConfig(ctx, "qwen", map[string]any{"name": "renamed", "context_size": 8192})
+			Expect(err).To(MatchError(ContainSubstring("cannot rename")))
+			Expect(errors.Is(err, ErrInvalidConfig)).To(BeTrue())
+			after, err := os.ReadFile(path)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(after).To(Equal(before))
+			Expect(filepath.Join(dir, "renamed.yaml")).NotTo(BeAnExistingFile())
+			loaded, ok := svc.Loader.GetModelConfig("qwen")
+			Expect(ok).To(BeTrue())
+			Expect(loaded.ContextSize).To(HaveValue(Equal(4096)))
+			_, renamed := svc.Loader.GetModelConfig("renamed")
+			Expect(renamed).To(BeFalse())
+			Expect(lifecycle.calls).To(BeEmpty())
+		})
+
+		It("accepts an omitted or unchanged patched name", func() {
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+
+			withoutName, err := svc.PatchConfig(ctx, "qwen", map[string]any{"context_size": 8192})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(withoutName.Name).To(Equal("qwen"))
+			withSameName, err := svc.PatchConfig(ctx, "qwen", map[string]any{"name": "qwen", "context_size": 10000})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(withSameName.Name).To(Equal("qwen"))
+		})
+
+		It("serializes lifecycle publication across local service instances", func() {
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+			lifecycle := newBlockingRevisionLifecycle()
+			first := NewConfigService(svc.Loader, svc.AppConfig, lifecycle)
+			second := NewConfigService(svc.Loader, svc.AppConfig, lifecycle)
+			firstDone := make(chan error, 1)
+			secondDone := make(chan error, 1)
+
+			go func() {
+				_, err := first.PatchConfig(ctx, "qwen", map[string]any{"context_size": 8192})
+				firstDone <- err
+			}()
+			Eventually(lifecycle.entered).Should(Receive())
+			go func() {
+				_, err := second.PatchConfig(ctx, "qwen", map[string]any{"context_size": 10000})
+				secondDone <- err
+			}()
+			Consistently(secondDone).ShouldNot(Receive())
+			Expect(readMap(filepath.Join(dir, "qwen.yaml"))).To(HaveKeyWithValue("context_size", 8192))
+
+			close(lifecycle.release)
+			Eventually(firstDone).Should(Receive(Succeed()))
+			Eventually(secondDone).Should(Receive(Succeed()))
+			loaded, ok := svc.Loader.GetModelConfig("qwen")
+			Expect(ok).To(BeTrue())
+			Expect(loaded.ContextSize).To(HaveValue(Equal(10000)))
+			Expect(readMap(filepath.Join(dir, "qwen.yaml"))).To(HaveKeyWithValue("context_size", 10000))
+		})
+
+		It("restores disk and loader when revision publication fails", func() {
+			svc.Lifecycle = &fakeRevisionLifecycle{err: errors.New("registry unavailable")}
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+
+			_, err := svc.PatchConfig(ctx, "qwen", map[string]any{"context_size": 8192})
+			Expect(err).To(MatchError(ContainSubstring("registry unavailable")))
+			Expect(readMap(filepath.Join(dir, "qwen.yaml"))).To(HaveKeyWithValue("context_size", 4096))
+			loaded, ok := svc.Loader.GetModelConfig("qwen")
+			Expect(ok).To(BeTrue())
+			Expect(loaded.ContextSize).To(HaveValue(Equal(4096)))
+			restarted := config.NewModelConfigLoader(dir)
+			Expect(restarted.LoadModelConfigsFromPath(dir)).To(Succeed())
+			reloaded, ok := restarted.GetModelConfig("qwen")
+			Expect(ok).To(BeTrue())
+			Expect(reloaded.ContextSize).To(HaveValue(Equal(4096)))
+		})
+		It("applies the persisted semantic revision and reports pending cleanup", func() {
+			lifecycle := &fakeRevisionLifecycle{pending: 2}
+			svc.Lifecycle = lifecycle
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+
+			updated, err := svc.PatchConfig(ctx, "qwen", map[string]any{"context_size": 8192})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updated.ConfigRevision).ToNot(BeEmpty())
+			Expect(updated.PendingCleanup).To(Equal(2))
+			Expect(lifecycle.calls).To(ConsistOf(revisionLifecycleCall{
+				oldName: "qwen", newName: "qwen", revision: updated.ConfigRevision,
+			}))
+		})
+
+		It("keeps a durable patch successful when cleanup remains pending", func() {
+			lifecycle := &fakeRevisionLifecycle{pending: 1}
+			svc.Lifecycle = lifecycle
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+
+			updated, err := svc.PatchConfig(ctx, "qwen", map[string]any{"context_size": 8192})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updated.PendingCleanup).To(Equal(1))
+			Expect(readMap(filepath.Join(dir, "qwen.yaml"))).To(HaveKeyWithValue("context_size", 8192))
+		})
 		It("deep-merges the patch and preserves untouched siblings", func() {
 			writeModelYAML(svc, dir, "qwen", map[string]any{
 				"backend":      "llama-cpp",
@@ -168,11 +335,103 @@ var _ = Describe("ConfigService", func() {
 	})
 
 	Describe("EditYAML", func() {
+		It("does not publish an in-place revision when preload preparation fails", func() {
+			materializer := &failingConfigMaterializer{err: errors.New("artifact unavailable")}
+			svc.Loader = config.NewModelConfigLoader(dir, config.WithArtifactMaterializer(materializer))
+			lifecycle := &fakeRevisionLifecycle{}
+			svc.Lifecycle = lifecycle
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+
+			body := []byte("name: qwen\nbackend: llama-cpp\ncontext_size: 8192\nartifacts:\n  - name: model\n    target: model\n    source: {type: huggingface, repo: owner/repo}\n")
+			_, err := svc.EditYAML(ctx, "qwen", body)
+			Expect(err).To(MatchError(ContainSubstring("artifact unavailable")))
+			Expect(lifecycle.calls).To(BeEmpty())
+			Expect(readMap(filepath.Join(dir, "qwen.yaml"))).To(HaveKeyWithValue("context_size", 4096))
+			loaded, ok := svc.Loader.GetModelConfig("qwen")
+			Expect(ok).To(BeTrue())
+			Expect(loaded.ContextSize).To(HaveValue(Equal(4096)))
+			restarted := config.NewModelConfigLoader(dir)
+			Expect(restarted.LoadModelConfigsFromPath(dir)).To(Succeed())
+			reloaded, ok := restarted.GetModelConfig("qwen")
+			Expect(ok).To(BeTrue())
+			Expect(reloaded.ContextSize).To(HaveValue(Equal(4096)))
+		})
+
+		It("does not publish a rename revision when preload preparation fails", func() {
+			materializer := &failingConfigMaterializer{err: errors.New("artifact unavailable")}
+			svc.Loader = config.NewModelConfigLoader(dir, config.WithArtifactMaterializer(materializer))
+			lifecycle := &fakeRevisionLifecycle{}
+			svc.Lifecycle = lifecycle
+			writeModelYAML(svc, dir, "old", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+
+			body := []byte("name: new\nbackend: llama-cpp\ncontext_size: 8192\nartifacts:\n  - name: model\n    target: model\n    source: {type: huggingface, repo: owner/repo}\n")
+			_, err := svc.EditYAML(ctx, "old", body)
+			Expect(err).To(MatchError(ContainSubstring("artifact unavailable")))
+			Expect(lifecycle.calls).To(BeEmpty())
+			Expect(filepath.Join(dir, "old.yaml")).To(BeAnExistingFile())
+			Expect(filepath.Join(dir, "new.yaml")).NotTo(BeAnExistingFile())
+			_, oldOK := svc.Loader.GetModelConfig("old")
+			_, newOK := svc.Loader.GetModelConfig("new")
+			Expect(oldOK).To(BeTrue())
+			Expect(newOK).To(BeFalse())
+			restarted := config.NewModelConfigLoader(dir)
+			Expect(restarted.LoadModelConfigsFromPath(dir)).To(Succeed())
+			_, oldOK = restarted.GetModelConfig("old")
+			_, newOK = restarted.GetModelConfig("new")
+			Expect(oldOK).To(BeTrue())
+			Expect(newOK).To(BeFalse())
+		})
+
+		It("restores an in-place edit when revision publication fails", func() {
+			svc.Lifecycle = &fakeRevisionLifecycle{err: errors.New("registry unavailable")}
+			writeModelYAML(svc, dir, "qwen", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+
+			_, err := svc.EditYAML(ctx, "qwen", []byte("name: qwen\nbackend: llama-cpp\ncontext_size: 8192\n"))
+			Expect(err).To(MatchError(ContainSubstring("registry unavailable")))
+			Expect(readMap(filepath.Join(dir, "qwen.yaml"))).To(HaveKeyWithValue("context_size", 4096))
+			loaded, ok := svc.Loader.GetModelConfig("qwen")
+			Expect(ok).To(BeTrue())
+			Expect(loaded.ContextSize).To(HaveValue(Equal(4096)))
+		})
+
+		It("restores both identities and gallery metadata when rename publication fails", func() {
+			svc.Lifecycle = &fakeRevisionLifecycle{err: errors.New("registry unavailable")}
+			writeModelYAML(svc, dir, "old", map[string]any{"backend": "llama-cpp", "context_size": 4096})
+			oldGallery := filepath.Join(dir, gallery.GalleryFileName("old"))
+			Expect(os.WriteFile(oldGallery, []byte("metadata"), 0644)).To(Succeed())
+
+			_, err := svc.EditYAML(ctx, "old", []byte("name: new\nbackend: llama-cpp\ncontext_size: 8192\n"))
+			Expect(err).To(MatchError(ContainSubstring("registry unavailable")))
+			Expect(filepath.Join(dir, "old.yaml")).To(BeAnExistingFile())
+			Expect(filepath.Join(dir, "new.yaml")).NotTo(BeAnExistingFile())
+			Expect(oldGallery).To(BeAnExistingFile())
+			Expect(filepath.Join(dir, gallery.GalleryFileName("new"))).NotTo(BeAnExistingFile())
+			_, oldOK := svc.Loader.GetModelConfig("old")
+			_, newOK := svc.Loader.GetModelConfig("new")
+			Expect(oldOK).To(BeTrue())
+			Expect(newOK).To(BeFalse())
+		})
+		It("applies both rename identities in one revision lifecycle batch", func() {
+			lifecycle := &fakeRevisionLifecycle{pending: 1}
+			svc.Lifecycle = lifecycle
+			writeModelYAML(svc, dir, "old", map[string]any{"backend": "llama-cpp"})
+			body := []byte("name: new\nbackend: llama-cpp\ncontext_size: 8192\n")
+
+			result, err := svc.EditYAML(ctx, "old", body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.ConfigRevision).ToNot(BeEmpty())
+			Expect(result.PendingCleanup).To(Equal(1))
+			Expect(lifecycle.batches).To(HaveLen(1))
+			Expect(lifecycle.calls).To(Equal([]revisionLifecycleCall{
+				{oldName: "old", newName: "old", revision: DeletedModelConfigRevision("old"), disabled: true},
+				{oldName: "new", newName: "new", revision: result.ConfigRevision},
+			}))
+		})
 		It("renames the on-disk file and reindexes the loader", func() {
 			writeModelYAML(svc, dir, "old-name", map[string]any{"backend": "llama-cpp"})
 
 			body := []byte("name: new-name\nbackend: llama-cpp\n")
-			result, err := svc.EditYAML(ctx, "old-name", body, nil)
+			result, err := svc.EditYAML(ctx, "old-name", body)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result.Renamed).To(BeTrue())
 			Expect(result.OldName).To(Equal("old-name"))
@@ -194,7 +453,7 @@ var _ = Describe("ConfigService", func() {
 			writeModelYAML(svc, dir, "beta", map[string]any{"backend": "llama-cpp"})
 
 			body := []byte("name: beta\nbackend: llama-cpp\n")
-			_, err := svc.EditYAML(ctx, "alpha", body, nil)
+			_, err := svc.EditYAML(ctx, "alpha", body)
 			Expect(err).To(MatchError(ErrConflict))
 		})
 
@@ -202,13 +461,13 @@ var _ = Describe("ConfigService", func() {
 			writeModelYAML(svc, dir, "alpha", map[string]any{"backend": "llama-cpp"})
 
 			body := []byte("name: ../escape\nbackend: llama-cpp\n")
-			_, err := svc.EditYAML(ctx, "alpha", body, nil)
+			_, err := svc.EditYAML(ctx, "alpha", body)
 			Expect(err).To(MatchError(ErrPathSeparator))
 		})
 
 		It("returns ErrEmptyBody when the body is nil", func() {
 			writeModelYAML(svc, dir, "alpha", map[string]any{"backend": "llama-cpp"})
-			_, err := svc.EditYAML(ctx, "alpha", nil, nil)
+			_, err := svc.EditYAML(ctx, "alpha", nil)
 			Expect(err).To(MatchError(ErrEmptyBody))
 		})
 
@@ -216,7 +475,7 @@ var _ = Describe("ConfigService", func() {
 			writeModelYAML(svc, dir, "base", map[string]any{"backend": "llama-cpp"})
 
 			body := []byte("name: base\nalias: ghost\n")
-			_, err := svc.EditYAML(ctx, "base", body, nil)
+			_, err := svc.EditYAML(ctx, "base", body)
 			Expect(err).To(MatchError(ErrInvalidConfig))
 			Expect(err.Error()).To(ContainSubstring("ghost"))
 		})
@@ -226,7 +485,7 @@ var _ = Describe("ConfigService", func() {
 			writeModelYAML(svc, dir, "target", map[string]any{"backend": "llama-cpp"})
 
 			body := []byte("name: base\nalias: target\n")
-			_, err := svc.EditYAML(ctx, "base", body, nil)
+			_, err := svc.EditYAML(ctx, "base", body)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})

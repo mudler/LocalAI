@@ -163,7 +163,7 @@ func (r *recordingBackend) VoiceEmbed(_ context.Context, in *pb.VoiceEmbedReques
 // backend, so every helper below reaches it through the real Load path.
 func newRecordingLoader(rec *recordingBackend) *model.ModelLoader {
 	loader := model.NewModelLoader(&system.SystemState{})
-	loader.SetModelRouter(func(_ context.Context, id string, _, _, _ string, _ *pb.ModelOptions, _ bool) (*model.Model, error) {
+	loader.SetModelRouter(func(_ context.Context, id string, _, _, _, _ string, _ *pb.ModelOptions, _ bool) (*model.Model, error) {
 		return model.NewModelWithClient(id, "test://recording", rec), nil
 	})
 	return loader

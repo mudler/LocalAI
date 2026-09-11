@@ -88,6 +88,12 @@ using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
 
+#if LOCALAI_HAS_MTMD_INIT_OPT
+#define LOCALAI_MTMD_INIT_OPT_ARG(value) , value
+#else
+#define LOCALAI_MTMD_INIT_OPT_ARG(value)
+#endif
+
 // gRPC bearer token auth for distributed mode.
 // Reads LOCALAI_GRPC_AUTH_TOKEN from the environment. When set, rejects
 // requests without a matching "authorization: Bearer <token>" metadata header.
@@ -294,7 +300,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             } else {
                 SRV_WRN("[TOOLS DEBUG] parse_options: Parsed tools JSON is not an array: %s\n", tools_json.dump().c_str());
             }
-        } catch (const json::parse_error& e) {
+        } catch (const common_json_error& e) {
             SRV_WRN("Failed to parse tools JSON from proto: %s\n", e.what());
             SRV_WRN("[TOOLS DEBUG] parse_options: Tools string that failed to parse: %s\n", predict->tools().c_str());
         }
@@ -324,7 +330,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
                 SRV_DBG("[TOOLS DEBUG] Received tool_choice object from Go layer: %s\n", tool_choice_json.dump().c_str());
             }
             SRV_INF("Extracted tool_choice from proto: %s\n", predict->toolchoice().c_str());
-        } catch (const json::parse_error& e) {
+        } catch (const common_json_error& e) {
             // If parsing fails, treat as string
             data["tool_choice"] = predict->toolchoice();
             SRV_INF("Extracted tool_choice as string: %s\n", predict->toolchoice().c_str());
@@ -353,7 +359,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             // Add to data - llama.cpp server expects it as an object (map)
             data["logit_bias"] = logit_bias_json;
             SRV_INF("Using logit_bias: %s\n", predict->logitbias().c_str());
-        } catch (const json::parse_error& e) {
+        } catch (const common_json_error& e) {
             SRV_ERR("Failed to parse logit_bias JSON from proto: %s\n", e.what());
         }
     }
@@ -398,7 +404,10 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             });
     }
 
-    data["stop"] = predict->stopprompts();
+    data["stop"] = json::array();
+    for (const auto & stop : predict->stopprompts()) {
+        data["stop"].push_back(stop);
+    }
     // data["n_probs"] = predict->nprobs();
     //TODO: images,
 
@@ -1116,14 +1125,16 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 try {
                     int n = std::stoi(optval_str);
                     if (n < 0) n = 0;
-                    // Keep override-name storage alive for the lifetime of the params struct
-                    // (mirrors upstream arg.cpp behavior with a function-local static).
+#if LOCALAI_HAS_N_CPU_FFN_HELPER
+                    llm_add_n_cpu_ffn_overrides(n, LLM_FFN_EXPS_REGEX, params.speculative.draft.tensor_buft_overrides);
+#else
                     static std::list<std::string> buft_overrides_draft;
                     for (int i = 0; i < n; ++i) {
                         buft_overrides_draft.push_back(llm_ffn_exps_block_regex(i));
                         params.speculative.draft.tensor_buft_overrides.push_back(
                             {buft_overrides_draft.back().c_str(), ggml_backend_cpu_buffer_type()});
                     }
+#endif
                 } catch (...) {}
             }
 
@@ -1141,14 +1152,16 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 try {
                     int n = std::stoi(optval_str);
                     if (n < 0) n = 0;
-                    // Keep override-name storage alive for the lifetime of the
-                    // params struct (mirrors upstream arg.cpp's function-local static).
+#if LOCALAI_HAS_N_CPU_FFN_HELPER
+                    llm_add_n_cpu_ffn_overrides(n, LLM_FFN_EXPS_REGEX, params.tensor_buft_overrides);
+#else
                     static std::list<std::string> buft_overrides_main;
                     for (int i = 0; i < n; ++i) {
                         buft_overrides_main.push_back(llm_ffn_exps_block_regex(i));
                         params.tensor_buft_overrides.push_back(
                             {buft_overrides_main.back().c_str(), ggml_backend_cpu_buffer_type()});
                     }
+#endif
                 } catch (...) {}
             }
 
@@ -1795,7 +1808,7 @@ public:
                         for (int j = 0; j < request->audios_size(); j++) rin.audios.push_back(request->audios(j));
                         for (int j = 0; j < request->videos_size(); j++) rin.videos.push_back(request->videos(j));
                     }
-                    messages_json.push_back(llama_grpc::build_reconstructed_message(rin));
+                    messages_json.push_back(json::parse(llama_grpc::build_reconstructed_message(rin).dump()));
                 }
 
                 // Final safety check: Ensure no message has null content (Jinja templates require strings)
@@ -1988,7 +2001,7 @@ public:
                             if (!body_json.contains("chat_template_kwargs")) {
                                 body_json["chat_template_kwargs"] = json::object();
                             }
-                            for (auto& el : ctk.items()) {
+                            for (auto el : ctk.items()) {
                                 body_json["chat_template_kwargs"][el.key()] = el.value();
                             }
                         }
@@ -2074,30 +2087,27 @@ public:
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
             if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_params.tmpls == nullptr) {
-                const auto &images_data = data.find("image_data");
-                if (images_data != data.end() && images_data->is_array())
+                if (data.contains("image_data") && data.at("image_data").is_array())
                 {
-                    for (const auto &img : *images_data)
+                    for (const auto &img : data.at("image_data"))
                     {
                         auto decoded_data = base64_decode(img["data"].get<std::string>());
                         files.push_back(decoded_data);
                     }
                 }
 
-                const auto &audio_data = data.find("audio_data");
-                if (audio_data != data.end() && audio_data->is_array())
+                if (data.contains("audio_data") && data.at("audio_data").is_array())
                 {
-                    for (const auto &audio : *audio_data)
+                    for (const auto &audio : data.at("audio_data"))
                     {
                         auto decoded_data = base64_decode(audio["data"].get<std::string>());
                         files.push_back(decoded_data);
                     }
                 }
 
-                const auto &video_data = data.find("video_data");
-                if (video_data != data.end() && video_data->is_array())
+                if (data.contains("video_data") && data.at("video_data").is_array())
                 {
-                    for (const auto &video : *video_data)
+                    for (const auto &video : data.at("video_data"))
                     {
                         auto decoded_data = base64_decode(video["data"].get<std::string>());
                         files.push_back(decoded_data);
@@ -2111,10 +2121,10 @@ public:
             std::vector<server_tokens> inputs;
             if (has_mtmd) {
                 // multimodal
-                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files));
+                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt)));
             } else {
                  // Everything else, including multimodal completions.
-                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true);
+                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
             }
 
             tasks.reserve(inputs.size());
@@ -2370,7 +2380,7 @@ public:
                         for (int j = 0; j < request->audios_size(); j++) rin.audios.push_back(request->audios(j));
                         for (int j = 0; j < request->videos_size(); j++) rin.videos.push_back(request->videos(j));
                     }
-                    messages_json.push_back(llama_grpc::build_reconstructed_message(rin));
+                    messages_json.push_back(json::parse(llama_grpc::build_reconstructed_message(rin).dump()));
                 }
 
                 // Final safety check: Ensure no message has null content (Jinja templates require strings)
@@ -2563,7 +2573,7 @@ public:
                             if (!body_json.contains("chat_template_kwargs")) {
                                 body_json["chat_template_kwargs"] = json::object();
                             }
-                            for (auto& el : ctk.items()) {
+                            for (auto el : ctk.items()) {
                                 body_json["chat_template_kwargs"][el.key()] = el.value();
                             }
                         }
@@ -2649,11 +2659,10 @@ public:
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
             if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_params.tmpls == nullptr) {
-                const auto &images_data = data.find("image_data");
-                if (images_data != data.end() && images_data->is_array())
+                if (data.contains("image_data") && data.at("image_data").is_array())
                 {
-                    std::cout << "[PREDICT] Processing " << images_data->size() << " images" << std::endl;
-                    for (const auto &img : *images_data)
+                    std::cout << "[PREDICT] Processing " << data.at("image_data").size() << " images" << std::endl;
+                    for (const auto &img : data.at("image_data"))
                     {
                         std::cout << "[PREDICT] Processing image" << std::endl;
                         auto decoded_data = base64_decode(img["data"].get<std::string>());
@@ -2661,20 +2670,18 @@ public:
                     }
                 }
 
-                const auto &audio_data = data.find("audio_data");
-                if (audio_data != data.end() && audio_data->is_array())
+                if (data.contains("audio_data") && data.at("audio_data").is_array())
                 {
-                    for (const auto &audio : *audio_data)
+                    for (const auto &audio : data.at("audio_data"))
                     {
                         auto decoded_data = base64_decode(audio["data"].get<std::string>());
                         files.push_back(decoded_data);
                     }
                 }
 
-                const auto &video_data = data.find("video_data");
-                if (video_data != data.end() && video_data->is_array())
+                if (data.contains("video_data") && data.at("video_data").is_array())
                 {
-                    for (const auto &video : *video_data)
+                    for (const auto &video : data.at("video_data"))
                     {
                         auto decoded_data = base64_decode(video["data"].get<std::string>());
                         files.push_back(decoded_data);
@@ -2689,10 +2696,10 @@ public:
             std::vector<server_tokens> inputs;
             if (has_mtmd) {
                 // multimodal
-                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files));
+                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt)));
             } else {
                  // Everything else, including multimodal completions.
-                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true);
+                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
             }
 
             tasks.reserve(inputs.size());
@@ -2879,7 +2886,7 @@ public:
         json prompt = body.at("embeddings");
 
 
-        auto tokenized_prompts = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt, true, true);
+        auto tokenized_prompts = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt, true, true LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
         for (const auto & tokens : tokenized_prompts) {
             // this check is necessary for models that do not add BOS token to the input
             if (tokens.empty()) {
@@ -2984,7 +2991,7 @@ public:
 
             tasks.reserve(documents.size());
             for (size_t i = 0; i < documents.size(); i++) {
-                auto tmp = format_prompt_rerank(ctx_server.impl->model_tgt, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i]);
+                auto tmp = format_prompt_rerank(ctx_server.impl->model_tgt, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i] LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
                 server_task task = server_task(SERVER_TASK_TYPE_RERANK);
                 task.id = rd.queue_tasks.get_new_id();
                 task.index = i;
@@ -3005,7 +3012,7 @@ public:
         }
 
         // Collect responses
-        json responses = json::array();
+        std::vector<json> responses;
         for (auto & res : all_results.results) {
             GGML_ASSERT(dynamic_cast<server_task_result_rerank*>(res.get()) != nullptr);
             responses.push_back(res->to_json());
@@ -3018,7 +3025,7 @@ public:
         // Crop results by request.top_n if specified
         int top_n = request->top_n();
         if (top_n > 0 && top_n < static_cast<int>(responses.size())) {
-            responses = json(responses.begin(), responses.begin() + top_n);
+            responses.resize(top_n);
         }
         // Set usage information
         backend::Usage* usage = rerankResult->mutable_usage();
@@ -3065,7 +3072,7 @@ public:
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, opts.error);
         }
 
-        auto wrapper = mtmd_helper_bitmap_init_from_file(ctx_server.impl->mctx, opts.voice_path.c_str(), false);
+        auto wrapper = mtmd_helper_bitmap_init_from_file(ctx_server.impl->mctx, opts.voice_path.c_str(), false LOCALAI_MTMD_INIT_OPT_ARG(ctx_server.impl->init_opt));
         if (!wrapper.bitmap) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
                 "failed to read speaker reference audio: " + opts.voice_path);

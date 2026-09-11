@@ -363,7 +363,7 @@ export default function Traces() {
   const [apiCount, setApiCount] = useState(0)
   const [backendCount, setBackendCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [expandedRow, setExpandedRow] = useState(null)
+  const [expandedTraceId, setExpandedTraceId] = useState(null)
   // detail holds the full record for the currently expanded row, fetched on
   // demand from /api/traces/:id (the list response omits the bodies).
   const [detail, setDetail] = useState(null)
@@ -381,7 +381,8 @@ export default function Traces() {
     duration: (a, b) => (a.duration || 0) - (b.duration || 0),
   }
   const toggleSort = (key) => {
-    setExpandedRow(null)
+    setExpandedTraceId(null)
+    setDetail(null)
     setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
   }
   const sortableTh = (key, label, props = {}) => (
@@ -454,20 +455,21 @@ export default function Traces() {
 
   useEffect(() => {
     setLoading(true)
-    setExpandedRow(null)
+    setExpandedTraceId(null)
     setDetail(null)
     fetchTraces()
   }, [fetchTraces])
 
   // Expanding a row pulls the full record (bodies, data fields, audio
   // snippets) that the list response deliberately omits.
-  const toggleRow = useCallback(async (index, row) => {
-    if (expandedRow === index) {
-      setExpandedRow(null)
+  const toggleRow = useCallback(async (row, index) => {
+    const traceKey = row?.id ?? index
+    if (expandedTraceId === traceKey) {
+      setExpandedTraceId(null)
       setDetail(null)
       return
     }
-    setExpandedRow(index)
+    setExpandedTraceId(traceKey)
     setDetail(null)
     if (!row?.id) return
     try {
@@ -478,7 +480,7 @@ export default function Traces() {
     } catch {
       // Fall back to the summary view; the row still renders what it has.
     }
-  }, [expandedRow, activeTab])
+  }, [expandedTraceId, activeTab])
 
   // Auto-refresh every 5 seconds
   useEffect(() => {
@@ -491,7 +493,7 @@ export default function Traces() {
       if (activeTab === 'api') await tracesApi.clear()
       else await tracesApi.clearBackend()
       setTraces([])
-      setExpandedRow(null)
+      setExpandedTraceId(null)
       setDetail(null)
       addToast('Traces cleared', 'success')
     } catch (err) {
@@ -521,7 +523,7 @@ export default function Traces() {
   }
 
   // Reset sort + expansion when switching trace tabs (columns differ).
-  useEffect(() => { setSort({ key: null, dir: 'asc' }); setExpandedRow(null); setDetail(null) }, [activeTab])
+  useEffect(() => { setSort({ key: null, dir: 'asc' }); setExpandedTraceId(null); setDetail(null) }, [activeTab])
 
   const sortedTraces = sort.key && TRACE_SORT[sort.key]
     ? [...traces].sort((a, b) => sort.dir === 'asc' ? TRACE_SORT[sort.key](a, b) : TRACE_SORT[sort.key](b, a))
@@ -659,9 +661,9 @@ export default function Traces() {
             </thead>
             <tbody>
               {sortedTraces.map((trace, i) => (
-                <React.Fragment key={i}>
-                  <tr onClick={() => toggleRow(i, trace)} className="clickable">
-                    <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'} text-xs`} /></td>
+                <React.Fragment key={trace.id ?? i}>
+                  <tr onClick={() => toggleRow(trace, i)} className="clickable">
+                    <td><i className={`fas fa-chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'} text-xs`} /></td>
                     <td><span className="badge badge-info">{trace.request?.method || '-'}</span></td>
                     <td className="text-mono text-sm">{trace.request?.path || '-'}</td>
                     <td className="text-sub cell-clip" title={trace.user_name || trace.user_id || ''}>{trace.user_name || trace.user_id || '-'}</td>
@@ -681,7 +683,7 @@ export default function Traces() {
                         : <i className="fas fa-check-circle text-success" />}
                     </td>
                   </tr>
-                  {expandedRow === i && (
+                  {expandedTraceId === (trace.id ?? i) && (
                     <tr>
                       <td colSpan="7" className="p-0">
                         <ApiTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />
@@ -707,9 +709,9 @@ export default function Traces() {
             </thead>
             <tbody>
               {sortedTraces.map((trace, i) => (
-                <React.Fragment key={i}>
-                  <tr onClick={() => toggleRow(i, trace)} className="clickable">
-                    <td><i className={`fas fa-chevron-${expandedRow === i ? 'down' : 'right'} text-xs`} /></td>
+                <React.Fragment key={trace.id ?? i}>
+                  <tr onClick={() => toggleRow(trace, i)} className="clickable">
+                    <td><i className={`fas fa-chevron-${expandedTraceId === (trace.id ?? i) ? 'down' : 'right'} text-xs`} /></td>
                     <td><span style={typeBadgeStyle(trace.type)}>{trace.type || '-'}</span></td>
                     <td className="text-sub nowrap">{formatDateTime(trace.timestamp)}</td>
                     <td className="text-mono text-sm">{trace.model_name || '-'}</td>
@@ -725,7 +727,7 @@ export default function Traces() {
                         : <i className="fas fa-check-circle text-success" />}
                     </td>
                   </tr>
-                  {expandedRow === i && (
+                  {expandedTraceId === (trace.id ?? i) && (
                     <tr>
                       <td colSpan="7" className="p-0">
                         <BackendTraceDetail trace={detail && detail.id === trace.id ? detail : trace} />

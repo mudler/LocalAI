@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { modelsApi, backendsApi } from '../utils/api'
+import { formatBytes } from '../utils/format'
+import { createTransferRateSampler } from '../utils/transferRate'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
 import CodeEditor from '../components/CodeEditor'
@@ -136,6 +138,7 @@ export default function ImportModel() {
   // already reports progress, phase and byte counts, and the page used to
   // render only `message`.
   const [job, setJob] = useState(null)
+  const transferRateRef = useRef(createTransferRateSampler())
 
   const [prefs, setPrefs] = useState(DEFAULT_PREFS)
   const [customPrefs, setCustomPrefs] = useState([])
@@ -234,10 +237,12 @@ export default function ImportModel() {
 
   const startJobPolling = useCallback((jobId) => {
     if (pollRef.current) clearInterval(pollRef.current)
+    transferRateRef.current.retain([jobId])
     pollRef.current = setInterval(async () => {
       try {
         const data = await modelsApi.getJobStatus(jobId)
         if (data.completed) {
+          transferRateRef.current.reset(jobId)
           clearInterval(pollRef.current)
           pollRef.current = null
           setIsSubmitting(false)
@@ -247,6 +252,7 @@ export default function ImportModel() {
           return
         }
         if (data.error || (data.message && data.message.startsWith('error:'))) {
+          transferRateRef.current.reset(jobId)
           clearInterval(pollRef.current)
           pollRef.current = null
           setIsSubmitting(false)
@@ -263,7 +269,10 @@ export default function ImportModel() {
         // import endpoint registers it in the opcache) but drops it the moment
         // it finishes, which is indistinguishable from a cancel — so terminal
         // detection stays on this endpoint and only the rendering gets richer.
-        setJob(data)
+        const currentBytes = data.current_bytes
+        const totalBytes = data.total_bytes
+        const metrics = transferRateRef.current.sample(jobId, currentBytes, totalBytes)
+        setJob({ ...data, currentBytes, totalBytes, ...metrics })
       } catch (err) {
         console.error('Error polling job status:', err)
       }
@@ -566,8 +575,13 @@ export default function ImportModel() {
   // Everything the poller already returns and the old status card threw away.
   const progressPct = Number.isFinite(job?.progress) ? Math.round(job.progress) : null
   const jobName = job?.file_name || job?.gallery_element_name || ''
-  const jobBytes = job?.downloaded_size && job?.file_size
-    ? `${job.downloaded_size} / ${job.file_size}`
+  const jobBytes = Number.isFinite(job?.currentBytes) && Number.isFinite(job?.totalBytes) && job.totalBytes > 0
+    ? `${formatBytes(job.currentBytes)} / ${formatBytes(job.totalBytes)}`
+    : (job?.downloaded_size && job?.file_size
+        ? `${job.downloaded_size} / ${job.file_size}`
+        : '')
+  const jobRate = Number.isFinite(job?.bytesPerSecond) && job.bytesPerSecond > 0
+    ? `${formatBytes(job.bytesPerSecond)}/s`
     : ''
 
   return (
@@ -716,6 +730,7 @@ export default function ImportModel() {
                   <span className="import-progress__meta">
                     {job.phase || job.message || t('progress.working')}
                     {jobBytes && ` · ${jobBytes}`}
+                    {jobRate && ` · ${jobRate}`}
                   </span>
                 </div>
               </div>

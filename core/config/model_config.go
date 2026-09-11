@@ -43,8 +43,17 @@ type TTSConfig struct {
 
 // @Description ModelConfig represents a model configuration
 type ModelConfig struct {
-	modelConfigFile          string `yaml:"-" json:"-"`
-	modelTemplate            string `yaml:"-" json:"-"`
+	modelConfigFile string `yaml:"-" json:"-"`
+	modelTemplate   string `yaml:"-" json:"-"`
+	// persistedConfigRevision is the revision of this model's persisted
+	// configuration, stamped when the loader materializes it and therefore
+	// before any per-request override is merged in. The request pipeline
+	// mutates its copy of a ModelConfig with the caller's sampling parameters
+	// (temperature, top_p, stop, ...), so hashing the config at load time is
+	// the only way the controller sees one revision per configuration rather
+	// than one per request body. Unexported, so it never enters the hash it
+	// describes and never reaches YAML or JSON.
+	persistedConfigRevision  string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters,omitempty" json:"parameters,omitempty"`
 	Name                     string                `yaml:"name,omitempty" json:"name,omitempty"`
 	Artifacts                []modelartifacts.Spec `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
@@ -1342,6 +1351,16 @@ type TemplateConfig struct {
 	// that can use the tokenizers specified in the JSON config files of the models
 	UseTokenizerTemplate bool `yaml:"use_tokenizer_template,omitempty" json:"use_tokenizer_template,omitempty"`
 
+	// SystemMessagesAfterFirst controls what happens to system-role messages that
+	// appear after the leading system block. Some tokenizer chat templates (e.g.
+	// Qwen3.8 / Flash-Next) raise "System message must be at the beginning" for
+	// them, while agent frameworks (cogito tool selection, adjustment prompts)
+	// legitimately append system instructions mid-conversation.
+	//   ""/"error": pass through unchanged (template decides)
+	//   "merge":    fold them into the leading system message
+	//   "user":     forward them as user-role instructions (keeps their position)
+	SystemMessagesAfterFirst string `yaml:"system_messages_after_first,omitempty" json:"system_messages_after_first,omitempty"`
+
 	// JoinChatMessagesByCharacter is a string that will be used to join chat messages together.
 	// It defaults to \n
 	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character,omitempty" json:"join_chat_messages_by_character,omitempty"`
@@ -1360,6 +1379,12 @@ func (c *ModelConfig) syncKnownUsecasesFromString() {
 			c.KnownUsecaseStrings = append(c.KnownUsecaseStrings, k)
 		}
 	}
+	// GetAllModelConfigUsecases returns a map, and ranging one yields a random
+	// order per call. KnownUsecaseStrings is part of the serialized config, so
+	// an unsorted list gives the same file a different config revision on every
+	// load. In distributed mode that reads as a config change and the router
+	// rejects the request with ErrStaleModelConfigRevision.
+	slices.Sort(c.KnownUsecaseStrings)
 }
 
 func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
@@ -1834,6 +1859,27 @@ func (c *ModelConfig) HasTemplate() bool {
 
 func (c *ModelConfig) GetModelConfigFile() string {
 	return c.modelConfigFile
+}
+
+// PersistedConfigRevision returns the revision stamped when this configuration
+// was loaded, or "" when it was never stamped (a config synthesized outside the
+// loader). Callers that need a revision for a request must prefer this over
+// recomputing one from the config they hold: by then the request pipeline has
+// merged the caller's prediction parameters into it.
+func (c *ModelConfig) PersistedConfigRevision() string {
+	return c.persistedConfigRevision
+}
+
+// StampPersistedConfigRevision records the revision of this configuration as
+// persisted. It is computed from the receiver as-is, so callers must invoke it
+// only on a configuration that has not been merged with request overrides.
+func (c *ModelConfig) StampPersistedConfigRevision() error {
+	revision, err := modelConfigRevision(c)
+	if err != nil {
+		return err
+	}
+	c.persistedConfigRevision = revision
+	return nil
 }
 
 // GetModelTemplate returns the model's chat template if available

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { operationsApi } from '../utils/api'
+import { createTransferRateSampler } from '../utils/transferRate'
 import { useAuth } from '../context/AuthContext'
 
 // Serialize ops into a stable comparison key. Each op is a flat map of
@@ -167,63 +168,19 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
     }
   }, [fetchOperations])
 
-  // Time remaining is derived, not reported. We keep the previous
-  // (bytes, timestamp) sample per job and estimate from the delta.
-  //
-  // All or nothing on purpose: an estimate needs two samples, and one card
-  // showing "11 min left" while its neighbours show nothing reads as a
-  // rendering bug rather than as missing data.
-  const samplesRef = useRef(new Map())
+  const transferRateRef = useRef(createTransferRateSampler())
   const operationsWithEta = useMemo(() => {
     const now = Date.now()
-    const samples = samplesRef.current
     const seen = new Set()
 
     const withEta = operations.map((op) => {
       const key = op.jobID || op.id
       seen.add(key)
-      const current = op.currentBytes
-      const total = op.totalBytes
-      if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) return op
-
-      const previous = samples.get(key)
-      samples.set(key, { bytes: current, at: now })
-      if (!previous || current <= previous.bytes) return op
-
-      const bytesPerMs = (current - previous.bytes) / Math.max(1, now - previous.at)
-      if (bytesPerMs <= 0) return op
-      return { ...op, etaSeconds: Math.round((total - current) / bytesPerMs / 1000) }
+      const metrics = transferRateRef.current.sample(key, op.currentBytes, op.totalBytes, now)
+      return Object.keys(metrics).length > 0 ? { ...op, ...metrics } : op
     })
 
-    // Drop samples for jobs that finished, so the map cannot grow forever.
-    for (const key of samples.keys()) {
-      if (!seen.has(key)) samples.delete(key)
-    }
-
-    // All or nothing: if any operation still transferring has no estimate yet,
-    // nobody shows one this tick.
-    //
-    // Only operations actually downloading get a vote. Every other phase
-    // reports bytes but stops advancing them: verifying hashes a finished file
-    // while the counter sits below the multi-file total, and committing sits
-    // pinned at the total. Both can last minutes, and counting them would
-    // blank every other operation's estimate for that whole window.
-    //
-    // The byte clauses are not redundant with the phase clause: a producer can
-    // report downloading with bytes already at the total. The undefined-phase
-    // arm keeps today's behaviour for producers that do not report a phase,
-    // which in practice do not report totalBytes either.
-    const tracked = withEta.filter(
-      (op) =>
-        Number.isFinite(op.totalBytes) &&
-        op.totalBytes > 0 &&
-        Number.isFinite(op.currentBytes) &&
-        op.currentBytes < op.totalBytes &&
-        (op.phase === undefined || op.phase === 'downloading')
-    )
-    if (tracked.length > 0 && tracked.some((op) => op.etaSeconds === undefined)) {
-      return withEta.map(({ etaSeconds: _etaSeconds, ...op }) => op)
-    }
+    transferRateRef.current.retain(seen)
     return withEta
   }, [operations])
 

@@ -6,10 +6,9 @@ Subject: [PATCH 1/2] score-patch
 ---
  common/common.cpp               |   6 +-
  common/common.h                 |   3 +
- tools/CMakeLists.txt            |   1 +
  tools/server/server-context.cpp | 358 +++++++++++++++++++++++++++++++-
  tools/server/server-task.h      |  47 +++++
- 5 files changed, 406 insertions(+), 9 deletions(-)
+ 4 files changed, 405 insertions(+), 9 deletions(-)
 
 diff --git a/common/common.cpp b/common/common.cpp
 index 2e3f14c..0cec0dc 100644
@@ -42,15 +41,6 @@ index 878534d..4001df2 100644
      int32_t n_sequences           =     1; // number of sequences to decode
      int32_t n_outputs_max         =     0; // max outputs in a batch (0 = n_batch)
      int32_t n_outputs_max_per_seq =     1; // max outputs per sequence
-diff --git a/tools/CMakeLists.txt b/tools/CMakeLists.txt
-index 780df32..1d2fe8f 100644
---- a/tools/CMakeLists.txt
-+++ b/tools/CMakeLists.txt
-@@ -41,3 +41,4 @@ else()
-     add_subdirectory(fit-params)
-     add_subdirectory(results)
- endif()
-+add_subdirectory(grpc-server)
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
 index 3b5f6a1..d0e18e6 100644
 --- a/tools/server/server-context.cpp
