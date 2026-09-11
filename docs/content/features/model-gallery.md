@@ -257,11 +257,15 @@ variant name for ordinary decoding without a draft model.
 
 ### Model variants
 
-Ornith 1.5 9B offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds with a shared BF16 vision projector. To select Q6_K explicitly:
+The `qwen3.5-9b-defiant-fable-mtp` entry offers Q4_K_M and Q8_0 builds for
+llama.cpp, with and without multi-token prediction (MTP). Each build includes
+the BF16 vision projector. To select the Q8_0 MTP build explicitly:
 
 ```bash
-local-ai models install ornith-1.5-9b-q4 --variant ornith-1.5-9b-q6
+local-ai models install localai@qwen3.5-9b-defiant-fable-mtp --variant qwen3.5-9b-defiant-fable-q8-mtp
 ```
+
+Use `--variant qwen3.5-9b-defiant-fable-q8` for Q8_0 with ordinary decoding.
 
 Some gallery entries offer several builds of the same model: different
 quantizations, or the same weights served by a different engine. Such an entry
