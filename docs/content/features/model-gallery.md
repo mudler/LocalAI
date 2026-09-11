@@ -298,19 +298,11 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
-### MiniCPM5-2B
-
-[MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B) is available as
-`minicpm5-2b` (Q4_K_M) and `minicpm5-2b-q8` (Q8_0) for the llama.cpp
-backend. The Q4 entry offers Q8 as a variant, so LocalAI can select a build
-that fits the host. Both use the model's embedded chat template, an 8,192-token
-context, temperature 1.0, and top-p 0.95. These entries support text chat;
-OpenAI-compatible tool calling has not been verified.
-
-To select the Q4 build explicitly:
+The Tiel-Coder gallery entry offers Q4, Q5, Q6, and Q8 MTP builds for
+llama.cpp, each with the BF16 vision projector. To select the Q6 MTP build:
 
 ```bash
-local-ai models install minicpm5-2b --variant minicpm5-2b
+local-ai models install tiel-coder-35b-a3b-q4 --variant tiel-coder-35b-a3b-q6-mtp
 ```
 
 ### Collapsing the listing to one row per model
