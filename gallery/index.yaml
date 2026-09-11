@@ -9303,6 +9303,112 @@
     - filename: llama-cpp/mmproj/kai-os_Grug-12B-Q8_0/mmproj-kai-os_Grug-12B-f16.gguf
       sha256: 0d59c7571a593b8d11c8104ed90250656efec0abbed9b4a737e7247eae149378
       uri: huggingface://bartowski/kai-os_Grug-12B-GGUF/mmproj-kai-os_Grug-12B-f16.gguf
+- &gemma-4-12b-qat-hauhaucs-balanced
+  name: "gemma-4-12b-qat-hauhaucs-balanced"
+  variants:
+    - model: gemma-4-12b-qat-hauhaucs-balanced-mtp
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-12B-it
+    - https://huggingface.co/HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced
+  license: "gemma"
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  description: |
+    HauhauCS Balanced is an uncensored Gemma 4 12B model built from
+    quantization-aware-trained weights for chat, coding, and creative writing.
+    This Q4_K_M GGUF build includes the vision projector for image input.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+    - reasoning
+    - thinking
+    - uncensored
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/gemma-4-12b-qat-hauhaucs-balanced/mmproj-Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-BF16.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-12b-qat-hauhaucs-balanced/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf
+      temperature: 0.6
+      top_k: 64
+      top_p: 0.9
+      min_p: 0.05
+      repeat_penalty: 1.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12b-qat-hauhaucs-balanced/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf
+      uri: huggingface://HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf
+      sha256: 59656d7494d6376ca97e9e20b64ea2e16cd97f12ec6d47bfccba91cb785b5134
+    - filename: llama-cpp/mmproj/gemma-4-12b-qat-hauhaucs-balanced/mmproj-Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-BF16.gguf
+      uri: huggingface://HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced/mmproj-Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-BF16.gguf
+      sha256: b59e815479b7e5f0665bd29e6784c104a368092bcbc63120148c606f9276ab8e
+- !!merge <<: *gemma-4-12b-qat-hauhaucs-balanced
+  name: "gemma-4-12b-qat-hauhaucs-balanced-mtp"
+  variants: []
+  description: |
+    HauhauCS Balanced is an uncensored Gemma 4 12B model built from
+    quantization-aware-trained weights for chat, coding, and creative writing.
+    This Q4_K_M GGUF build includes the vision projector for image input.
+    The MTP variant adds the publisher-provided draft head and enables
+    llama.cpp multi-token-prediction speculative decoding.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+    - reasoning
+    - thinking
+    - uncensored
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    mmproj: llama-cpp/mmproj/gemma-4-12b-qat-hauhaucs-balanced/mmproj-Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-BF16.gguf
+    draft_model: llama-cpp/models/gemma-4-12b-qat-hauhaucs-balanced/mtp-gemma-4-12B-it.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:4
+    parameters:
+      model: llama-cpp/models/gemma-4-12b-qat-hauhaucs-balanced/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf
+      temperature: 0.6
+      top_k: 64
+      top_p: 0.9
+      min_p: 0.05
+      repeat_penalty: 1.1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-12b-qat-hauhaucs-balanced/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf
+      uri: huggingface://HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-Q4_K_M.gguf
+      sha256: 59656d7494d6376ca97e9e20b64ea2e16cd97f12ec6d47bfccba91cb785b5134
+    - filename: llama-cpp/mmproj/gemma-4-12b-qat-hauhaucs-balanced/mmproj-Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-BF16.gguf
+      uri: huggingface://HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced/mmproj-Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced-BF16.gguf
+      sha256: b59e815479b7e5f0665bd29e6784c104a368092bcbc63120148c606f9276ab8e
+    - filename: llama-cpp/models/gemma-4-12b-qat-hauhaucs-balanced/mtp-gemma-4-12B-it.gguf
+      uri: huggingface://HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced/mtp-gemma-4-12B-it.gguf
+      sha256: c50c91c35f04903815b2e8930cbb8c8c5bee0e1aa00748c30a7b8ff05d2310b4
 - &gemma-4-12b-agentic-tau2
   name: "gemma-4-12b-agentic-fable5-composer2.5-v2-3.5x-tau2"
   variants:

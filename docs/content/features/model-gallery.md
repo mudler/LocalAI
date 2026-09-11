@@ -252,6 +252,16 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
+The `gemma-4-12b-qat-hauhaucs-balanced` entry provides HauhauCS's Gemma 4 12B
+QAT Balanced model in Q4_K_M format, including its vision projector. Its
+`gemma-4-12b-qat-hauhaucs-balanced-mtp` variant adds a draft head and enables
+llama.cpp MTP speculative decoding. Both builds use the publisher's sampling
+settings. To install the MTP build explicitly:
+
+```bash
+local-ai models install gemma-4-12b-qat-hauhaucs-balanced-mtp
+```
+
 ### Collapsing the listing to one row per model
 
 By default the listing returns every entry, including the individual builds a
