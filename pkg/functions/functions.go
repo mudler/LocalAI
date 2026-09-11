@@ -89,6 +89,11 @@ func (f Functions) ToJSONStructure(name, args string) JSONFunctionStructure {
 	return js
 }
 
+// ToJSONStructure converts functions using the configured property keys.
+func (c FunctionsConfig) ToJSONStructure(functions Functions) JSONFunctionStructure {
+	return functions.ToJSONStructure(c.FunctionNameKey, c.FunctionArgumentsKey)
+}
+
 // Select returns a list of functions containing the function with the given name
 func (f Functions) Select(name string) Functions {
 	var funcs Functions
