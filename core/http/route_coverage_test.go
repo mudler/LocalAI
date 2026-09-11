@@ -149,10 +149,12 @@ var _ = Describe("Route auth coverage", func() {
 				return true
 			}
 
-			// CORS preflight may be represented as a route by some Echo
-			// configurations. The method restriction keeps the rest of the auth
-			// namespace private.
-			return method == http.MethodOptions && strings.HasPrefix(path, "/api/auth/")
+			// CORS preflight: OPTIONS requests are exempt from auth on every
+			// path (publicRouteRegistry, #4576) — a preflight cannot carry
+			// credentials, and the CORS middleware answers it without granting
+			// any API access. Echo may register such routes explicitly (e.g.
+			// /api/cors-proxy's preflight handler).
+			return method == http.MethodOptions
 		}
 
 		leaks := []string{}

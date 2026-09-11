@@ -73,6 +73,10 @@ var _ = Describe("Auth Middleware", func() {
 		method string
 		path   string
 	}{
+		// No OPTIONS entry here: CORS preflights are exempt from auth on
+		// every path by design (see publicRouteRegistry, #4576), so there is
+		// no "private OPTIONS lookalike" left to assert. Near-prefix privacy
+		// for /api/auth/ is still pinned by the non-OPTIONS entries below.
 		{http.MethodPost, "/api/instructions"},
 		{http.MethodGet, "/api/instructions-private"},
 		{http.MethodPost, "/swagger"},
@@ -82,7 +86,6 @@ var _ = Describe("Auth Middleware", func() {
 		{http.MethodGet, "/api/auth/token-login"},
 		{http.MethodGet, "/api/auth/register"},
 		{http.MethodGet, "/api/auth/private"},
-		{http.MethodOptions, "/api/auth-private/resource"},
 		{http.MethodPost, "/app/settings"},
 		{http.MethodGet, "/app-private"},
 		{http.MethodPost, "/browse/models"},
