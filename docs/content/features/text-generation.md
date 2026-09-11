@@ -240,6 +240,61 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+#### WebSocket Responses
+
+Connect to `ws://localhost:8080/v1/responses` (or `wss://` when TLS is
+enabled) and send `response.create` messages over the WebSocket. Only one
+response may be in progress on a connection. Wait for `response.completed` or
+`response.failed` for the active response before sending the next
+`response.create`. An `error` that rejects an invalid or additional
+`response.create` applies only to that rejected message; it does not terminate
+a response that is already in progress.
+
+Set the WebSocket-only `generate` field to `false` to prepare a request without
+running inference:
+
+```json
+{
+  "type": "response.create",
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "generate": false,
+  "store": false,
+  "input": "Say this is a test!"
+}
+```
+
+LocalAI emits `response.created` followed by `response.completed` with no
+generated output. The completed response still has an ID that can continue the
+prepared request:
+
+```json
+{
+  "type": "response.create",
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "store": false,
+  "previous_response_id": "resp_abc123",
+  "input": []
+}
+```
+
+Response IDs created with `store: false` are available only on the WebSocket
+connection that created them and are removed when that connection closes. A
+`previous_response_id` chain can contain multiple responses; LocalAI replays the
+complete conversation from the oldest response through the referenced response
+before appending the new input. Keep `store: false` for every descendant of a
+connection-local response. LocalAI rejects a `store: true` response that depends
+on connection-local history because the resulting stored chain would be broken
+after the WebSocket closes.
+
+After delivery, LocalAI discards buffered stream events for `store: false`
+responses but retains their request and final response for continuation. A
+connection admits at most 128 local responses and accepts a new local request
+only while its current serialized history plus that request is at most 64 MiB.
+When either admission threshold is reached, LocalAI returns
+`connection_store_limit_reached`; reconnect to start a new local history. With
+authentication enabled, globally stored response IDs can be continued only by
+the identity that created them.
+
 #### Request Parameters
 
 | Parameter | Type | Required | Description |
