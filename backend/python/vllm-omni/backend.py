@@ -489,8 +489,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                         except json.JSONDecodeError:
                             pass
                     try:
-                        if request.Metadata.get("enable_thinking", "").lower() == "true":
-                            template_kwargs["enable_thinking"] = True
+                        enable_thinking = request.Metadata.get("enable_thinking", "").lower()
+                        if enable_thinking in ("true", "false"):
+                            template_kwargs["enable_thinking"] = enable_thinking == "true"
                     except Exception:
                         pass
                     try:
