@@ -258,14 +258,19 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
-The `huihui-qwen3.8-27b-abliterated` entry offers BF16, Q4_K, and Q8_0 GGUF
-builds for llama.cpp. Each build includes a BF16 vision projector and enables
-MTP speculative decoding. To install a specific quantization directly:
+### MiniCPM5-2B
+
+[MiniCPM5-2B](https://huggingface.co/openbmb/MiniCPM5-2B) is available as
+`minicpm5-2b` (Q4_K_M) and `minicpm5-2b-q8` (Q8_0) for the llama.cpp
+backend. The Q4 entry offers Q8 as a variant, so LocalAI can select a build
+that fits the host. Both use the model's embedded chat template, an 8,192-token
+context, temperature 1.0, and top-p 0.95. These entries support text chat;
+OpenAI-compatible tool calling has not been verified.
+
+To select the Q4 build explicitly:
 
 ```bash
-local-ai models install huihui-qwen3.8-27b-abliterated-q4
-# Or use the larger Q8_0 build:
-local-ai models install huihui-qwen3.8-27b-abliterated-q8
+local-ai models install minicpm5-2b --variant minicpm5-2b
 ```
 
 ### Collapsing the listing to one row per model
