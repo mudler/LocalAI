@@ -106,6 +106,16 @@ GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 
 The models in the gallery will be automatically indexed and available for installation.
 
+## Dirk quantization variants
+
+Dirk Qwen3.8 27B offers Q4_K_XL, Q5_K_XL, Q6_K_XL, and Q8_K_XL GGUF builds
+with llama.cpp, MTP speculative decoding, and the shared F16 vision projector.
+Select Q6 explicitly with:
+
+```bash
+local-ai models install dirk-qwen3.8-27b-q4 --variant dirk-qwen3.8-27b-q6
+```
+
 ## Gallery mirrors
 
 A gallery entry can declare a `mirrors` list of alternative locations for the same index file. Mirrors exist for availability, not for load balancing: LocalAI always prefers the `url`, and only falls back to the mirrors, in the order you listed them, when the one before it cannot be fetched. If the primary works, the mirrors are never contacted.
