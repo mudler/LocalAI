@@ -1,5 +1,59 @@
 {
-  "title": "Installa modelli",
+  "lifecycle": {
+    "title": "Models",
+    "navLabel": "Model lifecycle",
+    "views": { "explore": "Explore", "installed": "Installed" },
+    "filters": { "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
+    "installed": {
+      "searchPlaceholder": "Search installed models",
+      "count": "{{shown}} of {{total}}",
+      "backToAll": "All installed models",
+      "eyebrow": "Installed on this host",
+      "summary": "{{count}} models ready to serve.",
+      "summaryHint": "Select a model to inspect its runtime state and controls."
+    },
+    "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
+    "actions": {
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "update": "Update", "updating": "Updating…",
+      "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
+      "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
+      "delete": "Delete model", "forModel": "Actions for {{model}}",
+      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
+    },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "update": "update" },
+    "toasts": {
+      "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
+      "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
+      "deleted": "Deleted {{model}}", "updated": "Models updated"
+    },
+    "confirm": {
+      "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",
+      "deleteTitle": "Delete Model", "deleteMessage": "Delete model {{model}}? This cannot be undone."
+    },
+    "errors": {
+      "action": "Could not {{action}} {{model}}: {{message}}",
+      "loadList": "Could not load installed models: {{message}}"
+    },
+    "detail": {
+      "title": "Details", "state": "State", "backend": "Backend", "auto": "Auto", "pinned": "Pinned", "yes": "yes",
+      "description": "Description", "noDescription": "No gallery description is available for this model.",
+      "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
+      "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
+      "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+    },
+    "open": {
+      "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
+      "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
+      "rerank": "Rerank", "vad": "VAD", "score": "Score"
+    },
+    "empty": {
+      "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
+      "explore": "Explore models", "import": "Import model", "noMatches": "No installed models match these filters.",
+      "clear": "Clear filters"
+    }
+  },
+  "title": "Models",
   "subtitle": "Sfoglia e installa modelli AI dalla galleria",
   "recommended": {
     "title": "Consigliati per il tuo hardware",
@@ -10,7 +64,9 @@
     "installStarted": "Installazione di {{model}}…",
     "installFailed": "Installazione non riuscita: {{message}}",
     "dismiss": "Nascondi i consigli",
-    "summary": "{{n}} modelli suggeriti"
+    "summary": "{{n}} modelli suggeriti",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
   },
   "stats": {
     "available": "Disponibili",
@@ -40,7 +96,9 @@
     "searchBackends": "Cerca backend...",
     "contextSize": "Contesto:",
     "useCaseLabel": "Filtra per caso d'uso",
-    "unavailableForBackend": "Non disponibile per il backend selezionato"
+    "unavailableForBackend": "Non disponibile per il backend selezionato",
+    "someSelected": "{{count}} selezionati",
+    "refineLabel": "Affina"
   },
   "search": {
     "placeholder": "Cerca modelli...",
@@ -81,7 +139,11 @@
     "fileCount_other": "{{count}} file",
     "filename": "Nome file",
     "uri": "URI",
-    "sha256": "SHA256"
+    "sha256": "SHA256",
+    "backToAll": "Tutti i modelli",
+    "vramAt": "VRAM a {{context}}",
+    "headroom": "Margine",
+    "headroomOn": "Margine su {{node}}"
   },
   "empty": {
     "title": "Nessun modello trovato",
@@ -121,5 +183,46 @@
       "dflash": "Più veloce: DFlash",
       "mtp": "Più veloce: MTP"
     }
+  },
+  "rail": {
+    "sortLabel": "Ordina modelli",
+    "downloadingPct": "download {{percent}}%",
+    "tooLarge": "{{size}} · troppo grande",
+    "fitsSize": "{{size}} · compatibile",
+    "previousPage": "Pagina precedente",
+    "nextPage": "Pagina successiva",
+    "showingCount": "{{shown}} di {{total}}",
+    "sizing": "calcolo…"
+  },
+  "groups": {
+    "text": "Testo e ragionamento",
+    "vision": "Visione",
+    "audio": "Voce e audio",
+    "visual": "Immagini e video",
+    "other": "Tutto il resto"
+  },
+  "chart": {
+    "title": "VRAM per lunghezza del contesto",
+    "available": "{{vram}} disponibili",
+    "barTitle": "Un contesto {{context}} richiede {{vram}}",
+    "fitsEverywhere": "Funziona con qualsiasi lunghezza di contesto su questo host.",
+    "fitsNowhere": "Non entra in memoria su questo host con nessuna lunghezza di contesto.",
+    "fitsUpTo": "Entra fino a un contesto {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Il tuo host",
+    "heroWithGpu": "{{vram}} di memoria GPU, {{count}} modelli nella galleria.",
+    "heroNoGpu": "{{count}} modelli nella galleria.",
+    "heroHint": "Scegli un modello a sinistra per vederne dimensione, varianti e compatibilità.",
+    "browsing": "Esplorazione",
+    "pickHint": "Seleziona un modello per vederne i dettagli.",
+    "heroWithRam": "{{ram}} di memoria di sistema, {{count}} modelli nella galleria.",
+    "heroWithCluster": "{{vram}} su {{node}}, il più grande di {{nodes}} nodi, {{count}} modelli nella galleria.",
+    "heroWithNode": "{{vram}} su {{node}}, {{count}} modelli nella galleria.",
+    "byUseCase": "Oppure parti da un caso d’uso",
+    "pickText": "Chat, ragionamento, embedding",
+    "pickVision": "Leggere immagini e documenti",
+    "pickAudio": "Voce in ingresso e in uscita",
+    "pickVisual": "Generare immagini e video"
   }
 }

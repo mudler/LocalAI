@@ -12,8 +12,13 @@ import (
 // the "${galleries}" / "${backends}" vars, and DefaultRuntimeBaseline uses
 // them to tell "kong default" apart from "user-configured" at settings-load
 // time - they must stay the single source for both.
-const DefaultGalleriesJSON = `[{"name":"localai", "url":"github:mudler/LocalAI/gallery/index.yaml@master"}]`
-const DefaultBackendGalleriesJSON = `[{"name":"localai", "url":"github:mudler/LocalAI/backend/index.yaml@master"}]`
+//
+// The primary is served by index-server (github.com/localai-org/index-server),
+// a caching mirror of the files below. The GitHub URI stays as a mirror so an
+// install still resolves its gallery unchanged whenever the primary is
+// unreachable - see the fallback chain in core/gallery/gallery_mirrors.go.
+const DefaultGalleriesJSON = `[{"name":"localai", "url":"https://index.localai.io/models", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]`
+const DefaultBackendGalleriesJSON = `[{"name":"localai", "url":"https://index.localai.io/backends", "mirrors":["github:mudler/LocalAI/backend/index.yaml@master"]}]`
 
 func mustGalleries(jsonList string) []Gallery {
 	var g []Gallery
@@ -40,6 +45,7 @@ func DefaultRuntimeBaseline() *ApplicationConfig {
 	o.BackendGalleries = mustGalleries(DefaultBackendGalleriesJSON)
 	o.AutoloadGalleries = true
 	o.AutoloadBackendGalleries = true
+	o.VRAMPersistentCache = true
 	// core/cli/run.go injects WithMemoryReclaimer(enabled, threshold)
 	// unconditionally, so the kong threshold default (0.95) reaches the
 	// config even when the reclaimer flag is off - this overlay must match
@@ -91,6 +97,11 @@ func (o *ApplicationConfig) ApplyRuntimeSettingsAtStartup(settings *RuntimeSetti
 	if settings.VRAMBudget != nil {
 		if b, err := vrambudget.Parse(o.VRAMBudget); err == nil {
 			xsysinfo.SetDefaultVRAMBudget(b)
+		}
+	}
+	if settings.ArtifactDownloadConcurrency != nil {
+		if configurable, ok := o.ModelArtifactMaterializer.(interface{ SetDownloadConcurrency(int) }); ok {
+			configurable.SetDownloadConcurrency(o.ArtifactDownloadConcurrency)
 		}
 	}
 }

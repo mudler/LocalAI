@@ -28,6 +28,8 @@ type ModelsCMDFlags struct {
 	Color            string `env:"COLOR" hidden:""`
 	NoColor          string `env:"NO_COLOR" hidden:""`
 	HFToken          string `env:"HF_TOKEN" hidden:""`
+
+	ArtifactDownloadConcurrency int `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
 }
 
 type ModelsList struct {
@@ -87,6 +89,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 
 	artifactMaterializer := modelartifacts.NewDefaultManager(
 		modelartifacts.WithHuggingFaceToken(mi.HFToken),
+		modelartifacts.WithDownloadConcurrency(mi.ArtifactDownloadConcurrency),
 	)
 	galleryService := galleryop.NewGalleryService(&config.ApplicationConfig{
 		SystemState:               systemState,

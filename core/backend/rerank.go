@@ -71,11 +71,19 @@ func Rerank(ctx context.Context, request *proto.RerankRequest, loader *model.Mod
 		return nil, fmt.Errorf("could not load rerank model")
 	}
 
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceRerank, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(request.Query, 200)})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	// Stamped here, not at the HTTP handler: this is the function that also
 	// builds ModelOptions from the same config, so the two values are equal by
@@ -91,6 +99,7 @@ func Rerank(ctx context.Context, request *proto.RerankRequest, loader *model.Mod
 		}
 
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceRerank,

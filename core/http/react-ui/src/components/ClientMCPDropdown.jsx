@@ -76,33 +76,30 @@ export default function ClientMCPDropdown({
             <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border)' }}>
               <input
                 type="text"
-                className="input input-sm"
+                className="input input-sm w-full mb-xs"
                 placeholder="Server URL (e.g. https://mcp.example.com/sse)"
                 value={url}
                 onChange={e => setUrl(e.target.value)}
-                style={{ width: '100%', marginBottom: 'var(--spacing-xs)' }}
               />
               <input
                 type="text"
-                className="input input-sm"
+                className="input input-sm w-full mb-xs"
                 placeholder="Name (optional)"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                style={{ width: '100%', marginBottom: 'var(--spacing-xs)' }}
               />
               <input
                 type="password"
-                className="input input-sm"
+                className="input input-sm w-full mb-xs"
                 placeholder="Auth token (optional)"
                 value={authToken}
                 onChange={e => setAuthToken(e.target.value)}
-                style={{ width: '100%', marginBottom: 'var(--spacing-xs)' }}
               />
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', marginBottom: '6px' }}>
                 <input type="checkbox" checked={useProxy} onChange={e => setUseProxy(e.target.checked)} />
                 Use CORS proxy
               </label>
-              <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
+              <div className="hstack hstack--xs hstack--end">
                 <button type="button" className="btn btn-sm btn-secondary" onClick={() => setAddDialog(false)}>Cancel</button>
                 <button type="button" className="btn btn-sm btn-primary" onClick={handleAdd} disabled={!url.trim()}>Add</button>
               </div>
@@ -122,7 +119,7 @@ export default function ClientMCPDropdown({
                     checked={isActive}
                     onChange={() => onToggleServer(server.id)}
                   />
-                  <div className="chat-mcp-server-info" style={{ flex: 1 }}>
+                  <div className="chat-mcp-server-info flex-1">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span className={`chat-client-mcp-status chat-client-mcp-status-${status}`} />
                       <span className="chat-mcp-server-name">{server.name}</span>

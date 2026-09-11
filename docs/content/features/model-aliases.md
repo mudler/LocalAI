@@ -74,6 +74,23 @@ is fully supported and is the live-swap path: the alias config has no backend of
 its own, so swapping its target stays a valid pure redirect.
 {{% /notice %}}
 
+## Aliases as deployment slots (distributed mode)
+
+In [distributed mode]({{%relref "features/distributed-mode" %}}) an alias can
+carry a scheduling rule. `POST /api/nodes/scheduling` accepts an alias for
+`model_name`, and the rule then governs whatever model the alias points at:
+
+```bash
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "production", "node_selector": {"tier": "gpu"}, "min_replicas": 2}'
+```
+
+Re-point `production` and the placement policy follows it, so the alias behaves
+as a stable slot whose contents you can swap. Because a replica is shared by
+every name that resolves to it, only one rule may govern a given model at a
+time. See [Scheduling a model alias]({{%relref "features/distributed-mode" %}}#scheduling-a-model-alias).
+
 ## Limits
 
 Aliases are a static 1:1 redirect. For classifier-based or load-balanced

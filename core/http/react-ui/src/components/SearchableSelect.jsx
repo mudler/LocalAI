@@ -160,7 +160,7 @@ export default function SearchableSelect({
                 style={itemStyle(!value, focusIndex === -1 && enterTarget?.type === 'all')}
                 onMouseEnter={focusIndex !== -1 ? () => setFocusIndex(-1) : undefined}
               >
-                <span style={{ flex: 1 }}>{allOption}</span>
+                <span className="flex-1">{allOption}</span>
                 {enterTarget?.type === 'all' && (
                   <span style={{ marginLeft: 'auto', color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>↵</span>
                 )}
@@ -201,7 +201,7 @@ export default function SearchableSelect({
                   style={itemStyle(isActive, isFocused)}
                   onMouseEnter={focusIndex !== i ? () => setFocusIndex(i) : undefined}
                 >
-                  <span style={{ flex: 1 }}>{o.label}</span>
+                  <span className="flex-1">{o.label}</span>
                   {o.badge && (
                     <span
                       title={o.badgeTooltip || undefined}

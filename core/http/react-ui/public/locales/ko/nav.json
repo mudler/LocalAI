@@ -24,11 +24,13 @@
     "observability": "Observability",
     "access": "Access",
     "system": "System",
-    "activity": "Activity"
+    "activity": "Activity",
+    "runtime": "런타임",
+    "administration": "관리"
   },
   "items": {
     "home": "홈",
-    "installModels": "모델 설치",
+    "models": "Models",
     "chat": "채팅",
     "studio": "스튜디오",
     "talk": "대화",
@@ -38,7 +40,6 @@
     "voices": "음성",
     "jobs": "작업",
     "operate": "관리",
-    "host": "호스트",
     "audioTransform": "오디오 변환",
     "faceRecognition": "얼굴 인식",
     "voiceRecognition": "음성 인식",
@@ -57,7 +58,8 @@
     "system": "시스템",
     "settings": "설정",
     "api": "API",
-    "activity": "활동"
+    "activity": "활동",
+    "overview": "개요"
   },
   "footer": {
     "github": "GitHub",

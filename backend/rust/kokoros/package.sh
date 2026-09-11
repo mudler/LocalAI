@@ -31,11 +31,7 @@ if [ -d "/etc/ssl/certs" ]; then
 fi
 
 # Copy the dynamic linker
-if [ -f "/lib64/ld-linux-x86-64.so.2" ]; then
-    cp -arfLv /lib64/ld-linux-x86-64.so.2 $CURDIR/package/lib/ld.so
-elif [ -f "/lib/ld-linux-aarch64.so.1" ]; then
-    cp -arfLv /lib/ld-linux-aarch64.so.1 $CURDIR/package/lib/ld.so
-fi
+source "$CURDIR/../../../scripts/build/package-system-libs.sh" "$CURDIR/package/lib" ""
 
 echo "Packaging completed successfully"
 ls -liah $CURDIR/package/

@@ -619,55 +619,47 @@ export default function Talk() {
 
   // ── Render ──
   return (
-    <div className="page page--narrow" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ width: '100%', maxWidth: '48rem' }}>
-        <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-lg)' }}>
+    <div className="page page--narrow talk-page">
+      <div className="talk-col">
+        <div className="text-center mb-lg">
           <h1 className="page-title">Talk</h1>
           <p className="page-subtitle">Real-time voice conversation via WebRTC</p>
         </div>
 
-        <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
+        <div className="card pad-lg mb-md">
           {/* Voice visualizer (hero) */}
           <VoiceVisualizer audioRef={audioRef} micStreamRef={localStreamRef} status={status} active={isConnected} />
 
           {/* Connection status */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)',
-            padding: 'var(--spacing-sm) var(--spacing-md)',
-            borderRadius: 'var(--radius-md)',
-            background: statusStyle.bg,
-            border: '1px solid color-mix(in srgb, ' + statusStyle.color + ' 30%, transparent)',
-            marginBottom: 'var(--spacing-md)',
-          }}>
+          <div
+            className="talk-status mb-md"
+            style={{
+              background: statusStyle.bg,
+              border: '1px solid color-mix(in srgb, ' + statusStyle.color + ' 30%, transparent)',
+            }}
+          >
             <i className={statusStyle.icon} style={{ color: statusStyle.color }} />
-            <span style={{ fontWeight: 500, color: statusStyle.color }}>{statusText}</span>
+            <span className="fw-medium" style={{ color: statusStyle.color }}>{statusText}</span>
             {status === 'error' && (
-              <a href="/app/traces?tab=backend" className="chat-error-trace-link" style={{ marginLeft: 'auto' }}>
+              <a href="/app/traces?tab=backend" className="chat-error-trace-link ml-auto">
                 <i className="fas fa-wave-square" /> View traces
               </a>
             )}
           </div>
 
           {/* Info note */}
-          <div style={{
-            background: 'var(--color-primary-light)',
-            border: '1px solid color-mix(in srgb, var(--color-primary) 20%, transparent)',
-            borderRadius: 'var(--radius-md)',
-            padding: 'var(--spacing-sm) var(--spacing-md)',
-            marginBottom: 'var(--spacing-md)',
-            display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-sm)',
-          }}>
-            <i className="fas fa-info-circle" style={{ color: 'var(--color-primary)', marginTop: 2, flexShrink: 0 }} />
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.8125rem', margin: 0 }}>
-              <strong style={{ color: 'var(--color-primary)' }}>Note:</strong> Select a pipeline model and click Connect.
+          <div className="talk-hint mb-md">
+            <i className="fas fa-info-circle text-primary mt-xs shrink-0" />
+            <p className="text-sub m-0">
+              <strong className="text-primary">Note:</strong> Select a pipeline model and click Connect.
               Your microphone streams continuously; the server detects speech and responds automatically.
             </p>
           </div>
 
           {/* Pipeline model selector */}
-          <div style={{ marginBottom: 'var(--spacing-md)' }}>
-            <label className="form-label" style={{ fontSize: '0.8125rem' }}>
-              <i className="fas fa-brain" style={{ color: 'var(--color-primary)', marginRight: 4 }} /> Pipeline Model
+          <div className="mb-md">
+            <label className="form-label text-sm">
+              <i className="fas fa-brain text-primary icon-before" /> Pipeline Model
             </label>
             <ModelSelector
               value={selectedModel}
@@ -681,16 +673,15 @@ export default function Talk() {
               disabled={isConnected}
               searchPlaceholder="Search pipeline models..."
             />
-            <button className="btn btn-secondary btn-sm" onClick={() => navigate('/app/model-editor?template=pipeline', { state: fromState(location, 'Talk') })}
-              style={{ marginTop: 'var(--spacing-xs)' }}>
-              <i className="fas fa-plus" style={{ marginRight: 'var(--spacing-xs)' }} /> Create Pipeline Model
+            <button className="btn btn-secondary btn-sm mt-xs" onClick={() => navigate('/app/model-editor?template=pipeline', { state: fromState(location, 'Talk') })}>
+              <i className="fas fa-plus icon-before" /> Create Pipeline Model
             </button>
           </div>
 
           {/* Tools (client-side MCP servers, mirroring the chat page) */}
-          <div style={{ marginBottom: 'var(--spacing-md)' }}>
-            <label className="form-label" style={{ fontSize: '0.8125rem' }}>
-              <i className="fas fa-screwdriver-wrench" style={{ color: 'var(--color-primary)', marginRight: 4 }} /> Tools
+          <div className="mb-md">
+            <label className="form-label text-sm">
+              <i className="fas fa-screwdriver-wrench text-primary icon-before" /> Tools
             </label>
             <ClientMCPDropdown
               activeServerIds={activeMCPIds}
@@ -701,21 +692,16 @@ export default function Talk() {
               getConnectedTools={getConnectedTools}
             />
             {isAdmin && (
-              <label style={{
-                display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
-                marginTop: 'var(--spacing-xs)', fontSize: '0.8125rem',
-                cursor: isConnected ? 'not-allowed' : 'pointer',
-                color: isConnected ? 'var(--color-text-secondary)' : 'var(--color-text)',
-              }}>
+              <label className={`talk-check mt-xs${isConnected ? ' talk-check--locked' : ''}`}>
                 <input
                   type="checkbox"
                   checked={manageMode}
                   disabled={isConnected}
                   onChange={(e) => setManageMode(e.target.checked)}
                 />
-                <i className="fas fa-user-shield" style={{ color: 'var(--color-primary)' }} />
+                <i className="fas fa-user-shield text-primary" />
                 Manage Mode
-                <span style={{ color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
+                <span className="text-secondary text-xs">
                   — let the model query LocalAI (models, backends, system info)
                 </span>
               </label>
@@ -724,112 +710,83 @@ export default function Talk() {
 
           {/* Pipeline details */}
           {selectedModelInfo && selectedModelInfo.self_contained && (
-            <div style={{
-              background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)',
-              padding: 'var(--spacing-xs) var(--spacing-sm)', border: '1px solid var(--color-border)',
-              marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
-              display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)',
-            }}>
-              <i className="fas fa-tower-broadcast" style={{ color: 'var(--color-primary)' }} />
-              <span style={{ color: 'var(--color-text-secondary)' }}>Self-contained any-to-any —</span>
-              <span style={{ fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className="talk-chip mb-xs">
+              <i className="fas fa-tower-broadcast text-primary" />
+              <span className="text-secondary">Self-contained any-to-any —</span>
+              <span className="text-mono cell-clip">
                 {selectedModelInfo.name}
               </span>
-              <span style={{ color: 'var(--color-text-secondary)', marginLeft: 'auto' }}>handles VAD · STT · LLM · TTS</span>
+              <span className="text-secondary ml-auto">handles VAD · STT · LLM · TTS</span>
             </div>
           )}
           {selectedModelInfo && !selectedModelInfo.self_contained && (
-            <div style={{
-              display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)',
-              marginBottom: 'var(--spacing-xs)', fontSize: '0.75rem',
-            }}>
+            <div className="talk-slots mb-xs">
               {[
                 { label: 'VAD', value: selectedModelInfo.vad },
                 { label: 'Transcription', value: selectedModelInfo.transcription },
                 { label: 'LLM', value: selectedModelInfo.llm },
                 { label: 'TTS', value: selectedModelInfo.tts },
               ].map(item => (
-                <div key={item.label} style={{
-                  background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)',
-                  padding: 'var(--spacing-xs)', border: '1px solid var(--color-border)',
-                  display: 'flex', alignItems: 'baseline', gap: 'var(--spacing-sm)',
-                }}>
-                  <div style={{ color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{item.label}</div>
+                <div key={item.label} className="talk-slot">
+                  <div className="text-secondary nowrap">{item.label}</div>
                   {/* full width for the value; wrap rather than overflow when the
                       model name is long (minWidth:0 lets the flex item shrink) */}
-                  <div style={{ fontFamily: 'var(--font-mono)', minWidth: 0, marginLeft: 'auto', textAlign: 'right', overflowWrap: 'anywhere' }}>{item.value || '—'}</div>
+                  <div className="talk-slot__value">{item.value || '—'}</div>
                 </div>
               ))}
             </div>
           )}
           {selectedModelInfo && !isConnected && (
-            <div style={{ marginBottom: 'var(--spacing-md)' }}>
+            <div className="mb-md">
               <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/app/model-editor/${encodeURIComponent(selectedModel)}`, { state: fromState(location, 'Talk') })}>
-                <i className="fas fa-pen-to-square" style={{ marginRight: 'var(--spacing-xs)' }} />
+                <i className="fas fa-pen-to-square icon-before" />
                 {selectedModelInfo.self_contained ? ' Edit Model Config' : ' Edit Pipeline'}
               </button>
             </div>
           )}
 
           {/* Session settings */}
-          <details style={{
-            marginBottom: 'var(--spacing-md)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
-          }}>
-            <summary style={{
-              cursor: 'pointer', padding: 'var(--spacing-sm) var(--spacing-md)',
-              fontWeight: 500, color: 'var(--color-text-secondary)', fontSize: '0.875rem',
-            }}>
-              <i className="fas fa-sliders" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+          <details className="talk-details mb-md">
+            <summary>
+              <i className="fas fa-sliders text-primary icon-before" />
               Session Settings
             </summary>
-            <div style={{ padding: 'var(--spacing-md)', paddingTop: 'var(--spacing-xs)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.75rem' }}>Instructions</label>
+            <div className="talk-details__body">
+              <div className="form-group m-0">
+                <label className="form-label text-xs">Instructions</label>
                 <textarea
-                  className="textarea"
+                  className="textarea text-sm"
                   rows={3}
                   value={instructions}
                   onChange={e => setInstructions(e.target.value)}
                   placeholder="System instructions for the model"
-                  style={{ fontSize: '0.8125rem' }}
                 />
               </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.75rem' }}>Voice</label>
+              <div className="form-group m-0">
+                <label className="form-label text-xs">Voice</label>
                 <input
-                  className="input"
+                  className="input text-sm"
                   value={voice}
                   onChange={e => { setVoice(e.target.value); setVoiceEdited(true) }}
                   placeholder="Voice name (leave blank for model default)"
-                  style={{ fontSize: '0.8125rem' }}
                 />
               </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontSize: '0.75rem' }}>Transcription Language</label>
+              <div className="form-group m-0">
+                <label className="form-label text-xs">Transcription Language</label>
                 <input
-                  className="input"
+                  className="input text-sm"
                   value={language}
                   onChange={e => setLanguage(e.target.value)}
                   placeholder="Language code (e.g. 'en') — leave blank for auto-detect"
-                  style={{ fontSize: '0.8125rem' }}
                 />
               </div>
             </div>
           </details>
 
           {/* Transcript */}
-          <div style={{
-            marginBottom: 'var(--spacing-md)',
-            maxHeight: '24rem', overflowY: 'auto', minHeight: '6rem',
-            padding: 'var(--spacing-sm)',
-            background: 'var(--color-bg-secondary)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
-            display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)',
-          }}>
+          <div className="talk-transcript mb-md">
             {transcript.length === 0 && (
-              <p style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic', margin: 0 }}>
+              <p className="text-secondary text-italic m-0">
                 Conversation will appear here...
               </p>
             )}
@@ -843,15 +800,9 @@ export default function Talk() {
               const iconColor = isToolCall || isToolResult ? 'var(--color-text-secondary)'
                               : isUser ? 'var(--color-primary)' : 'var(--color-accent)'
               return (
-                <div key={entry.id || i} style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)' }}>
-                  <i className={iconClass} style={{ color: iconColor, marginTop: 3, flexShrink: 0, fontSize: '0.75rem' }} />
-                  <p style={{
-                    margin: 0,
-                    fontFamily: (isToolCall || isToolResult) ? 'var(--font-mono)' : undefined,
-                    fontSize: (isToolCall || isToolResult) ? '0.8125rem' : undefined,
-                    color: (isToolCall || isToolResult) ? 'var(--color-text-secondary)' : undefined,
-                    whiteSpace: isToolResult ? 'pre-wrap' : undefined,
-                  }}>{entry.text}</p>
+                <div key={entry.id || i} className="talk-line">
+                  <i className={`${iconClass} talk-line__icon`} style={{ color: iconColor }} />
+                  <p className={`talk-line__text${(isToolCall || isToolResult) ? ' talk-line__text--tool' : ''}${isToolResult ? ' talk-line__text--result' : ''}`}>{entry.text}</p>
                 </div>
               )
             })}
@@ -859,62 +810,55 @@ export default function Talk() {
           </div>
 
           {/* Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+          <div className="hstack hstack--between">
+            <div className="hstack">
               {!isConnected ? (
                 <button className="btn btn-primary" onClick={connect} disabled={modelsLoading || !selectedModel}>
-                  <i className="fas fa-plug" style={{ marginRight: 'var(--spacing-xs)' }} /> Connect
+                  <i className="fas fa-plug icon-before" /> Connect
                 </button>
               ) : (
                 <>
-                  <button className="btn" onClick={sendTestTone}
-                    style={{ background: 'var(--color-accent)', color: 'var(--color-primary-text)', border: 'none' }}>
-                    <i className="fas fa-wave-square" style={{ marginRight: 'var(--spacing-xs)' }} /> Test Tone
+                  <button className="btn btn--accent" onClick={sendTestTone}>
+                    <i className="fas fa-wave-square icon-before" /> Test Tone
                   </button>
                   <button className="btn btn-secondary" onClick={toggleDiagnostics}>
-                    <i className="fas fa-chart-line" style={{ marginRight: 'var(--spacing-xs)' }} /> Diag
+                    <i className="fas fa-chart-line icon-before" /> Diag
                   </button>
                 </>
               )}
             </div>
             {isConnected && (
-              <button className="btn" onClick={disconnect}
-                style={{ background: 'var(--color-error)', color: 'var(--color-text-inverse)', border: 'none' }}>
-                <i className="fas fa-plug-circle-xmark" style={{ marginRight: 'var(--spacing-xs)' }} /> Disconnect
+              <button className="btn btn--error" onClick={disconnect}>
+                <i className="fas fa-plug-circle-xmark icon-before" /> Disconnect
               </button>
             )}
           </div>
 
           {/* Hidden audio element for WebRTC playback */}
-          <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
+          <audio ref={audioRef} autoPlay className="hidden" />
 
           {/* Diagnostics panel */}
           {diagVisible && (
-            <div style={{
-              marginTop: 'var(--spacing-md)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: 'var(--spacing-md)',
-            }}>
-              <h3 style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                <i className="fas fa-chart-line" style={{ color: 'var(--color-primary)', marginRight: 'var(--spacing-xs)' }} />
+            <div className="talk-diag mt-md">
+              <h3 className="text-base fw-semibold mb-sm">
+                <i className="fas fa-chart-line text-primary icon-before" />
                 Audio Diagnostics
               </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
+              <div className="talk-split mb-sm">
                 <div>
-                  <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginBottom: 2 }}>Waveform</p>
+                  <p className="text-xs text-secondary mb-xs">Waveform</p>
                   <canvas ref={waveCanvasRef} width={400} height={120}
-                    style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-surface-sunken)' }} />
+                    className="talk-canvas" />
                 </div>
                 <div>
-                  <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginBottom: 2 }}>Spectrum (FFT)</p>
+                  <p className="text-xs text-secondary mb-xs">Spectrum (FFT)</p>
                   <canvas ref={specCanvasRef} width={400} height={120}
-                    style={{ width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-surface-sunken)' }} />
+                    className="talk-canvas" />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)', fontSize: '0.75rem' }}>
+              <div className="talk-diag__grid mb-sm">
                 {[
                   { label: 'Peak Freq', value: diagStats.peakFreq },
                   { label: 'THD', value: diagStats.thd },
@@ -925,21 +869,14 @@ export default function Talk() {
                   { label: 'Jitter', value: diagStats.jitter },
                   { label: 'Concealed', value: diagStats.concealed },
                 ].map(item => (
-                  <div key={item.label} style={{
-                    background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--spacing-xs)',
-                  }}>
-                    <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.6875rem' }}>{item.label}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)' }}>{item.value}</div>
+                  <div key={item.label} className="talk-diag__cell">
+                    <div className="text-secondary text-xs">{item.label}</div>
+                    <div className="text-mono">{item.value}</div>
                   </div>
                 ))}
               </div>
 
-              <pre style={{
-                fontSize: '0.6875rem', color: 'var(--color-text-secondary)',
-                background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)',
-                padding: 'var(--spacing-xs)', maxHeight: '8rem', overflowY: 'auto',
-                fontFamily: 'var(--font-mono)', whiteSpace: 'pre-wrap', margin: 0,
-              }}>
+              <pre className="talk-diag__raw">
                 {diagStats.raw || 'Waiting for stats...'}
               </pre>
             </div>

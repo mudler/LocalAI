@@ -85,6 +85,34 @@ var _ = Describe("systemdActivatedListeners", func() {
 		Expect(os.Getenv("LISTEN_FDNAMES")).To(BeEmpty())
 	})
 
+	It("binds normally when the environment leaks LISTEN_PID without LISTEN_FDS", func() {
+		Expect(os.Setenv("LISTEN_PID", strconv.Itoa(os.Getpid()))).To(Succeed())
+		Expect(os.Unsetenv("LISTEN_FDS")).To(Succeed())
+		DeferCleanup(func() {
+			_ = os.Unsetenv("LISTEN_PID")
+		})
+
+		listeners, err := systemdActivatedListeners()
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(listeners).To(BeEmpty())
+		Expect(os.Getenv("LISTEN_PID")).To(BeEmpty())
+	})
+
+	It("binds normally when the environment leaks LISTEN_FDS without LISTEN_PID", func() {
+		Expect(os.Unsetenv("LISTEN_PID")).To(Succeed())
+		Expect(os.Setenv("LISTEN_FDS", "1")).To(Succeed())
+		DeferCleanup(func() {
+			_ = os.Unsetenv("LISTEN_FDS")
+		})
+
+		listeners, err := systemdActivatedListeners()
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(listeners).To(BeEmpty())
+		Expect(os.Getenv("LISTEN_FDS")).To(BeEmpty())
+	})
+
 	It("reports malformed activation metadata instead of silently binding another socket", func() {
 		Expect(os.Setenv("LISTEN_PID", strconv.Itoa(os.Getpid()))).To(Succeed())
 		Expect(os.Setenv("LISTEN_FDS", "not-a-number")).To(Succeed())

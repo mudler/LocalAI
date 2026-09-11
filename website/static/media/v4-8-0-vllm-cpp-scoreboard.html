@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  /* palette lifted from the two logos:
+     LocalAI  #0E2632 navy, #385360 slate, #469AAF teal, #90A8AE haze
+     vllm.cpp #3AB4CA teal, #95C4D1 light                              */
+  :root{
+    --bg:#0b1c25; --ink:#e8f1f4; --dim:#90a8ae; --faint:#5d757f;
+    --teal:#3ab4ca; --teal-hi:#7fd4e2; --amber:#e0a944; --rule:#1d3440;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1600px;height:900px}
+  body{
+    background:radial-gradient(1250px 720px at 80% -12%, #143140 0%, var(--bg) 62%);
+    color:var(--ink);
+    font-family:-apple-system,"SF Pro Display","Segoe UI",Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; padding:58px 84px; position:relative;
+  }
+  .eyebrow{display:flex;align-items:center;gap:14px;color:var(--teal);
+    font-weight:600;font-size:23px;letter-spacing:.14em;text-transform:uppercase}
+  .eyebrow .dot{width:11px;height:11px;border-radius:50%;background:var(--teal);
+    box-shadow:0 0 16px 2px var(--teal)}
+  h1{font-size:56px;line-height:1.06;font-weight:760;margin:16px 0 6px;letter-spacing:-.02em}
+  h1 .grad{background:linear-gradient(92deg,var(--teal),var(--teal-hi));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{color:var(--dim);font-size:23px;margin-bottom:14px}
+  svg{width:100%;height:auto;display:block}
+  .foot{position:absolute;left:84px;right:84px;bottom:40px;display:flex;
+    justify-content:space-between;align-items:center;color:var(--faint);
+    font-size:21px;border-top:1px solid var(--rule);padding-top:16px}
+  .foot .link{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+  <div class="eyebrow"><span class="dot"></span>vllm.cpp &middot; throughput vs the reference engine</div>
+  <h1>Measured against <span class="grad">what each workload actually runs on</span></h1>
+  <div class="sub">Throughput relative to the reference. 1.00 is parity, bars run from it. Higher is faster.</div>
+
+  <svg id="c" viewBox="0 0 1432 585"></svg>
+
+  <div class="foot">
+    <span class="link">github.com/mudler/vllm.cpp</span>
+    <span>GB10 unless noted &middot; greedy, reference in its own production config &middot; docs/BENCHMARKS.md</span>
+  </div>
+
+<script>
+const rows = [
+  {ref:'DwarfStar (ds4)', work:'DeepSeek-V4-Flash IQ2_XXS', v:1.144, note:'18.69 vs 16.33 tok/s'},
+  {ref:'vLLM',            work:'Qwen3.6-27B NVFP4, c1',     v:1.045, note:'86.05 vs 82.32 tok/s'},
+  {ref:'vLLM',            work:'Laguna-XS-2.1 NVFP4',       v:1.030, note:'44.46 vs 43.10 tok/s'},
+  {ref:'vLLM',            work:'Qwen3.6-35B-A3B, c32',      v:1.013, note:'3030.5 vs 2993.0 tok/s'},
+  {ref:'MLX-LM',          work:'Qwen3-0.6B, Apple M4',      v:0.976, note:'97.6% of warm total'},
+];
+
+const W=1432, H=585;
+const AX=64;                   // axis strip reserved at the bottom
+const LBL=470;                 // left label gutter
+const R=150;                   // right gutter for the value
+const lo=-0.055, hi=0.165;     // deviation domain around parity
+const pw=W-LBL-R;
+const x = d => LBL + pw*((d-lo)/(hi-lo));
+const zero = x(0);
+const rowH = (H-AX)/rows.length;
+const barH = 46;
+
+let g='';
+// faint engineering grid at 2% steps
+for(let d=-0.04; d<=0.16001; d+=0.02){
+  const gx=x(d), on0=Math.abs(d)<1e-9;
+  g+=`<line x1="${gx}" y1="4" x2="${gx}" y2="${H-AX+10}" stroke="${on0?'#4a6b78':'#16303c'}" stroke-width="${on0?2:1}"/>`;
+  g+=`<text x="${gx}" y="${H-22}" fill="${on0?'#90a8ae':'#4d6570'}" font-size="17" text-anchor="middle"
+       font-weight="${on0?'700':'400'}">${(1+d).toFixed(2)}</text>`;
+}
+
+rows.forEach((r,i)=>{
+  const cy = i*rowH + rowH/2;
+  const d  = r.v-1;
+  const ahead = d>=0;
+  const col = ahead ? '#3ab4ca' : '#e0a944';
+  const x0 = ahead ? zero : x(d);
+  const w  = Math.abs(x(d)-zero);
+
+  // reference + workload, two weights on one line
+  g+=`<text x="${LBL-26}" y="${cy-4}" fill="#e8f1f4" font-size="25" font-weight="670" text-anchor="end">${r.ref}</text>`;
+  g+=`<text x="${LBL-26}" y="${cy+22}" fill="#5d757f" font-size="19" text-anchor="end">${r.work}</text>`;
+
+  g+=`<rect x="${x0}" y="${cy-barH/2}" width="${Math.max(w,2)}" height="${barH}" rx="4" fill="${col}" opacity="0.92"/>`;
+
+  // value, then the raw measurement under it
+  const vx = ahead ? x(d)+18 : zero+18;
+  g+=`<text x="${vx}" y="${cy+1}" fill="${col}" font-size="27" font-weight="700"
+       font-variant-numeric="tabular-nums">${r.v.toFixed(3)}&times;</text>`;
+  g+=`<text x="${vx}" y="${cy+23}" fill="#5d757f" font-size="17">${r.note}</text>`;
+});
+document.getElementById('c').innerHTML=g;
+</script>
+</body>
+</html>

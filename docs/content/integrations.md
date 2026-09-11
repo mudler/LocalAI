@@ -18,6 +18,15 @@ Feel free to open up a Pull request (by clicking at the "Edit page" below) to ge
 - [Helm chart](https://github.com/go-skynet/helm-charts) - Deploy LocalAI on Kubernetes
 - [GitHub Actions](https://github.com/marketplace/actions/start-localai) - Use LocalAI in CI/CD workflows
 
+### Distribution Packages
+
+Community-maintained packages of LocalAI. Package versions and
+availability may lag upstream releases.
+
+- [Homebrew](https://formulae.brew.sh/formula/localai) - `brew install localai`
+- [ALT Sisyphus](https://packages.altlinux.org/en/sisyphus/srpms/localai/) - `localai` package
+- [Gentoo overlay](https://git.ipnmod.org/packages/local-ai-overlay) - `sci-ml/local-ai` and per-backend packages, overlay `local-ai` in Gentoo's repository index
+
 ### Web UIs
 
 - [localai-admin](https://github.com/Jirubizu/localai-admin)

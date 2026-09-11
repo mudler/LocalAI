@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { modelsApi } from '../utils/api'
 import { useResources } from './useResources'
+import { modelBudget } from '../utils/modelBudget'
 
 // Data-driven "recommended for your hardware" model picks. The gallery exposes
 // no popularity/download signal and the list response carries no size, so we:
@@ -21,13 +22,21 @@ const DEFAULT_CTX = 4096
 export const isNvfp4Name = (name) => /nvfp4/i.test(name || '')
 
 export function hasNvidiaGpu(resources) {
+  // A distributed controller has no GPUs of its own, so the question is
+  // whether any worker does. The registry reports the cluster's best node,
+  // and it is that node these picks have to run on.
+  if (resources?.cluster?.enabled) return !!resources.cluster.is_gpu
   return Array.isArray(resources?.gpus) &&
     resources.gpus.some(g => (g?.vendor || '').toLowerCase() === 'nvidia')
 }
 
 export function recommendTier(resources) {
-  const isGpu = resources?.type === 'gpu'
-  const vram = resources?.aggregate?.total_memory || 0
+  // Same reading the models page sizes against: the cluster's largest node in
+  // distributed mode, the local host otherwise. Ranked against the controller,
+  // a fleet of A100s was recommended the models a GPU-less pod could run.
+  const budget = modelBudget(resources)
+  const isGpu = budget.scope === 'cluster' ? budget.hasGpu : resources?.type === 'gpu'
+  const vram = budget.totalMemory
   if (!isGpu || vram <= 0) return { id: 'cpu', vram: 0 }
   if (vram < 8 * GB) return { id: 'gpu-small', vram }
   if (vram < 24 * GB) return { id: 'gpu-mid', vram }
@@ -44,16 +53,16 @@ function rank(candidates, tier, count, isNvidia) {
   }
   const limit = tier.vram * 0.95
   const fits = pool.filter(c => c.vramBytes != null && c.vramBytes <= limit)
-  const base = fits.length > 0 ? fits : pool // tiny GPU where nothing fits → fall through to smallest
   const byPreference = (a, b) => {
     // On NVIDIA, surface NVFP4 first; then largest-that-fits (best quality).
     if (isNvidia) {
       const an = isNvfp4Name(a.name), bn = isNvfp4Name(b.name)
       if (an !== bn) return an ? -1 : 1
     }
-    return fits.length > 0 ? b.sizeBytes - a.sizeBytes : a.sizeBytes - b.sizeBytes
+    return b.sizeBytes - a.sizeBytes
   }
-  return [...base].sort(byPreference).slice(0, count)
+  // An oversized or unestimated model cannot be labelled a hardware fit.
+  return [...fits].sort(byPreference).slice(0, count)
 }
 
 export function useRecommendedModels({ count = 4, candidatePool = 10 } = {}) {

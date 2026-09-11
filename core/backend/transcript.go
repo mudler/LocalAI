@@ -81,15 +81,23 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 	if err != nil {
 		return nil, err
 	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 
 	var startTime time.Time
+	var traceID string
 	var audioSnippet map[string]any
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTranscription, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(req.Audio, 200)})
 		// Capture audio before the backend call — the backend may delete the file.
 		audioSnippet = trace.AudioSnippet(req.Audio, appConfig.TracingMaxBodyBytes)
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	r, err := transcriptionModel.AudioTranscription(ctx, req.toProto(uint32(*modelConfig.Threads), modelConfig.Model))
 	if err != nil {
@@ -105,6 +113,7 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 				maps.Copy(errData, audioSnippet)
 			}
 			trace.RecordBackendTrace(trace.BackendTrace{
+				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  time.Since(startTime),
 				Type:      trace.BackendTraceTranscription,
@@ -133,6 +142,7 @@ func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest
 			maps.Copy(data, audioSnippet)
 		}
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceTranscription,
@@ -166,6 +176,11 @@ func ModelTranscriptionStream(ctx context.Context, req TranscriptionRequest, ml 
 
 	pbReq := req.toProto(uint32(*modelConfig.Threads), modelConfig.Model)
 	pbReq.Stream = true
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return err
+	}
+	defer release()
 
 	return transcriptionModel.AudioTranscriptionStream(ctx, pbReq, func(chunk *proto.TranscriptStreamResponse) {
 		if chunk == nil {

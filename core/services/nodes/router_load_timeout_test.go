@@ -72,8 +72,9 @@ var _ = Describe("remote LoadModel deadline", func() {
 	})
 
 	route := func(router *SmartRouter) {
-		_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp",
+		_, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp", "",
 			&pb.ModelOptions{Model: "models/big.gguf"}, false)
+
 		Expect(err).ToNot(HaveOccurred())
 	}
 

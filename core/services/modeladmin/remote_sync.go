@@ -1,53 +1,113 @@
 package modeladmin
 
 import (
+	"context"
+	"crypto/sha256"
+	"fmt"
+	"sort"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/messaging"
-	"github.com/mudler/LocalAI/pkg/model"
-
-	"github.com/mudler/xlog"
 )
-
-// opDelete is the CacheInvalidateEvent.Op value the gallery delete path and the
-// admin delete endpoint use; a delete must prune (a reload-from-path cannot).
-const opDelete = "delete"
 
 // ApplyRemoteChange refreshes this replica's in-memory model state from a peer
 // replica's model-config change broadcast (messaging.CacheInvalidateEvent on
 // SubjectCacheInvalidateModels). It is the subscriber-side counterpart to
 // GalleryService.BroadcastModelsChanged.
 //
-// The op matters because LoadModelConfigsFromPath is additive: it loads every
-// YAML on disk into the loader but never removes an entry whose file is gone.
-// So a delete cannot be propagated by a plain reload - the deleted element must
-// be explicitly pruned. Specifically:
+// The event is only a wake-up signal. Its operation and revision may be stale
+// or reordered, so named changes are always reconciled against the current
+// shared filesystem state.
 //
-//   - op == "delete" with a named element: prune that element from the loader.
-//   - otherwise: reload all configs from disk (picks up creates and edits).
-//
-// In both cases, when an element is named, any running instance on this replica
-// is shut down (best-effort) so the next request rebuilds it from the new
-// config instead of serving the stale one - mirroring what the originating
-// replica does on a local edit/delete.
-//
-// ml may be nil (no running instances to shut down). modelsPath and opts are
-// forwarded to LoadModelConfigsFromPath.
-func ApplyRemoteChange(cl *config.ModelConfigLoader, ml *model.ModelLoader, modelsPath string, evt messaging.CacheInvalidateEvent, opts ...config.ConfigLoaderOption) error {
-	if evt.Op == opDelete && evt.Element != "" {
-		cl.RemoveModelConfig(evt.Element)
-	} else if err := cl.LoadModelConfigsFromPath(modelsPath, opts...); err != nil {
+// Revision-aware events apply the same idempotent lifecycle transition as the
+// originating frontend. modelsPath and opts are forwarded to
+// LoadModelConfigsFromPath.
+func ApplyRemoteChange(ctx context.Context, cl *config.ModelConfigLoader, modelsPath string, evt messaging.CacheInvalidateEvent, lifecycle ModelRevisionLifecycle, opts ...config.ConfigLoaderOption) error {
+	return cl.WithModelConfigMutation(func() error {
+		return applyRemoteChange(ctx, cl, modelsPath, evt, lifecycle, opts...)
+	})
+}
+
+func applyRemoteChange(ctx context.Context, cl *config.ModelConfigLoader, modelsPath string, evt messaging.CacheInvalidateEvent, lifecycle ModelRevisionLifecycle, opts ...config.ConfigLoaderOption) error {
+	authoritative := config.NewModelConfigLoader(modelsPath)
+	if err := authoritative.LoadModelConfigsFromPathStrict(modelsPath, opts...); err != nil {
+		return err
+	}
+	current := configsByName(cl.GetAllModelsConfigs())
+	snapshotConfigs := authoritative.GetAllModelsConfigs()
+	snapshot := configsByName(snapshotConfigs)
+	changed, err := changedConfigNames(current, snapshot, evt.Element)
+	if err != nil {
 		return err
 	}
 
-	// Drop any running instance of the affected model so the next request
-	// rebuilds it from the refreshed config instead of serving the stale one.
-	// Best-effort: the model may not be loaded on this replica, which surfaces
-	// as a benign error here.
-	if ml != nil && evt.Element != "" {
-		if err := ml.ShutdownModel(evt.Element); err != nil {
-			xlog.Debug("ApplyRemoteChange: could not shut down model instance (likely not loaded)",
-				"model", evt.Element, "error", err)
+	if lifecycle != nil {
+		transitions := make([]ModelRevisionTransition, 0, len(changed))
+		for _, name := range changed {
+			cfg, exists := snapshot[name]
+			revision := DeletedModelConfigRevision(name)
+			disabled := true
+			if exists {
+				var err error
+				revision, err = authoritative.RevisionForPath(name, modelsPath, opts...)
+				if err != nil {
+					return fmt.Errorf("resolve authoritative model config revision for %q: %w", name, err)
+				}
+				disabled = cfg.IsDisabled()
+			}
+			transitions = append(transitions, ModelRevisionTransition{ModelName: name, ConfigRevision: revision, Disabled: disabled})
+		}
+		if len(transitions) > 0 {
+			if _, err := lifecycle.ApplyConfigRevisions(ctx, transitions); err != nil {
+				return err
+			}
 		}
 	}
+	cl.ReplaceModelConfigs(snapshotConfigs)
 	return nil
+}
+
+func configsByName(configs []config.ModelConfig) map[string]config.ModelConfig {
+	result := make(map[string]config.ModelConfig, len(configs))
+	for _, cfg := range configs {
+		result[cfg.Name] = cfg
+	}
+	return result
+}
+
+func changedConfigNames(current, snapshot map[string]config.ModelConfig, named string) ([]string, error) {
+	changed := map[string]struct{}{}
+	for name, cfg := range snapshot {
+		previous, exists := current[name]
+		if !exists {
+			changed[name] = struct{}{}
+			continue
+		}
+		// Both sides come from a loader, so both carry the revision stamped
+		// when their file was parsed. Comparing the stamps compares the files.
+		if previous.PersistedConfigRevision() != cfg.PersistedConfigRevision() {
+			changed[name] = struct{}{}
+		}
+	}
+	for name := range current {
+		if _, exists := snapshot[name]; !exists {
+			changed[name] = struct{}{}
+		}
+	}
+	if named != "" {
+		changed[named] = struct{}{}
+	}
+	names := make([]string, 0, len(changed))
+	for name := range changed {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// DeletedModelConfigRevision is a stable tombstone generation for an absent
+// model. It lets every frontend derive the same authoritative state regardless
+// of which reordered cache-invalidation event woke it up.
+func DeletedModelConfigRevision(modelName string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte("deleted\x00"+modelName)))
 }

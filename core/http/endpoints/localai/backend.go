@@ -37,7 +37,19 @@ var knownPrefOnlyBackends = []schema.KnownBackend{
 	// ASR
 	{Name: "whisperx", Modality: "asr", AutoDetect: false, Description: "WhisperX transcription (preference-only)"},
 	{Name: "crispasr", Modality: "asr", AutoDetect: false, Description: "CrispASR multi-architecture transcription (preference-only)"},
+	// nemo-speech-cpp serves four families from one backend, picked at load time
+	// from the GGUF general.architecture key. Modality is a single string and the
+	// import form chips on a fixed key set
+	// (core/http/react-ui/src/components/ModalityChips.jsx), so "asr" is the one
+	// it carries and the other three are named in the description rather than in
+	// a key the UI would bucket as "other".
+	// No importer: general.architecture lives inside the GGUF and cannot be read
+	// from a remote HuggingFace repo, and the NMT family carries an ordinary LLM
+	// architecture (qwen3), so even a local probe has no NeMo-specific string to
+	// match on.
+	{Name: "nemo-speech-cpp", Modality: "asr", AutoDetect: false, Description: "NVIDIA NeMo-Speech.cpp: Nemotron ASR (offline, streaming and live), Sortformer diarization, MagpieTTS speech synthesis and Riva-Translate translation, chosen from the model's GGUF architecture (preference-only)"},
 	// TTS
+	{Name: "mlx-audio", Modality: "tts", AutoDetect: false, Description: "MLX-Audio text-to-speech models (auto-detected; pref-only fallback)"},
 	{Name: "kokoros", Modality: "tts", AutoDetect: false, Description: "Kokoros TTS (preference-only)"},
 	{Name: "qwen-tts", Modality: "tts", AutoDetect: false, Description: "Qwen TTS (preference-only)"},
 	{Name: "qwen3-tts-cpp", Modality: "tts", AutoDetect: false, Description: "Qwen3 TTS C++ (preference-only)"},
@@ -344,7 +356,7 @@ func (mgs *BackendEndpointService) UpgradeBackendEndpoint() echo.HandlerFunc {
 // local system state is the only thing worth filtering against.
 type ClusterCapabilityProvider func(ctx context.Context) ([]string, error)
 
-// resolveClusterCapabilities reads the capabilities present in the cluster,
+// ResolveClusterCapabilities reads the capabilities present in the cluster,
 // degrading to the local-only listing on error.
 //
 // Every capability-filtered discovery endpoint shares this: on a distributed
@@ -352,7 +364,7 @@ type ClusterCapabilityProvider func(ctx context.Context) ([]string, error)
 // (usually GPU-less) host hides GPU-only backends the cluster can actually
 // run. A registry hiccup must never blank the catalog, so a failure falls back
 // to the pre-existing local-only behavior rather than erroring the request.
-func resolveClusterCapabilities(ctx context.Context, provider ClusterCapabilityProvider) []string {
+func ResolveClusterCapabilities(ctx context.Context, provider ClusterCapabilityProvider) []string {
 	if provider == nil {
 		return nil
 	}
@@ -411,7 +423,7 @@ func installedInCluster(backend *gallery.GalleryBackend, clusterInstalled map[st
 // @Router /backends/available [get]
 func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState, clusterCapabilities ClusterCapabilityProvider, clusterInstalled ClusterInstalledProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		capabilities := resolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
+		capabilities := ResolveClusterCapabilities(c.Request().Context(), clusterCapabilities)
 
 		backends, err := gallery.AvailableBackendsForCapabilities(mgs.galleries, systemState, capabilities)
 		if err != nil {

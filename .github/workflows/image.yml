@@ -13,8 +13,53 @@
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
   
   jobs:
-    hipblas-jobs:
+    # Decide once whether this push can change any image. Gallery metadata is
+    # fetched at runtime and never baked into an image, and docs/markdown never
+    # enter one, so a push confined to those paths produces byte-identical
+    # images. On 2026-07-30, 12 of the 23 queued runs of this workflow were
+    # commits like "add 1 new model to gallery" or a docs fix, each rebuilding
+    # all 18 images.
+    #
+    # A job-level gate rather than `paths-ignore` on the trigger: paths-ignore
+    # would also apply to tag pushes, and a tag created on an existing commit
+    # carries an empty commits list, which would silently skip the release image
+    # build. Tags short-circuit to "build" below, as does a push whose base
+    # commit cannot be resolved -- the same run-everything posture the backend
+    # matrix filter takes for a truncated diff.
+    changes:
       if: github.repository == 'mudler/LocalAI'
+      runs-on: ubuntu-latest
+      outputs:
+        build: ${{ steps.decide.outputs.build }}
+      steps:
+        - uses: actions/checkout@v7
+          with:
+            fetch-depth: 0
+        - id: decide
+          env:
+            BEFORE: ${{ github.event.before }}
+            AFTER: ${{ github.sha }}
+          run: |
+            set -euo pipefail
+            emit() { echo "$2"; echo "build=$1" >> "$GITHUB_OUTPUT"; exit 0; }
+            case "${GITHUB_REF}" in
+              refs/tags/*) emit true "tag push: building every image" ;;
+            esac
+            if [ -z "${BEFORE:-}" ] || [ "${BEFORE}" = "0000000000000000000000000000000000000000" ] \
+               || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+              emit true "no resolvable base commit: building every image"
+            fi
+            files="$(git diff --name-only "${BEFORE}" "${AFTER}")"
+            echo "changed files:"; echo "${files:-<none>}"
+            [ -z "${files}" ] && emit true "empty diff: building every image"
+            if echo "${files}" | grep -qvE '^(gallery/|docs/|examples/)|\.md$'; then
+              emit true "push touches image-visible content: building"
+            fi
+            emit false "only gallery/docs/markdown changed: images identical, skipping"
+
+    hipblas-jobs:
+      needs: changes
+      if: github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true'
       uses: ./.github/workflows/image_build.yml
       with:
         tag-latest: ${{ matrix.tag-latest }}
@@ -47,7 +92,8 @@
               ubuntu-codename: 'noble'
 
     core-image-build:
-      if: github.repository == 'mudler/LocalAI'
+      needs: changes
+      if: github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true'
       uses: ./.github/workflows/image_build.yml
       with:
         tag-latest: ${{ matrix.tag-latest }}
@@ -155,8 +201,8 @@
       # merge whenever any matrix cell of the parent build fails or is
       # cancelled. Same fix as backend.yml's merge jobs — we still want to
       # publish the manifest list for tag-suffixes whose legs all succeeded.
-      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
-      needs: core-image-build
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true' }}
+      needs: [changes, core-image-build]
       uses: ./.github/workflows/image_merge.yml
       with:
         tag-latest: 'auto'
@@ -168,8 +214,8 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     gpu-vulkan-image-merge:
-      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
-      needs: core-image-build
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true' }}
+      needs: [changes, core-image-build]
       uses: ./.github/workflows/image_merge.yml
       with:
         tag-latest: 'auto'
@@ -187,8 +233,8 @@
     # Each merge job needs only its parent build matrix and is filtered by
     # tag-suffix in image_merge.yml's artifact-download pattern.
     gpu-nvidia-cuda-12-image-merge:
-      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
-      needs: core-image-build
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true' }}
+      needs: [changes, core-image-build]
       uses: ./.github/workflows/image_merge.yml
       with:
         tag-latest: 'auto'
@@ -200,8 +246,8 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     gpu-nvidia-cuda-13-image-merge:
-      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
-      needs: core-image-build
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true' }}
+      needs: [changes, core-image-build]
       uses: ./.github/workflows/image_merge.yml
       with:
         tag-latest: 'auto'
@@ -213,8 +259,8 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     gpu-intel-image-merge:
-      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
-      needs: core-image-build
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true' }}
+      needs: [changes, core-image-build]
       uses: ./.github/workflows/image_merge.yml
       with:
         tag-latest: 'auto'
@@ -226,8 +272,8 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     gpu-hipblas-image-merge:
-      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
-      needs: hipblas-jobs
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true' }}
+      needs: [changes, hipblas-jobs]
       uses: ./.github/workflows/image_merge.yml
       with:
         tag-latest: 'auto'
@@ -239,8 +285,8 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     nvidia-l4t-arm64-image-merge:
-      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
-      needs: gh-runner
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true' }}
+      needs: [changes, gh-runner]
       uses: ./.github/workflows/image_merge.yml
       with:
         tag-latest: 'auto'
@@ -252,8 +298,8 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     nvidia-l4t-arm64-cuda-13-image-merge:
-      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' }}
-      needs: gh-runner
+      if: ${{ !cancelled() && github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true' }}
+      needs: [changes, gh-runner]
       uses: ./.github/workflows/image_merge.yml
       with:
         tag-latest: 'auto'
@@ -265,7 +311,8 @@
         quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
 
     gh-runner:
-      if: github.repository == 'mudler/LocalAI'
+      needs: changes
+      if: github.repository == 'mudler/LocalAI' && needs.changes.outputs.build == 'true'
       uses: ./.github/workflows/image_build.yml
       with:
         tag-latest: ${{ matrix.tag-latest }}

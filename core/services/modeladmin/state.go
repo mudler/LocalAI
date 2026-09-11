@@ -7,23 +7,34 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
 )
 
 // ToggleResult is shared by ToggleState and TogglePinned.
 type ToggleResult struct {
-	Filename string
-	Action   Action
+	Filename       string
+	Action         Action
+	ConfigRevision string
+	PendingCleanup int
 }
 
 // ToggleState enables or disables an installed model. action must be
-// ActionEnable or ActionDisable. When ml is non-nil and the action is
-// ActionDisable, ToggleState calls ml.ShutdownModel — best-effort.
+// ActionEnable or ActionDisable. The revision lifecycle quarantines existing
+// replicas before cleanup when the state changes.
 //
 // The on-disk YAML is mutated as a generic map so unrelated fields are
 // preserved verbatim; we only set or remove the `disabled` key.
-func (s *ConfigService) ToggleState(_ context.Context, name string, action Action, ml *model.ModelLoader) (*ToggleResult, error) {
+func (s *ConfigService) ToggleState(ctx context.Context, name string, action Action) (*ToggleResult, error) {
+	var result *ToggleResult
+	err := s.Loader.WithModelConfigMutation(func() error {
+		var err error
+		result, err = s.toggleState(ctx, name, action)
+		return err
+	})
+	return result, err
+}
+
+func (s *ConfigService) toggleState(ctx context.Context, name string, action Action) (*ToggleResult, error) {
 	if name == "" {
 		return nil, ErrNameRequired
 	}
@@ -41,17 +52,34 @@ func (s *ConfigService) ToggleState(_ context.Context, name string, action Actio
 	if err := utils.VerifyPath(configPath, s.modelsPath()); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 	}
-	if err := mutateYAMLBoolFlag(configPath, "disabled", action == ActionDisable); err != nil {
-		return nil, err
-	}
-	if err := s.Loader.LoadModelConfigsFromPath(s.modelsPath(), s.AppConfig.ToConfigLoaderOptions()...); err != nil {
-		return nil, fmt.Errorf("reload configs: %w", err)
-	}
-	if action == ActionDisable && ml != nil {
-		// Best-effort: the YAML is saved; shutdown is a courtesy.
-		_ = ml.ShutdownModel(name)
-	}
-	return &ToggleResult{Filename: configPath, Action: action}, nil
+	var result *ToggleResult
+	err := s.withMutationRollback([]string{configPath}, func() error {
+		if err := mutateYAMLBoolFlag(configPath, "disabled", action == ActionDisable); err != nil {
+			return err
+		}
+		if err := s.Loader.LoadModelConfigsFromPath(s.modelsPath(), s.AppConfig.ToConfigLoaderOptions()...); err != nil {
+			return fmt.Errorf("reload configs: %w", err)
+		}
+		if _, ok := s.Loader.GetModelConfig(name); !ok {
+			return fmt.Errorf("reload configs: model %q missing", name)
+		}
+		// Resolve the revision the way an inference request does. Hashing the
+		// stored config instead publishes a value no request will ever carry,
+		// because SetDefaults runs again on the request path and is not
+		// idempotent for every model, and the edit would leave the model
+		// unroutable.
+		revision, err := s.Loader.RevisionFor(name, s.AppConfig)
+		if err != nil {
+			return err
+		}
+		pending, err := s.applyRevision(ctx, name, name, revision, action == ActionDisable)
+		if err != nil {
+			return err
+		}
+		result = &ToggleResult{Filename: configPath, Action: action, ConfigRevision: revision, PendingCleanup: pending}
+		return nil
+	})
+	return result, err
 }
 
 // mutateYAMLBoolFlag is a small helper shared by ToggleState and

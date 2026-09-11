@@ -11,6 +11,8 @@
     - https://github.com/ggerganov/llama.cpp
   tags:
     - text-to-text
+    - text-to-speech
+    - TTS
     - LLM
     - CPU
     - GPU
@@ -193,12 +195,22 @@
   alias: "vllm-cpp"
   license: apache-2.0
   description: |
-    vllm.cpp is a from-scratch C++20 port of vLLM created and maintained by the LocalAI team.
-    It mirrors vLLM's V1 architecture (paged KV cache, continuous batching, prefix caching,
-    scheduler, sampler) on a portable tensor runtime with no Python, PyTorch or ggml at
-    inference time. It loads Hugging Face safetensors and GGUF checkpoints, supports
-    structured output (JSON schema / regex / choice / GBNF grammar) enforced in-engine,
-    and runs on CPU, NVIDIA CUDA (Blackwell-family), Apple Metal and Vulkan.
+    ALPHA development builds. Try it, but llama-cpp stays the recommendation for
+    production use.
+
+    vllm.cpp is an Apache-2.0 C++20 inference engine maintained by the LocalAI team,
+    developed in its own repository and usable without LocalAI. It began as a port of
+    vLLM and keeps vLLM as its reference implementation, checking output against it and
+    benchmarking against it, while growing a featureset of its own. It implements vLLM's
+    V1 architecture (paged KV cache, continuous batching, prefix caching, scheduler,
+    sampler) on a portable tensor runtime with no Python, PyTorch or ggml at inference
+    time. It loads GGUF as well as Hugging Face safetensors, supports structured output
+    (JSON schema / regex / choice / GBNF grammar) enforced in-engine, ships speculative
+    decoding and KV offload, and runs on CPU, NVIDIA CUDA (Blackwell-family), Apple
+    Metal and Vulkan.
+
+    The project is expected to be renamed as it diverges further from vLLM; the new
+    name is still to be decided.
   urls:
     - https://github.com/mudler/vllm.cpp
   tags:
@@ -282,6 +294,55 @@
     nvidia-cuda-12: "cuda12-parakeet-cpp"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-parakeet-cpp"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-parakeet-cpp"
+- &nemospeechcpp
+  name: "nemo-speech-cpp"
+  alias: "nemo-speech-cpp"
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/1728152?s=200&v=4
+  description: |
+    NVIDIA NeMo-Speech.cpp, a C++/ggml runtime for NVIDIA Nemotron Speech models.
+    One backend serves four model families, selected automatically from the GGUF
+    general.architecture key: automatic speech recognition (offline, cache-aware
+    streaming and live transcription, with optional Silero VAD, punctuation,
+    inverse text normalization and Sortformer speaker diarization attached),
+    standalone Sortformer diarization, MagpieTTS text-to-speech over NanoCodec,
+    and Riva-Translate text translation. Runs on CPU, NVIDIA CUDA, Vulkan,
+    NVIDIA Jetson (L4T) and Apple Metal.
+  urls:
+    - https://github.com/NVIDIA/NeMo-Speech.cpp
+  tags:
+    - audio-transcription
+    - text-to-speech
+    - diarization
+    - text-to-text
+    - CPU
+    - GPU
+    - CUDA
+    - Metal
+  # No amd and no intel key on purpose: upstream NeMo-Speech.cpp has no ROCm/HIP
+  # and no SYCL backend, so there is nothing to point those at. A host reporting
+  # either capability falls through to "default" (SystemState.Capability) and
+  # gets the CPU build, which is the honest answer rather than a broken tag.
+  #
+  # Listing only nvidia-l4t would be a silent downgrade: a Jetson that reports a
+  # CUDA-refined capability would miss the map and fall back to the CPU build.
+  #
+  # The two nvidia-l4t-cuda-* keys point at DIFFERENT images on purpose. The
+  # JetPack r36.4.0 base links ggml against CUDA 12, so serving it to a host that
+  # reports nvidia-l4t-cuda-13 would fail at dlopen on a missing libcudart.so.12.
+  # That is worse than no key at all, since a missing key falls back to a working
+  # CPU build. Hence the separate cuda13 L4T image, as parakeet-cpp and
+  # moss-transcribe-cpp both do.
+  capabilities:
+    default: "cpu-nemo-speech-cpp"
+    nvidia: "cuda12-nemo-speech-cpp"
+    metal: "metal-nemo-speech-cpp"
+    vulkan: "vulkan-nemo-speech-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-nemo-speech-cpp"
+    nvidia-cuda-13: "cuda13-nemo-speech-cpp"
+    nvidia-cuda-12: "cuda12-nemo-speech-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-nemo-speech-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-nemo-speech-cpp"
 - &mosstranscribecpp
   name: "moss-transcribe-cpp"
   alias: "moss-transcribe-cpp"
@@ -449,7 +510,7 @@
     default: "cpu-stablediffusion-ggml"
     nvidia: "cuda12-stablediffusion-ggml"
     intel: "intel-sycl-f16-stablediffusion-ggml"
-    # amd: "rocm-stablediffusion-ggml"
+    amd: "rocm-stablediffusion-ggml"
     vulkan: "vulkan-stablediffusion-ggml"
     nvidia-l4t: "nvidia-l4t-arm64-stablediffusion-ggml"
     metal: "metal-stablediffusion-ggml"
@@ -2048,7 +2109,7 @@
     default: "cpu-stablediffusion-ggml-development"
     nvidia: "cuda12-stablediffusion-ggml-development"
     intel: "intel-sycl-f16-stablediffusion-ggml-development"
-    # amd: "rocm-stablediffusion-ggml-development"
+    amd: "rocm-stablediffusion-ggml-development"
     vulkan: "vulkan-stablediffusion-ggml-development"
     nvidia-l4t: "nvidia-l4t-arm64-stablediffusion-ggml-development"
     metal: "metal-stablediffusion-ggml-development"
@@ -3264,6 +3325,89 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-parakeet-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-parakeet-cpp
+## nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "nemo-speech-cpp-development"
+  capabilities:
+    default: "cpu-nemo-speech-cpp-development"
+    nvidia: "cuda12-nemo-speech-cpp-development"
+    metal: "metal-nemo-speech-cpp-development"
+    vulkan: "vulkan-nemo-speech-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-nemo-speech-cpp-development"
+    nvidia-cuda-13: "cuda13-nemo-speech-cpp-development"
+    nvidia-cuda-12: "cuda12-nemo-speech-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-nemo-speech-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-nemo-speech-cpp-development"
+- !!merge <<: *nemospeechcpp
+  name: "cpu-nemo-speech-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "cpu-nemo-speech-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "cuda12-nemo-speech-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "cuda12-nemo-speech-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "cuda13-nemo-speech-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "cuda13-nemo-speech-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "vulkan-nemo-speech-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "vulkan-nemo-speech-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "nvidia-l4t-arm64-nemo-speech-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "nvidia-l4t-arm64-nemo-speech-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "cuda13-nvidia-l4t-arm64-nemo-speech-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "cuda13-nvidia-l4t-arm64-nemo-speech-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "metal-nemo-speech-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-nemo-speech-cpp
+- !!merge <<: *nemospeechcpp
+  name: "metal-nemo-speech-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-nemo-speech-cpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-nemo-speech-cpp
 ## moss-transcribe-cpp
 - !!merge <<: *mosstranscribecpp
   name: "moss-transcribe-cpp-development"
@@ -3761,6 +3905,11 @@
   mirrors:
     - localai/localai-backends:latest-gpu-nvidia-cuda-12-stablediffusion-ggml
 - !!merge <<: *stablediffusionggml
+  name: "rocm-stablediffusion-ggml"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-stablediffusion-ggml"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-stablediffusion-ggml
+- !!merge <<: *stablediffusionggml
   name: "intel-sycl-f32-stablediffusion-ggml"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-stablediffusion-ggml"
 - !!merge <<: *stablediffusionggml
@@ -3773,6 +3922,11 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-stablediffusion-ggml"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-stablediffusion-ggml
+- !!merge <<: *stablediffusionggml
+  name: "rocm-stablediffusion-ggml-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-stablediffusion-ggml"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-stablediffusion-ggml
 - !!merge <<: *stablediffusionggml
   name: "intel-sycl-f32-stablediffusion-ggml-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-stablediffusion-ggml"

@@ -155,8 +155,8 @@ func AutocompleteEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 // @Param name path string true "Model name"
 // @Success 200 {object} map[string]any "success message"
 // @Router /api/models/config-json/{name} [patch]
-func PatchConfigEndpoint(cl *config.ModelConfigLoader, _ *model.ModelLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig) echo.HandlerFunc {
-	svc := modeladmin.NewConfigService(cl, appConfig)
+func PatchConfigEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryService, appConfig *config.ApplicationConfig, lifecycle ...modeladmin.ModelRevisionLifecycle) echo.HandlerFunc {
+	svc := modeladmin.NewConfigService(cl, appConfig, lifecycle...)
 	return func(c echo.Context) error {
 		modelName := c.Param("name")
 		if decoded, err := url.PathUnescape(modelName); err == nil {
@@ -170,7 +170,8 @@ func PatchConfigEndpoint(cl *config.ModelConfigLoader, _ *model.ModelLoader, gs 
 		if err := json.Unmarshal(patchBody, &patchMap); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid JSON: " + err.Error()})
 		}
-		if _, err := svc.PatchConfig(c.Request().Context(), modelName, patchMap); err != nil {
+		result, err := svc.PatchConfig(c.Request().Context(), modelName, patchMap)
+		if err != nil {
 			return c.JSON(httpStatusForModelAdminError(err), map[string]any{"error": err.Error()})
 		}
 
@@ -178,12 +179,14 @@ func PatchConfigEndpoint(cl *config.ModelConfigLoader, _ *model.ModelLoader, gs 
 		// tell peers to refresh so the change is consistent across replicas.
 		// No-op in standalone mode.
 		if gs != nil {
-			gs.BroadcastModelsChanged(modelName, "install")
+			gs.BroadcastModelsChangedRevision(modelName, "install", result.ConfigRevision)
 		}
 
 		return c.JSON(http.StatusOK, map[string]any{
-			"success": true,
-			"message": fmt.Sprintf("Model '%s' updated successfully", modelName),
+			"success":         true,
+			"message":         fmt.Sprintf("Model '%s' updated successfully", modelName),
+			"config_revision": result.ConfigRevision,
+			"pending_cleanup": result.PendingCleanup,
 		})
 	}
 }

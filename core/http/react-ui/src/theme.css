@@ -1,87 +1,97 @@
-/* LocalAI Theme — Nord palette (polar night + frost + aurora).
-   Adapted from claudemaster's Nord preset. Variable names preserved. */
+/* LocalAI Theme — the localai.io palette.
+   Retempered from Nord to match the website: the ground goes deeper, the
+   accent from frost cyan to a saturated action blue, and success from sage to
+   mint, which doubles as the "local / resident / live" signal. Amber is spent
+   sparingly, on the one thing asking for a decision.
+   Source of truth: docs/static/css/localai-home.css. Variable names preserved,
+   so every consumer moves together. */
 :root,
 [data-theme="dark"] {
   /* Surfaces — deep blue-black, beyond polar night */
-  --color-bg-primary: #13171f;          /* page — very dark, cool */
-  --color-bg-secondary: #1a1f2a;        /* sidebar, headers, cards */
-  --color-bg-tertiary: #242a36;         /* wells / sunken rows */
-  --color-bg-overlay: rgba(19, 23, 31, 0.92);
-  --color-bg-hover: #242a36;
+  --color-bg-primary: #0d1117;          /* page — the site's ground */
+  --color-bg-secondary: #131a23;        /* sidebar, headers, cards */
+  --color-bg-tertiary: #192330;         /* wells / sunken rows */
+  --color-bg-overlay: rgba(13, 17, 23, 0.92);
+  --color-bg-hover: #192330;
 
-  --color-surface-raised: #1a1f2a;
-  --color-surface-sunken: #0e1117;
-  --color-surface-hover: #242a36;
-  --color-surface-elevated: #2f3644;
+  --color-surface-raised: #131a23;
+  --color-surface-sunken: #080b0f;
+  --color-surface-hover: #192330;
+  --color-surface-elevated: #223046;
 
-  /* Primary — frost cyan (nord8) */
-  --color-primary: #88c0d0;
-  --color-primary-hover: #9ccbd9;
-  --color-primary-active: #7ab4c4;
-  --color-primary-text: #2e3440;
-  --color-primary-light: rgba(136, 192, 208, 0.14);
-  --color-primary-border: rgba(136, 192, 208, 0.34);
+  /* Primary — action blue. Anything that routes or commits.
+     Dark enough to carry white label text, which frost cyan was not. */
+  --color-primary: #4f8cff;
+  --color-primary-hover: #70a2ff;
+  --color-primary-active: #3d78e8;
+  --color-primary-text: #0d1117;        /* 5.88:1 on the blue; white would be 3.22:1 */
+  --color-primary-light: rgba(79, 140, 255, 0.14);
+  --color-primary-border: rgba(79, 140, 255, 0.34);
 
-  --color-secondary: #81a1c1;            /* nord9 */
-  --color-secondary-hover: #8faed0;
-  --color-secondary-light: rgba(129, 161, 193, 0.12);
+  --color-secondary: #8aa6cc;
+  --color-secondary-hover: #9db6d8;
+  --color-secondary-light: rgba(138, 166, 204, 0.12);
 
-  /* Accent alias — frost cyan remains the brand accent */
-  --color-accent: #88c0d0;
-  --color-accent-hover: #9ccbd9;
-  --color-accent-light: rgba(136, 192, 208, 0.14);
-  --color-accent-border: rgba(136, 192, 208, 0.34);
+  /* Accent alias — action blue is the brand accent */
+  --color-accent: #4f8cff;
+  --color-accent-hover: #70a2ff;
+  --color-accent-light: rgba(79, 140, 255, 0.14);
+  --color-accent-border: rgba(79, 140, 255, 0.34);
 
   /* Text — snow storm scale */
-  --color-text-primary: #eceff4;         /* nord6 */
-  --color-text-secondary: #d8dee9;       /* nord4 */
-  --color-text-muted: #a1acb9;
-  --color-text-tertiary: #8a96a5;        /* slightly dimmer than muted, still WCAG AA on dark surfaces — used for metadata */
-  --color-text-disabled: #6e7a8c;
-  --color-text-inverse: #2e3440;
+  --color-text-primary: #edf4fc;         /* a hair cooler, to sit with blue */
+  --color-text-secondary: #d3dee9;
+  --color-text-muted: #9aabc0;
+  --color-text-tertiary: #8595aa;        /* dimmer than muted, still WCAG AA on the new ground — metadata */
+  --color-text-disabled: #67748a;
+  --color-text-inverse: #0d1117;
 
   /* Borders — cool blue-gray */
-  --color-border-subtle: rgba(216, 222, 233, 0.06);
-  --color-border-default: rgba(216, 222, 233, 0.12);
-  --color-border-strong: rgba(216, 222, 233, 0.24);
-  --color-border-divider: rgba(216, 222, 233, 0.05);
-  --color-border-primary: rgba(136, 192, 208, 0.45);
-  --color-border-focus: rgba(136, 192, 208, 0.45);
+  /* The site's dividers are an opaque hairline rather than alpha over a
+     varying surface, which reads crisper wherever surfaces stack. */
+  --color-border-subtle: #1c2837;
+  --color-border-default: #29384a;
+  --color-border-strong: #3a4c63;
+  --color-border-divider: #18222f;
+  --color-border-primary: rgba(79, 140, 255, 0.45);
+  --color-border-focus: rgba(79, 140, 255, 0.45);
 
   /* Status — aurora */
-  --color-success: #a3be8c;              /* nord14 */
-  --color-success-light: rgba(163, 190, 140, 0.14);
-  --color-success-border: rgba(163, 190, 140, 0.32);
-  --color-warning: #ebcb8b;              /* nord13 */
-  --color-warning-light: rgba(235, 203, 139, 0.14);
-  --color-warning-border: rgba(235, 203, 139, 0.32);
-  --color-error: #bf616a;                /* nord11 */
-  --color-error-light: rgba(191, 97, 106, 0.14);
-  --color-error-border: rgba(191, 97, 106, 0.32);
-  --color-info: #81a1c1;                 /* nord9 */
-  --color-info-light: rgba(129, 161, 193, 0.14);
-  --color-info-border: rgba(129, 161, 193, 0.32);
+  /* Mint also carries "local / resident / live", which is the same state
+     often enough that a second token would mostly duplicate this one. */
+  --color-success: #56d6a4;
+  --color-success-light: rgba(86, 214, 164, 0.14);
+  --color-success-border: rgba(86, 214, 164, 0.32);
+  --color-warning: #f1b95d;              /* the evidence accent, spent sparingly */
+  --color-warning-light: rgba(241, 185, 93, 0.14);
+  --color-warning-border: rgba(241, 185, 93, 0.32);
+  --color-error: #c96f78;                /* 5.02:1 on raised surfaces; #bf616a was 4.28 */
+  --color-error-light: rgba(201, 111, 120, 0.14);
+  --color-error-border: rgba(201, 111, 120, 0.32);
+  --color-info: #7aa7e8;
+  --color-info-light: rgba(122, 167, 232, 0.14);
+  --color-info-border: rgba(122, 167, 232, 0.32);
 
   --color-modal-backdrop: rgba(8, 11, 17, 0.68);
 
-  --color-focus-ring: rgba(136, 192, 208, 0.7);  /* was 0.34 - AA-visible */
-  --color-eyebrow: #d8b48c;  /* muted Nord-aurora brass for editorial eyebrows */
+  --color-focus-ring: rgba(79, 140, 255, 0.7);
+  --color-eyebrow: #56d6a4;  /* mint, matching the site's uppercase micro-labels */
 
   /* Data viz — full aurora + frost palette */
-  --color-data-1: #88c0d0;   /* frost cyan */
-  --color-data-2: #bf616a;   /* red */
+  --color-data-1: #4f8cff;   /* action blue */
+  --color-data-2: #c96f78;   /* red */
   --color-data-3: #b48ead;   /* purple */
-  --color-data-4: #ebcb8b;   /* yellow */
-  --color-data-5: #a3be8c;   /* green */
+  --color-data-4: #f1b95d;   /* amber */
+  --color-data-5: #56d6a4;   /* mint */
   --color-data-6: #d08770;   /* orange */
-  --color-data-7: #81a1c1;   /* blue */
+  --color-data-7: #7aa7e8;   /* soft blue */
   --color-data-8: #8fbcbb;   /* teal */
 
   /* Log streams — tuned to Nord aurora */
-  --color-log-stdout: #d8dee9;
-  --color-log-stderr: #bf616a;
-  --color-log-info: #88c0d0;
-  --color-log-warn: #ebcb8b;
+  --color-log-stdout: #d3dee9;
+  --color-log-stderr: #c96f78;
+  --color-log-info: #4f8cff;
+  --color-log-warn: #f1b95d;
 
   /* Shadows — cool, deeper */
   --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -89,7 +99,7 @@
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.55), 0 20px 48px rgba(0, 0, 0, 0.65);
   --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.6), 0 28px 64px rgba(0, 0, 0, 0.7);
   --shadow-glow: var(--shadow-md);
-  --shadow-sidebar: 1px 0 0 rgba(216, 222, 233, 0.06);
+  --shadow-sidebar: 1px 0 0 #1c2837;
 
   --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --shadow-inset-hi:  inset 0 1px 0 rgba(255, 255, 255, 0.18);
@@ -162,82 +172,85 @@
   --bp-tablet: 1024px;
 }
 
+/* The site ships one theme and never had to answer this, so the light palette
+   is derived rather than inverted: the three roles keep their meaning and take
+   values that clear 4.5:1 on paper, where the dark-mode blue and mint sit near
+   2:1. Ground is a cool paper rather than white. */
 [data-theme="light"] {
-  /* Snow storm */
-  --color-bg-primary: #eceff4;           /* nord6 */
+  --color-bg-primary: #f7f9fc;
   --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #e5e9f0;          /* nord5 */
-  --color-bg-overlay: rgba(236, 239, 244, 0.92);
-  --color-bg-hover: #e5e9f0;
+  --color-bg-tertiary: #eef2f8;
+  --color-bg-overlay: rgba(247, 249, 252, 0.92);
+  --color-bg-hover: #eef2f8;
 
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #e5e9f0;
-  --color-surface-hover: #d8dee9;
-  --color-surface-elevated: #d8dee9;     /* nord4 */
+  --color-surface-sunken: #e7edf5;
+  --color-surface-hover: #e2e9f3;
+  --color-surface-elevated: #dde5f0;
 
-  /* Primary — deeper frost for WCAG on snow storm */
-  --color-primary: #5e81ac;              /* nord10 */
-  --color-primary-hover: #4c6d92;
-  --color-primary-active: #3e5b7c;
-  --color-primary-text: #eceff4;
-  --color-primary-light: rgba(94, 129, 172, 0.12);
-  --color-primary-border: rgba(94, 129, 172, 0.34);
+  /* Primary — the site's blue darkened until it carries white text on paper */
+  --color-primary: #2f62d8;
+  --color-primary-hover: #2753bd;
+  --color-primary-active: #1f459e;
+  --color-primary-text: #ffffff;
+  --color-primary-light: rgba(47, 98, 216, 0.12);
+  --color-primary-border: rgba(47, 98, 216, 0.34);
 
-  --color-secondary: #4c566a;            /* nord3 */
-  --color-secondary-hover: #3b4252;
-  --color-secondary-light: rgba(76, 86, 106, 0.1);
+  --color-secondary: #4a5769;
+  --color-secondary-hover: #3a4553;
+  --color-secondary-light: rgba(74, 87, 105, 0.1);
 
-  --color-accent: #5e81ac;
-  --color-accent-hover: #4c6d92;
-  --color-accent-light: rgba(94, 129, 172, 0.12);
-  --color-accent-border: rgba(94, 129, 172, 0.32);
+  --color-accent: #2f62d8;
+  --color-accent-hover: #2753bd;
+  --color-accent-light: rgba(47, 98, 216, 0.12);
+  --color-accent-border: rgba(47, 98, 216, 0.32);
 
-  --color-text-primary: #2e3440;         /* nord0 */
-  --color-text-secondary: #3b4252;       /* nord1 */
-  --color-text-muted: #6e7a8c;
-  --color-text-tertiary: #6e7a8c;        /* matches muted in light theme — going lighter would fail contrast on white */
-  --color-text-disabled: #a1acb9;
+  --color-text-primary: #0d1117;
+  --color-text-secondary: #2b3648;
+  --color-text-muted: #55647a;
+  --color-text-tertiary: #55647a;        /* matches muted — lighter would fail contrast on paper */
+  --color-text-disabled: #97a3b4;
   --color-text-inverse: #ffffff;
 
-  --color-border-subtle: rgba(46, 52, 64, 0.08);
-  --color-border-default: rgba(46, 52, 64, 0.14);
-  --color-border-strong: rgba(46, 52, 64, 0.28);
-  --color-border-divider: rgba(46, 52, 64, 0.06);
-  --color-border-primary: rgba(94, 129, 172, 0.45);
-  --color-border-focus: rgba(94, 129, 172, 0.45);
+  --color-border-subtle: #e3e9f1;
+  --color-border-default: #d3dbe6;
+  --color-border-strong: #b3bfd0;
+  --color-border-divider: #e9eef5;
+  --color-border-primary: rgba(47, 98, 216, 0.45);
+  --color-border-focus: rgba(47, 98, 216, 0.45);
 
-  /* Status — darker aurora for light mode contrast */
-  --color-success: #6b8a5a;
-  --color-success-light: rgba(107, 138, 90, 0.12);
-  --color-success-border: rgba(107, 138, 90, 0.3);
-  --color-warning: #b08334;
-  --color-warning-light: rgba(176, 131, 52, 0.12);
-  --color-warning-border: rgba(176, 131, 52, 0.3);
+  /* Mint and amber darkened to clear 4.5:1 on paper. Same roles, new values. */
+  --color-success: #0a734f;              /* 5.56:1 on paper; #0d8b60 was only 4.08 */
+  --color-success-light: rgba(10, 115, 79, 0.12);
+  --color-success-border: rgba(10, 115, 79, 0.3);
+  --color-warning: #8a5d0b;
+  --color-warning-light: rgba(138, 93, 11, 0.12);
+  --color-warning-border: rgba(138, 93, 11, 0.3);
   --color-error: #a13e47;
   --color-error-light: rgba(161, 62, 71, 0.1);
   --color-error-border: rgba(161, 62, 71, 0.3);
-  --color-info: #4c6d92;
-  --color-info-light: rgba(76, 109, 146, 0.12);
-  --color-info-border: rgba(76, 109, 146, 0.3);
+  --color-info: #2f62d8;
+  --color-info-light: rgba(47, 98, 216, 0.12);
+  --color-info-border: rgba(47, 98, 216, 0.3);
 
-  --color-modal-backdrop: rgba(46, 52, 64, 0.38);
+  --color-modal-backdrop: rgba(13, 17, 23, 0.38);
 
-  --color-focus-ring: rgba(94, 129, 172, 0.6);  /* was 0.34 */
-  --color-eyebrow: #9a6b3f;  /* darker brass for contrast on snow storm */
+  --color-focus-ring: rgba(47, 98, 216, 0.6);
+  --color-eyebrow: #0a734f;  /* mint, darkened until it clears AA on paper */
 
-  /* Data viz — muted aurora for light mode */
-  --color-data-1: #5e81ac;
+  /* Data viz — darkened for light mode */
+  --color-data-1: #2f62d8;
   --color-data-2: #a13e47;
   --color-data-3: #8b5a92;
-  --color-data-4: #b08334;
-  --color-data-5: #6b8a5a;
+  --color-data-4: #8a5d0b;
+  --color-data-5: #0a734f;
   --color-data-6: #b8684f;
   --color-data-7: #4c6d92;
   --color-data-8: #5a9090;
 
   --color-log-stdout: #2e3440;
   --color-log-stderr: #a13e47;
-  --color-log-info: #4c6d92;
+  --color-log-info: #2f62d8;
   --color-log-warn: #b08334;
 
   /* Soft cool shadows */

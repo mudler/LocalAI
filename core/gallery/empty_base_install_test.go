@@ -236,8 +236,15 @@ var _ = Describe("InstallModelFromGallery with an empty base config", func() {
 		Expect(install(e.Name, gallery.GalleryModel{})).To(Succeed())
 		cfg := installedConfig(e.Name)
 		Expect(cfg["name"]).To(Equal(e.Name))
-		// The catalog's own overrides, verbatim, laid over the empty base.
-		Expect(cfg["parameters"]).To(Equal(e.Overrides["parameters"]))
+		// The catalog's own overrides, laid over the empty base. parameters is
+		// checked key by key rather than as a whole map: the install also merges
+		// the model family's inference defaults into it, and what matters here is
+		// that the authored keys survive that.
+		authored, ok := e.Overrides["parameters"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		for key, want := range authored {
+			Expect(cfg["parameters"]).To(HaveKeyWithValue(key, want))
+		}
 		Expect(cfg["known_usecases"]).To(Equal(e.Overrides["known_usecases"]))
 	})
 })

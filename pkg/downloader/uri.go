@@ -21,6 +21,7 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -195,6 +196,11 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 	if err != nil {
 		return err
 	}
+	// pkg/oci has always identified itself; gallery and file fetches went out
+	// anonymously, indistinguishable from any other Go program. One identity
+	// across every transport is politer to the hosts serving us and makes our
+	// traffic attributable when a gallery operator asks who is hammering them.
+	req.Header.Set("User-Agent", internal.UserAgent())
 	if authorization != "" {
 		req.Header.Add("Authorization", authorization)
 	}
@@ -204,6 +210,15 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 		return err
 	}
 	defer response.Body.Close()
+
+	// An error page is not content. Without this check a 404 or a 502 from a
+	// CDN is handed to the callback as if it were a gallery index or a model
+	// config: it parses to nothing, gets cached, and no caller can tell the
+	// source was down. DownloadFile has always checked the status; this path
+	// never did.
+	if response.StatusCode >= 400 {
+		return fmt.Errorf("failed to read url %q, invalid status code %d", url, response.StatusCode)
+	}
 
 	// Read the response body
 	body, err := io.ReadAll(response.Body)
@@ -255,6 +270,20 @@ func (u URI) LooksLikeURL() bool {
 		strings.HasPrefix(string(u), OllamaPrefix) ||
 		strings.HasPrefix(string(u), OCIPrefix) ||
 		strings.HasPrefix(string(u), GithubURI2)
+}
+
+// hasLocalSource reports whether the URI names a local file to copy from
+// rather than a URL to fetch. DownloadFileWithContext both decides whether the
+// destination is reachable and picks its source with this, so that the two
+// cannot drift apart: they did, and every "file://" install failed because the
+// reachability check admitted http(s) only, leaving the local-source branch
+// unreachable for any destination that did not already exist.
+func (u URI) hasLocalSource() bool {
+	if strings.HasPrefix(string(u), LocalPrefix) {
+		return true
+	}
+	_, err := os.Stat(u.ResolveURL())
+	return err == nil
 }
 
 func (u URI) LooksLikeHTTPURL() bool {
@@ -427,6 +456,7 @@ func newDownloadRequest(
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("User-Agent", internal.UserAgent())
 	if bearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+bearerToken)
 	}
@@ -465,6 +495,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	req.Header.Set("User-Agent", internal.UserAgent())
 	resp, err := downloadHTTPClient().Do(req)
 	if err != nil {
 		return 0, err
@@ -483,6 +514,7 @@ func (u URI) ContentLength(ctx context.Context) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	req2.Header.Set("User-Agent", internal.UserAgent())
 	req2.Header.Set("Range", "bytes=0-0")
 	resp2, err := downloadHTTPClient().Do(req2)
 	if err != nil {
@@ -625,7 +657,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 				return nil
 			}
 		}
-	} else if !os.IsNotExist(err) || !URI(url).LooksLikeHTTPURL() {
+	} else if !os.IsNotExist(err) || !(URI(url).LooksLikeHTTPURL() || uri.hasLocalSource()) {
 		// Error occurred while checking file existence
 		return fmt.Errorf("could not fetch %q: local file does not exist (%v) and %q is not a recognized downloadable URL (supported schemes: %s)", filePath, err, url, strings.Join([]string{HTTPPrefix, HTTPSPrefix, LocalPrefix, HuggingFacePrefix, HuggingFacePrefix1, OllamaPrefix, OCIPrefix, OCIFilePrefix, GithubURI2}, ", "))
 	}
@@ -702,7 +734,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 
 	var source io.ReadCloser
 	var contentLength int64
-	if _, e := os.Stat(uri.ResolveURL()); strings.HasPrefix(string(uri), LocalPrefix) || e == nil {
+	if uri.hasLocalSource() {
 		file, err := os.Open(uri.ResolveURL())
 		if err != nil {
 			return fmt.Errorf("failed to open file %q: %v", uri.ResolveURL(), err)
@@ -832,7 +864,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		if calculatedSHA != sha {
 			xlog.Debug("SHA mismatch for file", "file", filePath, "calculated", calculatedSHA, "metadata", sha)
 			_ = removePartialFile(tmpFilePath)
-			return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", filePath, calculatedSHA, sha)
+			return asTransient(fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", filePath, calculatedSHA, sha))
 		}
 	} else {
 		// Visible at the default log level so missing-digest configs are

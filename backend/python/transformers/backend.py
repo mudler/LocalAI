@@ -375,7 +375,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Pool to get sentence embeddings; i.e. generate one 1024 vector for the entire sentence
             sentence_embeddings = mean_pooling(model_output, encoded_input['attention_mask'])
             embeds = sentence_embeddings[0]
-        return backend_pb2.EmbeddingResult(embeddings=embeds)
+        return backend_pb2.EmbeddingResult(
+            embeddings=embeds,
+            layout=backend_pb2.EMBEDDING_LAYOUT_FINAL,
+        )
 
     async def _predict(self, request, context, streaming=False):
         set_seed(request.Seed)

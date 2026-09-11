@@ -84,6 +84,22 @@ func (stubClient) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
 
+func (stubClient) ListScheduling(_ context.Context) ([]localaitools.ModelSchedulingConfig, error) {
+	return []localaitools.ModelSchedulingConfig{}, nil
+}
+
+func (stubClient) GetScheduling(_ context.Context, _ string) (*localaitools.ModelSchedulingConfig, error) {
+	return &localaitools.ModelSchedulingConfig{}, nil
+}
+
+func (stubClient) SetScheduling(_ context.Context, _ localaitools.SetSchedulingRequest) (*localaitools.ModelSchedulingConfig, error) {
+	return &localaitools.ModelSchedulingConfig{}, nil
+}
+
+func (stubClient) DeleteScheduling(_ context.Context, _ string) error {
+	return nil
+}
+
 func (stubClient) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
 	return nil
 }
@@ -186,3 +202,15 @@ var _ = Describe("LocalAIAssistantHolder", func() {
 		Expect(exec.HasTools()).To(BeFalse())
 	})
 })
+
+func (stubClient) GetRouterCorpusStats(_ context.Context, routerModel string) (*localaitools.RouterCorpusStats, error) {
+	return &localaitools.RouterCorpusStats{Router: routerModel, LabelCounts: map[string]int{}}, nil
+}
+
+func (stubClient) SeedRouterCorpus(_ context.Context, req localaitools.RouterCorpusSeedRequest) (*localaitools.RouterCorpusSeedResult, error) {
+	return &localaitools.RouterCorpusSeedResult{Router: req.Router, LabelCounts: map[string]int{}}, nil
+}
+
+func (stubClient) ClearRouterCorpus(_ context.Context, routerModel string) (*localaitools.RouterCorpusClearResult, error) {
+	return &localaitools.RouterCorpusClearResult{Router: routerModel}, nil
+}

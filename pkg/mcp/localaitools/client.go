@@ -64,6 +64,10 @@ type LocalAIClient interface {
 	// ---- System ----
 	SystemInfo(ctx context.Context) (*SystemInfo, error)
 	ListNodes(ctx context.Context) ([]Node, error)
+	ListScheduling(ctx context.Context) ([]ModelSchedulingConfig, error)
+	GetScheduling(ctx context.Context, modelName string) (*ModelSchedulingConfig, error)
+	SetScheduling(ctx context.Context, req SetSchedulingRequest) (*ModelSchedulingConfig, error)
+	DeleteScheduling(ctx context.Context, modelName string) error
 	// SetNodeVRAMBudget sets (or, with an empty budget, clears) a federated
 	// node's VRAM allocation cap as a sticky admin override. Only meaningful
 	// in distributed mode; single-process clients report it as unavailable.
@@ -114,4 +118,16 @@ type LocalAIClient interface {
 	// /app/middleware Routing tab and for agent-driven introspection.
 	// Admin-required when auth is on.
 	GetRouterDecisions(ctx context.Context, q RouterDecisionsQuery) ([]RouterDecision, error)
+
+	// GetRouterCorpusStats reports a knn router's corpus size and
+	// per-label counts — counts only, texts are never exposed.
+	GetRouterCorpusStats(ctx context.Context, routerModel string) (*RouterCorpusStats, error)
+
+	// SeedRouterCorpus adds labelled exemplars to a knn router's
+	// corpus (embedded server-side, persisted, indexed immediately).
+	SeedRouterCorpus(ctx context.Context, req RouterCorpusSeedRequest) (*RouterCorpusSeedResult, error)
+
+	// ClearRouterCorpus wipes a knn router's corpus — file and live
+	// index.
+	ClearRouterCorpus(ctx context.Context, routerModel string) (*RouterCorpusClearResult, error)
 }

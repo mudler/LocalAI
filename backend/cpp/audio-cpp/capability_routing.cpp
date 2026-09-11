@@ -29,6 +29,7 @@ const NamedTask kTaskNames[] = {
     {Task::VoiceDesign, "vdes"},
     {Task::SpeakerRecognition, "spk"},
     {Task::Svc, "svc"},
+    {Task::Midi, "midi"},
 };
 
 // Accepted on input but never emitted. "spkrec" was this backend's own earlier

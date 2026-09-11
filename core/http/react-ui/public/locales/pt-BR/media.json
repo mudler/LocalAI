@@ -1,0 +1,461 @@
+{
+  "studio": {
+    "tabs": {
+      "images": "Imagens",
+      "video": "Vídeo",
+      "tts": "TTS",
+      "sound": "Som",
+      "transform": "Transformar",
+      "threed": "3D",
+      "overview": "Visão geral"
+    },
+    "overview": {
+      "eyebrow": "{{ready}} de {{total}} modalidades prontas",
+      "title": "Studio",
+      "subtitle": "Gere imagens, vídeos, 3D, fala e som com os modelos desta máquina.",
+      "canMake": "O que você pode criar",
+      "running": "Em execução agora",
+      "recent": "Saídas recentes",
+      "noModel": "Nenhum modelo instalado",
+      "install": "Instalar um modelo",
+      "ready": "Pronto",
+      "seconds": "{{seconds}}s",
+      "describe": {
+        "images": "Texto para imagem, imagem para imagem, imagens de referência",
+        "video": "Texto para vídeo e imagem para vídeo",
+        "threed": "Reconstrução de malha a partir de imagem",
+        "tts": "Texto para fala usando sua biblioteca de vozes",
+        "sound": "Música e efeitos sonoros a partir de um prompt",
+        "transform": "Separação, aprimoramento e conversão de voz"
+      }
+    },
+    "groups": {
+      "create": "Criar",
+      "voice": "Voz",
+      "transform": "Transformar"
+    }
+  },
+  "image": {
+    "title": "Geração de Imagens",
+    "labels": {
+      "model": "Modelo",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Descreva a imagem que deseja gerar...",
+      "negativePrompt": "Prompt Negativo",
+      "negativePromptPlaceholder": "O que evitar...",
+      "size": "Tamanho",
+      "count": "Quantidade (1-4)",
+      "advanced": "Configurações Avançadas",
+      "imageInputs": "Entradas de Imagem",
+      "steps": "Etapas",
+      "stepsPlaceholder": "20",
+      "seed": "Semente",
+      "seedPlaceholder": "Aleatória",
+      "sourceImage": "Imagem de Origem (img2img)",
+      "refImages": "Imagens de Referência",
+      "refImagesAdded_one": "{{count}} imagem adicionada",
+      "refImagesAdded_other": "{{count}} imagens adicionadas"
+    },
+    "actions": {
+      "view": "Ver",
+      "generate": "Gerar",
+      "generating": "Gerando..."
+    },
+    "empty": "As imagens geradas aparecerão aqui",
+    "toasts": {
+      "noPrompt": "Digite um prompt",
+      "noModel": "Selecione um modelo",
+      "noResults": "Nenhuma imagem gerada"
+    }
+  },
+  "video": {
+    "title": "Geração de Vídeo",
+    "labels": {
+      "model": "Modelo",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Descreva o vídeo que deseja gerar...",
+      "duration": "Duração (segundos)",
+      "fps": "FPS",
+      "size": "Tamanho",
+      "advanced": "Configurações Avançadas",
+      "seed": "Semente",
+      "seedPlaceholder": "Aleatória",
+      "frames": "Quadros",
+      "referenceMedia": "Mídia de referência",
+      "startImage": "Imagem inicial",
+      "endImage": "Imagem final",
+      "avatarAudio": "Áudio do avatar"
+    },
+    "actions": {
+      "generate": "Gerar",
+      "generating": "Gerando..."
+    },
+    "empty": "O vídeo gerado aparecerá aqui",
+    "toasts": {
+      "noPrompt": "Digite um prompt",
+      "noModel": "Selecione um modelo",
+      "noResults": "Nenhum vídeo gerado"
+    }
+  },
+  "threed": {
+    "title": "Geração 3D",
+    "labels": {
+      "model": "Modelo",
+      "image": "Imagem de entrada",
+      "quality": "Qualidade",
+      "quality_auto": "Automática (melhor disponível)",
+      "quality_coarse": "Pré-visualização grosseira (rápida)",
+      "quality_512": "512³ fino",
+      "quality_1024": "Cascata 1024³ (lenta)",
+      "background": "Fundo",
+      "background_auto": "Remover automaticamente o fundo sólido",
+      "background_keep": "Manter original",
+      "background_black": "Remover preto",
+      "background_white": "Remover branco",
+      "advanced": "Configurações Avançadas",
+      "steps": "Etapas de forma",
+      "textureSteps": "Etapas de material",
+      "guidance": "Orientação",
+      "seed": "Semente",
+      "seedPlaceholder": "Aleatória"
+    },
+    "actions": {
+      "generate": "Gerar",
+      "generating": "Gerando...",
+      "remesh": "Aplicar remalhamento",
+      "remeshing": "Aplicando remalhamento...",
+      "showOriginal": "Mostrar original",
+      "download": "Baixar GLB"
+    },
+    "remesh": {
+      "title": "Remalhamento hermético para impressão",
+      "detail": "Detalhe do remalhamento",
+      "coarser": "Mais grosseiro · mais rápido",
+      "finer": "Mais fino · mais lento",
+      "hint": "O detalhe controla as menores características preservadas. O deslocamento de envolvimento segue automaticamente.",
+      "ready": "Pré-visualizando o modelo remalhado hermético. Esta é a versão que será baixada."
+    },
+    "viewer": {
+      "wireframe": "Wireframe",
+      "autoRotate": "Rotação automática",
+      "noWebgl": "WebGL2 não está disponível neste navegador — baixe o GLB para vê-lo em outro lugar.",
+      "contextLost": "A visualização 3D perdeu o contexto da GPU — recarregue a página para restaurá-la.",
+      "stats": "{{verts}} vértices · {{tris}} triângulos",
+      "hint": "arrastar: girar · pinça/roda: zoom · dois dedos/clique direito: mover · duplo clique: redefinir"
+    },
+    "empty": "O modelo 3D gerado aparecerá aqui",
+    "toasts": {
+      "noImage": "Forneça uma imagem de entrada",
+      "noModel": "Selecione um modelo",
+      "noResults": "Nenhum modelo gerado"
+    }
+  },
+  "tts": {
+    "title": "Texto para Fala",
+    "labels": {
+      "model": "Modelo",
+      "voice": "Voz",
+      "voicePlaceholder": "Falante opcional ou ID de voz",
+      "input": "Texto",
+      "inputPlaceholder": "Digite o texto para sintetizar..."
+    },
+    "actions": {
+      "generate": "Gerar",
+      "generating": "Gerando..."
+    },
+    "empty": "O áudio gerado aparecerá aqui",
+    "toasts": {
+      "noText": "Digite o texto",
+      "noModel": "Selecione um modelo",
+      "generated": "Fala gerada",
+      "generateFailed": "Falha na geração"
+    },
+    "voiceLibrary": {
+      "cloningReady": "Clonagem de voz",
+      "loading": "Carregando vozes salvas…",
+      "modelDefault": "Usar padrão do modelo",
+      "empty": "Nenhuma voz salva ainda.",
+      "create": "Criar uma",
+      "manage": "Gerenciar Biblioteca de Vozes",
+      "namedVoiceHint": "Este modelo não aceita perfis de áudio de referência. Você ainda pode digitar um falante nomeado suportado pelo seu backend."
+    }
+  },
+  "voiceLibrary": {
+    "title": "Biblioteca de Vozes",
+    "subtitle": "Crie e gerencie vozes de referência reutilizáveis para cada modelo instalado que suporta clonagem de voz.",
+    "loading": "Carregando vozes salvas…",
+    "listLabel": "Perfis de voz salvos",
+    "status": {
+      "ready": "Pronto"
+    },
+    "summary": {
+      "label": "Status da biblioteca de vozes",
+      "profiles": "vozes salvas",
+      "modelsReady_one": "{{count}} modelo compatível pronto",
+      "modelsReady_other": "{{count}} modelos compatíveis prontos",
+      "noModels": "Nenhum modelo compatível instalado"
+    },
+    "search": {
+      "label": "Buscar perfis de voz",
+      "placeholder": "Buscar vozes, idiomas ou transcrições"
+    },
+    "filters": {
+      "language": "Filtrar por idioma",
+      "allLanguages": "Todos os idiomas"
+    },
+    "empty": {
+      "title": "Sua biblioteca de vozes está vazia",
+      "body": "Grave ou envie um clipe de referência autorizado, adicione a transcrição exata e reuse-o nos modelos de TTS compatíveis."
+    },
+    "noResults": {
+      "title": "Nenhuma voz corresponde a estes filtros",
+      "body": "Tente uma busca diferente ou mostre todos os idiomas."
+    },
+    "detail": {
+      "eyebrow": "Voz selecionada",
+      "emptyTitle": "Selecione uma voz para inspecioná-la",
+      "emptyBody": "Áudio de referência, transcrição, compatibilidade e detalhes de consentimento aparecerão aqui.",
+      "referenceAudio": "Áudio de referência",
+      "transcript": "Transcrição de referência"
+    },
+    "metadata": {
+      "language": "Idioma",
+      "languageUnknown": "Não especificado",
+      "duration": "Duração",
+      "sampleRate": "Taxa de amostragem",
+      "created": "Criado em"
+    },
+    "consent": {
+      "confirmed": "Consentimento confirmado",
+      "confirmedAt": "Confirmado em {{date}}"
+    },
+    "modelSetup": {
+      "title": "Instalar um modelo de clonagem de voz",
+      "body": "Esta voz está pronta, mas precisa de um modelo que aceite áudio de referência. Escolha um verificado por este servidor.",
+      "loading": "Encontrando modelos compatíveis em suas galerias…",
+      "backendUnknown": "Backend selecionado durante a instalação",
+      "install": "Instalar",
+      "installing": "Instalando…",
+      "loadFailed": "Recomendações compatíveis não puderam ser carregadas.",
+      "noneAvailable": "Nenhum modelo compatível não instalado está disponível nas galerias configuradas.",
+      "capabilityNote": "As recomendações vêm dos metadados de capacidade do modelo, não de uma lista de modelos do lado do navegador."
+    },
+    "api": {
+      "title": "Uso da API e modelos compatíveis",
+      "summary": "Use esta voz fora do navegador ou verifique o suporte do modelo",
+      "body": "Envie a URI de voz estável do perfil com cada requisição de fala. O LocalAI resolve o áudio de referência privado e a transcrição no momento da geração; o YAML do modelo não é modificado.",
+      "compatibleModels": "Modelos compatíveis instalados",
+      "noInstalledModels": "Nenhum ainda. Instale um dos modelos verificados pelo servidor acima antes de enviar esta requisição.",
+      "curlExample": "Exemplo com cURL",
+      "copy": "Copiar requisição",
+      "endpointNote": "Os mesmos campos de modelo, entrada e voz também funcionam com POST /tts."
+    },
+    "actions": {
+      "create": "Criar voz",
+      "createFirst": "Crie sua primeira voz",
+      "retry": "Tentar novamente",
+      "clearFilters": "Limpar filtros",
+      "useInTTS": "Usar em Texto para Fala",
+      "delete": "Excluir voz",
+      "installModel": "Instalar um modelo compatível",
+      "browseModels": "Explorar todos os modelos"
+    },
+    "deleteDialog": {
+      "title": "Excluir esta voz?",
+      "message": "“{{name}}” e seu áudio de referência serão removidos permanentemente. O YAML dos modelos existentes não é alterado.",
+      "deleting": "Excluindo…"
+    },
+    "toasts": {
+      "deleted": "Voz {{name}} excluída",
+      "installStarted": "Instalando {{name}}. O progresso está disponível em Operações.",
+      "installFailed": "Não foi possível iniciar a instalação: {{message}}",
+      "apiCopied": "Requisição de API copiada",
+      "copyFailed": "Não foi possível copiar a requisição de API"
+    }
+  },
+  "voiceCreate": {
+    "eyebrow": "Biblioteca de Vozes",
+    "title": "Criar uma voz reutilizável",
+    "subtitle": "Adicione um clipe de referência limpo e sua transcrição exata. O LocalAI cuida dos parâmetros de clonagem específicos do backend no momento da geração.",
+    "sections": {
+      "reference": {
+        "title": "Áudio de referência",
+        "body": "Grave no navegador ou envie um clipe existente. A fala deve ser limpa, natural e de um único falante."
+      },
+      "details": {
+        "title": "Identidade e transcrição",
+        "body": "Dê aos administradores um nome reconhecível e transcreva o clipe exatamente, incluindo hesitações e pontuação."
+      },
+      "consent": {
+        "title": "Autorização",
+        "body": "A clonagem de voz pode ser sensível. Confirme a permissão antes que esta referência seja salva."
+      }
+    },
+    "audio": {
+      "label": "Referência de voz",
+      "normalizing": "Preparando um PCM WAV seguro…",
+      "preview": "Referência normalizada",
+      "durationError": "O áudio de referência deve ter entre 1 segundo e 2 minutos.",
+      "decodeError": "Este navegador não conseguiu decodificar o arquivo de áudio selecionado.",
+      "qualityReady": "Duração recomendada",
+      "qualityHint": "6–30 segundos geralmente produzem um clone mais forte"
+    },
+    "fields": {
+      "name": "Nome da voz",
+      "namePlaceholder": "ex.: Narrador de documentário",
+      "language": "Idioma (opcional)",
+      "languagePlaceholder": "ex.: pt-BR",
+      "description": "Descrição (opcional)",
+      "descriptionPlaceholder": "Tom, origem ou uso pretendido",
+      "transcript": "Transcrição exata",
+      "transcriptPlaceholder": "Digite cada palavra falada no clipe de referência…",
+      "transcriptHint": "Corresponda à gravação exatamente. Não reescreva a gramática nem remova pausas e hesitações."
+    },
+    "consent": {
+      "title": "Confirmo que esta voz pode ser clonada",
+      "body": "Tenho a permissão do falante ou outra base legal para armazenar e usar esta gravação para fala sintetizada."
+    },
+    "readiness": {
+      "title": "Prontidão do perfil",
+      "body": "Uma voz fica disponível em Texto para Fala quando todos os itens obrigatórios estão completos.",
+      "audio": "Referência PCM-WAV válida",
+      "quality": "Janela de qualidade de 6–30 segundos",
+      "name": "Nome de voz reconhecível",
+      "transcript": "Transcrição de referência exata",
+      "consent": "Autorização confirmada"
+    },
+    "privacy": {
+      "title": "Privada por padrão. ",
+      "body": "O áudio de referência é armazenado no diretório de dados do LocalAI com permissões de arquivo restritas e nunca é exposto como um caminho de pasta de modelo."
+    },
+    "actions": {
+      "back": "Voltar para a biblioteca",
+      "cancel": "Cancelar",
+      "save": "Salvar voz",
+      "saving": "Salvando…"
+    },
+    "toasts": {
+      "created": "{{name}} está pronta para uso"
+    }
+  },
+  "sound": {
+    "title": "Geração de Som",
+    "labels": {
+      "model": "Modelo",
+      "prompt": "Prompt",
+      "promptPlaceholder": "Descreva o som que deseja gerar...",
+      "instrumental": "Instrumental",
+      "bpm": "BPM",
+      "duration": "Duração (segundos)",
+      "language": "Idioma",
+      "timesignature": "Fórmula de Compasso",
+      "keyscale": "Tom/Escala",
+      "vocalLanguage": "Idioma vocal",
+      "vocalLanguagePlaceholder": "ex.: Português",
+      "caption": "Legenda",
+      "lyrics": "Letra",
+      "lyricsPlaceholder": "Letra para geração vocal",
+      "simple": "Simples",
+      "advanced": "Avançado",
+      "seed": "Semente",
+      "seedPlaceholder": "Aleatória",
+      "thinkMode": "Modo de pensamento"
+    },
+    "actions": {
+      "generate": "Gerar",
+      "generating": "Gerando..."
+    },
+    "empty": "O áudio gerado aparecerá aqui",
+    "toasts": {
+      "noPrompt": "Digite um prompt",
+      "noModel": "Selecione um modelo",
+      "generateFailed": "Falha na geração"
+    }
+  },
+  "audioTransform": {
+    "title": "Transformação de Áudio",
+    "labels": {
+      "model": "Modelo",
+      "audio": "Áudio (obrigatório)",
+      "reference": "Referência (opcional)",
+      "referenceHelp": "Sinal de loopback / extremidade distante para cancelamento de eco, falante alvo para conversão de voz. Deixe vazio para transformação incondicional.",
+      "advancedParameters": "Parâmetros avançados",
+      "advancedParametersHelp": "específicos do backend (uma chave=valor por linha, ex.: noise_gate=true)",
+      "advancedParametersPlaceholder": "# Opcional. Para LocalVQE:\n# noise_gate=true\n# noise_gate_threshold_dbfs=-50"
+    },
+    "input": {
+      "upload": "Enviar",
+      "uploadDescription": "Solte um arquivo aqui ou",
+      "uploadBrowse": "navegue",
+      "record": "Gravar",
+      "startRecording": "Iniciar gravação",
+      "stop": "Parar",
+      "encoding": "Codificando...",
+      "clear": "Limpar",
+      "microphoneUnavailable": "A captura de microfone não está disponível neste navegador.",
+      "echoNotice": "Os navegadores costumam aplicar seu próprio cancelamento de eco WebRTC e supressão de ruído por padrão. Isso geralmente resulta em desempenho pior do que executar o LocalVQE no áudio bruto.",
+      "echoTest": "Teste de eco (grave o microfone enquanto reproduz a referência)",
+      "stopEchoTest": "Parar teste de eco"
+    },
+    "result": {
+      "audio": "Áudio",
+      "reference": "Referência",
+      "inputSpectrum": "Espectro de entrada",
+      "outputSpectrum": "Espectro de saída",
+      "outputSpectrumHint": "Transforme para comparar a atenuação",
+      "output": "Saída"
+    },
+    "actions": {
+      "transform": "Transformar",
+      "processing": "Processando..."
+    },
+    "empty": "Escolha um arquivo de áudio (e referência opcional) para transformar"
+  },
+  "talk": {
+    "title": "Falar",
+    "subtitle": "Conversa de voz em tempo real",
+    "actions": {
+      "start": "Iniciar sessão",
+      "stop": "Encerrar sessão",
+      "connecting": "Conectando...",
+      "muted": "Mudo",
+      "mute": "Silenciar",
+      "unmute": "Reativar som"
+    },
+    "labels": {
+      "model": "Modelo",
+      "voice": "Voz",
+      "voicePlaceholder": "alloy",
+      "language": "Idioma",
+      "languagePlaceholder": "pt",
+      "instructions": "Instruções",
+      "instructionsPlaceholder": "Defina a persona do assistente..."
+    },
+    "status": {
+      "idle": "Ocioso",
+      "connecting": "Conectando...",
+      "listening": "Ouvindo...",
+      "speaking": "Falando...",
+      "ended": "Sessão encerrada"
+    },
+    "toasts": {
+      "noModel": "Selecione um modelo primeiro",
+      "connectFailed": "Falha ao conectar: {{message}}"
+    }
+  },
+  "history": {
+    "title": "Histórico",
+    "empty": "Nenhum histórico ainda",
+    "deleteEntry": "Excluir entrada",
+    "clear": "Limpar histórico",
+    "clearTitle": "Limpar todo o histórico",
+    "clearMessage": "Remover todas as entradas do histórico? Esta ação não pode ser desfeita.",
+    "clearConfirm": "Limpar",
+    "cleared": "Histórico limpo"
+  },
+  "request": {
+    "heading": "Requisição",
+    "copyCurl": "Copiar como curl",
+    "copied": "Copiado"
+  }
+}

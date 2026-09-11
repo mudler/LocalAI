@@ -16,6 +16,15 @@ func (*applicationArtifactMaterializer) Ensure(context.Context, string, modelart
 	return modelartifacts.Result{}, nil
 }
 
+type configurableApplicationArtifactMaterializer struct {
+	applicationArtifactMaterializer
+	concurrency int
+}
+
+func (m *configurableApplicationArtifactMaterializer) SetDownloadConcurrency(concurrency int) {
+	m.concurrency = concurrency
+}
+
 var _ = Describe("ApplicationConfig model artifact materializer", func() {
 	It("provides a default materializer", func() {
 		Expect(NewApplicationConfig().ModelArtifactMaterializer).NotTo(BeNil())
@@ -30,5 +39,16 @@ var _ = Describe("ApplicationConfig model artifact materializer", func() {
 		Expect(found).To(BeTrue())
 		Expect(field.Tag.Get("json")).To(Equal("-"))
 		Expect(field.Tag.Get("yaml")).To(Equal("-"))
+	})
+
+	It("applies runtime download concurrency to configurable materializers", func() {
+		materializer := &configurableApplicationArtifactMaterializer{}
+		appConfig := NewApplicationConfig(WithModelArtifactMaterializer(materializer))
+		concurrency := 4
+
+		appConfig.ApplyRuntimeSettings(&RuntimeSettings{ArtifactDownloadConcurrency: &concurrency})
+
+		Expect(appConfig.ArtifactDownloadConcurrency).To(Equal(4))
+		Expect(materializer.concurrency).To(Equal(4))
 	})
 })

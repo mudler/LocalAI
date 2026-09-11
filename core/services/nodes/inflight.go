@@ -138,6 +138,12 @@ func (c *InFlightTrackingClient) GenerateImage(ctx context.Context, in *pb.Gener
 	return res, c.reconcile(err)
 }
 
+func (c *InFlightTrackingClient) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	defer c.track(ctx)()
+	res, err := c.inner.UpscaleImage(ctx, in, opts...)
+	return res, c.reconcile(err)
+}
+
 func (c *InFlightTrackingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	defer c.track(ctx)()
 	res, err := c.inner.GenerateVideo(ctx, in, opts...)

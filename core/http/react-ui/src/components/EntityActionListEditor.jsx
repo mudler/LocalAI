@@ -56,7 +56,7 @@ export default function EntityActionListEditor({ value, onChange }) {
       </datalist>
 
       {entries.length === 0 && (
-        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+        <div className="text-meta">
           No per-entity actions — every detected group uses the default action. Add a row to
           block or allow-log a specific entity group (e.g. <code>PASSWORD</code> → block).
         </div>
@@ -89,8 +89,7 @@ export default function EntityActionListEditor({ value, onChange }) {
         </div>
       ))}
 
-      <button type="button" className="btn btn-secondary btn-sm" onClick={add}
-        style={{ alignSelf: 'flex-start', fontSize: '0.75rem' }}>
+      <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
         <i className="fas fa-plus" /> Add entity action
       </button>
     </div>

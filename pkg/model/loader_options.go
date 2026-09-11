@@ -7,11 +7,12 @@ import (
 )
 
 type Options struct {
-	backendString string
-	model         string
-	modelFile     string
-	modelID       string
-	context       context.Context
+	backendString  string
+	model          string
+	modelFile      string
+	modelID        string
+	configRevision string
+	context        context.Context
 
 	gRPCOptions *pb.ModelOptions
 
@@ -25,6 +26,13 @@ type Options struct {
 	// by the caller using the vram estimation scaffolding.  When non-zero it is
 	// registered with the watchdog so size-aware eviction can rank models.
 	modelSizeBytes int64
+}
+
+// WithConfigRevision binds a load to the semantic revision of the resolved
+// model configuration. The value is copied into Options and therefore remains
+// stable even if the configuration loader refreshes while a load is running.
+func WithConfigRevision(revision string) Option {
+	return func(o *Options) { o.configRevision = revision }
 }
 
 type Option func(*Options)

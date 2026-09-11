@@ -24,6 +24,14 @@ func systemdActivatedListeners() ([]net.Listener, error) {
 		}
 	}()
 
+	// A half-populated environment is not an activation attempt. Container runtimes
+	// started from a socket-activated system unit leak a bare LISTEN_PID into every
+	// container they spawn, and systemd's own sd_listen_fds() treats either variable
+	// being absent as "not activated" rather than as an error.
+	if listenPID == "" || listenFDs == "" {
+		return nil, nil
+	}
+
 	pid, err := strconv.Atoi(listenPID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid LISTEN_PID %q: %w", listenPID, err)

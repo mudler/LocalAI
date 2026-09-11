@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -51,6 +52,12 @@ const (
 	// the backend download the same repo in-band.
 	DefaultLockWait = 30 * time.Minute
 
+	// DefaultDownloadConcurrency keeps materialization sequential unless an
+	// operator opts in. Parallel transfers help a repo of many small shards on a
+	// fast link, but they multiply memory and disk pressure on the shared models
+	// volume, so the safe default is the behaviour this package already had.
+	DefaultDownloadConcurrency = 1
+
 	initialLockRetryInterval = 100 * time.Millisecond
 	maxLockRetryInterval     = 5 * time.Second
 )
@@ -65,6 +72,9 @@ type Manager struct {
 	// the process run that created it, and outliving that run is precisely what
 	// it must not do.
 	writerID string
+	// downloadConcurrency bounds how many of a snapshot's files transfer at
+	// once. One means the sequential behaviour this package shipped with.
+	downloadConcurrency atomic.Int64
 }
 
 type ManagerOption func(*Manager)
@@ -100,6 +110,25 @@ func WithLockWait(wait time.Duration) ManagerOption {
 	}
 }
 
+// WithDownloadConcurrency bounds how many of a snapshot's files are fetched at
+// once. Values below one mean sequential, which is the default: a shared models
+// volume is often the bottleneck rather than the network, so raising this is a
+// deployment decision rather than something to assume.
+func WithDownloadConcurrency(concurrency int) ManagerOption {
+	return func(manager *Manager) {
+		manager.SetDownloadConcurrency(concurrency)
+	}
+}
+
+// SetDownloadConcurrency updates the limit used by future file download
+// batches. Values below one select the safe sequential default.
+func (m *Manager) SetDownloadConcurrency(concurrency int) {
+	if concurrency < 1 {
+		concurrency = DefaultDownloadConcurrency
+	}
+	m.downloadConcurrency.Store(int64(concurrency))
+}
+
 func NewManager(resolver SnapshotResolver, options ...ManagerOption) *Manager {
 	manager := &Manager{
 		resolver:  resolver,
@@ -107,6 +136,7 @@ func NewManager(resolver SnapshotResolver, options ...ManagerOption) *Manager {
 		lockWait:  DefaultLockWait,
 		writerID:  newWriterID(),
 	}
+	manager.SetDownloadConcurrency(DefaultDownloadConcurrency)
 	for _, option := range options {
 		option(manager)
 	}
@@ -376,7 +406,11 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 	// read this manifest, and getting its order or contents wrong would make a
 	// corrupt tree look valid.
 	manifest := Manifest{Version: ManifestVersion, Artifact: spec, Files: make([]ManifestFile, len(snapshot.Files))}
-	completedBytes := int64(0)
+	// completedBytes is atomic because WithDownloadConcurrency lets several
+	// AfterDownload hooks add to it while other files' progress callbacks read
+	// it. Each hook still writes its own manifest.Files slot, so the manifest
+	// stays in snapshot order no matter which file finishes first.
+	completedBytes := new(atomic.Int64)
 	skippedFiles := 0
 	skippedBytes := int64(0)
 	tasks := make([]downloader.FileTask, 0, len(snapshot.Files))
@@ -398,7 +432,7 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 		snapshotAbs := filepath.Join(layout.Partial, filepath.FromSlash(snapshotRel))
 		if entry, ok := reuseMaterializedFile(snapshotAbs, file); ok {
 			manifest.Files[taskIndex] = entry
-			completedBytes += file.Size
+			completedBytes.Add(file.Size)
 			skippedFiles++
 			skippedBytes += file.Size
 			continue
@@ -419,7 +453,7 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 						Phase:          PhaseDownloading,
 						Artifact:       spec.Name,
 						File:           file.Path,
-						CurrentBytes:   completedBytes + event.Written,
+						CurrentBytes:   completedBytes.Load() + event.Written,
 						TotalBytes:     totalBytes,
 						CompletedFiles: taskIndex,
 						TotalFiles:     len(snapshot.Files),
@@ -431,7 +465,7 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 					Phase:          PhaseVerifying,
 					Artifact:       spec.Name,
 					File:           file.Path,
-					CurrentBytes:   completedBytes + file.Size,
+					CurrentBytes:   completedBytes.Load() + file.Size,
 					TotalBytes:     totalBytes,
 					CompletedFiles: taskIndex,
 					TotalFiles:     len(snapshot.Files),
@@ -454,7 +488,7 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 					return err
 				}
 				manifest.Files[taskIndex] = entry
-				completedBytes += file.Size
+				completedBytes.Add(file.Size)
 				return nil
 			},
 		}
@@ -471,7 +505,7 @@ func (m *Manager) materializeLocked(ctx context.Context, modelsPath string, spec
 			"remaining_files", len(tasks),
 			"total_files", len(snapshot.Files))
 	}
-	if err := downloader.DownloadFilesWithContext(ctx, tasks, nil); err != nil {
+	if err := downloader.DownloadFilesWithConcurrency(ctx, tasks, nil, int(m.downloadConcurrency.Load())); err != nil {
 		return Result{}, err
 	}
 	if err := root.RemoveAll(".downloads"); err != nil {

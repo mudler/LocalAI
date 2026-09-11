@@ -6,7 +6,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -35,6 +38,7 @@ var (
 // which are for Any-To-Any models, but instead we will call a pipeline (for e.g STT->LLM->TTS)
 type wrappedModel struct {
 	TTSConfig            *config.ModelConfig
+	ttsParams            map[string]string
 	TranscriptionConfig  *config.ModelConfig
 	LLMConfig            *config.ModelConfig
 	VADConfig            *config.ModelConfig
@@ -391,11 +395,39 @@ func newRealtimeDecisionID() string {
 }
 
 func (m *wrappedModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
-	return backend.ModelTTS(ctx, text, voice, language, "", nil, m.modelLoader, m.appConfig, *m.TTSConfig)
+	return backend.ModelTTS(ctx, text, voice, language, "", maps.Clone(m.ttsParams), m.modelLoader, m.appConfig, *m.TTSConfig)
+}
+
+func (m *wrappedModel) setTTSParams(params map[string]string) {
+	m.ttsParams = maps.Clone(params)
 }
 
 func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
-	return ttsStream(ctx, m.modelLoader, m.appConfig, *m.TTSConfig, text, voice, language, onAudio)
+	return ttsStream(ctx, m.modelLoader, m.appConfig, *m.TTSConfig, text, voice, language, maps.Clone(m.ttsParams), onAudio)
+}
+
+func resolveRealtimeVoice(ctx context.Context, configuredVoice string, ttsConfig *config.ModelConfig, profiles *voiceprofile.Store) (string, map[string]string, func(), error) {
+	if !voiceprofile.IsReference(configuredVoice) {
+		return configuredVoice, nil, func() {}, nil
+	}
+	profileID, valid := voiceprofile.ParseReference(configuredVoice)
+	if !valid {
+		return "", nil, nil, fmt.Errorf("invalid voice profile reference %q", configuredVoice)
+	}
+	if config.VoiceCloningForModel(ttsConfig) == nil {
+		return "", nil, nil, fmt.Errorf("selected TTS model does not support reference-audio voice cloning")
+	}
+	if profiles == nil {
+		return "", nil, nil, fmt.Errorf("voice profile store is unavailable")
+	}
+	profile, referencePath, release, err := profiles.LeaseAudio(ctx, profileID)
+	if err != nil {
+		if errors.Is(err, voiceprofile.ErrNotFound) {
+			return "", nil, nil, fmt.Errorf("voice profile not found: %w", err)
+		}
+		return "", nil, nil, fmt.Errorf("resolve voice profile: %w", err)
+	}
+	return referencePath, map[string]string{"ref_text": profile.Transcript}, release, nil
 }
 
 func (m *wrappedModel) TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
@@ -674,11 +706,11 @@ const wavStreamHeaderBytes = 44
 // callback, which wants raw PCM plus the sample rate. The header is buffered
 // until complete, the sample rate is read from it, and subsequent bytes are
 // forwarded as PCM.
-func ttsStream(ctx context.Context, ml *model.ModelLoader, appConfig *config.ApplicationConfig, ttsConfig config.ModelConfig, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
+func ttsStream(ctx context.Context, ml *model.ModelLoader, appConfig *config.ApplicationConfig, ttsConfig config.ModelConfig, text, voice, language string, params map[string]string, onAudio func(pcm []byte, sampleRate int) error) error {
 	var header []byte
 	headerDone := false
 	sampleRate := 0
-	return backend.ModelTTSStream(ctx, text, voice, language, "", nil, ml, appConfig, ttsConfig, func(b []byte) error {
+	return backend.ModelTTSStream(ctx, text, voice, language, "", params, ml, appConfig, ttsConfig, func(b []byte) error {
 		if headerDone {
 			if len(b) == 0 {
 				return nil
@@ -833,22 +865,13 @@ func buildRealtimeRoutingContext(a *application.Application, sessionID string) *
 	if a == nil {
 		return nil
 	}
-	deps := &middleware.ClassifierDeps{
-		Scorer:       a.Scorer,
-		TokenCounter: a.TokenCounter,
-		Embedder:     a.Embedder,
-		VectorStore:  a.VectorStore,
-		Reranker:     a.Reranker,
-		ModelLookup:  a.ModelConfigLookup(),
-		Registry:     a.RouterClassifierRegistry(),
-		Evaluator:    a.TemplatesEvaluator(),
-	}
+	deps := middleware.NewClassifierDeps(a)
 	userID := ""
 	if u := a.FallbackUser(); u != nil {
 		userID = u.ID
 	}
 	return &RealtimeRoutingContext{
-		Deps:      deps,
+		Deps:      &deps,
 		Store:     a.RouterDecisions(),
 		SessionID: sessionID,
 		UserID:    userID,

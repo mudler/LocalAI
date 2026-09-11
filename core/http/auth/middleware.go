@@ -26,16 +26,17 @@ const (
 //
 // Resolution order:
 //  1. If auth not enabled AND no legacy API keys → pass through
-//  2. Skip auth for exempt paths (PathWithoutAuth + /api/auth/)
-//  3. If auth enabled (db != nil):
+//  2. If auth enabled (db != nil):
 //     a. Try "session" cookie → DB lookup
 //     b. Try Authorization: Bearer → session ID, then user API key
 //     c. Try x-api-key / xi-api-key → user API key
 //     d. Try "token" cookie → legacy API key check
 //     e. Check all extracted keys against legacy ApiKeys → synthetic admin
-//  4. If auth not enabled → delegate to legacy API key validation
-//  5. If no auth found for /api/ or /v1/ paths → 401
-//  6. Otherwise pass through (static assets, UI pages, etc.)
+//  3. If auth not enabled → delegate to legacy API key validation
+//  4. Allow authenticated requests, public routes, PathWithoutAuth overrides,
+//     and route groups that apply alternative authentication
+//  5. Apply the legacy GET regex override when configured
+//  6. Deny every other request
 func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -48,7 +49,6 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 			}
 
 			path := c.Request().URL.Path
-			exempt := isExemptPath(path, appConfig)
 			authenticated := false
 
 			// 2. Try to authenticate (populates user in context if possible)
@@ -82,27 +82,25 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 				}
 			}
 
-			// 4. If authenticated or exempt path, proceed
-			if authenticated || exempt {
+			// 4. Public rules are evaluated after authentication so public handlers
+			// can still observe a valid user when credentials are supplied.
+			public := isPublicRoute(c.Request().Method, path)
+			overridden := isExemptPath(path, appConfig)
+			alternativeAuth := usesAlternativeAuthentication(path)
+			if authenticated || public || overridden || alternativeAuth {
 				return next(c)
 			}
 
-			// 5. Require auth for API paths
-			if isAPIPath(path) {
-				// Check GET exemptions for legacy keys
-				if hasLegacyKeys && appConfig.DisableApiKeyRequirementForHttpGet && c.Request().Method == http.MethodGet {
-					for _, rx := range appConfig.HttpGetExemptedEndpoints {
-						if rx.MatchString(c.Path()) {
-							return next(c)
-						}
+			// 5. Check GET exemptions for legacy keys.
+			if hasLegacyKeys && appConfig.DisableApiKeyRequirementForHttpGet && c.Request().Method == http.MethodGet {
+				for _, rx := range appConfig.HttpGetExemptedEndpoints {
+					if rx.MatchString(c.Path()) {
+						return next(c)
 					}
 				}
-				return authError(c, appConfig)
 			}
 
-			// 6. Non-API paths (UI, static assets) pass through.
-			// The React UI handles login redirects client-side.
-			return next(c)
+			return authError(c, appConfig)
 		}
 	}
 }
@@ -548,23 +546,6 @@ func isValidLegacyKey(key string, appConfig *config.ApplicationConfig) bool {
 
 // isExemptPath returns true if the path should skip authentication.
 func isExemptPath(path string, appConfig *config.ApplicationConfig) bool {
-	// Auth endpoints are always public
-	if strings.HasPrefix(path, "/api/auth/") {
-		return true
-	}
-
-	// Node self-service endpoints — authenticated via registration token, not global auth.
-	// Only exempt the specific known endpoints, not the entire prefix.
-	if strings.HasPrefix(path, "/api/node/") {
-		if path == "/api/node/register" ||
-			strings.HasSuffix(path, "/heartbeat") ||
-			strings.HasSuffix(path, "/drain") ||
-			strings.HasSuffix(path, "/deregister") {
-			return true
-		}
-	}
-
-	// Check configured exempt paths
 	for _, p := range appConfig.PathWithoutAuth {
 		if strings.HasPrefix(path, p) {
 			return true
@@ -572,32 +553,6 @@ func isExemptPath(path string, appConfig *config.ApplicationConfig) bool {
 	}
 
 	return false
-}
-
-// isAPIPath returns true for paths that always require authentication.
-func isAPIPath(path string) bool {
-	return strings.HasPrefix(path, "/api/") ||
-		strings.HasPrefix(path, "/v1/") ||
-		strings.HasPrefix(path, "/models/") ||
-		strings.HasPrefix(path, "/backends/") ||
-		strings.HasPrefix(path, "/backend/") ||
-		strings.HasPrefix(path, "/tts") ||
-		strings.HasPrefix(path, "/vad") ||
-		strings.HasPrefix(path, "/video") ||
-		strings.HasPrefix(path, "/3d/") ||
-		strings.HasPrefix(path, "/stores/") ||
-		strings.HasPrefix(path, "/system") ||
-		strings.HasPrefix(path, "/ws/") ||
-		strings.HasPrefix(path, "/generated-") ||
-		strings.HasPrefix(path, "/chat/") ||
-		strings.HasPrefix(path, "/completions") ||
-		strings.HasPrefix(path, "/edits") ||
-		strings.HasPrefix(path, "/embeddings") ||
-		strings.HasPrefix(path, "/audio/") ||
-		strings.HasPrefix(path, "/images/") ||
-		strings.HasPrefix(path, "/messages") ||
-		strings.HasPrefix(path, "/responses") ||
-		path == "/metrics"
 }
 
 // authError returns an appropriate error response.

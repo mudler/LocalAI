@@ -5,9 +5,6 @@
 </h1>
 
 <p align="center">
-<a href="https://github.com/go-skynet/LocalAI/stargazers" target="blank">
-<img src="https://img.shields.io/github/stars/go-skynet/LocalAI?style=for-the-badge" alt="LocalAI stars"/>
-</a>
 <a href='https://github.com/go-skynet/LocalAI/releases'>
 <img src='https://img.shields.io/github/release/go-skynet/LocalAI?&label=Latest&style=for-the-badge'>
 </a>
@@ -161,7 +158,7 @@ local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
 local-ai run oci://localai/phi-2:latest
 ```
 
-To test a running LocalAI server from the terminal, open an interactive chat session from another shell. Inside the prompt, `/models` lists installed models and `/model <name>` switches between them.
+To work with a running LocalAI server from the terminal, start the built-in agent from another shell. It answers questions, reads your files and runs commands on your machine, asking you to approve anything that changes state. Inside a session, `/models` lists installed models and `/model <name>` switches between them. See the [Terminal agent](https://localai.io/docs/features/terminal-agent/) docs.
 
 ```bash
 # Terminal 1
@@ -195,7 +192,7 @@ For more details, see the [Getting Started guide](https://localai.io/basics/gett
 - **August 2025**: MLX, MLX-VLM, Diffusers, llama.cpp now supported on Apple Silicon
 - **July 2025**: All backends migrated outside the main binary — [lightweight, modular architecture](https://github.com/mudler/LocalAI/releases/tag/v3.2.0)
 
-For older news and full release notes, see [GitHub Releases](https://github.com/mudler/LocalAI/releases) and the [News page](https://localai.io/basics/news/).
+For older news and full release notes, see [GitHub Releases](https://github.com/mudler/LocalAI/releases) and the [blog](https://localai.io/blog/).
 
 ## Features
 
@@ -231,14 +228,14 @@ Most backends wrap a best-in-class upstream engine. A handful of them are native
 
 | Backend | What it does |
 |---------|-------------|
-| [vllm.cpp](https://github.com/mudler/vllm.cpp) | From-scratch C++20 port of vLLM for text generation: paged KV cache, continuous batching, prefix caching, safetensors + GGUF loading, engine-enforced structured output, on CPU, CUDA, Metal and Vulkan |
+| [vllm.cpp](https://github.com/mudler/vllm.cpp) | From-scratch C++20 port of vLLM for text generation: paged KV cache, continuous batching, prefix caching, safetensors + GGUF loading, engine-enforced structured output, on CPU, CUDA, Metal and Vulkan. Also serves MiniMax-H3 joint video+audio generation |
 | [parakeet.cpp](https://github.com/mudler/parakeet.cpp) | C++/GGML port of NVIDIA NeMo Parakeet ASR (tdt/ctc/rnnt/hybrid), with cache-aware streaming transcription |
 | [moss-transcribe.cpp](https://github.com/localai-org/moss-transcribe.cpp) | C++/GGML port of OpenMOSS MOSS-Transcribe-Diarize: joint long-form transcription, speaker diarization and timestamping in a single pass |
 | [moss-tts.cpp](https://github.com/mudler/moss-tts.cpp) | C++/GGML port of the OpenMOSS MOSS-TTS family: text-to-speech (MOSS-TTS-Local v1.5, 48 kHz stereo) with reference-audio voice cloning, through the MOSS-Audio-Tokenizer neural codec |
 | [magpie-tts.cpp](https://github.com/mudler/magpie-tts.cpp) | C++/GGML port of NVIDIA's Magpie TTS Multilingual 357M: 22.05 kHz mono text-to-speech in 5 voices and 9+ languages, with the NanoCodec neural codec and tokenizer/G2P embedded in a single GGUF |
 | [ced.cpp](https://github.com/localai-org/ced.cpp) | C++/GGML port of the CED audio-tagging models: sound-event classification (527-class AudioSet) over REST and the realtime API for live recognition |
 | [voice-detect.cpp](https://github.com/localai-org/voice-detect.cpp) | Speaker recognition and voice analysis (ECAPA-TDNN, WeSpeaker, ERes2Net, CAM++, wav2vec2 age/gender/emotion), replacing the Python speaker-recognition backend |
-| [voxtral-tts.c](https://github.com/mudler/voxtral-tts.c) | Voxtral Realtime 4B speech-to-text in pure C |
+| [voxtral-tts.c](https://github.com/mudler/voxtral-tts.c) | Mistral Voxtral-4B-TTS text-to-speech in pure C: 20 preset voices across 9 languages, 24 kHz WAV output, no dependencies beyond libc |
 | [vibevoice.cpp](https://github.com/mudler/vibevoice.cpp) | Native port of Microsoft VibeVoice for TTS (voice cloning) and long-form ASR with speaker diarization |
 | [rf-detr.cpp](https://github.com/localai-org/rf-detr.cpp) | Native RF-DETR object detection and instance segmentation |
 | [locate-anything.cpp](https://github.com/mudler/locate-anything.cpp) | Open-vocabulary object detection and visual grounding (LocateAnything-3B) |
@@ -260,7 +257,7 @@ We also maintain [apex-quant](https://github.com/localai-org/apex-quant), a per-
 - [Kubernetes installation](https://localai.io/basics/getting_started/#run-localai-in-kubernetes)
 - [Integrations & community projects](https://localai.io/docs/integrations/)
 - [Installation video walkthrough](https://www.youtube.com/watch?v=cMVNnlqwfw4)
-- [Media & blog posts](https://localai.io/basics/news/#media-blogs-social)
+- [Blog: release write-ups, benchmarks and engineering notes](https://localai.io/blog/)
 - [Examples](https://github.com/mudler/LocalAI-examples) — including the [realtime voice assistant demo](https://github.com/localai-org/localai-realtime-demo) (Go client for the Realtime API with tool calling)
 
 ## Team
@@ -317,10 +314,6 @@ Past sponsors
 ### Individual sponsors
 
 A special thanks to individual sponsors, a full list is on [GitHub](https://github.com/sponsors/mudler) and [buymeacoffee](https://buymeacoffee.com/mudler). Special shout out to [drikster80](https://github.com/drikster80) for being generous. Thank you everyone!
-
-## Star history
-
-[![LocalAI Star history Chart](https://api.star-history.com/svg?repos=go-skynet/LocalAI&type=Date)](https://star-history.com/#go-skynet/LocalAI&Date)
 
 ## License
 

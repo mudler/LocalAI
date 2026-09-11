@@ -165,8 +165,10 @@ func (r *ResolveResult) ToDecisionRecord(id, correlationID, userID, source strin
 		LatencyMs:           r.Decision.Latency.Milliseconds(),
 		Cached:              r.Decision.Cached,
 		CacheSimilarity:     r.Decision.CacheSimilarity,
+		NearestSimilarity:   r.Decision.NearestSimilarity,
 		LabelScores:         r.Decision.LabelScores,
 		ActivationThreshold: r.Decision.ActivationThreshold,
+		Neighbors:           r.Decision.Neighbors,
 		Source:              source,
 		CreatedAt:           time.Now().UTC(),
 	}

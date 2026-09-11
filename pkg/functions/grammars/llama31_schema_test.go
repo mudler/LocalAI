@@ -43,8 +43,8 @@ const (
 	// <function=example_function_name>{{"example_name": "example_value"}}</function>
 	testllama31inputResult1 = `root-0-function ::= "create_event"
 freestring ::= (
-		[^"\] |
-		"\\" (["\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+		[^"\\] |
+		"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
   )* space
 root-0 ::= "<function=" root-0-function ">{" root-0-arguments "}</function>"
 root-1-arguments ::= "{" space "\"query\"" space ":" space string "}" space
@@ -53,8 +53,8 @@ space ::= " "?
 root-0-arguments ::= "{" space "\"date\"" space ":" space string "," space "\"time\"" space ":" space string "," space "\"title\"" space ":" space string "}" space
 root-1 ::= "<function=" root-1-function ">{" root-1-arguments "}</function>"
 string ::= "\"" (
-	[^"\] |
-	"\\" (["\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
+	[^"\\] |
+	"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 )* "\"" space
 root-1-function ::= "search"`
 )

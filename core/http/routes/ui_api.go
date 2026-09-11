@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -60,40 +61,6 @@ var usecaseFilters = map[string]config.ModelConfigUsecase{
 	config.UsecaseSoundClassification: config.FLAG_SOUND_CLASSIFICATION,
 	config.UsecaseRealtimeAudio:       config.FLAG_REALTIME_AUDIO,
 	config.UsecaseTokenClassify:       config.FLAG_TOKEN_CLASSIFY,
-}
-
-// extractHFRepo tries to find a HuggingFace repo ID from model overrides or URLs.
-func extractHFRepo(overrides map[string]any, urls []string) string {
-	if overrides != nil {
-		if params, ok := overrides["parameters"].(map[string]any); ok {
-			if modelRef, ok := params["model"].(string); ok {
-				if repoID, ok := vram.ExtractHFRepoID(modelRef); ok {
-					return repoID
-				}
-			}
-		}
-	}
-	for _, u := range urls {
-		if repoID, ok := vram.ExtractHFRepoID(u); ok {
-			return repoID
-		}
-	}
-	return ""
-}
-
-// buildEstimateInput creates a vram.ModelEstimateInput from gallery model metadata.
-func buildEstimateInput(m *gallery.GalleryModel) vram.ModelEstimateInput {
-	var input vram.ModelEstimateInput
-	input.Size = m.Size
-	if hfRepoID := extractHFRepo(m.Overrides, m.URLs); hfRepoID != "" {
-		input.HFRepo = hfRepoID
-	}
-	for _, f := range m.AdditionalFiles {
-		if vram.IsWeightFile(f.URI) {
-			input.Files = append(input.Files, vram.FileInput{URI: f.URI, Size: 0})
-		}
-	}
-	return input
 }
 
 // parseContextSizes parses a comma-separated list of context sizes from a query param.
@@ -155,6 +122,14 @@ func getDirectorySize(path string) (int64, error) {
 
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
+
+	// Both are nil in single-node mode, which leaves every surface below
+	// sizing models against the local host exactly as it always has. In
+	// distributed mode the models run on the workers, so "how big a model fits"
+	// and "which hardware can run it" are questions about them, not about this
+	// usually GPU-less controller.
+	clusterMemory := ClusterMemoryProviderFor(applicationInstance)
+	clusterCapabilities := ClusterCapabilityProviderFor(applicationInstance)
 
 	// Operations API - Get all current operations (models + backends)
 	app.GET("/api/operations", func(c echo.Context) error {
@@ -329,23 +304,74 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			operations = append(operations, opData)
 		}
 
-		// Append active file staging operations (distributed mode only)
-		if d := applicationInstance.Distributed(); d != nil && d.Router != nil {
-			for modelID, status := range d.Router.StagingTracker().GetAll() {
-				operations = append(operations, map[string]any{
-					"id":          "staging:" + modelID,
-					"name":        modelID,
-					"fullName":    modelID,
-					"jobID":       "staging:" + modelID,
-					"progress":    int(status.Progress),
-					"taskType":    "staging",
-					"isDeletion":  false,
-					"isBackend":   false,
-					"isQueued":    false,
-					"cancellable": false,
-					"message":     status.Message,
-					"nodeName":    status.NodeName,
-				})
+		// Merge durable staging jobs with this replica's fresher tracker snapshot.
+		if d := applicationInstance.Distributed(); d != nil {
+			stagingOperations := map[string]map[string]any{}
+			trackerStatuses := map[string]nodes.StagingStatus{}
+			if d.Router != nil {
+				trackerStatuses = d.Router.StagingTracker().GetAll()
+			}
+			for modelID, status := range trackerStatuses {
+				stagingOperations[modelID] = map[string]any{
+					"id":           "staging:" + modelID,
+					"name":         modelID,
+					"fullName":     modelID,
+					"jobID":        "staging:" + modelID,
+					"progress":     int(status.Progress),
+					"taskType":     "staging",
+					"isDeletion":   false,
+					"isBackend":    false,
+					"isQueued":     false,
+					"cancellable":  false,
+					"message":      status.Message,
+					"nodeName":     status.NodeName,
+					"currentBytes": status.BytesSent,
+					"totalBytes":   status.TotalBytes,
+				}
+			}
+
+			if d.Registry != nil {
+				jobs, err := d.Registry.ListActiveLoadJobs(c.Request().Context())
+				if err != nil {
+					xlog.Warn("Failed to list durable model load jobs", "error", err)
+				} else {
+					for i := range jobs {
+						job := &jobs[i]
+						if job.State != nodes.LoadJobStateStaging {
+							continue
+						}
+						op := map[string]any{
+							"id":           "staging:" + job.TrackingKey,
+							"name":         job.TrackingKey,
+							"fullName":     job.TrackingKey,
+							"jobID":        "staging:" + job.TrackingKey,
+							"progress":     int(job.Progress()),
+							"taskType":     "staging",
+							"isDeletion":   false,
+							"isBackend":    false,
+							"isQueued":     false,
+							"cancellable":  false,
+							"message":      "",
+							"nodeID":       job.NodeID,
+							"nodeName":     job.NodeName,
+							"phase":        job.State,
+							"currentBytes": job.BytesSent,
+							"totalBytes":   job.TotalBytes,
+						}
+						if status, ok := trackerStatuses[job.TrackingKey]; ok {
+							op["nodeName"] = status.NodeName
+							op["message"] = status.Message
+							op["progress"] = int(status.Progress)
+							op["currentBytes"] = status.BytesSent
+							op["totalBytes"] = status.TotalBytes
+						}
+						stagingOperations[job.TrackingKey] = op
+					}
+				}
+			}
+
+			for _, operation := range stagingOperations {
+				operations = append(operations, operation)
 			}
 		}
 
@@ -387,6 +413,24 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Operation cancelled",
+		})
+	}, adminMiddleware)
+
+	// Pause operation endpoint (admin only). Unlike cancel, pause preserves a
+	// partial download so submitting the same install later resumes it.
+	app.POST("/api/operations/:jobID/pause", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		xlog.Debug("API request to pause operation", "jobID", jobID)
+
+		if err := galleryService.PauseOperation(jobID); err != nil {
+			xlog.Error("Failed to pause operation", "error", err, "jobID", jobID)
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
+		}
+
+		opcache.DeleteUUID(jobID)
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "Operation paused",
 		})
 	}, adminMiddleware)
 
@@ -736,7 +780,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		ramInfo, _ := xsysinfo.GetSystemRAMInfo()
 
-		return c.JSON(200, map[string]any{
+		listing := map[string]any{
 			"models":           modelsJSON,
 			"repositories":     appConfig.Galleries,
 			"allTags":          tags,
@@ -752,7 +796,16 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"totalPages":       totalPages,
 			"prevPage":         prevPage,
 			"nextPage":         nextPage,
-		})
+		}
+
+		// The ram* fields above stay the controller's own, so nothing that
+		// reads them changes meaning; a client sizing models reads this
+		// instead, and it is absent entirely in single-node mode.
+		if block := clusterResourceBlock(resolveClusterMemory(c.Request().Context(), clusterMemory)); block != nil {
+			listing["cluster"] = block
+		}
+
+		return c.JSON(200, listing)
 	}, adminMiddleware)
 
 	// Returns installed models with their capability flags for UI filtering
@@ -916,7 +969,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			return c.JSON(http.StatusNotFound, map[string]any{"error": "model not found"})
 		}
 
-		input := buildEstimateInput(model)
+		input := gallery.EstimateInput(model)
 		if len(input.Files) == 0 && input.HFRepo == "" && input.Size == "" {
 			return c.JSON(200, vram.MultiContextEstimate{})
 		}
@@ -964,7 +1017,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		// The full, unpaginated list: a variant references another gallery
 		// entry by name and that entry need not be anywhere near this one.
-		env := gallery.HostResolveEnv(c.Request().Context(), appConfig.SystemState)
+		env := clusterModelEnv(c.Request().Context(), appConfig.SystemState, clusterMemory, clusterCapabilities)
 		view, err := gallery.DescribeVariants(models, model, env)
 		if err != nil {
 			// A malformed variant list must not break the picker; the entry
@@ -1004,7 +1057,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		uid := id.String()
 		opcache.Set(galleryID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
@@ -1013,9 +1066,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueModelOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1051,7 +1105,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		opcache.Set(galleryID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			Delete:             true,
@@ -1060,9 +1114,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueModelOp(op)
 		cl.RemoveModelConfig(galleryName)
 
@@ -1143,7 +1198,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/models/config-metadata/autocomplete/:provider", localai.AutocompleteEndpoint(cl, ml, appConfig), adminMiddleware)
 
 	// PATCH config endpoint - partial update using nested JSON merge
-	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, ml, galleryService, appConfig), adminMiddleware)
+	app.PATCH("/api/models/config-json/:name", localai.PatchConfigEndpoint(cl, galleryService, appConfig, modelRevisionLifecycleFor(applicationInstance)), adminMiddleware)
 
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
@@ -1457,19 +1512,20 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		uid := id.String()
 		opcache.SetBackend(backendID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendID,
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 			// The React UI's "Reinstall backend" action reuses this route, so
 			// the op must force even when the backend is already installed.
 			Force: true,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1519,19 +1575,20 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		opcache.SetBackend(cacheKey, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: req.Name, // May be empty, will be derived during installation
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 			ExternalURI:        req.URI,
 			ExternalName:       req.Name,
 			ExternalAlias:      req.Alias,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1567,7 +1624,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		opcache.SetBackend(backendID, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			Delete:             true,
@@ -1575,9 +1632,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1686,7 +1744,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// and the Backends UI can reflect progress on the affected row.
 		opcache.SetBackend(backendName, uid)
 
-		ctx, cancelFunc := context.WithCancel(context.Background())
+		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendName,
@@ -1694,9 +1752,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Upgrade:            true,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
+			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellation(uid, cancelFunc)
+		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1834,6 +1893,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"watchdog_interval":   watchdogInterval,
 		}
 
+		// An additional field, never a rewrite of the local aggregate above:
+		// the resource monitor reports this controller's genuine own usage, and
+		// only the model-sizing surfaces read the cluster block.
+		if block := clusterResourceBlock(resolveClusterMemory(c.Request().Context(), clusterMemory)); block != nil {
+			response["cluster"] = block
+		}
+
 		return c.JSON(200, response)
 	}, adminMiddleware)
 
@@ -1845,8 +1911,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// Branding / whitelabeling. The read endpoint and the asset server are
 	// public so the login screen can render the configured logo and instance
-	// name before authentication. Mutations are admin-only. See app.go where
-	// "/api/branding" and "/branding/" are added to PathWithoutAuth.
+	// name before authentication. Mutations are admin-only. Keep these method-
+	// aware exemptions in sync with core/http/auth/public_routes.go.
 	app.GET("/api/branding", localai.GetBrandingEndpoint(appConfig))
 	app.GET("/branding/asset/:kind", localai.ServeBrandingAssetEndpoint(appConfig))
 	app.POST("/api/branding/asset/:kind", localai.UploadBrandingAssetEndpoint(appConfig), adminMiddleware)

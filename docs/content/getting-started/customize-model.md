@@ -2,7 +2,7 @@
 disableToc = false
 title = "Customizing the Model"
 weight = 5
-url = "/docs/getting-started/customize-model"
+url = "/getting-started/customize-model"
 icon = "rocket_launch"
 
 +++

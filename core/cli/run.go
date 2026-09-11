@@ -38,9 +38,11 @@ type RunCMD struct {
 	ExternalBackends             []string      `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
 	WebRTCNAT1To1IPs             []string      `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
 	WebRTCICEInterfaces          []string      `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
+	WebRTCUDPPort                int           `env:"LOCALAI_WEBRTC_UDP_PORT" help:"Shared UDP port for /v1/realtime WebRTC ICE traffic. Publish this port as UDP and allow it through the firewall." group:"api" name:"web-rtc-udp-port"`
 	BackendsPath                 string        `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
 	BackendsSystemPath           string        `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/var/lib/local-ai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
 	ModelsPath                   string        `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
+	ArtifactDownloadConcurrency  int           `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
 	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
 	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
 	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (collectiondb, agent state, tasks, jobs). Separates mutable data from configuration" group:"storage"`
@@ -51,6 +53,7 @@ type RunCMD struct {
 	BackendGalleries          string   `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
 	Galleries                 string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	AutoloadGalleries         bool     `env:"LOCALAI_AUTOLOAD_GALLERIES,AUTOLOAD_GALLERIES" group:"models" default:"true"`
+	VRAMPersistentCache       bool     `env:"LOCALAI_VRAM_PERSISTENT_CACHE,VRAM_PERSISTENT_CACHE" group:"models" default:"true" help:"Persist successful remote VRAM metadata probes across restarts"`
 	AutoloadBackendGalleries  bool     `env:"LOCALAI_AUTOLOAD_BACKEND_GALLERIES,AUTOLOAD_BACKEND_GALLERIES" group:"backends" default:"true"`
 	BackendImagesReleaseTag   string   `env:"LOCALAI_BACKEND_IMAGES_RELEASE_TAG,BACKEND_IMAGES_RELEASE_TAG" help:"Fallback release tag for backend images" group:"backends" default:"latest"`
 	BackendImagesBranchTag    string   `env:"LOCALAI_BACKEND_IMAGES_BRANCH_TAG,BACKEND_IMAGES_BRANCH_TAG" help:"Fallback branch tag for backend images" group:"backends" default:"master"`
@@ -112,6 +115,7 @@ type RunCMD struct {
 	MachineTag                         string   `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
 	LoadToMemory                       []string `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
 	EnableTracing                      bool     `env:"LOCALAI_ENABLE_TRACING,ENABLE_TRACING" help:"Enable API tracing" group:"api"`
+	MaxConcurrentBackendRequests       int      `env:"LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS,MAX_CONCURRENT_BACKEND_REQUESTS" default:"1024" help:"Maximum number of concurrent backend inference operations. Excess inference requests receive HTTP 503; UI and administrative endpoints remain available." group:"backends"`
 	TracingMaxItems                    int      `env:"LOCALAI_TRACING_MAX_ITEMS" default:"1024" help:"Maximum number of traces to keep" group:"api"`
 	TracingMaxBodyBytes                int      `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
 	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
@@ -177,6 +181,9 @@ type RunCMD struct {
 	BackendInstallTimeout        string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
 	BackendUpgradeTimeout        string `env:"LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT" help:"NATS round-trip timeout for backend.upgrade requests (default 15m)." group:"distributed"`
 	ModelLoadTimeout             string `env:"LOCALAI_NATS_MODEL_LOAD_TIMEOUT" help:"Fixed gRPC deadline for the remote LoadModel call sent to a worker node once its backend is installed and model files are staged. Unset (the default), the deadline is derived from the checkpoint size instead: 5m plus 20s per GiB, capped at 6h, so multi-tens-of-GB diffusion/video checkpoints get the minutes they need without a fixed cliff. Set this only to pin a specific budget; the value is used verbatim, including when it is shorter than the derived one." group:"distributed"`
+	ModelLoadWait                string `env:"LOCALAI_MODEL_LOAD_WAIT" help:"How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with 503, a Retry-After header and live staging progress (default 60s). The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to 0 to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front." group:"distributed"`
+	StaleNodeThreshold           string `env:"LOCALAI_STALE_NODE_THRESHOLD" help:"How long a worker node may go without a durable heartbeat before the health monitor marks it offline (default 5m). Because a beat that only carries a fresher timestamp is held back by --node-heartbeat-checkpoint, this must stay comfortably wider than that interval; raise both together. Dead-node detection through the per-model gRPC health check and through request-time failure is unaffected by this knob." group:"distributed"`
+	NodeHeartbeatCheckpoint      string `env:"LOCALAI_NODE_HEARTBEAT_CHECKPOINT" help:"Minimum gap between durable heartbeat writes for a worker node (default 60s). A beat that only carries a fresher timestamp is dropped until this interval elapses; every field is compared against the value last written, so a node's first beat, a changed total VRAM/total disk/GPU vendor, and a free VRAM/RAM/disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set below the worker heartbeat interval to write on every beat." group:"distributed"`
 	NatsAccountSeed              string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
 	NatsServiceJWT               string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
 	NatsServiceSeed              string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
@@ -278,8 +285,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	opts := []config.AppOption{
 		config.WithContext(context.Background()),
+		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
 		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
 			modelartifacts.WithHuggingFaceToken(r.HFToken),
+			modelartifacts.WithDownloadConcurrency(r.ArtifactDownloadConcurrency),
 		)),
 		config.WithModelPreloadDisplay(r.Color, r.NoColor != ""),
 		config.WithConfigFile(r.ModelsConfigFile),
@@ -296,6 +305,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
 		config.WithBackendGalleries(r.BackendGalleries),
+		config.WithVRAMPersistentCache(r.VRAMPersistentCache),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
 		config.WithDisableCSRF(r.DisableCSRF),
@@ -308,6 +318,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithExternalBackends(r.ExternalBackends...),
 		config.WithWebRTCNAT1To1IPs(r.WebRTCNAT1To1IPs...),
 		config.WithWebRTCICEInterfaces(r.WebRTCICEInterfaces...),
+		config.WithWebRTCUDPPort(r.WebRTCUDPPort),
 		config.WithOpaqueErrors(r.OpaqueErrors),
 		config.WithEnforcedPredownloadScans(!r.DisablePredownloadScan),
 		config.WithSubtleKeyComparison(r.UseSubtleKeyComparison),
@@ -380,6 +391,27 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return err
 		}
 		opts = append(opts, config.WithModelLoadTimeout(d))
+	}
+	if r.ModelLoadWait != "" {
+		d, err := parseDistributedDuration("LOCALAI_MODEL_LOAD_WAIT", r.ModelLoadWait)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithModelLoadWait(d))
+	}
+	if r.StaleNodeThreshold != "" {
+		d, err := parseDistributedDuration("LOCALAI_STALE_NODE_THRESHOLD", r.StaleNodeThreshold)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithStaleNodeThreshold(d))
+	}
+	if r.NodeHeartbeatCheckpoint != "" {
+		d, err := parseDistributedDuration("LOCALAI_NODE_HEARTBEAT_CHECKPOINT", r.NodeHeartbeatCheckpoint)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithNodeHeartbeatCheckpoint(d))
 	}
 	if r.RegistrationToken != "" {
 		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))
@@ -461,6 +493,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	if r.EnableTracing {
 		opts = append(opts, config.EnableTracing)
 	}
+	opts = append(opts, config.WithMaxConcurrentBackendRequests(r.MaxConcurrentBackendRequests))
 	opts = append(opts, config.WithTracingMaxItems(r.TracingMaxItems))
 	opts = append(opts, config.WithTracingMaxBodyBytes(r.TracingMaxBodyBytes))
 

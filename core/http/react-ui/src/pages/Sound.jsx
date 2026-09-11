@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import RequestPanel from '../components/RequestPanel'
 import { useParams, useOutletContext } from 'react-router-dom'
 import ModelSelector from '../components/ModelSelector'
 import PageHeader from '../components/PageHeader'
@@ -31,6 +32,8 @@ export default function Sound() {
   const [timesignature, setTimesignature] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  // What was actually sent, so the panel records rather than predicts.
+  const [lastRequest, setLastRequest] = useState(null)
   const [audioUrl, setAudioUrl] = useState(null)
   const { addEntry, selectEntry, selectedEntry, historyProps } = useMediaHistory('sound')
 
@@ -60,6 +63,8 @@ export default function Sound() {
     setLoading(true)
     setAudioUrl(null)
     setError(null)
+
+    setLastRequest(body)
 
     try {
       const { blob, serverUrl } = await soundApi.generate(body)
@@ -144,6 +149,7 @@ export default function Sound() {
       </div>
 
       <div className="media-preview">
+        <RequestPanel endpoint="/sound-generation" body={lastRequest} />
         <div className="media-result">
           {loading ? (
             <GenerationProgress label="Generating..." />

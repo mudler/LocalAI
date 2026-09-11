@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// Batch D — progressive disclosure of preference fields. Power > Preferences
-// tab gates Quantizations, MMProj Quantizations, and Model Type so they only
+// Batch D — progressive disclosure of preference fields. The options panel
+// gates Quantizations, MMProj Quantizations, and Model Type so they only
 // render when the selected backend can actually use them. Hidden fields must
 // preserve their state (no reset on hide) so users don't lose input when
 // flipping backends back and forth.
@@ -36,19 +36,18 @@ async function clearFormStorage(page) {
   await page.goto('/app/import-model')
   await page.evaluate(() => {
     try {
-      window.localStorage.removeItem('import-form-mode')
-      window.localStorage.removeItem('import-form-power-tab')
+      window.localStorage.removeItem('import-form-tab')
+      window.localStorage.removeItem('import-form-options')
     } catch {
       // ignore
     }
   })
 }
 
-async function enterPowerPreferences(page) {
+async function openOptions(page) {
   await page.goto('/app/import-model')
-  await page.locator('[data-testid="mode-power"]').click()
-  // Preferences tab is active by default in Power mode.
-  await expect(page.locator('[data-testid="power-tab-preferences"]')).toHaveClass(/is-active/)
+  await page.locator('[data-testid="import-options-toggle"]').click()
+  await expect(page.locator('[data-testid="import-options-panel"]')).toBeVisible()
 }
 
 // Backend dropdown trigger — the SearchableSelect button has
@@ -76,14 +75,14 @@ test.describe('Import form UX — Batch D (progressive disclosure)', () => {
   })
 
   test('D1 — default (backend unset) shows all three conditional fields', async ({ page }) => {
-    await enterPowerPreferences(page)
+    await openOptions(page)
     await expect(quantizationsInput(page)).toBeVisible()
     await expect(mmprojInput(page)).toBeVisible()
     await expect(modelTypeInput(page)).toBeVisible()
   })
 
   test('D1 — selecting llama-cpp shows Quantizations + MMProj, hides Model Type', async ({ page }) => {
-    await enterPowerPreferences(page)
+    await openOptions(page)
     await selectBackend(page, 'llama-cpp')
     await expect(quantizationsInput(page)).toBeVisible()
     await expect(mmprojInput(page)).toBeVisible()
@@ -93,7 +92,7 @@ test.describe('Import form UX — Batch D (progressive disclosure)', () => {
   })
 
   test('D1 — selecting transformers hides Quantizations + MMProj, shows Model Type', async ({ page }) => {
-    await enterPowerPreferences(page)
+    await openOptions(page)
     await selectBackend(page, 'transformers')
     await expect(quantizationsInput(page)).toHaveCount(0)
     await expect(mmprojInput(page)).toHaveCount(0)
@@ -101,7 +100,7 @@ test.describe('Import form UX — Batch D (progressive disclosure)', () => {
   })
 
   test('D1 — selecting sentencetransformers hides Quantizations + MMProj, shows Model Type', async ({ page }) => {
-    await enterPowerPreferences(page)
+    await openOptions(page)
     await selectBackend(page, 'sentencetransformers')
     await expect(quantizationsInput(page)).toHaveCount(0)
     await expect(mmprojInput(page)).toHaveCount(0)
@@ -109,7 +108,7 @@ test.describe('Import form UX — Batch D (progressive disclosure)', () => {
   })
 
   test('D1 — selecting stablediffusion-ggml shows Quantizations, hides MMProj + Model Type', async ({ page }) => {
-    await enterPowerPreferences(page)
+    await openOptions(page)
     await selectBackend(page, 'stablediffusion-ggml')
     await expect(quantizationsInput(page)).toBeVisible()
     await expect(mmprojInput(page)).toHaveCount(0)
@@ -117,7 +116,7 @@ test.describe('Import form UX — Batch D (progressive disclosure)', () => {
   })
 
   test('D1 — selecting piper hides all three conditional fields', async ({ page }) => {
-    await enterPowerPreferences(page)
+    await openOptions(page)
     await selectBackend(page, 'piper')
     await expect(quantizationsInput(page)).toHaveCount(0)
     await expect(mmprojInput(page)).toHaveCount(0)
@@ -125,7 +124,7 @@ test.describe('Import form UX — Batch D (progressive disclosure)', () => {
   })
 
   test('D1 — quantization typed in default state is preserved through piper -> llama-cpp', async ({ page }) => {
-    await enterPowerPreferences(page)
+    await openOptions(page)
     // Type a quantization while backend is still unset.
     await quantizationsInput(page).fill('q5_k_m')
     await expect(quantizationsInput(page)).toHaveValue('q5_k_m')
@@ -141,7 +140,7 @@ test.describe('Import form UX — Batch D (progressive disclosure)', () => {
   })
 
   test('D2 — Description textarea uses rows=2', async ({ page }) => {
-    await enterPowerPreferences(page)
+    await openOptions(page)
     const textarea = page.locator('textarea[placeholder*="Leave empty to use default"]')
     await expect(textarea).toHaveAttribute('rows', '2')
   })

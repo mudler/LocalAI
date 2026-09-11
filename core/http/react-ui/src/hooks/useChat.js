@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { API_CONFIG } from '../utils/config'
 import { apiUrl } from '../utils/basePath'
+import { effectiveSystemPrompt } from '../utils/systemPrompt'
 import { useDebouncedEffect } from './useDebounce'
 
 const thinkingTagRegex = /<thinking>([\s\S]*?)<\/thinking>|<think>([\s\S]*?)<\/think>|<\|channel>thought([\s\S]*?)<channel\|>/g
@@ -14,6 +15,68 @@ async function extractHttpError(response) {
     if (errorData.error?.message) errorMsg = errorData.error.message
   } catch (_) {}
   return errorMsg
+}
+
+// How long the UI keeps waiting for a model that is staging onto a worker.
+// Staging a multi-GB checkpoint runs for tens of minutes — far longer than the
+// server's own per-request wait budget — so the poll has to outlive several
+// 503s. Bounded, so a load that never finishes eventually surfaces as an error
+// rather than as a spinner nobody questions.
+const MODEL_LOAD_POLL_INTERVAL = 3000
+const MODEL_LOAD_MAX_ATTEMPTS = 3
+const MODEL_LOAD_MAX_POLLS = 600 // ~30 min per attempt
+
+// readModelLoading returns the `loading` object from the 503 the server sends
+// while a model is still cold-loading, or null for any other failure. It reads
+// a clone so the caller can still parse the body for its error message.
+async function readModelLoading(response) {
+  if (response.status !== 503) return null
+  try {
+    const data = await response.clone().json()
+    if (data?.error?.type !== 'model_loading') return null
+    return { ...(data.loading || {}), message: data.error?.message }
+  } catch {
+    return null
+  }
+}
+
+// waitForModelReady polls load-status until the model finishes loading (404 —
+// no job left), the load fails, or the caller aborts. Returns true when it is
+// worth re-sending the request.
+async function waitForModelReady(modelID, onProgress, signal) {
+  for (let i = 0; i < MODEL_LOAD_MAX_POLLS; i++) {
+    await new Promise(resolve => setTimeout(resolve, MODEL_LOAD_POLL_INTERVAL))
+    if (signal?.aborted) return false
+    try {
+      const res = await fetch(apiUrl(API_CONFIG.endpoints.modelLoadStatus(modelID)), { signal })
+      if (res.status === 404) return true // job gone: loaded, or worth one retry
+      if (!res.ok) return false
+      const status = await res.json()
+      if (status?.state === 'failed') return false
+      onProgress(status)
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
+// fetchWithModelLoadWait issues the request and, when the model is still
+// staging onto a worker, waits for it rather than surfacing an error. The
+// server answers 503 within its own wait budget so no connection is held for
+// the whole load; the UI picks the wait back up here and retries once ready.
+async function fetchWithModelLoadWait(url, init, modelID, onLoading, signal) {
+  let response = await fetch(url, init)
+  for (let attempt = 0; attempt < MODEL_LOAD_MAX_ATTEMPTS; attempt++) {
+    const loading = await readModelLoading(response)
+    if (!loading) return response
+    onLoading(loading)
+    const ready = await waitForModelReady(loading.model || modelID, onLoading, signal)
+    onLoading(null)
+    if (!ready) return response
+    response = await fetch(url, init)
+  }
+  return response
 }
 
 function extractThinking(text) {
@@ -125,6 +188,10 @@ export function useChat(initialModel = '') {
   const [streamingToolCalls, setStreamingToolCalls] = useState([])
   const [tokensPerSecond, setTokensPerSecond] = useState(null)
   const [maxTokensPerSecond, setMaxTokensPerSecond] = useState(null)
+  // Live progress of a cold load the request is waiting on, so the composer can
+  // say "staging to nvidia-thor, 41%" instead of showing an error for a model
+  // that is loading exactly as it should.
+  const [modelLoading, setModelLoading] = useState(null)
   const abortControllerRef = useRef(null)
   const startTimeRef = useRef(null)
   const tokenCountRef = useRef(0)
@@ -282,8 +349,12 @@ export function useChat(initialModel = '') {
     // Build messages array for API
     const chat = chats.find(c => c.id === chatId)
     const messages = []
-    if (chat?.systemPrompt) {
-      messages.push({ role: 'system', content: chat.systemPrompt })
+    // Omit empty/whitespace system prompts so the model YAML system_prompt
+    // (and tokenizer chat-template defaults) are not suppressed by a blank
+    // system turn from Chat Settings.
+    const systemPrompt = effectiveSystemPrompt(chat?.systemPrompt)
+    if (systemPrompt) {
+      messages.push({ role: 'system', content: systemPrompt })
     }
     // Filter out thinking/reasoning/tool_call/tool_result messages.
     // options.baseHistory lets callers (e.g. mid-conversation retry) pass the
@@ -292,6 +363,7 @@ export function useChat(initialModel = '') {
     const baseHistory = options.baseHistory || chat?.history || []
     const historyForApi = baseHistory.filter(m =>
       m.role !== 'thinking' && m.role !== 'reasoning' && m.role !== 'tool_call' && m.role !== 'tool_result'
+      && !(m.role === 'system' && !effectiveSystemPrompt(typeof m.content === 'string' ? m.content : ''))
     )
     messages.push(...historyForApi, { role: 'user', content: messageContent })
 
@@ -360,12 +432,12 @@ export function useChat(initialModel = '') {
       // Legacy MCP SSE streaming (custom event types from /v1/mcp/chat/completions)
       try {
         const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 min timeout
-        const response = await fetch(apiUrl(endpoint), {
+        const response = await fetchWithModelLoadWait(apiUrl(endpoint), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
           signal: controller.signal,
-        })
+        }, requestBody.model, setModelLoading, controller.signal)
         clearTimeout(timeoutId)
 
         if (!response.ok) {
@@ -506,12 +578,12 @@ export function useChat(initialModel = '') {
         let fullToolCalls = [] // Tool calls with id for agentic loop
 
         try {
-          const response = await fetch(apiUrl(endpoint), {
+          const response = await fetchWithModelLoadWait(apiUrl(endpoint), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(loopBody),
             signal: controller.signal,
-          })
+          }, loopBody.model, setModelLoading, controller.signal)
 
           if (!response.ok) {
             throw new Error(await extractHttpError(response))
@@ -746,6 +818,7 @@ export function useChat(initialModel = '') {
     // Finalize
     setIsStreaming(false)
     setStreamingChatId(null)
+    setModelLoading(null)
     abortControllerRef.current = null
     setStreamingContent('')
     setStreamingReasoning('')
@@ -821,6 +894,7 @@ export function useChat(initialModel = '') {
     streamingToolCalls: isActiveStreaming ? streamingToolCalls : [],
     tokensPerSecond,
     maxTokensPerSecond,
+    modelLoading: isActiveStreaming ? modelLoading : null,
     addChat,
     forkChat,
     switchChat,

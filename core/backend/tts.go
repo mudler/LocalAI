@@ -96,11 +96,19 @@ func ModelTTS(
 		modelPath = modelConfig.Model // skip this step if it fails?????
 	}
 
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return "", nil, err
+	}
+	defer release()
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTTS, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(text, 200)})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	ttsRequest := newTTSRequest(text, modelPath, voice, filePath, language, instructions, params, modelConfig.Model)
 
@@ -125,6 +133,7 @@ func ModelTTS(
 			}
 		}
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceTTS,
@@ -188,11 +197,19 @@ func ModelTTSStream(
 		modelPath = modelConfig.Model // skip this step if it fails?????
 	}
 
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return err
+	}
+	defer release()
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTTS, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(text, 200)})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	var sampleRate uint32 = 16000 // default
 	headerSent := false
@@ -292,6 +309,7 @@ func ModelTTSStream(
 			}
 		}
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceTTS,

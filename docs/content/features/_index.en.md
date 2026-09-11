@@ -24,6 +24,7 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[Agent Actions]({{% relref "features/agent-actions" %}})** - The catalog of actions an agent can run.
 - **[Model Context Protocol (MCP)]({{% relref "features/mcp" %}})** - Give a model external tools over MCP.
 - **[LocalAI Assistant]({{% relref "features/localai-assistant" %}})** - Chat to administer your LocalAI instance.
+- **[Terminal agent]({{% relref "features/terminal-agent" %}})** - `local-ai chat`, an agent in your shell that runs commands behind an approval gate.
 
 ## Audio
 

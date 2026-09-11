@@ -9,7 +9,7 @@
     },
     "actions": {
         "backTo": "Kembali ke {{page}}",
-        "system": "Sistem",
+        "models": "Model",
         "templates": "Templat",
         "createModel": "Buat Model",
         "saveChanges": "Simpan Perubahan",

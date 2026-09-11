@@ -70,6 +70,11 @@ func ExtractArchive(archive, dst string) error {
 		if f.FileInfo.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("archive contains a symlink")
 		}
+		if linkname, ok := archiveMemberLinkname(f); ok {
+			if err := validateArchiveMemberPath(extractRoot, linkname); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 
@@ -92,6 +97,18 @@ func archiveMemberName(f archiver.File) string {
 		return h.Name
 	default:
 		return f.Name()
+	}
+}
+
+// archiveMemberLinkname reports the target of a tar hardlink member, which carries a regular file mode and so is not caught by the symlink check.
+func archiveMemberLinkname(f archiver.File) (string, bool) {
+	switch h := f.Header.(type) {
+	case tar.Header:
+		return h.Linkname, h.Typeflag == tar.TypeLink
+	case *tar.Header:
+		return h.Linkname, h.Typeflag == tar.TypeLink
+	default:
+		return "", false
 	}
 }
 

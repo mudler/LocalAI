@@ -23,7 +23,10 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
+	"github.com/mudler/LocalAI/core/services/routing/corpus"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
@@ -47,6 +50,7 @@ type Client struct {
 	ConfigLoader  *config.ModelConfigLoader
 	ModelLoader   *model.ModelLoader
 	Gallery       *galleryop.GalleryService
+	NodeRegistry  *nodes.NodeRegistry
 	VoiceProfiles *voiceprofile.Store
 
 	// StatsRecorder and FallbackUser are optional — they back the
@@ -68,6 +72,17 @@ type Client struct {
 	// returns when stats are disabled.
 	RouterDecisions router.DecisionStore
 
+	// RouterCorpus + the two factories back the corpus tools
+	// (seed_router_corpus / get_router_corpus_stats /
+	// clear_router_corpus). nil RouterCorpus makes them return an
+	// "unavailable" error. The factories mirror the middleware's
+	// ClassifierDeps so the tools and the request path resolve models
+	// and store namespaces identically.
+	RouterCorpus              *corpus.Manager
+	RouterEmbedder            func(modelName string) backend.Embedder
+	RouterEmbedderFingerprint func(modelName string) (string, error)
+	RouterVectorStore         func(storeName string) backend.VectorStore
+
 	modelAdmin *modeladmin.ConfigService
 }
 
@@ -75,13 +90,18 @@ type Client struct {
 // except ModelLoader (used only for SystemInfo's loaded-models report and
 // best-effort ShutdownModel calls during config edits) and the stats
 // fields (StatsRecorder, FallbackUser) which gate get_usage_stats.
-func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService) *Client {
+func New(appConfig *config.ApplicationConfig, systemState *system.SystemState, cl *config.ModelConfigLoader, ml *model.ModelLoader, gs *galleryop.GalleryService, registries ...*nodes.NodeRegistry) *Client {
+	var registry *nodes.NodeRegistry
+	if len(registries) > 0 {
+		registry = registries[0]
+	}
 	return &Client{
 		AppConfig:     appConfig,
 		SystemState:   systemState,
 		ConfigLoader:  cl,
 		ModelLoader:   ml,
 		Gallery:       gs,
+		NodeRegistry:  registry,
 		VoiceProfiles: voiceprofile.NewStore(appConfig.DataPath),
 		modelAdmin:    modeladmin.NewConfigService(cl, appConfig),
 	}
@@ -501,6 +521,130 @@ func (c *Client) ListNodes(_ context.Context) ([]localaitools.Node, error) {
 	return []localaitools.Node{}, nil
 }
 
+func (c *Client) ListScheduling(ctx context.Context) ([]localaitools.ModelSchedulingConfig, error) {
+	if c.NodeRegistry == nil {
+		return []localaitools.ModelSchedulingConfig{}, nil
+	}
+	configs, err := c.NodeRegistry.ListModelSchedulings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return localaitools.SchedulingConfigsFromNodes(configs), nil
+}
+
+func (c *Client) GetScheduling(ctx context.Context, modelName string) (*localaitools.ModelSchedulingConfig, error) {
+	if modelName == "" {
+		return nil, errors.New("model_name is required")
+	}
+	if c.NodeRegistry == nil {
+		return nil, errors.New("model scheduling is only available in distributed mode")
+	}
+	config, err := c.NodeRegistry.GetModelScheduling(ctx, modelName)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, nil
+	}
+	out := localaitools.SchedulingConfigFromNode(*config)
+	return &out, nil
+}
+
+func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetSchedulingRequest) (*localaitools.ModelSchedulingConfig, error) {
+	if req.ModelName == "" {
+		return nil, errors.New("model_name is required")
+	}
+	if c.NodeRegistry == nil {
+		return nil, errors.New("model scheduling is only available in distributed mode")
+	}
+
+	existing, err := c.NodeRegistry.GetModelScheduling(ctx, req.ModelName)
+	if err != nil {
+		return nil, fmt.Errorf("load existing scheduling config: %w", err)
+	}
+	routePolicy := ""
+	absThr := 0
+	relThr := 0.0
+	minMatch := 0.0
+	if existing != nil {
+		routePolicy = existing.RoutePolicy
+		absThr = existing.BalanceAbsThreshold
+		relThr = existing.BalanceRelThreshold
+		minMatch = existing.MinPrefixMatch
+	}
+	if req.RoutePolicy != nil {
+		routePolicy = *req.RoutePolicy
+	}
+	if req.BalanceAbsThreshold != nil {
+		absThr = *req.BalanceAbsThreshold
+	}
+	if req.BalanceRelThreshold != nil {
+		relThr = *req.BalanceRelThreshold
+	}
+	if req.MinPrefixMatch != nil {
+		minMatch = *req.MinPrefixMatch
+	}
+	if req.SpreadAll && (req.MinReplicas != 0 || req.MaxReplicas != 0) {
+		return nil, errors.New("spread_all and min_replicas/max_replicas are mutually exclusive")
+	}
+	if req.MinReplicas < 0 {
+		return nil, errors.New("min_replicas must be >= 0")
+	}
+	if req.MaxReplicas < 0 {
+		return nil, errors.New("max_replicas must be >= 0")
+	}
+	if req.MaxReplicas > 0 && req.MinReplicas > req.MaxReplicas {
+		return nil, errors.New("min_replicas must be <= max_replicas")
+	}
+	if err := prefixcache.ValidateThresholds(routePolicy, absThr, relThr, minMatch); err != nil {
+		return nil, err
+	}
+
+	// Same alias rules as POST /api/nodes/scheduling: a rule may be keyed by an
+	// alias and then follows it, an alias that resolves to nothing is refused,
+	// and a model already governed by another rule cannot take a second one.
+	target, err := c.NodeRegistry.ValidateSchedulingTarget(ctx, req.ModelName)
+	if err != nil {
+		return nil, err
+	}
+
+	var selectorJSON string
+	if len(req.NodeSelector) > 0 {
+		b, err := json.Marshal(req.NodeSelector)
+		if err != nil {
+			return nil, fmt.Errorf("invalid node_selector: %w", err)
+		}
+		selectorJSON = string(b)
+	}
+	config := &nodes.ModelSchedulingConfig{
+		ModelName:           req.ModelName,
+		TargetModel:         target,
+		NodeSelector:        selectorJSON,
+		MinReplicas:         req.MinReplicas,
+		MaxReplicas:         req.MaxReplicas,
+		SpreadAll:           req.SpreadAll,
+		RoutePolicy:         routePolicy,
+		BalanceAbsThreshold: absThr,
+		BalanceRelThreshold: relThr,
+		MinPrefixMatch:      minMatch,
+	}
+	if err := c.NodeRegistry.SetModelScheduling(ctx, config); err != nil {
+		return nil, err
+	}
+	out := localaitools.SchedulingConfigFromNode(*config)
+	return &out, nil
+}
+
+func (c *Client) DeleteScheduling(ctx context.Context, modelName string) error {
+	if modelName == "" {
+		return errors.New("model_name is required")
+	}
+	if c.NodeRegistry == nil {
+		return errors.New("model scheduling is only available in distributed mode")
+	}
+	return c.NodeRegistry.DeleteModelScheduling(ctx, modelName)
+}
+
 func (c *Client) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
 	// The node registry is a distributed-mode concern owned by the Application
 	// layer and is not wired into the in-process client (which also returns an
@@ -528,7 +672,7 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 // ---- State ----
 
 func (c *Client) ToggleModelState(ctx context.Context, name string, action modeladmin.Action) error {
-	_, err := c.modelAdmin.ToggleState(ctx, name, action, c.ModelLoader)
+	_, err := c.modelAdmin.ToggleState(ctx, name, action)
 	return err
 }
 
@@ -884,4 +1028,71 @@ func capabilityFlagsOf(m *config.ModelConfig) []string {
 		}
 	}
 	return out
+}
+
+func (c *Client) GetRouterCorpusStats(_ context.Context, routerModel string) (*localaitools.RouterCorpusStats, error) {
+	if c.RouterCorpus == nil {
+		return nil, errors.New("router corpus manager unavailable")
+	}
+	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, routerModel)
+	if err != nil {
+		return nil, err
+	}
+	stats, err := c.RouterCorpus.Stats(storeName)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.RouterCorpusStats{
+		Router:          cfg.Name,
+		StoreName:       storeName,
+		EmbeddingModel:  cfg.Router.KNN.EmbeddingModel,
+		Total:           stats.Total,
+		LabelCounts:     stats.LabelCounts,
+		EmbeddingModels: stats.EmbeddingModels,
+	}, nil
+}
+
+func (c *Client) SeedRouterCorpus(ctx context.Context, req localaitools.RouterCorpusSeedRequest) (*localaitools.RouterCorpusSeedResult, error) {
+	if c.RouterCorpus == nil || c.RouterEmbedder == nil || c.RouterEmbedderFingerprint == nil || c.RouterVectorStore == nil {
+		return nil, errors.New("router corpus manager unavailable")
+	}
+	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, req.Router)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]corpus.Entry, 0, len(req.Entries))
+	for _, e := range req.Entries {
+		entries = append(entries, corpus.Entry{Text: e.Text, Labels: e.Labels})
+	}
+	added, skipped, stats, err := corpus.Seed(ctx, c.RouterCorpus, cfg, storeName,
+		c.RouterEmbedder, c.RouterEmbedderFingerprint, c.RouterVectorStore, entries)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.RouterCorpusSeedResult{
+		Router:      cfg.Name,
+		Added:       added,
+		Skipped:     skipped,
+		Total:       stats.Total,
+		LabelCounts: stats.LabelCounts,
+	}, nil
+}
+
+func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*localaitools.RouterCorpusClearResult, error) {
+	if c.RouterCorpus == nil {
+		return nil, errors.New("router corpus manager unavailable")
+	}
+	cfg, storeName, err := corpus.ResolveKNNRouter(c.ConfigLoader, c.AppConfig, routerModel)
+	if err != nil {
+		return nil, err
+	}
+	var store backend.VectorStore
+	if c.RouterVectorStore != nil {
+		store = c.RouterVectorStore(storeName)
+	}
+	cleared, err := c.RouterCorpus.Clear(ctx, storeName, store)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.RouterCorpusClearResult{Router: cfg.Name, Cleared: cleared}, nil
 }

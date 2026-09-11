@@ -314,3 +314,57 @@ var _ = Describe("ModelConfigLoader alias resolution", func() {
 		Expect(loader.ValidateAliasTarget(&bad)).To(MatchError(ContainSubstring("itself an alias")))
 	})
 })
+
+var _ = Describe("ModelConfigLoader ResolveAliasName", func() {
+	var loader *ModelConfigLoader
+
+	BeforeEach(func() {
+		loader = NewModelConfigLoader("")
+		loader.configs["real"] = ModelConfig{Name: "real", Backend: "llama-cpp"}
+		loader.configs["production"] = ModelConfig{Name: "production", Alias: "real"}
+		loader.configs["chain"] = ModelConfig{Name: "chain", Alias: "production"}
+		loader.configs["dangling"] = ModelConfig{Name: "dangling", Alias: "nope"}
+	})
+
+	It("maps an alias name to the model that actually serves it", func() {
+		target, isAlias := loader.ResolveAliasName("production")
+		Expect(isAlias).To(BeTrue())
+		Expect(target).To(Equal("real"))
+	})
+
+	It("maps a real model name to itself", func() {
+		target, isAlias := loader.ResolveAliasName("real")
+		Expect(isAlias).To(BeFalse())
+		Expect(target).To(Equal("real"))
+	})
+
+	// A rule may be authored for a model that is not installed yet (pre-staging
+	// placement before standing up a node), so an unknown name must resolve to
+	// itself rather than to the empty string.
+	It("maps an unknown name to itself", func() {
+		target, isAlias := loader.ResolveAliasName("not-installed-yet")
+		Expect(isAlias).To(BeFalse())
+		Expect(target).To(Equal("not-installed-yet"))
+	})
+
+	// A broken alias has no model behind it. Resolving to itself keeps the
+	// caller on a name that simply has no replicas, instead of silently
+	// governing some other model.
+	It("maps a dangling alias to itself", func() {
+		target, isAlias := loader.ResolveAliasName("dangling")
+		Expect(isAlias).To(BeTrue())
+		Expect(target).To(Equal("dangling"))
+	})
+
+	It("maps a chained alias to itself rather than following the chain", func() {
+		target, isAlias := loader.ResolveAliasName("chain")
+		Expect(isAlias).To(BeTrue())
+		Expect(target).To(Equal("chain"))
+	})
+
+	It("maps the empty name to itself", func() {
+		target, isAlias := loader.ResolveAliasName("")
+		Expect(isAlias).To(BeFalse())
+		Expect(target).To(BeEmpty())
+	})
+})

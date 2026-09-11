@@ -51,6 +51,7 @@ const (
 	FeatureEmbeddings          = "embeddings"
 	FeatureSound               = "sound"
 	FeatureRealtime            = "realtime"
+	FeatureModeration          = "moderation"
 	FeatureRerank              = "rerank"
 	FeatureTokenize            = "tokenize"
 	FeatureMCP                 = "mcp"
@@ -75,7 +76,7 @@ var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
 	FeatureAudioDiarization, FeatureAudioClassification,
 	FeatureVAD, FeatureDetection, FeatureVideo, Feature3D, FeatureEmbeddings, FeatureSound,
-	FeatureRealtime, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
+	FeatureRealtime, FeatureModeration, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
 	FeaturePIIFilter,
 }

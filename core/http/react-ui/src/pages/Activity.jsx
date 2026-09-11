@@ -83,7 +83,7 @@ export default function Activity() {
   const { t } = useTranslation('admin')
   const outlet = useOutletContext()
   const addToast = outlet?.addToast
-  const { operations, history, fetchHistory, clearHistory, cancelOperation, dismissFailedOp } = useOperations()
+  const { operations, history, fetchHistory, clearHistory, cancelOperation, pauseOperation, dismissFailedOp } = useOperations()
   const [filter, setFilter] = useState('all')
 
   useEffect(() => { fetchHistory() }, [fetchHistory])
@@ -195,7 +195,7 @@ export default function Activity() {
             {t('activity.inProgress')} <span className="activity-section__count">{live.length}</span>
           </h2>
           {live.map((op) => (
-            <OperationCard key={op.jobID || op.id} operation={op} onCancel={cancelOperation} />
+            <OperationCard key={op.jobID || op.id} operation={op} onCancel={cancelOperation} onPause={pauseOperation} />
           ))}
         </section>
       )}

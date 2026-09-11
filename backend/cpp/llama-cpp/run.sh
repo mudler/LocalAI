@@ -12,10 +12,11 @@ grep -e "flags" /proc/cpuinfo | head -1
 
 BINARY=llama-cpp-fallback
 
-# CPU images (x86, arm64, darwin) ship a single llama-cpp-cpu-all built with ggml
+# CPU images and most x86 GPU images ship a single llama-cpp-cpu-all built with ggml
 # CPU_ALL_VARIANTS: ggml's backend registry dlopens the best libggml-cpu-*.so for this
-# host, so no shell-side AVX probing. GPU images (cublas/sycl/vulkan/hipblas) ship only
-# llama-cpp-fallback (the accelerator does the compute), so fall back to it when absent.
+# host, so no shell-side AVX probing. GPU arm64 images still ship llama-cpp-fallback
+# until their builder toolchains support ggml's complete arm variant matrix, and so do
+# the SYCL images, whose icpx compiler hangs on the sapphirerapids variant.
 if [ -e "$CURDIR"/llama-cpp-cpu-all ]; then
 	BINARY=llama-cpp-cpu-all
 fi
@@ -41,6 +42,27 @@ else
 	# the bundled data or it falls back to slow generic kernels (issue #10660).
 	if [ -d "$CURDIR/lib/hipblaslt/library" ]; then
 		export HIPBLASLT_TENSILE_LIBPATH="$CURDIR"/lib/hipblaslt/library
+	fi
+	# Backends built for Intel GPUs carry a copy of the Intel graphics driver,
+	# and libze_loader is only there in those builds. Level Zero looks for a
+	# driver on its own, so point it at the copy that came with this backend: it
+	# was built against the same C library, while the machine's own driver may
+	# not have been, and loading that one can crash on start.
+	#
+	# Anything the user set is left alone, so a machine with a graphics card
+	# newer than the driver carried here can still be told to use its own.
+	# Nothing is said about OpenCL: no OpenCL driver is carried, so anything we
+	# set there would leave OpenCL worse off than the machine's own setup.
+	if [ -e "$CURDIR/lib/libze_loader.so.1" ]; then
+		if [ -e "$CURDIR/lib/libze_intel_gpu.so.1" ] && [ -z "${ZE_ENABLE_ALT_DRIVERS:-}" ]; then
+			export ZE_ENABLE_ALT_DRIVERS="$CURDIR"/lib/libze_intel_gpu.so.1
+		fi
+		# Ask the driver how much graphics memory is free. Without this,
+		# llama.cpp reads zero on an integrated graphics chip, because such a
+		# chip shares the system memory instead of having its own.
+		if [ -z "${ZES_ENABLE_SYSMAN:-}" ]; then
+			export ZES_ENABLE_SYSMAN=1
+		fi
 	fi
 fi
 

@@ -8,6 +8,8 @@
 #      so the grpc-server option parser skips the two references to
 #      common_params::checkpoint_min_step (the default and the option handler).
 #      That field does not exist in the fork yet; drop this once it does.
+#   3. Use nlohmann's parse_error type in JSON catch clauses because the fork
+#      predates upstream's common_json_error wrapper.
 #
 # The fork used to lag upstream on the whole common_params_speculative refactor
 # (ggml-org/llama.cpp#22397/#22838/#22964), the model_tgt rename (#22838) and
@@ -98,6 +100,18 @@ else
     ' "$SRC" > "$SRC.tmp"
     mv "$SRC.tmp" "$SRC"
     echo "==> LOCALAI_TURBOQUANT_NO_CHECKPOINT_MIN_STEP define OK"
+fi
+
+# 3. The shared source follows current upstream and catches common_json_error.
+#    TurboQuant still exposes nlohmann::json directly, so its equivalent parse
+#    failures use json::parse_error instead.
+if grep -q 'common_json_error' "$SRC"; then
+    echo "==> patching $SRC to use the TurboQuant JSON exception type"
+    awk '{ gsub(/common_json_error/, "json::parse_error"); print }' "$SRC" > "$SRC.tmp"
+    mv "$SRC.tmp" "$SRC"
+    echo "==> TurboQuant JSON exception patch OK"
+else
+    echo "==> $SRC already uses a TurboQuant-compatible JSON exception type, skipping"
 fi
 
 echo "==> all patches applied"

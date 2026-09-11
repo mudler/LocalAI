@@ -278,8 +278,9 @@ func (rc *ReplicaReconciler) reconcileOnce(ctx context.Context) {
 
 // reconcileState runs the state-reconciliation passes: drain pending backend
 // ops for freshly-healthy nodes, reconcile registry rows against what workers
-// report they are running, then port-probe whatever is left. All passes are
-// best-effort: a failure on one node doesn't stop the rest.
+// report they are running, port-probe whatever is left, then reclaim replica
+// slots held by loads nobody is driving. All passes are best-effort: a failure
+// on one node doesn't stop the rest.
 //
 // Order matters. The worker pass runs first and refreshes updated_at for every
 // model a worker vouches for, which takes those rows out of the port prober's
@@ -292,6 +293,9 @@ func (rc *ReplicaReconciler) reconcileState(ctx context.Context) {
 	rc.reconcileNodeProcesses(ctx)
 	rc.probeLoadedModels(ctx)
 	rc.sweepLeakedInFlight(ctx)
+	// Runs last: the passes above can move a row into a serving state, and a
+	// row that just became loaded is no longer this sweeper's business.
+	rc.reclaimAbandonedLoads(ctx)
 }
 
 // drainPendingBackendOps retries queued backend ops whose next_retry_at has
@@ -450,7 +454,7 @@ const probeFailuresBeforeReap = 3
 func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 	var stale []NodeModel
 	cutoff := time.Now().Add(-rc.probeStaleAfter)
-	err := rc.registry.db.WithContext(ctx).
+	err := currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.updated_at < ? AND node_models.address != ''",
 			"loaded", StatusHealthy, cutoff).
@@ -532,7 +536,7 @@ const inFlightLeakConfirmations = 2
 func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
 	var suspects []NodeModel
 	cutoff := time.Now().Add(-inFlightLeakIdleAfter)
-	err := rc.registry.db.WithContext(ctx).
+	err := currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND backend_nodes.status = ? AND node_models.in_flight > 0 AND node_models.last_used < ? AND node_models.address != ''",
 			"loaded", StatusHealthy, cutoff).
@@ -632,7 +636,7 @@ func (rc *ReplicaReconciler) reconcileNodeProcesses(ctx context.Context) {
 
 	var stale []NodeModel
 	cutoff := time.Now().Add(-rc.probeStaleAfter)
-	err := rc.registry.db.WithContext(ctx).
+	err := currentModelRevision(rc.registry.db.WithContext(ctx)).
 		Joins("JOIN backend_nodes ON backend_nodes.id = node_models.node_id").
 		Where("node_models.state = ? AND backend_nodes.status = ? AND backend_nodes.node_type = ? AND node_models.updated_at < ?",
 			"loaded", StatusHealthy, NodeTypeBackend, cutoff).
@@ -779,6 +783,12 @@ func (rc *ReplicaReconciler) pruneProbeFailures(seen map[string]struct{}) {
 }
 
 func (rc *ReplicaReconciler) reconcile(ctx context.Context) {
+	// Keep each rule's stored target in step with the alias mapping. Only the
+	// eviction guard reads that column, and it cannot resolve aliases itself.
+	if err := rc.registry.RefreshSchedulingTargets(ctx); err != nil {
+		xlog.Warn("Reconciler: failed to refresh scheduling targets", "error", err)
+	}
+
 	configs, err := rc.registry.ListAutoScalingConfigs(ctx)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to list auto-scaling configs", "error", err)
@@ -830,7 +840,26 @@ func (rc *ReplicaReconciler) candidateNodeIDsForSelector(ctx context.Context, cf
 	return ids, true
 }
 
+// reconcileModel brings one scheduling rule's replica count in line with what
+// the rule asks for.
+//
+// A rule is keyed by the name the operator chose, which may be an alias, while
+// the model it governs is cfg.Target(). The two are used deliberately: anything
+// that touches a loaded replica (counting, capacity, scheduling, eviction,
+// cache pressure) goes through the target, and the rule's own bookkeeping
+// columns (the unsatisfiable counter and cooldown) stay keyed by cfg.ModelName.
 func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedulingConfig) {
+	// An alias that resolves to itself is one that no longer resolves at all:
+	// its target was removed, or it was pointed at another alias. Scheduling it
+	// would ask a worker to load a pure redirect, which has no backend and no
+	// model file behind it, so leave the rule alone until the alias is fixed.
+	if cfg.ModelIsAlias && cfg.Target() == cfg.ModelName {
+		xlog.Warn("Reconciler: scheduling rule is keyed by an alias that does not resolve; skipping",
+			"rule", cfg.ModelName)
+		return
+	}
+	target := cfg.Target()
+
 	// spread_all: derive a dynamic replica target equal to the number of nodes
 	// currently matching the selector (all healthy backend nodes when the
 	// selector is empty). Feeding it through Min==Max==target reuses every
@@ -860,9 +889,9 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 		return
 	}
 
-	current, err := rc.registry.CountLoadedReplicas(ctx, cfg.ModelName)
+	current, err := rc.registry.CountLoadedReplicas(ctx, target)
 	if err != nil {
-		xlog.Warn("Reconciler: failed to count replicas", "model", cfg.ModelName, "error", err)
+		xlog.Warn("Reconciler: failed to count replicas", "model", target, "error", err)
 		return
 	}
 
@@ -873,14 +902,14 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 	if cfg.MinReplicas > 0 && int(current) < cfg.MinReplicas {
 		candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
 		if !selectorMatched {
-			xlog.Warn("Reconciler: no nodes match selector", "model", cfg.ModelName, "selector", cfg.NodeSelector)
+			xlog.Warn("Reconciler: no nodes match selector", "model", target, "selector", cfg.NodeSelector)
 			rc.markCapacityProblem(ctx, cfg.ModelName, "no nodes match selector")
 			return
 		}
 
-		capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, cfg.ModelName, candidateNodeIDs)
+		capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, target, candidateNodeIDs)
 		if capErr != nil {
-			xlog.Warn("Reconciler: failed to compute cluster capacity", "model", cfg.ModelName, "error", capErr)
+			xlog.Warn("Reconciler: failed to compute cluster capacity", "model", target, "error", capErr)
 			return
 		}
 
@@ -894,11 +923,11 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 		}
 		// Cap to actual capacity so we don't try harder than possible.
 		if needed > capacity {
-			xlog.Info("Reconciler: capping scale-up at cluster capacity", "model", cfg.ModelName,
+			xlog.Info("Reconciler: capping scale-up at cluster capacity", "model", target,
 				"need", needed, "capacity", capacity)
 			needed = capacity
 		}
-		xlog.Info("Reconciler: scaling up to meet minimum", "model", cfg.ModelName,
+		xlog.Info("Reconciler: scaling up to meet minimum", "model", target,
 			"current", current, "min", cfg.MinReplicas, "adding", needed)
 		if rc.scaleUp(ctx, cfg, needed) {
 			// A real (or partial) scale-up clears the hysteresis so a future
@@ -921,19 +950,19 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 
 	// 2. Auto-scale up if all replicas are busy
 	if current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
-		if rc.allReplicasBusy(ctx, cfg.ModelName) {
+		if rc.allReplicasBusy(ctx, target) {
 			candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
 			if !selectorMatched {
 				return
 			}
-			capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, cfg.ModelName, candidateNodeIDs)
+			capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, target, candidateNodeIDs)
 			if capErr != nil || capacity == 0 {
 				// All busy AND no slot available — burst load above capacity.
 				// Don't enter cooldown for this case (it's transient demand,
 				// not a misconfig); the next tick will retry naturally.
 				return
 			}
-			xlog.Info("Reconciler: all replicas busy, scaling up", "model", cfg.ModelName,
+			xlog.Info("Reconciler: all replicas busy, scaling up", "model", target,
 				"current", current)
 			// Only mark the tick as having scaled up if a replica was actually
 			// added. On a failed scaleUp, leave scaledUp false so the pressure
@@ -954,13 +983,13 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 	//     Skipped when the busy-burst path already scaled up this tick: at most
 	//     one scaleUp(+1) per tick (see scaledUp above).
 	if !scaledUp && rc.pressure != nil && current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
-		if pressureCount := rc.pressure.Count(cfg.ModelName, time.Now()); pressureCount >= rc.pressureThreshold {
+		if pressureCount := rc.pressure.Count(target, time.Now()); pressureCount >= rc.pressureThreshold {
 			candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
 			if selectorMatched {
-				capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, cfg.ModelName, candidateNodeIDs)
+				capacity, capErr := rc.registry.ClusterCapacityForModel(ctx, target, candidateNodeIDs)
 				if capErr == nil && capacity > 0 {
 					xlog.Info("Reconciler: prefix-cache forced-disturb pressure, scaling up",
-						"model", cfg.ModelName, "current", current,
+						"model", target, "current", current,
 						"pressure", pressureCount,
 						"threshold", rc.pressureThreshold)
 					if rc.scaleUp(ctx, cfg, 1) {
@@ -975,7 +1004,7 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 						// we preserve the signal so the next tick retries off
 						// the same accumulated pressure instead of having to
 						// re-accumulate a full window from scratch.
-						rc.pressure.Reset(cfg.ModelName)
+						rc.pressure.Reset(target)
 					}
 				}
 				// No capacity: transient demand, not a misconfig - let the next
@@ -1042,14 +1071,14 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 
 	scheduled := 0
 	for i := 0; i < count; i++ {
-		node, err := rc.scheduler.ScheduleAndLoadModel(ctx, cfg.ModelName, candidateNodeIDs)
+		node, err := rc.scheduler.ScheduleAndLoadModel(ctx, cfg.Target(), candidateNodeIDs)
 		if err != nil {
-			xlog.Warn("Reconciler: failed to scale up replica", "model", cfg.ModelName,
+			xlog.Warn("Reconciler: failed to scale up replica", "model", cfg.Target(),
 				"attempt", i+1, "error", err)
 			break // stop trying on first failure
 		}
 		scheduled++
-		xlog.Info("Reconciler: scaled up replica", "model", cfg.ModelName, "node", node.Name)
+		xlog.Info("Reconciler: scaled up replica", "model", cfg.Target(), "node", node.Name)
 	}
 	return scheduled > 0
 }
@@ -1067,9 +1096,9 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 	// and matching the worker supervisor's port-recycling behavior.
 	cutoff := time.Now().Add(-rc.scaleDownDelay)
 	var idleModels []NodeModel
-	rc.registry.db.WithContext(ctx).
-		Where("model_name = ? AND state = ? AND in_flight = 0 AND last_used < ?",
-			cfg.ModelName, "loaded", cutoff).
+	currentModelRevision(rc.registry.db.WithContext(ctx)).
+		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0 AND node_models.last_used < ?",
+			cfg.Target(), "loaded", cutoff).
 		Order("replica_index DESC, last_used ASC").
 		Find(&idleModels)
 
@@ -1089,7 +1118,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 		if err := rc.unloader.UnloadModelOnNode(nm.NodeID, nm.ModelName); err != nil {
 			xlog.Warn("Reconciler: unload failed (model already removed from registry)", "error", err)
 		}
-		xlog.Info("Reconciler: scaled down idle replica", "model", cfg.ModelName, "node", nm.NodeID, "replica", nm.ReplicaIndex)
+		xlog.Info("Reconciler: scaled down idle replica", "model", cfg.Target(), "node", nm.NodeID, "replica", nm.ReplicaIndex)
 		removed++
 	}
 }
@@ -1097,8 +1126,8 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 // allReplicasBusy returns true if all loaded replicas of a model have in-flight requests.
 func (rc *ReplicaReconciler) allReplicasBusy(ctx context.Context, modelName string) bool {
 	var idleCount int64
-	rc.registry.db.WithContext(ctx).Model(&NodeModel{}).
-		Where("model_name = ? AND state = ? AND in_flight = 0", modelName, "loaded").
+	currentModelRevision(rc.registry.db.WithContext(ctx).Model(&NodeModel{})).
+		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0", modelName, "loaded").
 		Count(&idleCount)
 	return idleCount == 0
 }

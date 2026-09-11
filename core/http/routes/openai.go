@@ -9,9 +9,11 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	compressionservice "github.com/mudler/LocalAI/core/services/compression"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/pkg/tokens"
 )
 
 func RegisterOpenAIRoutes(app *echo.Echo,
@@ -43,7 +45,11 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	}
 
 	// chat
-	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant())
+	chatCompressor := compressionservice.New(
+		compressionservice.CounterFunc(tokens.CountMessages),
+		compressionservice.NewInferenceSummarizer(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()),
+	)
+	chatHandler := openai.ChatEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig(), natsClient, application.LocalAIAssistant(), chatCompressor)
 	chatMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,
@@ -71,27 +77,18 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 			application.FallbackUser(),
 			middleware.OpenAIProbe,
 			router.SourceChat,
-			middleware.ClassifierDeps{
-				Scorer:       application.Scorer,
-				TokenCounter: application.TokenCounter,
-				Embedder:     application.Embedder,
-				VectorStore:  application.VectorStore,
-				Reranker:     application.Reranker,
-				ModelLookup:  application.ModelConfigLookup(),
-				Registry:     application.RouterClassifierRegistry(),
-				Evaluator:    application.TemplatesEvaluator(),
-			},
+			middleware.NewClassifierDeps(application),
 		),
 		// Admission control runs after RouteModel so the SERVED
 		// model's limits apply — a router fanout that lands on a
 		// saturated downstream gets rejected even when the requested
 		// router-model has slack.
 		middleware.AdmissionControl(application.AdmissionLimiter(), application.PIIEvents()),
-		// PII redaction runs INNERMOST, after RouteModel has resolved
-		// the actual served model. This is what makes per-model PII
+		// PII redaction runs after RouteModel has resolved the actual served
+		// model and before compression. This makes per-model PII
 		// configs honour the routed target (e.g., a router fans out to
-		// claude-strict; that model's pii block applies, not the
-		// router model's).
+		// claude-strict; that model's pii block applies, not the router
+		// model's), and prevents the compressor from seeing unredacted input.
 		pii.RequestMiddleware(application.PIIRedactor(), application.PIIEvents(), piiadapter.OpenAI(), application.FallbackUser(), pii.WithNERResolver(application.PIINERResolver()), pii.WithPolicyResolver(application.PIIPolicyResolver())),
 	}
 	app.POST("/v1/chat/completions", chatHandler, chatMiddleware...)
@@ -141,8 +138,22 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/completions", completionHandler, completionMiddleware...)
 	app.POST("/v1/engines/:model/completions", completionHandler, completionMiddleware...)
 
+	// moderation
+	moderationHandler := openai.ModerationEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
+	moderationMiddleware := []echo.MiddlewareFunc{
+		nodeHeaderMiddleware,
+		usageMiddleware,
+		traceMiddleware,
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_COMPLETION)),
+		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.ModerationRequest) }),
+		middleware.AdmissionControl(application.AdmissionLimiter(), application.PIIEvents()),
+	}
+	app.POST("/v1/moderations", moderationHandler, moderationMiddleware...)
+	app.POST("/moderations", moderationHandler, moderationMiddleware...)
+
 	// embeddings
-	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
 	embeddingMiddleware := []echo.MiddlewareFunc{
 		nodeHeaderMiddleware,
 		usageMiddleware,
@@ -253,6 +264,11 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	inpaintingHandler := openai.InpaintingEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	app.POST("/v1/images/inpainting", inpaintingHandler, imageMiddleware...)
 	app.POST("/images/inpainting", inpaintingHandler, imageMiddleware...)
+
+	// upscale endpoint - reuse same middleware config as images
+	upscaleHandler := openai.UpscaleEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	app.POST("/v1/images/upscale", upscaleHandler, imageMiddleware...)
+	app.POST("/images/upscale", upscaleHandler, imageMiddleware...)
 
 	// List models
 	app.GET("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB()))

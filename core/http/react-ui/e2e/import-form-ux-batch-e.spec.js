@@ -1,8 +1,10 @@
 import { test, expect } from './coverage-fixtures.js'
 
 // Batch E — modality chip row. A horizontal chip row sits above the Backend
-// dropdown (inside the Simple-mode Options disclosure and in Power >
-// Preferences) and filters the dropdown's options to the selected modality.
+// dropdown inside the options panel and filters the dropdown's options to the
+// selected modality. Chip labels resolve through the same `modality.*` i18n
+// keys as the dropdown's own group headers, so one modality never carries two
+// different names on one screen.
 //
 // Default chip is "Any" (no filter). Clicking a modality chip:
 //   - Scopes buildBackendOptions to the chosen modality.
@@ -43,8 +45,8 @@ async function clearFormStorage(page) {
   await page.goto('/app/import-model')
   await page.evaluate(() => {
     try {
-      window.localStorage.removeItem('import-form-mode')
-      window.localStorage.removeItem('import-form-power-tab')
+      window.localStorage.removeItem('import-form-tab')
+      window.localStorage.removeItem('import-form-options')
     } catch {
       // ignore
     }
@@ -72,11 +74,11 @@ test.describe('Import form UX — Batch E (modality chip row)', () => {
     await clearFormStorage(page)
   })
 
-  test('E — chips visible inside Simple-mode expanded Options', async ({ page }) => {
+  test('E — chips visible inside the expanded options panel', async ({ page }) => {
     await page.goto('/app/import-model')
     // Chips are hidden inside the Options disclosure by default.
     await expect(chips(page)).toHaveCount(0)
-    await page.locator('[data-testid="simple-options-toggle"]').click()
+    await page.locator('[data-testid="import-options-toggle"]').click()
     await expect(chips(page)).toBeVisible()
     // Full set of chips renders.
     for (const key of ['', 'text', 'asr', 'tts', 'image', 'video', 'embeddings', 'reranker', 'detection', 'vad']) {
@@ -86,23 +88,30 @@ test.describe('Import form UX — Batch E (modality chip row)', () => {
     await expect(chip(page, '')).toHaveAttribute('aria-checked', 'true')
   })
 
-  test('E — chips visible inside Power > Preferences', async ({ page }) => {
+  test('E — chip labels use the same wording as the dropdown group headers', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
+    await page.locator('[data-testid="import-options-toggle"]').click()
     await expect(chips(page)).toBeVisible()
-    await expect(chip(page, '')).toHaveAttribute('aria-checked', 'true')
+
+    // The chips used to hardcode English shorthand ("Speech", "TTS") while the
+    // dropdown resolved modality.asr / modality.tts to "Speech recognition" and
+    // "Text-to-speech". Same modality, two names, and seven locales with none
+    // of it translated.
+    await expect(chip(page, 'asr')).toHaveText('Speech recognition')
+    await expect(chip(page, 'tts')).toHaveText('Text-to-speech')
+    await expect(chip(page, 'text')).toHaveText('Text LLM')
+    await expect(chip(page, 'reranker')).toHaveText('Rerankers')
   })
 
-  test('E — chips NOT rendered inside Power > YAML', async ({ page }) => {
+  test('E — chips are not rendered on the YAML surface', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    await page.locator('[data-testid="power-tab-yaml"]').click()
+    await page.locator('[data-testid="import-tab-yaml"]').click()
     await expect(chips(page)).toHaveCount(0)
   })
 
   test('E — clicking TTS filters the Backend dropdown to TTS backends only', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
+    await page.locator('[data-testid="import-options-toggle"]').click()
 
     // Baseline: default chip is Any, dropdown contains llama-cpp + piper.
     const baselineOption = (text) =>
@@ -134,7 +143,7 @@ test.describe('Import form UX — Batch E (modality chip row)', () => {
 
   test('E — clicking Any after a filter restores the full list', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
+    await page.locator('[data-testid="import-options-toggle"]').click()
     await chip(page, 'tts').click()
     await chip(page, '').click()
     await expect(chip(page, '')).toHaveAttribute('aria-checked', 'true')
@@ -149,7 +158,7 @@ test.describe('Import form UX — Batch E (modality chip row)', () => {
 
   test('E — switching filter clears a mismatched backend selection and shows a toast', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
+    await page.locator('[data-testid="import-options-toggle"]').click()
 
     // Pick llama-cpp (text modality) first.
     await backendTrigger(page).click()
@@ -182,20 +191,20 @@ test.describe('Import form UX — Batch E (modality chip row)', () => {
     })
 
     await page.goto('/app/import-model')
-    await page.locator('input[placeholder*="huggingface://"]').fill('https://huggingface.co/nari-labs/Dia-1.6B')
-    await page.locator('button', { hasText: /Import Model/ }).click()
+    await page.locator('[data-testid="import-source-input"]').fill('https://huggingface.co/nari-labs/Dia-1.6B')
+    await page.locator('[data-testid="import-submit"]').click()
 
     // Wait for the alert then expand Options to find the chip row.
     await expect(page.locator('[data-testid="ambiguity-alert"]')).toBeVisible({ timeout: 5_000 })
-    await page.locator('[data-testid="simple-options-toggle"]').click()
+    await page.locator('[data-testid="import-options-toggle"]').click()
     await expect(chip(page, 'tts')).toHaveAttribute('aria-checked', 'true')
   })
 
   test('E — keyboard: focus first chip with Tab, arrow keys move, Space selects', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    // Focus the Any chip directly to avoid counting every tab stop in the
-    // Power mode header — radiogroup roving focus is what we're testing.
+    await page.locator('[data-testid="import-options-toggle"]').click()
+    // Focus the Any chip directly to avoid counting every tab stop above it —
+    // radiogroup roving focus is what we're testing.
     await chip(page, '').focus()
     await expect(chip(page, '')).toBeFocused()
 

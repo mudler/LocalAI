@@ -170,9 +170,14 @@ Both surfaces are backed by these endpoints. All of them are admin-only when
 | -------- | -------------------------------- | ------------------------------------------------------------------------ |
 | `GET`    | `/api/operations`                | Running, queued and failed operations, least advanced first.              |
 | `POST`   | `/api/operations/{jobID}/cancel` | Cancel a queued operation, or a running install. Not a running removal.  |
+| `POST`   | `/api/operations/{jobID}/pause`  | Pause a queued operation or running download and preserve partial data.  |
 | `POST`   | `/api/operations/{jobID}/dismiss`| Acknowledge a failed operation and move it into the record.               |
 | `GET`    | `/api/operations/history`        | List finished operations, newest first.                                   |
 | `DELETE` | `/api/operations/history`        | Clear the record. Live operations are untouched.                          |
+
+Pausing preserves the download's `.partial` file. Start the same model or
+backend installation again to resume from the saved bytes when the origin
+supports HTTP Range requests. Cancelling intentionally discards partial data.
 
 Both `GET` endpoints wrap their list in an `operations` key rather than
 returning a bare array:

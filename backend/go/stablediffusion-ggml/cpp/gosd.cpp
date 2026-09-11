@@ -401,7 +401,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *params_backend_arg = "";
     const char *rpc_servers_arg = "";
     const char *max_vram_arg = "";
-    bool stream_layers = false;
 
     int n_threads = threads;
     enum sd_type_t wtype = SD_TYPE_COUNT;
@@ -510,7 +509,10 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "params_backend")) params_backend_arg = strdup(optval);
         if (!strcmp(optname, "rpc_servers")) rpc_servers_arg = strdup(optval);
         if (!strcmp(optname, "max_vram")) max_vram_arg = strdup(optval);
-        if (!strcmp(optname, "stream_layers")) stream_layers = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
+        if (!strcmp(optname, "stream_layers")) {
+            // Retained as a no-op for existing configurations. Upstream now
+            // selects segmented weight streaming automatically.
+        }
 
         // vae_decode_only is still accepted for backwards compatibility with
         // existing gallery configs, but upstream dropped the option (the model
@@ -650,11 +652,9 @@ int load_model(const char *model, char *model_path, char* options[], int threads
             ctx_params.rpc_servers = env_rpc_servers;
         }
     }
-    // max_vram: GiB budget or per-backend spec for graph-cut segmented param
-    // offload ("0" = disabled, "-1" = auto). stream_layers only has effect when
-    // max_vram is set.
+    // max_vram is an optional GiB budget or per-backend spec for automatic
+    // graph-cut execution. A zero value uses the live free-VRAM budget.
     if (strlen(max_vram_arg) > 0) ctx_params.max_vram = max_vram_arg;
-    ctx_params.stream_layers = stream_layers;
     ctx_params.diffusion_flash_attn = diffusion_flash_attn;
     ctx_params.tae_preview_only = tae_preview_only;
     ctx_params.diffusion_conv_direct = diffusion_conv_direct;
@@ -1144,17 +1144,25 @@ static uint8_t* load_and_resize_image(const char* path, int target_width, int ta
 // Write sd.cpp's audio buffer to a temp WAV file (IEEE float, interleaved).
 // sd_audio_t.data is planar (all channel 0 samples, then channel 1, etc.) — we
 // interleave on the fly so ffmpeg's standard wav demuxer can read it directly.
-// Returns 0 on success and fills wav_path (must be at least 64 bytes).
+// Returns 0 on success and fills wav_path.
 static int write_planar_float_wav(const sd_audio_t* a, char* wav_path, size_t wav_path_sz) {
     if (!a || !a->data || a->sample_count == 0 || a->channels == 0 || a->sample_rate == 0) {
         return -1;
     }
 
-    snprintf(wav_path, wav_path_sz, "/tmp/gosd-audio-XXXXXX.wav");
+    const char* temp_dir = getenv("TMPDIR");
+    if (!temp_dir || temp_dir[0] == '\0') {
+        temp_dir = "/tmp";
+    }
+    int path_len = snprintf(wav_path, wav_path_sz, "%s/gosd-audio-XXXXXX.wav", temp_dir);
+    if (path_len < 0 || (size_t)path_len >= wav_path_sz) {
+        fprintf(stderr, "temporary directory path is too long\n");
+        return -1;
+    }
     int fd = mkstemps(wav_path, 4);
     if (fd < 0) { perror("mkstemps wav"); return -1; }
     FILE* f = fdopen(fd, "wb");
-    if (!f) { perror("fdopen wav"); close(fd); return -1; }
+    if (!f) { perror("fdopen wav"); close(fd); unlink(wav_path); return -1; }
 
     uint64_t frames = a->sample_count;
     uint32_t channels = a->channels;
@@ -1221,7 +1229,7 @@ static int ffmpeg_mux_raw_to_mp4(sd_image_t* frames, int num_frames, int fps,
     snprintf(fps_str, sizeof(fps_str), "%d", fps);
 
     // Optional audio: write a temp WAV file if the model produced audio.
-    char wav_path[64] = {0};
+    char wav_path[4096] = {0};
     bool have_audio = false;
     if (audio && audio->data && audio->sample_count > 0 && audio->channels > 0 && audio->sample_rate > 0) {
         if (write_planar_float_wav(audio, wav_path, sizeof(wav_path)) == 0) {
@@ -1438,4 +1446,3 @@ int unload() {
     free_sd_ctx(sd_c);
     return 0;
 }
-

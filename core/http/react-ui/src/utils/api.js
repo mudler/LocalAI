@@ -173,6 +173,7 @@ export const resourcesApi = {
 export const operationsApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.operations),
   cancel: (jobID) => postJSON(API_CONFIG.endpoints.cancelOperation(jobID), {}),
+  pause: (jobID) => postJSON(API_CONFIG.endpoints.pauseOperation(jobID), {}),
   dismiss: (jobID) => postJSON(API_CONFIG.endpoints.dismissOperation(jobID), {}),
   history: () => fetchJSON(API_CONFIG.endpoints.operationsHistory),
   clearHistory: () => fetchJSON(API_CONFIG.endpoints.operationsHistory, { method: 'DELETE' }),
@@ -231,6 +232,8 @@ async function fetchTracePage(endpoint, { limit = DEFAULT_TRACE_PAGE_SIZE, offse
 
 export const tracesApi = {
   get: (opts) => fetchTracePage(API_CONFIG.endpoints.traces, opts),
+  // Counted totals, so a dashboard does not fetch the whole list to size it.
+  summary: () => fetchJSON(API_CONFIG.endpoints.tracesSummary),
   getOne: (id) => fetchJSON(API_CONFIG.endpoints.trace(id)),
   clear: () => postJSON(API_CONFIG.endpoints.clearTraces, {}),
   getBackend: (opts) => fetchTracePage(API_CONFIG.endpoints.backendTraces, opts),
@@ -454,7 +457,10 @@ export const agentCollectionsApi = {
   reset: (name, userId) => postJSON(`/api/agents/collections/${enc(name)}/reset${userQ(userId)}`),
   deleteEntry: (name, entry, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entry/delete${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
   sources: (name, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`),
-  addSource: (name, url, interval, userId) => postJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { url, update_interval: interval }),
+  addSource: (name, url, interval, userId) => postJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, {
+    url,
+    update_interval: interval === undefined ? undefined : Number(interval),
+  }),
   removeSource: (name, url, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
 }
 

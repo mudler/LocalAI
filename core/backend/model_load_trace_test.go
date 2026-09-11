@@ -30,6 +30,7 @@ var _ = Describe("ModelLoadTraceObserver", func() {
 	}
 
 	BeforeEach(func() {
+		backend.ConfigureGlobalBackendAdmission(64)
 		appConfig = &config.ApplicationConfig{
 			EnableTracing:   true,
 			TracingMaxItems: 64,
@@ -39,7 +40,11 @@ var _ = Describe("ModelLoadTraceObserver", func() {
 	})
 
 	It("records a model_load trace with the backend runtime on success", func() {
-		backend.ModelLoadTraceObserver(appConfig)(successEvent)
+		finish, err := backend.ModelLoadTraceObserver(appConfig)(successEvent)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(finish).NotTo(BeNil())
+		Expect(trace.GetBackendTraces()).To(ContainElement(HaveField("Status", trace.BackendTraceRunning)))
+		finish(successEvent)
 
 		Eventually(trace.GetBackendTraces).Should(HaveLen(1))
 		got := trace.GetBackendTraces()[0]
@@ -57,7 +62,10 @@ var _ = Describe("ModelLoadTraceObserver", func() {
 		failed := successEvent
 		failed.Err = errors.New("grpc service not ready")
 
-		backend.ModelLoadTraceObserver(appConfig)(failed)
+		finish, err := backend.ModelLoadTraceObserver(appConfig)(failed)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(finish).NotTo(BeNil())
+		finish(failed)
 
 		Consistently(trace.GetBackendTraces, "100ms", "20ms").Should(BeEmpty())
 	})
@@ -65,7 +73,10 @@ var _ = Describe("ModelLoadTraceObserver", func() {
 	It("records nothing when tracing is disabled", func() {
 		appConfig.EnableTracing = false
 
-		backend.ModelLoadTraceObserver(appConfig)(successEvent)
+		finish, err := backend.ModelLoadTraceObserver(appConfig)(successEvent)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(finish).NotTo(BeNil())
+		finish(successEvent)
 
 		Consistently(trace.GetBackendTraces, "100ms", "20ms").Should(BeEmpty())
 	})

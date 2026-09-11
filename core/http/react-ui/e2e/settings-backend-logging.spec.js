@@ -11,6 +11,41 @@ test.describe('Settings - Backend Logging', () => {
     await expect(page.locator('text=Enable Backend Logging')).toBeVisible()
   })
 
+  test('artifact download concurrency is configurable', async ({ page }) => {
+    const input = page.getByLabel('Artifact Download Concurrency')
+    await expect(input).toBeVisible()
+    await input.fill('4')
+    await expect(input).toHaveValue('4')
+  })
+
+  test('persistent VRAM cache can be toggled', async ({ page }) => {
+    const row = page.locator('.form-row', { hasText: 'Persist remote VRAM estimates' })
+    await expect(row).toBeVisible()
+
+    const checkbox = row.locator('input[type="checkbox"]')
+    const wasChecked = await checkbox.isChecked()
+    await checkbox.locator('..').click()
+    if (wasChecked) {
+      await expect(checkbox).not.toBeChecked()
+    } else {
+      await expect(checkbox).toBeChecked()
+    }
+  })
+
+  test('gallery startup loading and pre-warming can be toggled together', async ({ page }) => {
+    const row = page.locator('.form-row', { hasText: 'Load and pre-warm galleries on boot' })
+    await expect(row).toBeVisible()
+
+    const checkbox = row.locator('input[type="checkbox"]')
+    const wasChecked = await checkbox.isChecked()
+    await checkbox.locator('..').click()
+    if (wasChecked) {
+      await expect(checkbox).not.toBeChecked()
+    } else {
+      await expect(checkbox).toBeChecked()
+    }
+  })
+
   test('backend logging toggle can be toggled', async ({ page }) => {
     // Find the checkbox associated with backend logging
     const section = page.locator('div', { has: page.locator('text=Enable Backend Logging') })

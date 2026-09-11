@@ -57,7 +57,7 @@ type MCPErrorEvent struct {
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/mcp/chat/completions [post]
-func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
+func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient, compressor middleware.ChatCompressor) echo.HandlerFunc {
 	// The legacy /v1/mcp/chat/completions endpoint never opts into the
 	// in-process LocalAI Assistant tool surface — pass nil holder so the
 	// assistant branch in chat.go is unreachable from this code path.
@@ -65,7 +65,7 @@ func MCPEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator 
 	// the per-model PII config and is kept for backward compatibility.
 	// The request-side middleware on the main chat route handles
 	// filtering for the standard /v1/chat/completions path.
-	chatHandler := openai.ChatEndpoint(cl, ml, evaluator, appConfig, natsClient, nil)
+	chatHandler := openai.ChatEndpoint(cl, ml, evaluator, appConfig, natsClient, nil, compressor)
 
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)

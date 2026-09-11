@@ -44,6 +44,7 @@ type MCPServerInfo struct {
 	Tools     []string `json:"tools"`
 	Prompts   []string `json:"prompts,omitempty"`
 	Resources []string `json:"resources,omitempty"`
+	Error     string   `json:"error,omitempty"`
 }
 
 // MCPToolDef is a serializable tool definition (function schema) that can

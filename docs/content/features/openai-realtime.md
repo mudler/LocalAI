@@ -266,16 +266,26 @@ Audio is sent and received as raw PCM in the WebSocket messages, following the O
 
 ### WebRTC
 
-The WebRTC transport enables browser-based voice conversations with lower latency. Connect by POSTing an SDP offer to the REST endpoint:
+The WebRTC transport enables browser-based voice conversations with lower latency. OpenAI-compatible clients can send a raw SDP offer and select the model with the query parameter:
 
 ```
-POST http://localhost:8080/v1/realtime?model=gpt-realtime
+POST http://localhost:8080/v1/realtime/calls?model=gpt-realtime
 Content-Type: application/sdp
 
 <SDP offer body>
 ```
 
-The response contains the SDP answer to complete the WebRTC handshake.
+The response has the `application/sdp` content type and contains the bare SDP answer.
+
+The unified OpenAI interface is also supported. Send `multipart/form-data` with an `sdp` field that contains the offer and a JSON `session` field. LocalAI reads the model from the session object:
+
+```bash
+curl http://localhost:8080/v1/realtime/calls \
+  -F "sdp=<offer.sdp;type=application/sdp" \
+  -F 'session={"type":"realtime","model":"gpt-realtime"};type=application/json'
+```
+
+LocalAI also accepts its original JSON request format for compatibility. A JSON request contains top-level `sdp` and `model` fields and receives a JSON response with `sdp` and `session_id` fields.
 
 #### Opus backend requirement
 
@@ -322,6 +332,23 @@ For a browser on another LAN machine talking to LocalAI in a host-networked
 container, set `LOCALAI_WEBRTC_NAT_1TO1_IPS` to the host's LAN IP. This is the
 most reliable fix for WebRTC connections that establish and then drop.
 {{% /notice %}}
+
+#### Fixed WebRTC UDP port
+
+By default, each WebRTC peer connection uses an ephemeral UDP port. To route
+all realtime WebRTC ICE traffic through one shared port, start LocalAI with
+`--web-rtc-udp-port 3478` or set `LOCALAI_WEBRTC_UDP_PORT=3478`.
+
+When running in a container, publish the same port with the UDP protocol:
+
+```bash
+docker run -p 8080:8080 -p 3478:3478/udp \
+  -e LOCALAI_WEBRTC_UDP_PORT=3478 localai/localai:latest
+```
+
+Allow the selected UDP port through the host and network firewalls. If LocalAI
+cannot bind it, WebRTC signaling requests return an HTTP 500 error describing
+the bind failure.
 
 ## Protocol
 

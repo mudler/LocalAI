@@ -15,6 +15,7 @@ service Backend {
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
+  rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc Generate3D(Generate3DRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
@@ -35,6 +36,7 @@ service Backend {
   rpc TTSStream(TTSRequest) returns (stream Reply) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
+  rpc Detokenize(DetokenizeRequest) returns (DetokenizeResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
   rpc Detect(DetectOptions) returns (DetectResponse) {}
   // SoundDetection runs an audio-tagging / sound-event-classification model
@@ -534,8 +536,28 @@ message Result {
   bool success = 2;
 }
 
+// EmbeddingLayout describes whether embeddings contains one final vector or
+// a matrix of per-token vectors. Go-side pooling must never infer this from
+// tokens/dim alone: a one-token raw matrix and a final vector have the same
+// shape.
+enum EmbeddingLayout {
+  EMBEDDING_LAYOUT_UNSPECIFIED = 0;
+  EMBEDDING_LAYOUT_FINAL = 1;
+  EMBEDDING_LAYOUT_PER_TOKEN = 2;
+}
+
 message EmbeddingResult {
   repeated float embeddings = 1;
+  // Shape of the payload above: dim is the embedding width, tokens is the
+  // number of vectors packed into `embeddings` (1 when the backend pooled
+  // server-side, N with pooling:none; total across prompts if a request
+  // carried several). tokens=0/dim=0 means the backend predates shape
+  // reporting. prompt_tokens is the number of prompt tokens evaluated, for
+  // usage accounting.
+  int32 tokens = 2;
+  int32 dim = 3;
+  int32 prompt_tokens = 4;
+  EmbeddingLayout layout = 5;
 }
 
 message TranscriptRequest {
@@ -634,6 +656,12 @@ message GenerateImageRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 13;
+}
+
+message UpscaleImageRequest {
+  string src = 1;   // input image path
+  string dst = 2;   // output image path
+  int32  scale = 3; // upscale factor (e.g. 2 or 4)
 }
 
 message GenerateVideoRequest {
@@ -794,6 +822,14 @@ message SoundGenerationRequest {
 message TokenizationResponse {
   int32 length = 1;
   repeated int32 tokens = 2;
+}
+
+message DetokenizeRequest {
+  repeated int32 tokens = 1;
+}
+
+message DetokenizeResponse {
+  string content = 1;
 }
 
 message MemoryUsageData {

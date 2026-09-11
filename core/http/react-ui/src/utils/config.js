@@ -4,6 +4,7 @@ export const API_CONFIG = {
     operations: '/api/operations',
     operationsHistory: '/api/operations/history',
     cancelOperation: (jobID) => `/api/operations/${jobID}/cancel`,
+    pauseOperation: (jobID) => `/api/operations/${jobID}/pause`,
     dismissOperation: (jobID) => `/api/operations/${jobID}/dismiss`,
 
     // Models gallery
@@ -38,6 +39,7 @@ export const API_CONFIG = {
 
     // Traces
     traces: '/api/traces',
+    tracesSummary: '/api/traces/summary',
     trace: (id) => `/api/traces/${encodeURIComponent(id)}`,
     clearTraces: '/api/traces/clear',
     backendTraces: '/api/backend-traces',
@@ -63,6 +65,9 @@ export const API_CONFIG = {
     agentJob: (id) => `/api/agent/jobs/${id}`,
     cancelAgentJob: (id) => `/api/agent/jobs/${id}/cancel`,
     executeAgentJob: '/api/agent/jobs/execute',
+
+    // Progress of a cold load still staging a model onto a worker
+    modelLoadStatus: (id) => `/api/models/${encodeURIComponent(id)}/load-status`,
 
     // OpenAI-compatible endpoints
     chatCompletions: '/v1/chat/completions',
@@ -122,7 +127,7 @@ export const API_CONFIG = {
     modelsImport: '/models/import',
     vramEstimate: '/api/models/vram-estimate',
     modelsJobStatus: (uid) => `/models/jobs/${uid}`,
-    modelEditGet: (name) => `/api/models/edit/${name}`,
+    modelEditGet: (name) => `/api/models/edit/${encodeURIComponent(name)}`,
     modelEdit: (name) => `/models/edit/${name}`,
     modelToggleState: (name, action) => `/models/toggle-state/${name}/${action}`,
     modelTogglePinned: (name, action) => `/models/toggle-pinned/${name}/${action}`,

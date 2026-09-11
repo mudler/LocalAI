@@ -71,6 +71,10 @@
   },
   "actions": {
     "copy": "Copiar",
+    "edit": "Editar",
+    "editMessage": "Editar mensaje",
+    "save": "Guardar",
+    "cancel": "Cancelar",
     "regenerate": "Regenerar",
     "jumpToLatest": "Jump to latest"
   },
@@ -114,5 +118,8 @@
     "newChat": "Nuevo chat",
     "clearAll": "Borrar todo",
     "deleteAllTitle": "Eliminar todas las conversaciones"
+  },
+  "message": {
+    "you": "You"
   }
 }

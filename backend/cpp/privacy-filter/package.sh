@@ -11,13 +11,7 @@ cp -rfv "$CURDIR/run.sh"      "$CURDIR/package/"
 
 # The dynamic loader, renamed to lib/ld.so so run.sh can invoke it explicitly
 # (makes the image independent of the host's glibc layout).
-if [ -f "/lib64/ld-linux-x86-64.so.2" ]; then
-    cp -arfLv /lib64/ld-linux-x86-64.so.2 "$CURDIR/package/lib/ld.so"
-elif [ -f "/lib/ld-linux-aarch64.so.1" ]; then
-    cp -arfLv /lib/ld-linux-aarch64.so.1 "$CURDIR/package/lib/ld.so"
-else
-    echo "package.sh: unknown architecture" >&2; exit 1
-fi
+source "$CURDIR/../../../scripts/build/package-system-libs.sh" "$CURDIR/package/lib" ""
 
 # Bundle the binary's transitive shared deps (libstdc++, libgomp, and the apt
 # grpc++/protobuf/absl stack) by walking ldd — robust to whichever of those are

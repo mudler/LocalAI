@@ -1,10 +1,12 @@
 package downloader
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -30,7 +32,16 @@ func HuggingFaceScan(uri URI) (*HuggingFaceScanResult, error) {
 	if len(cleanParts) <= 4 || (cleanParts[2] != "huggingface.co" && cleanParts[2] != hfHost) {
 		return nil, ErrNonHuggingFaceFile
 	}
-	results, err := httpclient.New(httpclient.WithFollowRedirects()).Get(fmt.Sprintf("%s/api/models/%s/%s/scan", HF_ENDPOINT, cleanParts[3], cleanParts[4]))
+	// Built as an explicit request rather than the client's Get shorthand purely
+	// so it carries the same User-Agent as every other request this package
+	// makes; HuggingFace is exactly the kind of host that wants to know who is
+	// calling its API.
+	scanURL := fmt.Sprintf("%s/api/models/%s/%s/scan", HF_ENDPOINT, cleanParts[3], cleanParts[4])
+	req, err := newDownloadRequest(context.Background(), http.MethodGet, scanURL, "")
+	if err != nil {
+		return nil, err
+	}
+	results, err := httpclient.New(httpclient.WithFollowRedirects()).Do(req)
 	if err != nil {
 		return nil, err
 	}

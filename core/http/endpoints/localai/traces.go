@@ -3,6 +3,7 @@ package localai
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -84,6 +85,35 @@ func GetAPITracesEndpoint() echo.HandlerFunc {
 		return c.JSON(http.StatusOK, page)
 	}
 }
+
+// GetAPITracesSummaryEndpoint returns counted totals over a recent window
+// @Summary Summarize recent API traces
+// @Description Returns request, failure and latency totals over a recent window, plus a bucketed series for sparklines. Exists so callers wanting three numbers do not have to fetch the whole trace list and count it themselves.
+// @Tags monitoring
+// @Produce json
+// @Param hours query int false "Window in hours (default 24, max 168)"
+// @Success 200 {object} middleware.TraceSummary "Counted trace totals"
+// @Router /api/traces/summary [get]
+func GetAPITracesSummaryEndpoint() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		hours := 24
+		if raw := c.QueryParam("hours"); raw != "" {
+			if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+				hours = v
+			}
+		}
+		// A week is plenty for a dashboard, and the trace buffer is bounded
+		// anyway; an unbounded window would just scan the whole buffer.
+		if hours > 168 {
+			hours = 168
+		}
+		return c.JSON(http.StatusOK, middleware.GetTracesSummary(time.Duration(hours)*time.Hour, traceSummaryBuckets))
+	}
+}
+
+// Enough columns for a sparkline to show a shape, few enough that each one
+// still holds a meaningful count on a quiet installation.
+const traceSummaryBuckets = 12
 
 // GetAPITraceEndpoint returns a single API trace with its full payload
 // @Summary Get one API trace

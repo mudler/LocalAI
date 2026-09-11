@@ -1,10 +1,10 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// Batch F3 — Enter-to-submit on the URI input in Simple mode. Wrapping the
-// URI input + ambiguity alert + Options disclosure in a <form> means pressing
-// Enter while focus is in the URI field submits via handleSimpleImport. This
-// test asserts the POST is issued and that the Description textarea still
-// inserts a newline on Enter instead of submitting.
+// Batch F3 — Enter-to-submit on the source input. The field, the ambiguity
+// alert, the options disclosure and the Import button all live in one <form>,
+// so Enter submits natively — no hidden submit button standing in for an
+// action that sits outside the form. This test asserts the POST is issued and
+// that the Description textarea still inserts a newline instead of submitting.
 
 const MOCK_BACKENDS = [
   { name: 'llama-cpp', modality: 'text', auto_detect: true, installed: true },
@@ -20,15 +20,15 @@ async function mockBackends(page) {
   })
 }
 
-test.describe('Import form UX — Batch F3 (Enter-to-submit in Simple mode)', () => {
+test.describe('Import form UX — Batch F3 (Enter-to-submit on the source field)', () => {
   test.beforeEach(async ({ page }) => {
     await mockBackends(page)
-    // Reset the persisted mode so every test starts in Simple.
+    // Reset persisted UI state so every test starts on the source tab.
     await page.goto('/app/import-model')
     await page.evaluate(() => {
       try {
-        window.localStorage.removeItem('import-form-mode')
-        window.localStorage.removeItem('import-form-power-tab')
+        window.localStorage.removeItem('import-form-tab')
+        window.localStorage.removeItem('import-form-options')
       } catch {
         // ignore
       }
@@ -53,7 +53,7 @@ test.describe('Import form UX — Batch F3 (Enter-to-submit in Simple mode)', ()
     })
 
     await page.goto('/app/import-model')
-    const uri = page.locator('input[placeholder*="huggingface://"]')
+    const uri = page.locator('[data-testid="import-source-input"]')
     await uri.fill('hf://TheBloke/Llama-2-7B-Chat-GGUF')
     await uri.press('Enter')
 
@@ -71,10 +71,10 @@ test.describe('Import form UX — Batch F3 (Enter-to-submit in Simple mode)', ()
     })
 
     await page.goto('/app/import-model')
-    await page.locator('input[placeholder*="huggingface://"]').fill('hf://Example/Model')
-    await page.locator('[data-testid="simple-options-toggle"]').click()
+    await page.locator('[data-testid="import-source-input"]').fill('hf://Example/Model')
+    await page.locator('[data-testid="import-options-toggle"]').click()
 
-    const panel = page.locator('[data-testid="simple-options-panel"]')
+    const panel = page.locator('[data-testid="import-options-panel"]')
     const textarea = panel.locator('textarea[placeholder*="Leave empty to use default"]')
     await textarea.focus()
     await textarea.type('first line')

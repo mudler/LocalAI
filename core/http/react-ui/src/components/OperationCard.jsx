@@ -29,7 +29,7 @@ function formatEta(seconds) {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
 }
 
-export default function OperationCard({ operation, onCancel, onDismiss, onRetry }) {
+export default function OperationCard({ operation, onCancel, onPause, onDismiss, onRetry }) {
   const { t } = useTranslation('admin')
   const nodes = Array.isArray(operation.nodes) ? operation.nodes : []
   // Holds only what the user chose. The default has to stay a live
@@ -75,6 +75,9 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
     : ''
   const phaseKey = phaseKeys[operation.phase]
   const etaLabel = formatEta(operation.etaSeconds)
+  const rateLabel = Number.isFinite(operation.bytesPerSecond) && operation.bytesPerSecond > 0
+    ? `${formatBytes(operation.bytesPerSecond)}/s`
+    : ''
   // Same call the strip makes, for the same reason: a failed operation
   // stopped where it broke and a queued one has not moved, so neither has a
   // bar worth drawing.
@@ -124,7 +127,11 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
               <span className="operation-card__message" title={operation.message}>{operation.message}</span>
             )}
             {!failed && operation.isQueued && <span>{t('activity.waitingForInstaller')}</span>}
-            {!failed && byteLabel && <span className="operation-card__bytes">{byteLabel}</span>}
+            {!failed && byteLabel && (
+              <span className="operation-card__bytes">
+                {byteLabel}{rateLabel && ` · ${rateLabel}`}
+              </span>
+            )}
             {!failed && etaLabel && <span className="operation-card__bytes">{t('activity.timeLeft', { value: etaLabel })}</span>}
           </div>
 
@@ -144,6 +151,16 @@ export default function OperationCard({ operation, onCancel, onDismiss, onRetry 
 
         <div className="operation-card__actions">
           {showProgress && <span className="operation-card__pct" aria-hidden="true">{Math.round(operation.progress)}%</span>}
+          {canCancel && (
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary operation-card__pause"
+              onClick={() => onPause?.(operation.jobID)}
+              aria-label={t('activity.pauseLabel', { name })}
+            >
+              {t('activity.pause')}
+            </button>
+          )}
           {canCancel && (
             // A page of cards would otherwise hand a screen reader a list of
             // identical "Cancel" buttons with nothing to tell them apart.

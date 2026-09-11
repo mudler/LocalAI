@@ -320,6 +320,13 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    async fn upscale_image(
+        &self,
+        _: Request<backend::UpscaleImageRequest>,
+    ) -> Result<Response<backend::Result>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn generate_image(
         &self,
         _: Request<backend::GenerateImageRequest>,
@@ -412,6 +419,13 @@ impl Backend for KokorosService {
         &self,
         _: Request<backend::PredictOptions>,
     ) -> Result<Response<backend::TokenizationResponse>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
+    async fn detokenize(
+        &self,
+        _: Request<backend::DetokenizeRequest>,
+    ) -> Result<Response<backend::DetokenizeResponse>, Status> {
         Err(Status::unimplemented("Not supported"))
     }
 

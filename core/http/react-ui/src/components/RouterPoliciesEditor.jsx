@@ -55,9 +55,8 @@ export default function RouterPoliciesEditor({ value, onChange }) {
 
       <button
         type="button"
-        className="btn btn-secondary btn-sm"
+        className="btn btn-secondary btn-sm self-start"
         onClick={add}
-        style={{ alignSelf: 'flex-start' }}
       >
         <i className="fas fa-plus" /> Add policy
       </button>
@@ -79,21 +78,19 @@ function PolicyRow({ row, duplicate, onChange, onRemove }) {
       }}
     >
       <input
-        className="input"
+        className="input text-mono text-sm"
         type="text"
         placeholder="label (e.g. code-generation)"
         value={row?.label || ''}
         onChange={(e) => onChange((r) => ({ ...r, label: e.target.value }))}
-        style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}
         title={duplicate ? 'Duplicate label — candidates won\'t be able to distinguish them' : ''}
       />
       <input
-        className="input"
+        className="input text-sm"
         type="text"
         placeholder="short description fed verbatim to the classifier prompt"
         value={row?.description || ''}
         onChange={(e) => onChange((r) => ({ ...r, description: e.target.value }))}
-        style={{ fontSize: '0.8125rem' }}
       />
       <button
         type="button"

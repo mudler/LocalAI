@@ -5,7 +5,9 @@ test.describe('Admin console', () => {
     await page.goto('/app/backends')
     const rail = page.locator('.console-rail')
     await expect(rail).toBeVisible()
-    for (const group of ['Inference', 'Cluster', 'Observability', 'Access', 'System']) {
+    // Four groups since the overview landed: Inference folded into Runtime
+    // (both are "the runtime right now"), Access and System into Administration.
+    for (const group of ['Runtime', 'Cluster', 'Observability', 'Administration']) {
       await expect(rail.locator('.console-group-title', { hasText: group })).toBeVisible()
     }
   })

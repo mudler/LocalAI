@@ -54,6 +54,22 @@ var _ = Describe("GalleryService.CancelOperation persistence", func() {
 		Expect(fresh.GetStatus("op-cancel")).To(BeNil(),
 			"a cancelled op must not hydrate back as active after a restart")
 	})
+
+	It("pauses with the resume-safe callback instead of the destructive cancel callback", func() {
+		svc := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		var cancelled, paused bool
+		svc.StoreCancellationActions("op-pause", func() { cancelled = true }, func() { paused = true })
+
+		Expect(svc.PauseOperation("op-pause")).To(Succeed())
+		Expect(paused).To(BeTrue())
+		Expect(cancelled).To(BeFalse())
+
+		status := svc.GetStatus("op-pause")
+		Expect(status).ToNot(BeNil())
+		Expect(status.Processed).To(BeTrue())
+		Expect(status.Cancelled).To(BeTrue())
+		Expect(status.Message).To(Equal("paused"))
+	})
 })
 
 // Reproduces "an op orphaned by a replica that died mid-flight stays 'pending'

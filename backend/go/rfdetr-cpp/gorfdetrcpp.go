@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"unsafe"
 
@@ -102,24 +103,12 @@ func (r *RFDetrCpp) Detect(opts *pb.DetectOptions) (pb.DetectResponse, error) {
 		return pb.DetectResponse{}, fmt.Errorf("rfdetr-cpp: model not loaded")
 	}
 
-	// Decode base64 image and write to temp file.
 	imgData, err := base64.StdEncoding.DecodeString(opts.Src)
 	if err != nil {
 		return pb.DetectResponse{}, fmt.Errorf("rfdetr-cpp: failed to decode base64 image: %w", err)
 	}
-
-	tmpFile, err := os.CreateTemp("", "rfdetr-*.img")
-	if err != nil {
-		return pb.DetectResponse{}, fmt.Errorf("rfdetr-cpp: failed to create temp file: %w", err)
-	}
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
-
-	if _, err := tmpFile.Write(imgData); err != nil {
-		_ = tmpFile.Close()
-		return pb.DetectResponse{}, fmt.Errorf("rfdetr-cpp: failed to write temp file: %w", err)
-	}
-	if err := tmpFile.Close(); err != nil {
-		return pb.DetectResponse{}, fmt.Errorf("rfdetr-cpp: failed to close temp file: %w", err)
+	if len(imgData) == 0 {
+		return pb.DetectResponse{}, fmt.Errorf("rfdetr-cpp: decoded image is empty")
 	}
 
 	threshold := opts.Threshold
@@ -127,10 +116,18 @@ func (r *RFDetrCpp) Detect(opts *pb.DetectOptions) (pb.DetectResponse, error) {
 		threshold = 0.5
 	}
 
-	// JSON output from detect_path is unused: we read structured detections via
+	// JSON output from the detection ABI is unused: we read structured detections via
 	// the accessor functions. Still must free the returned string.
 	var jsonPtr uintptr
-	rc := CapiDetectPath(r.handle, tmpFile.Name(), threshold, uint32(defaultTopK), &jsonPtr)
+	rc := CapiDetectBuffer(
+		r.handle,
+		uintptr(unsafe.Pointer(unsafe.SliceData(imgData))),
+		uintptr(len(imgData)),
+		threshold,
+		uint32(defaultTopK),
+		&jsonPtr,
+	)
+	runtime.KeepAlive(imgData)
 	if jsonPtr != 0 {
 		CapiFreeString(jsonPtr)
 	}

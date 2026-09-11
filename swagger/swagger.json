@@ -1094,6 +1094,41 @@
                 }
             }
         },
+        "/api/models/{id}/load-status": {
+            "get": {
+                "description": "Returns the live state of a distributed cold load — phase, node, byte progress and ETA — or 404 when no load is running for the model. This is the same `loading` object the 503 response carries while a model is still staging.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "models"
+                ],
+                "summary": "Report the progress of an in-flight model load.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Live load progress",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModelLoadingStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "No load is running for this model",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/{name}/{action}": {
             "put": {
                 "description": "Enable or disable a model from being loaded on demand. Disabled models remain installed but cannot be loaded.",
@@ -1492,6 +1527,181 @@
                 }
             }
         },
+        "/api/router/{name}/corpus": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Seed the KNN routing corpus with labelled example prompts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "router model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "labelled exemplars",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusAddRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusAddResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Clear a router's KNN corpus",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "router model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusClearResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/router/{name}/corpus/stats": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "router"
+                ],
+                "summary": "Inspect a router's KNN corpus (label counts only, never texts)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "router model name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.RouterCorpusStatsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/traces": {
             "get": {
                 "description": "Returns a bounded, newest-first page of captured API exchange traces. Request and response bodies plus headers are omitted unless full=true; fetch them per-trace from /api/traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
@@ -1543,6 +1753,34 @@
                 "responses": {
                     "204": {
                         "description": "Traces cleared"
+                    }
+                }
+            }
+        },
+        "/api/traces/summary": {
+            "get": {
+                "description": "Returns request, failure and latency totals over a recent window, plus a bucketed series for sparklines. Exists so callers wanting three numbers do not have to fetch the whole trace list and count it themselves.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "monitoring"
+                ],
+                "summary": "Summarize recent API traces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Window in hours (default 24, max 168)",
+                        "name": "hours",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Counted trace totals",
+                        "schema": {
+                            "$ref": "#/definitions/middleware.TraceSummary"
+                        }
                     }
                 }
             }
@@ -1795,7 +2033,7 @@
                     },
                     {
                         "type": "integer",
-                        "description": "desired output sample rate",
+                        "description": "desired output sample rate in Hz; omit for the backend's own rate, otherwise 8000-192000",
                         "name": "sample_rate",
                         "in": "formData"
                     }
@@ -1852,7 +2090,7 @@
                     },
                     {
                         "type": "integer",
-                        "description": "desired output sample rate",
+                        "description": "desired output sample rate in Hz; omit for the backend's own rate, otherwise 8000-192000",
                         "name": "sample_rate",
                         "in": "formData"
                     }
@@ -1869,7 +2107,7 @@
         },
         "/audio/transformations/stream": {
             "get": {
-                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The first message must be a JSON `session.update` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
+                "description": "Streams binary PCM frames in (interleaved stereo: ch0=audio, ch1=reference) and out (mono). The model must support the audio_transform use case. Any-to-any models such as liquid-audio use the OpenAI Realtime API instead. The first message must be a JSON `session.update` envelope describing model + sample format + frame size + backend params. Server emits binary PCM on the same cadence.",
                 "tags": [
                     "audio"
                 ],
@@ -2775,6 +3013,33 @@
                 }
             }
         },
+        "/v1/detokenize": {
+            "post": {
+                "tags": [
+                    "tokenize"
+                ],
+                "summary": "Detokenize the input.",
+                "parameters": [
+                    {
+                        "description": "Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.DetokenizeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DetokenizeResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/edits": {
             "post": {
                 "tags": [
@@ -3092,6 +3357,69 @@
                 }
             }
         },
+        "/v1/images/upscale": {
+            "post": {
+                "description": "Upscale an image using a specified model (e.g. stable-diffusion-x4-upscaler). Accepts multipart/form-data.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Image upscaling",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Upscaler model identifier (e.g. stable-diffusion-x4-upscaler)",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Input image file",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Upscale factor: 2 or 4 (default 2)",
+                        "name": "scale",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/v1/mcp/chat/completions": {
             "post": {
                 "tags": [
@@ -3173,6 +3501,33 @@
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.ModelCapabilitiesResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/moderations": {
+            "post": {
+                "tags": [
+                    "moderation"
+                ],
+                "summary": "Classify text for potentially harmful content.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModerationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ModerationResponse"
                         }
                     }
                 }
@@ -3674,6 +4029,13 @@
         "config.Gallery": {
             "type": "object",
             "properties": {
+                "mirrors": {
+                    "description": "Mirrors are tried in order when URL cannot be fetched. They are a\nfallback for availability, not a load-balancing pool: the primary is\nalways preferred, and a mirror is only consulted after the one before\nit fails. Any URI the gallery loader understands works here\n(https://, github:, file://).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "name": {
                     "type": "string"
                 },
@@ -4215,6 +4577,9 @@
             "type": "object",
             "properties": {
                 "config": {},
+                "config_revision": {
+                    "type": "string"
+                },
                 "details": {
                     "type": "array",
                     "items": {
@@ -4229,6 +4594,9 @@
                 },
                 "message": {
                     "type": "string"
+                },
+                "pending_cleanup": {
+                    "type": "integer"
                 },
                 "success": {
                     "type": "boolean"
@@ -4261,6 +4629,43 @@
                     "items": {
                         "$ref": "#/definitions/voiceprofile.Profile"
                     }
+                }
+            }
+        },
+        "middleware.TraceBucket": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "errors": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "middleware.TraceSummary": {
+            "type": "object",
+            "properties": {
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/middleware.TraceBucket"
+                    }
+                },
+                "errors": {
+                    "type": "integer"
+                },
+                "p95_ms": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "window_hours": {
+                    "type": "integer"
                 }
             }
         },
@@ -4333,7 +4738,22 @@
                     "description": "e.g. \"llama-cpp\"; used by reconciler to replicate loads",
                     "type": "string"
                 },
+                "cleanup_attempts": {
+                    "type": "integer"
+                },
+                "cleanup_error": {
+                    "type": "string"
+                },
+                "cleanup_next_retry_at": {
+                    "type": "string"
+                },
+                "config_revision": {
+                    "type": "string"
+                },
                 "created_at": {
+                    "type": "string"
+                },
+                "effective_options_hash": {
                     "type": "string"
                 },
                 "id": {
@@ -4678,6 +5098,29 @@
                 }
             }
         },
+        "schema.CompressionMetadata": {
+            "type": "object",
+            "properties": {
+                "compressed_tokens": {
+                    "type": "integer"
+                },
+                "compressor": {
+                    "type": "string"
+                },
+                "dropped_turns": {
+                    "type": "integer"
+                },
+                "original_tokens": {
+                    "type": "integer"
+                },
+                "overflow_recoveries": {
+                    "type": "integer"
+                },
+                "summary_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.DepthRequest": {
             "type": "object",
             "properties": {
@@ -4866,6 +5309,30 @@
                     "items": {
                         "$ref": "#/definitions/schema.Detection"
                     }
+                }
+            }
+        },
+        "schema.DetokenizeRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "tokens": {
+                    "description": "token IDs to convert back to text",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "schema.DetokenizeResponse": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "detokenized text",
+                    "type": "string"
                 }
             }
         },
@@ -5182,6 +5649,12 @@
         "schema.FaceRegisterRequest": {
             "type": "object",
             "properties": {
+                "embedding": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
                 "img": {
                     "type": "string"
                 },
@@ -5195,6 +5668,10 @@
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "registered_at": {
+                    "description": "original enrollment time when replaying a saved embedding",
                     "type": "string"
                 },
                 "store": {
@@ -5848,6 +6325,39 @@
                 }
             }
         },
+        "schema.ModelLoadingStatus": {
+            "type": "object",
+            "properties": {
+                "bytes_sent": {
+                    "type": "integer"
+                },
+                "eta_seconds": {
+                    "description": "ETASeconds is omitted rather than guessed until enough bytes have moved\nfor the observed rate to mean anything. A confidently wrong ETA on a\ntwenty-minute wait is worse than none.",
+                    "type": "integer"
+                },
+                "file_index": {
+                    "type": "integer"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "node": {
+                    "type": "string"
+                },
+                "progress": {
+                    "type": "number"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "total_bytes": {
+                    "type": "integer"
+                },
+                "total_files": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.ModelsDataResponse": {
             "type": "object",
             "properties": {
@@ -5859,6 +6369,67 @@
                 },
                 "object": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ModerationRequest": {
+            "type": "object",
+            "properties": {
+                "input": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ModerationResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ModerationResult"
+                    }
+                }
+            }
+        },
+        "schema.ModerationResult": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "boolean"
+                    }
+                },
+                "category_applied_input_types": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "category_scores": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "flagged": {
+                    "type": "boolean"
                 }
             }
         },
@@ -6472,6 +7043,14 @@
                 "negative_prompt_scale": {
                     "type": "number"
                 },
+                "pooling": {
+                    "description": "Pooling is a LocalAI extension for /v1/embeddings: how the backend's\nper-token vectors are reduced to a single embedding. \"\" or \"backend\"\nleaves pooling to the inference backend (the pre-existing behavior);\n\"mean\", \"last\" and \"decayed_mean\" pool Go-side from raw per-token\nvectors (the backend must run with the \"pooling:none\" option, which\nmodel configs get automatically when this is set).",
+                    "type": "string"
+                },
+                "pooling_half_life_tokens": {
+                    "description": "PoolingHalfLifeTokens is a LocalAI extension for /v1/embeddings: the\nhalf-life (in tokens) of the \"decayed_mean\" pooling scheme — a token's\nweight halves every this-many positions counting back from the end of\nthe conversation. Defaults to 256 when unset.",
+                    "type": "integer"
+                },
                 "presence_penalty": {
                     "type": "number"
                 },
@@ -6608,6 +7187,9 @@
             "properties": {
                 "completion_tokens": {
                     "type": "integer"
+                },
+                "compression_meta": {
+                    "$ref": "#/definitions/schema.CompressionMetadata"
                 },
                 "input_tokens": {
                     "description": "Fields for image generation API compatibility",
@@ -6855,6 +7437,116 @@
                 }
             }
         },
+        "schema.RouterCorpusAddRequest": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.RouterCorpusEntry"
+                    }
+                }
+            }
+        },
+        "schema.RouterCorpusAddResponse": {
+            "type": "object",
+            "properties": {
+                "added": {
+                    "description": "Added is how many entries were embedded, persisted, and indexed.",
+                    "type": "integer"
+                },
+                "label_counts": {
+                    "description": "LabelCounts is the per-label exemplar count after the call.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "router": {
+                    "type": "string"
+                },
+                "skipped": {
+                    "description": "Skipped counts entries whose text was already in the corpus —\nduplicates are rejected rather than double-weighted.",
+                    "type": "integer"
+                },
+                "total": {
+                    "description": "Total is the corpus size after the call.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.RouterCorpusClearResponse": {
+            "type": "object",
+            "properties": {
+                "cleared": {
+                    "type": "integer"
+                },
+                "router": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.RouterCorpusEntry": {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.RouterCorpusStatsResponse": {
+            "type": "object",
+            "properties": {
+                "embedding_model": {
+                    "type": "string"
+                },
+                "embedding_models": {
+                    "description": "EmbeddingModels lists the embedder fingerprints present in the\npersisted corpus; more than one means part of the corpus is\npending re-embedding on the next load.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "label_counts": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "router": {
+                    "type": "string"
+                },
+                "store_name": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.RouterDecideNeighbor": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "similarity": {
+                    "type": "number"
+                }
+            }
+        },
         "schema.RouterDecideRequest": {
             "type": "object",
             "properties": {
@@ -6901,6 +7593,17 @@
                 "latency_ms": {
                     "description": "LatencyMs is the classifier's wall-clock cost.",
                     "type": "integer"
+                },
+                "nearest_similarity": {
+                    "description": "NearestSimilarity is the cosine similarity of the closest KNN\ncorpus entry — populated by the knn classifier even when the\ndecision fell back because the probe was out of corpus range.\n0 for other classifiers.",
+                    "type": "number"
+                },
+                "neighbors": {
+                    "description": "Neighbors lists the corpus entries the knn classifier retrieved,\nby descending similarity, including ones below the similarity\ngate. Empty for other classifiers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.RouterDecideNeighbor"
+                    }
                 },
                 "router": {
                     "description": "Router echoes the requested router model.",
@@ -6951,6 +7654,10 @@
         "schema.SysInfoModel": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the engine serving this model. The loader knows only the ID,\nso it is resolved from the model's config; empty when the model was\nloaded without one (a loose file, or a config since removed).",
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 }

@@ -111,6 +111,11 @@ For a Podman-managed container, configure Podman to preserve and pass the
 systemd socket file descriptor into the container. The LocalAI process inside
 the container consumes the same activation protocol.
 
+Activation needs both `LISTEN_PID` and `LISTEN_FDS`. If only one of them is set,
+LocalAI ignores them and binds `--address` as usual. A container engine started
+from a socket-activated system unit can leak a bare `LISTEN_PID` into every
+container it spawns, and that is not an activation attempt.
+
 ## Next Steps
 
 - [Try it out with examples](/basics/try/)

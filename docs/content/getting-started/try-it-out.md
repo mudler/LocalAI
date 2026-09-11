@@ -30,7 +30,11 @@ local-ai run
 local-ai chat --model qwen3-4b
 ```
 
-`local-ai chat` connects to a running LocalAI server, opens an interactive chat prompt, and exits when you type `/exit`, `/quit`, or `/bye`. Use `/models` to list installed models, `/model <name>` to switch models, and `/clear` to reset the current conversation. If the server exposes exactly one model, LocalAI uses that model automatically:
+`local-ai chat` connects to a running LocalAI server and opens the built-in terminal agent. It is more than a chat prompt: it can read your files and run commands on your machine, so the first time it wants to do something that changes state it stops and asks you to approve the call. Reads and searches run without asking. Press `Esc` or `Ctrl+C` to end the session. `Esc` is a key of the full-screen interface: in the plain `--cli` mode, leave with `Ctrl+C`, `Ctrl+D`, or by typing `exit`.
+
+Use `/models` to list installed models, `/model <name>` to switch models while keeping the conversation, and `/compact` to summarize the history so far when the context fills up. The full picture is on the [Terminal agent]({{% relref "features/terminal-agent" %}}) page.
+
+If the server exposes exactly one model, LocalAI uses that model automatically:
 
 ```bash
 # Terminal 1
@@ -40,7 +44,7 @@ local-ai run qwen3-4b
 local-ai chat
 ```
 
-When more than one model is configured, pass `--model` with the installed model name to avoid ambiguity. Use `--endpoint` to connect to a non-default server, for example `local-ai chat --endpoint http://127.0.0.1:8081 --model qwen3-4b`.
+When more than one model is configured, the agent asks you to pick one and remembers your answer, or you can pass `--model` with the installed model name. Use `--endpoint` to connect to a non-default server, for example `local-ai chat --endpoint http://127.0.0.1:8081 --model qwen3-4b`.
 
 You can also test out the API endpoints using `curl`. A few examples are listed below.
 

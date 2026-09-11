@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -10,6 +11,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -81,6 +83,86 @@ func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token st
 	}
 }
 
+// ReleaseRemote removes one exact ephemeral key from a backend node.
+func (h *HTTPFileStager) ReleaseRemote(ctx context.Context, nodeID, key string) error {
+	if err := validateEphemeralReleaseKey(key); err != nil {
+		return err
+	}
+	addr, err := h.httpAddrFor(nodeID)
+	if err != nil {
+		return fmt.Errorf("resolving HTTP address for node %s: %w", nodeID, err)
+	}
+	releaseURL := (&url.URL{Scheme: "http", Host: addr, Path: "/v1/files/" + key}).String()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, releaseURL, nil)
+	if err != nil {
+		return fmt.Errorf("creating release request for %q: %w", key, err)
+	}
+	if h.token != "" {
+		req.Header.Set("Authorization", "Bearer "+h.token)
+	}
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("releasing %q from node %s: %w", key, nodeID, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("releasing %q from node %s: status %d: %s", key, nodeID, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
+// ReleaseRemoteRequest removes one inference's staged inputs with one HTTP
+// request. Older workers return 404 for the batch endpoint, so the client
+// retries through the exact-key API during rolling upgrades.
+func (h *HTTPFileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, requestID string, keys []string) error {
+	if err := validateEphemeralRequestRelease(requestID, keys); err != nil {
+		return err
+	}
+	addr, err := h.httpAddrFor(nodeID)
+	if err != nil {
+		return fmt.Errorf("resolving HTTP address for node %s: %w", nodeID, err)
+	}
+	payload, err := json.Marshal(struct {
+		RequestID string `json:"request_id"`
+	}{RequestID: requestID})
+	if err != nil {
+		return fmt.Errorf("encoding request release: %w", err)
+	}
+	releaseURL := (&url.URL{Scheme: "http", Host: addr, Path: "/v1/files-release"}).String()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, releaseURL, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("creating request release: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if h.token != "" {
+		req.Header.Set("Authorization", "Bearer "+h.token)
+	}
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("releasing request inputs from node %s: %w", nodeID, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
+		return h.releaseRemoteKeys(ctx, nodeID, keys)
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("releasing request inputs from node %s: status %d: %s", nodeID, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
+func (h *HTTPFileStager) releaseRemoteKeys(ctx context.Context, nodeID string, keys []string) error {
+	var releaseErrors []error
+	for _, key := range keys {
+		if err := h.ReleaseRemote(ctx, nodeID, key); err != nil {
+			releaseErrors = append(releaseErrors, err)
+		}
+	}
+	return errors.Join(releaseErrors...)
+}
+
 func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, key string) (string, error) {
 	xlog.Debug("Staging file to remote node via HTTP", "node", nodeID, "localPath", localPath, "key", key)
 
@@ -90,7 +172,9 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 	}
 
 	// Probe: check if the remote already has the file with matching content hash.
-	if remotePath, ok := h.probeExisting(ctx, addr, localPath, key); ok {
+	if remotePath, ok, probeErr := h.probeExisting(ctx, addr, localPath, key); probeErr != nil {
+		return "", fmt.Errorf("claiming existing file on node %s: %w", nodeID, probeErr)
+	} else if ok {
 		xlog.Info("Upload skipped (file already exists with matching hash)", "node", nodeID, "key", key, "remotePath", remotePath)
 		return remotePath, nil
 	}
@@ -439,14 +523,15 @@ func isTransientError(err error) bool {
 
 // probeExisting sends a HEAD request to check if the remote already has the
 // file with a matching SHA-256 hash. Returns the remote path and true if the
-// upload can be skipped. Any errors (including 405 from older servers) silently
-// fall through so the caller proceeds with a normal PUT.
-func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key string) (string, bool) {
+// upload can be skipped. HEAD and hash errors fall through to a normal PUT.
+// Matching ephemeral files are claimed first; a 404 or 405 claim response
+// identifies an older worker and also falls through to PUT.
+func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key string) (string, bool, error) {
 	url := fmt.Sprintf("http://%s/v1/files/%s", addr, key)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
-		return "", false
+		return "", false, nil
 	}
 	if h.token != "" {
 		req.Header.Set("Authorization", "Bearer "+h.token)
@@ -454,18 +539,18 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return "", false
+		return "", false, nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", false
+		return "", false, nil
 	}
 
 	remotePath := resp.Header.Get(HeaderLocalPath)
 	remoteHash := resp.Header.Get(HeaderContentSHA256)
 	if remotePath == "" || remoteHash == "" {
-		return "", false
+		return "", false, nil
 	}
 
 	// A 200 with a content hash is proof the worker is alive and serving right
@@ -475,14 +560,53 @@ func (h *HTTPFileStager) probeExisting(ctx context.Context, addr, localPath, key
 
 	localHash, err := hashLocalCached(ctx, localPath)
 	if err != nil {
-		return "", false
+		return "", false, nil
 	}
 
 	if localHash != remoteHash {
-		return "", false
+		return "", false, nil
 	}
 
-	return remotePath, true
+	if strings.HasPrefix(key, "ephemeral/") {
+		claimed, err := h.claimExisting(ctx, addr, key)
+		if err != nil {
+			return "", false, err
+		}
+		if !claimed {
+			return "", false, nil
+		}
+	}
+
+	return remotePath, true, nil
+}
+
+func (h *HTTPFileStager) claimExisting(ctx context.Context, addr, key string) (bool, error) {
+	claimURL := (&url.URL{
+		Scheme:   "http",
+		Host:     addr,
+		Path:     "/v1/files/" + key,
+		RawQuery: "claim=1",
+	}).String()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, claimURL, nil)
+	if err != nil {
+		return false, fmt.Errorf("creating claim request for %q: %w", key, err)
+	}
+	if h.token != "" {
+		req.Header.Set("Authorization", "Bearer "+h.token)
+	}
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("claiming %q: %w", key, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
+		return false, nil
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return false, fmt.Errorf("claiming %q: status %d: %s", key, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return true, nil
 }
 
 // hashChunkSize is how much of a file is hashed between activity ticks and

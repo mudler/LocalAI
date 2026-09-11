@@ -39,10 +39,10 @@ else
     cd "${FISH_SPEECH_DIR}" && git pull && cd -
 fi
 
-# Remove pyaudio from fish-speech deps — it's only used by the upstream client tool
-# (tools/api_client.py) for speaker playback, not by our gRPC backend server.
-# It requires native portaudio libs which aren't available on all build environments.
-sed -i.bak '/"pyaudio"/d' "${FISH_SPEECH_DIR}/pyproject.toml"
+# Keep the platform-specific PyTorch installed above. Upstream pins the generic
+# PyPI torch wheel, which replaces ROCm builds with a CUDA wheel during the
+# editable install. pyaudio is only used by the upstream playback client.
+bash "${backend_dir}/prepare-source.sh" "${BUILD_TYPE:-}" "${FISH_SPEECH_DIR}/pyproject.toml"
 
 # Install fish-speech deps from source (without the package itself since we use PYTHONPATH)
 ensureVenv

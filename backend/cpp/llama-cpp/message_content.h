@@ -52,14 +52,15 @@ inline nlohmann::ordered_json normalize_message_content(const std::string& role,
 // (#7528). A multimodal user message legitimately carries a typed-part array
 // ({type:text}, {type:image_url}, ...), which must be left intact. Shared by the
 // streaming and non-streaming paths so this invariant cannot drift between them.
-inline void normalize_template_message(nlohmann::ordered_json& msg) {
+template <typename Json>
+inline void normalize_template_message(Json& msg) {
     if (!msg.contains("content")) {
         msg["content"] = ""; // templates expect the field to exist
         return;
     }
-    nlohmann::ordered_json& content = msg["content"];
+    auto& content = msg["content"];
     const std::string role = (msg.contains("role") && msg["role"].is_string())
-                                 ? msg["role"].get<std::string>()
+                                 ? msg["role"].template get<std::string>()
                                  : std::string();
     if (content.is_null()) {
         content = ""; // #7324: null would crash content[:N] slicing

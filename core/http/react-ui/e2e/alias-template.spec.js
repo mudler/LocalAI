@@ -1,12 +1,12 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// Alias / Routing template + Manage alias badge regression tests.
+// Alias / Routing template + installed model alias badge regression tests.
 //
 // An alias is a model config with `alias: <target>` that redirects traffic to
 // the target model. This covers the two discoverability surfaces:
 //   - the create-flow template gallery exposes an "Alias / Routing" card that
 //     seeds a minimal name + alias config
-//   - the Manage Models tab renders a read-only "alias -> target" badge on
+//   - the Models Installed view renders a read-only "alias -> target" badge on
 //     rows that resolve to an alias (looked up via GET /api/aliases, since the
 //     capabilities row payload doesn't carry the alias field)
 
@@ -54,7 +54,7 @@ test.describe('Alias template - create flow', () => {
   })
 })
 
-test.describe('Manage - alias badge', () => {
+test.describe('Installed Models - alias badge', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/api/auth/status', (route) =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify({ authEnabled: false, staticApiKeyRequired: false, providers: [] }) }))
@@ -67,11 +67,9 @@ test.describe('Manage - alias badge', () => {
       route.fulfill({ contentType: 'application/json', body: JSON.stringify([{ name: 'gpt-4', target: 'fast-llm' }]) }))
   })
 
-  test('renders a read-only alias -> target badge on aliased rows', async ({ page }) => {
-    await page.goto('/app/manage')
-    await expect(page.locator('.table')).toBeVisible({ timeout: 10_000 })
-
-    // The aliased row shows the target; the plain model row does not.
-    await expect(page.getByText('alias -> fast-llm')).toBeVisible({ timeout: 10_000 })
+  test('renders a read-only alias → target badge on aliased rows', async ({ page }) => {
+    await page.goto('/app/models?view=installed')
+    await page.locator('[data-entity="gpt-4"]').click()
+    await expect(page.getByText('alias → fast-llm')).toBeVisible({ timeout: 10_000 })
   })
 })

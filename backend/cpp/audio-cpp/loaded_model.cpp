@@ -69,7 +69,8 @@ static_assert(kEngine(engine::runtime::VoiceTaskKind::VoiceDesign) == 10, "Voice
 static_assert(kEngine(engine::runtime::VoiceTaskKind::SpeakerRecognition) == 11, "VoiceTaskKind drifted");
 // The last member. Pinning it pins the member count too, as long as the
 // enumerators stay contiguous and unassigned, which upstream's declaration is.
-static_assert(kEngine(engine::runtime::VoiceTaskKind::Svc) == 12,
+static_assert(kEngine(engine::runtime::VoiceTaskKind::Svc) == 12, "VoiceTaskKind drifted");
+static_assert(kEngine(engine::runtime::VoiceTaskKind::Midi) == 13,
               "engine::runtime::VoiceTaskKind gained, lost or reordered a member. "
               "audiocpp_backend::Task mirrors it positionally: update capability_routing.h, "
               "to_engine_task and from_engine_task together, then move this pin.");
@@ -87,6 +88,7 @@ static_assert(kMirror(Task::Alignment) == 9, "Task drifted from VoiceTaskKind");
 static_assert(kMirror(Task::VoiceDesign) == 10, "Task drifted from VoiceTaskKind");
 static_assert(kMirror(Task::SpeakerRecognition) == 11, "Task drifted from VoiceTaskKind");
 static_assert(kMirror(Task::Svc) == 12, "Task drifted from VoiceTaskKind");
+static_assert(kMirror(Task::Midi) == 13, "Task drifted from VoiceTaskKind");
 
 static_assert(static_cast<int>(engine::runtime::RunMode::Offline) == 0, "RunMode drifted");
 static_assert(static_cast<int>(engine::runtime::RunMode::Streaming) == 1,
@@ -241,6 +243,7 @@ engine::runtime::VoiceTaskKind to_engine_task(Task task) {
     case Task::VoiceDesign:        return K::VoiceDesign;
     case Task::SpeakerRecognition: return K::SpeakerRecognition;
     case Task::Svc:                return K::Svc;
+    case Task::Midi:               return K::Midi;
     }
     // Unreachable for any valid enumerator. No `default:` label, so -Wswitch
     // still reports a member this switch stops covering.
@@ -263,6 +266,7 @@ Task from_engine_task(engine::runtime::VoiceTaskKind kind) {
     case K::VoiceDesign:        return Task::VoiceDesign;
     case K::SpeakerRecognition: return Task::SpeakerRecognition;
     case K::Svc:                return Task::Svc;
+    case K::Midi:               return Task::Midi;
     }
     return Task::Vad;
 }

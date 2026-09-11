@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/config"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -116,6 +117,21 @@ var _ = Describe("audio transform sample_rate bounds", func() {
 		Expect(err.(*echo.HTTPError).Message).To(ContainSubstring("8000"))
 		Expect(err.(*echo.HTTPError).Message).To(ContainSubstring("192000"))
 		Expect(err.(*echo.HTTPError).Message).To(ContainSubstring("999999999"))
+	})
+})
+
+var _ = Describe("audio transform stream model validation", func() {
+	It("accepts models that advertise audio transforms", func() {
+		usecases := config.FLAG_AUDIO_TRANSFORM
+		cfg := &config.ModelConfig{KnownUsecases: &usecases}
+		Expect(validateAudioTransformStreamModel(cfg)).To(Succeed())
+	})
+
+	It("rejects realtime any-to-any models", func() {
+		usecases := config.FLAG_REALTIME_AUDIO
+		cfg := &config.ModelConfig{KnownUsecases: &usecases, Backend: "liquid-audio"}
+		err := validateAudioTransformStreamModel(cfg)
+		Expect(err).To(MatchError(ContainSubstring("OpenAI Realtime API")))
 	})
 })
 

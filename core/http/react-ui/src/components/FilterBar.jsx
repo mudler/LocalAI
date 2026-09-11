@@ -58,7 +58,7 @@ export default function FilterBar({
                   className={`filter-btn ${activeFilter === f.key ? 'active' : ''}`}
                   onClick={() => onFilterChange(f.key)}
                 >
-                  {f.icon && <i className={`fas ${f.icon}`} style={{ marginRight: 4 }} />}
+                  {f.icon && <i className={`fas ${f.icon} icon-before`} />}
                   {f.label}
                   {typeof f.count === 'number' && (
                     <span className="filter-btn__count">{f.count}</span>

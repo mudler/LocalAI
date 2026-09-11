@@ -7,7 +7,10 @@ import { useModels } from '../hooks/useModels'
 // query isn't treated as a chosen value. After a commit the field is cleared,
 // matching the add-and-clear flow. Default false keeps the as-you-type
 // behaviour single-value editors rely on.
-export default function SearchableModelSelect({ value, onChange, capability, placeholder = 'Type or select a model...', style, commitOnly = false }) {
+// hints: optional { [modelId]: string } shown as muted text beside an entry and
+// searchable along with the name. Used to mark aliases with the model they
+// point at, so a picker that lists both can tell them apart.
+export default function SearchableModelSelect({ value, onChange, capability, placeholder = 'Type or select a model...', style, commitOnly = false, hints = {} }) {
   const { models, loading } = useModels(capability)
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -29,8 +32,10 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  const needle = query.toLowerCase()
   const filtered = models.filter(m =>
-    m.id.toLowerCase().includes(query.toLowerCase())
+    m.id.toLowerCase().includes(needle) ||
+    (hints[m.id] || '').toLowerCase().includes(needle)
   )
 
   // Which item Enter will select — matches SearchableSelect behavior
@@ -126,6 +131,11 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
           color: var(--color-primary);
           font-weight: 600;
         }
+        .sms-hint {
+          color: var(--color-text-muted);
+          font-size: 0.75rem;
+          flex-shrink: 0;
+        }
         .sms-empty {
           padding: 8px 10px;
           font-size: 0.8125rem;
@@ -172,6 +182,9 @@ export default function SearchableModelSelect({ value, onChange, capability, pla
                   }}
                 >
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.id}</span>
+                  {hints[m.id] && (
+                    <span className="sms-hint">{hints[m.id]}</span>
+                  )}
                   {isEnterTarget && (
                     <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', flexShrink: 0 }}>↵</span>
                   )}

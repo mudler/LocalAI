@@ -11,9 +11,11 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 - **[whisper.cpp](https://github.com/ggerganov/whisper.cpp)**: A C++ library for audio transcription (default)
 - **moonshine**: Ultra-fast transcription engine optimized for low-end devices
 - **faster-whisper**: Fast Whisper implementation with CTranslate2
+- **WhisperX**: Whisper transcription with word alignment and optional speaker diarization. Set `HF_TOKEN` and pass `diarize=true` to load WhisperX's gated pyannote diarization pipeline.
 - **[parakeet-cpp](https://github.com/mudler/parakeet.cpp)**: A C++/ggml port of NVIDIA NeMo Parakeet (FastConformer TDT/CTC/RNNT/hybrid). Runs quantized GGUFs on CPU or GPU, emits word-level timestamps, and supports cache-aware streaming (the `realtime_eou` model surfaces end-of-utterance events).
 - **llama-cpp**: Route transcription to any multimodal-audio GGUF model served by the `llama-cpp` backend (e.g. [Qwen3-ASR](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF), Voxtral, Qwen2-Audio). Under the hood the request is converted into a chat completion with the audio attached via the model's audio encoder - the same path the upstream llama.cpp server uses. Set `backend: llama-cpp` in the model YAML and point `mmproj` at the matching audio encoder.
 - **voxtral**: Voxtral-family models served by a dedicated backend
+- **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)**: NVIDIA's C++/ggml runtime for the Nemotron Speech models. Serves offline, streaming and live transcription, with VAD, punctuation, inverse text normalization and Sortformer speaker tags attached through model options, and covers diarization, speech synthesis and translation from the same backend. See the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}}) page for the model options.
 - **[audio.cpp](https://github.com/0xShug0/audio.cpp)**: Multi-family GGML audio engine. Serves transcription and forced alignment from families such as `nemotron_asr`, `qwen3_asr`, `citrinet_asr`, `higgs_audio_stt` and `voxtral_realtime`, and covers diarization, VAD, TTS and source separation from the same backend. See the [audio.cpp backend]({{%relref "features/audio-cpp" %}}) page for the model options.
 
 The endpoint input supports all the audio formats supported by `ffmpeg`.
@@ -108,7 +110,7 @@ In addition to `file` and `model`, the endpoint accepts the following multipart 
 | `timestamp_granularities[]` | Multi-value form field: `word` and/or `segment`. Honored when the backend produces the requested granularity. |
 | `response_format` | One of `json` (default for backwards-compat), `verbose_json`, `text`, `srt`, `vtt`, `lrc`. |
 | `stream` | When `true`, the endpoint emits an SSE stream of `transcript.text.delta` events followed by a final `transcript.text.done` event. |
-| `diarize` | LocalAI extension - speaker diarization (whisper.cpp only). |
+| `diarize` | LocalAI extension - speaker diarization. WhisperX requires `HF_TOKEN`; requests fail with `FailedPrecondition` when it is missing. |
 
 The response body for `verbose_json` includes `text`, `language`, `duration`, and `segments[]` (with `speaker` populated when diarization is enabled).
 

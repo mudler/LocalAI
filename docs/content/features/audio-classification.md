@@ -11,6 +11,10 @@ LocalAI exposes this through the `/v1/audio/classification` endpoint, modelled a
 
 Because classification is exposed as a regular OpenAI-style endpoint, any HTTP client works - there is no Python dependency on the consumer side.
 
+In distributed mode, LocalAI stages uploaded audio and realtime sound-detection
+windows on the selected worker before classification. The API server and worker
+do not need a shared temporary directory.
+
 ## Endpoint
 
 ```

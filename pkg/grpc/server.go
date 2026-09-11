@@ -96,7 +96,10 @@ func (s *server) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.Embe
 		return nil, err
 	}
 
-	return &pb.EmbeddingResult{Embeddings: embeds}, nil
+	return &pb.EmbeddingResult{
+		Embeddings: embeds,
+		Layout:     pb.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL,
+	}, nil
 }
 
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
@@ -148,6 +151,18 @@ func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest)
 		return &pb.Result{Message: fmt.Sprintf("Error generating image: %s", err.Error()), Success: false}, err
 	}
 	return &pb.Result{Message: "Image generated", Success: true}, nil
+}
+
+func (s *server) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest) (*pb.Result, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	err := s.llm.UpscaleImage(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error upscaling image: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "Image upscaled", Success: true}, nil
 }
 
 func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest) (*pb.Result, error) {
@@ -542,6 +557,18 @@ func (s *server) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb
 		Length: int32(res.Length),
 		Tokens: castTokens,
 	}, err
+}
+
+func (s *server) Detokenize(ctx context.Context, in *pb.DetokenizeRequest) (*pb.DetokenizeResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.Detokenize(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 func (s *server) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {

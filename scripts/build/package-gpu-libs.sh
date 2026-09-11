@@ -675,21 +675,43 @@ package_rocm_libs() {
 package_intel_libs() {
     echo "Packaging Intel oneAPI/SYCL libraries for BUILD_TYPE=${BUILD_TYPE}..."
 
-    local intel_lib_paths=(
-        "/opt/intel/oneapi/compiler/latest/lib"
-        "/opt/intel/oneapi/mkl/latest/lib/intel64"
-        "/opt/intel/oneapi/tbb/latest/lib/intel64/gcc4.8"
-    )
+    # Where to look for the oneAPI libraries. The default is the standard install
+    # layout. The list can be overridden with a space-separated one, which lets
+    # the tests run without a real oneAPI install, the same way ROCM_BASE_DIRS
+    # works. Both the current and the older math library layouts are listed, and
+    # the check below skips whichever of them is absent.
+    local intel_lib_paths
+    if [ -n "${INTEL_ONEAPI_LIB_DIRS:-}" ]; then
+        # shellcheck disable=SC2206  # intentional word-split of the override
+        intel_lib_paths=(${INTEL_ONEAPI_LIB_DIRS})
+    else
+        intel_lib_paths=(
+            "/opt/intel/oneapi/compiler/latest/lib"
+            "/opt/intel/oneapi/mkl/latest/lib"
+            "/opt/intel/oneapi/mkl/latest/lib/intel64"
+            "/opt/intel/oneapi/dnnl/latest/lib"
+            "/opt/intel/oneapi/tbb/latest/lib/intel64/gcc4.8"
+        )
+    fi
 
-    # Core Intel oneAPI runtime libraries
+    # The oneAPI libraries a backend needs at run time. The math library entries
+    # cover both of its number formats and both of its threading layers, because
+    # the llama.cpp build for Intel GPUs uses a different combination than the
+    # rest. The libur_adapter_* entries have to be named here even though nothing
+    # is linked against them: oneAPI opens them by name while the program runs,
+    # so the dependency scan later in this function cannot see them.
     local intel_libs=(
         "libsycl.so*"
         "libOpenCL.so*"
         "libmkl_core.so*"
         "libmkl_intel_lp64.so*"
+        "libmkl_intel_ilp64.so*"
         "libmkl_intel_thread.so*"
+        "libmkl_tbb_thread.so*"
         "libmkl_sequential.so*"
         "libmkl_sycl.so*"
+        "libmkl_sycl_blas.so*"
+        "libdnnl.so*"
         "libiomp5.so*"
         "libsvml.so*"
         "libirng.so*"
@@ -697,6 +719,10 @@ package_intel_libs() {
         "libintlc.so*"
         "libtbb.so*"
         "libtbbmalloc.so*"
+        "libur_loader.so*"
+        "libur_adapter_level_zero.so*"
+        "libur_adapter_level_zero_v2.so*"
+        "libur_adapter_opencl.so*"
         "libpi_level_zero.so*"
         "libpi_opencl.so*"
         "libze_loader.so*"
@@ -710,9 +736,91 @@ package_intel_libs() {
         fi
     done
 
-    # Pull in transitive deps the allowlist misses so the backend is
-    # self-contained (same class of failure as #10537).
+    # Copy the libraries the backend programs themselves are linked against. The
+    # list above is not enough on its own: the programs are linked directly
+    # against several oneAPI libraries that no copied library refers to, so
+    # without this step the backend only ran inside the build image, where oneAPI
+    # happens to be on the library path.
+    #
+    # The programs sit one level above the target directory, in package/, next to
+    # the run.sh that starts them. Every backend that builds for Intel GPUs is
+    # covered by looking at all of them, rather than at one set of names, because
+    # llama.cpp, turboquant and bonsai all come through here.
+    local pkg_dir="$TARGET_LIB_DIR/.."
+    local bin
+    for bin in "$pkg_dir"/*; do
+        if [ -f "$bin" ] && [ -x "$bin" ]; then
+            copy_elf_deps "$bin"
+        fi
+    done
+
+    # Copy the Intel graphics driver itself, the way the Vulkan packaging copies
+    # the Mesa driver. Level Zero opens the driver by name while the program
+    # runs, so no dependency scan can find it and it has to be named here.
+    #
+    # This is what lets the backend run on a machine with no Intel graphics
+    # packages installed, and also on a machine whose own driver was built
+    # against a newer C library than the one this backend carries, where loading
+    # the host's driver crashes. Carrying the driver is safe across kernel
+    # versions because it reaches the graphics hardware through an interface the
+    # kernel keeps stable. The NVIDIA driver has no such interface, which is why
+    # that one is never copied.
+    #
+    # Only the builds that start through run.sh get a driver: run.sh is what
+    # tells Level Zero to use it. The Python backends built for Intel GPUs start
+    # differently and keep using the host's driver, so copying one for them would
+    # add several hundred megabytes that nothing would ever load.
+    #
+    # Only the Level Zero side is copied. llama.cpp reaches an Intel GPU through
+    # Level Zero, which hands the driver ready-compiled programs and so needs
+    # only the compiler's back end. The OpenCL driver can be handed source code
+    # instead, so it also needs the compiler's front end, and that pulls in a
+    # copy of clang: around 139 MB for a path nothing here takes. A user who
+    # wants OpenCL has their machine's own.
+    case "${BUILD_TYPE:-}" in
+        sycl*)
+            local intel_driver_lib_dirs
+            if [ -n "${INTEL_DRIVER_LIB_DIRS:-}" ]; then
+                # shellcheck disable=SC2206  # split the override into words on purpose
+                intel_driver_lib_dirs=(${INTEL_DRIVER_LIB_DIRS})
+            else
+                intel_driver_lib_dirs=(
+                    "/usr/lib/x86_64-linux-gnu"
+                    "/usr/lib"
+                )
+            fi
+            local driver_libs=(
+                "libze_intel_gpu.so*"   # the driver Level Zero talks to
+                "libigc.so*"            # turns compute programs into instructions for the card
+                "libigdgmm.so*"         # manages graphics memory
+            )
+            local drv_dir pat
+            for drv_dir in "${intel_driver_lib_dirs[@]}"; do
+                [ -d "$drv_dir" ] || continue
+                for pat in "${driver_libs[@]}"; do
+                    copy_libs_glob "${drv_dir}/${pat}"
+                done
+            done
+            ;;
+    esac
+
+    # Copy whatever the steps above still missed. Each library copied so far can
+    # need further libraries of its own, and a missing one stops the backend from
+    # starting at all (issue #10537).
     sweep_transitive_deps "$TARGET_LIB_DIR"
+
+    # Say so when a build meant for Intel GPUs ends up without a driver. It still
+    # works on a machine that has its own, so nothing fails here, and the only
+    # other way to notice is a user reporting that their GPU is not used. The
+    # usual cause is a build image that predates the driver being installed in
+    # .docker/install-base-deps.sh.
+    case "${BUILD_TYPE:-}" in
+        sycl*)
+            if [ ! -e "$TARGET_LIB_DIR/libze_intel_gpu.so.1" ]; then
+                echo "WARNING: no Intel graphics driver was found to copy. This backend will only use a GPU on a machine that has its own Intel driver installed." >&2
+            fi
+            ;;
+    esac
 
     echo "Intel oneAPI libraries packaged successfully"
 }

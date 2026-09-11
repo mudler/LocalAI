@@ -92,8 +92,8 @@ export default function SourceTimeChart({ buckets = [], selectedKey, totals }) {
   const width = Math.max(series.length * slotWidth, 200)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
-      <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+    <div className="stack stack--xs">
+      <div className="text-base fw-semibold">
         {t('usage.sources.topSources')}
       </div>
 

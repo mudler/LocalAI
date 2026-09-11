@@ -638,7 +638,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             normalized = (pooled / (norm + 1e-12))
             vec = normalized.cast(dtypes.float32).tolist()
 
-            return backend_pb2.EmbeddingResult(embeddings=[float(x) for x in vec])
+            return backend_pb2.EmbeddingResult(
+                embeddings=[float(x) for x in vec],
+                layout=backend_pb2.EMBEDDING_LAYOUT_FINAL,
+            )
         except Exception as exc:
             import traceback
             traceback.print_exc()

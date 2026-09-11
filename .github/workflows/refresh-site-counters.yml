@@ -1,0 +1,55 @@
+name: Refresh site counters
+
+# The landing page shows a star count, a contributor count and a release
+# count. They were typed in by hand, so they drifted the moment somebody
+# forgot. This pulls the real numbers once a week and commits them only when
+# they have actually moved, which in turn triggers the usual Pages deploy.
+
+on:
+  schedule:
+    # Mondays, 06:17 UTC. Off the hour on purpose, since the scheduler queues
+    # everything that asks for :00 and drops what it cannot run.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: refresh-site-counters
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the counts off the GitHub API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./.github/ci/refresh-site-counters.sh
+
+      - name: Show changes
+        run: |
+          if git diff --quiet -- website/data/stats.yaml; then
+            echo "counters unchanged"
+          else
+            git diff --unified=0 -- website/data/stats.yaml
+          fi
+
+      - name: Create pull request when counters moved
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: "chore(website): refresh the counters"
+          title: "chore(website): refresh the counters"
+          body: |
+            Weekly refresh of the landing-page counters from the GitHub API.
+
+            This PR was created automatically by the `refresh-site-counters` workflow.
+          branch: update/site-counters
+          delete-branch: true
+          labels: automated

@@ -113,6 +113,54 @@ if [ "${BUILD_TYPE:-}" = "vulkan" ] && [ "${SKIP_DRIVERS:-false}" = "false" ]; t
     rm -rf /var/lib/apt/lists/*
 fi
 
+# --- 2b. Intel graphics driver (BUILD_TYPE=sycl*) ---
+# The Intel oneAPI base image brings the compilers and the oneAPI libraries, but
+# not the driver that talks to the graphics card. The packaging step copies that
+# driver into the backend, so that the backend works on a machine which has no
+# Intel graphics packages of its own, for the same reason the Vulkan section
+# above installs the Mesa drivers. Install it here so there is something to copy.
+#
+# Only the sycl builds are covered, because those are the ones whose packaging
+# copies the driver. See package_intel_libs in scripts/build/package-gpu-libs.sh.
+#
+# The driver comes from Intel's own package repository, not from the Ubuntu
+# archive. The archive has 23.43 from late 2023, which does not know any card
+# released since, so a machine with a recent Intel GPU would end up carrying a
+# driver that cannot drive it. Intel's repository has 25.18 for the same Ubuntu
+# release.
+#
+# Anything that goes wrong here fails the build, on purpose. An unreachable
+# repository is a passing problem that a retry fixes, whereas carrying a
+# different driver than intended, or none, is a difference nobody would notice
+# until a user reports an idle GPU.
+if case "${BUILD_TYPE:-}" in sycl*) true;; *) false;; esac \
+    && [ "${SKIP_DRIVERS:-false}" = "false" ]; then
+    # Ubuntu release name, which is what the repository is indexed by.
+    ubuntu_codename=$(. /etc/os-release && echo "${VERSION_CODENAME:-}")
+    if [ -z "$ubuntu_codename" ]; then
+        echo "ERROR: cannot tell which Ubuntu release this image is, so cannot pick the Intel driver repository" >&2
+        exit 1
+    fi
+
+    # The key is armored text, which apt reads directly from a .asc file, so
+    # there is no need for gnupg here. "unified" is the component Intel ships
+    # its current driver in.
+    mkdir -p /usr/share/keyrings
+    curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key \
+        -o /usr/share/keyrings/intel-graphics.asc
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.asc] https://repositories.intel.com/gpu/ubuntu ${ubuntu_codename} unified" \
+        > /etc/apt/sources.list.d/intel-graphics.list
+    apt-get update
+    # The first package holds the driver OpenCL talks to, the second the driver
+    # Level Zero talks to. Between them they pull in the compiler and the memory
+    # manager that both need.
+    apt-get install -y --no-install-recommends \
+        intel-opencl-icd \
+        libze-intel-gpu1
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+fi
+
 # --- 3. CUDA toolkit (BUILD_TYPE=cublas|l4t) ---
 if { [ "${BUILD_TYPE:-}" = "cublas" ] || [ "${BUILD_TYPE:-}" = "l4t" ]; } && [ "${SKIP_DRIVERS:-false}" = "false" ]; then
     apt-get update

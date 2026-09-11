@@ -69,16 +69,25 @@ target_include_directories(hw_grpc_proto PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 set(DS4_OBJS "${DS4_DIR}/ds4.o")
 if(DS4_GPU STREQUAL "cuda")
-    list(APPEND DS4_OBJS "${DS4_DIR}/ds4_cuda.o")
+    list(APPEND DS4_OBJS
+        "${DS4_DIR}/ds4_cuda.o"
+        "${DS4_DIR}/cuda/mmq/ds4_ggml_stubs.o"
+        "${DS4_DIR}/cuda/mmq/ds4_mmq.o"
+        "${DS4_DIR}/cuda/mmq/ds4_mmq_d2r.o"
+        "${DS4_DIR}/cuda/mmq/quantize.o"
+        "${DS4_DIR}/cuda/mmq/mmid.o"
+        "${DS4_DIR}/cuda/mmq/mmvq.o"
+        "${DS4_DIR}/cuda/mmq/ds4_repack.o")
 elseif(DS4_GPU STREQUAL "metal")
     list(APPEND DS4_OBJS "${DS4_DIR}/ds4_metal.o")
 elseif(DS4_GPU STREQUAL "cpu")
     set(DS4_OBJS "${DS4_DIR}/ds4_cpu.o")
 endif()
 
-# Upstream splits distributed inference, tensor-parallel transport, the SSD
-# expert cache, and layer placement into GPU-agnostic translation units. Link
-# them regardless of DS4_GPU.
+# Upstream splits image preprocessing, distributed inference, tensor-parallel
+# transport, the SSD expert cache, and layer placement into GPU-agnostic
+# translation units. Link them regardless of DS4_GPU.
+list(APPEND DS4_OBJS "${DS4_DIR}/ds4_image.o")
 list(APPEND DS4_OBJS "${DS4_DIR}/ds4_distributed.o")
 list(APPEND DS4_OBJS "${DS4_DIR}/ds4_tp.o")
 list(APPEND DS4_OBJS "${DS4_DIR}/ds4_ssd.o")

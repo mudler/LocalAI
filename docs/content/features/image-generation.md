@@ -79,8 +79,8 @@ When a model does not fit entirely in VRAM, the following `options:` control whe
 |--------|---------|-------------|
 | `backend` | `backend:clip=cpu,vae=cuda0,diffusion=vulkan0` | Runtime (compute) backend assignment per component. Use `cpu` to place a component's compute on the CPU. Component keys include `te` (text encoder / CLIP), `vae`, `diffusion`, `controlnet`. |
 | `params_backend` | `params_backend:diffusion=disk,clip=cpu` | Where parameters (weights) are stored. Supports `cpu`, `disk` (mmap weights from disk to save RAM/VRAM), or per-component specs. |
-| `max_vram` | `max_vram:8` or `max_vram:-1` | VRAM budget (in GiB) for graph-cut segmented parameter offload. `0` disables it, `-1` auto-selects (free VRAM minus ~1 GiB). Also accepts per-backend budgets. |
-| `stream_layers` | `stream_layers:true` | Enable residency + prefetch streaming on top of `max_vram` (no effect unless `max_vram` is set). |
+| `max_vram` | `max_vram:8` or `max_vram:-1` | Optional per-device VRAM budget (in GiB) for managed weights and automatic graph-cut execution. `0` uses live free VRAM without an explicit cap; a negative value reserves that many GiB of free VRAM. Also accepts per-backend budgets. |
+| `stream_layers` | `stream_layers:true` | Deprecated compatibility option. Segmented weight streaming is now selected automatically, so this value is ignored. |
 | `rpc_servers` | `rpc_servers:localhost:50052,192.168.1.3:50052` | Comma-separated list of `host:port` RPC servers to offload compute to. |
 | `pulid_weights_path` | `pulid_weights_path:pulid.safetensors` | Path to PuLID-Flux weights for identity injection. |
 
@@ -163,6 +163,30 @@ By default the RPC devices join the pool and participate in placement; combine w
 
 ![anime_girl](https://github.com/go-skynet/LocalAI/assets/2420543/8aaca62a-e864-4011-98ae-dcc708103928)
 (Generated with [AnimagineXL](https://huggingface.co/Linaqruf/animagine-xl))
+
+#### Image upscaling
+
+LocalAI can upscale an uploaded image by a factor of 2 or 4 through
+`POST /v1/images/upscale`. Install the included Stable Diffusion x4 upscaler
+gallery model first:
+
+```bash
+local-ai models install stable-diffusion-x4-upscaler
+```
+
+Then send the model name, scale, and image as multipart form fields:
+
+```bash
+curl http://localhost:8080/v1/images/upscale \
+  -F model=stable-diffusion-x4-upscaler \
+  -F scale=4 \
+  -F image=@input.png
+```
+
+The response uses the same format as image generation and returns the generated
+image under `/generated-images`. The `diffusers` backend uses a loaded
+`StableDiffusionUpscalePipeline` or `StableDiffusionLatentUpscalePipeline` when
+configured. Other diffusers pipelines fall back to Lanczos resizing.
 
 #### Model setup
 

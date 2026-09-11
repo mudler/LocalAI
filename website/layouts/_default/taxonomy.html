@@ -1,0 +1,17 @@
+{{ define "main" }}
+<main id="top">
+  <section class="navy">
+    <div class="shell">
+      <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <p class="kicker">Tags</p>
+      <h2 class="mt1">Everything we have written about</h2>
+      <div class="chips mt2">
+        {{ range .Data.Terms.Alphabetical }}
+        <a href="{{ .Page.RelPermalink }}"><span>{{ .Page.Title }} ({{ .Count }})</span></a>
+        {{ end }}
+      </div>
+      <p class="mt3"><a class="btn btn--o" href="{{ "blog/" | relURL }}">All posts &#8594;</a></p>
+    </div>
+  </section>
+</main>
+{{ end }}

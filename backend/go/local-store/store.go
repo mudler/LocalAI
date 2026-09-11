@@ -38,8 +38,9 @@ type Store struct {
 	// keysAreNormalized stays true until any non-unit-magnitude key
 	// is added; once false, the magnitude-aware fallback path is
 	// used by Find. Re-evaluated only at Set time, never again on
-	// its own — a deletion of the offending key does NOT flip it
-	// back to true (the bookkeeping cost would dominate the gain).
+	// its own — a partial deletion of the offending key does NOT flip
+	// it back to true (the bookkeeping cost would dominate the gain).
+	// An empty store returns to its initial state.
 	keysAreNormalized bool
 
 	// keyLen is the dimension of every stored key. -1 means "no
@@ -142,6 +143,10 @@ func (s *Store) StoresDelete(opts *pb.StoresDeleteOptions) error {
 	mergedV = append(mergedV, tailV...)
 	s.keys = mergedK
 	s.values = mergedV
+	if len(s.keys) == 0 {
+		s.keyLen = -1
+		s.keysAreNormalized = true
+	}
 	assert(slices.IsSortedFunc(s.keys, slices.Compare[[]float32]), "Delete: s.keys not sorted post-merge")
 	assert(len(s.keys) == len(s.values), "Delete: keys/values length skew")
 	return nil

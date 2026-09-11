@@ -54,62 +54,57 @@ var _ = Describe("RunLeaderLoop", func() {
 				close(done)
 			}()
 
-			// Let it run a bit then cancel
-			time.Sleep(150 * time.Millisecond)
+			Eventually(func() int32 {
+				return atomic.LoadInt32(&callCount)
+			}, 500*time.Millisecond, 10*time.Millisecond).Should(BeNumerically(">=", 1))
 			cancel()
 
-			// RunLeaderLoop should return
 			Eventually(done, 500*time.Millisecond).Should(BeClosed())
-
-			// Record count after cancellation
-			countAfterCancel := atomic.LoadInt32(&callCount)
-			time.Sleep(150 * time.Millisecond)
-			countLater := atomic.LoadInt32(&callCount)
-
-			Expect(countLater).To(Equal(countAfterCancel),
-				"function should stop being called after context cancellation")
 		})
 
 		It("only one leader executes at a time (two concurrent loops)", func() {
 			db := testutil.SetupTestDB()
 			const lockKey int64 = 5002
 
-			var (
-				mu         sync.Mutex
-				maxRunning int32
-				running    int32
-			)
+			var running int32
+			entered := make(chan struct{}, 2)
+			release := make(chan struct{})
+			var releaseOnce sync.Once
 
 			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			done := make(chan struct{}, 2)
+			DeferCleanup(func() {
+				cancel()
+				releaseOnce.Do(func() { close(release) })
+			})
 
 			fn := func() {
-				cur := atomic.AddInt32(&running, 1)
-				mu.Lock()
-				if cur > maxRunning {
-					maxRunning = cur
+				atomic.AddInt32(&running, 1)
+				select {
+				case entered <- struct{}{}:
+				default:
 				}
-				mu.Unlock()
-
-				time.Sleep(30 * time.Millisecond)
-
+				<-release
 				atomic.AddInt32(&running, -1)
 			}
 
-			// Start two competing leader loops with the same lock key
-			go RunLeaderLoop(ctx, db, lockKey, 50*time.Millisecond, fn)
-			go RunLeaderLoop(ctx, db, lockKey, 50*time.Millisecond, fn)
+			for range 2 {
+				go func() {
+					RunLeaderLoop(ctx, db, lockKey, 1*time.Millisecond, fn)
+					done <- struct{}{}
+				}()
+			}
 
-			// Let them run for a while
-			time.Sleep(400 * time.Millisecond)
+			Eventually(entered, 500*time.Millisecond).Should(Receive())
+			Consistently(func() int32 {
+				return atomic.LoadInt32(&running)
+			}, 50*time.Millisecond, 5*time.Millisecond).Should(Equal(int32(1)),
+				"expected only the lock holder to run while both loops tick")
+
 			cancel()
-
-			mu.Lock()
-			observed := maxRunning
-			mu.Unlock()
-
-			Expect(observed).To(BeNumerically("<=", 1),
-				"expected at most 1 goroutine running the leader function at a time")
+			releaseOnce.Do(func() { close(release) })
+			Eventually(done, 500*time.Millisecond).Should(Receive())
+			Eventually(done, 500*time.Millisecond).Should(Receive())
 		})
 	})
 })

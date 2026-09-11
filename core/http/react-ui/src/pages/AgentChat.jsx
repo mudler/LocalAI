@@ -44,7 +44,7 @@ function AgentActivityGroup({ items }) {
 
   return (
     <div className="chat-message chat-message-assistant">
-      <div className="chat-message-avatar" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+      <div className="chat-message-avatar chip-neutral">
         <i className="fas fa-cogs" />
       </div>
       <div className="chat-activity-group">
@@ -60,7 +60,7 @@ function AgentActivityGroup({ items }) {
             {items.map((item, idx) => (
               <div key={idx} className="chat-activity-item">
                 <span className="chat-activity-item-label">{new Date(item.timestamp).toLocaleTimeString()}</span>
-                <div className="chat-activity-item-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{item.content}</div>
+                <div className="chat-activity-item-content wrap-anywhere">{item.content}</div>
               </div>
             ))}
           </div>
@@ -456,7 +456,7 @@ export default function AgentChat() {
       {/* Conversation sidebar */}
       <div className={`chat-sidebar${sidebarOpen ? '' : ' hidden'}`}>
         <div className="chat-sidebar-header">
-          <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => addConversation()}>
+          <button className="btn btn-primary btn-sm flex-1" onClick={() => addConversation()}>
             <i className="fas fa-plus" /> New Chat
           </button>
           <button
@@ -570,7 +570,7 @@ export default function AgentChat() {
           <i className={`fas fa-${sidebarOpen ? 'angles-left' : 'angles-right'}`} />
         </button>
         <span className="chat-header-title">
-          <i className="fas fa-robot" style={{ marginRight: 'var(--spacing-xs)' }} />
+          <i className="fas fa-robot icon-before" />
           {name}
         </span>
         <div className="chat-header-actions">
@@ -648,7 +648,7 @@ export default function AgentChat() {
                 <div className="chat-message-bubble">
                   <div className="chat-message-content">
                     {role === 'user' ? (
-                      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.content}</div>
+                      <div className="wrap-anywhere">{msg.content}</div>
                     ) : (
                       <div dangerouslySetInnerHTML={{
                         __html: canvasMode
@@ -688,7 +688,7 @@ export default function AgentChat() {
             <div className="chat-message-bubble">
               {streamReasoning && (
                 <details className="chat-activity-group" open={!streamContent} style={{ marginBottom: streamContent ? 'var(--spacing-sm)' : 0 }}>
-                  <summary className="chat-activity-toggle" style={{ cursor: 'pointer' }}>
+                  <summary className="chat-activity-toggle clickable">
                     <span className={`chat-activity-summary${!streamContent ? ' chat-activity-shimmer' : ''}`}>
                       {streamContent ? 'Thinking' : 'Thinking...'}
                     </span>
@@ -702,7 +702,7 @@ export default function AgentChat() {
                 </details>
               )}
               {streamToolCalls.length > 0 && (
-                <div className="chat-activity-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
+                <div className="chat-activity-group mb-sm">
                   {streamToolCalls.map((tc, idx) => (
                     <details key={idx} className="chat-activity-item chat-activity-tool-call" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }} open={!tc.result}>
                       <summary className="chat-activity-item-label" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
@@ -737,7 +737,7 @@ export default function AgentChat() {
         )}
         {processing && !streamReasoning && !streamContent && streamToolCalls.length === 0 && (
           <div className="chat-message chat-message-assistant">
-            <div className="chat-message-avatar" style={{ background: 'var(--color-bg-tertiary)', color: 'var(--color-text-muted)' }}>
+            <div className="chat-message-avatar chip-neutral">
               <i className="fas fa-cogs" />
             </div>
             <div className="chat-activity-group chat-activity-streaming">

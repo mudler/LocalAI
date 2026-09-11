@@ -55,6 +55,7 @@ type liveTranscriptionSession struct {
 	closeOnce sync.Once
 	closeErr  error
 	trace     *liveTraceState // nil when tracing was disabled at open
+	release   func()
 }
 
 func (s *liveTranscriptionSession) Feed(pcm []float32) error {
@@ -80,6 +81,7 @@ func (s *liveTranscriptionSession) Close() error {
 		}
 		s.closeErr = err
 		s.trace.record(err)
+		s.release()
 	})
 	return s.closeErr
 }
@@ -100,6 +102,7 @@ type liveTraceState struct {
 	backend   string
 	language  string
 	started   time.Time
+	traceID   string
 
 	mu          sync.Mutex
 	pcm         []byte // first trace.MaxSnippetSeconds of fed audio, int16 LE
@@ -115,12 +118,14 @@ func newLiveTraceState(modelConfig config.ModelConfig, appConfig *config.Applica
 		return nil
 	}
 	trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
+	started := time.Now()
 	return &liveTraceState{
 		appConfig: appConfig,
 		modelName: modelConfig.Name,
 		backend:   modelConfig.Backend,
 		language:  language,
-		started:   time.Now(),
+		started:   started,
+		traceID:   trace.BeginBackendTrace(trace.BackendTrace{Timestamp: started, Type: trace.BackendTraceTranscription, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "live transcription"}),
 	}
 }
 
@@ -180,6 +185,7 @@ func (ts *liveTraceState) record(closeErr error) {
 	ts.mu.Unlock()
 
 	bt := trace.BackendTrace{
+		ID:        ts.traceID,
 		Timestamp: ts.started,
 		Duration:  time.Since(ts.started),
 		Type:      trace.BackendTraceTranscription,
@@ -210,6 +216,10 @@ func ModelTranscriptionLive(ctx context.Context, language string,
 	if err != nil {
 		return nil, err
 	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
 
 	// The derived cancel out-lives this call inside the session: Close uses
 	// it to unwind the stream (and, in embed mode, the server-side recv
@@ -218,12 +228,14 @@ func ModelTranscriptionLive(ctx context.Context, language string,
 	stream, err := transcriptionModel.AudioTranscriptionLive(streamCtx)
 	if err != nil {
 		cancel()
+		release()
 		return nil, err
 	}
 
 	fail := func(err error) (LiveTranscriptionSession, error) {
 		_ = stream.CloseSend()
 		cancel()
+		release()
 		return nil, err
 	}
 
@@ -252,6 +264,7 @@ func ModelTranscriptionLive(ctx context.Context, language string,
 		cancel:   cancel,
 		recvDone: make(chan struct{}),
 		trace:    newLiveTraceState(modelConfig, appConfig, language),
+		release:  release,
 	}
 
 	go func() {

@@ -38,7 +38,7 @@ func NewModelRouterAdapter(router *SmartRouter) *ModelRouterAdapter {
 // It delegates to SmartRouter.Route() and returns a Model that wraps the
 // remote gRPC client with file staging if configured.
 func (a *ModelRouterAdapter) Route(ctx context.Context, backend, modelID, modelName, modelFile string,
-	opts *pb.ModelOptions, parallel bool) (*model.Model, error) {
+	configRevision string, opts *pb.ModelOptions, parallel bool) (*model.Model, error) {
 
 	backendType := backend
 
@@ -51,7 +51,7 @@ func (a *ModelRouterAdapter) Route(ctx context.Context, backend, modelID, modelN
 
 	// Route to a remote node (SmartRouter handles model pre-staging via FileStager)
 	// Pass modelID so the DB tracks models by their logical ID, not the file path
-	result, err := a.router.Route(ctx, modelID, modelName, backendType, opts, parallel)
+	result, err := a.router.Route(ctx, modelID, modelName, backendType, configRevision, opts, parallel)
 	if err != nil {
 		return nil, fmt.Errorf("routing model %s: %w", modelName, err)
 	}

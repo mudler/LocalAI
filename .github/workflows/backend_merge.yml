@@ -71,8 +71,8 @@ jobs:
 
       # cosign signs each pushed manifest list with --recursive so the
       # index and every per-arch entry get an attached Sigstore bundle.
-      # Recent cosign releases always emit the new bundle format, so
-      # there's no extra CLI flag to opt into it.
+      # Cosign v2.4.1 emits the current bundle format by default; the
+      # verifier discovers those bundles through OCI 1.1 referrers.
       - name: Install cosign
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3

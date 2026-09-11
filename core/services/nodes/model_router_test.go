@@ -4,16 +4,19 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"gorm.io/gorm"
 )
 
 // --- fakeModelRouterForSmartRouter implements ModelRouter ---
 
 type fakeModelRouterForSmartRouter struct {
+	fakeLoadJobStore
 	mu              sync.Mutex
 	node            *BackendNode
 	nodeModel       *NodeModel
@@ -53,14 +56,45 @@ func (f *fakeModelRouterForSmartRouter) TouchNodeModel(_ context.Context, _, _ s
 func (f *fakeModelRouterForSmartRouter) SetNodeModel(_ context.Context, _, _ string, _ int, _, _ string, _ int) error {
 	return nil
 }
+func (f *fakeModelRouterForSmartRouter) SetNodeModelRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, state, address string, initialInFlight int, _, _ string) error {
+	return f.SetNodeModel(ctx, nodeID, modelName, replicaIndex, state, address, initialInFlight)
+}
 func (f *fakeModelRouterForSmartRouter) SetNodeModelLoadInfo(_ context.Context, _, _ string, _ int, _ string, _ []byte) error {
 	return nil
+}
+func (f *fakeModelRouterForSmartRouter) SetNodeModelLoadInfoRevision(ctx context.Context, nodeID, modelName string, replicaIndex int, backendType, _ string, optsBlob []byte) error {
+	return f.SetNodeModelLoadInfo(ctx, nodeID, modelName, replicaIndex, backendType, optsBlob)
 }
 func (f *fakeModelRouterForSmartRouter) UpsertModelLoadInfo(_ context.Context, _, _ string, _ []byte) error {
 	return nil
 }
+func (f *fakeModelRouterForSmartRouter) UpsertModelLoadInfoRevision(ctx context.Context, modelName, backendType, _ string, optsBlob []byte) error {
+	return f.UpsertModelLoadInfo(ctx, modelName, backendType, optsBlob)
+}
 func (f *fakeModelRouterForSmartRouter) GetModelLoadInfo(_ context.Context, _ string) (string, []byte, error) {
 	return "", nil, fmt.Errorf("not found")
+}
+func (f *fakeModelRouterForSmartRouter) GetModelLoadInfoRevision(ctx context.Context, modelName string) (string, string, []byte, error) {
+	backend, blob, err := f.GetModelLoadInfo(ctx, modelName)
+	return backend, "", blob, err
+}
+func (f *fakeModelRouterForSmartRouter) AdvanceModelConfigRevision(_ context.Context, _, _ string) ([]NodeModel, error) {
+	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) EstablishModelConfigRevision(_ context.Context, _, _ string) error {
+	return nil
+}
+func (f *fakeModelRouterForSmartRouter) GetModelConfigRevision(_ context.Context, _ string) (string, error) {
+	return "", gorm.ErrRecordNotFound
+}
+func (f *fakeModelRouterForSmartRouter) GetNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) (*NodeModel, error) {
+	return &NodeModel{NodeID: nodeID, ModelName: modelName, ReplicaIndex: replicaIndex}, nil
+}
+func (f *fakeModelRouterForSmartRouter) RecordModelCleanupFailure(_ context.Context, _, _ string, _ int, _ string, _ time.Time) error {
+	return nil
+}
+func (f *fakeModelRouterForSmartRouter) ListModelCleanupRetries(_ context.Context, _ time.Time, _ int) ([]NodeModel, error) {
+	return nil, nil
 }
 func (f *fakeModelRouterForSmartRouter) NextFreeReplicaIndex(_ context.Context, _, _ string, _ int) (int, error) {
 	return 0, nil
@@ -92,6 +126,9 @@ func (f *fakeModelRouterForSmartRouter) Get(_ context.Context, nodeID string) (*
 	return nil, nil
 }
 func (f *fakeModelRouterForSmartRouter) GetModelScheduling(_ context.Context, _ string) (*ModelSchedulingConfig, error) {
+	return nil, nil
+}
+func (f *fakeModelRouterForSmartRouter) GetGoverningScheduling(_ context.Context, _ string) (*ModelSchedulingConfig, error) {
 	return nil, nil
 }
 func (f *fakeModelRouterForSmartRouter) FindNodesBySelector(_ context.Context, _ map[string]string) ([]BackendNode, error) {
@@ -185,7 +222,7 @@ var _ = Describe("ModelRouterAdapter", func() {
 			adapter := NewModelRouterAdapter(sr)
 
 			opts := &pb.ModelOptions{Model: "test-model"}
-			m, err := adapter.Route(context.Background(), "llama-cpp", "test-model", "test-model", "model.gguf", opts, false)
+			m, err := adapter.Route(context.Background(), "llama-cpp", "test-model", "test-model", "model.gguf", "", opts, false)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(m).NotTo(BeNil())
@@ -216,3 +253,7 @@ var _ = Describe("ModelRouterAdapter", func() {
 		})
 	})
 })
+
+func (f *fakeModelRouterForSmartRouter) MarkUnhealthy(_ context.Context, _ string) error {
+	return nil
+}

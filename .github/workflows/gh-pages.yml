@@ -1,4 +1,4 @@
-name: Deploy docs to GitHub Pages
+name: Deploy site to GitHub Pages
 
 on:
   push:
@@ -6,9 +6,11 @@ on:
       - master
     paths:
       - 'docs/**'
+      - 'website/**'
       - 'gallery/**'
       - 'images/**'
       - '.github/ci/modelslist.go'
+      - '.github/ci/gen-redirects.sh'
       - '.github/workflows/gh-pages.yml'
   workflow_dispatch:
 
@@ -23,7 +25,20 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Self-hosted. This workflow is push-to-master + workflow_dispatch only, so
+    # it never executes pull-request code and a fork cannot reach the runner
+    # with untrusted changes. The repository guard keeps forks (whose own master
+    # pushes would otherwise queue forever against a label they do not have) on
+    # the hosted pool.
+    #
+    # Why: the GitHub-hosted pool is shared account-wide and has repeatedly
+    # starved (2026-07-31: 35 consecutive minutes at zero scheduled jobs, while
+    # arc-runner-set kept completing work throughout). Publishing the site is
+    # small, frequent, and must not sit behind a saturated hosted queue.
+    #
+    # Needs only git, tar and curl on the runner: setup-go and actions-hugo
+    # fetch their own toolchains, and no step uses sudo, apt, make or unzip.
+    runs-on: ${{ github.repository == 'mudler/LocalAI' && 'arc-runner-set' || 'ubuntu-latest' }}
     env:
       HUGO_VERSION: "0.146.3"
     steps:
@@ -36,7 +51,16 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          # Track go.mod rather than a literal. Pinned at 1.22 this installed a
+          # toolchain older than the module's `go 1.26.0`, so the `go run` below
+          # downloaded the real one from proxy.golang.org on every run. That
+          # fetch is not always reachable from the runner and the deploy failed
+          # on five of eight consecutive master pushes with:
+          #   go: download go1.26.0: ... connect: network is unreachable
+          #   ##[error]Command failed: go env GOPATH
+          # Installing the version the module asks for removes the download
+          # instead of depending on it succeeding.
+          go-version-file: go.mod
           cache: false
 
       - name: Setup Hugo
@@ -49,25 +73,46 @@ jobs:
         id: pages
         uses: actions/configure-pages@v6
 
+      # The gallery page is generated from the model index and shipped as a
+      # static asset of the docs site, so it has to exist before Hugo runs.
       - name: Generate gallery
         run: go run ./.github/ci/modelslist.go ./gallery/index.yaml > docs/static/gallery.html
 
-      - name: Build site
+      # Two Hugo sites, one Pages artifact: the main site owns the root,
+      # the docs site is nested under /docs/.
+      - name: Build the main site
+        working-directory: website
+        run: hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/"
+
+      - name: Build documentation site
         working-directory: docs
         run: |
           mkdir -p layouts/_default
-          hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/"
+          hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/docs/"
+
+      - name: Merge documentation into the main site
+        run: |
+          mkdir -p website/public/docs
+          cp -R docs/public/. website/public/docs/
+
+      # Keeps the pre-split URLs alive; see the script header.
+      - name: Generate legacy URL redirects
+        run: .github/ci/gen-redirects.sh website/public "${{ steps.pages.outputs.base_url }}/"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: docs/public
+          path: website/public
 
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    # Same routing as build: a hosted slot for a ~10s deploy is exactly the kind
+    # of job that should not block on a starved pool. deploy-pages authenticates
+    # with the job's OIDC token (id-token: write above), which self-hosted
+    # runners issue the same way hosted ones do.
+    runs-on: ${{ github.repository == 'mudler/LocalAI' && 'arc-runner-set' || 'ubuntu-latest' }}
     needs: build
     steps:
       - name: Deploy to GitHub Pages

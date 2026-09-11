@@ -132,6 +132,36 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 			Expect(len(resp.Data)).To(Equal(1))
 			Expect(len(resp.Data[0].Embedding)).To(Equal(768))
 		})
+
+		// LocalAI extension: a chat conversation can be embedded by sending
+		// messages[] instead of input — raw http.Post because the OpenAI SDK
+		// has no such parameter.
+		It("should embed a chat conversation sent via messages[]", func() {
+			body := `{"model":"mock-model","messages":[{"role":"system","content":"be brief"},{"role":"user","content":"hello"}]}`
+			resp, err := http.Post(apiURL+"/embeddings", "application/json", strings.NewReader(body))
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			Expect(resp.StatusCode).To(Equal(200))
+			var decoded struct {
+				Data []struct {
+					Embedding []float64 `json:"embedding"`
+				} `json:"data"`
+			}
+			payload, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(json.Unmarshal(payload, &decoded)).To(Succeed())
+			// One conversation per request -> exactly one data item.
+			Expect(decoded.Data).To(HaveLen(1))
+			Expect(decoded.Data[0].Embedding).To(HaveLen(768))
+		})
+
+		It("should reject input combined with messages", func() {
+			body := `{"model":"mock-model","input":"x","messages":[{"role":"user","content":"hello"}]}`
+			resp, err := http.Post(apiURL+"/embeddings", "application/json", strings.NewReader(body))
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			Expect(resp.StatusCode).To(Equal(400))
+		})
 	})
 
 	Describe("TTS APIs", func() {
@@ -384,6 +414,78 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 				defer resp.Body.Close()
 				Expect(resp.StatusCode).To(BeNumerically("<", 500))
 			}
+		})
+	})
+
+	Describe("Detokenization API", func() {
+		It("should return content for known token IDs", func() {
+			body := `{"model":"mock-model","tokens":[101,2023,2003,1037,3231,1012]}`
+			req, err := http.NewRequest("POST", apiURL+"/detokenize", strings.NewReader(body))
+			Expect(err).ToNot(HaveOccurred())
+			req.Header.Set("Content-Type", "application/json")
+
+			httpClient := &http.Client{Timeout: 30 * time.Second}
+			resp, err := httpClient.Do(req)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			Expect(resp.StatusCode).To(Equal(200))
+
+			data, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			var result map[string]any
+			Expect(json.Unmarshal(data, &result)).To(Succeed())
+			content, ok := result["content"].(string)
+			Expect(ok).To(BeTrue(), "response missing 'content' field: %s", string(data))
+			Expect(content).ToNot(BeEmpty())
+		})
+
+		It("should round-trip tokenize then detokenize", func() {
+			httpClient := &http.Client{Timeout: 30 * time.Second}
+
+			// Step 1: tokenize
+			tokenizeReq, err := http.NewRequest("POST", apiURL+"/tokenize",
+				strings.NewReader(`{"model":"mock-model","content":"Hello world"}`))
+			Expect(err).ToNot(HaveOccurred())
+			tokenizeReq.Header.Set("Content-Type", "application/json")
+
+			tokenizeResp, err := httpClient.Do(tokenizeReq)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = tokenizeResp.Body.Close() }()
+			Expect(tokenizeResp.StatusCode).To(Equal(200))
+
+			tokenizeData, err := io.ReadAll(tokenizeResp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			var tokenizeResult map[string]any
+			Expect(json.Unmarshal(tokenizeData, &tokenizeResult)).To(Succeed())
+
+			tokensRaw, ok := tokenizeResult["tokens"].([]any)
+			Expect(ok).To(BeTrue(), "tokenize response missing 'tokens': %s", string(tokenizeData))
+			Expect(tokensRaw).ToNot(BeEmpty())
+
+			// Step 2: detokenize the returned token IDs
+			tokens := make([]int, len(tokensRaw))
+			for i, t := range tokensRaw {
+				tokens[i] = int(t.(float64))
+			}
+			tokenJSON, err := json.Marshal(map[string]any{"model": "mock-model", "tokens": tokens})
+			Expect(err).ToNot(HaveOccurred())
+
+			detokenizeReq, err := http.NewRequest("POST", apiURL+"/detokenize", strings.NewReader(string(tokenJSON)))
+			Expect(err).ToNot(HaveOccurred())
+			detokenizeReq.Header.Set("Content-Type", "application/json")
+
+			detokenizeResp, err := httpClient.Do(detokenizeReq)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = detokenizeResp.Body.Close() }()
+			Expect(detokenizeResp.StatusCode).To(Equal(200))
+
+			detokenizeData, err := io.ReadAll(detokenizeResp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			var detokenizeResult map[string]any
+			Expect(json.Unmarshal(detokenizeData, &detokenizeResult)).To(Succeed())
+			content, ok := detokenizeResult["content"].(string)
+			Expect(ok).To(BeTrue(), "detokenize response missing 'content': %s", string(detokenizeData))
+			Expect(content).ToNot(BeEmpty())
 		})
 	})
 

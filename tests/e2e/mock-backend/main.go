@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -270,6 +271,13 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		}
 		return fmt.Errorf("mock backend stream error: simulated mid-stream failure")
 	}
+	if strings.Contains(in.Prompt, "MOCK_SLOW_STREAM") {
+		select {
+		case <-time.After(500 * time.Millisecond):
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
+	}
 
 	// Simulate C++ autoparser behavior: tool calls delivered via ChatDeltas
 	// with empty message (autoparser clears raw message during parsing).
@@ -420,13 +428,57 @@ func (m *MockBackend) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
-	xlog.Debug("Embedding called", "prompt", in.Prompt)
+	// The embeddings path ships the text in PredictOptions.Embeddings
+	// (see core/backend/embeddings.go), not Prompt; check both so the
+	// markers below work however the caller packed the request.
+	text := in.Embeddings
+	if text == "" {
+		text = in.Prompt
+	}
+	xlog.Debug("Embedding called", "text", text)
+	// Deterministic per-token mode for Go-side pooling tests: a prompt
+	// carrying the "per-token:" marker yields len(fields) vectors of dim 8
+	// with vec[i][j] = (i+1)/(j+2), so endpoint tests can assert exact
+	// pooled goldens. The marker may sit mid-prompt (the embeddings
+	// messages[] path renders conversations as "<role>: <content>" lines),
+	// so match anywhere and tokenize what follows the first occurrence.
+	if idx := strings.Index(text, "per-token:"); idx >= 0 {
+		fields := strings.Fields(text[idx+len("per-token:"):])
+		tokens := len(fields)
+		const dim = 8
+		flat := make([]float32, 0, tokens*dim)
+		for i := 0; i < tokens; i++ {
+			for j := 0; j < dim; j++ {
+				flat = append(flat, float32(i+1)/float32(j+2))
+			}
+		}
+		return &pb.EmbeddingResult{
+			Embeddings:   flat,
+			Tokens:       int32(tokens),
+			Dim:          dim,
+			PromptTokens: int32(tokens),
+			Layout:       pb.EmbeddingLayout_EMBEDDING_LAYOUT_PER_TOKEN,
+		}, nil
+	}
+	// Legacy mode: a prompt carrying "no-shape:" simulates a backend built
+	// before EmbeddingResult carried shape and layout fields, so tests can
+	// assert the fail-closed error when Go-side pooling is requested.
+	legacyShape := strings.Contains(text, "no-shape:")
 	// Return a mock embedding vector of 768 dimensions
 	embeddings := make([]float32, 768)
 	for i := range embeddings {
 		embeddings[i] = float32(i%100) / 100.0 // Pattern: 0.0, 0.01, 0.02, ..., 0.99, 0.0, ...
 	}
-	return &pb.EmbeddingResult{Embeddings: embeddings}, nil
+	if legacyShape {
+		return &pb.EmbeddingResult{Embeddings: embeddings}, nil
+	}
+	return &pb.EmbeddingResult{
+		Embeddings:   embeddings,
+		Tokens:       1,
+		Dim:          768,
+		PromptTokens: 1,
+		Layout:       pb.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL,
+	}, nil
 }
 
 func (m *MockBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest) (*pb.Result, error) {
@@ -710,6 +762,17 @@ func extractRouteLabel(candidate string) string {
 		return ""
 	}
 	return label
+}
+
+func (m *MockBackend) Detokenize(ctx context.Context, in *pb.DetokenizeRequest) (*pb.DetokenizeResponse, error) {
+	xlog.Debug("Detokenize called", "tokens", in.Tokens)
+	parts := make([]string, len(in.Tokens))
+	for i, t := range in.Tokens {
+		parts[i] = strconv.Itoa(int(t))
+	}
+	return &pb.DetokenizeResponse{
+		Content: "detokenized: " + strings.Join(parts, " "),
+	}, nil
 }
 
 func (m *MockBackend) Status(ctx context.Context, in *pb.HealthMessage) (*pb.StatusResponse, error) {

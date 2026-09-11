@@ -62,6 +62,11 @@ import (
 //	                         model output into ChatDelta.tool_calls.
 //	                         "image" exercises the GenerateImage RPC and asserts a
 //	                         non-empty file is written to the requested dst path.
+//	                         "long_prefill" sends a prompt long enough to span more
+//	                         than one prefill batch and asserts the answer still
+//	                         reflects the prompt. Catches GPU backends whose kernels
+//	                         were built for the wrong architecture, which corrupt
+//	                         batched prefill while short prompts stay correct.
 //	BACKEND_TEST_IMAGE_PROMPT Override the positive prompt for the image spec
 //	                         (default: "a photograph of an astronaut riding a horse").
 //	BACKEND_TEST_IMAGE_STEPS Override the diffusion step count for the image spec
@@ -71,6 +76,9 @@ import (
 //	BACKEND_TEST_THREADS     Override Threads passed to LoadModel (default 4).
 //	BACKEND_TEST_OPTIONS     Comma-separated Options[] entries passed to LoadModel,
 //	                         e.g. "tool_parser:hermes,reasoning_parser:qwen3".
+//	BACKEND_TEST_EMBEDDING_LAYOUT Expected EmbeddingResult layout: "final" or
+//	                         "per_token". When set, the embeddings spec also
+//	                         validates tokens/dim against the returned payload.
 //	BACKEND_TEST_CACHE_TYPE_K Sets ModelOptions.CacheTypeKey (llama.cpp -ctk),
 //	                         e.g. "q8_0" — exercises KV-cache quantization code paths.
 //	BACKEND_TEST_CACHE_TYPE_V Sets ModelOptions.CacheTypeValue (llama.cpp -ctv).
@@ -105,6 +113,7 @@ const (
 	capVoiceAnalyze   = "voice_analyze"
 	capAudioTransform = "audio_transform"
 	capLogprobs       = "logprobs"
+	capLongPrefill    = "long_prefill"
 	capLogitBias      = "logit_bias"
 	capTokenize       = "tokenize"
 	capTokenClassify  = "token_classify"
@@ -401,6 +410,7 @@ var _ = Describe("Backend container", Ordered, func() {
 			NGPULayers:     0,
 			MMap:           true,
 			NBatch:         128,
+			Embeddings:     caps[capEmbeddings],
 			Options:        options,
 			MMProj:         mmprojFile,
 			CacheTypeKey:   os.Getenv("BACKEND_TEST_CACHE_TYPE_K"),
@@ -427,6 +437,47 @@ var _ = Describe("Backend container", Ordered, func() {
 		Expect(res.GetMessage()).NotTo(BeEmpty(), "Predict produced empty output")
 		GinkgoWriter.Printf("Predict: %q (tokens=%d, prompt_tokens=%d)\n",
 			res.GetMessage(), res.GetTokens(), res.GetPromptTokens())
+	})
+
+	// Regression guard for GPU backends compiled without an explicit device
+	// architecture. LocalAI built ds4's CUDA objects with no -arch/-gencode, so
+	// on a GB10 (sm_121) the kernels ran as JIT'd PTX for nvcc's default
+	// architecture and silently corrupted any prefill batch of 128 tokens or
+	// more: the model produced text unrelated to the prompt. Short prompts stayed
+	// correct, so every other spec here passed. Only a prompt long enough to need
+	// a multi-batch prefill exposes it.
+	It("answers a prompt long enough to span multiple prefill batches", func() {
+		if !caps[capLongPrefill] {
+			Skip("long_prefill capability not enabled")
+		}
+		const needle = "PLATYPUS"
+		filler := strings.Repeat("The merchants kept careful ledgers of every voyage they financed. ", 20)
+		longPrompt := "Read this passage.\n\n" + filler +
+			"\nThe secret word is " + needle + ".\n" + filler +
+			"\nQuestion: what is the secret word?\nAnswer: The secret word is"
+
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+		defer cancel()
+		res, err := client.Predict(ctx, &pb.PredictOptions{
+			Prompt:      longPrompt,
+			Tokens:      300,
+			Temperature: 0.1,
+			TopK:        40,
+			TopP:        0.9,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.GetMessage()).NotTo(BeEmpty(), "long prompt produced empty output")
+		// Only meaningful if the prompt really did exceed one batch. Backends that
+		// do not report prompt tokens still run the substring assertion below.
+		if res.GetPromptTokens() > 0 {
+			Expect(res.GetPromptTokens()).To(BeNumerically(">", 128),
+				"prompt is too short to span multiple prefill batches; this spec would not prove anything")
+		}
+		Expect(strings.ToUpper(string(res.GetMessage()))).To(ContainSubstring(needle),
+			"a long prompt lost information the model repeats correctly from a short one - "+
+				"batched prefill is corrupting state (check the backend's device architecture flags)")
+		GinkgoWriter.Printf("LongPrefill: prompt_tokens=%d tokens=%d msg=%q\n",
+			res.GetPromptTokens(), res.GetTokens(), res.GetMessage())
 	})
 
 	// Regression guard for the raw-prompt tokenize RPC. The llama.cpp handler
@@ -549,7 +600,28 @@ var _ = Describe("Backend container", Ordered, func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.GetEmbeddings()).NotTo(BeEmpty(), "Embedding returned empty vector")
-		GinkgoWriter.Printf("Embedding: %d dims\n", len(res.GetEmbeddings()))
+
+		expectedLayout := strings.ToLower(strings.TrimSpace(os.Getenv("BACKEND_TEST_EMBEDDING_LAYOUT")))
+		if expectedLayout != "" {
+			var layout pb.EmbeddingLayout
+			switch expectedLayout {
+			case "final":
+				layout = pb.EmbeddingLayout_EMBEDDING_LAYOUT_FINAL
+				Expect(res.GetTokens()).To(Equal(int32(1)), "a final embedding must contain one vector")
+			case "per_token":
+				layout = pb.EmbeddingLayout_EMBEDDING_LAYOUT_PER_TOKEN
+				Expect(res.GetTokens()).To(BeNumerically(">", 1), "the test prompt should produce multiple token vectors")
+			default:
+				Fail(fmt.Sprintf("unsupported BACKEND_TEST_EMBEDDING_LAYOUT %q", expectedLayout))
+			}
+
+			Expect(res.GetLayout()).To(Equal(layout))
+			Expect(res.GetDim()).To(BeNumerically(">", 0))
+			Expect(res.GetEmbeddings()).To(HaveLen(int(res.GetTokens() * res.GetDim())))
+		}
+
+		GinkgoWriter.Printf("Embedding: layout=%s vectors=%d dim=%d\n",
+			res.GetLayout(), res.GetTokens(), res.GetDim())
 	})
 
 	// TokenClassify is the PII-NER RPC (privacy-filter backend). The crown-jewel

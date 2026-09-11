@@ -37,9 +37,9 @@ export default function SourceMixRibbon({ bySource = {}, keyCount = 0, onSelectS
     <div
       role="group"
       aria-label={t('usage.sources.ribbonAria', { apikey: apiPct, web: webPct, legacy: legacyPct })}
-      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}
+      className="stack stack--xs"
     >
-      <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+      <div className="text-base fw-semibold">
         {t('usage.sources.mixTitle')}
       </div>
       <div

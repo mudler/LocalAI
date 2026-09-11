@@ -5,13 +5,7 @@ weight = 23
 url = '/features/localai-assistant'
 +++
 
-{{% notice info %}}
-**Looking for something else?** LocalAI has three related agentic features that are easy to confuse:
-
-- **LocalAI Assistant** (this page): an admin chat modality for administering LocalAI itself (install models, manage backends) by chatting.
-- **Agents** ({{% relref "features/agents" %}}): autonomous agents you build that reason, use tools, and act on their own.
-- **MCP** ({{% relref "features/mcp" %}}): a way to give a model external tools through the Model Context Protocol.
-{{% /notice %}}
+{{< agentic-routing current="localai-assistant" >}}
 
 LocalAI Assistant is an admin-only chat modality. When enabled on a chat session, the conversation is wired to an in-process MCP server that exposes LocalAI's own admin/management surface as tools. You can install models, manage backends, edit model configs and check system status by chatting, with no REST calls or YAML edits.
 

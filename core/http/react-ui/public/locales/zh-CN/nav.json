@@ -24,11 +24,13 @@
     "observability": "Observability",
     "access": "Access",
     "system": "System",
-    "activity": "Activity"
+    "activity": "Activity",
+    "runtime": "运行时",
+    "administration": "管理"
   },
   "items": {
     "home": "首页",
-    "installModels": "安装模型",
+    "models": "Models",
     "chat": "聊天",
     "studio": "工作室",
     "talk": "通话",
@@ -38,7 +40,6 @@
     "voices": "声音",
     "jobs": "任务",
     "operate": "管理",
-    "host": "主机",
     "audioTransform": "音频变换",
     "faceRecognition": "人脸识别",
     "voiceRecognition": "语音识别",
@@ -57,7 +58,8 @@
     "settings": "设置",
     "api": "API",
     "middleware": "Middleware",
-    "activity": "活动"
+    "activity": "活动",
+    "overview": "概览"
   },
   "footer": {
     "github": "GitHub",

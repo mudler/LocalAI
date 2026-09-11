@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/cloud-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/cloud-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -34,6 +34,11 @@ TEST_FLAKES?=5
 RANDOM := $(shell bash -c 'echo $$RANDOM')
 
 VERSION?=$(shell git describe --always --tags || echo "dev" )
+# fyne package only accepts numeric x[.y[.z]] app versions, so reduce git
+# describe output (v4.9.0, v4.9.0-14-gabc1234, or a bare sha on untagged
+# checkouts) to its numeric core; anything non-numeric falls back to 0.0.0.
+# Without this the packaged launcher reports itself as version 0.0.0 (#11673).
+LAUNCHER_APP_VERSION?=$(shell v=$$(echo "$(VERSION)" | sed -E 's/^v//; s/[+-].*$$//'); echo "$$v" | grep -qE '^[0-9]+(\.[0-9]+){0,2}$$' && echo "$$v" || echo "0.0.0")
 # go tool nm ./local-ai | grep Commit
 LD_FLAGS?=-s -w
 override LD_FLAGS += -X "github.com/mudler/LocalAI/internal.Version=$(VERSION)"
@@ -103,7 +108,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -235,7 +240,7 @@ test-ci-scripts:
 ## pure stdlib on purpose so they run without any backend venv; the list is
 ## explicit because their siblings (model_identity_test) import grpc and the
 ## generated protobufs, which only exist inside a built backend.
-PYTHON_HELPER_TESTS?=python_utils_test vllm_utils_test model_utils_test mlx_utils_test parent_watch_test
+PYTHON_HELPER_TESTS?=python_utils_test vllm_utils_test model_utils_test mlx_utils_test parent_watch_test temp_utils_test
 test-python-helpers:
 	cd backend/python/common && python3 -m unittest $(PYTHON_HELPER_TESTS)
 
@@ -388,9 +393,17 @@ test-e2e: build-mock-backend build-cloud-proxy-backend prepare-e2e run-e2e-image
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
+# `docker stop` returns as soon as the container exits, but Docker reaps a
+# `--rm` container asynchronously after that. The `docker rmi localai-tests` in
+# test-e2e then loses the race against the reaper and fails on a still
+# referenced image, turning a green suite red. Removing the container ourselves
+# is synchronous, so the image reference is gone before we return. It also
+# covers the case where nothing is running, which `docker stop` could not
+# because it rejects an empty argument list.
 teardown-e2e:
 	rm -rf $(TEST_DIR) || true
-	docker stop $$(docker ps -q --filter ancestor=localai-tests)
+	@CONTAINERS=$$(docker ps -aq --filter ancestor=localai-tests 2>/dev/null); \
+	if [ -n "$$CONTAINERS" ]; then docker rm -f $$CONTAINERS || true; fi
 
 ########################################################
 ## Integration and unit tests
@@ -654,6 +667,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/depth-anything-cpp test
 	$(MAKE) -C backend/go/supertonic test
 	$(MAKE) -C backend/go/vllm-cpp test
+	$(MAKE) -C backend/go/nemo-speech-cpp test
 	$(MAKE) -C backend/go/trellis2cpp test
 	$(MAKE) -C backend/go/valkey-store test
 
@@ -675,6 +689,7 @@ test-extra: prepare-test-extra
 ##   BACKEND_TEST_PROMPT      Override the prompt used in predict/stream specs.
 ##   BACKEND_TEST_OPTIONS     Comma-separated Options[] entries forwarded to LoadModel,
 ##                            e.g. "tool_parser:hermes,reasoning_parser:qwen3".
+##   BACKEND_TEST_EMBEDDING_LAYOUT Expected EmbeddingResult layout: "final" or "per_token".
 ##
 ## Direct usage (image already built, no docker-build-* dependency):
 ##
@@ -704,6 +719,7 @@ test-extra-backend: protogen-go
 	BACKEND_TEST_CAPS="$$BACKEND_TEST_CAPS" \
 	BACKEND_TEST_PROMPT="$$BACKEND_TEST_PROMPT" \
 	BACKEND_TEST_OPTIONS="$$BACKEND_TEST_OPTIONS" \
+	BACKEND_TEST_EMBEDDING_LAYOUT="$$BACKEND_TEST_EMBEDDING_LAYOUT" \
 	BACKEND_TEST_TOOL_PROMPT="$$BACKEND_TEST_TOOL_PROMPT" \
 	BACKEND_TEST_TOOL_NAME="$$BACKEND_TEST_TOOL_NAME" \
 	BACKEND_TEST_CACHE_TYPE_K="$$BACKEND_TEST_CACHE_TYPE_K" \
@@ -721,6 +737,15 @@ test-extra-backend: protogen-go
 test-extra-backend-llama-cpp: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
 	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias \
+	$(MAKE) test-extra-backend
+
+## Raw llama.cpp embeddings are required by Go-side pooling. This exercises the
+## real C++ backend and verifies that it marks the flattened matrix per-token.
+test-extra-backend-llama-cpp-embeddings: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_CAPS=health,load,embeddings \
+	BACKEND_TEST_OPTIONS=pooling:none \
+	BACKEND_TEST_EMBEDDING_LAYOUT=per_token \
 	$(MAKE) test-extra-backend
 
 test-extra-backend-ik-llama-cpp: docker-build-ik-llama-cpp
@@ -812,6 +837,7 @@ test-extra-backend-tinygrad-embeddings: docker-build-tinygrad
 	BACKEND_IMAGE=local-ai-backend:tinygrad \
 	BACKEND_TEST_MODEL_NAME=Qwen/Qwen3-0.6B \
 	BACKEND_TEST_CAPS=health,load,embeddings \
+	BACKEND_TEST_EMBEDDING_LAYOUT=final \
 	$(MAKE) test-extra-backend
 
 ## tinygrad — Stable Diffusion 1.5. The original CompVis/runwayml repos have
@@ -1298,6 +1324,7 @@ BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_CRISPASR = crispasr|golang|.|false|true
 BACKEND_PARAKEET_CPP = parakeet-cpp|golang|.|false|true
 BACKEND_MOSS_TRANSCRIBE_CPP = moss-transcribe-cpp|golang|.|false|true
+BACKEND_NEMO_SPEECH_CPP = nemo-speech-cpp|golang|.|false|true
 BACKEND_DEPTH_ANYTHING_CPP = depth-anything-cpp|golang|.|false|true
 BACKEND_VOXTRAL = voxtral|golang|.|false|true
 BACKEND_ACESTEP_CPP = acestep-cpp|golang|.|false|true
@@ -1400,6 +1427,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CRISPASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PARAKEET_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MOSS_TRANSCRIBE_CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_NEMO_SPEECH_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DEPTH_ANYTHING_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VOXTRAL)))
 $(eval $(call generate-docker-build-target,$(BACKEND_OPUS)))
@@ -1456,7 +1484,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SUPERTONIC)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-audio-cpp
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-audio-cpp
 
 ########################################################
 ### Mock Backend for E2E Tests
@@ -1502,6 +1530,13 @@ test-ui: build-mock-backend protogen-go
 	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
 	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG)
 
+## The stale-chunk specs need the production code-split bundle. The V8 coverage
+## bundle below inlines dynamic imports to keep every page in its denominator.
+test-ui-stale-chunk: build-mock-backend protogen-go
+	cd core/http/react-ui && bun install && bun run build
+	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui
+	cd core/http/react-ui && sh $(CURDIR)/scripts/ensure-playwright-browser.sh && bunx playwright test --grep @production-chunks --workers=1
+
 ## React UI code coverage from the Playwright e2e suite. Builds a
 ## NON-instrumented bundle with source maps (COVERAGE_V8=true), re-embeds it
 ## into the ui-test-server (the dist is //go:embed'ed at compile time), runs the
@@ -1517,7 +1552,7 @@ test-ui-coverage: build-mock-backend protogen-go
 	$(GOCMD) build -o tests/e2e-ui/ui-test-server ./tests/e2e-ui && \
 	( cd core/http/react-ui && rm -rf .nyc_output coverage && \
 	    sh $(CURDIR)/scripts/ensure-playwright-browser.sh && \
-	    PW_V8_COVERAGE=1 bunx playwright test $(PLAYWRIGHT_WORKERS_FLAG) && bun run coverage:report )
+	    PW_V8_COVERAGE=1 bunx playwright test --grep-invert @production-chunks $(PLAYWRIGHT_WORKERS_FLAG) && bun run coverage:report )
 
 ## UI coverage baseline (committed) and the strict gate that compares against
 ## it — the React mirror of test-coverage-baseline / test-coverage-check.
@@ -1548,7 +1583,12 @@ swagger:
 gen-assets:
 	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets
 
-## Documentation
+## Documentation and website
+# The published site is two Hugo sites: website/ owns the root, docs/ is nested
+# under /docs/. Serve them separately while editing; use `make site` to get the
+# merged tree (including the legacy URL redirects) that GitHub Pages deploys.
+SITE_BASE_URL?=http://localhost:8000
+
 docs/layouts/_default:
 	mkdir -p docs/layouts/_default
 
@@ -1560,11 +1600,29 @@ docs/public: docs/layouts/_default docs/static/gallery.html
 
 docs-clean:
 	rm -rf docs/public
+	rm -rf website/public
 	rm -rf docs/static/gallery.html
 
 .PHONY: docs
 docs: docs/static/gallery.html
 	cd docs && hugo serve
+
+.PHONY: website
+website:
+	cd website && hugo serve
+
+.PHONY: site
+site: docs/static/gallery.html
+	rm -rf website/public docs/public
+	cd website && hugo --minify --baseURL "$(SITE_BASE_URL)/"
+	cd docs && hugo --minify --baseURL "$(SITE_BASE_URL)/docs/"
+	mkdir -p website/public/docs
+	cp -R docs/public/. website/public/docs/
+	./.github/ci/gen-redirects.sh website/public "$(SITE_BASE_URL)/"
+
+.PHONY: site-serve
+site-serve: site
+	cd website/public && python3 -m http.server 8000
 
 ########################################################
 ## Platform-specific builds
@@ -1577,7 +1635,7 @@ docs: docs/static/gallery.html
 build-launcher-darwin:
 	rm -rf dist/LocalAI.app cmd/launcher/LocalAI.app
 	mkdir -p dist
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)
+	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME) --app-version $(LAUNCHER_APP_VERSION)
 	mv cmd/launcher/LocalAI.app dist/LocalAI.app
 	bash contrib/macos/sign-and-notarize.sh sign dist/LocalAI.app
 
@@ -1604,4 +1662,4 @@ release-launcher-darwin: notarize-launcher-darwin
 	@echo "dist/LocalAI.dmg is ready"
 
 build-launcher-linux:
-	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz
+	cd cmd/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux --app-version $(LAUNCHER_APP_VERSION) && mv LocalAI.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz

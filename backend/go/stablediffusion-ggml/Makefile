@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=22516991cbdf725e69b0b4a87e52ca16cce07c2d
+STABLEDIFFUSION_GGML_VERSION?=b68d58624d227682eb4b95ef8bcf569cd1311eb5
 
 CMAKE_ARGS+=-DGGML_MAX_NAME=128
 
@@ -38,17 +38,16 @@ else ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_PATH ?= /opt/rocm
 	export CXX=$(ROCM_HOME)/llvm/bin/clang++
 	export CC=$(ROCM_HOME)/llvm/bin/clang
-	AMDGPU_TARGETS?=gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1200,gfx1201
-	CMAKE_ARGS+=-DSD_HIPBLAS=ON -DGGML_HIPBLAS=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
+	AMDGPU_TARGETS?=gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1151,gfx1200,gfx1201
+	# SD_HIPBLAS turns on ggml's HIP backend itself; GGML_HIPBLAS is the name ggml
+	# used before it was renamed to GGML_HIP, so passing it here only produced an
+	# unused-variable warning.
+	CMAKE_ARGS+=-DSD_HIPBLAS=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS)
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DSD_VULKAN=ON -DGGML_VULKAN=ON
-else ifeq ($(OS),Darwin)
-	ifneq ($(BUILD_TYPE),metal)
-		CMAKE_ARGS+=-DSD_METAL=OFF -DGGML_METAL=OFF
-	else
-		CMAKE_ARGS+=-DSD_METAL=ON -DGGML_METAL=ON
-		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
-	endif
+else ifeq ($(BUILD_TYPE),metal)
+	CMAKE_ARGS+=-DSD_METAL=ON -DGGML_METAL=ON
+	CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
@@ -72,7 +71,6 @@ sources/stablediffusion-ggml.cpp:
 	git checkout $(STABLEDIFFUSION_GGML_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 
-# Detect OS
 UNAME_S := $(shell uname -s)
 
 # Only build CPU variants on Linux

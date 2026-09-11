@@ -1,0 +1,6 @@
+[
+  {"date": "2025-07-15", "label": "Backends leave the binary", "tag": "v3.2.0"},
+  {"date": "2026-03-15", "label": "Agents, and a new interface", "tag": "v4.0.0"},
+  {"date": "2026-04-15", "label": "It becomes a cluster", "tag": "v4.1.0"},
+  {"date": "2026-05-15", "label": "It sees and hears", "tag": "v4.2.0"}
+]

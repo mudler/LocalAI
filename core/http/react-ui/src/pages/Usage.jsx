@@ -56,12 +56,12 @@ function formatCost(n) {
 
 function StatCard({ icon, label, value, muted, text }) {
   return (
-    <div className="card" style={{ padding: 'var(--spacing-sm) var(--spacing-md)', flex: '1 1 0', minWidth: 120, opacity: muted ? 0.7 : 1 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-        <i className={icon} style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }} />
-        <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
+    <div className={`card usage-tile${muted ? ' usage-tile--muted' : ''}`}>
+      <div className="hstack hstack--xs mb-xs">
+        <i className={`${icon} text-meta`} />
+        <span className="overline fw-medium">{label}</span>
       </div>
-      <div style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: muted ? 'var(--color-text-secondary)' : 'var(--color-text-primary)' }}>
+      <div className="usage-tile__value">
         {text != null ? text : `${muted ? '~' : ''}${formatNumber(value)}`}
       </div>
     </div>
@@ -71,16 +71,8 @@ function StatCard({ icon, label, value, muted, text }) {
 function UsageBar({ value, max }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
   return (
-    <div style={{
-      width: '100%', height: 6, borderRadius: "var(--radius-sm)",
-      background: 'var(--color-bg-primary)',
-      overflow: 'hidden',
-    }}>
-      <div style={{
-        width: `${pct}%`, height: '100%', borderRadius: "var(--radius-sm)",
-        background: 'var(--color-primary)',
-        transition: 'width 0.3s ease',
-      }} />
+    <div className="usage-bar">
+      <div className="usage-bar__fill" style={{ width: `${pct}%` }} />
     </div>
   )
 }
@@ -329,8 +321,8 @@ function computeQuotaExhaustion(quotas, timeSeries, period) {
 function PredictionCards({ predictions, quotaExhaustion, period }) {
   if (!predictions) {
     return (
-      <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)', borderTop: '2px solid var(--color-primary)', borderTopLeftRadius: 0, borderTopRightRadius: 0, opacity: 0.6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+      <div className="card usage-panel usage-panel--muted mb-md">
+        <div className="hstack hstack--xs text-note">
           <i className="fas fa-chart-line" />
           <span>Not enough data to predict trends (need at least 2 data points)</span>
         </div>
@@ -342,18 +334,18 @@ function PredictionCards({ predictions, quotaExhaustion, period }) {
   const periodLabel = period === 'all' ? '(next 3 months)' : `end of ${period}`
 
   return (
-    <div style={{ marginBottom: 'var(--spacing-md)' }}>
-      <div className="card" style={{ padding: 'var(--spacing-md)', borderTop: '2px solid var(--color-primary)', borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 'var(--spacing-sm)' }}>
-          <i className="fas fa-chart-line" style={{ color: 'var(--color-primary)', fontSize: '0.8125rem' }} />
-          <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+    <div className="mb-md">
+      <div className="card usage-panel">
+        <div className="hstack hstack--xs mb-sm">
+          <i className="fas fa-chart-line text-primary text-sm" />
+          <span className="text-base fw-semibold">
             Projected {periodLabel}
           </span>
-          <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+          <span className="text-meta text-italic">
             based on linear trend
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--spacing-sm)' }}>
+        <div className="usage-grid">
           <StatCard icon="fas fa-arrow-right-arrow-left" label="Proj. Requests" value={projectedTotals.request_count} muted />
           <StatCard icon="fas fa-arrow-up" label="Proj. Prompt" value={projectedTotals.prompt_tokens} muted />
           <StatCard icon="fas fa-arrow-down" label="Proj. Completion" value={projectedTotals.completion_tokens} muted />
@@ -362,35 +354,35 @@ function PredictionCards({ predictions, quotaExhaustion, period }) {
       </div>
 
       {quotaExhaustion.length > 0 && (
-        <div className="card" style={{ padding: 'var(--spacing-md)', marginTop: 'var(--spacing-sm)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 'var(--spacing-sm)' }}>
-            <i className="fas fa-gauge-high" style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }} />
-            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>Quota forecast</span>
+        <div className="card pad-md mt-sm">
+          <div className="hstack hstack--xs mb-sm">
+            <i className="fas fa-gauge-high text-note" />
+            <span className="text-base fw-semibold">Quota forecast</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+          <div className="stack stack--sm">
             {quotaExhaustion.map((q, qi) => (
               <div key={qi}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 4 }}>
-                  {q.model} <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>({q.window} window)</span>
+                <div className="text-xs fw-semibold text-secondary mb-xs">
+                  {q.model} <span className="fw-normal text-muted">({q.window} window)</span>
                 </div>
                 {q.items.map((item, ii) => (
-                  <div key={ii} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 4 }}>
-                    <span style={{ minWidth: 70, fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  <div key={ii} className="hstack mb-xs">
+                    <span className="usage-price__label">
                       {item.label}
                     </span>
-                    <div style={{ flex: 1, maxWidth: 200 }}>
+                    <div className="usage-price__input">
                       <UsageBar value={item.current} max={item.max} />
                     </div>
-                    <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)', minWidth: 100 }}>
+                    <span className="usage-price__out">
                       {formatNumber(item.current)}/{formatNumber(item.max)}
                     </span>
                     {item.withinLimits ? (
-                      <span style={{ fontSize: '0.6875rem', color: 'var(--color-success, #22c55e)' }}>
-                        <i className="fas fa-check" style={{ marginRight: 4 }} />Within limits
+                      <span className="text-xs text-success">
+                        <i className="fas fa-check icon-before" />Within limits
                       </span>
                     ) : (
-                      <span style={{ fontSize: '0.6875rem', color: 'var(--color-warning, #f59e0b)' }}>
-                        <i className="fas fa-exclamation-triangle" style={{ marginRight: 4 }} />{formatDuration(item.hoursLeft)} left
+                      <span className="text-xs text-warning">
+                        <i className="fas fa-exclamation-triangle icon-before" />{formatDuration(item.hoursLeft)} left
                       </span>
                     )}
                   </div>
@@ -438,26 +430,22 @@ function UsageTimeChart({ data, predictedData, period }) {
   const ticks = [0, 1, 2, 3, 4].map(i => Math.round(maxVal * i / 4))
 
   return (
-    <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
-        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>Tokens over time</span>
-        <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', marginRight: 4, verticalAlign: 'middle' }} />Prompt</span>
-          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-data-3)', marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
+    <div className="card pad-md mb-md">
+      <div className="hstack hstack--between mb-sm">
+        <span className="text-base fw-semibold">Tokens over time</span>
+        <div className="chart-legend">
+          <span><span className="legend-dot tone-primary" />Prompt</span>
+          <span><span className="legend-dot tone-data-3" />Completion</span>
           {predictedData && predictedData.length > 0 && (
             <span>
-              <span style={{
-                display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)",
-                border: '1.5px dashed var(--color-primary)', background: 'transparent',
-                marginRight: 4, verticalAlign: 'middle', opacity: 0.6,
-              }} />
+              <span className="legend-dot legend-dot--outline tone-primary" />
               Predicted
             </span>
           )}
         </div>
       </div>
-      <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-        <svg width={width} height={height} style={{ display: 'block' }}>
+      <div ref={containerRef} className="chart-host">
+        <svg width={width} height={height} className="d-block">
           <g transform={`translate(${margin.left},${margin.top})`}>
             {/* Grid lines and Y labels */}
             {ticks.map((t, i) => {
@@ -465,7 +453,7 @@ function UsageTimeChart({ data, predictedData, period }) {
               return (
                 <g key={i}>
                   <line x1={0} y1={y} x2={chartW} y2={y} stroke="var(--color-border)" strokeOpacity={0.5} strokeDasharray={i === 0 ? 'none' : '3,3'} />
-                  <text x={-8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--color-text-muted)" style={{ fontFamily: 'var(--font-mono)' }}>
+                  <text x={-8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--color-text-muted)" className="text-mono">
                     {formatYLabel(t)}
                   </text>
                 </g>
@@ -495,7 +483,7 @@ function UsageTimeChart({ data, predictedData, period }) {
                     } : null)
                   }}
                   onMouseLeave={() => setTooltip(null)}
-                  style={{ cursor: 'default' }}
+                  className="cursor-default"
                 >
                   {/* Invisible hit area */}
                   <rect x={x} y={0} width={barWidth} height={chartH} fill="transparent" />
@@ -541,7 +529,7 @@ function UsageTimeChart({ data, predictedData, period }) {
                     } : null)
                   }}
                   onMouseLeave={() => setTooltip(null)}
-                  style={{ cursor: 'default' }}
+                  className="cursor-default"
                 >
                   {/* Invisible hit area */}
                   <rect x={x} y={0} width={barWidth} height={chartH} fill="transparent" />
@@ -570,7 +558,7 @@ function UsageTimeChart({ data, predictedData, period }) {
               return (
                 <text key={d.bucket} x={x} y={chartH + 16} textAnchor="middle" fontSize="10"
                   fill={d.predicted ? 'var(--color-text-muted)' : 'var(--color-text-secondary)'}
-                  style={{ fontFamily: 'var(--font-mono)' }}
+                  className="text-mono"
                   fontStyle={d.predicted ? 'italic' : 'normal'}
                 >
                   {formatBucket(d.bucket, period)}
@@ -580,29 +568,14 @@ function UsageTimeChart({ data, predictedData, period }) {
           </g>
         </svg>
         {tooltip && (
-          <div style={{
-            position: 'absolute',
-            left: tooltip.x + 12,
-            top: tooltip.y - 8,
-            background: 'var(--color-bg-tertiary)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
-            padding: 'var(--spacing-xs) var(--spacing-sm)',
-            fontSize: '0.75rem',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--color-text-primary)',
-            pointerEvents: 'none',
-            zIndex: 10,
-            boxShadow: 'var(--shadow-md)',
-            whiteSpace: 'nowrap',
-          }}>
-            <div style={{ fontWeight: 600, marginBottom: 2 }}>
-              {tooltip.predicted && <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic', marginRight: 4 }}>Predicted</span>}
+          <div className="chart-tooltip" style={{ left: tooltip.x + 12, top: tooltip.y - 8 }}>
+            <div className="fw-semibold mb-xs">
+              {tooltip.predicted && <span className="text-muted text-italic icon-before">Predicted</span>}
               {formatBucket(tooltip.data.bucket, period)}
             </div>
-            <div><span style={{ color: 'var(--color-primary)' }}>Prompt:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.prompt_tokens.toLocaleString()}</div>
-            <div><span style={{ color: 'var(--color-data-3)' }}>Completion:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.completion_tokens.toLocaleString()}</div>
-            <div style={{ color: 'var(--color-text-muted)', borderTop: '1px solid var(--color-border)', marginTop: 2, paddingTop: 2 }}>
+            <div><span className="text-primary">Prompt:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.prompt_tokens.toLocaleString()}</div>
+            <div><span className="text-data-3">Completion:</span> {tooltip.predicted ? '~' : ''}{tooltip.data.completion_tokens.toLocaleString()}</div>
+            <div className="chart-tooltip__total">
               {tooltip.predicted ? '~' : ''}{tooltip.data.request_count} requests
             </div>
           </div>
@@ -621,34 +594,28 @@ function ModelDistChart({ rows }) {
   const height = rows.length * (barH + gap) + gap
 
   return (
-    <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
-        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text-primary)' }}>Token distribution by model</span>
-        <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-primary)', marginRight: 4, verticalAlign: 'middle' }} />Prompt</span>
-          <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: "var(--radius-sm)", background: 'var(--color-data-3)', marginRight: 4, verticalAlign: 'middle' }} />Completion</span>
+    <div className="card pad-md mb-md">
+      <div className="hstack hstack--between mb-sm">
+        <span className="text-base fw-semibold">Token distribution by model</span>
+        <div className="chart-legend">
+          <span><span className="legend-dot tone-primary" />Prompt</span>
+          <span><span className="legend-dot tone-data-3" />Completion</span>
         </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: gap }}>
+      <div className="stack" style={{ gap }}>
         {rows.map(row => {
           const promptPct = (row.prompt_tokens / maxVal) * 100
           const compPct = (row.completion_tokens / maxVal) * 100
           return (
-            <div key={row.model} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-              <div style={{
-                width: 120, minWidth: 120, fontSize: '0.75rem', fontFamily: 'var(--font-mono)',
-                color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }} title={row.model}>
+            <div key={row.model} className="hstack">
+              <div className="usage-split__label" title={row.model}>
                 {row.model}
               </div>
-              <div style={{ flex: 1, height: barH, background: 'var(--color-bg-primary)', borderRadius: "var(--radius-sm)", overflow: 'hidden', display: 'flex' }}>
-                <div style={{ width: `${promptPct}%`, height: '100%', background: 'var(--color-primary)', transition: 'width 0.3s ease' }} />
-                <div style={{ width: `${compPct}%`, height: '100%', background: 'var(--color-data-3)', transition: 'width 0.3s ease' }} />
+              <div className="usage-split" style={{ height: barH }}>
+                <div className="usage-split__seg tone-primary" style={{ width: `${promptPct}%` }} />
+                <div className="usage-split__seg tone-data-3" style={{ width: `${compPct}%` }} />
               </div>
-              <div style={{
-                minWidth: 60, textAlign: 'right', fontSize: '0.75rem', fontFamily: 'var(--font-mono)',
-                color: 'var(--color-text-muted)', fontWeight: 600,
-              }}>
+              <div className="usage-split__value">
                 {formatNumber(row.total_tokens)}
               </div>
             </div>
@@ -738,14 +705,13 @@ export default function Usage() {
   const quotaExhaustion = computeQuotaExhaustion(quotas, timeSeries, period)
   const userPredictions = isAdmin && userRows.length > 0 ? generateUserPredictions(adminUsage, userRows, period) : {}
 
-  const monoCell = { fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }
 
   return (
     <div className="page page--wide">
       <PageHeader title={t('usage.title')} supporting={t('usage.subtitle')} />
 
       {/* Period selector + tabs */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+      <div className="hstack hstack--xs mb-md">
         {PERIODS.map(p => (
           <button
             key={p.key}
@@ -755,80 +721,79 @@ export default function Usage() {
             {p.label}
           </button>
         ))}
-        <div style={{ width: 1, height: 20, background: 'var(--color-border-subtle)', margin: '0 var(--spacing-xs)' }} />
+        <div className="toolbar-divider" />
         <button
           className={`btn btn-sm ${activeTab === 'models' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('models')}
         >
-          <i className="fas fa-cube" style={{ fontSize: '0.7rem' }} /> Models
+          <i className="fas fa-cube text-xs" /> Models
         </button>
         {isAdmin && (
           <button
             className={`btn btn-sm ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('users')}
           >
-            <i className="fas fa-users" style={{ fontSize: '0.7rem' }} /> Users
+            <i className="fas fa-users text-xs" /> Users
           </button>
         )}
         <button
           className={`btn btn-sm ${activeTab === 'sources' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setActiveTab('sources')}
         >
-          <i className="fas fa-key" style={{ fontSize: '0.7rem' }} /> {t('usage.sources.tab')}
+          <i className="fas fa-key text-xs" /> {t('usage.sources.tab')}
         </button>
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         <button
-          className={`btn btn-sm ${costEnabled ? 'btn-primary' : 'btn-secondary'}`}
+          className={`btn btn-sm ${costEnabled ? 'btn-primary' : 'btn-secondary'} gap-xs`}
           onClick={() => setShowPricing(v => !v)}
-          style={{ gap: 4 }}
           title="Set token pricing to estimate cost"
         >
           <i className="fas fa-dollar-sign" /> {costEnabled ? 'Pricing' : 'Set pricing'}
         </button>
-        <button className="btn btn-secondary btn-sm" onClick={fetchUsage} disabled={loading} style={{ gap: 4 }}>
+        <button className="btn btn-secondary btn-sm gap-xs" onClick={fetchUsage} disabled={loading}>
           <i className={`fas fa-rotate${loading ? ' fa-spin' : ''}`} /> Refresh
         </button>
       </div>
 
       {showPricing && (
-        <div className="card" style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--spacing-md)', flexWrap: 'wrap', padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <label style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Prompt $/1M tokens</label>
+        <div className="card usage-filters mb-md">
+          <div className="stack stack--xs">
+            <label className="overline">Prompt $/1M tokens</label>
             <input
-              className="input" type="number" min="0" step="0.01" style={{ width: 140 }}
+              className="input col-w-140" type="number" min="0" step="0.01"
               value={pricing.prompt || ''}
               placeholder="0.00"
               onChange={e => setPricing({ ...pricing, prompt: Number(e.target.value) || 0 })}
             />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <label style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Completion $/1M tokens</label>
+          <div className="stack stack--xs">
+            <label className="overline">Completion $/1M tokens</label>
             <input
-              className="input" type="number" min="0" step="0.01" style={{ width: 140 }}
+              className="input col-w-140" type="number" min="0" step="0.01"
               value={pricing.completion || ''}
               placeholder="0.00"
               onChange={e => setPricing({ ...pricing, completion: Number(e.target.value) || 0 })}
             />
           </div>
           {costEnabled && (
-            <button className="btn btn-secondary btn-sm" onClick={() => setPricing({ prompt: 0, completion: 0 })} style={{ gap: 4 }}>
+            <button className="btn btn-secondary btn-sm gap-xs" onClick={() => setPricing({ prompt: 0, completion: 0 })}>
               <i className="fas fa-times" /> Clear
             </button>
           )}
-          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', flex: '1 1 200px' }}>
+          <span className="text-meta flex-1">
             Estimated cost only. Prices are stored in this browser and applied to recorded token counts.
           </span>
         </div>
       )}
 
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+        <div className="loading-center">
           <LoadingSpinner size="lg" />
         </div>
       ) : (
         <>
           {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
+          <div className="usage-grid mb-md">
             <StatCard icon="fas fa-arrow-right-arrow-left" label="Requests" value={displayTotals.request_count} />
             <StatCard icon="fas fa-arrow-up" label="Prompt" value={displayTotals.prompt_tokens} />
             <StatCard icon="fas fa-arrow-down" label="Completion" value={displayTotals.completion_tokens} />
@@ -861,23 +826,23 @@ export default function Usage() {
                   <thead>
                     <tr>
                       <th>Model</th>
-                      <th style={{ width: 90 }}>Requests</th>
-                      <th style={{ width: 110 }}>Prompt</th>
-                      <th style={{ width: 110 }}>Completion</th>
-                      <th style={{ width: 110 }}>Total</th>
-                      {costEnabled && <th style={{ width: 100 }}>Est. Cost</th>}
-                      <th style={{ width: 140 }}></th>
+                      <th className="col-w-90">Requests</th>
+                      <th className="col-w-110">Prompt</th>
+                      <th className="col-w-110">Completion</th>
+                      <th className="col-w-110">Total</th>
+                      {costEnabled && <th className="col-w-100">Est. Cost</th>}
+                      <th className="col-w-140"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {modelRows.map(row => (
                       <tr key={row.model}>
-                        <td style={monoCell}>{row.model}</td>
-                        <td style={monoCell}>{formatNumber(row.request_count)}</td>
-                        <td style={monoCell}>{formatNumber(row.prompt_tokens)}</td>
-                        <td style={monoCell}>{formatNumber(row.completion_tokens)}</td>
-                        <td style={{ ...monoCell, fontWeight: 600 }}>{formatNumber(row.total_tokens)}</td>
-                        {costEnabled && <td style={monoCell}>{formatCost(costOf(row, pricing))}</td>}
+                        <td className="cell-mono">{row.model}</td>
+                        <td className="cell-mono">{formatNumber(row.request_count)}</td>
+                        <td className="cell-mono">{formatNumber(row.prompt_tokens)}</td>
+                        <td className="cell-mono">{formatNumber(row.completion_tokens)}</td>
+                        <td className="cell-mono fw-semibold">{formatNumber(row.total_tokens)}</td>
+                        {costEnabled && <td className="cell-mono">{formatCost(costOf(row, pricing))}</td>}
                         <td><UsageBar value={row.total_tokens} max={maxTokens} /></td>
                       </tr>
                     ))}
@@ -901,13 +866,13 @@ export default function Usage() {
                     <tr>
                       <th></th>
                       <th>User</th>
-                      <th style={{ width: 90 }}>Requests</th>
-                      <th style={{ width: 110 }}>Prompt</th>
-                      <th style={{ width: 110 }}>Completion</th>
-                      <th style={{ width: 110 }}>Total</th>
-                      {costEnabled && <th style={{ width: 100 }}>Est. Cost</th>}
-                      <th style={{ width: 110 }}>Proj. Total</th>
-                      <th style={{ width: 140 }}></th>
+                      <th className="col-w-90">Requests</th>
+                      <th className="col-w-110">Prompt</th>
+                      <th className="col-w-110">Completion</th>
+                      <th className="col-w-110">Total</th>
+                      {costEnabled && <th className="col-w-100">Est. Cost</th>}
+                      <th className="col-w-110">Proj. Total</th>
+                      <th className="col-w-140"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -918,28 +883,28 @@ export default function Usage() {
                         <Fragment key={row.user_id}>
                           <tr
                             onClick={() => setSelectedUserId(isExpanded ? null : row.user_id)}
-                            style={{ cursor: 'pointer' }}
+                            className="clickable"
                           >
-                            <td style={{ width: 28, textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.7rem' }}>
+                            <td className="text-center text-muted text-xs col-w-30">
                               <i className={`fas fa-chevron-${isExpanded ? 'down' : 'right'}`} />
                             </td>
-                            <td style={{ fontSize: '0.8125rem' }}>{row.user_name}</td>
-                            <td style={monoCell}>{formatNumber(row.request_count)}</td>
-                            <td style={monoCell}>{formatNumber(row.prompt_tokens)}</td>
-                            <td style={monoCell}>{formatNumber(row.completion_tokens)}</td>
-                            <td style={{ ...monoCell, fontWeight: 600 }}>{formatNumber(row.total_tokens)}</td>
-                            {costEnabled && <td style={monoCell}>{formatCost(costOf(row, pricing))}</td>}
-                            <td style={{ ...monoCell, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                            <td className="text-sm">{row.user_name}</td>
+                            <td className="cell-mono">{formatNumber(row.request_count)}</td>
+                            <td className="cell-mono">{formatNumber(row.prompt_tokens)}</td>
+                            <td className="cell-mono">{formatNumber(row.completion_tokens)}</td>
+                            <td className="cell-mono fw-semibold">{formatNumber(row.total_tokens)}</td>
+                            {costEnabled && <td className="cell-mono">{formatCost(costOf(row, pricing))}</td>}
+                            <td className="cell-mono text-muted text-italic">
                               {up?.predictions ? `~${formatNumber(up.predictions.projectedTotals.total_tokens)}` : '-'}
                             </td>
                             <td><UsageBar value={row.total_tokens} max={maxUserTokens} /></td>
                           </tr>
                           {isExpanded && up && (
                             <tr>
-                              <td colSpan={costEnabled ? 9 : 8} style={{ padding: 0, background: 'var(--color-bg-secondary)' }}>
-                                <div style={{ padding: 'var(--spacing-md)' }}>
+                              <td colSpan={costEnabled ? 9 : 8} className="p-0 bg-secondary">
+                                <div className="pad-md">
                                   {up.predictions && (
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
+                                    <div className="usage-grid--narrow mb-sm">
                                       <StatCard icon="fas fa-arrow-right-arrow-left" label="Proj. Requests" value={up.predictions.projectedTotals.request_count} muted />
                                       <StatCard icon="fas fa-arrow-up" label="Proj. Prompt" value={up.predictions.projectedTotals.prompt_tokens} muted />
                                       <StatCard icon="fas fa-arrow-down" label="Proj. Completion" value={up.predictions.projectedTotals.completion_tokens} muted />
@@ -949,7 +914,7 @@ export default function Usage() {
                                   {up.timeSeries.length > 0 ? (
                                     <UsageTimeChart data={up.timeSeries} predictedData={up.predictions?.predictedBuckets} period={period} />
                                   ) : (
-                                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', padding: 'var(--spacing-sm)' }}>
+                                    <div className="text-note pad-sm">
                                       No time series data for this user.
                                     </div>
                                   )}

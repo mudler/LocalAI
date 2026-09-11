@@ -125,7 +125,7 @@ The per-backend prefix match only sees files under a backend's own directory, so
 | `backend/backend.proto` | nothing if the edit is additive-only, otherwise everything (see below) |
 | `backend/Dockerfile.<x>` | the Linux entries whose `dockerfile:` names it |
 | `backend/python/common/` | Python, Linux + Darwin |
-| `scripts/build/package-gpu-libs.sh` | Python, Linux only |
+| `scripts/build/package-gpu-libs.sh` | every Linux entry (Python, Go and C++ all run it) |
 | `scripts/build/<lang>-darwin.sh` | the Darwin entries that build target routes to |
 | `.github/workflows/backend_build[_darwin].yml` | everything on that OS |
 | anything else under `scripts/build/` (except `*_test.sh`) | everything — conservative default for unclassified packaging inputs |
@@ -160,6 +160,27 @@ The volume is real: 13 gallery-only PRs merged that week with 10 open at once, a
 | `gallery/**` | Model-gallery metadata, parsed at runtime, never copied into an image |
 | `docs/**`, `examples/**`, `**/*.md` | Never enter an image or a binary. `lint.yml` already excluded these before gallery was added |
 
+### `backend/{cpp,go,python}/**` on `image-pr.yml` and `build-test.yaml` only
+
+Version-pin bumps dominate PR volume: 48 `update/*` PRs in the week to 2026-07-30, from 16 pins, each a two-line diff. Most edit nothing but one `backend/*/<name>/Makefile`.
+
+Neither of those two workflows can observe such a change. `make build` is `go build ./cmd/local-ai`, GoReleaser builds the same plus `./cmd/launcher`, and the core image's final stage ships only `entrypoint.sh`, `healthcheck.sh` and that binary. The per-backend trees are copied into the builder but nothing in them reaches the output.
+
+What still triggers a full run, because none of it lives under those prefixes:
+
+- `backend/backend.proto` — feeds `protogen-go`, so it does change the binary.
+- `go.mod` / `go.sum` — the `go mod tidy` before-hook.
+- `backend/Dockerfile.*` and anything else directly under `backend/`.
+
+Deliberately **not** applied to:
+
+| Workflow | Why it must keep seeing `backend/**` |
+|---|---|
+| `test.yml` | `TEST_PATHS` explicitly includes `./backend/go/cloud-proxy/...`, `./backend/go/local-store/...` and `./backend/go/valkey-store/...` |
+| `lint.yml` | `.golangci.yml` carries `backend/`-scoped rules, so golangci-lint covers that tree |
+| `tests-e2e.yml` | The e2e suite drives real backends over gRPC |
+| `backend_pr.yml` | This is the workflow whose entire job is to rebuild the changed backend |
+
 What still runs, and why it has to:
 
 | Workflow | Why it keeps running |
@@ -173,7 +194,16 @@ Two properties this relies on:
 - `paths-ignore` skips a run only when **every** changed file matches, so a PR touching the gallery *and* Go code still runs everything. That is what makes the exclusion safe rather than a hole.
 - `master` carries no branch protection and no rulesets, so a skipped workflow reports no status and nothing waits on it. If required status checks are ever introduced, these four entries must be excluded from the required set or PRs will hang on "Expected — Waiting for status to be reported".
 
-Deliberately **not** filtered: `image.yml` on master push still rebuilds all 18 container images for a gallery-only commit. Skipping it would mean the `master` and `latest` tags are not republished for that commit, which is a publishing-semantics decision rather than a pure cost one.
+### `image.yml` on master push is gated too, by a job rather than a path filter
+
+The same reasoning applies to master pushes, and the volume is larger there: on 2026-07-30, **12 of the 23 queued `image.yml` runs** were commits like "add 1 new model to gallery" or a docs fix, each rebuilding all 18 container images.
+
+`image.yml` now has a `changes` job that decides once whether the push can affect any image; the other 11 jobs carry `needs: changes` plus an `if:` on its output. Verified against the shipped `Dockerfile`: the final stage copies only `entrypoint.sh`, `healthcheck.sh` and the `local-ai` binary, there is no `go:embed` of `gallery/` or `docs/`, and the gallery is fetched at runtime from `https://index.localai.io/models` (a caching mirror of `gallery/index.yaml` on master, with `github:mudler/LocalAI/gallery/index.yaml@master` as the fallback mirror). A gallery-only commit therefore produces byte-identical images, and the gallery change reaches users over the network immediately whether or not an image is rebuilt.
+
+Two properties to preserve if you touch it:
+
+- **It is a job gate, not `paths-ignore`.** `paths-ignore` on `push` also applies to tag pushes, and a tag created on an existing commit carries an empty commits list, which would silently skip the release image build. The gate short-circuits to "build" for `refs/tags/*`, and for any push whose base commit is missing, zero, or unresolvable.
+- **The merge jobs must name the gate explicitly.** They use `if: ${{ !cancelled() && ... }}`, and `!cancelled()` is true when a dependency is *skipped*, so without the extra condition they would run and try to merge manifest lists for images that were never built.
 
 ## The `DEPS_REFRESH` cache-buster (Python backends)
 
@@ -210,15 +240,38 @@ RUN --mount=type=cache,target=/root/.ccache,id=<backend>-ccache-${TARGETARCH}-${
     bash /usr/local/sbin/compile.sh
 ```
 
-The compile script exports `CMAKE_C/CXX/CUDA_COMPILER_LAUNCHER=ccache` so CMake threads ccache through gcc/g++/nvcc. `cache-to: type=registry,mode=max` exports the cache mount data into the registry cache, so subsequent builds restore it.
+The compile script exports `CMAKE_C/CXX/CUDA_COMPILER_LAUNCHER=ccache` so CMake threads ccache through gcc/g++/nvcc. Cache scope is per `(TARGETARCH, BUILD_TYPE)` so e.g. cublas-12 doesn't share with cublas-13 (their CUDA headers differ; cross-pollination would just be cache misses anyway).
 
-On a `LLAMA_VERSION` bump, most translation units are byte-identical to the previous version's preprocessed source — ccache returns the previous `.o` and skips the real compile. Same for LocalAI source changes that don't actually touch llama.cpp's CMake inputs. Cache scope is per `(TARGETARCH, BUILD_TYPE)` so e.g. cublas-12 doesn't share with cublas-13 (their CUDA headers differ; cross-pollination would just be cache misses anyway).
+### ⚠️ This ccache does nothing in CI today
+
+This section previously claimed that `cache-to: type=registry,mode=max` "exports the cache mount data into the registry cache, so subsequent builds restore it". **That is not true.** BuildKit does not export the contents of a `--mount=type=cache` to a registry cache export. A cache mount lives in the builder's local state, and every CI job gets a fresh runner with a fresh builder, so `/root/.ccache` starts empty on every single build.
+
+Measured on 2026-07-30 from the `ccache -s` output the compile script already prints (it runs `ccache -z` first, so the numbers are per-build):
+
+| Job | Commit touched | Build time | ccache |
+|---|---|---|---|
+| 89766266951 (llama-cpp, cublas 13) | `backend/go/magpie-tts-cpp/Makefile` only | 6369s | **0 / 889 hits**, and 0 / 1778 |
+| 89766267281 (llama-cpp, hipblas) | same commit | 8160s | **0 / 537 hits** |
+| 90210828110 (llama-cpp, cublas 12.8) | `LLAMA_VERSION` bump | 5673s | **0 / 813 hits** |
+
+The first two are the decisive control: commit `90355cd44` changed exactly one file, `backend/go/magpie-tts-cpp/Makefile`, nowhere near llama.cpp. The engine source was byte-identical to the previous build, which is precisely the case this section says ccache should serve, and the hit rate was still **0.00%**. A cache that was being restored but merely matching poorly would show partial hits; 0-of-N is the signature of an empty cache.
+
+So the paragraph above about `LLAMA_VERSION` bumps reusing previous `.o` files describes an intended design that is not in effect. `Dockerfile.{llama-cpp,ik-llama-cpp,turboquant,bonsai,ds4,privacy-filter}` pay the ccache wrapper overhead and get nothing back. Multi-hour C++ rebuilds are recompiling identical translation units from scratch.
+
+**Do not "fix" this by adding cache mounts to more Dockerfiles.** Wiring the same mount into `Dockerfile.golang` (215 of the 434 matrix entries) was measured locally at 18% faster on a rebuild after a source edit, with a 71.5% ccache hit rate — but only because the local test reused one builder across both builds. In CI it would be a no-op for exactly the reason above.
+
+Making this actually work needs the cache to live outside the builder. The options, none of them free:
+
+- **ccache `remote_storage`** (ccache ≥ 4.4, HTTP or Redis backend) or **sccache** with an S3/GCS/Redis backend. Genuinely works across runners; needs a cache service to point at. quay.io is a registry, not a blob store, so the existing infra does not cover it.
+- **Round-trip the cache dir through `actions/cache` on the runner**: restore it, pass it in, and export it back out via a build stage output. No external infra, but clunky, and the repo already sits at GitHub's 10 GB cache ceiling while the llama-cpp ccache alone is capped at 5 GB.
+
+Until one of those lands, treat C++ backend builds as always-cold and spend the effort on not running them instead (path filtering, see above).
 
 ## Composite actions
 
 Two composite actions handle runner-side prep:
 
-- **`.github/actions/free-disk-space/action.yml`** — wraps `jlumbroso/free-disk-space@main` plus an explicit apt purge of dotnet/android/ghc/mono/etc. Reclaims ~6–10 GB on `ubuntu-latest`. No-op on self-hosted runners. Used by `backend_build.yml`, `image_build.yml`, `test.yml`, `tests-aio.yml`, etc.
+- **`.github/actions/free-disk-space/action.yml`** — wraps `jlumbroso/free-disk-space@main` plus an explicit apt purge of dotnet/android/ghc/mono/etc. Reclaims ~6–10 GB on `ubuntu-latest`. No-op on self-hosted runners. Used by `backend_build.yml`, `image_build.yml` and `base-images.yml` — the jobs that actually build images. Deliberately **not** used by `test.yml`, which runs no buildx step.
 - **`.github/actions/setup-build-disk/action.yml`** — relocates Docker's data-root to `/mnt` on hosted X64 runners. GHA hosted `ubuntu-latest` ships ~75 GB of unused space at `/mnt`; combined with the free-disk-space cleanup this gives ~100 GB working space — enough for ROCm dev image + vLLM torch install + flash-attn intermediate layers. No-op on self-hosted and on non-X64 hosted runners. Used by `backend_build.yml`, `image_build.yml`, `base-images.yml`.
 
 Both actions run before any docker buildx step.
@@ -305,6 +358,26 @@ GitHub Actions caches are limited to 10 GB per repo. Steady-state worst case: ~8
 `.github/backend-matrix.yml` has zero references to `arc-runner-set` or `bigger-runner` — all backends run on GHA free-tier hosted runners (`ubuntu-latest` for amd64, `ubuntu-24.04-arm` for arm64 native, `macos-14` for Darwin). The migration off self-hosted relied on the per-arch native split (no QEMU emulation) plus `setup-build-disk`'s `/mnt` relocation (~100 GB working space, enough for ROCm dev image + vLLM/torch installs).
 
 One residual self-hosted reference remains in `test-extra.yml` (`tests-vibevoice-cpp-grpc-transcription` uses `bigger-runner` for the 30s JFK-decode timeout headroom). That's a separate concern.
+
+### Small always-on jobs routed to `arc-runner-set`
+
+The hosted pool is shared across the whole *account*, not per repo, so a burst in one repo starves the others. On 2026-07-31 it went to **zero scheduled jobs for 35 consecutive minutes** with 39 jobs queued, while `arc-runner-set` completed 12 jobs without interruption over the same window. Actions was healthy globally at the time (other public repos were scheduling normally), so this is an account-level throttle, not an outage.
+
+`gh-pages.yml` (`build` + `deploy`) is therefore routed to `arc-runner-set` when `github.repository == 'mudler/LocalAI'`. It needs no fork-safety clause because it only triggers on push-to-master and `workflow_dispatch`, so it never executes pull-request code. The repository guard keeps forks (which have no such runner label) from queueing forever. It fetches its own toolchains via `setup-go` / `actions-hugo` and uses no `sudo`/`apt`.
+
+#### What the `arc-runner-set` image actually contains
+
+Measured 2026-07-31 on run `30637392862` by a preflight step, not assumed:
+
+| present | **absent** |
+|---|---|
+| `git`, `curl`, `unzip`, `tar`, `ldd`, `python3` | **`make`**, **`gcc`** |
+
+That is why `lint.yml` is **not** on the self-hosted pool. Both of its jobs were routed there and both failed in one second: `golangci-lint` needs `make` (for `make protogen-go`, itself needing `curl`+`unzip` to fetch protoc, and for `make lint`), and `build-scripts` additionally needs a C toolchain because the packaging-script tests compile a throwaway binary and inspect it with `ldd`. Both jobs are back on `ubuntu-latest`.
+
+The preflight steps were deliberately left in place. They cost about a second on the hosted pool and mean that whenever the runner image gains `make` + `gcc`, re-routing is one `runs-on:` line per job and any remaining gap reports itself by name rather than as an opaque mid-build failure.
+
+Note for any future re-route: `lint.yml` also triggers on `pull_request`, and a fork PR runs untrusted contributor code. That must never reach a persistent self-hosted runner, so any re-route has to stay push-only, e.g. `${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI') && 'arc-runner-set' || 'ubuntu-latest' }}`.
 
 ## Touching the cache pipeline
 

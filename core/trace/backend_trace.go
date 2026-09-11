@@ -20,6 +20,8 @@ import (
 
 type BackendTraceType string
 
+type BackendTraceStatus string
+
 const (
 	BackendTraceLLM             BackendTraceType = "llm"
 	BackendTraceEmbedding       BackendTraceType = "embedding"
@@ -47,17 +49,24 @@ const (
 	BackendTraceVectorStore     BackendTraceType = "vector_store"
 )
 
+const (
+	BackendTraceRunning   BackendTraceStatus = "running"
+	BackendTraceCompleted BackendTraceStatus = "completed"
+	BackendTraceFailed    BackendTraceStatus = "failed"
+)
+
 type BackendTrace struct {
 	// ID identifies this trace for the lifetime of the process, so the list
 	// endpoint can return trimmed entries and clients can fetch the full
 	// record back from /api/backend-traces/:id.
-	ID        string           `json:"id"`
-	Timestamp time.Time        `json:"timestamp"`
-	Duration  time.Duration    `json:"duration"`
-	Type      BackendTraceType `json:"type"`
-	ModelName string           `json:"model_name"`
-	Backend   string           `json:"backend"`
-	Summary   string           `json:"summary"`
+	ID        string             `json:"id"`
+	Timestamp time.Time          `json:"timestamp"`
+	Duration  time.Duration      `json:"duration"`
+	Status    BackendTraceStatus `json:"status,omitempty"`
+	Type      BackendTraceType   `json:"type"`
+	ModelName string             `json:"model_name"`
+	Backend   string             `json:"backend"`
+	Summary   string             `json:"summary"`
 	// Body is the full request payload sent to the backend, when one
 	// applies (currently: cloud-proxy passthrough forwards). Summary
 	// is a short preview for the trace list; Body is the full
@@ -82,6 +91,8 @@ var (
 	backendTraceDataPath string
 	backendTraceStore    *tracepersist.Store[BackendTrace]
 	backendTraceStoreKey string
+	backendInFlight      = make(map[string]BackendTrace)
+	backendMaxInFlight   = 1024
 )
 
 type backendTraceCommand struct {
@@ -169,6 +180,17 @@ func ConfigureBackendTracePersistence(dataPath string) {
 	backendMu.Unlock()
 }
 
+// ConfigureBackendTraceMaxInFlight applies the process-wide admission ceiling
+// to backend work that can outlive the HTTP request which started it.
+func ConfigureBackendTraceMaxInFlight(max int) {
+	if max <= 0 {
+		max = 1024
+	}
+	backendMu.Lock()
+	backendMaxInFlight = max
+	backendMu.Unlock()
+}
+
 func advanceBackendTraceID(id string) {
 	n, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
@@ -178,7 +200,7 @@ func advanceBackendTraceID(id string) {
 	}
 }
 
-func RecordBackendTrace(t BackendTrace) {
+func RecordBackendTrace(trace BackendTrace) {
 	backendMu.Lock()
 	maxBody := backendMaxBodyBytes
 	store := backendTraceStore
@@ -188,17 +210,61 @@ func RecordBackendTrace(t BackendTrace) {
 	// (Inf/NaN) that encoding/json cannot marshal. A single such value — e.g. a
 	// -Inf dBFS audio metric from a silent clip — would otherwise fail the whole
 	// /api/backend-traces response and blank the Traces UI.
-	if t.Data != nil {
-		t.Data = sanitizeData(t.Data, maxBody)
+	if trace.Data != nil {
+		trace.Data = sanitizeData(trace.Data, maxBody)
+	}
+	if trace.ID == "" {
+		trace.ID = strconv.FormatUint(backendTraceIDSeq.Add(1), 10)
+	}
+	if trace.Error != "" {
+		trace.Status = BackendTraceFailed
+	} else {
+		trace.Status = BackendTraceCompleted
+	}
+	backendMu.Lock()
+	delete(backendInFlight, trace.ID)
+	backendMu.Unlock()
+	select {
+	case backendLogChan <- backendTraceCommand{trace: &trace, store: store}:
+	default:
+		xlog.Warn("Backend trace channel full, dropping trace")
+	}
+}
+
+// BeginBackendTrace makes an operation visible before its backend call starts.
+// RecordBackendTrace completes the same record when passed the trace again.
+func BeginBackendTrace(t BackendTrace) string {
+	if t.Timestamp.IsZero() {
+		t.Timestamp = time.Now()
 	}
 	if t.ID == "" {
 		t.ID = strconv.FormatUint(backendTraceIDSeq.Add(1), 10)
 	}
-	select {
-	case backendLogChan <- backendTraceCommand{trace: &t, store: store}:
-	default:
-		xlog.Warn("Backend trace channel full, dropping trace")
+	t.Status = BackendTraceRunning
+
+	backendMu.Lock()
+	defer backendMu.Unlock()
+	if backendMaxInFlight > 0 && len(backendInFlight) >= backendMaxInFlight {
+		return ""
 	}
+	running := t
+	// Completion-only payloads may be mutated by producers while the request is
+	// running. The list and backend-log link only need this stable metadata.
+	running.Body = ""
+	running.Data = nil
+	backendInFlight[running.ID] = running
+	return running.ID
+}
+
+// CancelBackendTrace removes an operation that is represented by a different
+// completion trace, such as a model-load failure enriched by its caller.
+func CancelBackendTrace(id string) {
+	if id == "" {
+		return
+	}
+	backendMu.Lock()
+	delete(backendInFlight, id)
+	backendMu.Unlock()
 }
 
 // sanitizeData walks a trace Data map (recursing into nested maps and slices)
@@ -290,17 +356,22 @@ func sanitizeValue(v any, maxBytes int) (any, bool) {
 
 func GetBackendTraces() []BackendTrace {
 	backendMu.Lock()
-	if backendTraceBuffer == nil {
-		backendMu.Unlock()
-		return []BackendTrace{}
+	var ptrs []*BackendTrace
+	if backendTraceBuffer != nil {
+		ptrs = backendTraceBuffer.Values()
 	}
-	ptrs := backendTraceBuffer.Values()
+	running := make([]BackendTrace, 0, len(backendInFlight))
+	for _, t := range backendInFlight {
+		t.Duration = time.Since(t.Timestamp)
+		running = append(running, t)
+	}
 	backendMu.Unlock()
 
-	traces := make([]BackendTrace, len(ptrs))
-	for i, p := range ptrs {
-		traces[i] = *p
+	traces := make([]BackendTrace, 0, len(ptrs)+len(running))
+	for _, p := range ptrs {
+		traces = append(traces, *p)
 	}
+	traces = append(traces, running...)
 
 	slices.SortFunc(traces, func(a, b BackendTrace) int {
 		return b.Timestamp.Compare(a.Timestamp)

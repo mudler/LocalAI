@@ -331,8 +331,9 @@ func (d *DistributedBackendManager) DeleteBackendDetailed(ctx context.Context, n
 // populated from the first node seen so single-node-minded callers still work.
 //
 // Pending/offline/draining nodes are skipped because they aren't expected to
-// answer NATS requests; unhealthy nodes are still queried — ErrNoResponders
-// then marks them unhealthy and the loop continues.
+// answer NATS requests, and so are non-backend workers, which do not subscribe
+// to backend.list at all; unhealthy backend nodes are still queried —
+// ErrNoResponders then marks them unhealthy and the loop continues.
 func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, error) {
 	result := make(gallery.SystemBackends)
 	allNodes, err := d.registry.List(context.Background())
@@ -342,6 +343,14 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 
 	for _, node := range allNodes {
 		if node.Status == StatusPending || node.Status == StatusOffline || node.Status == StatusDraining {
+			continue
+		}
+		// Only backend workers subscribe to backend.list. Asking an agent
+		// worker can only answer "no responders", which the error handling
+		// below reads as a node that has gone away, so every poll of this view
+		// marked every agent node unhealthy and its next heartbeat marked it
+		// healthy again. The backend-op fan-out skips them for the same reason.
+		if node.NodeType != "" && node.NodeType != NodeTypeBackend {
 			continue
 		}
 		reply, err := d.adapter.ListBackends(node.ID)

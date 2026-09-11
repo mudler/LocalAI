@@ -122,6 +122,21 @@ from diffusers.schedulers import (
     UniPCMultistepScheduler,
 )
 
+def select_device(request_cuda, device_option, cuda_available, xpu, mps_available):
+    """Pick the pipeline device. An explicit `device:` model option wins;
+    otherwise CUDA is used whenever torch reports it available (ROCm
+    builds included) or the model config forces it with `cuda: true`,
+    keeping the pre-existing XPU/MPS overrides. CPU is the fallback, not
+    the default."""
+    if device_option:
+        return device_option
+    device = "cuda" if (request_cuda or cuda_available) else "cpu"
+    if xpu:
+        device = "xpu"
+    if mps_available:
+        device = "mps"
+    return device
+
 def is_float(s):
     """Check if a string can be converted to float."""
     try:
@@ -627,12 +642,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 # modify LoraAdapter to be relative to modelFileBase
                 request.LoraAdapter = os.path.join(request.ModelPath, request.LoraAdapter)
 
-            device = "cpu" if not request.CUDA else "cuda"
-            if XPU:
-                device = "xpu"
-            mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
-            if mps_available:
-                device = "mps"
+            device = select_device(
+                request.CUDA,
+                self.options.pop("device", None),
+                torch.cuda.is_available(),
+                XPU,
+                hasattr(torch.backends, "mps") and torch.backends.mps.is_available(),
+            )
             self.device = device
             if request.LoraAdapter:
                 # Check if its a local file and not a directory ( we load lora differently for a safetensor file )
@@ -800,12 +816,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             image = image.resize((1024, 576))
 
             generator = torch.manual_seed(request.seed)
-            frames = self.pipe(image, guidance_scale=self.cfg_scale, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
+            frames = self.pipe(image=image, guidance_scale=self.cfg_scale, decode_chunk_size=CHUNK_SIZE, generator=generator).frames[0]
             export_to_video(frames, request.dst, fps=FPS)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
         if self.txt2vid:
-            video_frames = self.pipe(prompt, guidance_scale=self.cfg_scale, num_inference_steps=steps, num_frames=int(FRAMES)).frames
+            video_frames = self.pipe(prompt=prompt, guidance_scale=self.cfg_scale, num_inference_steps=steps, num_frames=int(FRAMES)).frames
             export_to_video(video_frames, request.dst)
             return backend_pb2.Result(message="Media generated successfully", success=True)
 
@@ -868,7 +884,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         else:
             # pass the kwargs dictionary to the self.pipe method
             image = self.pipe(
-                prompt,
+                prompt=prompt,
                 guidance_scale=self.cfg_scale,
                 **kwargs
             ).images[0]
@@ -882,6 +898,34 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         image.save(request.dst, format="PNG")
 
         return backend_pb2.Result(message="Media generated", success=True)
+
+    def UpscaleImage(self, request, context):
+        try:
+            if not request.src:
+                return backend_pb2.Result(success=False, message="No source image provided")
+            if not request.dst:
+                return backend_pb2.Result(success=False, message="No destination path provided")
+
+            scale = request.scale if request.scale > 0 else 2
+            image = Image.open(request.src).convert("RGB")
+
+            # If the loaded pipeline supports upscaling (e.g. StableDiffusionUpscalePipeline),
+            # use it; otherwise fall back to high-quality Lanczos resize.
+            if self.pipe is not None and self.PipelineType in ("StableDiffusionUpscalePipeline", "StableDiffusionLatentUpscalePipeline"):
+                print(f"UpscaleImage: using diffusers upscale pipeline ({self.PipelineType})", file=sys.stderr)
+                upscaled = self.pipe(prompt="", image=image).images[0]
+            else:
+                # Fallback: high-quality Lanczos resize
+                print(f"UpscaleImage: no upscale pipeline loaded, using Lanczos resize (scale={scale})", file=sys.stderr)
+                new_w = image.width * scale
+                new_h = image.height * scale
+                upscaled = image.resize((new_w, new_h), Image.LANCZOS)
+
+            upscaled.save(request.dst)
+            return backend_pb2.Result(message="Image upscaled", success=True)
+        except Exception as e:
+            print(f"UpscaleImage error: {e}", file=sys.stderr)
+            return backend_pb2.Result(success=False, message=str(e))
 
     def GenerateVideo(self, request, context):
         try:

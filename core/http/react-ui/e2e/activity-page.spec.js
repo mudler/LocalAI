@@ -43,6 +43,40 @@ test('lists live operations and cancels one from a labelled button', async ({ pa
   expect(cancelledPath).toBe('/api/operations/job-gemma/cancel')
 })
 
+test('pauses a model download without invoking destructive cancel', async ({ page }) => {
+  await stub(page, {
+    operations: [{
+      id: 'gemma-3-27b-it',
+      name: 'gemma-3-27b-it',
+      jobID: 'job-gemma',
+      progress: 22,
+      taskType: 'installation',
+      isBackend: false,
+      isQueued: false,
+      isDeletion: false,
+      cancellable: true,
+      phase: 'downloading',
+    }],
+  })
+
+  const requests = []
+  await page.route('**/api/operations/job-gemma/pause', (route) => {
+    requests.push(new URL(route.request().url()).pathname)
+    return route.fulfill({ contentType: 'application/json', body: '{}' })
+  })
+  await page.route('**/api/operations/job-gemma/cancel', (route) => {
+    requests.push(new URL(route.request().url()).pathname)
+    return route.fulfill({ contentType: 'application/json', body: '{}' })
+  })
+
+  await page.goto('/app/activity')
+
+  const card = page.locator('.operation-card').filter({ hasText: 'gemma-3-27b-it' })
+  await card.locator('.operation-card__pause').click()
+
+  await expect.poll(() => requests).toEqual(['/api/operations/job-gemma/pause'])
+})
+
 test('separates an unacknowledged failure from the record', async ({ page }) => {
   await stub(page, {
     operations: [{

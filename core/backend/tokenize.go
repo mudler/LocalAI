@@ -39,11 +39,19 @@ func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.Model
 	predictOptions := gRPCPredictOpts(modelConfig, loader.ModelPath)
 	predictOptions.Prompt = s
 
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return schema.TokenizeResponse{}, err
+	}
+	defer release()
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTokenize, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(s, 200)})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	// tokenize the string
 	resp, err := inferenceModel.TokenizeString(appConfig.Context, predictOptions)
@@ -57,6 +65,7 @@ func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.Model
 		tokenCount := tokenizeTokenCount(resp)
 
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceTokenize,

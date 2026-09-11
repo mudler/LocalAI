@@ -24,11 +24,13 @@
     "observability": "Observability",
     "access": "Access",
     "system": "System",
-    "activity": "Activity"
+    "activity": "Activity",
+    "runtime": "Runtime",
+    "administration": "Amministrazione"
   },
   "items": {
     "home": "Home",
-    "installModels": "Installa modelli",
+    "models": "Models",
     "chat": "Chat",
     "studio": "Studio",
     "talk": "Conversazione",
@@ -38,7 +40,6 @@
     "voices": "Voci",
     "jobs": "Lavori",
     "operate": "Amministrazione",
-    "host": "Host",
     "audioTransform": "Trasforma audio",
     "faceRecognition": "Riconoscimento volti",
     "voiceRecognition": "Riconoscimento vocale",
@@ -57,7 +58,8 @@
     "settings": "Impostazioni",
     "api": "API",
     "middleware": "Middleware",
-    "activity": "Attività"
+    "activity": "Attività",
+    "overview": "Panoramica"
   },
   "footer": {
     "github": "GitHub",

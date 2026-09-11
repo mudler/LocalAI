@@ -24,11 +24,13 @@
     "observability": "Observabilitas",
     "access": "Akses",
     "system": "Sistem",
-    "activity": "Activity"
+    "activity": "Activity",
+    "runtime": "Runtime",
+    "administration": "Administrasi"
   },
   "items": {
     "home": "Beranda",
-    "installModels": "Instal Model",
+    "models": "Models",
     "chat": "Obrolan",
     "studio": "Studio",
     "talk": "Bicara",
@@ -38,7 +40,6 @@
     "voices": "Suara",
     "jobs": "Pekerjaan",
     "operate": "Admin",
-    "host": "Host",
     "audioTransform": "Transformasi Audio",
     "faceRecognition": "Pengenalan Wajah",
     "voiceRecognition": "Pengenalan Suara",
@@ -50,6 +51,7 @@
     "users": "Pengguna",
     "middleware": "Middleware",
     "backends": "Backend",
+    "voiceLibrary": "Pustaka Suara",
     "traces": "Trace",
     "nodes": "Node",
     "scheduling": "Penjadwalan",
@@ -57,7 +59,8 @@
     "system": "Sistem",
     "settings": "Pengaturan",
     "api": "API",
-    "activity": "Aktivitas"
+    "activity": "Aktivitas",
+    "overview": "Ikhtisar"
   },
   "footer": {
     "github": "GitHub",

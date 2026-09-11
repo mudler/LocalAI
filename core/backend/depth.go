@@ -33,12 +33,20 @@ func Depth(
 	if depthModel == nil {
 		return nil, fmt.Errorf("could not load depth model")
 	}
+	release, err := AcquireGlobalBackendSlot()
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 
 	var startTime time.Time
+	var traceID string
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
+		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceDepth, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(in.GetSrc(), 200)})
 	}
+	defer trace.CancelBackendTrace(traceID)
 
 	// Stamped here for the same reason as in rerank.go: the caller builds the
 	// request without a ModelConfig, this function has the one that loaded.
@@ -53,6 +61,7 @@ func Depth(
 		}
 
 		trace.RecordBackendTrace(trace.BackendTrace{
+			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceDepth,

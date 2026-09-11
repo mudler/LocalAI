@@ -1,0 +1,43 @@
+{
+  "title": "Base de Conhecimento",
+  "subtitle": "Gerencie coleções de documentos para RAG de agentes",
+  "newPlaceholder": "Nome da nova coleção...",
+  "actions": {
+    "create": "Criar",
+    "creating": "Criando...",
+    "details": "Detalhes",
+    "reset": "Redefinir",
+    "delete": "Excluir",
+    "viewDetails": "Ver detalhes",
+    "resetCollection": "Redefinir coleção",
+    "deleteCollection": "Excluir coleção"
+  },
+  "sections": {
+    "yourCollections": "Suas Coleções",
+    "otherUsersCollections": "Coleções de Outros Usuários"
+  },
+  "empty": {
+    "title": "Nenhuma coleção ainda",
+    "text": "As coleções permitem organizar documentos em bases de conhecimento que os agentes podem pesquisar usando RAG (Retrieval-Augmented Generation). Crie uma coleção acima para começar.",
+    "noPersonal": "Você ainda não tem coleções."
+  },
+  "deleteDialog": {
+    "title": "Excluir Coleção",
+    "message": "Excluir a coleção \"{{name}}\"? Isso removerá todas as entradas e não pode ser desfeito.",
+    "confirm": "Excluir"
+  },
+  "resetDialog": {
+    "title": "Redefinir Coleção",
+    "message": "Redefinir a coleção \"{{name}}\"? Isso removerá todas as entradas, mas manterá a coleção.",
+    "confirm": "Redefinir"
+  },
+  "toasts": {
+    "loadFailed": "Falha ao carregar coleções: {{message}}",
+    "created": "Coleção \"{{name}}\" criada",
+    "createFailed": "Falha ao criar a coleção: {{message}}",
+    "deleted": "Coleção \"{{name}}\" excluída",
+    "deleteFailed": "Falha ao excluir a coleção: {{message}}",
+    "reset": "Coleção \"{{name}}\" redefinida",
+    "resetFailed": "Falha ao redefinir a coleção: {{message}}"
+  }
+}

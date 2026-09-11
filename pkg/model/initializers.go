@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	processManager "github.com/mudler/go-processmanager"
 	"github.com/mudler/xlog"
 	"github.com/phayes/freeport"
 	"google.golang.org/protobuf/proto"
@@ -66,20 +68,29 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		ml.mu.Unlock()
 		if router != nil {
 			xlog.Info("Routing model to remote node via ModelRouter", "modelID", modelID, "backend", backend)
-			return router(o.context, backend, modelID, modelName, modelFile, o.gRPCOptions, o.parallelRequests)
+			return router(o.context, backend, modelID, modelName, modelFile, o.configRevision, o.gRPCOptions, o.parallelRequests)
 		}
 
 		uri := ml.GetAllExternalBackends(o)[backend]
 		start := time.Now()
+		started := BackendLoadEvent{ModelID: modelID, ModelName: modelName, Backend: backend, BackendURI: uri}
+		finish, admissionErr := ml.notifyLoadStarted(started)
+		if admissionErr != nil {
+			return nil, admissionErr
+		}
 		m, err := ml.spawnGRPCModel(backend, uri, o, modelID, modelName, modelFile)
-		ml.notifyLoadObserver(BackendLoadEvent{
+		completed := BackendLoadEvent{
 			ModelID:    modelID,
 			ModelName:  modelName,
 			Backend:    backend,
 			BackendURI: uri,
 			Duration:   time.Since(start),
 			Err:        err,
-		})
+		}
+		ml.notifyLoadObserver(completed)
+		if finish != nil {
+			finish(completed)
+		}
 		return m, err
 	}
 }
@@ -161,8 +172,9 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 
 	if !ready {
 		xlog.Debug("GRPC Service NOT ready")
-		stopLoadProcess(client, modelID)
-		return nil, fmt.Errorf("grpc service not ready")
+		startupErr := grpcStartupError(client.Process())
+		ml.stopLoadProcess(client, modelID)
+		return nil, startupErr
 	}
 
 	// Clone before setting the per-load fields: o.gRPCOptions is shared by
@@ -177,11 +189,11 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 
 	res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, options)
 	if err != nil {
-		stopLoadProcess(client, modelID)
+		ml.stopLoadProcess(client, modelID)
 		return nil, fmt.Errorf("could not load model: %w", err)
 	}
 	if !res.Success {
-		stopLoadProcess(client, modelID)
+		ml.stopLoadProcess(client, modelID)
 		return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
 	}
 
@@ -194,9 +206,61 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 	return client, nil
 }
 
+const startupStderrTailBytes = 4096
+
+func grpcStartupError(process *processManager.Process) error {
+	if process == nil {
+		return errors.New("grpc service not ready")
+	}
+
+	select {
+	case <-process.Done():
+	default:
+		return errors.New("grpc service not ready")
+	}
+
+	exitCode, err := process.ExitCode()
+	if err != nil {
+		return errors.New("grpc service not ready: backend process exited before becoming ready")
+	}
+
+	diagnostic := lastNonEmptyLine(process.StderrPath(), startupStderrTailBytes)
+	if diagnostic == "" {
+		return fmt.Errorf("grpc service not ready: backend process exited with code %s", strings.TrimSpace(exitCode))
+	}
+	return fmt.Errorf("grpc service not ready: backend process exited with code %s: %s", strings.TrimSpace(exitCode), diagnostic)
+}
+
+func lastNonEmptyLine(path string, maxBytes int64) string {
+	// #nosec G304 -- path comes from the process manager for this backend's stderr file.
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = f.Close() }()
+
+	info, err := f.Stat()
+	if err != nil {
+		return ""
+	}
+	start := max(info.Size()-maxBytes, 0)
+	if _, err := f.Seek(start, io.SeekStart); err != nil {
+		return ""
+	}
+	contents, err := io.ReadAll(f)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(contents)), "\n")
+	if len(lines) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(lines[len(lines)-1])
+}
+
 // stopLoadProcess tears down a backend process whose load did not complete.
 // The stop error is only logged: the load error is what the caller reports.
-func stopLoadProcess(client *Model, modelID string) {
+func (ml *ModelLoader) stopLoadProcess(client *Model, modelID string) {
 	process := client.Process()
 	if process == nil {
 		return
@@ -204,6 +268,7 @@ func stopLoadProcess(client *Model, modelID string) {
 	if err := process.Stop(); err != nil {
 		xlog.Warn("failed to stop backend process after failed load", "error", err, "modelID", modelID)
 	}
+	ml.cleanupProcessRuntime(process)
 }
 
 // parallelSlotsFromOptions returns the effective n_parallel from the backend

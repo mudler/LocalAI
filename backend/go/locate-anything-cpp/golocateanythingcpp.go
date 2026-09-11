@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"unsafe"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
@@ -109,30 +110,25 @@ func (r *LocateAnythingCpp) Detect(opts *pb.DetectOptions) (pb.DetectResponse, e
 		return pb.DetectResponse{}, fmt.Errorf("locate-anything-cpp: a text prompt is required (open-vocabulary detection)")
 	}
 
-	// Decode base64 image and write to temp file.
 	imgData, err := base64.StdEncoding.DecodeString(opts.Src)
 	if err != nil {
 		return pb.DetectResponse{}, fmt.Errorf("locate-anything-cpp: failed to decode base64 image: %w", err)
 	}
-
-	tmpFile, err := os.CreateTemp("", "locate-anything-*.img")
-	if err != nil {
-		return pb.DetectResponse{}, fmt.Errorf("locate-anything-cpp: failed to create temp file: %w", err)
-	}
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
-
-	if _, err := tmpFile.Write(imgData); err != nil {
-		_ = tmpFile.Close()
-		return pb.DetectResponse{}, fmt.Errorf("locate-anything-cpp: failed to write temp file: %w", err)
-	}
-	if err := tmpFile.Close(); err != nil {
-		return pb.DetectResponse{}, fmt.Errorf("locate-anything-cpp: failed to close temp file: %w", err)
+	if len(imgData) == 0 {
+		return pb.DetectResponse{}, fmt.Errorf("locate-anything-cpp: decoded image is empty")
 	}
 
 	// mode 0 = hybrid (Parallel Box Decoding). The JSON return value is unused:
 	// structured detections are read via the accessor functions. Still must
 	// free the returned string.
-	jsonPtr := CapiLocatePath(r.handle, tmpFile.Name(), prompt, 0)
+	jsonPtr := CapiLocateBuffer(
+		r.handle,
+		uintptr(unsafe.Pointer(unsafe.SliceData(imgData))),
+		uintptr(len(imgData)),
+		prompt,
+		0,
+	)
+	runtime.KeepAlive(imgData)
 	if jsonPtr != 0 {
 		CapiFreeString(jsonPtr)
 	}

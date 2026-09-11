@@ -49,6 +49,7 @@ You can configure these settings via the web UI or through environment variables
 
 - **Threads**: Number of threads used for parallel computation (recommended: number of physical cores)
 - **Context Size**: Default context size for models (default: `512`)
+- **Artifact Download Concurrency**: Maximum number of artifact files downloaded at once. `1` downloads sequentially (default: `1`)
 - **F16**: Enable GPU acceleration using 16-bit floating point
 - **VRAM Budget**: Cap on VRAM used for model allocation (for example `80%` or `12GB`; empty means no cap). See [VRAM Management]({{%relref "advanced/vram-management" %}})
 
@@ -79,9 +80,9 @@ Changes to P2P settings automatically restart the P2P stack with the new configu
 
 Manage model and backend galleries:
 
-- **Model Galleries**: JSON array of gallery objects with `url` and `name` fields
-- **Backend Galleries**: JSON array of backend gallery objects
-- **Autoload Galleries**: Automatically load model galleries on startup
+- **Model Galleries**: JSON array of gallery objects with `url` and `name` fields, plus an optional `mirrors` list of fallback URLs (see [Gallery mirrors]({{%relref "features/model-gallery#gallery-mirrors" %}}))
+- **Backend Galleries**: JSON array of backend gallery objects, which accept the same `mirrors` key
+- **Load and pre-warm galleries on boot**: Load model galleries and pre-warm their remote size and VRAM estimates when LocalAI starts. Disable this setting to skip both startup operations.
 - **Autoload Backend Galleries**: Automatically load backend galleries on startup
 
 ### Agent Pool Settings
@@ -138,6 +139,7 @@ The `runtime_settings.json` file follows this structure:
   "lru_eviction_retry_interval": "1s",
   "threads": 8,
   "context_size": 2048,
+  "artifact_download_concurrency": 4,
   "f16": false,
   "debug": false,
   "cors": true,
@@ -148,18 +150,21 @@ The `runtime_settings.json` file follows this structure:
   "federated": false,
   "galleries": [
     {
-      "url": "github:mudler/LocalAI/gallery/index.yaml@master",
+      "url": "https://index.localai.io/models",
+      "mirrors": ["github:mudler/LocalAI/gallery/index.yaml@master"],
       "name": "localai"
     }
   ],
   "backend_galleries": [
     {
-      "url": "github:mudler/LocalAI/backend/index.yaml@master",
+      "url": "https://index.localai.io/backends",
+      "mirrors": ["github:mudler/LocalAI/backend/index.yaml@master"],
       "name": "localai"
     }
   ],
   "autoload_galleries": true,
   "autoload_backend_galleries": true,
+  "vram_persistent_cache": true,
   "api_keys": []
 }
 ```
@@ -221,4 +226,3 @@ If P2P is not starting:
 2. Check network connectivity
 3. Ensure the P2P network ID matches across nodes (if using federated mode)
 4. Review logs for P2P-related errors
-

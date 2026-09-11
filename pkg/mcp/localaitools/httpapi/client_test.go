@@ -84,6 +84,43 @@ func fakeLocalAI() *httptest.Server {
 		})
 	})
 
+	mux.HandleFunc("/api/nodes/scheduling", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			_ = json.NewEncoder(w).Encode([]map[string]any{{
+				"id":                  "sched-1",
+				"model_name":          "qwen",
+				"min_replicas":        1,
+				"max_replicas":        2,
+				"unsatisfiable_ticks": 1,
+				"unsatisfiable_until": "2026-01-01T00:00:00Z",
+				"created_at":          "2026-01-01T00:00:00Z",
+				"updated_at":          "2026-01-01T00:00:00Z",
+			}})
+		case http.MethodPost:
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			body["id"] = "sched-1"
+			_ = json.NewEncoder(w).Encode(body)
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/nodes/scheduling/qwen", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			_ = json.NewEncoder(w).Encode(map[string]any{"model_name": "qwen", "spread_all": true})
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "method", http.StatusMethodNotAllowed)
+		}
+	})
+
 	return httptest.NewServer(mux)
 }
 
@@ -197,7 +234,50 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(bs[0].Installed).To(BeTrue())
 		})
 	})
+
+	Describe("Scheduling", func() {
+		It("lists scheduling configs", func() {
+			out, err := c.ListScheduling(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].ModelName).To(Equal("qwen"))
+			Expect(out[0].MinReplicas).To(Equal(1))
+			Expect(schedulingJSONKeys(&out[0])).ToNot(Or(
+				HaveKey("id"),
+				HaveKey("unsatisfiable_until"),
+				HaveKey("unsatisfiable_ticks"),
+				HaveKey("created_at"),
+				HaveKey("updated_at"),
+			))
+		})
+
+		It("gets one scheduling config", func() {
+			out, err := c.GetScheduling(ctx, "qwen")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.ModelName).To(Equal("qwen"))
+			Expect(out.SpreadAll).To(BeTrue())
+		})
+
+		It("sets a scheduling config", func() {
+			out, err := c.SetScheduling(ctx, localaitools.SetSchedulingRequest{ModelName: "qwen", MinReplicas: 1, MaxReplicas: 2})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.ModelName).To(Equal("qwen"))
+			Expect(out.MaxReplicas).To(Equal(2))
+		})
+
+		It("deletes a scheduling config", func() {
+			Expect(c.DeleteScheduling(ctx, "qwen")).To(Succeed())
+		})
+	})
 })
+
+func schedulingJSONKeys(config *localaitools.ModelSchedulingConfig) map[string]any {
+	var out map[string]any
+	b, err := json.Marshal(config)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(json.Unmarshal(b, &out)).To(Succeed())
+	return out
+}
 
 var _ = Describe("Model aliases", func() {
 	Describe("ListAliases", func() {

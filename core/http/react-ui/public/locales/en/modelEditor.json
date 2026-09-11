@@ -9,7 +9,7 @@
     },
     "actions": {
         "backTo": "Back to {{page}}",
-        "system": "System",
+        "models": "Models",
         "templates": "Templates",
         "createModel": "Create Model",
         "saveChanges": "Save Changes",

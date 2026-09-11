@@ -19,17 +19,26 @@ This section covers everything you need to know about installing and configuring
 
 The Model Gallery is the simplest way to install models. It provides pre-configured models ready to use.
 
+GPU recommendations require a memory estimate within 95% of the detected model memory budget at a 4096-token context. If none of the sampled candidates fit, the recommendation section is hidden. You can still browse the gallery and check individual models at your intended context size. The Home page also omits static GPU suggestions when no fitting recommendation is available.
+
 ### Via WebUI
 
 1. Open the LocalAI WebUI at `http://localhost:8080`
-2. Navigate to the "Models" tab
-3. Browse available models
+2. Navigate to **Models → Explore**
+3. Browse or search the available models
 4. Click "Install" on any model you want
 5. Wait for installation to complete. Progress appears in the strip at the top
    of the app, and **Operate → Activity** shows every install in flight, plus
    what failed and what finished (see [Activity]({{% relref "operations/activity" %}}))
 
 For more details, refer to the [Gallery Documentation]({{% relref "features/model-gallery" %}}).
+
+The same Models page owns the complete lifecycle. Switch to **Installed** to
+search local configurations, filter them by running, idle, disabled, pinned,
+or distributed state, and open a model's runtime controls. Load, stop, edit,
+pin, disable, inspect backend logs, and remove actions stay with the selected
+model. The current view, search, filter, and selection are stored in the URL so
+links and browser history preserve your place.
 
 ### Via CLI
 
@@ -64,37 +73,47 @@ Visit [models.localai.io](https://models.localai.io) to browse all available mod
 
 ## Method 1.5: Import Models via WebUI
 
-The WebUI provides a powerful model import interface that supports both simple and advanced configuration:
+The WebUI import page takes either a source to resolve or a configuration to
+write. Both live on the same page, behind the two tabs in its header.
 
-### Simple Import Mode
+### From a source
 
 1. Open the LocalAI WebUI at `http://localhost:8080`
 2. Click "Import Model"
-3. Enter the model URI (e.g., `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`)
-4. Optionally configure preferences:
-   - Backend selection
-   - Model name
-   - Description
-   - Quantizations
-   - Embeddings support
-   - Custom preferences
-5. Click "Import Model" to start the import process
+3. Paste the source into the **Source** field (e.g. `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`)
+4. Press Enter, or click **Import**
 
-### Advanced Import Mode
+The **What you can paste** panel beside the field lists every accepted scheme:
+`huggingface://`, `hf://`, a full Hugging Face URL, any direct `https://` URL,
+`file://` and absolute paths on the host, `oci://`, `ocifile://`, and
+`ollama://`.
 
-For full control over model configuration:
+Expanding **Import options** reveals everything you can override before the
+import runs: backend, name, description, quantizations, MMProj quantizations,
+model type, embeddings support, the diffusers-specific fields, and arbitrary
+custom key-value preferences. The backend list can be narrowed by modality
+first. Fields that the selected backend cannot use are hidden, and anything you
+typed into them is kept in case you switch back.
 
-1. In the WebUI, click "Import Model"
-2. Toggle to "Advanced Mode"
-3. Edit the YAML configuration directly in the code editor
-4. Use the "Validate" button to check your configuration
-5. Click "Create" or "Update" to save
+Leaving the backend on auto-detect lets LocalAI choose from the source. If more
+than one installed backend can serve the detected modality, the page says so
+and offers the candidates inline — picking one resubmits the import.
 
-The advanced editor includes:
-- Syntax highlighting
-- YAML validation
-- Format and copy tools
-- Full configuration options
+Repositories under `mlx-community` are imported with the native MLX backend.
+LocalAI uses Hugging Face's pipeline metadata to select `mlx-vlm` for
+vision-language models and `mlx-audio` for text-to-speech models; other MLX
+repositories use `mlx`. An explicit backend selection in the import form always
+overrides this automatic routing.
+
+Once the import starts, the page reports the current phase, the bytes
+transferred and a progress bar until the model is ready.
+
+### Writing YAML
+
+For full control over model configuration, switch to the **Write YAML** tab and
+edit the configuration directly, then click **Create**. The editor provides
+syntax highlighting and a copy button, and accepts the same configuration keys
+documented under [Advanced]({{% relref "advanced" %}}).
 
 This is especially useful for:
 - Custom model configurations
@@ -134,7 +153,7 @@ local-ai run oci://localai/phi-2:latest
 ```
 
 {{% notice note %}}
-When pulling models from Ollama or OCI registries, LocalAI identifies itself with a `LocalAI/<version>` `User-Agent` header so registry operators can attribute usage to LocalAI.
+On every model download — Ollama and OCI registries, the model gallery, and plain HTTP(S) file URLs alike — LocalAI identifies itself with a `LocalAI/<version> (<os>; <arch>)` `User-Agent` header (for example `LocalAI/v3.2.1 (linux; amd64)`) so registry and gallery operators can attribute usage to LocalAI. Builds from source that carry no stamped version send `LocalAI (<os>; <arch>)` instead.
 {{% /notice %}}
 
 ### Run Models via URI

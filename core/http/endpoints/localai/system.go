@@ -12,7 +12,7 @@ import (
 // @Tags monitoring
 // @Success 200 {object} schema.SystemInformationResponse "Response"
 // @Router /system [get]
-func SystemInformations(ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func SystemInformations(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		availableBackends := []string{}
 		loadedModels := ml.ListLoadedModels()
@@ -25,7 +25,14 @@ func SystemInformations(ml *model.ModelLoader, appConfig *config.ApplicationConf
 
 		sysmodels := []schema.SysInfoModel{}
 		for _, m := range loadedModels {
-			sysmodels = append(sysmodels, schema.SysInfoModel{ID: m.ID})
+			entry := schema.SysInfoModel{ID: m.ID}
+			// The loader tracks only the ID. Which engine is serving a model is
+			// the first thing an operator wants beside its name, and it is one
+			// config lookup away.
+			if cfg, ok := cl.GetModelConfig(m.ID); ok {
+				entry.Backend = cfg.Backend
+			}
+			sysmodels = append(sysmodels, entry)
 		}
 		return c.JSON(200,
 			schema.SystemInformationResponse{

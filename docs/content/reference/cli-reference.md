@@ -27,7 +27,15 @@ Complete reference for all LocalAI command-line interface (CLI) parameters and e
 | `--upload-path` | `TMPDIR/localai-UID/upload` | Path to store uploads from files API. Defaults under the OS temp dir (`$TMPDIR`, falling back to `/tmp`), scoped to the current user's UID. | `$LOCALAI_UPLOAD_PATH`, `$UPLOAD_PATH` |
 | `--localai-config-dir` | `BASEPATH/configuration` | Directory for dynamic loading of certain configuration files (currently runtime_settings.json, api_keys.json, and external_backends.json). See [Runtime Settings]({{%relref "features/runtime-settings" %}}) for web-based configuration. | `$LOCALAI_CONFIG_DIR` |
 | `--localai-config-dir-poll-interval` | | Time duration to poll the LocalAI Config Dir if your system has broken fsnotify events (example: `1m`) | `$LOCALAI_CONFIG_DIR_POLL_INTERVAL` |
+
 | `--models-config-file` | | YAML file containing a list of model backend configs (alias: `--config-file`) | `$LOCALAI_MODELS_CONFIG_FILE`, `$CONFIG_FILE` |
+| `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only — a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
+
+Backend processes receive a private scratch directory through `TMPDIR`, `TMP`,
+and `TEMP`. LocalAI removes that directory when the backend exits and removes
+abandoned directories left by a LocalAI crash before starting another backend.
+Set `$LOCALAI_BACKEND_TEMP_DIR` to choose their base volume. LocalAI always
+appends `localai-UID/backend-runtime`; the default base is `TMPDIR`.
 
 ## Backend Flags
 
@@ -60,6 +68,7 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 |-----------|---------|-------------|----------------------|
 | `--galleries` | | JSON list of galleries | `$LOCALAI_GALLERIES`, `$GALLERIES` |
 | `--autoload-galleries` | `true` | Automatically load galleries on startup | `$LOCALAI_AUTOLOAD_GALLERIES`, `$AUTOLOAD_GALLERIES` |
+| `--vram-persistent-cache` | `true` | Persist successful remote VRAM metadata probes across restarts | `$LOCALAI_VRAM_PERSISTENT_CACHE`, `$VRAM_PERSISTENT_CACHE` |
 | `--preload-models` | | A list of models to apply in JSON at start | `$LOCALAI_PRELOAD_MODELS`, `$PRELOAD_MODELS` |
 | `--models` | | A list of model configuration URLs to load | `$LOCALAI_MODELS`, `$MODELS` |
 | `--preload-models-config` | | A list of models to apply at startup. Path to a YAML config file | `$LOCALAI_PRELOAD_MODELS_CONFIG`, `$PRELOAD_MODELS_CONFIG` |
@@ -80,9 +89,10 @@ For more information on VRAM management, see [VRAM and Memory Management]({{%rel
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--address` | `:8080` | Bind address for the API server | `$LOCALAI_ADDRESS`, `$ADDRESS` |
+| `--max-concurrent-backend-requests` | `1024` | Process-wide ceiling for concurrent backend inference operations. Excess inference receives HTTP 503 with `Retry-After`; UI and administrative endpoints remain available | `$LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS`, `$MAX_CONCURRENT_BACKEND_REQUESTS` |
 | `--cors` | `false` | Enable CORS (Cross-Origin Resource Sharing) | `$LOCALAI_CORS`, `$CORS` |
 | `--cors-allow-origins` | | Comma-separated list of allowed CORS origins | `$LOCALAI_CORS_ALLOW_ORIGINS`, `$CORS_ALLOW_ORIGINS` |
-| `--csrf` | `false` | Enable Fiber CSRF middleware | `$LOCALAI_CSRF` |
+| `--disable-csrf` | `false` | Disable CSRF middleware (enabled by default) | `$LOCALAI_DISABLE_CSRF` |
 | `--disable-http-compression` | `false` | Disable gzip compression of HTTP responses. Compression is enabled by default; streaming endpoints (streaming chat completions, SSE bridges, WebSocket upgrades) and already-compressed formats are never compressed | `$LOCALAI_DISABLE_HTTP_COMPRESSION` |
 | `--http-compression-min-length` | `1024` | Minimum response size in bytes before gzip compression is applied. Smaller responses are sent as-is because the gzip envelope would outweigh the saving | `$LOCALAI_HTTP_COMPRESSION_MIN_LENGTH` |
 | `--upload-limit` | `15` | Default upload-limit in MB | `$LOCALAI_UPLOAD_LIMIT`, `$UPLOAD_LIMIT` |
@@ -123,18 +133,65 @@ See [Authentication & Authorization]({{%relref "features/authentication" %}}) fo
 
 ## Chat Flags
 
-Use `local-ai chat` to open an interactive terminal chat session against a running LocalAI server.
+Use `local-ai chat` to run the built-in terminal agent against a LocalAI server.
+The agent can run shell commands, delegate to sub-agents, and use MCP tools. Read-only
+calls run on their own; everything else goes through an approval prompt you answer.
+See [Terminal agent]({{% relref "features/terminal-agent" %}}) for the full feature page.
 
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--endpoint` | `http://127.0.0.1:8080` | LocalAI server endpoint. The `/v1` path is added automatically when omitted. | `$LOCALAI_CHAT_ENDPOINT` |
-| `--model` | | Model name to use. If omitted, LocalAI uses the only model returned by the server when exactly one is available. | |
+| `--model` | | Model to use. Defaults to the only model the server offers, or asks when there are several. | |
 | `--api-key` | | API key to use when the LocalAI server requires authentication. | `$LOCALAI_API_KEY`, `$API_KEY` |
+| `--config-dir` | `~/.config/localai/chat` | Directory holding the agent's config, plugins, and skills. | `$LOCALAI_CHAT_CONFIG_DIR` |
+| `--trace-dir` | | Write a session LLM trace (NDJSON) to this directory. | `$LOCALAI_CHAT_TRACE_DIR` |
+| `--cli` | `false` | Plain CLI mode instead of the full-screen interface. Pipe stdin for one-shot use. | |
+| `--tui` | `false` | Force the full-screen interface. | |
+| `--height` | | Run as an inline drop-down of this height, e.g. `40%`. | |
+| `--tmux` / `--no-tmux` | | Control the tmux split. | |
+| `--init` | | Print the shell integration script for `Ctrl+Space` (zsh, bash, or fish). | |
+| `--yolo` | `false` | Auto-approve every tool call. Use with care. | `$LOCALAI_CHAT_YOLO` |
 
-- Inside the chat prompt:
-  - Use `/models` to list installed models.
-  - Use `/model <name>` to switch to a different model and clear the conversation.
-  - Use `/clear` to reset the current conversation.
+The agent's own subcommands are reached by passing them through. LocalAI's flags
+must come first, because everything after the first positional argument is
+forwarded verbatim:
+
+```bash
+local-ai chat plugin install https://github.com/user/plugin
+local-ai chat skill list
+local-ai chat mcp add my-server -- npx -y @modelcontextprotocol/server-filesystem /tmp
+local-ai chat --config-dir /srv/agent plugin list   # flags first
+```
+
+{{% notice warning %}}
+In a script, pass `--yes` to those subcommands. Without it, a non-interactive
+`plugin install` installs the plugin, leaves it disabled, and still exits `0`.
+{{% /notice %}}
+
+Summon the agent from any shell prompt with `Ctrl+Space`:
+
+```bash
+echo 'eval "$(local-ai chat --init zsh)"' >> ~/.zshrc
+```
+
+Inside a session:
+- `/models` lists the models the server offers, marking the current one.
+- `/model <name>` switches model, keeping the conversation.
+- `/compact` summarizes the conversation so far to free up context.
+- `/skill <name>`, `/agent <name> <task>`, `/attach <file>`, `/goal <text>`.
+
+If no server is reachable, the agent offers to start one for the session
+(interactive terminals only) and otherwise points you at `local-ai run`.
+
+Piped use needs `--cli`, and exits `0` when it answers:
+
+```bash
+echo "what is 2+2" | local-ai chat --cli
+```
+
+Read-only tools still run in a piped session. A tool call that is not read-only has
+nobody to approve it, so it is denied and the session exits `3`, a code chosen to be
+distinct from the `1` a failure reports.
 
 ## P2P Flags
 
@@ -153,7 +210,7 @@ LocalAI supports several subcommands beyond `run`:
 
 - `local-ai models` - Manage LocalAI models and definitions
 - `local-ai backends` - Manage LocalAI backends and definitions
-- `local-ai chat` - Open an interactive chat session against a running LocalAI server
+- `local-ai chat` - Run the built-in terminal agent against a LocalAI server
 - `local-ai tts` - Convert text to speech
 - `local-ai sound-generation` - Generate audio files from text or audio
 - `local-ai transcript` - Convert audio to text

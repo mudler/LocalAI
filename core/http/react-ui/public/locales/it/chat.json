@@ -71,6 +71,10 @@
   },
   "actions": {
     "copy": "Copia",
+    "edit": "Modifica",
+    "editMessage": "Modifica messaggio",
+    "save": "Salva",
+    "cancel": "Annulla",
     "regenerate": "Rigenera",
     "jumpToLatest": "Torna in fondo"
   },
@@ -114,5 +118,8 @@
     "newChat": "Nuova chat",
     "clearAll": "Cancella tutto",
     "deleteAllTitle": "Elimina tutte le conversazioni"
+  },
+  "message": {
+    "you": "You"
   }
 }

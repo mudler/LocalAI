@@ -31,13 +31,14 @@ jobs:
             messages: [
                 {
                 role: "system",
-                content: "Write a discord message with a bullet point summary of the release notes."
+                content: "Write a Discord message with a bullet point summary of the release notes. Keep the complete message under 1800 characters."
                 },
                 {
                 role: "user",
                 content: $input
                 }
-            ]
+            ],
+            max_tokens: 450
             }')
 
             # Send the request to LocalAI API
@@ -46,7 +47,7 @@ jobs:
             -d "$json_payload")
 
             # Extract the summary from the response
-            summary=$(echo $response | jq -r '.choices[0].message.content')
+            summary=$(printf '%s' "$response" | jq -er '.choices[0].message.content | strings | .[0:1800]')
 
             # Print the summary
             #  -H "Authorization: Bearer $API_KEY" \

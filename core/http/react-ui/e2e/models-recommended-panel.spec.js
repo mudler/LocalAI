@@ -56,78 +56,23 @@ async function gotoModels(page) {
 }
 
 test.describe("Models gallery - recommended panel prominence", () => {
-  test("first visit with nothing installed shows the panel expanded", async ({ page }) => {
+  test("it is a section in the flow, not a dismissable card", async ({ page }) => {
     await mockGallery(page, 0);
     await gotoModels(page);
-
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
-    await expect(grid(page)).toBeVisible();
-    await expect(grid(page).getByText("tiny-chat")).toBeVisible();
+    await expect(panel(page)).toBeVisible();
+    // No close button and no collapse: this is the one thing the page has to
+    // say about the machine it runs on, not an interruption to be shut.
+    await expect(panel(page).locator("button[aria-expanded]")).toHaveCount(0);
+    await expect(panel(page).getByRole("button", { name: /dismiss|close/i })).toHaveCount(0);
+    // And no card chrome, so it sits in the pane rather than on top of it.
+    const border = await panel(page).evaluate((el) => getComputedStyle(el).borderTopWidth);
+    expect(parseFloat(border)).toBe(0);
   });
 
-  test("a user with models installed gets it collapsed by default", async ({ page }) => {
-    await mockGallery(page, 12);
-    await gotoModels(page);
 
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
-    await expect(grid(page)).toBeHidden();
-    // Collapsed is a summary, not a removal: the heading stays on the page.
-    await expect(panel(page).getByText("Recommended for your hardware")).toBeVisible();
-    await expect(panel(page).getByText("2 models suggested")).toBeVisible();
-  });
 
-  test("the collapsed summary expands again on activation", async ({ page }) => {
-    await mockGallery(page, 12);
-    await gotoModels(page);
 
-    await expect(grid(page)).toBeHidden();
-    await toggle(page).click();
 
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
-    await expect(grid(page)).toBeVisible();
-    await expect(page.evaluate((k) => localStorage.getItem(k), COLLAPSE_KEY)).resolves.toBe("0");
-  });
-
-  test("the collapse choice persists across a reload", async ({ page }) => {
-    await mockGallery(page, 0);
-    await gotoModels(page);
-    await expect(grid(page)).toBeVisible();
-
-    await toggle(page).click();
-    await expect(grid(page)).toBeHidden();
-
-    await page.reload();
-    await expect(panel(page)).toBeVisible({ timeout: 20_000 });
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "false");
-    await expect(grid(page)).toBeHidden();
-  });
-
-  test("dismissing it persists across a reload", async ({ page }) => {
-    await mockGallery(page, 0);
-    await gotoModels(page);
-
-    await panel(page).getByRole("button", { name: "Dismiss recommendations" }).click();
-    await expect(panel(page)).toHaveCount(0);
-    await expect(page.evaluate((k) => localStorage.getItem(k), DISMISS_KEY)).resolves.toBe("1");
-
-    await page.reload();
-    // The table is the marker that the page finished rendering without the panel.
-    await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 20_000 });
-    await expect(panel(page)).toHaveCount(0);
-  });
-
-  test("the toggle is keyboard operable and exposes its state", async ({ page }) => {
-    await mockGallery(page, 12);
-    await gotoModels(page);
-
-    await toggle(page).focus();
-    await expect(toggle(page)).toBeFocused();
-    await page.keyboard.press("Enter");
-    await expect(toggle(page)).toHaveAttribute("aria-expanded", "true");
-    // aria-controls must resolve to the region it actually shows and hides.
-    await expect(toggle(page)).toHaveAttribute("aria-controls", "rec-models-content");
-    await expect(grid(page)).toBeVisible();
-  });
 
   test("recommendations render and their install buttons still work", async ({ page }) => {
     await mockGallery(page, 0);
@@ -138,11 +83,68 @@ test.describe("Models gallery - recommended panel prominence", () => {
     });
     await gotoModels(page);
 
-    const card = grid(page).locator(".rec-models-item", { hasText: "tiny-chat" });
-    await expect(card).toBeVisible();
-    await expect(card.getByText("512.0 MB")).toBeVisible();
-    await card.getByRole("button", { name: "Install" }).click();
+    // Ranked candidates read in fit order, so these are lanes now rather than
+    // a grid of equal cards.
+    const row = grid(page).locator(".lane", { hasText: "tiny-chat" });
+    await expect(row).toBeVisible();
+    await expect(row.getByText("512.0 MB")).toBeVisible();
+    await row.getByRole("button", { name: "Install" }).click();
 
     await expect.poll(() => installed).toBe("tiny-chat");
   });
+
+  test("the best fit is called out, the rest are alternatives", async ({ page }) => {
+    await mockGallery(page, 0);
+    await gotoModels(page);
+    const rows = grid(page).locator(".lane");
+    await expect(rows.first().locator(".lane__tag--evidence")).toHaveText("Best fit");
+    // One opinion per page: the others are alternatives, not runners-up worth
+    // their own colour.
+    await expect(grid(page).locator(".lane__tag--evidence")).toHaveCount(1);
+  });
 });
+
+// Start with a fitting model so absence assertions cannot pass during loading.
+// Then change the polled hardware budget while keeping the same gallery.
+for (const view of ["models", "home"]) {
+  test(`${view} removes GPU recommendations when no candidate fits`, async ({ page }) => {
+    await mockGallery(page, 0);
+    await page.route("**/v1/models", (route) =>
+      route.fulfill({ json: { data: [] } }),
+    );
+    const gib = 1024 ** 3;
+    let budget = 24 * gib;
+    await page.route("**/api/resources", (route) =>
+      route.fulfill({ json: {
+        type: "gpu",
+        aggregate: { total_memory: budget, gpu_count: 1 },
+        gpus: [{ vendor: "nvidia", total_memory: budget }],
+      } }),
+    );
+    await page.route("**/api/models/estimate/*", (route) =>
+      route.fulfill({ json: {
+        sizeBytes: 17.4 * gib,
+        sizeDisplay: "17.4 GB",
+        estimates: { 4096: { vramBytes: 18.4 * gib, vramDisplay: "18.4 GB" } },
+      } }),
+    );
+    await page.goto(view === "models" ? "/app/models" : "/app/");
+    const section = view === "models" ? panel(page) : page.locator(".home-starters");
+    await expect(section).toBeVisible();
+    await expect(section).toContainText("tiny-chat");
+
+    // Wait for BOTH recommendation estimates, not the hook's loading render
+    // or the gallery rail's separate context-size requests.
+    const estimatesFinished = REC_MODELS.map(model => page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname.endsWith('/api/models/estimate/' + model.name) &&
+        url.searchParams.get('contexts') === '4096' && response.status() === 200;
+    }).then(response => response.finished()));
+    budget = 12 * gib;
+    await Promise.all(estimatesFinished);
+    await page.evaluate(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    ));
+    await expect(section).toHaveCount(0, { timeout: 15_000 });
+  });
+}

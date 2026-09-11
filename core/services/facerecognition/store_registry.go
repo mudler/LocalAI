@@ -2,8 +2,10 @@ package facerecognition
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"sync"
 	"time"
@@ -57,13 +59,32 @@ func (r *storeRegistry) Register(ctx context.Context, embedding []float32, meta 
 	if r.dim != 0 && len(embedding) != r.dim {
 		return Metadata{}, fmt.Errorf("%w: expected %d, got %d", ErrDimensionMismatch, r.dim, len(embedding))
 	}
+	var norm float64
+	key := make([]byte, 4*len(embedding))
+	for i, value := range embedding {
+		if math.IsNaN(float64(value)) || math.IsInf(float64(value), 0) {
+			return Metadata{}, ErrInvalidEmbedding
+		}
+		norm += float64(value) * float64(value)
+		// The store treats negative and positive zero as the same key.
+		if value == 0 {
+			value = 0
+		}
+		binary.LittleEndian.PutUint32(key[i*4:], math.Float32bits(value))
+	}
+	if norm == 0 {
+		return Metadata{}, ErrInvalidEmbedding
+	}
 
 	backend, err := r.resolve(ctx, r.storeName)
 	if err != nil {
 		return Metadata{}, fmt.Errorf("facerecognition: resolve store: %w", err)
 	}
 
-	meta.ID = uuid.NewString()
+	// The vector store upserts by the exact embedding. Derive the ID from the
+	// same key so replaying a saved vector preserves identity across replicas
+	// and after the in-memory store restarts.
+	meta.ID = uuid.NewSHA1(uuid.NewSHA1(uuid.NameSpaceOID, []byte(r.storeName)), key).String()
 	if meta.RegisteredAt.IsZero() {
 		meta.RegisteredAt = time.Now().UTC()
 	}

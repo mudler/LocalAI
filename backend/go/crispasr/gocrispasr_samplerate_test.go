@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -98,6 +99,24 @@ var _ = Describe("piper sample rate", func() {
 		It("returns ok=false for an unreadable/non-GGUF file", func() {
 			p := filepath.Join(GinkgoT().TempDir(), "garbage.gguf")
 			Expect(os.WriteFile(p, []byte("not a gguf"), 0o644)).To(Succeed())
+
+			_, ok := piperSampleRate(p)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("returns ok=false instead of panicking on a malformed string length", func() {
+			p := filepath.Join(GinkgoT().TempDir(), "malformed.gguf")
+			var b bytes.Buffer
+			b.WriteString("GGUF")
+			Expect(binary.Write(&b, binary.LittleEndian, uint32(3))).To(Succeed())
+			Expect(binary.Write(&b, binary.LittleEndian, uint64(0))).To(Succeed())
+			Expect(binary.Write(&b, binary.LittleEndian, uint64(1))).To(Succeed())
+			key := "general.name"
+			Expect(binary.Write(&b, binary.LittleEndian, uint64(len(key)))).To(Succeed())
+			b.WriteString(key)
+			Expect(binary.Write(&b, binary.LittleEndian, ggufTypeString)).To(Succeed())
+			Expect(binary.Write(&b, binary.LittleEndian, uint64(math.MaxInt64))).To(Succeed())
+			Expect(os.WriteFile(p, b.Bytes(), 0o644)).To(Succeed())
 
 			_, ok := piperSampleRate(p)
 			Expect(ok).To(BeFalse())

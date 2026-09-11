@@ -5,6 +5,32 @@
       "video": "비디오",
       "tts": "TTS",
       "sound": "사운드",
+      "transform": "Transform",
+      "overview": "Overview"
+    },
+    "overview": {
+      "eyebrow": "{{ready}} of {{total}} modalities ready",
+      "title": "Studio",
+      "subtitle": "Generate images, video, 3D, speech and sound with the models on this machine.",
+      "canMake": "What you can make",
+      "running": "Running now",
+      "recent": "Recent outputs",
+      "noModel": "No model installed",
+      "install": "Install a model",
+      "ready": "Ready",
+      "seconds": "{{seconds}}s",
+      "describe": {
+        "images": "Text to image, image to image, reference images",
+        "video": "Text to video and image to video",
+        "threed": "Image to mesh reconstruction",
+        "tts": "Text to speech using your voice library",
+        "sound": "Music and sound effects from a prompt",
+        "transform": "Separation, enhancement and voice conversion"
+      }
+    },
+    "groups": {
+      "create": "Create",
+      "voice": "Voice",
       "transform": "Transform"
     }
   },
@@ -157,5 +183,10 @@
     "clearMessage": "모든 기록 항목을 제거하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
     "clearConfirm": "지우기",
     "cleared": "기록이 지워졌습니다"
+  },
+  "request": {
+    "heading": "Request",
+    "copyCurl": "Copy as curl",
+    "copied": "Copied"
   }
 }

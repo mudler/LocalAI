@@ -8,4 +8,5 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
+bash "${backend_dir}/prepare-source_test.sh"
 runUnittests

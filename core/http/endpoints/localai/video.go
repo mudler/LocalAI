@@ -209,15 +209,14 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			config.Backend = model.StableDiffusionGGMLBackend
 		}
 
+		// Unset geometry is passed through as 0 so the BACKEND supplies its own
+		// default canvas. Every video backend already does: stablediffusion-ggml
+		// falls back to 512x512, diffusers to 1280x720, longcat-video to 832x480,
+		// vllm-cpp to MiniMax-H3's trained 1344x768. Forcing 512x512 here made a
+		// request that asked for nothing render at a size three of the four were
+		// never trained at, and there is no size that is right for all of them.
 		width := input.Width
 		height := input.Height
-
-		if width == 0 {
-			width = 512
-		}
-		if height == 0 {
-			height = 512
-		}
 
 		b64JSON := input.ResponseFormat == "b64_json"
 

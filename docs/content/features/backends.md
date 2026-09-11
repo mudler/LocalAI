@@ -16,26 +16,32 @@ For the complete list of backends, the model families they support, and their ac
 
 ## Managing Backends in the UI
 
-The LocalAI web interface provides an intuitive way to manage your backends:
+The **Operate → Backends** page is the canonical home for the complete backend
+lifecycle:
 
-1. Navigate to the "Backends" section in the navigation menu
-2. Browse available backends from configured galleries
-3. Use the search bar to find specific backends by name, description, or type
-4. Filter backends by type using the quick filter buttons (LLM, Diffusion, TTS, Whisper)
-5. Install or delete backends with a single click
-6. Monitor installation progress in real-time
+1. **Catalog** browses configured galleries, searches by name or description,
+   filters by capability, and installs a backend. Catalog is the default view.
+2. **Installed** shows the runtimes present on the host or cluster. Search and
+   filter by user, system, update, or offline-node state, then select a backend
+   to inspect its version, source, node placement, and lifecycle actions.
+3. Variant and development builds remain opt-in refinements. Target-node links
+   compose with the current view and selection instead of opening a separate
+   management page.
+
+The current view, search, filter, selected backend, and target node are stored
+in the URL. Browser Back and shared links therefore restore the same state.
 
 Installs run in the background. The strip at the top of the app follows the
 current one, and **Operate → Activity** lists everything in flight, what needs
 attention, and what has finished, and is where a running install is cancelled
 or a failed one retried. See [Activity]({{% relref "operations/activity" %}}).
 
-Each backend card displays:
+Each selected backend displays:
 - Backend name and description
 - Type of models it supports
 - Installation status
-- Action buttons (Install/Delete)
-- Additional information via the info button
+- Install, reinstall, upgrade, or delete actions as appropriate
+- Version, source, digest, placement, and catalog information
 
 ## Backend Galleries
 
@@ -70,6 +76,44 @@ alias: "llm"
 tags:
   - "llm"
   - "text-generation"
+```
+
+### Verifying OCI Backends
+
+Backend galleries can require keyless Sigstore signatures for every OCI image
+they provide. Add a `verification` policy to the gallery configuration, then
+enable strict integrity mode:
+
+```bash
+export LOCALAI_BACKEND_GALLERIES='[{"name":"localai","url":"https://index.localai.io/backends","mirrors":["github:mudler/LocalAI/backend/index.yaml@master"],"verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"}}]'
+export LOCALAI_REQUIRE_BACKEND_INTEGRITY=1
+local-ai run
+```
+
+The policy pins the Fulcio issuer and the GitHub Actions workflow identity that
+signed the image. The identity expression covers development images produced
+from `master` and release images produced from tags. Use a narrower expression
+if your deployment only accepts one release channel.
+
+Without strict mode, an OCI gallery without a verification policy installs
+with a warning. With strict mode, LocalAI refuses galleries without a policy,
+images without a compatible Sigstore bundle, and signatures that do not match
+the configured identity. Existing images published before bundle signing was
+enabled must be rebuilt or re-signed before strict deployments can install
+them.
+
+An optional `not_before` RFC3339 value revokes signatures logged before that
+time. Advance it after a signing-workflow compromise, then rebuild or re-sign
+the trusted images:
+
+```json
+{
+  "verification": {
+    "issuer": "https://token.actions.githubusercontent.com",
+    "identity_regex": "^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$",
+    "not_before": "2026-08-05T00:00:00Z"
+  }
+}
 ```
 
 ## Pre-installing Backends
@@ -130,11 +174,11 @@ For getting started, see the available backends in LocalAI here: https://github.
 LocalAI supports various types of backends:
 
 - **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX)
-- **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, faster-whisper, NeMo, [audio.cpp]({{%relref "features/audio-cpp" %}}))
-- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, [NeMo-Speech.cpp]({{%relref "features/nemo-speech-cpp" %}}), faster-whisper, NeMo, [audio.cpp]({{%relref "features/audio-cpp" %}}))
+- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [NeMo-Speech.cpp]({{%relref "features/nemo-speech-cpp" %}}), [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
-- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [LongCat-Video]({{%relref "features/video-generation" %}}))
+- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [LongCat-Video]({{%relref "features/video-generation" %}}), [vllm.cpp / MiniMax-H3]({{%relref "features/video-generation" %}}))
 - **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "features/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
 - **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "features/audio-cpp" %}}))
@@ -142,3 +186,12 @@ LocalAI supports various types of backends:
 - **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store)
 
 See the [Backend & Model Compatibility Table]({{%relref "reference/compatibility-table" %}}) for the full catalog.
+
+### DS4 request cancellation
+
+The DS4 backend stops inference when a client cancels or disconnects, including
+when a streaming response can no longer be written. Already-streamed chunks
+cannot be retracted; DS4 does not flush incomplete buffered parser state or
+persist an abandoned request to the disk KV cache. Cancellation is cooperative:
+DS4 checks it at safe prompt-prefill and decode-loop boundaries, so a GPU kernel
+already in flight may finish before the request stops.

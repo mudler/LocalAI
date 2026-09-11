@@ -71,6 +71,10 @@
   },
   "actions": {
     "copy": "복사",
+    "edit": "편집",
+    "editMessage": "메시지 편집",
+    "save": "저장",
+    "cancel": "취소",
     "regenerate": "다시 생성",
     "jumpToLatest": "Jump to latest"
   },
@@ -114,5 +118,8 @@
     "newChat": "새 채팅",
     "clearAll": "모두 지우기",
     "deleteAllTitle": "모든 대화 삭제"
+  },
+  "message": {
+    "you": "You"
   }
 }

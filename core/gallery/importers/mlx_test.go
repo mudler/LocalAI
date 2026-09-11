@@ -48,6 +48,16 @@ var _ = Describe("MLXImporter", func() {
 			Expect(result).To(BeTrue())
 		})
 
+		It("should match when backend preference is mlx-audio", func() {
+			preferences := json.RawMessage(`{"backend": "mlx-audio"}`)
+			details := importers.Details{
+				URI:         "https://example.com/model",
+				Preferences: preferences,
+			}
+
+			Expect(importer.Match(details)).To(BeTrue())
+		})
+
 		It("should not match when URI does not contain mlx-community/ and no backend preference", func() {
 			details := importers.Details{
 				URI: "https://huggingface.co/other-org/test-model",
@@ -123,6 +133,21 @@ var _ = Describe("MLXImporter", func() {
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: mlx-vlm"))
 		})
 
+		It("should configure explicit mlx-audio imports for text-to-speech", func() {
+			preferences := json.RawMessage(`{"backend": "mlx-audio"}`)
+			details := importers.Details{
+				URI:         "https://huggingface.co/mlx-community/Kokoro-82M-4bit",
+				Preferences: preferences,
+			}
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: mlx-audio"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("- tts"))
+			Expect(modelConfig.ConfigFile).ToNot(ContainSubstring("use_tokenizer_template: true"))
+		})
+
 		It("should auto-route vision-language models to the mlx-vlm backend", func() {
 			// gemma-4 E4B and similar VLMs declare pipeline_tag
 			// "image-text-to-text" on HuggingFace. The text-only mlx-lm
@@ -141,6 +166,23 @@ var _ = Describe("MLXImporter", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: mlx-vlm"))
+		})
+
+		It("should auto-route text-to-speech models to the mlx-audio backend", func() {
+			details := importers.Details{
+				URI: "https://huggingface.co/mlx-community/Kokoro-82M-4bit",
+				HuggingFace: &hfapi.ModelDetails{
+					ModelID:     "mlx-community/Kokoro-82M-4bit",
+					PipelineTag: "text-to-speech",
+				},
+			}
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: mlx-audio"))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("- tts"))
+			Expect(modelConfig.ConfigFile).ToNot(ContainSubstring("use_tokenizer_template: true"))
 		})
 
 		It("should keep text-only models on the plain mlx backend", func() {

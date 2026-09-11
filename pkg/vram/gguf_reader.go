@@ -2,6 +2,7 @@ package vram
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	gguf "github.com/gpustack/gguf-parser-go"
@@ -10,7 +11,18 @@ import (
 
 type defaultGGUFReader struct{}
 
-func (defaultGGUFReader) ReadMetadata(ctx context.Context, uri string) (*GGUFMeta, error) {
+func (defaultGGUFReader) ReadMetadata(ctx context.Context, uri string) (meta *GGUFMeta, err error) {
+	// gguf-parser-go parses lengths supplied by the file and has historically
+	// panicked on values that cannot fit in a Go slice. Metadata can come from
+	// an untrusted remote host, and this reader is also used by a background
+	// gallery worker, where an escaped panic would terminate the whole server.
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			meta = nil
+			err = fmt.Errorf("read GGUF metadata: parser panic: %v", recovered)
+		}
+	}()
+
 	u := downloader.URI(uri)
 	urlStr := u.ResolveURL()
 
@@ -28,7 +40,10 @@ func (defaultGGUFReader) ReadMetadata(ctx context.Context, uri string) (*GGUFMet
 	if !u.LooksLikeHTTPURL() {
 		return nil, nil
 	}
-	f, err := gguf.ParseGGUFFileRemote(ctx, urlStr)
+	// The estimator only consumes architecture scalars. Tokenizer arrays can
+	// be very large and are unnecessary here, so avoid downloading or
+	// allocating them for remote files just as the local path does above.
+	f, err := gguf.ParseGGUFFileRemote(ctx, urlStr, gguf.SkipLargeMetadata())
 	if err != nil {
 		return nil, err
 	}

@@ -18,6 +18,9 @@ services:
       - .env
     environment:
       - MODELS_PATH=/models
+      # Avoid probing remote gallery GGUF metadata during container startup.
+      # Remove this line or set a positive limit to opt back into cache warming.
+      - LOCALAI_VRAM_WARM_LIMIT=0
     #  - DEBUG=true
     ## Agents (LocalAGI) - https://localai.io/features/agents/
     #  - LOCALAI_DISABLE_AGENTS=false

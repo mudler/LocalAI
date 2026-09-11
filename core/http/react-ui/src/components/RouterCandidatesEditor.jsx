@@ -60,9 +60,8 @@ export default function RouterCandidatesEditor({ value, onChange }) {
 
       <button
         type="button"
-        className="btn btn-secondary btn-sm"
+        className="btn btn-secondary btn-sm self-start"
         onClick={add}
-        style={{ alignSelf: 'flex-start' }}
       >
         <i className="fas fa-plus" /> Add candidate
       </button>
@@ -95,7 +94,7 @@ function CandidateRow({ index, total, row, knownLabels, knownLabelSet, onChange,
       }}
     >
       <div style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-        <span style={{ fontWeight: 600 }}>#{index + 1}</span>
+        <span className="fw-semibold">#{index + 1}</span>
         <button
           type="button"
           className="btn btn-secondary btn-sm"

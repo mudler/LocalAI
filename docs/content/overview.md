@@ -5,7 +5,7 @@ toc = true
 description = "What is LocalAI?"
 tags = ["Beginners"]
 categories = [""]
-url = "/docs/overview"
+url = "/overview"
 author = "Ettore Di Giacinto"
 icon = "info"
 +++

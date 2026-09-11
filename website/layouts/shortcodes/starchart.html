@@ -1,0 +1,170 @@
+{{- $pts := .Site.Data.stars -}}
+{{- $marks := .Site.Data.milestones -}}
+{{- $meta := .Site.Data.starsmeta -}}
+{{- $last := index $pts (sub (len $pts) 1) -}}
+<figure class="sc" role="group" aria-labelledby="sc-title" aria-describedby="sc-desc">
+  <figcaption class="sc__head">
+    <p class="sc__k">GitHub stars, {{ index (index $pts 0) 0 }} to {{ index $last 0 }}</p>
+    <h3 id="sc-title" class="sc__title">{{ lang.FormatNumber 0 (index $last 1) }} stars, and the four changes along the way</h3>
+    <p id="sc-desc" class="sc__desc">Read off the GitHub stargazers API, which records when each star was given, so this is
+      the measured curve rather than a redrawing of it. Hover or drag across the line to read any date.
+      The API stops paginating at 40,000 items, so everything up to {{ $meta.measuredUntil }} is measured and
+      the dashed tail to today's total is a straight line between two known points, not data.</p>
+  </figcaption>
+
+  <div class="sc__plot">
+    <svg class="sc__svg" viewBox="0 0 900 340" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="scFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#5FCDE4" stop-opacity=".22"/>
+          <stop offset="100%" stop-color="#5FCDE4" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <g class="sc__grid"></g>
+      <g class="sc__marks"></g>
+      <path class="sc__area" fill="url(#scFill)"></path>
+      <path class="sc__line" fill="none" stroke="#5FCDE4" stroke-width="2"
+            stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+      <path class="sc__est" fill="none" stroke="#5FCDE4" stroke-width="2" stroke-dasharray="3 5"
+            stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+      <g class="sc__cursor" hidden>
+        <line class="sc__cross" y1="0" y2="340"></line>
+      </g>
+    </svg>
+    <div class="sc__dot" hidden></div>
+    <div class="sc__tip" hidden role="status"></div>
+    <div class="sc__ylab"></div>
+    <div class="sc__xlab"></div>
+  </div>
+
+  <details class="sc__data">
+    <summary>Read it as a table</summary>
+    <div class="sc__tablewrap">
+      <table>
+        <caption>Cumulative GitHub stars, sampled every 800 stars</caption>
+        <thead><tr><th scope="col">Date</th><th scope="col">Stars</th></tr></thead>
+        <tbody>
+          {{- range $i, $p := $pts }}{{ if or (eq (mod $i 5) 0) (eq $i (sub (len $pts) 1)) }}
+          <tr><td>{{ index $p 0 }}</td><td>{{ index $p 1 }}</td></tr>
+          {{- end }}{{ end }}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</figure>
+
+<script>
+(function(){
+  var PTS = {{ $pts | jsonify | safeJS }};
+  var MARKS = {{ $marks | jsonify | safeJS }};
+  var MEASURED = {{ $meta.measuredStars }};
+  var fig = document.currentScript.previousElementSibling;
+  var svg = fig.querySelector('.sc__svg');
+  var W = 900, H = 340, PADL = 8, PADR = 8, PADT = 16, PADB = 8;
+
+  var xs = PTS.map(function(p){ return Date.parse(p[0]); });
+  var ys = PTS.map(function(p){ return p[1]; });
+  var x0 = xs[0], x1 = xs[xs.length-1], y1 = Math.ceil(ys[ys.length-1]/10000)*10000;
+  function X(t){ return PADL + (t-x0)/(x1-x0) * (W-PADL-PADR); }
+  function Y(v){ return H-PADB - v/y1 * (H-PADT-PADB); }
+
+  /* recessive horizontal grid, one line per 10k */
+  var grid = '';
+  for (var g=10000; g<=y1; g+=10000){
+    grid += '<line x1="0" x2="'+W+'" y1="'+Y(g)+'" y2="'+Y(g)+'"/>';
+  }
+  fig.querySelector('.sc__grid').innerHTML = grid;
+
+  /* The y labels live in the plot box, which is taller than the SVG because the
+     x labels sit under it. Size the label track to the SVG so they line up with
+     the grid rather than drifting past the baseline. */
+  var ylabEl = fig.querySelector('.sc__ylab');
+  var ylab = '';
+  for (var g2=10000; g2<=y1; g2+=10000){
+    ylab += '<span style="top:'+(Y(g2)/H*100)+'%">'+(g2/1000)+'k</span>';
+  }
+  ylabEl.innerHTML = ylab;
+  function fitYLabels(){ ylabEl.style.height = svg.getBoundingClientRect().height + 'px'; }
+  fitYLabels();
+  addEventListener('resize', fitYLabels);
+
+  /* solid where the API gave us points, dashed across the gap it will not serve */
+  var cut = PTS.findIndex(function(p){ return p[1] >= MEASURED; });
+  if (cut < 0) cut = PTS.length - 1;
+  function seg(a, b){
+    return PTS.slice(a, b+1).map(function(p,i){
+      return (i?'L':'M') + X(Date.parse(p[0])).toFixed(1) + ' ' + Y(p[1]).toFixed(1);
+    }).join(' ');
+  }
+  var d = seg(0, cut);
+  fig.querySelector('.sc__line').setAttribute('d', d);
+  fig.querySelector('.sc__est').setAttribute('d', seg(cut, PTS.length-1));
+  fig.querySelector('.sc__area').setAttribute('d',
+    seg(0, PTS.length-1) + ' L' + X(x1).toFixed(1) + ' ' + (H-PADB) + ' L' + X(x0).toFixed(1) + ' ' + (H-PADB) + ' Z');
+
+  function starsAt(t){
+    if (t <= xs[0]) return ys[0];
+    for (var i=1;i<xs.length;i++){
+      if (t <= xs[i]){
+        var f = (t-xs[i-1])/(xs[i]-xs[i-1]);
+        return Math.round(ys[i-1] + f*(ys[i]-ys[i-1]));
+      }
+    }
+    return ys[ys.length-1];
+  }
+
+  /* the four turning points, as annotations rather than a second series */
+  var mk = '';
+  MARKS.forEach(function(m){
+    var t = Date.parse(m.date), mx = X(t), my = Y(starsAt(t));
+    mk += '<line class="sc__mline" x1="'+mx+'" x2="'+mx+'" y1="'+my+'" y2="'+(H-PADB)+'"/>'
+        + '<circle class="sc__mdot" cx="'+mx+'" cy="'+my+'" r="4"/>';
+  });
+  fig.querySelector('.sc__marks').innerHTML = mk;
+
+  /* Three of the four releases land within two months of each other, so a single
+     row of labels overlaps into mush. Push each one down a row until it clears. */
+  var LBL_W = 12.4;              /* label width as a percentage of the plot */
+  var rows = [];
+  var xlab = MARKS.map(function(m){
+    var pct = X(Date.parse(m.date)) / W * 100;
+    var row = 0;
+    while (rows[row] !== undefined && pct - rows[row] < LBL_W) row++;
+    rows[row] = pct;
+    return '<span class="sc__x' + row + '" style="left:' + pct + '%;top:' + (row * 2.55) + 'rem">'
+         + '<b>' + m.tag + '</b>' + m.label + '</span>';
+  }).join('');
+  fig.querySelector('.sc__xlab').innerHTML = xlab;
+  fig.querySelector('.sc__xlab').style.height = (rows.length * 2.55 + 1.1) + 'rem';
+  fig.querySelector('.sc__plot').style.paddingBottom = (rows.length * 2.55 + 1.1) + 'rem';
+
+  /* hover layer */
+  var plot = fig.querySelector('.sc__plot');
+  var cursor = fig.querySelector('.sc__cursor');
+  var cross = fig.querySelector('.sc__cross');
+  var dot = fig.querySelector('.sc__dot');
+  var tip = fig.querySelector('.sc__tip');
+  var fmt = new Intl.NumberFormat('en-GB');
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function move(ev){
+    var r = plot.getBoundingClientRect();
+    var px = Math.min(Math.max(0, ev.clientX - r.left), r.width);
+    var t = x0 + (px/r.width) * (x1-x0);
+    var v = starsAt(t);
+    var dObj = new Date(t);
+    cursor.hidden = false; dot.hidden = false; tip.hidden = false;
+    cross.setAttribute('x1', px/r.width*W); cross.setAttribute('x2', px/r.width*W);
+    dot.style.left = px + 'px';
+    dot.style.top = (Y(v)/H) * r.height + 'px';
+    var est = v > MEASURED;
+    tip.innerHTML = '<b>' + fmt.format(v) + '</b> stars<span>' + months[dObj.getUTCMonth()] + ' ' + dObj.getUTCFullYear()
+                  + (est ? ' &middot; estimated' : '') + '</span>';
+    var tw = tip.offsetWidth || 150;
+    tip.style.left = Math.min(Math.max(0, px - tw/2), r.width - tw) + 'px';
+  }
+  function leave(){ cursor.hidden = true; dot.hidden = true; tip.hidden = true; }
+  plot.addEventListener('pointermove', move);
+  plot.addEventListener('pointerleave', leave);
+})();
+</script>

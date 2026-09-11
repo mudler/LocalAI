@@ -247,6 +247,26 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 		})
 	})
 
+	Describe("StopModelReplica", func() {
+		It("requests an acknowledged stop for the exact process", func() {
+			mc.requestReply, _ = json.Marshal(messaging.ModelStopReply{Matched: true, Terminated: true, ProcessKey: "llama#2"})
+			replica := NodeModel{ModelName: "llama", ReplicaIndex: 2, Address: "127.0.0.1:5002", ConfigRevision: "rev-1"}
+
+			reply, err := adapter.StopModelReplica(context.Background(), "node-1", replica, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reply.Terminated).To(BeTrue())
+			Expect(mc.requestCalls).To(HaveLen(1))
+			Expect(mc.requestCalls[0].Subject).To(Equal(messaging.SubjectNodeModelStop("node-1")))
+			Expect(mc.requestCalls[0].Timeout).To(BeNumerically(">", 0))
+
+			var request messaging.ModelStopRequest
+			Expect(json.Unmarshal(mc.requestCalls[0].Data, &request)).To(Succeed())
+			Expect(request).To(Equal(messaging.ModelStopRequest{
+				ModelName: "llama", ProcessKey: "llama#2", ExpectedAddress: "127.0.0.1:5002", Force: true, ConfigRevision: "rev-1",
+			}))
+		})
+	})
+
 	Describe("StopNode", func() {
 		It("publishes to correct subject", func() {
 			Expect(adapter.StopNode("node-abc")).To(Succeed())

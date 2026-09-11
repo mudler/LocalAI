@@ -1,6 +1,9 @@
 package oci_test
 
 import (
+	"fmt"
+	"runtime"
+
 	"github.com/mudler/LocalAI/internal"
 	. "github.com/mudler/LocalAI/pkg/oci"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,12 +24,12 @@ var _ = Describe("OCI", func() {
 
 		It("identifies as LocalAI when no version is stamped", func() {
 			internal.Version = ""
-			Expect(UserAgent()).To(Equal("LocalAI"))
+			Expect(UserAgent()).To(Equal(fmt.Sprintf("LocalAI (%s; %s)", runtime.GOOS, runtime.GOARCH)))
 		})
 
 		It("appends the build version when one is stamped", func() {
 			internal.Version = "v3.2.1"
-			Expect(UserAgent()).To(Equal("LocalAI/v3.2.1"))
+			Expect(UserAgent()).To(Equal(fmt.Sprintf("LocalAI/v3.2.1 (%s; %s)", runtime.GOOS, runtime.GOARCH)))
 		})
 	})
 })

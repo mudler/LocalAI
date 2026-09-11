@@ -1,12 +1,16 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// Batch B — Simple / Power mode with quick switch. This suite exercises the
-// mode switch itself, the collapsible Options disclosure in Simple mode,
-// the Preferences/YAML tabs inside Power mode, and the confirmation dialog
-// that fires when switching Power -> Simple with custom prefs set.
+// Batch B — the two surfaces of the import page and the options disclosure.
 //
-// Routes for /backends/known are mocked to keep the Backend dropdown stable
-// across browsers and CI.
+// This suite replaces the Simple/Power mode switch it used to cover. Simple
+// and Power were ~80% the same surface: both a URI field plus preference
+// fields, differing only in how many. The overlap cost a mode switch, a
+// localStorage key and a three-button Keep/Discard/Cancel dialog whose only
+// job was protecting state that switching modes would hide. One form with a
+// collapsible options panel hides nothing, so none of that is needed.
+//
+// What genuinely differs is the kind of input: a source to resolve, or a YAML
+// document to write. Those are the two tabs.
 
 const MOCK_BACKENDS = [
   { name: 'llama-cpp', modality: 'text', auto_detect: true, installed: true },
@@ -25,198 +29,124 @@ async function mockBackends(page) {
 }
 
 async function clearFormStorage(page) {
-  // We use goto('about:blank') then manipulate localStorage on the test
-  // origin via page.addInitScript — but only once, before the first real
-  // navigation. Using addInitScript directly would wipe storage on every
-  // navigation (including reloads), which defeats the persistence tests.
-  // Instead, we visit the app once, clear storage, then let each test drive
-  // navigation itself.
+  // Visit once, clear, then let each test drive its own navigation — using
+  // addInitScript would wipe storage on every navigation and defeat the
+  // persistence tests.
   await page.goto('/app/import-model')
   await page.evaluate(() => {
     try {
-      window.localStorage.removeItem('import-form-mode')
-      window.localStorage.removeItem('import-form-power-tab')
+      window.localStorage.removeItem('import-form-tab')
+      window.localStorage.removeItem('import-form-options')
     } catch {
-      // ignore
+      // ignore quota / privacy mode
     }
   })
 }
 
-test.describe('Import form UX — Batch B1 (Simple/Power switch)', () => {
+test.describe('Import form UX — Batch B1 (source / YAML tabs)', () => {
   test.beforeEach(async ({ page }) => {
     await mockBackends(page)
     await clearFormStorage(page)
   })
 
-  test('B1 — default mode is Simple and the segmented control shows it active', async ({ page }) => {
+  test('B1 — the source tab is active by default', async ({ page }) => {
     await page.goto('/app/import-model')
-    const control = page.locator('[data-testid="simple-power-switch"]')
-    await expect(control).toBeVisible()
-    await expect(control.locator('[data-testid="mode-simple"]')).toHaveClass(/is-active/)
-    await expect(control.locator('[data-testid="mode-power"]')).not.toHaveClass(/is-active/)
+    const tabs = page.locator('[data-testid="import-tabs"]')
+    await expect(tabs).toBeVisible({ timeout: 15_000 })
+    await expect(tabs.locator('[data-testid="import-tab-source"]')).toHaveClass(/is-active/)
+    await expect(tabs.locator('[data-testid="import-tab-yaml"]')).not.toHaveClass(/is-active/)
+    await expect(page.locator('[data-testid="import-source-input"]')).toBeVisible()
   })
 
-  test('B1 — clicking Power activates Power mode and persists to localStorage', async ({ page }) => {
+  test('B1 — the YAML tab swaps the surface and persists across reload', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    const control = page.locator('[data-testid="simple-power-switch"]')
-    await expect(control.locator('[data-testid="mode-power"]')).toHaveClass(/is-active/)
-    await expect(control.locator('[data-testid="mode-simple"]')).not.toHaveClass(/is-active/)
-    const stored = await page.evaluate(() => window.localStorage.getItem('import-form-mode'))
-    expect(stored).toBe('power')
-  })
+    await page.locator('[data-testid="import-tab-yaml"]').click()
 
-  test('B1 — localStorage mode persists across reload', async ({ page }) => {
-    await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
+    await expect(page.locator('[data-testid="import-source-input"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="import-yaml"]')).toBeVisible()
+    await expect(page.locator('[data-testid="import-create"]')).toBeVisible()
+
+    const stored = await page.evaluate(() => window.localStorage.getItem('import-form-tab'))
+    expect(stored).toBe('yaml')
+
     await page.reload()
-    const control = page.locator('[data-testid="simple-power-switch"]')
-    await expect(control.locator('[data-testid="mode-power"]')).toHaveClass(/is-active/)
+    await expect(page.locator('[data-testid="import-tab-yaml"]')).toHaveClass(/is-active/)
+    await expect(page.locator('[data-testid="import-yaml"]')).toBeVisible()
+  })
+
+  test('B1 — the mode switch and its confirmation dialog are gone', async ({ page }) => {
+    await page.goto('/app/import-model')
+    await expect(page.locator('[data-testid="simple-power-switch"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="power-tabs"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="switch-mode-dialog"]')).toHaveCount(0)
+
+    // Setting a preference that used to be "advanced" and collapsing the panel
+    // must not prompt: collapsed is not discarded.
+    await page.locator('[data-testid="import-options-toggle"]').click()
+    await page.locator('input[placeholder*="q4_k_m"]').fill('q5_k_m')
+    await page.locator('[data-testid="import-options-toggle"]').click()
+    await expect(page.locator('[data-testid="switch-mode-dialog"]')).toHaveCount(0)
+
+    // And the value survives the round trip.
+    await page.locator('[data-testid="import-options-toggle"]').click()
+    await expect(page.locator('input[placeholder*="q4_k_m"]')).toHaveValue('q5_k_m')
   })
 })
 
-test.describe('Import form UX — Batch B2 (Simple mode Options disclosure)', () => {
+test.describe('Import form UX — Batch B2 (options disclosure)', () => {
   test.beforeEach(async ({ page }) => {
     await mockBackends(page)
     await clearFormStorage(page)
   })
 
-  test('B2 — Options disclosure is collapsed by default and hides Backend/Name/Description', async ({ page }) => {
+  test('B2 — options are collapsed by default', async ({ page }) => {
     await page.goto('/app/import-model')
-    const toggle = page.locator('[data-testid="simple-options-toggle"]')
-    await expect(toggle).toBeVisible()
-    // The content region must not be visible before click.
-    await expect(page.locator('[data-testid="simple-options-panel"]')).toHaveCount(0)
+    const toggle = page.locator('[data-testid="import-options-toggle"]')
+    await expect(toggle).toBeVisible({ timeout: 15_000 })
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.locator('[data-testid="import-options-panel"]')).toHaveCount(0)
   })
 
-  test('B2 — expanding Options reveals exactly Backend, Model Name, Description', async ({ page }) => {
+  test('B2 — expanding reveals every preference in one panel', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('[data-testid="simple-options-toggle"]').click()
-    const panel = page.locator('[data-testid="simple-options-panel"]')
+    await page.locator('[data-testid="import-options-toggle"]').click()
+    const panel = page.locator('[data-testid="import-options-panel"]')
     await expect(panel).toBeVisible()
-    // Backend dropdown button reachable
-    await expect(panel.locator('button', { hasText: /Auto-detect/ }).first()).toBeVisible()
-    // Model Name + Description visible
+
+    // The three that Simple mode used to show...
+    await expect(panel.locator('button[aria-haspopup="listbox"]').first()).toBeVisible()
     await expect(panel.locator('input[placeholder*="Leave empty to use filename"]')).toBeVisible()
     await expect(panel.locator('textarea[placeholder*="Leave empty to use default"]')).toBeVisible()
-    // Fields NOT in Simple mode must be absent
-    await expect(panel.locator('input[placeholder*="q4_k_m"]')).toHaveCount(0)
-    await expect(panel.locator('input[placeholder*="fp16"]')).toHaveCount(0)
-    await expect(panel.locator('input[placeholder*="AutoModelForCausalLM"]')).toHaveCount(0)
-    // No Custom Preferences button in Simple mode
-    await expect(page.locator('button', { hasText: /Add Custom/ })).toHaveCount(0)
-  })
-})
-
-test.describe('Import form UX — Batch B3 (Power mode tabs)', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockBackends(page)
-    await clearFormStorage(page)
+    // ...and the ones that used to need a mode switch to reach.
+    await expect(panel.locator('input[placeholder*="q4_k_m"]')).toBeVisible()
+    await expect(panel.locator('input[placeholder*="fp16"]')).toBeVisible()
+    await expect(panel.locator('input[placeholder*="AutoModelForCausalLM"]')).toBeVisible()
+    await expect(panel.locator('button', { hasText: /Add custom/i })).toBeVisible()
   })
 
-  test('B3 — Power mode shows Preferences and YAML tabs with Preferences active', async ({ page }) => {
+  test('B2 — the open/closed state persists across reload', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    const tabs = page.locator('[data-testid="power-tabs"]')
-    await expect(tabs).toBeVisible()
-    await expect(tabs.locator('[data-testid="power-tab-preferences"]')).toHaveClass(/is-active/)
-    await expect(tabs.locator('[data-testid="power-tab-yaml"]')).not.toHaveClass(/is-active/)
-    // Full preferences panel is visible — Quantizations input should exist.
-    await expect(page.locator('input[placeholder*="q4_k_m"]')).toBeVisible()
-  })
+    await page.locator('[data-testid="import-options-toggle"]').click()
+    await expect(page.locator('[data-testid="import-options-panel"]')).toBeVisible()
 
-  test('B3 — YAML tab swaps to the CodeEditor and button reads Create', async ({ page }) => {
-    await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    await page.locator('[data-testid="power-tab-yaml"]').click()
-    await expect(page.locator('input[placeholder*="q4_k_m"]')).toHaveCount(0)
-    await expect(page.locator('button.btn-primary', { hasText: /^\s*Create$/ })).toBeVisible()
-  })
-
-  test('B3 — powerTab persists across reload', async ({ page }) => {
-    await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    await page.locator('[data-testid="power-tab-yaml"]').click()
     await page.reload()
-    const tabs = page.locator('[data-testid="power-tabs"]')
-    await expect(tabs.locator('[data-testid="power-tab-yaml"]')).toHaveClass(/is-active/)
+    await expect(page.locator('[data-testid="import-options-panel"]')).toBeVisible()
+    await expect(page.locator('[data-testid="import-options-toggle"]')).toHaveAttribute('aria-expanded', 'true')
   })
 
-  test('B3 — URI + Name + Description typed in Simple carry over to Power', async ({ page }) => {
+  test('B2 — source, name and description survive a tab round trip', async ({ page }) => {
     await page.goto('/app/import-model')
-    await page.locator('input[placeholder*="huggingface://"]').fill('hf://Example/Model')
-    await page.locator('[data-testid="simple-options-toggle"]').click()
-    const panel = page.locator('[data-testid="simple-options-panel"]')
+    await page.locator('[data-testid="import-source-input"]').fill('hf://Example/Model')
+    await page.locator('[data-testid="import-options-toggle"]').click()
+    const panel = page.locator('[data-testid="import-options-panel"]')
     await panel.locator('input[placeholder*="Leave empty to use filename"]').fill('my-model')
     await panel.locator('textarea[placeholder*="Leave empty to use default"]').fill('A description')
 
-    await page.locator('[data-testid="mode-power"]').click()
-    await expect(page.locator('input[placeholder*="huggingface://"]')).toHaveValue('hf://Example/Model')
+    await page.locator('[data-testid="import-tab-yaml"]').click()
+    await page.locator('[data-testid="import-tab-source"]').click()
+
+    await expect(page.locator('[data-testid="import-source-input"]')).toHaveValue('hf://Example/Model')
     await expect(page.locator('input[placeholder*="Leave empty to use filename"]')).toHaveValue('my-model')
     await expect(page.locator('textarea[placeholder*="Leave empty to use default"]')).toHaveValue('A description')
-  })
-})
-
-test.describe('Import form UX — Batch B4 (switch-mode dialog)', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockBackends(page)
-    await clearFormStorage(page)
-  })
-
-  test('B4 — Power -> Simple with no custom prefs switches silently', async ({ page }) => {
-    await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    await page.locator('[data-testid="mode-simple"]').click()
-    await expect(page.locator('[data-testid="switch-mode-dialog"]')).toHaveCount(0)
-    const control = page.locator('[data-testid="simple-power-switch"]')
-    await expect(control.locator('[data-testid="mode-simple"]')).toHaveClass(/is-active/)
-  })
-
-  test('B4 — Power -> Simple with a custom quantization opens the dialog', async ({ page }) => {
-    await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    await page.locator('input[placeholder*="q4_k_m"]').fill('q5_k_m')
-    await page.locator('[data-testid="mode-simple"]').click()
-
-    const dialog = page.locator('[data-testid="switch-mode-dialog"]')
-    await expect(dialog).toBeVisible()
-    await expect(dialog).toContainText(/Keep your custom preferences/i)
-    await expect(dialog.locator('[data-testid="switch-mode-keep"]')).toBeVisible()
-    await expect(dialog.locator('[data-testid="switch-mode-discard"]')).toBeVisible()
-    await expect(dialog.locator('[data-testid="switch-mode-cancel"]')).toBeVisible()
-  })
-
-  test('B4 — Keep & switch preserves quantization across a round trip', async ({ page }) => {
-    await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    await page.locator('input[placeholder*="q4_k_m"]').fill('q5_k_m')
-    await page.locator('[data-testid="mode-simple"]').click()
-    await page.locator('[data-testid="switch-mode-keep"]').click()
-    await expect(page.locator('[data-testid="switch-mode-dialog"]')).toHaveCount(0)
-    // Round-trip back to Power — quantization should still be populated.
-    await page.locator('[data-testid="mode-power"]').click()
-    await expect(page.locator('input[placeholder*="q4_k_m"]')).toHaveValue('q5_k_m')
-  })
-
-  test('B4 — Discard & switch resets prefs back to defaults', async ({ page }) => {
-    await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    await page.locator('input[placeholder*="q4_k_m"]').fill('q5_k_m')
-    await page.locator('[data-testid="mode-simple"]').click()
-    await page.locator('[data-testid="switch-mode-discard"]').click()
-    await page.locator('[data-testid="mode-power"]').click()
-    await expect(page.locator('input[placeholder*="q4_k_m"]')).toHaveValue('')
-  })
-
-  test('B4 — Cancel leaves the user in Power mode with prefs intact', async ({ page }) => {
-    await page.goto('/app/import-model')
-    await page.locator('[data-testid="mode-power"]').click()
-    await page.locator('input[placeholder*="q4_k_m"]').fill('q5_k_m')
-    await page.locator('[data-testid="mode-simple"]').click()
-    await page.locator('[data-testid="switch-mode-cancel"]').click()
-    await expect(page.locator('[data-testid="switch-mode-dialog"]')).toHaveCount(0)
-    const control = page.locator('[data-testid="simple-power-switch"]')
-    await expect(control.locator('[data-testid="mode-power"]')).toHaveClass(/is-active/)
-    await expect(page.locator('input[placeholder*="q4_k_m"]')).toHaveValue('q5_k_m')
   })
 })

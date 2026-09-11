@@ -415,7 +415,7 @@ export default function Quantize() {
                   <th>Quant</th>
                   <th>Status</th>
                   <th>Created</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -425,16 +425,15 @@ export default function Quantize() {
                   return (
                     <tr
                       key={job.id}
-                      className={isSelected ? 'is-selected' : ''}
+                      className={`${isSelected ? 'is-selected' : ''} clickable`}
                       onClick={() => setSelectedJob(job)}
-                      style={{ cursor: 'pointer' }}
                     >
                       <td className="data-table__truncate">{job.model}</td>
                       <td><code>{job.quantization_type}</code></td>
                       <td>
                         <span className={`badge ${statusBadgeClass[job.status] || ''}`}>{job.status}</span>
                         {job.import_status === 'completed' && (
-                          <span className="badge badge-success" style={{ marginLeft: 'var(--spacing-xs)' }}>imported</span>
+                          <span className="badge badge-success ml-xs">imported</span>
                         )}
                       </td>
                       <td style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>

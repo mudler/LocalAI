@@ -127,7 +127,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             context.set_code(grpc.StatusCode.NOT_FOUND)
             context.set_details("no face detected")
             return backend_pb2.EmbeddingResult()
-        return backend_pb2.EmbeddingResult(embeddings=[float(x) for x in vec])
+        return backend_pb2.EmbeddingResult(
+            embeddings=[float(x) for x in vec],
+            layout=backend_pb2.EMBEDDING_LAYOUT_FINAL,
+        )
 
     def Detect(self, request, context):
         if self.engine is None:

@@ -50,6 +50,14 @@ export function inferBackendPath(item) {
   if (item.backend === "magpie-tts-cpp") {
     return `backend/go/magpie-tts-cpp/`;
   }
+  // nemo-speech-cpp is a Go backend (Dockerfile.golang) wrapping NVIDIA's
+  // NeMo-Speech.cpp ggml runtime via purego, living in
+  // backend/go/nemo-speech-cpp/. Same explicit-branch rationale as its siblings
+  // above: the generic golang fallthrough would also resolve it, but this
+  // documents the mapping and guards a future dockerfile-suffix change.
+  if (item.backend === "nemo-speech-cpp") {
+    return `backend/go/nemo-speech-cpp/`;
+  }
   // trellis2cpp is a Go backend (Dockerfile.golang) wrapping the trellis2.cpp
   // ggml port via purego, living in backend/go/trellis2cpp/. Keep the mapping
   // explicit so a future dockerfile-suffix change cannot break path filtering.
@@ -389,10 +397,14 @@ export const SHARED_BUILD_INPUTS = [
     darwin: always,
   },
   {
-    // Stages the CUDA/ROCm runtime libraries into every Python image's lib/.
-    // COPY'd and run by Dockerfile.python only. This is the #10946 case.
+    // Decides which GPU libraries end up inside an image. Every Linux image
+    // runs it: Dockerfile.python calls it directly, and the Go and C++ backends
+    // call it from their own package.sh. Naming only the Python images here is
+    // how a packaging fix for the Intel llama.cpp backend could merge and reach
+    // no image, which is the #10946 case all over again. The Darwin builds have
+    // their own packaging scripts and never call this one.
     matches: file => file === "scripts/build/package-gpu-libs.sh",
-    linux: isLinuxPython,
+    linux: always,
     darwin: never,
   },
   {

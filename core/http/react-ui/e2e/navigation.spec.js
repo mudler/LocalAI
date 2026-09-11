@@ -12,10 +12,12 @@ test.describe('Navigation', () => {
     await expect(page.locator('.home-page')).toBeVisible()
   })
 
-  test('top menu exposes Home and Install Models', async ({ page }) => {
+  test('top menu exposes Home and Models', async ({ page }) => {
     await page.goto('/app')
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app"]')).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/models"]')).toBeVisible()
+    const models = page.locator('.sidebar-nav a.nav-item[href="/app/models"]')
+    await expect(models).toBeVisible()
+    await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
   test('Create stays an inline tier with Chat, Studio and Talk', async ({ page }) => {
