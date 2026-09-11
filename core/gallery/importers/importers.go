@@ -115,6 +115,7 @@ var defaultImporters = []Importer{
 	&NemoImporter{},
 	&FasterWhisperImporter{},
 	&QwenASRImporter{},
+	&FunASRImporter{},
 	// ParakeetCppImporter matches only parakeet GGUFs (<arch>-<size>-<quant>.gguf);
 	// kept ahead of LlamaCPPImporter so its .gguf bundles aren't claimed by the
 	// generic GGUF importer.

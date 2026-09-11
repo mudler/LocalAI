@@ -499,7 +499,7 @@ message ModelOptions {
   // applied verbatim to the backend's engine constructor (e.g. vLLM AsyncEngineArgs).
   // Unknown keys produce an error at LoadModel time.
   string EngineArgs = 73;
-  string OriginalConfigFile = 76;
+  string OriginalConfigFile = 77;
 
   // EnvVars carries environment variables to be passed to the backend process.
   map<string, string> EnvVars = 76;
