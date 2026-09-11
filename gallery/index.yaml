@@ -2730,7 +2730,7 @@
   files:
     - filename: llama-cpp/models/tiel-coder-35b-a3b/Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf
       uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF/Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf
-      sha256: 9286a94c453c6a40ad51982c3dc88df4bba32fee9efad06e4588c83c059cf17c
+      sha256: 9779b32f998371c66ae5e1aa9a0bc7ad946b1a36c61ea6a8eb39d523b4b19033
     - filename: llama-cpp/mmproj/tiel-coder-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF/mmproj-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
@@ -2810,7 +2810,7 @@
   files:
     - filename: llama-cpp/models/tiel-coder-35b-a3b/Tiel-Coder-35B-A3B-UD-Q8_K_XL.gguf
       uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF/Tiel-Coder-35B-A3B-UD-Q8_K_XL.gguf
-      sha256: 883faacea54421f80f5d2713b344c69fbd2c76093a8cc4e2694dbb6958c4d699
+      sha256: 1a9180c25ff57a6ada6971ab0c1c51fa691ccc072ad921ed4bd3fa455b44eb44
     - filename: llama-cpp/mmproj/tiel-coder-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF/mmproj-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
