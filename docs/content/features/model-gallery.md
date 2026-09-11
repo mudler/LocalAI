@@ -43,6 +43,25 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Gemma 4 E4B HauhauCS Aggressive
+
+The gallery offers the [HauhauCS Aggressive Gemma 4 E4B model](https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive)
+for text chat and image input through llama.cpp. Both Q4_K_M and Q5_K_M
+builds include the publisher's F16 multimodal projector. They use an 8192-token
+context and the embedded chat template.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install gemma-4-e4b-hauhaucs-aggressive-q4
+```
+
+Select Q5_K_M explicitly:
+
+```bash
+local-ai models install --variant gemma-4-e4b-hauhaucs-aggressive-q5 gemma-4-e4b-hauhaucs-aggressive-q4
+```
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.

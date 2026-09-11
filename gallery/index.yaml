@@ -9825,6 +9825,110 @@
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-qat-q4_0-gguf/gemma-4-E4B-it-mmproj.gguf
       uri: https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf/resolve/main/gemma-4-E4B-it-mmproj.gguf
       sha256: 7498a37cb619e55f2fcf87eb931f56e99389ed6d432e4c5c66110694c0d65578
+- name: "gemma-4-e4b-hauhaucs-aggressive-q4"
+  variants:
+    - model: gemma-4-e4b-hauhaucs-aggressive-q5
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it
+    - https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive
+  description: |
+    HauhauCS Aggressive is an uncensored derivative of Google's Gemma 4 E4B
+    instruction model. This Q4_K_M GGUF supports text chat and image input
+    through the publisher's bundled F16 multimodal projector.
+
+    Uses the embedded chat template and the publisher's sampling settings.
+    The default context is 8192 tokens. The publisher declares the Gemma license.
+  license: gemma
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - vision
+    - uncensored
+  last_checked: "2026-09-07"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-e4b-hauhaucs-aggressive/mmproj-Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-e4b-hauhaucs-aggressive/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-e4b-hauhaucs-aggressive/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+      sha256: d0027dd3a9128d9323e9f282c8bf010a8526c46477584535991dc1a869b56e96
+      uri: https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive/resolve/45b6a334b4bcd1d7f37179df58b3b1d66a184e5d/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-e4b-hauhaucs-aggressive/mmproj-Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-f16.gguf
+      sha256: debad39ab9c1152ab67695a674fb35e8375b2320c57bfd5075835d3ccb16c7db
+      uri: https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive/resolve/45b6a334b4bcd1d7f37179df58b3b1d66a184e5d/mmproj-Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-f16.gguf
+- name: "gemma-4-e4b-hauhaucs-aggressive-q5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it
+    - https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive
+  description: |
+    HauhauCS Aggressive is an uncensored derivative of Google's Gemma 4 E4B
+    instruction model. This Q5_K_M GGUF supports text chat and image input
+    through the publisher's bundled F16 multimodal projector.
+
+    Uses the embedded chat template and the publisher's sampling settings.
+    The default context is 8192 tokens. The publisher declares the Gemma license.
+  license: gemma
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma4
+    - multimodal
+    - vision
+    - uncensored
+  last_checked: "2026-09-07"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-e4b-hauhaucs-aggressive/mmproj-Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-e4b-hauhaucs-aggressive/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-Q5_K_M.gguf
+      temperature: 1
+      top_k: 64
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-e4b-hauhaucs-aggressive/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-Q5_K_M.gguf
+      sha256: c96f1afc2af92bb27b1d5057fd91c8f6e41e9a72f9f32faa389e1601a6963ee6
+      uri: https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive/resolve/45b6a334b4bcd1d7f37179df58b3b1d66a184e5d/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-Q5_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-e4b-hauhaucs-aggressive/mmproj-Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-f16.gguf
+      sha256: debad39ab9c1152ab67695a674fb35e8375b2320c57bfd5075835d3ccb16c7db
+      uri: https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive/resolve/45b6a334b4bcd1d7f37179df58b3b1d66a184e5d/mmproj-Gemma-4-E4B-Uncensored-HauhauCS-Aggressive-f16.gguf
 - name: "zero-gemma4-e4b-openzero-q5-k-m"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
