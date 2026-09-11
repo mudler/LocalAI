@@ -1031,6 +1031,8 @@ github.com/mudler/go-processmanager v0.1.2-0.20260823202314-dfa0ed852db6 h1:/nFm
 github.com/mudler/go-processmanager v0.1.2-0.20260823202314-dfa0ed852db6/go.mod h1:h6kmHUZeafr+k5hRYpGLMzJFH4hItHffgpRo2QIkP+o=
 github.com/mudler/localrecall v0.6.3 h1:uXOrP9JmetzxgVKzSrawviyBHZfAcvPBBIrvVUdZjDA=
 github.com/mudler/localrecall v0.6.3/go.mod h1:28k5n19raUrkuwXkacdNsBlj8yuSnGhpT16tu+2+4dU=
+github.com/mudler/localrecall v0.6.5 h1:Q0atTJFFAyumKZG5dbGSrvQ+wsuA88hywIOfHdxpBEU=
+github.com/mudler/localrecall v0.6.5/go.mod h1:28k5n19raUrkuwXkacdNsBlj8yuSnGhpT16tu+2+4dU=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8 h1:Ry8RiWy8fZ6Ff4E7dPmjRsBrnHOnPeOOj2LhCgyjQu0=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8/go.mod h1:EA8Ashhd56o32qN7ouPKFSRUs/Z+LrRCF4v6R2Oarm8=
 github.com/mudler/nib v0.6.0 h1:6l2bQJkgHT5+o6S0wmmk/ipTCbFzmiSp1pM/tGQv4Eo=
