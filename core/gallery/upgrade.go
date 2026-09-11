@@ -240,7 +240,7 @@ func summarizeNodeDrift(nodes []NodeBackendRef) (majority struct{ version, diges
 
 // UpgradeBackend upgrades a single backend to the latest gallery version using
 // an atomic swap with backup-based rollback on failure.
-func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, galleries []config.Gallery, backendName string, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
+func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, galleries []config.Gallery, backendName string, downloadStatus func(string, string, string, float64), requireIntegrity bool, opts ...UpgradeOption) error {
 	// Look up the installed backend
 	installedBackends, err := ListSystemBackends(systemState)
 	if err != nil {
@@ -259,7 +259,32 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	// If this is a meta backend, recursively upgrade the concrete backend it points to
 	if installed.Metadata != nil && installed.Metadata.MetaBackendFor != "" {
 		xlog.Info("Meta backend detected, upgrading concrete backend", "meta", backendName, "concrete", installed.Metadata.MetaBackendFor)
-		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus, requireIntegrity)
+		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus, requireIntegrity, opts...)
+	}
+
+	options := upgradeOptions{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
+
+	backendPath := filepath.Join(systemState.Backend.BackendsPath, backendName)
+	release, err := backendOperations.acquire(ctx, backendPath, options.skipIfBusy)
+	if err != nil {
+		return fmt.Errorf("backend %q: %w", backendName, err)
+	}
+	defer release()
+
+	// Refresh installed state after waiting. Another upgrade may have replaced
+	// metadata while this call was blocked on the same backend path.
+	installedBackends, err = ListSystemBackends(systemState)
+	if err != nil {
+		return fmt.Errorf("failed to refresh installed backends: %w", err)
+	}
+	installed, ok = installedBackends.Get(backendName)
+	if !ok {
+		return fmt.Errorf("backend %q: %w", backendName, ErrBackendNotFound)
 	}
 
 	// Find the gallery entry. Unfiltered for the same reason as the check
@@ -285,7 +310,6 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 		return fmt.Errorf("upgrade %q: %w", backendName, err)
 	}
 
-	backendPath := filepath.Join(systemState.Backend.BackendsPath, backendName)
 	tmpPath := backendPath + ".upgrade-tmp"
 	backupPath := backendPath + ".backup"
 

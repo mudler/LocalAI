@@ -105,12 +105,20 @@ func (b *LocalBackendManager) ListBackends() (gallery.SystemBackends, error) {
 	return gallery.ListSystemBackends(b.systemState)
 }
 
-// UpgradeBackend ignores op.ID and op.TargetNodeID: a single-node install
-// reports progress through the local progressCb already, and there is only
-// one node to target. Both fields only matter for distributed per-node
-// streaming/scoping (see DistributedBackendManager.UpgradeBackend).
+// UpgradeBackend uses an empty op.ID to identify the UpgradeChecker's
+// background operation, which backs off instead of waiting when the same
+// backend is busy. A single-node upgrade reports progress through the local
+// progressCb already, and TargetNodeID only matters for distributed per-node
+// scoping.
 func (b *LocalBackendManager) UpgradeBackend(ctx context.Context, op *ManagementOp[gallery.GalleryBackend, any], progressCb ProgressCallback) error {
-	return gallery.UpgradeBackend(ctx, b.systemState, b.modelLoader, b.backendGalleries, op.GalleryElementName, progressCb, b.requireBackendIntegrity)
+	var opts []gallery.UpgradeOption
+	if op.ID == "" {
+		opts = append(opts, gallery.WithSkipIfBackendBusy())
+	}
+	return gallery.UpgradeBackend(
+		ctx, b.systemState, b.modelLoader, b.backendGalleries,
+		op.GalleryElementName, progressCb, b.requireBackendIntegrity, opts...,
+	)
 }
 
 func (b *LocalBackendManager) CheckUpgrades(ctx context.Context) (map[string]gallery.UpgradeInfo, error) {
