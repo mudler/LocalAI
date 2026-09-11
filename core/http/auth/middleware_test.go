@@ -73,6 +73,10 @@ var _ = Describe("Auth Middleware", func() {
 		method string
 		path   string
 	}{
+		// No OPTIONS entry here: CORS preflights are exempt from auth on
+		// every path by design (see publicRouteRegistry, #4576), so there is
+		// no "private OPTIONS lookalike" left to assert. Near-prefix privacy
+		// for /api/auth/ is still pinned by the non-OPTIONS entries below.
 		{http.MethodPost, "/api/instructions"},
 		{http.MethodGet, "/api/instructions-private"},
 		{http.MethodPost, "/swagger"},
@@ -82,7 +86,6 @@ var _ = Describe("Auth Middleware", func() {
 		{http.MethodGet, "/api/auth/token-login"},
 		{http.MethodGet, "/api/auth/register"},
 		{http.MethodGet, "/api/auth/private"},
-		{http.MethodOptions, "/api/auth-private/resource"},
 		{http.MethodPost, "/app/settings"},
 		{http.MethodGet, "/app-private"},
 		{http.MethodPost, "/browse/models"},
@@ -726,6 +729,33 @@ var _ = Describe("Auth Middleware", func() {
 			Expect(rec.Code).To(Equal(http.StatusOK))
 			Expect(p.source).To(Equal(auth.UsageSourceLegacy))
 			Expect(p.key).To(BeNil())
+		})
+	})
+
+	Context("CORS preflight (OPTIONS) bypasses API-key auth", func() {
+		// Regression for #4576: an OPTIONS preflight cannot carry credentials
+		// by HTTP spec, so it must not be gated on API-key auth. Without the
+		// bypass the auth middleware answers 401 before the CORS middleware
+		// (registered after auth in app.go) can answer the preflight, and
+		// browsers block the actual cross-origin API call.
+		var app *echo.Echo
+		BeforeEach(func() {
+			appConfig := config.NewApplicationConfig()
+			appConfig.ApiKeys = []string{"legacy-secret"}
+			app = echo.New()
+			app.Use(auth.Middleware(nil, appConfig))
+			app.OPTIONS("/v1/models", ok)
+			app.GET("/v1/models", ok)
+		})
+
+		It("OPTIONS preflight returns 200 without an API key", func() {
+			rec := doRequest(app, http.MethodOptions, "/v1/models")
+			Expect(rec.Code).To(Equal(http.StatusOK), "OPTIONS preflight must bypass API-key auth")
+		})
+
+		It("GET without an API key is still 401 (auth otherwise enforced)", func() {
+			rec := doRequest(app, http.MethodGet, "/v1/models")
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
 		})
 	})
 })
