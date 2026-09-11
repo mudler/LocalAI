@@ -262,11 +262,11 @@ for loading requirements and the Qwen Community License 1.0.
 
 ### Model variants
 
-For example, `qwopus3.8-27b-flash` offers Q4_K_M and Q8_0 GGUF builds
-with llama.cpp MTP speculative decoding and the F32 vision projector.
-Install `qwopus3.8-27b-flash-q8` directly to select Q8_0 explicitly.
-Both builds use the embedded chat template. The publisher reports a known
-Python code indentation issue.
+Ornith 1.5 9B offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds with a shared BF16 vision projector. To select Q6_K explicitly:
+
+```bash
+local-ai models install ornith-1.5-9b-q4 --variant ornith-1.5-9b-q6
+```
 
 Some gallery entries offer several builds of the same model: different
 quantizations, or the same weights served by a different engine. Such an entry

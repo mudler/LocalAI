@@ -2689,6 +2689,8 @@
 - &ornith-1-5-9b
   name: "ornith-1.5-9b-q4"
   variants:
+    - model: ornith-1.5-9b-q5
+    - model: ornith-1.5-9b-q6
     - model: ornith-1.5-9b-q8
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -2699,8 +2701,8 @@
     agentic coding, reasoning, repository-level software tasks, and tool use.
     It supports text and image input with a context window of 262K tokens.
 
-    This default entry uses the Q4_K_M GGUF and BF16 vision projector. A
-    higher-quality Q8_0 model is available as a variant.
+    This default entry uses the Q4_K_M GGUF and BF16 vision projector.
+    Q5_K_M, Q6_K, and Q8_0 models are available as variants.
   license: "mit"
   tags:
     - llm
@@ -2957,6 +2959,78 @@
     - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj.gguf
       uri: huggingface://mudler/Ornith-1.5-35B-A3B-APEX-MTP-GGUF/mmproj.gguf
       sha256: e277123529451fbcff6d880ad5bd7ada999f9d5e6339ba3639d06c5cef4763b1
+- !!merge <<: *ornith-1-5-9b
+  name: "ornith-1.5-9b-q5"
+  variants: []
+  last_checked: "2026-09-09"
+  description: |
+    Ornith-1.5-9B in the Q5_K_M GGUF format, with the shared BF16
+    vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q5_K_M.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-9B-GGUF/resolve/abdd624b12ebf020b767fff532ff44fe552b28c3/Ornith-1.5-9B-Q5_K_M.gguf
+      sha256: e4d9634a3b6546a5c00a8680568fe1125f6c98c704ee51ae52ba07650fb4247d
+    - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-9B-GGUF/resolve/abdd624b12ebf020b767fff532ff44fe552b28c3/mmproj-Ornith-1.5-9B-BF16.gguf
+      sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
+- !!merge <<: *ornith-1-5-9b
+  name: "ornith-1.5-9b-q6"
+  variants: []
+  last_checked: "2026-09-09"
+  description: |
+    Ornith-1.5-9B in the Q6_K GGUF format, with the shared BF16
+    vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q6_K.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b/Ornith-1.5-9B-Q6_K.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-9B-GGUF/resolve/abdd624b12ebf020b767fff532ff44fe552b28c3/Ornith-1.5-9B-Q6_K.gguf
+      sha256: b6f76e74f86245b3caee014b797c10dca931c4dfdaabfb134eab655f81e4154a
+    - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-9B-GGUF/resolve/abdd624b12ebf020b767fff532ff44fe552b28c3/mmproj-Ornith-1.5-9B-BF16.gguf
+      sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
 - !!merge <<: *ornith-1-5-9b
   name: "ornith-1.5-9b-q8"
   variants: []
