@@ -110,6 +110,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/charmbracelet/bubbles v0.21.0 // indirect
 	github.com/charmbracelet/bubbletea v1.3.10 // indirect
+	github.com/chasefleming/elem-go v0.30.0 // indirect
 	github.com/chromedp/cdproto v0.0.0-20260321001828-e3e3800016bc // indirect
 	github.com/chromedp/chromedp v0.15.1 // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
@@ -118,6 +119,7 @@ require (
 	github.com/containerd/ttrpc v1.2.7 // indirect
 	github.com/containerd/typeurl/v2 v2.2.0 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 // indirect
+	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2 // indirect
 	github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352 // indirect
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7 // indirect
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
@@ -147,10 +149,14 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
+	github.com/gofiber/template v1.8.3 // indirect
+	github.com/gofiber/template/html/v2 v2.1.3 // indirect
+	github.com/gofiber/utils v1.1.0 // indirect
 	github.com/google/certificate-transparency-go v1.3.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/in-toto/attestation v1.1.2 // indirect
 	github.com/in-toto/in-toto-golang v0.9.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
@@ -176,6 +182,8 @@ require (
 	github.com/sigstore/rekor-tiles/v2 v2.0.1 // indirect
 	github.com/sigstore/sigstore v1.10.0 // indirect
 	github.com/sigstore/timestamp-authority/v2 v2.0.3 // indirect
+	github.com/spf13/cobra v1.10.2 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.0-20260508151727-1282bb917829 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/sv-tools/openapi v0.2.1 // indirect
@@ -251,8 +259,8 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260606071251-14aed1ae4336
-	github.com/mudler/localrecall v0.6.3 // indirect
+	github.com/mudler/LocalAGI v0.0.0-20260911225740-d93d478e42f1
+	github.com/mudler/localrecall v0.6.5 // indirect
 	github.com/mudler/skillserver v0.0.7-0.20260520220837-a7317cbf9145
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
