@@ -258,14 +258,14 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
-The `gemma-4-12b-qat-hauhaucs-balanced` entry provides HauhauCS's Gemma 4 12B
-QAT Balanced model in Q4_K_M format, including its vision projector. Its
-`gemma-4-12b-qat-hauhaucs-balanced-mtp` variant adds a draft head and enables
-llama.cpp MTP speculative decoding. Both builds use the publisher's sampling
-settings. To install the MTP build explicitly:
+The `huihui-qwen3.8-27b-abliterated` entry offers BF16, Q4_K, and Q8_0 GGUF
+builds for llama.cpp. Each build includes a BF16 vision projector and enables
+MTP speculative decoding. To install a specific quantization directly:
 
 ```bash
-local-ai models install gemma-4-12b-qat-hauhaucs-balanced-mtp
+local-ai models install huihui-qwen3.8-27b-abliterated-q4
+# Or use the larger Q8_0 build:
+local-ai models install huihui-qwen3.8-27b-abliterated-q8
 ```
 
 ### Collapsing the listing to one row per model
