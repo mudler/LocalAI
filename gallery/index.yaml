@@ -1,59 +1,51 @@
 ---
-- name: "qwen3.8-27b-uncensored"
+- name: "deepseek-v4-flash-vision-exp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
-    - https://huggingface.co/orcarouter/Qwen3.8-27B-Uncensored-GGUF
+    - https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   description: |
-    # Qwen3.8-27B
+    # DeepSeek-V4-Flash-Vision-Exp
 
-    > [!Note]
-    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
-    >
-    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, TokenSpeed, etc.
+    ## Introduction
 
-    > [!Tip]
-    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
-    > In particular, **Qwen3.8-27B** will be available as a hosted version with more production features, e.g., 1M context length by default, official built-in tools. For more information, please refer to the Qwen3.8-27B Overview. The service is coming soon. Stay tuned for updates.
+    We are excited to introduce **DeepSeek-V4-Flash-Vision-Exp**, our first experimental multimodal model in the DeepSeek-V4 family. It builds on the DeepSeek-V4-Flash architecture by incorporating visual modules and undergoing continued training to unlock visual understanding capabilities.
 
-    Following the widespread community adoption of the Qwen3.5 and Qwen3.6 series, we are pleased to introduce Qwen3.8, the most capable generation in the Qwen open-model family to date.
+    Compared to DeepSeek-V4-Flash-0731, DeepSeek-V4-Flash-Vision-Exp achieves substantial improvements on its multimodal agent capabilities, while maintaining comparable performance on text-only agent tasks.
+
+    Notes:
+
+    1. For the text agent benchmarks above, DeepSeek models are evaluated with the minimal mode of DeepSeek Harness as the agent framework, using the `max` reasoning effort level with `temperature = 1.0, top_p = 0.95`.
+    2. † For ApexBench and Agents' Last Exam, DeepSeek-V4-Flash-0731 ignores the multimodal elements in the input.
+
+    ## Repository layout
+
+    This repository contains the tokenizer, prompt encoding reference, and a
+    minimal PyTorch inference implementation for DeepSeek-V4 Flash Vision. The
+    reference inference covers the vision encoder and aligner, DFlash attention,
+    MoE, Hyper-Connections, and the DSpark forward path.
 
     ...
-  license: "apache-2.0"
+  license: "mit"
   tags:
     - llm
     - gguf
-    - qwen
-    - qwen3
-    - reasoning
-  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+    - deepseek
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
   overrides:
-    backend: llama-cpp
+    backend: ds4
     function:
-      automatic_tool_parsing_fallback: true
       grammar:
         disable: true
     known_usecases:
       - chat
-    mmproj: llama-cpp/mmproj/Qwen3.8-27B-Uncensored-Q4_K_M/mmproj-Qwen3.8-27B-Uncensored-f16.gguf
-    options:
-      - use_jinja:true
     parameters:
-      min_p: 0
-      model: llama-cpp/models/Qwen3.8-27B-Uncensored-Q4_K_M/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
-      presence_penalty: 1.5
-      repeat_penalty: 1
-      temperature: 0.7
-      top_k: 20
-      top_p: 0.8
+      model: ds4flash.gguf
     template:
       use_tokenizer_template: true
   files:
-    - filename: llama-cpp/models/Qwen3.8-27B-Uncensored-Q4_K_M/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
-      sha256: '****************************************************************'
-      uri: https://huggingface.co/orcarouter/Qwen3.8-27B-Uncensored-GGUF/resolve/main/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
-    - filename: llama-cpp/mmproj/Qwen3.8-27B-Uncensored-Q4_K_M/mmproj-Qwen3.8-27B-Uncensored-f16.gguf
-      sha256: '****************************************************************'
-      uri: https://huggingface.co/orcarouter/Qwen3.8-27B-Uncensored-GGUF/resolve/main/mmproj-Qwen3.8-27B-Uncensored-f16.gguf
+    - filename: ds4flash.gguf
+      sha256: ""
+      uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
 - name: "qwopus3.8-27b-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
