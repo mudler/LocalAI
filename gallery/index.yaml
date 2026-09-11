@@ -3096,6 +3096,163 @@
     - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/mmproj-Ornith-1.5-35B-BF16.gguf
       sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
+- &nex-n2-5-mini
+  name: "nex-n2.5-mini-q4"
+  variants:
+    - model: nex-n2.5-mini-q5
+    - model: nex-n2.5-mini-q6
+    - model: nex-n2.5-mini-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/nex-agi/Nex-N2.5-mini
+    - https://huggingface.co/abenzerps/Nex-N2.5-mini-GGUF
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - agent
+    - tools
+    - vision
+    - multimodal
+  last_checked: "2026-09-08"
+  description: |
+    Nex-N2.5-mini is a 35B-parameter Qwen3.5 MoE model for coding, tool use,
+    and computer and browser tasks with image input. This Q4_K_M GGUF build
+    includes the F16 vision projector and uses the embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/nex-n2.5-mini/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nex-n2.5-mini/Nex-N2.5-mini-Q4_K_M.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 40
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nex-n2.5-mini/Nex-N2.5-mini-Q4_K_M.gguf
+      uri: https://huggingface.co/abenzerps/Nex-N2.5-mini-GGUF/resolve/67a2e9d15fc8c28de23c82d206362929ecf30a8c/Nex-N2.5-mini-Q4_K_M.gguf
+      sha256: dd296f683c798a3e4058fb1ef8c462e6a4cc8b89cd196742a8e5a3da4057fbb3
+    - filename: llama-cpp/mmproj/nex-n2.5-mini/mmproj-F16.gguf
+      uri: https://huggingface.co/abenzerps/Nex-N2.5-mini-GGUF/resolve/67a2e9d15fc8c28de23c82d206362929ecf30a8c/mmproj-Nex-N2.5-mini-F16.gguf
+      sha256: 4734f7323dfc0e8dcd5c7c408991aad438021aeab761d223aec0b38a4457ca83
+- !!merge <<: *nex-n2-5-mini
+  name: "nex-n2.5-mini-q5"
+  variants: []
+  description: |
+    Nex-N2.5-mini is a 35B-parameter Qwen3.5 MoE model for coding, tool use,
+    and computer and browser tasks with image input. This Q5_K_M GGUF build
+    includes the F16 vision projector and uses the embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/nex-n2.5-mini/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nex-n2.5-mini/Nex-N2.5-mini-Q5_K_M.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 40
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nex-n2.5-mini/Nex-N2.5-mini-Q5_K_M.gguf
+      uri: https://huggingface.co/abenzerps/Nex-N2.5-mini-GGUF/resolve/67a2e9d15fc8c28de23c82d206362929ecf30a8c/Nex-N2.5-mini-Q5_K_M.gguf
+      sha256: f60514ff680b9561318129f22dddd9da59878bda211c178662f3d50938f0c9d4
+    - filename: llama-cpp/mmproj/nex-n2.5-mini/mmproj-F16.gguf
+      uri: https://huggingface.co/abenzerps/Nex-N2.5-mini-GGUF/resolve/67a2e9d15fc8c28de23c82d206362929ecf30a8c/mmproj-Nex-N2.5-mini-F16.gguf
+      sha256: 4734f7323dfc0e8dcd5c7c408991aad438021aeab761d223aec0b38a4457ca83
+- !!merge <<: *nex-n2-5-mini
+  name: "nex-n2.5-mini-q6"
+  variants: []
+  description: |
+    Nex-N2.5-mini is a 35B-parameter Qwen3.5 MoE model for coding, tool use,
+    and computer and browser tasks with image input. This Q6_K GGUF build
+    includes the F16 vision projector and uses the embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/nex-n2.5-mini/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nex-n2.5-mini/Nex-N2.5-mini-Q6_K.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 40
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nex-n2.5-mini/Nex-N2.5-mini-Q6_K.gguf
+      uri: https://huggingface.co/abenzerps/Nex-N2.5-mini-GGUF/resolve/67a2e9d15fc8c28de23c82d206362929ecf30a8c/Nex-N2.5-mini-Q6_K.gguf
+      sha256: 9d21c304e8fcb78c204e1e95ce12ac2bee8b9c09bbcff5a229d5b638c1bda72e
+    - filename: llama-cpp/mmproj/nex-n2.5-mini/mmproj-F16.gguf
+      uri: https://huggingface.co/abenzerps/Nex-N2.5-mini-GGUF/resolve/67a2e9d15fc8c28de23c82d206362929ecf30a8c/mmproj-Nex-N2.5-mini-F16.gguf
+      sha256: 4734f7323dfc0e8dcd5c7c408991aad438021aeab761d223aec0b38a4457ca83
+- !!merge <<: *nex-n2-5-mini
+  name: "nex-n2.5-mini-q8"
+  variants: []
+  description: |
+    Nex-N2.5-mini is a 35B-parameter Qwen3.5 MoE model for coding, tool use,
+    and computer and browser tasks with image input. This Q8_0 GGUF build
+    includes the F16 vision projector and uses the embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/nex-n2.5-mini/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nex-n2.5-mini/Nex-N2.5-mini-Q8_0.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 40
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nex-n2.5-mini/Nex-N2.5-mini-Q8_0.gguf
+      uri: https://huggingface.co/abenzerps/Nex-N2.5-mini-GGUF/resolve/67a2e9d15fc8c28de23c82d206362929ecf30a8c/Nex-N2.5-mini-Q8_0.gguf
+      sha256: 9d08dac4cfb0408830f081ff5bf85874a99c6d214e78b400cb9c4184d0f28cd2
+    - filename: llama-cpp/mmproj/nex-n2.5-mini/mmproj-F16.gguf
+      uri: https://huggingface.co/abenzerps/Nex-N2.5-mini-GGUF/resolve/67a2e9d15fc8c28de23c82d206362929ecf30a8c/mmproj-Nex-N2.5-mini-F16.gguf
+      sha256: 4734f7323dfc0e8dcd5c7c408991aad438021aeab761d223aec0b38a4457ca83
 - &thomson-1-0-small
   name: "thomson-1.0-small-q4"
   variants:

@@ -73,6 +73,18 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, the gallery shows whether the estimated VRAM fits (green) or may not fit (red) using a 95% headroom rule.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 
+## Nex-N2.5-mini
+
+Install `nex-n2.5-mini-q4` for coding, tool use, and image prompts with
+llama.cpp. The gallery offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 builds. Each
+build includes the F16 vision projector and uses the model's embedded chat
+template. LocalAI selects a variant using the available memory.
+
+The entries default to a 32,768-token context. The source model supports
+up to 262,144 tokens; increase `context_size` if enough memory is available.
+Sampling defaults follow the [publisher's recommendations](https://huggingface.co/nex-agi/Nex-N2.5-mini):
+temperature 0.7, `top_p` 0.95, and `top_k` 40.
+
 ## Add other galleries
 
 You can add other galleries by:
