@@ -9,7 +9,7 @@ aliases = ["/features/distribution/"]
 ![Federated vs worker mode: federated routes a whole request to one node; worker shards one model across nodes](/images/diagrams/federated-vs-worker.png)
 
 {{% notice tip %}}
-Looking for production-grade horizontal scaling with PostgreSQL and NATS? See [Distributed Mode]({{% relref "features/distributed-mode" %}}).
+Looking for production-grade horizontal scaling backed by PostgreSQL alone? See [Distributed Mode]({{% relref "features/distributed-mode" %}}).
 {{% /notice %}}
 
 ## Choosing a distributed mode
@@ -19,7 +19,7 @@ LocalAI can spread inference across multiple machines in three ways. Pick the on
 | Mode | Best for | Guide |
 |------|----------|-------|
 | **P2P / Federated inference** | Ad-hoc clusters, community sharing, quick experimentation. Nodes discover each other via a shared libp2p token, with no central server. | This page |
-| **Distributed Mode (PostgreSQL + NATS)** | Production deployments, Kubernetes, and managed infrastructure. Stateless frontends behind a load balancer, workers self-register, and state lives in PostgreSQL. | [Distributed Mode]({{% relref "features/distributed-mode" %}}) |
+| **Distributed Mode (PostgreSQL)** | Production deployments, Kubernetes, and managed infrastructure. Stateless frontends behind a load balancer, workers self-register over an outbound tunnel, and state lives in PostgreSQL. No message broker is needed. | [Distributed Mode]({{% relref "features/distributed-mode" %}}) |
 | **MLX distributed** | Apple Silicon clusters running MLX models over the MLX distributed runtime. | [MLX Distributed]({{% relref "features/mlx-distributed" %}}) |
 
 For the low-level protocol and endpoints used by P2P workers, see the [P2P API reference]({{% relref "reference/p2p-api" %}}).

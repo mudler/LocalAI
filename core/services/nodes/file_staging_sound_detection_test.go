@@ -34,14 +34,16 @@ func (s *soundStagingFailure) ReleaseRemote(context.Context, string, string) err
 
 type soundRouteFactory struct{ client grpc.Backend }
 
-func (f *soundRouteFactory) NewClient(string, bool) grpc.Backend { return f.client }
+func (f *soundRouteFactory) NewClientForNode(string, string, bool) (grpc.Backend, error) {
+	return f.client, nil
+}
 
 var _ = Describe("FileStagingClient sound detection", func() {
 	It("stages sound audio through the client returned by SmartRouter.Route", func(ctx SpecContext) {
 		node := &BackendNode{ID: "worker-1", Name: "worker", Address: "10.0.0.1:50051"}
 		reg := &fakeModelRouter{
 			findAndLockNode: node,
-			findAndLockNM:   &NodeModel{NodeID: node.ID, ModelName: "ced", Address: "10.0.0.1:9001"},
+			findAndLockNM:   &NodeModel{NodeID: node.ID, ModelName: "ced", WorkerLocalAddress: "10.0.0.1:9001"},
 		}
 		backend := &soundStagingBackend{Backend: &stubBackend{healthResult: true}}
 		stager := &fakeFileStager{}

@@ -5,9 +5,18 @@
 // that is surfaced to the HTTP/UI API; without cross-replica sync a poll that
 // lands on a replica which did not originate a change sees stale or missing data.
 // SyncedMap collapses the three legs each feature otherwise hand-wires - an
-// in-memory map, a NATS broadcast/apply path, and optional durable read-through -
-// into one well-tested component so cross-replica consistency is a configuration
-// choice rather than a bespoke re-implementation.
+// in-memory map, a broadcast/apply path over the deployment's fan-out carrier,
+// and optional durable read-through - into one well-tested component so
+// cross-replica consistency is a configuration choice rather than a bespoke
+// re-implementation.
+//
+// The carrier is messaging.Broadcaster and nothing narrower, so a deployment
+// can carry these deltas on PostgreSQL LISTEN/NOTIFY. That is not a detail of
+// the transport: LISTEN/NOTIFY is at most once to CONNECTED listeners and never
+// replays, so a map whose only convergence path were the deltas would answer
+// from state it can never repair. Store (or Loader) is what hydrate, the
+// reconnect callback and the reconcile ticker read, and it is the reason a
+// dropped delta is a gap that closes rather than a value that was never set.
 package syncstate
 
 import (
@@ -36,13 +45,42 @@ type Store[K comparable, V any] interface {
 
 // Config configures a SyncedMap.
 type Config[K comparable, V any] struct {
-	Name      string                                 // subject namespace, e.g. "finetune.jobs"
-	Key       func(V) K                              // extract the key from a value
-	Nats      messaging.MessagingClient              // nil => standalone: in-memory only, no broadcast/subscribe
+	Name string    // subject namespace, e.g. "finetune.jobs"
+	Key  func(V) K // extract the key from a value
+
+	// Bus is the fan-out carrier. nil => standalone: in-memory only, no
+	// broadcast and no subscribe.
+	//
+	// It is messaging.Broadcaster rather than messaging.MessagingClient because
+	// this component only ever publishes and subscribes: request/reply and
+	// queue groups are not part of what a replicated map needs, and demanding
+	// them would rule out every carrier that does not have them. The field is
+	// not called Nats because a field of that name holding a PostgreSQL carrier
+	// is a comment that claims more than the code does.
+	Bus messaging.Broadcaster
+
 	Store     Store[K, V]                            // optional read-through persistence
 	Loader    func(ctx context.Context) ([]V, error) // source when there is no Store (e.g. disk reload)
 	OnApply   func(op string, k K, v V)              // optional hook after an applied change (e.g. ShutdownModel)
 	Reconcile time.Duration                          // optional periodic re-hydrate; 0 = off
+
+	// PerTenant declares that this map is instantiated once per tenant, so its
+	// deltas must not reach another tenant's copy. A map with PerTenant false
+	// keeps exactly the subject it has today, which is why the finetune, quant
+	// and responses adopters need no change.
+	PerTenant bool
+
+	// Tenant scopes this map when PerTenant is set. Non-empty publishes and
+	// subscribes on that tenant's subject ALONE.
+	//
+	// Empty with PerTenant set is the CLUSTER-WIDE view: it publishes on the
+	// unscoped subject, and it subscribes on that subject AND on the per-tenant
+	// wildcard. That asymmetry is not an oversight. This map hydrates from a
+	// Store that returns every tenant's rows, so a view that hydrates across
+	// tenants must apply deltas across tenants or it is stale the moment any
+	// tenant writes. A tenant map hydrates from its own rows and must apply
+	// only its own deltas.
+	Tenant string
 }
 
 // delta is the JSON wire envelope broadcast on every local mutation. Value is
@@ -66,7 +104,9 @@ type SyncedMap[K comparable, V any] struct {
 	mu   sync.RWMutex
 	data map[K]V
 
-	sub Subscription
+	// subs holds every filter this map applies deltas from. Only the
+	// cluster-wide view of a per-tenant map has more than one.
+	subs []Subscription
 
 	// lifeCtx outlives Start's argument: a reconnect callback or reconcile tick
 	// can fire long after Start returns, so they must not be tied to a ctx the
@@ -84,8 +124,31 @@ func New[K comparable, V any](cfg Config[K, V]) *SyncedMap[K, V] {
 	return &SyncedMap[K, V]{cfg: cfg, data: make(map[K]V)}
 }
 
-func (m *SyncedMap[K, V]) subject() string {
+// publishSubject is the subject a local mutation broadcasts on, and the SINGLE
+// definition of "the subject this map's tenant owns". subscribeFilters reads it
+// rather than restating the rule, so a per-tenant map cannot end up publishing
+// on one subject and subscribing on another - the split that would leak exactly
+// as before while every publish assertion still passed.
+func (m *SyncedMap[K, V]) publishSubject() string {
+	if m.cfg.PerTenant && m.cfg.Tenant != "" {
+		return messaging.SubjectSyncStateTenantDelta(m.cfg.Name, m.cfg.Tenant)
+	}
 	return messaging.SubjectSyncStateDelta(m.cfg.Name)
+}
+
+// subscribeFilters is the filter or filters this map applies deltas from.
+//
+// Every map subscribes to what it publishes on. The cluster-wide view of a
+// per-tenant map additionally takes the tenant wildcard, because it hydrates
+// from every tenant's rows and would otherwise be stale the moment any tenant
+// wrote. No other case gets a second filter: a tenant that took the wildcard
+// would read every other tenant's writes, which is the leak this exists to
+// close.
+func (m *SyncedMap[K, V]) subscribeFilters() []string {
+	if m.cfg.PerTenant && m.cfg.Tenant == "" {
+		return []string{m.publishSubject(), messaging.SubjectSyncStateTenantWildcard(m.cfg.Name)}
+	}
+	return []string{m.publishSubject()}
 }
 
 // Start hydrates from the source, subscribes for peer deltas, registers a
@@ -101,19 +164,24 @@ func (m *SyncedMap[K, V]) Start(ctx context.Context) error {
 	// goroutines, so it cannot be cancelled or deferred within this scope.
 	m.lifeCtx, m.cancel = context.WithCancel(context.Background()) // #nosec G118 -- cancel is invoked in Close()
 
-	if m.cfg.Nats != nil {
-		sub, err := messaging.SubscribeJSON(m.cfg.Nats, m.subject(), m.apply)
-		if err != nil {
-			return err
+	if m.cfg.Bus != nil {
+		for _, filter := range m.subscribeFilters() {
+			sub, err := messaging.SubscribeJSON(m.cfg.Bus, filter, m.apply)
+			if err != nil {
+				return err
+			}
+			m.subs = append(m.subs, sub)
 		}
-		m.sub = sub
 
-		// nats.go transparently resubscribes on reconnect, but it cannot know we
-		// kept derived in-memory state that may have drifted while the link was
-		// down, so re-hydrate from the durable source. Detected via an optional
-		// interface so MessagingClient itself stays minimal; standalone/test
-		// clients without the method simply fall back to the reconcile ticker.
-		if r, ok := m.cfg.Nats.(interface{ OnReconnect(func()) }); ok {
+		// A carrier that reconnects restores its own registrations, but it
+		// cannot know we kept derived in-memory state that drifted while the
+		// link was down: every delta published in that window was delivered to
+		// the replicas that were connected and to nobody else, and neither
+		// carrier replays. Re-hydrating from the durable source is what turns
+		// that gap into a delay instead of a permanently wrong map. Detected
+		// via an optional interface so Broadcaster itself stays minimal;
+		// carriers without the method fall back to the reconcile ticker.
+		if r, ok := m.cfg.Bus.(interface{ OnReconnect(func()) }); ok {
 			r.OnReconnect(func() {
 				if err := m.hydrate(m.lifeCtx); err != nil {
 					xlog.Warn("syncstate: reconnect re-hydrate failed", "name", m.cfg.Name, "error", err)
@@ -129,16 +197,27 @@ func (m *SyncedMap[K, V]) Start(ctx context.Context) error {
 	return nil
 }
 
-// Close unsubscribes and stops the reconcile ticker.
+// Close unsubscribes every filter and stops the reconcile ticker. It keeps
+// going after a failure and returns the first error, so one unsubscribe that
+// fails cannot strand the others: a live handler on a closed map keeps writing
+// into memory nobody reads, and for the cluster-wide view that handler is the
+// one carrying other tenants' rows.
 func (m *SyncedMap[K, V]) Close() error {
 	if m.cancel != nil {
 		m.cancel()
 	}
 	m.wg.Wait()
-	if m.sub != nil {
-		return m.sub.Unsubscribe()
+	var firstErr error
+	for _, sub := range m.subs {
+		if sub == nil {
+			continue
+		}
+		if err := sub.Unsubscribe(); err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
-	return nil
+	m.subs = nil
+	return firstErr
 }
 
 // Set updates the value locally, writes through the Store, then broadcasts.
@@ -205,12 +284,12 @@ func (m *SyncedMap[K, V]) Snapshot() map[K]V {
 	return out
 }
 
-// publish broadcasts a delta. Standalone (nil Nats) is a strict no-op.
+// publish broadcasts a delta. Standalone (nil Bus) is a strict no-op.
 func (m *SyncedMap[K, V]) publish(op string, k K, v V) {
-	if m.cfg.Nats == nil {
+	if m.cfg.Bus == nil {
 		return
 	}
-	if err := m.cfg.Nats.Publish(m.subject(), delta[K, V]{Op: op, Key: k, Value: v}); err != nil {
+	if err := m.cfg.Bus.Publish(m.publishSubject(), delta[K, V]{Op: op, Key: k, Value: v}); err != nil {
 		xlog.Warn("syncstate: failed to broadcast delta", "name", m.cfg.Name, "op", op, "error", err)
 	}
 }

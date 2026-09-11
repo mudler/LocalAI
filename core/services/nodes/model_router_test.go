@@ -22,6 +22,7 @@ type fakeModelRouterForSmartRouter struct {
 	nodeModel       *NodeModel
 	findErr         error
 	decrementCalled map[string]int // "nodeID:model" -> count
+	removed         []string       // "nodeID:model:replica" per RemoveNodeModel
 }
 
 func newFakeModelRouterForSmartRouter() *fakeModelRouterForSmartRouter {
@@ -46,8 +47,19 @@ func (f *fakeModelRouterForSmartRouter) DecrementInFlight(_ context.Context, nod
 func (f *fakeModelRouterForSmartRouter) IncrementInFlight(_ context.Context, _, _ string, _ int) error {
 	return nil
 }
-func (f *fakeModelRouterForSmartRouter) RemoveNodeModel(_ context.Context, _, _ string, _ int) error {
+func (f *fakeModelRouterForSmartRouter) RemoveNodeModel(_ context.Context, nodeID, modelName string, replicaIndex int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.removed = append(f.removed, fmt.Sprintf("%s:%s:%d", nodeID, modelName, replicaIndex))
 	return nil
+}
+
+// removedModels lists the replica rows the code under test deleted, so a spec
+// can assert a branch left a row alone rather than only that it returned nil.
+func (f *fakeModelRouterForSmartRouter) removedModels() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.removed...)
 }
 func (f *fakeModelRouterForSmartRouter) RemoveAllNodeModelReplicas(_ context.Context, _, _ string) error {
 	return nil
@@ -199,13 +211,15 @@ var _ = Describe("ModelRouterAdapter", func() {
 	Describe("Route", func() {
 		It("delegates to SmartRouter and stores release func", func() {
 			fakeNode := &BackendNode{
-				ID:      "node-1",
-				Name:    "test-node",
-				Address: "10.0.0.1:50051",
+				ID:   "node-1",
+				Name: "test-node",
 			}
+			// The replica row carries the address now; the node has none. A row
+			// without one is not routable and the warm path declines it.
 			fakeNM := &NodeModel{
-				NodeID:    "node-1",
-				ModelName: "test-model",
+				NodeID:             "node-1",
+				ModelName:          "test-model",
+				WorkerLocalAddress: "127.0.0.1:50052",
 			}
 
 			fakeReg := newFakeModelRouterForSmartRouter()
@@ -214,7 +228,7 @@ var _ = Describe("ModelRouterAdapter", func() {
 
 			// The fake gRPC client that SmartRouter will use for health check
 			factory := newFakeBackendClientFactory()
-			factory.setClient("10.0.0.1:50051", &fakeBackendClient{healthy: true})
+			factory.setClient("127.0.0.1:50052", &fakeBackendClient{healthy: true})
 
 			sr := NewSmartRouter(fakeReg, SmartRouterOptions{
 				ClientFactory: factory,

@@ -13,11 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"net/http"
+	"net/http/httptest"
 )
 
 type stagingObjectStore struct {
@@ -55,37 +57,56 @@ func (*stagingObjectStore) List(context.Context, string) ([]string, error) {
 	return nil, nil
 }
 
-type releaseSubscription struct{}
-
-func (releaseSubscription) Unsubscribe() error { return nil }
-
-type releaseMessagingClient struct {
-	subject string
-	handler func([]byte, func([]byte))
-}
-
-func (m *releaseMessagingClient) Publish(string, any) error { return nil }
-func (m *releaseMessagingClient) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
-	return releaseSubscription{}, nil
-}
-func (m *releaseMessagingClient) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
-	return releaseSubscription{}, nil
-}
-func (m *releaseMessagingClient) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return releaseSubscription{}, nil
-}
-func (m *releaseMessagingClient) SubscribeReply(subject string, handler func([]byte, func([]byte))) (messaging.Subscription, error) {
-	m.subject = subject
-	m.handler = handler
-	return releaseSubscription{}, nil
-}
-func (m *releaseMessagingClient) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
-func (m *releaseMessagingClient) IsConnected() bool { return true }
-func (m *releaseMessagingClient) Close()            {}
-
 var _ = Describe("Worker exact-key staging release", func() {
+	It("shares capacity between HTTP uploads and S3 control requests and releases both over the worker transport", func() {
+		ctx := context.Background()
+		dir := GinkgoT().TempDir()
+		cfg := &Config{ModelsPath: filepath.Join(dir, "models")}
+		stagingDir := filepath.Join(dir, "staging")
+		cacheDir := cfg.stagingCacheDir()
+		guard, err := NewEphemeralCapacityGuard([]string{filepath.Join(stagingDir, "ephemeral"), filepath.Join(cacheDir, "ephemeral")}, 4+sha256.Size*4, 0)
+		Expect(err).NotTo(HaveOccurred())
+		store, err := storage.NewFilesystemStore(filepath.Join(dir, "objects"))
+		Expect(err).NotTo(HaveOccurred())
+		workerFM, err := storage.NewFileManager(store, cacheDir)
+		Expect(err).NotTo(HaveOccurred())
+		frontendFM, err := storage.NewFileManager(store, filepath.Join(dir, "frontend-cache"))
+		Expect(err).NotTo(HaveOccurred())
+		sup := &backendSupervisor{cfg: cfg, processes: map[string]*backendProcess{}}
+		server, err := startWorkerHTTPServer("127.0.0.1:0", stagingDir, cfg.ModelsPath, cfg.stagingDataDir(), "secret", nil, sup, cfg, workerFM, nil, guard)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { nodes.ShutdownFileTransferServer(server) })
+		dialFor := func(string) func(context.Context, string, string) (net.Conn, error) {
+			return func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, "tcp", server.Addr)
+			}
+		}
+		httpStager := nodes.NewHTTPFileStager(func(string) (string, error) { return server.Addr, nil }, "secret", dialFor)
+		s3Stager := nodes.NewS3FileStager(frontendFM, nodes.NewControlClient(dialFor, "secret"))
+		input := filepath.Join(dir, "input.wav")
+		Expect(os.WriteFile(input, []byte("data"), 0o600)).To(Succeed())
+		s3Input := filepath.Join(dir, "s3-input.wav")
+		Expect(os.WriteFile(s3Input, []byte(strings.Repeat("x", 100)), 0o600)).To(Succeed())
+		httpKey := "ephemeral/audio/http-request/input.wav"
+		s3Key := "ephemeral/audio/s3-request/input.wav"
+		httpPath, err := httpStager.EnsureRemote(ctx, "worker", input, httpKey)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = s3Stager.EnsureRemote(ctx, "worker", s3Input, s3Key)
+		Expect(err).To(HaveOccurred())
+		Expect(filepath.Join(cacheDir, filepath.FromSlash(s3Key))).NotTo(BeAnExistingFile())
+		Expect(httpStager.ReleaseRemoteRequest(ctx, "worker", "http-request", []string{httpKey})).To(Succeed())
+		Expect(httpPath).NotTo(BeAnExistingFile())
+		s3Path, err := s3Stager.EnsureRemote(ctx, "worker", s3Input, s3Key)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(guard.HasActiveReservation(s3Path)).To(BeTrue())
+		Expect(s3Stager.ReleaseRemoteRequest(ctx, "worker", "s3-request", []string{s3Key})).To(Succeed())
+		Expect(s3Path).NotTo(BeAnExistingFile())
+		Expect(guard.HasActiveReservation(s3Path)).To(BeFalse())
+		exists, err := store.Exists(ctx, s3Key)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(exists).To(BeFalse())
+	})
+
 	It("protects a startup-accounted HTTP cache hit through authenticated repeated probes", func() {
 		stagingDir := canonicalWorkerTempDir()
 		root := filepath.Join(stagingDir, "ephemeral")
@@ -113,7 +134,9 @@ var _ = Describe("Worker exact-key staging release", func() {
 
 		localPath := filepath.Join(canonicalWorkerTempDir(), "input.wav")
 		Expect(os.WriteFile(localPath, content, 0o600)).To(Succeed())
-		stager := nodes.NewHTTPFileStager(func(string) (string, error) { return addr, nil }, "secret")
+		stager := nodes.NewHTTPFileStager(func(string) (string, error) { return addr, nil }, "secret", func(string) func(context.Context, string, string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext
+		})
 		for range 2 {
 			path, ensureErr := stager.EnsureRemote(context.Background(), "worker", localPath, key)
 			Expect(ensureErr).NotTo(HaveOccurred())
@@ -342,22 +365,22 @@ var _ = Describe("Worker exact-key staging release", func() {
 		Expect(os.WriteFile(path, []byte("data"), 0640)).To(Succeed())
 		fm, err := storage.NewFileManager(nil, cacheDir)
 		Expect(err).NotTo(HaveOccurred())
-		client := &releaseMessagingClient{}
+		mux := http.NewServeMux()
 
-		Expect(subscribeFileRelease(client, "node.one", fm, cacheDir)).To(Succeed())
-		Expect(client.subject).To(Equal(messaging.SubjectNodeFilesRelease("node.one")))
+		registerFileReleaseControlRoute(mux, fm, cacheDir, nil)
 		request, err := json.Marshal(map[string]string{"key": "ephemeral/request-id/audio/input.wav"})
 		Expect(err).NotTo(HaveOccurred())
-		var response []byte
-		client.handler(request, func(data []byte) { response = append([]byte(nil), data...) })
+		response := httptest.NewRecorder()
+		mux.ServeHTTP(response, httptest.NewRequest(http.MethodPost, workerctl.PathFilesRelease, strings.NewReader(string(request))))
+		Expect(response.Code).To(Equal(http.StatusOK))
 
 		var reply map[string]string
-		Expect(json.Unmarshal(response, &reply)).To(Succeed())
+		Expect(json.Unmarshal(response.Body.Bytes(), &reply)).To(Succeed())
 		Expect(reply["error"]).To(BeEmpty())
 		Expect(path).NotTo(BeAnExistingFile())
 	})
 
-	It("releases a request batch through one worker message", func() {
+	It("releases a request batch through one worker control request", func() {
 		cacheDir := canonicalWorkerTempDir()
 		keys := []string{
 			"ephemeral/audio/request-id/input.wav",
@@ -370,16 +393,17 @@ var _ = Describe("Worker exact-key staging release", func() {
 		}
 		fm, err := storage.NewFileManager(nil, cacheDir)
 		Expect(err).NotTo(HaveOccurred())
-		client := &releaseMessagingClient{}
-		Expect(subscribeFileRelease(client, "node.one", fm, cacheDir)).To(Succeed())
+		mux := http.NewServeMux()
+		registerFileReleaseControlRoute(mux, fm, cacheDir, nil)
 		request, err := json.Marshal(map[string]any{"request_id": "request-id"})
 		Expect(err).NotTo(HaveOccurred())
-		var response []byte
+		response := httptest.NewRecorder()
 
-		client.handler(request, func(data []byte) { response = append([]byte(nil), data...) })
+		mux.ServeHTTP(response, httptest.NewRequest(http.MethodPost, workerctl.PathFilesRelease, strings.NewReader(string(request))))
+		Expect(response.Code).To(Equal(http.StatusOK))
 
 		var reply map[string]string
-		Expect(json.Unmarshal(response, &reply)).To(Succeed())
+		Expect(json.Unmarshal(response.Body.Bytes(), &reply)).To(Succeed())
 		Expect(reply["error"]).To(BeEmpty())
 		for _, key := range keys {
 			Expect(filepath.Join(cacheDir, filepath.FromSlash(key))).NotTo(BeAnExistingFile())
@@ -390,16 +414,17 @@ var _ = Describe("Worker exact-key staging release", func() {
 		cacheDir := canonicalWorkerTempDir()
 		fm, err := storage.NewFileManager(nil, cacheDir)
 		Expect(err).NotTo(HaveOccurred())
-		client := &releaseMessagingClient{}
-		Expect(subscribeFileRelease(client, "node-1", fm, cacheDir)).To(Succeed())
+		mux := http.NewServeMux()
+		registerFileReleaseControlRoute(mux, fm, cacheDir, nil)
 
 		request, err := json.Marshal(map[string]string{"key": "models/model.gguf"})
 		Expect(err).NotTo(HaveOccurred())
-		var response []byte
-		client.handler(request, func(data []byte) { response = append([]byte(nil), data...) })
+		response := httptest.NewRecorder()
+		mux.ServeHTTP(response, httptest.NewRequest(http.MethodPost, workerctl.PathFilesRelease, strings.NewReader(string(request))))
+		Expect(response.Code).To(Equal(http.StatusOK))
 
 		var reply map[string]string
-		Expect(json.Unmarshal(response, &reply)).To(Succeed())
+		Expect(json.Unmarshal(response.Body.Bytes(), &reply)).To(Succeed())
 		Expect(reply["error"]).NotTo(BeEmpty())
 	})
 })

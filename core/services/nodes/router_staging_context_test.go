@@ -52,8 +52,8 @@ var _ = Describe("Route cold-load staging context", func() {
 		backend := &stubBackend{loadResult: &pb.Result{Success: true}}
 		factory := &stubClientFactory{client: backend}
 		unloader := &fakeUnloader{installReply: &messaging.BackendInstallReply{
-			Success: true,
-			Address: "10.0.0.1:9001",
+			Success:            true,
+			WorkerLocalAddress: "10.0.0.1:9001",
 		}}
 		stager := &cancelOnStageStager{}
 
@@ -78,3 +78,6 @@ var _ = Describe("Route cold-load staging context", func() {
 			"staging context must survive cancellation of the triggering request")
 	})
 })
+
+// ForgetNode drops per-node state, which this double keeps none of.
+func (*cancelOnStageStager) ForgetNode(string) {}

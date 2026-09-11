@@ -41,7 +41,7 @@ var _ = Describe("Recovering unfinished file finalization", func() {
 		DeferCleanup(server.Close)
 		stager := NewHTTPFileStager(func(string) (string, error) {
 			return strings.TrimPrefix(server.URL, "http://"), nil
-		}, "")
+		}, "", directNetDialerFor)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		result, err := stager.EnsureRemote(ctx, "worker", local, "model.bin")

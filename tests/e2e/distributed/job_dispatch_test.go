@@ -2,11 +2,16 @@ package distributed_test
 
 import (
 	"context"
+	"encoding/json"
 	"sync/atomic"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/jobs"
+	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,20 +41,19 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("NATS job dispatch", func() {
-		It("should enqueue job via NATS when dispatcher is set", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "dispatch-instance", 0)
-			var processed atomic.Int32
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
-				processed.Add(1)
-				store.UpdateJobStatus(job.ID, "completed", "done", "")
-				return nil
-			})
+	Context("Claim-queue dispatch", func() {
+		// The whole path, against a real PostgreSQL: Enqueue writes a claim
+		// row, a frontend replica takes it with SELECT ... FOR UPDATE SKIP
+		// LOCKED, drives it as a streaming control RPC, and persists the
+		// worker's terminal line before it releases the claim.
+		It("enqueues a claim, drives it on a worker, and persists what the worker answered", func() {
+			Expect(cluster.Migrate(infra.Ctx, db)).To(Succeed())
+			const owner = "dispatch-instance"
+			// A replica that is not registered may not claim: its claims could
+			// not be told from ones a dead replica left.
+			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8080", "v1", "")).To(Succeed())
 
-			dCtx, dCancel := context.WithCancel(infra.Ctx)
-			defer dCancel()
-			Expect(dispatcher.Start(dCtx)).To(Succeed())
-			defer dispatcher.Stop()
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
 
 			task := &jobs.TaskRecord{UserID: "u1", Name: "dispatch-task", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
@@ -58,10 +62,63 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 
 			Expect(dispatcher.Enqueue(job.ID, task.ID, "u1")).To(Succeed())
 
-			Eventually(func() int32 { return processed.Load() }, "10s").Should(Equal(int32(1)))
+			var claimed int64
+			Expect(db.Model(&jobs.WorkClaim{}).Count(&claimed).Error).To(Succeed())
+			Expect(claimed).To(Equal(int64(1)), "the enqueue must leave a row, not a publish nobody may be listening for")
 
+			worker := &scriptedWorker{reply: jobs.ClaimReply{JobID: job.ID, Status: "completed", Result: "done"}}
+			loop, err := jobs.NewDispatchLoop(jobs.DispatchConfig{
+				DB:       db,
+				Owner:    owner,
+				Selector: fixedAgent{},
+				Control:  worker,
+				Store:    store,
+				Liveness: time.Minute,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			// The claim kind is "task" here (no MCP servers on the model), and
+			// no worker serves it, so the loop closes the job out with a reason
+			// rather than leaving it running for ever. Give the row a kind a
+			// worker DOES serve, so this spec exercises the dispatch path.
+			Expect(db.Model(&jobs.WorkClaim{}).Where("kind = ?", string(jobs.ClaimKindTask)).
+				Update("kind", string(jobs.ClaimKindMCPCI)).Error).To(Succeed())
+
+			Expect(loop.DispatchOnce(infra.Ctx)).To(Succeed())
+
+			Expect(worker.calls.Load()).To(Equal(int32(1)))
 			updated, _ := store.GetJob(job.ID)
 			Expect(updated.Status).To(Equal("completed"))
+			Expect(updated.Result).To(Equal("done"))
+
+			Expect(db.Model(&jobs.WorkClaim{}).Count(&claimed).Error).To(Succeed())
+			Expect(claimed).To(BeZero(), "an answered claim must not be able to run again")
+		})
+
+		It("leaves a plain task job failed with a reason, since no worker in this deployment serves that kind", func() {
+			Expect(cluster.Migrate(infra.Ctx, db)).To(Succeed())
+			const owner = "plain-instance"
+			Expect(cluster.NewRegistry(db).Register(infra.Ctx, owner, "127.0.0.1:8081", "v1", "")).To(Succeed())
+
+			dispatcher := jobs.NewDispatcher(store, infra.Bus(), db, owner)
+			task := &jobs.TaskRecord{UserID: "u1", Name: "plain-task", Model: "m1", Prompt: "p1"}
+			Expect(store.CreateTask(task)).To(Succeed())
+			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
+			Expect(store.CreateJob(job)).To(Succeed())
+			Expect(dispatcher.Enqueue(job.ID, task.ID, "u1")).To(Succeed())
+
+			worker := &scriptedWorker{}
+			loop, err := jobs.NewDispatchLoop(jobs.DispatchConfig{
+				DB: db, Owner: owner, Selector: fixedAgent{}, Control: worker,
+				Store: store, Liveness: time.Minute,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(loop.DispatchOnce(infra.Ctx)).To(Succeed())
+
+			Expect(worker.calls.Load()).To(BeZero(), "nothing serves this kind, so nothing may be asked of a worker")
+			updated, _ := store.GetJob(job.ID)
+			Expect(updated.Status).To(Equal("failed"))
+			Expect(updated.Error).To(ContainSubstring("plain task jobs"))
 		})
 	})
 
@@ -101,39 +158,39 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 		})
 	})
 
-	Context("NATS job cancellation", func() {
-		It("should cancel running job via NATS cancel subject", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "cancel-instance", 0)
-			jobStarted := make(chan struct{})
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
-				close(jobStarted)
-				<-ctx.Done()
-				return ctx.Err()
-			})
-
-			dCtx, dCancel := context.WithCancel(infra.Ctx)
-			defer dCancel()
-			Expect(dispatcher.Start(dCtx)).To(Succeed())
-			defer dispatcher.Stop()
+	Context("job cancellation", func() {
+		// Cancellation stays a BROADCAST and is not part of the claim queue: the
+		// replica holding a run is not the one an API cancel lands on, so the
+		// signal has to reach every replica and every worker.
+		//
+		// Asserted across TWO carriers, because one carrier hearing itself
+		// proves nothing about the replica that actually holds the execution.
+		// A cancel that does not arrive is not a cancel that was refused, so
+		// what is pinned here is arrival and never the publisher's error.
+		It("broadcasts a cancel for a job on the job's own cancel subject", func() {
+			publisher, listener := infra.Bus(), infra.Bus()
+			dispatcher := jobs.NewDispatcher(store, publisher, db, "cancel-instance")
 
 			task := &jobs.TaskRecord{UserID: "u1", Name: "cancel-task", Model: "m1", Prompt: "p1"}
 			store.CreateTask(task)
 			job := &jobs.JobRecord{TaskID: task.ID, UserID: "u1", Status: "pending", TriggeredBy: "api"}
 			store.CreateJob(job)
 
-			dispatcher.Enqueue(job.ID, task.ID, "u1")
-
-			Eventually(jobStarted, "10s").Should(BeClosed())
+			seen := make(chan string, 1)
+			sub, err := listener.Subscribe(messaging.SubjectJobCancelWildcard, func(data []byte) {
+				var evt jobs.CancelEvent
+				if json.Unmarshal(data, &evt) == nil {
+					select {
+					case seen <- evt.JobID:
+					default:
+					}
+				}
+			})
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = sub.Unsubscribe() }()
 
 			Expect(dispatcher.Cancel(job.ID)).To(Succeed())
-
-			Eventually(func() string {
-				j, _ := store.GetJob(job.ID)
-				if j == nil {
-					return ""
-				}
-				return j.Status
-			}, "10s").Should(Equal("cancelled"))
+			Eventually(seen, "10s").Should(Receive(Equal(job.ID)))
 		})
 	})
 
@@ -182,7 +239,39 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 
 			// Without distributed mode, jobs use local in-process dispatch.
 			// The JobStore can still be used standalone with SQLite or in-memory.
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
+			//
+			// The bus-URL half of this assertion went with the field it read;
+			// core/config's "broker surface" spec pins its absence.
 		})
 	})
 })
+
+// fixedAgent is a selection that always names one connected agent worker. The
+// selection itself is pinned against real connection rows in
+// core/services/nodes; what this suite drives is the dispatch that follows it.
+type fixedAgent struct{}
+
+func (fixedAgent) PickConnected(context.Context) (string, string, error) {
+	return "agent-node-1", nodes.NodeTypeAgent, nil
+}
+
+// scriptedWorker answers a streaming control RPC with a scripted reply, so this
+// suite exercises the claim, the persist and the settle against a real database
+// without needing a worker process.
+type scriptedWorker struct {
+	calls atomic.Int32
+	reply jobs.ClaimReply
+	err   error
+}
+
+func (w *scriptedWorker) CallStreaming(_ context.Context, _, _ string, _, reply any,
+	_ func(string, json.RawMessage)) error {
+	w.calls.Add(1)
+	if w.err != nil {
+		return w.err
+	}
+	if out, ok := reply.(*jobs.ClaimReply); ok {
+		*out = w.reply
+	}
+	return nil
+}

@@ -19,7 +19,22 @@ linters:
     - staticcheck
   enable:
     - forbidigo
+    # gocritic is enabled for ONE checker: ruleguard, which runs the rules in
+    # hack/lint/. Every other gocritic check is off (disable-all below), so
+    # this adds no style noise; it is here purely as the gate that catches a
+    # gRPC backend wrapper written without Unwrap. See
+    # hack/lint/backend_wrappers.go for why that cannot be a compile-time
+    # assertion.
+    - gocritic
   settings:
+    gocritic:
+      disable-all: true
+      enabled-checks:
+        - ruleguard
+      settings:
+        ruleguard:
+          failOn: all
+          rules: '${base-path}/hack/lint/backend_wrappers.go'
     forbidigo:
       forbid:
         - pattern: '^t\.Errorf$'
@@ -126,3 +141,10 @@ linters:
       - path: ^backend/go/whisper/sources/
         text: 'http\.(DefaultClient|Get|Post|PostForm|Head)'
         linters: [forbidigo]
+      # Test doubles embed grpc.Backend to inherit the interface's method set
+      # over a NIL value; they decorate nothing, hold no inner client, and have
+      # no transport answer to forward. The rule targets production wrappers,
+      # which is where swallowing that answer deletes replica rows.
+      # gocritic here is only the backend-wrapper ruleguard rule.
+      - path: _test\.go$
+        linters: [gocritic]

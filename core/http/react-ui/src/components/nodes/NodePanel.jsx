@@ -19,7 +19,11 @@ export default function NodePanel({ node, models = [], onApprove, onDrain, onRes
           <div className="node-panel__id">
             <StatusPill status={node.status} />
             <span className="node-panel__name">{node.name}</span>
-            <span className="cell-mono cell-muted">{node.address}</span>
+            {/* A worker has no address to show: it holds an outbound tunnel and
+                binds nothing routable. Its id is what identifies it in routing
+                logs, so that is what an operator needs here. Pre-tunnel nodes
+                may still carry an address until they re-register. */}
+            <span className="cell-mono cell-muted">{node.address || node.id}</span>
           </div>
           <div className="node-panel__actions" onClick={(e) => e.stopPropagation()}>
             {node.status === 'pending' && (

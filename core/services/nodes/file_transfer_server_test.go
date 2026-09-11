@@ -23,6 +23,50 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// directNetDialerFor is the dial function these specs give the stager.
+//
+// The stager exists to reach a worker over that worker's TUNNEL, and it refuses
+// to reach one at all without a dialer. These specs are about the HTTP protocol
+// between the stager and the file-transfer server, and they run that server on
+// loopback, so a plain TCP dial is what stands in for the tunnel here. Nothing
+// in production supplies this: see the wiring in core/application.
+func directNetDialerFor(_ string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	var d net.Dialer
+	return d.DialContext
+}
+
+var _ = Describe("The HTTP file stager without a worker dialer", func() {
+	// Every request refused, none sent. Staging reaches a worker over that
+	// worker's tunnel, and a stager that fell back to connecting to the
+	// registered address would move gigabytes over a path that exists only
+	// while workers still listen on one.
+	newBare := func() *HTTPFileStager {
+		return NewHTTPFileStager(func(string) (string, error) { return "127.0.0.1:1", nil }, "tok", nil)
+	}
+
+	It("refuses to upload", func() {
+		local := filepath.Join(GinkgoT().TempDir(), "f.bin")
+		Expect(os.WriteFile(local, []byte("payload"), 0o600)).To(Succeed())
+		_, err := newBare().EnsureRemote(context.Background(), "node-1", local, "f.bin")
+		Expect(err).To(MatchError(ErrNoWorkerDialer))
+	})
+
+	It("refuses to download", func() {
+		dst := filepath.Join(GinkgoT().TempDir(), "out.bin")
+		Expect(newBare().FetchRemoteByKey(context.Background(), "node-1", "f.bin", dst)).To(MatchError(ErrNoWorkerDialer))
+	})
+
+	It("refuses to allocate a remote temp file", func() {
+		_, err := newBare().AllocRemoteTemp(context.Background(), "node-1")
+		Expect(err).To(MatchError(ErrNoWorkerDialer))
+	})
+
+	It("refuses to list a remote directory", func() {
+		_, err := newBare().ListRemoteDir(context.Background(), "node-1", "models/")
+		Expect(err).To(MatchError(ErrNoWorkerDialer))
+	})
+})
+
 type recordingEphemeralCapacity struct {
 	reserved   int64
 	reserveErr error
@@ -645,7 +689,7 @@ var _ = Describe("FileTransferServer", func() {
 			DeferCleanup(ts.Close)
 			stager := NewHTTPFileStager(func(string) (string, error) {
 				return strings.TrimPrefix(ts.URL, "http://"), nil
-			}, "")
+			}, "", directNetDialerFor)
 
 			for range 2 {
 				path, err := stager.EnsureRemote(context.Background(), "node-1", localPath, key)
@@ -675,7 +719,7 @@ var _ = Describe("FileTransferServer", func() {
 			DeferCleanup(ts.Close)
 			stager := NewHTTPFileStager(func(string) (string, error) {
 				return strings.TrimPrefix(ts.URL, "http://"), nil
-			}, "")
+			}, "", directNetDialerFor)
 
 			path, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "ephemeral/audio/request/input.wav")
 
@@ -714,7 +758,7 @@ var _ = Describe("FileTransferServer", func() {
 				DeferCleanup(ts.Close)
 				stager := NewHTTPFileStager(func(string) (string, error) {
 					return strings.TrimPrefix(ts.URL, "http://"), nil
-				}, "")
+				}, "", directNetDialerFor)
 
 				backend := &lifecycleBackend{}
 				client := NewFileStagingClient(backend, stager, "node-1")
@@ -750,7 +794,7 @@ var _ = Describe("FileTransferServer", func() {
 			DeferCleanup(ts.Close)
 			stager := NewHTTPFileStager(func(string) (string, error) {
 				return strings.TrimPrefix(ts.URL, "http://"), nil
-			}, "")
+			}, "", directNetDialerFor)
 
 			path, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "models/tracking/model.bin")
 
@@ -780,7 +824,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "present.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -809,7 +853,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "changed.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -838,7 +882,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "new.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -874,7 +918,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "")
+			}, "", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "compat.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -1091,7 +1135,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "resume.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -1189,7 +1233,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()

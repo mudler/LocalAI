@@ -26,27 +26,31 @@ const stagedInputReleaseTimeout = 30 * time.Second
 // for distributed mode. Input files are staged on the backend node before the
 // gRPC call. Output files are retrieved from the backend after the call.
 //
-// Uses the FileStager interface — agnostic to transport (S3+NATS or gRPC).
+// Uses the FileStager interface — agnostic to transport (an object store, or
+// direct HTTP to the worker), and in both cases reached over the worker's
+// tunnel.
 // The caller gets a grpc.Backend that behaves identically to a local one —
 // no changes needed in core/backend/*.go.
 //
 // Methods that require no file staging are inherited from the embedded
 // grpc.Backend; only methods with staging logic are overridden below.
 type FileStagingClient struct {
-	grpc.Backend // embedded for pass-through of non-staging methods
-	stager       FileStager
-	nodeID       string
+	grpc.WrappedBackend // pass-through of non-staging methods, plus Unwrap
+	stager              FileStager
+	nodeID              string
 
 	mu              sync.RWMutex
 	remoteModelPath string // set during LoadModel from staged ModelPath
 }
 
+var _ grpc.BackendUnwrapper = (*FileStagingClient)(nil)
+
 // NewFileStagingClient creates a new file staging wrapper.
 func NewFileStagingClient(inner grpc.Backend, stager FileStager, nodeID string) *FileStagingClient {
 	return &FileStagingClient{
-		Backend: inner,
-		stager:  stager,
-		nodeID:  nodeID,
+		WrappedBackend: grpc.WrappedBackend{Backend: inner},
+		stager:         stager,
+		nodeID:         nodeID,
 	}
 }
 

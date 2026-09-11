@@ -18,7 +18,7 @@ var CLI struct {
 	Transcript      TranscriptCMD      `cmd:"" help:"Convert audio to text"`
 	P2PWorker       worker.Worker      `cmd:"" name:"p2p-worker" help:"Run workers to distribute workload via p2p (llama.cpp-only)"`
 	Worker          WorkerCMD          `cmd:"" help:"Start a worker for distributed mode (generic, backend-agnostic)"`
-	AgentWorker     AgentWorkerCMD     `cmd:"" name:"agent-worker" help:"Start an agent worker for distributed mode (executes agent chats via NATS)"`
+	AgentWorker     AgentWorkerCMD     `cmd:"" name:"agent-worker" help:"Start an agent worker for distributed mode (executes agent chats over the tunnel it dials out to a frontend)"`
 	Util            UtilCMD            `cmd:"" help:"Utility commands"`
 	Agent           AgentCMD           `cmd:"" help:"Run agents standalone without the full LocalAI server"`
 	MCPServer       MCPServerCMD       `cmd:"" name:"mcp-server" help:"Run the LocalAI admin tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP)"`

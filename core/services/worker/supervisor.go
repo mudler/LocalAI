@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,10 +24,26 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// backendListenAddr is where a backend process binds, which is also the only
+// address anything ever reaches it on.
+//
+// It is built from loopbackHost, the constant the tunnel's grpc tag dials, so
+// "the worker binds where its tunnel dials" is one fact in one place rather
+// than two literals that can drift. A backend is reached only over this
+// worker's tunnel; a wildcard bind would publish every backend process on every
+// interface to serve a route nothing takes, and on a worker with a public
+// interface that is an unauthenticated inference server.
+func backendListenAddr(port int) string {
+	return net.JoinHostPort(loopbackHost, strconv.Itoa(port))
+}
+
 // backendProcess represents a single gRPC backend process.
 type backendProcess struct {
 	proc *process.Process
-	addr string // gRPC address (host:port)
+	// addr is where this process listens, and it is worker-local: see
+	// backendListenAddr. The frontend is told this string and reads only its
+	// port out of it.
+	addr string
 	port int
 	// serving marks a process that has answered a gRPC health check and is
 	// therefore actually listening on addr. It is the opening bracket of the
@@ -111,8 +129,14 @@ type backendSupervisor struct {
 	systemState *system.SystemState
 	galleries   []config.Gallery
 	nodeID      string
-	nats        messaging.MessagingClient
 	sigCh       chan<- os.Signal // send shutdown signal instead of os.Exit
+
+	// installFn and upgradeFn override the two long-running verbs. Non-nil
+	// only in specs: they exist so the control plane's ROUTING can be exercised
+	// without a gallery, a registry or a real download, which is the same
+	// argument tunnelServices was extracted under. See installer/upgrader.
+	installFn installFunc
+	upgradeFn upgradeFunc
 
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name
@@ -129,6 +153,11 @@ type backendSupervisor struct {
 	// defaultPortAffinityWindow.
 	portAffinity       map[string]portOwnership
 	portAffinityWindow time.Duration
+
+	// portIsFree reports whether a candidate port can actually be bound right
+	// now. Overridden only by tests; nil means bindableNow, which binds it.
+	// See allocatePort for why bookkeeping alone is not an answer.
+	portIsFree func(port int) bool
 
 	// quarantinedPorts holds ports whose process has terminated but which are
 	// not yet safe to re-bind, and portQuarantine is how long they wait.
@@ -153,8 +182,8 @@ type backendSupervisor struct {
 // reply and drops the NodeModel rows naming that address, a row still resolves
 // to a live listener. probeHealth verifies liveness, not identity, so a port
 // re-bound inside that window is dispatched to as if it were the original
-// backend. The window is a NATS round-trip plus a row delete, so seconds of
-// slack are ample.
+// backend. The window is one control-plane round-trip plus a row delete, so
+// seconds of slack are ample.
 //
 // Deliberately NOT derived from the controller's HealthCheckInterval or from
 // the per-model miss threshold. Tying a worker-local constant to a
@@ -271,16 +300,45 @@ func (s *backendSupervisor) portBounds() (int, int) {
 // branch means the worker is genuinely out of concurrent capacity, so the
 // warning's advice to widen the range is the right advice.
 //
+// EVERY candidate is probed before it is handed out, because this allocator's
+// bookkeeping is not a claim on the kernel. The default base port is 50051,
+// which sits inside Linux's default ephemeral range (32768-60999), so the
+// kernel can and does hand a port in this range to an outbound connection or
+// to anything that binds port 0 while the allocator still believes it free.
+// The bookkeeping cannot see that and never could: it records what this worker
+// did, and the collision is with something this worker never did. A candidate
+// that fails the probe is quarantined rather than blacklisted, since whatever
+// holds it is usually an ephemeral connection that gives it back.
+//
 // Callers must hold s.mu.
 func (s *backendSupervisor) allocatePort(key string) (int, error) {
+	port, skipped, err := s.allocateBindablePort(key)
+	if skipped > 0 {
+		// ONE line per allocation and not one per candidate: a range whose
+		// lower half the kernel is using would otherwise print thousands.
+		xlog.Warn("Skipped gRPC ports in this worker's range that something outside the worker already holds. The default base port sits inside Linux's ephemeral range (32768-60999), so the kernel can hand these ports to outbound connections; set LOCALAI_ADDR to a base port outside net.ipv4.ip_local_port_range to stop it",
+			"backend", key, "skipped", skipped, "allocated", port, "error", err)
+	}
+	return port, err
+}
+
+// allocateBindablePort is allocatePort's body, and also reports how many
+// candidates it had to skip because they were already bound. Callers must hold
+// s.mu.
+func (s *backendSupervisor) allocateBindablePort(key string) (int, int, error) {
 	s.sweepQuarantine()
 	s.sweepAffinity()
 	minPort, maxPort := s.portBounds()
+	taken := 0
 
 	// 1. This key's own port, if it is back out of quarantine.
 	if own, ok := s.portAffinity[key]; ok {
 		if s.takeFreePort(own.port) {
-			return s.claimPort(key, own.port), nil
+			if s.portFree(own.port) {
+				return s.claimPort(key, own.port), taken, nil
+			}
+			taken++
+			s.quarantineTakenPort(key, own.port)
 		}
 	}
 
@@ -293,27 +351,105 @@ func (s *backendSupervisor) allocatePort(key string) (int, error) {
 			continue
 		}
 		s.freePorts = slices.Delete(s.freePorts, i, i+1)
-		return s.claimPort(key, port), nil
+		if s.portFree(port) {
+			return s.claimPort(key, port), taken, nil
+		}
+		taken++
+		s.quarantineTakenPort(key, port)
 	}
 
 	// 3. Grow into ports never handed out, staying inside the range.
-	if s.nextPort >= minPort && s.nextPort <= maxPort {
+	for s.nextPort >= minPort && s.nextPort <= maxPort {
 		port := s.nextPort
 		s.nextPort++
-		return s.claimPort(key, port), nil
+		if s.portFree(port) {
+			return s.claimPort(key, port), taken, nil
+		}
+		taken++
+		s.quarantineTakenPort(key, port)
 	}
 
 	// 4. Steal another key's port rather than refuse to start a backend.
-	if len(s.freePorts) > 0 {
+	for len(s.freePorts) > 0 {
 		port := s.freePorts[len(s.freePorts)-1]
 		s.freePorts = s.freePorts[:len(s.freePorts)-1]
+		if !s.portFree(port) {
+			taken++
+			s.quarantineTakenPort(key, port)
+			continue
+		}
 		xlog.Warn("gRPC port range is exhausted; reusing a port that belonged to another backend. A stale controller row for the previous owner could briefly misroute to this backend — raise LOCALAI_GRPC_MAX_PORT to restore headroom",
 			"backend", key, "port", port, "previousOwner", owners[port], "min", minPort, "max", maxPort)
-		return s.claimPort(key, port), nil
+		return s.claimPort(key, port), taken, nil
 	}
 
-	return 0, fmt.Errorf("%w: %d-%d is fully consumed by %d running backend(s) and %d port(s) still in quarantine; raise LOCALAI_GRPC_MAX_PORT to widen the range",
-		ErrNoFreePort, minPort, maxPort, len(s.processes), len(s.quarantinedPorts))
+	return 0, taken, fmt.Errorf("%w: %d-%d is fully consumed by %d running backend(s), %d port(s) still in quarantine and %d port(s) already bound by something outside this worker; raise LOCALAI_GRPC_MAX_PORT to widen the range",
+		ErrNoFreePort, minPort, maxPort, len(s.processes), len(s.quarantinedPorts), taken)
+}
+
+// freePortsAfterSweep returns the free pool once expired quarantines and
+// affinity claims have been swept. It exists so a spec can state that its
+// scripted port really did reach the pool the branch under test reads, rather
+// than being skipped as still-owned before that branch is entered.
+func (s *backendSupervisor) freePortsAfterSweep() []int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sweepQuarantine()
+	s.sweepAffinity()
+	return append([]int(nil), s.freePorts...)
+}
+
+// portFree reports whether a candidate can be handed out, deferring to the
+// injected probe when a spec supplied one.
+//
+// The probe is asked for EVERY candidate and not only for grown ones. A port
+// this worker released is exactly as available to the kernel as one it never
+// used, so a port sitting in freePorts can have been given to an outbound
+// connection while it sat there.
+func (s *backendSupervisor) portFree(port int) bool {
+	if s.portIsFree != nil {
+		return s.portIsFree(port)
+	}
+	return bindableNow(port)
+}
+
+// bindableNow reports whether the address a backend would listen on can be
+// bound at this instant.
+//
+// It binds and closes rather than reading a table of open sockets, because the
+// question is exactly "would the child's bind succeed", and a table read
+// answers a different one on every platform. TOCTOU is real and is not what
+// this closes: between this probe and the child's own bind the kernel can still
+// hand the port to an outbound connection. What it removes is the far larger
+// window in which this worker hands out a port the kernel gave away MINUTES
+// ago, which is the whole of the observed failure.
+func bindableNow(port int) bool {
+	ln, err := net.Listen("tcp", backendListenAddr(port))
+	if err != nil {
+		return false
+	}
+	if err := ln.Close(); err != nil {
+		xlog.Debug("Could not close the port probe listener", "port", port, "error", err)
+	}
+	return true
+}
+
+// quarantineTakenPort parks a port that something outside this worker holds, so
+// the next allocation does not offer it again before the quarantine lapses.
+//
+// Quarantine and not simply "drop it": the port is not this worker's to
+// blacklist for ever, and whatever holds it is usually an ephemeral outbound
+// connection that will release it. Parking it costs one retry per quarantine
+// window instead of one probe per allocation. The affinity claim is dropped
+// first, because a port this worker cannot bind must not go on being reserved
+// for the key that last held it.
+func (s *backendSupervisor) quarantineTakenPort(key string, port int) {
+	xlog.Debug("A gRPC port in this worker's range is already bound outside the worker; skipping it",
+		"backend", key, "port", port)
+	if own, ok := s.portAffinity[key]; ok && own.port == port {
+		delete(s.portAffinity, key)
+	}
+	s.releasePort(port)
 }
 
 // sweepAffinity drops claims whose window has lapsed, so their ports become
@@ -462,10 +598,9 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		s.mu.Unlock()
 		return "", fmt.Errorf("allocating gRPC port for backend %s: %w", backend, err)
 	}
-	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
-	clientAddr := fmt.Sprintf("127.0.0.1:%d", port)
+	procAddr := backendListenAddr(port)
 
-	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr)
+	proc, err := s.ml.StartProcess(backendPath, backend, procAddr)
 	if err != nil {
 		s.releasePortForKey(backend, port)
 		s.mu.Unlock()
@@ -486,13 +621,13 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 
 	s.processes[backend] = &backendProcess{
 		proc:         proc,
-		addr:         clientAddr,
+		addr:         procAddr,
 		port:         port,
 		backendName:  backendName,
 		backendDir:   backendDir,
 		backendDirID: dirInfo,
 	}
-	xlog.Info("Backend process started", "backend", backend, "addr", clientAddr)
+	xlog.Info("Backend process started", "backend", backend, "addr", procAddr)
 
 	// Capture reference before unlocking for race-safe health check.
 	// Another goroutine could stopBackend and recycle the port while we poll.
@@ -505,7 +640,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// 4s window made the worker reply Success on a not-yet-listening port,
 	// which manifested upstream as "connect: connection refused" on the
 	// frontend's first LoadModel dial.
-	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.RegistrationToken)
+	client := grpc.NewClientWithToken(procAddr, false, nil, false, s.cfg.RegistrationToken)
 	const (
 		readinessPollInterval = 200 * time.Millisecond
 		readinessTimeout      = 30 * time.Second
@@ -524,8 +659,8 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 			if !s.markBackendServing(backend, bp) {
 				return "", fmt.Errorf("backend %s was stopped during startup", backend)
 			}
-			xlog.Debug("Backend gRPC server is ready", "backend", backend, "addr", clientAddr)
-			return clientAddr, nil
+			xlog.Debug("Backend gRPC server is ready", "backend", backend, "addr", procAddr)
+			return procAddr, nil
 		}
 		if healthErr != nil {
 			lastHealthErr = healthErr
@@ -547,7 +682,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// real cause). Stop the half-started process, recycle the port, and
 	// surface the failure to the caller with the backend's stderr tail.
 	stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
-	xlog.Error("Backend gRPC server not ready before deadline; aborting install", "backend", backend, "addr", clientAddr, "timeout", readinessTimeout, "healthError", lastHealthErr, "stderr", stderrTail)
+	xlog.Error("Backend gRPC server not ready before deadline; aborting install", "backend", backend, "addr", procAddr, "timeout", readinessTimeout, "healthError", lastHealthErr, "stderr", stderrTail)
 	if killErr := proc.Stop(); killErr != nil {
 		xlog.Warn("Failed to stop unready backend process", "backend", backend, "error", killErr)
 	}
@@ -625,7 +760,7 @@ func (s *backendSupervisor) releaseBackendStart(key string, bp *backendProcess) 
 
 // resolveProcessKeys turns a caller-supplied identifier into the set of
 // process map keys it refers to. PR #9583 changed s.processes to be keyed by
-// `modelID#replicaIndex`, but external NATS handlers still pass the bare
+// `modelID#replicaIndex`, but external callers still pass the bare
 // model ID — without this resolver, those lookups silently no-op'd, so
 // admin "Unload model" / "Delete backend" left the worker process alive.
 //
@@ -847,6 +982,12 @@ func (s *backendSupervisor) stopBackendExact(key string, force bool) error {
 	}
 
 	if !force {
+		// Background and not a caller's context on purpose. This Free is a
+		// courtesy before the process is killed anyway, and the stop that
+		// follows must complete for the port to be released, so binding it to
+		// a caller that may have gone would buy nothing and could abandon a
+		// half-finished stop. model.unload, where Free IS the operation, takes
+		// the caller's budget instead; see RegisterControlRoutes.
 		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		xlog.Debug("Calling bounded Free() before stopping backend", "backend", key, "timeout", workerBackendFreeTimeout)
@@ -893,6 +1034,8 @@ func (s *backendSupervisor) stopModelExact(req messaging.ModelStopRequest) messa
 	s.mu.Unlock()
 
 	if !req.Force {
+		// Background, for the reason given in stopBackendExact: this is the
+		// acknowledged stop and it has to run to completion.
 		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		freeErr := client.Free(freeCtx)

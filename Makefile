@@ -340,12 +340,108 @@ run-e2e-aio: protogen-go
 	@echo 'Running e2e AIO tests'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
 
-# Distributed architecture e2e (PostgreSQL + NATS via testcontainers).
-# Includes NatsJWT specs (JWT-enabled NATS). Requires Docker.
+# Total ginkgo attempts per spec for the distributed suite: --flake-attempts counts
+# attempts, not retries. Defaults to 1, so each spec runs once and is never retried,
+# unlike TEST_FLAKES=5. This suite exists to catch nondeterministic cluster behaviour,
+# and a retry hides exactly the failures it is meant to surface. Raise it locally if
+# you are bisecting something unrelated.
+DISTRIBUTED_TEST_FLAKES?=1
+
+# Distributed architecture e2e (PostgreSQL via testcontainers). Requires Docker.
+# There is no broker container and no NatsJWT label any more: a distributed
+# deployment needs PostgreSQL and the frontends' own HTTP listener, and this
+# suite stands up exactly that.
 # VLLMMultinode is excluded here; use test-e2e-vllm-multinode for that.
+# Cluster is excluded too and runs in test-e2e-cluster below, which needs a
+# built binary. The argument-validation specs under tests/e2e/distributed/cluster
+# carry Label("Distributed") only, so they run here and not there, on purpose.
+# -r stays because of those: they are in a subpackage this target must reach.
+# --fail-on-empty because ginkgo exits 0 when a label filter matches nothing, so
+# without it a rename of the label would turn this target into a silent no-op
+# that still reports "Test Suite Passed".
+#
+# This target needs NO built binary and therefore has no stale-binary hole:
+# ginkgo compiles the suite from the working tree on every run, and everything
+# these specs exercise runs in that process against containers. The one target
+# in this file that does exec a prebuilt binary is test-e2e-cluster below, and
+# the reason it now BUILDS it is written there.
 test-e2e-distributed: protogen-go
-	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+	@echo 'Running distributed e2e tests (label Distributed)'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode && !Cluster' --fail-on-empty --flake-attempts $(DISTRIBUTED_TEST_FLAKES) --timeout=40m -v -r ./tests/e2e/distributed
+
+# The local-ai binary the cluster e2e execs as its frontend and worker
+# processes.
+#
+# Deliberately not `make build`: that target also builds the embedded React UI,
+# which this suite never touches, and CI stubs core/http/react-ui/dist for
+# exactly that reason. What is left is the go build, which is incremental and
+# costs seconds when nothing changed, so making it a prerequisite of the suite
+# is cheap enough that nobody has a reason to route around it.
+#
+# LOCALAI_E2E_BINARY means the caller has its own binary and owns keeping it
+# current, so this builds nothing. The staleness check in the harness still
+# applies to it, which is the point: a binary this target did not produce is
+# precisely the one nothing else vouches for.
+.PHONY: e2e-binary
+e2e-binary: protogen-go
+	@if [ -n "$$LOCALAI_E2E_BINARY" ]; then \
+	  echo "LOCALAI_E2E_BINARY=$$LOCALAI_E2E_BINARY is set; not building $(BINARY_NAME)"; \
+	else \
+	  echo "Building $(BINARY_NAME) for the cluster e2e"; \
+	  CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./cmd/local-ai; \
+	fi
+
+# Cluster e2e: runs local-ai as real child processes (frontend replicas +
+# workers) against PostgreSQL, and kills them to assert failover.
+# It BUILDS that binary rather than checking that a file by that name exists,
+# and that is a correctness fix rather than a convenience. This target used to
+# take ./local-ai as given, so an edit to core/ that was never rebuilt left the
+# whole suite exercising an older build while reporting on the working tree. The
+# failure mode is not theoretical and not loud: it surfaced as a spec failing on
+# caller line numbers that matched no line in any source file, and it would
+# otherwise have surfaced as a green run that proved nothing. build-mock-backend
+# already rebuilds unconditionally, so ./local-ai was the only gap.
+#
+# The harness carries the other half. Building here cannot help a run started
+# with LOCALAI_E2E_BINARY or by invoking ginkgo directly, so localAIBinary also
+# FAILS when the binary it is about to exec is older than the newest non-test Go
+# source in the tree. Together: this target makes the common path correct, and
+# the harness makes every other path loud.
+#
+# The argument-validation specs in tests/e2e/distributed/cluster deliberately
+# stay in test-e2e-distributed above: they need no binary and no PostgreSQL, so
+# no -r here and that package is simply out of scope.
+#
+# --fail-on-empty is load-bearing, not tidiness. Ginkgo exits 0 when a label
+# filter selects nothing, so without it a refactor that renames or drops
+# Label("Cluster") leaves this target reporting "Test Suite Passed" having
+# started no cluster at all. LOCALAI_E2E_REQUIRE_BINARIES does not cover this:
+# it only fires inside a spec that is actually running.
+#
+# --flake-attempts is pinned to 1 rather than $(DISTRIBUTED_TEST_FLAKES), and
+# should stay there: this suite exists to catch nondeterministic cluster
+# behaviour, and a retry turns exactly that signal into a green run.
+#
+# Budget: 26 specs, measured at 933.8 seconds of Ginkgo time (15m37s wall
+# including the compile) on a fast developer box. It was 591 to 612 seconds
+# before the phase 3 control-plane specs and 800 to 830 after them; the three
+# two-frontend two-worker specs in cluster_busless_test.go added 118 to 127
+# seconds (3s, 70s and 46 to 53s), nearly all of it in the churn spec, which
+# cannot be shortened: it waits for a killed replica to leave the live set
+# (cluster.InstanceLiveness is 30s, measured at 27s) before it may assert
+# anything, and then holds a window inside the reconnect grace. The two
+# cross-replica fan-out specs added 7.0 seconds of spec time (5.0s and 2.0s):
+# they run two frontends and no workers, so they pay for no registration, and
+# what they wait on is a broadcast rather than a threshold.
+#
+# --timeout is 30m rather than 20m because of that. The margin is not slack: a
+# Ginkgo timeout kills the suite mid-spec and reports a spec name rather than a
+# cause, and 20m on a loaded CI runner was one slow health tick away from
+# turning a green suite into an unreadable red one. At 15 minutes measured, 30m
+# is still twice the budget.
+test-e2e-cluster: protogen-go build-mock-backend e2e-binary
+	@echo 'Running cluster e2e tests (label Cluster, real local-ai processes)'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Cluster' --fail-on-empty --flake-attempts 1 --timeout=30m -v ./tests/e2e/distributed
 
 # vLLM multi-node DP smoke (CPU). Builds local-ai:tests and the
 # cpu-vllm backend from the current working tree, then drives a
@@ -383,11 +479,13 @@ prepare-e2e:
 run-e2e-image:
 	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --name e2e-tests-$(RANDOM) localai-tests
 
+# Distributed subpackages have separate targets that provision PostgreSQL and
+# build the host binaries; this target exercises the container-backed API only.
 test-e2e: build-mock-backend build-cloud-proxy-backend prepare-e2e run-e2e-image
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
 	LOCALAI_API=http://$(E2E_BRIDGE_IP):5390 \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v ./tests/e2e
 	$(MAKE) clean-mock-backend
 	$(MAKE) clean-cloud-proxy-backend
 	$(MAKE) teardown-e2e

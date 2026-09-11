@@ -45,6 +45,10 @@ type failingClientFactory struct{ client *failingLoadBackend }
 
 func (f *failingClientFactory) NewClient(_ string, _ bool) grpc.Backend { return f.client }
 
+func (f *failingClientFactory) NewClientForNode(_, address string, parallel bool) (grpc.Backend, error) {
+	return f.NewClient(address, parallel), nil
+}
+
 // replicaSlotRouter pins the replica slot scheduleAndLoad allocates so a spec
 // can assert the reaped process key carries the real index, not a hardcoded 0.
 type replicaSlotRouter struct {
@@ -69,7 +73,7 @@ var _ = Describe("reaping an abandoned remote load", func() {
 		reg = &replicaSlotRouter{fakeModelRouter: base, replica: 2}
 		backend = &failingLoadBackend{}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:9001"},
 		}
 	})
 

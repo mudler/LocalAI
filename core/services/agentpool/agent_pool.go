@@ -18,7 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/distributed"
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/jobs"
 	skillsManager "github.com/mudler/LocalAI/core/services/skills"
 
 	"github.com/mudler/LocalAGI/core/agent"
@@ -42,9 +42,17 @@ type localAGICore struct {
 	actionsConfig map[string]string
 }
 
-// distributedBridge connects to the NATS-based distributed agent system.
+// distributedBridge holds what this service needs to run agents across a
+// distributed deployment.
+//
+// There is no carrier here. There used to be: a messaging.Publisher named
+// natsClient, which nothing ever published on. Its only job was to be non-nil,
+// standing in for "this deployment is distributed", and it was the last hold a
+// frontend's agent pool had on a message bus. That made the mode a deployment
+// runs its agents in depend on whether a bus connection happened to be handed
+// in, so retiring the bus would have flipped every frontend replica back to the
+// in-process pool silently, on a code path with no error and no log line.
 type distributedBridge struct {
-	natsClient  messaging.Publisher     // NATS client for distributed agent execution
 	agentStore  *agents.AgentStore      // PostgreSQL agent config store
 	eventBridge AgentEventBridge        // Event bridge for SSE + persistence
 	skillStore  *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
@@ -98,7 +106,6 @@ type AgentConfigStore interface {
 type AgentPoolOptions struct {
 	AuthDB      *gorm.DB
 	SkillStore  *distributed.SkillStore
-	NATSClient  messaging.Publisher
 	EventBridge AgentEventBridge
 	AgentStore  *agents.AgentStore
 }
@@ -114,9 +121,6 @@ func NewAgentPoolService(appConfig *config.ApplicationConfig, opts ...AgentPoolO
 		}
 		if o.SkillStore != nil {
 			svc.distributed.skillStore = o.SkillStore
-		}
-		if o.NATSClient != nil {
-			svc.distributed.natsClient = o.NATSClient
 		}
 		if o.EventBridge != nil {
 			svc.distributed.eventBridge = o.EventBridge
@@ -148,9 +152,9 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 	s.apiURL = apiURL
 	s.apiKey = apiKey
 
-	// Distributed mode: use native executor + NATSDispatcher.
-	// No LocalAGI pool, no collections, no skills service — all stateless.
-	if s.distributed.natsClient != nil {
+	// Distributed mode: the frontend enqueues claims and agent workers execute
+	// them. No LocalAGI pool, no collections, no skills service, all stateless.
+	if s.runsDistributed() {
 		return s.startDistributed(ctx, apiURL, apiKey)
 	}
 
@@ -212,23 +216,38 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 	collectionsBackend, _ := collections.NewInProcessBackend(s.buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets))
 	s.collectionsBackend = collectionsBackend
 
+	// Said once, at startup, because it is the one thing about skills and
+	// collections that a multi-replica deployment cannot discover from its own
+	// behaviour: both are served out of THIS replica's state directory and
+	// nothing replicates either of them. The skills list is the exception and
+	// it is the misleading one, because it comes from skills_metadata and is
+	// therefore the same on every replica, while reading, searching, exporting
+	// or fetching the resources of that same skill works only here.
+	//
+	// There is no broadcast that would fix it and none is wired: a peer told to
+	// invalidate would re-read a directory that does not hold the change. See
+	// "Skills and collections are NOT replicated" in
+	// docs/content/features/distributed-mode.md for the two deployments that
+	// avoid it.
+	xlog.Warn("Skills and collections are served from this replica's own state directory and are not replicated to peer frontends. A skill written here is listed everywhere but readable only here, and a collection created here is invisible elsewhere. Mount one shared state directory on every frontend replica, or route the skills and collections endpoints to a single replica",
+		"stateDir", stateDir, "collectionDBPath", collectionDBPath)
+
 	// User-scoped storage
 	dataDir := cmp.Or(s.appConfig.DataPath, s.appConfig.DynamicConfigsDir)
 	s.users.userStorage = NewUserScopedStorage(stateDir, dataDir)
 
 	// Start the background agent scheduler on the frontend.
-	// It needs DB access to list configs and update LastRunAt — the worker doesn't have DB.
-	// The advisory lock ensures only one frontend instance runs the scheduler.
-	if s.users.authDB != nil && s.distributed.natsClient != nil && s.distributed.agentStore != nil {
+	// It needs DB access to list configs, update LastRunAt and write the claim
+	// rows, because the worker has no database. The advisory lock ensures only one
+	// frontend instance runs the scheduler.
+	if s.users.authDB != nil && s.distributed.agentStore != nil {
 		var schedulerOpts []agents.AgentSchedulerOpt
 		if s.distributed.skillStore != nil {
 			schedulerOpts = append(schedulerOpts, agents.WithSchedulerSkillProvider(s.buildSkillProvider()))
 		}
 		scheduler := agents.NewAgentScheduler(
 			s.users.authDB,
-			s.distributed.natsClient,
 			s.distributed.agentStore,
-			messaging.SubjectAgentExecute,
 			schedulerOpts...,
 		)
 		go scheduler.Start(ctx)
@@ -365,12 +384,6 @@ func (s *AgentPoolService) Pool() *state.AgentPool {
 	return s.localAGI.pool
 }
 
-// SetNATSClient sets the NATS client for distributed agent execution.
-// Deprecated: prefer passing NATSClient via AgentPoolOptions at construction time.
-func (s *AgentPoolService) SetNATSClient(nc messaging.Publisher) {
-	s.distributed.natsClient = nc
-}
-
 // SetEventBridge sets the event bridge for distributed SSE + persistence.
 // Deprecated: prefer passing EventBridge via AgentPoolOptions at construction time.
 func (s *AgentPoolService) SetEventBridge(eb AgentEventBridge) {
@@ -383,9 +396,28 @@ func (s *AgentPoolService) SetAgentStore(store *agents.AgentStore) {
 	s.distributed.agentStore = store
 }
 
-// Agent execution in distributed mode is handled by the dedicated agent-worker process
-// using the NATSDispatcher from core/services/agents/dispatcher.go.
-// The frontend only dispatches chat events to NATS via dispatchChat().
+// runsDistributed reports whether this service runs agents across the
+// deployment rather than in an in-process pool.
+//
+// The agent STORE is the condition, and it is the condition because it is what
+// the mode actually requires: distributed mode reads and writes every agent
+// config through it, its config backend is built from it, and the background
+// scheduler cannot write a claim row without it. A deployment that has one runs
+// agents distributed; a deployment that does not cannot, whatever else it was
+// handed.
+//
+// It replaced a nil-check on a message-bus connection that nothing published
+// on. That check gave the same answer for the wrong reason, and would have kept
+// giving it right up until the bus was retired, at which point every frontend
+// would have quietly started running agents in-process against a database full
+// of distributed state.
+//
+// Agent execution in that mode is handled by the dedicated agent-worker
+// process, which runs what a frontend replica claims and hands it over that
+// worker's tunnel. The frontend only enqueues chat claims via dispatchChat().
+func (s *AgentPoolService) runsDistributed() bool {
+	return s.distributed.agentStore != nil
+}
 
 // --- Agent CRUD ---
 
@@ -970,9 +1002,9 @@ func (s *AgentPoolService) ChatForUser(userID, name, message string) (string, er
 	return s.configBackend.Chat(userID, name, message)
 }
 
-// dispatchChat publishes a chat event to the NATS agent execution queue.
-// The event is enriched with the full agent config and resolved skills so that
-// the worker does not need direct database access.
+// dispatchChat writes an agent-run claim for one chat message.
+// The claim payload is enriched with the full agent config and resolved skills
+// so that the worker, which has no database, needs no database access.
 func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, error) {
 	messageID := fmt.Sprintf("%d", time.Now().UnixNano())
 
@@ -1014,7 +1046,11 @@ func (s *AgentPoolService) dispatchChat(userID, name, message string) (string, e
 		Config:    cfg,
 		Skills:    skills,
 	}
-	if err := s.distributed.natsClient.Publish(messaging.SubjectAgentExecute, evt); err != nil {
+	// A claim row rather than a publish onto a queue group. A publish onto a
+	// group nobody had joined succeeded and the chat was simply never answered,
+	// with nothing anywhere recording that it had been asked for; a row that no
+	// dispatch loop takes is still a row.
+	if _, err := jobs.EnqueueClaim(context.Background(), s.users.authDB, jobs.ClaimKindAgentRun, evt); err != nil {
 		return "", fmt.Errorf("failed to dispatch agent chat: %w", err)
 	}
 	return messageID, nil
@@ -1139,7 +1175,7 @@ func (s *AgentPoolService) ExecuteAction(ctx context.Context, actionName string,
 }
 
 // loadSkillsForUser loads full skill info (name, description, content) for a user.
-// Used by dispatchChat and the scheduler to enrich NATS events.
+// Used by dispatchChat and the scheduler to enrich claim payloads.
 func (s *AgentPoolService) loadSkillsForUser(userID string) ([]agents.SkillInfo, error) {
 	mgr, err := s.SkillManagerForUser(userID)
 	if err != nil {

@@ -10,11 +10,14 @@ import (
 // FileStager abstracts file transfer between frontend and backend nodes
 // in distributed mode. Two implementations exist:
 //
-//  1. S3NATSFileStager (primary): Both sides have FileManager with same S3.
-//     Frontend uploads to S3, sends NATS request-reply to backend to download locally.
+//  1. S3FileStager (primary): Both sides have FileManager with same S3.
+//     Frontend uploads to S3, then calls the worker's control plane over its
+//     tunnel to have it download locally.
 //
 //  2. HTTPFileStager (fallback): Frontend pushes/pulls files directly over
 //     HTTP to a small file transfer server on the backend node (no S3 needed).
+//
+// Both reach the worker through its tunnel and neither uses NATS.
 type FileStager interface {
 	// EnsureRemote ensures a local file is available on the remote node.
 	// Returns the remote-local path.
@@ -40,6 +43,17 @@ type FileStager interface {
 	// ListRemoteDir returns relative file paths within a directory on the remote node.
 	// keyPrefix is a storage-style key prefix (e.g. "models/mymodel").
 	ListRemoteDir(ctx context.Context, nodeID, keyPrefix string) ([]string, error)
+
+	// ForgetNode drops whatever this stager holds for one node, and is called
+	// when the deployment decides that node has departed.
+	//
+	// On the INTERFACE rather than on the one implementation that has state to
+	// drop, so that a stager which grows a per-node map later cannot be added
+	// without answering this question, and so that the wiring in
+	// core/application can name a FileStager and still fail to compile if the
+	// registration is deleted. An implementation with nothing per-node is a
+	// documented no-op.
+	ForgetNode(nodeID string)
 }
 
 // RequestFileReleaser removes all ephemeral keys staged for one inference in

@@ -45,7 +45,7 @@ var classifierTestHistory = schema.Messages{
 
 func classifierResultEvents(t *fakeTransport) []types.ClassifierResultEvent {
 	var out []types.ClassifierResultEvent
-	for _, e := range t.events {
+	for _, e := range t.recordedEvents() {
 		if ev, ok := e.(types.ClassifierResultEvent); ok {
 			out = append(out, ev)
 		}
@@ -57,7 +57,7 @@ func classifierResultEvents(t *fakeTransport) []types.ClassifierResultEvent {
 // item — what a classifier response actually "spoke".
 func replyTexts(t *fakeTransport) []string {
 	var out []string
-	for _, e := range t.events {
+	for _, e := range t.recordedEvents() {
 		if ev, ok := e.(types.ResponseOutputTextDoneEvent); ok {
 			out = append(out, ev.Text)
 		}
@@ -277,7 +277,7 @@ var _ = Describe("classifierRespond", func() {
 		Expect(t.countEvents(types.ServerEventTypeResponseOutputTextDone)).To(Equal(1))
 		Expect(t.countEvents(types.ServerEventTypeResponseFunctionCallArgumentsDone)).To(Equal(1))
 		var fcArgs string
-		for _, e := range t.events {
+		for _, e := range t.recordedEvents() {
 			if done, ok := e.(types.ResponseFunctionCallArgumentsDoneEvent); ok {
 				fcArgs = done.Arguments
 			}
@@ -656,7 +656,7 @@ var _ = Describe("classifierRespond slot filling", func() {
 		Expect(results[0].Arguments).To(MatchJSON(`{"direction":"up","distance":3,"units":"meters"}`))
 
 		var fcArgs string
-		for _, e := range t.events {
+		for _, e := range t.recordedEvents() {
 			if done, ok := e.(types.ResponseFunctionCallArgumentsDoneEvent); ok {
 				fcArgs = done.Arguments
 			}
@@ -695,7 +695,7 @@ var _ = Describe("classifierRespond slot filling", func() {
 
 		Expect(handled).To(BeTrue())
 		var fcArgs string
-		for _, e := range t.events {
+		for _, e := range t.recordedEvents() {
 			if done, ok := e.(types.ResponseFunctionCallArgumentsDoneEvent); ok {
 				fcArgs = done.Arguments
 			}

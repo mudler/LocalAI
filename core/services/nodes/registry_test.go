@@ -56,6 +56,32 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 			Expect(node.Status).To(Equal(StatusHealthy))
 		})
+
+		It("clears the advertised addresses a pre-tunnel worker left behind", func() {
+			// The struct update zero-skips, so an upgraded worker that stops
+			// sending an address would otherwise keep the one it reported before
+			// the upgrade for the rest of the row's life, and the API and the
+			// Nodes page would keep offering an endpoint nothing dials and that
+			// may not exist any more.
+			ctx := context.Background()
+			legacy := makeNode("worker-upgraded", "10.0.0.8:50051", 8_000_000_000)
+			legacy.HTTPAddress = "10.0.0.8:50050"
+			Expect(registry.Register(ctx, legacy, true)).To(Succeed())
+
+			stored, err := registry.GetByName(ctx, "worker-upgraded")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Address).To(Equal("10.0.0.8:50051"), "precondition: the old row carries the advertisement")
+
+			// Same name, no address: what the upgraded worker sends.
+			upgraded := makeNode("worker-upgraded", "", 8_000_000_000)
+			Expect(registry.Register(ctx, upgraded, true)).To(Succeed())
+
+			stored, err = registry.GetByName(ctx, "worker-upgraded")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.ID).To(Equal(legacy.ID), "precondition: this is the same row, not a new one")
+			Expect(stored.Address).To(BeEmpty())
+			Expect(stored.HTTPAddress).To(BeEmpty())
+		})
 	})
 
 	Describe("Re-registration", func() {
@@ -167,7 +193,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(nm2.ID).To(Equal(nm1.ID), "ID should remain stable across SetNodeModel calls")
-			Expect(nm2.Address).To(Equal("10.0.0.99:50053"), "Address should be updated")
+			Expect(nm2.WorkerLocalAddress).To(Equal("10.0.0.99:50053"), "Address should be updated")
 		})
 	})
 
@@ -983,8 +1009,8 @@ var _ = Describe("NodeRegistry", func() {
 			for _, m := range models {
 				byIdx[m.ReplicaIndex] = m
 			}
-			Expect(byIdx[0].Address).To(Equal("127.0.0.1:50100"))
-			Expect(byIdx[1].Address).To(Equal("127.0.0.1:50101"))
+			Expect(byIdx[0].WorkerLocalAddress).To(Equal("127.0.0.1:50100"))
+			Expect(byIdx[1].WorkerLocalAddress).To(Equal("127.0.0.1:50101"))
 			Expect(byIdx[0].ID).ToNot(Equal(byIdx[1].ID))
 		})
 
@@ -1001,7 +1027,7 @@ var _ = Describe("NodeRegistry", func() {
 			survivor, err := registry.GetNodeModel(context.Background(), node.ID, "kept-model", 1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(survivor).ToNot(BeNil())
-			Expect(survivor.Address).To(Equal("127.0.0.1:50111"))
+			Expect(survivor.WorkerLocalAddress).To(Equal("127.0.0.1:50111"))
 
 			// Replica 0 is gone
 			_, err = registry.GetNodeModel(context.Background(), node.ID, "kept-model", 0)
@@ -1744,7 +1770,7 @@ var _ = Describe("NodeRegistry", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(models).To(ConsistOf(And(
 				HaveField("ConfigRevision", "rev-new"),
-				HaveField("Address", "10.0.2.20:7001"),
+				HaveField("WorkerLocalAddress", "10.0.2.20:7001"),
 				HaveField("State", "loaded"),
 			)))
 		})

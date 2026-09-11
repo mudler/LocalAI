@@ -17,8 +17,13 @@ type Provider interface {
 	Observe(model string, chain []uint64, key ReplicaKey, now time.Time) bool
 	// Invalidate drops all entries for ONE replica.
 	Invalidate(model string, key ReplicaKey)
-	// InvalidateNode drops entries for ALL replicas of a node.
+	// InvalidateNode drops entries for ALL replicas of a node, in ONE model.
 	InvalidateNode(model, nodeID string)
+	// DropNode drops entries for ALL replicas of a node, in EVERY model. It is
+	// what a node DEPARTURE evicts through: a departure names no model, and a
+	// caller made to enumerate them would have to read rows the departure may
+	// already have cost it.
+	DropNode(nodeID string)
 	// Evict sweeps expired entries for all models.
 	Evict(now time.Time)
 }

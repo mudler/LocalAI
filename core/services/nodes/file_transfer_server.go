@@ -45,23 +45,46 @@ const (
 	targetSidecarSuffix = ".sha256.target"
 )
 
+// AuthenticatedRoutes is a set of extra routes to serve on the worker's HTTP
+// server, mounted under Prefix and behind the SAME bearer check as the file
+// routes.
+//
+// It is a mount request rather than a plain func(*http.ServeMux) so this
+// package, and not its caller, owns the authentication. A caller handed the
+// server's own mux would be registering handlers alongside the file routes, and
+// forgetting the token check in one of them would be an unauthenticated verb
+// rather than a compile error. Register is instead given a mux of its own,
+// which is reachable only through the check below.
+type AuthenticatedRoutes struct {
+	// Prefix is the single path prefix every registered route lives under.
+	Prefix string
+	// Register mounts the routes on a mux private to this route set.
+	Register func(*http.ServeMux)
+}
+
 // StartFileTransferServer starts a small HTTP server for file transfer in distributed mode.
 // It provides PUT/GET/POST endpoints for uploading, downloading, and allocating temp files,
 // as well as backend log REST and WebSocket endpoints when logStore is non-nil.
 // Auth is via Bearer token (registration token), using constant-time comparison.
 // A nil readiness fails open, keeping /readyz's historical always-200 answer.
-func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return StartFileTransferServerWithCapacity(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+// A nil extra mounts no additional routes.
+func StartFileTransferServer(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, extra *AuthenticatedRoutes, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return StartFileTransferServerWithCapacityAndRoutes(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, extra, logStore...)
 }
 
 // StartFileTransferServerWithCapacity starts the file transfer server with a
 // worker-local guard for per-request ephemeral inputs.
 func StartFileTransferServerWithCapacity(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return StartFileTransferServerWithCapacityAndRoutes(addr, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
+}
+
+// StartFileTransferServerWithCapacityAndRoutes combines capacity admission with authenticated control routes.
+func StartFileTransferServerWithCapacityAndRoutes(addr, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, extra *AuthenticatedRoutes, logStore ...*model.BackendLogStore) (*http.Server, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("listen %s: %w", addr, err)
 	}
-	return startFileTransferServer(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, logStore...)
+	return startFileTransferServerWithRoutes(listener, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, extra, logStore...)
 }
 
 // StartFileTransferServerWithListener starts the server on an existing listener.
@@ -75,10 +98,24 @@ func StartFileTransferServerWithListener(lis net.Listener, stagingDir, modelsDir
 // the probe keeps its historical always-200 behaviour for callers that have no
 // meaningful readiness signal to report.
 func StartFileTransferServerWithReadiness(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, logStore ...*model.BackendLogStore) (*http.Server, error) {
-	return startFileTransferServer(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+	return StartFileTransferServerWithRoutes(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, logStore...)
+}
+
+// StartFileTransferServerWithRoutes is StartFileTransferServerWithReadiness
+// plus an extra authenticated route set. See AuthenticatedRoutes.
+func StartFileTransferServerWithRoutes(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, extra *AuthenticatedRoutes, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return startFileTransferServerWithRoutes(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, nil, extra, logStore...)
 }
 
 func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	return startFileTransferServerWithRoutes(lis, stagingDir, modelsDir, dataDir, token, maxUploadSize, readiness, capacity, nil, logStore...)
+}
+
+func startFileTransferServerWithRoutes(lis net.Listener, stagingDir, modelsDir, dataDir, token string, maxUploadSize int64, readiness *WorkerReadiness, capacity EphemeralCapacity, extra *AuthenticatedRoutes, logStore ...*model.BackendLogStore) (*http.Server, error) {
+	// Checked before anything is created; see validateAuthenticatedRoutes.
+	if err := validateAuthenticatedRoutes(extra); err != nil {
+		return nil, err
+	}
 	if err := os.MkdirAll(stagingDir, 0750); err != nil {
 		return nil, fmt.Errorf("creating staging dir %s: %w", stagingDir, err)
 	}
@@ -167,8 +204,101 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 		registerBackendLogHandlers(mux, token, ls)
 	}
 
-	// Liveness/readiness probes — unauthenticated so container orchestrators
-	// (Docker HEALTHCHECK, k8s probes) can hit them without the bearer token.
+	mountProbes(mux, readiness)
+	mountAuthenticatedRoutes(mux, token, extra)
+
+	return serveWorkerHTTP(lis, mux,
+		"stagingDir", stagingDir, "modelsDir", modelsDir, "dataDir", dataDir), nil
+}
+
+// StartControlOnlyServer starts a worker's loopback HTTP server carrying ONLY
+// the routes in extra, behind the same bearer check the file-transfer server
+// applies, plus the same two probes.
+//
+// Separate from StartFileTransferServer rather than a flag on it: an agent
+// worker stages no files, and a constructor that took empty directory arguments
+// would mount the upload and download handlers against a path that resolves to
+// the process working directory. The two servers share every rule they have in
+// common through the helpers below rather than through a parameter that means
+// "skip half of me".
+//
+// extra is required here, unlike on the file-transfer server where it is
+// optional. A control-only server with no routes is a listener that answers
+// nothing, and the failure mode is the one the route validation below already
+// exists to prevent: the process comes up healthy and every verb 404s, which
+// through a tunnel is indistinguishable from a version skew.
+func StartControlOnlyServer(lis net.Listener, token string, readiness *WorkerReadiness, extra *AuthenticatedRoutes) (*http.Server, error) {
+	if extra == nil {
+		return nil, fmt.Errorf("a control-only worker server was given no routes to serve")
+	}
+	if err := validateAuthenticatedRoutes(extra); err != nil {
+		return nil, err
+	}
+	// The same warning the file-transfer server gives, for a smaller blast
+	// radius: an empty token makes checkBearerToken fail open, so every control
+	// verb this worker serves is reachable unauthenticated by anything that can
+	// reach this port. It binds loopback only, which is why this is a warning
+	// rather than a refusal.
+	if token == "" {
+		xlog.Warn("Worker control server starting WITHOUT a registration token: its control verbs are unauthenticated for anyone who can reach this port; set LOCALAI_REGISTRATION_TOKEN")
+	}
+
+	mux := http.NewServeMux()
+	mountProbes(mux, readiness)
+	mountAuthenticatedRoutes(mux, token, extra)
+
+	return serveWorkerHTTP(lis, mux, "routes", extra.Prefix), nil
+}
+
+// validateAuthenticatedRoutes rejects a route set that names no prefix or no
+// registrar.
+//
+// Mounting nothing for one would be the worst possible answer: the server comes
+// up healthy and every route the caller believes it registered answers 404,
+// which through a tunnel is indistinguishable from a version skew.
+func validateAuthenticatedRoutes(extra *AuthenticatedRoutes) error {
+	if extra == nil {
+		return nil
+	}
+	if extra.Prefix == "" {
+		return fmt.Errorf("extra routes were given no prefix to mount under")
+	}
+	if extra.Register == nil {
+		return fmt.Errorf("extra routes under %q were given no registrar", extra.Prefix)
+	}
+	return nil
+}
+
+// mountAuthenticatedRoutes puts extra behind the bearer check on its own mux.
+//
+// One site, and that is the point rather than a convenience. This is the check
+// that stands between an unauthenticated caller and every verb a worker serves,
+// and there are now two kinds of worker server mounting routes through it. A
+// second copy is a second place to forget it, which would not fail any spec
+// written against the first.
+func mountAuthenticatedRoutes(mux *http.ServeMux, token string, extra *AuthenticatedRoutes) {
+	if extra == nil {
+		return
+	}
+	extraMux := http.NewServeMux()
+	extra.Register(extraMux)
+	mux.Handle(extra.Prefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !checkBearerToken(r, token) {
+			xlog.Debug("worker HTTP server: unauthorized request on an extra route",
+				"method", r.Method, "path", r.URL.Path, "remote", r.RemoteAddr)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		extraMux.ServeHTTP(w, r)
+	}))
+}
+
+// mountProbes adds the liveness and readiness probes every worker server
+// carries.
+//
+// They are unauthenticated so container orchestrators (Docker HEALTHCHECK, k8s
+// probes) can reach them without the bearer token.
+func mountProbes(mux *http.ServeMux, readiness *WorkerReadiness) {
 	probe := func(check func() error) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -187,27 +317,38 @@ func startFileTransferServer(lis net.Listener, stagingDir, modelsDir, dataDir, t
 	}
 
 	// Liveness: reaching this point means the listener is bound and the mux is
-	// serving. Deliberately independent of readiness — a worker whose NATS link
-	// is momentarily down must not be restarted, or a NATS blip becomes a
-	// cluster-wide restart storm.
+	// serving. Deliberately independent of readiness: a worker whose link to
+	// the frontend is momentarily down must not be restarted, or a blip becomes
+	// a cluster-wide restart storm.
 	mux.HandleFunc("/healthz", probe(func() error { return nil }))
 	// Readiness: "can this worker actually accept work?" See WorkerReadiness.
+	// A 503 here is THIS CONTAINER'S OWN REPORT that it cannot serve right now,
+	// never a claim that the node is gone; the frontend decides that from the
+	// tunnel session it holds, aged against LOCALAI_WORKER_RECONNECT_GRACE.
 	mux.HandleFunc("/readyz", probe(readiness.Check))
+}
 
+// serveWorkerHTTP starts serving mux on lis and returns the server.
+func serveWorkerHTTP(lis net.Listener, mux *http.ServeMux, logFields ...any) *http.Server {
 	addr := lis.Addr().String()
 	server := &http.Server{
+		// Addr is informational here: Serve takes the listener, not this
+		// field. It is set so a caller that asked for port 0 can learn the
+		// port it actually got without threading a second return value
+		// through every wrapper above.
+		Addr:              addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 30 * time.Second, // prevent slowloris; does not affect body reads
 	}
 
 	go func() {
-		xlog.Info("HTTP file transfer server started", "addr", addr, "stagingDir", stagingDir, "modelsDir", modelsDir, "dataDir", dataDir)
+		xlog.Info("Worker HTTP server started", append([]any{"addr", addr}, logFields...)...)
 		if err := server.Serve(lis); err != nil && err != http.ErrServerClosed {
-			xlog.Error("HTTP file transfer server error", "error", err)
+			xlog.Error("Worker HTTP server error", "error", err)
 		}
 	}()
 
-	return server, nil
+	return server
 }
 
 // handleClaimWithCapacity marks an existing ephemeral file as owned by the
@@ -1209,6 +1350,17 @@ func handleBackendLogsWS(w http.ResponseWriter, r *http.Request, logStore *model
 	})
 
 	conn := &backendLogsWSConn{Conn: ws}
+
+	// KNOWN RACE: the snapshot is sent before the subscription is registered, so
+	// a line appended in that window is never streamed. A viewer attaching while
+	// a model loads (when a backend is at its noisiest) can silently miss lines;
+	// they stay in the buffer, so a reload shows them. Fixing it needs an atomic
+	// snapshot-plus-subscribe held under the buffer's own lock (buf.mu in
+	// pkg/model/backend_log_store.go), because that is the lock AppendLine takes
+	// while it enqueues and fans out to subscribers. The store-level s.mu guards
+	// only the buffers map and excludes nothing an appender does, so taking it
+	// leaves this race exactly where it is. Reordering these two calls is not a
+	// fix either: it would duplicate instead of drop.
 
 	// Send existing lines as initial batch
 	existingLines := logStore.GetLines(modelID)

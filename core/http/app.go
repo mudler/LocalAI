@@ -1,12 +1,14 @@
 package http
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
 	"math"
 	"mime"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,6 +30,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/schema"
+	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/finetune"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -499,17 +502,19 @@ func API(application *application.Application) (*echo.Echo, error) {
 	var opcache *galleryop.OpCache
 	if !application.ApplicationConfig().DisableWebUI {
 		opcache = galleryop.NewOpCache(application.GalleryService())
-		// In distributed mode, wire the NATS client + gallery store so this
-		// replica's OpCache stays in sync with peers — without this the
+		// In distributed mode, wire the broadcast carrier + gallery store so
+		// this replica's OpCache stays in sync with peers. Without this the
 		// /api/operations endpoint returns whatever this single replica
 		// happened to admit, and a load-balanced UI poll alternates between
 		// "operation visible" and "operation gone" between replicas.
+		//
+		// S1. The carrier choice lives in core/application with the other three
+		// caches, and this call names no carrier at all, so nothing hanging off
+		// the same struct can be handed over here by accident. See
+		// core/application/cache_fanout_wiring.go for why that shape is kept
+		// now that the broker's client is no longer one of those things.
 		if d := application.Distributed(); d != nil {
-			opcache.SetMessagingClient(d.Nats)
-			if d.DistStores != nil && d.DistStores.Gallery != nil {
-				opcache.SetGalleryStore(d.DistStores.Gallery)
-			}
-			if err := opcache.Start(application.ApplicationConfig().Context); err != nil {
+			if err := d.WireOpCache(application.ApplicationConfig().Context, opcache); err != nil {
 				xlog.Warn("OpCache distributed subscribe failed; running standalone", "error", err)
 			}
 		}
@@ -520,13 +525,15 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	// Fine-tuning routes
 	fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
-	// In distributed mode pass the shared NATS client + PostgreSQL store so
-	// fine-tune jobs stay consistent across replicas (the SyncedMap broadcasts
-	// mutations and hydrates from the DB); standalone passes nil for both.
-	var ftNats messaging.MessagingClient
+	// In distributed mode pass the deployment's broadcast carrier + PostgreSQL
+	// store so fine-tune jobs stay consistent across replicas (the SyncedMap
+	// broadcasts mutations and hydrates from the DB); standalone passes nil for
+	// both. The carrier comes from Broadcast() and never from a field read here:
+	// see the comment on that method for why the choice is made in one place.
+	var ftBus messaging.Broadcaster
 	var ftStore *distributed.FineTuneStore
 	if d := application.Distributed(); d != nil {
-		ftNats = d.Nats
+		ftBus = d.Broadcast()
 		if d.DistStores != nil && d.DistStores.FineTune != nil {
 			ftStore = d.DistStores.FineTune
 		}
@@ -535,20 +542,21 @@ func API(application *application.Application) (*echo.Echo, error) {
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
-		ftNats,
+		ftBus,
 		ftStore,
 	)
 	routes.RegisterFineTuningRoutes(e, ftService, application.ApplicationConfig(), application, fineTuningMw)
 
 	// Quantization routes
 	quantizationMw := auth.RequireFeature(application.AuthDB(), auth.FeatureQuantization)
-	// In distributed mode pass the shared NATS client + PostgreSQL store so
-	// quantization jobs stay consistent across replicas (the SyncedMap broadcasts
-	// mutations and hydrates from the DB); standalone passes nil for both.
-	var quantNats messaging.MessagingClient
+	// In distributed mode pass the deployment's broadcast carrier + PostgreSQL
+	// store so quantization jobs stay consistent across replicas (the SyncedMap
+	// broadcasts mutations and hydrates from the DB); standalone passes nil for
+	// both. Same rule and same single source as the fine-tune wiring above.
+	var quantBus messaging.Broadcaster
 	var quantStore *distributed.QuantStore
 	if d := application.Distributed(); d != nil {
-		quantNats = d.Nats
+		quantBus = d.Broadcast()
 		if d.DistStores != nil && d.DistStores.Quant != nil {
 			quantStore = d.DistStores.Quant
 		}
@@ -557,7 +565,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		application.ApplicationConfig(),
 		application.ModelLoader(),
 		application.ModelConfigLoader(),
-		quantNats,
+		quantBus,
 		quantStore,
 	)
 	routes.RegisterQuantizationRoutes(e, qService, application.ApplicationConfig(), application, quantizationMw)
@@ -566,15 +574,81 @@ func API(application *application.Application) (*echo.Echo, error) {
 	distCfg := application.ApplicationConfig().Distributed
 	var registry *nodes.NodeRegistry
 	var remoteUnloader nodes.NodeCommandSender
+	// How the admin log-proxy routes reach a worker's own HTTP server. Left nil
+	// outside distributed mode, where there are no workers and no tunnels; the
+	// routes then refuse rather than dialling an address directly.
+	var workerHTTPDialFor nodes.WorkerNetDialerFor
 	if d := application.Distributed(); d != nil {
 		registry = d.Registry
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}
+		if d.WorkerDialer != nil {
+			workerHTTPDialFor = func(nodeID string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return d.WorkerDialer.DialerFor(nodeID, clustersvc.StreamTagHTTP)
+			}
+		}
 	}
-	natsCfg := distCfg.NatsAuthConfig()
-	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg)
+	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, workerHTTPDialFor)
+
+	// Replica-to-replica peer link. Registered only in distributed mode: in
+	// single-node mode there are no peers, and the route authenticates with the
+	// registration token, so publishing it unconditionally would put a
+	// multiplexer on every single-binary install.
+	if d := application.Distributed(); d != nil && d.PeerSessions != nil {
+		if distCfg.RegistrationToken == "" {
+			// The handler fails closed on an empty token, which is right and
+			// invisible: without this line an operator sees only 401s on a
+			// route they never configured, and nothing connecting them to the
+			// token they did not set.
+			xlog.Warn("Replica peer link will refuse every dial: no registration token is configured",
+				"route", clustersvc.PeerPath, "knob", "LOCALAI_REGISTRATION_TOKEN")
+		}
+		// d.Cluster is what the handler resolves a dialling replica's id
+		// against, so the route can check WHICH replica is on the far end and
+		// not merely that it holds the deployment's shared token.
+		routes.RegisterClusterRoutes(e, distCfg.RegistrationToken, d.Cluster, d.PeerSessions.Accept)
+	}
+
+	// The worker tunnel, registered unconditionally. Both arguments are nil
+	// outside distributed mode and the handler refuses every dial then, which
+	// is what makes registering it always safe; what it buys is the
+	// route-coverage test walking the route in a plain single-binary
+	// application, and that test is what holds the rule that an unauthenticated
+	// dial is refused BEFORE the WebSocket upgrade.
+	var tunnels *clustersvc.TunnelRegistry
+	if d := application.Distributed(); d != nil {
+		tunnels = d.Tunnels
+		if distCfg.RegistrationToken == "" {
+			// A different warning from the peer link's, for the same missing
+			// knob, because what breaks is different. Tunnels themselves work
+			// without a registration token: each node is minted its own tunnel
+			// credential at registration whether or not one is configured. What
+			// is missing is the gate in FRONT of that. With no registration
+			// token, RegisterNodeEndpoint validates nothing, so anyone who can
+			// reach this frontend can register a node and be issued a tunnel
+			// credential for it.
+			//
+			// How far that gets them depends on the OTHER knob. With
+			// auto-approve on, the node is healthy at once and the credential
+			// works immediately. With it off, the node is pending, and the
+			// tunnel route refuses a pending node on every dial, so the
+			// credential is inert until an admin approves it and approval is
+			// the real gate. Worth stating precisely, because the same commit
+			// argues exactly this distinction three files away to justify
+			// minting for pending nodes at all.
+			//
+			// This warning replaced one that said the opposite, that tunnels
+			// would refuse every dial without this token. That was true while
+			// the tunnel authenticated against the registration token's own
+			// hash, and stopped being true when nodes got credentials of their
+			// own.
+			xlog.Warn("Node registration is unauthenticated, so any caller that can reach this frontend can register a worker and be issued a tunnel credential",
+				"route", clustersvc.ConnectPath, "knob", "LOCALAI_REGISTRATION_TOKEN")
+		}
+	}
+	routes.RegisterWorkerTunnelRoute(e, registry, tunnels)
 
 	// Distributed SSE routes (job progress + agent events via NATS)
 	if d := application.Distributed(); d != nil {

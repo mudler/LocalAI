@@ -6,7 +6,6 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
-	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	compressionservice "github.com/mudler/LocalAI/core/services/compression"
@@ -455,11 +454,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			compressionservice.CounterFunc(tokens.CountMessages),
 			compressionservice.NewInferenceSummarizer(cl, ml, appConfig),
 		)
-		var mcpNATS mcpTools.MCPNATSClient
-		if d := app.Distributed(); d != nil {
-			mcpNATS = d.Nats
-		}
-		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig, mcpNATS, chatCompressor)
+		agentControl := mcpAgentControl(app)
+		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig, agentControl, chatCompressor)
 		mcpStreamMiddleware := []echo.MiddlewareFunc{
 			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 			requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
@@ -478,7 +474,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 
 		// MCP server listing endpoint
-		router.GET("/v1/mcp/servers/:model", localai.MCPServersEndpoint(cl, appConfig, mcpNATS), mcpMw)
+		router.GET("/v1/mcp/servers/:model", localai.MCPServersEndpoint(cl, appConfig, agentControl), mcpMw)
 
 		// MCP prompts endpoints
 		router.GET("/v1/mcp/prompts/:model", localai.MCPPromptsEndpoint(cl, appConfig), mcpMw)

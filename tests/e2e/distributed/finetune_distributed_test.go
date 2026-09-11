@@ -1,11 +1,8 @@
 package distributed_test
 
 import (
-	"sync/atomic"
-
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/distributed"
-	"github.com/mudler/LocalAI/core/services/messaging"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -83,50 +80,22 @@ var _ = Describe("Fine-Tune Distributed", Label("Distributed"), func() {
 		})
 	})
 
-	Context("NATS progress publishing", func() {
-		It("should publish fine-tune progress via NATS", func() {
-			job := &distributed.FineTuneJobRecord{
-				UserID: "u1", Model: "m1", Backend: "b1",
-				TrainingType: "lora", TrainingMethod: "sft", Status: "queued",
-			}
-			Expect(ftStore.Create(job)).To(Succeed())
-
-			// Subscribe to fine-tune progress
-			var received atomic.Int32
-			sub, err := infra.NC.Subscribe(messaging.SubjectFineTuneProgress(job.ID), func(data []byte) {
-				received.Add(1)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			FlushNATS(infra.NC)
-
-			// Publish progress events simulating training steps
-			Expect(infra.NC.Publish(messaging.SubjectFineTuneProgress(job.ID), map[string]any{
-				"job_id":  job.ID,
-				"status":  "training",
-				"message": "Epoch 1/3, loss=2.5",
-			})).To(Succeed())
-
-			Expect(infra.NC.Publish(messaging.SubjectFineTuneProgress(job.ID), map[string]any{
-				"job_id":  job.ID,
-				"status":  "training",
-				"message": "Epoch 2/3, loss=1.8",
-			})).To(Succeed())
-
-			Expect(infra.NC.Publish(messaging.SubjectFineTuneProgress(job.ID), map[string]any{
-				"job_id":  job.ID,
-				"status":  "completed",
-				"message": "Training finished",
-			})).To(Succeed())
-
-			Eventually(func() int32 { return received.Load() }, "5s").Should(Equal(int32(3)))
-
-			// Verify cancel subject is correctly formed
-			cancelSubj := messaging.SubjectFineTuneCancel(job.ID)
-			Expect(cancelSubj).To(ContainSubstring(".cancel"))
-		})
-	})
+	// The "NATS progress publishing" Context that stood here is deleted with
+	// the two builders it was the only caller of.
+	//
+	// What it did was subscribe and publish on messaging.SubjectFineTuneProgress
+	// through one client and count three deliveries, then assert that
+	// SubjectFineTuneCancel contained ".cancel". No production code had
+	// published on either subject since fine-tune progress moved to the
+	// broadcast carrier, so the round trip pinned the carrier and not this
+	// feature, and the string assertion passed for any literal ending in
+	// ".cancel".
+	//
+	// The carrier round trip is core/services/pgbus/bus_test.go, on two
+	// separate bus instances. That the surviving builders mint the exact
+	// subjects their subscribers filter on is now the literal table in
+	// core/services/messaging/subjects_wire_test.go, which is a stronger pin
+	// than a round trip through the builder could ever be.
 
 	Context("Without --distributed", func() {
 		It("should use in-memory state without --distributed", func() {
@@ -134,8 +103,12 @@ var _ = Describe("Fine-Tune Distributed", Label("Distributed"), func() {
 			Expect(appCfg.Distributed.Enabled).To(BeFalse())
 
 			// Without distributed mode, fine-tune jobs use local in-memory
-			// state tracking. No PostgreSQL or NATS needed.
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
+			// state tracking. No PostgreSQL needed.
+			//
+			// The "and no bus URL" half of this assertion is gone with the
+			// field it read: DistributedConfig has nowhere to hold one, which
+			// core/config's "broker surface" spec pins for every config rather
+			// than for this one.
 		})
 	})
 })

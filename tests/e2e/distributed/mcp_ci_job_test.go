@@ -280,10 +280,18 @@ func startMockLLMServer() (string, func()) {
 var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func() {
 	var (
 		infra *TestInfra
+		bus   messaging.Broadcaster
 	)
 
+	// One carrier per spec, on THIS spec's database. It is the PostgreSQL
+	// LISTEN/NOTIFY carrier the deployment runs, and it is what the SSE routes
+	// read: a spec that published its progress and result lines onto a message
+	// bus instead would keep passing after that carrier had gone silent,
+	// because a publish onto the wrong carrier succeeds and simply arrives
+	// nowhere.
 	BeforeEach(func() {
-		infra = SetupNATSOnly()
+		infra = SetupInfra("mcp_ci_job")
+		bus = infra.Bus()
 	})
 
 	Context("Full MCP CI Job Flow", func() {
@@ -303,7 +311,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			progressSub, err := infra.NC.Subscribe(messaging.SubjectJobProgress(jobID), func(data []byte) {
+			progressSub, err := bus.Subscribe(messaging.SubjectJobProgress(jobID), func(data []byte) {
 				var evt jobs.ProgressEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -314,7 +322,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			Expect(err).ToNot(HaveOccurred())
 			defer progressSub.Unsubscribe()
 
-			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := bus.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -324,8 +332,6 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
-
-			FlushNATS(infra.NC)
 
 			// Build MCP config YAML pointing to mock MCP server
 			mcpRemoteJSON := fmt.Sprintf(`{"mcpServers":{"weather-api":{"url":"%s"}}}`, mcpURL)
@@ -357,19 +363,14 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 				ModelConfig: modelCfg,
 			}
 
-			// Simulate the agent worker subscribing and processing
-			workerSub, err := infra.NC.QueueSubscribe(messaging.SubjectJobsNew, messaging.QueueWorkers, func(data []byte) {
-				// This is what the agent worker does — call handleMCPCIJob
-				// We import it indirectly by calling the same logic
-				go processMCPCIJobForTest(data, llmURL, "test-token", infra.NC)
-			})
+			// The agent worker is handed this body by the frontend replica that
+			// claimed the row, on a streaming control verb. There is no queue
+			// group to publish onto any more, so the body goes straight to the
+			// worker-side logic, which is what the verb's handler calls.
+			raw, err := json.Marshal(evt)
 			Expect(err).ToNot(HaveOccurred())
-			defer workerSub.Unsubscribe()
 
-			FlushNATS(infra.NC)
-
-			// Publish the job event
-			Expect(infra.NC.Publish(messaging.SubjectJobsNew, evt)).To(Succeed())
+			go processMCPCIJobForTest(raw, llmURL, "test-token", bus)
 
 			// Wait for result
 			Eventually(func() bool {
@@ -407,7 +408,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := bus.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -417,8 +418,6 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
-
-			FlushNATS(infra.NC)
 
 			// MCP config pointing to unreachable server
 			mcpRemoteJSON := `{"mcpServers":{"bad-server":{"url":"http://127.0.0.1:1/mcp"}}}`
@@ -451,7 +450,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 
 			// Process directly (no worker subscription needed)
 			evtData, _ := json.Marshal(evt)
-			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", infra.NC)
+			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", bus)
 
 			// Wait for failure result
 			Eventually(func() bool {
@@ -480,7 +479,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := bus.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -490,8 +489,6 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
-
-			FlushNATS(infra.NC)
 
 			mcpRemoteJSON := fmt.Sprintf(`{"mcpServers":{"weather-api":{"url":"%s"}}}`, mcpURL)
 			modelCfg := &config.ModelConfig{
@@ -526,7 +523,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			}
 
 			evtData, _ := json.Marshal(evt)
-			go processMCPCIJobForTest(evtData, llmURL, "test-token", infra.NC)
+			go processMCPCIJobForTest(evtData, llmURL, "test-token", bus)
 
 			Eventually(func() bool {
 				eventMu.Lock()
@@ -548,7 +545,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := bus.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -559,8 +556,6 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
 
-			FlushNATS(infra.NC)
-
 			// Event with no Job or Task
 			evt := jobs.JobEvent{
 				JobID:  jobID,
@@ -569,7 +564,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			}
 
 			evtData, _ := json.Marshal(evt)
-			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", infra.NC)
+			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", bus)
 
 			Eventually(func() bool {
 				eventMu.Lock()
@@ -589,7 +584,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			var resultEvent *jobs.JobResultEvent
 			var eventMu sync.Mutex
 
-			resultSub, err := infra.NC.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
+			resultSub, err := bus.Subscribe(messaging.SubjectJobResult(jobID), func(data []byte) {
 				var evt jobs.JobResultEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -599,8 +594,6 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer resultSub.Unsubscribe()
-
-			FlushNATS(infra.NC)
 
 			// ModelConfig with empty MCP
 			modelCfg := &config.ModelConfig{}
@@ -627,7 +620,7 @@ var _ = Describe("MCP CI Job Execution", Label("Distributed", "MCPCIJob"), func(
 			}
 
 			evtData, _ := json.Marshal(evt)
-			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", infra.NC)
+			go processMCPCIJobForTest(evtData, "http://localhost:9999", "token", bus)
 
 			Eventually(func() bool {
 				eventMu.Lock()

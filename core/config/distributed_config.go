@@ -5,30 +5,35 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
-	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/xlog"
 )
 
 // DistributedConfig holds configuration for horizontal scaling mode.
-// When Enabled is true, PostgreSQL and NATS are required.
+// When Enabled is true, PostgreSQL is required. Nothing else is: fan-out rides
+// PostgreSQL and every worker is reached over the tunnel it dials out.
 type DistributedConfig struct {
-	Enabled           bool   // --distributed / LOCALAI_DISTRIBUTED
-	InstanceID        string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
-	NatsURL           string // --nats-url / LOCALAI_NATS_URL
+	Enabled    bool   // --distributed / LOCALAI_DISTRIBUTED
+	InstanceID string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
+	// AdvertiseAddr is the host:port OTHER REPLICAS dial to reach this one,
+	// which is not the address this process binds: a replica behind a service
+	// or a NAT binds one and is reached at another. Empty means "work it out",
+	// by asking the kernel which local address routes to PostgreSQL; that
+	// answer is only usable when the database is remote, so a deployment with
+	// a local or sidecar database has to set this.
+	AdvertiseAddr     string // LOCALAI_DISTRIBUTED_ADVERTISE_ADDR
 	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
 	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
 	// RegistrationRequireAuth fails startup when distributed mode is enabled but
 	// RegistrationToken is empty. The default (false) keeps the historical
 	// fail-open behavior with a loud warning; production should set it so the
 	// node-register endpoints and the worker file-transfer server cannot run
-	// unauthenticated. Mirrors NatsRequireAuth for the NATS bus.
+	// unauthenticated.
 	RegistrationRequireAuth bool // LOCALAI_REGISTRATION_REQUIRE_AUTH
 	// RequireAuth is the umbrella switch (LOCALAI_DISTRIBUTED_REQUIRE_AUTH) for
-	// distributed-mode auth: when true it implies BOTH NatsRequireAuth and
-	// RegistrationRequireAuth, so a single knob locks down the bus and the
-	// registration/file-transfer layer together. The granular flags remain
-	// available to enforce just one layer.
+	// distributed-mode auth. It implies RegistrationRequireAuth, and that is
+	// now ALL it implies: it used to imply a NatsRequireAuth as well, and there
+	// is no message bus left for that half to lock down. The granular flag
+	// remains available.
 	RequireAuth      bool // LOCALAI_DISTRIBUTED_REQUIRE_AUTH
 	AutoApproveNodes bool // --auto-approve-nodes / LOCALAI_AUTO_APPROVE_NODES (skip admin approval for new workers)
 	// SharedModels asserts that every node (frontend and workers) mounts the
@@ -39,16 +44,6 @@ type DistributedConfig struct {
 	// subdirectory only re-downloads what is already present (#10556). Default
 	// false preserves the historical per-node staging behavior.
 	SharedModels bool // --distributed-shared-models / LOCALAI_DISTRIBUTED_SHARED_MODELS
-
-	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
-	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
-	NatsServiceJWT   string        // LOCALAI_NATS_SERVICE_JWT — user JWT for frontends / agent workers
-	NatsServiceSeed  string        // LOCALAI_NATS_SERVICE_SEED — signing seed paired with service JWT
-	NatsWorkerJWTTTL time.Duration // LOCALAI_NATS_WORKER_JWT_TTL — minted worker JWT lifetime (default 24h)
-	NatsRequireAuth  bool          // LOCALAI_NATS_REQUIRE_AUTH — fail startup if NATS credentials are missing
-	NatsTLSCA        string        // LOCALAI_NATS_TLS_CA — PEM file for private CA (server verify)
-	NatsTLSCert      string        // LOCALAI_NATS_TLS_CERT — client cert for NATS mTLS
-	NatsTLSKey       string        // LOCALAI_NATS_TLS_KEY — client key paired with NatsTLSCert
 
 	// S3 configuration (used when StorageURL is set)
 	StorageBucket    string // --storage-bucket / LOCALAI_STORAGE_BUCKET
@@ -75,8 +70,19 @@ type DistributedConfig struct {
 
 	MCPCIJobTimeout time.Duration // MCP CI job execution timeout (default 10m)
 
-	BackendInstallTimeout time.Duration // NATS round-trip timeout for backend.install (default 15m)
-	BackendUpgradeTimeout time.Duration // NATS round-trip timeout for backend.upgrade (default 15m)
+	// WorkerReconnectGrace is how long a worker whose tunnel was lost is
+	// treated as reconnecting rather than gone. It is the ONLY thing that
+	// separates a worker re-homing between frontend replicas from one that has
+	// left, and absence is what makes the scheduler stop placing work and reap
+	// the worker's rows, so a grace shorter than the worker's own reconnect
+	// backoff condemns workers that are behaving exactly as designed.
+	//
+	// Zero means unset (DefaultWorkerReconnectGrace applies). Measured on the
+	// database clock, so every replica agrees on when the window ends.
+	WorkerReconnectGrace time.Duration // LOCALAI_WORKER_RECONNECT_GRACE
+
+	BackendInstallTimeout time.Duration // control round-trip timeout for backend.install (default 15m)
+	BackendUpgradeTimeout time.Duration // control round-trip timeout for backend.upgrade (default 15m)
 	// ModelLoadTimeout is the gRPC deadline for the remote LoadModel call the
 	// router issues once a worker has the backend installed and the model files
 	// staged. It therefore covers only the backend's own checkpoint load and
@@ -139,9 +145,11 @@ func (c DistributedConfig) Validate() error {
 	if !c.Enabled {
 		return nil
 	}
-	if c.NatsURL == "" {
-		return fmt.Errorf("distributed mode requires --nats-url / LOCALAI_NATS_URL")
-	}
+	// No message-bus URL is required, and none is dialled. The last family
+	// that needed one was agent.<agent>.cancel, which now rides the agent
+	// worker's own tunnel as a control verb; a distributed deployment needs
+	// PostgreSQL and the frontends' own HTTP listener. The flag is still
+	// accepted so an existing command line starts unchanged.
 	// S3 credentials must be paired
 	if (c.StorageAccessKey != "" && c.StorageSecretKey == "") ||
 		(c.StorageAccessKey == "" && c.StorageSecretKey != "") {
@@ -157,13 +165,6 @@ func (c DistributedConfig) Validate() error {
 		}
 		xlog.Warn("distributed mode running without registration token — node endpoints and the worker file-transfer server are unprotected; set LOCALAI_REGISTRATION_TOKEN, or LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true to fail closed")
 	}
-	if err := c.NatsAuthConfig().Validate(); err != nil {
-		return err
-	}
-	if err := c.NatsTLSFiles().Validate(); err != nil {
-		return err
-	}
-	c.NatsAuthConfig().WarnIfInsecure(true)
 	// Check for negative durations
 	for name, d := range map[string]time.Duration{
 		FlagMCPToolTimeout:          c.MCPToolTimeout,
@@ -172,11 +173,12 @@ func (c DistributedConfig) Validate() error {
 		FlagDrainTimeout:            c.DrainTimeout,
 		FlagHealthCheckInterval:     c.HealthCheckInterval,
 		FlagStaleNodeThreshold:      c.StaleNodeThreshold,
-		FlagNodeHeartbeatCheckpoint: c.NodeHeartbeatCheckpoint,
 		FlagMCPCIJobTimeout:         c.MCPCIJobTimeout,
 		FlagBackendInstallTimeout:   c.BackendInstallTimeout,
 		FlagBackendUpgradeTimeout:   c.BackendUpgradeTimeout,
 		FlagModelLoadTimeout:        c.ModelLoadTimeout,
+		FlagWorkerReconnectGrace:    c.WorkerReconnectGrace,
+		FlagNodeHeartbeatCheckpoint: c.NodeHeartbeatCheckpoint,
 	} {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
@@ -197,9 +199,11 @@ func WithDistributedInstanceID(id string) AppOption {
 	}
 }
 
-func WithNatsURL(url string) AppOption {
+// WithDistributedAdvertiseAddr pins the host:port peers dial to reach this
+// replica, overriding the route-based discovery.
+func WithDistributedAdvertiseAddr(addr string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.Distributed.NatsURL = url
+		o.Distributed.AdvertiseAddr = addr
 	}
 }
 
@@ -209,42 +213,14 @@ func WithRegistrationToken(token string) AppOption {
 	}
 }
 
-func WithNatsAccountSeed(seed string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsAccountSeed = seed
-	}
-}
-
-func WithNatsServiceJWT(jwt string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsServiceJWT = jwt
-	}
-}
-
-func WithNatsServiceSeed(seed string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsServiceSeed = seed
-	}
-}
-
-func WithNatsWorkerJWTTTL(d time.Duration) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsWorkerJWTTTL = d
-	}
-}
-
-var EnableNatsRequireAuth = func(o *ApplicationConfig) {
-	o.Distributed.NatsRequireAuth = true
-}
-
 // EnableRegistrationRequireAuth makes an empty registration token a hard error
 // in distributed mode (see DistributedConfig.RegistrationRequireAuth).
 var EnableRegistrationRequireAuth = func(o *ApplicationConfig) {
 	o.Distributed.RegistrationRequireAuth = true
 }
 
-// EnableDistributedRequireAuth is the umbrella switch implying both
-// NatsRequireAuth and RegistrationRequireAuth (see DistributedConfig.RequireAuth).
+// EnableDistributedRequireAuth is the umbrella switch implying
+// RegistrationRequireAuth (see DistributedConfig.RequireAuth).
 var EnableDistributedRequireAuth = func(o *ApplicationConfig) {
 	o.Distributed.RequireAuth = true
 }
@@ -253,30 +229,6 @@ var EnableDistributedRequireAuth = func(o *ApplicationConfig) {
 // treated as a fatal misconfiguration — the granular flag or the umbrella.
 func (c DistributedConfig) RegistrationAuthRequired() bool {
 	return c.RegistrationRequireAuth || c.RequireAuth
-}
-
-// NatsAuthRequired reports whether NATS JWT credentials must be present — the
-// granular flag or the umbrella.
-func (c DistributedConfig) NatsAuthRequired() bool {
-	return c.NatsRequireAuth || c.RequireAuth
-}
-
-func WithNatsTLSCA(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsTLSCA = path
-	}
-}
-
-func WithNatsTLSCert(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsTLSCert = path
-	}
-}
-
-func WithNatsTLSKey(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.Distributed.NatsTLSKey = path
-	}
 }
 
 func WithStorageURL(url string) AppOption {
@@ -306,6 +258,14 @@ func WithStorageAccessKey(key string) AppOption {
 func WithStorageSecretKey(key string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.StorageSecretKey = key
+	}
+}
+
+// WithWorkerReconnectGrace sets how long a lost worker tunnel is read as
+// reconnecting rather than gone (see DistributedConfig.WorkerReconnectGrace).
+func WithWorkerReconnectGrace(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.WorkerReconnectGrace = d
 	}
 }
 
@@ -414,18 +374,21 @@ func WithModelSchedulingConfigPath(path string) AppOption {
 // them as constants prevents the string from drifting from the actual
 // flag a future rename would produce.
 const (
-	FlagMCPToolTimeout          = "mcp-tool-timeout"
-	FlagMCPDiscoveryTimeout     = "mcp-discovery-timeout"
-	FlagWorkerWaitTimeout       = "worker-wait-timeout"
-	FlagDrainTimeout            = "drain-timeout"
-	FlagHealthCheckInterval     = "health-check-interval"
-	FlagStaleNodeThreshold      = "stale-node-threshold"
-	FlagNodeHeartbeatCheckpoint = "node-heartbeat-checkpoint"
-	FlagMCPCIJobTimeout         = "mcp-ci-job-timeout"
-	FlagBackendInstallTimeout   = "backend-install-timeout"
-	FlagBackendUpgradeTimeout   = "backend-upgrade-timeout"
-	FlagModelLoadTimeout        = "model-load-timeout"
+	FlagMCPToolTimeout        = "mcp-tool-timeout"
+	FlagMCPDiscoveryTimeout   = "mcp-discovery-timeout"
+	FlagWorkerWaitTimeout     = "worker-wait-timeout"
+	FlagDrainTimeout          = "drain-timeout"
+	FlagHealthCheckInterval   = "health-check-interval"
+	FlagStaleNodeThreshold    = "stale-node-threshold"
+	FlagMCPCIJobTimeout       = "mcp-ci-job-timeout"
+	FlagBackendInstallTimeout = "backend-install-timeout"
+	FlagBackendUpgradeTimeout = "backend-upgrade-timeout"
+	FlagModelLoadTimeout      = "model-load-timeout"
+	// FlagWorkerReconnectGrace names the reconnect-grace knob. Validate quotes
+	// it when the operator hands it a negative duration.
+	FlagWorkerReconnectGrace    = "worker-reconnect-grace"
 	FlagModelLoadWait           = "model-load-wait"
+	FlagNodeHeartbeatCheckpoint = "node-heartbeat-checkpoint"
 	// FlagDiskHeadroomCheck names the disk-headroom toggle. It is quoted in
 	// the warning the check emits while disabled, so the operator reading a
 	// log line knows exactly which knob produced it.
@@ -456,6 +419,30 @@ const (
 	// LocalAI (with progress the client can act on) rather than from a proxy
 	// dropping the connection.
 	DefaultModelLoadWait = 60 * time.Second
+	// DefaultWorkerReconnectGrace covers a worker that misses one reconnect at
+	// the ceiling and lands on the next, with margin. The worker's own numbers
+	// (core/services/worker/tunnel.go) are a 30s backoff ceiling
+	// (tunnelBackoffMax) and a 10s dial budget (tunnelHandshakeTimeout), so two
+	// ceiling waits with a hung dial between them puts the worker back at 70s,
+	// not 60s: two waits alone is the boundary, not a bound.
+	//
+	// The ceiling is reachable precisely when it matters. The backoff resets
+	// only after a session that lasted tunnelHealthyAfter (30s), which a
+	// replica accepting a dial and then dying denies, so a worker crossing a
+	// rolling frontend restart climbs to the ceiling rather than sitting near
+	// the 500ms floor.
+	//
+	// 90s therefore has margin where 60s sat on the edge. The asymmetry is
+	// deliberate: too short and a worker that is reconnecting exactly as
+	// designed is reported GONE, which licenses a reap and costs a model
+	// reload; too long and a worker that really has died is reaped later. The
+	// second is cheaper, so the default errs long.
+	//
+	// Raising it further makes a rolling frontend restart safer still; lowering
+	// it reaps a dead worker sooner. There IS a value at which a live worker is
+	// reported as gone: any grace shorter than that worker's actual reconnect.
+	// That is why this is a duration and not a boolean.
+	DefaultWorkerReconnectGrace = 90 * time.Second
 )
 
 // ModelLoadWaitUnbounded records LOCALAI_MODEL_LOAD_WAIT=0 — "wait as long as
@@ -466,42 +453,21 @@ const ModelLoadWaitUnbounded = -1 * time.Second
 // DefaultMaxUploadSize is the default maximum upload body size (50 GB).
 const DefaultMaxUploadSize int64 = 50 << 30
 
-// NatsTLSFiles returns NATS TLS/mTLS PEM paths for the messaging client.
-func (c DistributedConfig) NatsTLSFiles() messaging.TLSFiles {
-	return messaging.TLSFiles{
-		CA:   c.NatsTLSCA,
-		Cert: c.NatsTLSCert,
-		Key:  c.NatsTLSKey,
+// ReconnectGraceOrDefault returns the configured worker reconnect grace or the
+// default.
+//
+// A non-positive value falls back rather than being taken verbatim, which is
+// the opposite of what the timeout knobs above do, and deliberately. A
+// negative grace makes every departure older than the window the instant it is
+// stamped, so a worker two seconds into a normal reconnect reports as GONE, and
+// gone is the one answer a caller may reap and evict on. Validate rejects a
+// negative duration at startup; this is the second line, for a config built in
+// code that never went through it.
+func (c DistributedConfig) ReconnectGraceOrDefault() time.Duration {
+	if c.WorkerReconnectGrace <= 0 {
+		return DefaultWorkerReconnectGrace
 	}
-}
-
-// NatsMessagingOptions builds messaging client options (JWT + TLS) for distributed components.
-// Pass explicit userJWT/userSeed when set (e.g. worker overrides); empty uses service JWT from config.
-func (c DistributedConfig) NatsMessagingOptions(userJWT, userSeed string) []messaging.Option {
-	var opts []messaging.Option
-	jwt, seed := userJWT, userSeed
-	if jwt == "" && seed == "" {
-		auth := c.NatsAuthConfig()
-		jwt, seed = auth.ServiceUserJWT, auth.ServiceUserSeed
-	}
-	if jwt != "" && seed != "" {
-		opts = append(opts, messaging.WithUserJWT(jwt, seed))
-	}
-	if tls := c.NatsTLSFiles(); tls.Enabled() {
-		opts = append(opts, messaging.WithTLS(tls))
-	}
-	return opts
-}
-
-// NatsAuthConfig builds pkg/natsauth settings from distributed configuration.
-func (c DistributedConfig) NatsAuthConfig() natsauth.Config {
-	return natsauth.Config{
-		AccountSeed:     c.NatsAccountSeed,
-		ServiceUserJWT:  c.NatsServiceJWT,
-		ServiceUserSeed: c.NatsServiceSeed,
-		WorkerJWTTTL:    c.NatsWorkerJWTTTL,
-		RequireAuth:     c.NatsAuthRequired(),
-	}
+	return c.WorkerReconnectGrace
 }
 
 // BackendInstallTimeoutOrDefault returns the configured timeout or the default.

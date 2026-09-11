@@ -271,7 +271,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// the model configs are loaded, so it is declared out here.
 	var revisionStore modeladmin.RevisionStore
 
-	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader())
+	// The gallery service is handed in rather than set afterwards: it owns one
+	// of the per-node caches a node departure evicts, and every one of those is
+	// registered inside initDistributed. It exists by now because start() built
+	// it above.
+	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader(), application.galleryService)
 	if err != nil {
 		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
 	}
@@ -283,9 +287,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 		// Wire ModelRouter so grpcModel() delegates to SmartRouter in distributed mode
 		application.modelLoader.SetModelRouter(distSvc.ModelAdapter.AsModelRouter())
 		// Wire DistributedModelStore so shutdown/list/watchdog can find remote models
+		// The client factory is not optional here. Without it the store builds
+		// remote models with no client, and pkg/model.Model.GRPC then dials the
+		// worker's raw address with gRPC's own dialer, which is the direct dial
+		// the tunnel replaces; ShutdownModel's Free and the backend monitor's
+		// Status both reach it.
 		distStore := nodes.NewDistributedModelStore(
 			model.NewInMemoryModelStore(),
 			distSvc.Registry,
+			distSvc.BackendClients,
 		)
 		application.modelLoader.SetModelStore(distStore)
 		// Drop the local stub when a model's last replica leaves the registry.
@@ -322,15 +332,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 			application.agentJobService.SetDistributedBackends(distSvc.Dispatcher)
 			application.agentJobService.SetDistributedJobStore(distSvc.JobStore)
 			// Keep agent tasks consistent across replicas (jobs already sync via the
-			// dispatcher + DB read-through). Same NATS client the dispatcher uses.
-			application.agentJobService.SetTaskSyncNATS(distSvc.Nats)
+			// dispatcher + DB read-through), on the deployment's broadcast carrier.
+			application.agentJobService.SetTaskSyncBus(distSvc.Broadcast())
 		}
 		// Wire skill store into AgentPoolService (wired at pool start time via closure)
 		// The actual wiring happens in StartAgentPool since the pool doesn't exist yet.
 
-		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
+		// Wire the broadcast carrier and gallery store into GalleryService for
+		// cross-instance progress/cancel. The carrier is wired below, next to
+		// the subscriptions it feeds, so the two cannot name different carriers.
 		if application.galleryService != nil {
-			application.galleryService.SetNATSClient(distSvc.Nats)
 			if distSvc.DistStores != nil && distSvc.DistStores.Gallery != nil {
 				// Clean up stale in-progress operations from previous crashed instances
 				if _, err := distSvc.DistStores.Gallery.CleanStale(30 * time.Minute); err != nil {
@@ -390,7 +401,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 					xlog.Warn("Failed to apply peer model config change", "error", err)
 				}
 			}
-			if err := application.galleryService.SubscribeBroadcasts(); err != nil {
+			// S2. One call sets the carrier and opens the wildcard
+			// subscriptions, and it names no carrier at all, so no carrier that
+			// happens to hang off distSvc can be passed here by accident. See
+			// cache_fanout_wiring.go for why that shape is kept now that the
+			// broker's client is no longer one of them.
+			if err := distSvc.wireGallery(application.galleryService); err != nil {
 				xlog.Warn("Gallery service subscribe failed", "error", err)
 			}
 			// Wire distributed model/backend managers so delete propagates to workers

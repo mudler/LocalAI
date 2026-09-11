@@ -5,7 +5,7 @@ weight = 71
 url = "/features/distributed-mode/"
 +++
 
-Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state and node registry, and **NATS** for real-time coordination. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
+Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state, node registry and cross-replica fan-out. No message bus is needed: a deployment runs PostgreSQL and the frontends' own HTTP listener, and every worker is reached over the tunnel it dials outward. Unlike the [P2P/federation approach]({{% relref "features/distributed_inferencing" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
 
 {{% notice note %}}
 Distributed mode requires authentication enabled with a **PostgreSQL** database - SQLite is not supported. This is because the node registry, job store, and other distributed state are stored in PostgreSQL tables.
@@ -13,11 +13,11 @@ Distributed mode requires authentication enabled with a **PostgreSQL** database 
 
 ## Architecture Overview
 
-![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared NATS/PostgreSQL/S3 plane, with generic workers running per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
+![Distributed mode architecture: a load balancer fronts stateless SmartRouter frontends backed by a shared PostgreSQL/S3 plane, with generic workers reached over the tunnel each one dials out and running per-model gRPC backends](/images/diagrams/distributed-mode-arch.png)
 
-**Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
+**Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL, which also carries every cross-replica event they broadcast.
 
-**Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type - the SmartRouter dynamically installs the required backend via NATS `backend.install` events when a model request arrives.
+**Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type - the SmartRouter dynamically installs the required backend by calling the worker's `backend.install` control route through its tunnel when a model request arrives.
 
 ### Scheduling Algorithm
 
@@ -30,7 +30,7 @@ The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 4. Fall back to idle nodes (zero models), then least-loaded nodes
 5. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
 6. If all models are busy → wait (with timeout) for a model to become idle, then evict
-7. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
+7. `POST /v1/control/backend/install` through the worker's tunnel with backend name + model ID → worker starts a new gRPC process on a dynamic port
 8. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
 
 Each model gets its own gRPC backend process, so a single worker can serve multiple models simultaneously (e.g., a chat model and an embedding model).
@@ -38,7 +38,10 @@ Each model gets its own gRPC backend process, so a single worker can serve multi
 ## Prerequisites
 
 - **PostgreSQL** (with pgvector extension recommended for RAG) - used for node registry, job store, auth, and shared state
-- **NATS** server - used for real-time backend lifecycle events and file staging
+  - Each frontend replica holds **one extra PostgreSQL session** beyond its connection pool, pinned for the life of the process, and creates a `bus_messages` table. Both belong to the broadcast carrier that carries every cross-replica fan-out, including the four `state.*.delta` families (see [Cross-replica in-memory state](#cross-replica-in-memory-state)). Size `max_connections` for one additional session per frontend replica.
+  - That session reports an `application_name` of `localai_pgbus_<id>`, so `SELECT count(*) FROM pg_stat_activity WHERE application_name LIKE 'localai_pgbus_%'` counts the replicas currently listening. If the carrier loses its session it redials and re-registers on its own; a broadcast published while it was down is not replayed, which is why nothing that must survive a gap is carried by a broadcast alone.
+  - `bus_messages` holds only broadcasts too large for a PostgreSQL notification, and every replica retires rows older than ten minutes. The table is a spill buffer, not a log: it is not a place to read past events from.
+- **No message broker. Do not deploy one.** Everything a frontend broadcasts travels on the PostgreSQL the deployment already runs; every verb a frontend addresses to a worker, including an agent cancel, is an HTTP route on that worker's own tunnel. If you are upgrading from a release that ran one, see [Migrating off the message broker](#migrating-off-the-message-broker): your existing command lines keep working and the broker can be shut down.
 - All services must be on the same network (or reachable via configured URLs)
 
 ## Quick Start with Docker Compose
@@ -49,10 +52,10 @@ The easiest way to try distributed mode locally is with the provided Docker Comp
 docker compose -f docker-compose.distributed.yaml up
 ```
 
-This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
+This starts PostgreSQL, a LocalAI frontend, one worker node and one agent worker. Those four services are the whole deployment: there is no broker in the file and none to add. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
 
 {{% notice tip %}}
-Use `docker-compose.distributed.yaml` for quick local testing. For production, deploy PostgreSQL and NATS as managed services and run frontends/workers on separate hosts.
+Use `docker-compose.distributed.yaml` for quick local testing. For production, deploy PostgreSQL as a managed service and run frontends/workers on separate hosts. There is no message bus to deploy.
 {{% /notice %}}
 
 ## Frontend Configuration
@@ -63,10 +66,10 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 |------|---------|---------|-------------|
 | `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode |
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS server URL (e.g., `nats://localhost:4222`) |
+| `--distributed-advertise-addr` | `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` | *(derived)* | `host:port` the **other frontend replicas** dial to reach this one. See [Replica peer links](#replica-peer-links). |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
-| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
+| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies `--registration-require-auth`, which is what guards registration, the worker control planes and file transfer. Set this in production instead of the granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
 | `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
@@ -76,9 +79,531 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
 | `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget — the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
+| `--worker-reconnect-grace` | `LOCALAI_WORKER_RECONNECT_GRACE` | `90s` | How long a worker whose tunnel was lost is treated as **reconnecting** rather than **gone**. Only after this window may the scheduler stop placing work on that worker, clean up its rows and release its models. Set it below the worker's own reconnect worst case and you will condemn workers that are re-homing exactly as designed. Measured on the database clock, so every replica agrees. See [A lost tunnel is a departure, not an absence](#a-lost-tunnel-is-a-departure-not-an-absence). |
 | `--node-heartbeat-checkpoint` | `LOCALAI_NODE_HEARTBEAT_CHECKPOINT` | `60s` | Minimum gap between **durable** heartbeat writes for a worker node. A beat that only carries a fresher timestamp is kept in memory until this interval elapses instead of being written to PostgreSQL; every reported field is compared against the value last written rather than merely tested for presence, so a node's first beat, a changed total VRAM / total disk / GPU vendor, and a free VRAM / RAM / disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set it below the worker's `--heartbeat-interval` to restore a write per beat. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--stale-node-threshold` | `LOCALAI_STALE_NODE_THRESHOLD` | `5m` | How long a node may go without a **durable** heartbeat before the health monitor marks it `offline`. Because `--node-heartbeat-checkpoint` holds back a beat that only carries a fresher timestamp, this has to stay comfortably wider than that interval: raising the checkpoint without raising this marks healthy, beating nodes offline. Neither the per-model gRPC health check nor request-time failure reads `last_heartbeat`, so neither is affected by this knob. See [Heartbeat writes and stale-node detection](#heartbeat-writes-and-stale-node-detection). |
 | `--expose-node-header` | `LOCALAI_EXPOSE_NODE_HEADER` | `false` | When enabled, inference responses carry an `X-LocalAI-Node` header with the ID of the worker node that served the request. Coverage spans the OpenAI-compatible endpoints (chat completions, completions, embeddings, audio transcriptions, audio speech / TTS, image generations, image inpainting), the Jina rerank endpoint (`/v1/rerank`), the VAD endpoints (`/v1/vad`, `/vad`), and the Anthropic Messages (`/v1/messages`) and Ollama (`/api/chat`, `/api/generate`, `/api/embed`) shims. Useful for debugging, observability and load-balancer attribution. Off by default: the node ID reveals internal cluster topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency for the same model across multiple replicas, the header may reflect a recent routing decision rather than this exact request's. Acceptable for observability and debugging. |
+
+The three `LOCALAI_NATS_*_TIMEOUT` names above are **control-RPC budgets, not broker settings**, and are still read and enforced. They carry that prefix only because they were introduced alongside the message bus that distributed mode used to require; renaming them would break every existing deployment for cosmetics. Do not delete them when you [shut the broker down](#migrating-off-the-message-broker).
+
+### Replica peer links
+
+Frontend replicas record themselves in an `instances` table and open direct links to each other, so that a request arriving at one replica can be served by state another replica holds. Each replica publishes one address for this, and every other replica dials it: it is the address **peers** use, which is not necessarily the address the process binds. A replica behind a Kubernetes Service, a load balancer or a NAT binds one and is reached at another.
+
+When `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` is unset, the address is derived: LocalAI asks the kernel which local address routes to PostgreSQL, and pairs it with the port it serves on. Every replica reaches the same database, so that address is on a network they demonstrably share.
+
+That only holds while the database is on **another host**. If PostgreSQL runs on the same host or pod (compose, single-node, a sidecar), the route to it is loopback, and advertising a loopback address would send every peer to itself. LocalAI refuses to guess in that case. It starts anyway - refusing would break every single-host deployment, which has no peers to be unreachable by - and logs an error at startup:
+
+```
+ERROR This replica is not registered in the cluster: no advertised address. Peers cannot reach it,
+      any worker whose tunnel lands here will be unroutable from every other replica, and this
+      replica cannot relay OUT either, because a peer link is authenticated by the credential an
+      instance row publishes and this replica has no row
+```
+
+The replica keeps serving every request that reaches it directly. What it cannot do is be reached by another replica, and on a multi-replica deployment that is worse than it sounds: a **worker whose tunnel lands on this replica is unroutable from every other replica**, because the ownership lookup only accepts an owner that is registered and live. This replica serves that worker fine; the others answer requests for it with `no route from this replica to that worker`. Behind a round-robin load balancer with N replicas, that is (N-1)/N of the traffic for that worker.
+
+Because that symptom looks like a broken **worker** and not a misconfigured **frontend**, the replica repeats itself every five minutes for as long as it runs, and names the workers it is currently costing:
+
+```
+ERROR This replica is not registered in the cluster and holds worker tunnels: those workers are
+      unroutable from every OTHER replica, and requests for their models fail there with no route.
+      The workers are healthy; this replica is invisible   workers=[node-a node-b] worker_count=2
+```
+
+If you are chasing a worker that answers on one replica and 5xxs on the others, grep the frontend logs for that line before looking at the worker. Until a worker's tunnel lands here the same line appears at `WARN` with no workers named, which is the same misconfiguration not yet costing anything.
+
+A single-replica deployment is unaffected: it has no peers, and it holds every tunnel itself. Set the address explicitly to fix a multi-replica one:
+
+```yaml
+environment:
+  LOCALAI_DISTRIBUTED_ADVERTISE_ADDR: "10.0.1.7:8080"   # or the pod IP, service DNS name, etc.
+```
+
+The peer link is served at `/api/cluster/peer`. A replica that stops heartbeating for 30 seconds is dropped from the table by the others, along with the worker-connection rows it owned.
+
+#### A peer proves which replica it is
+
+The route checks **two** credentials, and a dial needs both.
+
+| Credential | Sent as | Says |
+|---|---|---|
+| `LOCALAI_REGISTRATION_TOKEN` | `Authorization: Bearer <token>` | the dialler belongs to this deployment |
+| The replica's own peer credential | `X-LocalAI-Peer-Token: <secret>` | the dialler **is** the replica named in `?id=` |
+
+Each replica mints its own peer credential at startup, publishes only its SHA-256 in the `instances` table beside its address, and never sends the plaintext anywhere but the peer dial itself. The receiving replica resolves `?id=` to that row and compares. This is the same shape as the [worker tunnel credential](#worker-tunnels), in the stronger direction: a worker's credential is minted by the frontend and handed to it once, while a replica's never leaves the process that made it.
+
+Nothing needs configuring and nothing needs rotating. A restart mints a new secret, and the same registration that republishes a replica's address republishes the hash beside it.
+
+What that closes: holding `LOCALAI_REGISTRATION_TOKEN` - which every worker does - no longer lets its holder open a peer link **as some other replica**. It can therefore no longer relay through that link to every worker tunnel a replica owns, no longer displace a real replica's inbound link by declaring its id, and no longer point the per-session receive window (roughly 31 GiB of unread data per session) at a replica of its choosing. Only replicas registered in the `instances` table, each proving its own row, can open a peer link at all.
+
+What it does not close: replica-to-replica traffic is not encrypted, so anything that can read the wire between two replicas can read a credential off it, exactly as it could read the registration token. Keep `/api/cluster/peer` on a network only your replicas reach, and keep `LOCALAI_REGISTRATION_TOKEN` per-deployment.
+
+{{% notice note %}}
+**A replica with no advertised address cannot peer in either direction.** It has no row in the `instances` table, so it has no credential published, so peers refuse its dials as an unproven identity - on top of already being unreachable itself. The startup error above names this. Set `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR`.
+{{% /notice %}}
+
+{{% notice warning %}}
+**A replica that presents no peer credential is refused, not waved through.** There is no fallback to the shared token alone: an old replica and an attacker send exactly the same thing, so accepting one accepts the other. During a rolling frontend upgrade this means an **old** replica cannot open a peer link to an **upgraded** one, and each refusal is logged by the upgraded replica:
+
+```
+WARN Refusing a peer link: the dialling replica presented no peer credential. It is running a
+     release from before per-replica peer identity, or it never registered a credential of its
+     own. Upgrade it; this replica will not accept an unproven peer id   peer=<replica id>
+```
+
+The dialling side logs the matching `A peer refused this replica's credentials`. The window closes as each frontend restarts, and it is bounded by the same [frontend-first rollout](#upgrade-the-frontends-first) the tunnel already requires. A refused peer is an **authorization failure**, never node absence: nothing is rescheduled, nothing is reaped, and requests that cannot be relayed during the window fail with `no route from this replica to that worker`.
+{{% /notice %}}
+
+### Cross-replica in-memory state
+
+Several features keep state in a frontend's process memory and surface it over the API: fine-tune jobs, quantization jobs, agent tasks and Open Responses metadata. A round-robin load balancer sends a follow-up request to any replica, so each of those maps is kept current on every replica by a broadcast.
+
+**Those four families travel on PostgreSQL.** Each mutation is a `NOTIFY` on the database the deployment already runs, and each replica holds one `LISTEN` session for it. There is nothing to configure: the carrier uses the same database URL as `--auth-database-url` / `LOCALAI_AUTH_DATABASE_URL`.
+
+| Map | Subject |
+|-----|---------|
+| Fine-tune jobs | `state.finetune-jobs.delta` |
+| Quantization jobs | `state.quant-jobs.delta` |
+| Agent tasks | `state.agent-tasks.delta` and `state.agent-tasks.<user_id>.delta` |
+| Open Responses metadata | `state.responses-metadata.delta` |
+
+### Cross-replica caches
+
+A frontend also keeps caches that live for the life of the process rather than
+for the life of a request: which gallery operations are in flight and how far
+along they are, which admin operations have been admitted, which model files are
+being staged onto a worker, and which replica already holds the KV/prefix cache
+for a prompt. Each of those is kept current on every replica by a broadcast, and
+**every one of them is on PostgreSQL**.
+
+| Family | Subject | What a peer does with it |
+|--------|---------|--------------------------|
+| Gallery progress | `gallery.<op_id>.progress` | Merges the status so `/api/operations` answers the same on any replica |
+| Gallery cancel | `gallery.<op_id>.cancel` | Stops the install, on whichever replica is running it |
+| Operation cache admit | `gallery.opcache.start` | Learns that an operation was admitted, and whether it is a backend install |
+| Operation cache dismiss | `gallery.opcache.end` | Drops the operation from its own map |
+| Model cache invalidation | `cache.invalidate.models` | Reloads the model config from disk, or prunes a deleted one |
+| Backend cache invalidation | `cache.invalidate.backends` | Refreshes its upgrade-available cache |
+| Staging progress | `staging.<model_id>.progress` | Mirrors a transfer it did not perform, so the progress bar does not flicker |
+| Prefix-cache observation | `prefixcache.observe` | Learns which replica already holds the prefix for a prompt |
+| Prefix-cache invalidation | `prefixcache.invalidate` | Stops routing to a replica that is gone |
+
+**An invalidation that does not arrive must never read as a cache that is
+valid.** The two `cache.invalidate.*` families and `prefixcache.invalidate` are
+therefore published like any other broadcast: one too large for a notification
+is written to `bus_messages` and read back by the peer, never dropped to save
+the write. A missed staging event ages the peer's mirrored row out after a
+minute rather than inventing a transfer, for the same reason.
+
+**Gallery progress spills, routinely.** A progress event carries one entry per
+worker, so on a fleet of a few tens of nodes it is past the 8000-byte cap on
+every tick and travels as a row. That is the ordinary path, not an error.
+
+**A prefix-cache observation never spills.** It carries one hash per prefix
+block, and the extractor caps a chain at 64 blocks, so the largest observation a
+frontend can publish is a few kilobytes and fits in the notification itself.
+That bound is checked at startup: a build that raised the cap past what a
+notification carries would put a table write and a read-back on the inference
+path for every request whose prefix changed, so the frontend refuses to start
+and says so rather than running slowly and quietly. Nothing here drops an
+observation to stay under the cap.
+
+### Skills and collections are NOT replicated
+
+Agent **skills** and RAG **collections** are the two features whose state is not
+on this list, and they are absent from it deliberately rather than by omission.
+Neither has a cross-replica invalidation, and neither should be given one,
+because there is nothing coherent for an invalidation to say.
+
+Both are backed by the frontend's own state directory:
+
+| State | Where it lives | What is shared |
+|-------|----------------|----------------|
+| Skill content, skill resources, git-repo clones, the skill search index | `<state dir>/skills`, or `<state dir>/users/<user id>/skills` | nothing |
+| Collection contents and its file list | `<state dir>/collections/collection_<name>.json` plus the assets directory | nothing |
+| Skill name, description and source | `skills_metadata` in PostgreSQL | the row |
+| Collection vectors, with the `postgres` vector engine | the vector table in PostgreSQL | the vectors |
+
+A frontend replica writes a skill or a collection to its OWN disk. No replica
+copies it, and no broadcast could: a peer told to drop a cache entry would
+re-read a directory that does not contain the change, so the invalidation would
+be a guaranteed no-op for skills and, for a `postgres` collection, worse than
+one, since re-deriving the collection on a replica that has no local index file
+would produce a collection that answers with an empty file list against a
+populated vector store. The cache is not what is missing here; the shared
+storage is.
+
+What that means when you run more than one frontend replica:
+
+- A skill created on one replica is **listed** on every replica, because the
+  list comes from `skills_metadata`. Reading it, searching it, exporting it or
+  fetching its resources works only on the replica that wrote it.
+- A collection created on one replica is not listed, searched or uploaded to on
+  any other replica.
+
+Two deployments avoid it. Mount ONE `ReadWriteMany` volume as the state
+directory (`LOCALAI_AGENT_POOL_STATE_DIR`, else `LOCALAI_DATA_PATH`) on every
+frontend replica, so all replicas read and write the same files; or route
+`/api/agents/skills*` and `/api/agents/collections*` to a single replica. A
+frontend running distributed logs this limitation once at startup, so it is
+visible in a deployment that did neither.
+
+### Job and agent streams across replicas
+
+The same carrier moves the traffic whose subscriber is an open HTTP response rather than a cache: a job's progress stream, its result, its cancel, an agent's SSE events, an agent cancel and an Open Responses cancel.
+
+| Family | Subject | Read by |
+|--------|---------|---------|
+| Job progress | `jobs.<job_id>.progress` | `GET /api/agent/jobs/{id}/progress` on any replica, and the trace persister on every replica |
+| Job result | `jobs.<job_id>.result` | The result persister on every replica |
+| Job cancel | `jobs.<job_id>.cancel` | Every replica, so the one holding the run can stop it |
+| Agent events | `agent.<agent>.events.<user_id>` | `GET /api/agents/{name}/sse/distributed` on any replica, and the observable persister |
+| Open Responses cancel | `responses.<response_id>.cancel` | The replica holding the generation |
+
+An agent cancel is deliberately NOT on that list. It has to reach the agent WORKER running the execution, and an agent worker has no database, so it can never listen on PostgreSQL; it is a control verb on that worker's own tunnel instead. See [Cancelling an agent run](#cancelling-an-agent-run).
+
+This is what lets a user watch a job or an agent on one frontend while the work runs against another. **No broadcast on this list is the only path to anything durable.** A job's terminal state is written to its row by the replica that claimed the work, before that claim is released, so a dropped result costs an open stream its promptness and never costs the job its answer: a stream that is still open re-reads the row and closes on it. A cancel is a request and not a verdict: if it reaches nobody it has not been refused, and nothing in the API reports it as such.
+
+Two carrier details are visible to an operator.
+
+**The 8000-byte notification cap.** PostgreSQL refuses a `pg_notify` payload of 8000 bytes or more, and that limit is measured against the whole encoded notification, not just the value being replicated. A broadcast that does not fit is written to the `bus_messages` table and the notification carries the row id instead; the receiving replica reads the row and delivers the original bytes. This is an ordinary path and not an error: a fine-tune job carrying a long training message spills every time. Rows are retired ten minutes after they are written, by every replica, so `bus_messages` is a spill buffer and never a log of past events.
+
+**A broadcast is at most once, and is never replayed.** A `NOTIFY` reaches the sessions that are listening when it is issued and nobody else. A replica whose session was down in that window never receives the change, and no error is reported anywhere. That is why every one of these maps is backed by a durable table: the broadcast says only that something changed, and the table says what it changed to. A replica re-reads its table when its listener reconnects, so a missed delta is a delay and never a value that reads as though it had never been set.
+
+**A slow subscriber loses broadcasts rather than stalling the carrier.** Each subscription buffers 256 messages; past that, its broadcasts are dropped and logged at error level on the replica that took them. One blocked SSE writer must not be able to stop delivery for the whole deployment, which is what the alternative would mean. The same rule follows from it: what must survive a gap lives in a table.
+
+### Open Responses across replicas
+
+A response created by `POST /v1/responses` is held by the replica that served the request. A round-robin load balancer sends the follow-up poll, the `previous_response_id` chain and the cancel to any replica, so that metadata is replicated to every frontend and is also written to a `response_metadata` table in PostgreSQL.
+
+The table is what a replica re-hydrates from. Replication is a broadcast, and a broadcast reaches only the replicas that are subscribed at that moment: a replica whose subscription was down while a response was created never receives that notification. Without the table it would answer `404` for that response forever while its peers answered `200`. With it, the replica re-reads the table when its subscription comes back and converges.
+
+What crosses replicas and what does not:
+
+| State | Replicated | Why |
+|-------|-----------|-----|
+| Request body, response resource, output items, status, owner, expiry | Yes, in memory and in `response_metadata` | A poll, a `previous_response_id` chain or an item lookup on any replica has to resolve |
+| Cancellation | The request is, the `CancelFunc` is not | The cancel is forwarded to the owning replica, which holds the function that stops generation |
+| Stream resume buffer (`starting_after`) | No | It is the full token log; replicating it would put every generated token on the bus. A resume request that lands on the wrong replica is refused with an explicit error, never with a silently truncated event list |
+
+**Retention.** Each replica sweeps dead rows out of `response_metadata` every five minutes, and a row is dead when either of two things is true.
+
+- It carries the expiry of the response it describes, and that expiry has passed. The expiry comes from the Open Responses store TTL, which is `0` (no expiration) by default:
+
+  ```yaml
+  environment:
+    LOCALAI_OPEN_RESPONSES_STORE_TTL: "1h"
+  ```
+
+- It carries no expiry, because the TTL is `0`, and it is more than **24 hours** old.
+
+The 24-hour floor is the table's own bound and it is independent of the TTL. A TTL of `0` is a reasonable answer for the in-memory map it governs, which dies with the process; a table has no such bound, so without a floor `response_metadata` would grow for the life of the deployment and every restarting replica would re-hydrate every response the cluster had ever created.
+
+The floor never overrides a TTL you set. A row that names an expiry is judged on that expiry alone, longer or shorter than 24 hours. What the floor bounds is only how long a response stays resolvable **on a replica that did not create it**: the owning replica keeps it in memory for exactly as long as the TTL says. Set a TTL that matches how long clients are allowed to poll for a response.
+
+These rows carry the request body and the generated output, not just identifiers. They live in the same database as the rest of the cluster state.
+
+### Agent tasks are scoped to their tenant
+
+Every frontend replica keeps agent task definitions in memory so that `GET /api/agent/tasks` answers from any replica. That in-memory copy is kept current by a broadcast on the PostgreSQL carrier described above, and the broadcast carries the owning user in the subject:
+
+| Map | Subject it publishes on | Subjects it applies |
+|-----|------------------------|---------------------|
+| One user's tasks | `state.agent-tasks.<user_id>.delta` | that subject alone |
+| The administrative, cluster-wide view | `state.agent-tasks.delta` | `state.agent-tasks.delta` and `state.agent-tasks.*.delta` |
+
+The user id is its own subject token, so one user's subject can never match another user's. A user's agent tasks are therefore visible only to that user and to the administrative view, which is the same scope the `agent_tasks` table already applies to reads.
+
+`DELETE /api/agent/tasks/{id}` is scoped the same way. The delete carries the calling user down to the database, so a request naming a task id that belongs to another user removes nothing and answers `404`. The administrative view keeps the unscoped delete, matching how an empty user id already means "every user" for the task and job listings.
+
+Deployments that ran a release before this scoping existed may have in-memory copies of other users' tasks on their replicas. Nothing is written to the database by that, and a restart of the frontend clears it.
+
+Per-user scoping needs the agent pool running, because that is what creates the per-user services. With `LOCALAI_DISABLE_AGENTS=true`, the agent task routes are still served, and they are served by one cluster-wide service that every authenticated caller shares.
+
+### Worker tunnels
+
+A worker can open one long-lived, multiplexed tunnel to the frontend instead of listening on a port of its own. It dials `GET /api/cluster/connect?id=<node id>`, the connection is upgraded to a WebSocket, and every subsequent request the frontend makes to that worker travels as a stream inside it. Nothing dials *into* the worker, so a worker behind NAT, in another Kubernetes cluster or on a laptop needs no inbound port and no reachable address.
+
+#### Each worker has its own tunnel credential
+
+The dial is authenticated against **that node's own tunnel credential**, which is not the registration token. Registration mints a fresh random secret per node, returns the plaintext once in the registration response as `tunnel_token`, and stores only its SHA-256. So a leaked registration token no longer opens a tunnel: an attacker who has it, and who knows a node ID, still cannot authenticate as that worker. It cannot reach a worker through the [peer link](#a-peer-proves-which-replica-it-is) either, which is authenticated per replica in the same way.
+
+A worker that presents a credential belonging to no node, or names a node ID the frontend has never seen, is refused with `401` before the WebSocket upgrade happens. A node still awaiting admin approval is refused with `403`. A frontend that cannot read its node table answers `500` rather than `401`, so a worker retries instead of re-registering under a new identity.
+
+**The credential is rotated on every registration.** That follows from storing only the hash: a re-registering worker cannot be told the secret it already holds, so it is given a new one. The worker's live tunnel is unaffected, because the credential is checked when a tunnel is *dialled* and never again; what changes is which secret the next reconnect presents, and the worker learns it in the same response that rotated it.
+
+**A node that has not registered since upgrading cannot tunnel.** Its row has no tunnel credential and the column cannot be back-filled, because the plaintext only ever existed in the response that minted it. Such a node is refused with `401` until it registers again, which a worker restart does. The frontend does *not* fall back to the registration token for these nodes.
+
+Unlike the agent worker's API key, a tunnel credential **is** issued to a node still awaiting approval. It is inert until then: the tunnel route re-reads the node's status on every dial and refuses a pending one. Withholding it would instead strand workers that register exactly once, since approval on its own prompts no re-registration.
+
+A tunnel credential does not replace `LOCALAI_REGISTRATION_TOKEN`. Without one, node registration itself is unauthenticated, so anyone who can reach the frontend can register a worker and be issued a tunnel credential for it. How far that gets them depends on auto-approve: with auto-approve on the node is healthy at once and the credential works immediately; with it off the node is pending and the credential is inert until an admin approves, so approval is the real gate. LocalAI warns about the missing token at startup.
+
+Both **backend** and **agent** nodes are issued one. Earlier releases minted a credential only for backend nodes, because nothing dialled into an agent worker; the frontend now reaches an agent worker's MCP control verbs over a tunnel of its own, so an agent worker dials one too. A node whose type is neither has its tunnel credential cleared on every registration rather than merely not renewed, so what refuses it is an empty credential and not a second check that could drift from this one.
+
+An agent worker's tunnel carries only the `http` tag: it runs no backend processes, so it does not offer the `grpc` tag at all. Its control server binds `127.0.0.1` on a port chosen by the kernel and advertises it nowhere, so an agent worker still opens no inbound port.
+
+**An agent worker no longer needs `--nats-url`, and connects to no message bus at all.** Every verb the frontend addresses to a specific agent worker is a control RPC on the tunnel that worker holds: MCP tool execution, MCP discovery, the backend stop that flushes cached MCP sessions, agent execution, MCP CI runs, and now the cancel. The progress and result lines the worker asks the frontend to re-publish on its behalf travel back on that same response body, and the frontend re-publishes them on the PostgreSQL carrier.
+
+#### Cancelling an agent run
+
+A cancel names one execution by its message id, and nothing in the deployment records which worker holds it: the claim that dispatched the run names the claiming *replica*, and it is deleted when the run ends. So the frontend offers the cancel to **every agent worker a live replica can reach**, over each worker's own tunnel (`POST /v1/control/agent/cancel`), and each worker answers only for itself.
+
+A caller gets one of three answers, and they are deliberately different facts:
+
+| Outcome | What it means |
+|---------|---------------|
+| success | A worker answered that it cancelled the run, or the run was held by the replica the request landed on. |
+| *could not be delivered* | At least one agent worker that might have been running it was not reached: its tunnel was lost inside the [reconnect grace](#a-lost-tunnel-is-a-departure-not-an-absence), its control plane refused the stream, or a peer holding it was unreachable. Nothing was learned. It is **not** a refusal and **not** a missing run. |
+| *no agent worker is running that execution* | Every agent worker was reached and every one of them answered that it does not hold the run. |
+
+A worker that is **reconnecting** always produces the second answer. The cancel is not retried inside the request and not queued: retrying would hold the caller for the length of the reconnect grace, and the retry belongs with whoever owns the budget. Re-issue the cancel once the worker is connected again.
+
+There is no `nodes.<id>.*` subject left, and an agent worker's minted JWT no longer grants `mcp.tools.execute`, `mcp.discovery`, `nodes.<id>.backend.stop`, `agent.execute` or `jobs.mcp-ci.new`. The `--agent-subject` and `--agent-queue` flags (`LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`) are gone: there is no subject for an agent worker to subscribe to and no queue group to be one of.
+
+### Dispatch is a claim, not a queue group
+
+Queued work (agent runs, MCP CI jobs, plain task jobs) is written to a `work_claims` table rather than published onto a NATS queue group. A frontend replica takes one row at a time with `SELECT ... FOR UPDATE SKIP LOCKED`, picks a connected agent worker, and drives the work as a streaming control RPC over that worker's tunnel. The worker's progress, its agent events and its terminal result all arrive on the response body the claiming replica is already reading, and that replica persists the terminal line **before** it releases the claim.
+
+This changes three behaviours an operator can see:
+
+- **A job with nowhere to run is now visible.** A publish onto a queue group nobody had joined succeeded, and the job sat `pending` for ever with no trace. A claim row that nothing takes is still in the table.
+- **A plain task job (a task whose model configures no MCP servers) is now failed with a reason.** No agent worker has ever served that kind of job, and it used to be published into silence. It is now marked `failed` with `no worker in this deployment serves plain task jobs`. This surfaces a pre-existing gap rather than introducing one.
+- **Dispatch is at-least-once instead of at-most-once.** A transport failure (a lost tunnel, an unreachable peer, a replica that died mid-dispatch) returns the work to the pool and increments the row's `attempts`; only the worker's own answer, success or failure, removes it.
+
+**A claim that could not be dispatched is retried for ever, at a backing-off rate.** There is no attempt limit and no dead-letter queue, on purpose. Everything that returns a claim to the pool is a case where nothing was learned about the work: no agent worker was connected, the tunnel broke, a peer could not be reached, the stream was refused before the request body left the frontend. None of those is the worker saying it ran the job and it failed, so failing the job on any of them would report an absent connection as a verdict. A deployment whose agent workers are down for a day runs its queued work when they come back.
+
+What is bounded is the retry RATE. Each failed dispatch stamps the row with the earliest it may be claimed again, doubling from **2 seconds** to a cap of **60 seconds**, measured on the database clock. Two things follow. Queued work becomes claimable again within a minute of the fleet returning, and one permanently undispatchable row no longer starves the queue: rows are claimed oldest-first, so before the backoff the oldest stuck row was re-claimed ahead of every newer one on every tick and held a dispatch slot while it failed. A claim released by the reap because its replica died carries no delay at all, since that work was never handed to anyone.
+
+A row that keeps failing logs `Releasing a claim whose dispatch obtained no answer` with a growing `attempt` count, at most once per backoff interval. `SELECT id, kind, attempts, not_before FROM work_claims ORDER BY attempts DESC` is what tells you a job is stuck rather than merely queued.
+
+**A claim held by a replica that has gone becomes claimable again; a claim held by a replica that is merely slow is never taken away from it.** The reap asks whether the claim's owner is still a live replica in the `instances` table, on the database clock, and never how long the claim has been held: a job that legitimately runs for an hour on a heartbeating replica is left alone, and a claim whose owner stopped heartbeating is released on the next tick (within `30s`, the replica-liveness window).
+
+**A frontend replica with no advertised peer address claims no work.** Such a replica has no row in the `instances` table, so no peer can tell its claims from ones a dead replica left, and another replica would take the work away from it mid-run. It logs an error naming `LOCALAI_DISTRIBUTED_ADVERTISE_ADDR` and starts claiming as soon as it registers. This is the same configuration that already makes a replica's workers unroutable from its peers.
+
+The tunnel lands on exactly one frontend replica, and that replica records itself as the owner of the worker's connection in the `node_connections` table. When the socket dies the claim is dropped, but the row stays behind with no owner and a `disconnected_at` stamp, so a worker that is re-dialling the load balancer can be told from one that has never connected. The row is deleted once that departure is older than ten liveness windows (five minutes). If the replica stalls long enough for its peers to reap it, it re-claims the tunnels it still holds on a live session as soon as it re-registers, skipping any whose socket has already gone. That re-claim needs the replica to have an advertised address: without one it never had an instance row to begin with, and its tunnels are usable only by the replica holding them.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/cluster/connect?id=<node id>` | Worker opens its multiplexed tunnel (`Authorization: Bearer <the node's own tunnel credential>`) |
+
+The route is exempt from the normal session/API-key authentication (it authenticates itself, like `/api/cluster/peer`) and is registered in every deployment. Outside distributed mode there is no node table to check a token against, so it answers `503`.
+
+#### What the worker does with the tunnel
+
+The worker holds the tunnel with one goroutine: it dials, serves the frontend's streams until the session dies, and dials again. Every stream opens with a small frame naming which local service it is for, and the worker answers before either side speaks the tunnelled protocol:
+
+| Tag | Goes to | Target |
+|-----|---------|--------|
+| `grpc` | a backend process on this worker | the port; the host is discarded and only `127.0.0.1` is dialled, within the worker's own backend port range |
+| `http` | the worker's own file-transfer and backend-log server (an agent worker's control server) | ignored; there is one such server and only the worker knows where it bound |
+
+An **agent worker** offers only the `http` row. It runs no backend processes, so the `grpc` tag has nothing to route to and a stream that names it is refused as an unknown tag.
+
+The `grpc` row is the security boundary of the tunnel, and it is worth being explicit about it. A tunnel terminates inside the worker process, so a stream arriving on it can reach anything the worker can reach; if the frontend could name the host, whoever holds the frontend end could make every worker in the fleet dial arbitrary addresses on its private network. The worker therefore builds the dial address from a constant `127.0.0.1` and a port it has validated, and the string from the wire never reaches the dialler at all. The port range is the one the worker's own allocator hands to backend processes, which by default runs to 65535; setting `LOCALAI_GRPC_MAX_PORT` narrows the allocator and this range together, and a worker with a known backend count should set it.
+
+A stream naming a tag the worker does not serve, a target outside that port range, or a local service it could not reach, is refused with a reason and the stream is **ended** rather than left open. Those refusals are distinct on the wire on purpose: an unknown tag and an out-of-range target are requests this worker will never serve, while an unreachable local service is a backend that has not started yet. A frontend gives up on the first two and may retry the third. One bad stream never affects the others or the session.
+
+Reconnects use exponential backoff with jitter: the interval doubles from 500ms up to a ceiling of 30 seconds, and each wait is drawn between half of that interval and all of it, so no worker ever spins and a fleet that lost the same replica does not come back in lockstep. The interval returns to its floor only after a session that lasted at least 30 seconds. That last part is what stops a rolling frontend restart, where every dial succeeds and then dies moments later, from turning a fleet of workers into a retry storm against the first replica back up. A worker that is refused (`401`, `403`) keeps retrying on the same schedule rather than exiting: a re-registration or an admin approval fixes both without restarting it.
+
+#### What the frontend sends through it
+
+Every connection the frontend makes to a worker now goes through that worker's tunnel. There are four, and all four are the same path underneath:
+
+| What | Protocol | Stream tag |
+|------|----------|-----------|
+| Inference, model load, health checks | gRPC to a backend process | `grpc` |
+| Model file staging, backend-log listing | HTTP to the worker's own server | `http` |
+| Live backend-log streaming | WebSocket to the same server | `http` |
+| The control plane: backend install/upgrade/list/stop/delete, model stop/unload/delete, models running, node stop, and the four object-store staging verbs | HTTP to the worker's own server | `http` |
+
+#### The worker control plane
+
+A serve-backend worker serves the commands the frontend gives it as ordinary
+HTTP routes under `/v1/control/`, on the same loopback server that already
+carries file staging and backend logs, behind the same `LOCALAI_REGISTRATION_TOKEN`
+bearer check. They replace the fourteen `nodes.<id>.*` NATS subjects a worker
+used to subscribe to - the ten backend and model lifecycle verbs, plus the four
+object-store staging verbs (`POST /v1/control/files/{ensure,stage,temp,listdir}`,
+mounted only when the deployment configured an object store). The request bodies
+are unchanged and the reply fields keep their names and types, so nothing an
+operator inspects on the wire has a new shape. The one difference is that a
+worker now OMITS an empty reply field where the NATS handlers always emitted it,
+which a client reading a missing field as the zero value cannot tell apart.
+
+`files/stage` accepts files inside the worker's models or staging-cache
+directory, including when the directory path contains a symlink. It compares
+resolved paths and rejects existing symlinks that point outside those directories.
+
+`POST /v1/control/backend/stop` is served by BOTH kinds of worker, and the
+frontend sends it the same way to either. A serve-backend worker kills the
+backend process and recycles its port; an agent worker runs no backend
+processes and closes the MCP sessions it had cached for that backend. No
+`nodes.<id>.*` subject remains, so a worker never takes a control verb off the
+bus whatever its type.
+
+`files/listdir` is the verb the change is most visible on. Its reply used to be
+sized against what the bus would carry, which put a wide model directory close to
+the limit; it is now a response body the frontend is already reading, so the
+listing is returned whole and nothing truncates it at either end.
+
+Two of the routes stream. `POST /v1/control/backend/install` and
+`/v1/control/backend/upgrade` answer with `application/x-ndjson`: zero or more
+`{"progress":{...}}` lines carrying the same download-progress payload the
+per-op NATS subject carried, followed by exactly one `{"reply":{...}}` line,
+which is always the last line on the body. When the request carries an `op_id`,
+the first progress line has phase `resolving` and is written before any gallery
+work begins, so a cold install that spends minutes on a manifest is
+distinguishable from a stream that is broken. Nothing publishes install progress
+over NATS any more. An install that FAILS is still a
+`200` with a reply whose `success` is `false`. That is deliberate, and it is the
+same distinction the refusal table above draws: a non-2xx means the frontend
+could not get the request to the worker, which nothing may act on, while the
+worker's own verdict, including "there is no such backend", is evidence a reap
+guard may act on. A worker that answered `500` for a failed install would put
+its own verdict in the bucket reserved for a broken link.
+
+A control request carries the caller's deadline and nothing else: the worker
+does not impose a timeout of its own on an install, and a caller that gives up
+cancels the download rather than leaving the worker pulling gigabytes for a
+response nobody will read.
+
+On the frontend's side the ten verbs are ordinary HTTP calls on the `http`
+stream tag, so a control RPC to a worker **another replica holds is relayed
+exactly like an inference request** - same lookup, same one hop, same budget
+arithmetic as [Reaching a worker another replica holds](#reaching-a-worker-another-replica-holds).
+There is nothing to subscribe to before an install: its progress lines share the
+install's own response, so no event can arrive before the caller is listening
+and there is no per-op subject to grant a permission for.
+
+How a control RPC can FAIL is where absence is decided for the whole control
+plane, so the frontend maps every outcome onto exactly one row of the table
+below and never onto another. Only the two rows in which the WORKER spoke may
+be acted on; everything else is this frontend failing to reach it, which says
+nothing about the worker at all:
+
+| What happened | How the frontend reports it | May anything reap on it? |
+|---|---|---|
+| The worker refused the stream with one of its three evidence codes | the refusal itself, unwrapped | **Yes.** The worker spoke. |
+| No route: no live owner, an unreachable peer, no relay path, a refusal code this frontend does not recognise, or the worker saying it learned nothing | "this frontend has no route to that worker" | No |
+| The call ran out of budget | a deadline, which install and upgrade report as *still installing on the worker* | No |
+| `404` under `/v1/control/` | "the worker does not serve that control verb" - it is older than this frontend, and only the upgrade path acts on it, by re-issuing the legacy force-install | No |
+| `200` with a reply whose `error` is set | the worker's own answer, handed to the caller as-is | **Yes**, by the caller |
+
+A `5xx`, or a body the frontend cannot decode, is in the second row and not the
+last: a worker's verdict arrives as a `200`, so a `5xx` is the server failing
+rather than answering.
+
+The address the frontend holds for a backend (the per-replica port a worker reports after an install) is still what identifies it, and it is still what appears in logs and errors. What it no longer is, is somewhere the frontend connects to: it travels inside the tunnel as the stream's target, and the worker decides what to do with it.
+
+A frontend with no way to reach a worker says so and fails. It does **not** fall back to connecting to the worker's advertised address. That fallback is what the tunnel exists to remove, and it is the kind of defect that works on a one-replica developer box and fails in production, so it is an error everywhere. The consequences are deliberately narrow: a model whose worker cannot be reached is not reaped, and its row is left alone, because a frontend that cannot reach a worker has learned nothing about whether that worker is still running the model.
+
+#### Reaching a worker another replica holds
+
+A worker's tunnel lands on exactly one replica, so with N replicas behind a load balancer roughly (N-1)/N of requests arrive somewhere else. Those requests are relayed: the replica that received the request looks up the owner in `node_connections`, **joined against the live `instances` rows**, opens a stream on its peer link to that owner, and the owner splices it onto the worker's tunnel. One hop, never two; a stale ownership row is answered with a routing refusal and the dialling replica resolves the owner again rather than being sent round a loop.
+
+The dialling replica states how much time its own client has left in the frame that opens the relayed stream, and the owner bounds its work by the smaller of that and its own 15s ceiling. Neither number can lengthen the other: a patient client cannot park the owning replica, and an impatient one cannot be kept waiting on a budget it did not ask for.
+
+These outcomes are kept apart on purpose, because they call for different actions:
+
+| Outcome | What it means | What acts on it |
+|---|---|---|
+| No live owner | No replica holds this worker's tunnel | No route right now; the worker's models are **left alone** |
+| Not the owner | The routing was stale | Resolve the owner again |
+| Peer unreachable | A replica exists and will not answer | Retry |
+| No relay path | This replica cannot reach the owner at all | Report; requests here fail until it can |
+| The worker refused | The worker answered and said no | Depends on WHICH refusal; see below |
+
+**None of the first four is absence.** A worker's presence is its **heartbeat**, and a route to it is a separate fact that can be false while the worker is registered, heartbeating and serving every request another replica sends it. So the frontend answers "no route", never "this worker is gone", and none of the first four causes a model to be rescheduled or a `node_models` row to be deleted.
+
+The fifth is different, and deliberately so. A worker that **refuses** a stream has answered, which proves it is connected; what it is refusing is the stream to one backend process on it. That is the ordinary shape of a crashed backend now that workers listen on nothing: the worker's own dial to the process fails and it says so.
+
+There are **four** refusals, and only three of them are evidence about a backend. The distinction decides whether a model's row is deleted, so an operator reading one of these in a log can tell what will happen next:
+
+| Refusal a worker sends | When | Row reaped? |
+|---|---|---|
+| `the worker could not reach the local service for that stream` | The worker's own dial to the backend process was refused. A crashed backend | **Yes.** Reloaded elsewhere, as a dead local backend would be |
+| `the worker does not serve that stream tag` | The worker does not serve that kind of stream at all | **Yes.** Nothing clears this until the worker is upgraded, and the model re-registers somewhere that works |
+| `the worker rejected the stream request as malformed` | The stored backend address is not a port in this worker's range | **Yes.** The row can never be reached, so reaping lets the model re-register a usable address |
+| `the worker could not serve that stream, for a reason that is not about the backend` | The request frame did not arrive in the worker's 15s window, the worker's tunnel was being torn down, or it ran out of a local resource | **No.** These clear on their own; the request fails with "no route" and is retried |
+
+The fourth exists because the other three are acted on. A relayed request crosses a peer link before its frame reaches the worker, so on a congested link a frame can arrive late through nobody's fault; reported as one of the first three, that would evict a model that is loaded and serving. If you see the fourth in your logs, look at peer-link congestion or a worker that is reconnecting, not at the backend it names.
+
+A refusal code the frontend does not recognise - a newer worker's vocabulary - is treated as "no route" as well, so a version skew costs a retry rather than a reaped replica.
+
+That distinction is the whole point rather than a nicety. A scheduler told that a connected worker has gone away stops its backend and reclaims every model it is running, and the events that produce "no route" are ordinary ones: a frontend replica restarting, an ownership row a moment stale, a worker that has not dialled its tunnel yet. Absence has its own two mechanisms and neither of them is a failed request: a stale **heartbeat** (see `--stale-node-threshold`), and a tunnel **departure** older than the reconnect grace (see below).
+
+#### There is no frontend-side fallback
+
+`LOCALAI_WORKER_TUNNEL=false` is a **fatal startup error** on this release. It is not a degraded mode and not a rollback switch: the worker refuses to boot and prints why. Nothing else would be honest, because the setting stops the worker dialling its tunnel while **no frontend path dials a worker's advertised address**, and a worker on this release advertises none and listens on no routable interface, so a worker that started with it off would register, heartbeat, be scheduled onto, and fail every request. The rollback is to run the previous release on both sides.
+
+#### Upgrade the frontends first
+
+**Upgrade every frontend replica, then restart the workers one at a time.**
+
+- **Frontends first (correct).** Old workers keep running, keep heartbeating and keep their `node_models` rows: the new frontend reports them as unroutable rather than as gone, so nothing is rescheduled and nothing is reaped. What fails is requests for models on a worker that has not been restarted yet. That is a real degraded window, but it is bounded by how fast you roll the workers, it heals itself as each one comes back, and no state is lost.
+  - **What you will see while it lasts:** requests for models on a not-yet-restarted worker fail with "no route to the worker", while `GET /api/nodes` still shows that node healthy and heartbeating and its models still listed. Restart the worker and it clears. Nothing needs fixing; you are watching the window close.
+  - **While the frontends themselves are rolling**, a frontend you have not restarted yet cannot open a [peer link](#a-peer-proves-which-replica-it-is) to one you have: it holds no peer credential and the upgraded replica refuses unproven ids. An upgraded replica dialling an older one still works, so the loss is one-directional. What it costs is relayed requests that land on a not-yet-restarted replica for a worker an upgraded replica owns; they fail with `no route from this replica to that worker`, which is a routing fact and not absence, so nothing is rescheduled or reaped. Both sides log it by name. Restart the remaining frontends and it clears.
+- **Workers first (this fails, do not do it).** An old frontend has no `/api/cluster/connect` route for the worker to dial *and* rejects the new worker's registration outright, because the worker no longer sends an address and the old frontend requires one. A 4xx is a verdict rather than an outage, so the worker reports the reason on the **first** attempt and exits instead of retrying. Every worker you restart is a worker you take out of the fleet until the frontends are upgraded.
+  - **What you will see if you do it anyway:** each restarted worker exits within a second or two of starting, with
+
+    ```
+    registration failed with status 400: {"error":{"code":400,"message":"address is required for backend workers","type":"node_error"}}: the frontend refused this registration
+    ```
+
+    The fleet drains one node per restart, and the nodes that are left are the ones you have not touched yet. Grep for `address is required for backend workers` if your log collector reflows the line.
+
+A worker that cannot reach its frontend *at the network level* retries with exponential backoff and never gives up, so restarting a worker is all that is needed to close the frontend-first window. A worker whose registration is **rejected** does not retry, which is what makes the wrong order destructive rather than slow.
+
+##### Rolling a frontend back requires restarting every worker
+
+Registering against an upgraded frontend **clears** a node's `address` and `http_address` columns in the shared database, and re-registration is the only thing that ever writes them back. So a partial rollback does not restore the previous behaviour on its own: the old frontend code reads an empty address for every node that has registered since the upgrade and dials nothing. Roll the frontends back *and then restart every worker* so each one re-registers and repopulates its address. Rolling back is not a frontend-only operation.
+
+#### Workers bind nothing routable
+
+A worker on this release opens **no inbound listener on a routable interface**. Its backend gRPC processes and its HTTP file-transfer server all bind loopback, and the frontend reaches both through the tunnel. Concretely:
+
+- **No inbound firewall rule, published port, Service or Ingress is needed for a worker.** A serve-backend worker needs outbound access to the frontend URL (`LOCALAI_REGISTER_TO`), and nothing else. An agent worker binds only loopback too, and needs outbound access to `LOCALAI_REGISTER_TO` and nothing else either: registration, heartbeats, its tunnel and every verb the frontend addresses to it all go there.
+- **`LOCALAI_ADVERTISE_ADDR` and `LOCALAI_ADVERTISE_HTTP_ADDR` are gone.** There is nothing to advertise. Both are ignored if still set; remove them.
+- **`LOCALAI_ADDR` and `LOCALAI_SERVE_ADDR` are read for their port only.** The port is the base of the backend port range, and `port-1` is the HTTP file-transfer port. The host half names an interface nothing binds.
+- The node's `address` and `http_address` fields in `GET /api/nodes` are empty, and are cleared for nodes that reported them before the upgrade.
+
+#### A lost tunnel is a departure, not an absence
+
+When a worker's tunnel goes, the frontend does **not** forget the worker. It records *when* the tunnel went, and for a grace period after that the worker is reported as **reconnecting**, not as gone. Only once the departure is older than the grace may anything act on the worker's absence: stop scheduling work onto it, clean up its rows, release its models.
+
+That distinction exists because a worker loses its tunnel for entirely ordinary reasons. A frontend replica restarting during a rolling upgrade drops every tunnel it held, and each of those workers immediately re-dials the load balancer and lands on another replica. Treating that as "the worker is gone" would evict models mid-upgrade for a fleet that never actually went anywhere.
+
+This applies to **both worker kinds, under the same grace**. An agent worker holds a tunnel of its own and is reached through it and through nothing else, so its `node_connections` row ages exactly like a backend worker's and means exactly the same thing: past the grace it is reported `unhealthy` in `GET /api/nodes`. Earlier releases exempted agent nodes by type, because an agent worker took its work over a message bus and a departed tunnel said nothing about it; there is no bus any more, so that exemption would hide the only symptom an unreachable agent worker has. What still differs is placement, not liveness: the scheduler never sees agent nodes (every placement query selects `node_type = 'backend'`), and backend listing and backend install/upgrade/delete still skip them, because an agent worker runs no backend processes.
+
+**A departure evicts the per-node state the frontend was holding.** On the transition to gone, and once per departure rather than once per health cycle, the frontend drops that node's prefix-cache affinity entries in every model, its cached backend-probe results, its in-flight file-staging operations, and its rows in the per-node breakdown of every operation still open in `GET /api/operations`. A worker that comes back is re-probed rather than trusted, and an operation that was waiting on a node that left stops reporting it as still copying. Nothing is evicted for a worker that is merely **reconnecting**: the eviction is an act on absence, so it fires only where the demotion does.
+
+Three things read this. The **scheduler** reads it before it places a cold load: a worker whose departure has outlived the grace is skipped and marked unhealthy, so every other frontend replica stops choosing it too. **LRU eviction** reads it before it hands back the node it freed capacity on, because a node full enough to be an eviction target is exactly the node the placement selectors never offer, so the scheduler's own check never sees it. The **health monitor** reads it on every cycle, which is what covers the case the heartbeat cannot see. A worker's heartbeat says its supervisor is alive; it says nothing about whether anything here can reach that worker's backends, because those are reached over the tunnel. A worker that heartbeats with a permanently dead tunnel (a proxy that stopped upgrading WebSockets, a rotated registration credential, a reconnect loop longer than the grace) is therefore marked unhealthy too, rather than staying listed healthy while every request for a model loaded on it fails "no route to that worker".
+
+The log lines are `Scheduled node has no tunnel and its departure outlived the reconnect grace, marking unhealthy and re-scheduling`, `Eviction target has no tunnel and its departure outlived the reconnect grace, marking unhealthy and evicting again`, and `Node is heartbeating but its tunnel has been gone longer than the reconnect grace; marking unhealthy`. Each names the grace it used, and the last one names the node type as well, so an agent worker's demotion is not read as a backend worker's.
+
+**The demotion is a status change, not a deletion.** The worker's `node_models` rows survive it. Status is enough to unwedge the node, because request routing and LRU eviction both select only healthy nodes, so the model stops being served from there and the next request places it somewhere reachable. Deleting rows on a presence read would give any future defect in that read the widest possible blast radius, for nothing the demotion does not already deliver.
+
+Status is a *trailing* signal, though: it is only as fresh as the last health cycle. That is why the two paths that are about to commit work to a node, cold-load placement and eviction, read presence directly instead of trusting the status column. Everything else reads the column.
+
+**A returning heartbeat does not promote a node back on its own.** Recovery needs the *tunnel* back, not just the supervisor: the health monitor re-promotes a demoted node only once presence reports it connected or reconnecting again. Before that check the two were conflated, and a heartbeating worker with a dead tunnel was promoted back to healthy on the next 15s cycle, every cycle.
+
+The other three answers place work as normal. **Reconnecting** (the tunnel went inside the grace) and **unknown** (no connection row at all: the worker has never dialled, or its departure has already aged out of retention) are both non-verdicts; so is a failure to read the answer, because a database hiccup that excluded workers would cost the fleet its capacity for a reason that has nothing to do with any worker. In each of those cases scheduling proceeds, the node keeps its status, and the install that follows reports its own outcome.
+
+A frontend refuses to start if either reader was built without a source of absence, because that failure has no other symptom: it looks exactly like a fleet that is fine.
+
+| Flag | Env var | Default | Description |
+|------|---------|---------|-------------|
+| `--worker-reconnect-grace` | `LOCALAI_WORKER_RECONNECT_GRACE` | `90s` | How long a worker whose tunnel was lost is treated as reconnecting rather than gone. |
+
+The default clears the worker's own worst-case reconnect. A worker retries with exponential backoff capped at **30s**, and each attempt has a **10s** dial budget, so a worker that waits the ceiling, hangs a dial, and waits the ceiling again is back at **70s**. The backoff also only resets after a session that lasted 30s, which a replica accepting a dial and then dying denies, so a worker crossing a rolling restart really does climb to the ceiling rather than sitting near the 500ms floor. 90s clears that worst case with margin; 60s would sit under it.
+
+What you trade by changing it:
+
+- **Lower**: a worker that has genuinely gone away is declared absent sooner, so its rows are cleaned and its models released sooner. Set it below the worker's backoff ceiling and you will condemn workers that are re-homing exactly as designed.
+- **Higher**: a rolling frontend restart is safer, because workers crossing it stay "reconnecting" for longer. The cost is that a worker that really has died keeps its rows for longer.
+
+The window is measured on the **database clock**, not on any frontend's own clock, so every replica agrees to the second on when a worker's grace ran out. A departure row is kept well past the grace before it is purged; once purged, the worker reads as *unknown* rather than *gone*, and nothing acts on unknown.
 
 ### The model load deadline scales with the checkpoint
 
@@ -156,53 +681,42 @@ The chat UI renders this state inline and retries automatically once the model r
 A frontend replica that dies mid-load does not wedge the model: the job row carries a heartbeat and another replica reclaims a job whose heartbeat has stopped. The heartbeat is time-based, not byte-based, because a checkpoint load legitimately transfers zero bytes for many minutes.
 {{% /notice %}}
 
-### NATS JWT authentication (recommended for production)
+### Migrating off the message broker
 
-By default, NATS connections are anonymous: any client that can reach port `4222` may publish control-plane subjects such as `nodes.<id>.backend.install`. Enable JWT auth to scope workers to their own node subjects and give the frontend a dedicated service credential.
+Earlier releases of distributed mode required a NATS cluster alongside PostgreSQL. **They no longer do. Shut the broker down.** Nothing in LocalAI opens a connection to one: the frontend's cross-replica fan-out is on PostgreSQL, queued work is a claim on a PostgreSQL table, a serve-backend worker takes every verb on its own tunnel, and an agent worker does too, including the cancel that was the last family on a bus.
 
-| Flag | Env Var | Description |
-|------|---------|-------------|
-| `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | Account signing seed (`SU...`). The frontend mints a per-node user JWT at registration (`nats_jwt` in the register response). |
-| `--nats-service-jwt` | `LOCALAI_NATS_SERVICE_JWT` | User JWT for the frontend (and optional fallback for agent workers) to publish install/upgrade and related subjects. |
-| `--nats-service-seed` | `LOCALAI_NATS_SERVICE_SEED` | User signing seed (`SU...`) paired with the service JWT. |
-| `--nats-worker-jwt-ttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Lifetime of minted worker JWTs (default `24h`). |
-| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | Fail startup if JWT credentials are missing when distributed mode is enabled. |
+A distributed deployment needs **PostgreSQL and the frontends' own HTTP listener, and nothing else.** Workers dial out to that listener and hold the tunnel open, so no worker needs an inbound port either. There is no broker client left in LocalAI at all: as of this release the `nats-io` modules are not in the build, so the binary cannot open a broker connection even if something asked it to.
 
-### NATS TLS / mTLS (optional)
+There is no migration step and no cutover window. Stop the broker, delete its service from your compose file, chart or unit files, and delete the credentials you generated for it. A deployment that keeps running one is paying for infrastructure that carries nothing.
 
-Use `tls://` in `--nats-url` / `LOCALAI_NATS_URL` for encrypted transport. When the server uses a private CA or requires client certificates, set:
+**Your existing command lines still start.** Every `LOCALAI_NATS_*` setting below is parsed and then ignored, so an unedited command line, unit file or Helm values file needs no change on the day you upgrade. They are hidden from `--help`, because there is nothing left to configure with them. **They are scheduled for removal in the release after next**; remove them from your own files at your convenience before then.
 
-| Flag | Env Var | Description |
-|------|---------|-------------|
-| `--nats-tls-ca` | `LOCALAI_NATS_TLS_CA` | PEM file to verify the NATS server (private CA) |
-| `--nats-tls-cert` | `LOCALAI_NATS_TLS_CERT` | Client certificate for NATS mTLS |
-| `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | Client private key (required with `--nats-tls-cert`) |
+| Flag | Env Var | Status |
+|------|---------|--------|
+| `--nats-url` | `LOCALAI_NATS_URL` | Accepted and ignored on the frontend, `local-ai worker` and `local-ai agent-worker`. The value is never dialled, so it may point at a broker that is already gone. |
+| `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | Accepted and ignored. The frontend mints no per-node broker credential: a register or approve response carries no `nats_jwt` and no `nats_user_seed`, and a worker that reads those keys finds nothing. Nodes are authenticated by their registration token and their tunnel token. |
+| `--nats-service-jwt` / `--nats-service-seed` | `LOCALAI_NATS_SERVICE_JWT` / `LOCALAI_NATS_SERVICE_SEED` | Accepted and ignored: the frontend opens no bus connection to present them on. |
+| `--nats-worker-jwtttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | Accepted and ignored. No per-node broker credential is minted, so none has a lifetime. |
+| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | Accepted and ignored. It used to make an agent worker wait through admin approval; use `--distributed-require-auth` for that (see below). |
+| `--nats-tlsca` / `--nats-tls-cert` / `--nats-tls-key` | `LOCALAI_NATS_TLS_*` | Accepted and ignored. The paths are no longer checked for existence either, so a certificate deleted with the broker does not fail startup. |
 
-The same env vars apply to backend workers and `local-ai agent-worker`. If the server cert is already trusted by the OS, `tls://` alone is enough.
+{{% notice warning %}}
+**One behaviour changed, on the agent worker.** `--nats-require-auth` used to make `local-ai agent-worker` wait through admin approval at registration instead of starting against a pending node. That wait is now asked for with `--distributed-require-auth` / `LOCALAI_DISTRIBUTED_REQUIRE_AUTH`, which already implied it. An agent worker started with only `--nats-require-auth` no longer waits: it registers, starts, and its tunnel dials are refused with 403 until an admin approves it, which is the historical default behaviour. If you relied on the wait, set `--distributed-require-auth`.
 
-**Worker register response** (when minting is enabled and the node is approved):
+On the **frontend**, `--distributed-require-auth` now implies only `--registration-require-auth`. It used to also require broker credentials, and there are none to require.
+{{% /notice %}}
 
-```json
-{
-  "id": "…",
-  "nats_jwt": "eyJ…",
-  "nats_user_seed": "SU…"
-}
-```
-
-Workers connect with that JWT and seed automatically (shown once; store securely). Override with `LOCALAI_NATS_JWT` / `LOCALAI_NATS_USER_SEED` if needed. Set `LOCALAI_NATS_REQUIRE_AUTH=true` on workers when the bus requires credentials.
-
-When `LOCALAI_NATS_REQUIRE_AUTH=true` and no static credentials are provided, a worker that registers while still **pending admin approval** keeps re-registering (with backoff) until an admin approves it and the frontend mints its JWT - it does not start unauthenticated. This retry is **bounded**: if the node is never approved (or no credentials are minted) after a large number of attempts, the worker exits non-zero so the failure is visible (a crash-looping or failed worker) rather than hanging silently. Minted worker JWTs are also **refreshed automatically** before they expire (the worker re-registers at ~75% of the JWT lifetime), so long-running workers survive past `LOCALAI_NATS_WORKER_JWT_TTL`; the NATS connection picks up the new JWT on its next reconnect. If refresh fails persistently, the worker exits (to restart and re-acquire) rather than drifting toward an expired, unrenewable JWT. Statically configured (`LOCALAI_NATS_JWT`) and service (`LOCALAI_NATS_SERVICE_JWT`) credentials are used as-is and not refreshed.
-
-Generate operator/account material with [`scripts/nats-auth-setup.sh`](https://github.com/mudler/LocalAI/blob/master/scripts/nats-auth-setup.sh) (requires [nsc](https://docs.nats.io/running-a-nats-service/configuration/securing_nats/auth_intro/nsc)). Configure the NATS server with account resolver JWTs before enabling `LOCALAI_NATS_REQUIRE_AUTH`.
+{{% notice warning %}}
+`LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT`, `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` and `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` are **not** in the table above and must **not** be removed. Despite their names they were never broker settings: each one is a control-RPC budget the frontend applies to a worker, and each is still read and still enforced. They are documented with the other frontend flags in [Frontend Configuration](#frontend-configuration). The names are kept because renaming them would break every existing deployment for cosmetics.
+{{% /notice %}}
 
 {{% notice note %}}
-`LOCALAI_AUTH` (HTTP users/sessions) and NATS JWTs are separate: end-user API keys do not connect to NATS. HTTP registration still uses `LOCALAI_REGISTRATION_TOKEN`.
+`LOCALAI_AUTH` (HTTP users/sessions) is unrelated. HTTP registration still uses `LOCALAI_REGISTRATION_TOKEN`, and every worker control plane sits behind that same bearer check.
 {{% /notice %}}
 
 ### Optional: S3 Object Storage
 
-For multi-host deployments where workers don't share a filesystem, S3-compatible storage enables distributed file transfer (model files, configs):
+For multi-host deployments where workers don't share a filesystem, S3-compatible storage enables distributed file transfer (model files, configs). The frontend uploads the file to the bucket and then tells the worker to fetch it, over that worker's tunnel (`POST /v1/control/files/ensure`); the reverse direction (`.../files/stage`) has the worker upload one of its own files for the frontend to pull down. The bytes travel through the bucket, never through the tunnel:
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
@@ -211,6 +725,8 @@ For multi-host deployments where workers don't share a filesystem, S3-compatible
 | `--storage-region` | `LOCALAI_STORAGE_REGION` | `us-east-1` | S3 region |
 | `--storage-access-key` | `LOCALAI_STORAGE_ACCESS_KEY` | *(empty)* | S3 access key |
 | `--storage-secret-key` | `LOCALAI_STORAGE_SECRET_KEY` | *(empty)* | S3 secret key |
+
+A worker started without `LOCALAI_STORAGE_URL` does not serve the four staging verbs at all, and answers `404` for them, which is the same answer a frontend gets from a worker too old to know them.
 
 When S3 is not configured, model files are transferred directly from the frontend to workers via **HTTP** - no shared filesystem needed. Each worker runs a small HTTP file transfer server alongside the gRPC backend process. This is the default and works out of the box.
 
@@ -233,7 +749,10 @@ Hugging Face for managed artifacts.
 
 With `LOCALAI_DISTRIBUTED_SHARED_MODELS` enabled, workers use the shared
 absolute snapshot path and skip transfer. Otherwise, the controller stages the
-complete snapshot tree to each worker before loading the backend.
+complete snapshot tree to each worker before loading the backend. With an object
+store configured the controller uploads to the bucket and commands the worker to
+fetch over its tunnel; without one it pushes the files to the worker's HTTP file
+transfer server directly.
 
 {{% notice warning %}}
 Every controller and worker must have enough disk space for its own snapshot
@@ -242,7 +761,9 @@ during installation as well as the committed snapshot.
 {{% /notice %}}
 
 {{% notice warning %}}
-The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
+The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector), **and to the `/v1/control/` routes that install, upgrade and delete backends and stop the node**. The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token a hard startup error rather than a silent fail-open. On an agent worker it additionally makes registration wait through admin approval instead of starting against a pending node.
+
+By default the server binds loopback, so "anyone who can reach the port" means a process on the worker host, and no firewall rule is required. Setting `LOCALAI_HTTP_ADDR` to a routable address opts back out of that and puts the fail-open case back on the network - if you do it, firewall the port.
 {{% /notice %}}
 
 ### Watching Backend Installs
@@ -286,91 +807,84 @@ Workers are started with the `worker` subcommand. Each worker is generic - it do
 ```bash
 local-ai worker \
   --register-to http://frontend:8080 \
-  --registration-token changeme \
-  --nats-url nats://nats:4222
+  --registration-token changeme
 ```
+
+There is no broker flag here. A serve-backend worker dials one outbound tunnel to `--register-to` and serves every request the frontend makes of it over that. A `--nats-url` left over from an older command line is still accepted and ignored; see [Migrating off the message broker](#migrating-off-the-message-broker).
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--addr` | `LOCALAI_SERVE_ADDR` | `0.0.0.0:50051` | gRPC listen address |
+| `--addr` | `LOCALAI_ADDR` | *(unset)* | Base port for backend gRPC processes. Only the port is used; nothing binds the host |
+| `--serve-addr` | `LOCALAI_SERVE_ADDR` | `0.0.0.0:50051` | Same, used when `--addr` is unset |
 | `--grpc-max-port` | `LOCALAI_GRPC_MAX_PORT` | `65535` | Highest port the worker may assign to a backend gRPC process. Each backend gets its own port, allocated upward from the base port, so the width of `[base port, this]` caps how many backends this worker can run at once (see [Backend gRPC port range](#backend-grpc-port-range)) |
-| `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
-| `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
-| `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |
+| `--http-addr` | `LOCALAI_HTTP_ADDR` | `127.0.0.1:{gRPC port - 1}` | HTTP file transfer server bind address |
 | `--ephemeral-staging-byte-limit` | `LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT` | `0` (automatic) | Maximum bytes held by request-input staging across the worker's HTTP staging directory and S3 cache. Automatic mode uses the smaller of 10 GiB and 10% of filesystem capacity. |
 | `--ephemeral-staging-min-free-bytes` | `LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES` | `0` (automatic) | Free filesystem space preserved while staging request inputs. Automatic mode uses the larger of 1 GiB and 5% of filesystem capacity. |
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(required)* | Frontend URL for self-registration |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
 | `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
-| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
+| `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying `--registration-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL for backend installation and file staging |
-| `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
-| `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |
-| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | `false` | Require NATS JWT+seed (from registration or env) |
-| `--nats-tls-ca` | `LOCALAI_NATS_TLS_CA` | *(empty)* | PEM file for NATS server CA |
-| `--nats-tls-cert` | `LOCALAI_NATS_TLS_CERT` | *(empty)* | Client certificate for NATS mTLS |
-| `--nats-tls-key` | `LOCALAI_NATS_TLS_KEY` | *(empty)* | Client private key for NATS mTLS |
+| `--worker-tunnel` | `LOCALAI_WORKER_TUNNEL` | `true` | Hold one outbound multiplexed tunnel to the frontend and serve its requests over it, so this worker needs no inbound port (see [Worker tunnels](#worker-tunnels)). Setting it to `false` is a **fatal startup error**, not a degraded mode: the frontend has no path that dials a worker's advertised address, so a worker without its tunnel is a worker nothing can reach. To run without tunnels, run the pre-tunnel release on both the worker and the frontend. |
 | `--backends-path` | `LOCALAI_BACKENDS_PATH` | `./backends` | Path to backend binaries |
 | `--models-path` | `LOCALAI_MODELS_PATH` | `./models` | Path to model files |
 | `--vram-budget` | `LOCALAI_VRAM_BUDGET` | *(empty)* | Cap the VRAM this node advertises for model placement, as a percentage (e.g. `80%`) or an absolute amount (e.g. `12GB`). Empty uses all detected VRAM. See [Per-node VRAM budget](#per-node-vram-budget). |
 
 {{% notice tip %}}
-**Advertise address:** The `--addr` flag is the local bind address for gRPC. The `--advertise-addr` is the address the frontend stores and uses to reach the worker via gRPC. If not set, the worker auto-derives it by replacing `0.0.0.0` with the OS hostname (which in Docker is the container ID, resolvable via Docker DNS). Set `--advertise-addr` explicitly when the auto-detected hostname is not routable from the frontend (e.g., in Kubernetes, use the pod's service DNS name).
+**There is no advertise address.** A worker states no endpoint at registration and binds nothing routable; the frontend reaches it through the tunnel it dials. `--advertise-addr` and `--advertise-http-addr` no longer exist. `--addr` and `--http-addr` remain, and set where the worker listens **locally**: only the port of `--addr` is used, and `--http-addr` binds loopback by default.
 
-**HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
+**HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). It listens on loopback at the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded.
 {{% /notice %}}
 
 ### Ephemeral request-input storage
 
 Workers reserve local capacity before accepting per-request audio, image, and other ephemeral inputs. The limit covers both direct HTTP staging and the worker's S3 download cache. A request is rejected before inference when accepting its input would exceed the byte limit or the configured free-space headroom. One request-scoped cleanup operation releases all exact input keys and their reservations after inference, while a one-hour recovery sweep removes abandoned files after crashes. The sweep runs at startup and every 15 minutes, preserves active requests, and considers the newest file in each request directory.
 
+For S3 staging, the frontend releases request inputs with `POST /v1/control/files/release` through the worker tunnel. The worker applies the same capacity limits to `files/ensure` downloads and direct HTTP uploads.
+
 Set both capacity variables to positive byte counts when a worker needs fixed limits. Leaving either value at zero selects its filesystem-based default. These settings apply only below the two `ephemeral` roots; model, data, and configuration files are excluded.
 
 ### Worker Health Probes
 
-The worker's HTTP server (base port - 1, default 50050) exposes two unauthenticated probes:
+The worker's HTTP server (loopback, base port - 1, default 50050) exposes two unauthenticated probes. They are reachable from the worker host - which is where a container healthcheck runs - and not from the network:
 
 | Endpoint | Meaning |
 |----------|---------|
-| `/healthz` | **Liveness.** 200 whenever the process is up and serving. Deliberately independent of readiness, so a brief NATS outage does not trigger a restart storm across every worker. |
-| `/readyz` | **Readiness.** 200 only when the worker is registered, its NATS connection is live, *and* every backend process it is currently serving answers a short TCP dial on its gRPC address; 503 otherwise. A worker holding no backends is ready, because idle is a healthy state, and so is one whose backends are still starting up. |
+| `/healthz` | **Liveness.** 200 whenever the process is up and serving. Deliberately independent of readiness, so a frontend restart that drops every tunnel does not trigger a restart storm across every worker. |
+| `/readyz` | **Readiness.** 200 only when the worker is registered *and* it currently holds a tunnel session and every serving backend answers its gRPC port; 503 otherwise. |
 
-`/readyz` reports something the frontend cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, which is a different network path from NATS — a worker can keep heartbeating while its NATS link is dead, and so appear `healthy` in the registry while being unable to receive any work. The local probe closes that gap.
+`/readyz` tracks the **tunnel**, because that is the only way anything reaches this worker: it binds loopback, advertises no address, and every request the frontend makes of it arrives as a stream inside that tunnel. It reports something the local supervisor cannot see on its own. The node registry's `status` and `last_heartbeat` are driven by an HTTP heartbeat to the frontend, a different network path - a worker can keep heartbeating while its tunnel is dead, and so appear `healthy` in the registry while being unreachable. The local probe closes that gap.
 
-The same applies to the data path. A worker can hold a live NATS link while the backend processes it believes it is running have died, so it reports healthy while every load routed to it fails. `/readyz` therefore also dials the recorded gRPC address of each backend the worker is serving, and a worker whose backend port refuses connections drops out of rotation instead of absorbing work it cannot serve.
+A 503 here is **this container's own report that it cannot serve right now**, and nothing else. It is not a claim that the worker is gone; the frontend decides that from the tunnel session it holds, aged against `LOCALAI_WORKER_RECONNECT_GRACE`. The worker keeps heartbeating throughout a tunnel outage for exactly that reason: withholding the heartbeat would report an unreachable worker as an absent one, on the one path that has no grace.
+
+The same applies to the data path. A worker can hold a live tunnel while the backend processes it believes it is running have died, so it reports healthy while every load routed to it fails. `/readyz` therefore also dials the recorded gRPC address of each backend the worker is serving, and a worker whose backend port refuses connections drops out of rotation instead of absorbing work it cannot serve.
 
 Only backends in the middle of their lifecycle are dialled. A backend that is still starting is skipped until its gRPC server has answered a health check, which can take 10 to 15 seconds on a slow node, and a backend that is stopping is skipped from the moment shutdown begins. Neither a cold start nor an ordinary shutdown makes a worker report 503, so a Kubernetes `readinessProbe` at the usual 10s period does not pull a worker out of rotation every time it loads a model.
 
-The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically; no `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only to pin an explicit URL.
 
-### Worker Address Configuration
+The container image's `HEALTHCHECK` detects worker mode and probes this endpoint automatically, deriving the port from `LOCALAI_HTTP_ADDR`, else `LOCALAI_ADDR`, else `LOCALAI_SERVE_ADDR`, minus one - the same order the worker itself uses. No `HEALTHCHECK_ENDPOINT` override is needed. Set `HEALTHCHECK_ENDPOINT` only when the bind address is passed as a CLI flag rather than an environment variable, or to pin an explicit URL.
 
-The simplest way to configure a worker's network address is with a single variable:
+### Worker Port Configuration
 
-| Variable | Description |
-|----------|-------------|
-| `LOCALAI_ADDR` | Reachable address of this worker (`host:port`). The port is used as the base for gRPC backend processes, and `port-1` for the HTTP file transfer server. |
+A worker needs no address configuration at all. It binds only loopback and reaches the frontend outbound, so the defaults work behind NAT, in another cluster, or on a laptop:
 
-**Example:**
 ```yaml
 environment:
-  LOCALAI_ADDR: "192.168.1.100:50051"
-  LOCALAI_NATS_URL: "nats://frontend:4222"
   LOCALAI_REGISTER_TO: "http://frontend:8080"
   LOCALAI_REGISTRATION_TOKEN: "my-secret"
 ```
 
-For advanced networking scenarios (NAT, load balancers, separate gRPC/HTTP ports), the following override variables are available:
+Set the variables below only to move the worker's **local** port range - for example when two workers share a host, or when the default range collides with something else. Only the port of each is used; the host half names an interface nothing binds.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LOCALAI_SERVE_ADDR` | gRPC base port bind address | `0.0.0.0:50051` |
+| `LOCALAI_ADDR` | Base port for backend gRPC processes, as `host:port`. `port-1` is the HTTP file-transfer port | *(unset; falls back to `LOCALAI_SERVE_ADDR`)* |
+| `LOCALAI_SERVE_ADDR` | Base port, as above, when `LOCALAI_ADDR` is unset | `0.0.0.0:50051` |
 | `LOCALAI_GRPC_MAX_PORT` | Highest port assignable to a backend gRPC process | `65535` |
-| `LOCALAI_HTTP_ADDR` | HTTP file transfer bind address | `0.0.0.0:{gRPC port - 1}` |
-| `LOCALAI_ADVERTISE_ADDR` | Public gRPC address (if different from `LOCALAI_ADDR`) | Derived from `LOCALAI_ADDR` |
-| `LOCALAI_ADVERTISE_HTTP_ADDR` | Public HTTP address (if different from gRPC host) | Derived from advertise host + HTTP port |
+| `LOCALAI_HTTP_ADDR` | HTTP file transfer bind address. Bound exactly as given, so this is also the way to expose that server deliberately | `127.0.0.1:{base port - 1}` |
+
+`LOCALAI_ADVERTISE_ADDR` and `LOCALAI_ADVERTISE_HTTP_ADDR` no longer exist. They named the endpoint the frontend dialled; nothing dials a worker any more. Remove them.
 
 ### Backend gRPC port range
 
@@ -399,14 +913,38 @@ range does fill, backend starts fail with:
 
 ```
 no free gRPC port in range: 50051-50150 is fully consumed by 100 running
-backend(s) and 12 port(s) still in quarantine; raise LOCALAI_GRPC_MAX_PORT to
-widen the range
+backend(s), 12 port(s) still in quarantine and 0 port(s) already bound by
+something outside this worker; raise LOCALAI_GRPC_MAX_PORT to widen the range
 ```
 
 Raise `LOCALAI_GRPC_MAX_PORT` (or reduce how many models you schedule onto that
 worker). A value above 65535 is clamped, and a value below the base port is
 ignored in favour of the full range, so a typo degrades the setting rather than
 wedging every backend start on the node.
+
+**The worker checks that a port is actually free before it hands it out.** Its
+own bookkeeping records only what this worker did, and the collision it cannot
+see is with something this worker never did: the default base port sits inside
+Linux's default ephemeral range (`32768-60999`, see
+`net.ipv4.ip_local_port_range`), so the kernel can give a port in the range to
+an outbound connection, or to any process that binds port `0`, while the
+allocator still believes it free. A backend handed one of those dies on bind.
+Each candidate is therefore probed, and a port something else holds is skipped
+and retried later rather than dropped, since whatever holds it is usually an
+ephemeral connection that gives it back. The last count in the message above is
+how many candidates were skipped that way, and the worker logs one line per
+allocation when it skips any:
+
+```
+Skipped gRPC ports in this worker's range that something outside the worker
+already holds ... skipped=3 allocated=50054
+```
+
+Seeing that regularly means the worker's range overlaps what the kernel is
+handing out. Move the range with `LOCALAI_ADDR` to a base port outside
+`net.ipv4.ip_local_port_range` (for example `61000`) and the overlap goes away
+entirely. Nothing dials these ports from outside the worker, so the base port
+is free to be anything bindable.
 
 ### NVIDIA GPU support
 
@@ -451,7 +989,7 @@ The system automatically applies hardware-detected labels on registration:
 
 ### How Workers Operate
 
-Workers start as generic processes with no backend installed. When the SmartRouter needs to load a model on a worker, it sends a NATS `backend.install` event with the backend name and model ID. The worker:
+Workers start as generic processes with no backend installed. When the SmartRouter needs to load a model on a worker, it calls `POST /v1/control/backend/install` through that worker's tunnel with the backend name and model ID. The worker:
 
 1. Installs the backend from the gallery (if not already installed)
 2. Starts a **new gRPC backend process on a dynamic port** (each model gets its own process)
@@ -477,6 +1015,8 @@ Used by workers themselves (registration, heartbeat, etc.). Authenticated via th
 | `POST` | `/api/node/:id/drain` | Mark self as draining |
 | `GET` | `/api/node/:id/models` | Query own loaded models |
 | `DELETE` | `/api/node/:id` | Deregister self |
+
+The worker tunnel at `GET /api/cluster/connect` is also worker-facing but is authenticated differently: against the node's own stored token rather than the shared registration token. See [Worker tunnels](#worker-tunnels).
 
 ### `/api/nodes/` - Admin management
 
@@ -550,7 +1090,7 @@ The edit response includes these fields:
 - `config_revision` identifies the saved semantic configuration.
 - `pending_cleanup` counts old replicas that still need cleanup when the response returns.
 
-LocalAI sends an acknowledged stop request for each exact backend process. If a worker or NATS is unreachable, LocalAI keeps the replica in the `unloading` state and retries with durable backoff. The saved edit remains successful while cleanup is pending.
+LocalAI sends an acknowledged stop request for each exact backend process, over that worker's tunnel. If the worker is unreachable, LocalAI keeps the replica in the `unloading` state and retries with durable backoff. The saved edit remains successful while cleanup is pending.
 
 Workers must support the exact model-stop protocol. Upgrade all workers before you rely on revision cleanup. An older worker cannot acknowledge the request, so its stale replica remains `unloading` until cleanup succeeds or the worker re-registers.
 
@@ -762,14 +1302,13 @@ Agent workers are dedicated processes for executing agent chats and MCP CI jobs.
 ```bash
 local-ai agent-worker \
   --register-to http://frontend:8080 \
-  --nats-url nats://nats:4222 \
   --registration-token changeme
 ```
 
 Agent workers:
-- Execute agent chat messages dispatched via NATS
+- Execute agent chat messages dispatched to it as streaming control verbs on its tunnel
 - Run MCP CI jobs (with access to MCP servers via docker)
-- Handle MCP tool discovery and execution requests from the frontend
+- Handle MCP tool discovery and execution requests, which the frontend sends over the worker's own tunnel
 - Get auto-provisioned API keys during registration for calling the inference API
 
 In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
@@ -783,11 +1322,30 @@ agent-worker-1:
 
 ## MCP in Distributed Mode
 
-MCP servers configured in model configs work in distributed mode. The frontend routes MCP operations through NATS to agent workers:
+MCP servers configured in model configs work in distributed mode. The frontend holds no MCP sessions of its own - creating one usually means running `docker`, which is what an agent worker is for - so it asks an agent worker instead:
 
-- **MCP discovery** (`GET /v1/mcp/servers/:model`): routed to agent workers which create sessions and return server info
-- **MCP tool execution** (during `/v1/chat/completions`): tool calls are routed to agent workers via NATS request-reply
+- **MCP discovery** (`GET /v1/mcp/servers/:model`): the frontend picks a connected agent worker and asks it over that worker's tunnel; the worker creates the sessions and returns server info
+- **MCP tool execution** (during `/v1/chat/completions`): the same, per tool call
 - **MCP CI jobs**: executed entirely on agent workers with access to docker for stdio-based MCP servers
+
+### How a frontend picks an agent worker
+
+Discovery and tool execution used to be NATS request-reply onto a queue group, where the broker chose the worker and neither side could say which one had answered. They are now an ordinary control RPC plus a **selection**, because a queue group was only ever a way of choosing a subscriber, and choosing is a query:
+
+1. The frontend lists the approved agent nodes that are not draining.
+2. It asks the `node_connections` table, in one statement joined against live replicas, which of those tunnels a **live** frontend replica currently holds.
+3. It prefers one **this** replica holds, so the call skips the relay hop entirely, and otherwise takes any connected one at random. A broker's hidden balancing could not make that choice.
+4. It issues the control RPC over that worker's tunnel, relayed through the owning replica when another one holds it.
+
+A worker that answers with an error - "no such tool", "that MCP server refused your arguments" - is the worker's own answer and is returned to you unchanged; it is never re-tried on a second worker, because that would run a tool twice. A call that never reached a worker is re-tried, against a different worker, at most three times.
+
+If no agent worker in the deployment currently holds a tunnel, the request fails with a message saying so. That is a statement about this moment, not about any particular worker: nothing is marked unhealthy and no model is evicted because of it.
+
+### MCP prompts and resources are not available in distributed mode
+
+`GET /v1/mcp/prompts/:model`, `POST /v1/mcp/prompts/:model/:prompt`, `GET /v1/mcp/resources/:model` and `POST /v1/mcp/resources/:model/read` are served **only** from MCP sessions held by the frontend process, and in distributed mode it holds none. There is no verb that carries prompts or resources to an agent worker.
+
+In distributed mode these four endpoints answer **501 Not Implemented** with the reason in the body. Earlier releases answered `200` with an empty list, which was indistinguishable from a model that genuinely has no prompts. This is a pre-existing gap rather than a consequence of moving MCP off the bus - tools and discovery had a carrier to an agent worker and these never did - and single-binary deployments are unaffected.
 
 ## vLLM Multi-Node (Data-Parallel)
 
@@ -884,7 +1442,7 @@ engine_args:
 
 The ds4 backend (DeepSeek V4 Flash) supports **layer-parallel** distributed inference: a single model that is too large for one machine is split by transformer layer across several machines. Each machine must have the GGUF present locally, but loads **only its own slice** of the layers. This lets you run a model whose weights exceed any single host's memory.
 
-This is **not** routed through the SmartRouter: it is a model-internal split, configured manually (Phase 1). It is unrelated to the NATS/PostgreSQL distributed mode described above.
+This is **not** routed through the SmartRouter: it is a model-internal split, configured manually (Phase 1). It is unrelated to the PostgreSQL-backed distributed mode described above.
 
 ### Topology
 
@@ -957,17 +1515,15 @@ ds4 layer-split inference is **manual setup** in this release (Phase 1): you pla
 local-ai worker \
   --register-to http://frontend:8080 \
   --node-name worker-2 \
-  --nats-url nats://nats:4222 \
   --registration-token changeme
 
 local-ai worker \
   --register-to http://frontend:8080 \
   --node-name worker-3 \
-  --nats-url nats://nats:4222 \
   --registration-token changeme
 ```
 
-**Multiple frontend replicas:** Run multiple LocalAI frontends behind a load balancer. Since all state is in PostgreSQL and coordination is via NATS, frontends are fully stateless and interchangeable.
+**Multiple frontend replicas:** Run multiple LocalAI frontends behind a load balancer. Since all state is in PostgreSQL and coordination is via PostgreSQL and the workers' own tunnels, frontends are fully stateless and interchangeable.
 
 ## Model Scheduling
 
@@ -1170,12 +1726,12 @@ Notes:
 |---|---|---|
 | **Discovery** | Automatic via libp2p token | Self-registration to frontend URL |
 | **State storage** | In-memory / ledger | PostgreSQL |
-| **Coordination** | Gossip protocol | NATS messaging |
+| **Coordination** | Gossip protocol | Each worker's own tunnel for every verb addressed to it, agent workers included; PostgreSQL `LISTEN`/`NOTIFY` for cross-replica frontend events |
 | **Node management** | Automatic | REST API + WebUI |
 | **Health monitoring** | Peer heartbeats | Centralized HealthMonitor |
-| **Backend management** | Manual per node | Dynamic via NATS backend.install |
+| **Backend management** | Manual per node | Dynamic via the worker's `backend.install` control route |
 | **Best for** | Ad-hoc clusters, community sharing | Production, Kubernetes, managed infrastructure |
-| **Setup complexity** | Minimal (share a token) | Requires PostgreSQL + NATS |
+| **Setup complexity** | Minimal (share a token) | Requires PostgreSQL on the frontend, and nothing else. Workers of either kind need only an outbound route to the frontend URL. |
 
 ## Troubleshooting
 
@@ -1184,9 +1740,8 @@ Notes:
 - Check that `--registration-token` matches on both frontend and worker
 - Ensure auth is enabled on the frontend (`LOCALAI_AUTH=true`)
 
-**NATS connection errors:**
-- Confirm NATS is running and reachable (`nats-server --signal ldm` or check port 4222)
-- Check that `--nats-url` uses the correct hostname/IP from the worker's network perspective
+**Message-broker connection errors:**
+- Nothing in LocalAI connects to a broker any more, on any component. A release that logs such an error predates the tunnel migration; on this release, look at the failing component's tunnel and its `--register-to` instead. See [Migrating off the message broker](#migrating-off-the-message-broker).
 
 **PostgreSQL connection errors:**
 - Verify the connection URL format: `postgresql://user:password@host:5432/dbname?sslmode=disable`
@@ -1214,7 +1769,7 @@ Notes:
 - Confirm that every routable replica has `state: loaded` and the same current `config_revision`.
 - Treat a different `effective_options_hash` as diagnostic information. Node-specific defaults can cause valid differences.
 - Check `cleanup_error` and `cleanup_next_retry_at` on replicas in the `unloading` state.
-- Check connectivity to the worker and NATS when cleanup reports a timeout or no responder.
+- Check that the worker's tunnel is up when cleanup reports a timeout or no route.
 - Upgrade the worker when it does not support the exact model-stop request.
 - Stop and restart the stale backend only as an operational recovery action. LocalAI keeps it non-routable while durable cleanup is pending.
 
@@ -1224,11 +1779,12 @@ Notes:
 - Liveness is decided by the load job's progress heartbeat, not by elapsed time. Staging a large checkpoint legitimately runs for a long time without touching the replica row, so a transfer that is still progressing is never reclaimed however long it takes.
 - `Reconciler: reclaimed a replica slot held by a load nobody is driving` names each row reclaimed this way.
 
-**A request fails with `nats: no responders available for request`:**
-- The chosen worker was not subscribed on the bus when the frontend tried to install the backend on it. A node's status comes from its HTTP heartbeat, which is a separate channel: a worker that stops stays `healthy` until that heartbeat ages out.
-- The scheduler now checks that a node still answers on the bus before it commits to it, marks one that does not as unhealthy, and picks another. A request should therefore see this only when no reachable node is left.
-- Only a no-responders answer counts as absent. A worker that answers slowly stays eligible, because excluding it would cost capacity that is really there.
-- Check the worker process is running and its NATS connection is up. `Scheduled node is not answering on the bus` in the frontend log names each node demoted this way.
+**A request fails with `this frontend has no route to that worker`:**
+- The chosen worker's tunnel was not reachable from the replica that handled the request. A node's status comes from its HTTP heartbeat, which is a separate channel: a worker that stops stays `healthy` until that heartbeat ages out, and a worker that is very much alive can be unroutable for a moment while its tunnel re-homes between frontend replicas.
+- It is **not** the same as the worker being gone, and nothing acts on it as if it were. A model on an unroutable worker is not reaped, its rows are left alone, and the node is not demoted: doing any of those on a lost route is how a rolling frontend restart turns into a fleet-wide eviction.
+- Check the worker process is running and that it has an open tunnel (`opened a tunnelled stream to a worker` in the frontend log, and the worker's own dial/reconnect lines). A worker behind a load balancer that keeps reconnecting is usually an idle-timeout or WebSocket-upgrade problem at the proxy; see the tunnel section above.
+- **`no route` is not `gone`, and nothing in the frontend reads it as such.** A worker is declared **gone** by one mechanism only: no live frontend replica holds its tunnel *and* its departure is older than `--worker-reconnect-grace`. That is a fact recorded in the shared database, so every replica answers it identically. "No route" is one replica failing to reach a worker right now, and it is not evidence about the worker at all.
+- Older releases decided absence from `nats: no responders available for request`, which was one frontend's observation that nobody answered *it* within a request budget. Two replicas asking at the same moment could disagree and demote each other's workers. That signal is gone from the scheduler, and no component opens a bus connection to produce it.
 
 **A worker fills its own disk over time:**
 - A request that carries a file (an image, an audio clip, a video) stages that file below the worker's HTTP staging or S3 cache `ephemeral/` directory. The frontend releases each request-owned input when inference finishes, and the worker reserves capacity before accepting it.
@@ -1247,13 +1803,13 @@ Notes:
 **Port conflicts on workers:**
 - Each model gets its own gRPC process on an incrementing port (50051, 50052, ...)
 - The HTTP file transfer server runs on the base port - 1 (default: 50050)
-- Ensure the port range is not blocked by firewalls or used by other services
+- All of those bind loopback, so a firewall cannot be the cause. What can is another service on the same host already holding a port in the range: move the worker's range with `LOCALAI_ADDR` (see [Worker Port Configuration](#worker-port-configuration)) or bound it with `LOCALAI_GRPC_MAX_PORT`
 - Verify the backend gallery configuration is correct
-- The worker needs network access to download backends from the gallery
+- The worker needs OUTBOUND network access to the gallery and to `LOCALAI_REGISTER_TO`. It needs no inbound access at all
 
 ## Roadmap: Routing and Caching Enhancements
 
-The scheduling algorithm above is load-based (least in-flight, then least-recently-used). Work is underway to make routing **prefix-cache-aware**: bias each request toward the replica that already holds the relevant KV/prefix cache (multi-turn conversations and shared system prompts), so backends reuse cache instead of recomputing it. The first step is a router-side radix tree of prompt-prefix hashes mapped to nodes, with longest-prefix match, a load guard that preserves round-robin behavior under imbalance, and NATS sync across frontends. It is purely a routing-layer hint (no backend changes) and never routes worse than today's round-robin.
+The scheduling algorithm above is load-based (least in-flight, then least-recently-used). Work is underway to make routing **prefix-cache-aware**: bias each request toward the replica that already holds the relevant KV/prefix cache (multi-turn conversations and shared system prompts), so backends reuse cache instead of recomputing it. The first step is a router-side radix tree of prompt-prefix hashes mapped to nodes, with longest-prefix match, a load guard that preserves round-robin behavior under imbalance, and cross-frontend sync on the PostgreSQL broadcast carrier. It is purely a routing-layer hint (no backend changes) and never routes worse than today's round-robin.
 
 Further enhancements, surfaced from a survey of SGLang, vLLM production-stack, Ray Serve, llm-d, AIBrix, and NVIDIA Dynamo, are tracked under the routing roadmap epic ([#10063](https://github.com/mudler/LocalAI/issues/10063)):
 

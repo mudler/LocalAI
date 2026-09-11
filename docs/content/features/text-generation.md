@@ -338,8 +338,9 @@ replicas, so retrieval, `previous_response_id` chaining and cancellation work
 regardless of which replica the load balancer picks:
 
 - `GET /v1/responses/{id}` returns the response from any replica.
-- `POST /v1/responses/{id}/cancel` is delegated over NATS to the replica that is
-  actually generating, so generation really stops. If that replica is gone, the
+- `POST /v1/responses/{id}/cancel` is delegated over the PostgreSQL broadcast
+  carrier to the replica that is actually generating, so generation really
+  stops. If that replica is gone, the
   response is reported as `cancelled` without blocking.
 - **Streaming resume (`?stream=true`) is served only by the replica that created
   the response.** The event buffer lives in that process's memory and is not

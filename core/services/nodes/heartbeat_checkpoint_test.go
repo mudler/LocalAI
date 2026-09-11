@@ -287,7 +287,7 @@ var _ = Describe("heartbeat checkpointing", func() {
 	It("keeps a checkpointing node healthy while it beats normally", func() {
 		registry.SetHeartbeatCheckpoint(200 * time.Millisecond)
 		// perModelHealthCheck off: this spec is about liveness, not backends.
-		hm := NewHealthMonitor(registry, db, time.Minute, 5*time.Second, "", false)
+		hm := NewHealthMonitor(registry, db, time.Minute, 5*time.Second, "", false, nil, 0, nil)
 
 		for range 6 {
 			Expect(registry.Heartbeat(ctx, nodeID, nil)).To(Succeed())
@@ -312,7 +312,7 @@ var _ = Describe("heartbeat checkpointing", func() {
 			Update("last_heartbeat", time.Now().Add(-2*time.Minute)).Error).ToNot(HaveOccurred())
 
 		// Zero staleThreshold: the constructor's fallback is what is under test.
-		hm := NewHealthMonitor(registry, db, time.Minute, 0, "", false)
+		hm := NewHealthMonitor(registry, db, time.Minute, 0, "", false, nil, 0, nil)
 		hm.doCheckAll(ctx)
 
 		var n BackendNode
@@ -327,7 +327,7 @@ var _ = Describe("heartbeat checkpointing", func() {
 		Expect(db.Model(&BackendNode{}).Where("id = ?", nodeID).
 			Update("last_heartbeat", time.Now().Add(-10*time.Minute)).Error).ToNot(HaveOccurred())
 
-		hm := NewHealthMonitor(registry, db, time.Minute, 5*time.Minute, "", false)
+		hm := NewHealthMonitor(registry, db, time.Minute, 5*time.Minute, "", false, nil, 0, nil)
 		hm.doCheckAll(ctx)
 
 		var n BackendNode

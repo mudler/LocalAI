@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
 // decodeStagingEvents extracts every StagingProgressEvent the fake messaging
@@ -33,13 +34,14 @@ var _ = Describe("StagingTracker cross-replica broadcast", func() {
 		It("broadcasts staging progress so a peer replica surfaces an op it did not originate", func() {
 			mc := &fakeMessagingClient{}
 			origin := NewStagingTracker()
-			origin.SetPublisher(mc)
+			_, err := origin.SetBroadcaster(mc)
+			Expect(err).ToNot(HaveOccurred())
 
 			origin.Start("model-x", "worker-1", 1)
 			origin.UpdateFile("model-x", "weights.gguf", 1, 5<<30, 10<<30, "100 MiB/s")
 
 			events := decodeStagingEvents(mc)
-			Expect(events).ToNot(BeEmpty(), "writes must be broadcast over NATS")
+			Expect(events).ToNot(BeEmpty(), "writes must be broadcast to peer replicas")
 			Expect(mc.published[0].Subject).To(Equal(messaging.SubjectStagingProgress("model-x")))
 
 			// A peer replica that never ran the op merges the broadcast.
@@ -58,7 +60,8 @@ var _ = Describe("StagingTracker cross-replica broadcast", func() {
 		It("removes the op from the peer when the origin completes it", func() {
 			mc := &fakeMessagingClient{}
 			origin := NewStagingTracker()
-			origin.SetPublisher(mc)
+			_, err := origin.SetBroadcaster(mc)
+			Expect(err).ToNot(HaveOccurred())
 
 			origin.Start("model-x", "worker-1", 1)
 			origin.Complete("model-x")
@@ -90,13 +93,55 @@ var _ = Describe("StagingTracker cross-replica broadcast", func() {
 		})
 	})
 
-	Context("when no publisher is wired (standalone mode)", func() {
+	Context("when no carrier is wired (standalone mode)", func() {
 		It("does not broadcast", func() {
 			mc := &fakeMessagingClient{}
 			t := NewStagingTracker()
 			t.Start("model-x", "worker-1", 1)
 			t.UpdateFile("model-x", "weights.gguf", 1, 1<<30, 10<<30, "")
 			Expect(mc.published).To(BeEmpty())
+		})
+
+		It("registers no mirror subscription for a nil carrier", func() {
+			// The negative half of SetBroadcaster's one-carrier promise: a
+			// standalone tracker must not subscribe either. "Nothing was
+			// delivered" cannot tell that apart from a live subscription
+			// nobody published to.
+			sub, err := NewStagingTracker().SetBroadcaster(nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sub).To(BeNil())
+		})
+	})
+
+	// SetBroadcaster is ONE method because publishing and mirroring are one
+	// decision. These two pin each half separately: a mutation that drops the
+	// subscribe leaves the publish spec green, and a mutation that drops the
+	// field assignment leaves the subscribe green, so a single spec over both
+	// would let either half go missing.
+	Context("both halves ride the carrier it is given", func() {
+		It("mirrors a peer's broadcast that arrives on the same carrier", func() {
+			bus := testutil.NewFakeBus()
+			peer := NewStagingTracker()
+			_, err := peer.SetBroadcaster(bus)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(bus.Publish(messaging.SubjectStagingProgress("model-y"), StagingProgressEvent{
+				ModelID: "model-y",
+				Status:  &StagingStatus{ModelID: "model-y", NodeName: "worker-2"},
+			})).To(Succeed())
+
+			Expect(peer.GetAll()).To(HaveKey("model-y"))
+		})
+
+		It("publishes onto the same carrier it mirrors from", func() {
+			bus := testutil.NewFakeBus()
+			origin := NewStagingTracker()
+			_, err := origin.SetBroadcaster(bus)
+			Expect(err).ToNot(HaveOccurred())
+
+			origin.Start("model-z", "worker-3", 1)
+
+			Expect(bus.PublishCount(messaging.SubjectStagingProgress("model-z"))).To(Equal(1))
 		})
 	})
 })

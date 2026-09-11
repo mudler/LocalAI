@@ -33,7 +33,7 @@ func (s *revisionCleanupStopper) StopModelReplica(_ context.Context, nodeID stri
 		Matched:    true,
 		Terminated: true,
 		ProcessKey: replica.ModelName,
-		Address:    replica.Address,
+		Address:    replica.WorkerLocalAddress,
 	}, nil
 }
 

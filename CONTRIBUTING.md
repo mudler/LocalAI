@@ -265,6 +265,37 @@ The e2e tests run LocalAI in a Docker container and exercise the API:
 make test-e2e
 ```
 
+### Running distributed-mode tests
+
+Distributed mode (several frontend replicas, worker nodes and PostgreSQL) has two suites. Both bring up their PostgreSQL with testcontainers, so Docker has to be available. There is no message broker to bring up: a distributed deployment needs PostgreSQL and the frontends' own HTTP listener, and nothing else.
+
+```bash
+make test-e2e-distributed   # in-process: services wired directly into the test binary
+make test-e2e-cluster       # process-level: real local-ai child processes
+```
+
+`make test-e2e-distributed` is the fast one (231 specs in roughly 2m20s). It starts one PostgreSQL for the whole run and gives each spec its own database. It runs each spec exactly once, with no retry: `DISTRIBUTED_TEST_FLAKES` defaults to 1 and feeds ginkgo's `--flake-attempts`, which counts *total attempts*, not retries. That is deliberately below the repo-wide `TEST_FLAKES=5`, because this suite exists to catch nondeterministic cluster behaviour and a retry hides exactly the failure it is meant to catch. Raise it locally when bisecting something unrelated.
+
+`make test-e2e-cluster` runs `local-ai` as real child processes, one per frontend replica and one per worker, so a spec can kill a replica and assert what the survivors do. Budget about 13m30s (one measurement: 802.5s of specs in a 13m26s target run, which includes building the binary): several of its 21 specs wait out real staleness and health-check windows. An earlier record of 6 specs and roughly 509s is superseded. It needs a built binary and the mock backend:
+
+```bash
+make build build-mock-backend
+make test-e2e-cluster
+```
+
+Two environment variables steer it:
+
+| Variable | Purpose |
+|---|---|
+| `LOCALAI_E2E_BINARY` | path to the `local-ai` binary (default: `local-ai` in the repository root) |
+| `LOCALAI_E2E_LOG_DIR` | directory for the per-process logs (default: a Ginkgo temp dir) |
+
+Set `LOCALAI_E2E_LOG_DIR` when debugging. A cluster failure is unreadable without the individual frontend and worker logs, and Ginkgo only tells you which assertion failed.
+
+A missing binary skips the cluster specs locally but fails them whenever `CI` is set, so a build problem cannot turn the CI job green without ever starting a cluster. `LOCALAI_E2E_REQUIRE_BINARIES=1` forces that failing behaviour anywhere; `LOCALAI_E2E_REQUIRE_BINARIES=0` forces the skip back on even under CI.
+
+Both suites run in `.github/workflows/tests-e2e-distributed.yml`, on pull requests and on every push to `master`. The `paths-ignore` filter is on the pull-request trigger only, so a master push always runs them.
+
 ### React UI tests and coverage
 
 The React UI (`core/http/react-ui/`) is covered by Playwright e2e specs, gated by a **monotonic line-coverage ratchet** (`make test-ui-coverage-check`, run in CI). The metric is non-deterministic — a fast local box reads higher than a slow CI runner for the same code — so a small tolerance is unavoidable.

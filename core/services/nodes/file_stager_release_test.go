@@ -12,17 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/storage"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"io"
 )
 
-type releaseTestSubscription struct{}
-
-func (releaseTestSubscription) Unsubscribe() error { return nil }
-
-type releaseTestMessaging struct {
+type releaseTestControl struct {
 	subject       string
 	payload       []byte
 	onRequest     func()
@@ -32,35 +29,31 @@ type releaseTestMessaging struct {
 	replies       [][]byte
 }
 
-func (m *releaseTestMessaging) Publish(string, any) error { return nil }
-func (m *releaseTestMessaging) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
-	return releaseTestSubscription{}, nil
-}
-func (m *releaseTestMessaging) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
-	return releaseTestSubscription{}, nil
-}
-func (m *releaseTestMessaging) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return releaseTestSubscription{}, nil
-}
-func (m *releaseTestMessaging) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return releaseTestSubscription{}, nil
-}
-func (m *releaseTestMessaging) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
-	m.subject = subject
-	m.payload = append([]byte(nil), data...)
+func (m *releaseTestControl) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := req.Context().Err(); err != nil {
+		return nil, err
+	}
+	m.subject = req.URL.Path
+	m.payload, _ = io.ReadAll(req.Body)
 	m.requestCalled = true
 	m.requestCount++
-	m.timeout = timeout
+	if deadline, ok := req.Context().Deadline(); ok {
+		m.timeout = time.Until(deadline)
+	}
 	if m.onRequest != nil {
 		m.onRequest()
 	}
+	reply := []byte(`{}`)
 	if m.requestCount <= len(m.replies) {
-		return append([]byte(nil), m.replies[m.requestCount-1]...), nil
+		reply = m.replies[m.requestCount-1]
 	}
-	return []byte(`{}`), nil
+	return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(string(reply))), Request: req}, nil
 }
-func (m *releaseTestMessaging) IsConnected() bool { return true }
-func (m *releaseTestMessaging) Close()            {}
+func (m *releaseTestControl) control() *ControlClient {
+	c := NewControlClient(directNetDialerFor, "")
+	c.clients["node.one"] = &nodeHTTPClient{client: &http.Client{Transport: m}}
+	return c
+}
 
 var _ = Describe("File stager exact-key release", func() {
 	startReleaseServer := func(stagingDir, token string) (*HTTPFileStager, func()) {
@@ -77,7 +70,7 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(err).NotTo(HaveOccurred())
 		return NewHTTPFileStager(func(string) (string, error) {
 				return listener.Addr().String(), nil
-			}, token), func() {
+			}, token, directNetDialerFor), func() {
 				Expect(server.Shutdown(context.Background())).To(Succeed())
 			}
 	}
@@ -161,7 +154,7 @@ var _ = Describe("File stager exact-key release", func() {
 		DeferCleanup(server.Close)
 		stager := NewHTTPFileStager(func(string) (string, error) {
 			return strings.TrimPrefix(server.URL, "http://"), nil
-		}, "")
+		}, "", directNetDialerFor)
 		keys := []string{
 			"ephemeral/audio/request-id/input.wav",
 			"ephemeral/images/request-id/frame.jpg",
@@ -178,7 +171,7 @@ var _ = Describe("File stager exact-key release", func() {
 		stager := NewHTTPFileStager(func(string) (string, error) {
 			resolved = true
 			return "127.0.0.1:1", nil
-		}, "token")
+		}, "token", directNetDialerFor)
 
 		for _, key := range []string{
 			"models/model.gguf",
@@ -236,17 +229,17 @@ var _ = Describe("File stager exact-key release", func() {
 		key := "ephemeral/request-id/audio/input.wav"
 		Expect(store.Put(context.Background(), key, strings.NewReader("shared"))).To(Succeed())
 
-		client := &releaseTestMessaging{}
+		client := &releaseTestControl{}
 		client.onRequest = func() {
 			exists, existsErr := store.Exists(context.Background(), key)
 			Expect(existsErr).NotTo(HaveOccurred())
 			Expect(exists).To(BeTrue())
 		}
-		stager := NewS3NATSFileStager(fm, client)
+		stager := NewS3FileStager(fm, client.control())
 		Expect(stager.ReleaseRemote(context.Background(), "node.one", key)).To(Succeed())
 
 		Expect(client.requestCalled).To(BeTrue())
-		Expect(client.subject).To(Equal(messaging.SubjectNodeFilesRelease("node.one")))
+		Expect(client.subject).To(Equal(workerctl.PathFilesRelease))
 		var payload fileReleaseRequest
 		Expect(json.Unmarshal(client.payload, &payload)).To(Succeed())
 		Expect(payload.Key).To(Equal(key))
@@ -255,7 +248,7 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(exists).To(BeFalse())
 	})
 
-	It("evicts a request's S3 inputs with one NATS round trip", func() {
+	It("evicts a request's S3 inputs with one control round trip", func() {
 		storeRoot := GinkgoT().TempDir()
 		store, err := storage.NewFilesystemStore(storeRoot)
 		Expect(err).NotTo(HaveOccurred())
@@ -268,8 +261,8 @@ var _ = Describe("File stager exact-key release", func() {
 		for _, key := range keys {
 			Expect(store.Put(context.Background(), key, strings.NewReader("shared"))).To(Succeed())
 		}
-		client := &releaseTestMessaging{}
-		stager := NewS3NATSFileStager(fm, client)
+		client := &releaseTestControl{}
+		stager := NewS3FileStager(fm, client.control())
 
 		Expect(stager.ReleaseRemoteRequest(context.Background(), "node.one", "request-id", keys)).To(Succeed())
 
@@ -294,8 +287,8 @@ var _ = Describe("File stager exact-key release", func() {
 		for i := range keys {
 			keys[i] = fmt.Sprintf("ephemeral/inputs/request-id/input-%d.bin", i)
 		}
-		client := &releaseTestMessaging{}
-		stager := NewS3NATSFileStager(fm, client)
+		client := &releaseTestControl{}
+		stager := NewS3FileStager(fm, client.control())
 
 		Expect(stager.ReleaseRemoteRequest(context.Background(), "node.one", "request-id", keys)).To(Succeed())
 
@@ -306,7 +299,7 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(payload.RequestID).To(Equal("request-id"))
 	})
 
-	It("falls back to exact NATS releases for an older worker", func() {
+	It("falls back to exact control releases for an older worker", func() {
 		store, err := storage.NewFilesystemStore(GinkgoT().TempDir())
 		Expect(err).NotTo(HaveOccurred())
 		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
@@ -318,12 +311,12 @@ var _ = Describe("File stager exact-key release", func() {
 		for _, key := range keys {
 			Expect(store.Put(context.Background(), key, strings.NewReader("shared"))).To(Succeed())
 		}
-		client := &releaseTestMessaging{replies: [][]byte{
+		client := &releaseTestControl{replies: [][]byte{
 			[]byte(`{"error":"batch payload unsupported"}`),
 			[]byte(`{}`),
 			[]byte(`{}`),
 		}}
-		stager := NewS3NATSFileStager(fm, client)
+		stager := NewS3FileStager(fm, client.control())
 
 		Expect(stager.ReleaseRemoteRequest(context.Background(), "node.one", "request-id", keys)).To(Succeed())
 
@@ -348,8 +341,8 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(err).NotTo(HaveOccurred())
 		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
 		Expect(err).NotTo(HaveOccurred())
-		client := &releaseTestMessaging{}
-		stager := NewS3NATSFileStager(fm, client)
+		client := &releaseTestControl{}
+		stager := NewS3FileStager(fm, client.control())
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
@@ -357,13 +350,13 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(client.requestCalled).To(BeFalse())
 	})
 
-	It("bounds the NATS release wait by the remaining cleanup deadline", func() {
+	It("bounds the control release wait by the remaining cleanup deadline", func() {
 		store, err := storage.NewFilesystemStore(GinkgoT().TempDir())
 		Expect(err).NotTo(HaveOccurred())
 		fm, err := storage.NewFileManager(store, GinkgoT().TempDir())
 		Expect(err).NotTo(HaveOccurred())
-		client := &releaseTestMessaging{}
-		stager := NewS3NATSFileStager(fm, client)
+		client := &releaseTestControl{}
+		stager := NewS3FileStager(fm, client.control())
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 

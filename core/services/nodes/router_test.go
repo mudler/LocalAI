@@ -17,7 +17,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
-	"github.com/nats-io/nats.go"
 	ggrpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
@@ -472,6 +471,10 @@ func (f *stubClientFactory) NewClient(_ string, _ bool) grpc.Backend {
 	return f.client
 }
 
+func (f *stubClientFactory) NewClientForNode(_, address string, parallel bool) (grpc.Backend, error) {
+	return f.NewClient(address, parallel), nil
+}
+
 // ---------------------------------------------------------------------------
 // Fake NodeCommandSender (unloader)
 // ---------------------------------------------------------------------------
@@ -498,13 +501,6 @@ type fakeUnloader struct {
 	stopErr     error
 	unloadCalls []string
 
-	// deadNodes names the nodes PingNode reports as absent from the bus, and
-	// pingCalls records every node it was asked about, in order.
-	deadNodes map[string]bool
-	pingCalls []string
-	// pingErr is returned for nodes not in deadNodes, so a spec can model a
-	// node that is reachable but answering badly.
-	pingErr   error
 	unloadErr error
 }
 
@@ -568,17 +564,6 @@ func (f *fakeModelRouter) MarkUnhealthy(_ context.Context, nodeID string) error 
 	return f.markUnhealthyErr
 }
 
-func (f *fakeUnloader) PingNode(nodeID string) error {
-	f.mu.Lock()
-	f.pingCalls = append(f.pingCalls, nodeID)
-	dead := f.deadNodes[nodeID]
-	f.mu.Unlock()
-	if dead {
-		return nats.ErrNoResponders
-	}
-	return f.pingErr
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -601,8 +586,8 @@ var _ = Describe("SmartRouter", func() {
 			factory = &stubClientFactory{client: backend}
 			unloader = &fakeUnloader{
 				installReply: &messaging.BackendInstallReply{
-					Success: true,
-					Address: "10.0.0.1:9001",
+					Success:            true,
+					WorkerLocalAddress: "10.0.0.1:9001",
 				},
 			}
 		})
@@ -610,7 +595,7 @@ var _ = Describe("SmartRouter", func() {
 		Context("model already loaded on a healthy node", func() {
 			It("returns the client and a release function", func() {
 				node := &BackendNode{ID: "n1", Name: "node-1", Address: "10.0.0.1:50051"}
-				nm := &NodeModel{NodeID: "n1", ModelName: "my-model", Address: "10.0.0.1:9001"}
+				nm := &NodeModel{NodeID: "n1", ModelName: "my-model", WorkerLocalAddress: "10.0.0.1:9001"}
 				reg.findAndLockNode = node
 				reg.findAndLockNM = nm
 				backend.healthResult = true
@@ -752,8 +737,8 @@ var _ = Describe("SmartRouter", func() {
 			factory = &stubClientFactory{client: backend}
 			unloader = &fakeUnloader{
 				installReply: &messaging.BackendInstallReply{
-					Success: true,
-					Address: "10.0.0.1:9001",
+					Success:            true,
+					WorkerLocalAddress: "10.0.0.1:9001",
 				},
 			}
 		})
@@ -914,8 +899,8 @@ var _ = Describe("SmartRouter", func() {
 			factory = &stubClientFactory{client: backend}
 			unloader = &fakeUnloader{
 				installReply: &messaging.BackendInstallReply{
-					Success: true,
-					Address: "10.0.0.1:9001",
+					Success:            true,
+					WorkerLocalAddress: "10.0.0.1:9001",
 				},
 			}
 		})
@@ -1011,15 +996,15 @@ var _ = Describe("SmartRouter", func() {
 			factory := &stubClientFactory{client: backend}
 			unloader := &fakeUnloader{
 				installReply: &messaging.BackendInstallReply{
-					Success: true,
-					Address: "10.0.0.71:9001",
+					Success:            true,
+					WorkerLocalAddress: "10.0.0.71:9001",
 				},
 			}
 
 			reg := &fakeModelRouter{
 				// Step 1: cached model found on old node
 				findAndLockNode: cachedNode,
-				findAndLockNM:   &NodeModel{NodeID: "n-old", ModelName: "sel-model", Address: "10.0.0.70:9001"},
+				findAndLockNM:   &NodeModel{NodeID: "n-old", ModelName: "sel-model", WorkerLocalAddress: "10.0.0.70:9001"},
 				// Scheduling config with selector that old node does NOT match
 				getModelScheduling: &ModelSchedulingConfig{
 					ModelName:    "sel-model",
@@ -1280,7 +1265,7 @@ var _ = Describe("SmartRouter", func() {
 			started := make(chan struct{}, 5)
 			release := make(chan struct{})
 			unloader := &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
+				installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:50100"},
 			}
 			unloader.installHook = func() {
 				started <- struct{}{}
@@ -1319,7 +1304,7 @@ var _ = Describe("SmartRouter", func() {
 		It("does NOT coalesce installs for different (modelID, replica) keys", func() {
 			node := &BackendNode{ID: "n1", Name: "node-1", Address: "10.0.0.1:50051"}
 			unloader := &fakeUnloader{
-				installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"},
+				installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:50100"},
 			}
 			router := NewSmartRouter(&fakeModelRouter{}, SmartRouterOptions{
 				Unloader:      unloader,
@@ -1333,6 +1318,44 @@ var _ = Describe("SmartRouter", func() {
 			Expect(err2).ToNot(HaveOccurred())
 			Expect(err3).ToNot(HaveOccurred())
 			Expect(unloader.installCalls).To(HaveLen(3))
+		})
+
+		It("returns the address the worker named for the backend process", func() {
+			node := &BackendNode{ID: "n1", Name: "node-1"}
+			unloader := &fakeUnloader{
+				installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "127.0.0.1:50100"},
+			}
+			router := NewSmartRouter(&fakeModelRouter{}, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: &stubClientFactory{client: &stubBackend{}},
+			})
+
+			addr, err := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-A", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("127.0.0.1:50100"))
+		})
+
+		It("fails when the worker reports success but names no address", func() {
+			// There is no node address left to stand in for it. Substituting one
+			// used to be the behaviour here, and with workers no longer
+			// advertising it would substitute the empty string: the frontend
+			// would then open a stream naming an empty target, the worker would
+			// refuse it as invalid, and that refusal reads as the WORKER
+			// answering about its backend rather than as this install having
+			// produced nothing routable.
+			node := &BackendNode{ID: "n1", Name: "node-1"}
+			unloader := &fakeUnloader{
+				installReply: &messaging.BackendInstallReply{Success: true},
+			}
+			router := NewSmartRouter(&fakeModelRouter{}, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: &stubClientFactory{client: &stubBackend{}},
+			})
+
+			addr, err := router.installBackendOnNode(context.Background(), node, "llama-cpp", "model-A", 0)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("named no address"))
+			Expect(addr).To(BeEmpty())
 		})
 	})
 })
@@ -1359,6 +1382,7 @@ type fakePrefixProvider struct {
 	observed        []observeRecord
 	invalidated     []invalidateRecord
 	invalidatedNode []string
+	droppedNodes    []string
 	decision        prefixcache.PrefixDecision
 }
 
@@ -1380,6 +1404,12 @@ func (f *fakePrefixProvider) InvalidateNode(model, nodeID string) {
 	f.invalidatedNode = append(f.invalidatedNode, model+":"+nodeID)
 }
 
+// DropNode is the departure eviction: every model, one node. Recorded the same
+// way its per-model sibling is, so a spec can tell the two apart.
+func (f *fakePrefixProvider) DropNode(nodeID string) {
+	f.droppedNodes = append(f.droppedNodes, nodeID)
+}
+
 func (f *fakePrefixProvider) Evict(_ time.Time) {}
 
 var _ = Describe("SmartRouter prefix-cache routing", func() {
@@ -1393,7 +1423,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		backend = &stubBackend{healthResult: true}
 		factory = &stubClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.1:9001"},
 		}
 	})
 
@@ -1401,7 +1431,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 	// "m" on node "X", plus matching replica stats so buildPreference can run.
 	loadedReg := func() *fakeModelRouter {
 		node := &BackendNode{ID: "X", Name: "node-x", Address: "10.0.0.1:50051"}
-		nm := &NodeModel{NodeID: "X", ModelName: "m", Address: "10.0.0.1:9001"}
+		nm := &NodeModel{NodeID: "X", ModelName: "m", WorkerLocalAddress: "10.0.0.1:9001"}
 		return &fakeModelRouter{
 			findAndLockNode: node,
 			findAndLockNM:   nm,
@@ -1492,7 +1522,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 			// node. This is the replica-granular regression this change fixes.
 			idx := prefixcache.NewIndex(prefixcache.DefaultConfig())
 			node := &BackendNode{ID: "X", Name: "node-x", Address: "10.0.0.1:50051"}
-			nm := &NodeModel{NodeID: "X", ModelName: "m", ReplicaIndex: 0, Address: "10.0.0.1:9001"}
+			nm := &NodeModel{NodeID: "X", ModelName: "m", ReplicaIndex: 0, WorkerLocalAddress: "10.0.0.1:9001"}
 			reg := &fakeModelRouter{
 				findAndLockNode: node,
 				findAndLockNM:   nm,
@@ -1571,7 +1601,7 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		// forced-disturb signal. findAndLockNode returns Y so Route succeeds.
 		disturbReg := func() *fakeModelRouter {
 			nodeY := &BackendNode{ID: "Y", Name: "node-y", Address: "10.0.0.2:50051"}
-			nm := &NodeModel{NodeID: "Y", ModelName: "m", Address: "10.0.0.2:9001"}
+			nm := &NodeModel{NodeID: "Y", ModelName: "m", WorkerLocalAddress: "10.0.0.2:9001"}
 			return &fakeModelRouter{
 				findAndLockNode: nodeY,
 				findAndLockNM:   nm,
@@ -1688,3 +1718,6 @@ var _ = Describe("SmartRouter prefix-cache routing", func() {
 		})
 	})
 })
+
+// ForgetNode drops per-node state, which this double keeps none of.
+func (*fakeFileStager) ForgetNode(string) {}

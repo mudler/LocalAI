@@ -40,6 +40,19 @@ var companionSuffixes = map[string][]string{
 // Passing them at construction time eliminates data races from post-creation setters.
 type SmartRouterOptions struct {
 	Unloader NodeCommandSender
+	// Presence answers whether a worker's tunnel is held, lost inside the
+	// reconnect grace, lost past it, or unknown. It is the ONLY thing the
+	// scheduler reads absence from; nil disables the check entirely and every
+	// node is treated as present, which is what a deployment with no cluster
+	// registry gets. See nodeMayTakeWork.
+	Presence NodePresenceReader
+	// ReconnectGrace is how long a lost tunnel is read as reconnecting rather
+	// than gone. It is the operator's trade rather than this package's, so
+	// callers pass config.DistributedConfig.ReconnectGraceOrDefault(). Zero
+	// selects the same default: a caller that wires Presence and forgets the
+	// grace gets the documented window instead of a zero one, which would
+	// condemn every worker the instant its tunnel dropped.
+	ReconnectGrace time.Duration
 	// ModelCleanup performs acknowledged exact-process cleanup when a load
 	// finishes after its configuration revision became stale.
 	ModelCleanup  *ModelCleanupService
@@ -152,8 +165,12 @@ func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duratio
 // SmartRouter routes inference requests to the best available backend node.
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
-	registry         ModelRouter
-	unloader         NodeCommandSender // optional, for NATS-driven load/unload
+	registry ModelRouter
+	unloader NodeCommandSender // optional, for control-plane load/unload
+	// presence is the scheduler's only source of absence, and reconnectGrace
+	// the window it measures a departure against. See nodeMayTakeWork.
+	presence         NodePresenceReader
+	reconnectGrace   time.Duration
 	modelCleanup     *ModelCleanupService
 	fileStager       FileStager           // optional, for distributed file transfer
 	galleriesJSON    string               // backend gallery config for dynamic installation
@@ -234,9 +251,18 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if diskHeadroom == nil {
 		diskHeadroom = func() bool { return true }
 	}
+	// Zero means the caller wired a presence reader without an explicit grace.
+	// Defaulted here rather than left at zero, because a zero window makes
+	// every departure instantly a verdict.
+	grace := opts.ReconnectGrace
+	if grace <= 0 {
+		grace = config.DefaultWorkerReconnectGrace
+	}
 	return &SmartRouter{
 		registry:            registry,
 		unloader:            opts.Unloader,
+		presence:            opts.Presence,
+		reconnectGrace:      grace,
 		modelCleanup:        opts.ModelCleanup,
 		fileStager:          opts.FileStager,
 		galleriesJSON:       opts.GalleriesJSON,
@@ -267,6 +293,20 @@ func (r *SmartRouter) Unloader() NodeCommandSender { return r.unloader }
 
 // StagingTracker returns the staging progress tracker for UI visibility.
 func (r *SmartRouter) StagingTracker() *StagingTracker { return r.stagingTracker }
+
+// InvalidateNodeProbes drops every cached probe freshness entry for nodeID.
+//
+// The router owns the probe cache, so this is how a departure reaches it. It is
+// a method rather than an exported cache because the cache's keys are the
+// router's own composition of node ID and worker-local address, and a caller
+// that had to build one of those keys would be a second place that decides the
+// key format.
+func (r *SmartRouter) InvalidateNodeProbes(nodeID string) {
+	if r == nil || r.probeCache == nil {
+		return
+	}
+	r.probeCache.InvalidateNode(nodeID)
+}
 
 // scheduleLoadResult holds the result of scheduling and loading a model on a node.
 type scheduleLoadResult struct {
@@ -393,7 +433,10 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		}
 	}
 
-	client := r.buildClientForAddr(node, backendAddr, parallel)
+	client, err := r.buildClientForAddr(node, backendAddr, parallel)
+	if err != nil {
+		return nil, fmt.Errorf("building a client for model %q on node %q: %w", modelName, node.ID, err)
+	}
 
 	// Load the model on the remote node
 	if loadOpts != nil {
@@ -480,7 +523,7 @@ func (r *SmartRouter) cleanupStaleLoad(ctx context.Context, node *BackendNode, m
 	}
 	replica, err := r.registry.GetNodeModel(context.WithoutCancel(ctx), node.ID, modelName, replicaIndex)
 	if err != nil {
-		replica = &NodeModel{NodeID: node.ID, ModelName: modelName, ReplicaIndex: replicaIndex, Address: address, State: "unloading", ConfigRevision: revision, EffectiveOptionsHash: hash}
+		replica = &NodeModel{NodeID: node.ID, ModelName: modelName, ReplicaIndex: replicaIndex, WorkerLocalAddress: address, State: "unloading", ConfigRevision: revision, EffectiveOptionsHash: hash}
 	}
 	r.modelCleanup.Cleanup(context.WithoutCancel(ctx), []NodeModel{*replica}, false)
 }
@@ -589,9 +632,13 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 
 // RouteResult contains the routing decision.
 type RouteResult struct {
-	Node    *BackendNode
-	Client  grpc.Backend
-	Release func() // Must be called when the request is done (decrements in-flight)
+	Node   *BackendNode
+	Client grpc.Backend
+	// WorkerLocalAddress is where the routed replica's backend process listens
+	// on its worker. Carried so callers that record or log where a model went
+	// name the process rather than the node, which has no address.
+	WorkerLocalAddress string
+	Release            func() // Must be called when the request is done (decrements in-flight)
 }
 
 // Route finds the best node for the given model and backend type.
@@ -714,14 +761,56 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	if err != nil || node == nil {
 		return nil
 	}
-	modelAddr := node.Address
-	if nm.Address != "" {
-		modelAddr = nm.Address
-	}
+	modelAddr := nm.WorkerLocalAddress
 	replicaIdx := nm.ReplicaIndex
 
+	// A replica row that does not name its backend process cannot be routed to.
+	// There is no node address left to stand in for it, and an empty target
+	// names no process, so the request would open a stream the worker refuses
+	// as an invalid request rather than one that reaches a backend. Fall
+	// through to a cold load, which either replaces the row or reports a real
+	// failure.
+	//
+	// The row is left in place, unlike the !alive branch below which removes
+	// it. That branch has OBSERVED a backend dead; this one has observed only
+	// that the row is unreadable, which says nothing about whether a process is
+	// running on that worker. The row is also the last record that one might
+	// be: the acknowledged stop path matches on ExpectedAddress and a worker
+	// refuses a stop whose address does not match, so an empty one cannot be
+	// cleaned up through it either. Keeping the row costs a lock and a
+	// decrement per request before the cold load and leaves something an
+	// operator can see; removing it would free the replica slot for a second
+	// copy of the model while the first one, if it exists, keeps its VRAM with
+	// nothing left pointing at it.
+	//
+	// Defensive rather than reachable: installBackendOnNode below refuses an
+	// install that names no address, so no row written by this release can look
+	// like this.
+	if modelAddr == "" {
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release a reservation for an unnamed replica",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		xlog.Warn("Loaded replica row names no backend process; cold-loading instead",
+			"node", node.ID, "model", att.trackingKey, "replica", replicaIdx)
+		return nil
+	}
+
 	// Verify the backend process is still alive via gRPC health check
-	if !r.probeHealth(ctx, node, modelAddr) {
+	alive, probed := r.probeHealth(ctx, node, modelAddr)
+	if !probed {
+		// Nothing was asked, so nothing was learned. The row is left exactly
+		// as it was: removing it would reclaim a model that is loaded and
+		// healthy on a worker this frontend merely cannot reach right now. The
+		// reservation is released, and the cold path below reports the wiring
+		// fault with the detail a caller needs.
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release a reservation for an unreachable worker",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		return nil
+	}
+	if !alive {
 		// Stale — roll back the increment, remove the specific replica row, fall through
 		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
 			xlog.Warn("Failed to release stale routing reservation",
@@ -753,9 +842,22 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	// call finishes, so in-flight returns to 0 when idle.
 	r.registry.TouchNodeModel(ctx, node.ID, att.trackingKey, replicaIdx)
 	r.observePrefix(att.trackingKey, att.observeChain, prefixcache.ReplicaKey{NodeID: node.ID, Replica: replicaIdx})
-	grpcClient := r.buildClientForAddr(node, modelAddr, att.parallel)
+	grpcClient, err := r.buildClientForAddr(node, modelAddr, att.parallel)
+	if err != nil {
+		// The probe above builds a client for the same node and would have
+		// reported !probed, so reaching here means the dialer stopped being
+		// able to serve this node between the two. Handled the same way and for
+		// the same reason: release the reservation, leave the row alone.
+		if relErr := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); relErr != nil {
+			xlog.Warn("Failed to release a reservation for an unreachable worker",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", relErr)
+		}
+		xlog.Error("Cannot build a client for a loaded model: no way to reach the worker",
+			"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		return nil
+	}
 	tracked := NewInFlightTrackingClient(grpcClient, r.registry, node.ID, att.trackingKey, replicaIdx)
-	return r.newRouteResult(node, att.trackingKey, replicaIdx, grpcClient, tracked)
+	return r.newRouteResult(node, modelAddr, att.trackingKey, replicaIdx, grpcClient, tracked)
 }
 
 // coldLoad schedules the model onto a node and loads it, returning a route to
@@ -772,7 +874,7 @@ func (r *SmartRouter) coldLoad(ctx context.Context, att *routeAttempt, initialIn
 	r.observePrefix(att.trackingKey, att.observeChain, prefixcache.ReplicaKey{NodeID: result.Node.ID, Replica: result.ReplicaIndex})
 
 	tracked := NewInFlightTrackingClient(result.Client, r.registry, result.Node.ID, att.trackingKey, result.ReplicaIndex)
-	return r.newRouteResult(result.Node, att.trackingKey, result.ReplicaIndex, result.Client, tracked), nil
+	return r.newRouteResult(result.Node, result.BackendAddr, att.trackingKey, result.ReplicaIndex, result.Client, tracked), nil
 }
 
 // newColdLoadContext builds the detached, progress-extended context a cold load
@@ -1093,11 +1195,12 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// If freeSlotNodes is empty (everyone full), candidateNodeIDs is whatever
 	// it was — we'll fall through to eviction below.
 
-	// Node choice is wrapped in a liveness check: a node's stored status comes
-	// from its HTTP heartbeat, which is a different channel from the bus that
-	// carries the install. A worker that has died stops answering on the bus at
-	// once but stays healthy in the database until its heartbeat ages out, so
-	// without this the scheduler could commit to a node it cannot reach.
+	// Node choice is wrapped in an absence check: a node's stored status comes
+	// from its HTTP heartbeat, which is a different channel from the tunnel
+	// every install and every request travels over. A worker can heartbeat with
+	// no tunnel at all, so without this the scheduler could commit to a node
+	// nothing in the deployment can reach. See nodeMayTakeWork for which of the
+	// four presence answers is allowed to exclude, and which three are not.
 	//
 	// The last selection error is kept because eviction below fires on a nil
 	// node, and a lookup that failed is not the same answer as a cluster with
@@ -1352,12 +1455,28 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 		if !reply.Success {
 			return "", fmt.Errorf("worker replied with error: %s", reply.Error)
 		}
-		// Return the backend's gRPC address (per-replica port from worker)
-		addr := reply.Address
-		if addr == "" {
-			addr = node.Address // fallback to node base address
+		// Where the backend process listens on that worker. There is no node
+		// address to fall back to any more, and there should not be: a worker
+		// that reports success without naming the port it started the process
+		// on has produced nothing routable, and the failure belongs to THIS
+		// install rather than to whatever later step first tries to use the
+		// address. Substituting one would push a known-bad value into a replica
+		// row and defer the error to a probe, where its cause is no longer
+		// visible.
+		//
+		// An earlier version of this comment justified it by saying the worker
+		// would refuse the resulting empty target as an invalid stream and that
+		// the refusal would read as the worker answering about its backend.
+		// Both halves are true NOW (see cluster.IsWorkerAnswer and
+		// `unroutable`), and the decision still does not rest on either: a row
+		// written with an empty address would be reaped a probe cycle later
+		// with its cause a hop away from where it was created, and the failure
+		// belongs to this install. Reaping is a recovery, not a substitute for
+		// refusing to write the bad value.
+		if reply.WorkerLocalAddress == "" {
+			return "", fmt.Errorf("worker %s reported backend %q installed but named no address for the process", node.ID, backendType)
 		}
-		return addr, nil
+		return reply.WorkerLocalAddress, nil
 	})
 	select {
 	case <-ctx.Done():
@@ -1370,14 +1489,25 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 	}
 }
 
-func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {
-	client := r.clientFactory.NewClient(addr, parallel)
+// buildClientForAddr builds the gRPC client for a backend process running on a
+// worker node.
+//
+// addr is a port INSIDE the worker, reached over the tunnel that worker holds;
+// connecting to it from here would only work for a worker that still listens on
+// a routable address. The factory offers no way to do that, and an error is
+// returned rather than a direct-dialling client for the reason
+// ErrNoWorkerDialer gives.
+func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) (grpc.Backend, error) {
+	client, err := r.clientFactory.NewClientForNode(node.ID, addr, parallel)
+	if err != nil {
+		return nil, err
+	}
 
 	// Wrap with file staging if configured
 	if r.fileStager != nil {
-		return NewFileStagingClient(client, r.fileStager, node.ID)
+		return NewFileStagingClient(client, r.fileStager, node.ID), nil
 	}
-	return client
+	return client, nil
 }
 
 // stageModelFiles uploads model files to the backend node via the FileStager.
@@ -1944,6 +2074,13 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // via a gRPC health check with a 2-second timeout. The client is closed after
 // the check.
 //
+// TWO results, not one. alive is what the backend said; probed is whether it
+// was asked at all. They are separate because the caller REAPS on a dead probe,
+// and a frontend that cannot reach a worker has observed nothing about that
+// worker's backends: folding the two would delete every replica row in the
+// deployment the moment the tunnel wiring was wrong, while the models carried
+// on running.
+//
 // The result is memoized in r.probeCache for probeCacheTTL. With per-request
 // routing every inference call lands here, and unbounded re-probing can stall
 // behind a busy backend that serializes HealthCheck against active Predict.
@@ -1951,16 +2088,49 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // burst of N requests for a cold cache costs at most one round-trip, not N.
 // Failed probes invalidate the cache so the staleness recovery path
 // (DecrementInFlight + RemoveNodeModel) still triggers on the next request.
-func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) bool {
+//
+// The client is built OUTSIDE the memoized closure, which is what keeps an
+// unreachable worker out of the cache entirely: DoOrCachedResult only ever sees
+// a real answer. Building it costs a struct and no I/O, since the gRPC client
+// dials lazily on its first call.
+//
+// The client is the RAW factory client rather than buildClientForAddr's, on
+// purpose, and the reason is narrower than it used to be. The staging wrapper
+// no longer hides the transport: since it became a grpc.WrappedBackend it
+// carries LastDialError through, so wrapping would not cost this function the
+// answer it needs. What it buys is nothing at all, because a health check
+// stages no files, and an unused wrapper on the hottest path in the router is
+// an allocation and an indirection per probe. The earlier justification
+// ("the wrapper does not carry LastDialError through") is no longer true and is
+// recorded here so nobody re-derives the decision from it.
+func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) (alive, probed bool) {
+	client, err := r.clientFactory.NewClientForNode(node.ID, addr, false)
+	if err != nil {
+		xlog.Error("Cannot probe a model backend: no way to reach the worker",
+			"node", node.ID, "address", addr, "error", err)
+		return false, false
+	}
+	defer closeClient(client)
+
 	key := node.ID + "|" + addr
-	return r.probeCache.DoOrCached(key, func() bool {
-		client := r.buildClientForAddr(node, addr, false)
-		defer closeClient(client)
+	alive, unreached := r.probeCache.DoOrCachedResult(key, func() (bool, error) {
 		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 		ok, _ := client.HealthCheck(checkCtx)
-		return ok
+		if ok {
+			return true, nil
+		}
+		// The RPC failed. gRPC reports a dead backend and an unreachable
+		// worker with the same code, so the only way to tell them apart is to
+		// ask the transport whether it was the one that failed.
+		return false, unroutable(client)
 	})
+	if unreached != nil {
+		xlog.Warn("Could not probe a model backend: no route to the worker",
+			"node", node.ID, "address", addr, "error", unreached)
+		return false, false
+	}
+	return alive, true
 }
 
 // closeClient closes a gRPC backend client if it implements io.Closer.
@@ -1974,7 +2144,7 @@ func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr s
 // disconnect, handler error, validation failure after load) previously left
 // in_flight pinned at 1 forever, and every eviction query requires
 // in_flight = 0, so that replica's VRAM could never be reclaimed.
-func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, replicaIdx int, raw grpc.Backend, tracked *InFlightTrackingClient) *RouteResult {
+func (r *SmartRouter) newRouteResult(node *BackendNode, workerLocalAddr, trackingKey string, replicaIdx int, raw grpc.Backend, tracked *InFlightTrackingClient) *RouteResult {
 	var once sync.Once
 	release := func() {
 		once.Do(func() {
@@ -1988,8 +2158,9 @@ func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, repl
 	}
 	tracked.OnFirstComplete(release)
 	return &RouteResult{
-		Node:   node,
-		Client: tracked,
+		Node:               node,
+		Client:             tracked,
+		WorkerLocalAddress: workerLocalAddr,
 		Release: func() {
 			release()
 			closeClient(raw)
@@ -2106,20 +2277,58 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
 		})
 
 		if err == nil {
+			node, nodeErr := r.registry.Get(ctx, lru.NodeID)
+			if nodeErr != nil {
+				return nil, fmt.Errorf("node %s not found after eviction: %w", lru.NodeID, nodeErr)
+			}
+
+			// The third place work is committed to a node, and it has to read
+			// absence for the same reason the other two do.
+			//
+			// The query above chose on stored status, which comes from the
+			// heartbeat. A worker that heartbeats with a departed tunnel is
+			// demoted by the health monitor, but only on its next cycle, so
+			// between the departure ageing past the grace and that cycle this
+			// query still offers the node. pickReachableNode does not cover it:
+			// it only sees what the VRAM and idle selectors offer, and a node
+			// full enough to be an eviction target is exactly the node those
+			// selectors skip.
+			//
+			// Returning such a node hands the caller an install that cannot
+			// land. Demote and evict again instead: the demotion takes the node
+			// out of the next query, which selects on status, so the loop makes
+			// progress rather than re-picking it.
+			//
+			// The row this attempt deleted stays deleted, and presence is read
+			// after the transaction rather than inside it deliberately. Reading
+			// it inside would hold a FOR UPDATE lock across a query that needs a
+			// second pooled connection, which is how concurrent evictions
+			// deadlock a connection pool. The deleted row costs nothing: it
+			// named a backend on a worker no replica can reach, so nothing was
+			// serving from it to lose.
+			if !r.nodeMayTakeWork(ctx, node) {
+				xlog.Warn("Eviction target has no tunnel and its departure outlived the reconnect grace, marking unhealthy and evicting again",
+					"node", node.Name, "nodeID", node.ID, "model", lru.ModelName, "grace", r.reconnectGrace)
+				if markErr := r.registry.MarkUnhealthy(ctx, node.ID); markErr != nil {
+					// Without the demotion the next query hands back the same
+					// node, so stop rather than spin.
+					xlog.Warn("Failed to mark departed eviction target unhealthy",
+						"node", node.Name, "nodeID", node.ID, "error", markErr)
+					return nil, ErrEvictionBusy
+				}
+				continue
+			}
+
 			xlog.Info("Evicted LRU model to free capacity",
 				"node", lru.NodeID, "model", lru.ModelName, "lastUsed", lru.LastUsed)
 
-			// Unload outside the transaction (NATS call)
+			// Unload outside the transaction.
 			if r.unloader != nil {
 				if uerr := r.unloader.UnloadModelOnNode(lru.NodeID, lru.ModelName); uerr != nil {
 					xlog.Warn("eviction unload failed (model already removed from registry)", "error", uerr)
 				}
 			}
 
-			node, nodeErr := r.registry.Get(ctx, lru.NodeID)
-			if nodeErr != nil {
-				return nil, fmt.Errorf("node %s not found after eviction: %w", lru.NodeID, nodeErr)
-			}
 			return node, nil
 		}
 

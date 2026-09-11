@@ -25,6 +25,42 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// waitForSingleLogSubscriber blocks until the worker's WebSocket log handler has
+// registered its subscription on the store.
+//
+// The handler writes the "initial" batch first and subscribes only afterwards,
+// so a line appended the instant that batch lands is buffered but never
+// streamed, and the spec then waits out its full read deadline. Measured at
+// roughly one run in seventeen with `--repeat`, which is far too often for CI.
+// Waiting on the subscription removes the race from the spec; the handler's own
+// snapshot/subscribe window is a separate production question, marked at both
+// production sites.
+//
+// Only valid where BackendLogStore.Subscribe resolves modelID to exactly ONE
+// buffer: a bare model ID with no "<modelID>#N" replica buffers in the store, or
+// a full process key. Subscribe registers the exact-key buffer and each replica
+// buffer one at a time, so for a model that does have replicas the count goes
+// positive while later replicas are still unattached and the race survives.
+// Hence the assertion is on exactly 1 rather than "at least 1": a spec that
+// misapplies this to a replicated model fails loudly on the count instead of
+// going quietly back to being flaky.
+func waitForSingleLogSubscriber(logStore *model.BackendLogStore, modelID string) {
+	GinkgoHelper()
+	Eventually(func() int { return logStore.SubscriberCount(modelID) }, "10s", "5ms").
+		Should(Equal(1), "the WebSocket handler never subscribed to %q exactly once", modelID)
+}
+
+// directWorkerDialerFor stands in for the worker tunnel in these specs.
+//
+// The log-proxy endpoints reach a worker over the tunnel that worker holds, and
+// refuse to reach one without a dialer. These specs run the worker's HTTP
+// server on loopback, so a plain TCP dial is the stand-in; production supplies
+// the real one from core/application.
+func directWorkerDialerFor(_ string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	var d net.Dialer
+	return d.DialContext
+}
+
 var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func() {
 
 	Context("Worker HTTP log endpoints", func() {
@@ -212,6 +248,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(initialLines[1].Text).To(Equal("line-2"))
 
 			// Now append a new line and verify it arrives via WebSocket
+			waitForSingleLogSubscriber(logStore, "ws-model")
 			logStore.AppendLine("ws-model", "stdout", "line-3-realtime")
 
 			conn.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -280,6 +317,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(conn.ReadJSON(&initialMsg)).To(Succeed())
 
 			// Append line to a different model
+			waitForSingleLogSubscriber(logStore, "ws-model")
 			logStore.AppendLine("other-model", "stdout", "should not appear")
 			// Append line to our model
 			logStore.AppendLine("ws-model", "stdout", "should appear")
@@ -343,7 +381,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 			// Create an Echo test server with the proxy endpoint
 			e := echo.New()
-			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token))
+			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token, directWorkerDialerFor))
 
 			req := httptest.NewRequest("GET", fmt.Sprintf("/api/nodes/%s/backend-logs", node.ID), nil)
 			rec := httptest.NewRecorder()
@@ -365,7 +403,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
 
 			e := echo.New()
-			e.GET("/api/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, token))
+			e.GET("/api/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, token, directWorkerDialerFor))
 
 			req := httptest.NewRequest("GET", fmt.Sprintf("/api/nodes/%s/backend-logs/remote-model", node.ID), nil)
 			rec := httptest.NewRecorder()
@@ -382,7 +420,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 		It("should return 404 for unknown node ID", func() {
 			e := echo.New()
-			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token))
+			e.GET("/api/nodes/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, token, directWorkerDialerFor))
 
 			req := httptest.NewRequest("GET", "/api/nodes/nonexistent-id/backend-logs", nil)
 			rec := httptest.NewRecorder()
@@ -426,7 +464,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 
 			// Start Echo server with the WebSocket proxy route
 			e := echo.New()
-			e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, token))
+			e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, token, directWorkerDialerFor))
 
 			lis, err := net.Listen("tcp", "127.0.0.1:0")
 			Expect(err).ToNot(HaveOccurred())
@@ -475,6 +513,7 @@ var _ = Describe("Distributed Backend Log Streaming", Label("Distributed"), func
 			Expect(initialLines[0].Text).To(Equal("initial line from worker"))
 
 			// Append a new line on the worker's log store
+			waitForSingleLogSubscriber(logStore, "proxy-model")
 			logStore.AppendLine("proxy-model", "stderr", "realtime via proxy")
 
 			// Read the streamed line through the proxy

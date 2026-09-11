@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/storage"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,7 +30,6 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 		It("should reject --distributed without PostgreSQL configured", func() {
 			appCfg := config.NewApplicationConfig(
 				config.EnableDistributed,
-				config.WithNatsURL(infra.NatsURL),
 				// No auth/PostgreSQL configured
 			)
 			Expect(appCfg.Distributed.Enabled).To(BeTrue())
@@ -40,26 +37,28 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			Expect(appCfg.Auth.Enabled).To(BeFalse())
 		})
 
-		It("should reject --distributed without NATS configured", func() {
+		// Two Its stood here: "leaves the inert bus URL empty when nothing sets
+		// it" and "should accept valid distributed configuration", which passed
+		// config.WithNatsURL and read the value back. Both are retired with the
+		// field and the option they used, and neither property is lost.
+		//
+		// "The value is never dialled" is no longer a promise about a stored
+		// value; there is nowhere to store one, which core/config's "broker
+		// surface" spec asserts by reflection so it cannot silently stop
+		// compiling when the field returns. "An existing command line still
+		// starts" moved DOWN a level, to where it is actually at risk: kong is
+		// what rejects an unknown flag, so core/cli's "frontend's broker flags"
+		// specs parse the real command line, and the cluster suite starts real
+		// frontends with a dead LOCALAI_NATS_URL in their environment.
+		It("should accept a valid distributed configuration", func() {
 			appCfg := config.NewApplicationConfig(
 				config.EnableDistributed,
 				config.WithAuthEnabled(true),
 				config.WithAuthDatabaseURL(infra.PGURL),
-				// No NATS URL
-			)
-			Expect(appCfg.Distributed.NatsURL).To(BeEmpty())
-		})
-
-		It("should accept valid distributed configuration", func() {
-			appCfg := config.NewApplicationConfig(
-				config.EnableDistributed,
-				config.WithAuthEnabled(true),
-				config.WithAuthDatabaseURL(infra.PGURL),
-				config.WithNatsURL(infra.NatsURL),
 			)
 			Expect(appCfg.Distributed.Enabled).To(BeTrue())
 			Expect(appCfg.Auth.Enabled).To(BeTrue())
-			Expect(appCfg.Distributed.NatsURL).To(Equal(infra.NatsURL))
+			Expect(appCfg.Distributed.Validate()).To(Succeed())
 		})
 
 		It("should generate unique frontend ID on startup", func() {
@@ -83,77 +82,22 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 		})
 	})
 
-	Context("NATS client", func() {
-		It("should connect, publish, and subscribe", func() {
-			client, err := messaging.New(infra.NatsURL)
-			Expect(err).ToNot(HaveOccurred())
-			defer client.Close()
-
-			Expect(client.IsConnected()).To(BeTrue())
-
-			received := make(chan []byte, 1)
-			sub, err := client.Subscribe("test.subject", func(data []byte) {
-				received <- data
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub.Unsubscribe()
-
-			// Small delay to ensure subscription is active
-			FlushNATS(client)
-
-			err = client.Publish("test.subject", map[string]string{"msg": "hello"})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(received, "5s").Should(Receive())
-		})
-
-		It("should support queue subscriptions for load balancing", func() {
-			client, err := messaging.New(infra.NatsURL)
-			Expect(err).ToNot(HaveOccurred())
-			defer client.Close()
-
-			var worker1Count, worker2Count atomic.Int32
-
-			sub1, err := client.QueueSubscribe("test.queue", "workers", func(data []byte) {
-				worker1Count.Add(1)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub1.Unsubscribe()
-
-			sub2, err := client.QueueSubscribe("test.queue", "workers", func(data []byte) {
-				worker2Count.Add(1)
-			})
-			Expect(err).ToNot(HaveOccurred())
-			defer sub2.Unsubscribe()
-
-			FlushNATS(client)
-
-			// Publish multiple messages
-			for i := range 10 {
-				err = client.Publish("test.queue", map[string]int{"n": i})
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			// Wait for all messages to be processed
-			Eventually(func() int32 {
-				return worker1Count.Load() + worker2Count.Load()
-			}, "5s").Should(Equal(int32(10)))
-
-			// Both workers should have received some messages (load-balanced)
-			// Note: with only 10 messages, distribution may not be perfectly even
-			Expect(worker1Count.Load() + worker2Count.Load()).To(Equal(int32(10)))
-		})
-
-		It("should reconnect after disconnect", func() {
-			client, err := messaging.New(infra.NatsURL)
-			Expect(err).ToNot(HaveOccurred())
-			defer client.Close()
-
-			Expect(client.IsConnected()).To(BeTrue())
-			// The reconnect behavior is tested implicitly by the RetryOnFailedConnect option
-			// A full reconnect test would require stopping/restarting the NATS container
-		})
-	})
+	// Two Its that used to sit here went with the halves of the client they
+	// exercised. "should support queue subscriptions for load balancing" pinned
+	// that work reaches exactly one of N consumers; a queue group no longer
+	// selects anything and that property is now core/services/jobs
+	// claim_test.go's competing-claimants specs, which race eight claimants for
+	// eight rows and then for one. "should reconnect after disconnect" pinned
+	// that the carrier survives a drop, and said in its own body that it
+	// asserted nothing of the kind; the property is now
+	// core/services/pgbus/listener_test.go, which actually kills the session
+	// with pg_terminate_backend and waits for delivery to resume.
+	//
+	// The third went with the family it carried. A cancel used to be published
+	// on NATS because its subscriber was an agent worker that could not read
+	// the broadcast carrier; it is a control verb on that worker's own tunnel
+	// now, and the deployment dials no message bus at all. The path is driven
+	// end to end, over a real tunnel, in agent_distributed_test.go.
 
 	Context("ObjectStore filesystem adapter", func() {
 		var store *storage.FilesystemStore

@@ -86,8 +86,9 @@ var _ = Describe("DeleteStalePendingBackendOps", func() {
 	})
 
 	It("clears ops behind an unhealthy node with a stale heartbeat (never ages to offline)", func() {
-		// A node marked unhealthy on a NATS ErrNoResponders never transitions to
-		// offline, so its ops must be reaped via the same stale-heartbeat path.
+		// A node the scheduler demoted for a departed tunnel never transitions
+		// to offline, so its ops must be reaped via the same stale-heartbeat
+		// path.
 		sick := registerBackend("agx-orin-sick", "10.0.0.7:50051")
 		Expect(registry.UpsertPendingBackendOp(ctx, sick, "llama-cpp-development", OpBackendUpgrade, nil)).To(Succeed())
 		Expect(registry.MarkUnhealthy(ctx, sick)).To(Succeed())

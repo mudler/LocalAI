@@ -216,15 +216,33 @@ LocalAI supports several subcommands beyond `run`:
 - `local-ai transcript` - Convert audio to text
 - `local-ai agent` - Run agents standalone without the full LocalAI server
 - `local-ai mcp-server` - Run the LocalAI admin tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP)
-- `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic)
+- `local-ai worker` - Start a worker for distributed mode (generic, backend-agnostic; needs only an outbound route to the frontend, no message bus)
 - `local-ai p2p-worker` - Run workers to distribute workload via p2p (llama.cpp-only)
-- `local-ai agent-worker` - Start an agent worker for distributed mode (executes agent chats via NATS)
+- `local-ai agent-worker` - Start an agent worker for distributed mode (serves agent execution, MCP CI runs and cancellation as control verbs on the tunnel it holds; it connects to no message bus)
 - `local-ai util` - Utility commands
 - `local-ai explorer` - Run P2P explorer
 - `local-ai federated` - Run LocalAI in federated mode
 - `local-ai completion` - Generate shell completion scripts for bash, zsh, or fish
 
 Use `local-ai <command> --help` for more information on each command.
+
+### Flags accepted and ignored
+
+Distributed mode no longer uses a message broker, and the `nats-io` client is no longer part of the build. The flags that configured one are still **accepted and ignored**, so an existing command line, unit file or Helm values file starts unchanged on the day you upgrade. They are hidden from `--help`, and they are **scheduled for removal in the release after next**.
+
+Which command accepts which is listed per row, because the sets differ. `local-ai worker` kept only `--nats-url`: its credential and TLS flags were removed a release earlier, when a serve-backend worker stopped connecting to a broker at all. Passing one of the others to `local-ai worker` is a parse error, not an ignored flag.
+
+| Flag | Env Var | Accepted by |
+|------|---------|-------------|
+| `--nats-url` | `LOCALAI_NATS_URL` | `run`, `worker`, `agent-worker` |
+| `--nats-account-seed` | `LOCALAI_NATS_ACCOUNT_SEED` | `run` |
+| `--nats-worker-jwtttl` | `LOCALAI_NATS_WORKER_JWT_TTL` | `run` |
+| `--nats-service-jwt` / `--nats-service-seed` | `LOCALAI_NATS_SERVICE_JWT` / `LOCALAI_NATS_SERVICE_SEED` | `run`, `agent-worker` |
+| `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | `run`, `agent-worker` |
+| `--nats-tlsca` / `--nats-tls-cert` / `--nats-tls-key` | `LOCALAI_NATS_TLS_CA` / `LOCALAI_NATS_TLS_CERT` / `LOCALAI_NATS_TLS_KEY` | `run`, `agent-worker` |
+| `--nats-jwt` / `--nats-user-seed` | `LOCALAI_NATS_JWT` / `LOCALAI_NATS_USER_SEED` | `agent-worker` |
+
+`LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT`, `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` and `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` are **not** in that table and are still read and enforced. Despite their names they were never broker settings: each is a budget the frontend applies to a control request it sends a worker over that worker's tunnel. See [Migrating off the message broker]({{%relref "features/distributed-mode#migrating-off-the-message-broker" %}}).
 
 ## Examples
 

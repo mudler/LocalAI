@@ -1,0 +1,837 @@
+// Package cluster runs LocalAI as real child processes for end-to-end tests.
+//
+// The in-process suites cannot express frontend-replica failure: there is no
+// process to kill, no second replica to race, and no real HTTP boundary between
+// a worker and the frontend it registered with. This package starts the same
+// binary an operator runs, one process per frontend replica and one per worker,
+// against containerised Postgres. Postgres is the only container: a distributed
+// deployment needs it and the frontends' own HTTP listener, and nothing else.
+package cluster
+
+import (
+	"fmt"
+	"math/rand/v2"
+	"net"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
+
+	"github.com/phayes/freeport"
+)
+
+// StaleBusURL is the address of a broker that is not running, and is not meant
+// to be.
+//
+// LOCALAI_NATS_URL is still accepted and ignored by every process this harness
+// starts, so an operator's existing command line, unit file or Helm values file
+// starts unchanged after the broker is shut down. This suite covers that
+// promise by handing over THIS value: a value pointing at a live server would
+// let a regression that dialled it pass unnoticed, while a dead one turns the
+// same regression into a startup failure in every cluster spec.
+//
+// It is a constant here rather than an Options field, because there is nothing
+// left for a caller to choose: no process reads the variable, so a per-cluster
+// value would only be a knob that changes nothing.
+const StaleBusURL = "nats://127.0.0.1:1"
+
+// Options configures a cluster. Every field without a default is required.
+type Options struct {
+	// Binary is the path to a built local-ai.
+	Binary string
+	// MockBackend is the path to the mock-backend binary. When set it is copied
+	// into each worker's backends directory as "mock-backend", which is the name
+	// model YAML refers to (see tests/e2e/e2e_suite_test.go:75).
+	MockBackend string
+	// PGDSN points at infrastructure the caller already started.
+	//
+	// There is no NatsURL beside it any more. Removing the FIELD rather than
+	// ignoring it means a spec that still sets one fails to compile, which is
+	// the only way a harness option stops being set by accident.
+	PGDSN string
+	// LogDir receives one file per process. Never empty: a cluster failure is
+	// unreadable without them.
+	LogDir string
+
+	RegistrationToken string // default "e2e-token"
+	AdminEmail        string // default "admin@e2e.local"
+
+	Frontends int
+	Workers   int
+
+	// AgentWorkers is how many `local-ai agent-worker` processes to start
+	// alongside the backend workers.
+	//
+	// They exist so a spec can hold the two kinds of worker side by side in one
+	// cluster. An agent worker holds a tunnel of its own and is reached through
+	// it and through nothing else, so it gets a real node_connections row whose
+	// departure really does age past the grace and it is subject to every
+	// tunnel-departure rule a backend worker is. A spec that asserted only on
+	// backend workers could not tell "the rule reaches both fleets" from
+	// "nothing here looks at agent workers".
+	//
+	// They register through the same WorkerFrontendURL hook as backend workers,
+	// so a spec that puts a balancer in front of the fleet gets one for its
+	// agent workers too. Without that, killing a replica would orphan the agent
+	// worker's heartbeats and it would go unhealthy for a reason that has
+	// nothing to do with what the spec is about.
+	AgentWorkers int
+
+	// ReconnectGrace sets LOCALAI_WORKER_RECONNECT_GRACE on every frontend: how
+	// long a worker whose tunnel was lost is read as reconnecting rather than
+	// gone. Zero leaves the binary's own default (90s).
+	//
+	// It is an Option rather than a per-spec environment edit because two
+	// specs need it pulled in OPPOSITE directions and neither can use the
+	// default: one has to prove nothing is reaped inside the window and needs
+	// it longer than a re-home takes, and one has to prove a departed worker
+	// stops being reported healthy and would otherwise wait 90 seconds to say
+	// so.
+	ReconnectGrace time.Duration
+
+	// SpreadWorkerRegistrations sends worker i to frontend i%Frontends instead
+	// of sending every worker to frontend 0.
+	//
+	// Off by default, and deliberately so: the cross-replica session specs read
+	// a node at frontend 1 that only frontend 0 was ever told about, and
+	// spreading registrations would leave them passing while proving nothing.
+	// It exists for the racing-replicas spec, which is about two replicas
+	// writing to one roster concurrently and cannot express that at all while
+	// every worker registers through the same process.
+	SpreadWorkerRegistrations bool
+
+	// Models is written into every frontend's models directory before that
+	// replica starts, keyed by file name. It is how a spec gets a model
+	// configuration in front of the frontend at all: the models directory is
+	// scanned at startup, so a file written afterwards is not guaranteed to be
+	// seen, and there is no admin endpoint that creates a config.
+	//
+	// Frontends only. A worker is handed model artifacts by the frontend's file
+	// staging, over the tunnel, and pre-seeding the worker would hide whether
+	// that worked.
+	Models map[string]string
+
+	// WorkerFrontendURL rewrites the URL worker i registers and holds its
+	// tunnel against. It is called once per worker, after every frontend is
+	// serving, and is given the URL the worker would otherwise have been handed
+	// plus every frontend's URL in index order, so a hook can put a proxy or a
+	// load balancer in front of one replica or of all of them.
+	//
+	// It exists for two things the fixed per-replica URL cannot express. One is
+	// a worker that survives its replica: LOCALAI_REGISTER_TO is resolved once
+	// at boot and is the tunnel endpoint as well as the registration one, so a
+	// worker pointed straight at a replica has nowhere to reconnect to when
+	// that replica dies, and the re-home this feature is built on cannot
+	// happen. The other is the suite's negative control, which needs a worker
+	// that registers, heartbeats and reports healthy exactly as usual while its
+	// tunnel dial never reaches a frontend; nothing else can produce that,
+	// because LOCALAI_WORKER_TUNNEL=false is refused at startup and a worker
+	// that never started proves nothing about a worker reachable some other
+	// way.
+	WorkerFrontendURL func(worker int, registrar string, frontends []string) string
+
+	// Galleries is the model-gallery list every frontend runs with, in the JSON
+	// form --galleries takes. Empty leaves the binary's own default list, which
+	// is what every spec that does not name this option keeps.
+	//
+	// It exists for the fan-out specs, which need the thing a gallery operation
+	// blocks on to be something the spec can hold open. A model install's first
+	// act is to fetch its gallery's index, and the gallery worker runs one
+	// operation at a time, so an index served by a gate the spec controls is
+	// what turns "the queued broadcast went out before the terminal one" from a
+	// timing coincidence into an arrangement.
+	//
+	// Setting it also turns the startup estimate warmer OFF, and that is not
+	// tidiness. The warmer fetches the same index in the background at boot, so
+	// with it on the process-wide index cache can be filled by something other
+	// than the operation the spec is holding, and the operation then never
+	// blocks at all. The spec would still pass, on an ordering nothing enforced.
+	Galleries string
+}
+
+// Process is one running local-ai.
+type Process struct {
+	Name string
+	// Cmd is exposed for signalling only. Never call Cmd.Wait on it: the reaper
+	// goroutine started in spawn owns it, a second Wait races the first, and
+	// waitErr is only safe to read after <-p.exited.
+	Cmd     *exec.Cmd
+	Port    int
+	LogPath string
+
+	logFile *os.File
+	// exited closes once the reaper has collected the process. Only the reaper
+	// calls Cmd.Wait, so nothing else may: a second Wait on the same Cmd races
+	// the first and corrupts ProcessState.
+	//
+	// A closed exited proves the child is gone. An open one proves nothing: it
+	// is still open for the whole interval between the child exiting and waitid
+	// collecting it, during which the child is a zombie that signal 0 reports as
+	// alive. Anything asserting on a process being dead must poll, not sample.
+	exited  chan struct{}
+	waitErr error
+}
+
+// Cluster is a running set of frontend and worker processes.
+type Cluster struct {
+	opts      Options
+	frontends []*Process
+	workers   []*Process
+	// agentWorkers are kept apart from workers rather than appended to it. Every
+	// index-taking method on this type means "backend worker i", and folding the
+	// two together would silently renumber them for every existing spec.
+	agentWorkers []*Process
+	baseDir      string
+}
+
+const (
+	defaultRegistrationToken = "e2e-token"
+	defaultAdminEmail        = "admin@e2e.local"
+	// testHMACSecret is shared by every frontend so a session minted at one
+	// replica validates at all of them. See the note in startFrontend.
+	testHMACSecret   = "e2e-cluster-hmac-secret"
+	readinessTimeout = 90 * time.Second
+	readinessPoll    = 200 * time.Millisecond
+	// processExitTimeout bounds the post-SIGKILL wait in terminate. An unbounded
+	// wait turns one stuck child (D state, or a Wait that never returns) into a
+	// suite-wide Ginkgo timeout that names nothing.
+	processExitTimeout = 10 * time.Second
+)
+
+func (o *Options) applyDefaults() {
+	if o.RegistrationToken == "" {
+		o.RegistrationToken = defaultRegistrationToken
+	}
+	if o.AdminEmail == "" {
+		o.AdminEmail = defaultAdminEmail
+	}
+}
+
+func (o Options) validate() error {
+	if o.Frontends < 1 {
+		return fmt.Errorf("cluster needs at least one frontend, got %d", o.Frontends)
+	}
+	if o.LogDir == "" {
+		return fmt.Errorf("cluster needs a LogDir: process logs are the only way to read a cluster failure")
+	}
+	if st, err := os.Stat(o.Binary); err != nil || st.IsDir() {
+		return fmt.Errorf("local-ai binary not found at %q (run: make build)", o.Binary)
+	}
+	return nil
+}
+
+// Start brings up the cluster. It blocks until every frontend answers /readyz
+// and every worker process has been spawned. It does NOT wait for workers to
+// register: that needs an authenticated admin session, so a caller that depends
+// on registration must poll /api/nodes itself.
+func Start(opts Options) (*Cluster, error) {
+	opts.applyDefaults()
+	if err := opts.validate(); err != nil {
+		return nil, err
+	}
+
+	baseDir, err := os.MkdirTemp("", "localai-cluster-*")
+	if err != nil {
+		return nil, fmt.Errorf("creating cluster work dir: %w", err)
+	}
+
+	c := &Cluster{opts: opts, baseDir: baseDir}
+
+	for i := 0; i < opts.Frontends; i++ {
+		p, err := c.startFrontend(i, 0)
+		if err != nil {
+			c.Stop()
+			return nil, err
+		}
+		c.frontends = append(c.frontends, p)
+	}
+	for i := 0; i < opts.Workers; i++ {
+		p, err := c.startWorker(i)
+		if err != nil {
+			c.Stop()
+			return nil, err
+		}
+		c.workers = append(c.workers, p)
+	}
+	for i := 0; i < opts.AgentWorkers; i++ {
+		p, err := c.startAgentWorker(i)
+		if err != nil {
+			c.Stop()
+			return nil, err
+		}
+		c.agentWorkers = append(c.agentWorkers, p)
+	}
+	return c, nil
+}
+
+// startFrontend starts frontend i. A port <= 0 allocates a fresh one; a pinned
+// port exists for restart: workers take LOCALAI_REGISTER_TO once at boot and
+// never re-resolve it, so a replica that comes back on a new port is
+// unreachable by exactly the workers that registered with it.
+func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
+	if port <= 0 {
+		allocated, err := freeport.GetFreePort()
+		if err != nil {
+			return nil, fmt.Errorf("allocating frontend port: %w", err)
+		}
+		port = allocated
+	}
+	name := frontendName(i)
+	dir := c.frontendDir(i)
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "backends"), 0o755); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
+	// Without an explicit LOCALAI_DATA_PATH every child resolves DataPath to
+	// ${cwd}/data (core/cli/run.go:48), which under `go test` is inside the
+	// source tree and shared by every replica: one collectiondb, one task and
+	// job store for processes that are meant to be independent.
+	dataPath := c.frontendDataDir(i)
+	if err := os.MkdirAll(dataPath, 0o750); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
+	for file, content := range c.opts.Models {
+		path := filepath.Join(dir, "models", file)
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			return nil, fmt.Errorf("writing %s for %s: %w", file, name, err)
+		}
+	}
+
+	cmd := exec.Command(c.opts.Binary, "run",
+		"--address", fmt.Sprintf("127.0.0.1:%d", port),
+		"--models-path", filepath.Join(dir, "models"),
+		"--backends-path", filepath.Join(dir, "backends"),
+	)
+	// Cmd.Environ() is the parent environment this Cmd would already run with;
+	// the children need PATH, HOME and the Go/CI environment intact.
+	cmd.Env = append(cmd.Environ(),
+		"LOCALAI_DISTRIBUTED=true",
+		// Deliberately handed a broker URL, and deliberately a dead one. This
+		// is the shape of an operator's existing unit file on the day they shut
+		// the broker down, and the promise it covers is that such a command
+		// line still STARTS. A live address would let a regression that dialled
+		// it pass; this one turns such a regression into a startup failure in
+		// every cluster spec.
+		"LOCALAI_NATS_URL="+StaleBusURL,
+		"LOCALAI_AUTH=true",
+		"LOCALAI_AUTH_DATABASE_URL="+c.opts.PGDSN,
+		"LOCALAI_ADMIN_EMAIL="+c.opts.AdminEmail,
+		"LOCALAI_DATA_PATH="+dataPath,
+		// Session rows are keyed by HMAC-SHA256(token, APIKeyHMACSecret), and
+		// the secret is generated per instance into {DataPath}/.hmac_secret
+		// unless pinned (core/application/startup.go:141-148). Now that each
+		// replica owns its data directory, an unpinned secret would differ per
+		// replica, so the cookie minted at frontend 0 would hash to a session
+		// row that does not exist at frontend 1 and every post-failover
+		// /api/nodes call would 401 with nothing in the logs to explain it.
+		// Pinning makes the cross-replica session a property of the harness.
+		"LOCALAI_AUTH_HMAC_SECRET="+testHMACSecret,
+		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
+		// Every replica here shares one host, so the address a peer dials is
+		// this process's own loopback address. It has to be said explicitly:
+		// the automatic discovery asks which local address routes to
+		// PostgreSQL, and this suite's PostgreSQL is a container published on
+		// 127.0.0.1, so the discovery refuses (correctly) rather than
+		// advertising a loopback address that would mean "yourself" on a
+		// multi-host deployment.
+		fmt.Sprintf("LOCALAI_DISTRIBUTED_ADVERTISE_ADDR=127.0.0.1:%d", port),
+		"LOCALAI_AUTO_APPROVE_NODES=true",
+		"DEBUG=true",
+	)
+	if c.opts.ReconnectGrace > 0 {
+		cmd.Env = append(cmd.Env, "LOCALAI_WORKER_RECONNECT_GRACE="+c.opts.ReconnectGrace.String())
+	}
+	if c.opts.Galleries != "" {
+		// Both, together, or neither: see Options.Galleries for why the warmer
+		// has to be off wherever the gallery index is a spec's gate.
+		cmd.Env = append(cmd.Env,
+			"LOCALAI_GALLERIES="+c.opts.Galleries,
+			"LOCALAI_AUTOLOAD_GALLERIES=false")
+	}
+
+	p, err := c.spawn(name, cmd, port)
+	if err != nil {
+		return nil, err
+	}
+	if err := waitReady(p, fmt.Sprintf("http://127.0.0.1:%d/readyz", port)); err != nil {
+		// The caller never sees this process, so Stop() will never reach it:
+		// reap it here or it outlives the suite holding a port and a log handle.
+		p.terminate()
+		return nil, fmt.Errorf("%s never became ready (see %s): %w", name, p.LogPath, err)
+	}
+	return p, nil
+}
+
+func (c *Cluster) startWorker(i int) (*Process, error) {
+	// One contiguous block, laid out the way production lays it out. See
+	// reserveWorkerPorts.
+	grpcPort, err := reserveWorkerPorts()
+	if err != nil {
+		return nil, fmt.Errorf("allocating worker ports: %w", err)
+	}
+	httpPort := grpcPort - 1
+	maxPort := grpcPort + workerPortBlockSize - 1
+	name := fmt.Sprintf("worker-%d", i)
+	dir := filepath.Join(c.baseDir, name)
+	backends := filepath.Join(dir, "backends")
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
+	if err := os.MkdirAll(backends, 0o755); err != nil {
+		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
+	}
+	if c.opts.MockBackend != "" {
+		if err := copyExecutable(c.opts.MockBackend, filepath.Join(backends, "mock-backend")); err != nil {
+			return nil, fmt.Errorf("installing mock backend for %s: %w", name, err)
+		}
+	}
+
+	cmd := exec.Command(c.opts.Binary, "worker",
+		"--models-path", filepath.Join(dir, "models"),
+		"--backends-path", backends,
+	)
+	cmd.Env = append(cmd.Environ(),
+		// Ports only. A worker advertises nothing, so there is no advertise
+		// address to set; these exist to keep concurrently running workers off
+		// each other's ports, not to make anything reachable. Every bind is
+		// loopback whatever is set here.
+		//
+		// The max port is what keeps the backend allocator inside the block
+		// reserved for this worker. Without it the allocator walks upward to
+		// 65535 (core/services/worker/registration.go, effectiveMaxPort), so a
+		// worker running enough backends walks straight out of its block and
+		// into whatever else this host is using.
+		fmt.Sprintf("LOCALAI_SERVE_ADDR=127.0.0.1:%d", grpcPort),
+		fmt.Sprintf("LOCALAI_HTTP_ADDR=127.0.0.1:%d", httpPort),
+		fmt.Sprintf("LOCALAI_GRPC_MAX_PORT=%d", maxPort),
+		// Workers register with frontend 0 ONLY unless the caller opts into
+		// SpreadWorkerRegistrations, and the cross-replica session specs depend
+		// on that default. They prove a session minted at frontend 0 resolves at
+		// frontend 1 by reading a node that only frontend 0 was ever told about;
+		// register the worker everywhere and they still pass while proving
+		// nothing.
+		//
+		// Nothing in those specs can detect the change. The registry keys nodes
+		// by name and preserves ids across the shared Postgres
+		// (core/services/nodes/registry.go:522-527), so a roster read at
+		// frontend 1 looks identical either way. Anyone changing the default
+		// here must revisit tests/e2e/distributed/cluster_baseline_test.go by
+		// hand.
+		//
+		// The registrar also fixes where this worker's heartbeats go for the
+		// rest of its life: the loop posts to the URL it was given at boot and
+		// never re-resolves it (core/cli/workerregistry/client.go), so killing a
+		// worker's registrar orphans that worker rather than failing it over.
+		//
+		// No LOCALAI_NATS_URL: a backend worker connects to no bus, and passing
+		// one would make every spec here prove the tunnel-only path works while
+		// quietly handing the worker the thing it is supposed to do without.
+		// The frontends above still get it.
+		"LOCALAI_REGISTER_TO="+c.workerFrontendURL(i),
+		"LOCALAI_NODE_NAME="+name,
+		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
+		"DEBUG=true",
+	)
+
+	return c.spawn(name, cmd, grpcPort)
+}
+
+// startAgentWorker starts agent worker i.
+//
+// It is `local-ai agent-worker`, not `local-ai worker`, and the difference is
+// the whole point of having it here: an agent worker runs no backend processes,
+// so it is the second worker KIND every rule about a departed tunnel now has to
+// hold for. It dials a tunnel of its own, but binds only loopback for the
+// control plane behind it, so there is still no port to reserve and no
+// reachable readiness endpoint to wait on; a spec learns it is up by finding it
+// in the roster.
+func (c *Cluster) startAgentWorker(i int) (*Process, error) {
+	name := agentWorkerName(i)
+	cmd := exec.Command(c.opts.Binary, "agent-worker")
+	cmd.Env = append(cmd.Environ(),
+		// Still set, and still ignored, on the same terms as the frontend's
+		// above: this suite keeps covering the promise that an operator's
+		// existing --nats-url does not break an agent worker. Nothing in the
+		// process reads it.
+		"LOCALAI_NATS_URL="+StaleBusURL,
+		"LOCALAI_REGISTER_TO="+c.workerFrontendURL(i),
+		"LOCALAI_NODE_NAME="+name,
+		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
+		"DEBUG=true",
+	)
+	return c.spawn(name, cmd, 0)
+}
+
+// ProcKind names which of a cluster's three process families an environment
+// read is about.
+type ProcKind string
+
+const (
+	ProcFrontend    ProcKind = "frontend"
+	ProcWorker      ProcKind = "worker"
+	ProcAgentWorker ProcKind = "agent-worker"
+)
+
+// ProcessEnviron reads the LIVE environment of process i of kind k from
+// /proc/<pid>/environ.
+//
+// Generalised from WorkerEnviron, which an earlier phase added for exactly this
+// assertion and which could only see workers. Reading /proc rather than Cmd.Env
+// is the whole point: Cmd.Env is what the harness INTENDED, and an assertion
+// about intent cannot fail when a variable arrives from the parent environment,
+// a profile or a wrapper.
+//
+// Linux only, like the rest of this package. A platform without /proc returns
+// the read error rather than falling back, so the assertion fails loudly
+// instead of quietly becoming the weaker one.
+func (c *Cluster) ProcessEnviron(k ProcKind, i int) ([]string, error) {
+	switch k {
+	case ProcFrontend:
+		if err := c.checkFrontendIndex(i); err != nil {
+			return nil, err
+		}
+		return processEnviron(c.frontends[i])
+	case ProcWorker:
+		if err := c.checkWorkerIndex(i); err != nil {
+			return nil, err
+		}
+		return processEnviron(c.workers[i])
+	case ProcAgentWorker:
+		if i < 0 || i >= len(c.agentWorkers) {
+			return nil, fmt.Errorf("agent worker %d out of range (cluster has %d)", i, len(c.agentWorkers))
+		}
+		return processEnviron(c.agentWorkers[i])
+	default:
+		return nil, fmt.Errorf("unknown process kind %q", k)
+	}
+}
+
+// WorkerEnviron is the environment of worker i's RUNNING PROCESS, read from
+// /proc.
+//
+// Not Cmd.Env, deliberately. A spec asserting that a worker runs with no bus
+// URL is asserting about the process, and Cmd.Env is the harness telling the
+// spec what the harness meant to do: the two agree by construction, so a spec
+// reading it proves the harness consistent with itself and nothing about the
+// binary. /proc/<pid>/environ is what the kernel handed the process.
+//
+// Kept as a named wrapper rather than replaced by ProcessEnviron at its call
+// sites: cluster_control_test.go calls it and re-aiming a passing spec for a
+// rename is churn that hides the new coverage.
+func (c *Cluster) WorkerEnviron(i int) ([]string, error) {
+	return c.ProcessEnviron(ProcWorker, i)
+}
+
+// FrontendEnviron is the environment of frontend i's RUNNING PROCESS, read the
+// same way.
+//
+// It exists so a spec proving a WORKER runs with no broker URL can show that
+// the deployment it joined was handed one: without that half, a harness which
+// simply stopped setting the variable anywhere would satisfy the worker
+// assertion just as well. Read from /proc rather than from the harness options
+// for the same reason the worker's is: it is a fact about the process.
+func (c *Cluster) FrontendEnviron(i int) ([]string, error) {
+	return c.ProcessEnviron(ProcFrontend, i)
+}
+
+// processEnviron reads a running child's environment out of /proc.
+func processEnviron(p *Process) ([]string, error) {
+	if p == nil || p.Cmd == nil || p.Cmd.Process == nil {
+		return nil, fmt.Errorf("process is not running")
+	}
+	raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/environ", p.Cmd.Process.Pid))
+	if err != nil {
+		return nil, fmt.Errorf("reading the environment of %s from /proc: %w", p.Name, err)
+	}
+	// NUL separated, with a trailing NUL on a non-empty environment.
+	entries := strings.Split(string(raw), "\x00")
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e != "" {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+// AgentWorkerName is the node name agent worker i registered under.
+func (c *Cluster) AgentWorkerName(i int) string {
+	if i < 0 || i >= len(c.agentWorkers) {
+		return ""
+	}
+	return c.agentWorkers[i].Name
+}
+
+func agentWorkerName(i int) string {
+	return fmt.Sprintf("agent-worker-%d", i)
+}
+
+const (
+	// workerPortBlockSize is how many ports one worker reserves: one for its
+	// HTTP file-transfer server and the rest for backend processes. A spec that
+	// loads more models than this on one worker exhausts the allocator, which
+	// fails the backend start by name (ErrNoFreePort) instead of colliding.
+	workerPortBlockSize = 24
+
+	// Workers take their ports from BELOW the ephemeral range, which on Linux
+	// starts at 32768 by default. That is not tidiness. Ports the kernel hands
+	// out for outbound connections are exactly the ports a long-lived process
+	// full of outbound connections is liable to be holding when a backend tries
+	// to bind one, and this suite's workers hold a tunnel and a registration
+	// client each.
+	workerPortFloor   = 20000
+	workerPortCeiling = 31000
+
+	// workerPortAttempts bounds the search for a free block before giving up.
+	workerPortAttempts = 200
+)
+
+// reserveWorkerPorts returns the base gRPC port of a contiguous run of ports
+// nothing is currently listening on, laid out the way a real worker lays them
+// out: the HTTP file-transfer server at base-1, and backend processes upward
+// from base.
+//
+// A contiguous block rather than two independent freeport allocations, and the
+// difference is a defect this suite actually hit. The allocator hands backend
+// processes basePort, basePort+1, basePort+2 and so on, and it used to do that
+// from its own bookkeeping alone, so the moment freeport returned two ADJACENT
+// ports the second backend started on a worker was handed the worker's own HTTP
+// server's port and died at startup with "address already in use". freeport
+// returns adjacent ports often, and no spec started two backends on one worker
+// until the tunnel load measurement did, so it presented as a spec that failed
+// about one run in three.
+//
+// core/services/worker/supervisor.go, allocatePort, now probes every candidate
+// before handing it out, which removes that collision at the other end too.
+// This block is kept for the reasons that survive the fix: it keeps the whole
+// range out of the ports the kernel allocates from, so the probe has nothing to
+// skip, and it bounds the allocator to a known block so an exhausted range in
+// this suite is a bug in this suite.
+//
+// Neither is race free and neither can be: both probes close each listener
+// before anything binds it. Together they are the difference between
+// "sometimes" and "not observed".
+func reserveWorkerPorts() (int, error) {
+	for attempt := 0; attempt < workerPortAttempts; attempt++ {
+		base := workerPortFloor + rand.IntN(workerPortCeiling-workerPortFloor)
+		if blockIsFree(base-1, workerPortBlockSize+1) {
+			return base, nil
+		}
+	}
+	return 0, fmt.Errorf("no free run of %d ports in [%d, %d) after %d attempts",
+		workerPortBlockSize+1, workerPortFloor, workerPortCeiling, workerPortAttempts)
+}
+
+// blockIsFree reports whether count ports from first can all be bound on
+// loopback right now. Every listener is held until the whole run is proven, so
+// a run is not accepted on the strength of one port that a previous iteration
+// of this same loop had just released.
+func blockIsFree(first, count int) bool {
+	held := make([]net.Listener, 0, count)
+	defer func() {
+		for _, l := range held {
+			_ = l.Close()
+		}
+	}()
+	for port := first; port < first+count; port++ {
+		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+		if err != nil {
+			return false
+		}
+		held = append(held, l)
+	}
+	return true
+}
+
+// workerFrontendURL is the URL worker i is told to register and tunnel
+// against: its registrar's, unless the caller installed a hook.
+func (c *Cluster) workerFrontendURL(i int) string {
+	registrar := c.FrontendURL(c.registrarFor(i))
+	if c.opts.WorkerFrontendURL == nil {
+		return registrar
+	}
+	frontends := make([]string, 0, len(c.frontends))
+	for index := range c.frontends {
+		frontends = append(frontends, c.FrontendURL(index))
+	}
+	return c.opts.WorkerFrontendURL(i, registrar, frontends)
+}
+
+func (c *Cluster) spawn(name string, cmd *exec.Cmd, port int) (*Process, error) {
+	logPath := filepath.Join(c.opts.LogDir, name+".log")
+	// Append rather than truncate: a restarted process reopens the same path, and
+	// the log of the instance that died is the one a failover post-mortem needs.
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return nil, fmt.Errorf("creating log file for %s: %w", name, err)
+	}
+	cmd.Stdout = f
+	cmd.Stderr = f
+	if err := cmd.Start(); err != nil {
+		_ = f.Close()
+		return nil, fmt.Errorf("starting %s: %w", name, err)
+	}
+	p := &Process{Name: name, Cmd: cmd, Port: port, LogPath: logPath, logFile: f, exited: make(chan struct{})}
+	// One reaper per process, joined by terminate(): a child that dies on its own
+	// is collected immediately, so waiters learn about it instead of polling a
+	// dead port until the readiness timeout.
+	go func() {
+		p.waitErr = cmd.Wait()
+		close(p.exited)
+	}()
+	return p, nil
+}
+
+// terminate kills the process, waits for the reaper, and releases the log
+// handle. Safe to call more than once and on a process that already exited.
+func (p *Process) terminate() {
+	if p == nil || p.Cmd == nil || p.Cmd.Process == nil {
+		return
+	}
+	_ = p.Cmd.Process.Kill()
+	select {
+	case <-p.exited:
+	case <-time.After(processExitTimeout):
+		fmt.Printf("warning: %s did not exit within %s after SIGKILL; continuing teardown\n", p.Name, processExitTimeout)
+	}
+	if p.logFile != nil {
+		_ = p.logFile.Close()
+	}
+}
+
+// FrontendURL is the base URL of frontend i.
+func (c *Cluster) FrontendURL(i int) string {
+	return fmt.Sprintf("http://127.0.0.1:%d", c.frontends[i].Port)
+}
+
+// RegistrationToken is the shared secret this cluster was started with. It
+// authenticates worker registration AND the replica-to-replica peer link, so a
+// spec acting as a peer needs it rather than a second literal that can drift
+// from Options.
+func (c *Cluster) RegistrationToken() string {
+	return c.opts.RegistrationToken
+}
+
+// FrontendBackendsDir is the directory frontend i installs its OWN backends
+// into.
+//
+// It is exported for one assertion, and a filesystem one rather than an API
+// one: a spec proving a node backend listing came from the WORKER has to show
+// the frontend that answered does not have that backend itself, and the
+// /backends endpoint cannot say so, because in distributed mode it reports the
+// cluster's backends rather than this process's.
+func (c *Cluster) FrontendBackendsDir(i int) (string, error) {
+	if err := c.checkFrontendIndex(i); err != nil {
+		return "", err
+	}
+	return filepath.Join(c.frontendDir(i), "backends"), nil
+}
+
+// WorkerName is the node name worker i registered under.
+func (c *Cluster) WorkerName(i int) string {
+	return c.workers[i].Name
+}
+
+// registrarFor is the frontend index worker i registers and heartbeats with.
+//
+// It is read at spawn time and baked into the worker's environment, so it is
+// also the answer to "which replica's death orphans this worker".
+func (c *Cluster) registrarFor(worker int) int {
+	if !c.opts.SpreadWorkerRegistrations || c.opts.Frontends < 1 {
+		return 0
+	}
+	return worker % c.opts.Frontends
+}
+
+// WorkerRegistrar is registrarFor, exported so a spec can say which replica it
+// is about to kill relative to a worker instead of re-deriving the rule.
+//
+// It returns an error rather than indexing blindly, like every other exported
+// method here that takes an index. Gomega treats the trailing error as one that
+// must be nil, so Expect(c.WorkerRegistrar(0)).To(...) reads unchanged at the
+// call site while an out-of-range index fails the spec by name instead of
+// silently answering 0, which is a real frontend index and would send a spec
+// off to kill the wrong replica.
+func (c *Cluster) WorkerRegistrar(worker int) (int, error) {
+	if err := c.checkWorkerIndex(worker); err != nil {
+		return 0, err
+	}
+	return c.registrarFor(worker), nil
+}
+
+// Stop terminates every process and removes the work directory. Logs survive in
+// LogDir, which the caller owns.
+func (c *Cluster) Stop() {
+	// Start returns (nil, err) after stopping itself, so a spec that defers
+	// c.Stop before asserting the error would otherwise nil-deref.
+	if c == nil {
+		return
+	}
+	for _, p := range append(append(append([]*Process{}, c.workers...), c.agentWorkers...), c.frontends...) {
+		p.terminate()
+	}
+	if c.baseDir != "" {
+		_ = os.RemoveAll(c.baseDir)
+	}
+}
+
+// DumpLogs writes every process log to stdout. Call from an AfterEach guarded by
+// CurrentSpecReport().Failed().
+func (c *Cluster) DumpLogs() {
+	for _, p := range append(append(append([]*Process{}, c.frontends...), c.workers...), c.agentWorkers...) {
+		if p == nil {
+			continue
+		}
+		data, err := os.ReadFile(p.LogPath)
+		if err != nil {
+			fmt.Printf("=== %s: log unreadable: %v\n", p.Name, err)
+			continue
+		}
+		fmt.Printf("=== %s (%s) ===\n%s\n", p.Name, p.LogPath, string(data))
+	}
+}
+
+func waitReady(p *Process, url string) error {
+	deadline := time.Now().Add(readinessTimeout)
+	client := httpclient.NewWithTimeout(2 * time.Second)
+	var last error
+	for time.Now().Before(deadline) {
+		select {
+		case <-p.exited:
+			if p.waitErr == nil {
+				return fmt.Errorf("process exited cleanly before becoming ready")
+			}
+			return fmt.Errorf("process exited before becoming ready: %w", p.waitErr)
+		default:
+		}
+		resp, err := client.Get(url)
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+			last = fmt.Errorf("status %d", resp.StatusCode)
+		} else {
+			last = err
+		}
+		time.Sleep(readinessPoll)
+	}
+	return fmt.Errorf("not ready within %s: %w", readinessTimeout, last)
+}
+
+func copyExecutable(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", src, err)
+	}
+	if err := os.WriteFile(dst, data, 0o755); err != nil {
+		return fmt.Errorf("writing %s: %w", dst, err)
+	}
+	return nil
+}

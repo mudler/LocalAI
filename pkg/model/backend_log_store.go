@@ -344,3 +344,45 @@ func (s *BackendLogStore) Subscribe(modelID string) (chan BackendLogLine, func()
 
 	return ch, unsubscribe
 }
+
+// SubscriberCount reports how many live subscriptions exist for modelID,
+// resolving the ID with the same exact-key / replica-prefix rules as Subscribe.
+//
+// Streaming handlers send a GetLines snapshot before they call Subscribe, so a
+// line appended between those two calls reaches the buffer but no channel. A
+// caller that has to observe a line it appends itself must therefore wait for
+// the subscription to exist rather than assume the handler got there first.
+func (s *BackendLogStore) SubscriberCount(modelID string) int {
+	s.mu.RLock()
+	exact, exactOK := s.buffers[modelID]
+	var replicas []*backendLogBuffer
+	if !strings.Contains(modelID, replicaSeparator) {
+		prefix := modelID + replicaSeparator
+		for k, b := range s.buffers {
+			if strings.HasPrefix(k, prefix) {
+				replicas = append(replicas, b)
+			}
+		}
+	}
+	s.mu.RUnlock()
+
+	// Lock order in this type is always s.mu before any buffer lock — Subscribe
+	// holds s.mu.RLock across its replica registrations, which take buf.mu — so
+	// counting after releasing s.mu keeps that order rather than inverting it.
+	// The total is therefore a sample, not a snapshot: a concurrent Subscribe
+	// can register a further buffer while this loop runs.
+	count := func(buf *backendLogBuffer) int {
+		buf.mu.Lock()
+		defer buf.mu.Unlock()
+		return len(buf.subscribers)
+	}
+
+	total := 0
+	if exactOK {
+		total += count(exact)
+	}
+	for _, b := range replicas {
+		total += count(b)
+	}
+	return total
+}

@@ -67,14 +67,14 @@ function WorkerHintCard({ addToast, activeTab, hasWorkers }) {
         <div>
           <p className="form-label">CLI</p>
           <CommandBlock
-            command={`local-ai ${workerCmd} \\\n  --register-to "${frontendUrl}" \\\n  --nats-url "nats://nats:4222" \\\n  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`}
+            command={`local-ai ${workerCmd} \\\n  --register-to "${frontendUrl}" \\\n  --registration-token "$LOCALAI_REGISTRATION_TOKEN"`}
             addToast={addToast}
           />
         </div>
         <div>
           <p className="form-label">Docker</p>
           <CommandBlock
-            command={`docker run --net host ${flagsStr}\\\n  -e LOCALAI_REGISTER_TO="${frontendUrl}" \\\n  -e LOCALAI_NATS_URL="nats://nats:4222" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${dockerImage(option, dev)} ${workerCmd}`}
+            command={`docker run --net host ${flagsStr}\\\n  -e LOCALAI_REGISTER_TO="${frontendUrl}" \\\n  -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \\\n  ${dockerImage(option, dev)} ${workerCmd}`}
             addToast={addToast}
           />
         </div>
@@ -240,7 +240,7 @@ export default function Nodes() {
               <div className="flex-1">
                 <p className="fw-medium mb-xs">Start LocalAI with distributed mode</p>
                 <CommandBlock
-                  command={`local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db" \\\n  --distributed-nats "nats://host:4222"`}
+                  command={`local-ai run --distributed \\\n  --auth-database-url "postgres://user:pass@host/db"`}
                   addToast={addToast}
                 />
               </div>
@@ -250,7 +250,7 @@ export default function Nodes() {
               <div className="flex-1">
                 <p className="fw-medium mb-xs">Register backend nodes</p>
                 <CommandBlock
-                  command={`local-ai worker \\\n  --register-to "http://localai-host:8080" \\\n  --nats-url "nats://nats:4222" \\\n  --node-name "gpu-node-1"`}
+                  command={`local-ai worker \\\n  --register-to "http://localai-host:8080" \\\n  --node-name "gpu-node-1"`}
                   addToast={addToast}
                 />
               </div>

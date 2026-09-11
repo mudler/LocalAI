@@ -31,7 +31,7 @@ import (
 // @Param request body schema.OpenResponsesRequest true "Request body"
 // @Success 200 {object} schema.ORResponseResource "Response"
 // @Router /v1/responses [post]
-func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, natsClient mcpTools.MCPNATSClient) echo.HandlerFunc {
+func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig, agentControl mcpTools.AgentControl) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		createdAt := time.Now().Unix()
 		responseID := fmt.Sprintf("resp_%s", uuid.New().String())
@@ -124,7 +124,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				if !hasMCPRequest {
 					enabledServers = nil // backward compat: auto-activate all servers
 				}
-				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), natsClient, cfg.Name, remote, stdio, enabledServers)
+				mcpExecutor = mcpTools.NewToolExecutor(c.Request().Context(), agentControl, cfg.Name, remote, stdio, enabledServers)
 
 				// Prompt and resource injection (pre-processing step — resolves locally regardless of distributed mode)
 				if hasMCPRequest {

@@ -1,12 +1,10 @@
 package model
 
 import (
-	"bytes"
 	"log/slog"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/mudler/xlog"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,7 +21,7 @@ import (
 var _ = Describe("backendLoader load logging", func() {
 	var (
 		ml       *ModelLoader
-		captured *bytes.Buffer
+		captured *syncBuffer
 	)
 
 	BeforeEach(func() {
@@ -33,16 +31,10 @@ var _ = Describe("backendLoader load logging", func() {
 
 		// Capture at info level so a debug-level emission is filtered out: the
 		// assertions then fail on severity, not merely on wording.
-		captured = &bytes.Buffer{}
-		handler := slog.NewTextHandler(captured, &slog.HandlerOptions{Level: slog.LevelInfo})
-		xlog.SetLogger(xlog.NewLoggerWithHandler(handler, xlog.LogLevelInfo))
+		captured = captureLogs(slog.LevelInfo)
 	})
 
-	AfterEach(func() {
-		// xlog exposes no getter for the package logger, so restore the same
-		// default the suite entrypoint installs rather than the prior value.
-		xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text"))
-	})
+	AfterEach(stopCapturingLogs)
 
 	Context("when the model is already resident", func() {
 		BeforeEach(func() {

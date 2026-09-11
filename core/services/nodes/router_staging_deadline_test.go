@@ -97,8 +97,8 @@ var _ = Describe("cold-load staging deadline", func() {
 		}
 		factory = &stubClientFactory{client: &stubBackend{loadResult: &pb.Result{Success: true}}}
 		unloader = &fakeUnloader{installReply: &messaging.BackendInstallReply{
-			Success: true,
-			Address: "10.0.0.1:9001",
+			Success:            true,
+			WorkerLocalAddress: "10.0.0.1:9001",
 		}}
 		modelDir = GinkgoT().TempDir()
 	})
@@ -219,3 +219,6 @@ var _ = Describe("cold-load staging deadline", func() {
 		Expect(time.Until(deadline)).To(BeNumerically("~", 3*time.Hour, time.Minute))
 	})
 })
+
+// ForgetNode drops per-node state, which this double keeps none of.
+func (*progressingStager) ForgetNode(string) {}
