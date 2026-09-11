@@ -239,26 +239,21 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
 
-### AtomicChat Qwen3.8 Flash Next
+### EfficientThink GGUF builds
 
-The Qwen3.8 Flash Next gallery entry offers AtomicChat's AD-3.84bpw IQ4_XS
-and AD-4.27bpw Q4_K_M builds as variants. Both include all GGUF shards and the
-F16 vision projector. To select a build directly:
+[Qwen3.8-27B EfficientThink](https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF)
+is available as Q6_K and Q8_0 builds for llama.cpp. Both include the matching
+Q8 vision projector and use a 32,768-token context. The DFlash variants also
+install the publisher's Q8 draft and enable speculative decoding.
+
+To select a build explicitly:
 
 ```bash
-local-ai models install qwen3.8-flash-next-atomic-iq4
-local-ai models install qwen3.8-flash-next-atomic-q4
+local-ai models install --variant qwen3.8-27b-efficientthink-q8-dflash qwen3.8-27b-efficientthink-q6
 ```
 
-These entries use a 32,768-token context, the embedded chat template, and the
-publisher's thinking-mode sampling settings. Memory mapping stays enabled,
-and automatic parameter fitting is disabled. The n-gram table is stored in
-its own shard so it can remain pageable. The downloads require approximately
-86 GB (IQ4_XS) or 95 GB (Q4_K_M), including the projector. Download size is
-not a measurement of runtime memory use.
-
-See the [publisher's model card](https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF)
-for loading requirements and the Qwen Community License 1.0.
+Use `qwen3.8-27b-efficientthink-q6` or `qwen3.8-27b-efficientthink-q8` as the
+variant name for ordinary decoding without a draft model.
 
 ### Model variants
 

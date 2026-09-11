@@ -16683,6 +16683,206 @@
         source:
           type: huggingface
           repo: nvidia/Qwen3.6-35B-A3B-NVFP4
+- name: qwen3.8-27b-efficientthink-q6
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2
+    - https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF
+  description: |
+    Qwen3.8-27B EfficientThink, a reasoning fine-tune by nerkyor, in
+    Q6_K GGUF format with the matching Q8 vision projector.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - reasoning
+  last_checked: "2026-09-10"
+  variants:
+    - model: qwen3.8-27b-efficientthink-q8
+    - model: qwen3.8-27b-efficientthink-q6-dflash
+    - model: qwen3.8-27b-efficientthink-q8-dflash
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    chat_template_kwargs:
+      enable_thinking: true
+      reasoning_effort: xhigh
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-efficientthink/mmproj-Qwen3.8-27B-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-efficientthink/Qwen3.8-27B-EfficientThink-SimPO-Q6_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-efficientthink/Qwen3.8-27B-EfficientThink-SimPO-Q6_K.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q6_K/Qwen3.8-27B-EfficientThink-SimPO-Q6_K.gguf
+      sha256: 20c4f349b0a355e6b7725d9a6ee7a862172d5081a8284b4defb1c5e5955ca5bc
+    - filename: llama-cpp/mmproj/qwen3.8-27b-efficientthink/mmproj-Qwen3.8-27B-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q8_0/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: cae9799dc9196449b0d83f716e64af89d5cf65147510462e5a629a2aa23adb32
+- name: qwen3.8-27b-efficientthink-q8
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2
+    - https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF
+  description: |
+    Qwen3.8-27B EfficientThink, a reasoning fine-tune by nerkyor, in
+    Q8_0 GGUF format with the matching Q8 vision projector.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - reasoning
+  last_checked: "2026-09-10"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    chat_template_kwargs:
+      enable_thinking: true
+      reasoning_effort: xhigh
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-efficientthink/mmproj-Qwen3.8-27B-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-efficientthink/Qwen3.8-27B-EfficientThink-SimPO-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-efficientthink/Qwen3.8-27B-EfficientThink-SimPO-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q8_0/Qwen3.8-27B-EfficientThink-SimPO-Q8_0.gguf
+      sha256: 190ddbd90b51964d6bcb6b28e9f669e3f3200cc2c4e74ea0122981ea2679d36d
+    - filename: llama-cpp/mmproj/qwen3.8-27b-efficientthink/mmproj-Qwen3.8-27B-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q8_0/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: cae9799dc9196449b0d83f716e64af89d5cf65147510462e5a629a2aa23adb32
+- name: qwen3.8-27b-efficientthink-q6-dflash
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2
+    - https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF
+  description: |
+    Qwen3.8-27B EfficientThink, a reasoning fine-tune by nerkyor, in
+    Q6_K GGUF format with the matching Q8 vision projector.
+    Enables DFlash speculative decoding with the publisher's Q8 draft.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - reasoning
+    - dflash
+  last_checked: "2026-09-10"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    chat_template_kwargs:
+      enable_thinking: true
+      reasoning_effort: xhigh
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-efficientthink/mmproj-Qwen3.8-27B-Q8_0.gguf
+    draft_model: llama-cpp/models/qwen3.8-27b-efficientthink/dflash2-qwen38-27b-Q8_0.gguf
+    flash_attention: "on"
+    options:
+      - use_jinja:true
+      - spec_type:draft-dflash
+      - spec_n_max:7
+      - spec_n_min:0
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-efficientthink/Qwen3.8-27B-EfficientThink-SimPO-Q6_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-efficientthink/Qwen3.8-27B-EfficientThink-SimPO-Q6_K.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q6_K/Qwen3.8-27B-EfficientThink-SimPO-Q6_K.gguf
+      sha256: 20c4f349b0a355e6b7725d9a6ee7a862172d5081a8284b4defb1c5e5955ca5bc
+    - filename: llama-cpp/mmproj/qwen3.8-27b-efficientthink/mmproj-Qwen3.8-27B-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q8_0/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: cae9799dc9196449b0d83f716e64af89d5cf65147510462e5a629a2aa23adb32
+    - filename: llama-cpp/models/qwen3.8-27b-efficientthink/dflash2-qwen38-27b-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q8_0/dflash2-qwen38-27b-Q8_0.gguf
+      sha256: 1086ea5d44e9d7b3ee1978ce322c01f96d9c1086bd5e73d89397be7a2af1335a
+- name: qwen3.8-27b-efficientthink-q8-dflash
+  url: github:mudler/LocalAI/gallery/qwen3.yaml@master
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2
+    - https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF
+  description: |
+    Qwen3.8-27B EfficientThink, a reasoning fine-tune by nerkyor, in
+    Q8_0 GGUF format with the matching Q8 vision projector.
+    Enables DFlash speculative decoding with the publisher's Q8 draft.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - reasoning
+    - dflash
+  last_checked: "2026-09-10"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    chat_template_kwargs:
+      enable_thinking: true
+      reasoning_effort: xhigh
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-efficientthink/mmproj-Qwen3.8-27B-Q8_0.gguf
+    draft_model: llama-cpp/models/qwen3.8-27b-efficientthink/dflash2-qwen38-27b-Q8_0.gguf
+    flash_attention: "on"
+    options:
+      - use_jinja:true
+      - spec_type:draft-dflash
+      - spec_n_max:7
+      - spec_n_min:0
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-efficientthink/Qwen3.8-27B-EfficientThink-SimPO-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-efficientthink/Qwen3.8-27B-EfficientThink-SimPO-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q8_0/Qwen3.8-27B-EfficientThink-SimPO-Q8_0.gguf
+      sha256: 190ddbd90b51964d6bcb6b28e9f669e3f3200cc2c4e74ea0122981ea2679d36d
+    - filename: llama-cpp/mmproj/qwen3.8-27b-efficientthink/mmproj-Qwen3.8-27B-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q8_0/mmproj-Qwen3.8-27B-Q8_0.gguf
+      sha256: cae9799dc9196449b0d83f716e64af89d5cf65147510462e5a629a2aa23adb32
+    - filename: llama-cpp/models/qwen3.8-27b-efficientthink/dflash2-qwen38-27b-Q8_0.gguf
+      uri: https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF/resolve/89ca4ad45e41197dc58e8ddd1ffc8197ebc69bf5/Q8_0/dflash2-qwen38-27b-Q8_0.gguf
+      sha256: 1086ea5d44e9d7b3ee1978ce322c01f96d9c1086bd5e73d89397be7a2af1335a
 - name: qwen3-coder-30b-a3b-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
