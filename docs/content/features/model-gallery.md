@@ -43,24 +43,26 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
-## Gemma 4 E4B HauhauCS Aggressive
+## Spark-X2.5-4B
 
-The gallery offers the [HauhauCS Aggressive Gemma 4 E4B model](https://huggingface.co/HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive)
-for text chat and image input through llama.cpp. Both Q4_K_M and Q5_K_M
-builds include the publisher's F16 multimodal projector. They use an 8192-token
-context and the embedded chat template.
-
-Install with automatic variant selection:
+Install Spark-X2.5-4B with automatic selection between its Q4_K_M, Q6_K,
+and Q8_0 GGUF builds:
 
 ```bash
-local-ai models install gemma-4-e4b-hauhaucs-aggressive-q4
+local-ai models install spark-x2.5-4b-q4
 ```
 
-Select Q5_K_M explicitly:
+To select a quantization explicitly:
 
 ```bash
-local-ai models install --variant gemma-4-e4b-hauhaucs-aggressive-q5 gemma-4-e4b-hauhaucs-aggressive-q4
+local-ai models install spark-x2.5-4b-q4 --variant spark-x2.5-4b-q6
 ```
+
+These text-only builds use the llama.cpp backend and the embedded Jinja chat
+template. The gallery defaults to a 32,768-token context to limit memory use.
+The [source model](https://huggingface.co/XHToken/Spark-X2.5-4B) supports up to
+1,048,576 tokens; larger contexts require more memory. Use a current LocalAI
+llama.cpp backend with Spark-X2.5 support (upstream b10828 or later).
 
 ## VRAM and download size estimates
 
