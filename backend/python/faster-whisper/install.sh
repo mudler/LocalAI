@@ -26,4 +26,17 @@ if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
     USE_PIP=true
 fi
 
+CTRANSLATE2_VERSION=${CTRANSLATE2_VERSION:-v4.7.1}
+CTRANSLATE2_ROCM_WHEEL_OS=${CTRANSLATE2_ROCM_WHEEL_OS:-Linux}
+CTRANSLATE2_ROCM_WHEEL_ARCHIVE="rocm-python-wheels-${CTRANSLATE2_ROCM_WHEEL_OS}.zip"
+
+if [ "x${BUILD_PROFILE}" == "xhipblas" ]; then
+  ensureVenv
+  mkdir /tmp/ctranslate2-rocm
+  wget -O "/tmp/ctranslate2-rocm/${CTRANSLATE2_ROCM_WHEEL_ARCHIVE}" "https://github.com/OpenNMT/CTranslate2/releases/download/${CTRANSLATE2_VERSION}/${CTRANSLATE2_ROCM_WHEEL_ARCHIVE}"
+  unzip "/tmp/ctranslate2-rocm/${CTRANSLATE2_ROCM_WHEEL_ARCHIVE}" -d /tmp/ctranslate2-rocm/
+  python3 -m ensurepip
+  python3 -m pip install --no-dependencies --no-index --find-links=/tmp/ctranslate2-rocm/temp-linux/ ctranslate2
+fi
+
 installRequirements
