@@ -1,31 +1,33 @@
 ---
-- name: "minicpm5-2b"
+- name: "spark-x2.5-4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
-    - https://huggingface.co/openbmb/MiniCPM5-2B-GGUF
+    - https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF
   description: |
-    MiniCPM Tech Report |
-    MiniCPM Wiki(Chinese) |
-    GitHub Repo |
-    UltraData |
-    Online Demo
+    # Spark-X2.5
 
-    English |
-    中文
+    [](https://join.slack.com/t/tokenspark/shared_invite/zt-432qf8l2f-5~dLyXv8uETr0P0UuC07nw)
+    [](https://discord.gg/kTDE2Hg8aw)
+    [](https://www.youtube.com/@SparkLLM)
+    [](https://dev.to/sparkllm)
+    [](https://bsky.app/profile/sparkllm.bsky.social)
+    [](https://x.com/sparkllm)
+    [](https://www.zhihu.com/people/zhiikz7qh7m)
+    [](images/xhtoken-wechat.jpg)
 
-    ## Highlights
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
 
-    We are releasing **MiniCPM5-2B**, the second model in the **MiniCPM5** series, following MiniCPM5-1B. It is a dense 2B Transformer that scales up the same training recipe, built for on-device, local deployment, and resource-constrained scenarios, reaching 2B-class open-source SOTA.
+    ## Introduction
 
-    🏆 **2B-class open-source SOTA**: compared with strong open-source models of similar size, MiniCPM5-2B achieves SOTA performance within this comparison set. It remains competitive with 4B-class models overall, while showing its advantages over models of comparable size in coding, mathematics, long-context understanding, tool use, and agentic tasks.
+    We are introducing Spark-X2.5-4B and Spark-X2.5-1.7B, two compact, general-purpose language models designed to make capable AI more practical, efficient, and accessible. The models deliver strong performance across a broad range of everyday tasks—including conversation, writing, translation, reasoning, coding, tool use, and agentic workflows—achieving leading results among open-source models of comparable size. Spark-X2.5 combines an efficiency-oriented architecture with native context windows of up to 1M tokens, and support for more than 200 languages.
 
     ...
   license: "apache-2.0"
   tags:
     - llm
     - gguf
-    - llama
-  icon: https://raw.githubusercontent.com/OpenBMB/MiniCPM/main/assets/minicpm5/minicpm5_2b_training_recipe.jpg
+  icon: https://img.shields.io/badge/WeChat-Join-07C160?logo=wechat&logoColor=white)](images/xhtoken-wechat.jpg
   overrides:
     backend: llama-cpp
     function:
@@ -37,13 +39,13 @@
     options:
       - use_jinja:true
     parameters:
-      model: llama-cpp/models/MiniCPM5-2B-Q4_K_M/MiniCPM5-2B-Q4_K_M.gguf
+      model: llama-cpp/models/Spark-X2.5-4B-Q4_K_M/Spark-X2.5-4B-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
   files:
-    - filename: llama-cpp/models/MiniCPM5-2B-Q4_K_M/MiniCPM5-2B-Q4_K_M.gguf
-      sha256: ec2d5801640099e97d8d7e8003ad4d81f336e757811f03a26173dddf386602fd
-      uri: https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/resolve/main/MiniCPM5-2B-Q4_K_M.gguf
+    - filename: llama-cpp/models/Spark-X2.5-4B-Q4_K_M/Spark-X2.5-4B-Q4_K_M.gguf
+      sha256: adfcfa19a4ed6a5985da8bf565fe15f8e1a7e131d79bae2d19d48d1c40109428
+      uri: https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF/resolve/main/Spark-X2.5-4B-Q4_K_M.gguf
 - name: "qwopus3.8-27b-flash"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
