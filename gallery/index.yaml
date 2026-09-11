@@ -1143,6 +1143,8 @@
   name: "qwen3.8-flash-next-q4"
   variants:
     - model: qwen3.8-flash-next-q8
+    - model: qwen3.8-flash-next-atomic-iq4
+    - model: qwen3.8-flash-next-atomic-q4
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
@@ -1154,7 +1156,8 @@
     context window.
 
     This default entry uses Unsloth's UD-Q4_K_XL GGUF and BF16 vision
-    projector. The linked variant uses the higher-quality Q8_0 quantization.
+    projector. Linked variants offer Q8_0 and AtomicChat's smaller IQ4_XS
+    and Q4_K_M builds with a separate n-gram table shard.
   license: other
   tags:
     - llm
@@ -1264,6 +1267,289 @@
     - filename: llama-cpp/mmproj/qwen3.8-flash-next/mmproj-BF16.gguf
       uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf
       sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
+- !!merge <<: *qwen3-8-flash-next
+  name: "qwen3.8-flash-next-atomic-iq4"
+  variants: []
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF
+  description: |
+    Qwen3.8 Flash Next in AtomicChat's AD-3.84bpw IQ4_XS M64 GGUF
+    build, with the F16 vision projector. The n-gram table occupies a
+    separate shard. This entry enables memory mapping and disables llama.cpp
+    automatic parameter fitting as required by the publisher.
+  last_checked: "2026-09-08"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    mmap: true
+    mlock: false
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-flash-next-atomic/mmproj-Qwen3.8-Flash-Next-F16.gguf
+    options:
+      - use_jinja:true
+      - fit:false
+    parameters:
+      model: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00001-of-00028.gguf
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00001-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00001-of-00028.gguf
+      sha256: 7286697d1ede4318a5b40b5ef6965c4c93cb3eb8b8d5f5d415f0dd500b4677db
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00002-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00002-of-00028.gguf
+      sha256: 274cd6cca57afd7e70526667f7f1b82b474af420e63ca71a41c2ef2c2b0f0215
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00003-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00003-of-00028.gguf
+      sha256: 4d6bc919d69da86b63020883c4f0d049ef326d63fd0f70c70cc82507df71bf08
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00004-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00004-of-00028.gguf
+      sha256: 7aca08665eea51dec224c57df8c126b0f10d83f5dbea6d0a6c3cf8b59c3d1259
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00005-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00005-of-00028.gguf
+      sha256: 991d10bd5500286cd5d2ced52d9b62c3139b89f2a950ce39f96b12bc8424cf50
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00006-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00006-of-00028.gguf
+      sha256: bf3021a73adb309f88cd680db2cd36e9f24ea0e32c406c5320ae53f6dd902009
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00007-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00007-of-00028.gguf
+      sha256: e028b4b3eedf67fd70faa5cbb947739859de04d22d90abfa48fe9b8fe5373d9a
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00008-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00008-of-00028.gguf
+      sha256: 9a0d6930a023581b021ea06d01a1cea8e44c7fa0cd14020e471dbf2e424b35a4
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00009-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00009-of-00028.gguf
+      sha256: ed250eeb318d45cb33b68cb89013836a71204923c984d986051dba7b5fbaa51f
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00010-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00010-of-00028.gguf
+      sha256: 65f651c0e8c14e7b99ee72a6c550c924db90c3422e782024f645384b44c9f0bc
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00011-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00011-of-00028.gguf
+      sha256: 4a1badfa4c6d8c5d12cf99111e7f5f3cbc09bff1aca1cc3eda6b0a275932a464
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00012-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00012-of-00028.gguf
+      sha256: 8a23bedfc701e09cac6ca8152f4bbf38bbc14c5558bb46b7e68532fb0af29c18
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00013-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00013-of-00028.gguf
+      sha256: 14352dec027dcee4690abe9048d83723284b497b5f8f71f5f99a95bd74359ce5
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00014-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00014-of-00028.gguf
+      sha256: ec7ea8e9530877c42f58c8bbe211007aa4588b3d723aafed6c191b999fc0c567
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00015-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00015-of-00028.gguf
+      sha256: 561bb56e108313053d3bfcb2df8f77eef38c1aa528be4ce5e250e64b77a68bcc
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00016-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00016-of-00028.gguf
+      sha256: 6684b7bdb3d6335f27fb2039abb4dda916352f42459ff478d95e0ee218da04fd
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00017-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00017-of-00028.gguf
+      sha256: 6f5048378ef7c72b2d5d2c548859d4c8478280f7708af1158c05b43ef462aae5
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00018-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00018-of-00028.gguf
+      sha256: 2778fd9344d577ab7b18c61321af39f63615d88967b5fca64be05afa6541f1fb
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00019-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00019-of-00028.gguf
+      sha256: 5aef1bec6fdde6974fcbeffe90c347e1bdbce4ca14ebbf2172f3299a6fb0274a
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00020-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00020-of-00028.gguf
+      sha256: a1c27c434fed2c267639ff702882e1e6fe9bdffa4278dbb3afa40141aaf41ad0
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00021-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00021-of-00028.gguf
+      sha256: e11548204267c697eeab804d37c8f199dec1fc38409f71577a4d4b0df4d0e898
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00022-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00022-of-00028.gguf
+      sha256: d133a2ad98ac6ba3028a141b5eb982d29f0b44e8313a73442356709ce14b91ee
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00023-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00023-of-00028.gguf
+      sha256: c686dc13781aee7aa26a24edbd2c95a34edd8f6ca8acd1dfc6aa95a884febbfd
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00024-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00024-of-00028.gguf
+      sha256: c19ccf4960140ece9a0340de2960f1b9b15640704cce0c417beae2e48a74b55b
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00025-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00025-of-00028.gguf
+      sha256: ef779140eff7b9ea76066518c3ac391b37cf419a0dd718dcf30b6d8b66be985d
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00026-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00026-of-00028.gguf
+      sha256: c0bf8662c413f1929b1649b1fb79fb7effb9024a0102e221b1346829252ff7fc
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00027-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00027-of-00028.gguf
+      sha256: 6f92b6a12706d645e8facd2879a30db89758c597b0ebc6e3d947116a8568eb4d
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00028-of-00028.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64/Qwen3.8-Flash-Next-AD-3.84bpw-IQ4_XS-M64-00028-of-00028.gguf
+      sha256: d2775f8a64a4db1a6b5b3bf151bea713a21b3bf89068b5c30fa67658364b1cd0
+    - filename: llama-cpp/mmproj/qwen3.8-flash-next-atomic/mmproj-Qwen3.8-Flash-Next-F16.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/mmproj-Qwen3.8-Flash-Next-F16.gguf
+      sha256: 0e61454a76dd154a10aaa8fb1ada32615f55a13e4171014dacd06913e4aa6889
+- !!merge <<: *qwen3-8-flash-next
+  name: "qwen3.8-flash-next-atomic-q4"
+  variants: []
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF
+  description: |
+    Qwen3.8 Flash Next in AtomicChat's AD-4.27bpw Q4_K_M M64 GGUF
+    build, with the F16 vision projector. The n-gram table occupies a
+    separate shard. This entry enables memory mapping and disables llama.cpp
+    automatic parameter fitting as required by the publisher.
+  last_checked: "2026-09-08"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - thinking
+    - coding
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    mmap: true
+    mlock: false
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-flash-next-atomic/mmproj-Qwen3.8-Flash-Next-F16.gguf
+    options:
+      - use_jinja:true
+      - fit:false
+    parameters:
+      model: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00001-of-00033.gguf
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00001-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00001-of-00033.gguf
+      sha256: d74620aad612239711e0947f58d2614fa8f47335fb01f23e47b24a3315c3e730
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00002-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00002-of-00033.gguf
+      sha256: 77edf6523f6abbd7ba6a78aa1ef4a658dfaca544f9c5f46cf0efd0b0ff00bef0
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00003-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00003-of-00033.gguf
+      sha256: 50a95250ea2cfb5b9359bfbf37e8334959266c38777c134e1c7082c4a668f59d
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00004-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00004-of-00033.gguf
+      sha256: 0a32371569fd1564e82be13301a872847d00dce450db7c7f930f6978c0bccd6d
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00005-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00005-of-00033.gguf
+      sha256: d545285f60dd11a2dfc46388a86af7ecb4c1bbdd86ac5364bb860ad3eefca8a4
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00006-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00006-of-00033.gguf
+      sha256: 64aacb4a86cc92a5a48f19619393f22af9b1a17d1c2dfbaded21bf936553994d
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00007-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00007-of-00033.gguf
+      sha256: 7cfd22c0de5dda2500643b9e13ef9c4aea338968ca29c1786226b325bc5948c6
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00008-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00008-of-00033.gguf
+      sha256: 408457d6a65f632b62ebec099112fb106ed1c1d3d5bc2bd9e189004bad9af550
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00009-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00009-of-00033.gguf
+      sha256: c1f962654057e9a4f71af34ccada5d242af62a5c915b0694a0a152b30b24ba99
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00010-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00010-of-00033.gguf
+      sha256: b85555c695efc1bd6852d005bd20931882b54c2d0f48a0912f846fe5e252b697
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00011-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00011-of-00033.gguf
+      sha256: e5cb081065b8721583ddc29f5f71f5acb1d537c2d2a3bd8bc18e03d4340d2e43
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00012-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00012-of-00033.gguf
+      sha256: cc9cb8624556958f65b9763c918ee077542e3d0cc1f6a81a647b2987860f1243
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00013-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00013-of-00033.gguf
+      sha256: cd4abb2dc631a08f9b3885597f77bc24d1b1d9acd4662cafc17ebfb8e0b8959e
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00014-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00014-of-00033.gguf
+      sha256: b14050af3b53ee789575a2a8159cb1524a2160a8b251e97fd367f2c0ffcf73d3
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00015-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00015-of-00033.gguf
+      sha256: d6066a9799e1640b2609fa9c28b19d33ce1441c4737de11d3eb8e283d494c61f
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00016-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00016-of-00033.gguf
+      sha256: 76c95f5229b461e6c648f536a714457913fab50fb2608ffa64ec10ddbf8eabed
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00017-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00017-of-00033.gguf
+      sha256: 5a9428ca9bab16c1ada3b43bc98b60d3a884f7bded0aa9b468fb66dd6c36e68b
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00018-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00018-of-00033.gguf
+      sha256: d4ad15dfa433fc1d0d09112bb175512321d41fe60a651b720e1c104cdd2c8f97
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00019-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00019-of-00033.gguf
+      sha256: 6ba1501407c639a126e74f483bfa4073da42ea24abecd251a7d560a0810855ba
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00020-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00020-of-00033.gguf
+      sha256: 96fc276c556886d19af5d1514876c59ad7d37005e99c329f35e4d4418515219b
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00021-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00021-of-00033.gguf
+      sha256: f3c46604b832c24201c1d4d6ac22830ec729830f66e7bb91a2f8895ec41d62f9
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00022-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00022-of-00033.gguf
+      sha256: 5ae92fbdd717a4246620608a441571fd041dfb2a4bd20d969a8f6c8cd411b734
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00023-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00023-of-00033.gguf
+      sha256: 59bc05521ea68a8b6ff4b78fd275a0da975270384db05f2fbc62fbb901f28b15
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00024-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00024-of-00033.gguf
+      sha256: 14216d45769bc6ffec284e1be54ef9b200081fb528b97653ccaeedad896a5396
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00025-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00025-of-00033.gguf
+      sha256: 94bd0311975222d1c62f47fa6cde17bb56ad6f98c47c42c888a19e7d57b704af
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00026-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00026-of-00033.gguf
+      sha256: b69a8f3b9896f7c0c1b75778d833ef8b0a3aa6d2df587444741a172a39f49c1f
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00027-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00027-of-00033.gguf
+      sha256: 35c3703530a17fcf42b8dbe8a582a3fe1be6e5d58885460fd46fd614585bec8b
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00028-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00028-of-00033.gguf
+      sha256: 8d01bec24d38b8876c8a011e04ccfca22584d9f86ea24c13e7e7b07a781cfbba
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00029-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00029-of-00033.gguf
+      sha256: 2b266e2d2a7f610d0a3de55a626e2f9029594c383074240d29c383a8f70e1064
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00030-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00030-of-00033.gguf
+      sha256: 36af1ca74bbf2bd4d79ac78b61a9f5d24e5ca9aac33d298bfbed7d9dbbe86c69
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00031-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00031-of-00033.gguf
+      sha256: 2cf675a6d3df1ff2eb018323c7e64ab14cd650eb38f954e948df27501822fdc1
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00032-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00032-of-00033.gguf
+      sha256: 59c5ab585958f86cecbd812a9ae34f1475d98ffff235d27734964fb53d8b4951
+    - filename: llama-cpp/models/qwen3.8-flash-next-atomic/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00033-of-00033.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64/Qwen3.8-Flash-Next-AD-4.27bpw-Q4_K_M-M64-00033-of-00033.gguf
+      sha256: 0a7311b24f8636f5b7c0f0dca4f6275ec6b45e326a5eb7400410ca4e32c269c2
+    - filename: llama-cpp/mmproj/qwen3.8-flash-next-atomic/mmproj-Qwen3.8-Flash-Next-F16.gguf
+      uri: https://huggingface.co/AtomicChat/Qwen3.8-Flash-Next-GGUF/resolve/142262902a46f7daed19c79d0771534c8106ad59/mmproj-Qwen3.8-Flash-Next-F16.gguf
+      sha256: 0e61454a76dd154a10aaa8fb1ada32615f55a13e4171014dacd06913e4aa6889
 - &wemm-embedding-2b
   name: "wemm-embedding-2b"
   variants:
