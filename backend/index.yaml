@@ -4199,6 +4199,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-vllm"
   mirrors:
     - localai/localai-backends:latest-gpu-rocm-hipblas-vllm
+# Consumer/RDNA AMD GPUs (gfx1151, Strix Halo). Separate image because vllm has no
+# prebuilt wheel for these arches and has to be built from source -- see
+# backend/python/vllm/install.sh. Deliberately NOT in the `amd:` capability map:
+# that map cannot know the user's gfx arch, so `rocm-vllm` stays the automatic
+# choice and this one is installed by name.
+- !!merge <<: *vllm
+  name: "rocm-gfx1151-vllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-gfx1151-vllm"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-gfx1151-vllm
 - !!merge <<: *vllm
   name: "intel-vllm"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-vllm"
@@ -4229,6 +4239,11 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-vllm"
   mirrors:
     - localai/localai-backends:master-gpu-rocm-hipblas-vllm
+- !!merge <<: *vllm
+  name: "rocm-gfx1151-vllm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-gfx1151-vllm"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-gfx1151-vllm
 - !!merge <<: *vllm
   name: "intel-vllm-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-vllm"
