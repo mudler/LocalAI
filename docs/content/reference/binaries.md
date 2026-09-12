@@ -5,7 +5,7 @@ title = "LocalAI binaries"
 weight = 26
 +++
 
-LocalAI binaries are available for both Linux and MacOS platforms and can be executed directly from your command line. These binaries are continuously updated and hosted on [our GitHub Releases page](https://github.com/mudler/LocalAI/releases). This method also supports Windows users via the Windows Subsystem for Linux (WSL).
+LocalAI binaries are available for Linux, macOS, and Windows platforms and can be executed directly from your command line. These binaries are continuously updated and hosted on [our GitHub Releases page](https://github.com/mudler/LocalAI/releases).
 
 ### macOS Download
 
@@ -17,19 +17,22 @@ You can download the DMG and install the application:
 
 > Note: the DMGs are not signed by Apple as quarantined. See https://github.com/mudler/LocalAI/issues/6268 for a workaround, fix is tracked here: https://github.com/mudler/LocalAI/issues/6244
 
-Otherwise, use the following one-liner command in your terminal to download and run LocalAI on Linux or MacOS:
+Otherwise, use the following one-liner command in your terminal to download and run LocalAI on Linux or MacOS (set `VERSION` to the current tag, e.g. `v4.8.2`):
 
 ```bash
-curl -Lo local-ai "https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-$(uname -s)-$(uname -m)" && chmod +x local-ai && ./local-ai
+VERSION=v4.8.2; ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/'); \
+curl -Lo local-ai "https://github.com/mudler/LocalAI/releases/download/$VERSION/local-ai-$VERSION-$(uname -s | tr '[:upper:]' '[:lower:]')-$ARCH" \
+  && chmod +x local-ai && ./local-ai
 ```
 
 Otherwise, here are the links to the binaries:
 
 | OS | Link | 
 | --- | --- |
-| Linux (amd64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-x86_64) |
-| Linux (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Linux-arm64) |
-| MacOS (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-Darwin-arm64) |
+| Linux (amd64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-{{< version >}}-linux-amd64) |
+| Linux (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-{{< version >}}-linux-arm64) |
+| MacOS (arm64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-{{< version >}}-darwin-arm64) |
+| Windows (amd64)  | [Download](https://github.com/mudler/LocalAI/releases/download/{{< version >}}/local-ai-{{< version >}}-windows-amd64.exe) |
 
 
 {{% notice icon="⚡" context="warning" %}}
@@ -38,4 +41,5 @@ Binaries do have limited support compared to container images:
 - Python-based backends are not shipped with binaries (e.g. `diffusers` or `transformers`)
 - MacOS binaries and Linux-arm64 do not ship TTS nor `stablediffusion-cpp` backends
 - Linux binaries do not ship `stablediffusion-cpp` backend
+- The Windows binary ships only the `llama-cpp` backend (native, no WSL required); see the [Windows guide]({{% relref "getting-started/windows" %}}) for details
  {{% /notice %}}

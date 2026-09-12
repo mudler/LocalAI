@@ -53,6 +53,35 @@ jobs:
       - name: Run GoReleaser
         run: |
           make ${{ github.event_name == 'pull_request' && 'dev-dist-single' || 'dev-dist' }}
+  # Windows ships no GNU toolchain on the default runner: make is not
+  # installed there and Git for Windows does not ship it (it bundles sh, uname,
+  # unzip, grep, awk, sed only), so it is installed via Chocolatey below. The
+  # Makefile finds Git for Windows' sh itself and runs recipes through it (see
+  # the SHELL setup at the top of the Makefile), so the explicit usr/bin PATH
+  # step below is belt-and-suspenders for environments where make must locate
+  # sh before the makefile is read. The server builds with CGO_ENABLED=0, so no
+  # mingw/gcc is needed; the Makefile downloads protoc and installs the Go
+  # protobuf plugins itself (see the protoc/protogen-go targets).
+  build-test-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25
+      - name: Add Git usr/bin to PATH
+        run: |
+          echo "$env:ProgramFiles\Git\usr\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: Install GNU Make
+        run: choco install make -y
+      - name: Build LocalAI (CGO disabled, mirrors release config)
+        env:
+          CGO_ENABLED: '0'
+        run: make build
   launcher-build-darwin:
     runs-on: macos-latest
     steps:

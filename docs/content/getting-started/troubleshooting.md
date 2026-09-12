@@ -51,7 +51,7 @@ docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi
 
 ```bash
 chmod +x local-ai-*
-./local-ai-Linux-x86_64 run
+./local-ai-<version>-linux-amd64 run
 ```
 
 If you see "cannot execute binary file: Exec format error", you downloaded the wrong architecture. Verify with:

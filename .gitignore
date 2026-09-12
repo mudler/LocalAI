@@ -13,6 +13,7 @@ prepare-sources
 /backend-images
 /result.yaml
 protoc
+protoc.exe
 
 *.log
 
@@ -25,6 +26,7 @@ go-bert
 # LocalAI build binary
 LocalAI
 /local-ai
+/local-ai.exe
 /local-ai-launcher
 # Root-level build artifacts when running `go build ./...` against
 # Go backend packages whose main lives under backend/go/.
@@ -129,3 +131,6 @@ formal-verification/out/
 # root, which is what a contributor testing a build does. Nothing under here is
 # source: it is the instance's own models, outputs, traces and identity.
 /data/
+
+# Model gallery index cache fetched by `local-ai` at runtime (cache/gallery/).
+/cache/

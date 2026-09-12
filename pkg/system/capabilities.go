@@ -25,6 +25,7 @@ const (
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
 	vulkan            = "vulkan"
+	windows           = "windows"
 
 	nvidiaCuda13    = "nvidia-cuda-13"
 	nvidiaCuda12    = "nvidia-cuda-12"
@@ -36,15 +37,16 @@ const (
 	defaultRunFile       = "/run/localai/capability"
 
 	// Backend detection tokens (private)
-	backendTokenDarwin = "darwin"
-	backendTokenMLX    = "mlx"
-	backendTokenMetal  = "metal"
-	backendTokenL4T    = "l4t"
-	backendTokenCUDA   = "cuda"
-	backendTokenROCM   = "rocm"
-	backendTokenHIP    = "hip"
-	backendTokenSYCL   = "sycl"
-	backendTokenCPU    = "cpu"
+	backendTokenDarwin  = "darwin"
+	backendTokenMLX     = "mlx"
+	backendTokenMetal   = "metal"
+	backendTokenL4T     = "l4t"
+	backendTokenCUDA    = "cuda"
+	backendTokenROCM    = "rocm"
+	backendTokenHIP     = "hip"
+	backendTokenSYCL    = "sycl"
+	backendTokenCPU     = "cpu"
+	backendTokenWindows = "windows"
 
 	// Engine names (private). Unlike the tokens above these are whole backend
 	// identities as a gallery entry's `backend:` field spells them, not build
@@ -117,6 +119,9 @@ var backendBuildTagPreferenceRules = []backendPreferenceRule{
 	{metal, []string{backendTokenMetal, backendTokenCPU}},
 	{darwinX86, []string{darwinX86, backendTokenCPU}},
 	{vulkan, []string{vulkan, backendTokenCPU}},
+	// Windows ships native windows/amd64 backend builds; prefer them over the
+	// Linux CPU builds, which cannot run on a Windows host.
+	{windows, []string{backendTokenWindows, backendTokenCPU}},
 }
 
 // defaultBackendBuildTagTokens is what a host with no matching rule prefers.
@@ -184,6 +189,11 @@ var engineNamePreferenceRules = []backendPreferenceRule{
 	// IsBackendCompatible admits any darwin-tokened engine on this capability
 	// and will not drop it.
 	{darwinX86, []string{engineLlamaCpp, engineVLLM, engineSGLang}},
+	// A Windows host runs exactly the native llama.cpp build; vLLM and SGLang
+	// do not publish windows/amd64 images, so ranking them above llama.cpp
+	// (or even equal to it) could auto-select an engine a Windows host cannot
+	// run whenever a variant set is offered.
+	{windows, []string{engineLlamaCpp}},
 }
 
 // defaultEnginePreferenceTokens is empty on purpose. It is now only reached by
@@ -375,6 +385,15 @@ func (s *SystemState) getSystemCapabilities() string {
 		return s.systemCapabilities
 	}
 
+	// Windows backends are published as native windows/amd64 OCI images, so a
+	// Windows host gets its own capability to select them deterministically
+	// instead of falling through to "default" and racing the Linux CPU builds.
+	if runtime.GOOS == "windows" {
+		xlog.Info("Using windows capability", "env", capabilityEnv)
+		s.systemCapabilities = windows
+		return s.systemCapabilities
+	}
+
 	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
 	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
 		if s.GPUVendor == Nvidia {
@@ -494,6 +513,11 @@ func (s *SystemState) IsBackendCompatible(name, uri string) bool {
 	if isDarwinBackend {
 		// Darwin backends require the system to be running on darwin with metal or darwin-x86 capability
 		return capability == metal || capability == darwinX86
+	}
+
+	// Check for Windows-specific backends (native windows/amd64 builds)
+	if strings.Contains(combined, backendTokenWindows) {
+		return capability == windows
 	}
 
 	// Check for NVIDIA L4T-specific backends (arm64 Linux with NVIDIA GPU)
