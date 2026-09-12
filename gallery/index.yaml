@@ -58995,7 +58995,7 @@
       model: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
   files:
     - filename: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
-      sha256: 84744b047296daf2177aed9dd2735497152ff83f49ec170d2a6a18cbcb93ef19
+      sha256: 4fa6a3e30c4a1c6cc1da455268806edc93432ca1e1b5b6923e942be8e6e479ff
       uri: huggingface://audio-cpp/audio.cpp-gguf/Sortformer-Diar-4spk-v1-GGUF/sortformer-diar-4spk-v1-q8_0.gguf
 - name: audio-cpp-htdemucs
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
