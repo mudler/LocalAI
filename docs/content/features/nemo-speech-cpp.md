@@ -25,6 +25,31 @@ read from a remote repository, and because a translation model carries an ordina
 architecture with no NeMo-specific marker at all. Set `backend: nemo-speech-cpp` in the
 model YAML, or select it explicitly in the import form.
 
+### Orukeet
+
+[Orukeet](https://huggingface.co/oruk/orukeet) is a 25-language fine-tune of
+Parakeet TDT v3. Install its Q8 model from the gallery:
+
+```bash
+local-ai models install orukeet
+local-ai run
+```
+
+Then send a recording to the existing transcription endpoint:
+
+```bash
+curl http://localhost:8080/v1/audio/transcriptions \
+  -F model=orukeet \
+  -F file=@recording.wav
+```
+
+The gallery downloads a 714 MB GGUF from a pinned Hugging Face revision and
+verifies its SHA-256. Subsequent requests reuse the installed model locally.
+The default is CPU inference. To use an available GPU, add `gpu:0` to the
+model YAML's `options` list, as in the transcription example below.
+Orukeet transcribes complete recordings; it does not support the backend's
+streaming recognition endpoint.
+
 ## How the family is chosen
 
 The backend reads `general.architecture` from the GGUF at load time and picks the family
@@ -271,8 +296,8 @@ you want NeMo ASR on an AMD or Intel GPU, use
   **silently cut**: generation simply stops at the limit and the truncated translation is
   returned as if it were complete. Translate a sentence or a paragraph at a time rather
   than a whole document.
-- **There are no gallery entries yet.** Models have to be converted with upstream's
-  converter and configured by hand, as below. This is a follow-up, not an oversight.
+- **Orukeet is available in the gallery.** Other models can be converted with
+  upstream's converter and configured by hand, as below.
 
 ## Converting models
 

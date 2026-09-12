@@ -49663,6 +49663,35 @@
     - filename: parakeet-cpp/tdt-0.6b-v3-f16.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/tdt-0.6b-v3-f16.gguf
       sha256: 8ba47343e1e919895aca90e099150a01ed203ee0942d8ed31e27295efc5abb22
+- name: orukeet
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/oruk/orukeet
+    - https://github.com/Oruk-AI/orukeet
+  description: |
+    Orukeet is a 0.6B, 25-language fine-tune of Parakeet TDT v3 by Oruk.
+    Q8 GGUF for the nemo-speech-cpp backend. Runs locally on CPU, with
+    optional GPU acceleration through the backend's gpu option.
+  license: cc-by-sa-4.0
+  tags:
+    - parakeet
+    - nemo-speech-cpp
+    - asr
+    - speech-recognition
+    - stt
+    - gguf
+    - multilingual
+  overrides:
+    backend: nemo-speech-cpp
+    known_usecases:
+      - transcript
+    name: orukeet
+    parameters:
+      model: orukeet/orukeet-v0.1.0-q8.gguf
+  files:
+    - filename: orukeet/orukeet-v0.1.0-q8.gguf
+      uri: https://huggingface.co/oruk/orukeet/resolve/555136b50265a132d4cea0d35560c26fc4f657ab/orukeet-v0.1.0-q8.gguf
+      sha256: 93ce19c6d8244acbfea980eeaf970531d4f216171578ef8e041dcc2d070a45bd
 - name: parakeet-cpp-ctc-1.1b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
