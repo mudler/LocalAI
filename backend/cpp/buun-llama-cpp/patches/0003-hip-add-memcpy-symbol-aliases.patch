@@ -1,0 +1,24 @@
+Subject: [PATCH] ggml-cuda/vendors/hip: alias cudaMemcpy{To,From}Symbol to hip counterparts
+
+Buun's Q² calibration + TCQ codebook upload paths in fattn.cu use
+cudaMemcpyToSymbol / cudaMemcpyFromSymbol. The HIP-compat header in
+ggml/src/ggml-cuda/vendors/hip.h already aliases the scalar cudaMemcpy
+family (cudaMemcpy, cudaMemcpyAsync, cudaMemcpy2DAsync, …) but is
+missing the symbol variants. Building with hipcc therefore fails with
+15+ "use of undeclared identifier 'cudaMemcpyToSymbol'" errors.
+
+Add the two missing aliases alongside the existing memcpy block. HIP
+provides hipMemcpy{To,From}Symbol with the same signature as CUDA's
+equivalents, so this is a straight name substitution.
+
+--- a/ggml/src/ggml-cuda/vendors/hip.h
++++ b/ggml/src/ggml-cuda/vendors/hip.h
+@@ -85,6 +85,8 @@
+ #define cudaMemcpyDeviceToDevice hipMemcpyDeviceToDevice
+ #define cudaMemcpyDeviceToHost hipMemcpyDeviceToHost
+ #define cudaMemcpyHostToDevice hipMemcpyHostToDevice
++#define cudaMemcpyToSymbol hipMemcpyToSymbol
++#define cudaMemcpyFromSymbol hipMemcpyFromSymbol
+ #define cudaMemcpyKind hipMemcpyKind
+ #define cudaMemset hipMemset
+ #define cudaMemsetAsync hipMemsetAsync
