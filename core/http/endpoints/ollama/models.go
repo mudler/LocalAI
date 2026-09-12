@@ -3,6 +3,8 @@ package ollama
 import (
 	"crypto/sha256"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,7 +39,7 @@ func ListModelsEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader) ec
 				Name:         ollamaName,
 				Model:        ollamaName,
 				ModifiedAt:   time.Now().UTC(),
-				Size:         0,
+				Size:         modelOnDiskSize(bcl, ml, name),
 				Digest:       digest,
 				Details:      details,
 				Capabilities: caps,
@@ -103,11 +105,13 @@ func ListRunningEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader) e
 			entry := schema.OllamaPsEntry{
 				Name:         ollamaName,
 				Model:        ollamaName,
-				Size:         0,
+				Size:         modelOnDiskSize(bcl, ml, name),
 				Digest:       fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(name))),
 				Details:      details,
 				ExpiresAt:    time.Now().Add(24 * time.Hour).UTC(),
-				SizeVRAM:     0,
+				// SizeVRAM is left unset: LocalAI has no authoritative per-model
+				// VRAM figure to report, and a literal 0 is worse than omitting
+				// the field (clients treat 0 as "costs nothing").
 				Capabilities: caps,
 			}
 			models = append(models, entry)
@@ -141,6 +145,36 @@ func modelMetaFromConfig(bcl *config.ModelConfigLoader, name string) (schema.Oll
 		return schema.OllamaModelDetails{}, nil
 	}
 	return modelDetailsFromModelConfig(&cfg), modelCapabilities(&cfg)
+}
+
+// modelOnDiskSize returns the on-disk byte size of a model's primary weight
+// file when it can be resolved via ModelConfig.ModelFileName() + ModelPath.
+// Returns nil when the size is unknown so callers omit the JSON field instead
+// of emitting an authoritative 0 (issue #11969).
+func modelOnDiskSize(bcl *config.ModelConfigLoader, ml *model.ModelLoader, name string) *int64 {
+	if ml == nil || ml.ModelPath == "" {
+		return nil
+	}
+
+	configName := strings.Split(name, ":")[0]
+	rel := configName
+	if bcl != nil {
+		if cfg, exists := bcl.GetModelConfig(configName); exists {
+			if fileName := cfg.ModelFileName(); fileName != "" {
+				rel = fileName
+			}
+		}
+	}
+	if rel == "" {
+		return nil
+	}
+
+	info, err := os.Stat(filepath.Join(ml.ModelPath, rel))
+	if err != nil || !info.Mode().IsRegular() || info.Size() <= 0 {
+		return nil
+	}
+	size := info.Size()
+	return &size
 }
 
 func modelDetailsFromModelConfig(cfg *config.ModelConfig) schema.OllamaModelDetails {

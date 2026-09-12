@@ -13,6 +13,8 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/ollama"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -163,8 +165,148 @@ parameters:
 	})
 
 	Describe("ListModelsEndpoint", func() {
-		It("includes capabilities and details for each listed model in /api/tags", func() {
-			Skip("covered by per-entry tests; integration smoke test")
+		var (
+			tmpDir string
+			bcl    *config.ModelConfigLoader
+			ml     *model.ModelLoader
+		)
+
+		BeforeEach(func() {
+			var err error
+			tmpDir, err = os.MkdirTemp("", "ollama-tags-test-*")
+			Expect(err).ToNot(HaveOccurred())
+
+			systemState, err := system.GetSystemState(system.WithModelPath(tmpDir))
+			Expect(err).ToNot(HaveOccurred())
+			ml = model.NewModelLoader(systemState)
+			bcl = config.NewModelConfigLoader(tmpDir)
+		})
+
+		AfterEach(func() {
+			_ = os.RemoveAll(tmpDir)
+		})
+
+		writeConfig := func(name, yaml string) {
+			path := filepath.Join(tmpDir, name+".yaml")
+			Expect(os.WriteFile(path, []byte(yaml), 0o644)).To(Succeed())
+			Expect(bcl.ReadModelConfig(path)).To(Succeed())
+		}
+
+		callTags := func() (schema.OllamaListResponse, []byte) {
+			req := httptest.NewRequest(http.MethodGet, "/api/tags", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := ollama.ListModelsEndpoint(bcl, ml)
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var resp schema.OllamaListResponse
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			return resp, rec.Body.Bytes()
+		}
+
+		It("reports on-disk size from ModelFileName+ModelPath and omits size when unknown", func() {
+			weight := []byte("fake-gguf-weights-0123456789")
+			Expect(os.WriteFile(filepath.Join(tmpDir, "Llama-3-8B-Q4_K_M.gguf"), weight, 0o644)).To(Succeed())
+			writeConfig("chat", `
+name: chat
+backend: llama-cpp
+template:
+  chat: "{{ .Input }}"
+parameters:
+  model: Llama-3-8B-Q4_K_M.gguf
+`)
+			writeConfig("missing-weights", `
+name: missing-weights
+backend: llama-cpp
+template:
+  chat: "{{ .Input }}"
+parameters:
+  model: does-not-exist.gguf
+`)
+
+			resp, raw := callTags()
+			Expect(resp.Models).To(HaveLen(2))
+
+			byName := map[string]schema.OllamaModelEntry{}
+			for _, m := range resp.Models {
+				byName[m.Name] = m
+			}
+
+			chat := byName["chat:latest"]
+			Expect(chat.Size).ToNot(BeNil())
+			Expect(*chat.Size).To(Equal(int64(len(weight))))
+			Expect(chat.Capabilities).To(ContainElement("completion"))
+			Expect(chat.Details.QuantizationLevel).To(Equal("Q4_K_M"))
+
+			missing := byName["missing-weights:latest"]
+			Expect(missing.Size).To(BeNil())
+			Expect(string(raw)).ToNot(ContainSubstring(`"size":0`))
+		})
+	})
+
+	Describe("ListRunningEndpoint", func() {
+		var (
+			tmpDir string
+			bcl    *config.ModelConfigLoader
+			ml     *model.ModelLoader
+		)
+
+		BeforeEach(func() {
+			var err error
+			tmpDir, err = os.MkdirTemp("", "ollama-ps-test-*")
+			Expect(err).ToNot(HaveOccurred())
+
+			systemState, err := system.GetSystemState(system.WithModelPath(tmpDir))
+			Expect(err).ToNot(HaveOccurred())
+			ml = model.NewModelLoader(systemState)
+			bcl = config.NewModelConfigLoader(tmpDir)
+		})
+
+		AfterEach(func() {
+			_ = os.RemoveAll(tmpDir)
+		})
+
+		It("reports on-disk size for loaded models and omits size_vram when unknown", func() {
+			weight := []byte("loaded-model-weights-abcdef")
+			Expect(os.WriteFile(filepath.Join(tmpDir, "granite-Q4_K_M.gguf"), weight, 0o644)).To(Succeed())
+
+			cfgPath := filepath.Join(tmpDir, "granite.yaml")
+			Expect(os.WriteFile(cfgPath, []byte(`
+name: granite
+backend: llama-cpp
+template:
+  chat: "{{ .Input }}"
+parameters:
+  model: granite-Q4_K_M.gguf
+`), 0o644)).To(Succeed())
+			Expect(bcl.ReadModelConfig(cfgPath)).To(Succeed())
+
+			store := model.NewInMemoryModelStore()
+			store.Set("granite", model.NewModel("granite", "addr", nil))
+			ml.SetModelStore(store)
+
+			req := httptest.NewRequest(http.MethodGet, "/api/ps", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			handler := ollama.ListRunningEndpoint(bcl, ml)
+			Expect(handler(c)).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			raw := rec.Body.String()
+			Expect(raw).ToNot(ContainSubstring(`"size":0`))
+			Expect(raw).ToNot(ContainSubstring(`"size_vram"`))
+
+			var resp schema.OllamaPsResponse
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.Models).To(HaveLen(1))
+			Expect(resp.Models[0].Name).To(Equal("granite:latest"))
+			Expect(resp.Models[0].Size).ToNot(BeNil())
+			Expect(*resp.Models[0].Size).To(Equal(int64(len(weight))))
+			Expect(resp.Models[0].SizeVRAM).To(BeNil())
+			Expect(resp.Models[0].Details.QuantizationLevel).To(Equal("Q4_K_M"))
 		})
 	})
 })
