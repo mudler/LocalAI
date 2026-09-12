@@ -94,6 +94,8 @@ LOCALAI_AGENT_POOL_DATABASE_URL=postgresql://localrecall:localrecall@postgres:54
 
 The PostgreSQL image `quay.io/mudler/localrecall:v0.5.2-postgresql` is pre-configured with pgvector and ready to use.
 
+PostgreSQL collection startup logs include the collection name but omit `LOCALAI_AGENT_POOL_DATABASE_URL` to protect database credentials.
+
 #### Connection safety timeouts (PostgreSQL only)
 
 The embedded vector store sets per-connection timeouts so a single stuck or corrupt index can never hold a lock indefinitely and stall every other collection operation. Safe defaults are applied automatically - you only need to set these to override them:
