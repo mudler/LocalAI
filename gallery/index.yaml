@@ -46,7 +46,68 @@
     - filename: llama-cpp/models/Spark-X2.5-4B-Q4_K_M/Spark-X2.5-4B-Q4_K_M.gguf
       sha256: adfcfa19a4ed6a5985da8bf565fe15f8e1a7e131d79bae2d19d48d1c40109428
       uri: https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF/resolve/main/Spark-X2.5-4B-Q4_K_M.gguf
-- name: "qwopus3.8-27b-flash"
+- name: "qwen3.8-flash-next-uncensored"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF
+  description: |
+    # Qwen3.8-Flash-Next
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, TokenSpeed, etc.
+
+    > [!Tip]
+    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
+    >
+    > In particular, **Qwen3.8-Flash** is the official version based on Qwen3.8-Flash-Next with more production features, e.g., 1M context length by default, official built-in tools. For more information, please refer to the Qwen3.8-Flash Overview.
+
+    As the frontier of foundation models pushes toward ever-larger parameter counts and ever-longer context windows, the question is no longer just how much we can scale, but how efficiently we can do so. Sustainable progress toward artificial general intelligence (AGI) that benefits everyone demands architectural innovation. Today, we are sharing a concrete step in that direction: Qwen3.8-Flash-Next.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - reasoning
+  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.8-Flash-Next/architecture.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/mmproj-Qwen3.8-Flash-Next-Uncensored-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00001-of-00003.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00001-of-00003.gguf
+      sha256: '****************************************************************'
+      uri: https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF/resolve/main/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00001-of-00003.gguf
+    - filename: llama-cpp/models/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00002-of-00003.gguf
+      sha256: '****************************************************************'
+      uri: https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF/resolve/main/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00002-of-00003.gguf
+    - filename: llama-cpp/models/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00003-of-00003.gguf
+      sha256: '****************************************************************'
+      uri: https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF/resolve/main/Qwen3.8-Flash-Next-Uncensored-Q4_K_M-00003-of-00003.gguf
+    - filename: llama-cpp/mmproj/Qwen3.8-Flash-Next-Uncensored-Q4_K_M/mmproj-Qwen3.8-Flash-Next-Uncensored-F16.gguf
+      sha256: '****************************************************************'
+      uri: https://huggingface.co/orcarouter/Qwen3.8-Flash-Next-Uncensored-GGUF/resolve/main/mmproj-Qwen3.8-Flash-Next-Uncensored-F16.gguf
+- name: "deepseek-v4-flash-vision-exp"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
@@ -2228,6 +2289,105 @@
     - filename: llama-cpp/models/Qwen3.8-27B-DFlash2-Q4_K_M/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
       uri: https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF/resolve/main/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
       sha256: 1a25c56858e1ebe93f2718ac1d49d1151f9323325c1bbfd6209370f4db131ebd
+- &qwen3-8-27b-uncensored
+  name: "qwen3.8-27b-uncensored-q4"
+  variants:
+    - model: qwen3.8-27b-uncensored-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/JonathanColetti/Qwen3.8-27B-Uncensored-GGUF
+  description: |
+    Qwen3.8-27B-Uncensored reduces refusal behavior while retaining the base
+    model's text, vision, reasoning, and tool-use capabilities. Its integrated
+    MTP head supports speculative decoding without a separate draft model.
+
+    This default entry uses the Q4_K_M GGUF and F16 vision projector. A
+    higher-quality Q8_0 model is available as a variant.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - thinking
+    - tools
+    - vision
+    - multimodal
+    - long-context
+    - uncensored
+    - mtp
+  last_checked: "2026-08-24"
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-uncensored/vision-f16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-27b-uncensored/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-uncensored/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
+      uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/Qwen3.8-27B-Uncensored-Q4_K_M.gguf
+      sha256: 4c5e2db039e9325ac7724c8846c71356a24ad1cdfa28002d73ecb6be645f9675
+    - filename: llama-cpp/mmproj/qwen3.8-27b-uncensored/vision-f16.gguf
+      uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/Qwen3.8-27B-Uncensored-vision-f16.gguf
+      sha256: 5ac423f8a29059dc24e51bc6a43e9380dcd57a9347f28b62591e0b3f60b7081c
+- !!merge <<: *qwen3-8-27b-uncensored
+  name: "qwen3.8-27b-uncensored-q8"
+  variants: []
+  description: |
+    Qwen3.8-27B-Uncensored in the higher-quality Q8_0 GGUF format, with its
+    integrated MTP head and shared F16 vision projector.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-uncensored/vision-f16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/qwen3.8-27b-uncensored/Qwen3.8-27B-Uncensored-Q8_0.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-uncensored/Qwen3.8-27B-Uncensored-Q8_0.gguf
+      uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/Qwen3.8-27B-Uncensored-Q8_0.gguf
+      sha256: fb2cb9aa5407264aec6698faf41183f337809352abe0bd8fb750c0b689f4ced2
+    - filename: llama-cpp/mmproj/qwen3.8-27b-uncensored/vision-f16.gguf
+      uri: huggingface://JonathanColetti/Qwen3.8-27B-Uncensored-GGUF/Qwen3.8-27B-Uncensored-vision-f16.gguf
+      sha256: 5ac423f8a29059dc24e51bc6a43e9380dcd57a9347f28b62591e0b3f60b7081c
 - &huihui-qwen3-8-27b
   name: "huihui-qwen3.8-27b-abliterated"
   variants:
@@ -4535,6 +4695,102 @@
       uri: huggingface://XHToken/Spark-X2.5-1.7B-GGUF/Spark-X2.5-1.7B-Q8_0.gguf
       sha256: cd77c03185a834bb1162a4b7713520be5838058bfc54873645beff470bb24442
 
+- &spark-x2-5-4b
+  name: "spark-x2.5-4b-q4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: spark-x2.5-4b-q6
+    - model: spark-x2.5-4b-q8
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.5-4B
+    - https://huggingface.co/abenzerps/Spark-X2.5-4B-GGUF
+  description: |
+    Spark-X2.5-4B is XHToken's 4B text model for conversation, reasoning,
+    coding, and multilingual tasks. This entry uses Q4_K_M GGUF weights;
+    Q6_K and Q8_0 builds are available as variants. All builds use the
+    embedded Jinja chat template and a 32K-token default context.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+    - multilingual
+  last_checked: "2026-09-08"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q4_K_M.gguf
+      uri: huggingface://abenzerps/Spark-X2.5-4B-GGUF/Spark-X2.5-4B-Q4_K_M.gguf
+      sha256: 7934660bfc5b9bf04be0a0ac6179a1d16e1d4331b448857c86b8b2801b3ef72c
+- !!merge <<: *spark-x2-5-4b
+  name: "spark-x2.5-4b-q6"
+  variants: []
+  description: |
+    Spark-X2.5-4B in Q6_K GGUF format, with the embedded Jinja chat
+    template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q6_K.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q6_K.gguf
+      uri: huggingface://abenzerps/Spark-X2.5-4B-GGUF/Spark-X2.5-4B-Q6_K.gguf
+      sha256: 7293e99081e032b30e481c159aa35b3f7d133a746c1096910024ea71fff82246
+- !!merge <<: *spark-x2-5-4b
+  name: "spark-x2.5-4b-q8"
+  variants: []
+  description: |
+    Spark-X2.5-4B in Q8_0 GGUF format, with the embedded Jinja chat
+    template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-4b/Spark-X2.5-4B-Q8_0.gguf
+      uri: huggingface://abenzerps/Spark-X2.5-4B-GGUF/Spark-X2.5-4B-Q8_0.gguf
+      sha256: 58a4fc627cc2b2cbea02f81fb22960938e86bf3e62a2b3ae01c55a678481d46b
 - &qwen3-8-9b
   name: "qwen3.8-9b-q4"
   variants:
