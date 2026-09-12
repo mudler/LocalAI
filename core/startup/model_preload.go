@@ -54,7 +54,7 @@ func InstallModelsWithOptions(ctx context.Context, galleryService *galleryop.Gal
 			modelConfig, discoverErr := importers.DiscoverModelConfig(url, json.RawMessage{})
 			if discoverErr != nil {
 				xlog.Error("[startup] failed to discover model config", "error", discoverErr, "model", url)
-				err = errors.Join(discoverErr, fmt.Errorf("failed to discover model config: %w", discoverErr))
+				err = errors.Join(err, fmt.Errorf("failed to discover model config: %w", discoverErr))
 				continue
 			}
 
