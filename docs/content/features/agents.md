@@ -191,6 +191,14 @@ Each agent has its own configuration that controls its behavior. Key settings in
 
 The pool-level defaults (API URL, API key, models) can be set via environment variables. Individual agents can further override these in their configuration, allowing them to use different LLM providers (OpenAI, other LocalAI instances, etc.) on a per-agent basis.
 
+### Long-term memory and knowledge base wiring
+
+Agents can persist conversation context into their knowledge-base (RAG) collection with `long_term_memory` or `summary_long_term_memory`. LocalAGI only attaches the RAG database when `enable_kb` is set, so LocalAI applies these rules:
+
+- **Automatic `enable_kb` normalization** — creating or updating an agent with long-term memory on also turns on `enable_kb`. Existing agents that already had long-term memory without `enable_kb` are normalized the same way at pool startup (recreated so the RAG DB is wired before the first chat).
+- **Create/update validation** — if the embedding model / vector store cannot be initialized, create and update reject the config with an error asking you to install an embedding model (see `LOCALAI_AGENT_POOL_EMBEDDING_MODEL`) or disable long-term memory. This avoids saving an agent that would never persist memory.
+- **Degraded but recoverable startup** — if the RAG factory is temporarily unavailable when an agent is built (for example the embedding endpoint is still starting), LocalAI installs a recoverable adapter instead of a nil DB. Conversation saves fail soft until the store comes back; later Store/Search calls retry initialization automatically so a transient outage does not permanently disable long-term memory writes.
+
 ## Skills
 
 Skills are reusable instruction sets (a name, a description, and the skill's content, optionally with attached resource files) that an agent can draw on while it works. They can be authored directly or imported from git-based skill repositories, so a set of skills can be shared across agents and machines.

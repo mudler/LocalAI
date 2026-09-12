@@ -30,6 +30,21 @@ func normalizeAgentMemoryConfig(cfg *state.AgentConfig) {
 	}
 }
 
+// isUsableRAGDB reports whether db is a concrete store (not a degraded stub or
+// unresolved recoverable wrapper). Used by create/update validation.
+func isUsableRAGDB(db agent.RAGDB) bool {
+	if db == nil {
+		return false
+	}
+	if _, stub := db.(unavailableRAGDB); stub {
+		return false
+	}
+	if _, lazy := db.(*recoverableRAGDB); lazy {
+		return false
+	}
+	return true
+}
+
 // prepareAgentMemoryConfig normalizes memory flags and, when long-term memory is
 // requested, verifies that a real (non-stub) RAG DB can be created. Returns
 // ErrLongTermMemoryRequiresRAG when embedding/RAG is not configured.
@@ -58,11 +73,7 @@ func (s *AgentPoolService) prepareAgentMemoryConfig(userID string, cfg *state.Ag
 
 	collection := agents.AgentKey(userID, cfg.Name)
 	db, _, ok := s.ragFactory(collection)
-	if !ok || db == nil {
-		return fmt.Errorf("%w: collection %q could not be initialized (install an embedding model or disable long_term_memory)",
-			ErrLongTermMemoryRequiresRAG, collection)
-	}
-	if _, isStub := db.(unavailableRAGDB); isStub {
+	if !ok || !isUsableRAGDB(db) {
 		return fmt.Errorf("%w: collection %q could not be initialized (install an embedding model or disable long_term_memory)",
 			ErrLongTermMemoryRequiresRAG, collection)
 	}
@@ -70,20 +81,22 @@ func (s *AgentPoolService) prepareAgentMemoryConfig(userID string, cfg *state.Ag
 }
 
 // wrapRAGProvider returns a RAG provider that never yields a nil DB with ok=true.
-// When the underlying factory cannot build a DB, a stub is returned so LocalAGI
-// still receives WithRAGDB and saveCurrentConversation cannot nil-deref.
+// On a successful factory call the real DB is returned. On failure a recoverable
+// lazy adapter is installed so LocalAGI's WithRAGDB still gets a non-nil DB
+// (SIGSEGV safety) and later Store/Search/Reset/Count retry the factory once the
+// embedding/vector store is back.
 func wrapRAGProvider(
 	inner func(collectionName string) (agent.RAGDB, state.KBCompactionClient, bool),
 ) func(collectionName, localRAGAPI, localRAGKey string) (agent.RAGDB, state.KBCompactionClient, bool) {
 	return func(collectionName, _, _ string) (agent.RAGDB, state.KBCompactionClient, bool) {
 		if inner != nil {
-			if db, comp, ok := inner(collectionName); ok && db != nil {
+			if db, comp, ok := inner(collectionName); ok && isUsableRAGDB(db) {
 				return db, comp, true
 			}
 		}
-		xlog.Warn("RAG DB unavailable for collection; using no-op stub to avoid long-term memory crash",
+		xlog.Warn("RAG DB unavailable for collection; installing recoverable adapter to avoid long-term memory crash",
 			"collection", collectionName)
-		return unavailableRAGDB{reason: ragUnavailableReason}, nil, true
+		return newRecoverableRAGDB(collectionName, inner), nil, true
 	}
 }
 
