@@ -1873,49 +1873,37 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					return true
 				}
 
-				// Try JSON parsing as fallback
-				jsonResults, jsonErr := functions.ParseJSONIterative(cleanedResult, true)
-				if jsonErr == nil && len(jsonResults) > lastEmittedToolCallCount {
+				// Only completed JSON calls can be emitted as completed SSE items.
+				jsonResults := parseStreamingJSONToolCalls(cleanedResult)
+				if len(jsonResults) > lastEmittedToolCallCount {
 					for i := lastEmittedToolCallCount; i < len(jsonResults); i++ {
-						jsonObj := jsonResults[i]
-						if name, ok := jsonObj["name"].(string); ok && name != "" {
-							args := "{}"
-							if argsVal, ok := jsonObj["arguments"]; ok {
-								if argsStr, ok := argsVal.(string); ok {
-									args = argsStr
-								} else {
-									argsBytes, _ := json.Marshal(argsVal)
-									args = string(argsBytes)
-								}
-							}
+						tc := jsonResults[i]
+						toolCallID := fmt.Sprintf("fc_%s", uuid.New().String())
+						outputIndex++
 
-							toolCallID := fmt.Sprintf("fc_%s", uuid.New().String())
-							outputIndex++
-
-							functionCallItem := &schema.ORItemField{
-								Type:      "function_call",
-								ID:        toolCallID,
-								Status:    "completed",
-								CallID:    toolCallID,
-								Name:      name,
-								Arguments: args,
-							}
-							sendSSEEvent(c, &schema.ORStreamEvent{
-								Type:           "response.output_item.added",
-								SequenceNumber: sequenceNumber,
-								OutputIndex:    &outputIndex,
-								Item:           functionCallItem,
-							})
-							sequenceNumber++
-
-							sendSSEEvent(c, &schema.ORStreamEvent{
-								Type:           "response.output_item.done",
-								SequenceNumber: sequenceNumber,
-								OutputIndex:    &outputIndex,
-								Item:           functionCallItem,
-							})
-							sequenceNumber++
+						functionCallItem := &schema.ORItemField{
+							Type:      "function_call",
+							ID:        toolCallID,
+							Status:    "completed",
+							CallID:    toolCallID,
+							Name:      tc.Name,
+							Arguments: tc.Arguments,
 						}
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.output_item.added",
+							SequenceNumber: sequenceNumber,
+							OutputIndex:    &outputIndex,
+							Item:           functionCallItem,
+						})
+						sequenceNumber++
+
+						sendSSEEvent(c, &schema.ORStreamEvent{
+							Type:           "response.output_item.done",
+							SequenceNumber: sequenceNumber,
+							OutputIndex:    &outputIndex,
+							Item:           functionCallItem,
+						})
+						sequenceNumber++
 					}
 					lastEmittedToolCallCount = len(jsonResults)
 					c.Response().Flush()
