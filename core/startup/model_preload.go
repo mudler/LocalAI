@@ -41,7 +41,7 @@ func InstallModelsWithOptions(ctx context.Context, galleryService *galleryop.Gal
 		// Check if it's a model gallery, or print a warning
 		e, found := installModel(ctx, galleries, backendGalleries, url, systemState, modelLoader, downloadStatus, enforceScan, autoloadBackendGalleries, requireBackendIntegrity, installOptions...)
 		if e != nil && found {
-			xlog.Error("[startup] failed installing model", "error", err, "model", url)
+			xlog.Error("[startup] failed installing model", "error", e, "model", url)
 			err = errors.Join(err, e)
 		} else if !found {
 			xlog.Debug("[startup] model not found in the gallery", "model", url)
@@ -54,7 +54,7 @@ func InstallModelsWithOptions(ctx context.Context, galleryService *galleryop.Gal
 			modelConfig, discoverErr := importers.DiscoverModelConfig(url, json.RawMessage{})
 			if discoverErr != nil {
 				xlog.Error("[startup] failed to discover model config", "error", discoverErr, "model", url)
-				err = errors.Join(discoverErr, fmt.Errorf("failed to discover model config: %w", err))
+				err = errors.Join(discoverErr, fmt.Errorf("failed to discover model config: %w", discoverErr))
 				continue
 			}
 
