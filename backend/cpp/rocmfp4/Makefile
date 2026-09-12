@@ -51,8 +51,13 @@ endef
 rocmfp4-fallback:
 	$(call rocmfp4-build,fallback,-DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server)
 
+# CPU features are ON here, unlike the portable fallback build. This backend only
+# targets gfx1150-1153, which are APU integrated GPUs: the CPU sits on the same
+# package and is always Zen 4/5, so AVX/AVX2/AVX512/FMA/F16C/BMI2 are guaranteed
+# present and nothing portable is lost. It matters because this build also produces
+# llama-quantize, and quantization is pure CPU work over every weight in the model.
 rocmfp4-grpc:
-	$(call rocmfp4-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target ggml-rpc-server --target llama-quantize)
+	$(call rocmfp4-build,grpc,-DGGML_RPC=ON -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on,--target grpc-server --target ggml-rpc-server --target llama-quantize)
 
 # Upstream renamed the RPC binary rpc-server -> ggml-rpc-server. The bonsai wrapper
 # this was modelled on still uses the old name because its fork predates the rename;
