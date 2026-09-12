@@ -43,7 +43,7 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
-## Spark-X2.5-1.7B
+## Spark-X2.5
 
 Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0
 GGUF builds:
@@ -56,6 +56,14 @@ To select the Q8_0 build explicitly:
 
 ```bash
 local-ai models install spark-x2.5-1.7b-q4 --variant spark-x2.5-1.7b-q8
+```
+
+Spark-X2.5-4B also offers Q4_K_M and Q8_0 builds. Install with automatic
+variant selection, or select Q8_0 explicitly:
+
+```bash
+local-ai models install spark-x2.5-4b
+local-ai models install spark-x2.5-4b --variant spark-x2.5-4b-q8
 ```
 
 These text-only builds use the llama.cpp backend and the embedded Jinja chat
