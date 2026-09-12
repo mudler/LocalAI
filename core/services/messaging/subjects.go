@@ -106,6 +106,7 @@ const (
 	SubjectJobProgressWildcard     = "jobs.*.progress"
 	SubjectAgentCancelWildcard     = "agent.*.cancel"
 	SubjectGalleryCancelWildcard   = "gallery.*.cancel"
+	SubjectGalleryPauseWildcard    = "gallery.*.pause"
 	SubjectGalleryProgressWildcard = "gallery.*.progress"
 	SubjectResponseCancelWildcard  = "responses.*.cancel"
 )
@@ -128,6 +129,11 @@ func SubjectFineTuneCancel(jobID string) string {
 // SubjectGalleryCancel returns the NATS subject to cancel a gallery download.
 func SubjectGalleryCancel(opID string) string {
 	return subjectGalleryCancelPrefix + sanitizeSubjectToken(opID) + ".cancel"
+}
+
+// SubjectGalleryPause returns the NATS subject to pause a gallery download.
+func SubjectGalleryPause(opID string) string {
+	return subjectGalleryCancelPrefix + sanitizeSubjectToken(opID) + ".pause"
 }
 
 // SubjectResponseCancel returns the NATS subject used to cancel an in-flight
