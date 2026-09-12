@@ -48,12 +48,6 @@ ARG LLAMA_REPO=
 ARG ROCMFP4_VERSION=
 ENV LLAMA_REPO=${LLAMA_REPO}
 ENV ROCMFP4_VERSION=${ROCMFP4_VERSION}
-# Local-build escape hatch: point the fetch at a git daemon on the host instead of
-# GitHub. Defaults are empty, so CI keeps using the Makefile's pinned repo+sha.
-ARG LLAMA_REPO=
-ARG ROCMFP4_VERSION=
-ENV LLAMA_REPO=${LLAMA_REPO}
-ENV ROCMFP4_VERSION=${ROCMFP4_VERSION}
 # CUDA target archs, e.g. --build-arg CUDA_DOCKER_ARCH='75;86;89;120'
 ARG CUDA_DOCKER_ARCH
 ARG CMAKE_ARGS

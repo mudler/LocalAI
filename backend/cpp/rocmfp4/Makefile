@@ -48,46 +48,24 @@ define rocmfp4-build
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../rocmfp4-$(1)-build/grpc-server rocmfp4-$(1)
 endef
 
-rocmfp4-avx2:
-	$(call rocmfp4-build,avx2,-DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on,--target grpc-server)
-
-rocmfp4-avx512:
-	$(call rocmfp4-build,avx512,-DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on,--target grpc-server)
-
-rocmfp4-avx:
-	$(call rocmfp4-build,avx,-DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server)
-
 rocmfp4-fallback:
 	$(call rocmfp4-build,fallback,-DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server)
 
-# Single-build CPU backend via ggml CPU_ALL_VARIANTS (mirrors llama-cpp-cpu-all).
-rocmfp4-cpu-all:
-	rm -rf $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build
-	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build
-	rm -rf $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build/patches
-	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build purge
-	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build/grpc-server.cpp
-	bash $(LLAMA_CPP_DIR)/disable-tts-task.sh $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build/grpc-server.cpp
-	$(info $(GREEN)I rocmfp4 build info:cpu-all-variants$(RESET))
-	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(ROCMFP4_VERSION) \
-	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build llama.cpp
-	bash $(CURRENT_MAKEFILE_DIR)/apply-patches.sh $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build/llama.cpp $(PATCHES_DIR)
-	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON" TARGET="--target grpc-server --target ggml" \
-	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(ROCMFP4_VERSION) \
-	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build grpc-server
-	cp -rfv $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build/grpc-server rocmfp4-cpu-all
-	rm -rf ggml-shared-libs && mkdir -p ggml-shared-libs
-	find $(CURRENT_MAKEFILE_DIR)/../rocmfp4-cpu-all-build/llama.cpp/build \( -name '*.so*' -o -name '*.dylib' \) -exec cp -av {} ggml-shared-libs/ \;
-	@echo "Collected ggml shared backends:" && ls -la ggml-shared-libs/
-
 rocmfp4-grpc:
-	$(call rocmfp4-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target ggml-rpc-server)
+	$(call rocmfp4-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target ggml-rpc-server --target llama-quantize)
 
 # Upstream renamed the RPC binary rpc-server -> ggml-rpc-server. The bonsai wrapper
 # this was modelled on still uses the old name because its fork predates the rename;
 # ours is based on a current tree, so it must use the new one.
 rocmfp4-rpc-server: rocmfp4-grpc
 	cp -rf $(CURRENT_MAKEFILE_DIR)/../rocmfp4-grpc-build/llama.cpp/build/bin/ggml-rpc-server rocmfp4-rpc-server
+
+# The FP4 formats are only usable if people can produce weights, not just consume the
+# single published model. The fork carries the quantization recipes and CLI arguments,
+# so shipping llama-quantize next to the server turns "one model" into "any GGUF you
+# already have". Built by the grpc target above, which needs no accelerator.
+rocmfp4-quantize: rocmfp4-grpc
+	cp -rf $(CURRENT_MAKEFILE_DIR)/../rocmfp4-grpc-build/llama.cpp/build/bin/llama-quantize rocmfp4-quantize
 
 package:
 	bash package.sh

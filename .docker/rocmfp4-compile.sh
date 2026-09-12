@@ -25,21 +25,12 @@ fi
 
 cd /LocalAI/backend/cpp/rocmfp4
 
-if [ -z "${BUILD_TYPE:-}" ]; then
-  # Pure CPU image: one ggml CPU_ALL_VARIANTS build replaces the per-microarch binaries.
-  # arm64: the armv9.2 SME variants need gcc-14 (gcc-13 rejects +sme).
-  if [ "${TARGETARCH}" = "arm64" ]; then
-    apt-get update -qq && apt-get install -y -qq gcc-14 g++-14
-    export CC=gcc-14 CXX=g++-14
-  fi
-  make rocmfp4-cpu-all
-else
-  # GPU build (cublas/hipblas/sycl/vulkan/...): single fallback CPU build, the accelerator
-  # does the compute. Keeps the GPU compile from also building the CPU variant matrix and
-  # avoids the gcc-14 apt step on GPU base images such as nvidia l4t.
-  make rocmfp4-fallback
-fi
+# rocmfp4 is ROCm-only: the single matrix entry is hipblas/amd64, so BUILD_TYPE is always
+# set and the CPU-image branch this was templated from is unreachable. One fallback CPU
+# build, the accelerator does the compute.
+make rocmfp4-fallback
 make rocmfp4-grpc
 make rocmfp4-rpc-server
+make rocmfp4-quantize
 
 ccache -s || true
