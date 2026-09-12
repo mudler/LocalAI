@@ -206,6 +206,23 @@ parameters:
 			return resp, rec.Body.Bytes()
 		}
 
+		It("uses the exact configured name when a model has a tag", func() {
+			Expect(os.WriteFile(filepath.Join(tmpDir, "base.gguf"), []byte("base"), 0o644)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(tmpDir, "tagged.gguf"), []byte("tagged-weights"), 0o644)).To(Succeed())
+			writeConfig("chat", "name: chat\nparameters:\n  model: base.gguf\n")
+			writeConfig("tagged", "name: chat:q8\nparameters:\n  model: tagged.gguf\n")
+
+			resp, _ := callTags()
+			var tagged *int64
+			for _, entry := range resp.Models {
+				if entry.Name == "chat:q8" {
+					tagged = entry.Size
+				}
+			}
+			Expect(tagged).ToNot(BeNil())
+			Expect(*tagged).To(Equal(int64(len("tagged-weights"))))
+		})
+
 		It("reports on-disk size from ModelFileName+ModelPath and omits size when unknown", func() {
 			weight := []byte("fake-gguf-weights-0123456789")
 			Expect(os.WriteFile(filepath.Join(tmpDir, "Llama-3-8B-Q4_K_M.gguf"), weight, 0o644)).To(Succeed())

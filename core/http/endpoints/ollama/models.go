@@ -103,12 +103,12 @@ func ListRunningEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader) e
 
 			details, caps := modelMetaFromConfig(bcl, name)
 			entry := schema.OllamaPsEntry{
-				Name:         ollamaName,
-				Model:        ollamaName,
-				Size:         modelOnDiskSize(bcl, ml, name),
-				Digest:       fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(name))),
-				Details:      details,
-				ExpiresAt:    time.Now().Add(24 * time.Hour).UTC(),
+				Name:      ollamaName,
+				Model:     ollamaName,
+				Size:      modelOnDiskSize(bcl, ml, name),
+				Digest:    fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(name))),
+				Details:   details,
+				ExpiresAt: time.Now().Add(24 * time.Hour).UTC(),
 				// SizeVRAM is left unset: LocalAI has no authoritative per-model
 				// VRAM figure to report, and a literal 0 is worse than omitting
 				// the field (clients treat 0 as "costs nothing").
@@ -156,7 +156,8 @@ func modelOnDiskSize(bcl *config.ModelConfigLoader, ml *model.ModelLoader, name 
 		return nil
 	}
 
-	configName := strings.Split(name, ":")[0]
+	// List endpoints pass the stored model ID, including any configured tag.
+	configName := name
 	rel := configName
 	if bcl != nil {
 		if cfg, exists := bcl.GetModelConfig(configName); exists {
