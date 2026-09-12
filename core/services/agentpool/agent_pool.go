@@ -22,6 +22,8 @@ import (
 	skillsManager "github.com/mudler/LocalAI/core/services/skills"
 
 	"github.com/mudler/LocalAGI/core/agent"
+	"github.com/mudler/LocalAGI/core/conversations"
+	"github.com/mudler/LocalAGI/core/scheduler"
 	"github.com/mudler/LocalAGI/core/sse"
 	"github.com/mudler/LocalAGI/core/state"
 	coreTypes "github.com/mudler/LocalAGI/core/types"
@@ -32,6 +34,29 @@ import (
 
 	"gorm.io/gorm"
 )
+
+// defaultPoolLimits bounds what the pool accumulates on disk: conversation
+// dumps, scheduler run history, and the tasks an agent may schedule for
+// itself. Without them a long-lived pool grows without end, and every task
+// execution re-marshals the whole run history. The values mirror LocalAGI's
+// own defaults.
+func defaultPoolLimits() state.PoolLimits {
+	return state.PoolLimits{
+		Conversations: conversations.RetentionPolicy{
+			MaxAge:      30 * 24 * time.Hour,
+			MaxPerAgent: 200,
+		},
+		ConversationSweep: time.Hour,
+		SchedulerRuns: scheduler.RetentionPolicy{
+			MaxRunsPerTask: 20,
+			MaxRunAge:      30 * 24 * time.Hour,
+		},
+		SchedulerCreation: scheduler.CreationPolicy{
+			Dedupe:           true,
+			MaxTasksPerAgent: 100,
+		},
+	}
+}
 
 // localAGICore manages the in-process LocalAGI agent pool (standalone mode only).
 type localAGICore struct {
@@ -303,6 +328,7 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 		cfg.Timeout,
 		cfg.EnableLogs,
 		skillsSvc,
+		defaultPoolLimits(),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create agent pool: %w", err)
