@@ -78,6 +78,10 @@ export function inferBackendPath(item) {
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
     return `backend/cpp/turboquant/`;
   }
+  if (item.dockerfile.endsWith("cachyllama")) {
+    // CachyLLaMA is a llama.cpp fork that reuses the LocalAI gRPC sources.
+    return `backend/cpp/cachyllama/`;
+  }
   if (item.dockerfile.endsWith("bonsai")) {
     // bonsai is a llama.cpp fork that reuses backend/cpp/llama-cpp sources
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
@@ -104,6 +108,9 @@ export function inferBackendPathDarwin(item) {
   // for runner/toolchain selection, but the source path is C++.
   if (item.backend === "llama-cpp") {
     return `backend/cpp/llama-cpp/`;
+  }
+  if (item.backend === "cachyllama") {
+    return `backend/cpp/cachyllama/`;
   }
   // ds4 is C++ too (built via `make backends/ds4-darwin`); the matrix entry
   // carries lang=go for runner/toolchain selection, but the source is C++.
@@ -152,7 +159,7 @@ export function backendChanged(backend, pathPrefix, changedFiles) {
 
   // Fork backends reuse backend/cpp/llama-cpp sources via thin wrappers;
   // changes to either directory must retrigger their pipelines.
-  return (backend === "turboquant" || backend === "bonsai") &&
+  return (backend === "turboquant" || backend === "cachyllama" || backend === "bonsai") &&
     changedFiles.some(file => file.startsWith("backend/cpp/llama-cpp/"));
 }
 
@@ -160,12 +167,13 @@ export function backendChanged(backend, pathPrefix, changedFiles) {
 // without it is a Python backend (see .github/backend-matrix.yml).
 const isDarwinPython = item => !item.lang;
 
-// backend_build_darwin.yml routes llama-cpp, ds4, privacy-filter and audio-cpp
+// backend_build_darwin.yml routes llama-cpp, cachyllama, ds4, privacy-filter and audio-cpp
 // to their own bespoke make targets; every other lang=go entry goes through
 // `make build-darwin-go-backend` -> scripts/build/golang-darwin.sh. Keep this
 // set in sync with the `if:` conditions in that workflow.
 const DARWIN_BESPOKE_BUILDERS = new Set([
   "llama-cpp",
+  "cachyllama",
   "ds4",
   "privacy-filter",
   "audio-cpp",
@@ -421,6 +429,16 @@ export const SHARED_BUILD_INPUTS = [
     matches: file => file === "scripts/build/llama-cpp-darwin.sh",
     linux: never,
     darwin: item => item.backend === "llama-cpp",
+  },
+  {
+    matches: file => file === "scripts/build/cachyllama-darwin.sh",
+    linux: never,
+    darwin: item => item.backend === "cachyllama",
+  },
+  {
+    matches: file => file === ".docker/cachyllama-compile.sh",
+    linux: item => item.backend === "cachyllama",
+    darwin: never,
   },
   {
     matches: file => file === "scripts/build/ds4-darwin.sh",
