@@ -23,6 +23,17 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## Instella-MoE availability
+
+The gallery excludes `instella-moe-16b-a3b-think` and
+`instella-moe-16b-a3b-think-q8` because the packaged llama.cpp backend does not
+support their `instella-moe` architecture. Loading these GGUF files fails with
+`unknown model architecture: 'instella-moe'`.
+
+The entries can return after LocalAI ships a compatible backend. See
+[the compatibility issue](https://github.com/mudler/LocalAI/issues/11681) and
+[upstream llama.cpp support](https://github.com/ggml-org/llama.cpp/pull/26467).
+
 ## Useful Links and resources
 
 - [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.
