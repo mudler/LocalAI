@@ -1,35 +1,29 @@
 ---
-- name: "spark-x2.5-4b"
+- &spark-x2-5-4b
+  name: "spark-x2.5-4b"
+  variants:
+    - model: spark-x2.5-4b-q8
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
+    - https://huggingface.co/XHToken/Spark-X2.5-4B
     - https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF
   description: |
-    # Spark-X2.5
-
-    [](https://join.slack.com/t/tokenspark/shared_invite/zt-432qf8l2f-5~dLyXv8uETr0P0UuC07nw)
-    [](https://discord.gg/kTDE2Hg8aw)
-    [](https://www.youtube.com/@SparkLLM)
-    [](https://dev.to/sparkllm)
-    [](https://bsky.app/profile/sparkllm.bsky.social)
-    [](https://x.com/sparkllm)
-    [](https://www.zhihu.com/people/zhiikz7qh7m)
-    [](images/xhtoken-wechat.jpg)
-
-    > [!Note]
-    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
-
-    ## Introduction
-
-    We are introducing Spark-X2.5-4B and Spark-X2.5-1.7B, two compact, general-purpose language models designed to make capable AI more practical, efficient, and accessible. The models deliver strong performance across a broad range of everyday tasks—including conversation, writing, translation, reasoning, coding, tool use, and agentic workflows—achieving leading results among open-source models of comparable size. Spark-X2.5 combines an efficiency-oriented architecture with native context windows of up to 1M tokens, and support for more than 200 languages.
-
-    ...
+    Spark-X2.5-4B is XHToken's 4B text model for conversation, reasoning,
+    coding, and multilingual tasks. This build uses Q4_K_M GGUF weights,
+    the embedded Jinja chat template, and a 32K-token default context.
   license: "apache-2.0"
   tags:
     - llm
     - gguf
-  icon: https://img.shields.io/badge/WeChat-Join-07C160?logo=wechat&logoColor=white)](images/xhtoken-wechat.jpg
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+    - multilingual
+  last_checked: "2026-09-12"
   overrides:
     backend: llama-cpp
+    context_size: 32768
     function:
       automatic_tool_parsing_fallback: true
       grammar:
@@ -40,59 +34,50 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/Spark-X2.5-4B-Q4_K_M/Spark-X2.5-4B-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
     template:
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Spark-X2.5-4B-Q4_K_M/Spark-X2.5-4B-Q4_K_M.gguf
       sha256: adfcfa19a4ed6a5985da8bf565fe15f8e1a7e131d79bae2d19d48d1c40109428
-      uri: https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF/resolve/main/Spark-X2.5-4B-Q4_K_M.gguf
-- name: "qwopus3.8-27b-flash"
-  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
-  urls:
-    - https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
+      uri: https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF/resolve/d313463f1ff7dc29db20193fddc4ad8386d16261/Spark-X2.5-4B-Q4_K_M.gguf
+
+- !!merge <<: *spark-x2-5-4b
+  name: "spark-x2.5-4b-q8"
+  variants: []
   description: |
-    # DeepSeek-V4-Flash-Vision-Exp
-
-    ## Introduction
-
-    We are excited to introduce **DeepSeek-V4-Flash-Vision-Exp**, our first experimental multimodal model in the DeepSeek-V4 family. It builds on the DeepSeek-V4-Flash architecture by incorporating visual modules and undergoing continued training to unlock visual understanding capabilities.
-
-    Compared to DeepSeek-V4-Flash-0731, DeepSeek-V4-Flash-Vision-Exp achieves substantial improvements on its multimodal agent capabilities, while maintaining comparable performance on text-only agent tasks.
-
-    Notes:
-
-    1. For the text agent benchmarks above, DeepSeek models are evaluated with the minimal mode of DeepSeek Harness as the agent framework, using the `max` reasoning effort level with `temperature = 1.0, top_p = 0.95`.
-    2. † For ApexBench and Agents' Last Exam, DeepSeek-V4-Flash-0731 ignores the multimodal elements in the input.
-
-    ## Repository layout
-
-    This repository contains the tokenizer, prompt encoding reference, and a
-    minimal PyTorch inference implementation for DeepSeek-V4 Flash Vision. The
-    reference inference covers the vision encoder and aligner, DFlash attention,
-    MoE, Hyper-Connections, and the DSpark forward path.
-
-    ...
-  license: "mit"
-  tags:
-    - llm
-    - gguf
-    - deepseek
-  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
+    Spark-X2.5-4B is XHToken's 4B text model for conversation, reasoning,
+    coding, and multilingual tasks. This build uses Q8_0 GGUF weights,
+    the embedded Jinja chat template, and a 32K-token default context.
   overrides:
-    backend: ds4
+    backend: llama-cpp
+    context_size: 32768
     function:
+      automatic_tool_parsing_fallback: true
       grammar:
         disable: true
     known_usecases:
       - chat
+    options:
+      - use_jinja:true
     parameters:
-      model: ds4flash.gguf
+      model: llama-cpp/models/Spark-X2.5-4B-Q8_0/Spark-X2.5-4B-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
     template:
       use_tokenizer_template: true
   files:
-    - filename: ds4flash.gguf
-      sha256: ""
-      uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
+    - filename: llama-cpp/models/Spark-X2.5-4B-Q8_0/Spark-X2.5-4B-Q8_0.gguf
+      sha256: 5c2c3c190e4337e1016b8593ca8e26e8b18c972200b107385d4ec61a25d9dea2
+      uri: https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF/resolve/d313463f1ff7dc29db20193fddc4ad8386d16261/Spark-X2.5-4B-Q8_0.gguf
+
 - name: "qwopus3.8-27b-flash"
   variants:
     - model: qwopus3.8-27b-flash-q8
