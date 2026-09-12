@@ -83,7 +83,7 @@ jobs:
             ubuntu-version: '2404'
           - tag: 'base-grpc-rocm-amd64'
             runs-on: 'ubuntu-latest'
-            base-image: 'rocm/dev-ubuntu-24.04:7.2.1'
+            base-image: 'rocm/dev-ubuntu-24.04:7.14.0-full'
             build-type: 'hipblas'
             cuda-major-version: ''
             cuda-minor-version: ''
