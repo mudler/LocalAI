@@ -154,6 +154,114 @@
     - filename: ds4flash.gguf
       sha256: ""
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
+- name: "qwen3.8-27b-humanlike-chat-q4"
+  variants:
+    - model: qwen3.8-27b-humanlike-chat-q6
+    - model: qwen3.8-27b-humanlike-chat-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated
+    - https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF
+  description: |
+    Qwen3.8-27B Humanlike Chat is a 27B fine-tune for concise conversation,
+    character roleplay, and interactive fiction. This text-only Q4_K_M GGUF
+    uses the embedded chat template with thinking disabled and a 32K context.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - cpu
+    - gpu
+    - roleplay
+    - chat
+  overrides:
+    backend: llama-cpp
+    chat_template_kwargs:
+      enable_thinking: false
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
+      uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/5a11e3bba6f44c305f8799bf49dba6bf5043a5eb/Qwen3.8-27B-Humanlike-Chat-Q4_K_M.gguf
+      sha256: 6acc71b1d1edeac086ae56c4524a6661e5e1cad829897d09acdb96d9b6d23084
+- name: "qwen3.8-27b-humanlike-chat-q6"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated
+    - https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF
+  description: |
+    Qwen3.8-27B Humanlike Chat is a 27B fine-tune for concise conversation,
+    character roleplay, and interactive fiction. This text-only Q6_K GGUF
+    uses the embedded chat template with thinking disabled and a 32K context.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - cpu
+    - gpu
+    - roleplay
+    - chat
+  overrides:
+    backend: llama-cpp
+    chat_template_kwargs:
+      enable_thinking: false
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
+      uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/5a11e3bba6f44c305f8799bf49dba6bf5043a5eb/Qwen3.8-27B-Humanlike-Chat-Q6_K.gguf
+      sha256: 873b674d6b43be484e78e463c2ce32c34897c553cb586750c4869564e0c47c2e
+- name: "qwen3.8-27b-humanlike-chat-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated
+    - https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF
+  description: |
+    Qwen3.8-27B Humanlike Chat is a 27B fine-tune for concise conversation,
+    character roleplay, and interactive fiction. This text-only Q8_0 GGUF
+    uses the embedded chat template with thinking disabled and a 32K context.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - cpu
+    - gpu
+    - roleplay
+    - chat
+  overrides:
+    backend: llama-cpp
+    chat_template_kwargs:
+      enable_thinking: false
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-humanlike-chat/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
+      uri: https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF/resolve/5a11e3bba6f44c305f8799bf49dba6bf5043a5eb/Qwen3.8-27B-Humanlike-Chat-Q8_0.gguf
+      sha256: f3e6b5c55950f2ad75c0bca6359bfd02f3203de4613ffea044c4b9ece895e1b2
 - name: "qwopus3.8-27b-flash"
   variants:
     - model: qwopus3.8-27b-flash-q8
