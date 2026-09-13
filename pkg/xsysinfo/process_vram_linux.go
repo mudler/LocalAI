@@ -55,6 +55,9 @@ func processVRAM(procRoot string, pid int) (uint64, bool) {
 				}
 				continue
 			}
+			// #nosec G304 -- procRoot is /proc in production (a temp dir in tests);
+			// base adds an integer PID, and fd.Name comes from os.ReadDir.
+			// The kernel supplies these path components, not request input.
 			data, err := os.ReadFile(filepath.Join(base, "fdinfo", fd.Name()))
 			if err != nil {
 				return 0, false
@@ -75,6 +78,9 @@ func processVRAM(procRoot string, pid int) (uint64, bool) {
 			return 0, false
 		}
 		for _, task := range tasks {
+			// #nosec G304 -- procRoot is /proc in production (a temp dir in tests);
+			// base adds an integer PID, and task.Name comes from os.ReadDir.
+			// The kernel supplies these path components, not request input.
 			data, err := os.ReadFile(filepath.Join(base, "task", task.Name(), "children"))
 			if err != nil {
 				return 0, false
