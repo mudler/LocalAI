@@ -21,3 +21,8 @@ protogen-clean:
 .PHONY: clean
 clean: protogen-clean
 	rm -rf venv __pycache__
+
+# No model downloads, Python packages, or GPU required.
+.PHONY: test-install
+test-install:
+	bash test_install.sh

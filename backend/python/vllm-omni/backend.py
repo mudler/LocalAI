@@ -40,7 +40,7 @@ from vllm_utils import parse_options, messages_to_dicts, setup_parsers
 from vllm_omni.entrypoints.omni import Omni
 from vllm_omni.outputs import OmniRequestOutput
 from vllm_omni.diffusion.data import DiffusionParallelConfig
-from vllm_omni.utils.platform_utils import detect_device_type, is_npu
+from vllm_omni.platforms import current_platform
 from vllm import SamplingParams
 from diffusers.utils import export_to_video
 
@@ -204,8 +204,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Add diffusion-specific parameters (image/video models)
             if self.model_type in ["image", "video"]:
                 omni_kwargs.update({
-                    "vae_use_slicing": is_npu(),
-                    "vae_use_tiling": is_npu(),
+                    "vae_use_slicing": current_platform.is_npu(),
+                    "vae_use_tiling": current_platform.is_npu(),
                     "cache_backend": cache_backend,
                     "cache_config": cache_config,
                     "parallel_config": parallel_config,
@@ -284,7 +284,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Create generator if seed provided
             generator = None
             if seed:
-                device = detect_device_type()
+                device = current_platform.device_type
                 generator = torch.Generator(device=device).manual_seed(seed)
 
             # Handle image input for image editing
@@ -364,7 +364,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Create generator
             generator = None
             if seed:
-                device = detect_device_type()
+                device = current_platform.device_type
                 generator = torch.Generator(device=device).manual_seed(seed)
 
             # Handle image input for image-to-video
