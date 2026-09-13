@@ -41311,7 +41311,7 @@
       sha256: 2740ba9e9b30b09be4282a9a9f617ec43dc47b89aed416cb09b5f698f90783b5
       uri: huggingface://unsloth/Ministral-3-14B-Instruct-2512-GGUF/mmproj-F32.gguf
 - name: mistralai_ministral-3-14b-reasoning-2512-multimodal
-  url: github:mudler/LocalAI/gallery/mistral-0.3.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mistralai/Ministral-3-14B-Reasoning-2512
     - https://huggingface.co/unsloth/Ministral-3-14B-Reasoning-2512-GGUF
@@ -41359,8 +41359,19 @@
     - vision
   last_checked: "2026-05-04"
   overrides:
+    backend: llama-cpp
     context_size: 32768
+    mmap: true
     mmproj: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-14B-Reasoning-2512-f32.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    function:
+      disable_no_action: true
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
     parameters:
       model: llama-cpp/models/mistralai_Ministral-3-14B-Reasoning-2512-Q4_K_M.gguf
       temperature: 0.7
