@@ -1,5 +1,17 @@
 package credentials
 
+import (
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"strings"
+
+	"github.com/mudler/xlog"
+)
+
 // Kind is how a credential authenticates.
 type Kind int
 
@@ -57,4 +69,98 @@ type Credential struct {
 	lookupEnv     LookupEnvFunc
 }
 
-func (c Credential) warnIfUnresolved() {}
+// ErrUnresolvedSecret marks a failure to read a rule's secret. It is a
+// configuration problem, so downloads must not retry it like a network error.
+var ErrUnresolvedSecret = errors.New("credential secret unavailable")
+
+type resolvedSecret struct {
+	username    string
+	password    string
+	bearer      string
+	headerName  string
+	headerValue string
+}
+
+func (r secretRef) resolve(lookupEnv LookupEnvFunc) (string, error) {
+	switch {
+	case r.literal != "":
+		return r.literal, nil
+	case r.env != "":
+		if lookupEnv != nil {
+			if v, ok := lookupEnv(r.env); ok && v != "" {
+				return v, nil
+			}
+		}
+		return "", fmt.Errorf("environment variable %s is not set", r.env)
+	case r.file != "":
+		b, err := os.ReadFile(r.file)
+		if err != nil {
+			return "", fmt.Errorf("reading secret file %s: %w", r.file, err)
+		}
+		// Secret mounts conventionally end with a newline that is not part
+		// of the value; sending it breaks the Authorization header.
+		return strings.TrimRight(string(b), "\r\n"), nil
+	}
+	return "", nil
+}
+
+// resolve reads secrets at use time rather than at load, so a rotated K8s
+// secret mount is picked up without restarting LocalAI.
+func (c Credential) resolve() (resolvedSecret, error) {
+	var out resolvedSecret
+	var err error
+	switch c.Kind {
+	case KindBasic:
+		out.username = c.username
+		out.password, err = c.password.resolve(c.lookupEnv)
+	case KindBearer:
+		out.bearer, err = c.bearer.resolve(c.lookupEnv)
+	case KindHeader:
+		out.headerName = c.headerName
+		out.headerValue, err = c.headerValue.resolve(c.lookupEnv)
+	}
+	if err != nil {
+		return resolvedSecret{}, fmt.Errorf("credential %q: %w: %w", c.Match, ErrUnresolvedSecret, err)
+	}
+	return out, nil
+}
+
+// ApplyHeaders adds the credential to h.
+func (c Credential) ApplyHeaders(h http.Header) error {
+	r, err := c.resolve()
+	if err != nil {
+		return err
+	}
+	switch c.Kind {
+	case KindBasic:
+		h.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(r.username+":"+r.password)))
+	case KindBearer:
+		h.Set("Authorization", "Bearer "+r.bearer)
+	case KindHeader:
+		h.Set(r.headerName, r.headerValue)
+	}
+	return nil
+}
+
+// warnIfUnresolved keeps a rule whose secret is not available yet, because a
+// secret mount can appear after startup, but tells the operator now instead of
+// at the first failing download.
+func (c Credential) warnIfUnresolved() {
+	if _, err := c.resolve(); err != nil {
+		xlog.Warn("Download credential cannot be resolved yet; matching downloads will fail until it can", "error", err)
+	}
+}
+
+// String, GoString and LogValue exist so that no fmt verb and no structured
+// log call can print the unexported secret fields.
+func (c Credential) String() string {
+	return fmt.Sprintf("credential(%s, %s)", c.Match, c.Kind)
+}
+
+func (c Credential) GoString() string {
+	return c.String()
+}
+
+func (c Credential) LogValue() slog.Value {
+	return slog.GroupValue(slog.String("match", c.Match), slog.String("kind", c.Kind.String()))
+}
