@@ -133,13 +133,13 @@ func (c *Command) run(ctx context.Context, out io.Writer) error {
 		}
 	} else {
 		table := tabwriter.NewWriter(&buffer, 0, 4, 2, ' ', 0)
-		fmt.Fprintln(table, "MODEL\tRUNS\tMIN (s)\tMEAN (s)\tMAX (s)\tEND-TO-END TOKENS/s")
+		_, _ = fmt.Fprintln(table, "MODEL\tRUNS\tMIN (s)\tMEAN (s)\tMAX (s)\tEND-TO-END TOKENS/s")
 		for _, r := range result.Results {
 			throughput := "N/A"
 			if r.CompletionTokensPerSecond != nil {
 				throughput = fmt.Sprintf("%.2f", *r.CompletionTokensPerSecond)
 			}
-			fmt.Fprintf(table, "%s\t%d\t%.4f\t%.4f\t%.4f\t%s\n", r.Model, len(r.Samples), r.MinSeconds, r.MeanSeconds, r.MaxSeconds, throughput)
+			_, _ = fmt.Fprintf(table, "%s\t%d\t%.4f\t%.4f\t%.4f\t%s\n", r.Model, len(r.Samples), r.MinSeconds, r.MeanSeconds, r.MaxSeconds, throughput)
 		}
 		if err := table.Flush(); err != nil {
 			return err
@@ -184,7 +184,7 @@ func (c *Command) request(ctx context.Context, client *http.Client, endpoint, mo
 		// Transport errors and server responses can echo credentials.
 		return s, errors.New("HTTP request failed")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return s, fmt.Errorf("HTTP status %d", resp.StatusCode)
 	}

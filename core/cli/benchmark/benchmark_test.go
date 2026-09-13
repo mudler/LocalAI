@@ -87,7 +87,7 @@ var _ = Describe("Benchmark command", func() {
 			Expect(body["max_tokens"]).To(Equal(float64(128)))
 			Expect(body["messages"]).To(Equal([]any{map[string]any{"role": "user", "content": "hello"}}))
 			models = append(models, body["model"].(string))
-			fmt.Fprintf(w, `{"choices":[{}],"usage":{"prompt_tokens":5,"completion_tokens":%d}}`, len(models))
+			_, _ = fmt.Fprintf(w, `{"choices":[{}],"usage":{"prompt_tokens":5,"completion_tokens":%d}}`, len(models))
 		}))
 		defer server.Close()
 		cmd.Endpoint = server.URL + "/proxy"
@@ -115,7 +115,7 @@ var _ = Describe("Benchmark command", func() {
 		Expect(*first.CompletionTokensPerSecond).To(BeNumerically("~", 5/(first.Samples[0].LatencySeconds+first.Samples[1].LatencySeconds), 0.001))
 	})
 	DescribeTable("preserves missing and zero usage", func(usage string, available bool) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, `{"choices":[{}]`+usage+`}`) }))
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = fmt.Fprint(w, `{"choices":[{}]`+usage+`}`) }))
 		defer server.Close()
 		cmd.Endpoint = server.URL
 		cmd.Warmup = 0
@@ -136,7 +136,7 @@ var _ = Describe("Benchmark command", func() {
 	}, Entry("absent", "", false), Entry("empty", `,"usage":{}`, false), Entry("partial", `,"usage":{"prompt_tokens":0}`, false), Entry("zero", `,"usage":{"prompt_tokens":0,"completion_tokens":0}`, true))
 	It("retains API error details while redacting the key", func() {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprint(w, `{"error":{"message":"model unavailable: secret"}}`)
+			_, _ = fmt.Fprint(w, `{"error":{"message":"model unavailable: secret"}}`)
 		}))
 		defer server.Close()
 		cmd.Endpoint = server.URL
@@ -151,9 +151,9 @@ var _ = Describe("Benchmark command", func() {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requests++
 			if requests == 1 {
-				fmt.Fprint(w, `{"choices":[{}],"usage":{"completion_tokens":2}}`)
+				_, _ = fmt.Fprint(w, `{"choices":[{}],"usage":{"completion_tokens":2}}`)
 			} else {
-				fmt.Fprint(w, `{"choices":[{}]}`)
+				_, _ = fmt.Fprint(w, `{"choices":[{}]}`)
 			}
 		}))
 		defer server.Close()
@@ -166,7 +166,7 @@ var _ = Describe("Benchmark command", func() {
 		Expect(result.Results[0].Samples[1].CompletionTokens).To(BeNil())
 	})
 	DescribeTable("fails without result output", func(status int, body string) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status); fmt.Fprint(w, body) }))
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status); _, _ = fmt.Fprint(w, body) }))
 		defer server.Close()
 		cmd.Endpoint = server.URL
 		cmd.APIKey = "secret"
@@ -209,7 +209,7 @@ var _ = Describe("Benchmark command", func() {
 	It("times out while reading a response body", func() {
 		release := make(chan struct{})
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprint(w, `{"choices":[`)
+			_, _ = fmt.Fprint(w, `{"choices":[`)
 			w.(http.Flusher).Flush()
 			<-release
 		}))
