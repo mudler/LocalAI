@@ -106,6 +106,8 @@ GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 
 The models in the gallery will be automatically indexed and available for installation.
 
+To use a gallery that needs authentication, such as a private GitHub repository or an internal server, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}).
+
 ## Dirk quantization variants
 
 Dirk Qwen3.8 27B offers Q4_K_XL, Q5_K_XL, Q6_K_XL, and Q8_K_XL GGUF builds

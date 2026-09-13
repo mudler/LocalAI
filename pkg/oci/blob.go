@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/mudler/LocalAI/pkg/credentials"
 	"github.com/mudler/LocalAI/pkg/xio"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
@@ -38,6 +39,7 @@ func FetchImageBlob(ctx context.Context, r, reference, dst string, statusReader 
 		Cache:  auth.NewCache(),
 	}
 	client.SetUserAgent(UserAgent())
+	client.Credential = credentials.OrasCredential(r)
 	repo.Client = client
 
 	// https://github.com/oras-project/oras/blob/main/cmd/oras/internal/option/remote.go#L364
