@@ -148,3 +148,60 @@ var _ = Describe("registry credentials", Serial, func() {
 		Expect(reg.rangeRequests).NotTo(BeEmpty())
 	})
 })
+
+var _ = Describe("FetchImageBlob registry credentials", Serial, func() {
+	var (
+		server *httptest.Server
+		repo   string
+		digest string
+	)
+
+	BeforeEach(func() {
+		isolateDockerConfig()
+		// oras only speaks HTTPS unless a repository opts into plain HTTP,
+		// which FetchImageBlob does not, so the registry has to serve TLS.
+		server = httptest.NewTLSServer(requireBasicAuth(registry.New()))
+		DeferCleanup(server.Close)
+
+		// FetchImageBlob builds its oras client on retry.DefaultClient, whose
+		// transport falls back to http.DefaultTransport on every request.
+		// Swapping it for the test server's client is the only way to trust
+		// the test certificate without a production seam; the spec is Serial
+		// so nothing else sees the swap.
+		prev := http.DefaultTransport
+		http.DefaultTransport = server.Client().Transport
+		DeferCleanup(func() { http.DefaultTransport = prev })
+
+		repo = strings.TrimPrefix(server.URL, "https://") + "/acme/model"
+		ref, err := name.ParseReference(repo + ":latest")
+		Expect(err).NotTo(HaveOccurred())
+		img, err := random.Image(4096, 1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(remote.Write(ref, img,
+			remote.WithAuth(&authn.Basic{Username: registryUser, Password: registryPass}),
+			remote.WithTransport(server.Client().Transport))).To(Succeed())
+		layers, err := img.Layers()
+		Expect(err).NotTo(HaveOccurred())
+		d, err := layers[0].Digest()
+		Expect(err).NotTo(HaveOccurred())
+		digest = d.String()
+	})
+
+	It("fetches a private blob with a credentials rule", func() {
+		useCredentials(fmt.Sprintf("- match: %s/acme\n  username: %s\n  password: %s\n", server.URL, registryUser, registryPass))
+
+		dst := filepath.Join(GinkgoT().TempDir(), "blob")
+		Expect(FetchImageBlob(context.Background(), repo, digest, dst, nil)).To(Succeed())
+		info, err := os.Stat(dst)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Size()).To(BeNumerically(">", 0))
+	})
+
+	It("fails to fetch a private blob when no rule matches", func() {
+		useCredentials("")
+
+		dst := filepath.Join(GinkgoT().TempDir(), "blob")
+		err := FetchImageBlob(context.Background(), repo, digest, dst, nil)
+		Expect(err).To(MatchError(ContainSubstring("basic credential not found")))
+	})
+})
