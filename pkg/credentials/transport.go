@@ -27,6 +27,10 @@ func (t transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// request to another host: each hop is matched on its own.
 	authed := req.Clone(req.Context())
 	if err := c.ApplyHeaders(authed.Header); err != nil {
+		// RoundTripper must close the body even when it fails before sending.
+		if req.Body != nil {
+			_ = req.Body.Close()
+		}
 		return nil, err
 	}
 	return t.base.RoundTrip(authed)

@@ -146,6 +146,14 @@ var _ = Describe("OrasCredential", Serial, func() {
 		Expect(cred).To(Equal(auth.Credential{AccessToken: "tok"}))
 	})
 
+	It("stays anonymous when docker config names a credential helper that is missing", func() {
+		Expect(os.WriteFile(filepath.Join(dockerDir, "config.json"), []byte(`{"credsStore":"does-not-exist"}`), 0o600)).To(Succeed())
+		useStore("")
+		cred, err := credentials.OrasCredential("ghcr.io/other/model")(ctx, "ghcr.io")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cred).To(Equal(auth.EmptyCredential))
+	})
+
 	It("falls back to docker config", func() {
 		writeDockerConfig(dockerDir, "ghcr.io", "docker-user", "docker-pw")
 		useStore("")

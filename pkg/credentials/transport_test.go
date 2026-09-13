@@ -2,8 +2,10 @@ package credentials_test
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,28 +36,38 @@ var _ = Describe("Transport", Serial, func() {
 	}
 
 	It("authenticates each redirect hop with its own rule and sends nothing where no rule matches", func() {
-		var originAuth, mirrorAuth, cdnAuth string
+		var originAuth, originKey, mirrorAuth, mirrorKey, cdnAuth, cdnKey string
 		cdn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cdnAuth = r.Header.Get("Authorization")
+			cdnKey = r.Header.Get("X-Key")
 		}))
 		DeferCleanup(cdn.Close)
 		mirror := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			mirrorAuth = r.Header.Get("Authorization")
+			mirrorKey = r.Header.Get("X-Key")
 			http.Redirect(w, r, cdn.URL+"/blob", http.StatusFound)
 		}))
 		DeferCleanup(mirror.Close)
 		origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			originAuth = r.Header.Get("Authorization")
+			originKey = r.Header.Get("X-Key")
 			http.Redirect(w, r, mirror.URL+"/file", http.StatusFound)
 		}))
 		DeferCleanup(origin.Close)
 
-		useStore(fmt.Sprintf("- match: %s\n  bearer: origin-token\n  allow_insecure: true\n- match: %s\n  bearer: mirror-token\n  allow_insecure: true\n", origin.URL, mirror.URL))
+		// The origin uses a header rule because net/http strips Authorization
+		// on a cross-host redirect by itself but knows nothing of X-Key, so
+		// only a custom header proves the transport does not copy credentials
+		// to the next hop.
+		useStore(fmt.Sprintf("- match: %s\n  header:\n    name: X-Key\n    value: origin-key\n  allow_insecure: true\n- match: %s\n  bearer: mirror-token\n  allow_insecure: true\n", origin.URL, mirror.URL))
 		get(origin.URL+"/start", nil)
 
-		Expect(originAuth).To(Equal("Bearer origin-token"))
+		Expect(originKey).To(Equal("origin-key"))
+		Expect(originAuth).To(BeEmpty())
 		Expect(mirrorAuth).To(Equal("Bearer mirror-token"))
+		Expect(mirrorKey).To(BeEmpty())
 		Expect(cdnAuth).To(BeEmpty())
+		Expect(cdnKey).To(BeEmpty())
 	})
 
 	It("leaves an explicit Authorization header to the caller", func() {
@@ -81,6 +93,17 @@ var _ = Describe("Transport", Serial, func() {
 		Expect(err).To(MatchError(ContainSubstring("MISSING_TOKEN")))
 	})
 
+	It("closes the request body when the matching rule cannot be resolved", func() {
+		useStore("- match: https://files.example.com\n  bearer_env: MISSING_TOKEN\n")
+		body := &closeRecorder{Reader: strings.NewReader("payload")}
+		req, err := http.NewRequest(http.MethodPost, "https://files.example.com/upload", body)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = credentials.Transport(httpclient.HardenedTransport()).RoundTrip(req)
+		Expect(err).To(HaveOccurred())
+		Expect(body.closed).To(BeTrue())
+	})
+
 	It("sends nothing when no store is installed", func() {
 		var seen string
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -94,3 +117,13 @@ var _ = Describe("Transport", Serial, func() {
 		Expect(seen).To(BeEmpty())
 	})
 })
+
+type closeRecorder struct {
+	io.Reader
+	closed bool
+}
+
+func (c *closeRecorder) Close() error {
+	c.closed = true
+	return nil
+}

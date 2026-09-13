@@ -95,6 +95,13 @@ func OrasCredential(repository string) auth.CredentialFunc {
 			// same outcome as before this adapter existed.
 			return auth.EmptyCredential, nil
 		}
-		return orascreds.Credential(docker)(ctx, hostport)
+		cred, err := orascreds.Credential(docker)(ctx, hostport)
+		if err != nil {
+			// A broken credsStore helper would otherwise fail every pull, even
+			// of public artifacts that never needed docker config.
+			xlog.Debug("Ignoring docker config credentials that cannot be read", "registry", hostport, "error", err)
+			return auth.EmptyCredential, nil
+		}
+		return cred, nil
 	}
 }
