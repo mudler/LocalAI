@@ -321,6 +321,7 @@ This indicates a Docker/NVIDIA Container Toolkit configuration issue. The contai
 - Check internet connection
 - Verify disk space: `df -h`
 - Check container logs for errors: `docker logs local-ai` or `podman logs local-ai`
+- If the logs show status 401 or 403, the source needs authentication. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}})
 
 ## Full image reference
 

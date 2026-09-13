@@ -64,6 +64,8 @@ The URL needs to point to a valid yaml file, for example:
 
 Where URI is the path to an OCI container image.
 
+To use a backend gallery or backend images that need authentication, such as a private registry, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}).
+
 ### Backend Gallery Structure
 
 A backend gallery is a collection of YAML files, each defining a backend. Here's an example structure:

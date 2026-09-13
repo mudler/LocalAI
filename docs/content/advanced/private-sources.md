@@ -45,9 +45,9 @@ Each entry has:
 
 | Key | Description |
 |-----|-------------|
-| `match` | URL prefix: a host, optionally followed by a path, optionally with `http://` or `https://`. Required. It must not contain credentials (`user:token@host`). |
+| `match` | URL prefix: a host, optionally followed by a path, optionally with `http://` or `https://`. Required. It must not contain credentials (`user:token@host`), a query string (`?`) or a fragment (`#`). |
 | `username` + `password`, `password_env` or `password_file` | Basic authentication. |
-| `bearer`, `bearer_env` or `bearer_file` | Bearer token. For registries it is sent as a registry token. |
+| `bearer`, `bearer_env` or `bearer_file` | Bearer token. For registries it is sent as a registry token. GHCR, Docker Hub and Quay do not accept a bearer entry: use basic auth with any `username` and the token as the `password`. |
 | `header.name` + `header.value`, `header.value_env` or `header.value_file` | A custom header. HTTP downloads only; registries ignore it. |
 | `allow_insecure` | Allow sending this credential over plain `http://`. Default `false`. Registries on local or private addresses need it, see [Registries on the local network](#registries-on-the-local-network). |
 
@@ -88,7 +88,9 @@ The entry for such a registry needs `allow_insecure: true`, and its `match` must
 - Model files and model configs downloaded over HTTP(S) or `github:`.
 - Backend images and `oci://` / `ollama://` models, including resumed layer downloads and cosign signature checks.
 
-For registries, LocalAI checks the credentials file first. If no entry matches, it uses your docker login (`~/.docker/config.json` or `DOCKER_CONFIG`). This also applies to `ollama://` blob downloads. Hosts that already use `docker login` do not need a credentials file.
+For registries, LocalAI checks the credentials file first. If no entry matches, it uses your docker login (`~/.docker/config.json` or `DOCKER_CONFIG`). Hosts that already use `docker login` do not need a credentials file.
+
+For `ollama://` models, only the blob downloads use credentials. LocalAI fetches the model manifest without credentials, so the manifest must be readable anonymously.
 
 A credential passed directly by LocalAI (for example `HF_TOKEN` for managed Hugging Face artifacts) takes precedence over the file.
 
@@ -96,8 +98,11 @@ A credential passed directly by LocalAI (for example `HF_TOKEN` for managed Hugg
 
 When a server refuses a download with status 401 or 403, the error shows which case applies:
 
-- `authentication required for <target> (status <code>): no credentials rule matches it`: add an entry that matches this URL.
+- `authentication required for <target> (status <code>): no credentials rule matches it`: add an entry that matches this URL. For registries the message continues with `and docker config credentials, if any, were not accepted`, because LocalAI also tried your docker login.
 - `credential "<match>" was rejected by <target> (status <code>)`: an entry matched, but the server did not accept it. Check the secret and its permissions.
+- `the provided credential was rejected by <target> (status <code>)`: the download carried a credential that LocalAI got from somewhere other than the file (for example `HF_TOKEN`), so the file was not used. Check that credential.
+
+Each message ends with the reason the server gave, when there is one, for example a registry's `DENIED` detail. For HTTP downloads only the status text is shown, because the request URL can contain a signed query string.
 
 If an `_env` variable is not set or a `_file` cannot be read, LocalAI logs a warning at startup and keeps the entry, because a secret mount can appear later. A download that matches the entry fails with an error that names the variable or file. LocalAI does not retry that download.
 
