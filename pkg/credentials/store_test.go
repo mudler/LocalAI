@@ -48,6 +48,17 @@ var _ = Describe("Parse", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).NotTo(ContainSubstring("hunter2"))
 	})
+
+	DescribeTable("does not echo secret literals in YAML type errors",
+		func(doc, secretFragment string) {
+			_, err := credentials.Parse([]byte(doc), noEnv)
+			Expect(err).To(MatchError(ContainSubstring("wrong type")))
+			Expect(err.Error()).To(ContainSubstring("line 2"))
+			Expect(err.Error()).NotTo(ContainSubstring(secretFragment))
+		},
+		Entry("short value", "- match: ghcr.io\n  header: hunter2\n", "hunter2"),
+		Entry("long value", "- match: ghcr.io\n  header: supersecretvalue123\n", "superse"),
+	)
 })
 
 var _ = Describe("Store.Match", func() {
@@ -97,6 +108,11 @@ var _ = Describe("Store.Match", func() {
 		Entry("plain http when the rule opts in", "http://registry.lan:5000/team/img", "registry.lan:5000"),
 		Entry("no credentials over plain http by default", "http://plain.example.com/x", ""),
 		Entry("unparseable target", "not a url", ""),
+		Entry("scheme-relative target", "//ghcr.io/acme/img", ""),
+		Entry("ftp target", "ftp://ghcr.io/acme/img", ""),
+		Entry("websocket target", "ws://ghcr.io/acme/img", ""),
+		Entry("dot-dot segment", "https://ghcr.io/acme/../other/img", ""),
+		Entry("percent-encoded dot-dot segment", "https://ghcr.io/acme%2F..%2Fother/img", ""),
 	)
 
 	It("is safe on a nil store", func() {

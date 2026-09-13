@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -57,7 +58,7 @@ func Parse(data []byte, lookupEnv LookupEnvFunc) (*Store, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	if err := dec.Decode(&entries); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parsing credentials: %w", err)
+		return nil, fmt.Errorf("parsing credentials: %w", redactDecodeError(err))
 	}
 	s := &Store{}
 	for i, e := range entries {
@@ -69,6 +70,35 @@ func Parse(data []byte, lookupEnv LookupEnvFunc) (*Store, error) {
 		s.creds = append(s.creds, c)
 	}
 	return s, nil
+}
+
+var (
+	unknownFieldRe = regexp.MustCompile(`^line (\d+): field (\S+) not found in type `)
+	errorLineRe    = regexp.MustCompile(`^line (\d+): `)
+)
+
+// redactDecodeError rebuilds a yaml.TypeError from line numbers only, because
+// yaml.v3 quotes the offending scalar, which in this file is often a secret
+// (for example a token written where a header mapping belongs). Unknown-key
+// messages are kept since they name the key, not a value.
+func redactDecodeError(err error) error {
+	var te *yaml.TypeError
+	if !errors.As(err, &te) {
+		return err
+	}
+	msgs := make([]string, 0, len(te.Errors))
+	for _, line := range te.Errors {
+		if m := unknownFieldRe.FindStringSubmatch(line); m != nil {
+			msgs = append(msgs, fmt.Sprintf("line %s: unknown key %s", m[1], m[2]))
+			continue
+		}
+		if m := errorLineRe.FindStringSubmatch(line); m != nil {
+			msgs = append(msgs, fmt.Sprintf("line %s: value has the wrong type", m[1]))
+			continue
+		}
+		msgs = append(msgs, "value has the wrong type")
+	}
+	return fmt.Errorf("credentials file has entries of the wrong type or unknown keys: %s", strings.Join(msgs, "; "))
 }
 
 // Len reports how many rules the store holds.
@@ -196,6 +226,16 @@ func (s *Store) Match(rawURL string) (Credential, bool) {
 		return Credential{}, false
 	}
 	scheme := strings.ToLower(u.Scheme)
+	// Allowlist: an empty scheme ("//host/path") or ws/ftp must never pick up
+	// credentials meant for HTTPS.
+	if scheme != "https" && scheme != "http" {
+		return Credential{}, false
+	}
+	// Prefix scoping is meaningless once a segment can climb out of it, and a
+	// server may resolve "..", including percent-encoded slashes, after we match.
+	if hasDotSegment(u.Path) || hasDotSegment(decodedEscapedPath(u)) {
+		return Credential{}, false
+	}
 	host := normalizeHost(scheme, u.Host)
 	path := strings.Trim(u.Path, "/")
 
@@ -227,6 +267,27 @@ func (s *Store) Match(rawURL string) (Credential, bool) {
 		return Credential{}, false
 	}
 	return s.creds[best], true
+}
+
+func decodedEscapedPath(u *url.URL) string {
+	var out []string
+	for _, seg := range strings.Split(u.EscapedPath(), "/") {
+		dec, err := url.PathUnescape(seg)
+		if err != nil {
+			dec = seg
+		}
+		out = append(out, dec)
+	}
+	return strings.Join(out, "/")
+}
+
+func hasDotSegment(p string) bool {
+	for _, seg := range strings.Split(p, "/") {
+		if seg == "." || seg == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 func pathMatches(rule, target string) bool {
