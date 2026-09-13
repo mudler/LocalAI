@@ -33,8 +33,8 @@ Pass the file with `--credentials-file` or `LOCALAI_CREDENTIALS_FILE`. If neithe
     name: X-JFrog-Art-Api
     value_env: ART_KEY
 
-# Registry on the local network. No scheme, so the entry covers HTTPS and
-# the plain HTTP fallback.
+# Registry on a private network address. Image pulls from it are matched
+# as http://, so the entry needs allow_insecure and no https:// scheme.
 - match: 192.168.1.5:5000
   username: ci
   password_file: /run/secrets/registry-password
@@ -49,7 +49,7 @@ Each entry has:
 | `username` + `password`, `password_env` or `password_file` | Basic authentication. |
 | `bearer`, `bearer_env` or `bearer_file` | Bearer token. For registries it is sent as a registry token. |
 | `header.name` + `header.value`, `header.value_env` or `header.value_file` | A custom header. HTTP downloads only; registries ignore it. |
-| `allow_insecure` | Allow sending this credential over plain `http://`. Default `false`. |
+| `allow_insecure` | Allow sending this credential over plain `http://`. Default `false`. Registries on local or private addresses need it, see [Registries on the local network](#registries-on-the-local-network). |
 
 Use exactly one authentication type per entry, and exactly one of the plain, `_env` or `_file` forms per secret.
 
@@ -59,7 +59,7 @@ LocalAI reads `_env` and `_file` values each time it needs them. A rotated Kuber
 
 ## How matching works
 
-- Only `https://` URLs get credentials. `http://` URLs get credentials only from an entry with `allow_insecure: true`. Other schemes never get credentials.
+- Only `https://` URLs get credentials. `http://` URLs get credentials only from an entry with `allow_insecure: true` (see [Registries on the local network](#registries-on-the-local-network)). Other schemes never get credentials.
 - The host must be equal. `ghcr.io` does not match `ghcr.io.evil.net`.
 - The path matches whole segments. `ghcr.io/acme` matches `ghcr.io/acme/backend` but not `ghcr.io/acme-tools/backend`.
 - A URL whose path has `.` or `..` segments never gets credentials.
@@ -71,9 +71,16 @@ LocalAI reads `_env` and `_file` values each time it needs them. A rotated Kuber
 
 ### Registries on the local network
 
-For a registry on a loopback address, a private network address (for example `10.x`, `172.16.x` to `172.31.x`, `192.168.x`) or a `.local` host, the registry client can fall back to plain HTTP. The entry for such a registry needs `allow_insecure: true`.
+The registry client treats some registry names as local and uses `http` as their scheme:
 
-Write these entries without a scheme, for example `match: 192.168.1.5:5000` with `allow_insecure: true`. One entry then covers every OCI download path, whether it uses HTTPS or HTTP.
+- a name that starts with `localhost:` (a port is given, for example `localhost:5000`)
+- a name that ends in `.localhost`, with or without a port (for example `registry.localhost:5000`)
+- a name that contains `127.0.0.1` or `::1`
+- an IPv4 address in `10.0.0.0/8`, `172.16.0.0/12` or `192.168.0.0/16`, with or without a port
+
+For these registries, LocalAI always matches image pulls as `http://<registry>/<repository>`, whatever scheme the connection uses in the end. An entry written as `https://192.168.1.5:5000` never applies to image pulls from that registry.
+
+The entry for such a registry needs `allow_insecure: true`, and its `match` must have no scheme or use `http://`. No scheme is recommended, for example `match: 192.168.1.5:5000` with `allow_insecure: true`, because the same entry then also covers downloads that use HTTPS.
 
 ## What uses the credentials
 
@@ -112,4 +119,4 @@ volumeMounts:
 
 The controller downloads models and sends them to the workers, so model downloads only need credentials on the controller.
 
-Each worker pulls its own backend images. To install backends from a private registry, give every worker the same credentials file. LocalAI does not send credentials over NATS. If a worker has no matching entry, the install fails, and the node's install error says that no credentials rule matches.
+Each worker pulls its own backend images. To install backends from a private registry, give every worker the same credentials file. LocalAI does not send credentials over NATS. If a worker has no matching entry and no docker login for that registry, the install fails, and the node's install error says that no credentials rule matches.
