@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/url"
 	"os"
 	"regexp"
@@ -64,6 +65,10 @@ func Parse(data []byte, lookupEnv LookupEnvFunc) (*Store, error) {
 	for i, e := range entries {
 		c, err := newCredential(e, lookupEnv)
 		if err != nil {
+			if errors.Is(err, errMatchUserinfo) {
+				// The match itself holds the secret, so it cannot be quoted.
+				return nil, fmt.Errorf("credentials entry %d: %w", i+1, err)
+			}
 			return nil, fmt.Errorf("credentials entry %d (match %q): %w", i+1, e.Match, err)
 		}
 		c.warnIfUnresolved()
@@ -99,6 +104,36 @@ func redactDecodeError(err error) error {
 		msgs = append(msgs, "value has the wrong type")
 	}
 	return fmt.Errorf("credentials file has entries of the wrong type or unknown keys: %s", strings.Join(msgs, "; "))
+}
+
+// String, GoString and LogValue name rules by match only. They are defined on
+// Store because fmt prints the unexported creds field without consulting
+// Credential.String. String and GoString take a value so that both Store and
+// *Store are covered.
+func (s Store) String() string {
+	return fmt.Sprintf("credentials.Store(%d rules: %s)", len(s.creds), strings.Join(s.matches(), ", "))
+}
+
+func (s Store) GoString() string {
+	return s.String()
+}
+
+// LogValue takes a pointer so that logging Default() before a store is
+// installed does not panic inside slog. A Store value logged without it falls
+// back to String (text) or an empty object (JSON).
+func (s *Store) LogValue() slog.Value {
+	if s == nil {
+		return slog.GroupValue(slog.Int("rules", 0))
+	}
+	return slog.GroupValue(slog.Int("rules", len(s.creds)), slog.Any("matches", s.matches()))
+}
+
+func (s Store) matches() []string {
+	out := make([]string, len(s.creds))
+	for i, c := range s.creds {
+		out[i] = c.Match
+	}
+	return out
 }
 
 // Len reports how many rules the store holds.
@@ -172,8 +207,16 @@ func oneForm(field, literal, env, file string) (secretRef, error) {
 	if n > 1 {
 		return secretRef{}, fmt.Errorf("set only one of %s, %s_env, %s_file", field, field, field)
 	}
-	return secretRef{literal: literal, env: env, file: file}, nil
+	r := secretRef{env: env, file: file}
+	if literal != "" {
+		r.literal = &literal
+	}
+	return r, nil
 }
+
+// errMatchUserinfo rejects user:token@host matches: such a rule never matches
+// a request, and Match is printed everywhere a rule is named.
+var errMatchUserinfo = errors.New("match must not contain credentials (userinfo)")
 
 func parseMatch(m string) (scheme, host, path string, err error) {
 	m = strings.TrimSpace(m)
@@ -188,6 +231,9 @@ func parseMatch(m string) (scheme, host, path string, err error) {
 		m = after
 	}
 	host, path, _ = strings.Cut(m, "/")
+	if strings.Contains(host, "@") {
+		return "", "", "", errMatchUserinfo
+	}
 	if host == "" {
 		return "", "", "", errors.New("match has no host")
 	}

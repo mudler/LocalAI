@@ -49,6 +49,12 @@ var _ = Describe("Parse", func() {
 		Expect(err.Error()).NotTo(ContainSubstring("hunter2"))
 	})
 
+	It("rejects userinfo in a match without echoing it", func() {
+		_, err := credentials.Parse([]byte("- match: https://user:tok3n@ghcr.io\n  bearer: x\n"), noEnv)
+		Expect(err).To(MatchError(ContainSubstring("userinfo")))
+		Expect(err.Error()).NotTo(ContainSubstring("tok3n"))
+	})
+
 	DescribeTable("does not echo secret literals in YAML type errors",
 		func(doc, secretFragment string) {
 			_, err := credentials.Parse([]byte(doc), noEnv)

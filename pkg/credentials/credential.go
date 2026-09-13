@@ -39,13 +39,16 @@ func (k Kind) String() string {
 type LookupEnvFunc func(string) (string, bool)
 
 type secretRef struct {
-	literal string
+	// literal is a pointer because fmt prints a nested pointer as an address.
+	// A Credential reached through an unexported field (inside Store, or any
+	// caller struct) bypasses String, so a plain string would print in full.
+	literal *string
 	env     string
 	file    string
 }
 
 func (r secretRef) set() bool {
-	return r.literal != "" || r.env != "" || r.file != ""
+	return r.literal != nil || r.env != "" || r.file != ""
 }
 
 // Credential is one rule from the credentials file. Secret sources are
@@ -83,8 +86,8 @@ type resolvedSecret struct {
 
 func (r secretRef) resolve(lookupEnv LookupEnvFunc) (string, error) {
 	switch {
-	case r.literal != "":
-		return r.literal, nil
+	case r.literal != nil:
+		return *r.literal, nil
 	case r.env != "":
 		if lookupEnv != nil {
 			if v, ok := lookupEnv(r.env); ok && v != "" {

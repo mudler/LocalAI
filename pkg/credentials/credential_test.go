@@ -79,13 +79,34 @@ var _ = Describe("Credential", func() {
 	})
 
 	It("never prints secret material", func() {
-		c, ok := mustParse("- match: ghcr.io\n  username: bot\n  password: hunter2\n").Match("https://ghcr.io/x")
+		store := mustParse("- match: ghcr.io\n  username: bot\n  password: hunter2\n")
+		c, ok := store.Match("https://ghcr.io/x")
 		Expect(ok).To(BeTrue())
 		Expect(fmt.Sprintf("%v %+v %#v %s", c, c, c, c)).NotTo(ContainSubstring("hunter2"))
+
+		// fmt cannot call String on values reached through unexported
+		// fields, so nesting is checked separately from the direct case.
+		wrapper := struct{ c credentials.Credential }{c: c}
+		for _, v := range []any{store, *store, wrapper} {
+			Expect(fmt.Sprintf("%v %+v %#v", v, v, v)).NotTo(ContainSubstring("hunter2"))
+		}
+		Expect(fmt.Sprintf("%v", store)).To(ContainSubstring("ghcr.io"))
 
 		var buf bytes.Buffer
 		slog.New(slog.NewJSONHandler(&buf, nil)).Info("using", "credential", c)
 		Expect(buf.String()).NotTo(ContainSubstring("hunter2"))
 		Expect(buf.String()).To(ContainSubstring("ghcr.io"))
+
+		for _, h := range []func(*bytes.Buffer) slog.Handler{
+			func(b *bytes.Buffer) slog.Handler { return slog.NewTextHandler(b, nil) },
+			func(b *bytes.Buffer) slog.Handler { return slog.NewJSONHandler(b, nil) },
+		} {
+			var out bytes.Buffer
+			var nilStore *credentials.Store
+			slog.New(h(&out)).Info("loaded", "store", store, "value", *store, "none", nilStore)
+			Expect(out.String()).NotTo(ContainSubstring("hunter2"))
+			Expect(out.String()).To(ContainSubstring("ghcr.io"))
+			Expect(out.String()).NotTo(ContainSubstring("panicked"))
+		}
 	})
 })
