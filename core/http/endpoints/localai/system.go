@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 )
 
 // SystemInformations returns the system informations
@@ -40,6 +41,11 @@ func SystemInformations(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 				live[pid] = struct{}{}
 				if proc, err := sampler.Sample(pid); err == nil {
 					entry.Process = proc
+				}
+			}
+			if pid, ok := localPID(m); ok {
+				if used, ok := xsysinfo.ProcessVRAM(int(pid)); ok {
+					entry.SizeVRAM = &used
 				}
 			}
 			sysmodels = append(sysmodels, entry)
