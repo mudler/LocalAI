@@ -118,6 +118,34 @@ var _ = Describe("OrasCredential", Serial, func() {
 		Expect(cred).To(Equal(auth.EmptyCredential))
 	})
 
+	It("matches a repository rule for Docker Hub, which oras calls with registry-1.docker.io", func() {
+		useStore("- match: docker.io/acme\n  bearer: tok\n")
+		cred, err := credentials.OrasCredential("docker.io/acme/m")(ctx, "registry-1.docker.io")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cred).To(Equal(auth.Credential{AccessToken: "tok"}))
+	})
+
+	It("does not apply a Docker Hub rule for another repository", func() {
+		useStore("- match: docker.io/acme\n  bearer: tok\n")
+		cred, err := credentials.OrasCredential("docker.io/other/m")(ctx, "registry-1.docker.io")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cred).To(Equal(auth.EmptyCredential))
+	})
+
+	It("matches a repository given without a tag or digest", func() {
+		useStore("- match: registry.ollama.ai/library\n  bearer: tok\n")
+		cred, err := credentials.OrasCredential("registry.ollama.ai/library/gemma")(ctx, "registry.ollama.ai")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cred).To(Equal(auth.Credential{AccessToken: "tok"}))
+	})
+
+	It("ignores the tag when matching a repository rule", func() {
+		useStore("- match: ghcr.io/acme/model\n  bearer: tok\n")
+		cred, err := credentials.OrasCredential("ghcr.io/acme/model:v1")(ctx, "ghcr.io")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cred).To(Equal(auth.Credential{AccessToken: "tok"}))
+	})
+
 	It("falls back to docker config", func() {
 		writeDockerConfig(dockerDir, "ghcr.io", "docker-user", "docker-pw")
 		useStore("")

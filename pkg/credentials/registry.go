@@ -7,6 +7,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/mudler/xlog"
+	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote/auth"
 	orascreds "oras.land/oras-go/v2/registry/remote/credentials"
 )
@@ -54,16 +55,29 @@ func Keychain() authn.Keychain {
 	return authn.NewMultiKeychain(storeKeychain{}, authn.DefaultKeychain)
 }
 
+// orasMatchURL binds repository to the host oras asks about. oras passes
+// Reference.Host(), which rewrites docker.io to registry-1.docker.io, so hosts
+// are compared after the store's folding rather than as string prefixes.
+func orasMatchURL(repository, hostport string) string {
+	matchURL := "https://" + hostport
+	if ref, err := registry.ParseReference(repository); err == nil {
+		if normalizeHost("https", ref.Host()) == normalizeHost("https", hostport) {
+			return matchURL + "/" + ref.Repository
+		}
+		return matchURL
+	}
+	if rest, ok := strings.CutPrefix(repository, hostport+"/"); ok {
+		matchURL += "/" + rest
+	}
+	return matchURL
+}
+
 // OrasCredential returns an oras credential func for one repository. oras only
 // passes the registry host to the func, so the repository is bound here to
 // let repository-scoped rules match.
 func OrasCredential(repository string) auth.CredentialFunc {
 	return func(ctx context.Context, hostport string) (auth.Credential, error) {
-		matchURL := "https://" + hostport
-		if rest, ok := strings.CutPrefix(repository, hostport+"/"); ok {
-			matchURL += "/" + rest
-		}
-		if c, ok := Default().Match(matchURL); ok {
+		if c, ok := Default().Match(orasMatchURL(repository, hostport)); ok {
 			secret, err := c.resolve()
 			if err != nil {
 				return auth.EmptyCredential, err
