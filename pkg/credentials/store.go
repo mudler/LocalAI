@@ -44,6 +44,7 @@ type Store struct {
 
 // Load reads and validates a credentials file.
 func Load(path string, lookupEnv LookupEnvFunc) (*Store, error) {
+	// #nosec G304 -- path comes from the operator's credentials-file setting or data directory, not a request.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
