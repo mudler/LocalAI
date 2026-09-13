@@ -7,6 +7,8 @@ url = '/reference/cli-reference'
 
 Complete reference for all LocalAI command-line interface (CLI) parameters and environment variables.
 
+For client-side text inference measurements, see [Benchmark text models]({{% relref "features/benchmark" %}}).
+
 These options configure the LocalAI server process. To configure an individual
 model, see [Model Configuration]({{% relref "advanced/model-configuration" %}}).
 
