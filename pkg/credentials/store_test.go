@@ -55,6 +55,23 @@ var _ = Describe("Parse", func() {
 		Expect(err.Error()).NotTo(ContainSubstring("tok3n"))
 	})
 
+	DescribeTable("rejects a bad match without echoing the secret it holds",
+		func(doc, msg, secret string) {
+			_, err := credentials.Parse([]byte(doc), noEnv)
+			Expect(err).To(MatchError(ContainSubstring(msg)))
+			Expect(err.Error()).NotTo(ContainSubstring(secret))
+		},
+		Entry("userinfo with an unsupported scheme", "- match: ftp://user:tok123@host\n  bearer: x\n", "userinfo", "tok123"),
+		Entry("query string", "- match: https://files.example.com/model?sig=abc123\n  bearer: x\n", "query", "abc123"),
+		Entry("fragment", "- match: https://files.example.com/model#abc123\n  bearer: x\n", "fragment", "abc123"),
+	)
+
+	It("does not echo a secret from a YAML tag decode error", func() {
+		_, err := credentials.Parse([]byte("- match: ghcr.io\n  password: !!int hunter2\n  username: u\n"), noEnv)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).NotTo(ContainSubstring("hunter2"))
+	})
+
 	DescribeTable("does not echo secret literals in YAML type errors",
 		func(doc, secretFragment string) {
 			_, err := credentials.Parse([]byte(doc), noEnv)

@@ -65,8 +65,10 @@ func Parse(data []byte, lookupEnv LookupEnvFunc) (*Store, error) {
 	for i, e := range entries {
 		c, err := newCredential(e, lookupEnv)
 		if err != nil {
-			if errors.Is(err, errMatchUserinfo) {
-				// The match itself holds the secret, so it cannot be quoted.
+			var bad *invalidMatchError
+			if errors.As(err, &bad) {
+				// A match that failed to parse may be a URL with a token in it,
+				// so only a match that parsed is safe to quote.
 				return nil, fmt.Errorf("credentials entry %d: %w", i+1, err)
 			}
 			return nil, fmt.Errorf("credentials entry %d (match %q): %w", i+1, e.Match, err)
@@ -80,6 +82,7 @@ func Parse(data []byte, lookupEnv LookupEnvFunc) (*Store, error) {
 var (
 	unknownFieldRe = regexp.MustCompile(`^line (\d+): field (\S+) not found in type `)
 	errorLineRe    = regexp.MustCompile(`^line (\d+): `)
+	quotedSpanRe   = regexp.MustCompile("`[^`]*`|'[^']*'|\"[^\"]*\"")
 )
 
 // redactDecodeError rebuilds a yaml.TypeError from line numbers only, because
@@ -89,7 +92,15 @@ var (
 func redactDecodeError(err error) error {
 	var te *yaml.TypeError
 	if !errors.As(err, &te) {
-		return err
+		// Other decode failures quote scalars too (for example a secret under
+		// a mismatched !!int tag), so every quoted span goes and map keys,
+		// which yaml.v3 prints unquoted, are cut off. Line numbers and the
+		// fixed parser wording stay because they are what locates the typo.
+		msg := quotedSpanRe.ReplaceAllString(err.Error(), "<redacted>")
+		if before, _, ok := strings.Cut(msg, "invalid map key:"); ok {
+			msg = before + "invalid map key"
+		}
+		return errors.New(msg)
 	}
 	msgs := make([]string, 0, len(te.Errors))
 	for _, line := range te.Errors {
@@ -214,28 +225,52 @@ func oneForm(field, literal, env, file string) (secretRef, error) {
 	return r, nil
 }
 
-// errMatchUserinfo rejects user:token@host matches: such a rule never matches
-// a request, and Match is printed everywhere a rule is named.
-var errMatchUserinfo = errors.New("match must not contain credentials (userinfo)")
+// invalidMatchError marks a match that did not parse. Its message never
+// includes the match text, and Parse relies on the type to leave it unquoted.
+type invalidMatchError struct {
+	msg string
+}
+
+func (e *invalidMatchError) Error() string {
+	return e.msg
+}
+
+func invalidMatch(msg string) error {
+	return &invalidMatchError{msg: msg}
+}
 
 func parseMatch(m string) (scheme, host, path string, err error) {
 	m = strings.TrimSpace(m)
 	if m == "" {
-		return "", "", "", errors.New("match is required")
+		return "", "", "", invalidMatch("match is required")
 	}
-	if before, after, ok := strings.Cut(m, "://"); ok {
+	// Match ignores query strings and fragments, so such a rule could never
+	// apply, and a query string is where signed URLs carry their token.
+	if strings.Contains(m, "?") {
+		return "", "", "", invalidMatch("match must not contain a query string")
+	}
+	if strings.Contains(m, "#") {
+		return "", "", "", invalidMatch("match must not contain a fragment")
+	}
+	before, rest, hasScheme := strings.Cut(m, "://")
+	if !hasScheme {
+		rest = m
+	}
+	host, path, _ = strings.Cut(rest, "/")
+	// Checked before the scheme so that a user:token@host match is refused as
+	// userinfo whatever its scheme: such a rule never matches a request, and
+	// Match is printed everywhere a rule is named.
+	if strings.Contains(host, "@") || (hasScheme && strings.Contains(before, "@")) {
+		return "", "", "", invalidMatch("match must not contain credentials (userinfo)")
+	}
+	if hasScheme {
 		scheme = strings.ToLower(before)
 		if scheme != "http" && scheme != "https" {
-			return "", "", "", fmt.Errorf("unsupported scheme %q in match", scheme)
+			return "", "", "", invalidMatch("unsupported scheme in match: only http and https are allowed")
 		}
-		m = after
-	}
-	host, path, _ = strings.Cut(m, "/")
-	if strings.Contains(host, "@") {
-		return "", "", "", errMatchUserinfo
 	}
 	if host == "" {
-		return "", "", "", errors.New("match has no host")
+		return "", "", "", invalidMatch("match has no host")
 	}
 	return scheme, normalizeHost(scheme, host), strings.Trim(path, "/"), nil
 }
