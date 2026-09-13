@@ -204,6 +204,9 @@ type SysInfoModel struct {
 	// so it is resolved from the model's config; empty when the model was
 	// loaded without one (a loose file, or a config since removed).
 	Backend string `json:"backend,omitempty"`
+	// SizeVRAM is DRM-accounted resident device memory in bytes. Nil means
+	// the backend process tree has no complete supported reading.
+	SizeVRAM *uint64 `json:"size_vram,omitempty"`
 }
 
 type SystemInformationResponse struct {
