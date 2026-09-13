@@ -90,6 +90,28 @@ temperature 1, top_k 64, and top_p 0.95. They are separate from the
 existing QAT builds. See the [source model](https://huggingface.co/google/gemma-4-12B-it)
 and [GGUF files](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF).
 
+## Ornith 1.5 9B Uncensored
+
+Junafinity's Ornith 1.5 9B Uncensored offers Q4_K_M, Q6_K, and Q8_0 GGUF
+builds for llama.cpp. Each includes the F16 vision projector for image input.
+Install with automatic variant selection:
+
+```bash
+local-ai models install ornith-1.5-9b-uncensored-q4
+```
+
+Select Q8 explicitly:
+
+```bash
+local-ai models install ornith-1.5-9b-uncensored-q4 --variant ornith-1.5-9b-uncensored-q8
+```
+
+These entries use the embedded chat template and a 32,768-token context.
+Sampling defaults are temperature 0.6, top_p 0.95, top_k 20, min_p 0,
+and repeat_penalty 1. The model has no MTP heads.
+See the [source model](https://huggingface.co/junafinity/Ornith-1.5-9B-uncensored)
+and [GGUF files](https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF).
+
 ## Add other galleries
 
 You can add other galleries by:
