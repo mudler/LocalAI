@@ -3492,6 +3492,186 @@
     - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/mmproj-Ornith-1.5-35B-BF16.gguf
       sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
+- &nex-n2-5-pro
+  name: nex-n2.5-pro-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nex-agi/Nex-N2.5-Pro
+    - https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - reasoning
+    - coding
+    - agent
+    - tools
+  variants:
+    - model: nex-n2.5-pro-q6
+    - model: nex-n2.5-pro-q8
+  description: |
+    Nex-N2.5-Pro is a 397B-parameter Qwen3.5 MoE model for coding,
+    reasoning, and agentic tasks. This Q4_K_M GGUF build provides text
+    conversations through llama.cpp with the embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q4_K_M-00001-of-00007.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 40
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q4_K_M-00001-of-00007.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q4_K_M/Nex-N2.5-Pro-Q4_K_M-00001-of-00007.gguf
+      sha256: a980ca7a9bc4a04344df1c87d2d9b983ea47d1cc8f64b605bb7adaabdfd33388
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q4_K_M-00002-of-00007.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q4_K_M/Nex-N2.5-Pro-Q4_K_M-00002-of-00007.gguf
+      sha256: 3e4bf51360d486316a93cfe87fea65a08050f540d349acfe26fbf6df1b260c94
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q4_K_M-00003-of-00007.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q4_K_M/Nex-N2.5-Pro-Q4_K_M-00003-of-00007.gguf
+      sha256: 389c76a97246f652eb021cb25748137b89dc0d343385b2fe842dd6281257831d
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q4_K_M-00004-of-00007.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q4_K_M/Nex-N2.5-Pro-Q4_K_M-00004-of-00007.gguf
+      sha256: b1fe8f58c6d0619a07ced20867edd99857aadd8243442a1f66ad77e3f4e1d60d
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q4_K_M-00005-of-00007.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q4_K_M/Nex-N2.5-Pro-Q4_K_M-00005-of-00007.gguf
+      sha256: 470e8f7465567ca2455dd177ca951cbcefef06f0ea050862d72271e8591c9a2b
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q4_K_M-00006-of-00007.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q4_K_M/Nex-N2.5-Pro-Q4_K_M-00006-of-00007.gguf
+      sha256: 120b9fe1a3aa080addbcff43b0a6bab1cdefe80c9f61a5ff49ebbafebdca1801
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q4_K_M-00007-of-00007.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q4_K_M/Nex-N2.5-Pro-Q4_K_M-00007-of-00007.gguf
+      sha256: db87fc35c9df2ebb413d573d30aadea01afa4f633388986fe94bfc57a1eed714
+
+- !!merge <<: *nex-n2-5-pro
+  name: nex-n2.5-pro-q6
+  variants: []
+  description: |
+    Nex-N2.5-Pro is a 397B-parameter Qwen3.5 MoE model for coding,
+    reasoning, and agentic tasks. This Q6_K GGUF build provides text
+    conversations through llama.cpp with the embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00001-of-00009.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 40
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00001-of-00009.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q6_K/Nex-N2.5-Pro-Q6_K-00001-of-00009.gguf
+      sha256: 344997500783c921f00cef506501c5dc42afa5df9caf517b47e564897be18649
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00002-of-00009.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q6_K/Nex-N2.5-Pro-Q6_K-00002-of-00009.gguf
+      sha256: ec7402752550dcf02c0b0154e548ab26f9a7c5e0bbebe0e2d8873254ad042ab2
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00003-of-00009.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q6_K/Nex-N2.5-Pro-Q6_K-00003-of-00009.gguf
+      sha256: d6aca2196820ce065a1c7a18d45d10a44e7e9a6873e83b77ba0c83c83cdc4e6a
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00004-of-00009.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q6_K/Nex-N2.5-Pro-Q6_K-00004-of-00009.gguf
+      sha256: 7b48322957fdadaeaf5a61564cd2afff808d8512d674f78460d04c47fe4f9622
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00005-of-00009.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q6_K/Nex-N2.5-Pro-Q6_K-00005-of-00009.gguf
+      sha256: 3aaa335f594d4a372aacea56a43f31b803e945ae55514f1691dd744726daa8a2
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00006-of-00009.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q6_K/Nex-N2.5-Pro-Q6_K-00006-of-00009.gguf
+      sha256: 24164331e79c242669953bcde4ce593ecf77c113cf7e687cf85c36855ba3c882
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00007-of-00009.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q6_K/Nex-N2.5-Pro-Q6_K-00007-of-00009.gguf
+      sha256: a46c23e63250b57096e56c47277025fe32e6546d8672425c40dacc9c864c86b5
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00008-of-00009.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q6_K/Nex-N2.5-Pro-Q6_K-00008-of-00009.gguf
+      sha256: 0ac2321e4eb7aa7de07b88fb80bab011d8e5c04bf0251fae6e6b86ca131ad234
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q6_K-00009-of-00009.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q6_K/Nex-N2.5-Pro-Q6_K-00009-of-00009.gguf
+      sha256: 8cd78e9fb9fb11d9bf53065591a427304e5a444629995fbee545dd0cb54599ed
+
+- !!merge <<: *nex-n2-5-pro
+  name: nex-n2.5-pro-q8
+  variants: []
+  description: |
+    Nex-N2.5-Pro is a 397B-parameter Qwen3.5 MoE model for coding,
+    reasoning, and agentic tasks. This Q8_0 GGUF build provides text
+    conversations through llama.cpp with the embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00001-of-00011.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 40
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00001-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00001-of-00011.gguf
+      sha256: e476a3e8f68a737c4cd81fff5d469654b59c34b063dca2fd895e2e3b090db3fd
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00002-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00002-of-00011.gguf
+      sha256: b87bf2fc84d66a9cb9450ea454a26471f920bd858eec413f46a919dab9fab1c4
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00003-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00003-of-00011.gguf
+      sha256: f2a9e21df521a9383d3710b32ef74621dc0417c873e624db5074651cbca0f739
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00004-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00004-of-00011.gguf
+      sha256: 59940bdd07a2c08d73c23004d1e76eb114604f4f4f62e8ca7e44f144c1be0ea8
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00005-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00005-of-00011.gguf
+      sha256: bf05fe8afb12c4c2ee85c06d1679eb5cb82b5f1b5f9bb2dbd7f895656a7d2fe2
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00006-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00006-of-00011.gguf
+      sha256: ca65f5f7e63bfcc1317ab00eb4494af6f3af16a501f3fa90b2212386654f5046
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00007-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00007-of-00011.gguf
+      sha256: 3e930fb181ea060e25d3b3bdbb396b4b93f7d15a329a998159ff72dde4c16075
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00008-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00008-of-00011.gguf
+      sha256: c699363bab7ac2ef9d2fb0663c8e521de8043692e62fedfcb6ae95d3596ee2b6
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00009-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00009-of-00011.gguf
+      sha256: 90c27ab19bfb5faed3eeb52f791954b7e334dfea61a12d0b94edbb848ac73219
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00010-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00010-of-00011.gguf
+      sha256: 1e93f7ac7770067e4fdd0243e7c88a2ae4a07a3f6a0e168dc44631ba4f0e67f4
+    - filename: llama-cpp/models/nex-n2.5-pro/Nex-N2.5-Pro-Q8_0-00011-of-00011.gguf
+      uri: https://huggingface.co/bartowski/Nex-N2.5-Pro-GGUF/resolve/ce37d70ddc116e90aa7e57a748ec2efdb4a479a6/Nex-N2.5-Pro-Q8_0/Nex-N2.5-Pro-Q8_0-00011-of-00011.gguf
+      sha256: 3c1339cc1690aff1f7e8fbef7a5b1e9c5212bd8ff1b35e5c4c6f5dc57c6c85fd
+
 - &nex-n2-5-mini
   name: "nex-n2.5-mini-q4"
   variants:
