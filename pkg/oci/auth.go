@@ -24,5 +24,5 @@ func wrapAuthError(imageRef string, err error) error {
 	if ref, perr := name.ParseReference(imageRef); perr == nil {
 		matchURL = credentials.RegistryURL(ref.Context())
 	}
-	return credentials.NewAuthError(matchURL, imageRef, terr.StatusCode, err)
+	return credentials.NewRegistryAuthError(matchURL, imageRef, terr.StatusCode, err)
 }

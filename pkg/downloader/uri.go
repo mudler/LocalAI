@@ -220,6 +220,11 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 	if response.StatusCode >= 400 {
 		err := fmt.Errorf("failed to read url %q, invalid status code %d", url, response.StatusCode)
 		if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
+			// The credentials transport leaves a caller-set Authorization
+			// alone, so a rejection here is about that header, not the store.
+			if authorization != "" {
+				return credentials.HTTPProvidedCredentialError(response.Request.URL, response.StatusCode, err)
+			}
 			return credentials.HTTPAuthError(response.Request.URL, response.StatusCode, err)
 		}
 		return err
@@ -695,6 +700,9 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		resumable := false
 		if uri.LooksLikeHTTPURL() {
 			support, err := uri.checkServerSupportsRangeHeader(ctx, dopts.bearerToken)
+			if errors.Is(err, credentials.ErrUnresolvedSecret) {
+				return fmt.Errorf("failed to check if uri server supports range header: %w", err)
+			}
 			if err != nil {
 				// The probe only ever fails on transport trouble (the status is
 				// not consulted), so it says nothing permanent about the URL. It
@@ -771,12 +779,14 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 				}
 				return ctx.Err()
 			}
-			// The transport failed before the response was established (reset
-			// connection, refused dial, TLS hiccup). Nothing about it is
-			// specific to this URL, so another attempt may well succeed.
+			// An unreadable secret is a configuration problem that a retry
+			// cannot fix.
 			if errors.Is(err, credentials.ErrUnresolvedSecret) {
 				return fmt.Errorf("failed to download file %q: %w", filePath, err)
 			}
+			// The transport failed before the response was established (reset
+			// connection, refused dial, TLS hiccup). Nothing about it is
+			// specific to this URL, so another attempt may well succeed.
 			return asTransient(fmt.Errorf("failed to download file %q: %v", filePath, err))
 		}
 		//defer resp.Body.Close()
@@ -796,6 +806,11 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			err := fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
 			if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 				_ = resp.Body.Close()
+				// The credentials transport leaves a WithBearerToken header
+				// alone, so a rejection here is about that token, not the store.
+				if dopts.bearerToken != "" {
+					return credentials.HTTPProvidedCredentialError(resp.Request.URL, resp.StatusCode, err)
+				}
 				return credentials.HTTPAuthError(resp.Request.URL, resp.StatusCode, err)
 			}
 			// 5xx and 429 describe the server's current state, not the request;
