@@ -23,6 +23,27 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## Cyber-Tiel-Coder 35B A3B
+
+Install Cyber-Tiel-Coder with automatic selection between UD-Q4_K_XL,
+UD-Q6_K_XL, and UD-Q8_K_XL GGUF builds:
+
+```bash
+local-ai models install cyber-tiel-coder-35b-a3b-q4
+```
+
+To select the Q8 build explicitly:
+
+```bash
+local-ai models install cyber-tiel-coder-35b-a3b-q4 --variant cyber-tiel-coder-35b-a3b-q8
+```
+
+These llama.cpp entries include the BF16 vision projector and embedded chat
+template. They use a 131,072-token context and the publisher's coding sampling
+settings. Cyber-Tiel-Coder is based on Huihui's abliterated Ornith-1.5 model;
+see the [model card](https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF)
+for its capabilities and limitations.
+
 ## Useful Links and resources
 
 - [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.

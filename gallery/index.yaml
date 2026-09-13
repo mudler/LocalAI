@@ -3735,6 +3735,130 @@
     - filename: llama-cpp/mmproj/thomson-1.0-small/mmproj-bf16.gguf
       uri: huggingface://bartowski/thomsonreuters_Thomson-1.0-Small-GGUF/mmproj-thomsonreuters_Thomson-1.0-Small-bf16.gguf
       sha256: 11634fcccd59c23f1b95e34e5cf479dec86290eeb3dda980324aabd8b0b48f41
+- &cyber-tiel-coder-35b-a3b
+  name: cyber-tiel-coder-35b-a3b-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated
+    - https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - moe
+    - coding
+    - reasoning
+    - vision
+  variants:
+    - model: cyber-tiel-coder-35b-a3b-q6
+    - model: cyber-tiel-coder-35b-a3b-q8
+  description: |
+    Cyber-Tiel-Coder is a 35B-parameter MoE coding model with 3B active
+    parameters, based on Huihui's abliterated Ornith-1.5. This UD-Q4_K_XL
+    GGUF build includes the BF16 vision projector and embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF/resolve/644bee2e6b9a75aa64c3bb818aaeeebe43d862bb/Cyber-Tiel-Coder-35B-A3B-UD-Q4_K_XL.gguf
+      sha256: 21bff5a96fa051809f4a8260befe977771c9927cae9c32eadfcb0718bae960cd
+    - filename: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF/resolve/644bee2e6b9a75aa64c3bb818aaeeebe43d862bb/mmproj-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
+
+- !!merge <<: *cyber-tiel-coder-35b-a3b
+  name: cyber-tiel-coder-35b-a3b-q6
+  variants: []
+  description: |
+    Cyber-Tiel-Coder is a 35B-parameter MoE coding model with 3B active
+    parameters, based on Huihui's abliterated Ornith-1.5. This UD-Q6_K_XL
+    GGUF build includes the BF16 vision projector and embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-UD-Q6_K_XL.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-UD-Q6_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF/resolve/644bee2e6b9a75aa64c3bb818aaeeebe43d862bb/Cyber-Tiel-Coder-35B-A3B-UD-Q6_K_XL.gguf
+      sha256: 86b112ccaf6f2f1d3c07f79abbea3ed6a9cadfa8b26f089f7c41085ab369ca97
+    - filename: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF/resolve/644bee2e6b9a75aa64c3bb818aaeeebe43d862bb/mmproj-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
+
+- !!merge <<: *cyber-tiel-coder-35b-a3b
+  name: cyber-tiel-coder-35b-a3b-q8
+  variants: []
+  description: |
+    Cyber-Tiel-Coder is a 35B-parameter MoE coding model with 3B active
+    parameters, based on Huihui's abliterated Ornith-1.5. This UD-Q8_K_XL
+    GGUF build includes the BF16 vision projector and embedded chat template.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-UD-Q8_K_XL.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-UD-Q8_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF/resolve/644bee2e6b9a75aa64c3bb818aaeeebe43d862bb/Cyber-Tiel-Coder-35B-A3B-UD-Q8_K_XL.gguf
+      sha256: 7509f8c8e3b2df4c7bc5966fa711478c12c2c424f2832f7933f1e46dd180feb2
+    - filename: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF/resolve/644bee2e6b9a75aa64c3bb818aaeeebe43d862bb/mmproj-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
+
 - &tiel-coder-35b-a3b
   name: "tiel-coder-35b-a3b-q4"
   variants:
