@@ -80,10 +80,13 @@ if [ "$(uname -m)" = "aarch64" ] && [ -f requirements/cuda.txt ]; then
     sed -i '/^fa3-fwd[[:space:]]*==/d' requirements/cuda.txt
 fi
 
+# Regular (non-editable) install so the package lives in the venv site-packages.
+# An editable finder records this builder source path, which breaks after the
+# backend is copied out of the image (mudler/LocalAI#9162).
 if [ "x${USE_PIP}" == "xtrue" ]; then
-    pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -e .
+    pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
 else
-    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} -e .
+    uv pip install ${EXTRA_PIP_INSTALL_FLAGS:-} .
 fi
 
 cd ..

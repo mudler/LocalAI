@@ -142,9 +142,21 @@ Your backend container should:
 1. Implement the LocalAI backend interface (gRPC or HTTP)
 2. Handle model loading and inference
 3. Support the required model types
-4. Include necessary dependencies
+4. Include necessary dependencies. Python backends are unpacked from the
+   builder path into a runtime directory, so packages must be installed into
+   the backend virtualenv with a regular `pip install .` / `uv pip install .`
+   — not an editable (`-e`) source install. An editable finder keeps pointing
+   at the vanished builder tree, and `import` fails after relocation.
 5. Have a top level `run.sh` file that will be used to run the backend
 6. Pushed to a registry so can be used in a gallery
+
+{{% notice warning %}}
+An already-installed Python backend that was built with an editable install
+(for example vllm-omni from v4.0.0) keeps that broken finder until it is
+replaced with a rebuilt artifact. Reusing or renaming the unpacked directory
+does not rewrite the stale path; delete or upgrade the backend so the new
+site-packages copy is what runs.
+{{% /notice %}}
 
 ### Getting started
 
