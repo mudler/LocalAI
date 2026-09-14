@@ -4317,7 +4317,7 @@
     known_usecases:
       - chat
       - vision
-    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-BF16.gguf
+    mmproj: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
     options:
       - use_jinja:true
       - spec_type:draft-mtp
