@@ -382,23 +382,6 @@
   padding-left: var(--spacing-md);
   padding-right: var(--spacing-md);
 }
-.sidebar-console-group + .sidebar-console-group {
-  margin-top: var(--spacing-xs);
-}
-.sidebar-console-group__title {
-  padding: var(--spacing-xs) var(--spacing-md) 2px;
-  color: var(--color-text-tertiary);
-  font-size: 0.625rem;
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-.sidebar-console-integrated .nav-item {
-  min-height: 32px;
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-
 .nav-external {
   font-size: 0.55rem;
   margin-left: auto;
@@ -544,8 +527,7 @@
 
 .sidebar.collapsed .nav-label,
 .sidebar.collapsed .nav-external,
-.sidebar.collapsed .sidebar-section-title,
-.sidebar.collapsed .sidebar-console-group__title {
+.sidebar.collapsed .sidebar-section-title {
   display: none;
 }
 
@@ -5880,7 +5862,6 @@ button.collapsible-header:focus-visible {
   .sidebar:not(.open) .nav-label,
   .sidebar:not(.open) .nav-external,
   .sidebar:not(.open) .sidebar-section-title,
-  .sidebar:not(.open) .sidebar-console-group__title,
   .sidebar:not(.open) .sidebar-section-chevron { display: none; }
   .sidebar:not(.open) .sidebar-logo-link { display: none; }
   .sidebar:not(.open) .sidebar-logo-icon {
@@ -5949,8 +5930,7 @@ button.collapsible-header:focus-visible {
      shows full labels. */
   .sidebar.collapsed .nav-label,
   .sidebar.collapsed .nav-external,
-  .sidebar.collapsed .sidebar-section-title,
-  .sidebar.collapsed .sidebar-console-group__title { display: unset; }
+  .sidebar.collapsed .sidebar-section-title { display: unset; }
   .sidebar.collapsed .sidebar-logo-link { display: block; }
   .sidebar.collapsed .sidebar-logo-icon { display: none; }
   .sidebar.collapsed .nav-item {
@@ -9124,9 +9104,6 @@ button.collapsible-header:focus-visible {
   flex: 1 1 auto;
   min-width: 0;
 }
-.console-layout--nodes { padding: 0; }
-.console-layout--nodes > .console-rail { display: none; }
-.console-layout--nodes > .console-body { width: 100%; }
 @media (max-width: 768px) {
   .console-layout { flex-direction: column; padding: var(--spacing-sm); }
   .console-rail { position: static; flex-basis: auto; width: 100%; }

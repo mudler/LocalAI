@@ -36,72 +36,38 @@ const baseModels = [
 ]
 
 test.describe('Nodes fleet dashboard', () => {
-  test('integrates the complete Operate navigation into the primary sidebar', async ({ page }) => {
+  test('uses the standard Operate navigation at a desktop viewport', async ({ page }) => {
     await mockFullOperateNavigation(page)
     await mockNodes(page, [baseNodes[0]])
     await page.goto('/app/nodes')
 
-    const integratedNav = page.getByTestId('nodes-operate-navigation')
-    await expect(integratedNav).toBeVisible({ timeout: 15_000 })
-    await expect(integratedNav.locator('.sidebar-section-title')).toHaveText('Operate')
-    for (const group of ['Runtime', 'Cluster', 'Observability', 'Administration']) {
-      await expect(integratedNav.locator('.sidebar-console-group__title', { hasText: group })).toBeVisible()
-    }
-    for (const path of [
-      '/app/operate', '/app/backends', '/app/voice-library', '/app/activity',
-      '/app/nodes', '/app/scheduling', '/app/p2p', '/app/usage', '/app/traces',
-      '/app/users', '/app/middleware', '/app/settings',
-    ]) {
-      await expect(integratedNav.locator(`a[href="${path}"]`)).toBeVisible()
-    }
-    const apiLink = integratedNav.locator('a[href="/swagger/index.html"]')
-    await expect(apiLink).toBeVisible()
-    await expect(apiLink).toHaveAttribute('target', '_blank')
-    await expect(apiLink).toHaveAttribute('rel', 'noopener noreferrer')
-    await expect(integratedNav.locator('a.nav-item')).toHaveCount(13)
-    await expect(page.locator('.sidebar-nav a[href="/app/models"]')).toBeVisible()
-    await expect(integratedNav.locator('a[href="/app/nodes"]')).toHaveClass(/active/)
-    await expect(page.locator('.console-layout--nodes > .console-rail')).toBeHidden()
+    const primaryOperate = page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })
+    await expect(primaryOperate).toBeVisible({ timeout: 15_000 })
+    await expect(primaryOperate).toHaveClass(/active/)
 
-    await page.goto('/app/settings')
-    await expect(page.getByTestId('nodes-operate-navigation')).toHaveCount(0)
-    await expect(page.locator('.console-rail .console-rail-header', { hasText: 'Operate' })).toBeVisible()
+    const rail = page.locator('.console-layout > .console-rail')
+    await expect(rail).toBeVisible()
+    await expect(rail.locator('a.nav-item')).toHaveCount(13)
+    await expect(rail.locator('a[href="/app/nodes"]')).toHaveClass(/active/)
+    await expect(rail.locator('a[href$="/swagger/index.html"]')).toHaveAttribute('target', '_blank')
   })
 
-  test('keeps integrated Operate destinations in the mobile navigation drawer', async ({ page }) => {
+  test('uses the standard collapsible Operate rail on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await mockFullOperateNavigation(page)
     await mockNodes(page, [baseNodes[0]])
     await page.goto('/app/nodes')
 
     await page.getByRole('button', { name: 'Open menu' }).click()
-    const integratedNav = page.getByTestId('nodes-operate-navigation')
-    await expect(integratedNav).toBeVisible({ timeout: 15_000 })
-    await expect(integratedNav.getByRole('link', { name: 'Nodes' })).toBeVisible()
-    await expect(integratedNav.locator('a.nav-item')).toHaveCount(13)
-    await expect(integratedNav.getByRole('link', { name: 'API' })).toBeVisible()
-  })
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toBeVisible()
+    await page.getByRole('button', { name: 'Close menu' }).click()
 
-  test('applies auth and feature gates to the integrated Operate menu', async ({ page }) => {
-    await page.route('**/api/features', route => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ distributed: false }),
-    }))
-    await page.route('**/api/auth/status', route => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ authEnabled: false, staticApiKeyRequired: false, providers: [] }),
-    }))
-    await mockNodes(page, [baseNodes[0]])
-    await page.goto('/app/nodes')
-
-    const integratedNav = page.getByTestId('nodes-operate-navigation')
-    await expect(integratedNav).toBeVisible({ timeout: 15_000 })
-    await expect(integratedNav.locator('a[href="/app/nodes"]')).toBeVisible()
-    await expect(integratedNav.locator('a[href="/app/scheduling"]')).toHaveCount(0)
-    await expect(integratedNav.locator('a[href="/app/users"]')).toHaveCount(0)
-    await expect(integratedNav.locator('a[href="/app/settings"]')).toBeVisible()
+    const rail = page.locator('.console-layout > .console-rail')
+    await expect(rail).toBeVisible()
+    await expect(rail.locator('.console-rail-groups')).toBeHidden()
+    await rail.getByRole('button', { name: 'Expand Operate navigation' }).click()
+    await expect(rail.locator('.console-rail-groups')).toBeVisible()
+    await expect(rail.locator('a.nav-item')).toHaveCount(13)
   })
 
   test('shows aggregate health, capacity, attention filtering, search, sorting, and grouping', async ({ page }) => {
@@ -337,7 +303,7 @@ test.describe('Nodes fleet dashboard', () => {
     const workbench = page.getByRole('region', { name: 'Fleet workbench' })
     await expect(overview).toBeVisible({ timeout: 15_000 })
     await expect(workbench).toBeVisible()
-    await expect(page.locator('.console-layout--nodes > .console-rail')).toBeHidden()
+    await expect(page.locator('.console-layout > .console-rail')).toBeVisible()
     await expect(page.locator('.fleet-select-wrap')).toHaveCount(3)
     await expect(page.getByLabel('Filter status')).toHaveCSS('appearance', 'none')
     await expect(page.locator('.fleet-bulkbar')).toHaveCount(0)
@@ -390,7 +356,7 @@ test.describe('Nodes fleet dashboard', () => {
 
     const overview = page.getByRole('region', { name: 'Fleet overview' })
     await expect(overview).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator('.console-layout--nodes > .console-rail')).toBeHidden()
+    await expect(page.locator('.console-layout > .console-rail')).toBeVisible()
     const overviewBox = await overview.boundingBox()
     expect(overviewBox.width).toBeGreaterThan(500)
     const cells = overview.locator('.fleet-overview__cell')
