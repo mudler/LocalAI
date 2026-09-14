@@ -101,10 +101,10 @@ turboquant-cpu-all:
 	@echo "Collected ggml shared backends:" && ls -la ggml-shared-libs/
 
 turboquant-grpc:
-	$(call turboquant-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target rpc-server)
+	$(call turboquant-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target ggml-rpc-server)
 
 turboquant-rpc-server: turboquant-grpc
-	cp -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-grpc-build/llama.cpp/build/bin/rpc-server turboquant-rpc-server
+	cp -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-grpc-build/llama.cpp/build/bin/ggml-rpc-server turboquant-rpc-server
 
 package:
 	bash package.sh
