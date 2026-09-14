@@ -108,6 +108,21 @@ func (ix *ReportedIndex) InvalidateNode(model, nodeID string) {
 	}
 }
 
+func (ix *ReportedIndex) DropNode(nodeID string) {
+	ix.mu.Lock()
+	defer ix.mu.Unlock()
+	for model, byReplica := range ix.residencies {
+		for key := range byReplica {
+			if key.NodeID == nodeID {
+				delete(byReplica, key)
+			}
+		}
+		if len(byReplica) == 0 {
+			delete(ix.residencies, model)
+		}
+	}
+}
+
 func (ix *ReportedIndex) Evict(time.Time) {}
 
 func equalChain(a, b []uint64) bool {
