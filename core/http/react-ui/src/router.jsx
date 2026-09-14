@@ -77,6 +77,7 @@ export function preloadRoute(path) {
 }
 
 const Home = page('', () => import('./pages/Home'))
+const GroupChat = page(null, () => import('./pages/GroupChat'))
 const Chat = page('chat', () => import('./pages/Chat'))
 const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
@@ -153,6 +154,7 @@ function Feature({ feature, children }) {
 const appChildren = [
   { index: true, element: <Home /> },
   { path: 'chat', element: <Chat /> },
+  { path: 'group-chat', element: <Feature feature="chat"><GroupChat /></Feature> },
   { path: 'chat/:model', element: <Chat /> },
   { path: 'image', element: <ImageGen /> },
   { path: 'image/:model', element: <ImageGen /> },
