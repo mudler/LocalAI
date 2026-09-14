@@ -10,6 +10,24 @@ async function mockNodes(page, nodes = baseNodes) {
   await page.route('**/api/nodes', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nodes) }))
 }
 
+async function mockFullOperateNavigation(page) {
+  await page.route('**/api/features', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ distributed: true }),
+  }))
+  await page.route('**/api/auth/status', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      authEnabled: true,
+      staticApiKeyRequired: false,
+      providers: ['local'],
+      user: { id: 'admin', name: 'Admin', role: 'admin', provider: 'local' },
+    }),
+  }))
+}
+
 const baseModels = [
   { id: 'r1', node_id: 'n1', model_name: 'Llama 3.2', replica_index: 0, address: '10.0.0.1:50101', state: 'loaded', in_flight: 2, backend_type: 'llama-cpp', last_used: '2026-09-14T10:00:00Z' },
   { id: 'r2', node_id: 'n1', model_name: 'Llama 3.2', replica_index: 1, address: '10.0.0.1:50102', state: 'loaded', in_flight: 0, backend_type: 'llama-cpp', last_used: '2026-09-14T10:30:00Z' },
@@ -18,16 +36,29 @@ const baseModels = [
 ]
 
 test.describe('Nodes fleet dashboard', () => {
-  test('integrates the compact Operate navigation into the primary sidebar', async ({ page }) => {
+  test('integrates the complete Operate navigation into the primary sidebar', async ({ page }) => {
+    await mockFullOperateNavigation(page)
     await mockNodes(page, [baseNodes[0]])
     await page.goto('/app/nodes')
 
     const integratedNav = page.getByTestId('nodes-operate-navigation')
     await expect(integratedNav).toBeVisible({ timeout: 15_000 })
     await expect(integratedNav.locator('.sidebar-section-title')).toHaveText('Operate')
-    for (const path of ['/app/operate', '/app/nodes', '/app/activity', '/app/backends', '/app/settings']) {
+    for (const group of ['Runtime', 'Cluster', 'Observability', 'Administration']) {
+      await expect(integratedNav.locator('.sidebar-console-group__title', { hasText: group })).toBeVisible()
+    }
+    for (const path of [
+      '/app/operate', '/app/backends', '/app/voice-library', '/app/activity',
+      '/app/nodes', '/app/scheduling', '/app/p2p', '/app/usage', '/app/traces',
+      '/app/users', '/app/middleware', '/app/settings',
+    ]) {
       await expect(integratedNav.locator(`a[href="${path}"]`)).toBeVisible()
     }
+    const apiLink = integratedNav.locator('a[href="/swagger/index.html"]')
+    await expect(apiLink).toBeVisible()
+    await expect(apiLink).toHaveAttribute('target', '_blank')
+    await expect(apiLink).toHaveAttribute('rel', 'noopener noreferrer')
+    await expect(integratedNav.locator('a.nav-item')).toHaveCount(13)
     await expect(page.locator('.sidebar-nav a[href="/app/models"]')).toBeVisible()
     await expect(integratedNav.locator('a[href="/app/nodes"]')).toHaveClass(/active/)
     await expect(page.locator('.console-layout--nodes > .console-rail')).toBeHidden()
@@ -39,6 +70,7 @@ test.describe('Nodes fleet dashboard', () => {
 
   test('keeps integrated Operate destinations in the mobile navigation drawer', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
+    await mockFullOperateNavigation(page)
     await mockNodes(page, [baseNodes[0]])
     await page.goto('/app/nodes')
 
@@ -46,8 +78,30 @@ test.describe('Nodes fleet dashboard', () => {
     const integratedNav = page.getByTestId('nodes-operate-navigation')
     await expect(integratedNav).toBeVisible({ timeout: 15_000 })
     await expect(integratedNav.getByRole('link', { name: 'Nodes' })).toBeVisible()
-    await expect(integratedNav.getByRole('link', { name: 'Activity' })).toBeVisible()
-    await expect(integratedNav.getByRole('link', { name: 'Settings' })).toBeVisible()
+    await expect(integratedNav.locator('a.nav-item')).toHaveCount(13)
+    await expect(integratedNav.getByRole('link', { name: 'API' })).toBeVisible()
+  })
+
+  test('applies auth and feature gates to the integrated Operate menu', async ({ page }) => {
+    await page.route('**/api/features', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ distributed: false }),
+    }))
+    await page.route('**/api/auth/status', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ authEnabled: false, staticApiKeyRequired: false, providers: [] }),
+    }))
+    await mockNodes(page, [baseNodes[0]])
+    await page.goto('/app/nodes')
+
+    const integratedNav = page.getByTestId('nodes-operate-navigation')
+    await expect(integratedNav).toBeVisible({ timeout: 15_000 })
+    await expect(integratedNav.locator('a[href="/app/nodes"]')).toBeVisible()
+    await expect(integratedNav.locator('a[href="/app/scheduling"]')).toHaveCount(0)
+    await expect(integratedNav.locator('a[href="/app/users"]')).toHaveCount(0)
+    await expect(integratedNav.locator('a[href="/app/settings"]')).toBeVisible()
   })
 
   test('shows aggregate health, capacity, attention filtering, search, sorting, and grouping', async ({ page }) => {
@@ -476,6 +530,29 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(closeNode).toBeFocused()
     await closeNode.click()
     await expect(nodeControl).toBeFocused()
+  })
+
+  test('preserves the inspector workspace for a one-row filtered fleet', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await mockNodes(page, baseNodes)
+    await page.route('**/api/nodes/n1/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[{"name":"llama-cpp"}]' }))
+    await page.goto('/app/nodes')
+    await page.getByRole('searchbox', { name: 'Search nodes' }).fill('atlas')
+    await expect(page.getByRole('row', { name: /atlas/ })).toBeVisible()
+    await page.getByRole('button', { name: 'Inspect atlas' }).click()
+
+    const layout = page.locator('.fleet-workbench__layout')
+    const inspector = page.getByRole('complementary', { name: 'Node inspector' })
+    await expect(layout).toHaveCSS('min-height', '560px')
+    await expect(inspector.getByRole('heading', { name: 'Resources' })).toBeVisible()
+    await expect(inspector.getByRole('heading', { name: 'Workload' })).toBeVisible()
+    await expect(inspector.getByRole('link', { name: 'Open full node details' })).toBeVisible()
+    await expect(inspector.getByRole('button', { name: 'Drain', exact: true })).toBeVisible()
+
+    const layoutBox = await layout.boundingBox()
+    const inspectorBox = await inspector.boundingBox()
+    expect(inspectorBox.height).toBeGreaterThanOrEqual(559)
+    expect(Math.abs(inspectorBox.height - layoutBox.height)).toBeLessThanOrEqual(1)
   })
 
   test('shows model loading, error, retry, and empty states', async ({ page }) => {

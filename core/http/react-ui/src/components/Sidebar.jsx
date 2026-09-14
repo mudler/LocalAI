@@ -33,25 +33,35 @@ const sections = [
   },
 ]
 
-// Nodes uses the full page width for its fleet workbench, so ConsoleLayout
-// deliberately removes the secondary Operate rail there. Keep the small set
-// of destinations from the approved fleet navigation in the primary sidebar
-// instead. Models already has a canonical top-level entry above these items.
-const nodesOperatePaths = new Set([
-  '/app/operate',
-  '/app/nodes',
-  '/app/activity',
-  '/app/backends',
-  '/app/settings',
-])
-
-function NavItem({ item, onClose, collapsed }) {
+function NavItem({ item, onClose, collapsed, badge }) {
   const { t } = useTranslation('nav')
   const label = t(item.labelKey)
   // Warm the route's lazy chunk before the user clicks. Touch fires ~150ms
   // before the synthetic click on mobile; mouseenter/focus cover desktop and
   // keyboard. The underlying import() is memoised so multiple triggers are free.
   const preload = () => preloadRoute(item.path)
+  const content = <>
+    <i className={`${item.icon} nav-icon`} aria-hidden="true" />
+    <span className="nav-label">{label}</span>
+    {badge}
+  </>
+
+  if (item.external) {
+    return (
+      <a
+        className="nav-item"
+        href={apiUrl(item.href)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onClose}
+        title={collapsed ? label : undefined}
+      >
+        {content}
+        <i className="fas fa-external-link-alt nav-external" aria-hidden="true" />
+      </a>
+    )
+  }
+
   return (
     <NavLink
       to={item.path}
@@ -65,8 +75,7 @@ function NavItem({ item, onClose, collapsed }) {
       onTouchStart={preload}
       title={collapsed ? label : undefined}
     >
-      <i className={`${item.icon} nav-icon`} aria-hidden="true" />
-      <span className="nav-label">{label}</span>
+      {content}
     </NavLink>
   )
 }
@@ -258,23 +267,38 @@ export default function Sidebar({ isOpen, onClose }) {
             const label = t(config.titleKey)
 
             if (config.id === 'operate' && location.pathname === '/app/nodes') {
-              const items = config.groups
-                .flatMap(group => group.items)
-                .filter(item => item.path && nodesOperatePaths.has(item.path))
-                // Reaching this admin-only route is itself sufficient proof
-                // that Nodes belongs in the local navigation. The feature
-                // probe may still be resolving (or may report disabled while
-                // the page explains how to enable it), but the current-page
-                // link must never disappear from its own submenu.
-                .filter(item => item.path === '/app/nodes' || isConsoleItemVisible(item, auth))
-
               return (
                 <div key={config.id} className="sidebar-section sidebar-console-integrated" data-testid="nodes-operate-navigation">
                   <div className="sidebar-section-title">{label}</div>
                   <div className="sidebar-section-items">
-                    {items.map(item => (
-                      <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
-                    ))}
+                    {config.groups.map((group, groupIndex) => {
+                      const items = group.items.filter(item =>
+                        // Reaching this admin-only route is itself sufficient
+                        // proof that Nodes belongs in the local navigation.
+                        // Keep the current link while a disabled feature probe
+                        // lets the page explain how to enable distributed mode.
+                        item.path === '/app/nodes' || isConsoleItemVisible(item, auth)
+                      )
+                      if (items.length === 0) return null
+                      return (
+                        <div key={group.titleKey || groupIndex} className="sidebar-console-group">
+                          {group.titleKey && <div className="sidebar-console-group__title">{t(group.titleKey)}</div>}
+                          {items.map(item => (
+                            <NavItem
+                              key={item.path || item.href}
+                              item={item}
+                              onClose={onClose}
+                              collapsed={collapsed}
+                              badge={item.badge === 'operations' && activeOps > 0 ? (
+                                <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
+                                  {failedOps > 0 ? failedOps : activeOps}
+                                </span>
+                              ) : null}
+                            />
+                          ))}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )
