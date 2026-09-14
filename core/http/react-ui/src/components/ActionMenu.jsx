@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, useId } from 'react'
 import Popover from './Popover'
 
 // ActionMenu renders a kebab (three-dot) button that opens a popover with a
@@ -20,6 +20,7 @@ import Popover from './Popover'
 //   Escape               — close, return focus to trigger
 export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel, compact = false }) {
   const triggerRef = useRef(null)
+  const menuId = useId()
   const [open, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(-1)
 
@@ -97,6 +98,7 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
         <div
           role="menu"
           aria-label={ariaLabel}
+          aria-activedescendant={activeIdx >= 0 ? `${menuId}-item-${activeIdx}` : undefined}
           className="action-menu"
           onKeyDown={handleMenuKeyDown}
           // Capture focus when the menu opens so arrow keys work without the
@@ -123,8 +125,10 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
             return (
               <button
                 key={item.key}
+                id={`${menuId}-item-${idx}`}
                 type="button"
                 role="menuitem"
+                tabIndex={-1}
                 disabled={item.disabled}
                 className={`action-menu__item${item.danger ? ' is-danger' : ''}${active ? ' is-active' : ''}`}
                 onMouseEnter={() => setActiveIdx(idx)}
