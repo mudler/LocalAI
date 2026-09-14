@@ -412,6 +412,13 @@ The same option exists on the CLI:
 local-ai models install nanbeige4.1-3b-q4 --variant nanbeige4.1-3b-q8
 ```
 
+Ornith-1.5-35B-A3B offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds
+with a BF16 vision projector. For example, select Q6_K with:
+
+```bash
+local-ai models install ornith-1.5-35b-a3b-q4 --variant ornith-1.5-35b-a3b-q6
+```
+
 The `install_model` MCP tool takes the same `variant` argument, so an assistant
 managing installs conversationally can pick a build too.
 
