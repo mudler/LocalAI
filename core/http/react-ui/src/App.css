@@ -9061,8 +9061,8 @@ button.collapsible-header:focus-visible {
 }
 .console-rail-header__title { display: inline-flex; align-items: center; gap: var(--spacing-sm); }
 .console-rail-header__title i { color: var(--color-primary); font-size: 0.9rem; }
-.console-rail-toggle {
-  display: none;
+.console-rail-toggle,
+.console-rail-collapse {
   width: 34px;
   height: 34px;
   place-items: center;
@@ -9072,7 +9072,10 @@ button.collapsible-header:focus-visible {
   color: var(--color-text-secondary);
   cursor: pointer;
 }
-.console-rail-toggle:hover { border-color: var(--color-border-strong); color: var(--color-text-primary); }
+.console-rail-toggle { display: none; }
+.console-rail-collapse { display: grid; }
+.console-rail-toggle:hover,
+.console-rail-collapse:hover { border-color: var(--color-border-strong); color: var(--color-text-primary); }
 .console-rail-groups { display: flex; flex-direction: column; gap: var(--spacing-xs); }
 .console-group { display: flex; flex-direction: column; gap: 1px; }
 .console-group + .console-group {
@@ -9100,14 +9103,78 @@ button.collapsible-header:focus-visible {
 .console-rail .nav-item:hover:not(.active) { transform: translateX(2px); }
 .console-rail .nav-item.active { box-shadow: none; }
 .console-rail .nav-item.active .nav-icon { color: var(--color-primary); }
+.console-rail--collapsed {
+  flex-basis: 60px;
+  width: 60px;
+  padding-inline: 6px;
+}
+.console-rail--collapsed .console-rail-header {
+  justify-content: center;
+  padding-inline: 0;
+}
+.console-rail--collapsed .console-rail-header__title,
+.console-rail--collapsed .console-group-title,
+.console-rail--collapsed .nav-label,
+.console-rail--collapsed .nav-external {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.console-rail--collapsed .console-group + .console-group {
+  margin-top: var(--spacing-xs);
+  padding-top: var(--spacing-xs);
+}
+.console-rail--collapsed .nav-item {
+  justify-content: center;
+  min-height: 38px;
+  padding: 7px;
+}
+.console-rail--collapsed .nav-icon { width: auto; }
+.console-rail--collapsed .nav-signal {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 14px;
+  padding: 1px 3px;
+  font-size: 0.5rem;
+  line-height: 1.2;
+}
 .console-body {
   flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
 }
 @media (max-width: 768px) {
   .console-layout { flex-direction: column; padding: var(--spacing-sm); }
-  .console-rail { position: static; flex-basis: auto; width: 100%; }
+  .console-rail,
+  .console-rail--collapsed { position: static; flex-basis: auto; width: 100%; padding: var(--spacing-sm); }
+  .console-rail--collapsed .console-rail-header { justify-content: space-between; padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs); }
+  .console-rail--collapsed .console-rail-header__title,
+  .console-rail--collapsed .console-group-title,
+  .console-rail--collapsed .nav-label,
+  .console-rail--collapsed .nav-external {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: revert;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: nowrap;
+    border: 0;
+  }
+  .console-rail--collapsed .console-group-title { padding: var(--spacing-xs) var(--spacing-sm); }
+  .console-rail--collapsed .nav-item { justify-content: flex-start; min-height: 44px; padding: 7px var(--spacing-sm); }
+  .console-rail--collapsed .nav-icon { width: 18px; }
+  .console-rail--collapsed .nav-signal { position: static; min-width: 0; padding: 1px 6px; font-size: var(--text-xs); line-height: inherit; }
   .console-rail-toggle { display: grid; }
+  .console-rail-collapse { display: none; }
   .console-rail-groups { display: none; }
   /* Thirteen destinations stacked in one column is taller than a phone, so
      opening the menu used to push the page's own heading past the fold: the
