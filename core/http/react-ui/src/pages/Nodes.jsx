@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { nodesApi } from '../utils/api'
@@ -78,6 +78,8 @@ export default function Nodes() {
   const [activeAttention, setActiveAttention] = useState(null)
   const [inspectedId, setInspectedId] = useState(null)
   const [confirmRemove, setConfirmRemove] = useState(false)
+  const [bulkRunning, setBulkRunning] = useState(false)
+  const bulkRunningRef = useRef(false)
   const [showTips, setShowTips] = useState(false)
   const [emptyNodeType, setEmptyNodeType] = useState('backend')
 
@@ -132,14 +134,31 @@ export default function Nodes() {
     }
   }
 
-  const runBulk = async (action) => {
+  const runBulk = (action) => {
+    if (bulkRunningRef.current) return
+    bulkRunningRef.current = true
+    setBulkRunning(true)
+
     const ids = [...selectedIds]
-    const results = await runBounded(ids, 8, id => nodesApi[action](id))
-    const succeeded = results.filter(result => result.status === 'fulfilled').length
-    const failed = results.length - succeeded
-    addToast(`${action === 'delete' ? 'Remove' : action} complete: ${succeeded} succeeded, ${failed} failed`, failed ? 'warning' : 'success')
-    setConfirmRemove(false)
-    await fetchNodes()
+    const requiredStatus = action === 'drain' ? 'healthy' : action === 'resume' ? 'draining' : null
+    const statusById = new Map(nodes.map(node => [node.id, node.status]))
+    const eligibleIds = requiredStatus ? ids.filter(id => statusById.get(id) === requiredStatus) : ids
+    const skipped = ids.length - eligibleIds.length
+
+    void (async () => {
+      try {
+        const results = await runBounded(eligibleIds, 8, id => nodesApi[action](id))
+        const succeeded = results.filter(result => result.status === 'fulfilled').length
+        const failed = results.length - succeeded
+        const label = action === 'delete' ? 'Remove' : action[0].toUpperCase() + action.slice(1)
+        addToast(`${label} complete: ${succeeded} succeeded, ${failed} failed, ${skipped} skipped`, failed || skipped ? 'warning' : 'success')
+        await fetchNodes()
+      } finally {
+        setConfirmRemove(false)
+        bulkRunningRef.current = false
+        setBulkRunning(false)
+      }
+    })()
   }
 
   if (loading) return <div className="page page--wide loading-center"><LoadingSpinner size="lg" /></div>
@@ -170,9 +189,9 @@ export default function Nodes() {
           </div>
           <div className="fleet-bulkbar">
             <strong>{selectedIds.size} selected</strong>
-            <button type="button" className="btn btn-secondary btn-sm" disabled={!selectedIds.size} onClick={() => runBulk('drain')}>Drain selected</button>
-            <button type="button" className="btn btn-secondary btn-sm" disabled={!selectedIds.size} onClick={() => runBulk('resume')}>Resume selected</button>
-            <button type="button" className="btn btn-danger btn-sm" disabled={!selectedIds.size} onClick={() => setConfirmRemove(true)}>Remove selected</button>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={!selectedIds.size || bulkRunning} onClick={() => runBulk('drain')}>Drain selected</button>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={!selectedIds.size || bulkRunning} onClick={() => runBulk('resume')}>Resume selected</button>
+            <button type="button" className="btn btn-danger btn-sm" disabled={!selectedIds.size || bulkRunning} onClick={() => setConfirmRemove(true)}>Remove selected</button>
             {activeAttention && <button type="button" className="fleet-bulkbar__clear" onClick={() => setActiveAttention(null)}>Clear attention filter</button>}
             <span className="fleet-bulkbar__count" aria-live="polite">{ordered.length} nodes in view</span>
           </div>
@@ -183,7 +202,7 @@ export default function Nodes() {
       </div>
       <NodeInspector node={inspectedNode} open={!!inspectedNode} onClose={() => setInspectedId(null)}
         onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />
-      <ConfirmDialog open={confirmRemove} title="Remove selected nodes" message={`Remove ${selectedIds.size} selected nodes from the cluster?`} confirmLabel="Remove nodes" danger onConfirm={() => runBulk('delete')} onCancel={() => setConfirmRemove(false)} />
+      <ConfirmDialog open={confirmRemove} title="Remove selected nodes" message={`Remove ${selectedIds.size} selected nodes from the cluster?`} confirmLabel="Remove nodes" pendingLabel="Removing…" pending={bulkRunning} danger onConfirm={() => runBulk('delete')} onCancel={() => setConfirmRemove(false)} />
     </div>
   )
 }

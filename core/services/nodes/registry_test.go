@@ -607,6 +607,62 @@ var _ = Describe("NodeRegistry", func() {
 		})
 	})
 
+	Describe("Conditional lifecycle transitions", func() {
+		It("accepts healthy to draining to healthy transitions", func() {
+			node := makeNode("conditional-roundtrip", "10.0.0.61:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+
+			Expect(registry.MarkDraining(context.Background(), node.ID)).To(Succeed())
+			fetched, err := registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusDraining))
+
+			Expect(registry.ResumeNode(context.Background(), node.ID)).To(Succeed())
+			fetched, err = registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusHealthy))
+		})
+
+		It("rejects pending drain and resume without changing status", func() {
+			node := makeNode("conditional-pending", "10.0.0.62:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, false)).To(Succeed())
+
+			Expect(errors.Is(registry.MarkDraining(context.Background(), node.ID), ErrNodeStatusConflict)).To(BeTrue())
+			Expect(errors.Is(registry.ResumeNode(context.Background(), node.ID), ErrNodeStatusConflict)).To(BeTrue())
+			fetched, err := registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusPending))
+		})
+
+		It("distinguishes a missing node from an expected-status mismatch", func() {
+			err := registry.MarkDraining(context.Background(), "missing")
+			Expect(errors.Is(err, ErrNodeNotFound)).To(BeTrue())
+
+			node := makeNode("conditional-mismatch", "10.0.0.63:50051", 8_000_000_000)
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(registry.SetNodeModel(context.Background(), node.ID, "race-model", 0, "loaded", node.Address, 0)).To(Succeed())
+			before, err := registry.Get(context.Background(), node.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(before.Status).To(Equal(StatusHealthy))
+			removedHooks := 0
+			registry.AddReplicaRemovedHook(func(string, string, int) { removedHooks++ })
+
+			// Simulate a health update landing after the caller observed healthy
+			// but before its conditional drain reaches persistence.
+			Expect(registry.MarkUnhealthy(context.Background(), node.ID)).To(Succeed())
+
+			err = registry.MarkDraining(context.Background(), node.ID)
+			Expect(errors.Is(err, ErrNodeStatusConflict)).To(BeTrue())
+			fetched, getErr := registry.Get(context.Background(), node.ID)
+			Expect(getErr).ToNot(HaveOccurred())
+			Expect(fetched.Status).To(Equal(StatusUnhealthy))
+			models, modelsErr := registry.GetNodeModels(context.Background(), node.ID)
+			Expect(modelsErr).ToNot(HaveOccurred())
+			Expect(models).To(HaveLen(1))
+			Expect(removedHooks).To(BeZero())
+		})
+	})
+
 	Describe("NodeLabel CRUD", func() {
 		It("sets and retrieves labels for a node", func() {
 			node := makeNode("label-node", "10.0.0.70:50051", 8_000_000_000)

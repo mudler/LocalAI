@@ -124,6 +124,14 @@ const (
 	ColVRAMBudgetBytes     = "vram_budget_bytes"
 )
 
+var (
+	// ErrNodeNotFound reports that a lifecycle transition targeted a missing node.
+	ErrNodeNotFound = gorm.ErrRecordNotFound
+	// ErrNodeStatusConflict reports that a node exists but no longer has the
+	// status required by a conditional lifecycle transition.
+	ErrNodeStatusConflict = errors.New("node status conflict")
+)
+
 // NodeModel tracks which models are loaded on which nodes.
 //
 // Multiple replicas of the same model on the same node are allowed; each
@@ -747,6 +755,27 @@ func (r *NodeRegistry) setStatus(ctx context.Context, nodeID, status string) err
 	return nil
 }
 
+func transitionStatus(db *gorm.DB, nodeID, expectedStatus, nextStatus string) error {
+	result := db.Model(&BackendNode{}).
+		Where("id = ? AND status = ?", nodeID, expectedStatus).
+		Update("status", nextStatus)
+	if result.Error != nil {
+		return fmt.Errorf("transitioning node %s from %s to %s: %w", nodeID, expectedStatus, nextStatus, result.Error)
+	}
+	if result.RowsAffected > 0 {
+		return nil
+	}
+
+	var node BackendNode
+	if err := db.Select("id", "status").First(&node, "id = ?", nodeID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("node %s: %w", nodeID, ErrNodeNotFound)
+		}
+		return fmt.Errorf("checking node %s after conditional transition: %w", nodeID, err)
+	}
+	return fmt.Errorf("node %s has status %s, expected %s: %w", nodeID, node.Status, expectedStatus, ErrNodeStatusConflict)
+}
+
 // MarkOffline sets a node to offline status and clears its model records.
 // Used on graceful shutdown — preserves the node row so re-registration
 // can restore the previous approval status.
@@ -1289,28 +1318,26 @@ func (r *NodeRegistry) MarkHealthy(ctx context.Context, nodeID string) error {
 // observable effect is that the per-call IncrementInFlight bookkeeping logs a
 // non-fatal warning, which is acceptable for a drain.
 func (r *NodeRegistry) MarkDraining(ctx context.Context, nodeID string) error {
-	if err := r.setStatus(ctx, nodeID, StatusDraining); err != nil {
-		return err
-	}
-	// Capture the distinct models and run the bulk delete inside a single
-	// transaction so the set of fired hooks equals exactly the set of rows
-	// deleted: a SetNodeModel landing between the capture and the delete can no
-	// longer be deleted without its hook firing (no interleaving gap). The
-	// status flip above is a separate, pre-existing operation and stays outside
-	// this transaction. Fire hooks only after commit so a rollback does not
-	// invalidate the index for a removal that did not persist.
 	var removedModels []string
 	if err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := transitionStatus(tx, nodeID, StatusHealthy, StatusDraining); err != nil {
+			return err
+		}
 		removedModels = r.nodeModelNames(ctx, tx, nodeID)
 		return tx.Where("node_id = ?", nodeID).Delete(&NodeModel{}).Error
 	}); err != nil {
-		xlog.Warn("Failed to clear model records on draining", "node", nodeID, "error", err)
-	} else {
-		for _, m := range removedModels {
-			r.fireReplicaRemoved(m, nodeID, -1)
-		}
+		return err
+	}
+	for _, m := range removedModels {
+		r.fireReplicaRemoved(m, nodeID, -1)
 	}
 	return nil
+}
+
+// ResumeNode transitions a draining node back to healthy without allowing
+// pending approval or a concurrent health-state change to be overwritten.
+func (r *NodeRegistry) ResumeNode(ctx context.Context, nodeID string) error {
+	return transitionStatus(r.db.WithContext(ctx), nodeID, StatusDraining, StatusHealthy)
 }
 
 // FindStaleNodes returns nodes that haven't sent a heartbeat within the given threshold.

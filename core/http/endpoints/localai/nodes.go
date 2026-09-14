@@ -438,6 +438,12 @@ func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		id := c.Param("id")
 		if err := registry.MarkDraining(ctx, id); err != nil {
+			if errors.Is(err, nodes.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			if errors.Is(err, nodes.ErrNodeStatusConflict) {
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "node must be healthy to drain"))
+			}
 			xlog.Error("Failed to drain node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to drain node"))
 		}
@@ -450,7 +456,13 @@ func ResumeNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
-		if err := registry.MarkHealthy(ctx, id); err != nil {
+		if err := registry.ResumeNode(ctx, id); err != nil {
+			if errors.Is(err, nodes.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			if errors.Is(err, nodes.ErrNodeStatusConflict) {
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "node must be draining to resume"))
+			}
 			xlog.Error("Failed to resume node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to resume node"))
 		}

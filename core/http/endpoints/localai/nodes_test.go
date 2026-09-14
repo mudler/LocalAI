@@ -478,6 +478,42 @@ var _ = Describe("Node HTTP handlers", func() {
 		})
 	})
 
+	Describe("Node lifecycle endpoints", func() {
+		request := func(handler echo.HandlerFunc, id string) *httptest.ResponseRecorder {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/api/nodes/"+id, nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("id")
+			c.SetParamValues(id)
+			Expect(handler(c)).To(Succeed())
+			return rec
+		}
+
+		It("accepts healthy drain followed by draining resume", func() {
+			Expect(registry.Register(context.Background(), &nodes.BackendNode{
+				ID: "lifecycle", Name: "lifecycle", Address: "10.0.0.10:50051",
+			}, true)).To(Succeed())
+
+			Expect(request(DrainNodeEndpoint(registry), "lifecycle").Code).To(Equal(http.StatusOK))
+			Expect(request(ResumeNodeEndpoint(registry), "lifecycle").Code).To(Equal(http.StatusOK))
+		})
+
+		It("returns conflict when a pending node is drained or resumed", func() {
+			Expect(registry.Register(context.Background(), &nodes.BackendNode{
+				ID: "pending-lifecycle", Name: "pending-lifecycle", Address: "10.0.0.11:50051",
+			}, false)).To(Succeed())
+
+			Expect(request(DrainNodeEndpoint(registry), "pending-lifecycle").Code).To(Equal(http.StatusConflict))
+			Expect(request(ResumeNodeEndpoint(registry), "pending-lifecycle").Code).To(Equal(http.StatusConflict))
+		})
+
+		It("returns not found for missing nodes", func() {
+			Expect(request(DrainNodeEndpoint(registry), "missing").Code).To(Equal(http.StatusNotFound))
+			Expect(request(ResumeNodeEndpoint(registry), "missing").Code).To(Equal(http.StatusNotFound))
+		})
+	})
+
 	Describe("GetNodeModelsEndpoint", func() {
 		It("returns revision and cleanup state without serialized model options", func() {
 			ctx := context.Background()

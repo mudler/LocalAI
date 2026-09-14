@@ -45,29 +45,69 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(page.getByText('Page 1 of 1')).toBeVisible()
   })
 
-  test('keeps selection through filters and summarizes bounded bulk outcomes', async ({ page }) => {
-    const nodes = Array.from({ length: 12 }, (_, index) => ({ id: `n${index}`, name: `worker-${index}`, node_type: 'backend', status: 'healthy' }))
+  test('filters bulk actions by lifecycle state, reports skipped nodes, and prevents overlapping batches', async ({ page }) => {
+    const nodes = Array.from({ length: 12 }, (_, index) => ({
+      id: `n${index}`,
+      name: `worker-${index}`,
+      node_type: 'backend',
+      status: index === 9 ? 'pending' : index === 10 ? 'draining' : index === 11 ? 'offline' : 'healthy',
+    }))
     await mockNodes(page, nodes)
     let active = 0
     let peak = 0
-    let completed = 0
+    const drainRequests = []
+    const resumeRequests = []
     await page.route('**/api/nodes/*/drain', async route => {
       active += 1
       peak = Math.max(peak, active)
       await new Promise(resolve => setTimeout(resolve, 30))
       active -= 1
-      completed += 1
       const id = route.request().url().split('/').at(-2)
-      await route.fulfill({ status: id === 'n11' ? 500 : 200, contentType: 'application/json', body: id === 'n11' ? '{"error":"failed"}' : '{}' })
+      drainRequests.push(id)
+      await route.fulfill({ status: id === 'n8' ? 500 : 200, contentType: 'application/json', body: id === 'n8' ? '{"error":"failed"}' : '{}' })
+    })
+    await page.route('**/api/nodes/*/resume', async route => {
+      const id = route.request().url().split('/').at(-2)
+      resumeRequests.push(id)
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
     })
     await page.goto('/app/nodes')
     await page.getByRole('checkbox', { name: 'Select visible nodes' }).check()
     await page.getByRole('searchbox', { name: 'Search nodes' }).fill('worker-1')
     await expect(page.getByText('12 selected')).toBeVisible()
-    await page.getByRole('button', { name: 'Drain selected' }).click()
-    await expect.poll(() => completed).toBe(12)
+    await page.getByRole('button', { name: 'Drain selected' }).evaluate(button => {
+      button.click()
+      button.click()
+    })
+    await expect.poll(() => drainRequests.length).toBe(9)
     expect(peak).toBeLessThanOrEqual(8)
-    await expect(page.getByText(/11 succeeded, 1 failed/)).toBeVisible()
+    expect(drainRequests.sort()).toEqual(Array.from({ length: 9 }, (_, index) => `n${index}`).sort())
+    await expect(page.getByText(/8 succeeded, 1 failed, 3 skipped/)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Resume selected' }).click()
+    await expect.poll(() => resumeRequests).toEqual(['n10'])
+    await expect(page.getByText(/1 succeeded, 0 failed, 11 skipped/)).toBeVisible()
+    expect(drainRequests).not.toContain('n9')
+    expect(resumeRequests).not.toContain('n9')
+  })
+
+  test('disables bulk controls and remove confirmation while removal is running', async ({ page }) => {
+    await mockNodes(page, [baseNodes[0]])
+    let finishRemove
+    await page.route('**/api/nodes/n1', async route => {
+      if (route.request().method() !== 'DELETE') return route.fallback()
+      await new Promise(resolve => { finishRemove = resolve })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/app/nodes')
+    await page.getByRole('checkbox', { name: 'Select atlas' }).check()
+    await page.getByRole('button', { name: 'Remove selected' }).click()
+    await page.getByRole('button', { name: 'Remove nodes' }).click()
+
+    await expect(page.getByRole('button', { name: 'Removing…' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    finishRemove()
+    await expect(page.getByText(/1 succeeded, 0 failed, 0 skipped/)).toBeVisible()
   })
 
   test('fetches backends only when an inspector opens and shows unknown legacy metrics', async ({ page }) => {
