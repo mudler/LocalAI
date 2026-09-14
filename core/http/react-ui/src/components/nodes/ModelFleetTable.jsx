@@ -1,4 +1,5 @@
 import { timeAgo } from './nodeStatus'
+import ActionMenu from '../ActionMenu'
 
 function SortButton({ column, label, sort, onSortChange }) {
   const active = sort.key === column
@@ -11,7 +12,7 @@ function SortButton({ column, label, sort, onSortChange }) {
   )
 }
 
-export default function ModelFleetTable({ models, selectedName, inspectorOpen, onInspect, sort, onSortChange }) {
+export default function ModelFleetTable({ models, selectedName, inspectorOpen, onInspect, onStop, stoppingName, sort, onSortChange }) {
   return (
     <div className="fleet-table-wrap model-fleet-table-wrap">
       <table className="fleet-table model-fleet-table" aria-label="Running models">
@@ -22,6 +23,7 @@ export default function ModelFleetTable({ models, selectedName, inspectorOpen, o
           <th><SortButton column="in_flight" label="In flight" sort={sort} onSortChange={onSortChange} /></th>
           <th>Backends</th>
           <th><SortButton column="last_used" label="Last used" sort={sort} onSortChange={onSortChange} /></th>
+          <th className="model-fleet-table__actions"><span className="sr-only">Actions</span></th>
         </tr></thead>
         <tbody>{models.map(model => {
           const selected = selectedName === model.model_name
@@ -37,6 +39,21 @@ export default function ModelFleetTable({ models, selectedName, inspectorOpen, o
             <td>{model.in_flight}</td>
             <td><div className="model-backend-list">{model.backend_types.length ? model.backend_types.map(backend => <span key={backend}>{backend}</span>) : <span className="fleet-table__unknown">Unknown</span>}</div></td>
             <td>{model.last_used ? timeAgo(model.last_used) : <span className="fleet-table__unknown">Never</span>}</td>
+            <td className="model-fleet-table__actions">
+              <ActionMenu
+                compact
+                ariaLabel={`${model.model_name} actions`}
+                triggerLabel={`Actions for ${model.model_name}`}
+                items={[{
+                  key: 'stop',
+                  icon: 'fa-stop',
+                  label: stoppingName === model.model_name ? 'Stopping…' : 'Stop model…',
+                  danger: true,
+                  disabled: !!stoppingName,
+                  onClick: () => onStop(model),
+                }]}
+              />
+            </td>
           </tr>
           )
         })}</tbody>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { nodesApi } from '../utils/api'
+import { backendControlApi, nodesApi } from '../utils/api'
 import { filterModels, filterNodes, groupModels, paginateModels, paginateNodes, runBounded, sortModels, sortNodes, summarizeFleet } from '../utils/nodeFleet'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PageHeader from '../components/PageHeader'
@@ -90,6 +90,8 @@ export default function Nodes() {
   const [activeAttention, setActiveAttention] = useState(null)
   const [inspectedId, setInspectedId] = useState(null)
   const [confirmRemove, setConfirmRemove] = useState(false)
+  const [confirmStopModel, setConfirmStopModel] = useState(null)
+  const [stoppingModelName, setStoppingModelName] = useState(null)
   const [bulkRunning, setBulkRunning] = useState(false)
   const bulkRunningRef = useRef(false)
   const [showTips, setShowTips] = useState(false)
@@ -105,6 +107,7 @@ export default function Nodes() {
   const [modelDrillNodeId, setModelDrillNodeId] = useState(null)
   const [returnFocusNodeId, setReturnFocusNodeId] = useState(null)
   const modelRequestStarted = useRef(false)
+  const modelStopRunningRef = useRef(false)
   const nodesTabRef = useRef(null)
   const modelsTabRef = useRef(null)
   const nodeInvokerRef = useRef(null)
@@ -159,20 +162,57 @@ export default function Nodes() {
   useEffect(() => { if (modelPagination.page !== modelPage) setModelPage(modelPagination.page) }, [modelPage, modelPagination.page])
   useEffect(() => { setModelPage(1) }, [modelQuery])
 
+  const refreshModels = useCallback(async () => {
+    const data = await nodesApi.allModels()
+    setModelRows(Array.isArray(data) ? data : [])
+    setModelLoadState('loaded')
+    setModelError('')
+  }, [])
+
   const loadModels = useCallback(async () => {
     if (modelRequestStarted.current) return
     modelRequestStarted.current = true
     setModelLoadState('loading')
     setModelError('')
     try {
-      const data = await nodesApi.allModels()
-      setModelRows(Array.isArray(data) ? data : [])
-      setModelLoadState('loaded')
+      await refreshModels()
     } catch (error) {
       setModelError(error.message || 'Unable to load running models')
       setModelLoadState('error')
     }
-  }, [])
+  }, [refreshModels])
+
+  const stopModel = () => {
+    const model = confirmStopModel
+    if (!model || modelStopRunningRef.current) return
+    modelStopRunningRef.current = true
+    setStoppingModelName(model.model_name)
+
+    void (async () => {
+      let stopError = null
+      try {
+        await backendControlApi.shutdown({ model: model.model_name })
+      } catch (error) {
+        stopError = error
+      }
+
+      try {
+        await refreshModels()
+      } catch (error) {
+        setModelError(error.message || 'Unable to refresh running models')
+        setModelLoadState('error')
+      }
+
+      if (stopError) {
+        addToast(`Could not stop ${model.model_name}: ${stopError.message || stopError}. Some replicas may already have stopped.`, 'warning')
+      } else {
+        addToast(`Stopped ${model.model_name}: ${model.replica_count} replica${model.replica_count === 1 ? '' : 's'} across ${model.node_count} node${model.node_count === 1 ? '' : 's'}.`, 'success')
+      }
+      setConfirmStopModel(null)
+      setStoppingModelName(null)
+      modelStopRunningRef.current = false
+    })()
+  }
 
   const activateWorkbench = view => {
     setWorkbenchView(view)
@@ -315,7 +355,8 @@ export default function Nodes() {
             {modelLoadState === 'loaded' && groupedModels.length === 0 && <div className="model-workbench__state"><i className="fas fa-layer-group" aria-hidden="true" /><strong>No running models</strong><span>Loaded replicas on healthy nodes will appear here.</span></div>}
             {modelLoadState === 'loaded' && groupedModels.length > 0 && <>
               <div className="model-toolbar"><input className="input fleet-toolbar__search" type="search" aria-label="Search running models" placeholder="Search model or backend…" value={modelQuery} onChange={event => setModelQuery(event.target.value)} /></div>
-              <ModelFleetTable models={modelPagination.items} selectedName={inspectedModelName} inspectorOpen={!!inspectedModel && !drilledNode} onInspect={openModelInspector} sort={modelSort} onSortChange={setModelSort} />
+              <ModelFleetTable models={modelPagination.items} selectedName={inspectedModelName} inspectorOpen={!!inspectedModel && !drilledNode} onInspect={openModelInspector}
+                onStop={setConfirmStopModel} stoppingName={stoppingModelName} sort={modelSort} onSortChange={setModelSort} />
               <div className="fleet-pagination"><span>Page {modelPagination.page} of {modelPagination.totalPages}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Previous model page" disabled={modelPagination.page === 1} onClick={() => setModelPage(value => value - 1)}>Previous</button><button type="button" className="btn btn-secondary btn-sm" aria-label="Next model page" disabled={modelPagination.page === modelPagination.totalPages} onClick={() => setModelPage(value => value + 1)}>Next</button></div>
             </>}
           </div>
@@ -331,6 +372,9 @@ export default function Nodes() {
         </div>
       </section>
       <ConfirmDialog open={confirmRemove} title="Remove selected nodes" message={`Remove ${selectedIds.size} selected nodes from the cluster?`} confirmLabel="Remove nodes" pendingLabel="Removing…" pending={bulkRunning} danger onConfirm={() => runBulk('delete')} onCancel={() => setConfirmRemove(false)} />
+      <ConfirmDialog open={!!confirmStopModel} title={confirmStopModel ? `Stop ${confirmStopModel.model_name}?` : 'Stop model?'}
+        message={confirmStopModel ? `${confirmStopModel.model_name} has ${confirmStopModel.replica_count} loaded replica${confirmStopModel.replica_count === 1 ? '' : 's'} across ${confirmStopModel.node_count} unique node${confirmStopModel.node_count === 1 ? '' : 's'}. This will stop all loaded placements on those nodes.` : ''}
+        confirmLabel="Stop model" pendingLabel="Stopping…" pending={!!stoppingModelName} danger onConfirm={stopModel} onCancel={() => setConfirmStopModel(null)} />
     </div>
   )
 }

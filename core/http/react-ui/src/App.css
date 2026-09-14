@@ -9865,6 +9865,10 @@ button.collapsible-header:focus-visible {
 .model-workbench__state--error > i { color: var(--color-error); }
 .model-fleet-table { min-width: 720px; }
 .model-fleet-table th:first-child, .model-fleet-table td:first-child { width: 37%; }
+.model-fleet-table .model-fleet-table__actions { padding-left: 4px; padding-right: 8px; text-align: right; width: 38px; }
+.model-fleet-table .fleet-table__row:hover .action-menu__trigger,
+.model-fleet-table .action-menu__trigger:focus-visible,
+.model-fleet-table .action-menu__trigger.is-open { opacity: 1; }
 .model-backend-list { display: flex; flex-wrap: wrap; gap: 4px; }
 .model-backend-list > span:not(.fleet-table__unknown, .text-muted) { background: var(--color-bg-tertiary); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-full); color: var(--color-text-secondary); font-family: var(--font-mono); font-size: .5625rem; padding: 2px 6px; }
 .node-inspector { animation: node-inspector-in 180ms var(--ease-out, ease-out) both; background: var(--color-bg-primary); border-left: 1px solid var(--color-border-subtle); bottom: 0; box-shadow: -14px 0 30px rgba(0, 0, 0, .2); overflow-y: auto; padding: 18px; position: absolute; right: 0; top: 0; width: 320px; z-index: 2; }

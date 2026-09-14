@@ -534,6 +534,8 @@ Selecting a row opens an in-context inspector with health, labels, capacity, mod
 
 The workbench's **Running models** tab shows the current loaded replicas on healthy workers. It stays lazy: opening the Nodes page does not query model inventory, and the first activation makes one controller database request that is retained until the page is left. The view groups replicas by model, reports their worker spread, active requests, backend types, and most recent use, and renders 50 models per page for large fleets. Loading, empty, and query-failure states are shown in place; a failed query can be retried.
 
+Use a model row's actions menu to stop that model across the fleet. LocalAI sends one controller shutdown request for the model, which stops all loaded placements; the browser does not contact workers individually. The dashboard refreshes the running-model inventory after both successful and failed shutdown attempts because a failed request can still have stopped some replicas.
+
 Opening a model reveals its replica placement without another request. Replicas on the same worker remain individually visible with their process addresses and workload. From there, select a known worker to move into its node inspector, then return to the model with **Back to model**. That worker transition is the only point in this flow that requests backend inventory, preserving the Nodes page's no-prefetch behavior.
 
 ### Model sizing in the WebUI

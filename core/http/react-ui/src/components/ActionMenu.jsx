@@ -48,7 +48,12 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
   }
 
   const handleMenuKeyDown = (e) => {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Escape') {
+      // Keep the same Escape press from also closing a surrounding inspector.
+      e.preventDefault()
+      e.stopPropagation()
+      close()
+    } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       setActiveIdx(i => Math.min(interactive.length - 1, (i < 0 ? -1 : i) + 1))
     } else if (e.key === 'ArrowUp') {

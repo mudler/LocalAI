@@ -488,6 +488,86 @@ test.describe('Nodes fleet dashboard', () => {
     expect(modelRequests).toBe(1)
   })
 
+  test('stops a running model once from an accessible row menu and refreshes inventory', async ({ page }) => {
+    await mockNodes(page)
+    let modelRequests = 0
+    let stopRequests = 0
+    let stopBody
+    let finishStop
+    await page.route('**/api/nodes/models', route => {
+      modelRequests += 1
+      const rows = modelRequests === 1 ? baseModels : baseModels.filter(row => row.model_name !== 'Llama 3.2')
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) })
+    })
+    await page.route('**/backend/shutdown', async route => {
+      stopRequests += 1
+      stopBody = route.request().postDataJSON()
+      await new Promise(resolve => { finishStop = resolve })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"message":"ok"}' })
+    })
+    await page.goto('/app/nodes')
+    await page.getByRole('tab', { name: 'Running models' }).click()
+
+    const trigger = page.getByRole('button', { name: 'Actions for Llama 3.2' })
+    await trigger.focus()
+    await trigger.press('Enter')
+    const menu = page.getByRole('menu', { name: 'Llama 3.2 actions' })
+    await expect(menu).toBeVisible()
+    await expect(menu).toBeFocused()
+    await menu.press('Escape')
+    await expect(menu).toHaveCount(0)
+    await expect(trigger).toBeFocused()
+    await expect(page.getByRole('complementary', { name: 'Model inspector' })).toHaveCount(0)
+
+    await trigger.click()
+    await page.locator('.model-workbench__scope').click()
+    await expect(menu).toHaveCount(0)
+    await expect(page.getByRole('complementary', { name: 'Model inspector' })).toHaveCount(0)
+
+    await trigger.click()
+    await menu.getByRole('menuitem', { name: 'Stop model…' }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Stop Llama 3.2?')
+    await expect(dialog).toContainText('Llama 3.2 has 3 loaded replicas across 2 unique nodes. This will stop all loaded placements on those nodes.')
+    await dialog.getByRole('button', { name: 'Stop model' }).evaluate(button => {
+      button.click()
+      button.click()
+    })
+
+    await expect(dialog.getByRole('button', { name: 'Stopping…' })).toBeDisabled()
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    await expect.poll(() => stopRequests).toBe(1)
+    expect(stopBody).toEqual({ model: 'Llama 3.2' })
+    finishStop()
+    await expect.poll(() => modelRequests).toBe(2)
+    await expect(page.getByText('Stopped Llama 3.2: 3 replicas across 2 nodes.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Inspect Llama 3.2' })).toHaveCount(0)
+  })
+
+  test('refreshes model inventory and warns about partial shutdown after a stop failure', async ({ page }) => {
+    await mockNodes(page)
+    let modelRequests = 0
+    let stopRequests = 0
+    await page.route('**/api/nodes/models', route => {
+      modelRequests += 1
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(baseModels) })
+    })
+    await page.route('**/backend/shutdown', route => {
+      stopRequests += 1
+      return route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"controller timed out"}' })
+    })
+    await page.goto('/app/nodes')
+    await page.getByRole('tab', { name: 'Running models' }).click()
+    await page.getByRole('button', { name: 'Actions for Whisper large v3' }).click()
+    await page.getByRole('menuitem', { name: 'Stop model…' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Stop model' }).click()
+
+    await expect.poll(() => stopRequests).toBe(1)
+    await expect.poll(() => modelRequests).toBe(2)
+    await expect(page.getByText(/Could not stop Whisper large v3:.*Some replicas may already have stopped\./)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Inspect Whisper large v3' })).toBeVisible()
+  })
+
   test('moves focus into and restores it from the node inspector', async ({ page }) => {
     await mockNodes(page, [baseNodes[0]])
     await page.route('**/api/nodes/n1/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
