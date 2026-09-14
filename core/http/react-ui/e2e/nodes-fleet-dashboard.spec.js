@@ -142,6 +142,72 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(page.getByRole('button', { name: 'Approve borealis' })).toBeVisible({ timeout: 15_000 })
   })
 
+  test('shows inspector lifecycle controls only for server-accepted states', async ({ page }) => {
+    const statuses = ['healthy', 'draining', 'pending', 'unhealthy', 'offline', 'unknown']
+    await mockNodes(page, statuses.map((status, index) => ({
+      id: `state-${index}`,
+      name: `node-${status}`,
+      node_type: 'backend',
+      status,
+    })))
+    await page.route('**/api/nodes/*/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+    await page.goto('/app/nodes')
+
+    for (const status of statuses) {
+      await page.getByRole('button', { name: `Inspect node-${status}` }).click()
+      const inspector = page.getByRole('complementary', { name: 'Node inspector' })
+      await expect(inspector.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(status === 'pending' ? 1 : 0)
+      await expect(inspector.getByRole('button', { name: 'Drain', exact: true })).toHaveCount(status === 'healthy' ? 1 : 0)
+      await expect(inspector.getByRole('button', { name: 'Resume', exact: true })).toHaveCount(status === 'draining' ? 1 : 0)
+      await inspector.getByRole('button', { name: 'Close node inspector' }).click()
+    }
+  })
+
+  test('approves a pending node from the model-to-node drilldown', async ({ page }) => {
+    let status = 'pending'
+    let approvalRequests = 0
+    await page.route('**/api/nodes', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+      { id: 'pending-node', name: 'pending-worker', node_type: 'backend', status },
+    ]) }))
+    await page.route('**/api/nodes/models', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+      { id: 'replica', node_id: 'pending-node', model_name: 'Pending model', replica_index: 0, state: 'loaded' },
+    ]) }))
+    await page.route('**/api/nodes/pending-node/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+    await page.route('**/api/nodes/pending-node/approve', async route => {
+      approvalRequests += 1
+      status = 'healthy'
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    await page.goto('/app/nodes')
+    await page.getByRole('tab', { name: 'Running models' }).click()
+    await page.getByRole('button', { name: 'Inspect Pending model' }).click()
+    await page.getByRole('button', { name: 'Open node pending-worker' }).click()
+
+    const inspector = page.getByRole('complementary', { name: 'Node inspector' })
+    await inspector.getByRole('button', { name: 'Approve', exact: true }).click()
+    await expect.poll(() => approvalRequests).toBe(1)
+    await expect(page.getByText('Node approved')).toBeVisible()
+    await expect(inspector.getByRole('button', { name: 'Drain', exact: true })).toBeVisible()
+  })
+
+  test('keeps incomplete capacity unknown throughout the fleet view', async ({ page }) => {
+    await mockNodes(page, [{
+      id: 'incomplete', name: 'incomplete-capacity', node_type: 'backend', status: 'healthy',
+      total_vram: 100, total_ram: 200, total_disk: 300,
+    }])
+    await page.route('**/api/nodes/incomplete/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+    await page.goto('/app/nodes')
+
+    await expect(page.getByLabel('VRAM capacity')).toContainText('No data')
+    await expect(page.getByLabel('VRAM capacity')).toContainText('0 reporting · 1 unknown')
+    await expect(page.getByRole('button', { name: /Low VRAM.*0/ })).toBeVisible()
+    const row = page.getByRole('row', { name: /incomplete-capacity/ })
+    await expect(row.getByText('No data')).toHaveCount(3)
+    await page.getByRole('button', { name: 'Inspect incomplete-capacity' }).click()
+    const inspector = page.getByRole('complementary', { name: 'Node inspector' })
+    await expect(inspector.getByText('No data')).toHaveCount(4)
+  })
+
   test('keeps checkbox keyboard activation from opening the inspector', async ({ page }) => {
     await mockNodes(page, [baseNodes[0]])
     await page.goto('/app/nodes')

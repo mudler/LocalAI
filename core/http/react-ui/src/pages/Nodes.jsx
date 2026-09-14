@@ -320,11 +320,13 @@ export default function Nodes() {
             </>}
           </div>
           {workbenchView === 'nodes' && <NodeInspector node={inspectedNode} open={!!inspectedNode} onClose={closeNodeInspector}
+            onApprove={id => actOnNode('approve', id, 'Node approved')}
             onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />
           }
           {workbenchView === 'models' && !drilledNode && <ModelInspector model={inspectedModel} nodes={nodes} open={!!inspectedModel} onClose={closeModelDrilldown} onOpenNode={openModelNode} focusNodeId={returnFocusNodeId} />}
           {workbenchView === 'models' && drilledNode && <NodeInspector node={drilledNode} open onClose={closeModelDrilldown}
             onBack={returnToModel} backLabel={`Back to ${inspectedModel?.model_name || 'model'}`}
+            onApprove={id => actOnNode('approve', id, 'Node approved')}
             onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />}
         </div>
       </section>

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  capacityReading,
   filterModels,
   filterNodes,
   groupModels,
@@ -12,6 +13,7 @@ import {
   sortModels,
   sortNodes,
   summarizeFleet,
+  nodeLifecycleAction,
 } from './nodeFleet.js'
 
 const modelRows = [
@@ -210,8 +212,39 @@ test('does not flag zero-total or invalid-total capacity as exhausted', () => {
 
   assert.equal(summary.attentionNodeCount, 0)
   assert.deepEqual(summary.attention.lowVRAM, [])
-  assert.equal(summary.vram.unknownCount, 1)
+  assert.equal(summary.vram.unknownCount, 2)
   assert.equal(summary.ram.unknownCount, 2)
+})
+
+test('requires finite total and available values before reporting capacity', () => {
+  const summary = summarizeFleet([
+    { id: 'complete', status: 'healthy', total_vram: 100, available_vram: 120 },
+    { id: 'missing', status: 'healthy', total_vram: 200 },
+    { id: 'malformed', status: 'healthy', total_vram: 300, available_vram: '30' },
+    { id: 'non-finite', status: 'healthy', total_vram: 400, available_vram: Infinity },
+  ])
+
+  assert.deepEqual(summary.vram, {
+    total: 100,
+    used: 0,
+    available: 100,
+    usagePercent: 0,
+    reportingCount: 1,
+    unknownCount: 3,
+  })
+  assert.deepEqual(summary.attention.lowVRAM, [])
+  assert.deepEqual(capacityReading(100, -20), { total: 100, used: 100, available: 0, usagePercent: 100 })
+  assert.equal(capacityReading(100, undefined), null)
+  assert.equal(capacityReading(100, Number.NaN), null)
+})
+
+test('maps only server-accepted lifecycle states to controls', () => {
+  assert.equal(nodeLifecycleAction('healthy'), 'drain')
+  assert.equal(nodeLifecycleAction('draining'), 'resume')
+  assert.equal(nodeLifecycleAction('pending'), 'approve')
+  for (const status of ['unhealthy', 'offline', 'unknown', '', null, 'HEALTHY']) {
+    assert.equal(nodeLifecycleAction(status), null)
+  }
 })
 
 test('requires a complete finite CPU reading before including a node', () => {

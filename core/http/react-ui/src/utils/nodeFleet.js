@@ -8,18 +8,34 @@ function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value))
 }
 
+export function capacityReading(totalValue, availableValue) {
+  const total = finiteNumber(totalValue)
+  const reportedAvailable = finiteNumber(availableValue)
+  if (total === null || total <= 0 || reportedAvailable === null) return null
+
+  const available = clamp(reportedAvailable, 0, total)
+  const used = total - available
+  return { total, used, available, usagePercent: (used / total) * 100 }
+}
+
+export function nodeLifecycleAction(status) {
+  if (status === 'healthy') return 'drain'
+  if (status === 'draining') return 'resume'
+  if (status === 'pending') return 'approve'
+  return null
+}
+
 function capacitySummary(nodes, totalField, availableField) {
   let total = 0
   let available = 0
   let reportingCount = 0
 
   for (const node of nodes) {
-    const nodeTotal = finiteNumber(node?.[totalField])
-    if (nodeTotal === null || nodeTotal <= 0) continue
+    const reading = capacityReading(node?.[totalField], node?.[availableField])
+    if (!reading) continue
 
-    const reportedAvailable = finiteNumber(node?.[availableField]) ?? 0
-    total += nodeTotal
-    available += clamp(reportedAvailable, 0, nodeTotal)
+    total += reading.total
+    available += reading.available
     reportingCount += 1
   }
 
@@ -64,18 +80,9 @@ function cpuSummary(nodes) {
   }
 }
 
-function reportsCapacity(node, totalField) {
-  const total = finiteNumber(node?.[totalField])
-  return total !== null && total > 0
-}
-
 function hasLowCapacity(node, totalField, availableField) {
-  if (!reportsCapacity(node, totalField)) return false
-  const total = node[totalField]
-  const reportedAvailable = finiteNumber(node?.[availableField])
-  if (reportedAvailable === null) return false
-  const available = clamp(reportedAvailable, 0, total)
-  return available / total <= 0.1
+  const reading = capacityReading(node?.[totalField], node?.[availableField])
+  return reading !== null && reading.available / reading.total <= 0.1
 }
 
 export function summarizeFleet(input) {

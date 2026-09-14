@@ -2,25 +2,25 @@ import { useEffect, useRef, useState } from 'react'
 import StatusPill from './StatusPill'
 import { formatBytes, formatCapacity, timeAgo } from './nodeStatus'
 import { nodesApi } from '../../utils/api'
+import { capacityReading, nodeLifecycleAction } from '../../utils/nodeFleet'
 
 function InspectorMetric({ label, children }) {
   return <div><dt>{label}</dt><dd>{children}</dd></div>
 }
 
 function ResourceBar({ label, total, available, tone }) {
-  if (!(total > 0) || !Number.isFinite(available)) return <InspectorMetric label={label}>No data</InspectorMetric>
-  const free = Math.max(0, Math.min(total, available))
-  const used = total - free
-  const percent = Math.round(used / total * 100)
+  const reading = capacityReading(total, available)
+  if (!reading) return <InspectorMetric label={label}>No data</InspectorMetric>
+  const percent = Math.round(reading.usagePercent)
   return (
     <div className={`node-inspector__resource node-inspector__resource--${tone}`}>
-      <div className="node-inspector__resource-label"><strong>{label} <span>{formatBytes(used)} / {formatBytes(total)}</span></strong><span>{formatBytes(free)} free</span></div>
+      <div className="node-inspector__resource-label"><strong>{label} <span>{formatBytes(reading.used)} / {formatBytes(reading.total)}</span></strong><span>{formatBytes(reading.available)} free</span></div>
       <progress className="node-inspector__resource-track" max="100" value={percent} aria-label={`${label} usage`} />
     </div>
   )
 }
 
-export default function NodeInspector({ node, open, onClose, onDrain, onResume, onBack, backLabel }) {
+export default function NodeInspector({ node, open, onClose, onApprove, onDrain, onResume, onBack, backLabel }) {
   const [backends, setBackends] = useState(null)
   const [backendError, setBackendError] = useState('')
   const nodeId = node?.id
@@ -47,7 +47,8 @@ export default function NodeInspector({ node, open, onClose, onDrain, onResume, 
 
   if (!open || !node) return null
   const cpuKnown = node.cpu_logical_cores > 0 && Number.isFinite(node.cpu_usage_percent) && Number.isFinite(node.cpu_load_1)
-  const used = (total, available) => total > 0 && Number.isFinite(available) ? Math.max(0, Math.min(total, total - available)) : Number.NaN
+  const disk = capacityReading(node.total_disk, node.available_disk)
+  const lifecycleAction = nodeLifecycleAction(node.status)
 
   return (
     <aside className="node-inspector" aria-label="Node inspector">
@@ -68,7 +69,7 @@ export default function NodeInspector({ node, open, onClose, onDrain, onResume, 
         <ResourceBar label="RAM" total={node.total_ram} available={node.available_ram} tone="ram" />
         <dl className="node-inspector__metrics">
           <InspectorMetric label="CPU">{cpuKnown ? `${node.cpu_usage_percent.toFixed(1)}% of ${node.cpu_logical_cores} cores · ${node.cpu_load_1.toFixed(2)} load` : 'No data'}</InspectorMetric>
-          <InspectorMetric label="Models disk">{formatCapacity(used(node.total_disk, node.available_disk), node.total_disk)}</InspectorMetric>
+          <InspectorMetric label="Models disk">{disk ? formatCapacity(disk.used, disk.total) : 'No data'}</InspectorMetric>
         </dl>
       </section>
       <section className="node-inspector__section">
@@ -87,9 +88,9 @@ export default function NodeInspector({ node, open, onClose, onDrain, onResume, 
       </section>
       <div className="node-inspector__actions">
         <a className="btn btn-primary btn-sm" href={`/app/nodes/${encodeURIComponent(node.id)}`} aria-label="Open full node details">Open full details</a>
-        {node.status === 'draining'
-          ? <button type="button" className="btn btn-secondary btn-sm" onClick={() => onResume(node.id)}>Resume</button>
-          : <button type="button" className="btn btn-secondary btn-sm" onClick={() => onDrain(node.id)}>Drain</button>}
+        {lifecycleAction === 'approve' && <button type="button" className="btn btn-primary btn-sm" onClick={() => onApprove(node.id)}>Approve</button>}
+        {lifecycleAction === 'resume' && <button type="button" className="btn btn-secondary btn-sm" onClick={() => onResume(node.id)}>Resume</button>}
+        {lifecycleAction === 'drain' && <button type="button" className="btn btn-secondary btn-sm" onClick={() => onDrain(node.id)}>Drain</button>}
       </div>
     </aside>
   )

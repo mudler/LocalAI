@@ -1,15 +1,15 @@
 import StatusPill from './StatusPill'
 import { formatBytes, timeAgo } from './nodeStatus'
-import { groupNodes } from '../../utils/nodeFleet'
+import { capacityReading, groupNodes, nodeLifecycleAction } from '../../utils/nodeFleet'
 
 function MetricCell({ total, available, tone }) {
-  if (!(total > 0)) return <span className="fleet-table__unknown">No data</span>
-  const used = Math.max(0, Math.min(total, total - (Number.isFinite(available) ? available : 0)))
-  const percent = Math.round(used / total * 100)
+  const reading = capacityReading(total, available)
+  if (!reading) return <span className="fleet-table__unknown">No data</span>
+  const percent = Math.round(reading.usagePercent)
   return (
-    <div className={`fleet-table__resource fleet-table__resource--${tone}`} aria-label={`${formatBytes(used)} of ${formatBytes(total)} used`}>
+    <div className={`fleet-table__resource fleet-table__resource--${tone}`} aria-label={`${formatBytes(reading.used)} of ${formatBytes(reading.total)} used`}>
       <progress className="fleet-table__resource-track" max="100" value={percent} aria-hidden="true" />
-      <span>{formatBytes(used)} / {formatBytes(total)}</span>
+      <span>{formatBytes(reading.used)} / {formatBytes(reading.total)}</span>
     </div>
   )
 }
@@ -68,7 +68,7 @@ export default function NodeFleetTable({ nodes, selectedIds, onSelectionChange, 
                 <td>{node.cpu_logical_cores > 0 && Number.isFinite(node.cpu_usage_percent) ? `${node.cpu_usage_percent.toFixed(0)}% · ${node.cpu_logical_cores}c` : <span className="fleet-table__unknown">No data</span>}</td>
                 <td>{node.model_count ?? 0}<span className="fleet-table__subvalue">{node.in_flight_count ?? 0} in flight</span></td>
                 <td>{timeAgo(node.last_heartbeat)}</td>
-                <td onClick={event => event.stopPropagation()}>{node.status === 'pending' && <button type="button" className="btn btn-primary btn-sm" aria-label={`Approve ${node.name}`} onClick={() => onApprove(node.id)}>Approve</button>}</td>
+                <td onClick={event => event.stopPropagation()}>{nodeLifecycleAction(node.status) === 'approve' && <button type="button" className="btn btn-primary btn-sm" aria-label={`Approve ${node.name}`} onClick={() => onApprove(node.id)}>Approve</button>}</td>
               </tr>
             ))
             if (groupBy === 'none') return rows
