@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useOutletContext, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useParams, useOutletContext, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useChat } from '../hooks/useChat'
@@ -1020,6 +1020,7 @@ export default function Chat() {
             style={{ flex: '1 1 0', minWidth: 120 }}
           />
           <div className="chat-header-actions">
+            <Link className="btn btn-secondary" to="/app/group-chat">{t('group.title', 'Group chat')}</Link>
             {activeChat.model && isAdmin && (
               <button
                 type="button"
