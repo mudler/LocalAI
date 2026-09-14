@@ -2424,6 +2424,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	}
 
 	// Non-tool-call streaming path
+	messageOutputIndex := outputIndex
+	var reasoningOutputIndex int
 	// Emit output_item.added for message
 	currentMessageID = fmt.Sprintf("msg_%s", uuid.New().String())
 	messageItem := &schema.ORItemField{
@@ -2436,7 +2438,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.output_item.added",
 		SequenceNumber: sequenceNumber,
-		OutputIndex:    &outputIndex,
+		OutputIndex:    &messageOutputIndex,
 		Item:           messageItem,
 	})
 	sequenceNumber++
@@ -2448,7 +2450,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		Type:           "response.content_part.added",
 		SequenceNumber: sequenceNumber,
 		ItemID:         currentMessageID,
-		OutputIndex:    &outputIndex,
+		OutputIndex:    &messageOutputIndex,
 		ContentIndex:   &currentContentIndex,
 		Part:           &emptyTextPart,
 	})
@@ -2471,10 +2473,11 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		}
 
 		// Handle reasoning item
-		if extractor.Reasoning() != "" {
+		if extractor.Reasoning() != "" || reasoningDelta != "" {
 			// Check if we need to create reasoning item
 			if currentReasoningID == "" {
 				outputIndex++
+				reasoningOutputIndex = outputIndex
 				currentReasoningID = fmt.Sprintf("reasoning_%s", uuid.New().String())
 				reasoningItem := &schema.ORItemField{
 					Type:   "reasoning",
@@ -2484,7 +2487,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				sendSSEEvent(c, &schema.ORStreamEvent{
 					Type:           "response.output_item.added",
 					SequenceNumber: sequenceNumber,
-					OutputIndex:    &outputIndex,
+					OutputIndex:    &reasoningOutputIndex,
 					Item:           reasoningItem,
 				})
 				sequenceNumber++
@@ -2496,7 +2499,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					Type:           "response.content_part.added",
 					SequenceNumber: sequenceNumber,
 					ItemID:         currentReasoningID,
-					OutputIndex:    &outputIndex,
+					OutputIndex:    &reasoningOutputIndex,
 					ContentIndex:   &currentReasoningContentIndex,
 					Part:           &emptyPart,
 				})
@@ -2509,7 +2512,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					Type:           "response.output_text.delta",
 					SequenceNumber: sequenceNumber,
 					ItemID:         currentReasoningID,
-					OutputIndex:    &outputIndex,
+					OutputIndex:    &reasoningOutputIndex,
 					ContentIndex:   &currentReasoningContentIndex,
 					Delta:          strPtr(reasoningDelta),
 					Logprobs:       emptyLogprobs(),
@@ -2526,7 +2529,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				Type:           "response.output_text.delta",
 				SequenceNumber: sequenceNumber,
 				ItemID:         currentMessageID,
-				OutputIndex:    &outputIndex,
+				OutputIndex:    &messageOutputIndex,
 				ContentIndex:   &currentContentIndex,
 				Delta:          strPtr(contentDelta),
 				Logprobs:       emptyLogprobs(),
@@ -2595,7 +2598,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			Type:           "response.output_text.done",
 			SequenceNumber: sequenceNumber,
 			ItemID:         currentReasoningID,
-			OutputIndex:    &outputIndex,
+			OutputIndex:    &reasoningOutputIndex,
 			ContentIndex:   &currentReasoningContentIndex,
 			Text:           strPtr(finalReasoning),
 			Logprobs:       emptyLogprobs(),
@@ -2608,7 +2611,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			Type:           "response.content_part.done",
 			SequenceNumber: sequenceNumber,
 			ItemID:         currentReasoningID,
-			OutputIndex:    &outputIndex,
+			OutputIndex:    &reasoningOutputIndex,
 			ContentIndex:   &currentReasoningContentIndex,
 			Part:           &reasoningPart,
 		})
@@ -2624,7 +2627,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		sendSSEEvent(c, &schema.ORStreamEvent{
 			Type:           "response.output_item.done",
 			SequenceNumber: sequenceNumber,
-			OutputIndex:    &outputIndex,
+			OutputIndex:    &reasoningOutputIndex,
 			Item:           reasoningItem,
 		})
 		sequenceNumber++
@@ -2658,7 +2661,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		Type:           "response.output_text.done",
 		SequenceNumber: sequenceNumber,
 		ItemID:         currentMessageID,
-		OutputIndex:    &outputIndex,
+		OutputIndex:    &messageOutputIndex,
 		ContentIndex:   &currentContentIndex,
 		Text:           strPtr(result),
 		Logprobs:       logprobsPtr(mcpStreamLogprobs),
@@ -2671,7 +2674,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		Type:           "response.content_part.done",
 		SequenceNumber: sequenceNumber,
 		ItemID:         currentMessageID,
-		OutputIndex:    &outputIndex,
+		OutputIndex:    &messageOutputIndex,
 		ContentIndex:   &currentContentIndex,
 		Part:           &resultPart,
 	})
@@ -2683,7 +2686,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.output_item.done",
 		SequenceNumber: sequenceNumber,
-		OutputIndex:    &outputIndex,
+		OutputIndex:    &messageOutputIndex,
 		Item:           messageItem,
 	})
 	sequenceNumber++
@@ -2723,34 +2726,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	// Emit response.completed
 	now := time.Now().Unix()
 
-	// Collect final output items (reasoning first, then messages, then tool calls)
-	var finalOutputItems []schema.ORItemField
-	// Add reasoning item if it exists
-	if currentReasoningID != "" && finalReasoning != "" {
-		finalOutputItems = append(finalOutputItems, schema.ORItemField{
-			Type:    "reasoning",
-			ID:      currentReasoningID,
-			Status:  "completed",
-			Content: []schema.ORContentPart{makeOutputTextPart(finalReasoning)},
-		})
-	}
-	// Add message item
-	if len(collectedOutputItems) > 0 {
-		// Use collected items (may include reasoning already)
-		for _, item := range collectedOutputItems {
-			if item.Type == "message" {
-				finalOutputItems = append(finalOutputItems, item)
-			}
-		}
-	} else {
-		finalOutputItems = append(finalOutputItems, *messageItem)
-	}
-	// Add function_call items from fallback
-	for _, item := range collectedOutputItems {
-		if item.Type == "function_call" {
-			finalOutputItems = append(finalOutputItems, item)
-		}
-	}
+	// The final output array must use the indices announced in the stream.
+	// The message is opened first, followed by reasoning and fallback calls.
+	finalOutputItems := append([]schema.ORItemField{*messageItem}, collectedOutputItems...)
 	responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, finalOutputItems, &schema.ORUsage{
 		InputTokens:  noToolTokenUsage.Prompt,
 		OutputTokens: noToolTokenUsage.Completion,
