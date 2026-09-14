@@ -434,6 +434,33 @@ from VRAM on every registration and heartbeat. On unified-memory nodes, the
 available RAM and available VRAM values should therefore track each other
 closely; on discrete-GPU nodes they can change independently.
 
+### CPU telemetry
+
+Backend workers report host-wide CPU telemetry in `GET /api/nodes` and
+`GET /api/nodes/:id`:
+
+| Field | Meaning |
+|-------|---------|
+| `cpu_logical_cores` | Logical processor count, sampled at registration |
+| `cpu_usage_percent` | Utilization across the whole host, clamped to `0..100` |
+| `cpu_load_1` | One-minute system load average |
+
+Utilization and load are sampled at registration and again at each worker
+heartbeat (every 10 seconds by default). The frontend persists heartbeat
+samples on the normal heartbeat checkpoint cadence; CPU movement alone does
+not force an extra database write. If a sample fails, the worker omits all CPU
+fields and the frontend keeps the last successful reading.
+
+Workers from releases that predate CPU reporting remain compatible. Their
+`cpu_logical_cores` value is zero, which means unknown rather than a zero-core
+machine. Fleet capacity excludes those workers from CPU totals and reports
+them as unknown. The dashboard derives available CPU as idle logical-core
+equivalents:
+
+```
+idle cores = cpu_logical_cores * (1 - cpu_usage_percent / 100)
+```
+
 ### Node Labels
 
 Workers can declare labels at startup for scheduling constraints:
@@ -692,6 +719,10 @@ without waiting:
   those are hardware facts and a change to one is a real event
 - a free VRAM, free RAM or free disk reading that has moved more than 256 MiB, because
   the scheduler places against those figures
+
+CPU utilization and load follow the scheduled checkpoint instead of making a
+heartbeat material. They are dashboard observations and do not affect model
+placement, so persisting every fluctuation would defeat write suppression.
 
 Every figure is compared against the value **last written**, not against the previous
 beat. A worker reports its disk capacity on every single beat, so testing whether a

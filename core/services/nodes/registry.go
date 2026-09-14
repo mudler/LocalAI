@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -35,9 +36,12 @@ type BackendNode struct {
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
 	// reservation is only here to keep two scheduling decisions within the
 	// same heartbeat window from over-committing the same node.
-	ReservedVRAM uint64 `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
-	TotalRAM     uint64 `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
-	AvailableRAM uint64 `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
+	ReservedVRAM    uint64  `gorm:"column:reserved_vram;default:0" json:"reserved_vram"`
+	TotalRAM        uint64  `gorm:"column:total_ram" json:"total_ram"`         // Total system RAM in bytes (fallback when no GPU)
+	AvailableRAM    uint64  `gorm:"column:available_ram" json:"available_ram"` // Available system RAM in bytes
+	CPULogicalCores uint64  `gorm:"column:cpu_logical_cores;default:0" json:"cpu_logical_cores"`
+	CPUUsagePercent float64 `gorm:"column:cpu_usage_percent;default:0" json:"cpu_usage_percent"`
+	CPULoad1        float64 `gorm:"column:cpu_load_1;default:0" json:"cpu_load_1"`
 	// TotalDisk / AvailableDisk describe the filesystem that BACKS THE WORKER'S
 	// MODELS DIRECTORY, not the root filesystem: staged weights are written
 	// there, so that is the only mount whose free space decides whether a
@@ -107,6 +111,9 @@ const (
 	ColTotalVRAM           = "total_vram"
 	ColReservedVRAM        = "reserved_vram"
 	ColAvailableRAM        = "available_ram"
+	ColCPULogicalCores     = "cpu_logical_cores"
+	ColCPUUsagePercent     = "cpu_usage_percent"
+	ColCPULoad1            = "cpu_load_1"
 	ColTotalDisk           = "total_disk"
 	ColAvailableDisk       = "available_disk"
 	ColGPUVendor           = "gpu_vendor"
@@ -554,6 +561,8 @@ func capAvailable(reported, ceilingBytes uint64) uint64 {
 // nodes that were never approved stay in "pending".
 func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoApprove bool) error {
 	node.LastHeartbeat = time.Now()
+	hasCPUTelemetry := node.CPULogicalCores > 0 || node.CPUUsagePercent != 0 || node.CPULoad1 != 0
+	node.CPUUsagePercent = clampCPUUsage(node.CPUUsagePercent)
 
 	// Try to find existing node by name
 	var existing BackendNode
@@ -622,6 +631,20 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 				ColAvailableDisk: node.AvailableDisk,
 			}).Error; err != nil {
 			return fmt.Errorf("recording disk capacity for node %s: %w", node.Name, err)
+		}
+		// A successful CPU sample always reports logical cores. Use that as the
+		// presence signal so an omitted sample from an older or temporarily
+		// failing worker preserves the last reading, while a real 0% reading is
+		// still force-written despite GORM's struct zero-value suppression.
+		if hasCPUTelemetry {
+			if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+				Updates(map[string]any{
+					ColCPULogicalCores: node.CPULogicalCores,
+					ColCPUUsagePercent: node.CPUUsagePercent,
+					ColCPULoad1:        node.CPULoad1,
+				}).Error; err != nil {
+				return fmt.Errorf("recording CPU telemetry for node %s: %w", node.Name, err)
+			}
 		}
 		// Preserve auth references from existing record.
 		// GORM Updates(struct) skips zero-value fields, so the DB retains
@@ -1032,9 +1055,21 @@ type HeartbeatUpdate struct {
 	// AvailableDisk / TotalDisk describe the worker's models filesystem.
 	// Pointers so a worker that cannot read them omits the fields rather than
 	// reporting a zero the scheduler would act on.
-	AvailableDisk *uint64 `json:"available_disk,omitempty"`
-	TotalDisk     *uint64 `json:"total_disk,omitempty"`
-	GPUVendor     string  `json:"gpu_vendor,omitempty"`
+	AvailableDisk   *uint64  `json:"available_disk,omitempty"`
+	TotalDisk       *uint64  `json:"total_disk,omitempty"`
+	GPUVendor       string   `json:"gpu_vendor,omitempty"`
+	CPUUsagePercent *float64 `json:"cpu_usage_percent,omitempty"`
+	CPULoad1        *float64 `json:"cpu_load_1,omitempty"`
+}
+
+func clampCPUUsage(usage float64) float64 {
+	if math.IsNaN(usage) || usage < 0 {
+		return 0
+	}
+	if usage > 100 {
+		return 100
+	}
+	return usage
 }
 
 // Heartbeat updates the heartbeat timestamp and status for a node.
@@ -1089,6 +1124,12 @@ func (r *NodeRegistry) Heartbeat(ctx context.Context, nodeID string, update *Hea
 		}
 		if update.GPUVendor != "" {
 			updates[ColGPUVendor] = update.GPUVendor
+		}
+		if update.CPUUsagePercent != nil {
+			updates[ColCPUUsagePercent] = clampCPUUsage(*update.CPUUsagePercent)
+		}
+		if update.CPULoad1 != nil {
+			updates[ColCPULoad1] = *update.CPULoad1
 		}
 	}
 

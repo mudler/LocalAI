@@ -41,6 +41,20 @@ var _ = Describe("NodeRegistry", func() {
 	}
 
 	Describe("Register", func() {
+		It("persists CPU telemetry and clamps utilization", func() {
+			node := makeNode("cpu-worker", "10.0.0.3:50051", 0)
+			node.CPULogicalCores = 16
+			node.CPUUsagePercent = 140
+			node.CPULoad1 = 2.75
+
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			fetched, err := registry.GetByName(context.Background(), "cpu-worker")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.CPULogicalCores).To(Equal(uint64(16)))
+			Expect(fetched.CPUUsagePercent).To(Equal(float64(100)))
+			Expect(fetched.CPULoad1).To(Equal(2.75))
+		})
+
 		It("sets StatusPending when autoApprove is false", func() {
 			node := makeNode("worker-1", "10.0.0.1:50051", 8_000_000_000)
 			Expect(registry.Register(context.Background(), node, false)).To(Succeed())
@@ -59,6 +73,21 @@ var _ = Describe("NodeRegistry", func() {
 	})
 
 	Describe("Re-registration", func() {
+		It("persists CPU utilization clamped to zero", func() {
+			first := makeNode("cpu-reregister", "10.0.0.8:50051", 0)
+			first.CPUUsagePercent = 65
+			Expect(registry.Register(context.Background(), first, true)).To(Succeed())
+
+			second := makeNode("cpu-reregister", "10.0.0.8:50051", 0)
+			second.CPULogicalCores = 16
+			second.CPUUsagePercent = -5
+			Expect(registry.Register(context.Background(), second, true)).To(Succeed())
+
+			fetched, err := registry.GetByName(context.Background(), "cpu-reregister")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.CPUUsagePercent).To(Equal(float64(0)))
+		})
+
 		It("keeps a pending node pending on re-register with autoApprove=false", func() {
 			node := makeNode("re-pending", "10.0.0.3:50051", 4_000_000_000)
 			Expect(registry.Register(context.Background(), node, false)).To(Succeed())
