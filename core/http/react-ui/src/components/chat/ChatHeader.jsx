@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fillStyle } from '../home/memory'
 // eslint-disable-next-line no-unused-vars
@@ -94,6 +95,7 @@ export default function ChatHeader({
       )}
 
       <div className="cx-hdr">
+        <Link className="btn btn-secondary" to="/app/group-chat">{t('group.title', 'Group chat')}</Link>
         {onFind && (
           <button
             type="button"
