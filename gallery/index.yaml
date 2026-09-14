@@ -152,8 +152,8 @@
       use_tokenizer_template: true
   files:
     - filename: ds4flash.gguf
-      sha256: ""
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
+      sha256: ace1ba101460858290f102e6634d5660e1c25b43db3a18efaebd7a1bd3490f7f
 - name: "qwopus3.8-27b-flash"
   variants:
     - model: qwopus3.8-27b-flash-q8
@@ -198,11 +198,11 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.8-27B-Flash-MTP-Q4_K_M/Qwopus3.8-27B-Flash-MTP-Q4_K_M.gguf
-      sha256: 2b9a335bd33bb977d3127062061c12cc94f37ceef1850d372317fbf4ee89d9c5
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/Qwopus3.8-27B-Flash-MTP-Q4_K_M.gguf
+      sha256: 1b76ad1596d6afc0b6e38a2b45b404462920739bd3087960b7a18a74ca938a74
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
-      sha256: be3f444ecaedf084fd19399ba18cefcbbe3789bb81f4ad5ed67c91a1a3f48a67
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
+      sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
 - name: "qwopus3.8-27b-flash-q8"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -245,11 +245,11 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.8-27B-Flash-MTP-Q8_0/Qwopus3.8-27B-Flash-MTP-Q8_0.gguf
-      sha256: a97de033ea60066a1941fe4dfb2e631b390cbc7c7563cea2446b7f08065228ec
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/Qwopus3.8-27B-Flash-MTP-Q8_0.gguf
+      sha256: 98e47b3da5f41c1753a45dbbc4d98e94fd05101c1ab5425d341ff0e58fe2e292
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
-      sha256: be3f444ecaedf084fd19399ba18cefcbbe3789bb81f4ad5ed67c91a1a3f48a67
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
+      sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
 - name: "qwen3.8-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1818,7 +1818,7 @@
   files:
     - filename: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q4_K_M.gguf
       uri: huggingface://bloomer010/Ling-3.0-tiny-GGUF/Ling-3.0-tiny-Q4_K_M.gguf
-      sha256: 23e0f9e8f5ad8c44079b80a2a6c98fc507d2471fd906079467cca73d9fd81e10
+      sha256: a21f717779203d86b53996239c4903941858b938c50e85b03e6a981132b5621a
 - !!merge <<: *ling-3-0-tiny
   name: "ling-3.0-tiny-q8"
   variants: []
@@ -1846,7 +1846,7 @@
   files:
     - filename: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q8_0.gguf
       uri: huggingface://bloomer010/Ling-3.0-tiny-GGUF/Ling-3.0-tiny-Q8_0.gguf
-      sha256: 326221bdef72525bd6178b072d3827cd5fb5248a55e8c44eb400417f401733bc
+      sha256: ee5ecf3241602f4f8ba8486a2cb4645ab35349a616869a4fcd1bb72a4a5037e6
 - &granite-4-2-3b
   name: "granite-4.2-3b-q4"
   variants:
@@ -3889,7 +3889,7 @@
   files:
     - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q5_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q5_K_XL.gguf
-      sha256: 83278fd1ea9923edb45cf6d373a8aa6475fb1f855795e085b9e6252bc53f24fa
+      sha256: d48801f2b01fe34280cbdc27e6fdad2a12ca2b28b1ec0d5bd344bff77ac7440b
     - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
@@ -3940,7 +3940,7 @@
   files:
     - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q6_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q6_K_XL.gguf
-      sha256: a13a71ecfd00779fa3e0071674da61afbdffd42050f22173f4142989975573ba
+      sha256: ebf721ae2297242c254befdc6ac413240668c349f85b16c588d0b1ba2ecb085e
     - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
@@ -3991,7 +3991,7 @@
   files:
     - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
-      sha256: 8384abe448e6159b1d43249be9c51f68fe5771e962bb39e3ee89ad1215385310
+      sha256: bc3006e14a0b44837beb4577afce13c7016de1e2d163b0bfdb181f93e981e34f
     - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
@@ -4666,7 +4666,6 @@
     - filename: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q4_K_M.gguf
       uri: huggingface://XHToken/Spark-X2.5-1.7B-GGUF/Spark-X2.5-1.7B-Q4_K_M.gguf
       sha256: 902bde2522394954ac17821b3e5fd0df02defbc6944f122253f2580acf0503f4
-
 - !!merge <<: *spark-x2-5-1-7b
   name: "spark-x2.5-1.7b-q8"
   variants: []
@@ -4694,7 +4693,6 @@
     - filename: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q8_0.gguf
       uri: huggingface://XHToken/Spark-X2.5-1.7B-GGUF/Spark-X2.5-1.7B-Q8_0.gguf
       sha256: cd77c03185a834bb1162a4b7713520be5838058bfc54873645beff470bb24442
-
 - &spark-x2-5-4b
   name: "spark-x2.5-4b-q4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -21459,11 +21457,11 @@
       model: LFM2.5-VL-3B-Q4_K_M.gguf
   files:
     - filename: LFM2.5-VL-3B-Q4_K_M.gguf
-      sha256: 83c18dfba02c75769cdd63f73e37c343400e82d434ff1b14bcc1cb02fcf2f5f2
       uri: huggingface://LiquidAI/LFM2.5-VL-3B-GGUF/LFM2.5-VL-3B-Q4_K_M.gguf
+      sha256: 2436cf4bbac9a16e5dfc7799a140e583c2bc15958f4b24a391f8a8b10ecb8884
     - filename: mmproj-LFM2.5-VL-3B-F16.gguf
-      sha256: 6f912eb9fcef619b31c9afff7662a222da9ce6db89327eb465dbafd2fb6a2d7c
       uri: huggingface://LiquidAI/LFM2.5-VL-3B-GGUF/mmproj-LFM2.5-VL-3B-F16.gguf
+      sha256: 74c4b2c095913be3cccce10aefe3b5d6f73aa7b4a15d49a8b68d97c229f8b922
 - !!merge <<: *lfm2-5-vl-3b
   name: lfm2.5-vl-3b-q8
   variants: []
@@ -21477,11 +21475,11 @@
       model: LFM2.5-VL-3B-Q8_0.gguf
   files:
     - filename: LFM2.5-VL-3B-Q8_0.gguf
-      sha256: 1b88c0748e0386181c2be6b41463117afa58b51c5fac5a83976bff1500ae2d58
       uri: huggingface://LiquidAI/LFM2.5-VL-3B-GGUF/LFM2.5-VL-3B-Q8_0.gguf
+      sha256: 69b49ceddf61c65cce4a8938a0791c364a8d38cd2d87db2ca7ea359232a8b17e
     - filename: mmproj-LFM2.5-VL-3B-F16.gguf
-      sha256: 6f912eb9fcef619b31c9afff7662a222da9ce6db89327eb465dbafd2fb6a2d7c
       uri: huggingface://LiquidAI/LFM2.5-VL-3B-GGUF/mmproj-LFM2.5-VL-3B-F16.gguf
+      sha256: 74c4b2c095913be3cccce10aefe3b5d6f73aa7b4a15d49a8b68d97c229f8b922
 - name: lfm2-1.2b
   urls:
     - https://huggingface.co/LiquidAI/LFM2-1.2B
