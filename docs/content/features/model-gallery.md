@@ -821,3 +821,27 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+### Genesis Hermes Final
+
+Install the Qwen3.6-35B-A3B Genesis Hermes Final model for text chat,
+function calling, and image input:
+
+```bash
+local-ai models install qwen3.6-35b-a3b-genesis-hermes-final
+```
+
+The gallery offers APEX, APEX Compact, and Q8_K_P builds for llama.cpp.
+APEX and APEX Compact also have variants with multi-token prediction (MTP)
+enabled. Each build includes the F16 vision projector and uses the embedded
+Jinja chat template. LocalAI selects a variant according to available memory
+and serving features. To select the plain APEX build explicitly:
+
+```bash
+local-ai models install --variant qwen3.6-35b-a3b-genesis-hermes-final qwen3.6-35b-a3b-genesis-hermes-final
+```
+
+These entries set a 131,072-token context, following the
+[model card's guidance](https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF)
+for thinking mode. This context requires additional memory beyond the weights.
+The uncensored model uses the Apache-2.0 license.
