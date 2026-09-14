@@ -18,6 +18,38 @@ const baseModels = [
 ]
 
 test.describe('Nodes fleet dashboard', () => {
+  test('integrates the compact Operate navigation into the primary sidebar', async ({ page }) => {
+    await mockNodes(page, [baseNodes[0]])
+    await page.goto('/app/nodes')
+
+    const integratedNav = page.getByTestId('nodes-operate-navigation')
+    await expect(integratedNav).toBeVisible({ timeout: 15_000 })
+    await expect(integratedNav.locator('.sidebar-section-title')).toHaveText('Operate')
+    for (const path of ['/app/operate', '/app/nodes', '/app/activity', '/app/backends', '/app/settings']) {
+      await expect(integratedNav.locator(`a[href="${path}"]`)).toBeVisible()
+    }
+    await expect(page.locator('.sidebar-nav a[href="/app/models"]')).toBeVisible()
+    await expect(integratedNav.locator('a[href="/app/nodes"]')).toHaveClass(/active/)
+    await expect(page.locator('.console-layout--nodes > .console-rail')).toBeHidden()
+
+    await page.goto('/app/settings')
+    await expect(page.getByTestId('nodes-operate-navigation')).toHaveCount(0)
+    await expect(page.locator('.console-rail .console-rail-header', { hasText: 'Operate' })).toBeVisible()
+  })
+
+  test('keeps integrated Operate destinations in the mobile navigation drawer', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await mockNodes(page, [baseNodes[0]])
+    await page.goto('/app/nodes')
+
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    const integratedNav = page.getByTestId('nodes-operate-navigation')
+    await expect(integratedNav).toBeVisible({ timeout: 15_000 })
+    await expect(integratedNav.getByRole('link', { name: 'Nodes' })).toBeVisible()
+    await expect(integratedNav.getByRole('link', { name: 'Activity' })).toBeVisible()
+    await expect(integratedNav.getByRole('link', { name: 'Settings' })).toBeVisible()
+  })
+
   test('shows aggregate health, capacity, attention filtering, search, sorting, and grouping', async ({ page }) => {
     await mockNodes(page)
     await page.goto('/app/nodes')

@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
-import { consoles, firstVisiblePath, consolePaths } from './console/consoleConfig'
+import { consoles, firstVisiblePath, consolePaths, isConsoleItemVisible } from './console/consoleConfig'
 import { useOperations } from '../hooks/useOperations'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
@@ -32,6 +32,18 @@ const sections = [
     ],
   },
 ]
+
+// Nodes uses the full page width for its fleet workbench, so ConsoleLayout
+// deliberately removes the secondary Operate rail there. Keep the small set
+// of destinations from the approved fleet navigation in the primary sidebar
+// instead. Models already has a canonical top-level entry above these items.
+const nodesOperatePaths = new Set([
+  '/app/operate',
+  '/app/nodes',
+  '/app/activity',
+  '/app/backends',
+  '/app/settings',
+])
 
 function NavItem({ item, onClose, collapsed }) {
   const { t } = useTranslation('nav')
@@ -244,6 +256,30 @@ export default function Sidebar({ isOpen, onClose }) {
             if (!target) return null
             const active = consolePaths(config).some(p => location.pathname.startsWith(p))
             const label = t(config.titleKey)
+
+            if (config.id === 'operate' && location.pathname === '/app/nodes') {
+              const items = config.groups
+                .flatMap(group => group.items)
+                .filter(item => item.path && nodesOperatePaths.has(item.path))
+                // Reaching this admin-only route is itself sufficient proof
+                // that Nodes belongs in the local navigation. The feature
+                // probe may still be resolving (or may report disabled while
+                // the page explains how to enable it), but the current-page
+                // link must never disappear from its own submenu.
+                .filter(item => item.path === '/app/nodes' || isConsoleItemVisible(item, auth))
+
+              return (
+                <div key={config.id} className="sidebar-section sidebar-console-integrated" data-testid="nodes-operate-navigation">
+                  <div className="sidebar-section-title">{label}</div>
+                  <div className="sidebar-section-items">
+                    {items.map(item => (
+                      <NavItem key={item.path} item={item} onClose={onClose} collapsed={collapsed} />
+                    ))}
+                  </div>
+                </div>
+              )
+            }
+
             return (
               <div key={config.id} className="sidebar-section">
                 <NavLink
