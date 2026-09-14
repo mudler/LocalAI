@@ -41,7 +41,6 @@ define bonsai-build
 	# and are applied by apply-patches.sh below.
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build purge
-	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-tts-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-$(1)-build/grpc-server.cpp
 	$(info $(GREEN)I bonsai build info:$(1)$(RESET))
@@ -80,7 +79,6 @@ bonsai-cpu-all:
 	# and are applied by apply-patches.sh below.
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/patches
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build purge
-	bash $(CURRENT_MAKEFILE_DIR)/patch-grpc-server.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-score-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp
 	bash $(LLAMA_CPP_DIR)/disable-tts-task.sh $(CURRENT_MAKEFILE_DIR)/../bonsai-cpu-all-build/grpc-server.cpp
 	$(info $(GREEN)I bonsai build info:cpu-all-variants$(RESET))
@@ -96,10 +94,10 @@ bonsai-cpu-all:
 	@echo "Collected ggml shared backends:" && ls -la ggml-shared-libs/
 
 bonsai-grpc:
-	$(call bonsai-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target rpc-server)
+	$(call bonsai-build,grpc,-DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off,--target grpc-server --target ggml-rpc-server)
 
 bonsai-rpc-server: bonsai-grpc
-	cp -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-grpc-build/llama.cpp/build/bin/rpc-server bonsai-rpc-server
+	cp -rf $(CURRENT_MAKEFILE_DIR)/../bonsai-grpc-build/llama.cpp/build/bin/ggml-rpc-server bonsai-rpc-server
 
 package:
 	bash package.sh
