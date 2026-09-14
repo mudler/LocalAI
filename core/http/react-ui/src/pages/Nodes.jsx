@@ -289,7 +289,7 @@ export default function Nodes() {
             tabIndex={workbenchView === 'models' ? 0 : -1} className={workbenchView === 'models' ? 'is-active' : ''} onKeyDown={handleTabKeyDown} onClick={() => activateWorkbench('models')}>Running models <span>{modelLoadState === 'loaded' ? groupedModels.length : '—'}</span></button>
         </div>
         <div className="fleet-workbench__layout">
-          {workbenchView === 'nodes' ? <div id="fleet-nodes-panel" className="fleet-workbench__fleet" role="tabpanel" aria-labelledby="fleet-nodes-tab">
+          <div id="fleet-nodes-panel" className="fleet-workbench__fleet" role="tabpanel" aria-labelledby="fleet-nodes-tab" hidden={workbenchView !== 'nodes'}>
           <div className="fleet-toolbar">
             <input className="input fleet-toolbar__search" type="search" aria-label="Search nodes" placeholder="Search name, address, label…" value={query} onChange={event => setQuery(event.target.value)} />
             <FleetSelect label="Filter status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{['healthy', 'draining', 'pending', 'unhealthy', 'offline'].map(value => <option key={value} value={value}>{value}</option>)}</FleetSelect>
@@ -307,17 +307,18 @@ export default function Nodes() {
           <NodeFleetTable nodes={pagination.items} selectedIds={selectedIds} onSelectionChange={setSelectedIds} onInspect={openNodeInspector} sort={sort} onSortChange={setSort} groupBy={groupBy}
             onApprove={id => actOnNode('approve', id, 'Node approved')} />
           <div className="fleet-pagination"><span>Page {pagination.page} of {pagination.totalPages}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Previous page" disabled={pagination.page === 1} onClick={() => setPage(value => value - 1)}>Previous</button><button type="button" className="btn btn-secondary btn-sm" aria-label="Next page" disabled={pagination.page === pagination.totalPages} onClick={() => setPage(value => value + 1)}>Next</button></div>
-          </div> : <div id="fleet-models-panel" className="fleet-workbench__fleet model-workbench" role="tabpanel" aria-labelledby="fleet-models-tab">
+          </div>
+          <div id="fleet-models-panel" className="fleet-workbench__fleet model-workbench" role="tabpanel" aria-labelledby="fleet-models-tab" hidden={workbenchView !== 'models'}>
             <div className="model-workbench__scope"><div><strong>Running models</strong><span>Current loaded replicas on healthy nodes</span></div>{modelLoadState === 'loaded' && <span aria-live="polite">{orderedModels.length} model{orderedModels.length === 1 ? '' : 's'} in view</span>}</div>
             {modelLoadState === 'loading' && <div className="model-workbench__state" role="status"><LoadingSpinner size="sm" /><strong>Loading running models…</strong><span>Reading the controller's current replica inventory.</span></div>}
             {modelLoadState === 'error' && <div className="model-workbench__state model-workbench__state--error" role="alert"><i className="fas fa-triangle-exclamation" aria-hidden="true" /><strong>Unable to load running models</strong><span>{modelError}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Retry loading running models" onClick={() => { modelRequestStarted.current = false; void loadModels() }}>Retry</button></div>}
             {modelLoadState === 'loaded' && groupedModels.length === 0 && <div className="model-workbench__state"><i className="fas fa-layer-group" aria-hidden="true" /><strong>No running models</strong><span>Loaded replicas on healthy nodes will appear here.</span></div>}
             {modelLoadState === 'loaded' && groupedModels.length > 0 && <>
               <div className="model-toolbar"><input className="input fleet-toolbar__search" type="search" aria-label="Search running models" placeholder="Search model or backend…" value={modelQuery} onChange={event => setModelQuery(event.target.value)} /></div>
-              <ModelFleetTable models={modelPagination.items} selectedName={inspectedModelName} onInspect={openModelInspector} sort={modelSort} onSortChange={setModelSort} />
+              <ModelFleetTable models={modelPagination.items} selectedName={inspectedModelName} inspectorOpen={!!inspectedModel && !drilledNode} onInspect={openModelInspector} sort={modelSort} onSortChange={setModelSort} />
               <div className="fleet-pagination"><span>Page {modelPagination.page} of {modelPagination.totalPages}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Previous model page" disabled={modelPagination.page === 1} onClick={() => setModelPage(value => value - 1)}>Previous</button><button type="button" className="btn btn-secondary btn-sm" aria-label="Next model page" disabled={modelPagination.page === modelPagination.totalPages} onClick={() => setModelPage(value => value + 1)}>Next</button></div>
             </>}
-          </div>}
+          </div>
           {workbenchView === 'nodes' && <NodeInspector node={inspectedNode} open={!!inspectedNode} onClose={closeNodeInspector}
             onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />
           }

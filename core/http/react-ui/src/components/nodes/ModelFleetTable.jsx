@@ -11,7 +11,7 @@ function SortButton({ column, label, sort, onSortChange }) {
   )
 }
 
-export default function ModelFleetTable({ models, selectedName, onInspect, sort, onSortChange }) {
+export default function ModelFleetTable({ models, selectedName, inspectorOpen, onInspect, sort, onSortChange }) {
   return (
     <div className="fleet-table-wrap model-fleet-table-wrap">
       <table className="fleet-table model-fleet-table" aria-label="Running models">
@@ -23,11 +23,14 @@ export default function ModelFleetTable({ models, selectedName, onInspect, sort,
           <th>Backends</th>
           <th><SortButton column="last_used" label="Last used" sort={sort} onSortChange={onSortChange} /></th>
         </tr></thead>
-        <tbody>{models.map(model => (
-          <tr key={model.model_name} className={`fleet-table__row${selectedName === model.model_name ? ' is-selected' : ''}`}>
+        <tbody>{models.map(model => {
+          const selected = selectedName === model.model_name
+          const expanded = selected && inspectorOpen
+          return (
+          <tr key={model.model_name} className={`fleet-table__row${selected ? ' is-selected' : ''}`}>
             <td><button type="button" className="fleet-table__node" aria-label={`Inspect ${model.model_name}`}
-              aria-selected={selectedName === model.model_name} aria-expanded={selectedName === model.model_name}
-              aria-current={selectedName === model.model_name ? 'true' : undefined} aria-controls="model-inspector"
+              aria-pressed={selected} aria-expanded={expanded} aria-current={selected ? 'true' : undefined}
+              aria-controls={expanded ? 'model-inspector' : undefined}
               onClick={event => onInspect(model, event.currentTarget)}>{model.model_name}</button></td>
             <td>{model.replica_count}</td>
             <td>{model.node_count}</td>
@@ -35,7 +38,8 @@ export default function ModelFleetTable({ models, selectedName, onInspect, sort,
             <td><div className="model-backend-list">{model.backend_types.length ? model.backend_types.map(backend => <span key={backend}>{backend}</span>) : <span className="fleet-table__unknown">Unknown</span>}</div></td>
             <td>{model.last_used ? timeAgo(model.last_used) : <span className="fleet-table__unknown">Never</span>}</td>
           </tr>
-        ))}</tbody>
+          )
+        })}</tbody>
       </table>
     </div>
   )
