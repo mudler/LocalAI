@@ -560,9 +560,14 @@ test.describe('Nodes fleet dashboard', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"message":"ok"}' })
     })
     await page.goto('/app/nodes')
-    await page.getByRole('tab', { name: 'Running models' }).click()
+    const modelsTab = page.getByRole('tab', { name: 'Running models' })
+    await modelsTab.click()
 
     const trigger = page.getByRole('button', { name: 'Actions for Llama 3.2' })
+    await expect(trigger).toBeVisible()
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    await expect(modelsTab).toBeFocused()
+
     await trigger.focus()
     await trigger.press('Enter')
     const menu = page.getByRole('menu', { name: 'Llama 3.2 actions' })
@@ -583,6 +588,17 @@ test.describe('Nodes fleet dashboard', () => {
     const dialog = page.getByRole('alertdialog')
     await expect(dialog).toContainText('Stop Llama 3.2?')
     await expect(dialog).toContainText('Llama 3.2 has 3 loaded replicas across 2 unique nodes. This will stop all loaded placements on those nodes.')
+    await expect(dialog.getByRole('button', { name: 'Stop model' })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(dialog.getByRole('button', { name: 'Stop model' })).toBeFocused()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(trigger).toBeFocused()
+
+    await trigger.click()
+    await menu.getByRole('menuitem', { name: 'Stop model…' }).click()
     await dialog.getByRole('button', { name: 'Stop model' }).evaluate(button => {
       button.click()
       button.click()

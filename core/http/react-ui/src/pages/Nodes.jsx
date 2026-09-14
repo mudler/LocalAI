@@ -108,6 +108,7 @@ export default function Nodes() {
   const [returnFocusNodeId, setReturnFocusNodeId] = useState(null)
   const modelRequestStarted = useRef(false)
   const modelStopRunningRef = useRef(false)
+  const modelStopInvokerRef = useRef(null)
   const nodesTabRef = useRef(null)
   const modelsTabRef = useRef(null)
   const nodeInvokerRef = useRef(null)
@@ -212,6 +213,16 @@ export default function Nodes() {
       setStoppingModelName(null)
       modelStopRunningRef.current = false
     })()
+  }
+
+  const promptStopModel = (model, invoker) => {
+    modelStopInvokerRef.current = invoker
+    setConfirmStopModel(model)
+  }
+
+  const cancelStopModel = () => {
+    setConfirmStopModel(null)
+    restoreFocus(modelStopInvokerRef)
   }
 
   const activateWorkbench = view => {
@@ -356,7 +367,7 @@ export default function Nodes() {
             {modelLoadState === 'loaded' && groupedModels.length > 0 && <>
               <div className="model-toolbar"><input className="input fleet-toolbar__search" type="search" aria-label="Search running models" placeholder="Search model or backend…" value={modelQuery} onChange={event => setModelQuery(event.target.value)} /></div>
               <ModelFleetTable models={modelPagination.items} selectedName={inspectedModelName} inspectorOpen={!!inspectedModel && !drilledNode} onInspect={openModelInspector}
-                onStop={setConfirmStopModel} stoppingName={stoppingModelName} sort={modelSort} onSortChange={setModelSort} />
+                onStop={promptStopModel} stoppingName={stoppingModelName} sort={modelSort} onSortChange={setModelSort} />
               <div className="fleet-pagination"><span>Page {modelPagination.page} of {modelPagination.totalPages}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Previous model page" disabled={modelPagination.page === 1} onClick={() => setModelPage(value => value - 1)}>Previous</button><button type="button" className="btn btn-secondary btn-sm" aria-label="Next model page" disabled={modelPagination.page === modelPagination.totalPages} onClick={() => setModelPage(value => value + 1)}>Next</button></div>
             </>}
           </div>
@@ -374,7 +385,7 @@ export default function Nodes() {
       <ConfirmDialog open={confirmRemove} title="Remove selected nodes" message={`Remove ${selectedIds.size} selected nodes from the cluster?`} confirmLabel="Remove nodes" pendingLabel="Removing…" pending={bulkRunning} danger onConfirm={() => runBulk('delete')} onCancel={() => setConfirmRemove(false)} />
       <ConfirmDialog open={!!confirmStopModel} title={confirmStopModel ? `Stop ${confirmStopModel.model_name}?` : 'Stop model?'}
         message={confirmStopModel ? `${confirmStopModel.model_name} has ${confirmStopModel.replica_count} loaded replica${confirmStopModel.replica_count === 1 ? '' : 's'} across ${confirmStopModel.node_count} unique node${confirmStopModel.node_count === 1 ? '' : 's'}. This will stop all loaded placements on those nodes.` : ''}
-        confirmLabel="Stop model" pendingLabel="Stopping…" pending={!!stoppingModelName} danger onConfirm={stopModel} onCancel={() => setConfirmStopModel(null)} />
+        confirmLabel="Stop model" pendingLabel="Stopping…" pending={!!stoppingModelName} danger onConfirm={stopModel} onCancel={cancelStopModel} />
     </div>
   )
 }

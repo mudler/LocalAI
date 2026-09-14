@@ -50,7 +50,7 @@ export default function ModelFleetTable({ models, selectedName, inspectorOpen, o
                   label: stoppingName === model.model_name ? 'Stopping…' : 'Stop model…',
                   danger: true,
                   disabled: !!stoppingName,
-                  onClick: () => onStop(model),
+                  onClick: invoker => onStop(model, invoker),
                 }]}
               />
             </td>

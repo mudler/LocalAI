@@ -71,7 +71,7 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
       const item = interactive[activeIdx]
       if (item && !item.disabled) {
         close()
-        item.onClick?.()
+        item.onClick?.(triggerRef.current)
       }
     }
   }
@@ -136,7 +136,7 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
                   e.stopPropagation()
                   if (item.disabled) return
                   close()
-                  item.onClick?.()
+                  item.onClick?.(triggerRef.current)
                 }}
               >
                 {item.icon && <i className={`fas ${item.icon} action-menu__icon`} aria-hidden="true" />}
