@@ -90,6 +90,21 @@ temperature 1, top_k 64, and top_p 0.95. They are separate from the
 existing QAT builds. See the [source model](https://huggingface.co/google/gemma-4-12B-it)
 and [GGUF files](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF).
 
+### Qwen3.8 9B Distill quantizations
+
+The text-only Qwen3.8 9B Distill entry offers Q4_K_M, Q5_K_M, Q6_K, and
+Q8_0 GGUF builds for llama.cpp. Select Q5 or Q6 explicitly with:
+
+```bash
+local-ai models install qwen3.8-9b-distill-q4 --variant qwen3.8-9b-distill-q5
+local-ai models install qwen3.8-9b-distill-q4 --variant qwen3.8-9b-distill-q6
+```
+
+All four builds use the embedded chat template, a 32,768-token context,
+and the same sampling defaults. See the
+[GGUF repository](https://huggingface.co/empero-ai/Qwen3.8-9B-Distill-GGUF)
+for the published quantizations.
+
 ## Add other galleries
 
 You can add other galleries by:
