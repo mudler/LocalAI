@@ -172,7 +172,12 @@ func (a *RemoteUnloaderAdapter) UnloadRemoteModelContext(ctx context.Context, mo
 	}
 
 	var unloadErr error
+	seenNodeIDs := make(map[string]struct{}, len(nodes))
 	for _, node := range nodes {
+		if _, seen := seenNodeIDs[node.ID]; seen {
+			continue
+		}
+		seenNodeIDs[node.ID] = struct{}{}
 		xlog.Info("Sending NATS backend.stop to node", "model", modelName, "node", node.Name, "nodeID", node.ID, "force", force)
 		if err := a.stopBackend(node.ID, modelName, force); err != nil {
 			xlog.Warn("Failed to send backend.stop", "node", node.Name, "error", err)

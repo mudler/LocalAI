@@ -170,22 +170,33 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 	// Mark the stop as intentional so the exit-watcher logs it as an
 	// expected stop, not a crash (signal-terminated children report -1).
 	ml.stoppingProcs.Store(process, struct{}{})
-	err := process.Stop()
-	if err != nil {
+	var localErr error
+	if err := process.Stop(); err != nil {
 		xlog.Error("(deleteProcess) error while deleting process", "error", err, "model", s)
 		if !process.IsAlive() {
 			// A concurrently crashed/already-reaped process can no longer own
 			// resources even if Stop could not read or signal its PID.
 			store.Delete(s)
 			ml.cleanupProcessRuntime(process)
-			return nil
+		} else {
+			localErr = err
 		}
-		return err
+	} else {
+		store.Delete(s)
+		ml.cleanupProcessRuntime(process)
 	}
 
-	store.Delete(s)
-	ml.cleanupProcessRuntime(process)
-	return nil
+	// A model can be resident on this frontend and on workers at the same
+	// time. Always attempt the remote half after the local half so a failure in
+	// either location does not leave the other placements running.
+	var remoteErr error
+	if remoteUnloader != nil {
+		remoteErr = unloadRemote(ctx, remoteUnloader, s, force)
+		if remoteErr != nil {
+			remoteErr = fmt.Errorf("unloading remote placements for model %q: %w", s, remoteErr)
+		}
+	}
+	return errors.Join(localErr, remoteErr)
 }
 func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 	var err error = nil
