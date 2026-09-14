@@ -14,6 +14,8 @@ test.describe('Nodes fleet roster', () => {
     ])
     await page.goto('/app/nodes')
     await expect(page.getByRole('table', { name: 'Fleet nodes' })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('tab', { name: 'Nodes' })).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('tab', { name: 'Nodes' }).click()
     await expect(page.getByRole('row', { name: /alpha/ })).toContainText('3')
     expect(requests.some(url => url.includes('/api/nodes/models'))).toBe(false)
     expect(requests.some(url => /\/api\/nodes\/[^/]+\/backends/.test(url))).toBe(false)

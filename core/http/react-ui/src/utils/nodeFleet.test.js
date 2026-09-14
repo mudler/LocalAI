@@ -2,13 +2,91 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  filterModels,
   filterNodes,
+  groupModels,
   groupNodes,
+  paginateModels,
   paginateNodes,
   runBounded,
+  sortModels,
   sortNodes,
   summarizeFleet,
 } from './nodeFleet.js'
+
+const modelRows = [
+  { id: 'r1', node_id: 'n1', model_name: 'Llama 3.2', replica_index: 0, address: '10.0.0.1:50051', in_flight: 2, backend_type: 'llama-cpp', last_used: '2026-09-14T10:00:00Z' },
+  { id: 'r2', node_id: 'n1', model_name: 'Llama 3.2', replica_index: 1, address: '10.0.0.1:50052', in_flight: -4, backend_type: 'llama-cpp', last_used: 'invalid' },
+  { id: 'r3', node_id: 'n2', model_name: 'Llama 3.2', replica_index: 0, address: '10.0.0.2:50051', in_flight: 3.8, backend_type: ' vllm ', last_used: '2026-09-14T11:00:00Z' },
+  { id: 'r4', node_id: '', model_name: 'Whisper', replica_index: 0, address: '', in_flight: Number.NaN, backend_type: '', last_used: null },
+]
+
+test('groups model replicas across nodes and normalizes defensive aggregate values', () => {
+  const grouped = groupModels(modelRows)
+
+  assert.equal(grouped.length, 2)
+  assert.deepEqual(grouped[0], {
+    model_name: 'Llama 3.2',
+    replicas: modelRows.slice(0, 3),
+    replica_count: 3,
+    node_count: 2,
+    in_flight: 5,
+    backend_types: ['llama-cpp', 'vllm'],
+    last_used: '2026-09-14T11:00:00Z',
+  })
+  assert.deepEqual(grouped[1], {
+    model_name: 'Whisper',
+    replicas: [modelRows[3]],
+    replica_count: 1,
+    node_count: 0,
+    in_flight: 0,
+    backend_types: [],
+    last_used: null,
+  })
+})
+
+test('ignores malformed model rows while preserving valid replicas and input order', () => {
+  const input = [null, {}, { model_name: '  ' }, ...modelRows]
+  const original = [...input]
+
+  assert.deepEqual(groupModels(input).flatMap(model => model.replicas), modelRows)
+  assert.deepEqual(input, original)
+  assert.deepEqual(groupModels(null), [])
+})
+
+test('filters grouped models by name and backend type case-insensitively', () => {
+  const grouped = groupModels(modelRows)
+
+  assert.deepEqual(filterModels(grouped, 'LLAMA').map(model => model.model_name), ['Llama 3.2'])
+  assert.deepEqual(filterModels(grouped, 'VLLM').map(model => model.model_name), ['Llama 3.2'])
+  assert.equal(filterModels(grouped, '').length, 2)
+})
+
+test('sorts grouped models stably across every roster column without mutation', () => {
+  const input = [
+    { model_name: 'Zulu', replica_count: 2, node_count: 1, in_flight: 4, last_used: null },
+    { model_name: 'Alpha', replica_count: 2, node_count: 2, in_flight: 1, last_used: '2026-09-14T09:00:00Z' },
+    { model_name: 'Beta', replica_count: 1, node_count: 3, in_flight: 1, last_used: '2026-09-14T10:00:00Z' },
+  ]
+  const original = [...input]
+
+  assert.deepEqual(sortModels(input, { key: 'replica_count', direction: 'desc' }).map(model => model.model_name), ['Alpha', 'Zulu', 'Beta'])
+  assert.deepEqual(sortModels(input, { key: 'node_count', direction: 'desc' }).map(model => model.model_name), ['Beta', 'Alpha', 'Zulu'])
+  assert.deepEqual(sortModels(input, { key: 'in_flight', direction: 'asc' }).map(model => model.model_name), ['Alpha', 'Beta', 'Zulu'])
+  assert.deepEqual(sortModels(input, { key: 'last_used', direction: 'desc' }).map(model => model.model_name), ['Beta', 'Alpha', 'Zulu'])
+  assert.deepEqual(input, original)
+})
+
+test('paginates grouped models at 50 rows and clamps after filtering', () => {
+  const input = Array.from({ length: 1000 }, (_, index) => ({ model_name: `model-${String(index).padStart(4, '0')}` }))
+  const page = paginateModels(input, 20)
+
+  assert.equal(page.pageSize, 50)
+  assert.equal(page.totalPages, 20)
+  assert.equal(page.items.length, 50)
+  assert.equal(page.items[0].model_name, 'model-0950')
+  assert.equal(paginateModels(input.slice(0, 7), 20).page, 1)
+})
 
 const nodes = [
   {

@@ -56,11 +56,11 @@ export default function NodeFleetTable({ nodes, selectedIds, onSelectionChange, 
             const groupIds = group.nodes.map(node => node.id)
             const groupSelected = groupIds.filter(id => selectedIds.has(id)).length
             const rows = group.nodes.map(node => (
-              <tr key={node.id} className={`fleet-table__row${selectedIds.has(node.id) ? ' is-selected' : ''}`} tabIndex="0" onClick={() => onInspect(node)}
-                onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onInspect(node) } }}>
+              <tr key={node.id} className={`fleet-table__row${selectedIds.has(node.id) ? ' is-selected' : ''}`} tabIndex="0" onClick={event => onInspect(node, event.currentTarget)}
+                onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onInspect(node, event.currentTarget) } }}>
                 <td onClick={event => event.stopPropagation()}><input type="checkbox" aria-label={`Select ${node.name}`} checked={selectedIds.has(node.id)}
                   onChange={event => setMany([node.id], event.target.checked)} /></td>
-                <td><button type="button" className="fleet-table__node" aria-label={`Inspect ${node.name}`} onClick={event => { event.stopPropagation(); onInspect(node) }}>{node.name}</button><span>{node.address || 'No address'}</span></td>
+                <td><button type="button" className="fleet-table__node" aria-label={`Inspect ${node.name}`} onClick={event => { event.stopPropagation(); onInspect(node, event.currentTarget) }}>{node.name}</button><span>{node.address || 'No address'}</span></td>
                 <td><StatusPill status={node.status} /></td>
                 <td>{node.node_type || 'backend'}</td>
                 <td><MetricCell total={node.total_vram} available={node.available_vram} tone="vram" /></td>

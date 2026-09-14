@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import StatusPill from './StatusPill'
 import { formatBytes, formatCapacity, timeAgo } from './nodeStatus'
 import { nodesApi } from '../../utils/api'
@@ -20,10 +20,17 @@ function ResourceBar({ label, total, available, tone }) {
   )
 }
 
-export default function NodeInspector({ node, open, onClose, onDrain, onResume }) {
+export default function NodeInspector({ node, open, onClose, onDrain, onResume, onBack, backLabel }) {
   const [backends, setBackends] = useState(null)
   const [backendError, setBackendError] = useState('')
   const nodeId = node?.id
+  const backRef = useRef(null)
+  const closeRef = useRef(null)
+  const hasBack = Boolean(onBack)
+
+  useEffect(() => {
+    if (open) (hasBack ? backRef : closeRef).current?.focus()
+  }, [open, nodeId, hasBack])
 
   useEffect(() => {
     if (!open || !nodeId) return undefined
@@ -44,9 +51,10 @@ export default function NodeInspector({ node, open, onClose, onDrain, onResume }
 
   return (
     <aside className="node-inspector" aria-label="Node inspector">
+      {onBack && <button ref={backRef} type="button" className="node-inspector__back" onClick={onBack}><i className="fas fa-arrow-left" aria-hidden="true" /> {backLabel || 'Back'}</button>}
       <div className="node-inspector__header">
         <div><span className="fleet-kicker">Node inspector</span><h2>{node.name}</h2></div>
-        <button type="button" className="btn btn-ghost btn-sm" aria-label="Close node inspector" onClick={onClose}><i className="fas fa-times" /></button>
+        <button ref={closeRef} type="button" className="btn btn-ghost btn-sm" aria-label="Close node inspector" onClick={onClose}><i className="fas fa-times" /></button>
       </div>
       <section className="node-inspector__section">
         <h3>Node</h3>

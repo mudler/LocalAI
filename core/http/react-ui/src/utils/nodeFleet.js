@@ -188,6 +188,90 @@ export function sortNodes(input, sort = {}) {
     .map(entry => entry.node)
 }
 
+function modelTimestamp(value) {
+  if (typeof value !== 'string' || value.trim() === '') return null
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+export function groupModels(input) {
+  const rows = Array.isArray(input) ? input : []
+  const groups = new Map()
+
+  for (const replica of rows) {
+    const modelName = typeof replica?.model_name === 'string' ? replica.model_name.trim() : ''
+    if (!modelName) continue
+    if (!groups.has(modelName)) {
+      groups.set(modelName, {
+        model_name: modelName,
+        replicas: [],
+        replica_count: 0,
+        node_count: 0,
+        in_flight: 0,
+        backend_types: [],
+        last_used: null,
+      })
+    }
+
+    const group = groups.get(modelName)
+    group.replicas.push(replica)
+    group.replica_count += 1
+    const inFlight = finiteNumber(replica.in_flight)
+    group.in_flight += inFlight === null ? 0 : Math.max(0, Math.floor(inFlight))
+  }
+
+  for (const group of groups.values()) {
+    group.node_count = new Set(group.replicas.map(replica => String(replica?.node_id ?? '').trim()).filter(Boolean)).size
+    group.backend_types = [...new Set(group.replicas.map(replica => String(replica?.backend_type ?? '').trim()).filter(Boolean))]
+      .sort((left, right) => compareValues(left, right))
+    const mostRecent = group.replicas.reduce((latest, replica) => {
+      const timestamp = modelTimestamp(replica?.last_used)
+      return timestamp !== null && (latest === null || timestamp > latest.timestamp)
+        ? { timestamp, value: replica.last_used }
+        : latest
+    }, null)
+    group.last_used = mostRecent?.value ?? null
+  }
+
+  return [...groups.values()]
+}
+
+export function filterModels(input, query = '') {
+  const models = Array.isArray(input) ? input : []
+  const normalizedQuery = String(query ?? '').trim().toLowerCase()
+  if (!normalizedQuery) return [...models]
+  return models.filter(model => [model?.model_name, ...(Array.isArray(model?.backend_types) ? model.backend_types : [])]
+    .some(value => String(value ?? '').toLowerCase().includes(normalizedQuery)))
+}
+
+export function sortModels(input, sort = {}) {
+  const models = Array.isArray(input) ? input : []
+  const key = sort.key || 'model_name'
+  const direction = sort.direction === 'desc' ? -1 : 1
+
+  return models
+    .map((model, index) => ({ model, index }))
+    .sort((left, right) => {
+      let primary
+      if (key === 'last_used') {
+        const leftTime = modelTimestamp(left.model?.last_used)
+        const rightTime = modelTimestamp(right.model?.last_used)
+        if (leftTime === null || rightTime === null) primary = leftTime === rightTime ? 0 : leftTime === null ? 1 : -1
+        else primary = (leftTime - rightTime) * direction
+      } else {
+        primary = compareValues(left.model?.[key], right.model?.[key]) * direction
+      }
+      if (primary !== 0) return primary
+      const byName = compareValues(left.model?.model_name, right.model?.model_name)
+      return byName || left.index - right.index
+    })
+    .map(entry => entry.model)
+}
+
+export function paginateModels(input, requestedPage = 1) {
+  return paginateNodes(input, requestedPage, 50)
+}
+
 function groupDescriptor(node, groupBy) {
   if (groupBy === 'node_type') {
     const value = node?.node_type

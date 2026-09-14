@@ -514,6 +514,7 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `GET` | `/api/nodes` | List all registered workers |
 | `GET` | `/api/nodes/:id` | Get a single worker by ID |
 | `GET` | `/api/nodes/:id/models` | List models loaded on a worker |
+| `GET` | `/api/nodes/models` | List loaded model replicas on healthy workers |
 | `DELETE` | `/api/nodes/:id` | Admin-delete a worker |
 | `POST` | `/api/nodes/:id/drain` | Admin-drain a worker |
 | `POST` | `/api/nodes/:id/approve` | Approve a pending worker node |
@@ -530,6 +531,10 @@ The **Nodes** page in the React WebUI is a fleet operations dashboard. Its healt
 The fleet table supports search, status and type filters, label or type grouping, sortable columns, and selection across filters. It renders 50 workers at a time and bulk drain, resume, and remove operations run with bounded concurrency, so the page remains usable for fleets with thousands of registrations. Selecting the visible page or a group does not discard selections elsewhere; selections are removed only when a later poll confirms the worker no longer exists.
 
 Selecting a row opens an in-context inspector with health, labels, capacity, model activity, and heartbeat details. Backend inventory is fetched only for the open inspector. The inspector links to the dedicated node detail page at `/app/nodes/:id`, where model, backend, label, capacity, CPU utilization and load, and models-disk management remain available. Model scheduling lives on its own **Scheduling** page.
+
+The workbench's **Running models** tab shows the current loaded replicas on healthy workers. It stays lazy: opening the Nodes page does not query model inventory, and the first activation makes one controller database request that is retained until the page is left. The view groups replicas by model, reports their worker spread, active requests, backend types, and most recent use, and renders 50 models per page for large fleets. Loading, empty, and query-failure states are shown in place; a failed query can be retried.
+
+Opening a model reveals its replica placement without another request. Replicas on the same worker remain individually visible with their process addresses and workload. From there, select a known worker to move into its node inspector, then return to the model with **Back to model**. That worker transition is the only point in this flow that requests backend inventory, preserving the Nodes page's no-prefetch behavior.
 
 ### Model sizing in the WebUI
 
