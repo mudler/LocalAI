@@ -14,6 +14,13 @@ function MetricCell({ total, available, tone }) {
   )
 }
 
+function CapacityCell({ node }) {
+  return <div className="fleet-table__capacity">
+    <div className="fleet-table__capacity-row"><b>VRAM</b><MetricCell total={node.total_vram} available={node.available_vram} tone="vram" /></div>
+    <div className="fleet-table__capacity-row"><b>RAM</b><MetricCell total={node.total_ram} available={node.available_ram} tone="ram" /></div>
+  </div>
+}
+
 function SortButton({ column, label, sort, onSortChange }) {
   const active = sort.key === column
   const nextDirection = active && sort.direction === 'asc' ? 'desc' : 'asc'
@@ -45,10 +52,9 @@ export default function NodeFleetTable({ nodes, selectedIds, onSelectionChange, 
               onChange={event => setMany(visibleIds, event.target.checked)} /></th>
             <th><SortButton column="name" label="Node" sort={sort} onSortChange={onSortChange} /></th>
             <th><SortButton column="status" label="Status" sort={sort} onSortChange={onSortChange} /></th>
-            <th><SortButton column="node_type" label="Type" sort={sort} onSortChange={onSortChange} /></th>
-            <th>VRAM</th><th>RAM</th><th>CPU</th>
-            <th><SortButton column="model_count" label="Models" sort={sort} onSortChange={onSortChange} /></th>
-            <th>Heartbeat</th><th><span className="sr-only">Actions</span></th>
+            <th>Capacity</th><th>CPU</th>
+            <th><SortButton column="model_count" label="Workload" sort={sort} onSortChange={onSortChange} /></th>
+            <th>Heartbeat</th>
           </tr>
         </thead>
         <tbody>
@@ -60,21 +66,18 @@ export default function NodeFleetTable({ nodes, selectedIds, onSelectionChange, 
                 onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onInspect(node, event.currentTarget) } }}>
                 <td onClick={event => event.stopPropagation()}><input type="checkbox" aria-label={`Select ${node.name}`} checked={selectedIds.has(node.id)}
                   onChange={event => setMany([node.id], event.target.checked)} /></td>
-                <td><button type="button" className="fleet-table__node" aria-label={`Inspect ${node.name}`} onClick={event => { event.stopPropagation(); onInspect(node, event.currentTarget) }}>{node.name}</button><span>{node.address || 'No address'}</span></td>
-                <td><StatusPill status={node.status} /></td>
-                <td>{node.node_type || 'backend'}</td>
-                <td><MetricCell total={node.total_vram} available={node.available_vram} tone="vram" /></td>
-                <td><MetricCell total={node.total_ram} available={node.available_ram} tone="ram" /></td>
+                <td><button type="button" className="fleet-table__node" aria-label={`Inspect ${node.name}`} onClick={event => { event.stopPropagation(); onInspect(node, event.currentTarget) }}>{node.name}</button><span>{node.node_type || 'backend'} · {node.address || 'No address'}</span></td>
+                <td><StatusPill status={node.status} />{nodeLifecycleAction(node.status) === 'approve' && <button type="button" className="fleet-table__approve" aria-label={`Approve ${node.name}`} onClick={event => { event.stopPropagation(); onApprove(node.id) }}>Approve</button>}</td>
+                <td><CapacityCell node={node} /></td>
                 <td>{node.cpu_logical_cores > 0 && Number.isFinite(node.cpu_usage_percent) ? `${node.cpu_usage_percent.toFixed(0)}% · ${node.cpu_logical_cores}c` : <span className="fleet-table__unknown">No data</span>}</td>
-                <td>{node.model_count ?? 0}<span className="fleet-table__subvalue">{node.in_flight_count ?? 0} in flight</span></td>
+                <td><strong>{node.model_count ?? 0} models</strong><span className="fleet-table__subvalue">{node.in_flight_count ?? 0} in flight</span></td>
                 <td>{timeAgo(node.last_heartbeat)}</td>
-                <td onClick={event => event.stopPropagation()}>{nodeLifecycleAction(node.status) === 'approve' && <button type="button" className="btn btn-primary btn-sm" aria-label={`Approve ${node.name}`} onClick={() => onApprove(node.id)}>Approve</button>}</td>
               </tr>
             ))
             if (groupBy === 'none') return rows
             return [
               <tr key={`group:${group.key}`} className="fleet-table__group">
-                <th colSpan="10"><label><input type="checkbox" aria-label={`Select ${group.label} group`} checked={groupIds.length > 0 && groupSelected === groupIds.length}
+                <th colSpan="7"><label><input type="checkbox" aria-label={`Select ${group.label} group`} checked={groupIds.length > 0 && groupSelected === groupIds.length}
                   ref={input => { if (input) input.indeterminate = groupSelected > 0 && groupSelected < groupIds.length }}
                   onChange={event => setMany(groupIds, event.target.checked)} /> {group.label}</label><span>{group.nodes.length} nodes · {groupSelected} selected</span></th>
               </tr>,

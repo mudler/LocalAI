@@ -47,7 +47,7 @@ export default function ClusterOverview({ summary, activeAttention, onAttentionS
   ]
   let cursor = 0
 
-  return (
+  return <>
     <section className="fleet-overview" aria-label="Fleet overview">
       <div className="fleet-health fleet-overview__cell" aria-label="Fleet health summary" aria-live="polite">
         <span className="fleet-kicker">Fleet health</span>
@@ -74,20 +74,20 @@ export default function ClusterOverview({ summary, activeAttention, onAttentionS
       <CapacityGauge label="CPU" metric={summary.cpu} cpu tone="cpu" />
       <CapacityGauge label="Models disk" metric={summary.disk} tone="disk" />
 
-      <div className="fleet-attention fleet-overview__cell" aria-label="Attention queue">
-        <span className="fleet-kicker"><i className="fas fa-triangle-exclamation" aria-hidden="true" /> Attention queue</span>
-        <div className="fleet-attention__filters">
-          {ATTENTION.map(([key, label]) => {
-            const count = key === 'all' ? summary.attentionNodeCount : summary.attention[key].length
-            return (
-              <button key={key} type="button" className={`fleet-attention__filter${activeAttention === key ? ' is-active' : ''}`}
-                aria-pressed={activeAttention === key} onClick={() => onAttentionSelect(activeAttention === key ? null : key)}>
-                {label} <strong>{count}</strong>
-              </button>
-            )
-          })}
-        </div>
-      </div>
     </section>
-  )
+    <aside className="fleet-attention" aria-label="Attention queue">
+      <span className="fleet-attention__title"><i className="fas fa-triangle-exclamation" aria-hidden="true" /><strong>{summary.attentionNodeCount} node{summary.attentionNodeCount === 1 ? '' : 's'} need attention</strong></span>
+      <div className="fleet-attention__filters">
+        {ATTENTION.map(([key, label]) => {
+          const count = key === 'all' ? summary.attentionNodeCount : summary.attention[key].length
+          return (
+            <button key={key} type="button" className={`fleet-attention__filter${activeAttention === key ? ' is-active' : ''}`}
+              aria-pressed={activeAttention === key} onClick={() => onAttentionSelect(activeAttention === key ? null : key)}>
+              {label} <strong>{count}</strong>
+            </button>
+          )
+        })}
+      </div>
+    </aside>
+  </>
 }

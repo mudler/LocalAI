@@ -273,7 +273,7 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(page.getByRole('complementary', { name: 'Node inspector' })).toHaveCount(0)
   })
 
-  test('keeps the approved compact composition while inspecting at a desktop viewport', async ({ page }) => {
+  test('keeps the low-density composition while inspecting at a desktop viewport', async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1050 })
     await mockNodes(page)
     await page.route('**/api/nodes/n1/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[{"name":"llama-cpp"},{"name":"whisper"}]' }))
@@ -290,8 +290,15 @@ test.describe('Nodes fleet dashboard', () => {
 
     const overviewBefore = await overview.boundingBox()
     const fleetBefore = await page.locator('#fleet-nodes-panel').boundingBox()
-    const cellTops = await overview.locator('.fleet-overview__cell').evaluateAll(cells => cells.map(cell => Math.round(cell.getBoundingClientRect().top)))
+    const cells = overview.locator('.fleet-overview__cell')
+    await expect(cells).toHaveCount(5)
+    const cellTops = await cells.evaluateAll(items => items.map(cell => Math.round(cell.getBoundingClientRect().top)))
     expect(new Set(cellTops).size).toBe(1)
+    const attention = page.getByRole('complementary', { name: 'Attention queue' })
+    await expect(attention).toBeVisible()
+    const overviewBox = await overview.boundingBox()
+    const attentionBox = await attention.boundingBox()
+    expect(attentionBox.y).toBeGreaterThanOrEqual(overviewBox.y + overviewBox.height)
 
     const checkbox = page.getByRole('checkbox', { name: 'Select atlas' })
     await checkbox.check()
@@ -312,9 +319,13 @@ test.describe('Nodes fleet dashboard', () => {
     const overviewAfter = await overview.boundingBox()
     const fleetAfter = await page.locator('#fleet-nodes-panel').boundingBox()
     expect(Math.abs(overviewAfter.width - overviewBefore.width)).toBeLessThanOrEqual(1)
-    expect(fleetBefore.width - fleetAfter.width).toBeGreaterThanOrEqual(315)
-    expect(fleetBefore.width - fleetAfter.width).toBeLessThanOrEqual(325)
-    await expect(inspector).toHaveCSS('position', 'static')
+    expect(Math.abs(fleetBefore.width - fleetAfter.width)).toBeLessThanOrEqual(1)
+    await expect(inspector).toHaveCSS('position', 'absolute')
+    await expect.poll(async () => {
+      const inspectorBox = await inspector.boundingBox()
+      const layoutBox = await page.locator('.fleet-workbench__layout').boundingBox()
+      return Math.abs(inspectorBox.x + inspectorBox.width - (layoutBox.x + layoutBox.width))
+    }).toBeLessThanOrEqual(1)
   })
 
   test('reflows the overview and keeps the inspector in flow at a narrow viewport', async ({ page }) => {
@@ -342,7 +353,7 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(inspector).toHaveCSS('position', 'static')
     const fleetBox = await page.locator('#fleet-nodes-panel').boundingBox()
     const inspectorBox = await inspector.boundingBox()
-    expect(inspectorBox.y).toBeGreaterThanOrEqual(fleetBox.y + fleetBox.height - 1)
+    expect(inspectorBox.y).toBeGreaterThanOrEqual(fleetBox.y + fleetBox.height - 2)
   })
 
   test('loads running models once on activation and drills model to node and back', async ({ page }) => {
