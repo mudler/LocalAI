@@ -288,7 +288,7 @@ export default function Nodes() {
           <button ref={modelsTabRef} id="fleet-models-tab" type="button" role="tab" aria-selected={workbenchView === 'models'} aria-controls="fleet-models-panel"
             tabIndex={workbenchView === 'models' ? 0 : -1} className={workbenchView === 'models' ? 'is-active' : ''} onKeyDown={handleTabKeyDown} onClick={() => activateWorkbench('models')}>Running models <span>{modelLoadState === 'loaded' ? groupedModels.length : '—'}</span></button>
         </div>
-        <div className="fleet-workbench__layout">
+        <div className={`fleet-workbench__layout${inspectedNode || inspectedModel || drilledNode ? ' is-inspecting' : ''}`}>
           <div id="fleet-nodes-panel" className="fleet-workbench__fleet" role="tabpanel" aria-labelledby="fleet-nodes-tab" hidden={workbenchView !== 'nodes'}>
           <div className="fleet-toolbar">
             <input className="input fleet-toolbar__search" type="search" aria-label="Search nodes" placeholder="Search name, address, label…" value={query} onChange={event => setQuery(event.target.value)} />

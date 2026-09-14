@@ -383,7 +383,7 @@ test.describe('Nodes fleet dashboard', () => {
   })
 
   test('reflows the overview and keeps the inspector in flow at a narrow viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 560, height: 900 })
+    await page.setViewportSize({ width: 640, height: 900 })
     await mockNodes(page, [baseNodes[0]])
     await page.route('**/api/nodes/n1/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
     await page.goto('/app/nodes')
@@ -405,6 +405,9 @@ test.describe('Nodes fleet dashboard', () => {
     const inspector = page.getByRole('complementary', { name: 'Node inspector' })
     await expect(inspector).toBeVisible()
     await expect(inspector).toHaveCSS('position', 'static')
+    await expect(page.locator('.fleet-workbench__layout')).toHaveCSS('min-height', '0px')
+    const workbenchBox = await page.getByRole('region', { name: 'Fleet workbench' }).boundingBox()
+    expect(workbenchBox.width).toBeLessThanOrEqual(600)
     const fleetBox = await page.locator('#fleet-nodes-panel').boundingBox()
     const inspectorBox = await inspector.boundingBox()
     expect(inspectorBox.y).toBeGreaterThanOrEqual(fleetBox.y + fleetBox.height - 2)
