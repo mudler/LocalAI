@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import StatusPill from './StatusPill'
 import { timeAgo } from './nodeStatus'
+import useInspectorDrawer from './useInspectorDrawer'
 
 function groupReplicasByNode(replicas, nodes) {
   const nodeById = new Map(nodes.map(node => [node.id, node]))
@@ -21,7 +22,9 @@ function latestUse(replicas) {
 
 export default function ModelInspector({ model, nodes, open, onClose, onOpenNode, focusNodeId }) {
   const closeRef = useRef(null)
+  const drawerRef = useRef(null)
   const nodeButtonRefs = useRef(new Map())
+  const modal = useInspectorDrawer(open, onClose, drawerRef)
 
   useEffect(() => {
     if (open) closeRef.current?.focus()
@@ -31,27 +34,12 @@ export default function ModelInspector({ model, nodes, open, onClose, onOpenNode
     if (open && focusNodeId) nodeButtonRefs.current.get(focusNodeId)?.focus()
   }, [open, focusNodeId])
 
-  useEffect(() => {
-    if (!open) return undefined
-    const closeOnEscape = event => {
-      if (event.key === 'Escape') onClose()
-    }
-    const mobile = window.matchMedia('(max-width: 768px)').matches
-    const previousOverflow = document.body.style.overflow
-    if (mobile) document.body.style.overflow = 'hidden'
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('keydown', closeOnEscape)
-      if (mobile) document.body.style.overflow = previousOverflow
-    }
-  }, [open, onClose])
-
   if (!open || !model) return null
   const nodeGroups = groupReplicasByNode(model.replicas, nodes)
 
   return <>
     <div className="node-inspector__scrim" aria-hidden="true" onClick={onClose} />
-    <aside id="model-inspector" className="node-inspector model-inspector" aria-label="Model inspector">
+    <aside ref={drawerRef} id="model-inspector" className="node-inspector model-inspector" aria-label="Model inspector" role={modal ? 'dialog' : undefined} aria-modal={modal ? 'true' : undefined} tabIndex={modal ? -1 : undefined}>
       <header className="node-inspector__header">
         <div className="node-inspector__topbar"><span className="fleet-kicker">Running model</span><button ref={closeRef} type="button" className="btn btn-ghost btn-sm" aria-label="Close model inspector" onClick={onClose}><i className="fas fa-times" /></button></div>
         <h2>{model.model_name}</h2>

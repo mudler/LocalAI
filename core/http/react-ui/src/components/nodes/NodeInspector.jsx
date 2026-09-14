@@ -3,6 +3,7 @@ import StatusPill from './StatusPill'
 import { formatBytes, formatCapacity, timeAgo } from './nodeStatus'
 import { nodesApi } from '../../utils/api'
 import { capacityReading, nodeLifecycleAction } from '../../utils/nodeFleet'
+import useInspectorDrawer from './useInspectorDrawer'
 
 function InspectorMetric({ label, children }) {
   return <div><dt>{label}</dt><dd>{children}</dd></div>
@@ -26,7 +27,9 @@ export default function NodeInspector({ node, open, onClose, onApprove, onDrain,
   const nodeId = node?.id
   const backRef = useRef(null)
   const closeRef = useRef(null)
+  const drawerRef = useRef(null)
   const hasBack = Boolean(onBack)
+  const modal = useInspectorDrawer(open, onClose, drawerRef)
 
   useEffect(() => {
     if (open) (hasBack ? backRef : closeRef).current?.focus()
@@ -45,21 +48,6 @@ export default function NodeInspector({ node, open, onClose, onApprove, onDrain,
     return () => { current = false }
   }, [open, nodeId])
 
-  useEffect(() => {
-    if (!open) return undefined
-    const closeOnEscape = event => {
-      if (event.key === 'Escape') onClose()
-    }
-    const mobile = window.matchMedia('(max-width: 768px)').matches
-    const previousOverflow = document.body.style.overflow
-    if (mobile) document.body.style.overflow = 'hidden'
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('keydown', closeOnEscape)
-      if (mobile) document.body.style.overflow = previousOverflow
-    }
-  }, [open, onClose])
-
   if (!open || !node) return null
   const cpuKnown = node.cpu_logical_cores > 0 && Number.isFinite(node.cpu_usage_percent) && Number.isFinite(node.cpu_load_1)
   const disk = capacityReading(node.total_disk, node.available_disk)
@@ -67,7 +55,7 @@ export default function NodeInspector({ node, open, onClose, onApprove, onDrain,
 
   return <>
     <div className="node-inspector__scrim" aria-hidden="true" onClick={onClose} />
-    <aside className="node-inspector" aria-label="Node inspector">
+    <aside ref={drawerRef} className="node-inspector" aria-label="Node inspector" role={modal ? 'dialog' : undefined} aria-modal={modal ? 'true' : undefined} tabIndex={modal ? -1 : undefined}>
       <header className="node-inspector__header">
         <div className="node-inspector__topbar">
           {onBack

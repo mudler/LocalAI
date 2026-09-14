@@ -340,14 +340,13 @@ test.describe('Nodes fleet dashboard', () => {
     const fleetAfter = await page.locator('#fleet-nodes-panel').boundingBox()
     expect(Math.abs(overviewAfter.width - overviewBefore.width)).toBeLessThanOrEqual(1)
     expect(Math.abs(fleetBefore.width - fleetAfter.width)).toBeLessThanOrEqual(1)
-    await expect(inspector).toHaveCSS('position', 'absolute')
+    await expect(inspector).toHaveCSS('position', 'fixed')
     await expect.poll(async () => {
       const inspectorBox = await inspector.boundingBox()
-      const pageBox = await page.locator('.nodes-fleet-page').boundingBox()
       return Math.max(
-        Math.abs(inspectorBox.x + inspectorBox.width - (pageBox.x + pageBox.width)),
-        Math.abs(inspectorBox.y - pageBox.y),
-        Math.abs(inspectorBox.height - pageBox.height),
+        Math.abs(inspectorBox.x + inspectorBox.width - 1584),
+        Math.abs(inspectorBox.y - 16),
+        Math.abs(inspectorBox.height - 1018),
       )
     }).toBeLessThanOrEqual(1)
   })
@@ -372,19 +371,30 @@ test.describe('Nodes fleet dashboard', () => {
     const narrowInspectNode = page.getByRole('button', { name: 'Inspect atlas' })
     await narrowInspectNode.focus()
     await narrowInspectNode.press('Enter')
-    const inspector = page.getByRole('complementary', { name: 'Node inspector' })
+    const inspector = page.getByRole('dialog', { name: 'Node inspector' })
     await expect(inspector).toBeVisible()
+    await expect(inspector).toHaveAttribute('aria-modal', 'true')
     await expect(inspector).toHaveCSS('position', 'fixed')
     await expect(page.locator('.node-inspector__scrim')).toBeVisible()
     await expect(page.locator('body')).toHaveCSS('overflow', 'hidden')
-    const workbenchBox = await page.getByRole('region', { name: 'Fleet workbench' }).boundingBox()
+    await expect(page.getByRole('region', { name: 'Fleet workbench', includeHidden: true })).toHaveAttribute('inert', '')
+    await expect(page.getByRole('region', { name: 'Fleet workbench', includeHidden: true })).toHaveAttribute('aria-hidden', 'true')
+    const workbenchBox = await page.locator('.fleet-workbench').boundingBox()
     expect(workbenchBox.width).toBeLessThanOrEqual(600)
     await expect.poll(async () => (await inspector.boundingBox()).y).toBeLessThanOrEqual(1)
     const inspectorBox = await inspector.boundingBox()
     expect(inspectorBox.height).toBe(900)
+    const close = inspector.getByRole('button', { name: 'Close node inspector' })
+    await expect(close).toBeFocused()
+    await close.press('Shift+Tab')
+    await expect(inspector.getByRole('button', { name: 'Drain', exact: true })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(close).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(inspector).toHaveCount(0)
     await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden')
+    await expect(page.getByRole('region', { name: 'Fleet workbench' })).not.toHaveAttribute('inert', '')
+    await expect(page.getByRole('region', { name: 'Fleet workbench' })).not.toHaveAttribute('aria-hidden', 'true')
     await expect(narrowInspectNode).toBeFocused()
   })
 
@@ -497,6 +507,41 @@ test.describe('Nodes fleet dashboard', () => {
     expect(modelRequests).toBe(1)
   })
 
+  test('treats the model inspector as a modal drawer on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await mockNodes(page)
+    await page.route('**/api/nodes/models', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(baseModels) }))
+    await page.goto('/app/nodes')
+    await page.getByRole('tab', { name: 'Running models' }).click()
+    await page.getByRole('button', { name: 'Inspect Llama 3.2' }).click()
+
+    const inspector = page.getByRole('dialog', { name: 'Model inspector' })
+    await expect(inspector).toHaveAttribute('aria-modal', 'true')
+    await expect(inspector.getByRole('button', { name: 'Close model inspector' })).toBeFocused()
+    await expect(page.locator('.fleet-workbench')).toHaveAttribute('inert', '')
+    await inspector.getByRole('button', { name: 'Close model inspector' }).press('Shift+Tab')
+    await expect(inspector.getByRole('button', { name: 'Close', exact: true })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(inspector.getByRole('button', { name: 'Close model inspector' })).toBeFocused()
+  })
+
+  test('keeps the node inspector open when Escape dismisses its confirmation dialog', async ({ page }) => {
+    await mockNodes(page)
+    await page.route('**/api/nodes/n1/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+    await page.goto('/app/nodes')
+    await page.getByRole('checkbox', { name: 'Select atlas' }).check()
+    await page.getByRole('button', { name: 'Inspect atlas' }).click()
+    const inspector = page.getByRole('complementary', { name: 'Node inspector' })
+    await expect(inspector).toBeVisible()
+
+    await page.getByRole('button', { name: 'Remove selected' }).click()
+    await expect(page.getByRole('alertdialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(inspector).toBeVisible()
+  })
+
   test('stops a running model once from an accessible row menu and refreshes inventory', async ({ page }) => {
     await mockNodes(page)
     let modelRequests = 0
@@ -599,17 +644,39 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(page.getByRole('row', { name: /atlas/ })).toBeVisible()
     await page.getByRole('button', { name: 'Inspect atlas' }).click()
 
-    const fleetPage = page.locator('.nodes-fleet-page')
     const inspector = page.getByRole('complementary', { name: 'Node inspector' })
     await expect(inspector.getByRole('heading', { name: 'Resources' })).toBeVisible()
     await expect(inspector.getByRole('heading', { name: 'Workload' })).toBeVisible()
     await expect(inspector.getByRole('link', { name: 'Open full node details' })).toBeVisible()
     await expect(inspector.getByRole('button', { name: 'Drain', exact: true })).toBeVisible()
 
-    const pageBox = await fleetPage.boundingBox()
     const inspectorBox = await inspector.boundingBox()
-    expect(Math.abs(inspectorBox.height - pageBox.height)).toBeLessThanOrEqual(1)
+    expect(Math.abs(inspectorBox.y - 16)).toBeLessThanOrEqual(1)
+    expect(Math.abs(inspectorBox.height - 868)).toBeLessThanOrEqual(1)
     await expect(inspector.locator('.node-inspector__actions')).toHaveCSS('display', 'grid')
+  })
+
+  test('keeps a desktop drawer in the visible viewport after opening from a long roster', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 })
+    const nodes = Array.from({ length: 50 }, (_, index) => ({
+      id: `long-${index}`,
+      name: `long-worker-${String(index).padStart(2, '0')}`,
+      node_type: 'backend',
+      status: 'healthy',
+    }))
+    await mockNodes(page, nodes)
+    await page.route('**/api/nodes/long-49/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+    await page.goto('/app/nodes')
+
+    await page.getByRole('button', { name: 'Inspect long-worker-49' }).click()
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(1000)
+    const inspector = page.getByRole('complementary', { name: 'Node inspector' })
+    await expect(inspector).toHaveCSS('position', 'fixed')
+    await expect(inspector.getByRole('heading', { name: 'long-worker-49' })).toBeVisible()
+    await expect(inspector.getByRole('link', { name: 'Open full node details' })).toBeVisible()
+    const box = await inspector.boundingBox()
+    expect(Math.abs(box.y - 16)).toBeLessThanOrEqual(1)
+    expect(Math.abs(box.height - 768)).toBeLessThanOrEqual(1)
   })
 
   test('shows model loading, error, retry, and empty states', async ({ page }) => {
