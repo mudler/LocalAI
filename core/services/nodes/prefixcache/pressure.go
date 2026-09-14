@@ -27,7 +27,7 @@ type Pressure struct {
 	window time.Duration
 	events map[string][]time.Time
 	seen   map[string]time.Time
-	pub    publisher
+	pub    messaging.Publisher
 	origin string
 	seq    atomic.Uint64
 }
@@ -44,7 +44,7 @@ func NewPressure(window time.Duration) *Pressure {
 
 // NewSyncedPressure creates a Pressure counter that broadcasts locally
 // originated events so every frontend sees the same cluster-wide signal.
-func NewSyncedPressure(window time.Duration, pub publisher) *Pressure {
+func NewSyncedPressure(window time.Duration, pub messaging.Publisher) *Pressure {
 	p := NewPressure(window)
 	p.pub = pub
 	var id [8]byte
@@ -103,7 +103,7 @@ func (p *Pressure) record(model, id string, now time.Time) {
 	p.events[model] = kept
 }
 
-// ApplyPressure records a pressure event received from NATS without
+// ApplyPressure records a pressure event received from the broadcast carrier without
 // re-broadcasting it. Duplicate deliveries, including the publisher's own echo,
 // are ignored by event ID.
 func (p *Pressure) ApplyPressure(ev messaging.PrefixCachePressureEvent, now time.Time) {

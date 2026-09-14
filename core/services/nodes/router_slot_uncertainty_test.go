@@ -37,7 +37,7 @@ var _ = Describe("replica slot lookup under database latency", func() {
 		backend = &stubBackend{loadResult: &pb.Result{Success: true}}
 		factory = &stubClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.10:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.10:9001"},
 		}
 	})
 
@@ -90,7 +90,7 @@ var _ = Describe("node selection under database latency", func() {
 		reg = &fakeModelRouter{findAndLockErr: errors.New("not found")}
 		factory = &stubClientFactory{client: &stubBackend{loadResult: &pb.Result{Success: true}}}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.10:9001"},
+			installReply: &messaging.BackendInstallReply{Success: true, WorkerLocalAddress: "10.0.0.10:9001"},
 		}
 	})
 

@@ -238,6 +238,38 @@ var _ = Describe("wiring the process-lifetime caches onto the broadcast carrier"
 
 		Eventually(out, 20*time.Second).Should(Receive())
 	})
+
+	It("aggregates a peer replica's prefix-cache pressure", func() {
+		pressure := prefixcache.NewSyncedPressure(time.Minute, busA)
+		_, err := wirePrefixCacheExtensions(busA, pressure, prefixcache.NewReportedIndex())
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(busB.Publish(messaging.SubjectPrefixCachePressure, messaging.PrefixCachePressureEvent{
+			ID: "frontend-b:1", Model: "m",
+		})).To(Succeed())
+
+		Eventually(func() int { return pressure.Count("m", time.Now()) }, 20*time.Second).Should(Equal(1))
+	})
+
+	It("applies a backend's reported prefix-cache residency", func() {
+		reported := prefixcache.NewReportedIndex()
+		_, err := wirePrefixCacheExtensions(busA, prefixcache.NewPressure(time.Minute), reported)
+		Expect(err).ToNot(HaveOccurred())
+
+		key := prefixcache.ReplicaKey{NodeID: "worker-1", Replica: 2}
+		chain := []uint64{11, 22, 33}
+		Expect(busB.Publish(messaging.SubjectPrefixCacheResidency, messaging.PrefixCacheResidencyEvent{
+			Operation: messaging.PrefixCacheStore,
+			Model:     "m",
+			NodeID:    key.NodeID,
+			Replica:   key.Replica,
+			Chain:     chain,
+		})).To(Succeed())
+
+		Eventually(func() bool {
+			return reported.Decide("m", chain, []prefixcache.ReplicaKey{key}, time.Now()).HasHot
+		}, 20*time.Second).Should(BeTrue())
+	})
 })
 
 // The size bound that lets prefix-cache observations publish like every other

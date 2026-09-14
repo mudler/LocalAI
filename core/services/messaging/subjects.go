@@ -270,6 +270,20 @@ type BackendStopRequest struct {
 	Force   bool   `json:"force,omitempty"`
 }
 
+// BackendStopReply is the worker's answer to a backend.stop control request.
+type BackendStopReply struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+
+	// StoppedProcessKeys names every modelID#replica process terminated by the
+	// request so the controller can remove exactly the rows it invalidated.
+	StoppedProcessKeys []string `json:"stopped_process_keys,omitempty"`
+
+	// ReportsStoppedProcesses distinguishes an authoritative empty result from
+	// a reply produced by an older worker that predates StoppedProcessKeys.
+	ReportsStoppedProcesses bool `json:"reports_stopped_processes,omitempty"`
+}
+
 // AgentCancelRequest is the body of an agent cancel control request.
 //
 // It carries the same three fields the agent.<name>.cancel broadcast carried,
@@ -471,7 +485,28 @@ func SubjectSyncStateTenantWildcard(name string) string {
 const (
 	SubjectPrefixCacheObserve    = "prefixcache.observe"
 	SubjectPrefixCacheInvalidate = "prefixcache.invalidate"
+	SubjectPrefixCachePressure   = "prefixcache.pressure"
+	SubjectPrefixCacheResidency  = "prefixcache.residency"
 )
+
+// PrefixCacheOperation describes a backend-reported KV-cache residency change.
+type PrefixCacheOperation string
+
+const (
+	PrefixCacheStore  PrefixCacheOperation = "store"
+	PrefixCacheRemove PrefixCacheOperation = "remove"
+	PrefixCacheClear  PrefixCacheOperation = "clear"
+)
+
+// PrefixCacheResidencyEvent reports exact backend KV-cache residency. Chain is
+// the compatible shallow-to-deep prefix hash chain used by the router.
+type PrefixCacheResidencyEvent struct {
+	Operation PrefixCacheOperation `json:"operation"`
+	Model     string               `json:"model"`
+	NodeID    string               `json:"node_id"`
+	Replica   int                  `json:"replica"`
+	Chain     []uint64             `json:"chain,omitempty"`
+}
 
 // PrefixCacheObserveEvent announces that the replica (NodeID, Replica) served a
 // request whose prefix chain ends at the given hashes for model. Chain is the
@@ -493,4 +528,13 @@ type PrefixCacheInvalidateEvent struct {
 	Model   string `json:"model"`
 	NodeID  string `json:"node_id"`
 	Replica int    `json:"replica"`
+}
+
+// PrefixCachePressureEvent announces one forced-disturb observed by a frontend.
+// ID lets every frontend ignore its own PostgreSQL echo and duplicate delivery
+// without inflating the autoscale signal.
+type PrefixCachePressureEvent struct {
+	ID    string `json:"id"`
+	Model string `json:"model"`
+	Reset bool   `json:"reset,omitempty"`
 }
