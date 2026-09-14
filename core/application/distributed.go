@@ -591,21 +591,12 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 			return prefixcache.ExtractChain(model, prompt, prefixCfg)
 		}
 
-		// The Sync owns observation and invalidation subscriptions. Pressure and
-		// reported residency are newer prefix-cache families and use the same
-		// PostgreSQL carrier so no cache signal depends on NATS.
-		if _, err := messaging.SubscribeJSON(bus, messaging.SubjectPrefixCachePressure, func(ev messaging.PrefixCachePressureEvent) {
-			pressure.ApplyPressure(ev, time.Now())
-		}); err != nil {
-			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCachePressure, err)
-		}
-
-		// Keep an exact-residency index current so backend producers can report
-		// their real KV state without coupling to router internals. Routing stays
-		// on the guessed provider until a backend producer is available.
+		// Keep pressure and exact residency on the same PostgreSQL carrier as the
+		// prefix Sync. Routing stays on the guessed provider until a backend
+		// producer is available.
 		reportedIndex := prefixcache.NewReportedIndex()
-		if _, err := messaging.SubscribeJSON(bus, messaging.SubjectPrefixCacheResidency, reportedIndex.Apply); err != nil {
-			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheResidency, err)
+		if _, err := wirePrefixCacheExtensions(bus, pressure, reportedIndex); err != nil {
+			return nil, err
 		}
 		// Background eviction: sweep idle entries on the app context. Stopped
 		// when the app context is cancelled (mirrors the reconciler loop which

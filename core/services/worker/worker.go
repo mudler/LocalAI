@@ -218,7 +218,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 
 	httpServer, err := startWorkerHTTPServer(httpAddr, stagingDir, cfg.ModelsPath, dataDir,
-		cfg.RegistrationToken, readiness, supervisor, ephemeralCapacity, cfg, stagingFM, ml.BackendLogs())
+		cfg.RegistrationToken, readiness, supervisor, cfg, stagingFM, ml.BackendLogs(), ephemeralCapacity)
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
@@ -350,10 +350,18 @@ func startTunnelAndArmReadiness(ctx context.Context, readiness *nodes.WorkerRead
 // the server without the control plane and producing a worker that looks
 // healthy while answering 404 to every command.
 func startWorkerHTTPServer(addr, stagingDir, modelsDir, dataDir, token string,
-	readiness *nodes.WorkerReadiness, sup *backendSupervisor, capacity nodes.EphemeralCapacity,
-	cfg *Config, stagingFM *storage.FileManager, logStore *model.BackendLogStore) (*http.Server, error) {
+	readiness *nodes.WorkerReadiness, sup *backendSupervisor, cfg *Config,
+	stagingFM *storage.FileManager, logStore *model.BackendLogStore, capacities ...*EphemeralCapacityGuard) (*http.Server, error) {
+	var capacity *EphemeralCapacityGuard
+	if len(capacities) > 0 {
+		capacity = capacities[0]
+	}
+	var httpCapacity nodes.EphemeralCapacity
+	if capacity != nil {
+		httpCapacity = capacity
+	}
 	return nodes.StartFileTransferServerWithCapacityAndRoutes(addr, stagingDir, modelsDir, dataDir, token,
-		config.DefaultMaxUploadSize, readiness, capacity, &nodes.AuthenticatedRoutes{
+		config.DefaultMaxUploadSize, readiness, httpCapacity, &nodes.AuthenticatedRoutes{
 			Prefix: workerctl.Prefix,
 			// One registrar for both route sets, because there is ONE control
 			// prefix and AuthenticatedRoutes mounts one mux behind one bearer
@@ -361,7 +369,7 @@ func startWorkerHTTPServer(addr, stagingDir, modelsDir, dataDir, token string,
 			Register: func(mux *http.ServeMux) {
 				sup.RegisterControlRoutes(mux)
 				if stagingFM != nil {
-					cfg.RegisterFileControlRoutes(mux, stagingFM)
+					cfg.RegisterFileControlRoutesWithCapacity(mux, stagingFM, capacity)
 				}
 			},
 		}, logStore)

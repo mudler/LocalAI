@@ -71,7 +71,7 @@ var _ = Describe("Node HTTP handlers", func() {
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()
 
-			Expect(RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})(e.NewContext(req, rec))).To(Succeed())
+			Expect(RegisterNodeEndpoint(registry, "", true, nil, "")(e.NewContext(req, rec))).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusCreated))
 
 			node, err := registry.GetByName(context.Background(), "cpu-worker")
