@@ -62,6 +62,16 @@ function DisabledState({ addToast }) {
   )
 }
 
+function FleetSelect({ label, value, onChange, children }) {
+  return (
+    <label className="fleet-select-wrap">
+      <span className="sr-only">{label}</span>
+      <select className="fleet-select" aria-label={label} value={value} onChange={onChange}>{children}</select>
+      <i className="fas fa-chevron-down fleet-select__chevron" aria-hidden="true" />
+    </label>
+  )
+}
+
 export default function Nodes() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
@@ -175,17 +185,18 @@ export default function Nodes() {
 
   return (
     <div className={`page page--wide nodes-fleet-page${inspectedNode ? ' nodes-fleet-page--inspecting' : ''}`}>
-      <div className="nodes-fleet-page__main">
-        <PageHeader title={<><i className="fas fa-network-wired icon-before" />{t('nodes.title')}</>} supporting={t('nodes.subtitle')} actions={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTips(value => !value)}>{showTips ? 'Hide setup' : 'Register worker'}</button>} />
-        {showTips && <WorkerHintCard addToast={addToast} hasWorkers />}
-        <ClusterOverview summary={summary} activeAttention={activeAttention} onAttentionSelect={setActiveAttention} />
+      <PageHeader className="nodes-fleet-page__header" title={<><i className="fas fa-network-wired icon-before" />{t('nodes.title')}</>} supporting={t('nodes.subtitle')} actions={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTips(value => !value)}>{showTips ? 'Hide setup' : 'Register worker'}</button>} />
+      {showTips && <WorkerHintCard addToast={addToast} hasWorkers />}
+      <ClusterOverview summary={summary} activeAttention={activeAttention} onAttentionSelect={setActiveAttention} />
 
-        <section className="fleet-roster" aria-label="Fleet roster">
+      <section className="fleet-workbench" aria-label="Fleet workbench">
+        <div className="fleet-workbench__layout">
+          <div className="fleet-workbench__fleet">
           <div className="fleet-toolbar">
             <input className="input fleet-toolbar__search" type="search" aria-label="Search nodes" placeholder="Search name, address, label…" value={query} onChange={event => setQuery(event.target.value)} />
-            <select className="select" aria-label="Filter status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{['healthy', 'draining', 'pending', 'unhealthy', 'offline'].map(value => <option key={value} value={value}>{value}</option>)}</select>
-            <select className="select" aria-label="Filter type" value={type} onChange={event => setType(event.target.value)}><option value="">All types</option><option value="backend">backend</option><option value="agent">agent</option></select>
-            <select className="select" aria-label="Group nodes" value={groupBy} onChange={event => setGroupBy(event.target.value)}><option value="none">None</option><option value="node_type">Type</option>{labelKeys.map(key => <option key={key} value={`label:${key}`}>Label: {key}</option>)}</select>
+            <FleetSelect label="Filter status" value={status} onChange={event => setStatus(event.target.value)}><option value="">All statuses</option>{['healthy', 'draining', 'pending', 'unhealthy', 'offline'].map(value => <option key={value} value={value}>{value}</option>)}</FleetSelect>
+            <FleetSelect label="Filter type" value={type} onChange={event => setType(event.target.value)}><option value="">All types</option><option value="backend">backend</option><option value="agent">agent</option></FleetSelect>
+            <FleetSelect label="Group nodes" value={groupBy} onChange={event => setGroupBy(event.target.value)}><option value="none">No grouping</option><option value="node_type">Group by type</option>{labelKeys.map(key => <option key={key} value={`label:${key}`}>Label: {key}</option>)}</FleetSelect>
           </div>
           <div className="fleet-bulkbar">
             <strong>{selectedIds.size} selected</strong>
@@ -198,10 +209,11 @@ export default function Nodes() {
           <NodeFleetTable nodes={pagination.items} selectedIds={selectedIds} onSelectionChange={setSelectedIds} onInspect={node => setInspectedId(node.id)} sort={sort} onSortChange={setSort} groupBy={groupBy}
             onApprove={id => actOnNode('approve', id, 'Node approved')} />
           <div className="fleet-pagination"><span>Page {pagination.page} of {pagination.totalPages}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Previous page" disabled={pagination.page === 1} onClick={() => setPage(value => value - 1)}>Previous</button><button type="button" className="btn btn-secondary btn-sm" aria-label="Next page" disabled={pagination.page === pagination.totalPages} onClick={() => setPage(value => value + 1)}>Next</button></div>
-        </section>
-      </div>
-      <NodeInspector node={inspectedNode} open={!!inspectedNode} onClose={() => setInspectedId(null)}
-        onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />
+          </div>
+          <NodeInspector node={inspectedNode} open={!!inspectedNode} onClose={() => setInspectedId(null)}
+            onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />
+        </div>
+      </section>
       <ConfirmDialog open={confirmRemove} title="Remove selected nodes" message={`Remove ${selectedIds.size} selected nodes from the cluster?`} confirmLabel="Remove nodes" pendingLabel="Removing…" pending={bulkRunning} danger onConfirm={() => runBulk('delete')} onCancel={() => setConfirmRemove(false)} />
     </div>
   )

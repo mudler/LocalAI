@@ -146,4 +146,43 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(checkbox).toBeChecked()
     await expect(page.getByRole('complementary', { name: 'Node inspector' })).toHaveCount(0)
   })
+
+  test('keeps the approved compact composition while inspecting at a desktop viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1050 })
+    await mockNodes(page)
+    await page.route('**/api/nodes/n1/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[{"name":"llama-cpp"},{"name":"whisper"}]' }))
+    await page.goto('/app/nodes')
+
+    const overview = page.getByRole('region', { name: 'Fleet overview' })
+    const workbench = page.getByRole('region', { name: 'Fleet workbench' })
+    await expect(overview).toBeVisible({ timeout: 15_000 })
+    await expect(workbench).toBeVisible()
+    await expect(page.locator('.fleet-select-wrap')).toHaveCount(3)
+    await expect(page.getByLabel('Filter status')).toHaveCSS('appearance', 'none')
+
+    const overviewBefore = await overview.boundingBox()
+    const fleetBefore = await page.locator('.fleet-workbench__fleet').boundingBox()
+    const cellTops = await overview.locator('.fleet-overview__cell').evaluateAll(cells => cells.map(cell => Math.round(cell.getBoundingClientRect().top)))
+    expect(new Set(cellTops).size).toBe(1)
+
+    const checkbox = page.getByRole('checkbox', { name: 'Select atlas' })
+    await checkbox.check()
+    await expect(page.getByRole('row', { name: /atlas/ })).toHaveClass(/is-selected/)
+
+    await page.getByRole('button', { name: 'Inspect atlas' }).click()
+    const inspector = page.getByRole('complementary', { name: 'Node inspector' })
+    await expect(inspector).toBeVisible()
+    await expect(inspector.getByRole('heading', { name: 'Node' })).toBeVisible()
+    await expect(inspector.getByRole('heading', { name: 'Resources' })).toBeVisible()
+    await expect(inspector.getByRole('heading', { name: 'Workload' })).toBeVisible()
+    await expect(inspector.getByRole('heading', { name: 'Runtime' })).toBeVisible()
+    await expect(inspector.locator('.node-inspector__resource')).toHaveCount(2)
+
+    const overviewAfter = await overview.boundingBox()
+    const fleetAfter = await page.locator('.fleet-workbench__fleet').boundingBox()
+    expect(Math.abs(overviewAfter.width - overviewBefore.width)).toBeLessThanOrEqual(1)
+    expect(Math.abs(fleetAfter.width - fleetBefore.width)).toBeLessThanOrEqual(1)
+    await expect(inspector).toHaveCSS('position', 'absolute')
+  })
+
 })
