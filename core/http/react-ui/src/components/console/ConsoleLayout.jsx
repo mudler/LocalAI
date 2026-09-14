@@ -81,8 +81,10 @@ function ConsoleLayoutInner({ config }) {
 
   const auth = { isAdmin, authEnabled, hasFeature, features }
 
+  const isNodesWorkspace = config.id === 'operate' && location.pathname === '/app/nodes'
+
   return (
-    <div className="console-layout">
+    <div className={`console-layout${isNodesWorkspace ? ' console-layout--nodes' : ''}`}>
       <nav className={`console-rail${entering ? ' console-rail--enter' : ''}${railOpen ? ' console-rail--open' : ''}`} aria-label={t(config.titleKey)}>
         <div className="console-rail-header">
           <span className="console-rail-header__title">

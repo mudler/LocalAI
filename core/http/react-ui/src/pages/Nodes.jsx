@@ -277,7 +277,7 @@ export default function Nodes() {
 
   return (
     <div className={`page page--wide nodes-fleet-page${inspectedNode || inspectedModel || drilledNode ? ' nodes-fleet-page--inspecting' : ''}`}>
-      <PageHeader className="nodes-fleet-page__header" title={<><i className="fas fa-network-wired icon-before" />{t('nodes.title')}</>} supporting={t('nodes.subtitle')} actions={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTips(value => !value)}>{showTips ? 'Hide setup' : 'Register worker'}</button>} />
+      <PageHeader className="nodes-fleet-page__header" eyebrow={null} title={t('nodes.title')} supporting={t('nodes.subtitle')} actions={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTips(value => !value)}>{showTips ? 'Hide setup' : 'Register worker'}</button>} />
       {showTips && <WorkerHintCard addToast={addToast} hasWorkers />}
       <ClusterOverview summary={summary} activeAttention={activeAttention} onAttentionSelect={setActiveAttention} />
 
@@ -296,14 +296,14 @@ export default function Nodes() {
             <FleetSelect label="Filter type" value={type} onChange={event => setType(event.target.value)}><option value="">All types</option><option value="backend">backend</option><option value="agent">agent</option></FleetSelect>
             <FleetSelect label="Group nodes" value={groupBy} onChange={event => setGroupBy(event.target.value)}><option value="none">No grouping</option><option value="node_type">Group by type</option>{labelKeys.map(key => <option key={key} value={`label:${key}`}>Label: {key}</option>)}</FleetSelect>
           </div>
-          <div className="fleet-bulkbar">
+          {selectedIds.size > 0 && <div className="fleet-bulkbar">
             <strong>{selectedIds.size} selected</strong>
-            <button type="button" className="btn btn-secondary btn-sm" disabled={!selectedIds.size || bulkRunning} onClick={() => runBulk('drain')}>Drain selected</button>
-            <button type="button" className="btn btn-secondary btn-sm" disabled={!selectedIds.size || bulkRunning} onClick={() => runBulk('resume')}>Resume selected</button>
-            <button type="button" className="btn btn-danger btn-sm" disabled={!selectedIds.size || bulkRunning} onClick={() => setConfirmRemove(true)}>Remove selected</button>
-            {activeAttention && <button type="button" className="fleet-bulkbar__clear" onClick={() => setActiveAttention(null)}>Clear attention filter</button>}
+            <button type="button" className="btn btn-secondary btn-sm" disabled={bulkRunning} onClick={() => runBulk('drain')}>Drain selected</button>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={bulkRunning} onClick={() => runBulk('resume')}>Resume selected</button>
+            <button type="button" className="btn btn-danger btn-sm" disabled={bulkRunning} onClick={() => setConfirmRemove(true)}>Remove selected</button>
+            <button type="button" className="fleet-bulkbar__clear" disabled={bulkRunning} onClick={() => setSelectedIds(new Set())}>Clear selection</button>
             <span className="fleet-bulkbar__count" aria-live="polite">{ordered.length} nodes in view</span>
-          </div>
+          </div>}
           <NodeFleetTable nodes={pagination.items} selectedIds={selectedIds} onSelectionChange={setSelectedIds} onInspect={openNodeInspector} sort={sort} onSortChange={setSort} groupBy={groupBy}
             onApprove={id => actOnNode('approve', id, 'Node approved')} />
           <div className="fleet-pagination"><span>Page {pagination.page} of {pagination.totalPages}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Previous page" disabled={pagination.page === 1} onClick={() => setPage(value => value - 1)}>Previous</button><button type="button" className="btn btn-secondary btn-sm" aria-label="Next page" disabled={pagination.page === pagination.totalPages} onClick={() => setPage(value => value + 1)}>Next</button></div>

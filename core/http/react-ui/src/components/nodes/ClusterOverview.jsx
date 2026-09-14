@@ -31,7 +31,8 @@ function CapacityGauge({ label, metric, cpu = false, tone }) {
       </div>
       <div className="fleet-gauge__value-text">{reporting ? value : 'No data'}</div>
       <div className="fleet-gauge__detail">{available}</div>
-      <div className="fleet-gauge__coverage">{metric.reportingCount} reporting · {metric.unknownCount} unknown</div>
+      <span className="sr-only">Capacity coverage: {metric.reportingCount} of {metric.reportingCount + metric.unknownCount} nodes reporting; {metric.unknownCount} unknown.</span>
+      {metric.unknownCount > 0 && <div className="fleet-gauge__coverage">{metric.unknownCount} node{metric.unknownCount === 1 ? '' : 's'} unavailable</div>}
     </article>
   )
 }
@@ -42,18 +43,15 @@ export default function ClusterOverview({ summary, activeAttention, onAttentionS
   const segments = [
     ['healthy', health.healthy],
     ['draining', health.draining],
-    ['pending', health.pending],
-    ['unhealthy', health.unhealthy + health.offline + health.other],
+    ['unhealthy', health.pending + health.unhealthy + health.offline + health.other],
   ]
   let cursor = 0
 
   return (
     <section className="fleet-overview" aria-label="Fleet overview">
       <div className="fleet-health fleet-overview__cell" aria-label="Fleet health summary" aria-live="polite">
-        <div className="fleet-health__heading">
-          <div><span className="fleet-kicker">Fleet health</span><strong>{health.total} nodes</strong></div>
-          <span>{health.healthy} healthy · {health.draining} draining · {health.pending} pending · {health.offline + health.unhealthy} impaired</span>
-        </div>
+        <span className="fleet-kicker">Fleet health</span>
+        <div className="fleet-health__headline"><strong>{health.healthy} healthy</strong><span>of {health.total} nodes</span></div>
         <svg className="fleet-health__bar" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true">
           {segments.map(([status, count]) => {
             const start = cursor
@@ -62,6 +60,13 @@ export default function ClusterOverview({ summary, activeAttention, onAttentionS
             return <rect key={status} className={`fleet-health__segment fleet-health__segment--${status}`} x={start} y="0" width={width} height="4" />
           })}
         </svg>
+        <div className="fleet-health__legend">
+          {segments.map(([status, count]) => {
+            const label = status === 'unhealthy' ? 'Attention' : status[0].toUpperCase() + status.slice(1)
+            const percentage = health.total ? (count / health.total * 100).toFixed(1) : '0.0'
+            return <div key={status}><span><i className={`fleet-health__dot fleet-health__dot--${status}`} />{label}</span><strong>{count} · {percentage}%</strong></div>
+          })}
+        </div>
       </div>
 
       <CapacityGauge label="VRAM" metric={summary.vram} tone="vram" />

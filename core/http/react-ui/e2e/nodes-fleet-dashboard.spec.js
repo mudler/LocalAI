@@ -199,13 +199,34 @@ test.describe('Nodes fleet dashboard', () => {
     await page.goto('/app/nodes')
 
     await expect(page.getByLabel('VRAM capacity')).toContainText('No data')
-    await expect(page.getByLabel('VRAM capacity')).toContainText('0 reporting · 1 unknown')
+    await expect(page.getByLabel('VRAM capacity')).toContainText('1 node unavailable')
     await expect(page.getByRole('button', { name: /Low VRAM.*0/ })).toBeVisible()
     const row = page.getByRole('row', { name: /incomplete-capacity/ })
     await expect(row.getByText('No data')).toHaveCount(3)
     await page.getByRole('button', { name: 'Inspect incomplete-capacity' }).click()
     const inspector = page.getByRole('complementary', { name: 'Node inspector' })
     await expect(inspector.getByText('No data')).toHaveCount(4)
+  })
+
+  test('announces complete and partial capacity coverage without adding visible clutter', async ({ page }) => {
+    const partialNode = {
+      ...baseNodes[0],
+      id: 'n-partial',
+      name: 'partial-capacity',
+      total_vram: 100,
+      available_vram: 50,
+      total_ram: undefined,
+      available_ram: undefined,
+    }
+    await mockNodes(page, [baseNodes[0], partialNode])
+    await page.goto('/app/nodes')
+
+    const vram = page.getByLabel('VRAM capacity', { exact: true })
+    const ram = page.getByLabel('RAM capacity', { exact: true })
+    await expect(vram).toContainText('Capacity coverage: 2 of 2 nodes reporting; 0 unknown.', { timeout: 15_000 })
+    await expect(ram).toContainText('Capacity coverage: 1 of 2 nodes reporting; 1 unknown.')
+    await expect(vram.locator('.fleet-gauge__coverage')).toHaveCount(0)
+    await expect(ram.locator('.fleet-gauge__coverage')).toHaveText('1 node unavailable')
   })
 
   test('keeps checkbox keyboard activation from opening the inspector', async ({ page }) => {
@@ -230,8 +251,10 @@ test.describe('Nodes fleet dashboard', () => {
     const workbench = page.getByRole('region', { name: 'Fleet workbench' })
     await expect(overview).toBeVisible({ timeout: 15_000 })
     await expect(workbench).toBeVisible()
+    await expect(page.locator('.console-layout--nodes > .console-rail')).toBeHidden()
     await expect(page.locator('.fleet-select-wrap')).toHaveCount(3)
     await expect(page.getByLabel('Filter status')).toHaveCSS('appearance', 'none')
+    await expect(page.locator('.fleet-bulkbar')).toHaveCount(0)
 
     const overviewBefore = await overview.boundingBox()
     const fleetBefore = await page.locator('#fleet-nodes-panel').boundingBox()
@@ -241,21 +264,53 @@ test.describe('Nodes fleet dashboard', () => {
     const checkbox = page.getByRole('checkbox', { name: 'Select atlas' })
     await checkbox.check()
     await expect(page.getByRole('row', { name: /atlas/ })).toHaveClass(/is-selected/)
+    await expect(page.locator('.fleet-bulkbar')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Clear selection' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Inspect atlas' }).click()
+    const inspectNode = page.getByRole('button', { name: 'Inspect atlas' })
+    await inspectNode.focus()
+    await inspectNode.press('Enter')
     const inspector = page.getByRole('complementary', { name: 'Node inspector' })
     await expect(inspector).toBeVisible()
     await expect(inspector.getByRole('heading', { name: 'Node' })).toBeVisible()
     await expect(inspector.getByRole('heading', { name: 'Resources' })).toBeVisible()
     await expect(inspector.getByRole('heading', { name: 'Workload' })).toBeVisible()
-    await expect(inspector.getByRole('heading', { name: 'Runtime' })).toBeVisible()
     await expect(inspector.locator('.node-inspector__resource')).toHaveCount(2)
 
     const overviewAfter = await overview.boundingBox()
     const fleetAfter = await page.locator('#fleet-nodes-panel').boundingBox()
     expect(Math.abs(overviewAfter.width - overviewBefore.width)).toBeLessThanOrEqual(1)
-    expect(Math.abs(fleetAfter.width - fleetBefore.width)).toBeLessThanOrEqual(1)
-    await expect(inspector).toHaveCSS('position', 'absolute')
+    expect(fleetBefore.width - fleetAfter.width).toBeGreaterThanOrEqual(315)
+    expect(fleetBefore.width - fleetAfter.width).toBeLessThanOrEqual(325)
+    await expect(inspector).toHaveCSS('position', 'static')
+  })
+
+  test('reflows the overview and keeps the inspector in flow at a narrow viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 560, height: 900 })
+    await mockNodes(page, [baseNodes[0]])
+    await page.route('**/api/nodes/n1/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+    await page.goto('/app/nodes')
+
+    const overview = page.getByRole('region', { name: 'Fleet overview' })
+    await expect(overview).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('.console-layout--nodes > .console-rail')).toBeHidden()
+    const overviewBox = await overview.boundingBox()
+    expect(overviewBox.width).toBeGreaterThan(500)
+    const cells = overview.locator('.fleet-overview__cell')
+    const tops = await cells.evaluateAll(items => items.map(item => Math.round(item.getBoundingClientRect().top)))
+    expect(new Set(tops).size).toBeGreaterThan(1)
+    await expect(overview.getByLabel('Fleet health summary')).toHaveCSS('grid-column-start', '1')
+    await expect(overview.getByLabel('Fleet health summary')).toHaveCSS('grid-column-end', '-1')
+
+    const narrowInspectNode = page.getByRole('button', { name: 'Inspect atlas' })
+    await narrowInspectNode.focus()
+    await narrowInspectNode.press('Enter')
+    const inspector = page.getByRole('complementary', { name: 'Node inspector' })
+    await expect(inspector).toBeVisible()
+    await expect(inspector).toHaveCSS('position', 'static')
+    const fleetBox = await page.locator('#fleet-nodes-panel').boundingBox()
+    const inspectorBox = await inspector.boundingBox()
+    expect(inspectorBox.y).toBeGreaterThanOrEqual(fleetBox.y + fleetBox.height - 1)
   })
 
   test('loads running models once on activation and drills model to node and back', async ({ page }) => {
