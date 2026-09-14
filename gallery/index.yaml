@@ -1,4 +1,62 @@
 ---
+- name: "cyber-tiel-coder-35b-a3b-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP
+  description: |
+    # huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated
+
+    This is an uncensored version of ornith-ai/Ornith-1.5-35B-A3B created with abliteration (see remove-refusals-with-transformers to know more about it).
+    This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+
+    ## Note
+    Only layers 11 to 29 have been ablated.
+
+    ## Usage
+    You can use this model in your applications by loading it with Hugging Face's `transformers` library:
+
+    ```python
+    #!/usr/bin/env python
+    # -*- coding: utf-8 -*-
+
+    import argparse
+    from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
+    import torch
+    import os
+    import signal
+    import time
+
+    ...
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - vision
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_M/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_M/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_M/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_M.gguf
+      sha256: 5962eb46804f4d6198aadc34bc7efe472a0399f0147cea74ed5a20c2180168fd
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP/resolve/main/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_M/mmproj-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP/resolve/main/mmproj-BF16.gguf
 - name: "spark-x2.5-4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
