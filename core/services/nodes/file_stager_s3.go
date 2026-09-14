@@ -264,7 +264,7 @@ func (s *S3FileStager) StageRemoteToStore(ctx context.Context, nodeID, remotePat
 
 // ReleaseRemote evicts one exact ephemeral key from the worker before deleting
 // the shared object.
-func (s *S3NATSFileStager) ReleaseRemote(ctx context.Context, nodeID, key string) error {
+func (s *S3FileStager) ReleaseRemote(ctx context.Context, nodeID, key string) error {
 	if err := validateEphemeralReleaseKey(key); err != nil {
 		return err
 	}
@@ -277,10 +277,10 @@ func (s *S3NATSFileStager) ReleaseRemote(ctx context.Context, nodeID, key string
 	return nil
 }
 
-// ReleaseRemoteRequest evicts one inference's inputs with one NATS round trip.
+// ReleaseRemoteRequest evicts one inference's inputs with one control request.
 // A worker that only understands the exact-key payload returns an error, so the
 // frontend retries each key during a rolling upgrade.
-func (s *S3NATSFileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, requestID string, keys []string) error {
+func (s *S3FileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, requestID string, keys []string) error {
 	if err := validateEphemeralRequestRelease(requestID, keys); err != nil {
 		return err
 	}
@@ -305,31 +305,9 @@ func (s *S3NATSFileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, req
 	return errors.Join(deleteErrors...)
 }
 
-func (s *S3NATSFileStager) releaseWorkerKeys(ctx context.Context, nodeID string, request fileReleaseRequest) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	timeout := 30 * time.Second
-	if deadline, ok := ctx.Deadline(); ok {
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			return context.DeadlineExceeded
-		}
-		timeout = min(timeout, remaining)
-	}
-	reply, err := messaging.RequestJSON[fileReleaseRequest, fileReleaseReply](
-		s.nats,
-		messaging.SubjectNodeFilesRelease(nodeID),
-		request,
-		timeout,
-	)
-	if err != nil {
-		if contextErr := ctx.Err(); contextErr != nil {
-			return contextErr
-		}
-		return err
-	}
-	if err := ctx.Err(); err != nil {
+func (s *S3FileStager) releaseWorkerKeys(ctx context.Context, nodeID string, request fileReleaseRequest) error {
+	var reply fileReleaseReply
+	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesRelease, request, &reply); err != nil {
 		return err
 	}
 	if reply.Error != "" {

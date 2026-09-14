@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -112,6 +113,35 @@ func wirePrefixCacheBroadcasts(bus *pgbus.Bus, cfg prefixcache.Config, idx prefi
 		return nil, err
 	}
 	return sync, nil
+}
+
+// wirePrefixCacheExtensions puts the pressure and reported-residency families
+// on the same PostgreSQL carrier as prefix observations and invalidations.
+func wirePrefixCacheExtensions(bus *pgbus.Bus, pressure *prefixcache.Pressure, reported *prefixcache.ReportedIndex) ([]messaging.Subscription, error) {
+	if bus == nil {
+		return nil, fmt.Errorf("wiring prefix-cache extensions: no broadcast carrier")
+	}
+	var subs []messaging.Subscription
+	if pressure != nil {
+		sub, err := messaging.SubscribeJSON(bus, messaging.SubjectPrefixCachePressure, func(ev messaging.PrefixCachePressureEvent) {
+			pressure.ApplyPressure(ev, time.Now())
+		})
+		if err != nil {
+			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCachePressure, err)
+		}
+		subs = append(subs, sub)
+	}
+	if reported != nil {
+		sub, err := messaging.SubscribeJSON(bus, messaging.SubjectPrefixCacheResidency, reported.Apply)
+		if err != nil {
+			for _, existing := range subs {
+				_ = existing.Unsubscribe()
+			}
+			return nil, fmt.Errorf("subscribing to %s: %w", messaging.SubjectPrefixCacheResidency, err)
+		}
+		subs = append(subs, sub)
+	}
+	return subs, nil
 }
 
 // prefixCacheIdentifierAllowance is how many bytes of model id plus node id a
