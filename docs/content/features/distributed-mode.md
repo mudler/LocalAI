@@ -525,7 +525,11 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
 | `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
 
-The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
+The **Nodes** page in the React WebUI is a fleet operations dashboard. Its health band and VRAM, RAM, CPU, and models-disk gauges aggregate the single `GET /api/nodes` response and identify how many workers do not report each metric. The attention queue isolates pending, impaired, or low-capacity workers without double-counting the headline affected-node total.
+
+The fleet table supports search, status and type filters, label or type grouping, sortable columns, and selection across filters. It renders 50 workers at a time and bulk drain, resume, and remove operations run with bounded concurrency, so the page remains usable for fleets with thousands of registrations. Selecting the visible page or a group does not discard selections elsewhere; selections are removed only when a later poll confirms the worker no longer exists.
+
+Selecting a row opens an in-context inspector with health, labels, capacity, model activity, and heartbeat details. Backend inventory is fetched only for the open inspector. The inspector links to the dedicated node detail page at `/app/nodes/:id`, where model, backend, label, capacity, CPU utilization and load, and models-disk management remain available. Model scheduling lives on its own **Scheduling** page.
 
 ### Model sizing in the WebUI
 

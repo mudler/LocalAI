@@ -113,6 +113,13 @@ export default function NodeDetail() {
             <span className="cell-mono">{formatVRAM(node.available_disk || 0) || '0'} / {formatVRAM(node.total_disk)}</span>
           </div>
         )}
+        {node.cpu_logical_cores > 0 && Number.isFinite(node.cpu_usage_percent) && (
+          <div>
+            <div className="drawer-eyebrow">CPU</div>
+            <span className="cell-mono">{node.cpu_usage_percent.toFixed(1)}% of {node.cpu_logical_cores} cores</span>
+            {Number.isFinite(node.cpu_load_1) && <span className="node-detail__metric-note">{node.cpu_load_1.toFixed(2)} load (1m)</span>}
+          </div>
+        )}
         <div>
           <div className="drawer-eyebrow">In-flight</div>
           <span className="cell-mono">{node.in_flight_count || 0}</span>
@@ -169,7 +176,6 @@ export default function NodeDetail() {
                         {m.model_name}
                         {showReplica && (
                           <span
-                            className="cell-mono"
                             aria-label={`replica ${m.replica_index ?? 0}`}
                             title={`Replica ${m.replica_index ?? 0} on this node`}
                             className="inline-tag"
