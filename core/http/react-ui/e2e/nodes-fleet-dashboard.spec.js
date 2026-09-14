@@ -343,12 +343,16 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(inspector).toHaveCSS('position', 'absolute')
     await expect.poll(async () => {
       const inspectorBox = await inspector.boundingBox()
-      const layoutBox = await page.locator('.fleet-workbench__layout').boundingBox()
-      return Math.abs(inspectorBox.x + inspectorBox.width - (layoutBox.x + layoutBox.width))
+      const pageBox = await page.locator('.nodes-fleet-page').boundingBox()
+      return Math.max(
+        Math.abs(inspectorBox.x + inspectorBox.width - (pageBox.x + pageBox.width)),
+        Math.abs(inspectorBox.y - pageBox.y),
+        Math.abs(inspectorBox.height - pageBox.height),
+      )
     }).toBeLessThanOrEqual(1)
   })
 
-  test('reflows the overview and keeps the inspector in flow at a narrow viewport', async ({ page }) => {
+  test('reflows the overview and presents a contained drawer at a narrow viewport', async ({ page }) => {
     await page.setViewportSize({ width: 640, height: 900 })
     await mockNodes(page, [baseNodes[0]])
     await page.route('**/api/nodes/n1/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
@@ -370,13 +374,18 @@ test.describe('Nodes fleet dashboard', () => {
     await narrowInspectNode.press('Enter')
     const inspector = page.getByRole('complementary', { name: 'Node inspector' })
     await expect(inspector).toBeVisible()
-    await expect(inspector).toHaveCSS('position', 'static')
-    await expect(page.locator('.fleet-workbench__layout')).toHaveCSS('min-height', '0px')
+    await expect(inspector).toHaveCSS('position', 'fixed')
+    await expect(page.locator('.node-inspector__scrim')).toBeVisible()
+    await expect(page.locator('body')).toHaveCSS('overflow', 'hidden')
     const workbenchBox = await page.getByRole('region', { name: 'Fleet workbench' }).boundingBox()
     expect(workbenchBox.width).toBeLessThanOrEqual(600)
-    const fleetBox = await page.locator('#fleet-nodes-panel').boundingBox()
+    await expect.poll(async () => (await inspector.boundingBox()).y).toBeLessThanOrEqual(1)
     const inspectorBox = await inspector.boundingBox()
-    expect(inspectorBox.y).toBeGreaterThanOrEqual(fleetBox.y + fleetBox.height - 2)
+    expect(inspectorBox.height).toBe(900)
+    await page.keyboard.press('Escape')
+    await expect(inspector).toHaveCount(0)
+    await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden')
+    await expect(narrowInspectNode).toBeFocused()
   })
 
   test('loads running models once on activation and drills model to node and back', async ({ page }) => {
@@ -581,7 +590,7 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(nodeControl).toBeFocused()
   })
 
-  test('preserves the inspector workspace for a one-row filtered fleet', async ({ page }) => {
+  test('keeps drawer actions visible for a one-row filtered fleet', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 })
     await mockNodes(page, baseNodes)
     await page.route('**/api/nodes/n1/backends', route => route.fulfill({ status: 200, contentType: 'application/json', body: '[{"name":"llama-cpp"}]' }))
@@ -590,18 +599,17 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(page.getByRole('row', { name: /atlas/ })).toBeVisible()
     await page.getByRole('button', { name: 'Inspect atlas' }).click()
 
-    const layout = page.locator('.fleet-workbench__layout')
+    const fleetPage = page.locator('.nodes-fleet-page')
     const inspector = page.getByRole('complementary', { name: 'Node inspector' })
-    await expect(layout).toHaveCSS('min-height', '560px')
     await expect(inspector.getByRole('heading', { name: 'Resources' })).toBeVisible()
     await expect(inspector.getByRole('heading', { name: 'Workload' })).toBeVisible()
     await expect(inspector.getByRole('link', { name: 'Open full node details' })).toBeVisible()
     await expect(inspector.getByRole('button', { name: 'Drain', exact: true })).toBeVisible()
 
-    const layoutBox = await layout.boundingBox()
+    const pageBox = await fleetPage.boundingBox()
     const inspectorBox = await inspector.boundingBox()
-    expect(inspectorBox.height).toBeGreaterThanOrEqual(559)
-    expect(Math.abs(inspectorBox.height - layoutBox.height)).toBeLessThanOrEqual(1)
+    expect(Math.abs(inspectorBox.height - pageBox.height)).toBeLessThanOrEqual(1)
+    await expect(inspector.locator('.node-inspector__actions')).toHaveCSS('display', 'grid')
   })
 
   test('shows model loading, error, retry, and empty states', async ({ page }) => {

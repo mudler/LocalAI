@@ -328,7 +328,7 @@ export default function Nodes() {
           <button ref={modelsTabRef} id="fleet-models-tab" type="button" role="tab" aria-selected={workbenchView === 'models'} aria-controls="fleet-models-panel"
             tabIndex={workbenchView === 'models' ? 0 : -1} className={workbenchView === 'models' ? 'is-active' : ''} onKeyDown={handleTabKeyDown} onClick={() => activateWorkbench('models')}>Running models <span>{modelLoadState === 'loaded' ? groupedModels.length : '—'}</span></button>
         </div>
-        <div className={`fleet-workbench__layout${inspectedNode || inspectedModel || drilledNode ? ' is-inspecting' : ''}`}>
+        <div className="fleet-workbench__layout">
           <div id="fleet-nodes-panel" className="fleet-workbench__fleet" role="tabpanel" aria-labelledby="fleet-nodes-tab" hidden={workbenchView !== 'nodes'}>
           <div className="fleet-toolbar">
             <input className="input fleet-toolbar__search" type="search" aria-label="Search nodes" placeholder="Search name, address, label…" value={query} onChange={event => setQuery(event.target.value)} />
@@ -360,17 +360,17 @@ export default function Nodes() {
               <div className="fleet-pagination"><span>Page {modelPagination.page} of {modelPagination.totalPages}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Previous model page" disabled={modelPagination.page === 1} onClick={() => setModelPage(value => value - 1)}>Previous</button><button type="button" className="btn btn-secondary btn-sm" aria-label="Next model page" disabled={modelPagination.page === modelPagination.totalPages} onClick={() => setModelPage(value => value + 1)}>Next</button></div>
             </>}
           </div>
-          {workbenchView === 'nodes' && <NodeInspector node={inspectedNode} open={!!inspectedNode} onClose={closeNodeInspector}
-            onApprove={id => actOnNode('approve', id, 'Node approved')}
-            onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />
-          }
-          {workbenchView === 'models' && !drilledNode && <ModelInspector model={inspectedModel} nodes={nodes} open={!!inspectedModel} onClose={closeModelDrilldown} onOpenNode={openModelNode} focusNodeId={returnFocusNodeId} />}
-          {workbenchView === 'models' && drilledNode && <NodeInspector node={drilledNode} open onClose={closeModelDrilldown}
-            onBack={returnToModel} backLabel={`Back to ${inspectedModel?.model_name || 'model'}`}
-            onApprove={id => actOnNode('approve', id, 'Node approved')}
-            onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />}
         </div>
       </section>
+      {workbenchView === 'nodes' && <NodeInspector node={inspectedNode} open={!!inspectedNode} onClose={closeNodeInspector}
+        onApprove={id => actOnNode('approve', id, 'Node approved')}
+        onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />
+      }
+      {workbenchView === 'models' && !drilledNode && <ModelInspector model={inspectedModel} nodes={nodes} open={!!inspectedModel} onClose={closeModelDrilldown} onOpenNode={openModelNode} focusNodeId={returnFocusNodeId} />}
+      {workbenchView === 'models' && drilledNode && <NodeInspector node={drilledNode} open onClose={closeModelDrilldown}
+        onBack={returnToModel} backLabel={`Back to ${inspectedModel?.model_name || 'model'}`}
+        onApprove={id => actOnNode('approve', id, 'Node approved')}
+        onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />}
       <ConfirmDialog open={confirmRemove} title="Remove selected nodes" message={`Remove ${selectedIds.size} selected nodes from the cluster?`} confirmLabel="Remove nodes" pendingLabel="Removing…" pending={bulkRunning} danger onConfirm={() => runBulk('delete')} onCancel={() => setConfirmRemove(false)} />
       <ConfirmDialog open={!!confirmStopModel} title={confirmStopModel ? `Stop ${confirmStopModel.model_name}?` : 'Stop model?'}
         message={confirmStopModel ? `${confirmStopModel.model_name} has ${confirmStopModel.replica_count} loaded replica${confirmStopModel.replica_count === 1 ? '' : 's'} across ${confirmStopModel.node_count} unique node${confirmStopModel.node_count === 1 ? '' : 's'}. This will stop all loaded placements on those nodes.` : ''}

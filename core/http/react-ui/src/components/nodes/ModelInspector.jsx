@@ -31,16 +31,34 @@ export default function ModelInspector({ model, nodes, open, onClose, onOpenNode
     if (open && focusNodeId) nodeButtonRefs.current.get(focusNodeId)?.focus()
   }, [open, focusNodeId])
 
+  useEffect(() => {
+    if (!open) return undefined
+    const closeOnEscape = event => {
+      if (event.key === 'Escape') onClose()
+    }
+    const mobile = window.matchMedia('(max-width: 768px)').matches
+    const previousOverflow = document.body.style.overflow
+    if (mobile) document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape)
+      if (mobile) document.body.style.overflow = previousOverflow
+    }
+  }, [open, onClose])
+
   if (!open || !model) return null
   const nodeGroups = groupReplicasByNode(model.replicas, nodes)
 
-  return (
+  return <>
+    <div className="node-inspector__scrim" aria-hidden="true" onClick={onClose} />
     <aside id="model-inspector" className="node-inspector model-inspector" aria-label="Model inspector">
-      <div className="node-inspector__header">
-        <div><span className="fleet-kicker">Running model</span><h2>{model.model_name}</h2></div>
-        <button ref={closeRef} type="button" className="btn btn-ghost btn-sm" aria-label="Close model inspector" onClick={onClose}><i className="fas fa-times" /></button>
-      </div>
-      <section className="node-inspector__section model-inspector__summary">
+      <header className="node-inspector__header">
+        <div className="node-inspector__topbar"><span className="fleet-kicker">Running model</span><button ref={closeRef} type="button" className="btn btn-ghost btn-sm" aria-label="Close model inspector" onClick={onClose}><i className="fas fa-times" /></button></div>
+        <h2>{model.model_name}</h2>
+        <p>Replica placement across the active fleet</p>
+      </header>
+      <div className="node-inspector__body">
+        <section className="node-inspector__section model-inspector__summary">
         <h3>Model summary</h3>
         <dl className="node-inspector__metrics">
           <div><dt>Replicas</dt><dd>{model.replica_count}</dd></div>
@@ -49,8 +67,8 @@ export default function ModelInspector({ model, nodes, open, onClose, onOpenNode
           <div><dt>Last used</dt><dd>{model.last_used ? timeAgo(model.last_used) : 'Never'}</dd></div>
         </dl>
         <div className="model-backend-list model-inspector__backends" aria-label="Backend types">{model.backend_types.length ? model.backend_types.map(backend => <span key={backend}>{backend}</span>) : <span className="text-muted">Backend unknown</span>}</div>
-      </section>
-      <section className="node-inspector__section">
+        </section>
+        <section className="node-inspector__section">
         <h3>Replica placement</h3>
         <div className="model-inspector__nodes">{nodeGroups.map(group => {
           const inFlight = group.replicas.reduce((total, replica) => total + (Number.isFinite(replica.in_flight) ? Math.max(0, Math.floor(replica.in_flight)) : 0), 0)
@@ -70,7 +88,9 @@ export default function ModelInspector({ model, nodes, open, onClose, onOpenNode
             </article>
           )
         })}</div>
-      </section>
+        </section>
+      </div>
+      <footer className="node-inspector__actions node-inspector__actions--single"><button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>Close</button></footer>
     </aside>
-  )
+  </>
 }
