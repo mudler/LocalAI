@@ -58,6 +58,35 @@ var _ = Describe("Node HTTP handlers", func() {
 	})
 
 	Describe("RegisterNodeEndpoint", func() {
+		It("binds, persists, and lists CPU telemetry", func() {
+			e := echo.New()
+			body := `{"name":"cpu-worker","address":"10.0.0.9:50051","cpu_logical_cores":12,"cpu_usage_percent":145,"cpu_load_1":2.5}`
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+
+			Expect(RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})(e.NewContext(req, rec))).To(Succeed())
+			Expect(rec.Code).To(Equal(http.StatusCreated))
+
+			node, err := registry.GetByName(context.Background(), "cpu-worker")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.CPULogicalCores).To(Equal(uint64(12)))
+			Expect(node.CPUUsagePercent).To(Equal(float64(100)))
+			Expect(node.CPULoad1).To(Equal(2.5))
+
+			listRecorder := httptest.NewRecorder()
+			listContext := e.NewContext(httptest.NewRequest(http.MethodGet, "/api/nodes", nil), listRecorder)
+			Expect(ListNodesEndpoint(registry)(listContext)).To(Succeed())
+			var listed []map[string]any
+			Expect(json.Unmarshal(listRecorder.Body.Bytes(), &listed)).To(Succeed())
+			Expect(listed).To(HaveLen(1))
+			Expect(listed[0]).To(SatisfyAll(
+				HaveKeyWithValue("cpu_logical_cores", float64(12)),
+				HaveKeyWithValue("cpu_usage_percent", float64(100)),
+				HaveKeyWithValue("cpu_load_1", 2.5),
+			))
+		})
+
 		It("registers a backend node and returns 201", func() {
 			e := echo.New()
 			body := `{"name":"worker-1","address":"10.0.0.1:50051"}`
@@ -446,6 +475,42 @@ var _ = Describe("Node HTTP handlers", func() {
 			Expect(list).To(HaveLen(1))
 			Expect(list[0].ModelName).To(Equal("llama-3.3"))
 			Expect(list[0].NodeID).To(Equal("n1"))
+		})
+	})
+
+	Describe("Node lifecycle endpoints", func() {
+		request := func(handler echo.HandlerFunc, id string) *httptest.ResponseRecorder {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/api/nodes/"+id, nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("id")
+			c.SetParamValues(id)
+			Expect(handler(c)).To(Succeed())
+			return rec
+		}
+
+		It("accepts healthy drain followed by draining resume", func() {
+			Expect(registry.Register(context.Background(), &nodes.BackendNode{
+				ID: "lifecycle", Name: "lifecycle", Address: "10.0.0.10:50051",
+			}, true)).To(Succeed())
+
+			Expect(request(DrainNodeEndpoint(registry), "lifecycle").Code).To(Equal(http.StatusOK))
+			Expect(request(ResumeNodeEndpoint(registry), "lifecycle").Code).To(Equal(http.StatusOK))
+		})
+
+		It("returns conflict when a pending node is drained or resumed", func() {
+			Expect(registry.Register(context.Background(), &nodes.BackendNode{
+				ID: "pending-lifecycle", Name: "pending-lifecycle", Address: "10.0.0.11:50051",
+			}, false)).To(Succeed())
+
+			Expect(request(DrainNodeEndpoint(registry), "pending-lifecycle").Code).To(Equal(http.StatusConflict))
+			Expect(request(ResumeNodeEndpoint(registry), "pending-lifecycle").Code).To(Equal(http.StatusConflict))
+		})
+
+		It("returns not found for missing nodes", func() {
+			Expect(request(DrainNodeEndpoint(registry), "missing").Code).To(Equal(http.StatusNotFound))
+			Expect(request(ResumeNodeEndpoint(registry), "missing").Code).To(Equal(http.StatusNotFound))
 		})
 	})
 

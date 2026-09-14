@@ -75,15 +75,18 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name          string `json:"name"`
-	NodeType      string `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address       string `json:"address"`
-	HTTPAddress   string `json:"http_address,omitempty"`
-	Token         string `json:"token,omitempty"`
-	TotalVRAM     uint64 `json:"total_vram,omitempty"`
-	AvailableVRAM uint64 `json:"available_vram,omitempty"`
-	TotalRAM      uint64 `json:"total_ram,omitempty"`
-	AvailableRAM  uint64 `json:"available_ram,omitempty"`
+	Name            string  `json:"name"`
+	NodeType        string  `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address         string  `json:"address"`
+	HTTPAddress     string  `json:"http_address,omitempty"`
+	Token           string  `json:"token,omitempty"`
+	TotalVRAM       uint64  `json:"total_vram,omitempty"`
+	AvailableVRAM   uint64  `json:"available_vram,omitempty"`
+	TotalRAM        uint64  `json:"total_ram,omitempty"`
+	AvailableRAM    uint64  `json:"available_ram,omitempty"`
+	CPULogicalCores uint64  `json:"cpu_logical_cores,omitempty"`
+	CPUUsagePercent float64 `json:"cpu_usage_percent,omitempty"`
+	CPULoad1        float64 `json:"cpu_load_1,omitempty"`
 	// TotalDisk / AvailableDisk describe the filesystem backing the worker's
 	// MODELS directory (where staged weights land), not the root filesystem.
 	// Omitted by workers that predate the fields; the scheduler treats
@@ -182,6 +185,9 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			AvailableVRAM:        req.AvailableVRAM,
 			TotalRAM:             req.TotalRAM,
 			AvailableRAM:         req.AvailableRAM,
+			CPULogicalCores:      req.CPULogicalCores,
+			CPUUsagePercent:      req.CPUUsagePercent,
+			CPULoad1:             req.CPULoad1,
 			TotalDisk:            req.TotalDisk,
 			AvailableDisk:        req.AvailableDisk,
 			GPUVendor:            req.GPUVendor,
@@ -381,7 +387,8 @@ func HeartbeatEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 
 		var updatePtr *nodes.HeartbeatUpdate
 		if update.AvailableVRAM != nil || update.TotalVRAM != nil || update.AvailableRAM != nil ||
-			update.AvailableDisk != nil || update.TotalDisk != nil || update.GPUVendor != "" {
+			update.AvailableDisk != nil || update.TotalDisk != nil || update.GPUVendor != "" ||
+			update.CPUUsagePercent != nil || update.CPULoad1 != nil {
 			updatePtr = &update
 		}
 
@@ -431,6 +438,12 @@ func DrainNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		id := c.Param("id")
 		if err := registry.MarkDraining(ctx, id); err != nil {
+			if errors.Is(err, nodes.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			if errors.Is(err, nodes.ErrNodeStatusConflict) {
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "node must be healthy to drain"))
+			}
 			xlog.Error("Failed to drain node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to drain node"))
 		}
@@ -443,7 +456,13 @@ func ResumeNodeEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
-		if err := registry.MarkHealthy(ctx, id); err != nil {
+		if err := registry.ResumeNode(ctx, id); err != nil {
+			if errors.Is(err, nodes.ErrNodeNotFound) {
+				return c.JSON(http.StatusNotFound, nodeError(http.StatusNotFound, "node not found"))
+			}
+			if errors.Is(err, nodes.ErrNodeStatusConflict) {
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict, "node must be draining to resume"))
+			}
 			xlog.Error("Failed to resume node", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to resume node"))
 		}

@@ -8,6 +8,7 @@ import StatusPill from '../components/nodes/StatusPill'
 import CapacityEditor from '../components/nodes/CapacityEditor'
 import KeyValueChips from '../components/nodes/KeyValueChips'
 import { formatVRAM, modelStateConfig, timeAgo } from '../components/nodes/nodeStatus'
+import { capacityReading, nodeLifecycleAction } from '../utils/nodeFleet'
 
 // Deep-linkable node management home. Reached by clicking a roster panel on
 // /app/nodes. Surfaces what's running here plus the management affordances
@@ -53,6 +54,7 @@ export default function NodeDetail() {
 
   const drain = async () => { try { await nodesApi.drain(id); addToast('Node set to draining', 'success'); refresh() } catch (e) { addToast(e.message, 'error') } }
   const resume = async () => { try { await nodesApi.resume(id); addToast('Node resumed', 'success'); refresh() } catch (e) { addToast(e.message, 'error') } }
+  const approve = async () => { try { await nodesApi.approve(id); addToast('Node approved', 'success'); refresh() } catch (e) { addToast(e.message, 'error') } }
   const remove = async () => { try { await nodesApi.delete(id); addToast('Node removed', 'success'); navigate('/app/nodes') } catch (e) { addToast(e.message, 'error') } }
   const unload = async (name) => { try { await nodesApi.unloadModel(id, name); addToast(`Model "${name}" unloaded`, 'success'); refresh() } catch (e) { addToast(e.message, 'error') } }
   // The upgrade runs async via the gallery job queue (202 + jobID); the
@@ -63,8 +65,10 @@ export default function NodeDetail() {
   const addLabel = async (k, v) => { try { await nodesApi.mergeLabels(id, { [k]: v }); refresh() } catch (e) { addToast(e.message, 'error') } }
   const delLabel = async (k) => { try { await nodesApi.deleteLabel(id, k); refresh() } catch (e) { addToast(e.message, 'error') } }
 
-  const usedVRAM = node.total_vram && node.available_vram != null ? node.total_vram - node.available_vram : 0
-  const usedRAM = node.total_ram && node.available_ram != null ? node.total_ram - node.available_ram : 0
+  const vram = capacityReading(node.total_vram, node.available_vram)
+  const ram = capacityReading(node.total_ram, node.available_ram)
+  const disk = capacityReading(node.total_disk, node.available_disk)
+  const lifecycleAction = nodeLifecycleAction(node.status)
   // {modelName: replicaCount} of loaded models so the shrink confirm can warn
   // if the new cap is below the actual count of any single model on this node.
   const loadedModelCounts = (() => {
@@ -81,9 +85,9 @@ export default function NodeDetail() {
         supporting={node.address}
         actions={
           <>
-            {node.status === 'draining'
-              ? <button className="btn btn-secondary btn-sm" onClick={resume}><i className="fas fa-play" /> Resume</button>
-              : <button className="btn btn-secondary btn-sm" onClick={drain}><i className="fas fa-pause" /> Drain</button>}
+            {lifecycleAction === 'approve' && <button className="btn btn-primary btn-sm" onClick={approve}><i className="fas fa-check" /> Approve</button>}
+            {lifecycleAction === 'resume' && <button className="btn btn-secondary btn-sm" onClick={resume}><i className="fas fa-play" /> Resume</button>}
+            {lifecycleAction === 'drain' && <button className="btn btn-secondary btn-sm" onClick={drain}><i className="fas fa-pause" /> Drain</button>}
             <button className="btn btn-danger btn-sm" onClick={() => setConfirmRemove(true)}><i className="fas fa-trash" /> Remove</button>
           </>
         }
@@ -91,26 +95,27 @@ export default function NodeDetail() {
 
       {/* Inline resource and activity metrics - no boxes, just labelled values. */}
       <div className="node-detail__metrics">
-        {node.total_vram > 0 && (
-          <div>
-            <div className="drawer-eyebrow">VRAM</div>
-            <span className="cell-mono">{formatVRAM(usedVRAM) || '0'} / {formatVRAM(node.total_vram)}</span>
-          </div>
-        )}
-        {node.total_ram > 0 && (
-          <div>
-            <div className="drawer-eyebrow">RAM</div>
-            <span className="cell-mono">{formatVRAM(usedRAM) || '0'} / {formatVRAM(node.total_ram)}</span>
-          </div>
-        )}
-        {node.total_disk > 0 && (
-          <div>
+        <div>
+          <div className="drawer-eyebrow">VRAM</div>
+          <span className="cell-mono">{vram ? `${formatVRAM(vram.used) || '0'} / ${formatVRAM(vram.total)}` : 'No data'}</span>
+        </div>
+        <div>
+          <div className="drawer-eyebrow">RAM</div>
+          <span className="cell-mono">{ram ? `${formatVRAM(ram.used) || '0'} / ${formatVRAM(ram.total)}` : 'No data'}</span>
+        </div>
+        <div>
             {/* Free space on the worker's MODELS filesystem. A node can look
                 perfectly healthy on VRAM while having nowhere to put the
                 weights, which is why this sits next to VRAM rather than
                 buried in a diagnostics panel. */}
-            <div className="drawer-eyebrow">Models disk free</div>
-            <span className="cell-mono">{formatVRAM(node.available_disk || 0) || '0'} / {formatVRAM(node.total_disk)}</span>
+          <div className="drawer-eyebrow">Models disk free</div>
+          <span className="cell-mono">{disk ? `${formatVRAM(disk.available) || '0'} / ${formatVRAM(disk.total)}` : 'No data'}</span>
+        </div>
+        {node.cpu_logical_cores > 0 && Number.isFinite(node.cpu_usage_percent) && (
+          <div>
+            <div className="drawer-eyebrow">CPU</div>
+            <span className="cell-mono">{node.cpu_usage_percent.toFixed(1)}% of {node.cpu_logical_cores} cores</span>
+            {Number.isFinite(node.cpu_load_1) && <span className="node-detail__metric-note">{node.cpu_load_1.toFixed(2)} load (1m)</span>}
           </div>
         )}
         <div>
@@ -169,7 +174,6 @@ export default function NodeDetail() {
                         {m.model_name}
                         {showReplica && (
                           <span
-                            className="cell-mono"
                             aria-label={`replica ${m.replica_index ?? 0}`}
                             title={`Replica ${m.replica_index ?? 0} on this node`}
                             className="inline-tag"

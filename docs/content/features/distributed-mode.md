@@ -434,6 +434,33 @@ from VRAM on every registration and heartbeat. On unified-memory nodes, the
 available RAM and available VRAM values should therefore track each other
 closely; on discrete-GPU nodes they can change independently.
 
+### CPU telemetry
+
+Backend workers report host-wide CPU telemetry in `GET /api/nodes` and
+`GET /api/nodes/:id`:
+
+| Field | Meaning |
+|-------|---------|
+| `cpu_logical_cores` | Logical processor count, sampled at registration |
+| `cpu_usage_percent` | Utilization across the whole host, clamped to `0..100` |
+| `cpu_load_1` | One-minute system load average |
+
+Utilization and load are sampled at registration and again at each worker
+heartbeat (every 10 seconds by default). The frontend persists heartbeat
+samples on the normal heartbeat checkpoint cadence; CPU movement alone does
+not force an extra database write. If a sample fails, the worker omits all CPU
+fields and the frontend keeps the last successful reading.
+
+Workers from releases that predate CPU reporting remain compatible. Their
+`cpu_logical_cores` value is zero, which means unknown rather than a zero-core
+machine. Fleet capacity excludes those workers from CPU totals and reports
+them as unknown. The dashboard derives available CPU as idle logical-core
+equivalents:
+
+```
+idle cores = cpu_logical_cores * (1 - cpu_usage_percent / 100)
+```
+
 ### Node Labels
 
 Workers can declare labels at startup for scheduling constraints:
@@ -487,6 +514,7 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `GET` | `/api/nodes` | List all registered workers |
 | `GET` | `/api/nodes/:id` | Get a single worker by ID |
 | `GET` | `/api/nodes/:id/models` | List models loaded on a worker |
+| `GET` | `/api/nodes/models` | List loaded model replicas on healthy workers |
 | `DELETE` | `/api/nodes/:id` | Admin-delete a worker |
 | `POST` | `/api/nodes/:id/drain` | Admin-drain a worker |
 | `POST` | `/api/nodes/:id/approve` | Approve a pending worker node |
@@ -498,7 +526,17 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
 | `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
 
-The **Nodes** page in the React WebUI provides a visual overview of all registered workers, their statuses, and loaded models. The page opens with a one-line **cluster pulse** summarising node health and an **attention callout** that surfaces nodes needing action (for example pending approvals). Below that, a roster of **node panels** lists each worker with its inline model chips (no expand click needed), filtered by an **All / Backend / Agent** segmented control. Selecting a panel opens a dedicated **node detail page** at `/app/nodes/:id` with per-node metrics, models, and backend actions. Model scheduling lives on its own **Scheduling** page (separate nav item), not as a tab on the Nodes page.
+The **Nodes** page in the React WebUI is a fleet operations dashboard. Its health band and VRAM, RAM, CPU, and models-disk gauges aggregate the single `GET /api/nodes` response and identify how many workers do not report each metric. The attention queue isolates pending, impaired, or low-capacity workers without double-counting the headline affected-node total.
+
+The fleet table supports search, status and type filters, label or type grouping, sortable columns, and selection across filters. It renders 50 workers at a time and bulk drain, resume, and remove operations run with bounded concurrency, so the page remains usable for fleets with thousands of registrations. Selecting the visible page or a group does not discard selections elsewhere; selections are removed only when a later poll confirms the worker no longer exists.
+
+Selecting a row opens an in-context inspector with health, labels, capacity, model activity, and heartbeat details. Backend inventory is fetched only for the open inspector. The inspector links to the dedicated node detail page at `/app/nodes/:id`, where model, backend, label, capacity, CPU utilization and load, and models-disk management remain available. Model scheduling lives on its own **Scheduling** page.
+
+The workbench's **Running models** tab shows the current loaded replicas on healthy workers. It stays lazy: opening the Nodes page does not query model inventory, and the first activation makes one controller database request that is retained until the page is left. The view groups replicas by model, reports their worker spread, active requests, backend types, and most recent use, and renders 50 models per page for large fleets. Loading, empty, and query-failure states are shown in place; a failed query can be retried.
+
+Use a model row's actions menu to stop that model across the fleet. LocalAI sends one controller shutdown request for the model, which stops all loaded placements; the browser does not contact workers individually. The dashboard refreshes the running-model inventory after both successful and failed shutdown attempts because a failed request can still have stopped some replicas.
+
+Opening a model reveals its replica placement without another request. Replicas on the same worker remain individually visible with their process addresses and workload. From there, select a known worker to move into its node inspector, then return to the model with **Back to model**. That worker transition is the only point in this flow that requests backend inventory, preserving the Nodes page's no-prefetch behavior.
 
 ### Model sizing in the WebUI
 
@@ -692,6 +730,10 @@ without waiting:
   those are hardware facts and a change to one is a real event
 - a free VRAM, free RAM or free disk reading that has moved more than 256 MiB, because
   the scheduler places against those figures
+
+CPU utilization and load follow the scheduled checkpoint instead of making a
+heartbeat material. They are dashboard observations and do not affect model
+placement, so persisting every fluctuation would defeat write suppression.
 
 Every figure is compared against the value **last written**, not against the previous
 beat. A worker reports its disk capacity on every single beat, so testing whether a

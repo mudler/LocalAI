@@ -21,6 +21,25 @@ export function formatVRAM(bytes) {
   return gb >= 1 ? `${gb.toFixed(1)} GB` : `${(bytes / (1024 * 1024)).toFixed(0)} MB`
 }
 
+export function formatBytes(bytes) {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return 'No data'
+  if (bytes < 1024) return `${Math.round(bytes)} B`
+  const units = ['KB', 'MB', 'GB', 'TB', 'PB']
+  let value = bytes / 1024
+  let unit = units[0]
+  for (let index = 1; index < units.length && value >= 1024; index += 1) {
+    value /= 1024
+    unit = units[index]
+  }
+  const precision = value >= 10 ? 0 : 1
+  return `${value.toFixed(precision).replace(/\.0$/, '')} ${unit}`
+}
+
+export function formatCapacity(used, total) {
+  if (!(total > 0)) return 'No data'
+  return `${formatBytes(used)} / ${formatBytes(total)}`
+}
+
 export function timeAgo(dateString) {
   if (!dateString) return 'never'
   const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000)
