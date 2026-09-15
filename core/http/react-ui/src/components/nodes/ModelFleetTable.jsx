@@ -12,7 +12,7 @@ function SortButton({ column, label, sort, onSortChange }) {
   )
 }
 
-export default function ModelFleetTable({ models, selectedName, inspectorOpen, onInspect, onStop, stoppingName, sort, onSortChange }) {
+export default function ModelFleetTable({ models, selectedName, inspectorOpen, onInspect, onViewLogs, onStop, stoppingName, sort, onSortChange }) {
   return (
     <div className="fleet-table-wrap model-fleet-table-wrap">
       <table className="fleet-table model-fleet-table" aria-label="Running models">
@@ -45,6 +45,13 @@ export default function ModelFleetTable({ models, selectedName, inspectorOpen, o
                 ariaLabel={`${model.model_name} actions`}
                 triggerLabel={`Actions for ${model.model_name}`}
                 items={[{
+                  key: 'logs',
+                  icon: 'fa-terminal',
+                  label: 'View logs…',
+                  onClick: invoker => onViewLogs(model, invoker),
+                }, {
+                  divider: true,
+                }, {
                   key: 'stop',
                   icon: 'fa-stop',
                   label: stoppingName === model.model_name ? 'Stopping…' : 'Stop model…',

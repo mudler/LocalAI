@@ -489,6 +489,12 @@ Workers can run **multiple models concurrently** - each model gets its own gRPC 
 
 When the SmartRouter needs to free capacity, it can unload models with zero in-flight requests without affecting other models on the same worker.
 
+### Managing nodes in the WebUI
+
+Open **Operate → Nodes** to inspect fleet health, filter or select workers, and view running models across the cluster. The **Running models** view groups replicas by model. Its **View logs…** action opens logs directly when there is one placement; when a model has several placements, it opens the model inspector so you can choose all logs for one node or the logs for one replica.
+
+Open a node's full details for node-scoped work: viewing replica logs, unloading a model, managing installed backends, changing replica capacity, or editing scheduling labels. Diagnostic actions are listed before destructive actions in row menus.
+
 ## Node Management API
 
 The API is split into two prefixes with distinct auth:
