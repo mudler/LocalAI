@@ -61,4 +61,26 @@ test.describe('Backend Logs', () => {
     // Button label changes to "Show details"
     await expect(page.locator('button', { hasText: 'Show details' })).toBeVisible()
   })
+
+  test('distributed resolver displays zero-based replica indexes as one-based labels', async ({ page }) => {
+    await page.route('**/api/nodes', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{ id: 'worker-1', name: 'Worker 1' }]),
+    }))
+    await page.route('**/api/nodes/worker-1/models', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        { model_name: 'llama', replica_index: 0, state: 'loaded' },
+        { model_name: 'llama', replica_index: 1, state: 'loaded' },
+      ]),
+    }))
+
+    await page.goto('/app/backend-logs/llama')
+
+    await expect(page.getByText('worker-1 · replica 1 · loaded')).toBeVisible()
+    await expect(page.getByText('worker-1 · replica 2 · loaded')).toBeVisible()
+    await expect(page.locator('a[href="/app/node-backend-logs/worker-1/llama"]')).toHaveCount(2)
+  })
 })

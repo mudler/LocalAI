@@ -9863,6 +9863,7 @@ button.collapsible-header:focus-visible {
 .fleet-select__chevron { color: var(--color-text-muted); font-size: .625rem; pointer-events: none; position: absolute; right: 10px; top: 12px; }
 .fleet-bulkbar { align-items: center; background: var(--color-primary-light); border-bottom: 1px solid var(--color-border-strong); display: flex; flex-wrap: wrap; gap: var(--spacing-xs); min-height: 42px; padding: 5px 11px; }
 .fleet-bulkbar strong { font-size: var(--text-xs); margin-right: var(--spacing-xs); }
+.fleet-bulkbar__visibility { color: var(--color-text-secondary); font-size: var(--text-xs); }
 .fleet-bulkbar__clear { background: none; border: 0; color: var(--color-primary); cursor: pointer; font: inherit; font-size: var(--text-xs); }
 .fleet-bulkbar__count { color: var(--color-text-muted); font-size: var(--text-xs); margin-left: auto; }
 /* position: relative makes the wrap the containing block for the headers'
@@ -10006,6 +10007,30 @@ button.collapsible-header:focus-visible {
 .local-model-table .fleet-table__row { cursor: default; }
 .local-model-table .fleet-table__node { cursor: text; overflow-wrap: anywhere; }
 .local-model-table .fleet-table__row.is-stopping { opacity: .55; }
+.worker-setup { width: min(460px, calc(100vw - 2 * var(--spacing-md))); }
+.worker-setup__types { width: 100%; }
+.worker-setup__types .segmented__item { flex: 1; justify-content: center; }
+.worker-setup__commands { display: grid; gap: var(--spacing-md); }
+.worker-setup__commands .p2p-cmd pre { max-height: 180px; }
+
+.node-backend-logs__title-icon { font-size: .8em; margin-right: var(--spacing-sm); }
+.node-backend-logs__scope-tag { background: var(--color-bg-tertiary); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-sm); color: var(--color-text-secondary); font-size: .6875rem; font-weight: 500; margin-left: var(--spacing-sm); padding: 2px 8px; vertical-align: middle; }
+.node-backend-logs__back { color: var(--color-primary); font-size: var(--text-xs); margin-left: var(--spacing-xs); }
+.node-backend-logs__replicas { margin-bottom: var(--spacing-sm); }
+.node-backend-logs__toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-bottom: var(--spacing-md); }
+.node-backend-logs__filters { display: flex; gap: 2px; }
+.node-backend-logs__connection { align-items: center; display: flex; font-size: var(--text-xs); gap: var(--spacing-xs); margin-left: auto; }
+.node-backend-logs__connection-dot { background: var(--color-text-muted); border-radius: 50%; display: inline-block; height: 8px; width: 8px; }
+.node-backend-logs__connection-dot.is-live { background: var(--color-success); }
+.node-backend-logs__autoscroll { align-items: center; cursor: pointer; display: flex; gap: 4px; margin-left: var(--spacing-sm); }
+.node-backend-logs__output { background: var(--color-bg-primary); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.5; max-height: calc(100vh - 280px); overflow: auto; }
+.node-backend-logs__line { align-items: flex-start; border-bottom: 1px solid var(--color-border-subtle); display: flex; padding: 2px var(--spacing-sm); }
+.node-backend-logs__line.has-details { gap: var(--spacing-sm); }
+.node-backend-logs__timestamp { color: var(--color-text-muted); flex-shrink: 0; min-width: 90px; }
+.node-backend-logs__stream { border-radius: var(--radius-sm); flex-shrink: 0; font-size: .625rem; font-weight: 500; line-height: 1.5; padding: 0 4px; }
+.node-backend-logs__stream--stdout { background: var(--color-info-light); color: var(--color-log-info); }
+.node-backend-logs__stream--stderr { background: var(--color-error-light); color: var(--color-log-stderr); }
+.node-backend-logs__text { flex: 1; white-space: pre-wrap; word-break: break-all; }
 
 @container fleet-page (max-width: 760px) {
   .fleet-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -10043,6 +10068,8 @@ button.collapsible-header:focus-visible {
   .node-inspector__header { padding-left: 18px; padding-right: 18px; padding-top: max(16px, env(safe-area-inset-top)); }
   .node-inspector__body { padding-left: 18px; padding-right: 18px; }
   .node-inspector__actions { padding-bottom: max(14px, env(safe-area-inset-bottom)); padding-left: 18px; padding-right: 18px; }
+  .worker-setup { width: 100vw; }
+  .node-backend-logs__connection { margin-left: 0; width: 100%; }
 }
 @keyframes node-inspector-scrim-in { from { opacity: 0; } to { opacity: 1; } }
 

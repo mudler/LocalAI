@@ -376,7 +376,7 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
             <div>
               <div className="fw-medium">{node.name || node.id}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}>
-                {node.id}{model.replica_index ? ` · replica ${model.replica_index}` : ''} · {model.state}
+                {node.id}{model.replica_index != null ? ` · replica ${model.replica_index + 1}` : ''} · {model.state}
               </div>
             </div>
             <i className="fas fa-chevron-right text-muted" />

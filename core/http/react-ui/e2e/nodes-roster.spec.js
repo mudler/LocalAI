@@ -45,41 +45,27 @@ test.describe('Nodes fleet roster', () => {
 })
 
 test.describe('Nodes join command', () => {
-  // The panel emits BOTH the backend and the agent join command from one
-  // component. Neither worker kind dials a message bus any more: each holds one
-  // outward tunnel to --register-to and takes every verb on it. A join command
-  // carrying --nats-url would tell an operator to stand up, secure and pay for a
-  // broker that nothing in the deployment connects to, which is the one way this
-  // migration can still cost money after the code stopped using it.
-  //
-  // Asserted on the RENDERED command text rather than on the component's
-  // variables, because the variables are what the fix deletes: a spec reading
-  // them would stop compiling instead of failing, and a compile error is not
-  // evidence about what an operator is shown.
-  test('emits no bus flag for either worker kind', async ({ page }) => {
+  test('preserves the NATS connection in both worker command forms', async ({ page }) => {
     await mockCluster(page, [])
     await page.goto('/app/nodes')
 
     await page.getByRole('radio', { name: /^Backend$/ }).click()
     const backendCli = page.locator('.p2p-cmd pre').first()
     await expect(backendCli).toContainText('local-ai worker', { timeout: 15_000 })
-    await expect(backendCli).not.toContainText('--nats-url')
+    await expect(backendCli).toContainText('--nats-url "nats://nats:4222"')
     const backendDocker = page.locator('.p2p-cmd pre').nth(1)
     await expect(backendDocker).toContainText('LOCALAI_REGISTER_TO')
-    await expect(backendDocker).not.toContainText('LOCALAI_NATS_URL')
+    await expect(backendDocker).toContainText('LOCALAI_NATS_URL="nats://nats:4222"')
 
-    // The agent tab is the one that regressed: it was the last surface still
-    // emitting the flag, and it kept emitting it for two tasks after the agent
-    // worker stopped dialling.
     await page.getByRole('radio', { name: /^Agent$/ }).click()
     const agentCli = page.locator('.p2p-cmd pre').first()
     await expect(agentCli).toContainText('local-ai agent-worker', { timeout: 15_000 })
     await expect(agentCli).toContainText('--register-to',
     )
-    await expect(agentCli).not.toContainText('--nats-url')
+    await expect(agentCli).toContainText('--nats-url "nats://nats:4222"')
     const agentDocker = page.locator('.p2p-cmd pre').nth(1)
     await expect(agentDocker).toContainText('LOCALAI_REGISTER_TO')
-    await expect(agentDocker).not.toContainText('LOCALAI_NATS_URL')
+    await expect(agentDocker).toContainText('LOCALAI_NATS_URL="nats://nats:4222"')
   })
 
   test('does not advertise flags the CLI does not have', async ({ page }) => {

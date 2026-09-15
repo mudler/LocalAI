@@ -167,7 +167,7 @@ export default function NodeDetail() {
                         <td><span className="state-pill" style={{ background: stCfg.bg, color: stCfg.color, border: `1px solid ${stCfg.border}` }}>{model.state}</span></td>
                         <td className="cell-mono">{model.in_flight ?? 0}</td>
                         <td className="model-fleet-table__actions"><ActionMenu compact ariaLabel={`${model.model_name} replica ${replicaNumber} actions`} triggerLabel={`Actions for ${model.model_name} replica ${replicaNumber}`} items={[
-                          { key: 'logs', icon: 'fa-terminal', label: 'View logs', onClick: () => navigate(`/app/node-backend-logs/${encodeURIComponent(id)}/${encodeURIComponent(processKey)}`) },
+                          { key: 'logs', icon: 'fa-terminal', label: 'View logs', onClick: () => navigate(`/app/node-backend-logs/${encodeURIComponent(id)}/${encodeURIComponent(processKey)}`, { state: { from: `/app/nodes/${encodeURIComponent(id)}` } }) },
                           { divider: true },
                           { key: 'unload', icon: 'fa-stop', label: 'Unload model…', danger: true, onClick: () => setConfirmUnload({ modelName: model.model_name, inFlight: model.in_flight ?? 0 }) },
                         ]} /></td>
