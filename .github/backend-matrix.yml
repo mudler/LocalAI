@@ -2288,7 +2288,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-rerankers'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "rerankers"
     dockerfile: "./backend/Dockerfile.python"
@@ -2302,7 +2302,7 @@ include:
     tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "llama-cpp"
     dockerfile: "./backend/Dockerfile.llama-cpp"
@@ -2316,7 +2316,7 @@ include:
     tag-suffix: '-gpu-rocm-hipblas-bonsai'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-rocm-amd64'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "bonsai"
     dockerfile: "./backend/Dockerfile.bonsai"
@@ -2329,7 +2329,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-vllm'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "vllm"
     dockerfile: "./backend/Dockerfile.python"
@@ -2342,7 +2342,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-vllm-omni'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "vllm-omni"
     dockerfile: "./backend/Dockerfile.python"
@@ -2355,7 +2355,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-sglang'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "sglang"
     dockerfile: "./backend/Dockerfile.python"
@@ -2368,9 +2368,14 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-transformers'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "transformers"
+    # AMD torch device packages are per-GPU-arch and ~1.6 GB installed each, so
+    # this image carries a deliberate set instead of the repo-wide 11-arch default
+    # (which would add ~17 GB): both CDNA data-center arches plus Strix Halo.
+    # Adding an arch is one entry here at ~1.6 GB.
+    amdgpu-targets: 'gfx942,gfx950,gfx1151'
     dockerfile: "./backend/Dockerfile.python"
     context: "./"
     ubuntu-version: '2404'
@@ -2381,9 +2386,14 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-diffusers'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "diffusers"
+    # AMD torch device packages are per-GPU-arch and ~1.6 GB installed each, so
+    # this image carries a deliberate set instead of the repo-wide 11-arch default
+    # (which would add ~17 GB): both CDNA data-center arches plus Strix Halo.
+    # Adding an arch is one entry here at ~1.6 GB.
+    amdgpu-targets: 'gfx942,gfx950,gfx1151'
     dockerfile: "./backend/Dockerfile.python"
     context: "./"
     ubuntu-version: '2404'
@@ -2394,7 +2404,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-ace-step'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "ace-step"
     dockerfile: "./backend/Dockerfile.python"
@@ -2408,9 +2418,14 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-kokoro'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "kokoro"
+    # AMD torch device packages are per-GPU-arch and ~1.6 GB installed each, so
+    # this image carries a deliberate set instead of the repo-wide 11-arch default
+    # (which would add ~17 GB): both CDNA data-center arches plus Strix Halo.
+    # Adding an arch is one entry here at ~1.6 GB.
+    amdgpu-targets: 'gfx942,gfx950,gfx1151'
     dockerfile: "./backend/Dockerfile.python"
     context: "./"
     ubuntu-version: '2404'
@@ -2421,7 +2436,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-vibevoice'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "vibevoice"
     dockerfile: "./backend/Dockerfile.python"
@@ -2434,7 +2449,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-liquid-audio'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "liquid-audio"
     dockerfile: "./backend/Dockerfile.python"
@@ -2447,7 +2462,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-qwen-asr'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "qwen-asr"
     dockerfile: "./backend/Dockerfile.python"
@@ -2473,7 +2488,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-nemo'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "nemo"
     dockerfile: "./backend/Dockerfile.python"
@@ -2486,7 +2501,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-qwen-tts'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "qwen-tts"
     dockerfile: "./backend/Dockerfile.python"
@@ -2499,7 +2514,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-fish-speech'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "fish-speech"
     dockerfile: "./backend/Dockerfile.python"
@@ -2512,7 +2527,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-voxcpm'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "voxcpm"
     dockerfile: "./backend/Dockerfile.python"
@@ -2525,7 +2540,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-pocket-tts'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "pocket-tts"
     dockerfile: "./backend/Dockerfile.python"
@@ -2538,7 +2553,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "faster-whisper"
     dockerfile: "./backend/Dockerfile.python"
@@ -2551,7 +2566,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-coqui'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "coqui"
     dockerfile: "./backend/Dockerfile.python"
@@ -4229,7 +4244,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-whisper'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "whisper"
@@ -4242,7 +4257,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-crispasr'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "crispasr"
@@ -4351,7 +4366,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-parakeet-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "parakeet-cpp"
@@ -4540,7 +4555,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-moss-transcribe-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "moss-transcribe-cpp"
@@ -4688,7 +4703,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-ced'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "ced"
@@ -4836,7 +4851,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-voice-detect'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "voice-detect"
@@ -4984,7 +4999,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-face-detect'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "face-detect"
@@ -5093,7 +5108,7 @@ include:
     platforms: 'linux/amd64'
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-acestep-cpp'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     runs-on: 'ubuntu-latest'
     skip-drivers: 'false'
     backend: "acestep-cpp"
@@ -6055,7 +6070,7 @@ include:
   #   platforms: 'linux/amd64'
   #   tag-latest: 'auto'
   #   tag-suffix: '-gpu-hipblas-rfdetr'
-  #   base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+  #   base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
   #   runs-on: 'ubuntu-latest'
   #   skip-drivers: 'false'
   #   backend: "rfdetr"
@@ -6127,7 +6142,7 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-gpu-rocm-hipblas-neutts'
     runs-on: 'ubuntu-latest'
-    base-image: "rocm/dev-ubuntu-24.04:7.2.1"
+    base-image: "rocm/dev-ubuntu-24.04:7.14.0-full"
     skip-drivers: 'false'
     backend: "neutts"
     dockerfile: "./backend/Dockerfile.python"
