@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -262,6 +264,10 @@ func (s *S3FileStager) AllocRemoteDir(ctx context.Context, nodeID, keyPrefix str
 }
 
 func (s *S3FileStager) ReleaseRemoteDir(ctx context.Context, nodeID, keyPrefix string) error {
+	cleanKey := path.Clean(strings.ReplaceAll(keyPrefix, "\\", "/"))
+	if cleanKey == strings.TrimSuffix(storage.ModelKeyPrefix, "/") || cleanKey == strings.TrimSuffix(storage.DataKeyPrefix, "/") {
+		return fmt.Errorf("refusing to remove a staging root")
+	}
 	var reply fileRmdirReply
 	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesRmdir, fileRmdirRequest{KeyPrefix: keyPrefix}, &reply); err != nil {
 		return err
