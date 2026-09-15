@@ -295,6 +295,9 @@ A huge thank you to our generous sponsors who support this project covering CI e
   <a href="https://www.spectrocloud.com/" target="blank">
     <img height="200" src="https://github.com/user-attachments/assets/72eab1dd-8b93-4fc0-9ade-84db49f24962">
   </a>
+  <a href="https://solstone.app/" target="blank" >
+    <img height="200" src="https://solpbc.org/brands/assets/solstone/png/lockup-solstone-app-512.png">
+  </a>
 </p>
 
 <details>
