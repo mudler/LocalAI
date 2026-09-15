@@ -120,6 +120,47 @@ func getDirectorySize(path string) (int64, error) {
 	return totalSize, nil
 }
 
+// parseRateString converts a human-readable bandwidth string (e.g. "2mb",
+// "500kb", "10mb") to bytes per second. Returns ≤ 0 for unlimited.
+func parseRateString(s string) (int64, error) {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if s == "" || s == "0" || s == "unlimited" || s == "-1" {
+		return 0, nil
+	}
+	var multiplier int64 = 1
+	switch {
+	case strings.HasSuffix(s, "gb"):
+		multiplier = 1 << 30
+		s = strings.TrimSuffix(s, "gb")
+	case strings.HasSuffix(s, "g"):
+		multiplier = 1 << 30
+		s = strings.TrimSuffix(s, "g")
+	case strings.HasSuffix(s, "mb"):
+		multiplier = 1 << 20
+		s = strings.TrimSuffix(s, "mb")
+	case strings.HasSuffix(s, "m"):
+		multiplier = 1 << 20
+		s = strings.TrimSuffix(s, "m")
+	case strings.HasSuffix(s, "kb"):
+		multiplier = 1 << 10
+		s = strings.TrimSuffix(s, "kb")
+	case strings.HasSuffix(s, "k"):
+		multiplier = 1 << 10
+		s = strings.TrimSuffix(s, "k")
+	case strings.HasSuffix(s, "b"):
+		multiplier = 1
+		s = strings.TrimSuffix(s, "b")
+	}
+	val, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("cannot parse %q as a number", s)
+	}
+	if val <= 0 {
+		return 0, nil
+	}
+	return val * multiplier, nil
+}
+
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
 
@@ -416,21 +457,77 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 
-	// Pause operation endpoint (admin only). Unlike cancel, pause preserves a
-	// partial download so submitting the same install later resumes it.
+	// Pause operation endpoint (admin only)
 	app.POST("/api/operations/:jobID/pause", func(c echo.Context) error {
 		jobID := c.Param("jobID")
 		xlog.Debug("API request to pause operation", "jobID", jobID)
 
-		if err := galleryService.PauseOperation(jobID); err != nil {
+		err := galleryService.PauseOperation(jobID)
+		if err != nil {
 			xlog.Error("Failed to pause operation", "error", err, "jobID", jobID)
-			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
 		}
 
-		opcache.DeleteUUID(jobID)
 		return c.JSON(200, map[string]any{
 			"success": true,
 			"message": "Operation paused",
+		})
+	}, adminMiddleware)
+
+	// Resume operation endpoint (admin only)
+	app.POST("/api/operations/:jobID/resume", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		xlog.Debug("API request to resume operation", "jobID", jobID)
+
+		err := galleryService.ResumeOperation(jobID)
+		if err != nil {
+			xlog.Error("Failed to resume operation", "error", err, "jobID", jobID)
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "Operation resumed",
+		})
+	}, adminMiddleware)
+
+	// Pause all operations (admin only)
+	app.POST("/api/operations/pause-all", func(c echo.Context) error {
+		xlog.Debug("API request to pause all operations")
+
+		err := galleryService.PauseAllOperations()
+		if err != nil {
+			xlog.Error("Failed to pause all operations", "error", err)
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "All operations paused",
+		})
+	}, adminMiddleware)
+
+	// Resume all operations (admin only)
+	app.POST("/api/operations/resume-all", func(c echo.Context) error {
+		xlog.Debug("API request to resume all operations")
+
+		err := galleryService.ResumeAllOperations()
+		if err != nil {
+			xlog.Error("Failed to resume all operations", "error", err)
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": "All operations resumed",
 		})
 	}, adminMiddleware)
 
@@ -467,6 +564,37 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		return c.JSON(200, map[string]any{
 			"success": true,
+		})
+	}, adminMiddleware)
+
+	// Throttle (rate-limit) an active download (admin only)
+	// Query param: ?rate=2mb or ?rate=500kb. Use 0 or -1 to remove the limit.
+	app.POST("/api/operations/:jobID/throttle", func(c echo.Context) error {
+		jobID := c.Param("jobID")
+		rateStr := c.QueryParam("rate")
+		if rateStr == "" {
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": "query parameter 'rate' is required (e.g. rate=2mb, rate=500kb)",
+			})
+		}
+		bytesPerSec, err := parseRateString(rateStr)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": fmt.Sprintf("invalid rate %q: %v", rateStr, err),
+			})
+		}
+
+		xlog.Debug("API request to throttle operation", "jobID", jobID, "rate", bytesPerSec)
+		if err := galleryService.SetOperationRateLimit(jobID, bytesPerSec); err != nil {
+			xlog.Error("Failed to throttle operation", "error", err, "jobID", jobID)
+			return c.JSON(http.StatusBadRequest, map[string]any{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(200, map[string]any{
+			"success": true,
+			"message": fmt.Sprintf("Operation throttled to %d bytes/sec", bytesPerSec),
 		})
 	}, adminMiddleware)
 
@@ -1057,7 +1185,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		uid := id.String()
 		opcache.Set(galleryID, uid)
 
-		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
@@ -1066,10 +1194,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
-			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
+		galleryService.StoreCancellation(uid, cancelFunc)
 		galleryService.EnqueueModelOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1105,7 +1232,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		opcache.Set(galleryID, uid)
 
-		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			Delete:             true,
@@ -1114,10 +1241,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			BackendGalleries:   appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
-			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
+		galleryService.StoreCancellation(uid, cancelFunc)
 		galleryService.EnqueueModelOp(op)
 		cl.RemoveModelConfig(galleryName)
 
@@ -1512,20 +1638,19 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		uid := id.String()
 		opcache.SetBackend(backendID, uid)
 
-		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendID,
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
-			PauseFunc:          pauseFunc,
 			// The React UI's "Reinstall backend" action reuses this route, so
 			// the op must force even when the backend is already installed.
 			Force: true,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
+		galleryService.StoreCancellation(uid, cancelFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1575,20 +1700,19 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 		opcache.SetBackend(cacheKey, uid)
 
-		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: req.Name, // May be empty, will be derived during installation
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
-			PauseFunc:          pauseFunc,
 			ExternalURI:        req.URI,
 			ExternalName:       req.Name,
 			ExternalAlias:      req.Alias,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
+		galleryService.StoreCancellation(uid, cancelFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1624,7 +1748,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		opcache.SetBackend(backendID, uid)
 
-		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			Delete:             true,
@@ -1632,10 +1756,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Galleries:          appConfig.BackendGalleries,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
-			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
+		galleryService.StoreCancellation(uid, cancelFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{
@@ -1744,7 +1867,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// and the Backends UI can reflect progress on the affected row.
 		opcache.SetBackend(backendName, uid)
 
-		ctx, cancelFunc, pauseFunc := galleryop.NewUserCancellableContext(context.Background())
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := galleryop.ManagementOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendName,
@@ -1752,10 +1875,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			Upgrade:            true,
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
-			PauseFunc:          pauseFunc,
 		}
 		// Store cancellation function immediately so queued operations can be cancelled
-		galleryService.StoreCancellationActions(uid, cancelFunc, pauseFunc)
+		galleryService.StoreCancellation(uid, cancelFunc)
 		galleryService.EnqueueBackendOp(op)
 
 		return c.JSON(200, map[string]any{

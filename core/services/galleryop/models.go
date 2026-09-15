@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/safefile"
@@ -155,6 +156,26 @@ func (g *GalleryService) modelHandlerLocked(op *ManagementOp[gallery.GalleryMode
 				GalleryElementName: op.GalleryElementName,
 			})
 			return err
+		}
+		// Check if the download was paused — the .partial is preserved for
+		// later resume, so this is not a terminal failure.
+		if errors.Is(err, downloader.ErrUserPaused) {
+			g.UpdateStatus(op.ID, &OpStatus{
+				Paused:             true,
+				Message:            "paused",
+				GalleryElementName: op.GalleryElementName,
+				Cancellable:        true,
+			})
+			// Store the operation metadata so ResumeOperation can re-queue it.
+			g.storePausedOp(op.ID, &PausedModelOp{
+				Galleries:          op.Galleries,
+				BackendGalleries:   op.BackendGalleries,
+				Req:                op.Req,
+				GalleryElementName: op.GalleryElementName,
+			})
+			// Return nil so Start() does not call updateError — this is not a
+			// failure, it's a deliberate pause.
+			return nil
 		}
 		return err
 	}
