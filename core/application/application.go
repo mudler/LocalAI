@@ -636,7 +636,6 @@ func (a *Application) StartAgentPool() {
 		if d.DistStores != nil && d.DistStores.Skills != nil {
 			opts.SkillStore = d.DistStores.Skills
 		}
-		opts.NATSClient = d.Nats
 		opts.EventBridge = d.AgentBridge
 		opts.AgentStore = d.AgentStore
 	}
@@ -680,7 +679,7 @@ func (a *Application) StartAgentPool() {
 	}
 	// Keep per-user agent tasks consistent across replicas (nil in standalone).
 	if d := a.Distributed(); d != nil {
-		usm.SetJobSyncNATS(d.Nats)
+		usm.SetJobSyncBus(d.Broadcast())
 	}
 	aps.SetUserServicesManager(usm)
 

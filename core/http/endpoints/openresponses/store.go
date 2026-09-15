@@ -56,11 +56,19 @@ type ResponseStore struct {
 	// (see sync.go), which is how a standalone deployment keeps exactly the
 	// previous process-local behaviour. Guarded by mu.
 	synced     *syncstate.SyncedMap[string, *syncedResponse]
-	nats       messaging.MessagingClient
+	bus        messaging.Broadcaster
 	cancelSub  messaging.Subscription
 	replicaID  string
 	lifeCtx    context.Context
 	lifeCancel context.CancelFunc
+
+	// purgeWG tracks the durable-metadata purge sweep so Close cannot return
+	// while it is still issuing statements. purgeTicks, when non-nil, replaces
+	// that sweep's wall-clock ticker: only a spec sets it, so the sweep can be
+	// driven one tick at a time instead of waited out or slept through.
+	// Guarded by mu, and read once when the sweep starts.
+	purgeWG    sync.WaitGroup
+	purgeTicks <-chan time.Time
 }
 
 // StreamedEvent represents a buffered SSE event for streaming resume

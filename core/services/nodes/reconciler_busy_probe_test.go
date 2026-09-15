@@ -48,13 +48,13 @@ var _ = Describe("ReplicaReconciler — probe reaper vs busy backends", func() {
 	// seed inserts a stale loaded row so the probe pass picks it up.
 	seed := func(id string, inFlight int) {
 		Expect(db.Create(&NodeModel{
-			ID:        id,
-			NodeID:    node.ID,
-			ModelName: id,
-			Address:   addr,
-			State:     "loaded",
-			InFlight:  inFlight,
-			UpdatedAt: time.Now().Add(-5 * time.Minute),
+			ID:                 id,
+			NodeID:             node.ID,
+			ModelName:          id,
+			WorkerLocalAddress: addr,
+			State:              "loaded",
+			InFlight:           inFlight,
+			UpdatedAt:          time.Now().Add(-5 * time.Minute),
 		}).Error).To(Succeed())
 	}
 
@@ -87,6 +87,48 @@ var _ = Describe("ReplicaReconciler — probe reaper vs busy backends", func() {
 		var after NodeModel
 		Expect(db.First(&after, "id = ?", "busy-1").Error).To(Succeed(),
 			"a backend that accepted the connection but was mid-request must never be reaped")
+	})
+
+	It("never reaps a replica it could not probe at all", func() {
+		// ProbeUnknown is this FRONTEND saying it has no way to reach the
+		// worker, which is nothing at all about the backend. Folding it into
+		// ProbeUnreachable would empty the whole node_models table the moment
+		// the tunnel wiring was wrong, and the models would still be running.
+		seed("unknown-1", 0)
+		prober := &fakeProber{outcomes: map[string]ProbeOutcome{addr: ProbeUnknown}}
+		rc := newReconciler(prober)
+
+		for range probeFailuresBeforeReap * 3 {
+			rc.probeLoadedModels(context.Background())
+			makeStale("unknown-1")
+		}
+
+		var after NodeModel
+		Expect(db.First(&after, "id = ?", "unknown-1").Error).To(Succeed(),
+			"a replica this frontend could not reach must never be reaped")
+	})
+
+	It("does not let an unprobeable pass forgive a real failure streak", func() {
+		// The other half of the same rule. Clearing the streak on an outcome
+		// that observed nothing would let a flapping tunnel keep a genuinely
+		// dead backend in the table forever.
+		seed("mixed-1", 0)
+		prober := &fakeProber{outcomes: map[string]ProbeOutcome{addr: ProbeUnreachable}}
+		rc := newReconciler(prober)
+
+		for i := 1; i < probeFailuresBeforeReap; i++ {
+			rc.probeLoadedModels(context.Background())
+			makeStale("mixed-1")
+		}
+		prober.outcomes[addr] = ProbeUnknown
+		rc.probeLoadedModels(context.Background())
+		makeStale("mixed-1")
+
+		prober.outcomes[addr] = ProbeUnreachable
+		rc.probeLoadedModels(context.Background())
+		var after NodeModel
+		Expect(db.First(&after, "id = ?", "mixed-1").Error).To(MatchError(gorm.ErrRecordNotFound),
+			"an unprobeable pass must leave the streak untouched, not reset it")
 	})
 
 	It("reaps an unreachable replica even when in_flight leaked high", func() {

@@ -55,11 +55,3 @@ func (s *backendSupervisor) runningModels() []messaging.RunningModelInfo {
 	}
 	return running
 }
-
-// handleModelsRunning answers a models.running request with this worker's live
-// process set.
-func (s *backendSupervisor) handleModelsRunning(_ []byte, reply func([]byte)) {
-	running := s.runningModels()
-	xlog.Debug("Answering models.running", "nodeID", s.nodeID, "count", len(running))
-	replyJSON(reply, messaging.ModelsRunningReply{Models: running})
-}

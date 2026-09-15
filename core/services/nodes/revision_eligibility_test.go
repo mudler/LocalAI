@@ -54,7 +54,7 @@ var _ = Describe("revision eligibility consumers", func() {
 			}
 			Expect(db.Create(&NodeModel{
 				ID: kind, NodeID: node.ID, ModelName: modelName, ReplicaIndex: i,
-				Address: kind, State: state, ConfigRevision: revision, LastUsed: time.Now().Add(time.Duration(i) * time.Minute),
+				WorkerLocalAddress: kind, State: state, ConfigRevision: revision, LastUsed: time.Now().Add(time.Duration(i) * time.Minute),
 				UpdatedAt: time.Now().Add(-time.Hour),
 			}).Error).To(Succeed())
 		}
@@ -148,7 +148,7 @@ var _ = Describe("revision eligibility consumers", func() {
 		Expect(db.Model(&NodeModel{}).Where("id = ?", "mismatch").Update("replica_index", 9).Error).To(Succeed())
 		Expect(db.Create(&NodeModel{
 			ID: "current-extra", NodeID: nodes["current"].ID, ModelName: modelName,
-			ReplicaIndex: 4, Address: "current-extra", State: "loaded",
+			ReplicaIndex: 4, WorkerLocalAddress: "current-extra", State: "loaded",
 			ConfigRevision: "current", LastUsed: time.Now().Add(-time.Hour),
 		}).Error).To(Succeed())
 
@@ -214,7 +214,7 @@ var _ = Describe("revision eligibility consumers", func() {
 		// the minimum and the oldest eligible current row may be selected.
 		Expect(db.Create(&NodeModel{
 			ID: "current-extra", NodeID: nodes["current"].ID, ModelName: modelName,
-			ReplicaIndex: 4, Address: "current-extra", State: "loaded",
+			ReplicaIndex: 4, WorkerLocalAddress: "current-extra", State: "loaded",
 			ConfigRevision: "current", LastUsed: time.Now().Add(time.Minute),
 		}).Error).To(Succeed())
 		unloader := &fakeUnloader{}
@@ -264,7 +264,7 @@ var _ = Describe("revision eligibility consumers", func() {
 
 type recordingEligibilityProber struct{ addresses []string }
 
-func (p *recordingEligibilityProber) Probe(_ context.Context, address string) ProbeOutcome {
+func (p *recordingEligibilityProber) Probe(_ context.Context, _, address string) ProbeOutcome {
 	p.addresses = append(p.addresses, address)
 	return ProbeAlive
 }

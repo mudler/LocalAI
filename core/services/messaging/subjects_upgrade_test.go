@@ -7,18 +7,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
-var _ = Describe("SubjectNodeBackendUpgrade", func() {
-	It("returns the per-node upgrade subject", func() {
-		Expect(messaging.SubjectNodeBackendUpgrade("abc")).
-			To(Equal("nodes.abc.backend.upgrade"))
-	})
-
-	It("sanitizes reserved NATS tokens in the node id", func() {
-		Expect(messaging.SubjectNodeBackendUpgrade("a.b*c")).
-			To(Equal("nodes.a-b-c.backend.upgrade"))
-	})
-})
-
 var _ = Describe("BackendUpgradeRequest", func() {
 	It("carries backend name, galleries JSON, and replica index", func() {
 		req := messaging.BackendUpgradeRequest{

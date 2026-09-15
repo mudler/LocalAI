@@ -104,124 +104,58 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return echo.ErrBadRequest
 		}
 
-		// Use the GeneratedContentDir so the generated PNG is placed where the
-		// HTTP static handler serves `/generated-images`.
-		tmpDir := appConfig.GeneratedContentDir
-		// Ensure the directory exists
-		if err := os.MkdirAll(tmpDir, 0750); err != nil {
-			xlog.Error("Inpainting Endpoint - failed to create generated content dir", "error", err, "dir", tmpDir)
+		publicDir := filepath.Join(appConfig.GeneratedContentDir, "images")
+		if err := os.MkdirAll(publicDir, 0750); err != nil {
+			xlog.Error("Inpainting Endpoint - failed to create generated content dir", "error", err, "dir", publicDir)
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to prepare storage")
 		}
+
+		// Inputs can contain private user data. Stage them outside the directory
+		// mounted at /generated-images and remove the entire private workspace on
+		// every exit path. The generated result is copied into the public tree
+		// only after the backend completes successfully.
+		stagingDir, err := os.MkdirTemp("", "localai-inpainting-*")
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := os.RemoveAll(stagingDir); err != nil {
+				xlog.Warn("Inpainting Endpoint - failed to remove private staging dir", "error", err, "dir", stagingDir)
+			}
+		}()
+
 		id := uuid.New().String()
-		jsonPath := filepath.Join(tmpDir, fmt.Sprintf("inpaint_%s.json", id))
+		jsonPath := filepath.Join(stagingDir, fmt.Sprintf("inpaint_%s.json", id))
 		jsonFile := map[string]string{
 			"image":      b64Image,
 			"mask_image": b64Mask,
 		}
-		jf, err := os.CreateTemp(tmpDir, "inpaint_")
+		jf, err := os.OpenFile(jsonPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if err != nil {
 			return err
 		}
-		// setup cleanup on error; if everything succeeds we set success = true
-		success := false
-		var dst string
-		var origRef string
-		var maskRef string
-		defer func() {
-			if !success {
-				// Best-effort cleanup; log any failures
-				if jf != nil {
-					if cerr := jf.Close(); cerr != nil {
-						xlog.Warn("Inpainting Endpoint - failed to close temp json file in cleanup", "error", cerr)
-					}
-					if name := jf.Name(); name != "" {
-						if rerr := os.Remove(name); rerr != nil && !os.IsNotExist(rerr) {
-							xlog.Warn("Inpainting Endpoint - failed to remove temp json file in cleanup", "error", rerr, "file", name)
-						}
-					}
-				}
-				if jsonPath != "" {
-					if rerr := os.Remove(jsonPath); rerr != nil && !os.IsNotExist(rerr) {
-						xlog.Warn("Inpainting Endpoint - failed to remove json file in cleanup", "error", rerr, "file", jsonPath)
-					}
-				}
-				if dst != "" {
-					if rerr := os.Remove(dst); rerr != nil && !os.IsNotExist(rerr) {
-						xlog.Warn("Inpainting Endpoint - failed to remove dst file in cleanup", "error", rerr, "file", dst)
-					}
-				}
-				if origRef != "" {
-					if rerr := os.Remove(origRef); rerr != nil && !os.IsNotExist(rerr) {
-						xlog.Warn("Inpainting Endpoint - failed to remove orig ref file in cleanup", "error", rerr, "file", origRef)
-					}
-				}
-				if maskRef != "" {
-					if rerr := os.Remove(maskRef); rerr != nil && !os.IsNotExist(rerr) {
-						xlog.Warn("Inpainting Endpoint - failed to remove mask ref file in cleanup", "error", rerr, "file", maskRef)
-					}
-				}
-			}
-		}()
 
 		// write original image and mask to disk as ref images so backends that
 		// accept reference image files can use them (maintainer request).
-		origTmp, err := os.CreateTemp(tmpDir, "refimg_")
-		if err != nil {
+		origRef := filepath.Join(stagingDir, "reference-image")
+		if err := os.WriteFile(origRef, imgBytes, 0600); err != nil {
 			return err
 		}
-		if _, err := origTmp.Write(imgBytes); err != nil {
-			_ = origTmp.Close()
-			_ = os.Remove(origTmp.Name())
+		maskRef := filepath.Join(stagingDir, "reference-mask")
+		if err := os.WriteFile(maskRef, maskBytes, 0600); err != nil {
 			return err
 		}
-		if cerr := origTmp.Close(); cerr != nil {
-			xlog.Warn("Inpainting Endpoint - failed to close orig temp file", "error", cerr)
-		}
-		origRef = origTmp.Name()
 
-		maskTmp, err := os.CreateTemp(tmpDir, "refmask_")
-		if err != nil {
-			// cleanup origTmp on error
-			_ = os.Remove(origRef)
-			return err
-		}
-		if _, err := maskTmp.Write(maskBytes); err != nil {
-			_ = maskTmp.Close()
-			_ = os.Remove(maskTmp.Name())
-			_ = os.Remove(origRef)
-			return err
-		}
-		if cerr := maskTmp.Close(); cerr != nil {
-			xlog.Warn("Inpainting Endpoint - failed to close mask temp file", "error", cerr)
-		}
-		maskRef = maskTmp.Name()
 		// write JSON
 		enc := json.NewEncoder(jf)
 		if err := enc.Encode(jsonFile); err != nil {
-			if cerr := jf.Close(); cerr != nil {
-				xlog.Warn("Inpainting Endpoint - failed to close temp json file after encode error", "error", cerr)
-			}
+			_ = jf.Close()
 			return err
 		}
-		if cerr := jf.Close(); cerr != nil {
-			xlog.Warn("Inpainting Endpoint - failed to close temp json file", "error", cerr)
-		}
-		// rename to desired name
-		if err := os.Rename(jf.Name(), jsonPath); err != nil {
+		if err := jf.Close(); err != nil {
 			return err
 		}
-		// prepare dst
-		outTmp, err := os.CreateTemp(tmpDir, "out_")
-		if err != nil {
-			return err
-		}
-		if cerr := outTmp.Close(); cerr != nil {
-			xlog.Warn("Inpainting Endpoint - failed to close out temp file", "error", cerr)
-		}
-		dst = outTmp.Name() + ".png"
-		if err := os.Rename(outTmp.Name(), dst); err != nil {
-			return err
-		}
+		dst := filepath.Join(stagingDir, "generated.png")
 
 		// Determine width/height default
 		width := 512
@@ -241,12 +175,46 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return err
 		}
 
+		output, err := os.Open(filepath.Clean(dst))
+		if err != nil {
+			return err
+		}
+		publicTemp, err := os.CreateTemp(publicDir, ".inpaint-output-*.png")
+		if err != nil {
+			_ = output.Close()
+			return err
+		}
+		publicTempPath := publicTemp.Name()
+		defer func() { _ = os.Remove(publicTempPath) }()
+		if _, err := io.Copy(publicTemp, output); err != nil {
+			_ = output.Close()
+			_ = publicTemp.Close()
+			return err
+		}
+		if err := output.Close(); err != nil {
+			_ = publicTemp.Close()
+			return err
+		}
+		if err := publicTemp.Close(); err != nil {
+			return err
+		}
+		publishedPath := filepath.Join(publicDir, "inpaint_"+id+".png")
+		if err := os.Rename(publicTempPath, publishedPath); err != nil {
+			return err
+		}
+		keepPublished := false
+		defer func() {
+			if !keepPublished {
+				_ = os.Remove(publishedPath)
+			}
+		}()
+
 		// On success, build response URL using BaseURL middleware helper and
 		// the same `generated-images` prefix used by the server static mount.
 		baseURL := middleware.BaseURL(c)
 
 		// Build response using url.JoinPath for correct URL escaping
-		imgPath, err := url.JoinPath(baseURL, "generated-images", filepath.Base(dst))
+		imgPath, err := url.JoinPath(baseURL, "generated-images", filepath.Base(publishedPath))
 		if err != nil {
 			return err
 		}
@@ -271,9 +239,10 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			},
 		}
 
-		// mark success so defer cleanup will not remove output files
-		success = true
-
-		return c.JSON(http.StatusOK, resp)
+		if err := c.JSON(http.StatusOK, resp); err != nil {
+			return err
+		}
+		keepPublished = true
+		return nil
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -50,20 +49,6 @@ func (c *countingMessagingClient) Publish(subject string, _ any) error {
 func (c *countingMessagingClient) Subscribe(string, func([]byte)) (messaging.Subscription, error) {
 	return nil, nil
 }
-func (c *countingMessagingClient) QueueSubscribe(string, string, func([]byte)) (messaging.Subscription, error) {
-	return nil, nil
-}
-func (c *countingMessagingClient) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return nil, nil
-}
-func (c *countingMessagingClient) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return nil, nil
-}
-func (c *countingMessagingClient) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
-func (c *countingMessagingClient) IsConnected() bool { return true }
-func (c *countingMessagingClient) Close()            {}
 
 func (m *realDeletingManager) DeleteModel(name string) error {
 	if err := gallery.DeleteModelFromSystem(m.state, name); err != nil {
@@ -204,7 +189,7 @@ var _ = Describe("model deletion revision lifecycle", func() {
 
 			service := NewGalleryService(appConfig, nil)
 			bus := &countingMessagingClient{}
-			service.SetNATSClient(bus)
+			service.SetBroadcaster(bus)
 			service.SetModelManager(manager)
 			service.SetModelRevisionLifecycle(lifecycle)
 			op := &ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{

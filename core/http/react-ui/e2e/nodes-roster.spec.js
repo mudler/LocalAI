@@ -33,3 +33,53 @@ test.describe('Nodes fleet roster', () => {
     await expect(page.getByText('Distributed Mode Not Enabled')).toBeVisible({ timeout: 15_000 })
   })
 })
+
+test.describe('Nodes join command', () => {
+  test('preserves the NATS connection in both worker command forms', async ({ page }) => {
+    await mockCluster(page, [])
+    await page.goto('/app/nodes')
+
+    await page.getByRole('radio', { name: /^Backend$/ }).click()
+    const backendCli = page.locator('.p2p-cmd pre').first()
+    await expect(backendCli).toContainText('local-ai worker', { timeout: 15_000 })
+    await expect(backendCli).toContainText('--nats-url "nats://nats:4222"')
+    const backendDocker = page.locator('.p2p-cmd pre').nth(1)
+    await expect(backendDocker).toContainText('LOCALAI_REGISTER_TO')
+    await expect(backendDocker).toContainText('LOCALAI_NATS_URL="nats://nats:4222"')
+
+    await page.getByRole('radio', { name: /^Agent$/ }).click()
+    const agentCli = page.locator('.p2p-cmd pre').first()
+    await expect(agentCli).toContainText('local-ai agent-worker', { timeout: 15_000 })
+    await expect(agentCli).toContainText('--register-to',
+    )
+    await expect(agentCli).toContainText('--nats-url "nats://nats:4222"')
+    const agentDocker = page.locator('.p2p-cmd pre').nth(1)
+    await expect(agentDocker).toContainText('LOCALAI_REGISTER_TO')
+    await expect(agentDocker).toContainText('LOCALAI_NATS_URL="nats://nats:4222"')
+  })
+
+  test('does not advertise flags the CLI does not have', async ({ page }) => {
+    // The "How to Enable Distributed Mode" card renders ONLY on the disabled
+    // state, which the page enters when /api/nodes answers 503. Mocking a
+    // healthy cluster here would assert absence against a card that was never
+    // on the page.
+    await page.route('**/api/nodes', r => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
+    await page.route('**/api/nodes/models', r => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
+    await page.route('**/api/nodes/scheduling', r => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
+    await page.goto('/app/nodes')
+
+    const card = page.locator('.p2p-enable')
+    await expect(card).toBeVisible({ timeout: 15_000 })
+    // --distributed-nats and --distributed-db were never real flags; a copied
+    // command carrying them fails at kong before LocalAI does anything.
+    await expect(card).not.toContainText('--distributed-nats')
+    await expect(card).not.toContainText('--distributed-db')
+    // The disabled-state card starts the frontend. Worker commands appear
+    // after distributed mode is enabled and are covered by the test above.
+    const frontendCommand = card.locator('.p2p-cmd pre')
+    await expect(frontendCommand).toHaveCount(1)
+    await expect(frontendCommand).toContainText('local-ai run --distributed')
+    await expect(frontendCommand).toContainText('--auth-database-url')
+    await expect(frontendCommand).not.toContainText('--nats-url')
+  })
+})
