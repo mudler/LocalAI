@@ -104,9 +104,11 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return echo.ErrBadRequest
 		}
 
-		// Use the GeneratedContentDir so the generated PNG is placed where the
-		// HTTP static handler serves `/generated-images`.
-		tmpDir := appConfig.GeneratedContentDir
+		// /generated-images serves GeneratedContentDir/images. Keep every
+		// temporary and final inpainting artifact in that tree so the URL
+		// returned below resolves through the same mount as image generation and
+		// upscaling.
+		tmpDir := filepath.Join(appConfig.GeneratedContentDir, "images")
 		// Ensure the directory exists
 		if err := os.MkdirAll(tmpDir, 0750); err != nil {
 			xlog.Error("Inpainting Endpoint - failed to create generated content dir", "error", err, "dir", tmpDir)

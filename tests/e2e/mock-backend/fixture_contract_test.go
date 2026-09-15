@@ -81,6 +81,72 @@ func TestFixtureOutputRPCsWriteExactBytes(t *testing.T) {
 	}
 }
 
+func TestFixtureArtifactsCarryStagedInputDigest(t *testing.T) {
+	backend := &MockBackend{}
+	dir := t.TempDir()
+	input := filepath.Join(dir, "input.bin")
+	if err := os.WriteFile(input, []byte("frontend-origin"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	const digest = "sha256:60aea919cd84c509d660e2b8dabd65996fdebdfa25b3be85cf32501c24e22a75"
+
+	tests := []struct {
+		name string
+		base []byte
+		call func(string) (*pb.Result, error)
+	}{
+		{"image", wantPNG, func(dst string) (*pb.Result, error) {
+			return backend.GenerateImage(context.Background(), &pb.GenerateImageRequest{Src: input, Dst: dst})
+		}},
+		{"video", wantVideo, func(dst string) (*pb.Result, error) {
+			return backend.GenerateVideo(context.Background(), &pb.GenerateVideoRequest{StartImage: input, Dst: dst})
+		}},
+		{"3d", wantGLB, func(dst string) (*pb.Result, error) {
+			return backend.Generate3D(context.Background(), &pb.Generate3DRequest{Src: input, Dst: dst})
+		}},
+		{"upscale", wantPNG, func(dst string) (*pb.Result, error) {
+			return backend.UpscaleImage(context.Background(), &pb.UpscaleImageRequest{Src: input, Dst: dst, Scale: 2})
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dst := filepath.Join(dir, tc.name+".out")
+			result, err := tc.call(dst)
+			if err != nil || result == nil || !result.Success {
+				t.Fatalf("RPC failed: result=%#v err=%v", result, err)
+			}
+			got, err := os.ReadFile(dst)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.HasPrefix(got, tc.base) || !bytes.Contains(got, []byte(digest)) {
+				t.Fatalf("artifact does not contain base fixture plus input digest: %q", got)
+			}
+		})
+	}
+}
+
+func TestExtendedConformanceRPCFixtures(t *testing.T) {
+	backend := &MockBackend{}
+	ctx := context.Background()
+	depth, err := backend.Depth(ctx, &pb.DepthRequest{})
+	if err != nil || depth.GetWidth() != 2 || depth.GetHeight() != 1 || !depth.GetIsMetric() {
+		t.Fatalf("unexpected Depth fixture: %#v err=%v", depth, err)
+	}
+	face, err := backend.FaceAnalyze(ctx, &pb.FaceAnalyzeRequest{})
+	if err != nil || len(face.GetFaces()) != 1 || face.GetFaces()[0].GetDominantGender() != "Woman" {
+		t.Fatalf("unexpected FaceAnalyze fixture: %#v err=%v", face, err)
+	}
+	voice, err := backend.VoiceAnalyze(ctx, &pb.VoiceAnalyzeRequest{})
+	if err != nil || len(voice.GetSegments()) != 1 || voice.GetSegments()[0].GetDominantEmotion() != "neutral" {
+		t.Fatalf("unexpected VoiceAnalyze fixture: %#v err=%v", voice, err)
+	}
+	classified, err := backend.TokenClassify(ctx, &pb.TokenClassifyRequest{Text: "Alice visited Rome"})
+	if err != nil || len(classified.GetEntities()) != 1 || classified.GetEntities()[0].GetText() != "Alice" {
+		t.Fatalf("unexpected TokenClassify fixture: %#v err=%v", classified, err)
+	}
+}
+
 func TestUnaryAudioFixturesHonorConfiguredSampleRate(t *testing.T) {
 	t.Setenv("MOCK_TTS_SAMPLE_RATE", "22050")
 	backend := &MockBackend{}

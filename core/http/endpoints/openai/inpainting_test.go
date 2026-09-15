@@ -92,7 +92,7 @@ var _ = Describe("Inpainting", func() {
 			end = len(rest)
 		}
 		fname := string(rest[len("generated-images/"):end])
-		_, err = os.Stat(filepath.Join(tmpDir, fname))
+		_, err = os.Stat(filepath.Join(tmpDir, "images", fname))
 		Expect(err).ToNot(HaveOccurred())
 	})
 })
