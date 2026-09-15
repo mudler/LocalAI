@@ -508,7 +508,7 @@ var _ = Describe("the worker's HTTP server", func() {
 
 		for _, p := range []string{
 			workerctl.PathFilesEnsure, workerctl.PathFilesStage,
-			workerctl.PathFilesTemp, workerctl.PathFilesListDir,
+			workerctl.PathFilesTemp, workerctl.PathFilesMkdir, workerctl.PathFilesListDir,
 		} {
 			req, reqErr := http.NewRequest(http.MethodPost, "http://"+bare.Addr+p, strings.NewReader("{}"))
 			Expect(reqErr).NotTo(HaveOccurred())
