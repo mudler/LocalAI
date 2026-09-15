@@ -91,20 +91,21 @@ func TestFixtureArtifactsCarryStagedInputDigest(t *testing.T) {
 	const digest = "sha256:60aea919cd84c509d660e2b8dabd65996fdebdfa25b3be85cf32501c24e22a75"
 
 	tests := []struct {
-		name string
-		base []byte
-		call func(string) (*pb.Result, error)
+		name   string
+		base   []byte
+		marker string
+		call   func(string) (*pb.Result, error)
 	}{
-		{"image", wantPNG, func(dst string) (*pb.Result, error) {
+		{"image", wantPNG, "src", func(dst string) (*pb.Result, error) {
 			return backend.GenerateImage(context.Background(), &pb.GenerateImageRequest{Src: input, Dst: dst})
 		}},
-		{"video", wantVideo, func(dst string) (*pb.Result, error) {
+		{"video", wantVideo, "start_image", func(dst string) (*pb.Result, error) {
 			return backend.GenerateVideo(context.Background(), &pb.GenerateVideoRequest{StartImage: input, Dst: dst})
 		}},
-		{"3d", wantGLB, func(dst string) (*pb.Result, error) {
+		{"3d", wantGLB, "src", func(dst string) (*pb.Result, error) {
 			return backend.Generate3D(context.Background(), &pb.Generate3DRequest{Src: input, Dst: dst})
 		}},
-		{"upscale", wantPNG, func(dst string) (*pb.Result, error) {
+		{"upscale", wantPNG, "src", func(dst string) (*pb.Result, error) {
 			return backend.UpscaleImage(context.Background(), &pb.UpscaleImageRequest{Src: input, Dst: dst, Scale: 2})
 		}},
 	}
@@ -119,8 +120,14 @@ func TestFixtureArtifactsCarryStagedInputDigest(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.HasPrefix(got, tc.base) || !bytes.Contains(got, []byte(digest)) {
-				t.Fatalf("artifact does not contain base fixture plus input digest: %q", got)
+			want := fixtureArtifact(tc.base, tc.marker+"="+digest)
+			if !bytes.Equal(got, want) {
+				t.Fatalf("artifact mismatch: got %q want %q", got, want)
+			}
+			corrupt := append([]byte(nil), want...)
+			corrupt[len(corrupt)-1] ^= 1
+			if bytes.Equal(got, corrupt) {
+				t.Fatal("exact comparison accepted a corrupt fixture")
 			}
 		})
 	}

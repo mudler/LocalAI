@@ -642,6 +642,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		AuthToken:        routerAuthToken,
 		ClientFactory:    backendClients,
 		DB:               authDB,
+		DataPath:         cfg.DataPath,
 		ConflictResolver: conflictResolver,
 		PinnedResolver:   pinnedResolver,
 		PrefixProvider:   prefixProvider,
