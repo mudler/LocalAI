@@ -17,6 +17,7 @@ import (
 	nodesvc "github.com/mudler/LocalAI/core/services/nodes"
 	backendgrpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	. "github.com/onsi/gomega"
 )
 
 type protocolCoverageClass string
@@ -148,6 +149,7 @@ type protocolCoverageSurfaces struct {
 
 func TestBackendProtocolCoverageInventory(t *testing.T) {
 	t.Parallel()
+	g := NewWithT(t)
 	backendInterface := interfaceMethods(reflect.TypeOf((*backendgrpc.Backend)(nil)).Elem())
 	surfaces := protocolCoverageSurfaces{
 		backendMethods:   generatedBackendMethods(),
@@ -157,23 +159,24 @@ func TestBackendProtocolCoverageInventory(t *testing.T) {
 		stagingMethods:   declaredFileStagingMethods(t, backendInterface),
 		topologyMethods:  fileStagingTopologyMethods(t),
 	}
-	if errs := validateProtocolCoverage(surfaces, backendProtocolCoverage); len(errs) != 0 {
-		t.Fatalf("backend protocol coverage inventory drifted:\n  - %s", strings.Join(errs, "\n  - "))
-	}
+	errs := validateProtocolCoverage(surfaces, backendProtocolCoverage)
+	g.Expect(errs).To(BeEmpty(), "backend protocol coverage inventory drifted:\n  - %s", strings.Join(errs, "\n  - "))
 }
 
 func TestProtocolCoverageGuardRejectsNewMethod(t *testing.T) {
+	g := NewWithT(t)
 	errs := validateProtocolCoverage(protocolCoverageSurfaces{
 		backendMethods:   map[string]rpcShape{backendService + "/Existing": unaryRPC, backendService + "/NewRPC": unaryRPC},
 		backendInterface: map[string]struct{}{"Existing": {}, "NewRPC": {}},
 		inferenceMethods: map[string]struct{}{"Existing": {}, "NewRPC": {}},
 	}, []protocolCoverage{{interfaceName: "InferenceBackend", method: "Existing", rpcMethod: "Existing", shape: unaryRPC, classification: processConformance, evidence: "/v1/example"}})
-	if got := strings.Join(errs, "\n"); !strings.Contains(got, "NewRPC") || !strings.Contains(got, "unclassified") {
-		t.Fatalf("expected an actionable unclassified-method error, got %q", got)
-	}
+	got := strings.Join(errs, "\n")
+	g.Expect(got).To(And(ContainSubstring("NewRPC"), ContainSubstring("unclassified")),
+		"expected an actionable unclassified-method error")
 }
 
 func TestProtocolCoverageGuardRejectsWrongStreamShapeAndStagingDrift(t *testing.T) {
+	g := NewWithT(t)
 	coverage := []protocolCoverage{{interfaceName: "InferenceBackend", method: "Stream", rpcMethod: "Stream", shape: serverStreamRPC, classification: genericTransport, evidence: "fixture"}}
 	errs := validateProtocolCoverage(protocolCoverageSurfaces{
 		backendMethods:   map[string]rpcShape{backendService + "/Stream": bidiStreamRPC},
@@ -183,29 +186,25 @@ func TestProtocolCoverageGuardRejectsWrongStreamShapeAndStagingDrift(t *testing.
 		topologyMethods:  map[string]struct{}{"Stream": {}},
 	}, coverage)
 	got := strings.Join(errs, "\n")
-	if !strings.Contains(got, "shape") || !strings.Contains(got, "FileStagingClient") {
-		t.Fatalf("expected shape and staging drift errors, got %q", got)
-	}
+	g.Expect(got).To(And(ContainSubstring("shape"), ContainSubstring("FileStagingClient")),
+		"expected shape and staging drift errors")
 }
 
 func TestDeclaredFileStagingMethodsScansEntirePackage(t *testing.T) {
+	g := NewWithT(t)
 	dir := t.TempDir()
 	for name, source := range map[string]string{
 		"file_staging_client.go": "package nodes\nfunc (f *FileStagingClient) Existing() {}\n",
 		"additional_staging.go":  "package nodes\nfunc (f *FileStagingClient) AddedLater() {}\n",
 	} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(source), 0o600); err != nil {
-			t.Fatalf("write %s: %v", name, err)
-		}
+		g.Expect(os.WriteFile(filepath.Join(dir, name), []byte(source), 0o600)).To(Succeed(), "write %s", name)
 	}
 
 	got := declaredFileStagingMethodsInDir(t, dir, map[string]struct{}{
 		"Existing":   {},
 		"AddedLater": {},
 	})
-	if _, ok := got["AddedLater"]; !ok {
-		t.Fatalf("method declared outside file_staging_client.go was not discovered: got %v", got)
-	}
+	g.Expect(got).To(HaveKey("AddedLater"), "method declared outside file_staging_client.go was not discovered")
 }
 
 func validateProtocolCoverage(s protocolCoverageSurfaces, coverage []protocolCoverage) []string {
@@ -335,14 +334,11 @@ func generatedBackendMethods() map[string]rpcShape {
 
 func declaredFileStagingMethods(t *testing.T, backendMethods map[string]struct{}) map[string]struct{} {
 	t.Helper()
+	g := NewWithT(t)
 	workingDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("get working directory while locating nodes package: %v", err)
-	}
+	g.Expect(err).ToNot(HaveOccurred(), "get working directory while locating nodes package")
 	moduleRoot, err := findModuleRoot(workingDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	g.Expect(err).ToNot(HaveOccurred())
 	dir := filepath.Join(moduleRoot, "core", "services", "nodes")
 	return declaredFileStagingMethodsInDir(t, dir, backendMethods)
 }
@@ -370,10 +366,9 @@ func findModuleRoot(start string) (string, error) {
 
 func declaredFileStagingMethodsInDir(t *testing.T, dir string, backendMethods map[string]struct{}) map[string]struct{} {
 	t.Helper()
+	g := NewWithT(t)
 	entries, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatalf("read nodes package for FileStagingClient overrides: %v", err)
-	}
+	g.Expect(err).ToNot(HaveOccurred(), "read nodes package for FileStagingClient overrides")
 	methods := map[string]struct{}{}
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
@@ -381,9 +376,7 @@ func declaredFileStagingMethodsInDir(t *testing.T, dir string, backendMethods ma
 		}
 		path := filepath.Join(dir, entry.Name())
 		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-		if err != nil {
-			t.Fatalf("parse %s while discovering FileStagingClient overrides: %v", path, err)
-		}
+		g.Expect(err).ToNot(HaveOccurred(), "parse %s while discovering FileStagingClient overrides", path)
 		for _, declaration := range file.Decls {
 			fn, ok := declaration.(*ast.FuncDecl)
 			if !ok || fn.Recv == nil || !fn.Name.IsExported() || len(fn.Recv.List) != 1 {
@@ -405,17 +398,12 @@ func declaredFileStagingMethodsInDir(t *testing.T, dir string, backendMethods ma
 
 func fileStagingTopologyMethods(t *testing.T) map[string]struct{} {
 	t.Helper()
+	g := NewWithT(t)
 	methods := make(map[string]struct{}, len(fileStagingTopologyCoverage))
 	for _, item := range fileStagingTopologyCoverage {
-		if _, exists := methods[item.method]; exists {
-			t.Fatalf("duplicate file-staging topology classification for %s", item.method)
-		}
-		if item.ownerPublicPath == "" {
-			t.Fatalf("file-staging topology method %s has no owner public route", item.method)
-		}
-		if want := "Backend/" + item.method; item.relayProtocolPath != want {
-			t.Fatalf("file-staging topology method %s relay path is %q, want %q", item.method, item.relayProtocolPath, want)
-		}
+		g.Expect(methods).ToNot(HaveKey(item.method), "duplicate file-staging topology classification for %s", item.method)
+		g.Expect(item.ownerPublicPath).ToNot(BeEmpty(), "file-staging topology method %s has no owner public route", item.method)
+		g.Expect(item.relayProtocolPath).To(Equal("Backend/"+item.method), "file-staging topology method %s relay path", item.method)
 		methods[item.method] = struct{}{}
 	}
 	return methods
