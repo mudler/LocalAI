@@ -78,12 +78,20 @@ var fileStagingTopologyCoverage = []stagingTopologyCoverage{
 	{"Predict", "/v1/chat/completions", "Backend/Predict"},
 	{"PredictStream", "/v1/chat/completions (stream)", "Backend/PredictStream"},
 	{"GenerateImage", "/v1/images/generations", "Backend/GenerateImage"},
+	{"UpscaleImage", "/v1/images/upscale", "Backend/UpscaleImage"},
 	{"GenerateVideo", "/video", "Backend/GenerateVideo"},
 	{"Generate3D", "/3d/generations", "Backend/Generate3D"},
 	{"TTS", "/v1/audio/speech", "Backend/TTS"},
 	{"TTSStream", "/v1/audio/speech (stream)", "Backend/TTSStream"},
 	{"SoundGeneration", "/v1/sound-generation", "Backend/SoundGeneration"},
 	{"SoundDetection", "/v1/audio/classification", "Backend/SoundDetection"},
+	{"Detect", "/v1/detection", "Backend/Detect"},
+	{"Depth", "/v1/depth", "Backend/Depth"},
+	{"Diarize", "/v1/audio/diarization", "Backend/Diarize"},
+	{"VoiceVerify", "/v1/voice/verify", "Backend/VoiceVerify"},
+	{"VoiceAnalyze", "/v1/voice/analyze", "Backend/VoiceAnalyze"},
+	{"VoiceEmbed", "/v1/voice/embed", "Backend/VoiceEmbed"},
+	{"AudioTransform", "/audio/transformations", "Backend/AudioTransform"},
 	{"AudioTranscription", "/v1/audio/transcriptions", "Backend/AudioTranscription"},
 	{"AudioTranscriptionStream", "/v1/audio/transcriptions (stream)", "Backend/AudioTranscriptionStream"},
 	{"ExportModel", "/api/finetune/jobs/:id/export", "Backend/ExportModel"},
@@ -351,9 +359,8 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 	Expect(upscale.Data).To(HaveLen(1))
 	upscaledResp, upscaledPayload := conformanceDo(client, mustConformanceRequest(http.MethodGet, upscale.Data[0].URL, nil))
 	expectConformanceStatus(upscaledResp, upscaledPayload)
-	Expect(bytes.HasPrefix(upscaledPayload, conformancePNG)).To(BeTrue())
 	upscaleDigest := sha256.Sum256(conformancePNG)
-	Expect(string(upscaledPayload)).To(ContainSubstring(fmt.Sprintf("sha256:%x", upscaleDigest)))
+	Expect(upscaledPayload).To(Equal(conformanceArtifact(conformancePNG, fmt.Sprintf("src=sha256:%x", upscaleDigest))))
 
 	By("staging both inpainting inputs and returning the generated fixture")
 	resp, payload = conformancePostMultipartFiles(client, baseURL, "/v1/images/inpainting", map[string]string{
@@ -369,8 +376,13 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 	Expect(inpaint.Data).To(HaveLen(1))
 	inpaintResp, inpaintPayload := conformanceDo(client, mustConformanceRequest(http.MethodGet, inpaint.Data[0].URL, nil))
 	expectConformanceStatus(inpaintResp, inpaintPayload)
-	Expect(bytes.HasPrefix(inpaintPayload, conformancePNG)).To(BeTrue())
-	Expect(string(inpaintPayload)).To(ContainSubstring(fmt.Sprintf("sha256:%x", upscaleDigest)))
+	inpaintSource, err := json.Marshal(map[string]string{
+		"image": base64.StdEncoding.EncodeToString(conformancePNG), "mask_image": base64.StdEncoding.EncodeToString(conformancePNG),
+	})
+	Expect(err).ToNot(HaveOccurred())
+	inpaintSource = append(inpaintSource, '\n')
+	Expect(inpaintPayload).To(Equal(conformanceArtifact(conformancePNG,
+		"src="+conformanceDigest(inpaintSource), fmt.Sprintf("ref_image[0]=sha256:%x", upscaleDigest), fmt.Sprintf("ref_image[1]=sha256:%x", upscaleDigest))))
 
 	By("covering face verification, analysis and embedding")
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/face/verify", map[string]any{
@@ -763,8 +775,8 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 	fixtureDir := GinkgoT().TempDir()
 	image := []byte("frontend-only-image")
 	video := []byte("frontend-only-video")
-	audio := []byte("frontend-only-audio")
-	voice := []byte("frontend-only-voice")
+	audio := append(make([]byte, 44), []byte("frontend-only-audio")...)
+	voice := append(make([]byte, 44), []byte("frontend-only-voice")...)
 	refA := []byte("frontend-only-reference-a")
 	refB := []byte("frontend-only-reference-b")
 	imagePath := writeConformanceFixture(fixtureDir, "inputs/image.png", image)
@@ -784,7 +796,7 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 		ModelFile:          filepath.Join(remoteModelDir, model+".onnx"),
 		DraftModel:         filepath.Join(remoteModelDir, model+"-draft.gguf"),
 		MMProj:             filepath.Join(remoteModelDir, model+"-mmproj.gguf"),
-		OriginalConfigFile: filepath.Join(remoteModelDir, model+".onnx.json"),
+		OriginalConfigFile: filepath.Join(remoteModelDir, model+"-original.yaml"),
 		EngineArgs:         `{"extended_protocol":true}`,
 		EnvVars:            map[string]string{"FIXTURE_ENV": "preserved"},
 	}
@@ -796,7 +808,7 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 		"model_companion=" + conformanceDigest([]byte(`{"companion":true}`)),
 		"draft_model=" + conformanceDigest([]byte("frontend-only-draft")),
 		"mmproj=" + conformanceDigest([]byte("frontend-only-mmproj")),
-		"original_config_file=" + conformanceDigest([]byte(`{"companion":true}`)),
+		"original_config_file=" + conformanceDigest([]byte("fixture: original-config\n")),
 	} {
 		Expect(loadResult.Message).To(ContainSubstring(marker))
 	}
@@ -825,6 +837,39 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 	for _, digest := range []string{conformanceDigest(image), conformanceDigest(video), conformanceDigest(audio)} {
 		Expect(streamed.String()).To(ContainSubstring(digest))
 	}
+
+	By("staging every path-bearing analysis and conversion request through the peer transport")
+	upscaleOut := filepath.Join(fixtureDir, "outputs/upscaled.png")
+	upscale, err := backend.UpscaleImage(ctx, &pb.UpscaleImageRequest{Src: imagePath, Dst: upscaleOut, Scale: 2})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(upscale.Success).To(BeTrue(), upscale.Message)
+	Expect(os.ReadFile(upscaleOut)).To(Equal(conformanceArtifact(conformancePNG, "src="+conformanceDigest(image))))
+	detect, err := backend.Detect(ctx, &pb.DetectOptions{Src: imagePath})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(detect.Detections).To(HaveLen(1))
+	depthDir := filepath.Join(fixtureDir, "outputs/depth")
+	depth, err := backend.Depth(ctx, &pb.DepthRequest{Src: imagePath, Dst: depthDir, Exports: []string{"glb"}})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(depth.ExportPaths).To(Equal([]string{filepath.Join(depthDir, "nested", "depth.txt")}))
+	Expect(os.ReadFile(depth.ExportPaths[0])).To(Equal([]byte("src=" + conformanceDigest(image))))
+	diarized, err := backend.Diarize(ctx, &pb.DiarizeRequest{Dst: audioPath, Language: "it", IncludeText: true})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(diarized.Language).To(Equal("it"))
+	verified, err := backend.VoiceVerify(ctx, &pb.VoiceVerifyRequest{Audio1: audioPath, Audio2: audioPath})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(verified.Verified).To(BeTrue())
+	analyzed, err := backend.VoiceAnalyze(ctx, &pb.VoiceAnalyzeRequest{Audio: audioPath})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(analyzed.Segments).To(HaveLen(1))
+	embedded, err := backend.VoiceEmbed(ctx, &pb.VoiceEmbedRequest{Audio: audioPath})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(embedded.Model).To(Equal("mock-speaker"))
+	transformOut := filepath.Join(fixtureDir, "outputs/transformed.wav")
+	transformed, err := backend.AudioTransform(ctx, &pb.AudioTransformRequest{AudioPath: audioPath, ReferencePath: voicePath, Dst: transformOut})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(transformed.Dst).To(Equal(transformOut))
+	Expect(transformed.ReferenceProvided).To(BeTrue())
+	Expect(os.ReadFile(transformOut)).To(Equal(audio))
 
 	By("staging image references and retrieving image, video and 3D outputs")
 	imageOut := filepath.Join(fixtureDir, "outputs/generated.png")
@@ -968,6 +1013,7 @@ var _ = Describe("Binary backend feature conformance", Label("Distributed"), Lab
 			o.SpreadWorkerRegistrations = true
 			o.Models[model+".onnx"] = tinyArtifact()
 			o.Models[model+".onnx.json"] = `{"companion":true}`
+			o.Models[model+"-original.yaml"] = "fixture: original-config\n"
 			o.Models[model+"-draft.gguf"] = "frontend-only-draft"
 			o.Models[model+"-mmproj.gguf"] = "frontend-only-mmproj"
 			o.Models[model+".yaml"] = fmt.Sprintf(`name: %s
@@ -976,6 +1022,8 @@ parameters:
   model: %s.onnx
 draft_model: %s-draft.gguf
 mmproj: %s-mmproj.gguf
+diffusers:
+  original_config_file: %s-original.yaml
 known_usecases:
   - chat
   - embeddings
@@ -1000,7 +1048,7 @@ known_usecases:
 pii_detection:
   min_score: 0.5
   default_action: mask
-`, model, model, model, model)
+`, model, model, model, model, model)
 		})
 		client := inferenceClient(c)
 		probe := newRosterProbe(c, client, 0)
@@ -1030,7 +1078,7 @@ pii_detection:
 		}, instanceRosterTimeout, instanceRosterPoll).Should(BeElementOf(0, 1), owners.describe)
 		relayFrontend := 1 - ownerFrontend
 		By("pinning the explicit owner-public and relay-protocol staging topology")
-		Expect(fileStagingTopologyCoverage).To(HaveLen(16))
+		Expect(fileStagingTopologyCoverage).To(HaveLen(24))
 		for _, coverage := range fileStagingTopologyCoverage {
 			Expect(coverage.method).ToNot(BeEmpty())
 			Expect(coverage.ownerPublicPath).ToNot(BeEmpty(), coverage.method)
@@ -1056,6 +1104,7 @@ pii_detection:
 		Expect(os.ReadFile(filepath.Join(workerModels, model, model+".onnx.json"))).To(Equal([]byte(`{"companion":true}`)))
 		Expect(os.ReadFile(filepath.Join(workerModels, model, model+"-draft.gguf"))).To(Equal([]byte("frontend-only-draft")))
 		Expect(os.ReadFile(filepath.Join(workerModels, model, model+"-mmproj.gguf"))).To(Equal([]byte("frontend-only-mmproj")))
+		Expect(os.ReadFile(filepath.Join(workerModels, model, model+"-original.yaml"))).To(Equal([]byte("fixture: original-config\n")))
 		Expect(strings.Contains(workerModels, "worker-0")).To(BeTrue())
 	})
 })
