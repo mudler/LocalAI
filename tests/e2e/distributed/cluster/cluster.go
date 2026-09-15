@@ -237,13 +237,14 @@ func (o Options) validate() error {
 	return nil
 }
 
-func workerStagingEnv(opts Options) []string {
+func workerStagingEnv(opts Options, workerRoot string) []string {
 	if !opts.ConformanceStaging {
 		return nil
 	}
 	return []string{
 		"LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT=1073741824",
 		"LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES=1",
+		"LOCALAI_MOCK_EXPECT_STAGING_ROOT=" + workerRoot,
 	}
 }
 
@@ -463,7 +464,7 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
 		"DEBUG=true",
 	)
-	cmd.Env = append(cmd.Env, workerStagingEnv(c.opts)...)
+	cmd.Env = append(cmd.Env, workerStagingEnv(c.opts, dir)...)
 
 	return c.spawn(name, cmd, grpcPort)
 }
