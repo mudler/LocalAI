@@ -445,6 +445,13 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		"LOCALAI_REGISTER_TO="+c.workerFrontendURL(i),
 		"LOCALAI_NODE_NAME="+name,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
+		// CI workspaces can be quota-backed while statfs reports the host
+		// filesystem's much larger total size. Automatic headroom is derived
+		// from that total and can therefore exceed the quota's available bytes,
+		// rejecting even a 25-byte fixture. Keep capacity enforcement enabled,
+		// but give this process harness deterministic limits.
+		"LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT=1073741824",
+		"LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES=1",
 		"DEBUG=true",
 	)
 
@@ -740,6 +747,16 @@ func (c *Cluster) FrontendBackendsDir(i int) (string, error) {
 		return "", err
 	}
 	return filepath.Join(c.frontendDir(i), "backends"), nil
+}
+
+// WorkerModelsDir returns worker i's private models directory. It is exposed
+// for binary conformance assertions that must distinguish a frontend-only
+// seed from the copy produced by distributed file staging.
+func (c *Cluster) WorkerModelsDir(i int) (string, error) {
+	if err := c.checkWorkerIndex(i); err != nil {
+		return "", err
+	}
+	return filepath.Join(c.baseDir, c.workers[i].Name, "models"), nil
 }
 
 // WorkerName is the node name worker i registered under.
