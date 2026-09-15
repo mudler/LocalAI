@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +17,6 @@ import (
 
 var (
 	wantPNG   = mustHex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415408d763f8cfc0f01f00050001ff89993d1d0000000049454e44ae426082")
-	wantWAV   = mustHex("524946462800000057415645666d74201000000001000100401f0000803e000002001000646174610400000000000000")
 	wantVideo = []byte("\x00\x00\x00\x18ftypisomMOCK-VIDEO")
 	wantGLB   = mustHex("676c5446020000000c000000")
 )
@@ -56,18 +57,6 @@ func TestFixtureOutputRPCsWriteExactBytes(t *testing.T) {
 				return backend.Generate3D(context.Background(), &pb.Generate3DRequest{Dst: dst})
 			},
 		},
-		{
-			name: "tts", file: "speech.wav", want: wantWAV,
-			call: func(dst string) (*pb.Result, error) {
-				return backend.TTS(context.Background(), &pb.TTSRequest{Dst: dst})
-			},
-		},
-		{
-			name: "sound", file: "sound.wav", want: wantWAV,
-			call: func(dst string) (*pb.Result, error) {
-				return backend.SoundGeneration(context.Background(), &pb.SoundGenerationRequest{Dst: dst})
-			},
-		},
 	}
 
 	for _, tc := range tests {
@@ -91,18 +80,81 @@ func TestFixtureOutputRPCsWriteExactBytes(t *testing.T) {
 	}
 }
 
-func TestTTSStreamEmitsExactWAVFixture(t *testing.T) {
+func TestUnaryAudioFixturesHonorConfiguredSampleRate(t *testing.T) {
+	t.Setenv("MOCK_TTS_SAMPLE_RATE", "22050")
+	backend := &MockBackend{}
+	for _, tc := range []struct {
+		name string
+		call func(string) (*pb.Result, error)
+	}{
+		{"TTS", func(dst string) (*pb.Result, error) {
+			return backend.TTS(context.Background(), &pb.TTSRequest{Dst: dst})
+		}},
+		{"SoundGeneration", func(dst string) (*pb.Result, error) {
+			return backend.SoundGeneration(context.Background(), &pb.SoundGenerationRequest{Dst: dst})
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dst := filepath.Join(t.TempDir(), "nested", "audio.wav")
+			result, err := tc.call(dst)
+			if err != nil || result == nil || !result.Success {
+				t.Fatalf("RPC failed: result=%#v err=%v", result, err)
+			}
+			wav, err := os.ReadFile(dst)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(wav) != 44+22050 || string(wav[:4]) != "RIFF" || string(wav[8:12]) != "WAVE" {
+				t.Fatalf("invalid deterministic WAV: len=%d header=%q", len(wav), wav[:min(len(wav), 12)])
+			}
+			if got := binary.LittleEndian.Uint32(wav[24:28]); got != 22050 {
+				t.Fatalf("sample rate = %d, want 22050", got)
+			}
+			if got := binary.LittleEndian.Uint32(wav[40:44]); got != 22050 {
+				t.Fatalf("PCM byte count = %d, want 22050", got)
+			}
+			if bytes.Equal(wav[44:], make([]byte, len(wav)-44)) {
+				t.Fatal("PCM payload is silent")
+			}
+		})
+	}
+}
+
+func TestTTSStreamUsesProductionConsumerFraming(t *testing.T) {
+	t.Setenv("MOCK_TTS_SAMPLE_RATE", "24000")
 	backend := &MockBackend{}
 	stream := &ttsFixtureStream{testServerStream: testServerStream{ctx: context.Background()}}
 	if err := backend.TTSStream(&pb.TTSRequest{}, stream); err != nil {
 		t.Fatalf("TTSStream returned error: %v", err)
 	}
-	var got []byte
-	for _, reply := range stream.replies {
-		got = append(got, reply.Audio...)
+	if len(stream.replies) < 2 {
+		t.Fatalf("got %d replies, want metadata plus PCM", len(stream.replies))
 	}
-	if !bytes.Equal(got, wantWAV) {
-		t.Fatalf("streamed WAV differs\n got: %x\nwant: %x", got, wantWAV)
+	var info map[string]any
+	if err := json.Unmarshal(stream.replies[0].Message, &info); err != nil {
+		t.Fatalf("production consumer cannot decode first Message: %v", err)
+	}
+	if got := info["sample_rate"]; got != float64(24000) {
+		t.Fatalf("sample_rate metadata = %#v, want 24000", got)
+	}
+	if len(stream.replies[0].Audio) != 0 {
+		t.Fatal("metadata reply unexpectedly contains audio")
+	}
+	var pcm []byte
+	for i, reply := range stream.replies[1:] {
+		if len(reply.Message) != 0 {
+			t.Fatalf("PCM reply %d unexpectedly contains metadata", i)
+		}
+		pcm = append(pcm, reply.Audio...)
+	}
+	if len(pcm) != 24000 {
+		t.Fatalf("raw PCM length = %d, want 24000", len(pcm))
+	}
+	if bytes.HasPrefix(pcm, []byte("RIFF")) {
+		t.Fatal("TTSStream sent a WAV container where the production consumer expects raw PCM")
+	}
+	if bytes.Equal(pcm, make([]byte, len(pcm))) {
+		t.Fatal("streamed PCM is silent")
 	}
 }
 
@@ -242,6 +294,132 @@ func TestInlineInputsNeverReachFilesystemAPIs(t *testing.T) {
 				t.Fatalf("RPC rejected compatible inline input: %v", err)
 			}
 		})
+	}
+}
+
+func TestUnsafePathLikeInputsStayInlineAcrossFixtureRPCs(t *testing.T) {
+	dir := t.TempDir()
+	secret := filepath.Join(dir, "secret.bin")
+	if err := os.WriteFile(secret, []byte("must-not-be-read"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	inputs := map[string]string{
+		"slash-prefixed base64": "/9j/" + strings.Repeat("QUJD", 32),
+		"dot-dot traversal":     filepath.Join(dir, "nested") + string(filepath.Separator) + ".." + string(filepath.Separator) + filepath.Base(secret),
+	}
+	for inputName, input := range inputs {
+		t.Run(inputName, func(t *testing.T) {
+			for _, rpc := range fixtureInputRPCCalls(input) {
+				t.Run(rpc.name, func(t *testing.T) {
+					marker, err := rpc.call()
+					if err != nil {
+						t.Fatalf("RPC rejected compatible inline input: %v", err)
+					}
+					if !strings.Contains(marker, "inline-sha256:") {
+						t.Fatalf("unsafe input was not kept inline: %q", marker)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestSafeLocalFixturePathRejectsSymlinks(t *testing.T) {
+	dir := t.TempDir()
+	realDir := filepath.Join(dir, "real")
+	if err := os.Mkdir(realDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	realFile := filepath.Join(realDir, "input.bin")
+	if err := os.WriteFile(realFile, []byte("fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fileLink := filepath.Join(dir, "file-link")
+	if err := os.Symlink(realFile, fileLink); err != nil {
+		t.Fatal(err)
+	}
+	dirLink := filepath.Join(dir, "dir-link")
+	if err := os.Symlink(realDir, dirLink); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{fileLink, filepath.Join(dirLink, "input.bin")} {
+		if got, ok := safeLocalFixturePath(path); ok {
+			t.Fatalf("accepted symlink path %q as %q", path, got)
+		}
+		result, err := (&MockBackend{}).GenerateImage(context.Background(), &pb.GenerateImageRequest{Src: path})
+		if err != nil || result == nil || !result.Success {
+			t.Fatalf("representative RPC rejected symlink as inline data: result=%#v err=%v", result, err)
+		}
+		if !strings.Contains(result.Message, "inline-sha256:") {
+			t.Fatalf("representative RPC followed symlink: %q", result.Message)
+		}
+	}
+}
+
+type fixtureInputRPCCall struct {
+	name string
+	call func() (string, error)
+}
+
+func fixtureInputRPCCalls(input string) []fixtureInputRPCCall {
+	backend := &MockBackend{}
+	return []fixtureInputRPCCall{
+		{"GenerateImage", func() (string, error) {
+			result, err := backend.GenerateImage(context.Background(), &pb.GenerateImageRequest{Src: input, RefImages: []string{input}})
+			return result.GetMessage(), err
+		}},
+		{"GenerateVideo", func() (string, error) {
+			result, err := backend.GenerateVideo(context.Background(), &pb.GenerateVideoRequest{StartImage: input, EndImage: input, Audio: input})
+			return result.GetMessage(), err
+		}},
+		{"Generate3D", func() (string, error) {
+			result, err := backend.Generate3D(context.Background(), &pb.Generate3DRequest{Src: input})
+			return result.GetMessage(), err
+		}},
+		{"TTS", func() (string, error) {
+			result, err := backend.TTS(context.Background(), &pb.TTSRequest{Model: input, Voice: input, Params: map[string]string{"multi_reference_cond": `[{"audio":"` + input + `"}]`}})
+			return result.GetMessage(), err
+		}},
+		{"TTSStream", func() (string, error) {
+			stream := &ttsFixtureStream{testServerStream: testServerStream{ctx: context.Background()}}
+			err := backend.TTSStream(&pb.TTSRequest{Model: input, Voice: input, Params: map[string]string{"multi_reference_cond": `[{"audio":"` + input + `"}]`}}, stream)
+			messages := make([]string, 0, len(stream.replies))
+			for _, reply := range stream.replies {
+				messages = append(messages, string(reply.Message))
+			}
+			return strings.Join(messages, "; "), err
+		}},
+		{"SoundGeneration", func() (string, error) {
+			result, err := backend.SoundGeneration(context.Background(), &pb.SoundGenerationRequest{Model: input, Src: &input})
+			return result.GetMessage(), err
+		}},
+		{"SoundDetection", func() (string, error) {
+			result, err := backend.SoundDetection(context.Background(), &pb.SoundDetectionRequest{Src: input})
+			if result == nil || len(result.Detections) == 0 {
+				return "", err
+			}
+			return result.Detections[0].Label, err
+		}},
+		{"AudioTranscription", func() (string, error) {
+			result, err := backend.AudioTranscription(context.Background(), &pb.TranscriptRequest{Dst: input})
+			return result.GetText(), err
+		}},
+		{"AudioTranscriptionStream", func() (string, error) {
+			stream := &transcriptFixtureStream{testServerStream: testServerStream{ctx: context.Background()}}
+			err := backend.AudioTranscriptionStream(&pb.TranscriptRequest{Dst: input}, stream)
+			if len(stream.responses) == 0 {
+				return "", err
+			}
+			return stream.responses[len(stream.responses)-1].GetFinalResult().GetText(), err
+		}},
+		{"ExportModel", func() (string, error) {
+			result, err := backend.ExportModel(context.Background(), &pb.ExportModelRequest{CheckpointPath: input, Model: input})
+			return result.GetMessage(), err
+		}},
+		{"StartQuantization", func() (string, error) {
+			result, err := backend.StartQuantization(context.Background(), &pb.QuantizationRequest{JobId: "unsafe-input", Model: input})
+			return result.GetMessage(), err
+		}},
 	}
 }
 
