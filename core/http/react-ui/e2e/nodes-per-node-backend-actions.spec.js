@@ -98,6 +98,35 @@ async function openNodeDetail(page) {
 }
 
 test.describe('Nodes page — per-node backend actions', () => {
+  test('backend log page uses one-based replica labels, token classes, and a safe direct-link return', async ({ page }) => {
+    await mockDistributedNodes(page)
+    await page.route(`**/api/nodes/${NODE_ID}/models`, route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        { model_name: 'llama', replica_index: 0 },
+        { model_name: 'llama', replica_index: 1 },
+      ]),
+    }))
+    await page.route(`**/api/nodes/${NODE_ID}/backend-logs/**`, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
+      { timestamp: '2026-09-15T12:00:00Z', stream: 'stdout', text: 'ready' },
+    ]) }))
+
+    await page.goto(`/app/node-backend-logs/${NODE_ID}/llama%230`)
+    await expect(page.getByText('Replica 1', { exact: true }).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('radio', { name: 'Replica 2' })).toBeVisible()
+    await expect(page.locator('.node-backend-logs__toolbar')).toBeVisible()
+    await expect(page.locator('.node-backend-logs__output')).toBeVisible()
+    await expect(page.getByText('ready', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Clear' }).click()
+    await expect(page.getByText('ready', { exact: true })).toBeHidden()
+    await expect(page.locator('.node-backend-logs [style]')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Back to nodes' })).toHaveAttribute('href', '/app/nodes')
+
+    await page.getByRole('radio', { name: 'Replica 2' }).click()
+    await expect(page).toHaveURL(/llama%231$/)
+  })
+
   test('upgrade affordance is self-explanatory (not "Reinstall backend" with a sync icon)', async ({ page }) => {
     await mockDistributedNodes(page)
     await openNodeDetail(page)
@@ -112,7 +141,8 @@ test.describe('Nodes page — per-node backend actions', () => {
     // Positive: a self-explanatory upgrade affordance is rendered next to the
     // backend row. We accept either an arrow-up or arrows-rotate glyph; both
     // map to "upgrade" semantics in FontAwesome 6 unambiguously.
-    const upgradeBtn = page.locator('button[title="Upgrade backend on this node"]')
+    await page.getByRole('button', { name: `Actions for backend ${BACKEND_NAME}` }).click()
+    const upgradeBtn = page.getByRole('menuitem', { name: 'Upgrade backend' })
     await expect(upgradeBtn).toBeVisible()
     const iconClass = await upgradeBtn.locator('i').getAttribute('class')
     expect(iconClass).toMatch(/fa-(arrow-up|arrows-rotate|up-long)/)
@@ -122,7 +152,8 @@ test.describe('Nodes page — per-node backend actions', () => {
     await mockDistributedNodes(page)
     await openNodeDetail(page)
 
-    const deleteBtn = page.locator('button[title="Delete backend from this node"]')
+    await page.getByRole('button', { name: `Actions for backend ${BACKEND_NAME}` }).click()
+    const deleteBtn = page.getByRole('menuitem', { name: 'Delete backend…' })
     await expect(deleteBtn).toBeVisible()
     await expect(deleteBtn.locator('i.fa-trash')).toBeVisible()
   })
@@ -136,7 +167,8 @@ test.describe('Nodes page — per-node backend actions', () => {
     })
     await openNodeDetail(page)
 
-    await page.locator('button[title="Delete backend from this node"]').click()
+    await page.getByRole('button', { name: `Actions for backend ${BACKEND_NAME}` }).click()
+    await page.getByRole('menuitem', { name: 'Delete backend…' }).click()
 
     // ConfirmDialog uses role="alertdialog" and a danger confirm button.
     const dialog = page.getByRole('alertdialog')
@@ -158,7 +190,8 @@ test.describe('Nodes page — per-node backend actions', () => {
     })
     await openNodeDetail(page)
 
-    await page.locator('button[title="Delete backend from this node"]').click()
+    await page.getByRole('button', { name: `Actions for backend ${BACKEND_NAME}` }).click()
+    await page.getByRole('menuitem', { name: 'Delete backend…' }).click()
 
     const dialog = page.getByRole('alertdialog')
     await expect(dialog).toBeVisible()

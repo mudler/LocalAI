@@ -30,6 +30,8 @@ test.describe('Node detail page', () => {
     await page.getByRole('button', { name: 'Actions for llama-3.3 replica 1' }).click()
     await page.getByRole('menuitem', { name: 'View logs' }).click()
     await expect(page).toHaveURL(/\/app\/node-backend-logs\/n1\/llama-3.3%230$/)
+    await page.getByRole('link', { name: 'Back to alpha' }).click()
+    await expect(page).toHaveURL(/\/app\/nodes\/n1$/)
   })
 
   test('is reachable by clicking a roster panel', async ({ page }) => {
