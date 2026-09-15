@@ -293,12 +293,14 @@ type OllamaModelDetails struct {
 	QuantizationLevel string   `json:"quantization_level,omitempty"`
 }
 
-// OllamaModelEntry represents a model in the list response
+// OllamaModelEntry represents a model in the list response.
+// Size is a pointer so an unknown on-disk size can be omitted instead of
+// serializing as the misleading literal 0 (see issue #11969).
 type OllamaModelEntry struct {
 	Name         string             `json:"name"`
 	Model        string             `json:"model"`
 	ModifiedAt   time.Time          `json:"modified_at"`
-	Size         int64              `json:"size"`
+	Size         *int64             `json:"size,omitempty"`
 	Digest       string             `json:"digest"`
 	Details      OllamaModelDetails `json:"details"`
 	Capabilities []string           `json:"capabilities,omitempty"`
@@ -309,15 +311,18 @@ type OllamaListResponse struct {
 	Models []OllamaModelEntry `json:"models"`
 }
 
-// OllamaPsEntry represents a running model in the ps response
+// OllamaPsEntry represents a running model in the ps response.
+// Size and SizeVRAM are pointers so unknown values are omitted rather than
+// reported as authoritative zeros (see issue #11969). SizeVRAM is only set
+// when the runtime can provide a real VRAM figure.
 type OllamaPsEntry struct {
 	Name         string             `json:"name"`
 	Model        string             `json:"model"`
-	Size         int64              `json:"size"`
+	Size         *int64             `json:"size,omitempty"`
 	Digest       string             `json:"digest"`
 	Details      OllamaModelDetails `json:"details"`
 	ExpiresAt    time.Time          `json:"expires_at"`
-	SizeVRAM     int64              `json:"size_vram"`
+	SizeVRAM     *int64             `json:"size_vram,omitempty"`
 	Capabilities []string           `json:"capabilities,omitempty"`
 }
 
