@@ -1,10 +1,13 @@
 package localai
 
 import (
+	"strconv"
+
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 )
 
 // SystemInformations returns the system informations
@@ -31,6 +34,14 @@ func SystemInformations(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			// config lookup away.
 			if cfg, ok := cl.GetModelConfig(m.ID); ok {
 				entry.Backend = cfg.Backend
+			}
+			if process := m.Process(); process != nil {
+				pid, err := strconv.Atoi(process.CurrentPID())
+				if err == nil {
+					if used, ok := xsysinfo.ProcessVRAM(pid); ok {
+						entry.SizeVRAM = &used
+					}
+				}
 			}
 			sysmodels = append(sysmodels, entry)
 		}
