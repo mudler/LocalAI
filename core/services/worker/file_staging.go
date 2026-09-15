@@ -15,29 +15,48 @@ import (
 
 // isPathAllowed checks if path is within one of the allowed directories.
 func isPathAllowed(path string, allowedDirs []string) bool {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return false
-	}
-	resolved, err := filepath.EvalSymlinks(absPath)
-	if err != nil {
-		// Path may not exist yet; use the absolute path
-		resolved = absPath
-	}
 	for _, dir := range allowedDirs {
-		absDir, err := filepath.Abs(dir)
-		if err != nil {
-			continue
-		}
-		// Compare both sides after resolving aliases such as macOS /var.
-		if resolvedDir, err := filepath.EvalSymlinks(absDir); err == nil {
-			absDir = resolvedDir
-		}
-		if strings.HasPrefix(resolved, absDir+string(filepath.Separator)) || resolved == absDir {
+		if validatePathWithinDir(path, dir) == nil {
 			return true
 		}
 	}
 	return false
+}
+
+func validatePathWithinDir(target, root string) error {
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	realRoot, err := filepath.EvalSymlinks(absRoot)
+	if err != nil {
+		return err
+	}
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return err
+	}
+	realTarget, err := filepath.EvalSymlinks(absTarget)
+	if err != nil {
+		remaining := filepath.Base(absTarget)
+		ancestor := filepath.Dir(absTarget)
+		for {
+			if resolved, resolveErr := filepath.EvalSymlinks(ancestor); resolveErr == nil {
+				realTarget = filepath.Join(resolved, remaining)
+				break
+			}
+			remaining = filepath.Join(filepath.Base(ancestor), remaining)
+			parent := filepath.Dir(ancestor)
+			if parent == ancestor {
+				return err
+			}
+			ancestor = parent
+		}
+	}
+	if realTarget != realRoot && !strings.HasPrefix(realTarget, realRoot+string(filepath.Separator)) {
+		return fmt.Errorf("path %q is outside allowed directory", target)
+	}
+	return nil
 }
 
 func releaseEphemeralCacheKey(cacheDir, key string) error {

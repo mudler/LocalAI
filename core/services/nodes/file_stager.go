@@ -70,6 +70,12 @@ type RemoteDirectoryAllocator interface {
 	AllocRemoteDir(ctx context.Context, nodeID, keyPrefix string) (string, error)
 }
 
+// RemoteDirectoryReleaser removes a directory previously allocated by
+// RemoteDirectoryAllocator. It is optional for rolling compatibility.
+type RemoteDirectoryReleaser interface {
+	ReleaseRemoteDir(ctx context.Context, nodeID, keyPrefix string) error
+}
+
 func validateEphemeralRequestRelease(requestID string, keys []string) error {
 	if err := validateEphemeralRequestID(requestID); err != nil {
 		return err

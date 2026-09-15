@@ -74,6 +74,7 @@ var _ = Describe("control plane paths on the wire", func() {
 			workerctl.PathFilesListDir,
 			workerctl.PathFilesTemp,
 			workerctl.PathFilesMkdir,
+			workerctl.PathFilesRmdir,
 		))
 	})
 

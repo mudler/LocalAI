@@ -15,6 +15,10 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
+type fileRmdirReply struct {
+	Error string `json:"error,omitempty"`
+}
+
 // The worker's file-staging control plane: five verbs that move model and job
 // artifacts between the object store both sides share and this worker's disk.
 // They replace the five nodes.<id>.files.* NATS subjects.
@@ -215,6 +219,16 @@ func (cfg *Config) RegisterFileControlRoutesWithCapacity(mux *http.ServeMux, fm 
 		if !strings.HasPrefix(req.KeyPrefix, storage.ModelKeyPrefix) && !strings.HasPrefix(req.KeyPrefix, storage.DataKeyPrefix) {
 			return fileMkdirReply{Error: "output directory must use models/ or data/"}, nil
 		}
+		root := cfg.ModelsPath
+		if strings.HasPrefix(req.KeyPrefix, storage.DataKeyPrefix) {
+			root = cfg.stagingDataDir()
+		}
+		if root == "" {
+			return fileMkdirReply{Error: "output directory root is not configured"}, nil
+		}
+		if err := os.MkdirAll(root, 0750); err != nil {
+			return fileMkdirReply{Error: fmt.Sprintf("creating output root: %v", err)}, nil
+		}
 		dirPath, ok := cfg.resolveStagingDir(req.KeyPrefix)
 		if !ok {
 			return fileMkdirReply{Error: "invalid key prefix"}, nil
@@ -223,6 +237,26 @@ func (cfg *Config) RegisterFileControlRoutesWithCapacity(mux *http.ServeMux, fm 
 			return fileMkdirReply{Error: fmt.Sprintf("creating output dir: %v", err)}, nil
 		}
 		return fileMkdirReply{LocalPath: dirPath}, nil
+	})
+
+	postControlVerb(mux, workerctl.PathFilesRmdir, func(_ context.Context, body []byte) (any, error) {
+		var req struct {
+			KeyPrefix string `json:"key_prefix"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			return nil, fmt.Errorf("invalid files.rmdir request: %w", err)
+		}
+		dirPath, ok := cfg.resolveStagingDir(req.KeyPrefix)
+		if !ok {
+			return fileRmdirReply{Error: "invalid key prefix"}, nil
+		}
+		if err := cfg.validateStagingOutputPath(dirPath); err != nil {
+			return fileRmdirReply{Error: err.Error()}, nil
+		}
+		if err := os.RemoveAll(dirPath); err != nil {
+			return fileRmdirReply{Error: fmt.Sprintf("removing output dir: %v", err)}, nil
+		}
+		return fileRmdirReply{}, nil
 	})
 
 	// files.listdir: the relative paths of every file under one key prefix.
@@ -280,9 +314,24 @@ func (cfg *Config) resolveStagingDir(keyPrefix string) (string, bool) {
 		return dirPath == root || strings.HasPrefix(dirPath, root+string(filepath.Separator))
 	}
 	if within(cleanCache) || (cleanModels != "." && within(cleanModels)) || within(cleanData) {
+		if err := cfg.validateStagingOutputPath(dirPath); err != nil {
+			return "", false
+		}
 		return dirPath, true
 	}
 	return "", false
+}
+
+func (cfg *Config) validateStagingOutputPath(target string) error {
+	for _, root := range []string{cfg.ModelsPath, cfg.stagingDataDir()} {
+		if root == "" {
+			continue
+		}
+		if err := validatePathWithinDir(target, root); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("path outside worker output directories")
 }
 
 // listStagedFiles walks dirPath and returns every file's path relative to it.

@@ -61,6 +61,7 @@ type SmartRouterOptions struct {
 	AuthToken     string
 	ClientFactory BackendClientFactory // optional; defaults to tokenClientFactory
 	DB            *gorm.DB             // for advisory locks during routing
+	DataPath      string               // local replica root for durable distributed outputs
 	// ConflictResolver, when set, lets the scheduler narrow placement
 	// candidates by per-model concurrency_groups (#9659). When nil, group
 	// anti-affinity is disabled at the scheduler layer; the per-node
@@ -182,7 +183,8 @@ type SmartRouter struct {
 	galleriesJSON    string               // backend gallery config for dynamic installation
 	clientFactory    BackendClientFactory // creates gRPC backend clients
 	db               *gorm.DB             // for advisory locks during routing
-	stagingTracker   *StagingTracker      // tracks file staging progress for UI visibility
+	dataPath         string
+	stagingTracker   *StagingTracker // tracks file staging progress for UI visibility
 	conflictResolver ConcurrencyConflictResolver
 	// pinnedResolver feeds the eviction paths the set of pinned model names
 	// (see SmartRouterOptions.PinnedResolver). nil disables the exclusion.
@@ -277,6 +279,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		galleriesJSON:       opts.GalleriesJSON,
 		clientFactory:       factory,
 		db:                  opts.DB,
+		dataPath:            opts.DataPath,
 		stagingTracker:      NewStagingTracker(),
 		conflictResolver:    opts.ConflictResolver,
 		pinnedResolver:      opts.PinnedResolver,
@@ -1518,7 +1521,7 @@ func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, paralle
 
 	// Wrap with file staging if configured
 	if r.fileStager != nil {
-		return NewFileStagingClient(client, r.fileStager, node.ID), nil
+		return NewFileStagingClientWithOptions(client, r.fileStager, node.ID, FileStagingClientOptions{DB: r.db, DataPath: r.dataPath}), nil
 	}
 	return client, nil
 }

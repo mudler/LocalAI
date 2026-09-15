@@ -536,7 +536,7 @@ const heartbeatMaterialDelta = 256 << 20 // 256 MiB
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		if err := db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}); err != nil {
+		if err := db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}, &QuantizationStagingRecord{}); err != nil {
 			return err
 		}
 		// The cluster package owns its own tables AND the sequence its

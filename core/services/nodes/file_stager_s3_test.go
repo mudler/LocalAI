@@ -56,6 +56,7 @@ var _ = Describe("the S3 file stager's control RPCs", func() {
 		Entry("stage moves bytes", workerctl.PathFilesStage, 10*time.Minute),
 		Entry("temp is metadata", workerctl.PathFilesTemp, 30*time.Second),
 		Entry("mkdir is metadata", workerctl.PathFilesMkdir, 30*time.Second),
+		Entry("rmdir is metadata", workerctl.PathFilesRmdir, 30*time.Second),
 		Entry("listdir is metadata", workerctl.PathFilesListDir, 30*time.Second),
 	)
 
@@ -87,6 +88,8 @@ var _ = Describe("the S3 file stager's control RPCs", func() {
 				_, err := s.AllocRemoteDir(context.Background(), nodeID, "models/export")
 				return err
 			}),
+		Entry("rmdir", workerctl.PathFilesRmdir, fileRmdirReply{},
+			func(s *S3FileStager) error { return s.ReleaseRemoteDir(context.Background(), nodeID, "models/export") }),
 		Entry("listdir", workerctl.PathFilesListDir, fileListDirReply{Files: []string{"a", "b"}},
 			func(s *S3FileStager) error {
 				_, err := s.ListRemoteDir(context.Background(), nodeID, "models/m")
@@ -110,7 +113,7 @@ var _ = Describe("the S3 file stager's control RPCs", func() {
 			// the call is the caller's own spent context.
 			for _, p := range []string{
 				workerctl.PathFilesEnsure, workerctl.PathFilesStage,
-				workerctl.PathFilesTemp, workerctl.PathFilesMkdir, workerctl.PathFilesListDir,
+				workerctl.PathFilesTemp, workerctl.PathFilesMkdir, workerctl.PathFilesRmdir, workerctl.PathFilesListDir,
 			} {
 				workers.scriptRawReply(controlKey(nodeID, p), []byte(`{}`))
 			}
@@ -137,6 +140,9 @@ var _ = Describe("the S3 file stager's control RPCs", func() {
 		Entry("mkdir", func(ctx context.Context, s *S3FileStager) error {
 			_, err := s.AllocRemoteDir(ctx, nodeID, "models/export")
 			return err
+		}),
+		Entry("rmdir", func(ctx context.Context, s *S3FileStager) error {
+			return s.ReleaseRemoteDir(ctx, nodeID, "models/export")
 		}),
 		Entry("listdir", func(ctx context.Context, s *S3FileStager) error {
 			_, err := s.ListRemoteDir(ctx, nodeID, "models/m")
