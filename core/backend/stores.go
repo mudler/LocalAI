@@ -253,12 +253,14 @@ func StoreBackend(sl *model.ModelLoader, appConfig *config.ApplicationConfig, cl
 	// we fall back to the default backend and let the backend apply its own
 	// built-in defaults — preserving the zero-config experience.
 	var loadOpts []string
+	var configRevision string
 	if cl != nil {
 		if cfg, ok := cl.GetModelConfig(storeName); ok {
 			if backend == "" {
 				backend = cfg.Backend
 			}
 			loadOpts = cfg.Options
+			configRevision = cfg.PersistedConfigRevision()
 		}
 	}
 
@@ -283,6 +285,13 @@ func StoreBackend(sl *model.ModelLoader, appConfig *config.ApplicationConfig, cl
 		model.WithBackendString(backend),
 		model.WithModelID(storeName),
 		model.WithModel(store.NamespacePrefix + storeName),
+	}
+	// Distributed routing rejects a load whose tracking key already has a
+	// current revision but whose options omit it. StoreBackend builds options
+	// directly instead of going through ModelOptions, so carry the resolved
+	// store config's persisted revision here just as ordinary model loads do.
+	if configRevision != "" {
+		sc = append(sc, model.WithConfigRevision(configRevision))
 	}
 
 	// Thread the store's configured options through to the backend's LoadModel
