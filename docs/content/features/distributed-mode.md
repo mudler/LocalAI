@@ -1028,6 +1028,12 @@ When the SmartRouter needs to free capacity, it can unload models with zero in-f
 
 Open **Operate → Nodes** to inspect fleet health, filter or select workers, and view running models across the cluster. The **Running models** view groups replicas by model. Its **View logs…** action opens logs directly when there is one placement; when a model has several placements, it opens the model inspector so you can choose all logs for one node or the logs for one replica.
 
+Use **Add worker** in the page header to open the worker setup drawer. Choose the backend or agent role and the target hardware, then copy either the CLI or Docker command. The drawer keeps registration setup separate from fleet monitoring while leaving the distributed-mode documentation one click away.
+
+Backend logs remember where they were opened: logs launched from a node detail page return to that node, while logs launched from **Running models** return to the Nodes fleet. Direct log URLs safely fall back to the fleet.
+
+Bulk selection is retained while you filter or move between pages. When selected workers are outside the current result page, the bulk bar reports the visible and hidden counts; bulk operations still apply to the complete selected set.
+
 Open a node's full details for node-scoped work: viewing replica logs, unloading a model, managing installed backends, changing replica capacity, or editing scheduling labels. Diagnostic actions are listed before destructive actions in row menus.
 
 ## Node Management API
