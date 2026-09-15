@@ -135,6 +135,27 @@ var _ = Describe("worker file-staging control routes", func() {
 		Expect(os.ReadDir(outside)).To(BeEmpty())
 	})
 
+	It("never removes a configured staging root", func() {
+		Expect(os.WriteFile(filepath.Join(modelsDir, "keep-model"), []byte("model"), 0o600)).To(Succeed())
+		dataDir := filepath.Join(filepath.Dir(modelsDir), "data")
+		Expect(os.MkdirAll(dataDir, 0o750)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dataDir, "keep-data"), []byte("data"), 0o600)).To(Succeed())
+
+		for _, key := range []string{
+			"models/", "models//", "models/child/..", "models/../models",
+			"data/", "data//", "data/child/..", "data/../data",
+		} {
+			resp := post(workerctl.PathFilesRmdir, map[string]string{"key_prefix": key})
+			var reply struct {
+				Error string `json:"error"`
+			}
+			decode(resp, &reply)
+			Expect(reply.Error).ToNot(BeEmpty(), key)
+		}
+		Expect(filepath.Join(modelsDir, "keep-model")).To(BeAnExistingFile())
+		Expect(filepath.Join(dataDir, "keep-data")).To(BeAnExistingFile())
+	})
+
 	It("removes only an allocated output directory", func() {
 		key := "data/quantization/job/remove-me"
 		mkdir := post(workerctl.PathFilesMkdir, map[string]string{"key_prefix": key})

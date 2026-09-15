@@ -246,9 +246,18 @@ func (cfg *Config) RegisterFileControlRoutesWithCapacity(mux *http.ServeMux, fm 
 		if err := json.Unmarshal(body, &req); err != nil {
 			return nil, fmt.Errorf("invalid files.rmdir request: %w", err)
 		}
+		cleanKey := strings.TrimRight(req.KeyPrefix, "/\\")
+		if cleanKey == strings.TrimSuffix(storage.ModelKeyPrefix, "/") || cleanKey == strings.TrimSuffix(storage.DataKeyPrefix, "/") {
+			return fileRmdirReply{Error: "refusing to remove a staging root"}, nil
+		}
 		dirPath, ok := cfg.resolveStagingDir(req.KeyPrefix)
 		if !ok {
 			return fileRmdirReply{Error: "invalid key prefix"}, nil
+		}
+		for _, root := range []string{cfg.ModelsPath, cfg.stagingDataDir()} {
+			if root != "" && filepath.Clean(dirPath) == filepath.Clean(root) {
+				return fileRmdirReply{Error: "refusing to remove a staging root"}, nil
+			}
 		}
 		if err := cfg.validateStagingOutputPath(dirPath); err != nil {
 			return fileRmdirReply{Error: err.Error()}, nil

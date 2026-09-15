@@ -5,7 +5,10 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+var ErrQuantizationStagingExists = errors.New("quantization staging state already exists")
 
 // QuantizationStagingRecord is the durable hand-off between the frontend that
 // starts a remote job and whichever frontend later consumes its progress.
@@ -18,17 +21,33 @@ type QuantizationStagingRecord struct {
 	KeyPrefix       string   `gorm:"type:text"`
 	InputRequestID  string   `gorm:"size:36"`
 	InputKeys       []string `gorm:"serializer:json"`
+	OutputFetched   bool
+	OutputRelative  string `gorm:"type:text"`
+	InputsReleased  bool
+	OutputReleased  bool
 }
 
 type quantizationStagingStore interface {
-	Put(context.Context, *QuantizationStagingRecord) error
+	Create(context.Context, *QuantizationStagingRecord) error
+	Update(context.Context, *QuantizationStagingRecord) error
 	Get(context.Context, string, string) (*QuantizationStagingRecord, bool, error)
 	Delete(context.Context, string, string) error
 }
 
 type gormQuantizationStagingStore struct{ db *gorm.DB }
 
-func (s gormQuantizationStagingStore) Put(ctx context.Context, record *QuantizationStagingRecord) error {
+func (s gormQuantizationStagingStore) Create(ctx context.Context, record *QuantizationStagingRecord) error {
+	result := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(record)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return ErrQuantizationStagingExists
+	}
+	return nil
+}
+
+func (s gormQuantizationStagingStore) Update(ctx context.Context, record *QuantizationStagingRecord) error {
 	return s.db.WithContext(ctx).Save(record).Error
 }
 

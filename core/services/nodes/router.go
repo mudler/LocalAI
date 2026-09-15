@@ -1585,6 +1585,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	}
 	fields := []pathField{
 		{"ModelFile", &opts.ModelFile},
+		{"OriginalConfigFile", &opts.OriginalConfigFile},
 		{"MMProj", &opts.MMProj},
 		{"LoraAdapter", &opts.LoraAdapter},
 		{"DraftModel", &opts.DraftModel},
@@ -1622,6 +1623,19 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 	for _, f := range fields {
 		if *f.val == "" {
 			continue
+		}
+		// Diffusers configurations commonly name this file relative to the
+		// models directory. Resolve it on the controller before the existence
+		// check so it is staged instead of passed to a remote worker as a
+		// controller-only relative path.
+		if f.name == "OriginalConfigFile" && !filepath.IsAbs(*f.val) {
+			for _, base := range []string{localModelDir, frontendModelsDir} {
+				candidate := filepath.Join(base, *f.val)
+				if _, err := os.Stat(candidate); err == nil {
+					*f.val = candidate
+					break
+				}
+			}
 		}
 		// Skip non-existent files. This is legitimate — a backend that takes a
 		// bare HuggingFace repo id gets an optimistically constructed path that

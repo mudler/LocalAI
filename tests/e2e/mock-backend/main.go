@@ -1093,6 +1093,9 @@ func (m *MockBackend) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.Det
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
+	if _, err := fixtureInputMarkers(namedFixtureInput{name: "src", value: in.Src}); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Detect called", "src", in.Src)
 	return &pb.DetectResponse{
 		Detections: []*pb.Detection{
@@ -1112,12 +1115,24 @@ func (m *MockBackend) Depth(ctx context.Context, in *pb.DepthRequest) (*pb.Depth
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
-	return &pb.DepthResponse{
+	markers, err := fixtureInputMarkers(namedFixtureInput{name: "src", value: in.Src})
+	if err != nil {
+		return nil, err
+	}
+	result := &pb.DepthResponse{
 		Width: 2, Height: 1, Depth: []float32{1.25, 2.5},
 		Confidence: []float32{0.9, 0.8}, Sky: []float32{0, 1},
 		Extrinsics: []float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},
 		Intrinsics: []float32{1, 0, 0, 0, 1, 0, 0, 0, 1}, IsMetric: true,
-	}, nil
+	}
+	if in.Dst != "" {
+		exportPath := filepath.Join(in.Dst, "nested", "depth.txt")
+		if err := writeFixture(exportPath, []byte(markers)); err != nil {
+			return nil, err
+		}
+		result.ExportPaths = []string{exportPath}
+	}
+	return result, nil
 }
 
 func (m *MockBackend) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest) (*pb.FaceAnalyzeResponse, error) {
@@ -1144,6 +1159,9 @@ func (m *MockBackend) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest) 
 
 func (m *MockBackend) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest) (*pb.VoiceAnalyzeResponse, error) {
 	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if _, err := fixtureInputMarkers(namedFixtureInput{name: "audio", value: in.Audio}); err != nil {
 		return nil, err
 	}
 	return &pb.VoiceAnalyzeResponse{Segments: []*pb.VoiceAnalysis{{
@@ -1293,6 +1311,9 @@ func (m *MockBackend) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADRespon
 // gate the per-segment Text field.
 func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.DiarizeResponse, error) {
 	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if _, err := fixtureInputMarkers(namedFixtureInput{name: "audio", value: in.Dst}); err != nil {
 		return nil, err
 	}
 	xlog.Debug("Diarize called",
@@ -1450,6 +1471,9 @@ func (m *MockBackend) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) 
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
+	if _, err := fixtureInputMarkers(namedFixtureInput{name: "audio", value: in.Audio}); err != nil {
+		return nil, err
+	}
 	emb := voiceEmbedFromWAV(in.GetAudio())
 	xlog.Debug("VoiceEmbed called", "audio", in.GetAudio(), "embedding", emb)
 	if len(emb) == 0 {
@@ -1461,6 +1485,12 @@ func (m *MockBackend) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) 
 // VoiceVerify compares two clips by cosine distance over their mock embeddings.
 func (m *MockBackend) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest) (*pb.VoiceVerifyResponse, error) {
 	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if _, err := fixtureInputMarkers(
+		namedFixtureInput{name: "audio1", value: in.Audio1},
+		namedFixtureInput{name: "audio2", value: in.Audio2},
+	); err != nil {
 		return nil, err
 	}
 	a := voiceEmbedFromWAV(in.GetAudio1())
