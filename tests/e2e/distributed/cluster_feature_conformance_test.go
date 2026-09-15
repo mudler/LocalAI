@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/tests/e2e/distributed/cluster"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -83,13 +84,17 @@ func conformancePostJSON(client *http.Client, baseURL, path string, body any) (*
 }
 
 func conformancePostMultipart(client *http.Client, baseURL, path, fileField string, fields map[string]string, file []byte) (*http.Response, []byte) {
+	return conformancePostMultipartNamed(client, baseURL, path, fileField, "frontend-only.wav", fields, file)
+}
+
+func conformancePostMultipartNamed(client *http.Client, baseURL, path, fileField, fileName string, fields map[string]string, file []byte) (*http.Response, []byte) {
 	GinkgoHelper()
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
 	for key, value := range fields {
 		Expect(writer.WriteField(key, value)).To(Succeed())
 	}
-	part, err := writer.CreateFormFile(fileField, "frontend-only.wav")
+	part, err := writer.CreateFormFile(fileField, fileName)
 	Expect(err).ToNot(HaveOccurred())
 	_, err = part.Write(file)
 	Expect(err).ToNot(HaveOccurred())
@@ -268,6 +273,14 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 	Expect(bytes.HasPrefix(assetArtifact, conformanceGLB)).To(BeTrue())
 	Expect(string(assetArtifact)).To(ContainSubstring("sha256:aa7bb0431aaeb198a77c26a14fe6dd714a75e4d7db94e3e1238a1fdcbfe1f8d4"))
 
+	By("staging a frontend-side GLB through the canonical remesh route")
+	resp, payload = conformancePostMultipartNamed(client, baseURL, "/3d/remesh", "mesh", "frontend-only.glb", map[string]string{
+		"model": model, "detail": "0.5",
+	}, conformanceGLB)
+	expectConformanceStatus(resp, payload)
+	remeshDigest := sha256.Sum256(conformanceGLB)
+	Expect(payload).To(Equal(append(append([]byte(nil), conformanceGLB...), []byte(fmt.Sprintf("\nMOCK-INPUTS:src=sha256:%x\n", remeshDigest))...)))
+
 	By("covering object detection and depth over their canonical routes")
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/detection", map[string]any{
 		"model": model, "image": imageDataURI, "prompt": "fixture", "threshold": 0.5,
@@ -332,35 +345,57 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 		"model": model, "img1": imageDataURI, "img2": imageDataURI,
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"verified":true`))
-	Expect(string(payload)).To(ContainSubstring(`"model":"mock-face"`))
+	var faceVerify schema.FaceVerifyResponse
+	Expect(json.Unmarshal(payload, &faceVerify)).To(Succeed())
+	Expect(faceVerify).To(Equal(schema.FaceVerifyResponse{
+		Verified: true, Distance: 0.05, Threshold: 0.25, Confidence: 95, Model: "mock-face",
+		Img1Area: schema.FacialArea{X: 1, Y: 2, W: 3, H: 4},
+		Img2Area: schema.FacialArea{X: 5, Y: 6, W: 7, H: 8},
+	}))
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/face/analyze", map[string]any{
 		"model": model, "img": imageDataURI, "actions": []string{"age", "gender", "emotion"},
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"dominant_gender":"Woman"`))
-	Expect(string(payload)).To(ContainSubstring(`"dominant_emotion":"happy"`))
+	var faceAnalyze schema.FaceAnalyzeResponse
+	Expect(json.Unmarshal(payload, &faceAnalyze)).To(Succeed())
+	Expect(faceAnalyze).To(Equal(schema.FaceAnalyzeResponse{Faces: []schema.FaceAnalysis{{
+		Region: schema.FacialArea{X: 1, Y: 2, W: 3, H: 4}, FaceConfidence: 0.98,
+		Age: 34, DominantGender: "Woman", Gender: map[string]float32{"Woman": 0.9},
+		DominantEmotion: "happy", Emotion: map[string]float32{"happy": 0.8},
+	}}}))
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/face/embed", map[string]any{
 		"model": model, "img": imageDataURI,
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"dim":768`))
+	var faceEmbed schema.FaceEmbedResponse
+	Expect(json.Unmarshal(payload, &faceEmbed)).To(Succeed())
+	Expect(faceEmbed.Model).To(Equal(model))
+	Expect(faceEmbed.Dim).To(Equal(768))
+	Expect(faceEmbed.Embedding).To(HaveLen(768))
+	Expect(faceEmbed.Embedding[:5]).To(Equal([]float32{0, 0.01, 0.02, 0.03, 0.04}))
+	Expect(faceEmbed.Embedding[767]).To(Equal(float32(0.67)))
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/face/register", map[string]any{
 		"model": model, "img": imageDataURI, "name": "fixture-face",
 	})
 	expectConformanceStatus(resp, payload)
-	var faceRegistration struct {
-		ID string `json:"id"`
-	}
+	var faceRegistration schema.FaceRegisterResponse
 	Expect(json.Unmarshal(payload, &faceRegistration)).To(Succeed())
 	Expect(faceRegistration.ID).ToNot(BeEmpty())
+	Expect(faceRegistration.Name).To(Equal("fixture-face"))
+	Expect(faceRegistration.RegisteredAt).ToNot(BeZero())
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/face/identify", map[string]any{
 		"model": model, "img": imageDataURI, "top_k": 1,
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"name":"fixture-face"`))
+	var faceIdentification schema.FaceIdentifyResponse
+	Expect(json.Unmarshal(payload, &faceIdentification)).To(Succeed())
+	Expect(faceIdentification.Matches).To(HaveLen(1))
+	Expect(faceIdentification.Matches[0]).To(Equal(schema.FaceIdentifyMatch{
+		ID: faceRegistration.ID, Name: "fixture-face", Distance: 0, Confidence: 100, Match: true,
+	}))
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/face/forget", map[string]any{"id": faceRegistration.ID})
 	Expect(resp.StatusCode).To(Equal(http.StatusNoContent), string(payload))
+	Expect(payload).To(BeEmpty())
 
 	By("returning deterministic unary and streaming TTS audio")
 	resp, unaryTTS := conformancePostJSON(client, baseURL, "/v1/audio/speech", map[string]any{
@@ -383,34 +418,59 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 		"model": model, "audio1": voiceAudio, "audio2": voiceAudio,
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"verified":true`))
-	Expect(string(payload)).To(ContainSubstring(`"model":"mock-speaker"`))
+	var voiceVerify schema.VoiceVerifyResponse
+	Expect(json.Unmarshal(payload, &voiceVerify)).To(Succeed())
+	Expect(voiceVerify.Verified).To(BeTrue())
+	Expect(voiceVerify.Distance).To(BeNumerically("~", 0.0000193, 0.000001))
+	Expect(voiceVerify.Threshold).To(Equal(float32(0.25)))
+	Expect(voiceVerify.Confidence).To(Equal(float32(0)))
+	Expect(voiceVerify.Model).To(Equal("mock-speaker"))
+	Expect(voiceVerify.ProcessingTimeMs).To(Equal(float32(0)))
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/voice/analyze", map[string]any{
 		"model": model, "audio": voiceAudio, "actions": []string{"age", "gender", "emotion"},
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"dominant_emotion":"neutral"`))
+	var voiceAnalyze schema.VoiceAnalyzeResponse
+	Expect(json.Unmarshal(payload, &voiceAnalyze)).To(Succeed())
+	Expect(voiceAnalyze).To(Equal(schema.VoiceAnalyzeResponse{Segments: []schema.VoiceAnalysis{{
+		Start: 0, End: 1, Age: 42, DominantGender: "female", Gender: map[string]float32{"female": 0.95},
+		DominantEmotion: "neutral", Emotion: map[string]float32{"neutral": 0.9},
+	}}}))
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/voice/embed", map[string]any{
 		"model": model, "audio": voiceAudio,
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"dim":2`))
+	var voiceEmbed schema.VoiceEmbedResponse
+	Expect(json.Unmarshal(payload, &voiceEmbed)).To(Succeed())
+	Expect(voiceEmbed).To(Equal(schema.VoiceEmbedResponse{
+		Embedding: []float32{0.7071, 0.7071}, Dim: 2, Model: "mock-speaker",
+	}))
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/voice/register", map[string]any{
 		"model": model, "audio": voiceAudio, "name": "fixture-voice",
 	})
 	expectConformanceStatus(resp, payload)
-	var voiceRegistration struct {
-		ID string `json:"id"`
-	}
+	var voiceRegistration schema.VoiceRegisterResponse
 	Expect(json.Unmarshal(payload, &voiceRegistration)).To(Succeed())
 	Expect(voiceRegistration.ID).ToNot(BeEmpty())
+	Expect(voiceRegistration.Name).To(Equal("fixture-voice"))
+	Expect(voiceRegistration.RegisteredAt).ToNot(BeZero())
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/voice/identify", map[string]any{
 		"model": model, "audio": voiceAudio, "top_k": 1,
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"name":"fixture-voice"`))
+	var voiceIdentification schema.VoiceIdentifyResponse
+	Expect(json.Unmarshal(payload, &voiceIdentification)).To(Succeed())
+	Expect(voiceIdentification.Matches).To(HaveLen(1))
+	Expect(voiceIdentification.Matches[0]).To(Equal(schema.VoiceIdentifyMatch{
+		ID:         voiceRegistration.ID,
+		Name:       "fixture-voice",
+		Distance:   float32(1.9252300262451172e-05),
+		Confidence: float32(99.99230194091797),
+		Match:      true,
+	}))
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/voice/forget", map[string]any{"id": voiceRegistration.ID})
 	Expect(resp.StatusCode).To(Equal(http.StatusNoContent), string(payload))
+	Expect(payload).To(BeEmpty())
 
 	By("returning deterministic generated sound")
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/sound-generation", map[string]any{
@@ -471,18 +531,33 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 		"model": model, "include_text": "true", "response_format": "verbose_json", "language": "en",
 	}, audioInput)
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"speaker":"SPEAKER_00"`))
-	Expect(string(payload)).To(ContainSubstring(`"text":"hello there"`))
-	Expect(string(payload)).To(ContainSubstring(`"num_speakers":2`))
+	var diarization schema.DiarizationResult
+	Expect(json.Unmarshal(payload, &diarization)).To(Succeed())
+	Expect(diarization).To(Equal(schema.DiarizationResult{
+		Task: "diarize", Duration: 3.5, Language: "en", NumSpeakers: 2,
+		Segments: []schema.DiarizationSegment{
+			{Id: 0, Speaker: "SPEAKER_00", Label: "5", Start: 0, End: 1, Text: "hello there"},
+			{Id: 1, Speaker: "SPEAKER_01", Label: "2", Start: 1, End: 2, Text: "general kenobi"},
+			{Id: 2, Speaker: "SPEAKER_00", Label: "5", Start: 2, End: 3.5, Text: "you are a bold one"},
+		},
+		Speakers: []schema.DiarizationSpeaker{
+			{Id: "SPEAKER_00", Label: "5", TotalSpeechDuration: 2.5, SegmentCount: 2},
+			{Id: "SPEAKER_01", Label: "2", TotalSpeechDuration: 1, SegmentCount: 1},
+		},
+	}))
 
 	By("covering token classification through the public PII inference route")
 	resp, payload = conformancePostJSON(client, baseURL, "/api/pii/analyze", map[string]any{
 		"detectors": []string{model}, "text": "Alice visited Rome",
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"entity_type":"PER"`))
-	Expect(string(payload)).To(ContainSubstring(`"start":0`))
-	Expect(string(payload)).To(ContainSubstring(`"end":5`))
+	var piiAnalysis schema.PIIAnalyzeResponse
+	Expect(json.Unmarshal(payload, &piiAnalysis)).To(Succeed())
+	Expect(piiAnalysis.Entities).To(Equal([]schema.PIIEntity{{
+		EntityType: "PER", Source: "ner", Start: 0, End: 5, Score: 0.99, Action: "mask",
+	}}))
+	Expect(piiAnalysis.Blocked).To(BeFalse())
+	Expect(piiAnalysis.CorrelationID).ToNot(BeEmpty())
 
 	By("staging uploaded audio and returning the exact transformed artifact")
 	resp, payload = conformancePostMultipart(client, baseURL, "/audio/transformations", "audio", map[string]string{
@@ -511,8 +586,16 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 		"model": model, "query": "fixture", "documents": []string{"alpha", "beta"},
 	})
 	expectConformanceStatus(resp, payload)
-	Expect(string(payload)).To(ContainSubstring(`"total_tokens":20`))
-	Expect(string(payload)).To(ContainSubstring(`"relevance_score":0.8999999761581421`))
+	var rerank schema.JINARerankResponse
+	Expect(json.Unmarshal(payload, &rerank)).To(Succeed())
+	Expect(rerank).To(Equal(schema.JINARerankResponse{
+		Model: model,
+		Usage: schema.JINAUsageInfo{TotalTokens: 20, PromptTokens: 20},
+		Results: []schema.JINADocumentResult{
+			{Index: 0, Document: schema.JINAText{Text: "alpha"}, RelevanceScore: float64(float32(0.9))},
+			{Index: 1, Document: schema.JINAText{Text: "beta"}, RelevanceScore: 0.7999999523162842},
+		},
+	}))
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/tokenize", map[string]any{"model": model, "content": "eightchr"})
 	expectConformanceStatus(resp, payload)
 	Expect(string(payload)).To(MatchJSON(`{"tokens":[1,2]}`))
