@@ -1086,5 +1086,20 @@ pii_detection:
 		Expect(os.ReadFile(filepath.Join(workerModels, model, model+"-mmproj.gguf"))).To(Equal([]byte("frontend-only-mmproj")))
 		Expect(os.ReadFile(filepath.Join(workerModels, model, model+"-original.yaml"))).To(Equal([]byte("fixture: original-config\n")))
 		Expect(strings.Contains(workerModels, "worker-0")).To(BeTrue())
+
+		By("shutting down the real worker without orphaning its loaded backend")
+		backendPIDs, err := c.WorkerBackendPIDs(0, "mock-backend")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(backendPIDs).ToNot(BeEmpty(), "conformance requests never started a mock backend")
+		c.Stop()
+		Eventually(func() []int {
+			var survivors []int
+			for _, pid := range backendPIDs {
+				if _, err := os.Stat(fmt.Sprintf("/proc/%d", pid)); err == nil {
+					survivors = append(survivors, pid)
+				}
+			}
+			return survivors
+		}, 5*time.Second, 100*time.Millisecond).Should(BeEmpty(), "mock backends survived cluster teardown")
 	})
 })
