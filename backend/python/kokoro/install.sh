@@ -20,6 +20,39 @@ if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
     USE_PIP=true
 fi
 
+# ROCm/gfx1151: the community whl/rocm7.0 torch wheels do not enumerate Strix
+# Halo (device_count == 0). AMD ships stable ROCm 7.14 builds via its multi-arch
+# index, selected per GPU with the torch[device-gfx<arch>] extra. Install torch +
+# torchaudio (the same pinned versions, from that index) in an isolated step: uv
+# aborts on that index's 403-for-missing-package responses, so we must not let it
+# resolve PyPI-only packages (kokoro, transformers, ...) there. Everything else
+# then resolves from PyPI in installRequirements.
+if [ "x${BUILD_PROFILE}" == "xhipblas" ]; then
+    # GPU arch(es) from the build. AMDGPU_TARGETS is the repo-wide comma-separated
+    # gfx list (see backend/cpp/llama-cpp/Makefile); each entry maps to one
+    # `device-gfx<arch>` extra and they compose: torch[device-gfx942,device-gfx1151]
+    # installs both device packages side by side.
+    #
+    # Each device package is ~1.6 GB installed, so an image carries only the arches
+    # its matrix entry names -- the repo-wide 11-arch default would add ~17 GB.
+    # That is why the hipblas matrix entries for this backend set `amdgpu-targets`
+    # explicitly instead of inheriting that default.
+    _gpu_extras=""
+    for _a in ${AMDGPU_TARGETS//,/ }; do
+        _a="${_a%% *}"
+        [ -n "${_a}" ] || continue
+        _gpu_extras="${_gpu_extras:+${_gpu_extras},}device-${_a}"
+    done
+    # Local `make` builds outside CI pass no targets; gfx1151 is the arch this was
+    # hardware-validated on.
+    _gpu_extras="${_gpu_extras:-device-gfx1151}"
+    echo "${0##*/}: AMD torch device extras: ${_gpu_extras}"
+    ensureVenv
+    uv pip install --index-url https://repo.amd.com/rocm/whl-multi-arch/ \
+        "torch[${_gpu_extras}]==2.10.0+rocm7.14.0" \
+        "torchaudio==2.10.0+rocm7.14.0"
+fi
+
 installRequirements
 
 # spaCy is a dependency of misaki (used by kokoro for English phonemization).
