@@ -38,7 +38,7 @@ For a complete reference of all available configuration options, see the [Model 
    local-ai run github://mudler/LocalAI/examples/configurations/phi-2.yaml@master
    ```
 
-See also [chatbot-ui](https://github.com/mudler/LocalAI-examples/tree/main/chatbot-ui) as an example on how to use config files.
+See also [chatbot-ui](https://github.com/mudler/LocalAI-examples) as an example on how to use config files.
 
 ### Prompt templates 
 
