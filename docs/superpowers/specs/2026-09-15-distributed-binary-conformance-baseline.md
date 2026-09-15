@@ -7,20 +7,20 @@ The comparison used a detached temporary worktree at
 removed after the run. The main checkout and all user branches were left
 untouched.
 
-Only the self-contained deterministic mock-backend fixture commits
-`7a098229e` and `944a14ec9` were applied. They change
-`tests/e2e/mock-backend` only; no production fix from the pull request was
-applied to the baseline.
+Only the final path-level diff under `tests/e2e/mock-backend` was applied from
+the pull-request branch. This includes the deterministic fixture implementation,
+its extended protocol cases, and the package-consistent Ginkgo contract suite;
+no production fix from the pull request was applied to the baseline.
 
 The maximal compatible baseline passed:
 
 ```text
 make protogen-go
 go test ./tests/e2e/mock-backend -count=1
-ok github.com/mudler/LocalAI/tests/e2e/mock-backend 0.013s
+ok github.com/mudler/LocalAI/tests/e2e/mock-backend 0.014s
 
 go test -race ./tests/e2e/mock-backend -count=1
-ok github.com/mudler/LocalAI/tests/e2e/mock-backend 1.034s
+ok github.com/mudler/LocalAI/tests/e2e/mock-backend 1.042s
 
 make build-mock-backend
 PASS
