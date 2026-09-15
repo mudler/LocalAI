@@ -1389,6 +1389,7 @@ var _ = Describe("StartFileTransferServerWithListener", func() {
 		for _, key := range []string{
 			"models/", "models//", "models/child/..", "models/../models",
 			"data/", "data//", "data/child/..", "data/../data",
+			"models/../data/victim", "data/../models/victim",
 		} {
 			recorder := httptest.NewRecorder()
 			handleReleaseDir(recorder, staging, models, data, key)

@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -281,8 +283,12 @@ func TestAudioTransformCopiesExactStagedInput(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	input := filepath.Join(dir, "input.wav")
+	reference := filepath.Join(dir, "reference.wav")
 	output := filepath.Join(dir, "nested", "output.wav")
 	if err := writeMinimalWAV(input); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(reference, []byte("distinct-reference"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	want, err := os.ReadFile(input)
@@ -290,8 +296,9 @@ func TestAudioTransformCopiesExactStagedInput(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err := (&MockBackend{}).AudioTransform(context.Background(), &pb.AudioTransformRequest{
-		AudioPath: input,
-		Dst:       output,
+		AudioPath:     input,
+		ReferencePath: reference,
+		Dst:           output,
 	})
 	if err != nil {
 		t.Fatalf("AudioTransform returned error: %v", err)
@@ -300,11 +307,31 @@ func TestAudioTransformCopiesExactStagedInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(got, want) {
-		t.Fatal("AudioTransform output differs from its staged input")
+	referenceDigest := fmt.Sprintf("sha256:%x", sha256.Sum256([]byte("distinct-reference")))
+	if !bytes.Equal(got, fixtureArtifact(want, "reference="+referenceDigest)) {
+		t.Fatal("AudioTransform output does not prove the staged reference content")
 	}
 	if result.GetDst() != output || result.GetSampleRate() != 16000 || result.GetSamples() != 8000 {
 		t.Fatalf("unexpected AudioTransform metadata: %#v", result)
+	}
+}
+
+func TestFixturePathsMustUseExpectedWorkerStagingRoot(t *testing.T) {
+	root := t.TempDir()
+	inside := filepath.Join(root, "cache", "input.wav")
+	outside := filepath.Join(t.TempDir(), "input.wav")
+	if err := writeFixture(inside, []byte("inside")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFixture(outside, []byte("outside")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LOCALAI_MOCK_EXPECT_STAGING_ROOT", root)
+	if _, err := fixtureInputMarker(namedFixtureInput{name: "inside", value: inside}); err != nil {
+		t.Fatalf("worker-staged input rejected: %v", err)
+	}
+	if _, err := fixtureInputMarker(namedFixtureInput{name: "outside", value: outside}); err == nil {
+		t.Fatal("frontend-readable path outside the worker root was accepted")
 	}
 }
 
