@@ -109,10 +109,10 @@ jobs:
     # which spec hung, to the runner, which prints nothing: a red job with no
     # evidence, which is how a suite gets disabled rather than fixed.
     #
-    # The suite itself is about 8m30s over three consecutive runs (509.1s /
-    # 509.8s / 512.3s, so 8m29s to 8m32s) on a developer box, and will be slower
-    # here. Three specs sit at ~167s each because they wait out a 60s staleness
-    # threshold plus a 15s health-check tick (HealthCheckInterval, in
+    # The 30-spec suite is about 15m50s on a developer box and will be slower
+    # here. It includes the compiled BinaryConformance backend/staging matrix
+    # and MachineAuth trust-domain scenario. Three specs sit at ~167s each
+    # because they wait out a 60s staleness threshold plus a 15s health-check tick (HealthCheckInterval, in
     # core/config/distributed_config.go; core/services/nodes/health.go runs the
     # ticker on the unexported checkInterval, not one of the reconcilers). Do
     # not shorten those windows to make this job faster: the wait is what stops
@@ -180,6 +180,8 @@ jobs:
           # future edit to that default cannot silently turn this job into one
           # that passes without ever starting a cluster, since a skipped cluster
           # spec is indistinguishable from a passing one.
+          # This applies to the BinaryConformance and MachineAuth specs selected
+          # by the aggregate Cluster label as well as the lifecycle cases.
           LOCALAI_E2E_REQUIRE_BINARIES: "true"
           # See the job above: the runner is ephemeral, so the reaper buys
           # nothing and would pull a third, unpinned Docker Hub image mid-suite.
