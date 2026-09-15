@@ -1,4 +1,53 @@
 ---
+- name: "signal-3.8-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/agentionai/Signal-3.8-27B-GGUF
+  description: |
+    # Qwen3.8-27B
+
+    > [!Note]
+    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
+    >
+    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, TokenSpeed, etc.
+
+    > [!Tip]
+    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
+    > In particular, **Qwen3.8-27B** will be available as a hosted version with more production features, e.g., 1M context length by default, official built-in tools. For more information, please refer to the Qwen3.8-27B Overview. The service is coming soon. Stay tuned for updates.
+
+    Following the widespread community adoption of the Qwen3.5 and Qwen3.6 series, we are pleased to introduce Qwen3.8, the most capable generation in the Qwen open-model family to date.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Signal-3.8-27B-AP-Q4_K_M/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Signal-3.8-27B-AP-Q4_K_M/Signal-3.8-27B-AP-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Signal-3.8-27B-AP-Q4_K_M/Signal-3.8-27B-AP-Q4_K_M.gguf
+      sha256: 97b9dd5905ea05915d6c0133535a3cbf799dc9d59ac1d22ffad59328388bc912
+      uri: https://huggingface.co/agentionai/Signal-3.8-27B-GGUF/resolve/main/AP-Q4_K_M/Signal-3.8-27B-AP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Signal-3.8-27B-AP-Q4_K_M/mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+      uri: https://huggingface.co/agentionai/Signal-3.8-27B-GGUF/resolve/main/mmproj-BF16.gguf
 - name: "spark-x2.5-4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
