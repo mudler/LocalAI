@@ -984,7 +984,7 @@ func requestIDForTest() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
-var _ = Describe("Binary backend feature conformance", Label("Distributed"), Label("Cluster"), func() {
+var _ = Describe("Binary backend feature conformance", Label("Distributed"), Label("Cluster"), Label("BinaryConformance"), func() {
 	It("binary backend feature conformance through the tunnel owner and a peer relay", func() {
 		const model = "conformance"
 		fixtures := newConformanceFixtures()
