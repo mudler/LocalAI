@@ -36,27 +36,6 @@ var (
 	conformanceGLB   = mustConformanceHex("676c5446020000000c000000")
 )
 
-// These inventories mirror grpc.InferenceBackend and grpc.ControlBackend by
-// their current Go method names. Task 7 adds a reflection drift guard; keeping
-// the truthful split here makes omissions reviewable in this task already.
-var inferenceBackendMethods = []string{
-	"Embeddings", "PredictStream", "Predict", "GenerateImage", "UpscaleImage",
-	"GenerateVideo", "Generate3D", "TTS", "TTSStream", "SoundGeneration",
-	"AudioTranscription", "AudioTranscriptionStream", "Detect", "Depth",
-	"FaceVerify", "FaceAnalyze", "VoiceVerify", "VoiceAnalyze", "VoiceEmbed",
-	"Rerank", "TokenClassify", "Score", "VAD", "Diarize", "SoundDetection",
-	"AudioEncode", "AudioDecode", "AudioTransform",
-}
-
-var controlBackendMethods = []string{
-	"IsBusy", "HealthCheck", "LoadModel", "TokenizeString", "Detokenize", "Status",
-	"StoresSet", "StoresDelete", "StoresGet", "StoresFind", "GetTokenMetrics",
-	"AudioTransformStream", "AudioToAudioStream", "AudioTranscriptionLive", "Forward",
-	"ModelMetadata", "StartFineTune", "FineTuneProgress", "StopFineTune",
-	"ListCheckpoints", "ExportModel", "StartQuantization", "QuantizationProgress",
-	"StopQuantization", "Free",
-}
-
 type conformanceFixtures struct {
 	inlineImage  string
 	imageDataURI string
@@ -248,24 +227,6 @@ func conformanceWebSocket(client *http.Client, baseURL, path string) *websocket.
 }
 
 func runPublicBackendConformance(client *http.Client, baseURL, model string, fixtures conformanceFixtures) {
-	By("keeping the exact current inference and control method inventories")
-	Expect(inferenceBackendMethods).To(Equal([]string{
-		"Embeddings", "PredictStream", "Predict", "GenerateImage", "UpscaleImage",
-		"GenerateVideo", "Generate3D", "TTS", "TTSStream", "SoundGeneration",
-		"AudioTranscription", "AudioTranscriptionStream", "Detect", "Depth",
-		"FaceVerify", "FaceAnalyze", "VoiceVerify", "VoiceAnalyze", "VoiceEmbed",
-		"Rerank", "TokenClassify", "Score", "VAD", "Diarize", "SoundDetection",
-		"AudioEncode", "AudioDecode", "AudioTransform",
-	}))
-	Expect(controlBackendMethods).To(Equal([]string{
-		"IsBusy", "HealthCheck", "LoadModel", "TokenizeString", "Detokenize", "Status",
-		"StoresSet", "StoresDelete", "StoresGet", "StoresFind", "GetTokenMetrics",
-		"AudioTransformStream", "AudioToAudioStream", "AudioTranscriptionLive", "Forward",
-		"ModelMetadata", "StartFineTune", "FineTuneProgress", "StopFineTune",
-		"ListCheckpoints", "ExportModel", "StartQuantization", "QuantizationProgress",
-		"StopQuantization", "Free",
-	}))
-
 	By("running non-streaming and streaming chat")
 	result, err := chat(client, baseURL, model, "fixture prompt")
 	Expect(err).ToNot(HaveOccurred())
