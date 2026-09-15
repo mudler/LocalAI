@@ -43,6 +43,26 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Qwen3.8-27B Humanlike Chat
+
+Install [Qwen3.8-27B Humanlike Chat](https://huggingface.co/LessThanThreeAI/Qwen3.8-27B-Humanlike-Chat-GGUF)
+for conversation, character roleplay, and interactive fiction:
+
+```bash
+local-ai models install qwen3.8-27b-humanlike-chat-q4
+```
+
+LocalAI selects from Q4_K_M, Q6_K, and Q8_0 GGUF builds according to available
+memory. To choose Q8_0 explicitly:
+
+```bash
+local-ai models install qwen3.8-27b-humanlike-chat-q4 --variant qwen3.8-27b-humanlike-chat-q8
+```
+
+These text-only builds use llama.cpp and the embedded chat template. The gallery
+sets a 32,768-token context and disables thinking, following the publisher's
+chat configuration.
+
 ## Spark-X2.5-1.7B
 
 Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0
