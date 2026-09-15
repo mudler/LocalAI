@@ -118,6 +118,21 @@ var _ = Describe("stageModelFiles managed artifact trees", func() {
 		Expect(filepath.Join(staged.ModelPath, compRel)).To(Equal(filepath.Join(root, compRel)))
 	})
 
+	It("stages and rewrites OriginalConfigFile", func() {
+		configPath := filepath.Join(modelsDir, "configs", "original.yaml")
+		write(modelsDir, map[string]string{"model.gguf": "weights", "configs/original.yaml": "fixture: original-config"})
+		opts := &pb.ModelOptions{
+			Model:              "model.gguf",
+			ModelFile:          filepath.Join(modelsDir, "model.gguf"),
+			OriginalConfigFile: filepath.Join("configs", filepath.Base(configPath)),
+		}
+
+		staged, err := router.stageModelFiles(context.Background(), node, opts, "original-config")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(staged.OriginalConfigFile).To(Equal(filepath.Join("/remote", storage.ModelKey("original-config/configs/original.yaml"))))
+		Expect(stagedKeys()).To(ContainElement(storage.ModelKey("original-config/configs/original.yaml")))
+	})
+
 	It("keeps a legacy relative model file anchored on the models directory", func() {
 		// The pre-artifact layout, where Model is a real relative path under the
 		// models dir, must keep deriving the same root it always did.
