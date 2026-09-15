@@ -252,7 +252,7 @@ func (f *FileStagingClient) translateModelPath(frontendPath string) string {
 
 func (f *FileStagingClient) Predict(ctx context.Context, in *pb.PredictOptions, opts ...ggrpc.CallOption) (*pb.Reply, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.PredictOptions)
 	var err error
 	in, err = f.stageMultimodalInputs(ctx, lifecycle, in)
@@ -264,7 +264,7 @@ func (f *FileStagingClient) Predict(ctx context.Context, in *pb.PredictOptions, 
 
 func (f *FileStagingClient) PredictStream(ctx context.Context, in *pb.PredictOptions, fn func(reply *pb.Reply), opts ...ggrpc.CallOption) error {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.PredictOptions)
 	var err error
 	in, err = f.stageMultimodalInputs(ctx, lifecycle, in)
@@ -276,7 +276,7 @@ func (f *FileStagingClient) PredictStream(ctx context.Context, in *pb.PredictOpt
 
 func (f *FileStagingClient) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.GenerateImageRequest)
 
 	// Stage input source image if present
@@ -326,7 +326,7 @@ func (f *FileStagingClient) GenerateImage(ctx context.Context, in *pb.GenerateIm
 
 func (f *FileStagingClient) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.UpscaleImageRequest)
 	if in.Src != "" && isFilePath(in.Src) {
 		remote, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
@@ -354,7 +354,7 @@ func (f *FileStagingClient) UpscaleImage(ctx context.Context, in *pb.UpscaleImag
 
 func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.GenerateVideoRequest)
 
 	// Stage start/end images and optional audio conditioning.
@@ -406,7 +406,7 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 
 func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.Generate3DRequest)
 
 	// Stage the conditioning image or existing GLB used by 3D post-processing.
@@ -444,7 +444,7 @@ func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DReq
 
 func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.TTSRequest)
 
 	// Translate model path from frontend to remote worker path.
@@ -492,7 +492,7 @@ func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...
 
 func (f *FileStagingClient) TTSStream(ctx context.Context, in *pb.TTSRequest, fn func(*pb.Reply), opts ...ggrpc.CallOption) error {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.TTSRequest)
 
 	// Translate model path from frontend to remote worker path (same as TTS above)
@@ -515,7 +515,7 @@ func (f *FileStagingClient) TTSStream(ctx context.Context, in *pb.TTSRequest, fn
 
 func (f *FileStagingClient) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.SoundGenerationRequest)
 
 	// Stage input source
@@ -553,7 +553,7 @@ func (f *FileStagingClient) SoundGeneration(ctx context.Context, in *pb.SoundGen
 
 func (f *FileStagingClient) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest, opts ...ggrpc.CallOption) (*pb.SoundDetectionResponse, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.SoundDetectionRequest)
 	if in.Src != "" && isFilePath(in.Src) {
 		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
@@ -567,7 +567,7 @@ func (f *FileStagingClient) SoundDetection(ctx context.Context, in *pb.SoundDete
 
 func (f *FileStagingClient) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.DiarizeRequest)
 	if in.Dst != "" && isFilePath(in.Dst) {
 		remote, err := f.stageInputFile(ctx, lifecycle, in.Dst, "inputs")
@@ -581,7 +581,7 @@ func (f *FileStagingClient) Diarize(ctx context.Context, in *pb.DiarizeRequest, 
 
 func (f *FileStagingClient) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest, opts ...ggrpc.CallOption) (*pb.VoiceVerifyResponse, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.VoiceVerifyRequest)
 	var err error
 	if in.Audio1 != "" && isFilePath(in.Audio1) {
@@ -601,7 +601,7 @@ func (f *FileStagingClient) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyR
 
 func (f *FileStagingClient) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest, opts ...ggrpc.CallOption) (*pb.VoiceAnalyzeResponse, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.VoiceAnalyzeRequest)
 	if in.Audio != "" && isFilePath(in.Audio) {
 		remote, err := f.stageInputFile(ctx, lifecycle, in.Audio, "inputs")
@@ -615,7 +615,7 @@ func (f *FileStagingClient) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyz
 
 func (f *FileStagingClient) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest, opts ...ggrpc.CallOption) (*pb.VoiceEmbedResponse, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.VoiceEmbedRequest)
 	if in.Audio != "" && isFilePath(in.Audio) {
 		remote, err := f.stageInputFile(ctx, lifecycle, in.Audio, "inputs")
@@ -629,7 +629,7 @@ func (f *FileStagingClient) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedReq
 
 func (f *FileStagingClient) Detect(ctx context.Context, in *pb.DetectOptions, opts ...ggrpc.CallOption) (*pb.DetectResponse, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.DetectOptions)
 	if in.Src != "" && isFilePath(in.Src) {
 		remote, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
@@ -643,7 +643,7 @@ func (f *FileStagingClient) Detect(ctx context.Context, in *pb.DetectOptions, op
 
 func (f *FileStagingClient) Depth(ctx context.Context, in *pb.DepthRequest, opts ...ggrpc.CallOption) (*pb.DepthResponse, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.DepthRequest)
 	if in.Src != "" && isFilePath(in.Src) {
 		remote, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
@@ -696,7 +696,7 @@ func (f *FileStagingClient) Depth(ctx context.Context, in *pb.DepthRequest, opts
 
 func (f *FileStagingClient) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest, opts ...ggrpc.CallOption) (*pb.AudioTransformResult, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.AudioTransformRequest)
 	var err error
 	if in.AudioPath != "" && isFilePath(in.AudioPath) {
@@ -774,7 +774,7 @@ func validateLocalOutputPath(target, root string) error {
 
 func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.TranscriptRequest)
 
 	// Stage input audio file
@@ -791,7 +791,7 @@ func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.Trans
 
 func (f *FileStagingClient) AudioTranscriptionStream(ctx context.Context, in *pb.TranscriptRequest, fn func(chunk *pb.TranscriptStreamResponse), opts ...ggrpc.CallOption) error {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.TranscriptRequest)
 
 	// Stage input audio file
@@ -808,7 +808,7 @@ func (f *FileStagingClient) AudioTranscriptionStream(ctx context.Context, in *pb
 
 func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	defer func() { _ = lifecycle.release() }()
 	in = proto.Clone(in).(*pb.ExportModelRequest)
 	var err error
 	if in.CheckpointPath != "" && isFilePath(in.CheckpointPath) {
@@ -931,7 +931,7 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 	keepInputs := false
 	defer func() {
 		if !keepInputs {
-			lifecycle.release()
+			_ = lifecycle.release()
 		}
 	}()
 	if in.Model != "" && isFilePath(in.Model) {

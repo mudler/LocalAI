@@ -155,7 +155,7 @@ func (h *HTTPFileStager) ReleaseRemote(ctx context.Context, nodeID, key string) 
 	if err != nil {
 		return fmt.Errorf("releasing %q from node %s: %w", key, nodeID, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("releasing %q from node %s: status %d: %s", key, nodeID, resp.StatusCode, strings.TrimSpace(string(body)))
@@ -197,7 +197,7 @@ func (h *HTTPFileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, reque
 	if err != nil {
 		return fmt.Errorf("releasing request inputs from node %s: %w", nodeID, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
 		return h.releaseRemoteKeys(ctx, nodeID, keys)
 	}
@@ -987,7 +987,7 @@ func (h *HTTPFileStager) AllocRemoteDir(ctx context.Context, nodeID, keyPrefix s
 	if err != nil {
 		return "", fmt.Errorf("allocating directory on node %s: %w", nodeID, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return "", fmt.Errorf("alloc directory on node %s failed with status %d: %s", nodeID, resp.StatusCode, strings.TrimSpace(string(body)))
@@ -1025,7 +1025,7 @@ func (h *HTTPFileStager) ReleaseRemoteDir(ctx context.Context, nodeID, keyPrefix
 	if err != nil {
 		return fmt.Errorf("releasing directory on node %s: %w", nodeID, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
 		return ErrWorkerControlUnsupported
 	}

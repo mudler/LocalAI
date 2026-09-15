@@ -394,7 +394,10 @@ e2e-binary: protogen-go
 	fi
 
 # Cluster e2e: runs local-ai as real child processes (frontend replicas +
-# workers) against PostgreSQL, and kills them to assert failover.
+# workers) against PostgreSQL, and kills them to assert failover. The Cluster
+# label intentionally includes BinaryConformance and MachineAuth: those specs
+# prove the complete backend surface and the separate browser/machine trust
+# domains through the same binary entry points users deploy.
 # It BUILDS that binary rather than checking that a file by that name exists,
 # and that is a correctness fix rather than a convenience. This target used to
 # take ./local-ai as given, so an edit to core/ that was never rebuilt left the
@@ -424,9 +427,9 @@ e2e-binary: protogen-go
 # should stay there: this suite exists to catch nondeterministic cluster
 # behaviour, and a retry turns exactly that signal into a green run.
 #
-# Budget: 26 specs, measured at 933.8 seconds of Ginkgo time (15m37s wall
-# including the compile) on a fast developer box. It was 591 to 612 seconds
-# before the phase 3 control-plane specs and 800 to 830 after them; the three
+# Budget: 30 specs, measured at 948.5 seconds of Ginkgo time (15m51s wall
+# including an incremental compile) on a fast developer box. It was 591 to 612
+# seconds before the phase 3 control-plane specs and 800 to 830 after them; the three
 # two-frontend two-worker specs in cluster_busless_test.go added 118 to 127
 # seconds (3s, 70s and 46 to 53s), nearly all of it in the churn spec, which
 # cannot be shortened: it waits for a killed replica to leave the live set
@@ -435,6 +438,8 @@ e2e-binary: protogen-go
 # cross-replica fan-out specs added 7.0 seconds of spec time (5.0s and 2.0s):
 # they run two frontends and no workers, so they pay for no registration, and
 # what they wait on is a broadcast rather than a threshold.
+# BinaryConformance and MachineAuth add roughly 17 seconds each while exercising
+# the same compiled frontend and worker entry points as the rest of this target.
 #
 # --timeout is 30m rather than 20m because of that. The margin is not slack: a
 # Ginkgo timeout kills the suite mid-spec and reports a spec name rather than a
