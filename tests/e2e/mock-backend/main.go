@@ -1543,6 +1543,16 @@ func (m *MockBackend) QuantizationProgress(in *pb.QuantizationProgressRequest, s
 	})
 }
 
+func (m *MockBackend) StopQuantization(_ context.Context, in *pb.QuantizationStopRequest) (*pb.Result, error) {
+	m.quantizationMu.Lock()
+	defer m.quantizationMu.Unlock()
+	if _, ok := m.quantizationOutputs[in.JobId]; !ok {
+		return &pb.Result{Success: false, Message: "unknown mock quantization job"}, nil
+	}
+	delete(m.quantizationOutputs, in.JobId)
+	return &pb.Result{Success: true, Message: "Quantization stopped successfully (mocked)"}, nil
+}
+
 func main() {
 	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(os.Getenv("LOCALAI_LOG_LEVEL")), os.Getenv("LOCALAI_LOG_FORMAT")))
 
