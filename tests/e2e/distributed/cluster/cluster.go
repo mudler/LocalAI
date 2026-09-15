@@ -151,6 +151,12 @@ type Options struct {
 	// than the operation the spec is holding, and the operation then never
 	// blocks at all. The spec would still pass, on an ordering nothing enforced.
 	Galleries string
+
+	// ConformanceStaging pins the worker's ephemeral staging capacity while
+	// keeping admission enforcement enabled. It is intentionally opt-in: only
+	// fixture-heavy conformance deployments should override production's
+	// filesystem-derived limits.
+	ConformanceStaging bool
 }
 
 // Process is one running local-ai.
@@ -229,6 +235,16 @@ func (o Options) validate() error {
 		return fmt.Errorf("local-ai binary not found at %q (run: make build)", o.Binary)
 	}
 	return nil
+}
+
+func workerStagingEnv(opts Options) []string {
+	if !opts.ConformanceStaging {
+		return nil
+	}
+	return []string{
+		"LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT=1073741824",
+		"LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES=1",
+	}
 }
 
 // Start brings up the cluster. It blocks until every frontend answers /readyz
@@ -445,15 +461,9 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		"LOCALAI_REGISTER_TO="+c.workerFrontendURL(i),
 		"LOCALAI_NODE_NAME="+name,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
-		// CI workspaces can be quota-backed while statfs reports the host
-		// filesystem's much larger total size. Automatic headroom is derived
-		// from that total and can therefore exceed the quota's available bytes,
-		// rejecting even a 25-byte fixture. Keep capacity enforcement enabled,
-		// but give this process harness deterministic limits.
-		"LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT=1073741824",
-		"LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES=1",
 		"DEBUG=true",
 	)
+	cmd.Env = append(cmd.Env, workerStagingEnv(c.opts)...)
 
 	return c.spawn(name, cmd, grpcPort)
 }

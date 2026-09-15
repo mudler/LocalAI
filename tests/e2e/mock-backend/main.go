@@ -120,6 +120,15 @@ func writeFixture(path string, data []byte) error {
 	return os.WriteFile(path, data, 0600)
 }
 
+func fixtureArtifact(base []byte, markers string) []byte {
+	if markers == "" {
+		return base
+	}
+	out := append([]byte(nil), base...)
+	out = append(out, []byte("\nMOCK-INPUTS:"+markers+"\n")...)
+	return out
+}
+
 func fixtureDigest(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -656,7 +665,7 @@ func (m *MockBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageReq
 	}
 	markers, err := fixtureInputMarkers(inputs...)
 	if err == nil {
-		err = writeFixture(in.Dst, pngFixture)
+		err = writeFixture(in.Dst, fixtureArtifact(pngFixture, markers))
 	}
 	return fixtureResult("Image generated successfully (mocked)", markers, err), nil
 }
@@ -672,7 +681,7 @@ func (m *MockBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoReq
 		namedFixtureInput{name: "audio", value: in.Audio},
 	)
 	if err == nil {
-		err = writeFixture(in.Dst, videoFixture)
+		err = writeFixture(in.Dst, fixtureArtifact(videoFixture, markers))
 	}
 	return fixtureResult("Video generated successfully (mocked)", markers, err), nil
 }
@@ -680,9 +689,17 @@ func (m *MockBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoReq
 func (m *MockBackend) Generate3D(ctx context.Context, in *pb.Generate3DRequest) (*pb.Result, error) {
 	markers, err := fixtureInputMarkers(namedFixtureInput{name: "src", value: in.Src})
 	if err == nil {
-		err = writeFixture(in.Dst, glbFixture)
+		err = writeFixture(in.Dst, fixtureArtifact(glbFixture, markers))
 	}
 	return fixtureResult("3D asset generated successfully (mocked)", markers, err), nil
+}
+
+func (m *MockBackend) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest) (*pb.Result, error) {
+	markers, err := fixtureInputMarkers(namedFixtureInput{name: "src", value: in.Src})
+	if err == nil {
+		err = writeFixture(in.Dst, fixtureArtifact(pngFixture, markers))
+	}
+	return fixtureResult("Image upscaled successfully (mocked)", markers, err), nil
 }
 
 func (m *MockBackend) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
@@ -1045,6 +1062,65 @@ func (m *MockBackend) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.Det
 			},
 		},
 	}, nil
+}
+
+func (m *MockBackend) Depth(ctx context.Context, in *pb.DepthRequest) (*pb.DepthResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	return &pb.DepthResponse{
+		Width: 2, Height: 1, Depth: []float32{1.25, 2.5},
+		Confidence: []float32{0.9, 0.8}, Sky: []float32{0, 1},
+		Extrinsics: []float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},
+		Intrinsics: []float32{1, 0, 0, 0, 1, 0, 0, 0, 1}, IsMetric: true,
+	}, nil
+}
+
+func (m *MockBackend) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest) (*pb.FaceAnalyzeResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	return &pb.FaceAnalyzeResponse{Faces: []*pb.FaceAnalysis{{
+		Region: &pb.FacialArea{X: 1, Y: 2, W: 3, H: 4}, FaceConfidence: 0.98,
+		Age: 34, DominantGender: "Woman", Gender: map[string]float32{"Woman": 0.9},
+		DominantEmotion: "happy", Emotion: map[string]float32{"happy": 0.8},
+	}}}, nil
+}
+
+func (m *MockBackend) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest) (*pb.FaceVerifyResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	return &pb.FaceVerifyResponse{
+		Verified: true, Distance: 0.05, Threshold: 0.25, Confidence: 95,
+		Model: "mock-face", Img1Area: &pb.FacialArea{X: 1, Y: 2, W: 3, H: 4},
+		Img2Area: &pb.FacialArea{X: 5, Y: 6, W: 7, H: 8},
+	}, nil
+}
+
+func (m *MockBackend) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest) (*pb.VoiceAnalyzeResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	return &pb.VoiceAnalyzeResponse{Segments: []*pb.VoiceAnalysis{{
+		Start: 0, End: 1, Age: 42, DominantGender: "female",
+		Gender: map[string]float32{"female": 0.95}, DominantEmotion: "neutral",
+		Emotion: map[string]float32{"neutral": 0.9},
+	}}}, nil
+}
+
+func (m *MockBackend) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest) (*pb.TokenClassifyResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	const entity = "Alice"
+	start := strings.Index(in.Text, entity)
+	if start < 0 {
+		return &pb.TokenClassifyResponse{}, nil
+	}
+	return &pb.TokenClassifyResponse{Entities: []*pb.TokenClassifyEntity{{
+		EntityGroup: "PER", Start: int32(start), End: int32(start + len(entity)), Score: 0.99, Text: entity,
+	}}}, nil
 }
 
 func (m *MockBackend) StoresSet(ctx context.Context, in *pb.StoresSetOptions) (*pb.Result, error) {
