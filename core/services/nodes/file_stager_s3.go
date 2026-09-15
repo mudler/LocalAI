@@ -264,7 +264,10 @@ func (s *S3FileStager) AllocRemoteDir(ctx context.Context, nodeID, keyPrefix str
 }
 
 func (s *S3FileStager) ReleaseRemoteDir(ctx context.Context, nodeID, keyPrefix string) error {
-	cleanKey := path.Clean(strings.ReplaceAll(keyPrefix, "\\", "/"))
+	namespace, cleanKey, err := stagingKeyNamespace(keyPrefix)
+	if err != nil || !strings.HasPrefix(cleanKey+"/", namespace) {
+		return fmt.Errorf("invalid staging directory key")
+	}
 	if cleanKey == strings.TrimSuffix(storage.ModelKeyPrefix, "/") || cleanKey == strings.TrimSuffix(storage.DataKeyPrefix, "/") {
 		return fmt.Errorf("refusing to remove a staging root")
 	}
@@ -276,6 +279,20 @@ func (s *S3FileStager) ReleaseRemoteDir(ctx context.Context, nodeID, keyPrefix s
 		return fmt.Errorf("backend directory release failed: %s", reply.Error)
 	}
 	return nil
+}
+
+func stagingKeyNamespace(key string) (string, string, error) {
+	normalized := strings.ReplaceAll(key, "\\", "/")
+	var namespace string
+	switch {
+	case strings.HasPrefix(normalized, storage.ModelKeyPrefix):
+		namespace = storage.ModelKeyPrefix
+	case strings.HasPrefix(normalized, storage.DataKeyPrefix):
+		namespace = storage.DataKeyPrefix
+	default:
+		return "", "", fmt.Errorf("key must use models/ or data/")
+	}
+	return namespace, path.Clean(normalized), nil
 }
 
 // ListRemoteDir returns the relative paths of every file under keyPrefix on the

@@ -142,6 +142,17 @@ func fixtureInputMarker(input namedFixtureInput) (string, error) {
 		return "", nil
 	}
 	if path, ok := safeLocalFixturePath(input.value); ok {
+		if expectedRoot := os.Getenv("LOCALAI_MOCK_EXPECT_STAGING_ROOT"); expectedRoot != "" {
+			realRoot, rootErr := filepath.EvalSymlinks(expectedRoot)
+			realPath, pathErr := filepath.EvalSymlinks(path)
+			if rootErr != nil || pathErr != nil {
+				return "", fmt.Errorf("validating staged %s root", input.name)
+			}
+			rel, relErr := filepath.Rel(realRoot, realPath)
+			if relErr != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				return "", fmt.Errorf("staged %s path is outside expected worker root", input.name)
+			}
+		}
 		digest, err := fixtureDigest(path)
 		if err != nil {
 			return "", fmt.Errorf("reading staged %s: %w", input.name, err)
@@ -1374,11 +1385,24 @@ func (m *MockBackend) AudioTransform(ctx context.Context, in *pb.AudioTransformR
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
-	input, err := os.ReadFile(in.AudioPath)
-	if err != nil {
-		return nil, fmt.Errorf("reading staged audio transform input: %w", err)
+	if _, err := fixtureInputMarker(namedFixtureInput{name: "audio", value: in.AudioPath}); err != nil {
+		return nil, err
 	}
-	if err := writeFixture(in.Dst, input); err != nil {
+	var input []byte
+	if path, ok := safeLocalFixturePath(in.AudioPath); ok {
+		var err error
+		input, err = os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading staged audio transform input: %w", err)
+		}
+	} else {
+		input = []byte(in.AudioPath)
+	}
+	referenceMarker, err := fixtureInputMarker(namedFixtureInput{name: "reference", value: in.ReferencePath})
+	if err != nil {
+		return nil, err
+	}
+	if err := writeFixture(in.Dst, fixtureArtifact(input, referenceMarker)); err != nil {
 		return nil, fmt.Errorf("writing audio transform output: %w", err)
 	}
 	samples := 0
