@@ -27155,6 +27155,7 @@
     Q4_K_M GGUF quantization and the model's embedded chat template.
   variants:
     - model: minicpm5-2b-q8
+    - model: minicpm5-2b-f16
   overrides:
     backend: llama-cpp
     known_usecases:
@@ -27196,6 +27197,30 @@
     - filename: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-Q8_0.gguf
       uri: huggingface://openbmb/MiniCPM5-2B-GGUF/MiniCPM5-2B-Q8_0.gguf
       sha256: c5415f8989bf88a8288f1b55a3cc371af53c07b0faa220a63bd7a990cfaba078
+- !!merge <<: *minicpm5-2b
+  name: minicpm5-2b-f16
+  description: |
+    MiniCPM5-2B is OpenBMB's compact Llama-based language model for English
+    and Chinese chat, coding, and reasoning. This entry uses the official
+    F16 GGUF build and the model's embedded chat template.
+  variants: null
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-F16.gguf
+      temperature: 1.0
+      top_p: 0.95
+  files:
+    - filename: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-F16.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/resolve/2079a22f3beaa4e306449978533478fe0522f4b3/MiniCPM5-2B-F16.gguf
+      sha256: 0ffba3682a853295566b98bc38c0ab755d6b2d91b994bc031ed727a08cfcdf25
 - &minicpm5-1b
   name: minicpm5-1b
   url: github:mudler/LocalAI/gallery/chatml.yaml@master

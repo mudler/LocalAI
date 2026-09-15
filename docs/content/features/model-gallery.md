@@ -64,6 +64,19 @@ The [source model](https://huggingface.co/XHToken/Spark-X2.5-1.7B) supports up t
 1,048,576 tokens; larger contexts require more memory. Use a current LocalAI
 llama.cpp backend with Spark-X2.5 support.
 
+## MiniCPM5-2B
+
+MiniCPM5-2B offers the official Q4_K_M, Q8_0, and F16 GGUF builds through
+llama.cpp. To install the F16 build explicitly:
+
+```bash
+local-ai models install minicpm5-2b --variant minicpm5-2b-f16
+```
+
+The F16 weights require a 5.04 GB download, plus additional memory for inference.
+This entry uses the embedded chat template and an 8,192-token context.
+See the [official GGUF repository](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF).
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
