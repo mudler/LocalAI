@@ -33,9 +33,11 @@ const (
 	// It is sized from the only eviction path there is. Node liveness is
 	// heartbeat freshness: the health monitor wakes every HealthCheckInterval
 	// (15s) and marks any node whose last heartbeat is older than
-	// StaleNodeThreshold (60s) offline (core/services/nodes/health.go, defaults
-	// in core/config/distributed_config.go). Neither is settable from the CLI,
-	// so 60s + one 15s tick = 75s is the worst case and cannot be shortened.
+	// StaleNodeThreshold (60s) offline (core/services/nodes/health.go). The
+	// binary's production default is 5m, so cluster.Start explicitly supplies
+	// this suite's 60s threshold and a 5s heartbeat checkpoint to every real
+	// frontend. With the default 15s health interval, 60s + one tick = 75s is
+	// the worst case.
 	//
 	// Measured rather than assumed: a worker whose registrar was killed goes
 	// offline at both surviving replicas at t=74.2s. A window shorter than that
@@ -106,28 +108,6 @@ func (p *rosterProbe) explain(format string, args ...any) func() string {
 	}
 }
 
-// explainStuckOffline is explain with one extra diagnosis attached.
-//
-// An assertion waiting for offline has a failure mode that looks like a harness
-// bug and is not one, so the message names it rather than leaving the reader to
-// find it. See proveHealthCheckingIsAlive and the comment on the dead-worker
-// spec for the mechanism.
-func (p *rosterProbe) explainStuckOffline(worker, format string, args ...any) func() string {
-	return func() string {
-		message := fmt.Sprintf(format, args...) + ": " + p.describe()
-		for _, n := range p.lastSeen {
-			if n.Name != worker || n.Status != nodes.StatusUnhealthy {
-				continue
-			}
-			message += "\n\nThe node is stuck at unhealthy, which is a LocalAI defect rather than " +
-				"a harness one: core/services/nodes/health.go:153-155 skips MarkOffline for a node " +
-				"already marked unhealthy, so a node whose unhealthy mark lands after its heartbeat " +
-				"has gone stale never reaches offline at all. Start there, not here."
-		}
-		return message
-	}
-}
-
 // proveHealthCheckingIsAlive kills a worker and waits for the roster to settle
 // it to offline.
 //
@@ -175,7 +155,7 @@ func proveHealthCheckingIsAlive(c *cluster.Cluster, probe *rosterProbe, workerIn
 	Eventually(probe.statusOf, workerDeathTimeout, rosterPollInterval).
 		WithArguments(worker).
 		Should(Equal(nodes.StatusOffline),
-			probe.explainStuckOffline(worker,
+			probe.explain(
 				"frontend %d never reacted to a killed worker, so health checking was not running during the window above and the assertion before this one proved nothing",
 				probe.frontend))
 }
@@ -187,6 +167,13 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 		// has never spoken to.
 		c := startCluster(2, 1)
 		worker := c.WorkerName(0)
+
+		frontendEnviron, err := c.FrontendEnviron(0)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(frontendEnviron).To(ContainElements(
+			"LOCALAI_STALE_NODE_THRESHOLD=60s",
+			"LOCALAI_NODE_HEARTBEAT_CHECKPOINT=5s",
+		), "the failover timing budgets only apply when the real frontend runs with the harness's health timings")
 
 		// One session for the whole cluster: register/login/token-login/password
 		// share a five-per-minute-per-IP budget at every frontend
@@ -309,20 +296,11 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 		// the stale-detection path rather than to the transient, which any
 		// not-healthy or not-present matcher would accept at t=8s.
 		//
-		// KNOWN HAZARD, read this before blaming the harness for a timeout here.
-		// The staleness branch skips a node that is already unhealthy
-		// (core/services/nodes/health.go:153-155, `if node.Status ==
-		// StatusOffline || node.Status == StatusUnhealthy { continue }`). The
-		// skip exists to stop the monitor re-logging nodes an operator took
-		// down, but it applies to the flap too: if the transient unhealthy mark
-		// lands AFTER the heartbeat has already gone stale, rather than at the
-		// ~8s observed here, MarkOffline is never called and this node stays
-		// unhealthy forever. This spec would then hang to workerDeathTimeout
-		// and fail with a roster that looks perfectly ordinary. The ordering
-		// that triggers it did not occur in any run so far, but nothing
-		// prevents it, so explainStuckOffline says so in the failure message
-		// when it sees a node stuck at unhealthy. Fixing it is LocalAI work,
-		// not test work.
+		// The stale branch must also advance a node that a liveness probe already
+		// marked unhealthy. Otherwise the transient above can become permanent
+		// depending on whether it lands before or after the stale cutoff; the
+		// production health-monitor tests pin that transition, while this spec
+		// proves it through real processes.
 		// Reading the same verdict at both replicas proves shared-verdict
 		// propagation, NOT two independent detectors. Health checks are
 		// single-flighted by the advisory lock (see proveHealthCheckingIsAlive),
@@ -336,7 +314,7 @@ var _ = Describe("Cluster failover", Label("Distributed"), Label("Cluster"), fun
 			Eventually(probe.statusOf, workerDeathTimeout, rosterPollInterval).
 				WithArguments(worker).
 				Should(Equal(nodes.StatusOffline),
-					probe.explainStuckOffline(worker, "frontend %d never settled the dead worker to offline", probe.frontend))
+					probe.explain("frontend %d never settled the dead worker to offline", probe.frontend))
 		}
 
 		// And it has to stay offline. Nothing may resurrect a row for a process
