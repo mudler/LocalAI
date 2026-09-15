@@ -1,4 +1,71 @@
 ---
+- name: "qwen3.8-27b-twin-turbo-fable-cold-fusion-709-l-uncensored-nm-dau-neo-mtp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-L-Uncensored-NM-DAU-NEO-MTP-GGUF
+  description: |
+    IMPORTANT: NEO and NEO MAX MTP GGUFS, along with complete model card detailing all the reasoning and instruct modes are here:
+
+    https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-L-Uncensored-NM-DAU-NEO-MTP-GGUF
+
+    Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-L-Uncensored
+
+      - TWIN-TURBO: Smaller quants with higher performance AND vastly reduced "thinking tokens".
+      - BOOSTED: 5 thinking modes and 5 instruct modes, switchable on the fly. (VIA API, direct and chat "in message")
+
+    A Qwen 3.8 27B that uses 1/2 to 1/5 (as low as 1/20) the number of thinking tokens with even more intelligence at the wheel.
+
+    "Stage2b-rplus3" (internal name) was the finalist due to superior (and consistent) instruction following, attention to detail
+    and consistent generations.
+
+    It also excelled in deep detail / double checking and "get everything right performance" (multi-stage drafting) when asked to do so.
+
+    This is the Light to Moderate Heretic/uncensored version; with stronger balance on performance.
+
+    ```
+    HERETIC STATS (lower is better for all stats):
+
+    Qwen 3.8 untuned / non heretic:
+    86/100 refusals.
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-L-Uncen-NM-DAU-NEO-MAX-MTP-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-L-Uncen-NM-DAU-NEO-MAX-MTP-Q4_K_M/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-L-Uncen-NM-DAU-NEO-MAX-MTP-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-L-Uncen-NM-DAU-NEO-MAX-MTP-Q4_K_M/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-L-Uncen-NM-DAU-NEO-MAX-MTP-Q4_K_M.gguf
+      sha256: 0d659ff8afcdba0ccb2804af96d7f6c35447b27a8d00eb1798c76dfb714ac8d3
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-L-Uncensored-NM-DAU-NEO-MTP-GGUF/resolve/main/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-L-Uncen-NM-DAU-NEO-MAX-MTP-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.8-27B-TTURBO-Fable-C-Fusion-709-L-Uncen-NM-DAU-NEO-MAX-MTP-Q4_K_M/mmproj-F32.gguf
+      sha256: 8edb779b5ea99fd832ede4f85fcab64fa13cbd0ce114b532030e2565b41295ba
+      uri: https://huggingface.co/DavidAU/Qwen3.8-27B-TWIN-TURBO-Fable-Cold-Fusion-709-L-Uncensored-NM-DAU-NEO-MTP-GGUF/resolve/main/mmproj-F32.gguf
 - name: "spark-x2.5-4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
