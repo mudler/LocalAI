@@ -114,6 +114,46 @@ var _ = Describe("worker file-staging control routes", func() {
 		}
 	})
 
+	It("rejects traversal and symlink escapes while allocating output directories", func() {
+		outside := GinkgoT().TempDir()
+		Expect(os.Symlink(outside, filepath.Join(modelsDir, "escape"))).To(Succeed())
+		for _, key := range []string{
+			"models/../outside",
+			"models/escape",
+			"models/escape/nested",
+		} {
+			for _, route := range []string{workerctl.PathFilesMkdir, workerctl.PathFilesRmdir} {
+				resp := post(route, map[string]string{"key_prefix": key})
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				var reply struct {
+					Error string `json:"error"`
+				}
+				decode(resp, &reply)
+				Expect(reply.Error).ToNot(BeEmpty(), route+" "+key)
+			}
+		}
+		Expect(os.ReadDir(outside)).To(BeEmpty())
+	})
+
+	It("removes only an allocated output directory", func() {
+		key := "data/quantization/job/remove-me"
+		mkdir := post(workerctl.PathFilesMkdir, map[string]string{"key_prefix": key})
+		var allocated struct {
+			LocalPath string `json:"local_path"`
+			Error     string `json:"error"`
+		}
+		decode(mkdir, &allocated)
+		Expect(allocated.Error).To(BeEmpty())
+		Expect(os.WriteFile(filepath.Join(allocated.LocalPath, "result"), []byte("x"), 0o600)).To(Succeed())
+		removed := post(workerctl.PathFilesRmdir, map[string]string{"key_prefix": key})
+		var reply struct {
+			Error string `json:"error"`
+		}
+		decode(removed, &reply)
+		Expect(reply.Error).To(BeEmpty())
+		Expect(allocated.LocalPath).ToNot(BeAnExistingFile())
+	})
+
 	It("downloads a key the store already holds and reports where it landed", func() {
 		key := storage.ModelKey("ensure-me.gguf")
 		Expect(store.Put(context.Background(), key, strings.NewReader("weights"))).To(Succeed())

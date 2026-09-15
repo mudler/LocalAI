@@ -63,6 +63,35 @@ type conformanceFixtures struct {
 	audio        []byte
 }
 
+type stagingTopologyCoverage struct {
+	method            string
+	ownerPublicPath   string
+	relayProtocolPath string
+}
+
+// A raw backend client cannot execute inside a compiled frontend's in-memory
+// TunnelRegistry. Owner-side coverage therefore uses the real frontend route
+// that invokes the override in that process; only the gaps use an authenticated
+// external peer, which necessarily exercises the non-owner relay path.
+var fileStagingTopologyCoverage = []stagingTopologyCoverage{
+	{"LoadModel", "/v1/chat/completions (cold load)", "Backend/LoadModel"},
+	{"Predict", "/v1/chat/completions", "Backend/Predict"},
+	{"PredictStream", "/v1/chat/completions (stream)", "Backend/PredictStream"},
+	{"GenerateImage", "/v1/images/generations", "Backend/GenerateImage"},
+	{"GenerateVideo", "/video", "Backend/GenerateVideo"},
+	{"Generate3D", "/3d/generations", "Backend/Generate3D"},
+	{"TTS", "/v1/audio/speech", "Backend/TTS"},
+	{"TTSStream", "/v1/audio/speech (stream)", "Backend/TTSStream"},
+	{"SoundGeneration", "/v1/sound-generation", "Backend/SoundGeneration"},
+	{"SoundDetection", "/v1/audio/classification", "Backend/SoundDetection"},
+	{"AudioTranscription", "/v1/audio/transcriptions", "Backend/AudioTranscription"},
+	{"AudioTranscriptionStream", "/v1/audio/transcriptions (stream)", "Backend/AudioTranscriptionStream"},
+	{"ExportModel", "/api/finetune/jobs/:id/export", "Backend/ExportModel"},
+	{"StartQuantization", "/api/quantization/jobs", "Backend/StartQuantization"},
+	{"QuantizationProgress", "/api/quantization/jobs/:id/progress", "Backend/QuantizationProgress"},
+	{"StopQuantization", "/api/quantization/jobs/:id/stop", "Backend/StopQuantization"},
+}
+
 func newConformanceFixtures() conformanceFixtures {
 	return conformanceFixtures{
 		inlineImage:  base64.StdEncoding.EncodeToString(conformancePNG),
@@ -262,22 +291,19 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 	})
 	expectConformanceStatus(resp, payload)
 	imageArtifact := conformanceB64Item(payload)
-	Expect(bytes.HasPrefix(imageArtifact, conformancePNG)).To(BeTrue())
-	Expect(string(imageArtifact)).To(ContainSubstring("sha256:aa7bb0431aaeb198a77c26a14fe6dd714a75e4d7db94e3e1238a1fdcbfe1f8d4"))
+	Expect(imageArtifact).To(Equal(conformanceArtifact(conformancePNG, "src="+conformanceDigest(conformancePNG))))
 	resp, payload = conformancePostJSON(client, baseURL, "/video", map[string]any{
 		"model": model, "prompt": "fixture", "response_format": "b64_json", "start_image": inlineImage,
 	})
 	expectConformanceStatus(resp, payload)
 	videoArtifact := conformanceB64Item(payload)
-	Expect(bytes.HasPrefix(videoArtifact, conformanceVideo)).To(BeTrue())
-	Expect(string(videoArtifact)).To(ContainSubstring("sha256:aa7bb0431aaeb198a77c26a14fe6dd714a75e4d7db94e3e1238a1fdcbfe1f8d4"))
+	Expect(videoArtifact).To(Equal(conformanceArtifact(conformanceVideo, "start_image="+conformanceDigest(conformancePNG))))
 	resp, payload = conformancePostJSON(client, baseURL, "/3d/generations", map[string]any{
 		"model": model, "image": inlineImage, "response_format": "b64_json",
 	})
 	expectConformanceStatus(resp, payload)
 	assetArtifact := conformanceB64Item(payload)
-	Expect(bytes.HasPrefix(assetArtifact, conformanceGLB)).To(BeTrue())
-	Expect(string(assetArtifact)).To(ContainSubstring("sha256:aa7bb0431aaeb198a77c26a14fe6dd714a75e4d7db94e3e1238a1fdcbfe1f8d4"))
+	Expect(assetArtifact).To(Equal(conformanceArtifact(conformanceGLB, "src="+conformanceDigest(conformancePNG))))
 
 	By("staging a frontend-side GLB through the canonical remesh route")
 	resp, payload = conformancePostMultipartNamed(client, baseURL, "/3d/remesh", "mesh", "frontend-only.glb", map[string]string{
@@ -644,6 +670,14 @@ func conformanceDigest(data []byte) string {
 	return fmt.Sprintf("sha256:%x", sha256.Sum256(data))
 }
 
+func conformanceArtifact(base []byte, markers ...string) []byte {
+	result := append([]byte(nil), base...)
+	if len(markers) != 0 {
+		result = append(result, []byte("\nMOCK-INPUTS:"+strings.Join(markers, "; ")+"\n")...)
+	}
+	return result
+}
+
 func writeConformanceFixture(dir, name string, data []byte) string {
 	GinkgoHelper()
 	path := filepath.Join(dir, name)
@@ -706,7 +740,7 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 		First(&loaded).Error).ToNot(HaveOccurred())
 	Expect(loaded.WorkerLocalAddress).ToNot(BeEmpty())
 
-	const peerID = "e2e-conformance-protocol-peer"
+	peerID := "e2e-peer-" + requestIDForTest()
 	peerCredential := joinAsPeer(owners.roster, peerID)
 	peers := clustersvc.NewPeerPool(peerID, c.RegistrationToken(), peerCredential, owners.registry)
 	DeferCleanup(peers.Close)
@@ -801,7 +835,8 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 	Expect(imageResult.Message).To(ContainSubstring("ref_image[1]=" + conformanceDigest(image)))
 	generatedImage, err := os.ReadFile(imageOut)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(bytes.HasPrefix(generatedImage, conformancePNG)).To(BeTrue())
+	Expect(generatedImage).To(Equal(conformanceArtifact(conformancePNG,
+		"src="+conformanceDigest(image), "ref_image[0]="+conformanceDigest(image), "ref_image[1]="+conformanceDigest(image))))
 
 	videoOut := filepath.Join(fixtureDir, "outputs/generated.mp4")
 	videoResult, err := backend.GenerateVideo(ctx, &pb.GenerateVideoRequest{
@@ -815,7 +850,8 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 	}
 	generatedVideo, err := os.ReadFile(videoOut)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(bytes.HasPrefix(generatedVideo, conformanceVideo)).To(BeTrue())
+	Expect(generatedVideo).To(Equal(conformanceArtifact(conformanceVideo,
+		"start_image="+conformanceDigest(image), "end_image="+conformanceDigest(image), "audio="+conformanceDigest(audio))))
 
 	assetOut := filepath.Join(fixtureDir, "outputs/generated.glb")
 	assetResult, err := backend.Generate3D(ctx, &pb.Generate3DRequest{
@@ -826,7 +862,7 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 	Expect(assetResult.Message).To(ContainSubstring("src=" + conformanceDigest(image)))
 	generatedAsset, err := os.ReadFile(assetOut)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(bytes.HasPrefix(generatedAsset, conformanceGLB)).To(BeTrue())
+	Expect(generatedAsset).To(Equal(conformanceArtifact(conformanceGLB, "src="+conformanceDigest(image))))
 
 	By("staging TTS model, voice and every multiple-reference input")
 	references, err := json.Marshal([]map[string]string{{"audio": refAPath, "text": "a"}, {"audio": refBPath, "text": "b"}})
@@ -889,7 +925,7 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 	Expect(os.ReadFile(filepath.Join(exportDir, "nested", "config.json"))).To(Equal([]byte("{\"mock\":true}\n")))
 
 	quantDir := filepath.Join(fixtureDir, "quantized")
-	jobID := "binary-conformance-quantization"
+	jobID := "binary-conformance-quantization-" + requestIDForTest()
 	job, err := backend.StartQuantization(ctx, &pb.QuantizationRequest{
 		Model: imagePath, QuantizationType: "q4_k_m", OutputDir: quantDir, JobId: jobID,
 		ExtraOptions: map[string]string{"extended-protocol": "preserved"},
@@ -907,8 +943,20 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 	Expect(progress[0].OutputFile).To(Equal(filepath.Join(quantDir, "nested", jobID+".gguf")))
 	Expect(os.ReadFile(progress[0].OutputFile)).To(Equal([]byte("MOCK-GGUF:q4_k_m\n")))
 
+	stopJobID := "binary-conformance-stop-" + requestIDForTest()
+	stopJob, err := backend.StartQuantization(ctx, &pb.QuantizationRequest{Model: imagePath, JobId: stopJobID})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(stopJob.Success).To(BeTrue(), stopJob.Message)
+	stopResult, err := backend.StopQuantization(ctx, &pb.QuantizationStopRequest{JobId: stopJobID})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(stopResult.Success).To(BeTrue(), stopResult.Message)
+
 	Expect(owners.ownerIndexOf(c, 2, workerID)).To(Equal(ownerFrontend))
 	Expect(relayFrontend).To(Equal(1 - ownerFrontend))
+}
+
+func requestIDForTest() string {
+	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
 var _ = Describe("Binary backend feature conformance", Label("Distributed"), Label("Cluster"), func() {
@@ -981,6 +1029,13 @@ pii_detection:
 			return ownerFrontend
 		}, instanceRosterTimeout, instanceRosterPoll).Should(BeElementOf(0, 1), owners.describe)
 		relayFrontend := 1 - ownerFrontend
+		By("pinning the explicit owner-public and relay-protocol staging topology")
+		Expect(fileStagingTopologyCoverage).To(HaveLen(16))
+		for _, coverage := range fileStagingTopologyCoverage {
+			Expect(coverage.method).ToNot(BeEmpty())
+			Expect(coverage.ownerPublicPath).ToNot(BeEmpty(), coverage.method)
+			Expect(coverage.relayProtocolPath).To(Equal("Backend/"+coverage.method), coverage.method)
+		}
 
 		runPublicBackendConformance(client, c.FrontendURL(ownerFrontend), model, fixtures)
 		servedBy(c, client, ownerFrontend, model, workerID, probe.idOf(c.WorkerName(1)))

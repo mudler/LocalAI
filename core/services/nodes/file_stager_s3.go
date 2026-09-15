@@ -71,7 +71,7 @@ func fileRPCBudget(path string) time.Duration {
 	switch path {
 	case workerctl.PathFilesEnsure, workerctl.PathFilesStage:
 		return fileTransferRPCTimeout
-	case workerctl.PathFilesTemp, workerctl.PathFilesMkdir, workerctl.PathFilesListDir:
+	case workerctl.PathFilesTemp, workerctl.PathFilesMkdir, workerctl.PathFilesRmdir, workerctl.PathFilesListDir:
 		return fileMetadataRPCTimeout
 	default:
 		return fileMetadataRPCTimeout
@@ -124,6 +124,14 @@ type fileMkdirRequest struct {
 type fileMkdirReply struct {
 	LocalPath string `json:"local_path"`
 	Error     string `json:"error,omitempty"`
+}
+
+type fileRmdirRequest struct {
+	KeyPrefix string `json:"key_prefix"`
+}
+
+type fileRmdirReply struct {
+	Error string `json:"error,omitempty"`
 }
 
 type fileListDirRequest struct {
@@ -251,6 +259,17 @@ func (s *S3FileStager) AllocRemoteDir(ctx context.Context, nodeID, keyPrefix str
 		return "", fmt.Errorf("backend directory alloc returned an empty path")
 	}
 	return reply.LocalPath, nil
+}
+
+func (s *S3FileStager) ReleaseRemoteDir(ctx context.Context, nodeID, keyPrefix string) error {
+	var reply fileRmdirReply
+	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesRmdir, fileRmdirRequest{KeyPrefix: keyPrefix}, &reply); err != nil {
+		return err
+	}
+	if reply.Error != "" {
+		return fmt.Errorf("backend directory release failed: %s", reply.Error)
+	}
+	return nil
 }
 
 // ListRemoteDir returns the relative paths of every file under keyPrefix on the

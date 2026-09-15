@@ -1004,6 +1004,38 @@ func (h *HTTPFileStager) AllocRemoteDir(ctx context.Context, nodeID, keyPrefix s
 	return result.LocalPath, nil
 }
 
+func (h *HTTPFileStager) ReleaseRemoteDir(ctx context.Context, nodeID, keyPrefix string) error {
+	addr, err := h.httpAddrFor(nodeID)
+	if err != nil {
+		return fmt.Errorf("resolving HTTP address for node %s: %w", nodeID, err)
+	}
+	client, err := h.clientFor(nodeID)
+	if err != nil {
+		return err
+	}
+	requestURL := (&url.URL{Scheme: "http", Host: addr, Path: "/v1/files-dir/" + keyPrefix}).String()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, requestURL, nil)
+	if err != nil {
+		return fmt.Errorf("creating remote directory release request: %w", err)
+	}
+	if h.token != "" {
+		req.Header.Set("Authorization", "Bearer "+h.token)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("releasing directory on node %s: %w", nodeID, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
+		return ErrWorkerControlUnsupported
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("release directory on node %s failed with status %d: %s", nodeID, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
 func (h *HTTPFileStager) StageRemoteToStore(ctx context.Context, nodeID, remotePath, key string) error {
 	return fmt.Errorf("StageRemoteToStore not supported in HTTP file transfer mode; use FetchRemote for direct transfer")
 }

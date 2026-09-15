@@ -1334,6 +1334,48 @@ var _ = Describe("StartFileTransferServerWithListener", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 	})
 
+	It("authenticates directory allocation and cleanup and rejects symlink escapes", func() {
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		root := GinkgoT().TempDir()
+		models := filepath.Join(root, "models")
+		data := filepath.Join(root, "data")
+		Expect(os.MkdirAll(models, 0o750)).To(Succeed())
+		Expect(os.MkdirAll(data, 0o750)).To(Succeed())
+		srv, err := StartFileTransferServerWithListener(lis, filepath.Join(root, "staging"), models, data, "secret", 0)
+		Expect(err).NotTo(HaveOccurred())
+		defer ShutdownFileTransferServer(srv)
+		base := "http://" + lis.Addr().String()
+
+		unauthorized, err := http.NewRequest(http.MethodDelete, base+"/v1/files-dir/data/job", nil)
+		Expect(err).NotTo(HaveOccurred())
+		resp, err := http.DefaultClient.Do(unauthorized)
+		Expect(err).NotTo(HaveOccurred())
+		_ = resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+
+		outside := GinkgoT().TempDir()
+		Expect(os.Symlink(outside, filepath.Join(data, "escape"))).To(Succeed())
+		for _, method := range []string{http.MethodPost, http.MethodDelete} {
+			for _, key := range []string{"data/../outside", "data/escape", "data/escape/nested"} {
+				req, reqErr := http.NewRequest(method, base+"/v1/files-dir/"+key, nil)
+				Expect(reqErr).NotTo(HaveOccurred())
+				req.Header.Set("Authorization", "Bearer secret")
+				response, doErr := http.DefaultClient.Do(req)
+				Expect(doErr).NotTo(HaveOccurred())
+				_ = response.Body.Close()
+				Expect(response.StatusCode).To(Equal(http.StatusBadRequest), method+" "+key)
+			}
+		}
+
+		stager := NewHTTPFileStager(func(string) (string, error) { return lis.Addr().String(), nil }, "secret", directNetDialerFor)
+		dir, err := stager.AllocRemoteDir(context.Background(), "node-1", "data/job")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(dir, "result"), []byte("x"), 0o600)).To(Succeed())
+		Expect(stager.ReleaseRemoteDir(context.Background(), "node-1", "data/job")).To(Succeed())
+		Expect(dir).ToNot(BeAnExistingFile())
+	})
+
 	It("serves the unauthenticated health endpoints regardless of token", func() {
 		base, stop := start("s3cret")
 		defer stop()
