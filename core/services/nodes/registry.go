@@ -588,6 +588,12 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	}, nil
 }
 
+// UseDBForTest replaces the registry's database after test setup has finished.
+// Callers must use it before starting concurrent registry operations.
+func (r *NodeRegistry) UseDBForTest(db *gorm.DB) {
+	r.db = db
+}
+
 // resolveVRAMBudgetBytes turns a budget string into an absolute byte ceiling
 // against the node's raw total VRAM, clamped to that total. 0 means no cap or
 // unparseable (fail-open at this layer; the endpoint validates input).
