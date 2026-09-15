@@ -309,20 +309,18 @@ func (cfg *Config) resolveStagingDir(keyPrefix string) (string, bool) {
 	dataDir := cfg.stagingDataDir()
 
 	dirPath := filepath.Join(cacheDir, keyPrefix)
+	selectedRoot := cacheDir
 	if rel, ok := strings.CutPrefix(keyPrefix, storage.ModelKeyPrefix); ok && cfg.ModelsPath != "" {
 		dirPath = filepath.Join(cfg.ModelsPath, rel)
+		selectedRoot = cfg.ModelsPath
 	} else if rel, ok := strings.CutPrefix(keyPrefix, storage.DataKeyPrefix); ok {
 		dirPath = filepath.Join(dataDir, rel)
+		selectedRoot = dataDir
 	}
 
 	dirPath = filepath.Clean(dirPath)
-	cleanCache := filepath.Clean(cacheDir)
-	cleanModels := filepath.Clean(cfg.ModelsPath)
-	cleanData := filepath.Clean(dataDir)
-	within := func(root string) bool {
-		return dirPath == root || strings.HasPrefix(dirPath, root+string(filepath.Separator))
-	}
-	if within(cleanCache) || (cleanModels != "." && within(cleanModels)) || within(cleanData) {
+	cleanRoot := filepath.Clean(selectedRoot)
+	if cleanRoot != "." && (dirPath == cleanRoot || strings.HasPrefix(dirPath, cleanRoot+string(filepath.Separator))) {
 		if err := cfg.validateStagingOutputPath(dirPath); err != nil {
 			return "", false
 		}
