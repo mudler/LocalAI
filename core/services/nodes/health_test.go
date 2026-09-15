@@ -172,6 +172,32 @@ var _ = Describe("HealthMonitor (mock-based)", func() {
 			Expect(store.getCalls()).To(ContainElement("MarkUnhealthy:node-2"))
 		})
 
+		It("marks a stale unhealthy node offline when autoOffline=true", func() {
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, true, staleThreshold)
+
+			node := makeTestNode("node-stale-unhealthy", "stale-unhealthy-worker", "10.0.0.7:50051", StatusUnhealthy, staleTime(staleThreshold))
+			store.addNode(node)
+
+			hm.doCheckAll(context.Background())
+
+			Expect(store.getNode(node.ID).Status).To(Equal(StatusOffline))
+		})
+
+		It("keeps a stale unhealthy node unchanged when autoOffline=false", func() {
+			store := newFakeNodeHealthStore()
+			factory := newFakeBackendClientFactory()
+			hm := newTestHealthMonitor(store, factory, false, staleThreshold)
+
+			node := makeTestNode("node-stale-unhealthy", "stale-unhealthy-worker", "10.0.0.7:50051", StatusUnhealthy, staleTime(staleThreshold))
+			store.addNode(node)
+
+			hm.doCheckAll(context.Background())
+
+			Expect(store.getNode(node.ID).Status).To(Equal(StatusUnhealthy))
+		})
+
 		It("skips draining nodes", func() {
 			store := newFakeNodeHealthStore()
 			factory := newFakeBackendClientFactory()
