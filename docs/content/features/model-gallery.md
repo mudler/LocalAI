@@ -43,6 +43,17 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Qwen3.8-27B with MTP
+
+Install the Q4_K_M build with MTP speculative decoding explicitly:
+
+```bash
+local-ai models install qwen3.8-27b-q4 --variant qwen3.8-27b-q4-mtp
+```
+
+This llama.cpp variant includes the Q4_0 draft model and Q8_0 vision projector
+for image input. Use a current llama.cpp backend with Qwen3.8 MTP support.
+
 ## Spark-X2.5-1.7B
 
 Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0
