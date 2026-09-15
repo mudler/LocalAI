@@ -191,6 +191,13 @@ type Cluster struct {
 const (
 	defaultRegistrationToken = "e2e-token"
 	defaultAdminEmail        = "admin@e2e.local"
+	// The failover specs have bounded observation windows sized around a 60s
+	// stale threshold. Production deliberately defaults to 5m, so the harness
+	// pins its shorter test clock explicitly. Checkpoint below the worker's 10s
+	// heartbeat interval so every beat remains durable and the 60s threshold
+	// measures worker silence rather than checkpoint lag.
+	testStaleNodeThreshold      = "60s"
+	testNodeHeartbeatCheckpoint = "5s"
 	// testHMACSecret is shared by every frontend so a session minted at one
 	// replica validates at all of them. See the note in startFrontend.
 	testHMACSecret   = "e2e-cluster-hmac-secret"
@@ -333,6 +340,8 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 		// Pinning makes the cross-replica session a property of the harness.
 		"LOCALAI_AUTH_HMAC_SECRET="+testHMACSecret,
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
+		"LOCALAI_STALE_NODE_THRESHOLD="+testStaleNodeThreshold,
+		"LOCALAI_NODE_HEARTBEAT_CHECKPOINT="+testNodeHeartbeatCheckpoint,
 		// Every replica here shares one host, so the address a peer dials is
 		// this process's own loopback address. It has to be said explicitly:
 		// the automatic discovery asks which local address routes to
