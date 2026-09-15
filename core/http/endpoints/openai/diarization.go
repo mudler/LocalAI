@@ -61,7 +61,7 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		}
 
 		req := backend.DiarizationRequest{
-			Language:    input.Language,
+			Language:    c.FormValue("language"),
 			IncludeText: parseFormBool(c, "include_text", false),
 		}
 		req.NumSpeakers = int32(parseFormInt(c, "num_speakers", 0))
