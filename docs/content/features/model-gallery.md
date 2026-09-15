@@ -43,6 +43,24 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Qwopus3.8-27B-Flash
+
+Install [Qwopus3.8-27B-Flash](https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF)
+with automatic selection between Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds:
+
+```bash
+local-ai models install qwopus3.8-27b-flash
+```
+
+To select Q5_K_M explicitly:
+
+```bash
+local-ai models install qwopus3.8-27b-flash --variant qwopus3.8-27b-flash-q5
+```
+
+Each build includes the F32 vision projector and uses the embedded chat
+template with MTP speculative decoding. Use a current llama.cpp backend.
+
 ## Spark-X2.5-1.7B
 
 Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0
