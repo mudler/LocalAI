@@ -2,15 +2,52 @@ package backend
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/trace"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/store"
 	"github.com/mudler/LocalAI/pkg/system"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+var _ = Describe("StoreBackend distributed routing", func() {
+	It("carries the persisted model config revision to the router", func() {
+		dir := GinkgoT().TempDir()
+		configPath := filepath.Join(dir, "conformance.yaml")
+		Expect(os.WriteFile(configPath, []byte("name: conformance\nbackend: mock-backend\noptions:\n  - fixture:true\n"), 0o600)).To(Succeed())
+		configLoader := config.NewModelConfigLoader(dir)
+		Expect(configLoader.LoadModelConfigsFromPath(dir)).To(Succeed())
+		cfg, ok := configLoader.GetModelConfig("conformance")
+		Expect(ok).To(BeTrue())
+		Expect(cfg.PersistedConfigRevision()).ToNot(BeEmpty())
+
+		loader := model.NewModelLoader(&system.SystemState{})
+		routerErr := errors.New("stop after capturing store load")
+		var routedRevision string
+		var routedOptions *pb.ModelOptions
+		loader.SetModelRouter(func(_ context.Context, backendName, modelID, modelName, modelFile, revision string, opts *pb.ModelOptions, _ bool) (*model.Model, error) {
+			Expect(backendName).To(Equal("mock-backend"))
+			Expect(modelID).To(Equal("conformance"))
+			Expect(modelName).To(Equal(store.NamespacePrefix + "conformance"))
+			Expect(modelFile).To(Equal("store:/conformance"))
+			routedRevision = revision
+			routedOptions = opts
+			return nil, routerErr
+		})
+
+		_, err := StoreBackend(loader, config.NewApplicationConfig(), configLoader, "conformance", "")
+		Expect(err).To(MatchError(ContainSubstring(routerErr.Error())))
+		Expect(routedRevision).To(Equal(cfg.PersistedConfigRevision()))
+		Expect(routedOptions.GetOptions()).To(Equal([]string{"fixture:true"}))
+	})
+})
 
 // findVectorStoreTrace returns the most recent vector_store trace whose
 // model_name matches storeName, or nil if none was recorded. Used by
