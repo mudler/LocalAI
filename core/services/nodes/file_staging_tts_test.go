@@ -3,6 +3,8 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,6 +31,20 @@ func (b *capturingTTSBackend) TTSStream(_ context.Context, request *pb.TTSReques
 }
 
 var _ = Describe("FileStagingClient TTS references", func() {
+	It("stages a frontend model path when a fresh routing wrapper has no load state", func(ctx SpecContext) {
+		backend := &capturingTTSBackend{}
+		stager := &fakeFileStager{}
+		client := NewFileStagingClient(backend, stager, "worker-1")
+		model := filepath.Join(GinkgoT().TempDir(), "voice.onnx")
+		Expect(os.WriteFile(model, []byte("model"), 0o600)).To(Succeed())
+
+		_, err := client.TTS(ctx, &pb.TTSRequest{Model: model})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stager.ensureCalls).To(HaveLen(1))
+		Expect(stager.ensureCalls[0].localPath).To(Equal(model))
+		Expect(backend.ttsRequest.Model).To(HavePrefix("/remote/ephemeral/"))
+	})
+
 	It("stages a reference WAV before non-streaming synthesis", func(ctx SpecContext) {
 		backend := &capturingTTSBackend{}
 		stager := &fakeFileStager{}

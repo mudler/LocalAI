@@ -3,6 +3,8 @@ package nodes
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -71,6 +73,38 @@ type lifecycleBackend struct {
 	streamBlock   <-chan struct{}
 	streamStarted chan<- struct{}
 	lastRequest   proto.Message
+}
+
+type maliciousOutputBackend struct {
+	lifecycleBackend
+	depthPaths []*pb.DepthResponse
+	audio      *pb.AudioTransformResult
+}
+
+func (b *maliciousOutputBackend) Depth(_ context.Context, _ *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
+	result := b.depthPaths[0]
+	b.depthPaths = b.depthPaths[1:]
+	return result, nil
+}
+
+func (b *maliciousOutputBackend) AudioTransform(_ context.Context, _ *pb.AudioTransformRequest, _ ...ggrpc.CallOption) (*pb.AudioTransformResult, error) {
+	return b.audio, nil
+}
+
+type outputSafetyStager struct {
+	lifecycleStager
+	remoteDir  string
+	remoteTemp string
+}
+
+func (s *outputSafetyStager) AllocRemoteDir(context.Context, string, string) (string, error) {
+	return s.remoteDir, nil
+}
+
+func (s *outputSafetyStager) ReleaseRemoteDir(context.Context, string, string) error { return nil }
+
+func (s *outputSafetyStager) AllocRemoteTemp(context.Context, string) (string, error) {
+	return s.remoteTemp, nil
 }
 
 func (b *lifecycleBackend) UpscaleImage(_ context.Context, in *pb.UpscaleImageRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
@@ -477,6 +511,55 @@ var _ = Describe("FileStagingClient request lifecycle", func() {
 			}
 			Expect(backend.lastRequest).ToNot(BeNil())
 		}
+	})
+
+	It("rejects depth outputs through local symlinks and non-portable backend names", func(ctx SpecContext) {
+		frontend := GinkgoT().TempDir()
+		outside := GinkgoT().TempDir()
+		Expect(os.Symlink(outside, filepath.Join(frontend, "nested"))).To(Succeed())
+		remote := filepath.Join(GinkgoT().TempDir(), "depth")
+		backend := &maliciousOutputBackend{depthPaths: []*pb.DepthResponse{
+			{ExportPaths: []string{filepath.Join(remote, "nested", "depth.bin")}},
+			{ExportPaths: []string{filepath.Join(remote, `nested\\depth.bin`)}},
+		}}
+		stager := &outputSafetyStager{remoteDir: remote}
+		client := NewFileStagingClient(backend, stager, "worker-1")
+
+		for range 2 {
+			result, err := client.Depth(ctx, &pb.DepthRequest{Dst: frontend})
+			Expect(err).To(HaveOccurred())
+			Expect(result).To(BeNil())
+		}
+		Expect(stager.fetchCalls).To(BeEmpty())
+		Expect(os.ReadDir(outside)).To(BeEmpty())
+	})
+
+	It("rejects nil and symlink-escaping audio transform stems before fetching", func(ctx SpecContext) {
+		frontend := GinkgoT().TempDir()
+		outside := GinkgoT().TempDir()
+		Expect(os.Symlink(outside, filepath.Join(frontend, "nested"))).To(Succeed())
+		remoteRoot := GinkgoT().TempDir()
+		remoteMain := filepath.Join(remoteRoot, "main.wav")
+		backend := &maliciousOutputBackend{audio: &pb.AudioTransformResult{Stems: []*pb.AudioTransformStem{
+			nil,
+			{Name: "voice", Dst: filepath.Join(remoteRoot, "nested", "voice.wav")},
+		}}}
+		stager := &outputSafetyStager{remoteTemp: remoteMain}
+		client := NewFileStagingClient(backend, stager, "worker-1")
+
+		result, err := client.AudioTransform(ctx, &pb.AudioTransformRequest{Dst: filepath.Join(frontend, "main.wav")})
+		Expect(err).To(HaveOccurred())
+		Expect(result).To(BeNil())
+		Expect(stager.fetchCalls).To(HaveLen(1), "only the validated main output may be fetched")
+
+		backend.audio = &pb.AudioTransformResult{Stems: []*pb.AudioTransformStem{
+			{Name: "voice", Dst: filepath.Join(remoteRoot, "nested", "voice.wav")},
+		}}
+		result, err = client.AudioTransform(ctx, &pb.AudioTransformRequest{Dst: filepath.Join(frontend, "main.wav")})
+		Expect(err).To(HaveOccurred())
+		Expect(result).To(BeNil())
+		Expect(stager.fetchCalls).To(HaveLen(2), "a stem through a local symlink must not be fetched")
+		Expect(os.ReadDir(outside)).To(BeEmpty())
 	})
 })
 

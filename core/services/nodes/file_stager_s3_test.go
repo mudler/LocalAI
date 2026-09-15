@@ -111,6 +111,13 @@ var _ = Describe("the S3 file stager's control RPCs", func() {
 		Expect(workers.callSubjects()).To(BeEmpty())
 	})
 
+	It("refuses cleanup that crosses its declared storage namespace", func() {
+		for _, key := range []string{"models/../data/victim", "data/../models/victim"} {
+			Expect(stager.ReleaseRemoteDir(context.Background(), nodeID, key)).To(MatchError(ContainSubstring("invalid staging directory")))
+		}
+		Expect(workers.callSubjects()).To(BeEmpty())
+	})
+
 	// THE rule of this change, and it is written out at five separate call
 	// sites: the RPC's budget is DERIVED FROM the caller's context, never
 	// started fresh from a background one. A site that started fresh would keep

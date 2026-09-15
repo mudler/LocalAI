@@ -144,6 +144,7 @@ var _ = Describe("worker file-staging control routes", func() {
 		for _, key := range []string{
 			"models/", "models//", "models/child/..", "models/../models",
 			"data/", "data//", "data/child/..", "data/../data",
+			"models/../data/victim", "data/../models/victim",
 		} {
 			resp := post(workerctl.PathFilesRmdir, map[string]string{"key_prefix": key})
 			var reply struct {

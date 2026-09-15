@@ -51,6 +51,7 @@ type FileStagingClient struct {
 }
 
 type quantizationOutput struct {
+	generation      string
 	frontendDir     string
 	dataRelativeDir string
 	remoteDir       string
@@ -61,6 +62,7 @@ type quantizationOutput struct {
 	outputRelative  string
 	inputsReleased  bool
 	outputReleased  bool
+	cleanupPending  bool
 }
 
 type ttsReference struct {
@@ -92,6 +94,26 @@ func (f *FileStagingClient) stageTTSReferences(ctx context.Context, lifecycle *s
 		return fmt.Errorf("encode TTS references: %w", err)
 	}
 	in.Params["multi_reference_cond"] = string(encoded)
+	return nil
+}
+
+func (f *FileStagingClient) stageTTSModel(ctx context.Context, lifecycle *stagedInputLifecycle, in *pb.TTSRequest) error {
+	if in.Model == "" || !isFilePath(in.Model) {
+		return nil
+	}
+	translated := f.translateModelPath(in.Model)
+	if translated != in.Model {
+		in.Model = translated
+		return nil
+	}
+	info, err := os.Stat(in.Model)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil
+	}
+	in.Model, err = f.stageInputFile(ctx, lifecycle, in.Model, "inputs")
+	if err != nil {
+		return fmt.Errorf("staging TTS model: %w", err)
+	}
 	return nil
 }
 
@@ -462,8 +484,8 @@ func (f *FileStagingClient) TTS(ctx context.Context, in *pb.TTSRequest, opts ...
 	// Translate model path from frontend to remote worker path.
 	// The model and its companion files (e.g. .onnx.json) were already staged
 	// during LoadModel, so we just need to point to the correct remote location.
-	if in.Model != "" && isFilePath(in.Model) {
-		in.Model = f.translateModelPath(in.Model)
+	if err := f.stageTTSModel(ctx, lifecycle, in); err != nil {
+		return nil, err
 	}
 	// Voice may be a named backend speaker or a request-scoped reference WAV.
 	// Only path-shaped values are staged; speaker IDs pass through unchanged.
@@ -508,8 +530,8 @@ func (f *FileStagingClient) TTSStream(ctx context.Context, in *pb.TTSRequest, fn
 	in = proto.Clone(in).(*pb.TTSRequest)
 
 	// Translate model path from frontend to remote worker path (same as TTS above)
-	if in.Model != "" && isFilePath(in.Model) {
-		in.Model = f.translateModelPath(in.Model)
+	if err := f.stageTTSModel(ctx, lifecycle, in); err != nil {
+		return err
 	}
 	if in.Voice != "" && isFilePath(in.Voice) {
 		backendPath, err := f.stageInputFile(ctx, lifecycle, in.Voice, "inputs")
@@ -685,12 +707,18 @@ func (f *FileStagingClient) Depth(ctx context.Context, in *pb.DepthRequest, opts
 	if err != nil || result == nil || frontendDst == "" {
 		return result, err
 	}
+	if err := os.MkdirAll(frontendDst, 0750); err != nil {
+		return nil, fmt.Errorf("creating depth output directory: %w", err)
+	}
 	for i, remotePath := range result.ExportPaths {
-		rel, relErr := filepath.Rel(remoteDir, remotePath)
-		if relErr != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		rel, relErr := safeBackendOutputRelative(remoteDir, remotePath)
+		if relErr != nil {
 			return nil, fmt.Errorf("depth export is outside its allocated remote directory")
 		}
 		local := filepath.Join(frontendDst, rel)
+		if err := validatePathInDir(local, frontendDst); err != nil {
+			return nil, fmt.Errorf("depth export destination is unsafe: %w", err)
+		}
 		remoteKey := path.Join(keyPrefix, filepath.ToSlash(rel))
 		if fetchErr := f.stager.FetchRemoteByKey(ctx, f.nodeID, remoteKey, local); fetchErr != nil {
 			return nil, fmt.Errorf("retrieving depth export: %w", fetchErr)
@@ -728,24 +756,54 @@ func (f *FileStagingClient) AudioTransform(ctx context.Context, in *pb.AudioTran
 	if err != nil || result == nil || frontendDst == "" {
 		return result, err
 	}
+	localRoot := filepath.Dir(frontendDst)
+	if err := validateLocalOutputPath(frontendDst, localRoot); err != nil {
+		return nil, fmt.Errorf("audio transform destination is unsafe: %w", err)
+	}
 	if fetchErr := f.retrieveOutputFile(ctx, in.Dst, frontendDst); fetchErr != nil {
 		return nil, fmt.Errorf("retrieving audio transform output: %w", fetchErr)
 	}
 	result.Dst = frontendDst
 	remoteRoot := filepath.Dir(in.Dst)
-	localRoot := filepath.Dir(frontendDst)
 	for _, stem := range result.Stems {
-		rel, relErr := filepath.Rel(remoteRoot, stem.Dst)
-		if relErr != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if stem == nil {
+			return nil, fmt.Errorf("audio transform returned a nil stem")
+		}
+		rel, relErr := safeBackendOutputRelative(remoteRoot, stem.Dst)
+		if relErr != nil {
 			return nil, fmt.Errorf("audio transform stem is outside its allocated remote directory")
 		}
 		local := filepath.Join(localRoot, rel)
+		if err := validateLocalOutputPath(local, localRoot); err != nil {
+			return nil, fmt.Errorf("audio transform stem destination is unsafe: %w", err)
+		}
 		if fetchErr := f.retrieveOutputFile(ctx, stem.Dst, local); fetchErr != nil {
 			return nil, fmt.Errorf("retrieving audio transform stem: %w", fetchErr)
 		}
 		stem.Dst = local
 	}
 	return result, nil
+}
+
+func safeBackendOutputRelative(root, output string) (string, error) {
+	rel, err := filepath.Rel(root, output)
+	if err != nil {
+		return "", err
+	}
+	return safeRemoteRelativePath(filepath.ToSlash(rel))
+}
+
+func validateLocalOutputPath(target, root string) error {
+	if _, err := os.Lstat(root); err == nil {
+		return validatePathInDir(target, root)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == "." || rel == ".." || filepath.IsAbs(rel) || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("output path is outside its destination directory")
+	}
+	return nil
 }
 
 func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
@@ -873,6 +931,19 @@ func safeRemoteRelativePath(value string) (string, error) {
 
 func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.QuantizationRequest, opts ...ggrpc.CallOption) (*pb.QuantizationJobResult, error) {
 	in = proto.Clone(in).(*pb.QuantizationRequest)
+	if previous, ok, err := f.lookupQuantization(ctx, in.JobId); err != nil {
+		return nil, fmt.Errorf("checking quantization staging state: %w", err)
+	} else if ok {
+		if !previous.cleanupPending {
+			return nil, ErrQuantizationStagingExists
+		}
+		f.cleanupQuantization(in.JobId, previous)
+		if _, remains, lookupErr := f.lookupQuantization(ctx, in.JobId); lookupErr != nil {
+			return nil, fmt.Errorf("checking failed-start cleanup: %w", lookupErr)
+		} else if remains {
+			return nil, fmt.Errorf("retrying failed-start cleanup: %w", ErrQuantizationStagingExists)
+		}
+	}
 	frontendOutputDir := in.OutputDir
 	dataRelativeDir := ""
 	if f.quantStore != nil {
@@ -905,6 +976,7 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 		in.Model = remoteModel
 	}
 	output := quantizationOutput{
+		generation:      requestID(),
 		inputRequestID:  lifecycle.requestID,
 		inputKeys:       append([]string(nil), lifecycle.keys...),
 		dataRelativeDir: dataRelativeDir,
@@ -925,7 +997,7 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 		in.OutputDir = remoteOutputDir
 		output = quantizationOutput{
 			frontendDir: frontendOutputDir, remoteDir: remoteOutputDir, keyPrefix: keyPrefix,
-			dataRelativeDir: dataRelativeDir, inputRequestID: output.inputRequestID, inputKeys: output.inputKeys,
+			generation: output.generation, dataRelativeDir: dataRelativeDir, inputRequestID: output.inputRequestID, inputKeys: output.inputKeys,
 		}
 		if f.quantStore == nil && f.dataPath != "" {
 			if rel, relErr := filepath.Rel(f.dataPath, frontendOutputDir); relErr == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -945,6 +1017,10 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 	keepInputs = true
 	result, err := f.Backend.StartQuantization(ctx, in, opts...)
 	if err != nil || result == nil || !result.Success {
+		output.cleanupPending = true
+		if updateErr := f.updateQuantization(context.Background(), in.JobId, output); updateErr != nil {
+			xlog.Warn("Failed to persist failed-start cleanup state", "jobID", in.JobId, "error", updateErr)
+		}
 		f.cleanupQuantization(in.JobId, output)
 		return result, err
 	}
@@ -1058,14 +1134,18 @@ func (f *FileStagingClient) rememberQuantization(ctx context.Context, jobID stri
 			frontendDir = ""
 		}
 		return f.quantStore.Create(ctx, &QuantizationStagingRecord{
-			NodeID: f.nodeID, JobID: jobID, FrontendDir: frontendDir,
+			NodeID: f.nodeID, JobID: jobID, Generation: output.generation, FrontendDir: frontendDir,
 			DataRelativeDir: output.dataRelativeDir, RemoteDir: output.remoteDir,
 			KeyPrefix: output.keyPrefix, InputRequestID: output.inputRequestID, InputKeys: output.inputKeys,
 			OutputFetched: output.outputFetched, OutputRelative: output.outputRelative,
-			InputsReleased: output.inputsReleased, OutputReleased: output.outputReleased,
+			InputsReleased: output.inputsReleased, OutputReleased: output.outputReleased, CleanupPending: output.cleanupPending,
 		})
 	}
 	f.mu.Lock()
+	if _, exists := f.quantization[jobID]; exists {
+		f.mu.Unlock()
+		return ErrQuantizationStagingExists
+	}
 	f.quantization[jobID] = output
 	f.mu.Unlock()
 	return nil
@@ -1077,7 +1157,7 @@ func (f *FileStagingClient) lookupQuantization(ctx context.Context, jobID string
 		if err != nil || !ok {
 			return quantizationOutput{}, ok, err
 		}
-		return quantizationOutput{frontendDir: record.FrontendDir, dataRelativeDir: record.DataRelativeDir, remoteDir: record.RemoteDir, keyPrefix: record.KeyPrefix, inputRequestID: record.InputRequestID, inputKeys: record.InputKeys, outputFetched: record.OutputFetched, outputRelative: record.OutputRelative, inputsReleased: record.InputsReleased, outputReleased: record.OutputReleased}, true, nil
+		return quantizationOutput{generation: record.Generation, frontendDir: record.FrontendDir, dataRelativeDir: record.DataRelativeDir, remoteDir: record.RemoteDir, keyPrefix: record.KeyPrefix, inputRequestID: record.InputRequestID, inputKeys: record.InputKeys, outputFetched: record.OutputFetched, outputRelative: record.OutputRelative, inputsReleased: record.InputsReleased, outputReleased: record.OutputReleased, cleanupPending: record.CleanupPending}, true, nil
 	}
 	f.mu.RLock()
 	output, ok := f.quantization[jobID]
@@ -1088,29 +1168,35 @@ func (f *FileStagingClient) lookupQuantization(ctx context.Context, jobID string
 func (f *FileStagingClient) updateQuantization(ctx context.Context, jobID string, output quantizationOutput) error {
 	if f.quantStore != nil {
 		return f.quantStore.Update(ctx, &QuantizationStagingRecord{
-			NodeID: f.nodeID, JobID: jobID, DataRelativeDir: output.dataRelativeDir,
+			NodeID: f.nodeID, JobID: jobID, Generation: output.generation, DataRelativeDir: output.dataRelativeDir,
 			RemoteDir: output.remoteDir, KeyPrefix: output.keyPrefix, InputRequestID: output.inputRequestID,
 			InputKeys: output.inputKeys, OutputFetched: output.outputFetched, OutputRelative: output.outputRelative,
-			InputsReleased: output.inputsReleased, OutputReleased: output.outputReleased,
+			InputsReleased: output.inputsReleased, OutputReleased: output.outputReleased, CleanupPending: output.cleanupPending,
 		})
 	}
 	f.mu.Lock()
+	if current, ok := f.quantization[jobID]; !ok || current.generation != output.generation {
+		f.mu.Unlock()
+		return ErrQuantizationStagingOwnership
+	}
 	f.quantization[jobID] = output
 	f.mu.Unlock()
 	return nil
 }
 
-func (f *FileStagingClient) discardQuantization(jobID string) {
+func (f *FileStagingClient) discardQuantization(jobID string, output quantizationOutput) {
 	if f.quantStore != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), stagedInputReleaseTimeout)
 		defer cancel()
-		if err := f.quantStore.Delete(ctx, f.nodeID, jobID); err != nil {
+		if err := f.quantStore.Delete(ctx, f.nodeID, jobID, output.generation); err != nil {
 			xlog.Warn("Failed to delete quantization staging state", "jobID", jobID, "error", err)
 		}
 		return
 	}
 	f.mu.Lock()
-	delete(f.quantization, jobID)
+	if current, ok := f.quantization[jobID]; ok && current.generation == output.generation {
+		delete(f.quantization, jobID)
+	}
 	f.mu.Unlock()
 }
 
@@ -1137,7 +1223,7 @@ func (f *FileStagingClient) cleanupQuantization(jobID string, output quantizatio
 			return
 		}
 	}
-	f.discardQuantization(jobID)
+	f.discardQuantization(jobID, output)
 }
 
 func (f *FileStagingClient) releaseRemoteDir(keyPrefix string) error {

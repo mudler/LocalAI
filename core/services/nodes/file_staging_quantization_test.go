@@ -22,6 +22,7 @@ type quantizationTestBackend struct {
 	progress            *pb.QuantizationProgressUpdate
 	readModelOnProgress bool
 	startErr            error
+	stopErr             error
 }
 
 type exportDirectoryBackend struct {
@@ -66,6 +67,9 @@ func (b *quantizationTestBackend) QuantizationProgress(_ context.Context, _ *pb.
 }
 
 func (b *quantizationTestBackend) StopQuantization(_ context.Context, _ *pb.QuantizationStopRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	if b.stopErr != nil {
+		return nil, b.stopErr
+	}
 	return &pb.Result{Success: true}, nil
 }
 
@@ -398,6 +402,73 @@ func TestStartFailureCleanupFailureRetainsDurableState(t *testing.T) {
 	}
 	if _, ok, lookupErr := client.lookupQuantization(context.Background(), "start-failed"); lookupErr != nil || ok {
 		t.Fatalf("cleanup retry retained durable state: ok=%v err=%v", ok, lookupErr)
+	}
+}
+
+func TestQuantizationStagingGenerationRejectsStaleReplicaMutation(t *testing.T) {
+	db := openQuantizationStagingTestDB(t)
+	store := gormQuantizationStagingStore{db: db}
+	old := &QuantizationStagingRecord{NodeID: "worker-1", JobID: "reused", Generation: "old", KeyPrefix: "data/old"}
+	if err := store.Create(context.Background(), old); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Delete(context.Background(), old.NodeID, old.JobID, old.Generation); err != nil {
+		t.Fatal(err)
+	}
+	newRecord := &QuantizationStagingRecord{NodeID: "worker-1", JobID: "reused", Generation: "new", KeyPrefix: "data/new"}
+	if err := store.Create(context.Background(), newRecord); err != nil {
+		t.Fatal(err)
+	}
+	old.OutputReleased = true
+	if err := store.Update(context.Background(), old); !errors.Is(err, ErrQuantizationStagingOwnership) {
+		t.Fatalf("stale update error = %v", err)
+	}
+	if err := store.Delete(context.Background(), old.NodeID, old.JobID, old.Generation); !errors.Is(err, ErrQuantizationStagingOwnership) {
+		t.Fatalf("stale delete error = %v", err)
+	}
+	stager := &quantizationTestStager{remoteDir: t.TempDir()}
+	client := NewFileStagingClientWithOptions(&quantizationTestBackend{}, stager, old.NodeID, FileStagingClientOptions{DB: db, DataPath: t.TempDir()})
+	client.cleanupQuantization(old.JobID, quantizationOutput{
+		generation: old.Generation, keyPrefix: old.KeyPrefix, inputsReleased: true,
+	})
+	got, ok, err := store.Get(context.Background(), newRecord.NodeID, newRecord.JobID)
+	if err != nil || !ok || got.Generation != "new" || got.KeyPrefix != "data/new" {
+		t.Fatalf("new generation changed by stale owner: got=%#v ok=%v err=%v", got, ok, err)
+	}
+	if len(stager.releasedDirs) != 1 || stager.releasedDirs[0] != "data/old" {
+		t.Fatalf("stale owner released another generation's resources: %v", stager.releasedDirs)
+	}
+}
+
+func TestRetryStartCleansFailedStartWithoutBackendJob(t *testing.T) {
+	db := openQuantizationStagingTestDB(t)
+	root := t.TempDir()
+	backend := &quantizationTestBackend{startErr: errors.New("start failed"), stopErr: errors.New("job does not exist")}
+	stager := &quantizationTestStager{remoteDir: t.TempDir(), releaseDirErr: errors.New("first cleanup failed")}
+	client := NewFileStagingClientWithOptions(backend, stager, "worker-1", FileStagingClientOptions{DB: db, DataPath: root})
+	request := &pb.QuantizationRequest{JobId: "retry-start", OutputDir: filepath.Join(root, "out")}
+	if _, err := client.StartQuantization(context.Background(), request); err == nil {
+		t.Fatal("expected backend start failure")
+	}
+	old, ok, err := client.lookupQuantization(context.Background(), request.JobId)
+	if err != nil || !ok || !old.cleanupPending {
+		t.Fatalf("failed start did not retain cleanup ownership: %#v ok=%v err=%v", old, ok, err)
+	}
+	if _, err := client.StopQuantization(context.Background(), &pb.QuantizationStopRequest{JobId: request.JobId}); err == nil {
+		t.Fatal("test backend unexpectedly accepted stop for nonexistent job")
+	}
+	stager.releaseDirErr = nil
+	backend.startErr = nil
+	job, err := client.StartQuantization(context.Background(), request)
+	if err != nil || job == nil || !job.Success {
+		t.Fatalf("retry start did not clean old resources and start: job=%#v err=%v", job, err)
+	}
+	current, ok, err := client.lookupQuantization(context.Background(), request.JobId)
+	if err != nil || !ok || current.generation == old.generation || current.cleanupPending {
+		t.Fatalf("retry did not establish a fresh owner: old=%#v current=%#v ok=%v err=%v", old, current, ok, err)
+	}
+	if len(stager.releasedDirs) != 2 || stager.releasedDirs[0] != old.keyPrefix || stager.releasedDirs[1] != old.keyPrefix {
+		t.Fatalf("retry released wrong generation resources: %v, old=%#v", stager.releasedDirs, old)
 	}
 }
 
