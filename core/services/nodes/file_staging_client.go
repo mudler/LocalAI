@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -42,6 +43,13 @@ type FileStagingClient struct {
 
 	mu              sync.RWMutex
 	remoteModelPath string // set during LoadModel from staged ModelPath
+	quantization    map[string]quantizationOutput
+}
+
+type quantizationOutput struct {
+	frontendDir string
+	remoteDir   string
+	keyPrefix   string
 }
 
 type ttsReference struct {
@@ -84,6 +92,7 @@ func NewFileStagingClient(inner grpc.Backend, stager FileStager, nodeID string) 
 		WrappedBackend: grpc.WrappedBackend{Backend: inner},
 		stager:         stager,
 		nodeID:         nodeID,
+		quantization:   map[string]quantizationOutput{},
 	}
 }
 
@@ -545,9 +554,36 @@ func (f *FileStagingClient) AudioTranscriptionStream(ctx context.Context, in *pb
 }
 
 func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.ExportModelRequest)
+	var err error
+	if in.CheckpointPath != "" && isFilePath(in.CheckpointPath) {
+		in.CheckpointPath, err = f.stageInputFile(ctx, lifecycle, in.CheckpointPath, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging export checkpoint: %w", err)
+		}
+	}
+	if in.Model != "" && isFilePath(in.Model) {
+		in.Model, err = f.stageInputFile(ctx, lifecycle, in.Model, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging export model: %w", err)
+		}
+	}
 	frontendOutputPath := in.OutputPath
 	if frontendOutputPath != "" {
-		os.MkdirAll(frontendOutputPath, 0750)
+		if err := os.MkdirAll(frontendOutputPath, 0750); err != nil {
+			return nil, fmt.Errorf("creating export output directory: %w", err)
+		}
+		allocator, ok := f.stager.(RemoteDirectoryAllocator)
+		if !ok {
+			return nil, fmt.Errorf("exporting a directory requires remote directory allocation")
+		}
+		remoteOutputPath, allocErr := allocator.AllocRemoteDir(ctx, f.nodeID, storage.ModelKey(filepath.Base(frontendOutputPath)))
+		if allocErr != nil {
+			return nil, fmt.Errorf("allocating remote export directory: %w", allocErr)
+		}
+		in.OutputPath = remoteOutputPath
 	}
 
 	result, err := f.Backend.ExportModel(ctx, in, opts...)
@@ -587,25 +623,79 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 }
 
 func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.QuantizationRequest, opts ...ggrpc.CallOption) (*pb.QuantizationJobResult, error) {
-	// Ensure the local output directory exists so the fetched file can be written
-	if in.OutputDir != "" {
-		os.MkdirAll(in.OutputDir, 0750)
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.QuantizationRequest)
+	if in.Model != "" && isFilePath(in.Model) {
+		remoteModel, err := f.stageInputFile(ctx, lifecycle, in.Model, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging quantization model: %w", err)
+		}
+		in.Model = remoteModel
 	}
-	return f.Backend.StartQuantization(ctx, in, opts...)
+	frontendOutputDir := in.OutputDir
+	if frontendOutputDir != "" {
+		if err := os.MkdirAll(frontendOutputDir, 0750); err != nil {
+			return nil, fmt.Errorf("creating quantization output directory: %w", err)
+		}
+		allocator, ok := f.stager.(RemoteDirectoryAllocator)
+		if !ok {
+			return nil, fmt.Errorf("quantizing into a directory requires remote directory allocation")
+		}
+		keyPrefix := storage.DataKey(path.Join("quantization", in.JobId))
+		remoteOutputDir, err := allocator.AllocRemoteDir(ctx, f.nodeID, keyPrefix)
+		if err != nil {
+			return nil, fmt.Errorf("allocating remote quantization directory: %w", err)
+		}
+		in.OutputDir = remoteOutputDir
+		f.mu.Lock()
+		f.quantization[in.JobId] = quantizationOutput{frontendDir: frontendOutputDir, remoteDir: remoteOutputDir, keyPrefix: keyPrefix}
+		f.mu.Unlock()
+	}
+	result, err := f.Backend.StartQuantization(ctx, in, opts...)
+	if err != nil || result == nil || !result.Success {
+		f.mu.Lock()
+		delete(f.quantization, in.JobId)
+		f.mu.Unlock()
+	}
+	return result, err
 }
 
 func (f *FileStagingClient) QuantizationProgress(ctx context.Context, in *pb.QuantizationProgressRequest, fn func(update *pb.QuantizationProgressUpdate), opts ...ggrpc.CallOption) error {
 	return f.Backend.QuantizationProgress(ctx, in, func(update *pb.QuantizationProgressUpdate) {
+		terminal := update.Status == "completed" || update.Status == "failed" || update.Status == "cancelled" || update.Status == "canceled"
+		if terminal {
+			defer func() {
+				f.mu.Lock()
+				delete(f.quantization, in.JobId)
+				f.mu.Unlock()
+			}()
+		}
 		// When quantization completes, fetch the output file from the worker.
 		// Use a fresh context because quantization can take hours and the
 		// original request context may have expired by the time this fires.
 		if update.OutputFile != "" && update.Status == "completed" {
-			relPath := strings.TrimPrefix(update.OutputFile, "/"+storage.DataKeyPrefix)
-			key := storage.DataKey(relPath)
+			f.mu.RLock()
+			output, ok := f.quantization[in.JobId]
+			f.mu.RUnlock()
+			if !ok {
+				fn(update)
+				return
+			}
+			relPath, relErr := filepath.Rel(output.remoteDir, update.OutputFile)
+			if relErr != nil || relPath == "." || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
+				xlog.Warn("Refusing quantization output outside its remote directory", "file", update.OutputFile, "remoteDir", output.remoteDir)
+				fn(update)
+				return
+			}
+			key := path.Join(output.keyPrefix, filepath.ToSlash(relPath))
+			localPath := filepath.Join(output.frontendDir, relPath)
 			fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 10*time.Minute)
 			defer fetchCancel()
-			if err := f.stager.FetchRemoteByKey(fetchCtx, f.nodeID, key, update.OutputFile); err != nil {
+			if err := f.stager.FetchRemoteByKey(fetchCtx, f.nodeID, key, localPath); err != nil {
 				xlog.Warn("Failed to retrieve quantization output", "file", update.OutputFile, "error", err)
+			} else {
+				update.OutputFile = localPath
 			}
 		}
 		fn(update)

@@ -96,6 +96,24 @@ var _ = Describe("worker file-staging control routes", func() {
 		Expect(reply.LocalPath).To(BeAnExistingFile())
 	})
 
+	It("allocates model and data output directories and returns their worker paths", func() {
+		for key, want := range map[string]string{
+			"models/exported/nested":  filepath.Join(modelsDir, "exported", "nested"),
+			"data/quantization/job-1": filepath.Join(filepath.Dir(modelsDir), "data", "quantization", "job-1"),
+		} {
+			resp := post(workerctl.PathFilesMkdir, map[string]string{"key_prefix": key})
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			var reply struct {
+				LocalPath string `json:"local_path"`
+				Error     string `json:"error"`
+			}
+			decode(resp, &reply)
+			Expect(reply.Error).To(BeEmpty())
+			Expect(reply.LocalPath).To(Equal(want))
+			Expect(reply.LocalPath).To(BeADirectory())
+		}
+	})
+
 	It("downloads a key the store already holds and reports where it landed", func() {
 		key := storage.ModelKey("ensure-me.gguf")
 		Expect(store.Put(context.Background(), key, strings.NewReader("weights"))).To(Succeed())
@@ -266,6 +284,21 @@ var _ = Describe("worker file-staging control routes", func() {
 		Expect(reply.Files).To(BeEmpty())
 	})
 
+	DescribeTable("refuses to allocate an output directory outside the models and data roots", func(key string) {
+		resp := post(workerctl.PathFilesMkdir, map[string]string{"key_prefix": key})
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		var reply struct {
+			LocalPath string `json:"local_path"`
+			Error     string `json:"error"`
+		}
+		decode(resp, &reply)
+		Expect(reply.Error).NotTo(BeEmpty())
+		Expect(reply.LocalPath).To(BeEmpty())
+	},
+		Entry("unrooted", "ephemeral/export"),
+		Entry("traversal", "../../../etc"),
+	)
+
 	It("refuses to upload a path outside the directories it serves", func() {
 		outside := filepath.Join(GinkgoT().TempDir(), "secret")
 		Expect(os.WriteFile(outside, []byte("nope"), 0o600)).To(Succeed())
@@ -293,6 +326,7 @@ var _ = Describe("worker file-staging control routes", func() {
 		Entry("ensure", workerctl.PathFilesEnsure),
 		Entry("stage", workerctl.PathFilesStage),
 		Entry("temp", workerctl.PathFilesTemp),
+		Entry("mkdir", workerctl.PathFilesMkdir),
 		Entry("listdir", workerctl.PathFilesListDir),
 	)
 
@@ -313,6 +347,7 @@ var _ = Describe("worker file-staging control routes", func() {
 		Entry("ensure", workerctl.PathFilesEnsure),
 		Entry("stage", workerctl.PathFilesStage),
 		Entry("temp", workerctl.PathFilesTemp),
+		Entry("mkdir", workerctl.PathFilesMkdir),
 		Entry("listdir", workerctl.PathFilesListDir),
 	)
 
@@ -341,10 +376,12 @@ var _ = Describe("worker file-staging control routes", func() {
 		Entry("ensure, exactly at the cap", workerctl.PathFilesEnsure, maxControlRequestBytes),
 		Entry("stage, exactly at the cap", workerctl.PathFilesStage, maxControlRequestBytes),
 		Entry("temp, exactly at the cap", workerctl.PathFilesTemp, maxControlRequestBytes),
+		Entry("mkdir, exactly at the cap", workerctl.PathFilesMkdir, maxControlRequestBytes),
 		Entry("listdir, exactly at the cap", workerctl.PathFilesListDir, maxControlRequestBytes),
 		Entry("ensure, a megabyte of real traffic", workerctl.PathFilesEnsure, 1<<20),
 		Entry("stage, a megabyte of real traffic", workerctl.PathFilesStage, 1<<20),
 		Entry("temp, a megabyte of real traffic", workerctl.PathFilesTemp, 1<<20),
+		Entry("mkdir, a megabyte of real traffic", workerctl.PathFilesMkdir, 1<<20),
 		Entry("listdir, a megabyte of real traffic", workerctl.PathFilesListDir, 1<<20),
 	)
 
@@ -376,6 +413,7 @@ var _ = Describe("worker file-staging control routes", func() {
 		},
 		Entry("ensure", workerctl.PathFilesEnsure),
 		Entry("stage", workerctl.PathFilesStage),
+		Entry("mkdir", workerctl.PathFilesMkdir),
 		Entry("listdir", workerctl.PathFilesListDir),
 		// temp decodes no body, so it has no such exit to state.
 	)
@@ -403,6 +441,7 @@ var _ = Describe("worker file-staging control routes", func() {
 		for _, path := range []string{
 			workerctl.PathFilesEnsure, workerctl.PathFilesStage,
 			workerctl.PathFilesTemp, workerctl.PathFilesListDir,
+			workerctl.PathFilesMkdir,
 		} {
 			resp := post(path, struct{}{})
 			Expect(resp.StatusCode).NotTo(Equal(http.StatusNotFound), "%s is not mounted", path)

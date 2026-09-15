@@ -104,6 +104,32 @@ var _ = Describe("the frontend's file stager against the real worker", func() {
 		Expect(remote).To(BeAnExistingFile())
 	})
 
+	It("allocates model and data output directories on the worker", func() {
+		modelOutput, err := stager.AllocRemoteDir(context.Background(), nodeID, "models/exported/nested")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(modelOutput).To(Equal(filepath.Join(modelsDir, "exported", "nested")))
+		Expect(modelOutput).To(BeADirectory())
+
+		dataOutput, err := stager.AllocRemoteDir(context.Background(), nodeID, "data/quantization/job-1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(dataOutput).To(Equal(filepath.Join(filepath.Dir(modelsDir), "data", "quantization", "job-1")))
+		Expect(dataOutput).To(BeADirectory())
+
+		for remoteDir, fixture := range map[string]struct {
+			key     string
+			content string
+		}{
+			modelOutput: {key: "models/exported/nested/result.bin", content: "export bytes"},
+			dataOutput:  {key: "data/quantization/job-1/result.gguf", content: "quant bytes"},
+		} {
+			remote := filepath.Join(remoteDir, filepath.Base(fixture.key))
+			Expect(os.WriteFile(remote, []byte(fixture.content), 0o600)).To(Succeed())
+			local := filepath.Join(GinkgoT().TempDir(), filepath.Base(fixture.key))
+			Expect(stager.FetchRemoteByKey(context.Background(), nodeID, fixture.key, local)).To(Succeed())
+			Expect(os.ReadFile(local)).To(Equal([]byte(fixture.content)))
+		}
+	})
+
 	It("allocates and downloads into the SAME cache directory", func() {
 		// The staging cache root is derived once and read by two things: the
 		// FileManager caches downloads into it, and the temp verb allocates
@@ -186,6 +212,10 @@ var _ = Describe("the frontend's file stager against the real worker", func() {
 		}),
 		Entry("temp", func(s *nodes.S3FileStager) error {
 			_, err := s.AllocRemoteTemp(context.Background(), nodeID)
+			return err
+		}),
+		Entry("mkdir", func(s *nodes.S3FileStager) error {
+			_, err := s.AllocRemoteDir(context.Background(), nodeID, "models/export")
 			return err
 		}),
 		Entry("listdir", func(s *nodes.S3FileStager) error {

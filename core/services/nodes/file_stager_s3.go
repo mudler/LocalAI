@@ -58,8 +58,8 @@ const (
 // fileRPCBudget is the ceiling one file-staging verb's RPC gets.
 //
 // The mapping lives here rather than at the call sites, and that is the same
-// argument callWorker is written under: five sites each naming their own
-// constant is five chances to name the wrong one, and a stage verb given the
+// argument callWorker is written under: several sites each naming their own
+// constant are several chances to name the wrong one, and a stage verb given the
 // metadata ceiling would abandon a multi-gigabyte copy after thirty seconds
 // while the worker went on making it.
 //
@@ -71,7 +71,7 @@ func fileRPCBudget(path string) time.Duration {
 	switch path {
 	case workerctl.PathFilesEnsure, workerctl.PathFilesStage:
 		return fileTransferRPCTimeout
-	case workerctl.PathFilesTemp, workerctl.PathFilesListDir:
+	case workerctl.PathFilesTemp, workerctl.PathFilesMkdir, workerctl.PathFilesListDir:
 		return fileMetadataRPCTimeout
 	default:
 		return fileMetadataRPCTimeout
@@ -113,6 +113,15 @@ type fileReleaseReply struct {
 type fileTempRequest struct{}
 
 type fileTempReply struct {
+	LocalPath string `json:"local_path"`
+	Error     string `json:"error,omitempty"`
+}
+
+type fileMkdirRequest struct {
+	KeyPrefix string `json:"key_prefix"`
+}
+
+type fileMkdirReply struct {
 	LocalPath string `json:"local_path"`
 	Error     string `json:"error,omitempty"`
 }
@@ -227,6 +236,20 @@ func (s *S3FileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (stri
 		return "", fmt.Errorf("backend temp alloc failed: %s", reply.Error)
 	}
 
+	return reply.LocalPath, nil
+}
+
+func (s *S3FileStager) AllocRemoteDir(ctx context.Context, nodeID, keyPrefix string) (string, error) {
+	var reply fileMkdirReply
+	if err := s.callWorker(ctx, nodeID, workerctl.PathFilesMkdir, fileMkdirRequest{KeyPrefix: keyPrefix}, &reply); err != nil {
+		return "", err
+	}
+	if reply.Error != "" {
+		return "", fmt.Errorf("backend directory alloc failed: %s", reply.Error)
+	}
+	if reply.LocalPath == "" {
+		return "", fmt.Errorf("backend directory alloc returned an empty path")
+	}
 	return reply.LocalPath, nil
 }
 

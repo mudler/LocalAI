@@ -40,6 +40,7 @@ const (
 	PathFilesEnsure  = "/v1/control/files/ensure"
 	PathFilesStage   = "/v1/control/files/stage"
 	PathFilesTemp    = "/v1/control/files/temp"
+	PathFilesMkdir   = "/v1/control/files/mkdir"
 	PathFilesListDir = "/v1/control/files/listdir"
 )
 
@@ -78,6 +79,7 @@ func BackendPaths() []string {
 		PathFilesEnsure,
 		PathFilesStage,
 		PathFilesTemp,
+		PathFilesMkdir,
 		PathFilesListDir,
 	}
 }

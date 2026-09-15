@@ -63,6 +63,13 @@ type RequestFileReleaser interface {
 	ReleaseRemoteRequest(ctx context.Context, nodeID, requestID string, keys []string) error
 }
 
+// RemoteDirectoryAllocator creates a worker-local directory addressed by a
+// storage key. Directory-producing backend RPCs use it so they never receive
+// a controller-local output path.
+type RemoteDirectoryAllocator interface {
+	AllocRemoteDir(ctx context.Context, nodeID, keyPrefix string) (string, error)
+}
+
 func validateEphemeralRequestRelease(requestID string, keys []string) error {
 	if err := validateEphemeralRequestID(requestID); err != nil {
 		return err
