@@ -2,6 +2,7 @@ package distributed_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,10 +20,14 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/mudler/LocalAI/core/schema"
+	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/nodes"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/tests/e2e/distributed/cluster"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 )
 
 var (
@@ -634,13 +640,295 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 
 }
 
+func conformanceDigest(data []byte) string {
+	return fmt.Sprintf("sha256:%x", sha256.Sum256(data))
+}
+
+func writeConformanceFixture(dir, name string, data []byte) string {
+	GinkgoHelper()
+	path := filepath.Join(dir, name)
+	Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+	Expect(os.WriteFile(path, data, 0o600)).To(Succeed())
+	return path
+}
+
+// installConformanceDiskCapacity keeps the production disk admission check
+// enabled while making its input independent of the CI host's current free
+// space. The trigger also clamps later heartbeats, so a run cannot cross the
+// threshold half way through as other jobs consume the shared filesystem.
+func installConformanceDiskCapacity(db *gorm.DB, available uint64) {
+	GinkgoHelper()
+	Expect(db.Exec(`CREATE TABLE e2e_disk_capacity (
+singleton boolean PRIMARY KEY DEFAULT true,
+available_disk bigint NOT NULL
+)`).Error).ToNot(HaveOccurred())
+	Expect(db.Exec(`INSERT INTO e2e_disk_capacity (singleton, available_disk) VALUES (true, ?)`, available).Error).ToNot(HaveOccurred())
+	Expect(db.Exec(`CREATE FUNCTION e2e_clamp_node_disk() RETURNS trigger AS $$
+BEGIN
+  SELECT available_disk INTO NEW.available_disk FROM e2e_disk_capacity WHERE singleton = true;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql`).Error).ToNot(HaveOccurred())
+	Expect(db.Exec(`CREATE TRIGGER e2e_clamp_node_disk
+BEFORE INSERT OR UPDATE OF available_disk ON backend_nodes
+FOR EACH ROW EXECUTE FUNCTION e2e_clamp_node_disk()`).Error).ToNot(HaveOccurred())
+	setConformanceDiskCapacity(db, available)
+}
+
+func setConformanceDiskCapacity(db *gorm.DB, available uint64) {
+	GinkgoHelper()
+	Expect(db.Exec(`UPDATE e2e_disk_capacity SET available_disk = ? WHERE singleton = true`, available).Error).ToNot(HaveOccurred())
+	Expect(db.Model(&nodes.BackendNode{}).Where("1 = 1").Update("available_disk", available).Error).ToNot(HaveOccurred())
+	var capacities []uint64
+	Expect(db.Model(&nodes.BackendNode{}).Order("name").Pluck("available_disk", &capacities).Error).ToNot(HaveOccurred())
+	Expect(capacities).ToNot(BeEmpty())
+	for _, got := range capacities {
+		Expect(got).To(Equal(available))
+	}
+}
+
+// runFileStagingConformance uses the same peer pool, worker dialer, gRPC
+// client factory and HTTP file stager as a production frontend. The test
+// process joins as a replica and therefore reaches the worker through the
+// compiled owner's peer endpoint; no worker address or test-only route is
+// used. Public calls above cover both the owner's direct tunnel and the other
+// compiled frontend's relay. This helper fills the protocol-only gaps.
+func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOwners, workerID, model string, ownerFrontend, relayFrontend int) {
+	GinkgoHelper()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	DeferCleanup(cancel)
+
+	var node nodes.BackendNode
+	Expect(db.WithContext(ctx).First(&node, "id = ?", workerID).Error).ToNot(HaveOccurred())
+	var loaded nodes.NodeModel
+	Expect(db.WithContext(ctx).
+		Where("node_id = ? AND model_name = ? AND state = ?", workerID, model, "loaded").
+		First(&loaded).Error).ToNot(HaveOccurred())
+	Expect(loaded.WorkerLocalAddress).ToNot(BeEmpty())
+
+	const peerID = "e2e-conformance-protocol-peer"
+	peerCredential := joinAsPeer(owners.roster, peerID)
+	peers := clustersvc.NewPeerPool(peerID, c.RegistrationToken(), peerCredential, owners.registry)
+	DeferCleanup(peers.Close)
+	tunnels := clustersvc.NewTunnelRegistry(owners.registry, peerID)
+	dialer := clustersvc.NewWorkerDialer(tunnels, peers)
+	factory, err := nodes.NewTunnelClientFactory(c.RegistrationToken(), dialer.GRPCDialerFor)
+	Expect(err).ToNot(HaveOccurred())
+	raw, err := factory.NewClientForNode(workerID, loaded.WorkerLocalAddress, false)
+	Expect(err).ToNot(HaveOccurred())
+	stager := nodes.NewHTTPFileStager(func(nodeID string) (string, error) {
+		if nodeID != workerID {
+			return "", fmt.Errorf("unexpected node %q", nodeID)
+		}
+		return nodes.WorkerHTTPHost(node.ID, node.HTTPAddress), nil
+	}, c.RegistrationToken(), func(nodeID string) func(context.Context, string, string) (net.Conn, error) {
+		return dialer.DialerFor(nodeID, clustersvc.StreamTagHTTP)
+	})
+	backend := nodes.NewFileStagingClient(raw, stager, workerID)
+
+	fixtureDir := GinkgoT().TempDir()
+	image := []byte("frontend-only-image")
+	video := []byte("frontend-only-video")
+	audio := []byte("frontend-only-audio")
+	voice := []byte("frontend-only-voice")
+	refA := []byte("frontend-only-reference-a")
+	refB := []byte("frontend-only-reference-b")
+	imagePath := writeConformanceFixture(fixtureDir, "inputs/image.png", image)
+	videoPath := writeConformanceFixture(fixtureDir, "inputs/video.mp4", video)
+	audioPath := writeConformanceFixture(fixtureDir, "inputs/audio.wav", audio)
+	voicePath := writeConformanceFixture(fixtureDir, "inputs/voice.wav", voice)
+	refAPath := writeConformanceFixture(fixtureDir, "inputs/ref-a.wav", refA)
+	refBPath := writeConformanceFixture(fixtureDir, "inputs/ref-b.wav", refB)
+	ttsModelPath := writeConformanceFixture(fixtureDir, model+".onnx", []byte(tinyArtifact()))
+
+	By("loading the staged model, its companion files, and extended protocol fields")
+	workerModels, err := c.WorkerModelsDir(0)
+	Expect(err).ToNot(HaveOccurred())
+	remoteModelDir := filepath.Join(workerModels, model)
+	loadOptions := &pb.ModelOptions{
+		Model: model, ModelPath: remoteModelDir,
+		ModelFile:          filepath.Join(remoteModelDir, model+".onnx"),
+		DraftModel:         filepath.Join(remoteModelDir, model+"-draft.gguf"),
+		MMProj:             filepath.Join(remoteModelDir, model+"-mmproj.gguf"),
+		OriginalConfigFile: filepath.Join(remoteModelDir, model+".onnx.json"),
+		EngineArgs:         `{"extended_protocol":true}`,
+		EnvVars:            map[string]string{"FIXTURE_ENV": "preserved"},
+	}
+	loadResult, err := backend.LoadModel(ctx, loadOptions)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(loadResult.Success).To(BeTrue(), loadResult.Message)
+	for _, marker := range []string{
+		"model_file=" + conformanceDigest([]byte(tinyArtifact())),
+		"model_companion=" + conformanceDigest([]byte(`{"companion":true}`)),
+		"draft_model=" + conformanceDigest([]byte("frontend-only-draft")),
+		"mmproj=" + conformanceDigest([]byte("frontend-only-mmproj")),
+		"original_config_file=" + conformanceDigest([]byte(`{"companion":true}`)),
+	} {
+		Expect(loadResult.Message).To(ContainSubstring(marker))
+	}
+	loadEcho, err := backend.Predict(ctx, &pb.PredictOptions{Prompt: "ECHO_LOAD_PARAMS"})
+	Expect(err).ToNot(HaveOccurred())
+	var echoedLoad map[string]string
+	Expect(json.Unmarshal(loadEcho.Message, &echoedLoad)).To(Succeed())
+	Expect(echoedLoad).To(Equal(map[string]string{
+		"model": model, "model_file": loadOptions.ModelFile, "draft_model": loadOptions.DraftModel,
+		"mmproj": loadOptions.MMProj, "engine_args": loadOptions.EngineArgs,
+		"original_config_file": loadOptions.OriginalConfigFile, "fixture_env": "preserved",
+	}))
+
+	By("staging every Predict and PredictStream multimodal path through the peer transport")
+	predict, err := backend.Predict(ctx, &pb.PredictOptions{
+		Prompt: "ECHO_FIXTURE_INPUTS", Images: []string{imagePath}, Videos: []string{videoPath}, Audios: []string{audioPath},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	for _, marker := range []string{"image[0]=" + conformanceDigest(image), "video[0]=" + conformanceDigest(video), "audio[0]=" + conformanceDigest(audio)} {
+		Expect(string(predict.Message)).To(ContainSubstring(marker))
+	}
+	var streamed strings.Builder
+	Expect(backend.PredictStream(ctx, &pb.PredictOptions{
+		Prompt: "ECHO_FIXTURE_INPUTS", Images: []string{imagePath}, Videos: []string{videoPath}, Audios: []string{audioPath},
+	}, func(reply *pb.Reply) { streamed.Write(reply.Message) })).To(Succeed())
+	for _, digest := range []string{conformanceDigest(image), conformanceDigest(video), conformanceDigest(audio)} {
+		Expect(streamed.String()).To(ContainSubstring(digest))
+	}
+
+	By("staging image references and retrieving image, video and 3D outputs")
+	imageOut := filepath.Join(fixtureDir, "outputs/generated.png")
+	imageResult, err := backend.GenerateImage(ctx, &pb.GenerateImageRequest{Src: imagePath, RefImages: []string{imagePath, imagePath}, Dst: imageOut})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(imageResult.Success).To(BeTrue(), imageResult.Message)
+	Expect(imageResult.Message).To(ContainSubstring("src=" + conformanceDigest(image)))
+	Expect(imageResult.Message).To(ContainSubstring("ref_image[1]=" + conformanceDigest(image)))
+	generatedImage, err := os.ReadFile(imageOut)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(bytes.HasPrefix(generatedImage, conformancePNG)).To(BeTrue())
+
+	videoOut := filepath.Join(fixtureDir, "outputs/generated.mp4")
+	videoResult, err := backend.GenerateVideo(ctx, &pb.GenerateVideoRequest{
+		StartImage: imagePath, EndImage: imagePath, Audio: audioPath, Dst: videoOut,
+		Params: map[string]string{"extended-protocol": "preserved"},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(videoResult.Success).To(BeTrue(), videoResult.Message)
+	for _, marker := range []string{"start_image=" + conformanceDigest(image), "end_image=" + conformanceDigest(image), "audio=" + conformanceDigest(audio)} {
+		Expect(videoResult.Message).To(ContainSubstring(marker))
+	}
+	generatedVideo, err := os.ReadFile(videoOut)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(bytes.HasPrefix(generatedVideo, conformanceVideo)).To(BeTrue())
+
+	assetOut := filepath.Join(fixtureDir, "outputs/generated.glb")
+	assetResult, err := backend.Generate3D(ctx, &pb.Generate3DRequest{
+		Src: imagePath, Dst: assetOut, Quality: "1024", Params: map[string]string{"extended-protocol": "preserved"},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(assetResult.Success).To(BeTrue(), assetResult.Message)
+	Expect(assetResult.Message).To(ContainSubstring("src=" + conformanceDigest(image)))
+	generatedAsset, err := os.ReadFile(assetOut)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(bytes.HasPrefix(generatedAsset, conformanceGLB)).To(BeTrue())
+
+	By("staging TTS model, voice and every multiple-reference input")
+	references, err := json.Marshal([]map[string]string{{"audio": refAPath, "text": "a"}, {"audio": refBPath, "text": "b"}})
+	Expect(err).ToNot(HaveOccurred())
+	ttsRequest := &pb.TTSRequest{
+		Text: "fixture", Model: ttsModelPath, Voice: voicePath, Dst: filepath.Join(fixtureDir, "outputs/tts.wav"),
+		Params: map[string]string{"multi_reference_cond": string(references)},
+	}
+	ttsResult, err := backend.TTS(ctx, ttsRequest)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(ttsResult.Success).To(BeTrue(), ttsResult.Message)
+	for _, marker := range []string{"model=" + conformanceDigest([]byte(tinyArtifact())), "voice=" + conformanceDigest(voice), "reference[0]=" + conformanceDigest(refA), "reference[1]=" + conformanceDigest(refB)} {
+		Expect(ttsResult.Message).To(ContainSubstring(marker))
+	}
+	ttsBytes, err := os.ReadFile(ttsRequest.Dst)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(ttsBytes[:4]).To(Equal([]byte("RIFF")))
+	var ttsStream []*pb.Reply
+	ttsStreamRequest := &pb.TTSRequest{Text: "fixture stream", Voice: voicePath, Params: map[string]string{"multi_reference_cond": string(references)}}
+	Expect(backend.TTSStream(ctx, ttsStreamRequest, func(reply *pb.Reply) { ttsStream = append(ttsStream, reply) })).To(Succeed())
+	Expect(ttsStream).ToNot(BeEmpty())
+	Expect(string(ttsStream[0].Message)).To(ContainSubstring(conformanceDigest(voice)))
+	Expect(string(ttsStream[0].Message)).To(ContainSubstring(conformanceDigest(refB)))
+
+	By("staging sound generation, detection, and unary and streaming transcription inputs")
+	soundOut := filepath.Join(fixtureDir, "outputs/sound.wav")
+	src := audioPath
+	soundResult, err := backend.SoundGeneration(ctx, &pb.SoundGenerationRequest{Text: "fixture", Src: &src, Dst: soundOut})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(soundResult.Success).To(BeTrue(), soundResult.Message)
+	Expect(soundResult.Message).To(ContainSubstring("src=" + conformanceDigest(audio)))
+	soundBytes, err := os.ReadFile(soundOut)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(soundBytes[:4]).To(Equal([]byte("RIFF")))
+	detection, err := backend.SoundDetection(ctx, &pb.SoundDetectionRequest{Src: audioPath, TopK: 1})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(detection.Detections).To(HaveLen(1))
+	Expect(detection.Detections[0].Label).To(ContainSubstring("src=" + conformanceDigest(audio)))
+	transcript, err := backend.AudioTranscription(ctx, &pb.TranscriptRequest{Dst: audioPath})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(transcript.Text).To(ContainSubstring("audio=" + conformanceDigest(audio)))
+	var transcriptStream []*pb.TranscriptStreamResponse
+	Expect(backend.AudioTranscriptionStream(ctx, &pb.TranscriptRequest{Dst: audioPath}, func(reply *pb.TranscriptStreamResponse) {
+		transcriptStream = append(transcriptStream, reply)
+	})).To(Succeed())
+	Expect(transcriptStream).ToNot(BeEmpty())
+	Expect(transcriptStream[len(transcriptStream)-1].GetFinalResult().GetText()).To(ContainSubstring("audio=" + conformanceDigest(audio)))
+
+	By("retrieving nested export and completed quantization outputs")
+	exportDir := filepath.Join(fixtureDir, "exported-model")
+	exportResult, err := backend.ExportModel(ctx, &pb.ExportModelRequest{
+		CheckpointPath: imagePath, Model: videoPath, OutputPath: exportDir, ExportFormat: "gguf",
+		ExtraOptions: map[string]string{"extended-protocol": "preserved"},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(exportResult.Success).To(BeTrue(), exportResult.Message)
+	Expect(exportResult.Message).To(ContainSubstring("checkpoint=" + conformanceDigest(image)))
+	Expect(exportResult.Message).To(ContainSubstring("model=" + conformanceDigest(video)))
+	Expect(os.ReadFile(filepath.Join(exportDir, "nested", "weights.bin"))).To(Equal([]byte("MOCK-EXPORTED-WEIGHTS\n")))
+	Expect(os.ReadFile(filepath.Join(exportDir, "nested", "config.json"))).To(Equal([]byte("{\"mock\":true}\n")))
+
+	quantDir := filepath.Join(fixtureDir, "quantized")
+	jobID := "binary-conformance-quantization"
+	job, err := backend.StartQuantization(ctx, &pb.QuantizationRequest{
+		Model: imagePath, QuantizationType: "q4_k_m", OutputDir: quantDir, JobId: jobID,
+		ExtraOptions: map[string]string{"extended-protocol": "preserved"},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(job.Success).To(BeTrue(), job.Message)
+	Expect(job.Message).To(ContainSubstring("model=" + conformanceDigest(image)))
+	var progress []*pb.QuantizationProgressUpdate
+	Expect(backend.QuantizationProgress(ctx, &pb.QuantizationProgressRequest{JobId: jobID}, func(update *pb.QuantizationProgressUpdate) {
+		progress = append(progress, update)
+	})).To(Succeed())
+	Expect(progress).To(HaveLen(1))
+	Expect(progress[0].Status).To(Equal("completed"))
+	Expect(progress[0].ProgressPercent).To(Equal(float32(100)))
+	Expect(progress[0].OutputFile).To(Equal(filepath.Join(quantDir, "nested", jobID+".gguf")))
+	Expect(os.ReadFile(progress[0].OutputFile)).To(Equal([]byte("MOCK-GGUF:q4_k_m\n")))
+
+	Expect(owners.ownerIndexOf(c, 2, workerID)).To(Equal(ownerFrontend))
+	Expect(relayFrontend).To(Equal(1 - ownerFrontend))
+}
+
 var _ = Describe("Binary backend feature conformance", Label("Distributed"), Label("Cluster"), func() {
-	It("binary backend feature conformance through the tunnel owner", func() {
+	It("binary backend feature conformance through the tunnel owner and a peer relay", func() {
 		const model = "conformance"
 		fixtures := newConformanceFixtures()
-		c := startCluster(1, 1, withMockModel(model), func(o *cluster.Options) {
+		c, dsn := startClusterOnFreshDB(2, 2, withMockModel(model), func(o *cluster.Options) {
 			o.ConformanceStaging = true
-			o.Models[model+".yaml"] = mockModelYAML(model) + `known_usecases:
+			o.SpreadWorkerRegistrations = true
+			o.Models[model+".onnx"] = tinyArtifact()
+			o.Models[model+".onnx.json"] = `{"companion":true}`
+			o.Models[model+"-draft.gguf"] = "frontend-only-draft"
+			o.Models[model+"-mmproj.gguf"] = "frontend-only-mmproj"
+			o.Models[model+".yaml"] = fmt.Sprintf(`name: %s
+backend: mock-backend
+parameters:
+  model: %s.onnx
+draft_model: %s-draft.gguf
+mmproj: %s-mmproj.gguf
+known_usecases:
   - chat
   - embeddings
   - image
@@ -664,23 +952,55 @@ var _ = Describe("Binary backend feature conformance", Label("Distributed"), Lab
 pii_detection:
   min_score: 0.5
   default_action: mask
-`
+`, model, model, model, model)
 		})
 		client := inferenceClient(c)
-		baseURL := c.FrontendURL(0)
-
 		probe := newRosterProbe(c, client, 0)
 		Eventually(probe.healthyNames, nodeRosterTimeout, nodeRosterPoll).
-			Should(ContainElement(c.WorkerName(0)), probe.describe)
+			Should(ConsistOf(c.WorkerName(0), c.WorkerName(1)), probe.describe)
+		workerID := probe.idOf(c.WorkerName(0))
+		Expect(workerID).ToNot(BeEmpty())
 
-		runPublicBackendConformance(client, baseURL, model, fixtures)
+		db := openClusterDB(dsn)
+		installConformanceDiskCapacity(db, 1<<30)
+		By("proving disk-headroom admission remains enforced below the store-model floor")
+		resp, payload := conformancePostJSON(client, c.FrontendURL(0), "/stores/set", map[string]any{
+			"store": "capacity-rejection", "backend": "mock-backend",
+			"keys": [][]float32{{1}}, "values": []string{"must-not-store"},
+		})
+		Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError), string(payload))
+		Expect(string(payload)).To(ContainSubstring("no node has enough free disk for the model"))
+		setConformanceDiskCapacity(db, 8<<30)
+
+		pinModelToNode(c, client, 0, model, workerID, "conformance-primary")
+
+		owners := newTunnelOwners(db)
+		var ownerFrontend int
+		Eventually(func() int {
+			ownerFrontend = owners.ownerIndexOf(c, 2, workerID)
+			return ownerFrontend
+		}, instanceRosterTimeout, instanceRosterPoll).Should(BeElementOf(0, 1), owners.describe)
+		relayFrontend := 1 - ownerFrontend
+
+		runPublicBackendConformance(client, c.FrontendURL(ownerFrontend), model, fixtures)
+		servedBy(c, client, ownerFrontend, model, workerID, probe.idOf(c.WorkerName(1)))
+		Expect(owners.ownerIndexOf(c, 2, workerID)).To(Equal(ownerFrontend))
+
+		runPublicBackendConformance(client, c.FrontendURL(relayFrontend), model, fixtures)
+		servedBy(c, client, relayFrontend, model, workerID, probe.idOf(c.WorkerName(1)))
+		Expect(owners.ownerIndexOf(c, 2, workerID)).To(Equal(ownerFrontend))
+
+		runFileStagingConformance(c, db, owners, workerID, model, ownerFrontend, relayFrontend)
 
 		By("proving the frontend-only model artifact arrived intact at the worker")
 		workerModels, err := c.WorkerModelsDir(0)
 		Expect(err).ToNot(HaveOccurred())
-		staged, err := os.ReadFile(filepath.Join(workerModels, model, model+".bin"))
+		staged, err := os.ReadFile(filepath.Join(workerModels, model, model+".onnx"))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(staged).To(Equal([]byte(tinyArtifact())))
+		Expect(os.ReadFile(filepath.Join(workerModels, model, model+".onnx.json"))).To(Equal([]byte(`{"companion":true}`)))
+		Expect(os.ReadFile(filepath.Join(workerModels, model, model+"-draft.gguf"))).To(Equal([]byte("frontend-only-draft")))
+		Expect(os.ReadFile(filepath.Join(workerModels, model, model+"-mmproj.gguf"))).To(Equal([]byte("frontend-only-mmproj")))
 		Expect(strings.Contains(workerModels, "worker-0")).To(BeTrue())
 	})
 })

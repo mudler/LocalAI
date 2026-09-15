@@ -50,6 +50,11 @@ type fileTempReply struct {
 	Error     string `json:"error,omitempty"`
 }
 
+type fileMkdirReply struct {
+	LocalPath string `json:"local_path,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
 type fileListDirReply struct {
 	Files []string `json:"files,omitempty"`
 	Error string   `json:"error,omitempty"`
@@ -99,7 +104,7 @@ func (cfg *Config) NewStagingFileManager(ctx context.Context) (*storage.FileMana
 	return fm, nil
 }
 
-// RegisterFileControlRoutes mounts the five file-staging verbs on mux.
+// RegisterFileControlRoutes mounts the file-staging verbs on mux.
 //
 // The caller is responsible for putting mux behind authentication; see
 // nodes.AuthenticatedRoutes, which is how the worker mounts this so the file
@@ -157,7 +162,17 @@ func (cfg *Config) RegisterFileControlRoutesWithCapacity(mux *http.ServeMux, fm 
 		if err := json.Unmarshal(body, &req); err != nil {
 			return nil, fmt.Errorf("invalid files.stage request: %w", err)
 		}
-		allowedDirs := []string{cacheDir}
+		// FetchRemoteByKey names a model/data output by its storage key. Resolve
+		// that wire form to this worker's local path before applying the same
+		// allow-list as an explicitly named worker path.
+		if req.LocalPath == "/"+req.Key && (strings.HasPrefix(req.Key, storage.ModelKeyPrefix) || strings.HasPrefix(req.Key, storage.DataKeyPrefix)) {
+			resolved, ok := cfg.resolveStagingDir(req.Key)
+			if !ok {
+				return fileStageReply{Error: "invalid key"}, nil
+			}
+			req.LocalPath = resolved
+		}
+		allowedDirs := []string{cacheDir, cfg.stagingDataDir()}
 		if cfg.ModelsPath != "" {
 			allowedDirs = append(allowedDirs, cfg.ModelsPath)
 		}
@@ -188,6 +203,26 @@ func (cfg *Config) RegisterFileControlRoutesWithCapacity(mux *http.ServeMux, fm 
 		}
 		xlog.Debug("Allocated temp file", "path", localPath)
 		return fileTempReply{LocalPath: localPath}, nil
+	})
+
+	postControlVerb(mux, workerctl.PathFilesMkdir, func(_ context.Context, body []byte) (any, error) {
+		var req struct {
+			KeyPrefix string `json:"key_prefix"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			return nil, fmt.Errorf("invalid files.mkdir request: %w", err)
+		}
+		if !strings.HasPrefix(req.KeyPrefix, storage.ModelKeyPrefix) && !strings.HasPrefix(req.KeyPrefix, storage.DataKeyPrefix) {
+			return fileMkdirReply{Error: "output directory must use models/ or data/"}, nil
+		}
+		dirPath, ok := cfg.resolveStagingDir(req.KeyPrefix)
+		if !ok {
+			return fileMkdirReply{Error: "invalid key prefix"}, nil
+		}
+		if err := os.MkdirAll(dirPath, 0750); err != nil {
+			return fileMkdirReply{Error: fmt.Sprintf("creating output dir: %v", err)}, nil
+		}
+		return fileMkdirReply{LocalPath: dirPath}, nil
 	})
 
 	// files.listdir: the relative paths of every file under one key prefix.

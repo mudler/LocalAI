@@ -28,9 +28,11 @@ var _ = Describe("control plane paths on the wire", func() {
 		Entry("model delete", workerctl.PathModelDelete, "/v1/control/model/delete"),
 		Entry("models running", workerctl.PathModelsRunning, "/v1/control/models/running"),
 		Entry("node stop", workerctl.PathNodeStop, "/v1/control/node/stop"),
+		Entry("files release", workerctl.PathFilesRelease, "/v1/control/files/release"),
 		Entry("files ensure", workerctl.PathFilesEnsure, "/v1/control/files/ensure"),
 		Entry("files stage", workerctl.PathFilesStage, "/v1/control/files/stage"),
 		Entry("files temp", workerctl.PathFilesTemp, "/v1/control/files/temp"),
+		Entry("files mkdir", workerctl.PathFilesMkdir, "/v1/control/files/mkdir"),
 		Entry("files listdir", workerctl.PathFilesListDir, "/v1/control/files/listdir"),
 		Entry("mcp tool execute", workerctl.PathMCPToolExecute, "/v1/control/mcp/tools/execute"),
 		Entry("mcp discovery", workerctl.PathMCPDiscovery, "/v1/control/mcp/discovery"),
@@ -66,10 +68,12 @@ var _ = Describe("control plane paths on the wire", func() {
 			workerctl.PathModelDelete,
 			workerctl.PathModelsRunning,
 			workerctl.PathNodeStop,
+			workerctl.PathFilesRelease,
 			workerctl.PathFilesEnsure,
 			workerctl.PathFilesStage,
 			workerctl.PathFilesListDir,
 			workerctl.PathFilesTemp,
+			workerctl.PathFilesMkdir,
 		))
 	})
 

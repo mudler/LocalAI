@@ -165,6 +165,20 @@ func fixtureInputMarkers(inputs ...namedFixtureInput) (string, error) {
 	return strings.Join(markers, "; "), nil
 }
 
+func predictFixtureMarkers(in *pb.PredictOptions) (string, error) {
+	inputs := make([]namedFixtureInput, 0, len(in.Images)+len(in.Videos)+len(in.Audios))
+	for i, value := range in.Images {
+		inputs = append(inputs, namedFixtureInput{name: fmt.Sprintf("image[%d]", i), value: value})
+	}
+	for i, value := range in.Videos {
+		inputs = append(inputs, namedFixtureInput{name: fmt.Sprintf("video[%d]", i), value: value})
+	}
+	for i, value := range in.Audios {
+		inputs = append(inputs, namedFixtureInput{name: fmt.Sprintf("audio[%d]", i), value: value})
+	}
+	return fixtureInputMarkers(inputs...)
+}
+
 func ttsFixtureInputs(in *pb.TTSRequest) ([]namedFixtureInput, error) {
 	inputs := []namedFixtureInput{
 		{name: "model", value: in.Model},
@@ -256,8 +270,21 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 		"draft_model", in.DraftModel,
 		"mmproj", in.MMProj)
 	recordLoadParams(in)
+	inputs := []namedFixtureInput{
+		{name: "model_file", value: in.ModelFile},
+		{name: "draft_model", value: in.DraftModel},
+		{name: "mmproj", value: in.MMProj},
+		{name: "original_config_file", value: in.OriginalConfigFile},
+	}
+	if _, err := os.Stat(in.ModelFile + ".json"); err == nil {
+		inputs = append(inputs, namedFixtureInput{name: "model_companion", value: in.ModelFile + ".json"})
+	}
+	markers, err := fixtureInputMarkers(inputs...)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.Result{
-		Message: "Model loaded successfully (mocked)",
+		Message: "Model loaded successfully (mocked) " + markers,
 		Success: true,
 	}, nil
 }
@@ -269,6 +296,13 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	xlog.Debug("Predict called", "prompt", in.Prompt)
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
+	}
+	if strings.Contains(in.Prompt, "ECHO_FIXTURE_INPUTS") {
+		markers, err := predictFixtureMarkers(in)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.Reply{Message: []byte(markers), Tokens: 1, PromptTokens: 1}, nil
 	}
 
 	// ECHO_LOAD_PARAMS lets path-resolution tests inspect what LoadModel
@@ -284,6 +318,9 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 			snapshot["model_file"] = opts.ModelFile
 			snapshot["draft_model"] = opts.DraftModel
 			snapshot["mmproj"] = opts.MMProj
+			snapshot["engine_args"] = opts.EngineArgs
+			snapshot["original_config_file"] = opts.OriginalConfigFile
+			snapshot["fixture_env"] = opts.EnvVars["FIXTURE_ENV"]
 		}
 		payload, err := json.Marshal(snapshot)
 		if err != nil {
@@ -440,6 +477,13 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		case <-stream.Context().Done():
 			return stream.Context().Err()
 		}
+	}
+	if strings.Contains(in.Prompt, "ECHO_FIXTURE_INPUTS") {
+		markers, err := predictFixtureMarkers(in)
+		if err != nil {
+			return err
+		}
+		return stream.Send(&pb.Reply{Message: []byte(markers), Tokens: 1, PromptTokens: 1})
 	}
 
 	// Simulate C++ autoparser behavior: tool calls delivered via ChatDeltas
