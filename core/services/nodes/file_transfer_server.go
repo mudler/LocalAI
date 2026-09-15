@@ -151,6 +151,19 @@ func startFileTransferServerWithRoutes(lis net.Listener, stagingDir, modelsDir, 
 		handleListDir(w, r, stagingDir, modelsDir, dataDir, key)
 	})
 
+	mux.HandleFunc("/v1/files-dir/", func(w http.ResponseWriter, r *http.Request) {
+		if !checkBearerToken(r, token) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		key := strings.TrimPrefix(r.URL.Path, "/v1/files-dir/")
+		handleAllocDir(w, stagingDir, modelsDir, dataDir, key)
+	})
+
 	mux.HandleFunc("/v1/files-release", func(w http.ResponseWriter, r *http.Request) {
 		if !checkBearerToken(r, token) {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -1137,6 +1150,32 @@ func handleAllocTemp(w http.ResponseWriter, r *http.Request, stagingDir string) 
 	if err := json.NewEncoder(w).Encode(map[string]string{"local_path": localPath}); err != nil {
 		xlog.Warn("Failed to encode alloc-temp response", "error", err)
 	}
+}
+
+func handleAllocDir(w http.ResponseWriter, stagingDir, modelsDir, dataDir, key string) {
+	targetDir, relName := resolveKeyToDir(key, stagingDir, modelsDir, dataDir)
+	// Output directories must be explicitly rooted in models/ or data/. An
+	// unprefixed key would allocate inside the request staging cache and escape
+	// its bounded lifecycle.
+	if targetDir == stagingDir {
+		http.Error(w, "output directory must use models/ or data/", http.StatusBadRequest)
+		return
+	}
+	if err := os.MkdirAll(targetDir, 0o750); err != nil {
+		http.Error(w, fmt.Sprintf("creating output root: %v", err), http.StatusInternalServerError)
+		return
+	}
+	dirPath := filepath.Join(targetDir, relName)
+	if err := validatePathInDir(dirPath, targetDir); err != nil {
+		http.Error(w, "invalid directory path", http.StatusBadRequest)
+		return
+	}
+	if err := os.MkdirAll(dirPath, 0o750); err != nil {
+		http.Error(w, fmt.Sprintf("creating directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"local_path": dirPath})
 }
 
 func handleListDir(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string) {
