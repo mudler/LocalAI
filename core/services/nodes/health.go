@@ -250,10 +250,10 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 		// Workers (both backend and agent) send HTTP heartbeats to the frontend.
 		// If the heartbeat is stale, the worker is presumed down.
 		if time.Since(node.LastHeartbeat) > hm.staleThreshold {
-			// Skip nodes already marked offline/unhealthy — re-marking them
-			// every cycle floods the log with the same WARN+INFO pair for
-			// nodes the operator has intentionally taken down.
-			if node.Status == StatusOffline || node.Status == StatusUnhealthy {
+			// Skip nodes already at the monitor's terminal stale state. When
+			// automatic offline handling is enabled, unhealthy is an intermediate
+			// state and a stale node still needs to transition to offline.
+			if node.Status == StatusOffline || node.Status == StatusUnhealthy && !hm.autoOffline {
 				continue
 			}
 			xlog.Warn("Node heartbeat stale", "node", node.Name, "lastHeartbeat", node.LastHeartbeat)
