@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { backendControlApi, nodesApi } from '../utils/api'
 import { filterModels, filterNodes, groupModels, paginateModels, paginateNodes, runBounded, sortModels, sortNodes, summarizeFleet } from '../utils/nodeFleet'
@@ -73,6 +73,7 @@ function FleetSelect({ label, value, onChange, children }) {
 }
 
 export default function Nodes() {
+  const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
   const [nodes, setNodes] = useState([])
@@ -258,6 +259,19 @@ export default function Nodes() {
     setReturnFocusNodeId(null)
   }
 
+  const openReplicaLogs = (nodeId, processKey) => {
+    navigate(`/app/node-backend-logs/${encodeURIComponent(nodeId)}/${encodeURIComponent(processKey)}`)
+  }
+
+  const openModelLogs = (model, invoker) => {
+    const replicas = Array.isArray(model.replicas) ? model.replicas : []
+    if (replicas.length === 1 && replicas[0].node_id) {
+      openReplicaLogs(replicas[0].node_id, `${model.model_name}#${replicas[0].replica_index ?? 0}`)
+      return
+    }
+    openModelInspector(model, invoker)
+  }
+
   const closeModelDrilldown = () => {
     setInspectedModelName(null)
     setModelDrillNodeId(null)
@@ -365,7 +379,7 @@ export default function Nodes() {
             {modelLoadState === 'loaded' && groupedModels.length > 0 && <>
               <div className="model-toolbar"><input className="input fleet-toolbar__search" type="search" aria-label="Search running models" placeholder="Search model or backend…" value={modelQuery} onChange={event => setModelQuery(event.target.value)} /></div>
               <ModelFleetTable models={modelPagination.items} selectedName={inspectedModelName} inspectorOpen={!!inspectedModel && !drilledNode} onInspect={openModelInspector}
-                onStop={promptStopModel} stoppingName={stoppingModelName} sort={modelSort} onSortChange={setModelSort} />
+                onViewLogs={openModelLogs} onStop={promptStopModel} stoppingName={stoppingModelName} sort={modelSort} onSortChange={setModelSort} />
               <div className="fleet-pagination"><span>Page {modelPagination.page} of {modelPagination.totalPages}</span><button type="button" className="btn btn-secondary btn-sm" aria-label="Previous model page" disabled={modelPagination.page === 1} onClick={() => setModelPage(value => value - 1)}>Previous</button><button type="button" className="btn btn-secondary btn-sm" aria-label="Next model page" disabled={modelPagination.page === modelPagination.totalPages} onClick={() => setModelPage(value => value + 1)}>Next</button></div>
             </>}
           </div>
@@ -375,7 +389,7 @@ export default function Nodes() {
         onApprove={id => actOnNode('approve', id, 'Node approved')}
         onDrain={id => actOnNode('drain', id, 'Node set to draining')} onResume={id => actOnNode('resume', id, 'Node resumed')} />
       }
-      {workbenchView === 'models' && !drilledNode && <ModelInspector model={inspectedModel} nodes={nodes} open={!!inspectedModel} onClose={closeModelDrilldown} onOpenNode={openModelNode} focusNodeId={returnFocusNodeId} />}
+      {workbenchView === 'models' && !drilledNode && <ModelInspector model={inspectedModel} nodes={nodes} open={!!inspectedModel} onClose={closeModelDrilldown} onOpenNode={openModelNode} onViewLogs={openReplicaLogs} focusNodeId={returnFocusNodeId} />}
       {workbenchView === 'models' && drilledNode && <NodeInspector node={drilledNode} open onClose={closeModelDrilldown}
         onBack={returnToModel} backLabel={`Back to ${inspectedModel?.model_name || 'model'}`}
         onApprove={id => actOnNode('approve', id, 'Node approved')}
