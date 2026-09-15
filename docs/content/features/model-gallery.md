@@ -45,8 +45,8 @@ catalog; the entry updates in place when the operation finishes.
 
 ## Spark-X2.5-1.7B
 
-Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0
-GGUF builds:
+Install Spark-X2.5-1.7B with automatic selection among its Q4_K_M, Q8_0,
+and BF16 GGUF builds:
 
 ```bash
 local-ai models install spark-x2.5-1.7b-q4
@@ -57,6 +57,16 @@ To select the Q8_0 build explicitly:
 ```bash
 local-ai models install spark-x2.5-1.7b-q4 --variant spark-x2.5-1.7b-q8
 ```
+
+To select the BF16 build explicitly:
+
+```bash
+local-ai models install spark-x2.5-1.7b-q4 --variant spark-x2.5-1.7b-bf16
+```
+
+The BF16 weights require a 3.42 GB download. Automatic selection can choose
+BF16 when it fits available memory. Use `--variant spark-x2.5-1.7b-q4` or
+`--variant spark-x2.5-1.7b-q8` to keep a smaller build.
 
 These text-only builds use the llama.cpp backend and the embedded Jinja chat
 template. The gallery defaults to a 32,768-token context to limit memory use.

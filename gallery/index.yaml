@@ -4629,6 +4629,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   variants:
     - model: spark-x2.5-1.7b-q8
+    - model: spark-x2.5-1.7b-bf16
   urls:
     - https://huggingface.co/XHToken/Spark-X2.5-1.7B
     - https://huggingface.co/XHToken/Spark-X2.5-1.7B-GGUF
@@ -4694,6 +4695,35 @@
     - filename: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q8_0.gguf
       uri: huggingface://XHToken/Spark-X2.5-1.7B-GGUF/Spark-X2.5-1.7B-Q8_0.gguf
       sha256: cd77c03185a834bb1162a4b7713520be5838058bfc54873645beff470bb24442
+
+- !!merge <<: *spark-x2-5-1-7b
+  name: "spark-x2.5-1.7b-bf16"
+  variants: []
+  last_checked: "2026-09-15"
+  description: |
+    Spark-X2.5-1.7B is XHToken's 1.7B text model for conversation, reasoning,
+    coding, and multilingual tasks. This build uses BF16 GGUF weights,
+    the embedded Jinja chat template, and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B.gguf
+      uri: https://huggingface.co/XHToken/Spark-X2.5-1.7B-GGUF/resolve/06c93e4e998a8e53e39b7b53d9bb842c9fbb5674/Spark-X2.5-1.7B.gguf
+      sha256: 67d5f2f06e6d898efcf0dc40cab8528bc82b871c8dafb0936784183d2c10cdd9
 
 - &spark-x2-5-4b
   name: "spark-x2.5-4b-q4"
