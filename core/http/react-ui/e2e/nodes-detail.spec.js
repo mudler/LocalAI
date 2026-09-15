@@ -15,13 +15,21 @@ test.describe('Node detail page', () => {
     await mockNode(page)
     await page.goto(`/app/nodes/${ID}`)
     await expect(page.locator('.page-title').first()).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText('alpha')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'alpha' })).toBeVisible()
     await expect(page.getByText('llama-3.3')).toBeVisible()
     await expect(page.getByText('llama-cpp')).toBeVisible()
     await expect(page.getByText('env=prod')).toBeVisible()
     await expect(page.getByText('25.0% of 16 cores')).toBeVisible()
     await expect(page.getByText('2.50 load (1m)')).toBeVisible()
     await expect(page.getByText('37.3 GB / 93.1 GB')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Nodes' })).toHaveAttribute('href', '/app/nodes')
+    await expect(page.getByRole('region', { name: 'Node resources' })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Running models' })).toHaveClass(/fleet-workbench/)
+    await expect(page.getByRole('region', { name: 'Installed backends' })).toHaveClass(/fleet-workbench/)
+
+    await page.getByRole('button', { name: 'Actions for llama-3.3 replica 1' }).click()
+    await page.getByRole('menuitem', { name: 'View logs' }).click()
+    await expect(page).toHaveURL(/\/app\/node-backend-logs\/n1\/llama-3.3%230$/)
   })
 
   test('is reachable by clicking a roster panel', async ({ page }) => {
@@ -42,7 +50,8 @@ test.describe('Node detail page', () => {
       await expect(page.getByRole('button', { name: /Approve/ })).toHaveCount(0)
       await expect(page.getByRole('button', { name: /Drain/ })).toHaveCount(action === 'Drain' ? 1 : 0)
       await expect(page.getByRole('button', { name: /Resume/ })).toHaveCount(action === 'Resume' ? 1 : 0)
-      await expect(page.locator('.page-header__meta .btn-danger')).toContainText('Remove')
+      await page.getByRole('button', { name: 'Actions for alpha' }).click()
+      await expect(page.getByRole('menuitem', { name: 'Remove node…' })).toBeVisible()
     })
   }
 
@@ -64,7 +73,8 @@ test.describe('Node detail page', () => {
     await expect.poll(() => approvalRequests).toBe(1)
     await expect(page.getByText('Node approved')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Drain' })).toBeVisible()
-    await expect(page.locator('.page-header__meta .btn-danger')).toContainText('Remove')
+    await page.getByRole('button', { name: 'Actions for alpha' }).click()
+    await expect(page.getByRole('menuitem', { name: 'Remove node…' })).toBeVisible()
   })
 
   test('renders valid totals with missing available capacity as No data', async ({ page }) => {
@@ -78,5 +88,35 @@ test.describe('Node detail page', () => {
     await expect(page.locator('.node-detail__metrics')).toContainText('RAM')
     await expect(page.locator('.node-detail__metrics')).toContainText('Models disk free')
     await expect(page.locator('.node-detail__metrics').getByText('No data')).toHaveCount(3)
+  })
+
+  test('keeps model operations visible on a narrow screen', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await mockNode(page)
+    await page.goto(`/app/nodes/${ID}`)
+
+    const action = page.getByRole('button', { name: 'Actions for llama-3.3 replica 1' })
+    await expect(action).toBeVisible()
+    const box = await action.boundingBox()
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+  })
+
+  test('distinguishes a load failure from a missing node and retries in place', async ({ page }) => {
+    let attempts = 0
+    await page.route(`**/api/nodes/${ID}`, route => {
+      attempts += 1
+      if (attempts === 1) return route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"controller unavailable"}' })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: ID, name: 'alpha', node_type: 'backend', status: 'healthy', labels: {} }) })
+    })
+    await page.route(`**/api/nodes/${ID}/models`, route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+    await page.route(`**/api/nodes/${ID}/backends`, route => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+
+    await page.goto(`/app/nodes/${ID}`)
+    const error = page.getByRole('alert')
+    await expect(error).toContainText('Could not load this node')
+    await expect(page.getByText('Node not found')).toHaveCount(0)
+    await error.getByRole('button', { name: 'Retry' }).click()
+    await expect(page.getByRole('heading', { name: 'alpha' })).toBeVisible()
+    expect(attempts).toBe(2)
   })
 })
