@@ -43,6 +43,25 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## NeoHorse-1-4B
+
+Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q6_K, and Q8_0 GGUF builds:
+
+```bash
+local-ai models install neohorse-1-4b-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install neohorse-1-4b-q4 --variant neohorse-1-4b-q8
+```
+
+[NeoHorse-1-4B](https://huggingface.co/TokenRhythm/NeoHorse-1-4B) is a text-only Qwen3.5 fine-tune for coding, reasoning, and agentic tasks.
+These builds use llama.cpp and the embedded Jinja chat template.
+The gallery defaults to 32,768 context tokens; the model supports up to 262,144 tokens with sufficient memory.
+The [GGUF downloads](https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF) are pinned to a revision and verified with SHA256 checksums.
+
 ## Spark-X2.5-1.7B
 
 Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0

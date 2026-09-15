@@ -14547,6 +14547,107 @@
     - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-2B-f16.gguf
       sha256: 044a0ea136cca70711ae16e23b24d754b44eab6f2462d187aee4d7c7a9503d36
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-2B-f16.gguf
+- &neohorse-1-4b
+  name: neohorse-1-4b-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/TokenRhythm/NeoHorse-1-4B
+    - https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+  variants:
+    - model: neohorse-1-4b-q6
+    - model: neohorse-1-4b-q8
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This build uses Q4_K_M GGUF weights with
+    the embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B.Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q4_K_M.gguf
+      sha256: 9a8426d0a5a1035d7e35ccc02794c404e027cca8e51f936b225d26d93bc44753
+
+- !!merge <<: *neohorse-1-4b
+  name: neohorse-1-4b-q6
+  variants: []
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This build uses Q6_K GGUF weights with
+    the embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B.Q6_K.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B.Q6_K.gguf
+      uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q6_K.gguf
+      sha256: d29d06d4b778b21a4b7145428ba5d709bf368fc6dc7321e0af3463c1718fec41
+
+- !!merge <<: *neohorse-1-4b
+  name: neohorse-1-4b-q8
+  variants: []
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This build uses Q8_0 GGUF weights with
+    the embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B.Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q8_0.gguf
+      sha256: ec5e02b4d3a102335333a692b1b83ee454e249e06a6d27f00b2f5bc81a199c98
+
 - name: qwen_qwen3.5-4b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
