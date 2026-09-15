@@ -7,9 +7,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -188,6 +188,26 @@ func TestProtocolCoverageGuardRejectsWrongStreamShapeAndStagingDrift(t *testing.
 	}
 }
 
+func TestDeclaredFileStagingMethodsScansEntirePackage(t *testing.T) {
+	dir := t.TempDir()
+	for name, source := range map[string]string{
+		"file_staging_client.go": "package nodes\nfunc (f *FileStagingClient) Existing() {}\n",
+		"additional_staging.go":  "package nodes\nfunc (f *FileStagingClient) AddedLater() {}\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(source), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	got := declaredFileStagingMethodsInDir(t, dir, map[string]struct{}{
+		"Existing":   {},
+		"AddedLater": {},
+	})
+	if _, ok := got["AddedLater"]; !ok {
+		t.Fatalf("method declared outside file_staging_client.go was not discovered: got %v", got)
+	}
+}
+
 func validateProtocolCoverage(s protocolCoverageSurfaces, coverage []protocolCoverage) []string {
 	var errs []string
 	byMethod := make(map[string]protocolCoverage, len(coverage))
@@ -315,29 +335,69 @@ func generatedBackendMethods() map[string]rpcShape {
 
 func declaredFileStagingMethods(t *testing.T, backendMethods map[string]struct{}) map[string]struct{} {
 	t.Helper()
-	_, currentFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("locate protocol inventory source")
-	}
-	path := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "core", "services", "nodes", "file_staging_client.go"))
-	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+	workingDir, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("parse FileStagingClient implementation: %v", err)
+		t.Fatalf("get working directory while locating nodes package: %v", err)
+	}
+	moduleRoot, err := findModuleRoot(workingDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(moduleRoot, "core", "services", "nodes")
+	return declaredFileStagingMethodsInDir(t, dir, backendMethods)
+}
+
+func findModuleRoot(start string) (string, error) {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return "", fmt.Errorf("resolve module search path %q: %w", start, err)
+	}
+	for {
+		info, statErr := os.Stat(filepath.Join(dir, "go.mod"))
+		if statErr == nil && !info.IsDir() {
+			return dir, nil
+		}
+		if statErr != nil && !os.IsNotExist(statErr) {
+			return "", fmt.Errorf("inspect module marker in %s: %w", dir, statErr)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("locate LocalAI module root from %s: no go.mod found in it or any parent", start)
+		}
+		dir = parent
+	}
+}
+
+func declaredFileStagingMethodsInDir(t *testing.T, dir string, backendMethods map[string]struct{}) map[string]struct{} {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read nodes package for FileStagingClient overrides: %v", err)
 	}
 	methods := map[string]struct{}{}
-	for _, declaration := range file.Decls {
-		fn, ok := declaration.(*ast.FuncDecl)
-		if !ok || fn.Recv == nil || !fn.Name.IsExported() || len(fn.Recv.List) != 1 {
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
 			continue
 		}
-		receiver := fn.Recv.List[0].Type
-		if pointer, ok := receiver.(*ast.StarExpr); ok {
-			receiver = pointer.X
+		path := filepath.Join(dir, entry.Name())
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatalf("parse %s while discovering FileStagingClient overrides: %v", path, err)
 		}
-		name, ok := receiver.(*ast.Ident)
-		_, backendMethod := backendMethods[fn.Name.Name]
-		if ok && name.Name == reflect.TypeOf(nodesvc.FileStagingClient{}).Name() && backendMethod {
-			methods[fn.Name.Name] = struct{}{}
+		for _, declaration := range file.Decls {
+			fn, ok := declaration.(*ast.FuncDecl)
+			if !ok || fn.Recv == nil || !fn.Name.IsExported() || len(fn.Recv.List) != 1 {
+				continue
+			}
+			receiver := fn.Recv.List[0].Type
+			if pointer, ok := receiver.(*ast.StarExpr); ok {
+				receiver = pointer.X
+			}
+			name, ok := receiver.(*ast.Ident)
+			_, backendMethod := backendMethods[fn.Name.Name]
+			if ok && name.Name == reflect.TypeOf(nodesvc.FileStagingClient{}).Name() && backendMethod {
+				methods[fn.Name.Name] = struct{}{}
+			}
 		}
 	}
 	return methods
