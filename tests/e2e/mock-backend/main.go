@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
@@ -46,11 +47,6 @@ var (
 		0x1f, 0x00, 0x05, 0x00, 0x01, 0xff, 0x89, 0x99, 0x3d, 0x1d, 0x00, 0x00,
 		0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
 	}
-	wavFixture = []byte{
-		'R', 'I', 'F', 'F', 0x28, 0, 0, 0, 'W', 'A', 'V', 'E', 'f', 'm', 't', ' ',
-		0x10, 0, 0, 0, 1, 0, 1, 0, 0x40, 0x1f, 0, 0, 0x80, 0x3e, 0, 0,
-		2, 0, 0x10, 0, 'd', 'a', 't', 'a', 4, 0, 0, 0, 0, 0, 0, 0,
-	}
 	videoFixture = []byte("\x00\x00\x00\x18ftypisomMOCK-VIDEO")
 	glbFixture   = []byte{'g', 'l', 'T', 'F', 2, 0, 0, 0, 12, 0, 0, 0}
 )
@@ -68,7 +64,11 @@ type ttsFixtureReference struct {
 // reach filesystem APIs. Distributed staging produces short absolute paths;
 // inline base64, data URIs, URLs, and long opaque values must remain literals.
 func safeLocalFixturePath(value string) (string, bool) {
-	if value == "" || len(value) > 4096 || strings.IndexByte(value, 0) >= 0 || !filepath.IsAbs(value) {
+	if value == "" || len(value) > 4096 || strings.IndexByte(value, 0) >= 0 || isInlineFixtureValue(value) || !filepath.IsAbs(value) {
+		return "", false
+	}
+	clean := filepath.Clean(value)
+	if clean != value {
 		return "", false
 	}
 	for _, component := range strings.Split(value, string(filepath.Separator)) {
@@ -76,7 +76,37 @@ func safeLocalFixturePath(value string) (string, bool) {
 			return "", false
 		}
 	}
-	return filepath.Clean(value), true
+
+	current := string(filepath.Separator)
+	for _, component := range strings.Split(strings.TrimPrefix(clean, string(filepath.Separator)), string(filepath.Separator)) {
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 {
+			return "", false
+		}
+	}
+	info, err := os.Lstat(clean)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", false
+	}
+	return clean, true
+}
+
+func isInlineFixtureValue(value string) bool {
+	lower := strings.ToLower(value)
+	if strings.HasPrefix(lower, "data:") || strings.Contains(value, "://") {
+		return true
+	}
+	// Standard base64 may legitimately begin with '/'. Require a meaningful
+	// payload size so short Unix paths such as /tmp/foo are not ambiguous.
+	if len(value) < 64 {
+		return false
+	}
+	if _, err := base64.StdEncoding.DecodeString(value); err == nil {
+		return true
+	}
+	_, err := base64.RawStdEncoding.DecodeString(value)
+	return err == nil
 }
 
 func writeFixture(path string, data []byte) error {
@@ -655,7 +685,7 @@ func (m *MockBackend) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, e
 		markers, err = fixtureInputMarkers(inputs...)
 	}
 	if err == nil {
-		err = writeFixture(in.Dst, wavFixture)
+		err = writeMinimalWAV(in.Dst)
 	}
 	return fixtureResult("TTS audio generated successfully (mocked)", markers, err), nil
 }
@@ -673,16 +703,23 @@ func (m *MockBackend) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamSe
 	if err != nil {
 		return err
 	}
+	metadata := map[string]any{"sample_rate": ttsSampleRate()}
 	if markers != "" {
-		if err := stream.Send(&pb.Reply{Message: []byte(markers)}); err != nil {
-			return err
-		}
+		metadata["fixture_inputs"] = markers
 	}
+	message, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+	if err := stream.Send(&pb.Reply{Message: message}); err != nil {
+		return err
+	}
+	pcm := minimalPCM(ttsSampleRate())
 	const chunks = 3
-	chunkSize := (len(wavFixture) + chunks - 1) / chunks
-	for start := 0; start < len(wavFixture); start += chunkSize {
-		end := min(start+chunkSize, len(wavFixture))
-		chunk := wavFixture[start:end]
+	chunkSize := (len(pcm) + chunks - 1) / chunks
+	for start := 0; start < len(pcm); start += chunkSize {
+		end := min(start+chunkSize, len(pcm))
+		chunk := pcm[start:end]
 		if err := stream.Send(&pb.Reply{Audio: chunk}); err != nil {
 			return err
 		}
@@ -709,7 +746,7 @@ func (m *MockBackend) SoundGeneration(ctx context.Context, in *pb.SoundGeneratio
 		namedFixtureInput{name: "src", value: in.GetSrc()},
 	)
 	if err == nil {
-		err = writeFixture(in.Dst, wavFixture)
+		err = writeMinimalWAV(in.Dst)
 	}
 	return fixtureResult("Sound generated successfully (mocked)", markers, err), nil
 }
@@ -748,15 +785,18 @@ func ttsSampleRate() int {
 // so that tests can verify audio integrity end-to-end. The sample rate
 // is configurable via MOCK_TTS_SAMPLE_RATE to test rate mismatch bugs.
 func writeMinimalWAV(path string) error {
+	if path == "" {
+		return nil
+	}
 	sampleRate := ttsSampleRate()
 	const numChannels = 1
 	const bitsPerSample = 16
-	const freq = 440.0
-	const durationSec = 0.5
-	numSamples := int(float64(sampleRate) * durationSec)
-
-	dataSize := numSamples * numChannels * (bitsPerSample / 8)
+	pcm := minimalPCM(sampleRate)
+	dataSize := len(pcm)
 	const headerLen = 44
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+		return err
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -778,12 +818,21 @@ func writeMinimalWAV(path string) error {
 	// data chunk — 440Hz sine wave
 	_, _ = f.Write([]byte("data"))
 	_ = binary.Write(f, binary.LittleEndian, uint32(dataSize))
+	_, err = f.Write(pcm)
+	return err
+}
+
+func minimalPCM(sampleRate int) []byte {
+	const freq = 440.0
+	const durationSec = 0.5
+	numSamples := int(float64(sampleRate) * durationSec)
+	pcm := make([]byte, numSamples*2)
 	for i := range numSamples {
 		t := float64(i) / float64(sampleRate)
 		sample := int16(math.MaxInt16 / 2 * math.Sin(2*math.Pi*freq*t))
-		_ = binary.Write(f, binary.LittleEndian, sample)
+		binary.LittleEndian.PutUint16(pcm[i*2:], uint16(sample))
 	}
-	return nil
+	return pcm
 }
 
 func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
