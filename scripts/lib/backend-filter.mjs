@@ -78,6 +78,11 @@ export function inferBackendPath(item) {
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
     return `backend/cpp/turboquant/`;
   }
+  if (item.dockerfile.endsWith("buun-llama-cpp")) {
+    // buun-llama-cpp is a llama.cpp fork that reuses backend/cpp/llama-cpp
+    // sources via a thin wrapper Makefile. Changes to either dir retrigger it.
+    return `backend/cpp/buun-llama-cpp/`;
+  }
   if (item.dockerfile.endsWith("bonsai")) {
     // bonsai is a llama.cpp fork that reuses backend/cpp/llama-cpp sources
     // via a thin wrapper Makefile. Changes to either dir should retrigger it.
@@ -152,7 +157,7 @@ export function backendChanged(backend, pathPrefix, changedFiles) {
 
   // Fork backends reuse backend/cpp/llama-cpp sources via thin wrappers;
   // changes to either directory must retrigger their pipelines.
-  return (backend === "turboquant" || backend === "bonsai") &&
+  return (backend === "turboquant" || backend === "buun-llama-cpp" || backend === "bonsai") &&
     changedFiles.some(file => file.startsWith("backend/cpp/llama-cpp/"));
 }
 
