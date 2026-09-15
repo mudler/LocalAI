@@ -43,6 +43,26 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Nex-N2.5-Pro
+
+Install Nex-N2.5-Pro with automatic selection between Q4_K_M, Q6_K, and Q8_0 GGUF builds:
+
+```bash
+local-ai models install nex-n2.5-pro-q4
+```
+
+To select Q6_K explicitly:
+
+```bash
+local-ai models install nex-n2.5-pro-q4 --variant nex-n2.5-pro-q6
+```
+
+These entries provide text conversations through llama.cpp with a 32,768-token
+default context. The installer downloads all shards for the selected build.
+Q4_K_M requires approximately 251 GB of disk space for weights alone;
+runtime memory requirements also depend on context size and GPU offloading.
+The entries use the [publisher's recommended sampling settings](https://huggingface.co/nex-agi/Nex-N2.5-Pro#usage).
+
 ## Spark-X2.5-1.7B
 
 Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0
