@@ -104,6 +104,11 @@ linters:
       - path: ^backend/
         text: 'os\.(Getenv|LookupEnv|Environ)'
         linters: [forbidigo]
+      # The E2E mock backend is also an independent subprocess. Its staging
+      # assertion is configured by the process environment from the harness.
+      - path: ^tests/e2e/mock-backend/main\.go$
+        text: 'os\.(Getenv|LookupEnv|Environ)'
+        linters: [forbidigo]
       # System capability probe reads HOME, PATH-style vars to discover
       # GPUs, default paths, etc. — not LocalAI config.
       - path: ^pkg/system/

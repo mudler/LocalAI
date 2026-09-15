@@ -172,7 +172,7 @@ func requestWithBearer(method, endpoint, token string) int {
 	return resp.StatusCode
 }
 
-var _ = Describe("Authenticated distributed binaries", Label("Distributed"), Label("Cluster"), func() {
+var _ = Describe("Authenticated distributed binaries", Label("Distributed"), Label("Cluster"), Label("MachineAuth"), func() {
 	It("keeps browser, registration, tunnel, and agent credentials in their own trust domains", func() {
 		const (
 			registrationToken = "distributed-machine-secret"
