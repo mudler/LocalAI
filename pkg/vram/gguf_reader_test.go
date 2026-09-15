@@ -41,13 +41,22 @@ var _ = Describe("DefaultGGUFReader", func() {
 			"large tokenizer metadata should be skipped with a bounds error")
 	})
 
-	It("converts a parser panic from malformed string metadata to an error", func() {
+	It("rejects an overflowing string length before the parser allocates it", func() {
 		server := serveGGUF(malformedGGUFString(uint64(math.MaxInt64)))
 
 		_, err := vram.DefaultGGUFReader().ReadMetadata(context.Background(), server.URL+"/model.gguf")
 
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("parser panic"))
+		Expect(err.Error()).To(ContainSubstring("remaining bytes"))
+		Expect(err.Error()).NotTo(ContainSubstring("parser panic"))
+	})
+
+	It("rejects a string length larger than the remaining remote file", func() {
+		server := serveGGUF(malformedGGUFString(1 << 20))
+
+		_, err := vram.DefaultGGUFReader().ReadMetadata(context.Background(), server.URL+"/model.gguf")
+
+		Expect(err).To(MatchError(ContainSubstring("remaining bytes")))
 	})
 })
 
