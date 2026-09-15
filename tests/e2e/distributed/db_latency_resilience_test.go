@@ -73,7 +73,7 @@ var _ = Describe("Control plane under a failing database", Label("Distributed"),
 		// would evict when it could not read the slot table.
 		Expect(db.Create(&nodes.NodeModel{
 			ID: "nm-victim", NodeID: "n-keep", ModelName: "victim", ReplicaIndex: 0,
-			State: "loaded", InFlight: 0, Address: "10.0.0.1:9001",
+			State: "loaded", InFlight: 0, WorkerLocalAddress: "10.0.0.1:9001",
 			LastUsed: time.Now().Add(-time.Hour),
 		}).Error).ToNot(HaveOccurred())
 
