@@ -98,12 +98,12 @@ test.describe('Nodes join command', () => {
     // command carrying them fails at kong before LocalAI does anything.
     await expect(card).not.toContainText('--distributed-nats')
     await expect(card).not.toContainText('--distributed-db')
-    // Neither step tells an operator to point anything at a bus. The FRONTEND
-    // command is asserted first and by itself: it is the one that used to carry
-    // --nats-url as a required flag, so an operator following this card would
-    // have stood a broker up before starting LocalAI at all.
-    await expect(card.locator('.p2p-cmd pre').nth(0)).toContainText('--auth-database-url')
-    await expect(card.locator('.p2p-cmd pre').nth(0)).not.toContainText('--nats-url')
-    await expect(card.locator('.p2p-cmd pre').nth(1)).not.toContainText('--nats-url')
+    // The disabled-state card starts the frontend. Worker commands appear
+    // after distributed mode is enabled and are covered by the test above.
+    const frontendCommand = card.locator('.p2p-cmd pre')
+    await expect(frontendCommand).toHaveCount(1)
+    await expect(frontendCommand).toContainText('local-ai run --distributed')
+    await expect(frontendCommand).toContainText('--auth-database-url')
+    await expect(frontendCommand).not.toContainText('--nats-url')
   })
 })
