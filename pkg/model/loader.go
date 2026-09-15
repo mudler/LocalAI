@@ -28,8 +28,8 @@ type ModelUnloadHook func(modelName string)
 
 // RemoteModelUnloader handles unloading models from remote backend nodes.
 // In distributed mode, this is implemented by the SmartRouter.
-// When ShutdownModel is called for a model with no local process,
-// RemoteModelUnloader.UnloadRemoteModel is called to tell the remote node to free it.
+// ShutdownModel calls the remote unloader even when a local process exists so
+// one request stops every placement in a mixed local and distributed fleet.
 type RemoteModelUnloader interface {
 	UnloadRemoteModel(modelName string) error
 }

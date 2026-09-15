@@ -1,64 +1,35 @@
 import { test, expect } from './coverage-fixtures.js'
 
 async function mockCluster(page, nodes) {
-  await page.route('**/api/nodes', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nodes) }))
-  await page.route('**/api/nodes/models', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
-  await page.route('**/api/nodes/scheduling', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
+  await page.route('**/api/nodes', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(nodes) }))
 }
 
-test.describe('Nodes roster header', () => {
-  test('shows a cluster pulse line and no stat-card grid', async ({ page }) => {
+test.describe('Nodes fleet roster', () => {
+  test('uses the fleet response without prefetching models or backends', async ({ page }) => {
+    const requests = []
+    page.on('request', request => requests.push(request.url()))
     await mockCluster(page, [
-      { id: 'n1', name: 'alpha', node_type: 'backend', address: '10.0.0.1:50051', status: 'healthy' },
-      { id: 'n2', name: 'beta', node_type: 'backend', address: '10.0.0.2:50051', status: 'draining' },
+      { id: 'n1', name: 'alpha', node_type: 'backend', address: '10.0.0.1:50051', status: 'healthy', model_count: 3 },
+      { id: 'a1', name: 'agent-1', node_type: 'agent', address: '10.0.0.9:50051', status: 'draining', model_count: 0 },
     ])
     await page.goto('/app/nodes')
-    await expect(page.locator('.cluster-pulse')).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator('.cluster-pulse')).toContainText('2 nodes')
-    await expect(page.locator('.stat-grid')).toHaveCount(0)
+    await expect(page.getByRole('table', { name: 'Fleet nodes' })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('tab', { name: 'Nodes' })).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('tab', { name: 'Nodes' }).click()
+    await expect(page.getByRole('row', { name: /alpha/ })).toContainText('3')
+    expect(requests.some(url => url.includes('/api/nodes/models'))).toBe(false)
+    expect(requests.some(url => /\/api\/nodes\/[^/]+\/backends/.test(url))).toBe(false)
   })
 
-  test('shows an approval callout for pending nodes', async ({ page }) => {
-    await mockCluster(page, [{ id: 'n3', name: 'gamma', node_type: 'backend', address: '10.0.0.3:50051', status: 'pending' }])
+  test('preserves the empty worker setup experience', async ({ page }) => {
+    await mockCluster(page, [])
     await page.goto('/app/nodes')
-    await expect(page.locator('.attention-callout')).toContainText('approval', { timeout: 15_000 })
-  })
-})
-
-test.describe('Nodes roster panels', () => {
-  test('shows used and total system RAM reported by a worker', async ({ page }) => {
-    await mockCluster(page, [
-      {
-        id: 'n1',
-        name: 'alpha',
-        node_type: 'backend',
-        address: '10.0.0.1:50051',
-        status: 'healthy',
-        total_ram: 8_000_000_000,
-        available_ram: 3_000_000_000,
-      },
-    ])
-
-    await page.goto('/app/nodes')
-    await expect(page.locator('.node-panel').filter({ hasText: 'alpha' })).toContainText('RAM 4.7 GB / 7.5 GB', { timeout: 15_000 })
+    await expect(page.getByText('No workers registered yet')).toBeVisible({ timeout: 15_000 })
   })
 
-  test('shows model chips without clicking and filters by type', async ({ page }) => {
-    await page.route('**/api/nodes', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
-      { id: 'n1', name: 'alpha', node_type: 'backend', address: '10.0.0.1:50051', status: 'healthy' },
-      { id: 'a1', name: 'agent-1', node_type: 'agent', address: '10.0.0.9:50051', status: 'healthy' },
-    ]) }))
-    await page.route('**/api/nodes/models', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([
-      { node_id: 'n1', model_name: 'llama-3.3', state: 'loaded', in_flight: 2, replica_index: 0 },
-    ]) }))
-    await page.route('**/api/nodes/scheduling', r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
-
+  test('preserves the distributed-disabled setup experience', async ({ page }) => {
+    await page.route('**/api/nodes', route => route.fulfill({ status: 503, body: 'Service Unavailable' }))
     await page.goto('/app/nodes')
-    // model chip visible without any expand click
-    await expect(page.locator('.node-panel').filter({ hasText: 'alpha' }).getByText('llama-3.3')).toBeVisible({ timeout: 15_000 })
-    // segmented filter: Agent shows the agent node, hides the backend node
-    await page.getByRole('radio', { name: /Agent/ }).click()
-    await expect(page.getByText('agent-1')).toBeVisible()
-    await expect(page.getByText('alpha')).toHaveCount(0)
+    await expect(page.getByText('Distributed Mode Not Enabled')).toBeVisible({ timeout: 15_000 })
   })
 })

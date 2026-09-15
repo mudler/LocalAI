@@ -31,6 +31,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/credentials"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/sigstore/sigstore-go/pkg/verify"
@@ -303,7 +304,7 @@ func (v *Verifier) remoteOptions(ctx context.Context) []remote.Option {
 	if v.auth != nil {
 		opts = append(opts, remote.WithAuth(staticAuth{auth: v.auth}))
 	} else {
-		opts = append(opts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+		opts = append(opts, remote.WithAuthFromKeychain(credentials.Keychain()))
 	}
 	return opts
 }

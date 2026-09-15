@@ -214,6 +214,23 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(locator.removedPairs[1]).To(Equal(modelNodePair{"node-2", "llama"}))
 		})
 
+		It("stops each node once when the registry returns multiple replicas", func() {
+			locator.nodes = []BackendNode{
+				{ID: "node-1", Name: "worker-1"},
+				{ID: "node-1", Name: "worker-1"},
+				{ID: "node-2", Name: "worker-2"},
+			}
+
+			Expect(adapter.UnloadRemoteModel("llama")).To(Succeed())
+			Expect(mc.requestCalls).To(HaveLen(2))
+			Expect(mc.requestCalls[0].Subject).To(Equal(messaging.SubjectNodeBackendStop("node-1")))
+			Expect(mc.requestCalls[1].Subject).To(Equal(messaging.SubjectNodeBackendStop("node-2")))
+			Expect(locator.removedPairs).To(ConsistOf(
+				modelNodePair{"node-1", "llama"},
+				modelNodePair{"node-2", "llama"},
+			))
+		})
+
 		It("continues when one node fails", func() {
 			locator.nodes = []BackendNode{
 				{ID: "node-fail", Name: "worker-fail"},

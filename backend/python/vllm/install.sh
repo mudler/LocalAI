@@ -119,7 +119,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
     # can rewrite it. Darwin therefore follows vllm-metal and can lag the Linux
     # vllm pin (requirements-cublas13-after.txt, bumped independently against
     # vllm/vllm) until vllm-metal supports a newer vLLM.
-    VLLM_METAL_VERSION="v0.28.0"
+    VLLM_METAL_VERSION="v0.29.0"
 
     # The coupled vLLM source version is whatever this vllm-metal release builds
     # against. Derive it from the PINNED tag rather than hardcoding a second value

@@ -55,4 +55,26 @@ test.describe('Navigation', () => {
     await expect(rail.locator('a.nav-item[href="/app/fine-tune"]')).toBeVisible()
     await expect(rail.locator('a.nav-item[href="/app/face"]')).toBeVisible()
   })
+
+  test('desktop console rail collapses to accessible icons and persists globally', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/app/backends')
+
+    const rail = page.locator('.console-rail')
+    const collapse = rail.getByRole('button', { name: 'Collapse Operate navigation' })
+    await expect(collapse).toBeVisible()
+    await collapse.click()
+    await expect(rail).toHaveClass(/console-rail--collapsed/)
+    await expect(rail).toHaveCSS('width', '60px')
+    await expect(rail.getByRole('link', { name: 'Backends', exact: true })).toHaveClass(/active/)
+    await expect(rail.getByRole('link', { name: 'Overview', exact: true })).toHaveAttribute('title', 'Overview')
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('localai_console_rail_collapsed'))).toBe('true')
+
+    await page.goto('/app/agents')
+    const buildRail = page.locator('.console-rail')
+    await expect(buildRail).toHaveClass(/console-rail--collapsed/)
+    await expect(buildRail.getByRole('button', { name: 'Expand Build navigation' })).toBeVisible()
+    await page.reload()
+    await expect(page.locator('.console-rail')).toHaveClass(/console-rail--collapsed/)
+  })
 })
