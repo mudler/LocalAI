@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"time"
 
@@ -112,7 +115,6 @@ func (f *fakeMessagingClient) Subscribe(_ string, _ func([]byte)) (messaging.Sub
 	return &fakeSubscription{}, nil
 }
 
-
 type fakeSubscription struct{}
 
 func (f *fakeSubscription) Unsubscribe() error { return nil }
@@ -135,6 +137,20 @@ func stopPayloadOf(s *scriptedControlWorkers, key string) messaging.BackendStopR
 	}
 	Fail("no backend.stop reached " + key)
 	return messaging.BackendStopRequest{}
+}
+
+func legacyNoContentControlClient() *ControlClient {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	DeferCleanup(server.Close)
+
+	return NewControlClient(func(string) func(context.Context, string, string) (net.Conn, error) {
+		return func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var dialer net.Dialer
+			return dialer.DialContext(ctx, "tcp", server.Listener.Addr().String())
+		}
+	}, "")
 }
 
 // --- Tests ---
@@ -309,8 +325,19 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 	// single case would show that some node gets the path; only two show that
 	// the two kinds no longer differ, which is the whole content of the change.
 	Describe("StopBackend and node type", func() {
-		It("surfaces a backend worker's stop failure", func() {
-			locator.nodes = []BackendNode{{ID: "backend-1", Name: "gpu-1", NodeType: NodeTypeBackend}}
+		It("accepts a legacy empty backend.stop reply", func() {
+			adapter = NewRemoteUnloaderAdapter(locator, legacyNoContentControlClient(), 3*time.Minute, 15*time.Minute)
+
+			Expect(adapter.StopBackend("legacy-worker", "llama-backend")).To(Succeed())
+		})
+
+		It("accepts an explicit successful backend.stop reply", func() {
+			scriptStop("backend-1")
+
+			Expect(adapter.StopBackend("backend-1", "llama-backend")).To(Succeed())
+		})
+
+		It("honors an explicit failed backend.stop reply", func() {
 			workers.scriptReply(controlKey("backend-1", workerctl.PathBackendStop), messaging.BackendStopReply{
 				Success:                 false,
 				Error:                   "llama#0: process refused to die",
@@ -319,6 +346,13 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 
 			err := adapter.StopBackend("backend-1", "llama-backend")
 			Expect(err).To(MatchError(ContainSubstring("process refused to die")))
+		})
+
+		It("returns a backend.stop transport failure", func() {
+			workers.scriptUnroutable("missing-worker")
+
+			err := adapter.StopBackend("missing-worker", "llama-backend")
+			Expect(errors.Is(err, ErrWorkerUnroutable)).To(BeTrue())
 		})
 
 		It("sends a backend stop to a BACKEND node over the tunnel, naming the backend", func() {

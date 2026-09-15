@@ -411,7 +411,10 @@ func (a *RemoteUnloaderAdapter) StopBackend(nodeID, backend string) error {
 func (a *RemoteUnloaderAdapter) stopBackend(ctx context.Context, nodeID, backend string, force bool) error {
 	// An empty Backend is what the worker reads as "stop everything"; see
 	// decodeBackendStopRequest.
-	var reply messaging.BackendStopReply
+	// Workers predating BackendStopReply acknowledge this verb with 204, so
+	// success is the compatibility default that survives an empty body. A
+	// decoded reply still replaces it with the worker's explicit verdict.
+	reply := messaging.BackendStopReply{Success: true}
 	if err := a.control.Call(ctx, nodeID, workerctl.PathBackendStop,
 		messaging.BackendStopRequest{Backend: backend, Force: force}, &reply); err != nil {
 		return err
