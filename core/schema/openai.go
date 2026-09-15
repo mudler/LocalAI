@@ -210,6 +210,10 @@ type OpenAIRequest struct {
 	Size string `json:"size,omitempty"`
 	// Prompt is read only by completion/image API calls
 	Prompt any `json:"prompt,omitempty" yaml:"prompt"`
+	// NegativePrompt for image generation (matches Stable Diffusion WebUI /
+	// vLLM-Omni conventions). Combined, comma-separated, with any "|"-suffixed
+	// negative tags in Prompt.
+	NegativePrompt string `json:"negative_prompt,omitempty" yaml:"negative_prompt"`
 
 	// Edit endpoint
 	Instruction string `json:"instruction,omitempty" yaml:"instruction"`
