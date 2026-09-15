@@ -64,6 +64,26 @@ The [source model](https://huggingface.co/XHToken/Spark-X2.5-1.7B) supports up t
 1,048,576 tokens; larger contexts require more memory. Use a current LocalAI
 llama.cpp backend with Spark-X2.5 support.
 
+## NeoHorse-1-9B
+
+[NeoHorse-1-9B](https://huggingface.co/TokenRhythm/NeoHorse-1-9B-GGUF) is a text-only Qwen3.5 fine-tune for coding, reasoning, and agentic tasks.
+The gallery offers the publisher's Q4_K_M, Q5_K_M, and Q8_0 GGUF builds for llama.cpp.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install neohorse-1-9b-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install neohorse-1-9b-q4 --variant neohorse-1-9b-q8
+```
+
+These entries use the embedded Jinja chat template and a 4,096-token default context.
+They do not enable MTP speculative decoding because these weights contain no MTP draft head.
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
