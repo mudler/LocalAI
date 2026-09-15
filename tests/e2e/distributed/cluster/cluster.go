@@ -59,6 +59,15 @@ type Options struct {
 
 	RegistrationToken string // default "e2e-token"
 	AdminEmail        string // default "admin@e2e.local"
+	// RequireNodeApproval keeps new workers pending until an administrator
+	// approves them. The default remains auto-approval for the existing cluster
+	// matrix; authentication conformance opts into the production approval flow.
+	RequireNodeApproval bool
+	// DistributedRequireAuth turns on the same fail-closed umbrella setting on
+	// every frontend and worker process. It is separate from RegistrationToken:
+	// the ordinary harness has always supplied a token, while this option proves
+	// the binaries were explicitly told that an empty token is fatal.
+	DistributedRequireAuth bool
 
 	Frontends int
 	Workers   int
@@ -248,6 +257,14 @@ func workerStagingEnv(opts Options, workerRoot string) []string {
 	}
 }
 
+func authenticatedDeploymentEnv(opts Options) []string {
+	env := []string{fmt.Sprintf("LOCALAI_AUTO_APPROVE_NODES=%t", !opts.RequireNodeApproval)}
+	if opts.DistributedRequireAuth {
+		env = append(env, "LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true")
+	}
+	return env
+}
+
 // Start brings up the cluster. It blocks until every frontend answers /readyz
 // and every worker process has been spawned. It does NOT wait for workers to
 // register: that needs an authenticated admin session, so a caller that depends
@@ -367,9 +384,9 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 		// advertising a loopback address that would mean "yourself" on a
 		// multi-host deployment.
 		fmt.Sprintf("LOCALAI_DISTRIBUTED_ADVERTISE_ADDR=127.0.0.1:%d", port),
-		"LOCALAI_AUTO_APPROVE_NODES=true",
 		"DEBUG=true",
 	)
+	cmd.Env = append(cmd.Env, authenticatedDeploymentEnv(c.opts)...)
 	if c.opts.ReconnectGrace > 0 {
 		cmd.Env = append(cmd.Env, "LOCALAI_WORKER_RECONNECT_GRACE="+c.opts.ReconnectGrace.String())
 	}
@@ -464,6 +481,9 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
 		"DEBUG=true",
 	)
+	if c.opts.DistributedRequireAuth {
+		cmd.Env = append(cmd.Env, "LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true")
+	}
 	cmd.Env = append(cmd.Env, workerStagingEnv(c.opts, dir)...)
 
 	return c.spawn(name, cmd, grpcPort)
@@ -492,6 +512,9 @@ func (c *Cluster) startAgentWorker(i int) (*Process, error) {
 		"LOCALAI_REGISTRATION_TOKEN="+c.opts.RegistrationToken,
 		"DEBUG=true",
 	)
+	if c.opts.DistributedRequireAuth {
+		cmd.Env = append(cmd.Env, "LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true")
+	}
 	return c.spawn(name, cmd, 0)
 }
 
