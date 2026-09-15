@@ -375,6 +375,40 @@ static void test_tts_language_and_params() {
           "tts params: an explicit param overrides the derived caption");
 }
 
+static void test_tts_reference_transcript() {
+    backend::TTSRequest request;
+    request.set_text("New speech to generate.");
+    request.set_voice("reference.wav");
+    (*request.mutable_params())["ref_text"] = "The saved voice transcript.";
+
+    const auto task = build_tts_request(request, clip(24000, 1));
+    check(option_or(task.options, "reference_text", "") ==
+              "The saved voice transcript.",
+          "tts reference: saved transcript reaches Fish Audio's option");
+    check(option_or(task.options, "ref_text", "") ==
+              "The saved voice transcript.",
+          "tts reference: original transcript parameter is preserved");
+    check(task.text_input->text == "New speech to generate.",
+          "tts reference: transcript does not replace synthesis text");
+
+    (*request.mutable_params())["reference_text"] = "Explicit transcript.";
+    const auto explicit_task = build_tts_request(request, clip(24000, 1));
+    check(option_or(explicit_task.options, "reference_text", "") ==
+              "Explicit transcript.",
+          "tts reference: explicit canonical parameter wins over alias");
+
+    (*request.mutable_params())["reference_text"] = "";
+    const auto empty_task = build_tts_request(request, clip(24000, 1));
+    check(has_key(empty_task.options, "reference_text") &&
+              empty_task.options.at("reference_text").empty(),
+          "tts reference: explicit empty canonical parameter is preserved");
+
+    request.mutable_params()->clear();
+    const auto missing_task = build_tts_request(request, clip(24000, 1));
+    check(!has_key(missing_task.options, "reference_text"),
+          "tts reference: no transcript is invented when none was supplied");
+}
+
 static void test_sound_generation_minimal() {
     backend::SoundGenerationRequest request;
     request.set_text("a distant thunderstorm");
@@ -562,6 +596,7 @@ int main() {
     test_tts_empty_language_is_not_a_language();
     test_tts_clip_and_instructions();
     test_tts_language_and_params();
+    test_tts_reference_transcript();
     test_sound_generation_minimal();
     test_sound_generation_full();
     test_transform_text_absent();
