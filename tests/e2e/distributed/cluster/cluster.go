@@ -16,7 +16,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -218,10 +220,13 @@ const (
 	testHMACSecret   = "e2e-cluster-hmac-secret"
 	readinessTimeout = 90 * time.Second
 	readinessPoll    = 200 * time.Millisecond
-	// processExitTimeout bounds the post-SIGKILL wait in terminate. An unbounded
-	// wait turns one stuck child (D state, or a Wait that never returns) into a
-	// suite-wide Ginkgo timeout that names nothing.
-	processExitTimeout = 10 * time.Second
+	// processGracefulExitTimeout lets the real binaries run the same shutdown
+	// handlers they run under an orchestrator. In particular, workers must stop
+	// their backend process groups before exiting. It exceeds processmanager's
+	// 15s backend grace, but remains bounded so one stuck child cannot consume a
+	// suite-wide Ginkgo timeout.
+	processGracefulExitTimeout = 20 * time.Second
+	processKillExitTimeout     = 10 * time.Second
 )
 
 func (o *Options) applyDefaults() {
@@ -749,17 +754,39 @@ func (c *Cluster) spawn(name string, cmd *exec.Cmd, port int) (*Process, error) 
 	return p, nil
 }
 
-// terminate kills the process, waits for the reaper, and releases the log
-// handle. Safe to call more than once and on a process that already exited.
+// terminate asks the process to shut down, waits for the reaper, and falls back
+// to SIGKILL after a bounded grace. The graceful first step is load-bearing:
+// local-ai workers use their SIGTERM handler to stop backend process groups,
+// while killing only the worker would orphan those children. Safe to call more
+// than once and on a process that already exited.
 func (p *Process) terminate() {
 	if p == nil || p.Cmd == nil || p.Cmd.Process == nil {
 		return
 	}
+	select {
+	case <-p.exited:
+		if p.logFile != nil {
+			_ = p.logFile.Close()
+		}
+		return
+	default:
+	}
+
+	_ = p.Cmd.Process.Signal(syscall.SIGTERM)
+	select {
+	case <-p.exited:
+		if p.logFile != nil {
+			_ = p.logFile.Close()
+		}
+		return
+	case <-time.After(processGracefulExitTimeout):
+	}
+
 	_ = p.Cmd.Process.Kill()
 	select {
 	case <-p.exited:
-	case <-time.After(processExitTimeout):
-		fmt.Printf("warning: %s did not exit within %s after SIGKILL; continuing teardown\n", p.Name, processExitTimeout)
+	case <-time.After(processKillExitTimeout):
+		fmt.Printf("warning: %s did not exit within %s after SIGKILL; continuing teardown\n", p.Name, processKillExitTimeout)
 	}
 	if p.logFile != nil {
 		_ = p.logFile.Close()
@@ -802,6 +829,45 @@ func (c *Cluster) WorkerModelsDir(i int) (string, error) {
 		return "", err
 	}
 	return filepath.Join(c.baseDir, c.workers[i].Name, "models"), nil
+}
+
+// WorkerBackendPIDs returns the live backend children currently owned by
+// worker i whose executable name matches backend. Reading the kernel's process
+// tree, instead of inferring a load from API state, lets teardown assertions
+// retain the exact processes which must disappear after the worker exits.
+//
+// This helper is Linux-only, like ProcessEnviron below: the binary cluster
+// suite runs on Linux and deliberately fails rather than weakening a lifecycle
+// assertion on platforms without /proc.
+func (c *Cluster) WorkerBackendPIDs(i int, backend string) ([]int, error) {
+	if err := c.checkWorkerIndex(i); err != nil {
+		return nil, err
+	}
+	workerPID := c.workers[i].Cmd.Process.Pid
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil, fmt.Errorf("reading process table for worker %d: %w", i, err)
+	}
+
+	var matches []int
+	for _, entry := range entries {
+		pid, err := strconv.Atoi(entry.Name())
+		if err != nil {
+			continue
+		}
+		status, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
+		if err != nil {
+			continue // the process exited between readdir and read
+		}
+		if !strings.Contains(string(status), fmt.Sprintf("\nPPid:\t%d\n", workerPID)) {
+			continue
+		}
+		executable, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
+		if err == nil && filepath.Base(executable) == backend {
+			matches = append(matches, pid)
+		}
+	}
+	return matches, nil
 }
 
 // WorkerName is the node name worker i registered under.
