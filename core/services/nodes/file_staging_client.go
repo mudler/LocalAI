@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"github.com/mudler/xlog"
 	ggrpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
+	"gorm.io/gorm"
 )
 
 const stagedInputReleaseTimeout = 30 * time.Second
@@ -44,12 +46,17 @@ type FileStagingClient struct {
 	mu              sync.RWMutex
 	remoteModelPath string // set during LoadModel from staged ModelPath
 	quantization    map[string]quantizationOutput
+	quantStore      quantizationStagingStore
+	dataPath        string
 }
 
 type quantizationOutput struct {
-	frontendDir string
-	remoteDir   string
-	keyPrefix   string
+	frontendDir     string
+	dataRelativeDir string
+	remoteDir       string
+	keyPrefix       string
+	inputRequestID  string
+	inputKeys       []string
 }
 
 type ttsReference struct {
@@ -88,11 +95,26 @@ var _ grpc.BackendUnwrapper = (*FileStagingClient)(nil)
 
 // NewFileStagingClient creates a new file staging wrapper.
 func NewFileStagingClient(inner grpc.Backend, stager FileStager, nodeID string) *FileStagingClient {
+	return NewFileStagingClientWithOptions(inner, stager, nodeID, FileStagingClientOptions{})
+}
+
+type FileStagingClientOptions struct {
+	DB       *gorm.DB
+	DataPath string
+}
+
+func NewFileStagingClientWithOptions(inner grpc.Backend, stager FileStager, nodeID string, options FileStagingClientOptions) *FileStagingClient {
+	var store quantizationStagingStore
+	if options.DB != nil {
+		store = gormQuantizationStagingStore{db: options.DB}
+	}
 	return &FileStagingClient{
 		WrappedBackend: grpc.WrappedBackend{Backend: inner},
 		stager:         stager,
 		nodeID:         nodeID,
 		quantization:   map[string]quantizationOutput{},
+		quantStore:     store,
+		dataPath:       options.DataPath,
 	}
 }
 
@@ -125,9 +147,9 @@ func (l *stagedInputLifecycle) track(key string) {
 	l.keys = append(l.keys, key)
 }
 
-func (l *stagedInputLifecycle) release() {
+func (l *stagedInputLifecycle) release() error {
 	if len(l.keys) == 0 {
-		return
+		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), stagedInputReleaseTimeout)
@@ -135,14 +157,18 @@ func (l *stagedInputLifecycle) release() {
 	if releaser, ok := l.client.stager.(RequestFileReleaser); ok {
 		if err := releaser.ReleaseRemoteRequest(ctx, l.client.nodeID, l.requestID, l.keys); err != nil {
 			xlog.Warn("Failed to release staged request inputs", "node", l.client.nodeID, "requestID", l.requestID, "keyCount", len(l.keys), "error", err)
+			return err
 		}
-		return
+		return nil
 	}
+	var releaseErr error
 	for _, key := range l.keys {
 		if err := l.client.stager.ReleaseRemote(ctx, l.client.nodeID, key); err != nil {
 			xlog.Warn("Failed to release staged input", "node", l.client.nodeID, "key", key, "error", err)
+			releaseErr = errors.Join(releaseErr, err)
 		}
 	}
+	return releaseErr
 }
 
 // stageInputFile uploads a local file to the remote node via the FileStager.
@@ -537,6 +563,7 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 		}
 	}
 	frontendOutputPath := in.OutputPath
+	var exportKeyPrefix string
 	if frontendOutputPath != "" {
 		if err := os.MkdirAll(frontendOutputPath, 0750); err != nil {
 			return nil, fmt.Errorf("creating export output directory: %w", err)
@@ -545,11 +572,13 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 		if !ok {
 			return nil, fmt.Errorf("exporting a directory requires remote directory allocation")
 		}
-		remoteOutputPath, allocErr := allocator.AllocRemoteDir(ctx, f.nodeID, storage.ModelKey(filepath.Base(frontendOutputPath)))
+		exportKeyPrefix = storage.ModelKey(path.Join("exports", filepath.Base(frontendOutputPath), requestID()))
+		remoteOutputPath, allocErr := allocator.AllocRemoteDir(ctx, f.nodeID, exportKeyPrefix)
 		if allocErr != nil {
 			return nil, fmt.Errorf("allocating remote export directory: %w", allocErr)
 		}
 		in.OutputPath = remoteOutputPath
+		defer func() { _ = f.releaseRemoteDir(exportKeyPrefix) }()
 	}
 
 	result, err := f.Backend.ExportModel(ctx, in, opts...)
@@ -562,10 +591,7 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 
 	// Fetch exported files from the worker back to the frontend
 	if frontendOutputPath != "" {
-		modelName := filepath.Base(frontendOutputPath)
-		keyPrefix := storage.ModelKey(modelName) // "models/<modelName>"
-
-		files, err := f.stager.ListRemoteDir(ctx, f.nodeID, keyPrefix)
+		files, err := f.stager.ListRemoteDir(ctx, f.nodeID, exportKeyPrefix)
 		if err != nil {
 			return &pb.Result{Success: false, Message: fmt.Sprintf("listing remote export dir: %v", err)}, nil
 		}
@@ -574,7 +600,7 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 		}
 
 		for _, relPath := range files {
-			key := keyPrefix + "/" + relPath
+			key := exportKeyPrefix + "/" + relPath
 			localDst := filepath.Join(frontendOutputPath, relPath)
 			os.MkdirAll(filepath.Dir(localDst), 0750)
 
@@ -590,7 +616,12 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 
 func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.QuantizationRequest, opts ...ggrpc.CallOption) (*pb.QuantizationJobResult, error) {
 	lifecycle := f.newStagedInputLifecycle()
-	defer lifecycle.release()
+	keepInputs := false
+	defer func() {
+		if !keepInputs {
+			lifecycle.release()
+		}
+	}()
 	in = proto.Clone(in).(*pb.QuantizationRequest)
 	if in.Model != "" && isFilePath(in.Model) {
 		remoteModel, err := f.stageInputFile(ctx, lifecycle, in.Model, "inputs")
@@ -600,6 +631,10 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 		in.Model = remoteModel
 	}
 	frontendOutputDir := in.OutputDir
+	output := quantizationOutput{
+		inputRequestID: lifecycle.requestID,
+		inputKeys:      append([]string(nil), lifecycle.keys...),
+	}
 	if frontendOutputDir != "" {
 		if err := os.MkdirAll(frontendOutputDir, 0750); err != nil {
 			return nil, fmt.Errorf("creating quantization output directory: %w", err)
@@ -608,64 +643,209 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 		if !ok {
 			return nil, fmt.Errorf("quantizing into a directory requires remote directory allocation")
 		}
-		keyPrefix := storage.DataKey(path.Join("quantization", in.JobId))
+		if f.quantStore != nil && f.dataPath != "" {
+			if err := validatePathInDir(frontendOutputDir, f.dataPath); err != nil {
+				return nil, fmt.Errorf("quantization output directory must be within the local data path: %w", err)
+			}
+		}
+		keyPrefix := storage.DataKey(path.Join("quantization", in.JobId, requestID()))
 		remoteOutputDir, err := allocator.AllocRemoteDir(ctx, f.nodeID, keyPrefix)
 		if err != nil {
 			return nil, fmt.Errorf("allocating remote quantization directory: %w", err)
 		}
 		in.OutputDir = remoteOutputDir
-		f.mu.Lock()
-		f.quantization[in.JobId] = quantizationOutput{frontendDir: frontendOutputDir, remoteDir: remoteOutputDir, keyPrefix: keyPrefix}
-		f.mu.Unlock()
+		output = quantizationOutput{
+			frontendDir: frontendOutputDir, remoteDir: remoteOutputDir, keyPrefix: keyPrefix,
+			inputRequestID: output.inputRequestID, inputKeys: output.inputKeys,
+		}
+		if f.dataPath != "" {
+			if rel, relErr := filepath.Rel(f.dataPath, frontendOutputDir); relErr == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				output.dataRelativeDir = rel
+			}
+		}
+	}
+	// Quantization is asynchronous. Persist the staged input lifecycle even when
+	// the caller did not request an output directory, so terminal progress (or a
+	// stop request) can release the model after the worker is finished with it.
+	if err := f.rememberQuantization(ctx, in.JobId, output); err != nil {
+		_ = f.releaseRemoteDir(output.keyPrefix)
+		return nil, fmt.Errorf("persisting quantization staging state: %w", err)
 	}
 	result, err := f.Backend.StartQuantization(ctx, in, opts...)
 	if err != nil || result == nil || !result.Success {
-		f.mu.Lock()
-		delete(f.quantization, in.JobId)
-		f.mu.Unlock()
+		if output.keyPrefix != "" {
+			_ = f.releaseRemoteDir(output.keyPrefix)
+		}
+		f.discardQuantization(in.JobId)
+		return result, err
 	}
+	keepInputs = true
 	return result, err
 }
 
 func (f *FileStagingClient) QuantizationProgress(ctx context.Context, in *pb.QuantizationProgressRequest, fn func(update *pb.QuantizationProgressUpdate), opts ...ggrpc.CallOption) error {
 	return f.Backend.QuantizationProgress(ctx, in, func(update *pb.QuantizationProgressUpdate) {
-		terminal := update.Status == "completed" || update.Status == "failed" || update.Status == "cancelled" || update.Status == "canceled"
-		if terminal {
-			defer func() {
-				f.mu.Lock()
-				delete(f.quantization, in.JobId)
-				f.mu.Unlock()
-			}()
+		update = proto.Clone(update).(*pb.QuantizationProgressUpdate)
+		terminal := update.Status == "completed" || update.Status == "failed" || update.Status == "stopped" || update.Status == "cancelled" || update.Status == "canceled"
+		output, ok, lookupErr := f.lookupQuantization(ctx, in.JobId)
+		if lookupErr != nil {
+			update.Status = "failed"
+			update.Message = "retrieving quantization staging state: " + lookupErr.Error()
+			update.OutputFile = ""
+			fn(update)
+			return
 		}
 		// When quantization completes, fetch the output file from the worker.
 		// Use a fresh context because quantization can take hours and the
 		// original request context may have expired by the time this fires.
 		if update.OutputFile != "" && update.Status == "completed" {
-			f.mu.RLock()
-			output, ok := f.quantization[in.JobId]
-			f.mu.RUnlock()
 			if !ok {
+				update.Status = "failed"
+				update.Message = "quantization output staging state is unavailable"
+				update.OutputFile = ""
 				fn(update)
 				return
 			}
 			relPath, relErr := filepath.Rel(output.remoteDir, update.OutputFile)
 			if relErr != nil || relPath == "." || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-				xlog.Warn("Refusing quantization output outside its remote directory", "file", update.OutputFile, "remoteDir", output.remoteDir)
+				update.Status = "failed"
+				update.Message = "quantization output is outside its allocated remote directory"
+				update.OutputFile = ""
 				fn(update)
 				return
 			}
 			key := path.Join(output.keyPrefix, filepath.ToSlash(relPath))
-			localPath := filepath.Join(output.frontendDir, relPath)
+			frontendDir := output.frontendDir
+			if f.dataPath != "" && output.dataRelativeDir != "" {
+				frontendDir = filepath.Join(f.dataPath, output.dataRelativeDir)
+			}
+			localPath := filepath.Join(frontendDir, relPath)
+			if f.dataPath != "" {
+				if err := validatePathInDir(frontendDir, f.dataPath); err != nil {
+					update.Status = "failed"
+					update.Message = "quantization output directory is outside the local data path: " + err.Error()
+					update.OutputFile = ""
+					fn(update)
+					return
+				}
+				if err := validatePathInDir(localPath, f.dataPath); err != nil {
+					update.Status = "failed"
+					update.Message = "quantization output path is outside the local data path: " + err.Error()
+					update.OutputFile = ""
+					fn(update)
+					return
+				}
+			}
 			fetchCtx, fetchCancel := context.WithTimeout(context.Background(), 10*time.Minute)
 			defer fetchCancel()
 			if err := f.stager.FetchRemoteByKey(fetchCtx, f.nodeID, key, localPath); err != nil {
 				xlog.Warn("Failed to retrieve quantization output", "file", update.OutputFile, "error", err)
+				update.Status = "failed"
+				update.Message = "retrieving quantization output: " + err.Error()
+				update.OutputFile = ""
+				fn(update)
+				return
 			} else {
 				update.OutputFile = localPath
 			}
 		}
 		fn(update)
+		if terminal && ok {
+			f.cleanupQuantization(in.JobId, output)
+		}
 	}, opts...)
+}
+
+func (f *FileStagingClient) StopQuantization(ctx context.Context, in *pb.QuantizationStopRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	result, err := f.Backend.StopQuantization(ctx, in, opts...)
+	if err == nil && result != nil && result.Success {
+		if output, ok, lookupErr := f.lookupQuantization(ctx, in.JobId); lookupErr == nil && ok {
+			f.cleanupQuantization(in.JobId, output)
+		}
+	}
+	return result, err
+}
+
+func (f *FileStagingClient) rememberQuantization(ctx context.Context, jobID string, output quantizationOutput) error {
+	if f.quantStore != nil {
+		frontendDir := output.frontendDir
+		if f.dataPath != "" {
+			// Replica-local absolute paths are neither portable nor needed in the
+			// shared store. Every replica rebuilds this from its own DataPath.
+			frontendDir = ""
+		}
+		return f.quantStore.Put(ctx, &QuantizationStagingRecord{
+			NodeID: f.nodeID, JobID: jobID, FrontendDir: frontendDir,
+			DataRelativeDir: output.dataRelativeDir, RemoteDir: output.remoteDir,
+			KeyPrefix: output.keyPrefix, InputRequestID: output.inputRequestID, InputKeys: output.inputKeys,
+		})
+	}
+	f.mu.Lock()
+	f.quantization[jobID] = output
+	f.mu.Unlock()
+	return nil
+}
+
+func (f *FileStagingClient) lookupQuantization(ctx context.Context, jobID string) (quantizationOutput, bool, error) {
+	if f.quantStore != nil {
+		record, ok, err := f.quantStore.Get(ctx, f.nodeID, jobID)
+		if err != nil || !ok {
+			return quantizationOutput{}, ok, err
+		}
+		return quantizationOutput{frontendDir: record.FrontendDir, dataRelativeDir: record.DataRelativeDir, remoteDir: record.RemoteDir, keyPrefix: record.KeyPrefix, inputRequestID: record.InputRequestID, inputKeys: record.InputKeys}, true, nil
+	}
+	f.mu.RLock()
+	output, ok := f.quantization[jobID]
+	f.mu.RUnlock()
+	return output, ok, nil
+}
+
+func (f *FileStagingClient) discardQuantization(jobID string) {
+	if f.quantStore != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), stagedInputReleaseTimeout)
+		defer cancel()
+		if err := f.quantStore.Delete(ctx, f.nodeID, jobID); err != nil {
+			xlog.Warn("Failed to delete quantization staging state", "jobID", jobID, "error", err)
+		}
+		return
+	}
+	f.mu.Lock()
+	delete(f.quantization, jobID)
+	f.mu.Unlock()
+}
+
+func (f *FileStagingClient) cleanupQuantization(jobID string, output quantizationOutput) {
+	var cleanupErr error
+	if output.inputRequestID != "" && len(output.inputKeys) != 0 {
+		cleanupErr = (&stagedInputLifecycle{client: f, requestID: output.inputRequestID, keys: output.inputKeys}).release()
+	}
+	if output.keyPrefix != "" {
+		if err := f.releaseRemoteDir(output.keyPrefix); err != nil {
+			cleanupErr = errors.Join(cleanupErr, err)
+		}
+	}
+	if cleanupErr != nil {
+		return
+	}
+	f.discardQuantization(jobID)
+}
+
+func (f *FileStagingClient) releaseRemoteDir(keyPrefix string) error {
+	releaser, ok := f.stager.(RemoteDirectoryReleaser)
+	if !ok {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), stagedInputReleaseTimeout)
+	defer cancel()
+	if err := releaser.ReleaseRemoteDir(ctx, f.nodeID, keyPrefix); err != nil {
+		if errors.Is(err, ErrWorkerControlUnsupported) {
+			xlog.Debug("Worker does not support remote directory cleanup", "node", f.nodeID, "keyPrefix", keyPrefix)
+			return nil
+		}
+		xlog.Warn("Failed to release remote output directory", "node", f.nodeID, "keyPrefix", keyPrefix, "error", err)
+		return err
+	}
+	return nil
 }
 
 // --- helpers ---

@@ -156,11 +156,15 @@ func startFileTransferServerWithRoutes(lis net.Listener, stagingDir, modelsDir, 
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if r.Method != http.MethodPost {
+		if r.Method != http.MethodPost && r.Method != http.MethodDelete {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		key := strings.TrimPrefix(r.URL.Path, "/v1/files-dir/")
+		if r.Method == http.MethodDelete {
+			handleReleaseDir(w, stagingDir, modelsDir, dataDir, key)
+			return
+		}
 		handleAllocDir(w, stagingDir, modelsDir, dataDir, key)
 	})
 
@@ -1176,6 +1180,24 @@ func handleAllocDir(w http.ResponseWriter, stagingDir, modelsDir, dataDir, key s
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"local_path": dirPath})
+}
+
+func handleReleaseDir(w http.ResponseWriter, stagingDir, modelsDir, dataDir, key string) {
+	targetDir, relName := resolveKeyToDir(key, stagingDir, modelsDir, dataDir)
+	if targetDir == stagingDir || relName == "" || relName == "." {
+		http.Error(w, "output directory must identify a child of models/ or data/", http.StatusBadRequest)
+		return
+	}
+	dirPath := filepath.Join(targetDir, relName)
+	if err := validatePathInDir(dirPath, targetDir); err != nil {
+		http.Error(w, "invalid directory path", http.StatusBadRequest)
+		return
+	}
+	if err := os.RemoveAll(dirPath); err != nil {
+		http.Error(w, fmt.Sprintf("removing directory: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func handleListDir(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, dataDir, key string) {
