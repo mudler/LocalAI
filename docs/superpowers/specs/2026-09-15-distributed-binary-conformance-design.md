@@ -51,6 +51,29 @@ Tests use the same command flags as the documented frontend and worker setup. A
 test helper can reduce repeated process code, but it cannot bypass a production
 transport boundary.
 
+### Authenticated deployment
+
+Run one binary scenario with WebUI authentication enabled and distributed
+authentication set to fail closed. Set the same non-empty registration token on
+the frontend and worker processes.
+
+The scenario proves these behaviors:
+
+- a worker with the correct registration token registers and sends heartbeats;
+- registration returns a unique per-node tunnel token;
+- the worker opens its tunnel with the per-node token, not a WebUI session;
+- the authenticated WebUI remains available to a browser user;
+- missing and incorrect registration tokens cannot register a worker;
+- missing and incorrect tunnel tokens cannot open a worker tunnel;
+- a pending node receives `403` until an administrator approves it;
+- a backend worker does not receive or require a user API key;
+- an approved agent worker receives a scoped API key when it needs the inference
+  API.
+
+The global WebUI middleware must delegate `/api/node/*` and `/api/cluster/*` to
+their machine-authentication handlers. The test fails if these routes accept an
+anonymous machine or require a WebUI cookie.
+
 ## Coverage boundary
 
 The suite covers the backend feature set that distributed mode routes. It does
@@ -213,6 +236,8 @@ The conformance suite treats these conditions as failures:
 - an explicit backend failure becomes success;
 - a direct request works but its relayed equivalent fails;
 - a backend method has no coverage classification.
+- WebUI authentication bypasses machine authentication, or blocks a valid
+  machine credential.
 
 Assertions use bounded deadlines. Process logs remain available on failure.
 
@@ -223,9 +248,10 @@ Run verification in increasing cost order:
 1. Focused unit tests for the three CI regressions.
 2. Fast in-process distributed tests.
 3. The feature matrix through compiled frontend and worker binaries.
-4. Existing cluster lifecycle and relay tests.
-5. The same compatible conformance cases in the `origin/master` worktree.
-6. The repository targets used by `tests-e2e-distributed` and
+4. The authenticated binary deployment scenario.
+5. Existing cluster lifecycle and relay tests.
+6. The same compatible conformance cases in the `origin/master` worktree.
+7. The repository targets used by `tests-e2e-distributed` and
    `tests-e2e-cluster` in CI.
 
 Do not lower a timeout or coverage gate to make a failure pass. Ask before a full
