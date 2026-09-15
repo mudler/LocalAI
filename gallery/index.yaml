@@ -11153,6 +11153,88 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- &gemma-4-31b-ortenzya
+  name: gemma-4-31b-ortenzya-q4
+  variants:
+    - model: gemma-4-31b-ortenzya-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic
+    - https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF
+  license: apache-2.0
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+    - gemma4
+    - multimodal
+    - reasoning
+    - creative-writing
+  description: |
+    Ortenzya is a Gemma 4 31B instruction-tuned model from llmfan46 for
+    creative writing, translation, and roleplay. This entry uses the Q4_K_M
+    GGUF with the BF16 vision projector and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q4_K_M.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q4_K_M.gguf
+      sha256: aefb0b5a93362b8880e2639c15ea807220351c7abfa8e0f6903ca25f31844981
+    - filename: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      sha256: c040f82999134f7ba8dddf1c9e3451822c8ae9af51b60a01619df43a2a3a7128
+- !!merge <<: *gemma-4-31b-ortenzya
+  name: gemma-4-31b-ortenzya-q8
+  variants: []
+  description: |
+    Ortenzya is a Gemma 4 31B instruction-tuned model from llmfan46 for
+    creative writing, translation, and roleplay. This entry uses the Q8_0
+    GGUF with the BF16 vision projector and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q8_0.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q8_0.gguf
+      sha256: 688170f6d6e03edc33ac86891eb3c37ec6cb1739f5db8625a84a1e4cdba17586
+    - filename: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      sha256: c040f82999134f7ba8dddf1c9e3451822c8ae9af51b60a01619df43a2a3a7128
 - &gemma-4-31b-scotoma-2
   name: "gemma-4-31b-scotoma-2-q4"
   variants:

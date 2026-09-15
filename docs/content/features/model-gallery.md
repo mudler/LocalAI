@@ -73,6 +73,26 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, the gallery shows whether the estimated VRAM fits (green) or may not fit (red) using a 95% headroom rule.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 
+## Gemma 4 Ortenzya 31B
+
+[Ortenzya](https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF)
+is a Gemma 4 fine-tune for creative writing, translation, and roleplay.
+Install it with automatic selection between Q4_K_M and Q8_0:
+
+```bash
+local-ai models install gemma-4-31b-ortenzya-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install gemma-4-31b-ortenzya-q4 --variant gemma-4-31b-ortenzya-q8
+```
+
+Both builds use llama.cpp, the embedded Jinja chat template, and the BF16
+vision projector for image prompts. The gallery uses a 32,768-token context
+to limit memory use, with temperature 1, top_p 0.95, and top_k 64.
+
 ## Gemma 4 12B IT
 
 Install `gemma-4-12b-it-q4` for chat, tool use, and image prompts with
