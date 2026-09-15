@@ -26,6 +26,12 @@ type lifecycleStager struct {
 	releaseCtxErr      []error
 	releaseHasDeadline []bool
 	releaseDeadlines   []time.Time
+	fetchCalls         [][2]string
+}
+
+func (s *lifecycleStager) FetchRemote(_ context.Context, _ string, remote, local string) error {
+	s.fetchCalls = append(s.fetchCalls, [2]string{remote, local})
+	return nil
 }
 
 func (s *lifecycleStager) EnsureRemote(ctx context.Context, nodeID, localPath, key string) (string, error) {
@@ -64,6 +70,40 @@ type lifecycleBackend struct {
 	streamCalls   int
 	streamBlock   <-chan struct{}
 	streamStarted chan<- struct{}
+	lastRequest   proto.Message
+}
+
+func (b *lifecycleBackend) UpscaleImage(_ context.Context, in *pb.UpscaleImageRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
+	b.lastRequest = proto.Clone(in)
+	return &pb.Result{Success: true}, nil
+}
+func (b *lifecycleBackend) Diarize(_ context.Context, in *pb.DiarizeRequest, _ ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
+	b.lastRequest = proto.Clone(in)
+	return &pb.DiarizeResponse{}, nil
+}
+func (b *lifecycleBackend) VoiceVerify(_ context.Context, in *pb.VoiceVerifyRequest, _ ...ggrpc.CallOption) (*pb.VoiceVerifyResponse, error) {
+	b.lastRequest = proto.Clone(in)
+	return &pb.VoiceVerifyResponse{}, nil
+}
+func (b *lifecycleBackend) VoiceAnalyze(_ context.Context, in *pb.VoiceAnalyzeRequest, _ ...ggrpc.CallOption) (*pb.VoiceAnalyzeResponse, error) {
+	b.lastRequest = proto.Clone(in)
+	return &pb.VoiceAnalyzeResponse{}, nil
+}
+func (b *lifecycleBackend) VoiceEmbed(_ context.Context, in *pb.VoiceEmbedRequest, _ ...ggrpc.CallOption) (*pb.VoiceEmbedResponse, error) {
+	b.lastRequest = proto.Clone(in)
+	return &pb.VoiceEmbedResponse{}, nil
+}
+func (b *lifecycleBackend) AudioTransform(_ context.Context, in *pb.AudioTransformRequest, _ ...ggrpc.CallOption) (*pb.AudioTransformResult, error) {
+	b.lastRequest = proto.Clone(in)
+	return &pb.AudioTransformResult{Dst: in.Dst}, nil
+}
+func (b *lifecycleBackend) Detect(_ context.Context, in *pb.DetectOptions, _ ...ggrpc.CallOption) (*pb.DetectResponse, error) {
+	b.lastRequest = proto.Clone(in)
+	return &pb.DetectResponse{}, nil
+}
+func (b *lifecycleBackend) Depth(_ context.Context, in *pb.DepthRequest, _ ...ggrpc.CallOption) (*pb.DepthResponse, error) {
+	b.lastRequest = proto.Clone(in)
+	return &pb.DepthResponse{}, nil
 }
 
 func (b *lifecycleBackend) Predict(_ context.Context, in *pb.PredictOptions, _ ...ggrpc.CallOption) (*pb.Reply, error) {
@@ -346,6 +386,97 @@ var _ = Describe("FileStagingClient request lifecycle", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(BeIdenticalTo(reply))
+	})
+
+	It("stages every remaining path-bearing unary method without mutating callers", func(ctx SpecContext) {
+		inline := "data:application/octet-stream;base64,AAAA"
+		tests := []struct {
+			name       string
+			request    proto.Message
+			invoke     func(*FileStagingClient, proto.Message) error
+			wantInputs int
+			wantOutput string
+		}{
+			{"upscale", &pb.UpscaleImageRequest{Src: "/front/input.png", Dst: "/front/output.png"}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.UpscaleImage(ctx, m.(*pb.UpscaleImageRequest))
+				return err
+			}, 1, "/front/output.png"},
+			{"diarize", &pb.DiarizeRequest{Dst: "/front/audio.wav"}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.Diarize(ctx, m.(*pb.DiarizeRequest))
+				return err
+			}, 1, ""},
+			{"voice verify", &pb.VoiceVerifyRequest{Audio1: "/front/a.wav", Audio2: "/front/b.wav"}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.VoiceVerify(ctx, m.(*pb.VoiceVerifyRequest))
+				return err
+			}, 2, ""},
+			{"voice analyze", &pb.VoiceAnalyzeRequest{Audio: "/front/a.wav"}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.VoiceAnalyze(ctx, m.(*pb.VoiceAnalyzeRequest))
+				return err
+			}, 1, ""},
+			{"voice embed", &pb.VoiceEmbedRequest{Audio: "/front/a.wav"}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.VoiceEmbed(ctx, m.(*pb.VoiceEmbedRequest))
+				return err
+			}, 1, ""},
+			{"audio transform", &pb.AudioTransformRequest{AudioPath: "/front/a.wav", ReferencePath: "/front/ref.wav", Dst: "/front/output.wav"}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.AudioTransform(ctx, m.(*pb.AudioTransformRequest))
+				return err
+			}, 2, "/front/output.wav"},
+			{"detect", &pb.DetectOptions{Src: "/front/input.png"}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.Detect(ctx, m.(*pb.DetectOptions))
+				return err
+			}, 1, ""},
+			{"depth", &pb.DepthRequest{Src: "/front/input.png"}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.Depth(ctx, m.(*pb.DepthRequest))
+				return err
+			}, 1, ""},
+			{"upscale inline", &pb.UpscaleImageRequest{Src: inline}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.UpscaleImage(ctx, m.(*pb.UpscaleImageRequest))
+				return err
+			}, 0, ""},
+			{"diarize inline", &pb.DiarizeRequest{Dst: inline}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.Diarize(ctx, m.(*pb.DiarizeRequest))
+				return err
+			}, 0, ""},
+			{"voice verify inline", &pb.VoiceVerifyRequest{Audio1: inline, Audio2: inline}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.VoiceVerify(ctx, m.(*pb.VoiceVerifyRequest))
+				return err
+			}, 0, ""},
+			{"voice analyze inline", &pb.VoiceAnalyzeRequest{Audio: inline}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.VoiceAnalyze(ctx, m.(*pb.VoiceAnalyzeRequest))
+				return err
+			}, 0, ""},
+			{"voice embed inline", &pb.VoiceEmbedRequest{Audio: inline}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.VoiceEmbed(ctx, m.(*pb.VoiceEmbedRequest))
+				return err
+			}, 0, ""},
+			{"audio transform inline", &pb.AudioTransformRequest{AudioPath: inline, ReferencePath: inline}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.AudioTransform(ctx, m.(*pb.AudioTransformRequest))
+				return err
+			}, 0, ""},
+			{"detect inline", &pb.DetectOptions{Src: inline}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.Detect(ctx, m.(*pb.DetectOptions))
+				return err
+			}, 0, ""},
+			{"depth inline", &pb.DepthRequest{Src: inline}, func(c *FileStagingClient, m proto.Message) error {
+				_, err := c.Depth(ctx, m.(*pb.DepthRequest))
+				return err
+			}, 0, ""},
+		}
+		for _, test := range tests {
+			By(test.name)
+			backend := &lifecycleBackend{}
+			stager := &lifecycleStager{}
+			client := NewFileStagingClient(backend, stager, "worker-1")
+			original := proto.Clone(test.request)
+			Expect(test.invoke(client, test.request)).To(Succeed())
+			Expect(proto.Equal(test.request, original)).To(BeTrue())
+			Expect(stager.ensureCalls).To(HaveLen(test.wantInputs))
+			Expect(stager.releasedKeys).To(HaveLen(test.wantInputs))
+			if test.wantOutput != "" {
+				Expect(stager.fetchCalls).To(ContainElement([2]string{"/remote/tmp", test.wantOutput}))
+			}
+			Expect(backend.lastRequest).ToNot(BeNil())
+		}
 	})
 })
 

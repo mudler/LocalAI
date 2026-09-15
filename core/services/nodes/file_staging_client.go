@@ -57,6 +57,10 @@ type quantizationOutput struct {
 	keyPrefix       string
 	inputRequestID  string
 	inputKeys       []string
+	outputFetched   bool
+	outputRelative  string
+	inputsReleased  bool
+	outputReleased  bool
 }
 
 type ttsReference struct {
@@ -298,6 +302,34 @@ func (f *FileStagingClient) GenerateImage(ctx context.Context, in *pb.GenerateIm
 	return result, nil
 }
 
+func (f *FileStagingClient) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.UpscaleImageRequest)
+	if in.Src != "" && isFilePath(in.Src) {
+		remote, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging upscale source: %w", err)
+		}
+		in.Src = remote
+	}
+	frontendDst := in.Dst
+	if frontendDst != "" {
+		remote, err := f.stager.AllocRemoteTemp(ctx, f.nodeID)
+		if err != nil {
+			return nil, fmt.Errorf("allocating upscale output: %w", err)
+		}
+		in.Dst = remote
+	}
+	result, err := f.Backend.UpscaleImage(ctx, in, opts...)
+	if err == nil && result != nil && result.Success && frontendDst != "" {
+		if fetchErr := f.retrieveOutputFile(ctx, in.Dst, frontendDst); fetchErr != nil {
+			return result, fmt.Errorf("retrieving upscale output: %w", fetchErr)
+		}
+	}
+	return result, err
+}
+
 func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
 	defer lifecycle.release()
@@ -511,6 +543,177 @@ func (f *FileStagingClient) SoundDetection(ctx context.Context, in *pb.SoundDete
 	return f.Backend.SoundDetection(ctx, in, opts...)
 }
 
+func (f *FileStagingClient) Diarize(ctx context.Context, in *pb.DiarizeRequest, opts ...ggrpc.CallOption) (*pb.DiarizeResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.DiarizeRequest)
+	if in.Dst != "" && isFilePath(in.Dst) {
+		remote, err := f.stageInputFile(ctx, lifecycle, in.Dst, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging diarization audio: %w", err)
+		}
+		in.Dst = remote
+	}
+	return f.Backend.Diarize(ctx, in, opts...)
+}
+
+func (f *FileStagingClient) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest, opts ...ggrpc.CallOption) (*pb.VoiceVerifyResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.VoiceVerifyRequest)
+	var err error
+	if in.Audio1 != "" && isFilePath(in.Audio1) {
+		in.Audio1, err = f.stageInputFile(ctx, lifecycle, in.Audio1, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging first voice sample: %w", err)
+		}
+	}
+	if in.Audio2 != "" && isFilePath(in.Audio2) {
+		in.Audio2, err = f.stageInputFile(ctx, lifecycle, in.Audio2, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging second voice sample: %w", err)
+		}
+	}
+	return f.Backend.VoiceVerify(ctx, in, opts...)
+}
+
+func (f *FileStagingClient) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest, opts ...ggrpc.CallOption) (*pb.VoiceAnalyzeResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.VoiceAnalyzeRequest)
+	if in.Audio != "" && isFilePath(in.Audio) {
+		remote, err := f.stageInputFile(ctx, lifecycle, in.Audio, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging voice analysis audio: %w", err)
+		}
+		in.Audio = remote
+	}
+	return f.Backend.VoiceAnalyze(ctx, in, opts...)
+}
+
+func (f *FileStagingClient) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest, opts ...ggrpc.CallOption) (*pb.VoiceEmbedResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.VoiceEmbedRequest)
+	if in.Audio != "" && isFilePath(in.Audio) {
+		remote, err := f.stageInputFile(ctx, lifecycle, in.Audio, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging voice embedding audio: %w", err)
+		}
+		in.Audio = remote
+	}
+	return f.Backend.VoiceEmbed(ctx, in, opts...)
+}
+
+func (f *FileStagingClient) Detect(ctx context.Context, in *pb.DetectOptions, opts ...ggrpc.CallOption) (*pb.DetectResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.DetectOptions)
+	if in.Src != "" && isFilePath(in.Src) {
+		remote, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging detection image: %w", err)
+		}
+		in.Src = remote
+	}
+	return f.Backend.Detect(ctx, in, opts...)
+}
+
+func (f *FileStagingClient) Depth(ctx context.Context, in *pb.DepthRequest, opts ...ggrpc.CallOption) (*pb.DepthResponse, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.DepthRequest)
+	if in.Src != "" && isFilePath(in.Src) {
+		remote, err := f.stageInputFile(ctx, lifecycle, in.Src, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging depth image: %w", err)
+		}
+		in.Src = remote
+	}
+	frontendDst := in.Dst
+	remoteDir := ""
+	keyPrefix := ""
+	if frontendDst != "" {
+		allocator, ok := f.stager.(RemoteDirectoryAllocator)
+		if !ok {
+			return nil, fmt.Errorf("depth exports require remote directory allocation")
+		}
+		keyPrefix = storage.DataKey(path.Join("depth", requestID()))
+		var err error
+		remoteDir, err = allocator.AllocRemoteDir(ctx, f.nodeID, keyPrefix)
+		if err != nil {
+			return nil, fmt.Errorf("allocating depth output directory: %w", err)
+		}
+		in.Dst = remoteDir
+		defer func() { _ = f.releaseRemoteDir(keyPrefix) }()
+	}
+	result, err := f.Backend.Depth(ctx, in, opts...)
+	if err != nil || result == nil || frontendDst == "" {
+		return result, err
+	}
+	for i, remotePath := range result.ExportPaths {
+		rel, relErr := filepath.Rel(remoteDir, remotePath)
+		if relErr != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return nil, fmt.Errorf("depth export is outside its allocated remote directory")
+		}
+		local := filepath.Join(frontendDst, rel)
+		remoteKey := path.Join(keyPrefix, filepath.ToSlash(rel))
+		if fetchErr := f.stager.FetchRemoteByKey(ctx, f.nodeID, remoteKey, local); fetchErr != nil {
+			return nil, fmt.Errorf("retrieving depth export: %w", fetchErr)
+		}
+		result.ExportPaths[i] = local
+	}
+	return result, nil
+}
+
+func (f *FileStagingClient) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest, opts ...ggrpc.CallOption) (*pb.AudioTransformResult, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.AudioTransformRequest)
+	var err error
+	if in.AudioPath != "" && isFilePath(in.AudioPath) {
+		in.AudioPath, err = f.stageInputFile(ctx, lifecycle, in.AudioPath, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging audio transform input: %w", err)
+		}
+	}
+	if in.ReferencePath != "" && isFilePath(in.ReferencePath) {
+		in.ReferencePath, err = f.stageInputFile(ctx, lifecycle, in.ReferencePath, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging audio transform reference: %w", err)
+		}
+	}
+	frontendDst := in.Dst
+	if frontendDst != "" {
+		in.Dst, err = f.stager.AllocRemoteTemp(ctx, f.nodeID)
+		if err != nil {
+			return nil, fmt.Errorf("allocating audio transform output: %w", err)
+		}
+	}
+	result, err := f.Backend.AudioTransform(ctx, in, opts...)
+	if err != nil || result == nil || frontendDst == "" {
+		return result, err
+	}
+	if fetchErr := f.retrieveOutputFile(ctx, in.Dst, frontendDst); fetchErr != nil {
+		return nil, fmt.Errorf("retrieving audio transform output: %w", fetchErr)
+	}
+	result.Dst = frontendDst
+	remoteRoot := filepath.Dir(in.Dst)
+	localRoot := filepath.Dir(frontendDst)
+	for _, stem := range result.Stems {
+		rel, relErr := filepath.Rel(remoteRoot, stem.Dst)
+		if relErr != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return nil, fmt.Errorf("audio transform stem is outside its allocated remote directory")
+		}
+		local := filepath.Join(localRoot, rel)
+		if fetchErr := f.retrieveOutputFile(ctx, stem.Dst, local); fetchErr != nil {
+			return nil, fmt.Errorf("retrieving audio transform stem: %w", fetchErr)
+		}
+		stem.Dst = local
+	}
+	return result, nil
+}
+
 func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
 	lifecycle := f.newStagedInputLifecycle()
 	defer lifecycle.release()
@@ -600,9 +803,18 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 		}
 
 		for _, relPath := range files {
-			key := exportKeyPrefix + "/" + relPath
-			localDst := filepath.Join(frontendOutputPath, relPath)
-			os.MkdirAll(filepath.Dir(localDst), 0750)
+			cleanRel, cleanErr := safeRemoteRelativePath(relPath)
+			if cleanErr != nil {
+				return &pb.Result{Success: false, Message: fmt.Sprintf("invalid export file %q: %v", relPath, cleanErr)}, nil
+			}
+			key := exportKeyPrefix + "/" + filepath.ToSlash(cleanRel)
+			localDst := filepath.Join(frontendOutputPath, cleanRel)
+			if err := validatePathInDir(localDst, frontendOutputPath); err != nil {
+				return &pb.Result{Success: false, Message: fmt.Sprintf("invalid export destination %q: %v", relPath, err)}, nil
+			}
+			if err := os.MkdirAll(filepath.Dir(localDst), 0750); err != nil {
+				return &pb.Result{Success: false, Message: fmt.Sprintf("creating export destination for %s: %v", relPath, err)}, nil
+			}
 
 			if err := f.stager.FetchRemoteByKey(ctx, f.nodeID, key, localDst); err != nil {
 				return &pb.Result{Success: false, Message: fmt.Sprintf("fetching export file %s: %v", relPath, err)}, nil
@@ -614,7 +826,36 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 	return result, nil
 }
 
+func safeRemoteRelativePath(value string) (string, error) {
+	if value == "" || filepath.IsAbs(value) || strings.Contains(value, `\`) {
+		return "", fmt.Errorf("path must be a non-empty portable relative path")
+	}
+	cleaned := path.Clean(value)
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || cleaned != value {
+		return "", fmt.Errorf("path contains traversal or non-canonical separators")
+	}
+	return filepath.FromSlash(cleaned), nil
+}
+
 func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.QuantizationRequest, opts ...ggrpc.CallOption) (*pb.QuantizationJobResult, error) {
+	in = proto.Clone(in).(*pb.QuantizationRequest)
+	frontendOutputDir := in.OutputDir
+	dataRelativeDir := ""
+	if f.quantStore != nil {
+		if f.dataPath == "" {
+			return nil, fmt.Errorf("durable quantization staging requires a local data path")
+		}
+		if frontendOutputDir != "" {
+			if err := validatePathInDir(frontendOutputDir, f.dataPath); err != nil {
+				return nil, fmt.Errorf("quantization output directory must be within the local data path: %w", err)
+			}
+			var err error
+			dataRelativeDir, err = filepath.Rel(f.dataPath, frontendOutputDir)
+			if err != nil || dataRelativeDir == "." || filepath.IsAbs(dataRelativeDir) || dataRelativeDir == ".." || strings.HasPrefix(dataRelativeDir, ".."+string(filepath.Separator)) {
+				return nil, fmt.Errorf("quantization output directory must be a child of the local data path")
+			}
+		}
+	}
 	lifecycle := f.newStagedInputLifecycle()
 	keepInputs := false
 	defer func() {
@@ -622,7 +863,6 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 			lifecycle.release()
 		}
 	}()
-	in = proto.Clone(in).(*pb.QuantizationRequest)
 	if in.Model != "" && isFilePath(in.Model) {
 		remoteModel, err := f.stageInputFile(ctx, lifecycle, in.Model, "inputs")
 		if err != nil {
@@ -630,10 +870,10 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 		}
 		in.Model = remoteModel
 	}
-	frontendOutputDir := in.OutputDir
 	output := quantizationOutput{
-		inputRequestID: lifecycle.requestID,
-		inputKeys:      append([]string(nil), lifecycle.keys...),
+		inputRequestID:  lifecycle.requestID,
+		inputKeys:       append([]string(nil), lifecycle.keys...),
+		dataRelativeDir: dataRelativeDir,
 	}
 	if frontendOutputDir != "" {
 		if err := os.MkdirAll(frontendOutputDir, 0750); err != nil {
@@ -643,11 +883,6 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 		if !ok {
 			return nil, fmt.Errorf("quantizing into a directory requires remote directory allocation")
 		}
-		if f.quantStore != nil && f.dataPath != "" {
-			if err := validatePathInDir(frontendOutputDir, f.dataPath); err != nil {
-				return nil, fmt.Errorf("quantization output directory must be within the local data path: %w", err)
-			}
-		}
 		keyPrefix := storage.DataKey(path.Join("quantization", in.JobId, requestID()))
 		remoteOutputDir, err := allocator.AllocRemoteDir(ctx, f.nodeID, keyPrefix)
 		if err != nil {
@@ -656,9 +891,9 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 		in.OutputDir = remoteOutputDir
 		output = quantizationOutput{
 			frontendDir: frontendOutputDir, remoteDir: remoteOutputDir, keyPrefix: keyPrefix,
-			inputRequestID: output.inputRequestID, inputKeys: output.inputKeys,
+			dataRelativeDir: dataRelativeDir, inputRequestID: output.inputRequestID, inputKeys: output.inputKeys,
 		}
-		if f.dataPath != "" {
+		if f.quantStore == nil && f.dataPath != "" {
 			if rel, relErr := filepath.Rel(f.dataPath, frontendOutputDir); relErr == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 				output.dataRelativeDir = rel
 			}
@@ -671,15 +906,14 @@ func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.Quanti
 		_ = f.releaseRemoteDir(output.keyPrefix)
 		return nil, fmt.Errorf("persisting quantization staging state: %w", err)
 	}
+	// From this point the durable record owns staged resources, including on a
+	// backend start failure. Cleanup is phase-aware and retryable.
+	keepInputs = true
 	result, err := f.Backend.StartQuantization(ctx, in, opts...)
 	if err != nil || result == nil || !result.Success {
-		if output.keyPrefix != "" {
-			_ = f.releaseRemoteDir(output.keyPrefix)
-		}
-		f.discardQuantization(in.JobId)
+		f.cleanupQuantization(in.JobId, output)
 		return result, err
 	}
-	keepInputs = true
 	return result, err
 }
 
@@ -698,7 +932,13 @@ func (f *FileStagingClient) QuantizationProgress(ctx context.Context, in *pb.Qua
 		// When quantization completes, fetch the output file from the worker.
 		// Use a fresh context because quantization can take hours and the
 		// original request context may have expired by the time this fires.
-		if update.OutputFile != "" && update.Status == "completed" {
+		if output.outputFetched && update.Status == "completed" {
+			frontendDir := output.frontendDir
+			if f.dataPath != "" && output.dataRelativeDir != "" {
+				frontendDir = filepath.Join(f.dataPath, output.dataRelativeDir)
+			}
+			update.OutputFile = filepath.Join(frontendDir, filepath.FromSlash(output.outputRelative))
+		} else if update.OutputFile != "" && update.Status == "completed" {
 			if !ok {
 				update.Status = "failed"
 				update.Message = "quantization output staging state is unavailable"
@@ -747,6 +987,15 @@ func (f *FileStagingClient) QuantizationProgress(ctx context.Context, in *pb.Qua
 				return
 			} else {
 				update.OutputFile = localPath
+				output.outputFetched = true
+				output.outputRelative = filepath.ToSlash(relPath)
+				if err := f.updateQuantization(context.Background(), in.JobId, output); err != nil {
+					update.Status = "failed"
+					update.Message = "persisting quantization output state: " + err.Error()
+					update.OutputFile = ""
+					fn(update)
+					return
+				}
 			}
 		}
 		fn(update)
@@ -774,10 +1023,12 @@ func (f *FileStagingClient) rememberQuantization(ctx context.Context, jobID stri
 			// shared store. Every replica rebuilds this from its own DataPath.
 			frontendDir = ""
 		}
-		return f.quantStore.Put(ctx, &QuantizationStagingRecord{
+		return f.quantStore.Create(ctx, &QuantizationStagingRecord{
 			NodeID: f.nodeID, JobID: jobID, FrontendDir: frontendDir,
 			DataRelativeDir: output.dataRelativeDir, RemoteDir: output.remoteDir,
 			KeyPrefix: output.keyPrefix, InputRequestID: output.inputRequestID, InputKeys: output.inputKeys,
+			OutputFetched: output.outputFetched, OutputRelative: output.outputRelative,
+			InputsReleased: output.inputsReleased, OutputReleased: output.outputReleased,
 		})
 	}
 	f.mu.Lock()
@@ -792,12 +1043,27 @@ func (f *FileStagingClient) lookupQuantization(ctx context.Context, jobID string
 		if err != nil || !ok {
 			return quantizationOutput{}, ok, err
 		}
-		return quantizationOutput{frontendDir: record.FrontendDir, dataRelativeDir: record.DataRelativeDir, remoteDir: record.RemoteDir, keyPrefix: record.KeyPrefix, inputRequestID: record.InputRequestID, inputKeys: record.InputKeys}, true, nil
+		return quantizationOutput{frontendDir: record.FrontendDir, dataRelativeDir: record.DataRelativeDir, remoteDir: record.RemoteDir, keyPrefix: record.KeyPrefix, inputRequestID: record.InputRequestID, inputKeys: record.InputKeys, outputFetched: record.OutputFetched, outputRelative: record.OutputRelative, inputsReleased: record.InputsReleased, outputReleased: record.OutputReleased}, true, nil
 	}
 	f.mu.RLock()
 	output, ok := f.quantization[jobID]
 	f.mu.RUnlock()
 	return output, ok, nil
+}
+
+func (f *FileStagingClient) updateQuantization(ctx context.Context, jobID string, output quantizationOutput) error {
+	if f.quantStore != nil {
+		return f.quantStore.Update(ctx, &QuantizationStagingRecord{
+			NodeID: f.nodeID, JobID: jobID, DataRelativeDir: output.dataRelativeDir,
+			RemoteDir: output.remoteDir, KeyPrefix: output.keyPrefix, InputRequestID: output.inputRequestID,
+			InputKeys: output.inputKeys, OutputFetched: output.outputFetched, OutputRelative: output.outputRelative,
+			InputsReleased: output.inputsReleased, OutputReleased: output.outputReleased,
+		})
+	}
+	f.mu.Lock()
+	f.quantization[jobID] = output
+	f.mu.Unlock()
+	return nil
 }
 
 func (f *FileStagingClient) discardQuantization(jobID string) {
@@ -815,17 +1081,27 @@ func (f *FileStagingClient) discardQuantization(jobID string) {
 }
 
 func (f *FileStagingClient) cleanupQuantization(jobID string, output quantizationOutput) {
-	var cleanupErr error
-	if output.inputRequestID != "" && len(output.inputKeys) != 0 {
-		cleanupErr = (&stagedInputLifecycle{client: f, requestID: output.inputRequestID, keys: output.inputKeys}).release()
-	}
-	if output.keyPrefix != "" {
-		if err := f.releaseRemoteDir(output.keyPrefix); err != nil {
-			cleanupErr = errors.Join(cleanupErr, err)
+	if !output.inputsReleased {
+		if output.inputRequestID != "" && len(output.inputKeys) != 0 {
+			if err := (&stagedInputLifecycle{client: f, requestID: output.inputRequestID, keys: output.inputKeys}).release(); err != nil {
+				return
+			}
+		}
+		output.inputsReleased = true
+		if err := f.updateQuantization(context.Background(), jobID, output); err != nil {
+			xlog.Warn("Failed to persist quantization input cleanup", "jobID", jobID, "error", err)
+			return
 		}
 	}
-	if cleanupErr != nil {
-		return
+	if !output.outputReleased && output.keyPrefix != "" {
+		if err := f.releaseRemoteDir(output.keyPrefix); err != nil {
+			return
+		}
+		output.outputReleased = true
+		if err := f.updateQuantization(context.Background(), jobID, output); err != nil {
+			xlog.Warn("Failed to persist quantization output cleanup", "jobID", jobID, "error", err)
+			return
+		}
 	}
 	f.discardQuantization(jobID)
 }

@@ -1376,6 +1376,28 @@ var _ = Describe("StartFileTransferServerWithListener", func() {
 		Expect(dir).ToNot(BeAnExistingFile())
 	})
 
+	It("never removes a configured root through a canonical path alias", func() {
+		root := GinkgoT().TempDir()
+		staging := filepath.Join(root, "staging")
+		models := filepath.Join(root, "models")
+		data := filepath.Join(root, "data")
+		Expect(os.MkdirAll(models, 0o750)).To(Succeed())
+		Expect(os.MkdirAll(data, 0o750)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(models, "keep-model"), []byte("model"), 0o600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(data, "keep-data"), []byte("data"), 0o600)).To(Succeed())
+
+		for _, key := range []string{
+			"models/", "models//", "models/child/..", "models/../models",
+			"data/", "data//", "data/child/..", "data/../data",
+		} {
+			recorder := httptest.NewRecorder()
+			handleReleaseDir(recorder, staging, models, data, key)
+			Expect(recorder.Code).To(Equal(http.StatusBadRequest), key)
+		}
+		Expect(filepath.Join(models, "keep-model")).To(BeAnExistingFile())
+		Expect(filepath.Join(data, "keep-data")).To(BeAnExistingFile())
+	})
+
 	It("serves the unauthenticated health endpoints regardless of token", func() {
 		base, stop := start("s3cret")
 		defer stop()

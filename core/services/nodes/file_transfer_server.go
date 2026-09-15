@@ -1184,11 +1184,11 @@ func handleAllocDir(w http.ResponseWriter, stagingDir, modelsDir, dataDir, key s
 
 func handleReleaseDir(w http.ResponseWriter, stagingDir, modelsDir, dataDir, key string) {
 	targetDir, relName := resolveKeyToDir(key, stagingDir, modelsDir, dataDir)
-	if targetDir == stagingDir || relName == "" || relName == "." {
+	dirPath := filepath.Clean(filepath.Join(targetDir, relName))
+	if targetDir == stagingDir || relName == "" || relName == "." || dirPath == filepath.Clean(targetDir) {
 		http.Error(w, "output directory must identify a child of models/ or data/", http.StatusBadRequest)
 		return
 	}
-	dirPath := filepath.Join(targetDir, relName)
 	if err := validatePathInDir(dirPath, targetDir); err != nil {
 		http.Error(w, "invalid directory path", http.StatusBadRequest)
 		return

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -20,11 +21,18 @@ type quantizationTestBackend struct {
 	model               string
 	progress            *pb.QuantizationProgressUpdate
 	readModelOnProgress bool
+	startErr            error
 }
 
 type exportDirectoryBackend struct {
 	lifecycleBackend
 	writeOutput bool
+}
+
+type successfulExportBackend struct{ lifecycleBackend }
+
+func (b *successfulExportBackend) ExportModel(context.Context, *pb.ExportModelRequest, ...ggrpc.CallOption) (*pb.Result, error) {
+	return &pb.Result{Success: true}, nil
 }
 
 func (b *exportDirectoryBackend) ExportModel(_ context.Context, in *pb.ExportModelRequest, _ ...ggrpc.CallOption) (*pb.Result, error) {
@@ -41,6 +49,9 @@ func (b *quantizationTestBackend) StartQuantization(_ context.Context, in *pb.Qu
 	b.mu.Lock()
 	b.model = in.Model
 	b.mu.Unlock()
+	if b.startErr != nil {
+		return nil, b.startErr
+	}
 	return &pb.QuantizationJobResult{JobId: in.JobId, Success: true}, nil
 }
 
@@ -66,6 +77,8 @@ type quantizationTestStager struct {
 	fetchErr      error
 	fetchCalls    int
 	releasedDirs  []string
+	releaseDirErr error
+	listedFiles   []string
 }
 
 func (s *quantizationTestStager) EnsureRemote(_ context.Context, _, localPath, key string) (string, error) {
@@ -102,10 +115,13 @@ func (s *quantizationTestStager) ReleaseRemoteDir(_ context.Context, _ string, k
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.releasedDirs = append(s.releasedDirs, key)
-	return nil
+	return s.releaseDirErr
 }
 
 func (s *quantizationTestStager) ListRemoteDir(_ context.Context, _ string, key string) ([]string, error) {
+	if s.listedFiles != nil {
+		return append([]string(nil), s.listedFiles...), nil
+	}
 	root := filepath.Join(s.remoteDir, filepath.FromSlash(key))
 	var files []string
 	err := filepath.Walk(root, func(name string, info os.FileInfo, err error) error {
@@ -132,6 +148,9 @@ func openQuantizationStagingTestDB(t *testing.T) *gorm.DB {
 		t.Fatal(err)
 	}
 	if err := db.AutoMigrate(&QuantizationStagingRecord{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec("DELETE FROM quantization_staging_records").Error; err != nil {
 		t.Fatal(err)
 	}
 	return db
@@ -303,10 +322,12 @@ func TestExportExcludesStaleContentsFromPreviousDirectory(t *testing.T) {
 }
 
 func TestConcurrentQuantizationsAllocateUniqueRemoteDirectories(t *testing.T) {
+	db := openQuantizationStagingTestDB(t)
+	root := t.TempDir()
 	backend := &quantizationTestBackend{}
 	stager := &quantizationTestStager{remoteDir: t.TempDir()}
-	client := NewFileStagingClient(backend, stager, "worker-1")
-	outputs := []string{filepath.Join(t.TempDir(), "same-name"), filepath.Join(t.TempDir(), "same-name")}
+	client := NewFileStagingClientWithOptions(backend, stager, "worker-1", FileStagingClientOptions{DB: db, DataPath: root})
+	outputs := []string{filepath.Join(root, "first"), filepath.Join(root, "second")}
 	errs := make(chan error, len(outputs))
 	for _, output := range outputs {
 		go func() {
@@ -314,15 +335,147 @@ func TestConcurrentQuantizationsAllocateUniqueRemoteDirectories(t *testing.T) {
 			errs <- err
 		}()
 	}
+	successes := 0
 	for range outputs {
-		if err := <-errs; err != nil {
-			t.Fatal(err)
+		if err := <-errs; err == nil {
+			successes++
 		}
+	}
+	if successes != 1 {
+		t.Fatalf("duplicate starts succeeded %d times, want 1", successes)
 	}
 	stager.mu.Lock()
 	defer stager.mu.Unlock()
 	if len(stager.allocatedKeys) != 2 || stager.allocatedKeys[0] == stager.allocatedKeys[1] {
 		t.Fatalf("remote quantization directories collided: %v", stager.allocatedKeys)
+	}
+	if len(stager.releasedDirs) != 1 {
+		t.Fatalf("duplicate loser cleanup = %v, want exactly one directory", stager.releasedDirs)
+	}
+	var record QuantizationStagingRecord
+	if err := db.First(&record, "node_id = ? AND job_id = ?", "worker-1", "same-job").Error; err != nil {
+		t.Fatal(err)
+	}
+	if record.KeyPrefix == stager.releasedDirs[0] {
+		t.Fatalf("duplicate loser removed winner directory %q", record.KeyPrefix)
+	}
+}
+
+func TestQuantizationValidatesDurableOutputBeforeMutation(t *testing.T) {
+	db := openQuantizationStagingTestDB(t)
+	dataPath := t.TempDir()
+	outsideParent := t.TempDir()
+	outside := filepath.Join(outsideParent, "must-not-exist")
+	client := NewFileStagingClientWithOptions(&quantizationTestBackend{}, &quantizationTestStager{remoteDir: t.TempDir()}, "worker-1", FileStagingClientOptions{DB: db, DataPath: dataPath})
+	if _, err := client.StartQuantization(context.Background(), &pb.QuantizationRequest{JobId: "outside", OutputDir: outside}); err == nil {
+		t.Fatal("accepted outside durable destination")
+	}
+	if _, err := os.Stat(outside); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("rejected destination was mutated: %v", err)
+	}
+
+	emptyDataPath := NewFileStagingClientWithOptions(&quantizationTestBackend{}, &quantizationTestStager{remoteDir: t.TempDir()}, "worker-1", FileStagingClientOptions{DB: db})
+	if _, err := emptyDataPath.StartQuantization(context.Background(), &pb.QuantizationRequest{JobId: "absolute", OutputDir: filepath.Join(t.TempDir(), "out")}); err == nil {
+		t.Fatal("durable staging accepted an empty DataPath")
+	}
+}
+
+func TestStartFailureCleanupFailureRetainsDurableState(t *testing.T) {
+	db := openQuantizationStagingTestDB(t)
+	root := t.TempDir()
+	stager := &quantizationTestStager{remoteDir: t.TempDir(), releaseDirErr: errors.New("rmdir unavailable")}
+	client := NewFileStagingClientWithOptions(&quantizationTestBackend{startErr: errors.New("start failed")}, stager, "worker-1", FileStagingClientOptions{DB: db, DataPath: root})
+	_, err := client.StartQuantization(context.Background(), &pb.QuantizationRequest{JobId: "start-failed", OutputDir: filepath.Join(root, "out")})
+	if err == nil {
+		t.Fatal("expected start failure")
+	}
+	if _, ok, lookupErr := client.lookupQuantization(context.Background(), "start-failed"); lookupErr != nil || !ok {
+		t.Fatalf("cleanup failure lost durable state: ok=%v err=%v", ok, lookupErr)
+	}
+	stager.releaseDirErr = nil
+	if _, err := client.StopQuantization(context.Background(), &pb.QuantizationStopRequest{JobId: "start-failed"}); err != nil {
+		t.Fatalf("retrying cleanup: %v", err)
+	}
+	if _, ok, lookupErr := client.lookupQuantization(context.Background(), "start-failed"); lookupErr != nil || ok {
+		t.Fatalf("cleanup retry retained durable state: ok=%v err=%v", ok, lookupErr)
+	}
+}
+
+func TestQuantizationDeleteFailureRetriesWithoutRefetch(t *testing.T) {
+	db := openQuantizationStagingTestDB(t)
+	root := t.TempDir()
+	worker := t.TempDir()
+	ExpectDeleteFailure := errors.New("delete unavailable")
+	if err := db.Callback().Delete().Before("gorm:delete").Register("test:fail-delete", func(tx *gorm.DB) { tx.AddError(ExpectDeleteFailure) }); err != nil {
+		t.Fatal(err)
+	}
+	backend := &quantizationTestBackend{}
+	stager := &quantizationTestStager{remoteDir: worker}
+	client := NewFileStagingClientWithOptions(backend, stager, "worker-1", FileStagingClientOptions{DB: db, DataPath: root})
+	if _, err := client.StartQuantization(context.Background(), &pb.QuantizationRequest{JobId: "delete-retry", OutputDir: filepath.Join(root, "out")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := osWriteFile(filepath.Join(worker, "result.gguf"), []byte("result")); err != nil {
+		t.Fatal(err)
+	}
+	backend.progress = &pb.QuantizationProgressUpdate{JobId: "delete-retry", Status: "completed", OutputFile: filepath.Join(worker, filepath.FromSlash(stager.allocatedKeys[0]), "result.gguf")}
+	progress := func() *pb.QuantizationProgressUpdate {
+		var got *pb.QuantizationProgressUpdate
+		if err := client.QuantizationProgress(context.Background(), &pb.QuantizationProgressRequest{JobId: "delete-retry"}, func(update *pb.QuantizationProgressUpdate) { got = update }); err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	if got := progress(); got == nil || got.Status != "completed" {
+		t.Fatalf("first progress: %#v", got)
+	}
+	if stager.fetchCalls != 1 {
+		t.Fatalf("fetch calls = %d", stager.fetchCalls)
+	}
+	db.Callback().Delete().Remove("test:fail-delete")
+	if got := progress(); got == nil || got.Status != "completed" {
+		t.Fatalf("retry progress: %#v", got)
+	}
+	if stager.fetchCalls != 1 {
+		t.Fatalf("cleanup retry refetched deleted output: %d", stager.fetchCalls)
+	}
+}
+
+func TestExportRejectsUntrustedRemoteEntries(t *testing.T) {
+	for _, malicious := range []string{
+		"../escape", "/absolute", `C:\\absolute`, `nested\\..\\escape`,
+		"nested/../../escape", "nested//escape", "nested/./escape",
+	} {
+		root := t.TempDir()
+		outside := filepath.Join(filepath.Dir(root), "escape")
+		stager := &quantizationTestStager{remoteDir: t.TempDir(), listedFiles: []string{malicious}}
+		client := NewFileStagingClient(&exportDirectoryBackend{writeOutput: true}, stager, "worker-1")
+		result, err := client.ExportModel(context.Background(), &pb.ExportModelRequest{OutputPath: root})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result == nil || result.Success {
+			t.Fatalf("accepted remote entry %q: %#v", malicious, result)
+		}
+		if _, err := os.Stat(outside); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("entry %q escaped: %v", malicious, err)
+		}
+	}
+}
+
+func TestExportReportsNestedDestinationCreationFailure(t *testing.T) {
+	output := t.TempDir()
+	if err := os.WriteFile(filepath.Join(output, "nested"), []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stager := &quantizationTestStager{remoteDir: t.TempDir(), listedFiles: []string{"nested/file.bin"}}
+	client := NewFileStagingClient(&successfulExportBackend{}, stager, "worker-1")
+	result, err := client.ExportModel(context.Background(), &pb.ExportModelRequest{OutputPath: output})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result == nil || result.Success || !strings.Contains(result.Message, "creating export destination") {
+		t.Fatalf("directory creation failure was not reported: %#v", result)
 	}
 }
 
