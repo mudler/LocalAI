@@ -1816,7 +1816,6 @@ definitions:
         description: Always include in response
         type: boolean
       type:
-        description: always "function"
         type: string
     type: object
   schema.ORIncompleteDetails:

@@ -6652,7 +6652,6 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "type": {
-                    "description": "always \"function\"",
                     "type": "string"
                 }
             }
