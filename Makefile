@@ -427,7 +427,7 @@ e2e-binary: protogen-go
 # should stay there: this suite exists to catch nondeterministic cluster
 # behaviour, and a retry turns exactly that signal into a green run.
 #
-# Budget: 31 specs, measured at 948.5 seconds of Ginkgo time (15m51s wall
+# Budget: 30 specs, measured at 948.5 seconds of Ginkgo time (15m51s wall
 # including an incremental compile) on a fast developer box. It was 591 to 612
 # seconds before the phase 3 control-plane specs and 800 to 830 after them; the three
 # two-frontend two-worker specs in cluster_busless_test.go added 118 to 127

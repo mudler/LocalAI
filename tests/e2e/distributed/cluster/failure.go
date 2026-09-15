@@ -80,11 +80,9 @@ func (c *Cluster) KillWorker(i int) error {
 // FrontendAlive takes an index, so it has to be wrapped in a closure; handing
 // Gomega the method value directly fails immediately: Eventually reports that
 // the function it was given takes one argument and none were provided, and
-// points at Eventually().WithArguments(). Restart
-// terminates whatever is still running with SIGKILL, so restarting straight
-// after a SIGTERM cuts the drain short and quietly turns the rolling-update
-// case into the crash case, which is the opposite of what pairing those two
-// calls is meant to express.
+// points at Eventually().WithArguments(). RestartFrontend calls terminate,
+// which sends SIGTERM and waits for a bounded grace period before it falls back
+// to SIGKILL. KillFrontend and KillWorker remain the explicit crash primitives.
 func (c *Cluster) RestartFrontend(i int) error {
 	if err := c.checkFrontendIndex(i); err != nil {
 		return err
