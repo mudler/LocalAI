@@ -120,15 +120,18 @@ func (m *CredentialManager) Acquire(ctx context.Context) (*RegisterResponse, err
 		case err != nil:
 			lastReason = err
 			xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
-		case !m.requireApproval:
+		case res != nil:
+			// Keep the identity and newest tunnel credential as soon as the
+			// frontend has accepted the registration. A pending worker is not
+			// allowed to open its tunnel, but it is already a registered node and
+			// must be able to identify its heartbeat requests while it waits for
+			// approval.
 			m.store(res)
-			return res, nil
-		case res.Status == statusPending:
+			if !m.requireApproval || res.Status != statusPending {
+				return res, nil
+			}
 			lastReason = fmt.Errorf("node %s still pending admin approval", res.ID)
 			xlog.Info("Node pending admin approval; waiting", "node", res.ID, "attempt", attempt, "next_retry", backoff)
-		default:
-			m.store(res)
-			return res, nil
 		}
 		select {
 		case <-ctx.Done():

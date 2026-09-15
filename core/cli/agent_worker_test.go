@@ -10,17 +10,64 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/alecthomas/kong"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/cli/workerregistry"
 	"github.com/mudler/LocalAI/core/services/agents"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
+
+var _ = Describe("The agent worker registration lifecycle", func() {
+	It("sends heartbeat requests while approval is still pending", func(ctx SpecContext) {
+		var registrations atomic.Int32
+		var heartbeats atomic.Int32
+		var approved atomic.Bool
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/api/node/register":
+				registrations.Add(1)
+				status := "pending"
+				if approved.Load() {
+					status = "healthy"
+				}
+				w.WriteHeader(http.StatusCreated)
+				_, _ = w.Write([]byte(`{"id":"agent-1","status":"` + status + `","tunnel_token":"tunnel"}`))
+			case "/api/node/agent-1/heartbeat":
+				heartbeats.Add(1)
+				w.WriteHeader(http.StatusOK)
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		DeferCleanup(server.Close)
+
+		client := &workerregistry.RegistrationClient{FrontendURL: server.URL, HTTPTimeout: time.Second}
+		manager := workerregistry.NewCredentialManager(func(ctx context.Context) (*workerregistry.RegisterResponse, error) {
+			return client.RegisterFull(ctx, map[string]any{"name": "agent-1", "node_type": "agent"})
+		}, true)
+
+		done := make(chan error, 1)
+		go func() {
+			_, err := acquireAgentCredentials(ctx, manager, client, 10*time.Millisecond)
+			done <- err
+		}()
+
+		Eventually(heartbeats.Load, time.Second, 10*time.Millisecond).Should(BeNumerically(">", 0))
+		Expect(registrations.Load()).To(Equal(int32(1)),
+			"the observed liveness must be a /heartbeat call, not a registration retry")
+
+		approved.Store(true)
+		Eventually(done, 4*time.Second).Should(Receive(Succeed()))
+	})
+
+})
 
 // The agent worker answers its MCP verbs on ONE carrier now: the control route
 // on the tunnel it holds. The queue-group subjects these used to arrive on are

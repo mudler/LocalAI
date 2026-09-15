@@ -6,12 +6,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/agents"
 	clustersvc "github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -28,6 +33,82 @@ type machineRegistration struct {
 	Status      string `json:"status"`
 	APIToken    string `json:"api_token"`
 	TunnelToken string `json:"tunnel_token"`
+}
+
+type machineTrafficObserver struct {
+	server *httptest.Server
+	mu     sync.Mutex
+
+	registrations  int
+	heartbeats     map[string]int
+	inferenceToken string
+	inferenceCode  int
+}
+
+func newMachineTrafficObserver(target string) *machineTrafficObserver {
+	targetURL, err := url.Parse(target)
+	Expect(err).ToNot(HaveOccurred())
+	observer := &machineTrafficObserver{heartbeats: map[string]int{}}
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	observer.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		observer.mu.Lock()
+		switch {
+		case r.URL.Path == "/api/node/register":
+			observer.registrations++
+		case strings.HasPrefix(r.URL.Path, "/api/node/") && strings.HasSuffix(r.URL.Path, "/heartbeat"):
+			nodeID := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/node/"), "/heartbeat")
+			observer.heartbeats[nodeID]++
+		}
+		observer.mu.Unlock()
+
+		if r.URL.Path != "/v1/chat/completions" {
+			proxy.ServeHTTP(w, r)
+			return
+		}
+
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		recorder := &statusCapturingWriter{ResponseWriter: w, status: http.StatusOK}
+		proxy.ServeHTTP(recorder, r)
+		observer.mu.Lock()
+		observer.inferenceToken = token
+		observer.inferenceCode = recorder.status
+		observer.mu.Unlock()
+	}))
+	return observer
+}
+
+type statusCapturingWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusCapturingWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusCapturingWriter) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func (o *machineTrafficObserver) registrationCount() int {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.registrations
+}
+
+func (o *machineTrafficObserver) heartbeatCount(nodeID string) int {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.heartbeats[nodeID]
+}
+
+func (o *machineTrafficObserver) inferenceCredential() (string, int) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	return o.inferenceToken, o.inferenceCode
 }
 
 func registerMachine(baseURL, headerToken, bodyToken, name, nodeType string) (int, machineRegistration, string) {
@@ -93,13 +174,36 @@ func requestWithBearer(method, endpoint, token string) int {
 
 var _ = Describe("Authenticated distributed binaries", Label("Distributed"), Label("Cluster"), func() {
 	It("keeps browser, registration, tunnel, and agent credentials in their own trust domains", func() {
-		const registrationToken = "distributed-machine-secret"
+		const (
+			registrationToken = "distributed-machine-secret"
+			adminEmail        = "auth-admin@e2e.local"
+		)
+		priorAPIToken, hadAPIToken := os.LookupEnv("LOCALAI_API_TOKEN")
+		Expect(os.Setenv("LOCALAI_API_TOKEN", "ambient-credential-must-not-reach-workers")).To(Succeed())
+		DeferCleanup(func() {
+			if hadAPIToken {
+				_ = os.Setenv("LOCALAI_API_TOKEN", priorAPIToken)
+			} else {
+				_ = os.Unsetenv("LOCALAI_API_TOKEN")
+			}
+		})
+
+		var traffic *machineTrafficObserver
 		c, dsn := startClusterOnFreshDB(1, 1, func(o *cluster.Options) {
 			o.RegistrationToken = registrationToken
+			o.AdminEmail = adminEmail
 			o.RequireNodeApproval = true
 			o.DistributedRequireAuth = true
 			o.AgentWorkers = 1
+			withMockModel("agent-auth-model")(o)
+			o.WorkerFrontendURL = func(_ int, _ string, frontends []string) string {
+				if traffic == nil {
+					traffic = newMachineTrafficObserver(frontends[0])
+				}
+				return traffic.server.URL
+			}
 		})
+		DeferCleanup(traffic.server.Close)
 		baseURL := c.FrontendURL(0)
 
 		// The browser signs in with the ordinary WebUI flow. Its cookie opens
@@ -199,12 +303,18 @@ var _ = Describe("Authenticated distributed binaries", Label("Distributed"), Lab
 			Should(Equal(nodes.StatusPending), probe.describe)
 		agentID := probe.idOf(c.AgentWorkerName(0))
 		Expect(agentID).ToNot(BeEmpty())
+		Eventually(func() int { return traffic.heartbeatCount(agentID) }, "15s", "250ms").
+			Should(BeNumerically(">", 0), "the pending real agent worker never called /heartbeat")
+		Expect(traffic.registrationCount()).To(BeNumerically(">", 0),
+			"the heartbeat counter is path-specific and must not be populated by registration retries")
+		db := openClusterDB(dsn)
+		owners := newTunnelOwners(db)
+		Consistently(func() string { return owners.ownerOf(agentID) }, "2s", "200ms").
+			Should(BeEmpty(), "a pending agent worker opened its tunnel before approval")
 		status, err = c.PostJSON(browser, 0, "/api/nodes/"+agentID+"/approve", map[string]any{}, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(status).To(Equal(http.StatusOK))
 
-		db := openClusterDB(dsn)
-		owners := newTunnelOwners(db)
 		Eventually(func() string { return owners.ownerOf(backendID) }, nodeRosterTimeout, nodeRosterPoll).
 			ShouldNot(BeEmpty(), owners.describe)
 		Eventually(func() string { return owners.ownerOf(agentID) }, nodeRosterTimeout, nodeRosterPoll).
@@ -235,6 +345,44 @@ var _ = Describe("Authenticated distributed binaries", Label("Distributed"), Lab
 		Expect(db.First(&permissions, "user_id = ?", agentUser.ID).Error).To(Succeed())
 		Expect(permissions.Permissions).To(Equal(auth.PermissionMap{auth.FeatureCollections: true}), fmt.Sprintf("unexpected agent-worker scope: %#v", permissions.Permissions))
 
+		// Seed a config with no per-agent API key. The public chat endpoint then
+		// dispatches it to the compiled agent-worker, whose only possible
+		// inference credential is the plaintext token returned to that process
+		// by its approved re-registration.
+		var adminUser auth.User
+		Expect(db.First(&adminUser, "email = ?", adminEmail).Error).To(Succeed())
+		agentCfg := agents.AgentConfig{Name: "credential-probe", Model: "agent-auth-model", MaxIterations: 1}
+		agentCfgJSON, err := json.Marshal(agentCfg)
+		Expect(err).ToNot(HaveOccurred())
+		agentStore, err := agents.NewAgentStore(db)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(agentStore.SaveConfig(&agents.AgentConfigRecord{
+			UserID: adminUser.ID, Name: agentCfg.Name, ConfigJSON: string(agentCfgJSON), Status: agents.StatusActive,
+		})).To(Succeed())
+
+		var chatReply map[string]any
+		Eventually(func() int {
+			code, postErr := c.PostJSON(browser, 0, "/api/agents/credential-probe/chat", map[string]any{"message": "prove the worker credential"}, &chatReply)
+			if postErr != nil {
+				return 0
+			}
+			return code
+		}, nodeRosterTimeout, nodeRosterPoll).Should(Equal(http.StatusAccepted))
+		Expect(chatReply["message_id"]).ToNot(BeEmpty())
+
+		var deliveredToken string
+		Eventually(func() int {
+			deliveredToken, status = traffic.inferenceCredential()
+			return status
+		}, tunnelInferenceTimeout, "500ms").Should(Equal(http.StatusOK),
+			"the real agent-worker did not complete an authenticated inference request")
+		Expect(deliveredToken).ToNot(BeEmpty(), "dropping RegisterResponse.APIToken must fail this assertion")
+		Expect(deliveredToken).ToNot(Equal("ambient-credential-must-not-reach-workers"))
+		Expect(auth.HashAPIKey(deliveredToken, "e2e-cluster-hmac-secret")).To(Equal(agentKey.KeyHash),
+			"the bearer used for inference was not the credential provisioned for this real agent-worker")
+		Expect(requestWithBearer(http.MethodGet, baseURL+"/api/nodes", deliveredToken)).To(Equal(http.StatusForbidden),
+			"the exact credential used by the real worker for inference crossed the admin gate")
+
 		// Fail-closed is a property of the live process configuration, not an
 		// assumption made from the token having happened to be non-empty.
 		for _, proc := range []struct {
@@ -248,6 +396,7 @@ var _ = Describe("Authenticated distributed binaries", Label("Distributed"), Lab
 			env, err := c.ProcessEnviron(proc.kind, 0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(env).To(ContainElement("LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true"), proc.name)
+			Expect(env).ToNot(ContainElement(HavePrefix("LOCALAI_API_TOKEN=")), proc.name)
 		}
 	})
 })

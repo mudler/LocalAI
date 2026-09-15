@@ -265,6 +265,17 @@ func authenticatedDeploymentEnv(opts Options) []string {
 	return env
 }
 
+func environmentWithout(env []string, key string) []string {
+	prefix := key + "="
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		if !strings.HasPrefix(entry, prefix) {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
+}
+
 // Start brings up the cluster. It blocks until every frontend answers /readyz
 // and every worker process has been spawned. It does NOT wait for workers to
 // register: that needs an authenticated admin session, so a caller that depends
@@ -351,7 +362,7 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 	)
 	// Cmd.Environ() is the parent environment this Cmd would already run with;
 	// the children need PATH, HOME and the Go/CI environment intact.
-	cmd.Env = append(cmd.Environ(),
+	cmd.Env = append(environmentWithout(cmd.Environ(), "LOCALAI_API_TOKEN"),
 		"LOCALAI_DISTRIBUTED=true",
 		// Deliberately handed a broker URL, and deliberately a dead one. This
 		// is the shape of an operator's existing unit file on the day they shut
@@ -439,7 +450,7 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		"--models-path", filepath.Join(dir, "models"),
 		"--backends-path", backends,
 	)
-	cmd.Env = append(cmd.Environ(),
+	cmd.Env = append(environmentWithout(cmd.Environ(), "LOCALAI_API_TOKEN"),
 		// Ports only. A worker advertises nothing, so there is no advertise
 		// address to set; these exist to keep concurrently running workers off
 		// each other's ports, not to make anything reachable. Every bind is
@@ -501,7 +512,7 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 func (c *Cluster) startAgentWorker(i int) (*Process, error) {
 	name := agentWorkerName(i)
 	cmd := exec.Command(c.opts.Binary, "agent-worker")
-	cmd.Env = append(cmd.Environ(),
+	cmd.Env = append(environmentWithout(cmd.Environ(), "LOCALAI_API_TOKEN"),
 		// Still set, and still ignored, on the same terms as the frontend's
 		// above: this suite keeps covering the promise that an operator's
 		// existing --nats-url does not break an agent worker. Nothing in the
