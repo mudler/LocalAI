@@ -40,6 +40,22 @@ var _ = Describe("NodeRegistry", func() {
 		}
 	}
 
+	Describe("UseDBForTest", func() {
+		It("routes registry queries through the replacement handle", func() {
+			runtimeDB := testutil.SetupTestDB()
+			_, err := NewNodeRegistry(runtimeDB)
+			Expect(err).ToNot(HaveOccurred())
+
+			worker := makeNode("replacement-db-worker", "10.0.0.9:50051", 0)
+			Expect(runtimeDB.Create(worker).Error).ToNot(HaveOccurred())
+
+			registry.UseDBForTest(runtimeDB)
+			fetched, err := registry.GetByName(context.Background(), worker.Name)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetched.ID).To(Equal(worker.ID))
+		})
+	})
+
 	Describe("Register", func() {
 		It("persists CPU telemetry and clamps utilization", func() {
 			node := makeNode("cpu-worker", "10.0.0.3:50051", 0)
