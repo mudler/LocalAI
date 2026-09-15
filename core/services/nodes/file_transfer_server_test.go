@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -146,6 +147,11 @@ var _ = Describe("The HTTP file stager without a worker dialer", func() {
 
 	It("refuses to allocate a remote temp file", func() {
 		_, err := newBare().AllocRemoteTemp(context.Background(), "node-1")
+		Expect(err).To(MatchError(ErrNoWorkerDialer))
+	})
+
+	It("refuses to allocate a remote output directory", func() {
+		_, err := newBare().AllocRemoteDir(context.Background(), "node-1", "models/export")
 		Expect(err).To(MatchError(ErrNoWorkerDialer))
 	})
 
@@ -295,6 +301,38 @@ var _ = Describe("FileTransferServer", func() {
 	})
 
 	Describe("Path Traversal Prevention", func() {
+		It("allocates only explicitly rooted model and data directories", func() {
+			stagingDir := GinkgoT().TempDir()
+			modelsDir := filepath.Join(GinkgoT().TempDir(), "models")
+			dataDir := filepath.Join(GinkgoT().TempDir(), "data")
+
+			for key, want := range map[string]string{
+				"models/export/nested": filepath.Join(modelsDir, "export", "nested"),
+				"data/quant/job":       filepath.Join(dataDir, "quant", "job"),
+			} {
+				recorder := httptest.NewRecorder()
+				handleAllocDir(recorder, stagingDir, modelsDir, dataDir, key)
+				Expect(recorder.Code).To(Equal(http.StatusOK))
+				var reply struct {
+					LocalPath string `json:"local_path"`
+				}
+				Expect(json.NewDecoder(recorder.Body).Decode(&reply)).To(Succeed())
+				Expect(reply.LocalPath).To(Equal(want))
+				Expect(reply.LocalPath).To(BeADirectory())
+			}
+		})
+
+		DescribeTable("refuses unsafe output directory prefixes",
+			func(key string) {
+				recorder := httptest.NewRecorder()
+				handleAllocDir(recorder, GinkgoT().TempDir(), GinkgoT().TempDir(), GinkgoT().TempDir(), key)
+				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
+			},
+			Entry("an unrooted key", "ephemeral/export"),
+			Entry("model traversal", "models/../../escape"),
+			Entry("data traversal", "data/../../escape"),
+		)
+
 		It("rejects path traversal via validatePathInDir", func() {
 			stagingDir := GinkgoT().TempDir()
 			err := validatePathInDir(filepath.Join(stagingDir, "..", "..", "etc", "passwd"), stagingDir)
