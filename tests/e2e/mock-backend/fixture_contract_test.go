@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -200,6 +201,55 @@ func TestFileBearingRPCsReportStagedInputDigests(t *testing.T) {
 	}
 	if !strings.Contains(transcript.GetText(), digest) {
 		t.Fatalf("AudioTranscription did not report staged digest: %q", transcript.GetText())
+	}
+}
+
+func TestAudioTransformCopiesExactStagedInput(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	input := filepath.Join(dir, "input.wav")
+	output := filepath.Join(dir, "nested", "output.wav")
+	if err := writeMinimalWAV(input); err != nil {
+		t.Fatal(err)
+	}
+	want, err := os.ReadFile(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := (&MockBackend{}).AudioTransform(context.Background(), &pb.AudioTransformRequest{
+		AudioPath: input,
+		Dst:       output,
+	})
+	if err != nil {
+		t.Fatalf("AudioTransform returned error: %v", err)
+	}
+	got, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Fatal("AudioTransform output differs from its staged input")
+	}
+	if result.GetDst() != output || result.GetSampleRate() != 16000 || result.GetSamples() != 8000 {
+		t.Fatalf("unexpected AudioTransform metadata: %#v", result)
+	}
+}
+
+func TestAudioTransformStreamEchoesExactAudioChannel(t *testing.T) {
+	t.Parallel()
+	want := []byte{1, 0, 3, 0}
+	stream := &audioTransformFixtureStream{
+		testServerStream: testServerStream{ctx: context.Background()},
+		requests: []*pb.AudioTransformFrameRequest{
+			{Payload: &pb.AudioTransformFrameRequest_Config{Config: &pb.AudioTransformStreamConfig{SampleFormat: pb.AudioTransformStreamConfig_S16_LE}}},
+			{Payload: &pb.AudioTransformFrameRequest_Frame{Frame: &pb.AudioTransformFrame{AudioPcm: want, ReferencePcm: []byte{2, 0, 4, 0}}}},
+		},
+	}
+	if err := (&MockBackend{}).AudioTransformStream(stream); err != nil {
+		t.Fatalf("AudioTransformStream returned error: %v", err)
+	}
+	if len(stream.responses) != 1 || !bytes.Equal(stream.responses[0].GetPcm(), want) || stream.responses[0].GetFrameIndex() != 0 {
+		t.Fatalf("unexpected AudioTransformStream response: %#v", stream.responses)
 	}
 }
 
@@ -517,6 +567,26 @@ type transcriptFixtureStream struct {
 }
 
 func (s *transcriptFixtureStream) Send(response *pb.TranscriptStreamResponse) error {
+	s.responses = append(s.responses, response)
+	return nil
+}
+
+type audioTransformFixtureStream struct {
+	testServerStream
+	requests  []*pb.AudioTransformFrameRequest
+	responses []*pb.AudioTransformFrameResponse
+}
+
+func (s *audioTransformFixtureStream) Recv() (*pb.AudioTransformFrameRequest, error) {
+	if len(s.requests) == 0 {
+		return nil, io.EOF
+	}
+	request := s.requests[0]
+	s.requests = s.requests[1:]
+	return request, nil
+}
+
+func (s *audioTransformFixtureStream) Send(response *pb.AudioTransformFrameResponse) error {
 	s.responses = append(s.responses, response)
 	return nil
 }

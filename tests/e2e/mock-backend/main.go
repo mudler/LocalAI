@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net"
@@ -1226,6 +1227,61 @@ func (m *MockBackend) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest
 		SampleRate:      48000,
 		SamplesPerFrame: int32(samplesPerFrame),
 	}, nil
+}
+
+func (m *MockBackend) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest) (*pb.AudioTransformResult, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	input, err := os.ReadFile(in.AudioPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading staged audio transform input: %w", err)
+	}
+	if err := writeFixture(in.Dst, input); err != nil {
+		return nil, fmt.Errorf("writing audio transform output: %w", err)
+	}
+	samples := 0
+	if len(input) > 44 {
+		samples = (len(input) - 44) / 2
+	}
+	return &pb.AudioTransformResult{
+		Dst:               in.Dst,
+		SampleRate:        int32(ttsSampleRate()),
+		Samples:           int32(samples),
+		ReferenceProvided: in.ReferencePath != "",
+	}, nil
+}
+
+func (m *MockBackend) AudioTransformStream(stream pb.Backend_AudioTransformStreamServer) error {
+	configured := false
+	var frameIndex int64
+	for {
+		request, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if request.GetConfig() != nil {
+			configured = true
+			continue
+		}
+		frame := request.GetFrame()
+		if frame == nil {
+			continue
+		}
+		if !configured {
+			return fmt.Errorf("audio transform stream frame received before config")
+		}
+		if err := stream.Send(&pb.AudioTransformFrameResponse{
+			Pcm:        append([]byte(nil), frame.AudioPcm...),
+			FrameIndex: frameIndex,
+		}); err != nil {
+			return err
+		}
+		frameIndex++
+	}
 }
 
 func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
