@@ -43,6 +43,26 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Signal 3.8 27B
+
+Install AgentionAI's Qwen3.8-27B fine-tune with automatic selection between
+AP-Q4_K_M, AP-Q6_K, and Q8_0 GGUF builds:
+
+```bash
+local-ai models install signal-3.8-27b
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install signal-3.8-27b --variant signal-3.8-27b-q8
+```
+
+All three builds use llama.cpp, include the BF16 vision projector, and enable
+MTP speculative decoding with up to four draft tokens. The default context is
+32,768 tokens. The [publisher's model card](https://huggingface.co/agentionai/Signal-3.8-27B-GGUF)
+describes the fine-tuning method and sampling settings.
+
 ## Spark-X2.5-1.7B
 
 Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0

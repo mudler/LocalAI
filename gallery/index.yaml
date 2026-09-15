@@ -1,4 +1,130 @@
 ---
+- &signal-3-8-27b
+  name: signal-3.8-27b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/agentionai/Signal-3.8-27B-GGUF
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - reasoning
+    - mtp
+  variants:
+    - model: signal-3.8-27b-q6
+    - model: signal-3.8-27b-q8
+  description: |
+    Signal 3.8 27B is AgentionAI's Qwen3.8-27B fine-tune for shorter answers
+    and reasoning traces. This AP-Q4_K_M GGUF build includes the BF16 vision
+    projector, the embedded Jinja chat template, and MTP speculative decoding.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Signal-3.8-27B-AP-Q4_K_M/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:4
+    parameters:
+      model: llama-cpp/models/Signal-3.8-27B-AP-Q4_K_M/Signal-3.8-27B-AP-Q4_K_M.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Signal-3.8-27B-AP-Q4_K_M/Signal-3.8-27B-AP-Q4_K_M.gguf
+      uri: https://huggingface.co/agentionai/Signal-3.8-27B-GGUF/resolve/9848da210febc2141edb7e3f89cfc307a0d15163/AP-Q4_K_M/Signal-3.8-27B-AP-Q4_K_M.gguf
+      sha256: 97b9dd5905ea05915d6c0133535a3cbf799dc9d59ac1d22ffad59328388bc912
+    - filename: llama-cpp/mmproj/Signal-3.8-27B-AP-Q4_K_M/mmproj-BF16.gguf
+      uri: https://huggingface.co/agentionai/Signal-3.8-27B-GGUF/resolve/9848da210febc2141edb7e3f89cfc307a0d15163/mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+
+- !!merge <<: *signal-3-8-27b
+  name: signal-3.8-27b-q6
+  variants: []
+  description: |
+    Signal 3.8 27B is AgentionAI's Qwen3.8-27B fine-tune for shorter answers
+    and reasoning traces. This AP-Q6_K GGUF build includes the BF16 vision
+    projector, the embedded Jinja chat template, and MTP speculative decoding.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Signal-3.8-27B-AP-Q6_K/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:4
+    parameters:
+      model: llama-cpp/models/Signal-3.8-27B-AP-Q6_K/Signal-3.8-27B-AP-Q6_K.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Signal-3.8-27B-AP-Q6_K/Signal-3.8-27B-AP-Q6_K.gguf
+      uri: https://huggingface.co/agentionai/Signal-3.8-27B-GGUF/resolve/9848da210febc2141edb7e3f89cfc307a0d15163/AP-Q6_K/Signal-3.8-27B-AP-Q6_K.gguf
+      sha256: 0d30859b100ed0907bcce7e611dc1c74e20c32263a0c60384a53be6df6533b79
+    - filename: llama-cpp/mmproj/Signal-3.8-27B-AP-Q6_K/mmproj-BF16.gguf
+      uri: https://huggingface.co/agentionai/Signal-3.8-27B-GGUF/resolve/9848da210febc2141edb7e3f89cfc307a0d15163/mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+
+- !!merge <<: *signal-3-8-27b
+  name: signal-3.8-27b-q8
+  variants: []
+  description: |
+    Signal 3.8 27B is AgentionAI's Qwen3.8-27B fine-tune for shorter answers
+    and reasoning traces. This Q8_0 GGUF build includes the BF16 vision
+    projector, the embedded Jinja chat template, and MTP speculative decoding.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Signal-3.8-27B-Q8_0/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:4
+    parameters:
+      model: llama-cpp/models/Signal-3.8-27B-Q8_0/Signal-3.8-27B-Q8_0.gguf
+      temperature: 0.7
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Signal-3.8-27B-Q8_0/Signal-3.8-27B-Q8_0.gguf
+      uri: https://huggingface.co/agentionai/Signal-3.8-27B-GGUF/resolve/9848da210febc2141edb7e3f89cfc307a0d15163/Q8_0/Signal-3.8-27B-Q8_0.gguf
+      sha256: 8929311216e59bab88e0b70bdbc476e0d7e2dd48db7e771e86710be466568ed6
+    - filename: llama-cpp/mmproj/Signal-3.8-27B-Q8_0/mmproj-BF16.gguf
+      uri: https://huggingface.co/agentionai/Signal-3.8-27B-GGUF/resolve/9848da210febc2141edb7e3f89cfc307a0d15163/mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+
 - name: "spark-x2.5-4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
