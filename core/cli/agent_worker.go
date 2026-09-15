@@ -96,6 +96,32 @@ type AgentWorkerCMD struct {
 	MCPCIJobTimeout string `env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Timeout for MCP CI job execution" group:"distributed"`
 }
 
+// acquireAgentCredentials keeps a registered-but-pending agent alive while
+// Acquire waits for approval. The manager publishes the accepted node ID as
+// soon as registration succeeds; the heartbeat loop cannot open a tunnel or
+// execute work, so approval remains the readiness boundary.
+func acquireAgentCredentials(ctx context.Context, manager *workerregistry.CredentialManager, client *workerregistry.RegistrationClient, interval time.Duration) (*workerregistry.RegisterResponse, error) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				nodeID := manager.NodeID()
+				if nodeID == "" {
+					continue
+				}
+				if err := client.Heartbeat(ctx, nodeID, map[string]any{}); err != nil {
+					xlog.Warn("Heartbeat failed", "error", err)
+				}
+			}
+		}
+	}()
+	return manager.Acquire(ctx)
+}
+
 // waitThroughApproval reports whether registration should block until an admin
 // approves this node, instead of returning a pending response and starting.
 //
@@ -159,7 +185,16 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		},
 		cmd.waitThroughApproval(),
 	)
-	res, err := credMgr.Acquire(shutdownCtx)
+	// Start liveness at the first accepted registration, including while the
+	// node is pending. Approval still gates the return from Acquire and hence
+	// construction of the executor and tunnel below.
+	heartbeatInterval, err := time.ParseDuration(cmd.HeartbeatInterval)
+	if err != nil && cmd.HeartbeatInterval != "" {
+		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cmd.HeartbeatInterval, "error", err)
+	}
+	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
+
+	res, err := acquireAgentCredentials(shutdownCtx, credMgr, regClient, heartbeatInterval)
 	if err != nil {
 		return fmt.Errorf("registration failed: %w", err)
 	}
@@ -170,15 +205,6 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	if cmd.APIToken == "" {
 		cmd.APIToken = res.APIToken
 	}
-
-	// Start heartbeat
-	heartbeatInterval, err := time.ParseDuration(cmd.HeartbeatInterval)
-	if err != nil && cmd.HeartbeatInterval != "" {
-		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cmd.HeartbeatInterval, "error", err)
-	}
-	heartbeatInterval = cmp.Or(heartbeatInterval, 10*time.Second)
-
-	go regClient.HeartbeatLoop(shutdownCtx, nodeID, heartbeatInterval, func() map[string]any { return map[string]any{} })
 
 	// The executor and the event bridge the control plane serves, built BEFORE
 	// the tunnel because a verb mounted with a nil handler answers a 404, which
