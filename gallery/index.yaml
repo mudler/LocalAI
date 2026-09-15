@@ -1770,6 +1770,8 @@
 - &ling-3-0-tiny
   name: "ling-3.0-tiny-q4"
   variants:
+    - model: ling-3.0-tiny-q5
+    - model: ling-3.0-tiny-q6
     - model: ling-3.0-tiny-q8
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1781,8 +1783,8 @@
     targets reasoning, coding, instruction following, and agentic tasks with
     a native 131K-token context window.
 
-    This default entry uses the Q4_K_M GGUF. A higher-quality Q8_0 model is
-    available as a variant.
+    This default entry uses the Q4_K_M GGUF. Q5_K_M, Q6_K, and Q8_0
+    builds are available as variants.
   license: "mit"
   tags:
     - llm
@@ -1847,6 +1849,70 @@
     - filename: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q8_0.gguf
       uri: huggingface://bloomer010/Ling-3.0-tiny-GGUF/Ling-3.0-tiny-Q8_0.gguf
       sha256: 326221bdef72525bd6178b072d3827cd5fb5248a55e8c44eb400417f401733bc
+- !!merge <<: *ling-3-0-tiny
+  name: "ling-3.0-tiny-q5"
+  variants: []
+  urls:
+    - https://huggingface.co/inclusionAI/Ling-3.0-tiny
+    - https://huggingface.co/inclusionAI/Ling-3.0-tiny-GGUF
+  last_checked: "2026-09-14"
+  description: |
+    Ling-3.0-tiny in InclusionAI's Q5_K_M GGUF format, offering an
+    intermediate size between the Q4_K_M and Q8_0 builds.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q5_K_M.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q5_K_M.gguf
+      uri: https://huggingface.co/inclusionAI/Ling-3.0-tiny-GGUF/resolve/01b850e29ed5b44e2b810160ff980a9bb353296f/Ling-3.0-tiny-Q5_K_M.gguf
+      sha256: b20a30eb9fe1b67356cb25f65aa9cad1a7c58263c8edf16b183e47183c05677d
+- !!merge <<: *ling-3-0-tiny
+  name: "ling-3.0-tiny-q6"
+  variants: []
+  urls:
+    - https://huggingface.co/inclusionAI/Ling-3.0-tiny
+    - https://huggingface.co/inclusionAI/Ling-3.0-tiny-GGUF
+  last_checked: "2026-09-14"
+  description: |
+    Ling-3.0-tiny in InclusionAI's Q6_K GGUF format, offering an
+    intermediate size between the Q4_K_M and Q8_0 builds.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q6_K.gguf
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q6_K.gguf
+      uri: https://huggingface.co/inclusionAI/Ling-3.0-tiny-GGUF/resolve/01b850e29ed5b44e2b810160ff980a9bb353296f/Ling-3.0-tiny-Q6_K.gguf
+      sha256: 6284690e864120e40f907ac1f856ea0770f8bfc544dfb0e5fec1f542fa21944d
 - &granite-4-2-3b
   name: "granite-4.2-3b-q4"
   variants:

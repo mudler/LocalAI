@@ -259,6 +259,18 @@ variant name for ordinary decoding without a draft model.
 
 ### Model variants
 
+Ling-3.0-tiny offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 builds for llama.cpp.
+The Q5_K_M and Q6_K files come from InclusionAI and provide intermediate
+download sizes of about 5.6 GB and 6.5 GB. To select Q5_K_M explicitly:
+
+```bash
+local-ai models install localai@ling-3.0-tiny-q4 --variant ling-3.0-tiny-q5
+```
+
+Use `--variant ling-3.0-tiny-q6` for Q6_K. These builds retain the
+131,072-token context configuration of the existing entries. Runtime memory
+requirements also include the context cache.
+
 The `qwen3.5-9b-defiant-fable-mtp` entry offers Q4_K_M and Q8_0 builds for
 llama.cpp, with and without multi-token prediction (MTP). Each build includes
 the BF16 vision projector. To select the Q8_0 MTP build explicitly:
