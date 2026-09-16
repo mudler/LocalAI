@@ -276,6 +276,11 @@ type ModelCapabilities struct {
 	InputModalities []string `json:"input_modalities"`
 	// OutputModalities is the subset of {text,image,audio,video} the model produces.
 	OutputModalities []string `json:"output_modalities"`
+	// ContextSize is the effective context window in tokens the backend will
+	// run with: the configured context_size, or the default when unset. 0 means
+	// the value is unknown (e.g. a loose file with no config). Clients can use
+	// this to size their context budget for auto-compaction and pruning.
+	ContextSize int `json:"context_size,omitempty"`
 }
 
 // ModelCapabilitiesResponse is the envelope returned by /v1/models/capabilities.
