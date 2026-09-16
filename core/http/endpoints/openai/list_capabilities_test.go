@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -115,5 +116,30 @@ parameters:
 		Expect(entry.InputModalities).To(Equal([]string{"audio"}))
 		Expect(entry.OutputModalities).To(Equal([]string{"text"}))
 		Expect(entry.Capabilities).NotTo(ContainElement("chat"))
+	})
+
+	It("surfaces the configured context_size", func() {
+		writeConfig("llm", `
+name: llm
+backend: llama-cpp
+context_size: 32768
+parameters:
+  model: model.gguf
+`)
+		entry := entryFor(call(), "llm")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(32768))
+	})
+
+	It("falls back to the default context size when context_size is unset", func() {
+		writeConfig("llm", `
+name: llm
+backend: llama-cpp
+parameters:
+  model: model.gguf
+`)
+		entry := entryFor(call(), "llm")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(backend.DefaultContextSize))
 	})
 })
