@@ -1,4 +1,56 @@
 ---
+- name: "ornith-1.5-9b-uncensored"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF
+  description: |
+    # Ornith-1.5-9B-uncensored
+
+    An **abliterated** (refusal-direction-ablated) build of
+    `ornith-ai/Ornith-1.5-9B`, produced with
+    ZeroFuse and published by
+    junafinity.
+
+    This is the **9B control checkpoint** (bf16). Mac users should start from the MLX-8bit or GGUF-8bit siblings. The official 9B base has **no `mtp.*` tensors**; nothing was grafted.
+
+    **Vision tower and MTP heads are preserved** — see
+    Vision & MTP preservation for the before/after audit.
+
+    ## Intended use: red teaming and defensive cybersecurity research
+
+    These uncensored (abliterated) weights are built as a **research instrument** for red teaming and defensive cybersecurity work. Safety training suppresses the *display* of capability, not capability itself. A refusal tells you the model declined. It does not tell you whether the weights could have complied. That conflation underestimates the true ceiling and hides holes in *your* filters, classifiers, and policy layer.
+
+    Use each uncensored checkpoint as the **treatment half of a controlled pair** against its original base model:
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Ornith-1.5-9B-uncensored.Q4_K_M/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Ornith-1.5-9B-uncensored.Q4_K_M/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Ornith-1.5-9B-uncensored.Q4_K_M/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+      sha256: ee180b66bc2dcd49f41e0d3c991d2eaab3078d651d97595852d16ae6d9af3c9e
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/main/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Ornith-1.5-9B-uncensored.Q4_K_M/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/main/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
 - name: "spark-x2.5-4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
