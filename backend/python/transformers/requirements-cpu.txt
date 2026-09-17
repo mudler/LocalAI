@@ -1,4 +1,4 @@
-torch==2.7.1
+torch==2.14.0+xpu
 llvmlite==0.49.0
 numba==0.67.0
 accelerate
