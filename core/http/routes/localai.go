@@ -229,6 +229,11 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VideoRequest) }))
 
 	model3dHandler := localai.Model3DEndpoint(cl, ml, appConfig)
+	router.POST("/3d/animate",
+		localai.Model3DAnimationEndpoint(ml, appConfig),
+		echomiddleware.BodyLimit("45M"),
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D_ANIMATION)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.Model3DAnimationRequest) }))
 	router.POST("/3d/generations",
 		model3dHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D)),

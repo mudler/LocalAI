@@ -1,0 +1,11 @@
+---
+name: kimodocpp
+config_file: |
+  backend: kimodocpp
+  known_usecases:
+    - 3d_animation
+  options:
+    - text_bundle:kimodo/text
+    - frames:150
+    - steps:100
+    - text_guidance:2

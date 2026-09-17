@@ -311,6 +311,40 @@ func (f *FileStagingClient) GenerateVideo(ctx context.Context, in *pb.GenerateVi
 	return result, nil
 }
 
+func (f *FileStagingClient) Animate3D(ctx context.Context, in *pb.Animate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.Animate3DRequest)
+	for name, input := range in.Inputs {
+		if input == nil || input.Type == "text" || !isFilePath(input.Data) {
+			continue
+		}
+		path, err := f.stageInputFile(ctx, lifecycle, input.Data, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging animation input %q: %w", name, err)
+		}
+		input.Data = path
+	}
+	frontendDst := in.Dst
+	if frontendDst != "" {
+		path, err := f.stager.AllocRemoteTemp(ctx, f.nodeID)
+		if err != nil {
+			return nil, fmt.Errorf("allocating animation output: %w", err)
+		}
+		in.Dst = path
+	}
+	result, err := f.Backend.Animate3D(ctx, in, opts...)
+	if err != nil {
+		return result, err
+	}
+	if frontendDst != "" && in.Dst != frontendDst {
+		if err := f.retrieveOutputFile(ctx, in.Dst, frontendDst); err != nil {
+			return result, fmt.Errorf("retrieving animation: %w", err)
+		}
+	}
+	return result, nil
+}
+
 func (f *FileStagingClient) Generate3D(ctx context.Context, in *pb.Generate3DRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	lifecycle := f.newStagedInputLifecycle()
 	defer lifecycle.release()

@@ -267,8 +267,9 @@ type ModelsDataResponse struct {
 // served by the LocalAI-specific /v1/models/capabilities endpoint so clients can
 // route attachments (image/audio/video) to a model only when it can handle them.
 type ModelCapabilities struct {
-	ID     string `json:"id"`
-	Object string `json:"object"`
+	ThreeDOperations []ThreeDOperation `json:"three_d_operations,omitempty"`
+	ID               string            `json:"id"`
+	Object           string            `json:"object"`
 	// Capabilities are canonical usecase strings (e.g. chat, vision, transcript,
 	// tts, embeddings, image, video) plus the modifiers "tools" and "thinking".
 	Capabilities []string `json:"capabilities"`

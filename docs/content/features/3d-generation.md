@@ -9,6 +9,8 @@ LocalAI can generate textured 3D meshes from a single conditioning image via the
 
 Generation is image-conditioned only — there is no text-prompt path. Provide a photo or rendering of a single object (ideally on a plain background) and TRELLIS.2 reconstructs a full 3D mesh from it.
 
+For text-conditioned animated skeletons, see [3D Animation](/features/3d-animation/). Both workflows appear under **3D** in Studio; selecting a model changes the inputs and generation options.
+
 ## Setup
 
 Install a model from the gallery:
