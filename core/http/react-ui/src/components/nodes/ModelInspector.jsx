@@ -20,7 +20,7 @@ function latestUse(replicas) {
   return values.length ? values.sort((left, right) => right.time - left.time)[0].value : null
 }
 
-export default function ModelInspector({ model, nodes, open, onClose, onOpenNode, focusNodeId }) {
+export default function ModelInspector({ model, nodes, open, onClose, onOpenNode, onViewLogs, focusNodeId }) {
   const closeRef = useRef(null)
   const drawerRef = useRef(null)
   const nodeButtonRefs = useRef(new Map())
@@ -69,10 +69,24 @@ export default function ModelInspector({ model, nodes, open, onClose, onOpenNode
                   ? <button ref={element => { if (element) nodeButtonRefs.current.set(group.nodeId, element); else nodeButtonRefs.current.delete(group.nodeId) }}
                     type="button" onClick={event => onOpenNode(group.node, event.currentTarget)} aria-label={`Open node ${name}`}>{name}</button>
                   : <strong>{name}</strong>}
-                {group.node ? <StatusPill status={group.node.status} /> : <span className="status-pill status-pill--neutral">Unknown</span>}
+                <div className="model-inspector__node-actions">
+                  {group.node ? <StatusPill status={group.node.status} /> : <span className="status-pill status-pill--neutral">Unknown</span>}
+                  {group.nodeId && <button type="button" className="model-inspector__logs" aria-label={`View all ${model.model_name} logs on ${name}`}
+                    onClick={() => onViewLogs(group.nodeId, model.model_name)}><i className="fas fa-terminal" aria-hidden="true" /> Logs</button>}
+                </div>
               </div>
               <p>{group.replicas.length} replica{group.replicas.length === 1 ? '' : 's'} · {inFlight} in flight · {lastUsed ? timeAgo(lastUsed) : 'never used'}</p>
-              <ul>{group.replicas.map(replica => <li key={replica.id || `${replica.replica_index}:${replica.address}`}><span>Replica {Number.isFinite(replica.replica_index) ? replica.replica_index + 1 : '—'}</span><code>{replica.address || 'No address'}</code></li>)}</ul>
+              <ul>{group.replicas.map(replica => {
+                const replicaNumber = Number.isFinite(replica.replica_index) ? replica.replica_index + 1 : null
+                const processKey = `${model.model_name}#${replica.replica_index ?? 0}`
+                return <li key={replica.id || `${replica.replica_index}:${replica.address}`}>
+                  <span>Replica {replicaNumber ?? '—'}</span>
+                  <code>{replica.address || 'No address'}</code>
+                  {group.nodeId && <button type="button" className="model-inspector__replica-logs"
+                    aria-label={`View logs for ${model.model_name} replica ${replicaNumber ?? 'unknown'} on ${name}`}
+                    onClick={() => onViewLogs(group.nodeId, processKey)}>View logs</button>}
+                </li>
+              })}</ul>
             </article>
           )
         })}</div>

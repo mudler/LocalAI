@@ -140,7 +140,7 @@ func (v *VllmCpp) loadVideo(opts *pb.ModelOptions, dit string) error {
 		DequantBf16: vo.dequantBf16,
 		Fp4Resident: vo.fp4Resident,
 	}
-	var keep [][]byte
+	var keep []any
 	setStr := func(dst *uintptr, s string) {
 		if s == "" {
 			return
@@ -159,11 +159,30 @@ func (v *VllmCpp) loadVideo(opts *pb.ModelOptions, dit string) error {
 	setStr(&mp.PromptEmbedsPath, vo.promptEmbedsPath)
 	setStr(&mp.Partition, vo.partition)
 
+	// Load-time LoRA fusion: the standard LocalAI lora_adapters/lora_scales
+	// config fields carry into the vllm.cpp extras seam as indexed
+	// lora_path/lora_strength pairs (row ROAD-V1-DIT-LORA). The engine fuses
+	// the deltas into the DiT weights at load, so the adapters are "always
+	// loaded" — there is no per-request activation in this path.
+	extraKeys, extraValues := buildLoraExtras(
+		opts.GetLoraAdapters(), opts.GetLoraScales(),
+		opts.GetLoraAdapter(), opts.GetLoraScale(),
+		opts.ModelPath)
+	if len(extraKeys) > 0 {
+		keyPtrs, keyBacking := cStringArray(extraKeys)
+		valPtrs, valBacking := cStringArray(extraValues)
+		mp.NExtras = int32(len(extraKeys))
+		mp.ExtraKeys = uintptr(unsafe.Pointer(&keyPtrs[0]))   // #nosec G103 -- borrowed by C for the load call only
+		mp.ExtraValues = uintptr(unsafe.Pointer(&valPtrs[0])) // #nosec G103 -- borrowed by C for the load call only
+		keep = append(keep, keyPtrs, valPtrs, keyBacking, valBacking)
+	}
+
 	xlog.Info("[vllm-cpp] Load (MiniMax-H3 video)", "dit", dit, "engine", vllmVersion(),
 		"encoder", vo.encoderPath, "tokenizer", vo.tokenizerPath,
 		"videoVae", vo.videoVaePath, "audioVae", vo.audioVaePath,
 		"partition", vo.partition, "device", videoDeviceName(vo.device),
-		"dequantBf16", vo.dequantBf16 == 1, "fp4Resident", vo.fp4Resident == 1)
+		"dequantBf16", vo.dequantBf16 == 1, "fp4Resident", vo.fp4Resident == 1,
+		"loraAdapters", len(extraKeys)/2)
 
 	var engine uintptr
 	rc := vllmVideoEngineLoad(unsafe.Pointer(&mp), unsafe.Pointer(&engine)) // #nosec G103 -- POD out-params
@@ -631,4 +650,42 @@ func siblingConfigJSON(weights string) string {
 		return ""
 	}
 	return candidate
+}
+
+// buildLoraExtras converts the standard LocalAI lora_adapters/lora_scales
+// config fields into the indexed lora_path/lora_strength extras pairs that
+// vllm.cpp's ResolveDitLoraSpecs expects (row ROAD-V1-DIT-LORA).
+//
+// The singular lora_adapter/lora_scale fields are folded in as the first
+// adapter. Adapter paths are resolved against modelPath when relative.
+// Strength defaults to 1.0 when no scale is given for an adapter.
+//
+// Returns nil, nil when no adapters are configured.
+func buildLoraExtras(adapters []string, scales []float32, singularAdapter string, singularScale float32, modelPath string) (keys, values []string) {
+	if singularAdapter != "" {
+		adapters = append([]string{singularAdapter}, adapters...)
+		scales = append([]float32{singularScale}, scales...)
+	}
+	if len(adapters) == 0 {
+		return nil, nil
+	}
+	for i, adapter := range adapters {
+		path := adapter
+		if !filepath.IsAbs(path) && modelPath != "" {
+			path = filepath.Join(modelPath, path)
+		}
+		suffix := ""
+		if i > 0 {
+			suffix = "_" + strconv.Itoa(i + 1)
+		}
+		keys = append(keys, "lora_path"+suffix)
+		values = append(values, path)
+		strength := 1.0
+		if i < len(scales) {
+			strength = float64(scales[i])
+		}
+		keys = append(keys, "lora_strength"+suffix)
+		values = append(values, strconv.FormatFloat(strength, 'f', -1, 32))
+	}
+	return keys, values
 }

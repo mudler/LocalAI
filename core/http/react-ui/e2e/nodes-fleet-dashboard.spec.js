@@ -131,7 +131,7 @@ test.describe('Nodes fleet dashboard', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
     })
     await page.goto('/app/nodes')
-    await page.getByRole('checkbox', { name: 'Select visible nodes' }).check()
+    await page.getByRole('checkbox', { name: 'Select page' }).check()
     await page.getByRole('searchbox', { name: 'Search nodes' }).fill('worker-1')
     await expect(page.getByText('12 selected')).toBeVisible()
     await page.getByRole('button', { name: 'Drain selected' }).evaluate(button => {
@@ -291,6 +291,20 @@ test.describe('Nodes fleet dashboard', () => {
 
     await expect(checkbox).toBeChecked()
     await expect(page.getByRole('complementary', { name: 'Node inspector' })).toHaveCount(0)
+  })
+
+  test('styles fleet selection consistently and exposes the partial-page state', async ({ page }) => {
+    await mockNodes(page)
+    await page.goto('/app/nodes')
+
+    const selectPage = page.getByRole('checkbox', { name: 'Select page' })
+    const selectNode = page.getByRole('checkbox', { name: 'Select atlas' })
+    await expect(selectPage).toHaveCSS('width', '18px')
+    await expect(selectNode).toHaveCSS('height', '18px')
+    await expect(selectNode).toHaveCSS('cursor', 'pointer')
+
+    await selectNode.check()
+    await expect.poll(() => selectPage.evaluate(input => input.indeterminate)).toBe(true)
   })
 
   test('keeps the low-density composition while inspecting at a desktop viewport', async ({ page }) => {
@@ -505,6 +519,28 @@ test.describe('Nodes fleet dashboard', () => {
     await nodesTab.press('ArrowRight')
     await expect(modelsPanel.locator('tbody tr')).toHaveCount(2)
     expect(modelRequests).toBe(1)
+  })
+
+  test('opens logs directly for one replica and asks for placement when a model has several', async ({ page }) => {
+    await mockNodes(page, baseNodes.map(node => node.id === 'n2' ? { ...node, status: 'healthy' } : node))
+    await page.route('**/api/nodes/models', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(baseModels) }))
+    await page.goto('/app/nodes')
+    await page.getByRole('tab', { name: 'Running models' }).click()
+
+    await page.getByRole('button', { name: 'Actions for Whisper large v3' }).click()
+    await page.getByRole('menuitem', { name: 'View logs…' }).click()
+    await expect(page).toHaveURL(/\/app\/node-backend-logs\/missing\/Whisper%20large%20v3%230$/)
+
+    await page.goto('/app/nodes')
+    await page.getByRole('tab', { name: 'Running models' }).click()
+    await page.getByRole('button', { name: 'Actions for Llama 3.2' }).click()
+    await page.getByRole('menuitem', { name: 'View logs…' }).click()
+
+    const inspector = page.getByRole('complementary', { name: 'Model inspector' })
+    await expect(inspector).toBeVisible()
+    await expect(inspector.getByRole('button', { name: 'View all Llama 3.2 logs on atlas' })).toBeVisible()
+    await inspector.getByRole('button', { name: 'View logs for Llama 3.2 replica 1 on atlas' }).click()
+    await expect(page).toHaveURL(/\/app\/node-backend-logs\/n1\/Llama%203.2%230$/)
   })
 
   test('treats the model inspector as a modal drawer on mobile', async ({ page }) => {
