@@ -111,7 +111,7 @@ func (k *Kimodo) Load(options *pb.ModelOptions) error {
 	if threads <= 0 {
 		threads = runtime.NumCPU()
 	}
-	chunk := 8
+	chunk := 32
 	for _, option := range options.Options {
 		name, value, ok := strings.Cut(option, ":")
 		if !ok {

@@ -20,9 +20,16 @@ Metal is disabled because upstream implements CPU/Vulkan only.
 Normal CI tests need no model downloads. To exercise real weights, set
 `KIMODO_TEST_LIBRARY` to the built `libkimodo.so` (or dylib),
 `KIMODO_TEST_MOTION` to a motion GGUF, `KIMODO_TEST_TEXT` to the complete text
-bundle directory, and `KIMODO_TEST_DEVICE=cpu` or `vulkan`, then run the tests.
+GGUF beside `tokenizer.gguf` (or legacy bundle directory), and
+`KIMODO_TEST_DEVICE=cpu` or `vulkan`, then run the tests.
 The real-model test generates two clips with one session to cover reuse.
+Set `KIMODO_TEST_TEXT_LAYER_CHUNK=8` to exercise bounded streaming instead of
+the default all-layer residency.
 
-The text-thread patch makes the upstream text encoder respect the configured
-thread count, matching the denoiser. When bumping the pinned upstream commit,
-verify the patch, C ABI layout/version, and all three skeleton families.
+Upstream now respects the configured thread count in both encoders and keeps
+motion weights and execution graphs resident. The adapter defaults to 32 text
+layers so the text weights also stay resident between requests. When bumping
+the pinned upstream commit, verify the C ABI layout/version and all three
+skeleton families. Pin changes update a clean cached checkout automatically;
+local source modifications stop the update rather than being discarded. Preserve
+any such changes before using `make clean` to replace that generated checkout.

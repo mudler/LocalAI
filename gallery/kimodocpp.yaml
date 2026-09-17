@@ -5,7 +5,7 @@ config_file: |
   known_usecases:
     - 3d_animation
   options:
-    - text_bundle:kimodo/text
+    - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
     - frames:150
     - steps:100
     - text_guidance:2

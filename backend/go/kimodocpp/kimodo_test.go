@@ -48,6 +48,49 @@ var _ = Describe("generation parameters", func() {
 	)
 })
 
+var _ = Describe("text encoder loading", func() {
+	var chunk int32
+	var textPath string
+	BeforeEach(func() {
+		configure, load, free := nativeConfigure, nativeLoad, nativeFree
+		DeferCleanup(func() { nativeConfigure, nativeLoad, nativeFree = configure, load, free })
+		chunk, textPath = 0, ""
+		nativeConfigure = func(_ string, threads, layers int32) int32 {
+			Expect(threads).To(Equal(int32(8)))
+			chunk = layers
+			return 0
+		}
+		nativeLoad = func(_ string, text, _ string, _ uintptr, _ *byte, _ int32) uintptr {
+			textPath = text
+			return 1
+		}
+		nativeFree = func(uintptr) {}
+	})
+	DescribeTable("loads monolithic encoders or legacy bundles with all layers resident by default", func(text string) {
+		backend := &Kimodo{}
+		DeferCleanup(backend.Free)
+		Expect(backend.Load(&pb.ModelOptions{ModelFile: "motion.gguf", ModelPath: "/models", Threads: 8,
+			Options: []string{"text_bundle:" + text}})).To(Succeed())
+		Expect(chunk).To(Equal(int32(32)))
+		Expect(textPath).To(Equal(filepath.Join("/models", text)))
+	}, Entry("Q8 monolith", "kimodo/text/Llama-3-Kimodo-Q8_0.gguf"), Entry("low-bit monolith", "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf"), Entry("legacy directory", "kimodo/text"))
+	DescribeTable("honors the layer residency option", func(value string, expected int32) {
+		backend := &Kimodo{}
+		DeferCleanup(backend.Free)
+		Expect(backend.Load(&pb.ModelOptions{ModelFile: "motion.gguf", Threads: 8,
+			Options: []string{"text_bundle:/custom/encoder.gguf", "text_layer_chunk:" + value}})).To(Succeed())
+		Expect(chunk).To(Equal(expected))
+		Expect(textPath).To(Equal("/custom/encoder.gguf"))
+	}, Entry("single layer", "1", int32(1)), Entry("streaming", "8", int32(8)), Entry("full residency", "32", int32(32)))
+	DescribeTable("rejects invalid layer counts before native loading", func(value string) {
+		backend := &Kimodo{}
+		Expect(backend.Load(&pb.ModelOptions{ModelFile: "motion.gguf", Threads: 8,
+			Options: []string{"text_bundle:encoder.gguf", "text_layer_chunk:" + value}})).To(MatchError("text_layer_chunk must be in 1..32"))
+		Expect(chunk).To(BeZero())
+		Expect(textPath).To(BeEmpty())
+	}, Entry("zero", "0"), Entry("negative", "-1"), Entry("too many", "33"), Entry("fractional", "8.5"), Entry("empty", ""))
+})
+
 var _ = Describe("skeleton GLB export", func() {
 	DescribeTable("writes animation channels for every joint", func(count int) {
 		joints := make([]animationJoint, count)

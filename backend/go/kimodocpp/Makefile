@@ -1,5 +1,5 @@
 KIMODO_REPO?=https://github.com/localai-org/kimodo.cpp
-KIMODO_VERSION?=568b0253f346fbe369587c7dae73d58594a14c90
+KIMODO_VERSION?=5679ff19ba0a522c0b0516e9a9d402fe1af2c027
 BUILD_TYPE?=
 GOCMD?=go
 GO_TAGS?=
@@ -20,23 +20,25 @@ else
 CMAKE_ARGS+=-DKIMODO_ENABLE_VULKAN=OFF
 endif
 
-.PHONY: all build package test clean purge
+.PHONY: all build package test clean purge FORCE
 all: build
 
-sources/kimodo.cpp:
-	git clone $(KIMODO_REPO) $@
-	cd $@ && git checkout $(KIMODO_VERSION) && git submodule update --init --recursive --depth 1
+FORCE:
 
-sources/kimodo.cpp/.localai-patched: sources/kimodo.cpp patches/text-threads.patch
-	cd sources/kimodo.cpp && (git apply --check ../../patches/text-threads.patch && git apply ../../patches/text-threads.patch || git apply --reverse --check ../../patches/text-threads.patch)
-	touch $@
+sources/kimodo.cpp/.localai-version: FORCE
+	@test -d sources/kimodo.cpp/.git || git clone $(KIMODO_REPO) sources/kimodo.cpp
+	@if test -f $@ && test "$$(git -C sources/kimodo.cpp rev-parse HEAD)" = "$(KIMODO_VERSION)"; then exit 0; fi; \
+		cd sources/kimodo.cpp && (git diff --quiet && git diff --cached --quiet || \
+		{ echo "kimodo.cpp has local source changes; preserve them and run make clean before updating the pin" >&2; exit 1; }) && \
+		git fetch origin $(KIMODO_VERSION) && git checkout $(KIMODO_VERSION) && \
+		git submodule update --init --recursive --depth 1 && touch .localai-version
 
-$(BUILD_DIR)/.built: sources/kimodo.cpp/.localai-patched CMakeLists.txt native/bridge.cpp Makefile
+$(BUILD_DIR)/.built: sources/kimodo.cpp/.localai-version CMakeLists.txt native/bridge.cpp Makefile
 	cmake -S . -B $(BUILD_DIR) $(CMAKE_ARGS)
 	cmake --build $(BUILD_DIR) --target kimodo -j$(JOBS)
 	touch $@
 
-$(BUILD_DIR)-avx2/.built: sources/kimodo.cpp/.localai-patched CMakeLists.txt Makefile
+$(BUILD_DIR)-avx2/.built: sources/kimodo.cpp/.localai-version CMakeLists.txt Makefile
 	cmake -S . -B $(BUILD_DIR)-avx2 $(CMAKE_ARGS) -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_BMI2=ON
 	cmake --build $(BUILD_DIR)-avx2 --target ggml-cpu -j$(JOBS)
 	touch $@

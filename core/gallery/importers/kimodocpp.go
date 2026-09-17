@@ -20,11 +20,13 @@ import (
 var kimodoModelsJSON []byte
 
 type kimodoModel struct {
-	Name       string         `json:"name"`
-	Label      string         `json:"label"`
-	Repository string         `json:"repository"`
-	Model      string         `json:"model"`
-	Files      []gallery.File `json:"files"`
+	Name             string         `json:"name"`
+	Label            string         `json:"label"`
+	Repository       string         `json:"repository"`
+	Model            string         `json:"model"`
+	TextQuantization string         `json:"text_quantization"`
+	TextModel        string         `json:"text_model"`
+	Files            []gallery.File `json:"files"`
 }
 
 type KimodoCppImporter struct{}
@@ -33,7 +35,7 @@ func (*KimodoCppImporter) Name() string      { return "kimodocpp" }
 func (*KimodoCppImporter) Modality() string  { return "3d_animation" }
 func (*KimodoCppImporter) AutoDetects() bool { return true }
 
-func kimodoImportModel(uri string) (kimodoModel, bool) {
+func kimodoImportModel(uri, quantization string) (kimodoModel, bool) {
 	var models []kimodoModel
 	if err := json.Unmarshal(kimodoModelsJSON, &models); err != nil {
 		return kimodoModel{}, false
@@ -43,7 +45,7 @@ func kimodoImportModel(uri string) (kimodoModel, bool) {
 		return kimodoModel{}, false
 	}
 	for _, model := range models {
-		if strings.EqualFold(owner+"/"+repo, model.Repository) {
+		if strings.EqualFold(owner+"/"+repo, model.Repository) && model.TextQuantization == quantization {
 			return model, true
 		}
 	}
@@ -62,34 +64,44 @@ func (*KimodoCppImporter) Match(details Details) bool {
 	if preferences.Backend != "" {
 		return preferences.Backend == "kimodocpp"
 	}
-	_, found := kimodoImportModel(details.URI)
+	_, found := kimodoImportModel(details.URI, "q8_0")
 	return found
 }
 
 func (*KimodoCppImporter) Import(details Details) (gallery.ModelConfig, error) {
-	selected, found := kimodoImportModel(details.URI)
-	if !found {
-		return gallery.ModelConfig{}, fmt.Errorf("kimodocpp: choose a published LocalAI-io Kimodo SOMA or G1 GGML motion repository")
-	}
 	var preferences struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		Name             string `json:"name"`
+		Description      string `json:"description"`
+		TextQuantization string `json:"text_quantization"`
 	}
 	if len(details.Preferences) > 0 {
 		if err := json.Unmarshal(details.Preferences, &preferences); err != nil {
 			return gallery.ModelConfig{}, err
 		}
 	}
+	quantization := strings.ToLower(preferences.TextQuantization)
+	if quantization == "" {
+		quantization = "q8_0"
+	}
+	switch quantization {
+	case "q8_0", "q6_k", "q5_k", "q4_k_m", "q4_k", "bf16":
+	default:
+		return gallery.ModelConfig{}, fmt.Errorf("kimodocpp: unsupported text_quantization %q", preferences.TextQuantization)
+	}
+	selected, found := kimodoImportModel(details.URI, quantization)
+	if !found {
+		return gallery.ModelConfig{}, fmt.Errorf("kimodocpp: choose a published LocalAI-io Kimodo SOMA or G1 GGML motion repository")
+	}
 	if preferences.Name == "" {
 		preferences.Name = selected.Name
 	}
 	if preferences.Description == "" {
-		preferences.Description = "Kimodo " + selected.Label + " text-to-motion (animated skeleton GLB)"
+		preferences.Description = "Kimodo " + selected.Label + " text-to-motion with " + strings.ToUpper(quantization) + " text encoder (animated skeleton GLB)"
 	}
 	modelConfig := config.ModelConfig{
 		Name: preferences.Name, Description: preferences.Description, Backend: "kimodocpp",
 		KnownUsecaseStrings: []string{"FLAG_3D_ANIMATION"},
-		Options:             []string{"text_bundle:kimodo/text", "frames:150", "steps:100", "text_guidance:2"},
+		Options:             []string{"text_bundle:" + selected.TextModel, "frames:150", "steps:100", "text_guidance:2"},
 		PredictionOptions:   schema.PredictionOptions{BasicModelRequest: schema.BasicModelRequest{Model: selected.Model}},
 	}
 	data, err := yaml.Marshal(modelConfig)

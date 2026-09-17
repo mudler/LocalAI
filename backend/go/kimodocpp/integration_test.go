@@ -23,8 +23,12 @@ var _ = Describe("real-model generation", Label("real-models"), func() {
 		if device == "" {
 			device = "cpu"
 		}
+		options := []string{"text_bundle:" + os.Getenv("KIMODO_TEST_TEXT"), "device:" + device}
+		if chunk := os.Getenv("KIMODO_TEST_TEXT_LAYER_CHUNK"); chunk != "" {
+			options = append(options, "text_layer_chunk:"+chunk)
+		}
 		Expect(backend.Load(&pb.ModelOptions{ModelFile: os.Getenv("KIMODO_TEST_MOTION"), Threads: 8,
-			Options: []string{"text_bundle:" + os.Getenv("KIMODO_TEST_TEXT"), "device:" + device}})).To(Succeed())
+			Options: options})).To(Succeed())
 		for index := range 2 {
 			path := filepath.Join(GinkgoT().TempDir(), "animation.glb")
 			By("generating a clip with the existing session")
