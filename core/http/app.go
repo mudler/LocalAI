@@ -85,7 +85,7 @@ func applyBackendAdmission(err error, code int, c echo.Context) int {
 		return code
 	}
 	c.Response().Header().Set("Retry-After", strconv.Itoa(int(capacityErr.RetryAfter.Seconds())))
-	return http.StatusServiceUnavailable
+	return http.StatusTooManyRequests
 }
 
 // respondModelLoading answers a request whose model is still cold-loading with
@@ -224,8 +224,13 @@ func API(application *application.Application) (*echo.Echo, error) {
 			}
 
 			// Send custom error page
+			errType := ""
+			var capErr *corebackend.BackendAdmissionError
+			if errors.As(err, &capErr) {
+				errType = "rate_limit_error"
+			}
 			c.JSON(code, schema.ErrorResponse{
-				Error: &schema.APIError{Message: err.Error(), Code: code},
+				Error: &schema.APIError{Message: err.Error(), Code: code, Type: errType},
 			})
 		}
 	} else {

@@ -88,6 +88,7 @@ The `/v1/responses` endpoint returns errors with this structure:
 | 404  | Not Found                | Model or resource does not exist                       |
 | 409  | Conflict                 | Resource already exists (e.g., duplicate token)        |
 | 422  | Unprocessable Entity     | Validation failed (e.g., invalid parameter range)      |
+| 429  | Too Many Requests        | All backends are saturated (per-model `max_concurrent` or process-wide `--max-concurrent-backend-requests` ceiling reached). Includes a `Retry-After` header and `type: "rate_limit_error"` so OpenAI-compatible clients and harnesses back off automatically |
 | 500  | Internal Server Error    | Backend inference failure, unexpected server errors    |
 
 ## Global Error Handling

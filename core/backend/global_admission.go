@@ -11,8 +11,9 @@ import (
 )
 
 // BackendAdmissionError reports that the process-wide backend execution
-// ceiling is full. HTTP callers map it to 503; internal callers receive the
-// same typed error instead of silently queueing and growing in-flight state.
+// ceiling is full. HTTP callers map it to 429 (Too Many Requests) with a
+// Retry-After header; internal callers receive the same typed error instead
+// of silently queueing and growing in-flight state.
 type BackendAdmissionError struct {
 	Limit      int
 	RetryAfter time.Duration
