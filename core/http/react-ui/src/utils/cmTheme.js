@@ -18,7 +18,7 @@ const darkEditorTheme = EditorView.theme({
   },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#4f8cff', borderLeftWidth: '2px' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-    backgroundColor: 'rgba(79, 140, 255, 0.25)',
+    backgroundColor: 'rgba(79, 140, 255, 0.38)',
   },
   '.cm-gutters': {
     backgroundColor: '#131a23',
@@ -79,7 +79,7 @@ const lightEditorTheme = EditorView.theme({
   },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#5e81ac', borderLeftWidth: '2px' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-    backgroundColor: 'rgba(94, 129, 172, 0.18)',
+    backgroundColor: 'rgba(94, 129, 172, 0.28)',
   },
   '.cm-gutters': {
     backgroundColor: '#e5e9f0',
