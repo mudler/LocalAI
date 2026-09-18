@@ -390,6 +390,8 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".bak",
 	".partial",
 	".tar.gz",
+	".tar.bz2",
+	".sha256",
 }
 
 func (ml *ModelLoader) ListFilesInModelPath() ([]string, error) {
