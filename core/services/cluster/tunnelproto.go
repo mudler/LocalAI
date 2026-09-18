@@ -311,6 +311,8 @@ func writeFrame(w io.Writer, payload string) error {
 		return fmt.Errorf("tunnel frame is %d bytes, over the %d-byte limit", len(payload), maxTunnelFrame)
 	}
 	buf := make([]byte, 2+len(payload))
+	// #nosec G115 -- the guard above caps payload at maxTunnelFrame (1024),
+	// well inside uint16, so the conversion cannot truncate.
 	binary.BigEndian.PutUint16(buf[:2], uint16(len(payload)))
 	copy(buf[2:], payload)
 	_, err := w.Write(buf)
