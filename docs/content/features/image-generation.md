@@ -24,9 +24,9 @@ curl http://localhost:8080/v1/images/generations -H "Content-Type: application/j
 }'
 ```
 
-Available additional parameters: `mode`, `step`.
+Available additional parameters: `mode`, `step`, `negative_prompt`.
 
-Note: To set a negative prompt, you can split the prompt with `|`, for instance: `a cute baby sea otter|malformed`.
+To set a negative prompt you can either pass a separate `negative_prompt` field or split the prompt with `|`, e.g. `a cute baby sea otter|malformed`. When both are present they are joined with a comma (`negative_prompt` first, then the `|`-suffixed tags), so a global negative prompt can live in `negative_prompt` while per-image negatives are appended after `|`.
 
 ```bash
 curl http://localhost:8080/v1/images/generations -H "Content-Type: application/json" -d '{
