@@ -20,6 +20,8 @@ const (
 	// invariants still apply: non-empty, at most 72 bytes, no NUL. The
 	// acknowledgement is deliberate rather than incidental, so a future
 	// tightening of the policy cannot break every failover spec at setup time.
+	// #nosec G101 -- a fixed credential for a throwaway cluster the suite
+	// starts and kills; it never leaves the test process.
 	adminPassword = "e2e-admin-password"
 	// sessionCookieName mirrors the unexported constant in core/http/auth.
 	// The register handler returns 201 both for "user created, here is your

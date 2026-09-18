@@ -672,6 +672,9 @@ func tunnelBackoffDelay(attempt int) time.Duration {
 			d = scaled
 		}
 	}
+	// #nosec G404 -- jitter spreads reconnect attempts so a fleet does not
+	// retry in lockstep. It decides nothing an attacker benefits from
+	// predicting, and a CSPRNG here would cost entropy for no gain.
 	return d/2 + time.Duration(rand.Int64N(int64(d/2)+1))
 }
 
