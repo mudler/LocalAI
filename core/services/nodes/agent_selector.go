@@ -177,6 +177,8 @@ func (s *AgentSelector) pickConnectedExcluding(ctx context.Context, tried map[st
 	// Random rather than round robin. A per-replica counter is per-replica
 	// state that says nothing about load, and with several replicas the
 	// counters agree on nothing anyway.
+	// #nosec G404 -- spreads work across equivalent agent workers. Nothing
+	// about the choice is a secret worth predicting.
 	picked := candidates[rand.IntN(len(candidates))]
 	nodeType := typeOf[picked]
 	if nodeType == "" {
