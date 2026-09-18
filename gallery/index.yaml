@@ -47215,6 +47215,118 @@
     - filename: id_ID-news_tts-medium.onnx.json
       sha256: 1ef677072668a5e172e0759b1d3871f129009d1167f093325a17607f7add5ad7
       uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/id/id_ID/news_tts/medium/id_ID-news_tts-medium.onnx.json
+- name: voice-it_IT-ugo-medium
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  urls:
+    - https://huggingface.co/Einrich99/PiperTTS-UGO-Italian
+    - https://github.com/rhasspy/piper
+  description: |
+    Italian (it_IT) single-speaker Piper voice "Ugo" (medium quality, 22.05 kHz), fine-tuned from the en_US lessac medium voice. Community voice by Einrich99.
+  license: cc-by-4.0
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  tags:
+    - text-to-speech
+    - tts
+    - onnx
+    - piper
+    - medium
+    - italian
+    - cpu
+  last_checked: "2026-09-18"
+  overrides:
+    parameters:
+      model: it_IT-ugo-medium.onnx
+  files:
+    - filename: it_IT-ugo-medium.onnx
+      sha256: 8be36a89f0f11f8a87751e7cf25ae5c07d1ff1c46c3ccb0fd3541102a1e9476d
+      uri: https://huggingface.co/Einrich99/PiperTTS-UGO-Italian/resolve/main/medium/it_IT-ugo-medium.onnx
+    - filename: it_IT-ugo-medium.onnx.json
+      sha256: feb477322e426918b978c46a80c7eb02e21014c38131dd6878fd72a5e21e4081
+      uri: https://huggingface.co/Einrich99/PiperTTS-UGO-Italian/resolve/main/medium/it_IT-ugo-medium.onnx.json
+- name: voice-it_IT-aurora-medium
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  urls:
+    - https://huggingface.co/kirys79/piper_italiano
+    - https://github.com/rhasspy/piper
+  description: |
+    Italian (it_IT) single-speaker Piper voice "Aurora" (medium quality, 22.05 kHz), trained from scratch on speaker 6807 of Multilingual LibriSpeech (MLS). Marked accent with emphatic pauses. Community voice by kirys79.
+  license: cc-by-4.0
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  tags:
+    - text-to-speech
+    - tts
+    - onnx
+    - piper
+    - medium
+    - italian
+    - cpu
+  last_checked: "2026-09-18"
+  overrides:
+    parameters:
+      model: it_IT-aurora-medium.onnx
+  files:
+    - filename: it_IT-aurora-medium.onnx
+      sha256: 15528ee12e6c2a29bb67109e8306eb41cf3a02ff80bd835bdba2d4e8f82b38b2
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Aurora/it_IT-aurora-medium.onnx
+    - filename: it_IT-aurora-medium.onnx.json
+      sha256: 70973d95ba64790fd5b16b0b357c63f370c8288c80debfb4eabf177c7c264ba3
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Aurora/it_IT-aurora-medium.onnx.json
+- name: voice-it_IT-giorgio-high
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  urls:
+    - https://huggingface.co/kirys79/piper_italiano
+    - https://github.com/rhasspy/piper
+  description: |
+    Italian (it_IT) single-speaker Piper voice "Giorgio" (high quality, 22.05 kHz), fine-tuned from the Leonardo voice on speaker 8181 of Multilingual LibriSpeech (MLS). Community voice by kirys79.
+  license: cc-by-4.0
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  tags:
+    - text-to-speech
+    - tts
+    - onnx
+    - piper
+    - high
+    - italian
+    - cpu
+  last_checked: "2026-09-18"
+  overrides:
+    parameters:
+      model: it_IT-giorgio-high.onnx
+  files:
+    - filename: it_IT-giorgio-high.onnx
+      sha256: 6bfc837a53dd420a7d10e6d237eee2d7d276ee5cb3bf521bfa2b2446d0ff1dc9
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Giorgio/giorgio-epoch%3D5028-step%3D1098436.onnx
+    - filename: it_IT-giorgio-high.onnx.json
+      sha256: 3cdc6f20d2bb287c3bcf33e5b88340810e53908ab507b54a78abecffff8e1aac
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Giorgio/giorgio-epoch%3D5028-step%3D1098436.json
+- name: voice-it_IT-leonardo-high
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  urls:
+    - https://huggingface.co/kirys79/piper_italiano
+    - https://github.com/rhasspy/piper
+  description: |
+    Italian (it_IT) single-speaker Piper voice "Leonardo" (high quality, 22.05 kHz), trained from scratch on speaker 1595 of Multilingual LibriSpeech (MLS). Likely the same speaker as the original Piper "riccardo" voice, at higher quality. Community voice by kirys79.
+  license: cc-by-4.0
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  tags:
+    - text-to-speech
+    - tts
+    - onnx
+    - piper
+    - high
+    - italian
+    - cpu
+  last_checked: "2026-09-18"
+  overrides:
+    parameters:
+      model: it_IT-leonardo-high.onnx
+  files:
+    - filename: it_IT-leonardo-high.onnx
+      sha256: e693ab78e13790d7440ecaad8f886570ca2b2918af5f8c7bf700d509f0629361
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Leonardo/leonardo-epoch%3D2024-step%3D996300.onnx
+    - filename: it_IT-leonardo-high.onnx.json
+      sha256: 6410af83846fe9bc9d2c4224a7cbbbcd0e11ae7165737d6ebdbf34c8d67d385b
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Leonardo/leonardo-epoch%3D2024-step%3D996300.json
 - name: voice-ka_GE-natia-medium
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   urls:
