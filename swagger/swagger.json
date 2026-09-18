@@ -6399,6 +6399,10 @@
                         "type": "string"
                     }
                 },
+                "context_size": {
+                    "description": "ContextSize is the effective context window in tokens the backend will\nrun with: the configured context_size, or the default when unset. 0 means\nthe value is unknown (e.g. a loose file with no config). Clients can use\nthis to size their context budget for auto-compaction and pruning.",
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
