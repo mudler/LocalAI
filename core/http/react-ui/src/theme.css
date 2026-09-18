@@ -28,6 +28,9 @@
   --color-primary-light: rgba(79, 140, 255, 0.14);
   --color-primary-border: rgba(79, 140, 255, 0.34);
 
+  /* Text selection */
+  --color-selection-bg: rgba(79, 140, 255, 0.38);
+
   --color-secondary: #8aa6cc;
   --color-secondary-hover: #9db6d8;
   --color-secondary-light: rgba(138, 166, 204, 0.12);
@@ -195,6 +198,9 @@
   --color-primary-text: #ffffff;
   --color-primary-light: rgba(47, 98, 216, 0.12);
   --color-primary-border: rgba(47, 98, 216, 0.34);
+
+  /* Text selection */
+  --color-selection-bg: rgba(47, 98, 216, 0.25);
 
   --color-secondary: #4a5769;
   --color-secondary-hover: #3a4553;
