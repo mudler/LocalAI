@@ -168,6 +168,15 @@ func (v *VllmCpp) loadVideo(opts *pb.ModelOptions, dit string) error {
 		opts.GetLoraAdapters(), opts.GetLoraScales(),
 		opts.GetLoraAdapter(), opts.GetLoraScale(),
 		opts.ModelPath)
+	loraN := len(extraKeys) / 2 // each load-time adapter = lora_path + lora_strength
+	// Runtime prompt-activated LoRA: lora_dir tells the engine where to
+	// resolve <lora:name:strength> prompt tags at request time (row
+	// ROAD-V1-LORA-RUNTIME). The engine strips the tags from the prompt and
+	// applies the deltas per-request without touching base weights.
+	if vo.loraDir != "" {
+		extraKeys = append(extraKeys, "lora_dir")
+		extraValues = append(extraValues, vo.loraDir)
+	}
 	if len(extraKeys) > 0 {
 		keyPtrs, keyBacking := cStringArray(extraKeys)
 		valPtrs, valBacking := cStringArray(extraValues)
@@ -182,7 +191,7 @@ func (v *VllmCpp) loadVideo(opts *pb.ModelOptions, dit string) error {
 		"videoVae", vo.videoVaePath, "audioVae", vo.audioVaePath,
 		"partition", vo.partition, "device", videoDeviceName(vo.device),
 		"dequantBf16", vo.dequantBf16 == 1, "fp4Resident", vo.fp4Resident == 1,
-		"loraAdapters", len(extraKeys)/2)
+		"loraAdapters", loraN, "loraDir", vo.loraDir)
 
 	var engine uintptr
 	rc := vllmVideoEngineLoad(unsafe.Pointer(&mp), unsafe.Pointer(&engine)) // #nosec G103 -- POD out-params

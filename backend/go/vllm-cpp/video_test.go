@@ -339,6 +339,26 @@ var _ = Describe("buildLoraExtras", func() {
 	})
 })
 
+var _ = Describe("video_lora_dir option", func() {
+	It("parses video_lora_dir into loraDir", func() {
+		vo := videoOptions{}
+		Expect(applyVideoOption(&vo, "video_lora_dir", "/data/loras")).To(BeTrue())
+		Expect(vo.loraDir).To(Equal("/data/loras"))
+	})
+
+	It("trims whitespace around the path", func() {
+		vo := videoOptions{}
+		Expect(applyVideoOption(&vo, "video_lora_dir", "  /data/loras  ")).To(BeTrue())
+		Expect(vo.loraDir).To(Equal("/data/loras"))
+	})
+
+	It("returns false for an unknown key", func() {
+		vo := videoOptions{}
+		Expect(applyVideoOption(&vo, "video_not_a_real_key", "x")).To(BeFalse())
+		Expect(vo.loraDir).To(BeEmpty())
+	})
+})
+
 // writePPM writes a valid P6 header of the given geometry. Only the header is
 // read by anything under test, so the pixel payload is left off.
 func writePPM(width, height int) string {
