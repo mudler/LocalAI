@@ -10,6 +10,11 @@ set -e
 
 CURDIR=$(dirname "$(realpath "$0")")
 
+# The image is built for one accelerator; models whose options carry no
+# explicit backend: should use it rather than the wrapper's CPU default.
+# An explicit backend: option and a caller's own environment both win.
+export AUDIOCPP_DEFAULT_BACKEND="${AUDIOCPP_DEFAULT_BACKEND:-best}"
+
 if [ "$(uname -s)" = "Darwin" ]; then
 	export DYLD_LIBRARY_PATH="$CURDIR/lib:$CURDIR:$DYLD_LIBRARY_PATH"
 	exec "$CURDIR/grpc-server" "$@"
