@@ -217,6 +217,8 @@ const (
 	testNodeHeartbeatCheckpoint = "5s"
 	// testHMACSecret is shared by every frontend so a session minted at one
 	// replica validates at all of them. See the note in startFrontend.
+	// #nosec G101 -- a fixed secret for a throwaway cluster the suite starts
+	// and kills; it never leaves the test process.
 	testHMACSecret   = "e2e-cluster-hmac-secret"
 	readinessTimeout = 90 * time.Second
 	readinessPoll    = 200 * time.Millisecond
@@ -339,10 +341,10 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 	}
 	name := frontendName(i)
 	dir := c.frontendDir(i)
-	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o750); err != nil {
 		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "backends"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "backends"), 0o750); err != nil {
 		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
 	}
 	// Without an explicit LOCALAI_DATA_PATH every child resolves DataPath to
@@ -355,11 +357,13 @@ func (c *Cluster) startFrontend(i int, port int) (*Process, error) {
 	}
 	for file, content := range c.opts.Models {
 		path := filepath.Join(dir, "models", file)
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			return nil, fmt.Errorf("writing %s for %s: %w", file, name, err)
 		}
 	}
 
+	// #nosec G204 -- the binary is the one this suite built and the args are
+	// the suite's own, not user input.
 	cmd := exec.Command(c.opts.Binary, "run",
 		"--address", fmt.Sprintf("127.0.0.1:%d", port),
 		"--models-path", filepath.Join(dir, "models"),
@@ -439,10 +443,10 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 	name := fmt.Sprintf("worker-%d", i)
 	dir := filepath.Join(c.baseDir, name)
 	backends := filepath.Join(dir, "backends")
-	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o750); err != nil {
 		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
 	}
-	if err := os.MkdirAll(backends, 0o755); err != nil {
+	if err := os.MkdirAll(backends, 0o750); err != nil {
 		return nil, fmt.Errorf("creating %s dirs: %w", name, err)
 	}
 	if c.opts.MockBackend != "" {
@@ -451,6 +455,8 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 		}
 	}
 
+	// #nosec G204 -- the binary is the one this suite built and the args are
+	// the suite's own, not user input.
 	cmd := exec.Command(c.opts.Binary, "worker",
 		"--models-path", filepath.Join(dir, "models"),
 		"--backends-path", backends,
@@ -516,6 +522,8 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 // in the roster.
 func (c *Cluster) startAgentWorker(i int) (*Process, error) {
 	name := agentWorkerName(i)
+	// #nosec G204 -- the binary is the one this suite built and the args are
+	// the suite's own, not user input.
 	cmd := exec.Command(c.opts.Binary, "agent-worker")
 	cmd.Env = append(environmentWithout(cmd.Environ(), "LOCALAI_API_TOKEN"),
 		// Still set, and still ignored, on the same terms as the frontend's
@@ -685,6 +693,8 @@ const (
 // "sometimes" and "not observed".
 func reserveWorkerPorts() (int, error) {
 	for attempt := 0; attempt < workerPortAttempts; attempt++ {
+		// #nosec G404 -- picks a candidate port block to probe. The probe, not
+		// the draw, decides whether the block is usable.
 		base := workerPortFloor + rand.IntN(workerPortCeiling-workerPortFloor)
 		if blockIsFree(base-1, workerPortBlockSize+1) {
 			return base, nil
@@ -733,7 +743,9 @@ func (c *Cluster) spawn(name string, cmd *exec.Cmd, port int) (*Process, error) 
 	logPath := filepath.Join(c.opts.LogDir, name+".log")
 	// Append rather than truncate: a restarted process reopens the same path, and
 	// the log of the instance that died is the one a failover post-mortem needs.
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	// #nosec G304 -- logPath is built from the suite's own temp dir and the
+	// process name it just started, not user input.
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("creating log file for %s: %w", name, err)
 	}
@@ -963,10 +975,13 @@ func waitReady(p *Process, url string) error {
 }
 
 func copyExecutable(src, dst string) error {
+	// #nosec G304 -- src is a path the suite built itself, not user input.
 	data, err := os.ReadFile(src)
 	if err != nil {
 		return fmt.Errorf("reading %s: %w", src, err)
 	}
+	// #nosec G306,G703 -- dst is a binary the suite is about to execute, so
+	// it has to carry the execute bit, and both paths are the suite's own.
 	if err := os.WriteFile(dst, data, 0o755); err != nil {
 		return fmt.Errorf("writing %s: %w", dst, err)
 	}
