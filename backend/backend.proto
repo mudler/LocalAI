@@ -18,6 +18,7 @@ service Backend {
   rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc Generate3D(Generate3DRequest) returns (Result) {}
+  rpc Animate3D(Animate3DRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
   // AudioTranscriptionLive is the bidirectional live-microphone ASR RPC. The
@@ -689,6 +690,20 @@ message GenerateVideoRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 15;
+}
+
+// A named conditioning input. Media references are staged local paths by the
+// time they reach the backend; text is passed verbatim.
+message AnimationInput {
+  string type = 1; // text, image, video, or mesh
+  string data = 2;
+}
+
+message Animate3DRequest {
+  map<string, AnimationInput> inputs = 1;
+  string dst = 2;
+  map<string, string> params = 3;
+  string model_identity = 4;
 }
 
 message Generate3DRequest {

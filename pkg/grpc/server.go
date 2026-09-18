@@ -180,6 +180,20 @@ func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest)
 	return &pb.Result{Message: "Video generated", Success: true}, nil
 }
 
+func (s *server) Animate3D(ctx context.Context, in *pb.Animate3DRequest) (*pb.Result, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	if err := s.llm.Animate3D(in); err != nil {
+		return nil, err
+	}
+	return &pb.Result{Message: "3D animation generated", Success: true}, nil
+}
+
 func (s *server) Generate3D(ctx context.Context, in *pb.Generate3DRequest) (*pb.Result, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

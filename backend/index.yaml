@@ -520,6 +520,25 @@
     nvidia-cuda-12: "cuda12-stablediffusion-ggml"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-stablediffusion-ggml"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml"
+- &kimodocpp
+  name: "kimodocpp"
+  alias: "kimodocpp"
+  license: apache-2.0
+  description: |
+    kimodo.cpp text-to-motion: animated skeleton GLB on CPU and Vulkan.
+    Apple Silicon uses the CPU runtime.
+  urls:
+    - https://github.com/localai-org/kimodo.cpp
+  tags: [3d-animation, text-to-motion, CPU, Vulkan]
+  capabilities:
+    default: "cpu-kimodocpp"
+    vulkan: "vulkan-kimodocpp"
+    nvidia: "vulkan-kimodocpp"
+    nvidia-cuda-12: "vulkan-kimodocpp"
+    nvidia-cuda-13: "vulkan-kimodocpp"
+    amd: "vulkan-kimodocpp"
+    intel: "vulkan-kimodocpp"
+    metal: "cpu-darwin-arm64-kimodocpp"
 - &trellis2cpp
   name: "trellis2cpp"
   alias: "trellis2cpp"
@@ -4045,6 +4064,49 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml
+## kimodo.cpp
+- !!merge <<: *kimodocpp
+  name: "kimodocpp-development"
+  capabilities:
+    default: "cpu-kimodocpp-development"
+    vulkan: "vulkan-kimodocpp-development"
+    nvidia: "vulkan-kimodocpp-development"
+    nvidia-cuda-12: "vulkan-kimodocpp-development"
+    nvidia-cuda-13: "vulkan-kimodocpp-development"
+    amd: "vulkan-kimodocpp-development"
+    intel: "vulkan-kimodocpp-development"
+    metal: "cpu-darwin-arm64-kimodocpp-development"
+- !!merge <<: *kimodocpp
+  name: "cpu-kimodocpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-kimodocpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "cpu-kimodocpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-kimodocpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "vulkan-kimodocpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-kimodocpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "vulkan-kimodocpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-kimodocpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "cpu-darwin-arm64-kimodocpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-darwin-arm64-kimodocpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-darwin-arm64-kimodocpp
+- !!merge <<: *kimodocpp
+  name: "cpu-darwin-arm64-kimodocpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-darwin-arm64-kimodocpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-darwin-arm64-kimodocpp
+
 ## trellis2cpp
 - !!merge <<: *trellis2cpp
   name: "cpu-trellis2cpp"

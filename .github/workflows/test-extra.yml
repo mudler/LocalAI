@@ -39,6 +39,7 @@ jobs:
       qwen3-tts-cpp: ${{ steps.detect.outputs.qwen3-tts-cpp }}
       magpie-tts-cpp: ${{ steps.detect.outputs.magpie-tts-cpp }}
       trellis2cpp: ${{ steps.detect.outputs.trellis2cpp }}
+      kimodocpp: ${{ steps.detect.outputs.kimodocpp }}
       rfdetr-cpp: ${{ steps.detect.outputs.rfdetr-cpp }}
       locate-anything-cpp: ${{ steps.detect.outputs.locate-anything-cpp }}
       vibevoice-cpp: ${{ steps.detect.outputs.vibevoice-cpp }}
@@ -989,9 +990,31 @@ jobs:
       - name: Test rfdetr-cpp
         run: |
           make --jobs=5 --output-sync=target -C backend/go/rfdetr-cpp test
-  # Weight-free packaged-backend smoke for trellis2cpp. Starting run.sh loads
-  # libtrellis2 + ggml, resolves the complete C ABI (including remeshing), and
-  # answers gRPC Health without downloading or loading the multi-GB model set.
+  # Load the packaged Kimodo C ABI and answer gRPC Health without model downloads.
+  tests-kimodocpp:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.kimodocpp == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-14 cmake curl unzip
+      - name: Generate protocol bindings
+        run: make protogen-go
+      - name: Build and test CPU backend without model downloads
+        env:
+          CXX: g++-14
+          CC: gcc-14
+        run: |
+          make -C backend/go/kimodocpp BUILD_TYPE=cpu JOBS=4
+          KIMODO_TEST_PACKAGE="$PWD/backend/go/kimodocpp/package" make -C backend/go/kimodocpp test
+
   tests-trellis2cpp:
     needs: detect-changes
     if: needs.detect-changes.outputs.trellis2cpp == 'true' || needs.detect-changes.outputs.run-all == 'true'

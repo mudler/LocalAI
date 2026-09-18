@@ -43402,6 +43402,778 @@
     - filename: clip_vision_h.safetensors
       sha256: ""
       uri: https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors
+- name: kimodo-soma-rp
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q8_0 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q8_0]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
+      sha256: b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c
+
+- name: kimodo-soma-rp-q6_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q6_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q6_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf
+      sha256: 656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2
+
+- name: kimodo-soma-rp-q5_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q5_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q5_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf
+      sha256: 7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211
+
+- name: kimodo-soma-rp-q4_k_m
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K_M Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k_m]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf
+      sha256: c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005
+
+- name: kimodo-soma-rp-q4_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf
+      sha256: b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012
+
+- name: kimodo-soma-rp-bf16
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic BF16 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+    BF16 needs substantial memory with all layers resident; use text_layer_chunk:8 on smaller GPUs.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, bf16]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-BF16.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-BF16.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
+      sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
+
+- name: kimodo-soma-seed
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q8_0 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q8_0]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
+      sha256: b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c
+
+- name: kimodo-soma-seed-q6_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q6_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q6_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf
+      sha256: 656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2
+
+- name: kimodo-soma-seed-q5_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q5_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q5_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf
+      sha256: 7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211
+
+- name: kimodo-soma-seed-q4_k_m
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K_M Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k_m]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf
+      sha256: c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005
+
+- name: kimodo-soma-seed-q4_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf
+      sha256: b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012
+
+- name: kimodo-soma-seed-bf16
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic BF16 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+    BF16 needs substantial memory with all layers resident; use text_layer_chunk:8 on smaller GPUs.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, bf16]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-BF16.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-BF16.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
+      sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
+
+- name: kimodo-g1-rp
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q8_0 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q8_0]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
+      sha256: b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c
+
+- name: kimodo-g1-rp-q6_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q6_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q6_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf
+      sha256: 656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2
+
+- name: kimodo-g1-rp-q5_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q5_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q5_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf
+      sha256: 7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211
+
+- name: kimodo-g1-rp-q4_k_m
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K_M Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k_m]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf
+      sha256: c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005
+
+- name: kimodo-g1-rp-q4_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf
+      sha256: b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012
+
+- name: kimodo-g1-rp-bf16
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic BF16 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+    BF16 needs substantial memory with all layers resident; use text_layer_chunk:8 on smaller GPUs.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, bf16]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-BF16.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-BF16.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
+      sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
+
+- name: kimodo-g1-seed
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q8_0 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q8_0]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
+      sha256: b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c
+
+- name: kimodo-g1-seed-q6_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q6_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q6_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf
+      sha256: 656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2
+
+- name: kimodo-g1-seed-q5_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q5_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q5_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf
+      sha256: 7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211
+
+- name: kimodo-g1-seed-q4_k_m
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K_M Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k_m]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf
+      sha256: c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005
+
+- name: kimodo-g1-seed-q4_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf
+      sha256: b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012
+
+- name: kimodo-g1-seed-bf16
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic BF16 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+    BF16 needs substantial memory with all layers resident; use text_layer_chunk:8 on smaller GPUs.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, bf16]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-BF16.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-BF16.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
+      sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
+
 - name: trellis2-4b
   variants:
     - model: trellis2-4b-geometry

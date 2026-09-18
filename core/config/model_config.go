@@ -1591,6 +1591,15 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 }
 
 func (c *ModelConfig) Validate() (bool, error) {
+	for _, operation := range c.ThreeDOperations() {
+		for _, parameter := range operation.Parameters {
+			if parameter.Default != "" {
+				if err := parameter.Validate(parameter.Default); err != nil {
+					return false, fmt.Errorf("%s default: %w", operation.ID, err)
+				}
+			}
+		}
+	}
 	if c.Compression.Enabled {
 		if c.IsCloudProxyBackendPassthrough() {
 			return false, fmt.Errorf("compression: cloud-proxy passthrough is unsupported; configure proxy mode translate")
@@ -1987,7 +1996,8 @@ const (
 	// Marks a model as wired for the Generate3D gRPC primitive
 	// (image-conditioned 3D asset generation — a binary glTF mesh with
 	// optional PBR material, e.g. trellis2cpp).
-	FLAG_3D ModelConfigUsecase = 0b100000000000000000000000
+	FLAG_3D           ModelConfigUsecase = 0b100000000000000000000000
+	FLAG_3D_ANIMATION ModelConfigUsecase = 1 << 24
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
@@ -2002,7 +2012,7 @@ var ModalityGroups = []ModelConfigUsecase{
 	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
 	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
 	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
-	FLAG_IMAGE | FLAG_VIDEO | FLAG_3D,                                 // visual generation
+	FLAG_IMAGE | FLAG_VIDEO | FLAG_3D | FLAG_3D_ANIMATION,             // visual generation
 }
 
 // IsMultimodal returns true if the given usecases span two or more orthogonal
@@ -2050,6 +2060,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_DEPTH":                FLAG_DEPTH,
 		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 		"FLAG_3D":                   FLAG_3D,
+		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
 	}
 }
 
@@ -2220,6 +2231,9 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		if !slices.Contains(threeDBackends, c.Backend) {
 			return false
 		}
+	}
+	if (u&FLAG_3D_ANIMATION) == FLAG_3D_ANIMATION && c.Backend != "kimodocpp" {
+		return false
 	}
 
 	if (u & FLAG_FACE_RECOGNITION) == FLAG_FACE_RECOGNITION {
