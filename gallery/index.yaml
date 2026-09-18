@@ -3358,6 +3358,135 @@
     - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/mmproj-Ornith-1.5-9B-BF16.gguf
       sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
+- &ornith-1-5-9b-uncensored
+  name: ornith-1.5-9b-uncensored-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/junafinity/Ornith-1.5-9B-uncensored
+    - https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - vision
+  variants:
+    - model: ornith-1.5-9b-uncensored-q6
+    - model: ornith-1.5-9b-uncensored-q8
+  description: |
+    Junafinity's Ornith-1.5-9B Uncensored is a 9B-parameter Qwen3.5
+    derivative with refusal-direction ablation for research and evaluation.
+    This Q4_K_M GGUF build includes the F16 vision projector and uses
+    the embedded chat template for text and image conversations.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+      sha256: ee180b66bc2dcd49f41e0d3c991d2eaab3078d651d97595852d16ae6d9af3c9e
+    - filename: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
+
+- !!merge <<: *ornith-1-5-9b-uncensored
+  name: ornith-1.5-9b-uncensored-q6
+  variants: []
+  description: |
+    Junafinity's Ornith-1.5-9B Uncensored is a 9B-parameter Qwen3.5
+    derivative with refusal-direction ablation for research and evaluation.
+    This Q6_K GGUF build includes the F16 vision projector and uses
+    the embedded chat template for text and image conversations.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q6_K.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q6_K.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.Q6_K.gguf
+      sha256: 5d48d49aae8aa7cb415e2cc4989457a094ff5a13bbb425222f1450abcd6cf1b8
+    - filename: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
+
+- !!merge <<: *ornith-1-5-9b-uncensored
+  name: ornith-1.5-9b-uncensored-q8
+  variants: []
+  description: |
+    Junafinity's Ornith-1.5-9B Uncensored is a 9B-parameter Qwen3.5
+    derivative with refusal-direction ablation for research and evaluation.
+    This Q8_0 GGUF build includes the F16 vision projector and uses
+    the embedded chat template for text and image conversations.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q8_0.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.Q8_0.gguf
+      sha256: 05e0878744b36b7c55385ecb8aaf47bddf0b43f720dbfac5c79e489c02abca8f
+    - filename: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
+
 - &ornith-1-5-9b-obliterated
   name: "ornith-1.5-9b-obliterated-q4"
   variants:
@@ -3450,6 +3579,8 @@
 - &ornith-1-5-35b-a3b
   name: "ornith-1.5-35b-a3b-q4"
   variants:
+    - model: ornith-1.5-35b-a3b-q5
+    - model: ornith-1.5-35b-a3b-q6
     - model: ornith-1.5-35b-a3b-q8
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -3461,8 +3592,8 @@
     tasks, and tool use. It activates about 3B parameters per token and
     supports text and image input with a context window of 262K tokens.
 
-    This default entry uses the Q4_K_M GGUF and BF16 vision projector. A
-    higher-quality Q8_0 model is available as a variant.
+    This default entry uses the Q4_K_M GGUF and BF16 vision projector.
+    Q5_K_M, Q6_K, and Q8_0 builds are available as variants.
   license: "mit"
   tags:
     - llm
@@ -3543,6 +3674,78 @@
       sha256: de46c4baf4b4dd85ea438bb0f757f21c38841a353506579979bba114311658c3
     - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/mmproj-Ornith-1.5-35B-BF16.gguf
+      sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
+- !!merge <<: *ornith-1-5-35b-a3b
+  name: "ornith-1.5-35b-a3b-q5"
+  variants: []
+  last_checked: "2026-09-14"
+  description: |
+    Ornith-1.5-35B-A3B in the Q5_K_M GGUF format, with the shared
+    BF16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q5_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q5_K_M.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/12393612fd4f730ff5aadc23e9b8f9648aa49ceb/Ornith-1.5-35B-Q5_K_M.gguf
+      sha256: 91df97de5845100e850b4b5ec5ff35695382020b880fad6f7f51787b3a953bd0
+    - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/12393612fd4f730ff5aadc23e9b8f9648aa49ceb/mmproj-Ornith-1.5-35B-BF16.gguf
+      sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
+- !!merge <<: *ornith-1-5-35b-a3b
+  name: "ornith-1.5-35b-a3b-q6"
+  variants: []
+  last_checked: "2026-09-14"
+  description: |
+    Ornith-1.5-35B-A3B in the Q6_K GGUF format, with the shared
+    BF16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q6_K.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q6_K.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/12393612fd4f730ff5aadc23e9b8f9648aa49ceb/Ornith-1.5-35B-Q6_K.gguf
+      sha256: 15d4658bbfc9c6034621729c15bbb50662c82b32a7ddd9624a1e545a74bdbb4b
+    - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/12393612fd4f730ff5aadc23e9b8f9648aa49ceb/mmproj-Ornith-1.5-35B-BF16.gguf
       sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
 - &nex-n2-5-mini
   name: "nex-n2.5-mini-q4"
@@ -6439,90 +6642,6 @@
     - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00020-of-00020.gguf
       uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00020-of-00020.gguf
       sha256: 5978999836fd1fe7ad7da6232a70981bd7f98274ed71d3b06652ba42c7b46031
-- name: instella-moe-16b-a3b-think
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/amd/Instella-MoE-16B-A3B-Think
-    - https://huggingface.co/DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF
-  description: |
-    AMD Instella-MoE-16B-A3B-Think is a reasoning and instruction-following
-    mixture-of-experts model with 16 billion total parameters and 3 billion
-    active parameters. It supports long-form reasoning, chat, coding, and tool
-    use. This entry uses the Q4_K_M GGUF quantization.
-  license: other
-  tags:
-    - llm
-    - gguf
-    - deepseek-v3
-    - moe
-    - reasoning
-    - thinking
-    - coding
-    - tool-use
-    - cpu
-    - gpu
-  last_checked: "2026-08-03"
-  variants:
-    - model: instella-moe-16b-a3b-think-q8
-  overrides:
-    backend: llama-cpp
-    function:
-      automatic_tool_parsing_fallback: true
-      grammar:
-        disable: true
-    known_usecases:
-      - chat
-    options:
-      - use_jinja:true
-    parameters:
-      model: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q4_K_M.gguf
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q4_K_M.gguf
-      sha256: f776ddfee5dc6c808265c3f0a9c1b384c98058bfa551fe5df656fe712eb4c7f3
-      uri: huggingface://DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF/Q4_K_M/amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q4_K_M.gguf
-- name: instella-moe-16b-a3b-think-q8
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/amd/Instella-MoE-16B-A3B-Think
-    - https://huggingface.co/DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF
-  description: |
-    AMD Instella-MoE-16B-A3B-Think is a reasoning and instruction-following
-    mixture-of-experts model with 16 billion total parameters and 3 billion
-    active parameters. It supports long-form reasoning, chat, coding, and tool
-    use. This entry uses the near-lossless Q8_0 GGUF quantization.
-  license: other
-  tags:
-    - llm
-    - gguf
-    - deepseek-v3
-    - moe
-    - reasoning
-    - thinking
-    - coding
-    - tool-use
-    - cpu
-    - gpu
-  last_checked: "2026-08-03"
-  overrides:
-    backend: llama-cpp
-    function:
-      automatic_tool_parsing_fallback: true
-      grammar:
-        disable: true
-    known_usecases:
-      - chat
-    options:
-      - use_jinja:true
-    parameters:
-      model: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q8_0.gguf
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q8_0.gguf
-      sha256: 6bff0a99d06be8ecf7d9c7f65584bfc2b24526ab0bab32dbfe7dde4237cd7c33
-      uri: huggingface://DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF/Q8_0/amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q8_0.gguf
 - name: "parable-granite-4.1-3b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -7377,6 +7496,244 @@
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
       sha256: f7197461d8581cd9be42384d4afe3f851d0844f6d72846d5c97e3dcc931b3cbc
+- &qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: qwen3.6-35b-a3b-genesis-hermes-final-apex-compact
+    - model: qwen3.6-35b-a3b-genesis-hermes-final-mtp-apex
+    - model: qwen3.6-35b-a3b-genesis-hermes-final-mtp-apex-compact
+    - model: qwen3.6-35b-a3b-genesis-hermes-final-q8-k-p
+  urls:
+    - https://huggingface.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive
+    - https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses APEX and includes the F16 vision projector.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - uncensored
+    - moe
+  last_checked: "2026-09-14"
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
+      sha256: caefdcec9364e903fc7edac90c39df257f1d6671b5fc389a3cb7dc8ce8204a3b
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final-apex-compact"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses APEX Compact and includes the F16 vision projector.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
+      sha256: c55f3a0acc94d28a192cf1262a9cc5dbdbe15ce7bad75894ce2b0d7e8b66ddb8
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final-mtp-apex"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses APEX and includes the F16 vision projector.
+    Native multi-token prediction is enabled for speculative decoding.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - uncensored
+    - moe
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
+      sha256: 01e16a28774e4f075a2bfd92ff889cb7b004e37511e68399caf39a3f4b195722
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final-mtp-apex-compact"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses APEX Compact and includes the F16 vision projector.
+    Native multi-token prediction is enabled for speculative decoding.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - uncensored
+    - moe
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
+      sha256: fe921f9f7d3f48f9fbda1f28bb3e96824db051958cbc6e44dd0e5bebc690829a
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final-q8-k-p"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses Q8_K_P and includes the F16 vision projector.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
+      sha256: e1ac7246dd3ebfb036732874dc57acbacc8b0d7d02df4417e2ac0d1f376e8d1d
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+
 - &kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev"
   variants:
@@ -11203,6 +11560,88 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- &gemma-4-31b-ortenzya
+  name: gemma-4-31b-ortenzya-q4
+  variants:
+    - model: gemma-4-31b-ortenzya-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic
+    - https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF
+  license: apache-2.0
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+    - gemma4
+    - multimodal
+    - reasoning
+    - creative-writing
+  description: |
+    Ortenzya is a Gemma 4 31B instruction-tuned model from llmfan46 for
+    creative writing, translation, and roleplay. This entry uses the Q4_K_M
+    GGUF with the BF16 vision projector and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q4_K_M.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q4_K_M.gguf
+      sha256: aefb0b5a93362b8880e2639c15ea807220351c7abfa8e0f6903ca25f31844981
+    - filename: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      sha256: c040f82999134f7ba8dddf1c9e3451822c8ae9af51b60a01619df43a2a3a7128
+- !!merge <<: *gemma-4-31b-ortenzya
+  name: gemma-4-31b-ortenzya-q8
+  variants: []
+  description: |
+    Ortenzya is a Gemma 4 31B instruction-tuned model from llmfan46 for
+    creative writing, translation, and roleplay. This entry uses the Q8_0
+    GGUF with the BF16 vision projector and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q8_0.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q8_0.gguf
+      sha256: 688170f6d6e03edc33ac86891eb3c37ec6cb1739f5db8625a84a1e4cdba17586
+    - filename: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      sha256: c040f82999134f7ba8dddf1c9e3451822c8ae9af51b60a01619df43a2a3a7128
 - &gemma-4-31b-scotoma-2
   name: "gemma-4-31b-scotoma-2-q4"
   variants:
@@ -14597,6 +15036,107 @@
     - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-2B-f16.gguf
       sha256: 044a0ea136cca70711ae16e23b24d754b44eab6f2462d187aee4d7c7a9503d36
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-2B-f16.gguf
+- &neohorse-1-4b
+  name: neohorse-1-4b-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/TokenRhythm/NeoHorse-1-4B
+    - https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+  variants:
+    - model: neohorse-1-4b-q6
+    - model: neohorse-1-4b-q8
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This build uses Q4_K_M GGUF weights with
+    the embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B.Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q4_K_M.gguf
+      sha256: 9a8426d0a5a1035d7e35ccc02794c404e027cca8e51f936b225d26d93bc44753
+
+- !!merge <<: *neohorse-1-4b
+  name: neohorse-1-4b-q6
+  variants: []
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This build uses Q6_K GGUF weights with
+    the embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B.Q6_K.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B.Q6_K.gguf
+      uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q6_K.gguf
+      sha256: d29d06d4b778b21a4b7145428ba5d709bf368fc6dc7321e0af3463c1718fec41
+
+- !!merge <<: *neohorse-1-4b
+  name: neohorse-1-4b-q8
+  variants: []
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This build uses Q8_0 GGUF weights with
+    the embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B.Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q8_0.gguf
+      sha256: ec5e02b4d3a102335333a692b1b83ee454e249e06a6d27f00b2f5bc81a199c98
+
 - name: qwen_qwen3.5-4b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -27205,6 +27745,7 @@
     Q4_K_M GGUF quantization and the model's embedded chat template.
   variants:
     - model: minicpm5-2b-q8
+    - model: minicpm5-2b-f16
   overrides:
     backend: llama-cpp
     known_usecases:
@@ -27246,6 +27787,30 @@
     - filename: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-Q8_0.gguf
       uri: huggingface://openbmb/MiniCPM5-2B-GGUF/MiniCPM5-2B-Q8_0.gguf
       sha256: c5415f8989bf88a8288f1b55a3cc371af53c07b0faa220a63bd7a990cfaba078
+- !!merge <<: *minicpm5-2b
+  name: minicpm5-2b-f16
+  description: |
+    MiniCPM5-2B is OpenBMB's compact Llama-based language model for English
+    and Chinese chat, coding, and reasoning. This entry uses the official
+    F16 GGUF build and the model's embedded chat template.
+  variants: null
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-F16.gguf
+      temperature: 1.0
+      top_p: 0.95
+  files:
+    - filename: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-F16.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/resolve/2079a22f3beaa4e306449978533478fe0522f4b3/MiniCPM5-2B-F16.gguf
+      sha256: 0ffba3682a853295566b98bc38c0ab755d6b2d91b994bc031ed727a08cfcdf25
 - &minicpm5-1b
   name: minicpm5-1b
   url: github:mudler/LocalAI/gallery/chatml.yaml@master
@@ -60225,7 +60790,7 @@
       model: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
   files:
     - filename: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
-      sha256: 84744b047296daf2177aed9dd2735497152ff83f49ec170d2a6a18cbcb93ef19
+      sha256: 4fa6a3e30c4a1c6cc1da455268806edc93432ca1e1b5b6923e942be8e6e479ff
       uri: huggingface://audio-cpp/audio.cpp-gguf/Sortformer-Diar-4spk-v1-GGUF/sortformer-diar-4spk-v1-q8_0.gguf
 - name: audio-cpp-htdemucs
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
