@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -222,9 +223,14 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context) {
 				}, nil)
 			} else {
 				err = gallery.UpgradeBackend(ctx, uc.systemState, uc.modelLoader,
-					uc.galleries, name, nil, uc.appConfig.RequireBackendIntegrity)
+					uc.galleries, name, nil, uc.appConfig.RequireBackendIntegrity,
+					gallery.WithSkipIfBackendBusy())
 			}
-			if err != nil {
+			if errors.Is(err, gallery.ErrBackendOperationInProgress) {
+				xlog.Debug("Skipping auto-upgrade because backend is already being upgraded",
+					"backend", name)
+				continue
+			} else if err != nil {
 				xlog.Error("Failed to auto-upgrade backend",
 					"backend", name, "error", err)
 			} else {
