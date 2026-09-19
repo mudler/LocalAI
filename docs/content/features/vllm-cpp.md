@@ -133,6 +133,33 @@ engine_args:
   tool_parser: qwen3_coder
 ```
 
+## Named entity recognition (GLiNER2.5)
+
+The `vllm-cpp` backend serves [GLiNER2.5](https://huggingface.co/fastino/gliner2.5-multi-v1),
+a zero-shot NER and structured-extraction model. Point the backend at the
+safetensors directory and the backend exposes the `TokenClassify` gRPC method,
+which LocalAI maps to its standard NER API surface.
+
+Labels are supplied at inference time, not baked into the model config. Set
+them in `engine_args`:
+
+```yaml
+engine_args:
+  ner_labels: "person,organization,location,date,time,money,quantity"
+  ner_threshold: 0.5
+  ner_max_width: 12
+```
+
+`ner_labels` is a comma-separated list. When omitted, the backend falls back to
+a built-in default set (`person`, `organization`, `location`, `date`, `time`,
+`money`, `quantity`). `ner_threshold` is the sigmoid cutoff (default 0.5);
+`ner_max_width` is the maximum span length in tokens (default 12).
+
+The model runs the DeBERTa v2 encoder with disentangled attention on the host
+forward, which is the required contract for pooling models in vllm.cpp. A
+device-resident forward is tracked as a performance optimization, not a
+correctness gap.
+
 ## Beyond text generation
 
 The `vllm-cpp` backend also serves MiniMax-H3, which generates video and audio
