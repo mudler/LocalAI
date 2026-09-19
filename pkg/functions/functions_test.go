@@ -65,6 +65,33 @@ var _ = Describe("LocalAI grammar functions", func() {
 			Expect(fnName.Const).To(Equal("search"))
 			Expect(fnArgs.Properties["query"].(map[string]any)["type"]).To(Equal("string"))
 		})
+
+		It("keeps the name and the arguments in separate properties when both keys are customized", func() {
+			var functions Functions = []Function{
+				{
+					Name: "get_weather",
+					Parameters: map[string]any{
+						"properties": map[string]any{
+							"city": map[string]any{
+								"type": "string",
+							},
+						},
+					},
+				},
+			}
+
+			config := FunctionsConfig{
+				FunctionNameKey:      "function",
+				FunctionArgumentsKey: "parameters",
+			}
+			js := config.ToJSONStructure(functions)
+			Expect(js.OneOf[0].Properties).To(HaveLen(2))
+
+			fnName := js.OneOf[0].Properties["function"].(FunctionName)
+			fnArgs := js.OneOf[0].Properties["parameters"].(Argument)
+			Expect(fnName.Const).To(Equal("get_weather"))
+			Expect(fnArgs.Properties["city"].(map[string]any)["type"]).To(Equal("string"))
+		})
 	})
 	Context("Select()", func() {
 		It("selects one of the functions and returns a list containing only the selected one", func() {
