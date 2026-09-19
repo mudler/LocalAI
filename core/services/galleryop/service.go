@@ -29,6 +29,9 @@ type GalleryService struct {
 	backendManager BackendManager
 	statuses       map[string]*OpStatus
 	cancellations  map[string]cancellationActions
+	// rateLimiters holds one shared, dynamically adjustable limiter per
+	// active download so SetOperationRateLimit can throttle at runtime.
+	rateLimiters   map[string]*downloader.DynamicRateLimiter
 
 	// Distributed mode (nil when not in distributed mode).
 	// natsClient is the wider MessagingClient (Publisher + subscribe methods)
@@ -81,6 +84,7 @@ func NewGalleryService(appConfig *config.ApplicationConfig, ml *model.ModelLoade
 		backendManager:        NewLocalBackendManager(appConfig, ml),
 		statuses:              make(map[string]*OpStatus),
 		cancellations:         make(map[string]cancellationActions),
+		rateLimiters:          make(map[string]*downloader.DynamicRateLimiter),
 	}
 }
 
@@ -570,6 +574,37 @@ func (g *GalleryService) removeCancellation(id string) {
 	delete(g.cancellations, id)
 }
 
+// storeRateLimiter stores a rate limiter for an active download operation.
+func (g *GalleryService) storeRateLimiter(id string, rl *downloader.DynamicRateLimiter) {
+	g.Lock()
+	defer g.Unlock()
+	if g.rateLimiters == nil {
+		g.rateLimiters = make(map[string]*downloader.DynamicRateLimiter)
+	}
+	g.rateLimiters[id] = rl
+}
+
+// removeRateLimiter removes the rate limiter for a completed operation.
+func (g *GalleryService) removeRateLimiter(id string) {
+	g.Lock()
+	defer g.Unlock()
+	delete(g.rateLimiters, id)
+}
+
+// SetOperationRateLimit overrides the download rate limit for an active
+// operation. A value <= 0 removes the limit (unlimited). The format
+// convenience (e.g. "2mb", "500kb") should be pre-parsed by the caller.
+func (g *GalleryService) SetOperationRateLimit(id string, bytesPerSec int64) error {
+	g.Lock()
+	defer g.Unlock()
+	rl, ok := g.rateLimiters[id]
+	if !ok {
+		return fmt.Errorf("operation %q not found or does not support rate limiting", id)
+	}
+	rl.SetRate(bytesPerSec)
+	return nil
+}
+
 // runOpHandler runs one operation handler and converts a panic into an error.
 //
 // The gallery worker is a single goroutine consuming both channels serially. A
@@ -615,6 +650,13 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 				} else if op.CancelFunc != nil {
 					g.storeCancellation(op.ID, op.CancelFunc, op.PauseFunc)
 				}
+				// Attach a dynamic rate limiter so the download can be throttled
+				// at runtime via SetOperationRateLimit.
+				if op.Context != nil {
+					rl := &downloader.DynamicRateLimiter{}
+					op.Context = downloader.ContextWithRateLimiter(op.Context, rl)
+					g.storeRateLimiter(op.ID, rl)
+				}
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
 					opType := "backend_install"
@@ -649,6 +691,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 					go g.OnBackendOpCompleted()
 				}
 				g.removeCancellation(op.ID)
+				g.removeRateLimiter(op.ID)
 
 			case op := <-g.ModelGalleryChannel:
 				// Create context if not provided
@@ -657,6 +700,13 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 					g.storeCancellation(op.ID, op.CancelFunc, op.PauseFunc)
 				} else if op.CancelFunc != nil {
 					g.storeCancellation(op.ID, op.CancelFunc, op.PauseFunc)
+				}
+				// Attach a dynamic rate limiter so the download can be throttled
+				// at runtime via SetOperationRateLimit.
+				if op.Context != nil {
+					rl := &downloader.DynamicRateLimiter{}
+					op.Context = downloader.ContextWithRateLimiter(op.Context, rl)
+					g.storeRateLimiter(op.ID, rl)
 				}
 				// Create DB record for distributed tracking
 				if g.galleryStore != nil {
@@ -683,6 +733,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 					updateError(op.ID, err)
 				}
 				g.removeCancellation(op.ID)
+				g.removeRateLimiter(op.ID)
 			}
 		}
 	}()
