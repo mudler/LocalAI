@@ -460,6 +460,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	}, adminMiddleware)
 
 	// Pause operation endpoint (admin only)
+	// @Summary Pause an active gallery download, preserving the .partial for resume
+	// @Tags operations
 	app.POST("/api/operations/:jobID/pause", func(c echo.Context) error {
 		jobID := c.Param("jobID")
 		xlog.Debug("API request to pause operation", "jobID", jobID)
@@ -479,6 +481,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	}, adminMiddleware)
 
 	// Resume operation endpoint (admin only)
+	// @Summary Resume a previously paused gallery download from its .partial file
+	// @Tags operations
 	app.POST("/api/operations/:jobID/resume", func(c echo.Context) error {
 		jobID := c.Param("jobID")
 		xlog.Debug("API request to resume operation", "jobID", jobID)
@@ -498,6 +502,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	}, adminMiddleware)
 
 	// Pause all operations (admin only)
+	// @Summary Pause every active gallery download at once
+	// @Tags operations
 	app.POST("/api/operations/pause-all", func(c echo.Context) error {
 		xlog.Debug("API request to pause all operations")
 
@@ -516,6 +522,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	}, adminMiddleware)
 
 	// Resume all operations (admin only)
+	// @Summary Resume every paused gallery download at once
+	// @Tags operations
 	app.POST("/api/operations/resume-all", func(c echo.Context) error {
 		xlog.Debug("API request to resume all operations")
 
@@ -571,6 +579,8 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// Throttle (rate-limit) an active download (admin only)
 	// Query param: ?rate=2mb or ?rate=500kb. Use 0 or -1 to remove the limit.
+	// @Summary Throttle an active gallery download to a byte-per-second rate
+	// @Tags operations
 	app.POST("/api/operations/:jobID/throttle", func(c echo.Context) error {
 		jobID := c.Param("jobID")
 		rateStr := c.QueryParam("rate")

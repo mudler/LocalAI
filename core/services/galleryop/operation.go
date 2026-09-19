@@ -66,6 +66,16 @@ type ManagementOp[T any, E any] struct {
 	Force bool
 }
 
+// PausedModelOp stores enough metadata to re-queue a paused model download.
+// The .partial file is preserved on pause, so ResumeOperation only needs
+// these fields to push a fresh ManagementOp that picks up where it stopped.
+type PausedModelOp struct {
+	Galleries          []config.Gallery
+	BackendGalleries   []config.Gallery
+	Req                gallery.GalleryModel
+	GalleryElementName string
+}
+
 type OpStatus struct {
 	Deletion           bool    `json:"deletion"` // Deletion is true if the operation is a deletion
 	FileName           string  `json:"file_name"`

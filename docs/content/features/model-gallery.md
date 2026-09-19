@@ -530,6 +530,34 @@ Deleting a model configuration does not delete its content-addressed snapshot
 bytes. This allows another configuration or a later reinstall to reuse the
 cache; safe cache garbage collection is deferred.
 
+### Pausing, resuming, and throttling downloads
+
+Active gallery downloads can be paused without losing progress: the `.partial`
+file is preserved (plus a `.partial.json` sidecar so the pause survives a
+restart) and the download resumes from where it stopped. All endpoints below
+are admin-only.
+
+```bash
+LOCALAI=http://localhost:8080
+
+# Pause one download (keeps the .partial file)
+curl -X POST $LOCALAI/api/operations/<jobID>/pause
+
+# Resume it later (re-queues from the .partial offset)
+curl -X POST $LOCALAI/api/operations/<jobID>/resume
+
+# Pause / resume everything at once
+curl -X POST $LOCALAI/api/operations/pause-all
+curl -X POST $LOCALAI/api/operations/resume-all
+
+# Throttle a download, e.g. 2mb, 500kb. Use 0 to remove the limit.
+curl -X POST "$LOCALAI/api/operations/<jobID>/throttle?rate=2mb"
+```
+
+Pausing is different from cancelling: cancelling with `POST
+/api/operations/:jobID/cancel` discards the `.partial` file (except when the
+download was paused first), while pausing always keeps it for resume.
+
 ### How to install a model not part of a gallery
 
 If you don't want to set any gallery repository, you can still install models by loading a model configuration file.

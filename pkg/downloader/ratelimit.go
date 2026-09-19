@@ -29,10 +29,26 @@ func (d *DynamicRateLimiter) SetRate(bytesPerSec int64) {
 	}
 }
 
-// Wait blocks until a token is available for one byte, honouring ctx
-// cancellation. It returns nil immediately when the rate is unlimited or
-// when the context is already done.
-func (d *DynamicRateLimiter) Wait(ctx context.Context) error {
+// Unlimited reports whether no throttling applies. A nil limiter or a rate
+// <= 0 means unlimited.
+func (d *DynamicRateLimiter) Unlimited() bool {
+	if d == nil {
+		return true
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.rate <= 0
+}
+
+// WaitN blocks until n bytes of budget are available, honouring ctx
+// cancellation. It returns nil immediately when unlimited.
+func (d *DynamicRateLimiter) WaitN(ctx context.Context, n int) error {
+	if n <= 0 {
+		return nil
+	}
+	if d == nil {
+		return nil
+	}
 	d.mu.Lock()
 	rate := d.rate
 	if rate <= 0 {
@@ -53,55 +69,75 @@ func (d *DynamicRateLimiter) Wait(ctx context.Context) error {
 		d.tokens = rate
 	}
 
-	if d.tokens >= 1 {
-		d.tokens--
+	need := float64(n)
+	if d.tokens >= need {
+		d.tokens -= need
 		d.lastTime = now
 		d.mu.Unlock()
 		return nil
 	}
 
-	// How long until we have at least one token?
-	waitDur := time.Duration((1 - d.tokens) / rate * float64(time.Second))
-	d.lastTime = now
+	// How long until we have enough tokens? Cap single waits at ~1s so
+	// pause/cancel stays responsive even for large buffers.
+	waitDur := time.Duration((need - d.tokens) / rate * float64(time.Second))
+	if waitDur > time.Second {
+		waitDur = time.Second
+	}
 	d.tokens = 0
+	d.lastTime = now
 	d.mu.Unlock()
 
+	timer := time.NewTimer(waitDur)
+	defer timer.Stop()
 	select {
-	case <-time.After(waitDur):
+	case <-timer.C:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
+// Wait blocks until one byte of budget is available. Kept for backward
+// compatibility; new code should prefer WaitN with the real buffer size.
+func (d *DynamicRateLimiter) Wait(ctx context.Context) error {
+	return d.WaitN(ctx, 1)
+}
 
 // rateLimitedReader wraps an io.ReadCloser with a DynamicRateLimiter so that
-// reads respect the configured byte-per-second rate.
+// reads respect the configured byte-per-second rate. The request context is
+// honoured so pause/cancel stays responsive.
 type rateLimitedReader struct {
 	inner io.ReadCloser
 	rl    *DynamicRateLimiter
+	ctx   context.Context
 }
 
-func newRateLimitedReader(inner io.ReadCloser, rl *DynamicRateLimiter) io.ReadCloser {
-	return &rateLimitedReader{inner: inner, rl: rl}
+func newRateLimitedReader(inner io.ReadCloser, rl *DynamicRateLimiter, ctx context.Context) io.ReadCloser {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return &rateLimitedReader{inner: inner, rl: rl, ctx: ctx}
 }
 
 func (r *rateLimitedReader) Read(p []byte) (int, error) {
-	if r.rl == nil {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	// Fast path: no limiter or unlimited rate means a single direct read.
+	// This keeps multi-GB downloads at full speed when no limit is set.
+	if r.rl == nil || r.rl.Unlimited() {
 		return r.inner.Read(p)
 	}
-	// Throttle byte-by-byte so bursty reads don't exceed the budget.
-	// An alternative would be to release all n bytes at once, but that
-	// would allow a large burst up to the buffer size.
-	for i := 0; i < len(p); i++ {
-		if err := r.rl.Wait(context.Background()); err != nil {
-			return i, err
-		}
-		n, err := r.inner.Read(p[i : i+1])
-		if n == 0 {
-			return i, err
-		}
+	// Throttle in chunks (max 32KB per wait) so large buffers cannot burst
+	// past the budget and pause/cancel stays responsive.
+	const maxChunk = 32 * 1024
+	n := len(p)
+	if n > maxChunk {
+		n = maxChunk
 	}
-	return len(p), nil
+	if err := r.rl.WaitN(r.ctx, n); err != nil {
+		return 0, err
+	}
+	return r.inner.Read(p[:n])
 }
 
 func (r *rateLimitedReader) Close() error {

@@ -33,6 +33,11 @@ type GalleryService struct {
 	statuses       map[string]*OpStatus
 	cancellations  map[string]context.CancelCauseFunc
 	pausedOps      map[string]*PausedModelOp
+	// pauseCallbacks holds test/simple pause hooks registered via
+	// StoreCancellationActions. When present, PauseOperation runs the pause
+	// hook instead of cancelling a context (used by unit tests without a
+	// real download context).
+	pauseCallbacks map[string]context.CancelFunc
 	rateLimiters   map[string]*downloader.DynamicRateLimiter
 
 	// Distributed mode (nil when not in distributed mode).
@@ -526,11 +531,40 @@ func (g *GalleryService) storeCancellation(id string, cancelFunc context.CancelC
 	g.cancellations[id] = cancelFunc
 }
 
-// StoreCancellation is a public method to store a cancellation function for an operation
-// This allows cancellation functions to be stored immediately when operations are created,
-// enabling cancellation of queued operations that haven't started processing yet.
-func (g *GalleryService) StoreCancellation(id string, cancelFunc context.CancelCauseFunc) {
+// StoreCancellation stores a plain cancellation func (backward compatible
+// with existing callers using context.WithCancel). It is wrapped so the
+// internal CancelCauseFunc map keeps working; pause-aware paths should use
+// StoreCancellationCause instead.
+func (g *GalleryService) StoreCancellation(id string, cancelFunc context.CancelFunc) {
+	g.Lock()
+	defer g.Unlock()
+	if cancelFunc == nil {
+		return
+	}
+	g.cancellations[id] = func(error) { cancelFunc() }
+}
+
+// StoreCancellationCause stores a cause-aware cancellation func for
+// pause-aware download contexts created with newUserCancellableContext.
+func (g *GalleryService) StoreCancellationCause(id string, cancelFunc context.CancelCauseFunc) {
 	g.storeCancellation(id, cancelFunc)
+}
+
+// StoreCancellationActions registers separate cancel and pause hooks.
+// Kept for backward compatibility with existing tests: PauseOperation runs
+// the pause hook (not the cancel hook) and marks the op paused.
+func (g *GalleryService) StoreCancellationActions(id string, cancelFn, pauseFn context.CancelFunc) {
+	g.Lock()
+	defer g.Unlock()
+	if cancelFn != nil {
+		g.cancellations[id] = func(error) { cancelFn() }
+	}
+	if pauseFn != nil {
+		if g.pauseCallbacks == nil {
+			g.pauseCallbacks = make(map[string]context.CancelFunc)
+		}
+		g.pauseCallbacks[id] = pauseFn
+	}
 }
 
 // removeCancellation removes a cancellation function when operation completes
@@ -727,6 +761,33 @@ func (g *GalleryService) PauseOperation(id string) error {
 	if status, ok := g.statuses[id]; ok && status.Processed && status.Cancelled {
 		g.Unlock()
 		return fmt.Errorf("operation %q is already cancelled, cannot pause", id)
+	}
+
+	// Test/simple hook path: a pause callback registered via
+	// StoreCancellationActions runs instead of cancelling a context.
+	if g.pauseCallbacks != nil {
+		if pauseFn, ok := g.pauseCallbacks[id]; ok {
+			delete(g.pauseCallbacks, id)
+			if status, ok := g.statuses[id]; ok {
+				status.Paused = true
+				status.Processed = true
+				status.Cancelled = true
+				status.Message = "paused"
+			} else {
+				g.statuses[id] = &OpStatus{
+					Paused:      true,
+					Processed:   true,
+					Cancelled:   true,
+					Message:     "paused",
+					Cancellable: true,
+				}
+			}
+			g.Unlock()
+			if pauseFn != nil {
+				pauseFn()
+			}
+			return nil
+		}
 	}
 
 	cancelCause, localExists := g.cancellations[id]

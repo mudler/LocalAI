@@ -57,6 +57,7 @@ var instructionDefs = []instructionDef{
 		Name:        "model-management",
 		Description: "Browse the gallery, install, delete, and manage models and backends",
 		Tags:        []string{"models", "backends"},
+		Intro:       "Active gallery downloads can be paused (POST /api/operations/:jobID/pause, keeps the .partial for resume), resumed (POST /api/operations/:jobID/resume), paused/resumed in bulk via /api/operations/pause-all and /resume-all, and throttled with POST /api/operations/:jobID/throttle?rate=2mb (0 removes the limit). Cancelling discards the .partial file; pausing preserves it.",
 	},
 	{
 		Name:        "config-management",
