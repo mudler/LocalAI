@@ -23,18 +23,18 @@ var _ = Describe("knowledge-base models authorization", func() {
 			switch row := tx.Statement.Dest.(type) {
 			case *auth.User:
 				if failUser {
-					tx.AddError(fmt.Errorf("user lookup unavailable"))
+					_ = tx.AddError(fmt.Errorf("user lookup unavailable"))
 					return
 				}
 				*row = auth.User{ID: "alice", Role: role}
 			case *auth.UserPermission:
 				if failPermissions {
-					tx.AddError(fmt.Errorf("permissions unavailable"))
+					_ = tx.AddError(fmt.Errorf("permissions unavailable"))
 					return
 				}
 				*row = auth.UserPermission{UserID: "alice", AllowedModels: auth.ModelAllowlist{Enabled: true, Models: []string{"allowed"}}}
 			default:
-				tx.AddError(fmt.Errorf("unexpected query destination %T", row))
+				_ = tx.AddError(fmt.Errorf("unexpected query destination %T", row))
 			}
 		})).To(Succeed())
 		cfg := &state.AgentConfig{Name: "Research", EmbeddingModel: "denied"}
