@@ -205,6 +205,41 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		Expect(aliasBack.Metadata.Name).To(Equal("cpu-audio-cpp"))
 	})
 
+	It("ListSystemBackends preserves managed meta backends against system aliases", func() {
+		sysRoot := filepath.Join(tempDir, "system")
+		managedRoot := filepath.Join(tempDir, "managed")
+		for _, dir := range []string{
+			filepath.Join(sysRoot, "cpu-audio-cpp"),
+			filepath.Join(managedRoot, "custom-audio"),
+			filepath.Join(managedRoot, "audio-cpp"),
+		} {
+			Expect(os.MkdirAll(dir, 0o750)).To(Succeed())
+		}
+		Expect(os.WriteFile(filepath.Join(sysRoot, "cpu-audio-cpp", "run.sh"), nil, 0o755)).To(Succeed())
+		managedRun := filepath.Join(managedRoot, "custom-audio", "run.sh")
+		Expect(os.WriteFile(managedRun, nil, 0o755)).To(Succeed())
+		Expect(writeBackendMetadata(filepath.Join(sysRoot, "cpu-audio-cpp"), &BackendMetadata{
+			Name: "cpu-audio-cpp", Alias: "audio-cpp",
+		})).To(Succeed())
+		Expect(writeBackendMetadata(filepath.Join(managedRoot, "audio-cpp"), &BackendMetadata{
+			Name: "audio-cpp", MetaBackendFor: "custom-audio",
+		})).To(Succeed())
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		backends, err := ListSystemBackends(state)
+		Expect(err).NotTo(HaveOccurred())
+		backend, ok := backends.Get("audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(backend.RunFile).To(Equal(managedRun))
+		Expect(backend.IsSystem).To(BeFalse())
+		Expect(backend.IsMeta).To(BeTrue())
+		Expect(backend.Metadata.MetaBackendFor).To(Equal("custom-audio"))
+	})
+
 	It("ListSystemBackends lets a user-managed variant take over its whole alias group", func() {
 		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
 

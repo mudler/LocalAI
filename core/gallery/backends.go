@@ -805,9 +805,9 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 		if chosen.runFile == "" {
 			continue
 		}
-		if existing, ok := backends[alias]; ok && !existing.IsMeta && !existing.IsSystem && chosen.isSystem {
+		if existing, ok := backends[alias]; ok && !existing.IsSystem && chosen.isSystem {
 			// A system-derived alias never hijacks a user-managed
-			// concrete backend of the same name.
+			// backend of the same name, including meta indirection.
 			continue
 		}
 		backends[alias] = SystemBackend{
