@@ -142,9 +142,21 @@ Your backend container should:
 1. Implement the LocalAI backend interface (gRPC or HTTP)
 2. Handle model loading and inference
 3. Support the required model types
-4. Include necessary dependencies
+4. Include necessary dependencies. Python backends are unpacked from the
+   builder path into a runtime directory, so packages must be installed into
+   the backend virtualenv with a regular `pip install .` / `uv pip install .`
+   — not an editable (`-e`) source install. An editable finder keeps pointing
+   at the vanished builder tree, and `import` fails after relocation.
 5. Have a top level `run.sh` file that will be used to run the backend
 6. Pushed to a registry so can be used in a gallery
+
+{{% notice warning %}}
+An already-installed Python backend that was built with an editable install
+(for example vllm-omni from v4.0.0) keeps that broken finder until it is
+replaced with a rebuilt artifact. Reusing or renaming the unpacked directory
+does not rewrite the stale path; delete or upgrade the backend so the new
+site-packages copy is what runs.
+{{% /notice %}}
 
 ### Getting started
 
@@ -182,7 +194,6 @@ LocalAI supports various types of backends:
 - **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
 - **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [MLX-Video on Apple Silicon]({{%relref "features/video-generation" %}}), [LongCat-Video]({{%relref "features/video-generation" %}}), [vllm.cpp / MiniMax-H3]({{%relref "features/video-generation" %}}))
 - **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "features/3d-generation" %}}) — Microsoft TRELLIS.2, producing GLB assets with PBR textures)
-- **3D Animation Backends**: For motion generation ([kimodo.cpp]({{%relref "features/3d-animation" %}}) — text-to-motion on CPU/Vulkan, producing animated skeleton GLBs)
 - **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
 - **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "features/audio-cpp" %}}))
 - **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "features/audio-cpp" %}}))
