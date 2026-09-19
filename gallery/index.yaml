@@ -1,28 +1,45 @@
 ---
-- name: "ternary-bonsai-2-27b"
+- name: "swift-qwen3.8-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
-    - https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf
+    - https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF
   description: |
-    # Qwen3.8-27B
+    Website &nbsp;&bull;&nbsp;
+    Learn more &nbsp;&bull;&nbsp;
+    GGUF &nbsp;&bull;&nbsp;
+    Enterprise licensing
 
-    > [!Note]
-    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
-    >
-    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, TokenSpeed, etc.
+    # Swift-Qwen3.8-27B
 
-    > [!Tip]
-    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
-    > In particular, **Qwen3.8-27B** will be available as a hosted version with more production features, e.g., 1M context length by default, official built-in tools. For more information, please refer to the Qwen3.8-27B Overview. The service is coming soon. Stay tuned for updates.
+    Swift-Qwen3.8-27B is UkisAI's reasoning-efficient derivative of Qwen3.8-27B,
+    using **58.3% fewer thinking tokens** while maintaining near-identical performance
+    (**&lt;1% loss**) and as a result getting a **x1.95 speed-up** on several tasks.
 
-    Following the widespread community adoption of the Qwen3.5 and Qwen3.6 series, we are pleased to introduce Qwen3.8, the most capable generation in the Qwen open-model family to date.
+    The prompt is a sample from LiveCodeBench v6
+
+    ## Training approach
+
+    We built Swift by identifying reasoning-marker tokens that, in our analysis, trigger overthinking in Qwen’s
+    reasoning rollouts. We then fine-tuned Qwen by penalizing usage of those tokens while it reasons.
+
+    Swift produces shorter reasoning traces. In our testing, we also observe fewer overthinking errors.
+
+    For maximum gains, Swift also includes a transfer component derived from
+    BottleCap AI's ThinkingCap-Qwen3.6-27B.
+
+    ## Evaluation scope
+
+    > All results below compare the Qwen3.8-27B BF16 base with the same base plus the
+    > Swift adapter.
+
+    ## Benchmarks
 
     ...
-  license: "apache-2.0"
+  license: "other"
   tags:
     - llm
     - gguf
-  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+    - reasoning
   overrides:
     backend: llama-cpp
     function:
@@ -31,20 +48,29 @@
         disable: true
     known_usecases:
       - chat
-    mmproj: llama-cpp/mmproj/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
+    mmproj: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
     options:
       - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
     parameters:
-      model: llama-cpp/models/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-PTQ1_0.gguf
+      min_p: 0
+      model: llama-cpp/models/Swift-Qwen3.8-27B-Q4_K_M/Swift-Qwen3.8-27B-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
     template:
       use_tokenizer_template: true
   files:
-    - filename: llama-cpp/models/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-PTQ1_0.gguf
-      sha256: 53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3
-      uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/main/Ternary-Bonsai-2-27B-PTQ1_0.gguf
-    - filename: llama-cpp/mmproj/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
-      sha256: 6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903
-      uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/main/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
+    - filename: llama-cpp/models/Swift-Qwen3.8-27B-Q4_K_M/Swift-Qwen3.8-27B-Q4_K_M.gguf
+      sha256: ad5811e291431bd0de1cec0c4004a5eac98daee9850882edac69a823209e88ab
+      uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/Swift-Qwen3.8-27B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
+      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
+      uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/mmproj-Swift-Qwen3.8-27B-F16.gguf
 - name: "ornith-1.5-9b-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
