@@ -89,11 +89,11 @@ var _ = Describe("knowledge-base models", func() {
 			w.Header().Set("Content-Type", "application/json")
 			if strings.HasSuffix(r.URL.Path, "/rerank") {
 				rerankers = append(rerankers, body.Model)
-				w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.9}]}`))
+				_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.9}]}`))
 				return
 			}
 			embeddings = append(embeddings, body.Model)
-			w.Write([]byte(`{"data":[{"embedding":[1,0,0],"index":0}],"model":"test","usage":{}}`))
+			_, _ = w.Write([]byte(`{"data":[{"embedding":[1,0,0],"index":0}],"model":"test","usage":{}}`))
 		}))
 		DeferCleanup(server.Close)
 		svc.appConfig.AgentPool.APIURL = server.URL + "/v1"
