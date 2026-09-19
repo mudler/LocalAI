@@ -549,3 +549,6 @@ require (
 	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
 )
+
+// Pending https://github.com/mudler/LocalAGI/pull/499; use upstream after merge.
+replace github.com/mudler/LocalAGI => github.com/localai-org-maint-bot/LocalAGI v0.0.0-20260919143320-0a1d3326f4ed
