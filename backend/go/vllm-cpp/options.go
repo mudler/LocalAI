@@ -65,6 +65,15 @@ type loadOptions struct {
 	// MiniMax-H3 video+audio generation (ABI v12). Present only when the config
 	// carries at least one of its keys; see videoOptions.engaged.
 	video videoOptions
+	// Zero-shot NER labels (ABI v27, GLiNER2.5). GLiNER2.5 is truly zero-shot:
+	// the model ships no default labels, so the entity types to extract are
+	// supplied here from engine_args.ner_labels. When empty, a general-purpose
+	// default set is used.
+	nerLabels []string
+	// nerThreshold is the default sigmoid floor (0 = model default 0.5).
+	nerThreshold float32
+	// nerMaxWidth is the maximum span width in tokens (0 = engine default 12).
+	nerMaxWidth int32
 }
 
 // videoOptions is the MiniMax-H3 checkpoint SET plus its generation defaults.
@@ -341,6 +350,22 @@ func applyEngineArgs(lo *loadOptions, engineArgs string) {
 		case "enable_jump_forward":
 			if b, ok := v.(bool); ok {
 				lo.enableJumpForward = boolTriState(b)
+			}
+		case "ner_labels":
+			if arr, ok := v.([]any); ok {
+				for _, e := range arr {
+					if s, ok := e.(string); ok && s != "" {
+						lo.nerLabels = append(lo.nerLabels, s)
+					}
+				}
+			}
+		case "ner_threshold":
+			if f, ok := v.(float64); ok {
+				lo.nerThreshold = float32(f)
+			}
+		case "ner_max_width":
+			if f, ok := v.(float64); ok {
+				lo.nerMaxWidth = int32(f)
 			}
 		default:
 			if s, ok := videoScalarString(v); ok && applyVideoOption(&lo.video, k, s) {

@@ -144,6 +144,12 @@ message TokenClassifyRequest {
   // PredictOptions.ModelIdentity for the full rationale. Empty means "no
   // identity supplied" and backends MUST skip the check.
   string ModelIdentity = 3;
+  // Labels overrides the backend's configured entity labels for this
+  // request. Empty means "use the model's configured labels" (the
+  // default for PII detection, where labels are fixed at load time).
+  // Non-empty enables zero-shot per-request label selection (kev /
+  // SystemOne: each question type supplies its own labels).
+  repeated string labels = 4;
 }
 
 // TokenClassifyEntity is one detected entity span. Byte offsets are
