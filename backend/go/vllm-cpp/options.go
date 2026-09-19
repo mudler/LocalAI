@@ -103,6 +103,12 @@ type videoOptions struct {
 	height    int32
 	numFrames int32
 	steps     int32
+	// Directory for runtime prompt-activated LoRA. The engine resolves
+	// <lora:name:strength> prompt tags against safetensors files in this
+	// directory at request time (row ROAD-V1-LORA-RUNTIME). Distinct from the
+	// load-time lora_path/lora_strength fusion, which bakes deltas into the
+	// weights at load.
+	loraDir string
 	// Where frames + WAV are written. Empty = a temporary directory beside the
 	// requested output, removed once the mux succeeds. Set it to keep the
 	// frame_%06d.ppm runs around (they are what ref2va's ref_video consumes).
@@ -258,6 +264,8 @@ func applyVideoOption(vo *videoOptions, key, value string) bool {
 		vo.workdir = v
 	case "video_crf":
 		vo.crf = parseInt32(v, vo.crf)
+	case "video_lora_dir":
+		vo.loraDir = v
 	case "ffmpeg", "ffmpeg_path":
 		vo.ffmpeg = v
 	default:

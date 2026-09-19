@@ -250,6 +250,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return nil
 	}
 
+	if ctx.CredentialsFile == "" {
+		if err := LoadCredentials(resolveCredentialsFile("", r.DataPath)); err != nil {
+			return err
+		}
+	}
+
 	activatedListeners, err := systemdActivatedListeners()
 	if err != nil {
 		return fmt.Errorf("loading systemd socket activation listeners: %w", err)

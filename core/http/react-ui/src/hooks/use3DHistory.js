@@ -100,8 +100,8 @@ export function use3DHistory() {
     return () => { historyListeners.delete(refresh) }
   }, [refresh])
 
-  const addEntry = useCallback(async ({ model, params, inputThumb, glb, name }) => {
-    const entry = { id: generateId(), createdAt: Date.now(), model, params, inputThumb, glb, name }
+  const addEntry = useCallback(async ({ model, params, inputThumb, glb, name, inputs, operation, outputType }) => {
+    const entry = { id: generateId(), createdAt: Date.now(), model, params, inputThumb, glb, name, inputs, operation, outputType }
     try {
       await idbPutAndEvict(entry)
       await refresh()

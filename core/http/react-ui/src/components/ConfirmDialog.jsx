@@ -6,8 +6,10 @@ export default function ConfirmDialog({
   title,
   message,
   confirmLabel,
+  pendingLabel,
   cancelLabel,
   danger = false,
+  pending = false,
   onConfirm,
   onCancel,
 }) {
@@ -30,7 +32,7 @@ export default function ConfirmDialog({
     const getFocusable = () => dialog.querySelectorAll(focusableSelector)
 
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !pending) {
         onCancel?.()
         return
       }
@@ -54,7 +56,7 @@ export default function ConfirmDialog({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [open, onCancel])
+  }, [open, onCancel, pending])
 
   if (!open) return null
 
@@ -62,7 +64,7 @@ export default function ConfirmDialog({
   const bodyId = 'confirm-dialog-body'
 
   return (
-    <div className="confirm-dialog-backdrop" onClick={onCancel}>
+    <div className="confirm-dialog-backdrop" onClick={pending ? undefined : onCancel}>
       <div
         ref={dialogRef}
         className="confirm-dialog"
@@ -78,15 +80,16 @@ export default function ConfirmDialog({
         </div>
         {message && <div id={bodyId} className="confirm-dialog-body">{message}</div>}
         <div className="confirm-dialog-actions">
-          <button className="btn btn-secondary btn-sm" onClick={onCancel}>
+          <button className="btn btn-secondary btn-sm" disabled={pending} onClick={onCancel}>
             {cancelText}
           </button>
           <button
             ref={confirmRef}
             className={`btn btn-sm ${danger ? 'btn-danger' : 'btn-primary'}`}
+            disabled={pending}
             onClick={onConfirm}
           >
-            {confirmText}
+            {pending ? (pendingLabel ?? confirmText) : confirmText}
           </button>
         </div>
       </div>

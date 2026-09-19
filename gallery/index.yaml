@@ -1,4 +1,56 @@
 ---
+- name: "ornith-1.5-9b-uncensored"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF
+  description: |
+    # Ornith-1.5-9B-uncensored
+
+    An **abliterated** (refusal-direction-ablated) build of
+    `ornith-ai/Ornith-1.5-9B`, produced with
+    ZeroFuse and published by
+    junafinity.
+
+    This is the **9B control checkpoint** (bf16). Mac users should start from the MLX-8bit or GGUF-8bit siblings. The official 9B base has **no `mtp.*` tensors**; nothing was grafted.
+
+    **Vision tower and MTP heads are preserved** — see
+    Vision & MTP preservation for the before/after audit.
+
+    ## Intended use: red teaming and defensive cybersecurity research
+
+    These uncensored (abliterated) weights are built as a **research instrument** for red teaming and defensive cybersecurity work. Safety training suppresses the *display* of capability, not capability itself. A refusal tells you the model declined. It does not tell you whether the weights could have complied. That conflation underestimates the true ceiling and hides holes in *your* filters, classifiers, and policy layer.
+
+    Use each uncensored checkpoint as the **treatment half of a controlled pair** against its original base model:
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Ornith-1.5-9B-uncensored.Q4_K_M/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Ornith-1.5-9B-uncensored.Q4_K_M/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Ornith-1.5-9B-uncensored.Q4_K_M/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+      sha256: ee180b66bc2dcd49f41e0d3c991d2eaab3078d651d97595852d16ae6d9af3c9e
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/main/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Ornith-1.5-9B-uncensored.Q4_K_M/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/main/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
 - name: "spark-x2.5-4b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -152,8 +204,8 @@
       use_tokenizer_template: true
   files:
     - filename: ds4flash.gguf
-      sha256: ""
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
+      sha256: cf423c6604662960a5b42de07e51647c1b29c1a19e6ebad198353148b36f41c1
 - name: "qwopus3.8-27b-flash"
   variants:
     - model: qwopus3.8-27b-flash-q8
@@ -198,11 +250,11 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.8-27B-Flash-MTP-Q4_K_M/Qwopus3.8-27B-Flash-MTP-Q4_K_M.gguf
-      sha256: 2b9a335bd33bb977d3127062061c12cc94f37ceef1850d372317fbf4ee89d9c5
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/Qwopus3.8-27B-Flash-MTP-Q4_K_M.gguf
+      sha256: 1b76ad1596d6afc0b6e38a2b45b404462920739bd3087960b7a18a74ca938a74
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
-      sha256: be3f444ecaedf084fd19399ba18cefcbbe3789bb81f4ad5ed67c91a1a3f48a67
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
+      sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
 - name: "qwopus3.8-27b-flash-q8"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -245,11 +297,11 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Qwopus3.8-27B-Flash-MTP-Q8_0/Qwopus3.8-27B-Flash-MTP-Q8_0.gguf
-      sha256: a97de033ea60066a1941fe4dfb2e631b390cbc7c7563cea2446b7f08065228ec
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/Qwopus3.8-27B-Flash-MTP-Q8_0.gguf
+      sha256: 98e47b3da5f41c1753a45dbbc4d98e94fd05101c1ab5425d341ff0e58fe2e292
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
-      sha256: be3f444ecaedf084fd19399ba18cefcbbe3789bb81f4ad5ed67c91a1a3f48a67
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
+      sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
 - name: "qwen3.8-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -1818,7 +1870,7 @@
   files:
     - filename: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q4_K_M.gguf
       uri: huggingface://bloomer010/Ling-3.0-tiny-GGUF/Ling-3.0-tiny-Q4_K_M.gguf
-      sha256: 23e0f9e8f5ad8c44079b80a2a6c98fc507d2471fd906079467cca73d9fd81e10
+      sha256: a21f717779203d86b53996239c4903941858b938c50e85b03e6a981132b5621a
 - !!merge <<: *ling-3-0-tiny
   name: "ling-3.0-tiny-q8"
   variants: []
@@ -1846,7 +1898,7 @@
   files:
     - filename: llama-cpp/models/ling-3.0-tiny/Ling-3.0-tiny-Q8_0.gguf
       uri: huggingface://bloomer010/Ling-3.0-tiny-GGUF/Ling-3.0-tiny-Q8_0.gguf
-      sha256: 326221bdef72525bd6178b072d3827cd5fb5248a55e8c44eb400417f401733bc
+      sha256: ee5ecf3241602f4f8ba8486a2cb4645ab35349a616869a4fcd1bb72a4a5037e6
 - &granite-4-2-3b
   name: "granite-4.2-3b-q4"
   variants:
@@ -3306,6 +3358,135 @@
     - filename: llama-cpp/mmproj/ornith-1.5-9b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-9B-GGUF/mmproj-Ornith-1.5-9B-BF16.gguf
       sha256: 626f9f90627402a6bf4a999111d0fbd69b5fcca7aa8ba089d69e5f10e8858e1d
+- &ornith-1-5-9b-uncensored
+  name: ornith-1.5-9b-uncensored-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/junafinity/Ornith-1.5-9B-uncensored
+    - https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - vision
+  variants:
+    - model: ornith-1.5-9b-uncensored-q6
+    - model: ornith-1.5-9b-uncensored-q8
+  description: |
+    Junafinity's Ornith-1.5-9B Uncensored is a 9B-parameter Qwen3.5
+    derivative with refusal-direction ablation for research and evaluation.
+    This Q4_K_M GGUF build includes the F16 vision projector and uses
+    the embedded chat template for text and image conversations.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.Q4_K_M.gguf
+      sha256: ee180b66bc2dcd49f41e0d3c991d2eaab3078d651d97595852d16ae6d9af3c9e
+    - filename: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
+
+- !!merge <<: *ornith-1-5-9b-uncensored
+  name: ornith-1.5-9b-uncensored-q6
+  variants: []
+  description: |
+    Junafinity's Ornith-1.5-9B Uncensored is a 9B-parameter Qwen3.5
+    derivative with refusal-direction ablation for research and evaluation.
+    This Q6_K GGUF build includes the F16 vision projector and uses
+    the embedded chat template for text and image conversations.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q6_K.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q6_K.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.Q6_K.gguf
+      sha256: 5d48d49aae8aa7cb415e2cc4989457a094ff5a13bbb425222f1450abcd6cf1b8
+    - filename: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
+
+- !!merge <<: *ornith-1-5-9b-uncensored
+  name: ornith-1.5-9b-uncensored-q8
+  variants: []
+  description: |
+    Junafinity's Ornith-1.5-9B Uncensored is a 9B-parameter Qwen3.5
+    derivative with refusal-direction ablation for research and evaluation.
+    This Q8_0 GGUF build includes the F16 vision projector and uses
+    the embedded chat template for text and image conversations.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q8_0.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.Q8_0.gguf
+      sha256: 05e0878744b36b7c55385ecb8aaf47bddf0b43f720dbfac5c79e489c02abca8f
+    - filename: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
+      sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
+
 - &ornith-1-5-9b-obliterated
   name: "ornith-1.5-9b-obliterated-q4"
   variants:
@@ -3398,6 +3579,8 @@
 - &ornith-1-5-35b-a3b
   name: "ornith-1.5-35b-a3b-q4"
   variants:
+    - model: ornith-1.5-35b-a3b-q5
+    - model: ornith-1.5-35b-a3b-q6
     - model: ornith-1.5-35b-a3b-q8
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -3409,8 +3592,8 @@
     tasks, and tool use. It activates about 3B parameters per token and
     supports text and image input with a context window of 262K tokens.
 
-    This default entry uses the Q4_K_M GGUF and BF16 vision projector. A
-    higher-quality Q8_0 model is available as a variant.
+    This default entry uses the Q4_K_M GGUF and BF16 vision projector.
+    Q5_K_M, Q6_K, and Q8_0 builds are available as variants.
   license: "mit"
   tags:
     - llm
@@ -3491,6 +3674,78 @@
       sha256: de46c4baf4b4dd85ea438bb0f757f21c38841a353506579979bba114311658c3
     - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
       uri: huggingface://ornith-ai/Ornith-1.5-35B-A3B-GGUF/mmproj-Ornith-1.5-35B-BF16.gguf
+      sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
+- !!merge <<: *ornith-1-5-35b-a3b
+  name: "ornith-1.5-35b-a3b-q5"
+  variants: []
+  last_checked: "2026-09-14"
+  description: |
+    Ornith-1.5-35B-A3B in the Q5_K_M GGUF format, with the shared
+    BF16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q5_K_M.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q5_K_M.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/12393612fd4f730ff5aadc23e9b8f9648aa49ceb/Ornith-1.5-35B-Q5_K_M.gguf
+      sha256: 91df97de5845100e850b4b5ec5ff35695382020b880fad6f7f51787b3a953bd0
+    - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/12393612fd4f730ff5aadc23e9b8f9648aa49ceb/mmproj-Ornith-1.5-35B-BF16.gguf
+      sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
+- !!merge <<: *ornith-1-5-35b-a3b
+  name: "ornith-1.5-35b-a3b-q6"
+  variants: []
+  last_checked: "2026-09-14"
+  description: |
+    Ornith-1.5-35B-A3B in the Q6_K GGUF format, with the shared
+    BF16 vision projector for multimodal prompts.
+  overrides:
+    backend: llama-cpp
+    context_size: 262144
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q6_K.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/ornith-1.5-35b-a3b/Ornith-1.5-35B-Q6_K.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/12393612fd4f730ff5aadc23e9b8f9648aa49ceb/Ornith-1.5-35B-Q6_K.gguf
+      sha256: 15d4658bbfc9c6034621729c15bbb50662c82b32a7ddd9624a1e545a74bdbb4b
+    - filename: llama-cpp/mmproj/ornith-1.5-35b-a3b/mmproj-BF16.gguf
+      uri: https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF/resolve/12393612fd4f730ff5aadc23e9b8f9648aa49ceb/mmproj-Ornith-1.5-35B-BF16.gguf
       sha256: 1921a36a85aee56cd2abd27f46701802c9d85a33474792e600df6c3b282a135d
 - &nex-n2-5-mini
   name: "nex-n2.5-mini-q4"
@@ -3889,7 +4144,7 @@
   files:
     - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q5_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q5_K_XL.gguf
-      sha256: 83278fd1ea9923edb45cf6d373a8aa6475fb1f855795e085b9e6252bc53f24fa
+      sha256: d48801f2b01fe34280cbdc27e6fdad2a12ca2b28b1ec0d5bd344bff77ac7440b
     - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
@@ -3940,7 +4195,7 @@
   files:
     - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q6_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q6_K_XL.gguf
-      sha256: a13a71ecfd00779fa3e0071674da61afbdffd42050f22173f4142989975573ba
+      sha256: ebf721ae2297242c254befdc6ac413240668c349f85b16c588d0b1ba2ecb085e
     - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
@@ -3991,7 +4246,7 @@
   files:
     - filename: llama-cpp/models/tiel-coder-35b-a3b-mtp/Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
-      sha256: 8384abe448e6159b1d43249be9c51f68fe5771e962bb39e3ee89ad1215385310
+      sha256: bc3006e14a0b44837beb4577afce13c7016de1e2d163b0bfdb181f93e981e34f
     - filename: llama-cpp/mmproj/tiel-coder-35b-a3b-mtp/mmproj-BF16.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF-MTP/resolve/182ae2b61f15ca133f160c6e11badc2791b052fd/mmproj-BF16.gguf
       sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
@@ -4666,7 +4921,6 @@
     - filename: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q4_K_M.gguf
       uri: huggingface://XHToken/Spark-X2.5-1.7B-GGUF/Spark-X2.5-1.7B-Q4_K_M.gguf
       sha256: 902bde2522394954ac17821b3e5fd0df02defbc6944f122253f2580acf0503f4
-
 - !!merge <<: *spark-x2-5-1-7b
   name: "spark-x2.5-1.7b-q8"
   variants: []
@@ -4694,7 +4948,6 @@
     - filename: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q8_0.gguf
       uri: huggingface://XHToken/Spark-X2.5-1.7B-GGUF/Spark-X2.5-1.7B-Q8_0.gguf
       sha256: cd77c03185a834bb1162a4b7713520be5838058bfc54873645beff470bb24442
-
 - &spark-x2-5-4b
   name: "spark-x2.5-4b-q4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -6389,90 +6642,6 @@
     - filename: llama-cpp/models/DeepSeek-V4-Pro-0813-UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00020-of-00020.gguf
       uri: huggingface://unsloth/DeepSeek-V4-Pro-0813-GGUF/UD-Q4_K_XL/DeepSeek-V4-Pro-0813-UD-Q4_K_XL-00020-of-00020.gguf
       sha256: 5978999836fd1fe7ad7da6232a70981bd7f98274ed71d3b06652ba42c7b46031
-- name: instella-moe-16b-a3b-think
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/amd/Instella-MoE-16B-A3B-Think
-    - https://huggingface.co/DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF
-  description: |
-    AMD Instella-MoE-16B-A3B-Think is a reasoning and instruction-following
-    mixture-of-experts model with 16 billion total parameters and 3 billion
-    active parameters. It supports long-form reasoning, chat, coding, and tool
-    use. This entry uses the Q4_K_M GGUF quantization.
-  license: other
-  tags:
-    - llm
-    - gguf
-    - deepseek-v3
-    - moe
-    - reasoning
-    - thinking
-    - coding
-    - tool-use
-    - cpu
-    - gpu
-  last_checked: "2026-08-03"
-  variants:
-    - model: instella-moe-16b-a3b-think-q8
-  overrides:
-    backend: llama-cpp
-    function:
-      automatic_tool_parsing_fallback: true
-      grammar:
-        disable: true
-    known_usecases:
-      - chat
-    options:
-      - use_jinja:true
-    parameters:
-      model: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q4_K_M.gguf
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q4_K_M.gguf
-      sha256: f776ddfee5dc6c808265c3f0a9c1b384c98058bfa551fe5df656fe712eb4c7f3
-      uri: huggingface://DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF/Q4_K_M/amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q4_K_M.gguf
-- name: instella-moe-16b-a3b-think-q8
-  url: github:mudler/LocalAI/gallery/virtual.yaml@master
-  urls:
-    - https://huggingface.co/amd/Instella-MoE-16B-A3B-Think
-    - https://huggingface.co/DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF
-  description: |
-    AMD Instella-MoE-16B-A3B-Think is a reasoning and instruction-following
-    mixture-of-experts model with 16 billion total parameters and 3 billion
-    active parameters. It supports long-form reasoning, chat, coding, and tool
-    use. This entry uses the near-lossless Q8_0 GGUF quantization.
-  license: other
-  tags:
-    - llm
-    - gguf
-    - deepseek-v3
-    - moe
-    - reasoning
-    - thinking
-    - coding
-    - tool-use
-    - cpu
-    - gpu
-  last_checked: "2026-08-03"
-  overrides:
-    backend: llama-cpp
-    function:
-      automatic_tool_parsing_fallback: true
-      grammar:
-        disable: true
-    known_usecases:
-      - chat
-    options:
-      - use_jinja:true
-    parameters:
-      model: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q8_0.gguf
-    template:
-      use_tokenizer_template: true
-  files:
-    - filename: amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q8_0.gguf
-      sha256: 6bff0a99d06be8ecf7d9c7f65584bfc2b24526ab0bab32dbfe7dde4237cd7c33
-      uri: huggingface://DevQuasar/amd.Instella-MoE-16B-A3B-Think-GGUF/Q8_0/amd.Instella-MoE-16B-A3B-Think.f16.gguf.Q8_0.gguf
 - name: "parable-granite-4.1-3b-claude-fable-5"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -7327,6 +7496,244 @@
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V7/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
       uri: huggingface://LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V7-GGUF/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
       sha256: f7197461d8581cd9be42384d4afe3f851d0844f6d72846d5c97e3dcc931b3cbc
+- &qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: qwen3.6-35b-a3b-genesis-hermes-final-apex-compact
+    - model: qwen3.6-35b-a3b-genesis-hermes-final-mtp-apex
+    - model: qwen3.6-35b-a3b-genesis-hermes-final-mtp-apex-compact
+    - model: qwen3.6-35b-a3b-genesis-hermes-final-q8-k-p
+  urls:
+    - https://huggingface.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive
+    - https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses APEX and includes the F16 vision projector.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - uncensored
+    - moe
+  last_checked: "2026-09-14"
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
+      sha256: caefdcec9364e903fc7edac90c39df257f1d6671b5fc389a3cb7dc8ce8204a3b
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final-apex-compact"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses APEX Compact and includes the F16 vision projector.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
+      sha256: c55f3a0acc94d28a192cf1262a9cc5dbdbe15ce7bad75894ce2b0d7e8b66ddb8
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final-mtp-apex"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses APEX and includes the F16 vision projector.
+    Native multi-token prediction is enabled for speculative decoding.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - uncensored
+    - moe
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
+      sha256: 01e16a28774e4f075a2bfd92ff889cb7b004e37511e68399caf39a3f4b195722
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final-mtp-apex-compact"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses APEX Compact and includes the F16 vision projector.
+    Native multi-token prediction is enabled for speculative decoding.
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - uncensored
+    - moe
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
+      sha256: fe921f9f7d3f48f9fbda1f28bb3e96824db051958cbc6e44dd0e5bebc690829a
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+- !!merge <<: *qwen3-6-35b-a3b-genesis-hermes-final
+  name: "qwen3.6-35b-a3b-genesis-hermes-final-q8-k-p"
+  variants: []
+  description: |
+    Qwen3.6-35B-A3B Genesis Hermes Final is a multimodal mixture-of-experts
+    model with 35B total parameters and about 3B active per token. This
+    uncensored derivative combines the HauhauCS base with Hermes
+    function-calling data and the author's Genesis weight processing.
+    This build uses Q8_K_P and includes the F16 vision projector.
+  overrides:
+    backend: llama-cpp
+    context_size: 131072
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
+      repeat_penalty: 1
+      temperature: 0.6
+      top_k: 20
+      top_p: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
+      sha256: e1ac7246dd3ebfb036732874dc57acbacc8b0d7d02df4417e2ac0d1f376e8d1d
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
+    - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+      sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
+      uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
+
 - &kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev"
   variants:
@@ -11153,6 +11560,88 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- &gemma-4-31b-ortenzya
+  name: gemma-4-31b-ortenzya-q4
+  variants:
+    - model: gemma-4-31b-ortenzya-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic
+    - https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF
+  license: apache-2.0
+  icon: https://ai.google.dev/gemma/images/gemma4_banner.png
+  tags:
+    - llm
+    - gguf
+    - gemma4
+    - multimodal
+    - reasoning
+    - creative-writing
+  description: |
+    Ortenzya is a Gemma 4 31B instruction-tuned model from llmfan46 for
+    creative writing, translation, and roleplay. This entry uses the Q4_K_M
+    GGUF with the BF16 vision projector and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q4_K_M.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q4_K_M.gguf
+      sha256: aefb0b5a93362b8880e2639c15ea807220351c7abfa8e0f6903ca25f31844981
+    - filename: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      sha256: c040f82999134f7ba8dddf1c9e3451822c8ae9af51b60a01619df43a2a3a7128
+- !!merge <<: *gemma-4-31b-ortenzya
+  name: gemma-4-31b-ortenzya-q8
+  variants: []
+  description: |
+    Ortenzya is a Gemma 4 31B instruction-tuned model from llmfan46 for
+    creative writing, translation, and roleplay. This entry uses the Q8_0
+    GGUF with the BF16 vision projector and a 32,768-token context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 64
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q8_0.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-Q8_0.gguf
+      sha256: 688170f6d6e03edc33ac86891eb3c37ec6cb1739f5db8625a84a1e4cdba17586
+    - filename: llama-cpp/mmproj/gemma-4-31b-ortenzya/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      uri: https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF/resolve/d7c96e816759b50ba7d0afe3a9e36deb7b096f16/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-mmproj-BF16.gguf
+      sha256: c040f82999134f7ba8dddf1c9e3451822c8ae9af51b60a01619df43a2a3a7128
 - &gemma-4-31b-scotoma-2
   name: "gemma-4-31b-scotoma-2-q4"
   variants:
@@ -14547,6 +15036,107 @@
     - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-2B-f16.gguf
       sha256: 044a0ea136cca70711ae16e23b24d754b44eab6f2462d187aee4d7c7a9503d36
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-2B-f16.gguf
+- &neohorse-1-4b
+  name: neohorse-1-4b-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/TokenRhythm/NeoHorse-1-4B
+    - https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - coding
+  variants:
+    - model: neohorse-1-4b-q6
+    - model: neohorse-1-4b-q8
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This build uses Q4_K_M GGUF weights with
+    the embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B.Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B.Q4_K_M.gguf
+      uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q4_K_M.gguf
+      sha256: 9a8426d0a5a1035d7e35ccc02794c404e027cca8e51f936b225d26d93bc44753
+
+- !!merge <<: *neohorse-1-4b
+  name: neohorse-1-4b-q6
+  variants: []
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This build uses Q6_K GGUF weights with
+    the embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B.Q6_K.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B.Q6_K.gguf
+      uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q6_K.gguf
+      sha256: d29d06d4b778b21a4b7145428ba5d709bf368fc6dc7321e0af3463c1718fec41
+
+- !!merge <<: *neohorse-1-4b
+  name: neohorse-1-4b-q8
+  variants: []
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This build uses Q8_0 GGUF weights with
+    the embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B.Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B.Q8_0.gguf
+      uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q8_0.gguf
+      sha256: ec5e02b4d3a102335333a692b1b83ee454e249e06a6d27f00b2f5bc81a199c98
+
 - name: qwen_qwen3.5-4b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -21459,11 +22049,11 @@
       model: LFM2.5-VL-3B-Q4_K_M.gguf
   files:
     - filename: LFM2.5-VL-3B-Q4_K_M.gguf
-      sha256: 83c18dfba02c75769cdd63f73e37c343400e82d434ff1b14bcc1cb02fcf2f5f2
       uri: huggingface://LiquidAI/LFM2.5-VL-3B-GGUF/LFM2.5-VL-3B-Q4_K_M.gguf
+      sha256: 2436cf4bbac9a16e5dfc7799a140e583c2bc15958f4b24a391f8a8b10ecb8884
     - filename: mmproj-LFM2.5-VL-3B-F16.gguf
-      sha256: 6f912eb9fcef619b31c9afff7662a222da9ce6db89327eb465dbafd2fb6a2d7c
       uri: huggingface://LiquidAI/LFM2.5-VL-3B-GGUF/mmproj-LFM2.5-VL-3B-F16.gguf
+      sha256: 74c4b2c095913be3cccce10aefe3b5d6f73aa7b4a15d49a8b68d97c229f8b922
 - !!merge <<: *lfm2-5-vl-3b
   name: lfm2.5-vl-3b-q8
   variants: []
@@ -21477,11 +22067,11 @@
       model: LFM2.5-VL-3B-Q8_0.gguf
   files:
     - filename: LFM2.5-VL-3B-Q8_0.gguf
-      sha256: 1b88c0748e0386181c2be6b41463117afa58b51c5fac5a83976bff1500ae2d58
       uri: huggingface://LiquidAI/LFM2.5-VL-3B-GGUF/LFM2.5-VL-3B-Q8_0.gguf
+      sha256: 69b49ceddf61c65cce4a8938a0791c364a8d38cd2d87db2ca7ea359232a8b17e
     - filename: mmproj-LFM2.5-VL-3B-F16.gguf
-      sha256: 6f912eb9fcef619b31c9afff7662a222da9ce6db89327eb465dbafd2fb6a2d7c
       uri: huggingface://LiquidAI/LFM2.5-VL-3B-GGUF/mmproj-LFM2.5-VL-3B-F16.gguf
+      sha256: 74c4b2c095913be3cccce10aefe3b5d6f73aa7b4a15d49a8b68d97c229f8b922
 - name: lfm2-1.2b
   urls:
     - https://huggingface.co/LiquidAI/LFM2-1.2B
@@ -27155,6 +27745,7 @@
     Q4_K_M GGUF quantization and the model's embedded chat template.
   variants:
     - model: minicpm5-2b-q8
+    - model: minicpm5-2b-f16
   overrides:
     backend: llama-cpp
     known_usecases:
@@ -27196,6 +27787,30 @@
     - filename: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-Q8_0.gguf
       uri: huggingface://openbmb/MiniCPM5-2B-GGUF/MiniCPM5-2B-Q8_0.gguf
       sha256: c5415f8989bf88a8288f1b55a3cc371af53c07b0faa220a63bd7a990cfaba078
+- !!merge <<: *minicpm5-2b
+  name: minicpm5-2b-f16
+  description: |
+    MiniCPM5-2B is OpenBMB's compact Llama-based language model for English
+    and Chinese chat, coding, and reasoning. This entry uses the official
+    F16 GGUF build and the model's embedded chat template.
+  variants: null
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-F16.gguf
+      temperature: 1.0
+      top_p: 0.95
+  files:
+    - filename: llama-cpp/models/minicpm5-2b/MiniCPM5-2B-F16.gguf
+      uri: https://huggingface.co/openbmb/MiniCPM5-2B-GGUF/resolve/2079a22f3beaa4e306449978533478fe0522f4b3/MiniCPM5-2B-F16.gguf
+      sha256: 0ffba3682a853295566b98bc38c0ab755d6b2d91b994bc031ed727a08cfcdf25
 - &minicpm5-1b
   name: minicpm5-1b
   url: github:mudler/LocalAI/gallery/chatml.yaml@master
@@ -41311,7 +41926,7 @@
       sha256: 2740ba9e9b30b09be4282a9a9f617ec43dc47b89aed416cb09b5f698f90783b5
       uri: huggingface://unsloth/Ministral-3-14B-Instruct-2512-GGUF/mmproj-F32.gguf
 - name: mistralai_ministral-3-14b-reasoning-2512-multimodal
-  url: github:mudler/LocalAI/gallery/mistral-0.3.yaml@master
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/mistralai/Ministral-3-14B-Reasoning-2512
     - https://huggingface.co/unsloth/Ministral-3-14B-Reasoning-2512-GGUF
@@ -41359,8 +41974,19 @@
     - vision
   last_checked: "2026-05-04"
   overrides:
+    backend: llama-cpp
     context_size: 32768
+    mmap: true
     mmproj: llama-cpp/mmproj/mmproj-mistralai_Ministral-3-14B-Reasoning-2512-f32.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    function:
+      disable_no_action: true
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
     parameters:
       model: llama-cpp/models/mistralai_Ministral-3-14B-Reasoning-2512-Q4_K_M.gguf
       temperature: 0.7
@@ -43391,6 +44017,754 @@
     - filename: clip_vision_h.safetensors
       sha256: ""
       uri: https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors
+- name: kimodo-soma-rp
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q8_0 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q8_0]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
+      sha256: b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c
+- name: kimodo-soma-rp-q6_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q6_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q6_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf
+      sha256: 656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2
+- name: kimodo-soma-rp-q5_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q5_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q5_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf
+      sha256: 7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211
+- name: kimodo-soma-rp-q4_k_m
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K_M Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k_m]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf
+      sha256: c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005
+- name: kimodo-soma-rp-q4_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf
+      sha256: b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012
+- name: kimodo-soma-rp-bf16
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-RP-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA RP v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic BF16 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+    BF16 needs substantial memory with all layers resident; use text_layer_chunk:8 on smaller GPUs.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, bf16]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-BF16.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-rp-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-RP-v1.1-GGML/resolve/65f8b8ab34ee7524161cc87b20ae4cb4f5d3a12d/models/kimodo-soma-rp-v1.1-f32.gguf
+      sha256: 3bf1229f4c1eff1d28f5196a854113da2df9a11a5e21c60694630903bf948ee4
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-BF16.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
+      sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
+- name: kimodo-soma-seed
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q8_0 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q8_0]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
+      sha256: b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c
+- name: kimodo-soma-seed-q6_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q6_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q6_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf
+      sha256: 656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2
+- name: kimodo-soma-seed-q5_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q5_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q5_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf
+      sha256: 7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211
+- name: kimodo-soma-seed-q4_k_m
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K_M Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k_m]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf
+      sha256: c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005
+- name: kimodo-soma-seed-q4_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf
+      sha256: b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012
+- name: kimodo-soma-seed-bf16
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML
+    - https://huggingface.co/nvidia/Kimodo-SOMA-SEED-v1.1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo SOMA SEED v1.1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic BF16 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+    BF16 needs substantial memory with all layers resident; use text_layer_chunk:8 on smaller GPUs.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, bf16]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-BF16.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-soma-seed-v1.1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-SOMA-SEED-v1.1-GGML/resolve/4d88f95fb21a1ff00001b495a330fbaab05cf7bb/models/kimodo-soma-seed-v1.1-f32.gguf
+      sha256: 14395a62d9c52f40fc63574e62395613760678ecfd0fc136fc73f57f1ff723dc
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-BF16.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
+      sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
+- name: kimodo-g1-rp
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q8_0 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q8_0]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
+      sha256: b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c
+- name: kimodo-g1-rp-q6_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q6_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q6_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf
+      sha256: 656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2
+- name: kimodo-g1-rp-q5_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q5_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q5_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf
+      sha256: 7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211
+- name: kimodo-g1-rp-q4_k_m
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K_M Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k_m]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf
+      sha256: c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005
+- name: kimodo-g1-rp-q4_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf
+      sha256: b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012
+- name: kimodo-g1-rp-bf16
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-RP-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 RP v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic BF16 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+    BF16 needs substantial memory with all layers resident; use text_layer_chunk:8 on smaller GPUs.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, bf16]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-rp-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-BF16.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-rp-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-RP-v1-GGML/resolve/b99647a706bcb60f4e0454be714af453448b223d/models/kimodo-g1-rp-v1-f32.gguf
+      sha256: 720c0c5fc33c76d6e7a39bc667af7b57c170d4c78ba509ae4df86e383c8985cb
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-BF16.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
+      sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
+- name: kimodo-g1-seed
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q8_0 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q8_0]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q8_0.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q8_0.gguf
+      sha256: b26d0e74b115b33a7f2df5aca04426548365e99217cd590986f8abc4172e4c5c
+- name: kimodo-g1-seed-q6_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q6_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q6_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q6_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q6_K.gguf
+      sha256: 656b790e44f90f27d746c48342aee066e3cf078db0322f98667c1a89be3ad7a2
+- name: kimodo-g1-seed-q5_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q5_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q5_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q5_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q5_K.gguf
+      sha256: 7b4d8524d2a9298d4087a684c0ea2042f8d6e86881bc7ecdb99fee920a784211
+- name: kimodo-g1-seed-q4_k_m
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K_M Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k_m]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K_M.gguf
+      sha256: c06f2cb6a7615e949bcbb5b582ad35a191338b68b5a51abe17d259ebe574c005
+- name: kimodo-g1-seed-q4_k
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic Q4_K Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, q4_k]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-Q4_K.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-Q4_K.gguf
+      sha256: b47f3d57c72660df7faa18338749be945e725032f1db467fe3cabf580a80e012
+- name: kimodo-g1-seed-bf16
+  url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
+  backend: kimodocpp
+  urls:
+    - https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML
+    - https://huggingface.co/nvidia/Kimodo-G1-SEED-v1
+    - https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML
+  description: |
+    Kimodo G1 SEED v1 text-to-motion on CPU or Vulkan, with F32 motion weights
+    and the shared monolithic BF16 Llama-3/LLM2Vec text encoder.
+    Exports an animated skeleton GLB without a mesh or skin. Motion and text
+    weights retain their respective NVIDIA Open Model License and Llama 3 terms.
+    BF16 needs substantial memory with all layers resident; use text_layer_chunk:8 on smaller GPUs.
+  tags: [3d_animation, text-to-motion, gguf, cpu, vulkan, kimodo, bf16]
+  overrides:
+    parameters:
+      model: kimodo/kimodo-g1-seed-v1-f32.gguf
+    options:
+      - text_bundle:kimodo/text/Llama-3-Kimodo-BF16.gguf
+      - frames:150
+      - steps:100
+      - text_guidance:2
+  files:
+    - filename: kimodo/kimodo-g1-seed-v1-f32.gguf
+      uri: https://huggingface.co/LocalAI-io/Kimodo-G1-SEED-v1-GGML/resolve/a165fb253b93ce11541be1a546f4a75af1837e38/models/kimodo-g1-seed-v1-f32.gguf
+      sha256: 6740369ac6aa967e91cc0f526b31a7f93d5a215b537f987b035edc8bb58a4cbf
+    - filename: kimodo/text/tokenizer.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/tokenizer.gguf
+      sha256: 81614aca62a98846c02b72cc2e5378e5bdce8b4d507b88f96eb1faa90dae607e
+    - filename: kimodo/text/Llama-3-Kimodo-BF16.gguf
+      uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
+      sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
 - name: trellis2-4b
   variants:
     - model: trellis2-4b-geometry
@@ -47204,6 +48578,118 @@
     - filename: id_ID-news_tts-medium.onnx.json
       sha256: 1ef677072668a5e172e0759b1d3871f129009d1167f093325a17607f7add5ad7
       uri: https://huggingface.co/rhasspy/piper-voices/resolve/main/id/id_ID/news_tts/medium/id_ID-news_tts-medium.onnx.json
+- name: voice-it_IT-ugo-medium
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  urls:
+    - https://huggingface.co/Einrich99/PiperTTS-UGO-Italian
+    - https://github.com/rhasspy/piper
+  description: |
+    Italian (it_IT) single-speaker Piper voice "Ugo" (medium quality, 22.05 kHz), fine-tuned from the en_US lessac medium voice. Community voice by Einrich99.
+  license: cc-by-4.0
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  tags:
+    - text-to-speech
+    - tts
+    - onnx
+    - piper
+    - medium
+    - italian
+    - cpu
+  last_checked: "2026-09-18"
+  overrides:
+    parameters:
+      model: it_IT-ugo-medium.onnx
+  files:
+    - filename: it_IT-ugo-medium.onnx
+      sha256: 8be36a89f0f11f8a87751e7cf25ae5c07d1ff1c46c3ccb0fd3541102a1e9476d
+      uri: https://huggingface.co/Einrich99/PiperTTS-UGO-Italian/resolve/main/medium/it_IT-ugo-medium.onnx
+    - filename: it_IT-ugo-medium.onnx.json
+      sha256: feb477322e426918b978c46a80c7eb02e21014c38131dd6878fd72a5e21e4081
+      uri: https://huggingface.co/Einrich99/PiperTTS-UGO-Italian/resolve/main/medium/it_IT-ugo-medium.onnx.json
+- name: voice-it_IT-aurora-medium
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  urls:
+    - https://huggingface.co/kirys79/piper_italiano
+    - https://github.com/rhasspy/piper
+  description: |
+    Italian (it_IT) single-speaker Piper voice "Aurora" (medium quality, 22.05 kHz), trained from scratch on speaker 6807 of Multilingual LibriSpeech (MLS). Marked accent with emphatic pauses. Community voice by kirys79.
+  license: cc-by-4.0
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  tags:
+    - text-to-speech
+    - tts
+    - onnx
+    - piper
+    - medium
+    - italian
+    - cpu
+  last_checked: "2026-09-18"
+  overrides:
+    parameters:
+      model: it_IT-aurora-medium.onnx
+  files:
+    - filename: it_IT-aurora-medium.onnx
+      sha256: 15528ee12e6c2a29bb67109e8306eb41cf3a02ff80bd835bdba2d4e8f82b38b2
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Aurora/it_IT-aurora-medium.onnx
+    - filename: it_IT-aurora-medium.onnx.json
+      sha256: 70973d95ba64790fd5b16b0b357c63f370c8288c80debfb4eabf177c7c264ba3
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Aurora/it_IT-aurora-medium.onnx.json
+- name: voice-it_IT-giorgio-high
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  urls:
+    - https://huggingface.co/kirys79/piper_italiano
+    - https://github.com/rhasspy/piper
+  description: |
+    Italian (it_IT) single-speaker Piper voice "Giorgio" (high quality, 22.05 kHz), fine-tuned from the Leonardo voice on speaker 8181 of Multilingual LibriSpeech (MLS). Community voice by kirys79.
+  license: cc-by-4.0
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  tags:
+    - text-to-speech
+    - tts
+    - onnx
+    - piper
+    - high
+    - italian
+    - cpu
+  last_checked: "2026-09-18"
+  overrides:
+    parameters:
+      model: it_IT-giorgio-high.onnx
+  files:
+    - filename: it_IT-giorgio-high.onnx
+      sha256: 6bfc837a53dd420a7d10e6d237eee2d7d276ee5cb3bf521bfa2b2446d0ff1dc9
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Giorgio/giorgio-epoch%3D5028-step%3D1098436.onnx
+    - filename: it_IT-giorgio-high.onnx.json
+      sha256: 3cdc6f20d2bb287c3bcf33e5b88340810e53908ab507b54a78abecffff8e1aac
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Giorgio/giorgio-epoch%3D5028-step%3D1098436.json
+- name: voice-it_IT-leonardo-high
+  url: github:mudler/LocalAI/gallery/piper.yaml@master
+  urls:
+    - https://huggingface.co/kirys79/piper_italiano
+    - https://github.com/rhasspy/piper
+  description: |
+    Italian (it_IT) single-speaker Piper voice "Leonardo" (high quality, 22.05 kHz), trained from scratch on speaker 1595 of Multilingual LibriSpeech (MLS). Likely the same speaker as the original Piper "riccardo" voice, at higher quality. Community voice by kirys79.
+  license: cc-by-4.0
+  icon: https://github.com/rhasspy/piper/raw/master/etc/logo.png
+  tags:
+    - text-to-speech
+    - tts
+    - onnx
+    - piper
+    - high
+    - italian
+    - cpu
+  last_checked: "2026-09-18"
+  overrides:
+    parameters:
+      model: it_IT-leonardo-high.onnx
+  files:
+    - filename: it_IT-leonardo-high.onnx
+      sha256: e693ab78e13790d7440ecaad8f886570ca2b2918af5f8c7bf700d509f0629361
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Leonardo/leonardo-epoch%3D2024-step%3D996300.onnx
+    - filename: it_IT-leonardo-high.onnx.json
+      sha256: 6410af83846fe9bc9d2c4224a7cbbbcd0e11ae7165737d6ebdbf34c8d67d385b
+      uri: https://huggingface.co/kirys79/piper_italiano/resolve/main/Leonardo/leonardo-epoch%3D2024-step%3D996300.json
 - name: voice-ka_GE-natia-medium
   url: github:mudler/LocalAI/gallery/piper.yaml@master
   urls:
@@ -59280,7 +60766,7 @@
       model: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
   files:
     - filename: audio-cpp/sortformer-diar-4spk-v1-q8_0.gguf
-      sha256: 84744b047296daf2177aed9dd2735497152ff83f49ec170d2a6a18cbcb93ef19
+      sha256: 4fa6a3e30c4a1c6cc1da455268806edc93432ca1e1b5b6923e942be8e6e479ff
       uri: huggingface://audio-cpp/audio.cpp-gguf/Sortformer-Diar-4spk-v1-GGUF/sortformer-diar-4spk-v1-q8_0.gguf
 - name: audio-cpp-htdemucs
   url: github:mudler/LocalAI/gallery/virtual.yaml@master

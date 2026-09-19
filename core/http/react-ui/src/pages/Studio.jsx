@@ -14,7 +14,7 @@ import { useOperations } from '../hooks/useOperations'
 import { readAllMediaHistory } from '../hooks/useMediaHistory'
 import { use3DHistory } from '../hooks/use3DHistory'
 import {
-  CAP_IMAGE, CAP_VIDEO, CAP_3D, CAP_TTS, CAP_SOUND_GENERATION, CAP_AUDIO_TRANSFORM,
+  CAP_IMAGE, CAP_VIDEO, CAP_3D, CAP_3D_ANIMATION, CAP_TTS, CAP_SOUND_GENERATION, CAP_AUDIO_TRANSFORM,
 } from '../utils/capabilities'
 
 // One table for the six generators: the capability that makes a modality
@@ -70,7 +70,8 @@ export default function Studio() {
   const modalities = useMemo(() => available.map(m => ({
     ...m,
     installed: models
-      .filter(model => model.capabilities?.includes(m.capability))
+      .filter(model => model.capabilities?.includes(m.capability) ||
+        (m.key === 'threed' && model.capabilities?.includes(CAP_3D_ANIMATION)))
       .map(model => model.id),
     typical: typicalCost(m.key === 'threed' ? threeDEntries : history[m.history]),
   })), [available, models, history, threeDEntries])

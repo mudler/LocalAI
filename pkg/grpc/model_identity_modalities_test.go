@@ -28,6 +28,7 @@ func (b *modalityBackend) Load(opts *pb.ModelOptions) error {
 
 func (b *modalityBackend) GenerateImage(*pb.GenerateImageRequest) error { b.served++; return nil }
 func (b *modalityBackend) GenerateVideo(*pb.GenerateVideoRequest) error { b.served++; return nil }
+func (b *modalityBackend) Animate3D(*pb.Animate3DRequest) error         { b.served++; return nil }
 func (b *modalityBackend) TTS(*pb.TTSRequest) error                     { b.served++; return nil }
 
 func (b *modalityBackend) TTSStream(_ *pb.TTSRequest, ch chan []byte) error {
@@ -121,6 +122,7 @@ func callAllModalities(c Backend, identity string) map[string]error {
 
 	_, errs["GenerateImage"] = c.GenerateImage(ctx, &pb.GenerateImageRequest{ModelIdentity: identity})
 	_, errs["GenerateVideo"] = c.GenerateVideo(ctx, &pb.GenerateVideoRequest{ModelIdentity: identity})
+	_, errs["Animate3D"] = c.Animate3D(ctx, &pb.Animate3DRequest{ModelIdentity: identity})
 	_, errs["TTS"] = c.TTS(ctx, &pb.TTSRequest{ModelIdentity: identity})
 	errs["TTSStream"] = c.TTSStream(ctx, &pb.TTSRequest{ModelIdentity: identity}, func(*pb.Reply) {})
 	_, errs["SoundGeneration"] = c.SoundGeneration(ctx, &pb.SoundGenerationRequest{ModelIdentity: identity})

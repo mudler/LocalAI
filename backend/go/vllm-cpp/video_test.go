@@ -282,6 +282,83 @@ var _ = Describe("GenerateVideo preconditions", func() {
 	})
 })
 
+var _ = Describe("buildLoraExtras", func() {
+	It("returns nil when no adapters are configured", func() {
+		keys, vals := buildLoraExtras(nil, nil, "", 0, "/models")
+		Expect(keys).To(BeNil())
+		Expect(vals).To(BeNil())
+	})
+
+	It("builds indexed lora_path/lora_strength pairs for one adapter", func() {
+		keys, vals := buildLoraExtras(
+			[]string{"/abs/lora.safetensors"}, []float32{0.7}, "", 0, "/models")
+		Expect(keys).To(Equal([]string{"lora_path", "lora_strength"}))
+		Expect(vals).To(Equal([]string{"/abs/lora.safetensors", "0.7"}))
+	})
+
+	It("appends _N suffix from the second adapter onward", func() {
+		keys, vals := buildLoraExtras(
+			[]string{"/a.safetensors", "/b.safetensors"},
+			[]float32{0.5, 0.3}, "", 0, "")
+		Expect(keys).To(Equal([]string{
+			"lora_path", "lora_strength",
+			"lora_path_2", "lora_strength_2",
+		}))
+		Expect(vals).To(Equal([]string{
+			"/a.safetensors", "0.5",
+			"/b.safetensors", "0.3",
+		}))
+	})
+
+	It("defaults strength to 1 when no scale is given", func() {
+		keys, vals := buildLoraExtras(
+			[]string{"/a.safetensors"}, nil, "", 0, "")
+		Expect(keys).To(Equal([]string{"lora_path", "lora_strength"}))
+		Expect(vals).To(Equal([]string{"/a.safetensors", "1"}))
+	})
+
+	It("folds the singular lora_adapter/lora_scale in as the first adapter", func() {
+		keys, vals := buildLoraExtras(
+			[]string{"/second.safetensors"}, []float32{0.2},
+			"/first.safetensors", 0.8, "")
+		Expect(keys).To(Equal([]string{
+			"lora_path", "lora_strength",
+			"lora_path_2", "lora_strength_2",
+		}))
+		Expect(vals).To(Equal([]string{
+			"/first.safetensors", "0.8",
+			"/second.safetensors", "0.2",
+		}))
+	})
+
+	It("resolves relative adapter paths against the models directory", func() {
+		keys, vals := buildLoraExtras(
+			[]string{"loras/style.safetensors"}, nil, "", 0, "/models")
+		Expect(keys).To(Equal([]string{"lora_path", "lora_strength"}))
+		Expect(vals[0]).To(Equal(filepath.Join("/models", "loras/style.safetensors")))
+	})
+})
+
+var _ = Describe("video_lora_dir option", func() {
+	It("parses video_lora_dir into loraDir", func() {
+		vo := videoOptions{}
+		Expect(applyVideoOption(&vo, "video_lora_dir", "/data/loras")).To(BeTrue())
+		Expect(vo.loraDir).To(Equal("/data/loras"))
+	})
+
+	It("trims whitespace around the path", func() {
+		vo := videoOptions{}
+		Expect(applyVideoOption(&vo, "video_lora_dir", "  /data/loras  ")).To(BeTrue())
+		Expect(vo.loraDir).To(Equal("/data/loras"))
+	})
+
+	It("returns false for an unknown key", func() {
+		vo := videoOptions{}
+		Expect(applyVideoOption(&vo, "video_not_a_real_key", "x")).To(BeFalse())
+		Expect(vo.loraDir).To(BeEmpty())
+	})
+})
+
 // writePPM writes a valid P6 header of the given geometry. Only the header is
 // read by anything under test, so the pixel payload is left off.
 func writePPM(width, height int) string {

@@ -155,6 +155,31 @@ var _ = Describe("heartbeat checkpointing", func() {
 				"rather than movement suppresses nothing at all")
 	})
 
+	It("holds changed CPU readings until the scheduled checkpoint", func() {
+		registry.SetHeartbeatCheckpoint(time.Hour)
+		usage := 25.0
+		load1 := 1.5
+		Expect(registry.Heartbeat(ctx, nodeID, &HeartbeatUpdate{
+			CPUUsagePercent: &usage,
+			CPULoad1:        &load1,
+		})).To(Succeed())
+		first := writtenAt()
+
+		usage = 75
+		load1 = 4.5
+		time.Sleep(10 * time.Millisecond)
+		Expect(registry.Heartbeat(ctx, nodeID, &HeartbeatUpdate{
+			CPUUsagePercent: &usage,
+			CPULoad1:        &load1,
+		})).To(Succeed())
+
+		var stored BackendNode
+		Expect(db.First(&stored, "id = ?", nodeID).Error).ToNot(HaveOccurred())
+		Expect(stored.LastHeartbeat).To(BeTemporally("==", first))
+		Expect(stored.CPUUsagePercent).To(Equal(25.0))
+		Expect(stored.CPULoad1).To(Equal(1.5))
+	})
+
 	It("suppresses a re-reported total VRAM and GPU vendor that have not changed", func() {
 		registry.SetHeartbeatCheckpoint(time.Hour)
 

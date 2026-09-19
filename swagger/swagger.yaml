@@ -635,6 +635,13 @@ definitions:
       type:
         type: string
     type: object
+  schema.AnimationInput:
+    properties:
+      data:
+        type: string
+      type:
+        type: string
+    type: object
   schema.AnthropicContentBlock:
     properties:
       content: {}
@@ -1555,6 +1562,21 @@ definitions:
           $ref: '#/definitions/schema.ToolCall'
         type: array
     type: object
+  schema.Model3DAnimationRequest:
+    properties:
+      inputs:
+        additionalProperties:
+          $ref: '#/definitions/schema.AnimationInput'
+        type: object
+      model:
+        type: string
+      params:
+        additionalProperties:
+          type: string
+        type: object
+      response_format:
+        type: string
+    type: object
   schema.Model3DRequest:
     description: 3D asset generation request body. Generation is image-conditioned
     properties:
@@ -1599,6 +1621,13 @@ definitions:
         items:
           type: string
         type: array
+      context_size:
+        description: |-
+          ContextSize is the effective context window in tokens the backend will
+          run with: the configured context_size, or the default when unset. 0 means
+          the value is unknown (e.g. a loose file with no config). Clients can use
+          this to size their context budget for auto-compaction and pruning.
+        type: integer
       id:
         type: string
       input_modalities:
@@ -1614,6 +1643,10 @@ definitions:
           model produces.
         items:
           type: string
+        type: array
+      three_d_operations:
+        items:
+          $ref: '#/definitions/schema.ThreeDOperation'
         type: array
     type: object
   schema.ModelCapabilitiesResponse:
@@ -1816,7 +1849,6 @@ definitions:
         description: Always include in response
         type: boolean
       type:
-        description: always "function"
         type: string
     type: object
   schema.ORIncompleteDetails:
@@ -2130,6 +2162,10 @@ definitions:
       n_keep:
         type: integer
       negative_prompt:
+        description: |-
+          NegativePrompt for image generation (matches Stable Diffusion WebUI /
+          vLLM-Omni conventions). Combined, comma-separated, with any "|"-suffixed
+          negative tags in Prompt.
         type: string
       negative_prompt_scale:
         type: number
@@ -2730,6 +2766,59 @@ definitions:
           $ref: '#/definitions/schema.WebhookConfig'
         type: array
     type: object
+  schema.ThreeDInput:
+    properties:
+      label:
+        type: string
+      max_bytes:
+        type: integer
+      name:
+        type: string
+      required:
+        type: boolean
+      type:
+        type: string
+    type: object
+  schema.ThreeDOperation:
+    properties:
+      endpoint:
+        type: string
+      id:
+        type: string
+      inputs:
+        items:
+          $ref: '#/definitions/schema.ThreeDInput'
+        type: array
+      label:
+        type: string
+      output:
+        type: string
+      parameters:
+        items:
+          $ref: '#/definitions/schema.ThreeDParameter'
+        type: array
+    type: object
+  schema.ThreeDParameter:
+    properties:
+      advanced:
+        type: boolean
+      default:
+        type: string
+      label:
+        type: string
+      max:
+        type: number
+      min:
+        type: number
+      name:
+        type: string
+      options:
+        items:
+          type: string
+        type: array
+      type:
+        type: string
+    type: object
   schema.TokenizeRequest:
     properties:
       content:
@@ -3061,6 +3150,23 @@ info:
   title: LocalAI API
   version: 2.0.0
 paths:
+  /3d/animate:
+    post:
+      parameters:
+      - description: Named conditioning inputs and model-specific parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Model3DAnimationRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates a 3D animation (binary glTF / GLB).
+      tags:
+      - 3d
   /3d/generations:
     post:
       parameters:

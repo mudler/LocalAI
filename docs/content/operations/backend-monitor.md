@@ -5,7 +5,7 @@ weight = 20
 url = "/features/backend-monitor/"
 +++
 
-LocalAI provides endpoints to monitor and manage running backends. The `/backend/monitor` endpoint reports the status and resource usage of loaded models, `/backend/load` pre-loads a model into memory, and `/backend/shutdown` allows stopping a model's backend process.
+LocalAI provides endpoints to monitor and manage running backends. The `/backend/monitor` endpoint reports the status and resource usage of loaded models, `/backend/load` pre-loads a model into memory, and `/backend/shutdown` allows stopping a model's backend processes. In distributed mode, a named shutdown stops both a process local to the controller and every placement registered on workers.
 
 All three are admin-only.
 

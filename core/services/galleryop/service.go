@@ -522,7 +522,7 @@ func (g *GalleryService) applyCancel(id string, pause bool) {
 	}
 }
 
-// newUserCancellableContext returns a child context whose CancelFunc cancels
+// NewUserCancellableContext returns a child context whose CancelFunc cancels
 // with the downloader.ErrUserCancelled cause. This lets the download layer
 // distinguish a deliberate user cancel (discard the half-downloaded .partial)
 // from an incidental cancellation such as process shutdown (keep the .partial

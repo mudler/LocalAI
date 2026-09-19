@@ -1,6 +1,18 @@
 import { test, expect } from './coverage-fixtures.js'
 
 test.describe('Operate console on a narrow screen', () => {
+  test('ignores the desktop collapsed preference', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await page.addInitScript(() => localStorage.setItem('localai_console_rail_collapsed', 'true'))
+    await page.goto('/app/operate')
+
+    const rail = page.locator('.console-rail')
+    await expect(rail).toHaveCSS('width', '374px')
+    await expect(rail.getByText('Operate', { exact: true })).toBeVisible()
+    await expect(rail.getByRole('button', { name: 'Expand Operate navigation' })).toBeVisible()
+    await expect(rail.locator('.console-rail-collapse')).toBeHidden()
+  })
+
   test('expanding the rail leaves the overview on screen', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 })
     await page.goto('/app/operate')

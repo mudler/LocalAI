@@ -23,6 +23,17 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## Instella-MoE availability
+
+The gallery excludes `instella-moe-16b-a3b-think` and
+`instella-moe-16b-a3b-think-q8` because the packaged llama.cpp backend does not
+support their `instella-moe` architecture. Loading these GGUF files fails with
+`unknown model architecture: 'instella-moe'`.
+
+The entries can return after LocalAI ships a compatible backend. See
+[the compatibility issue](https://github.com/mudler/LocalAI/issues/11681) and
+[upstream llama.cpp support](https://github.com/ggml-org/llama.cpp/pull/26467).
+
 ## Useful Links and resources
 
 - [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.
@@ -42,6 +53,25 @@ lifecycle and has two views:
 Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
+
+## NeoHorse-1-4B
+
+Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q6_K, and Q8_0 GGUF builds:
+
+```bash
+local-ai models install neohorse-1-4b-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install neohorse-1-4b-q4 --variant neohorse-1-4b-q8
+```
+
+[NeoHorse-1-4B](https://huggingface.co/TokenRhythm/NeoHorse-1-4B) is a text-only Qwen3.5 fine-tune for coding, reasoning, and agentic tasks.
+These builds use llama.cpp and the embedded Jinja chat template.
+The gallery defaults to 32,768 context tokens; the model supports up to 262,144 tokens with sufficient memory.
+The [GGUF downloads](https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF) are pinned to a revision and verified with SHA256 checksums.
 
 ## Spark-X2.5-1.7B
 
@@ -64,6 +94,19 @@ The [source model](https://huggingface.co/XHToken/Spark-X2.5-1.7B) supports up t
 1,048,576 tokens; larger contexts require more memory. Use a current LocalAI
 llama.cpp backend with Spark-X2.5 support.
 
+## MiniCPM5-2B
+
+MiniCPM5-2B offers the official Q4_K_M, Q8_0, and F16 GGUF builds through
+llama.cpp. To install the F16 build explicitly:
+
+```bash
+local-ai models install minicpm5-2b --variant minicpm5-2b-f16
+```
+
+The F16 weights require a 5.04 GB download, plus additional memory for inference.
+This entry uses the embedded chat template and an 8,192-token context.
+See the [official GGUF repository](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF).
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
@@ -72,6 +115,26 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 - **How they are computed**: GGUF models use file size (HTTP HEAD or local stat) and optional GGUF metadata (HTTP Range) for KV cache and overhead; other formats use Hugging Face file sizes and optional config when available. If metadata is unavailable, a size-only heuristic is used.
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, the gallery shows whether the estimated VRAM fits (green) or may not fit (red) using a 95% headroom rule.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
+
+## Gemma 4 Ortenzya 31B
+
+[Ortenzya](https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF)
+is a Gemma 4 fine-tune for creative writing, translation, and roleplay.
+Install it with automatic selection between Q4_K_M and Q8_0:
+
+```bash
+local-ai models install gemma-4-31b-ortenzya-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install gemma-4-31b-ortenzya-q4 --variant gemma-4-31b-ortenzya-q8
+```
+
+Both builds use llama.cpp, the embedded Jinja chat template, and the BF16
+vision projector for image prompts. The gallery uses a 32,768-token context
+to limit memory use, with temperature 1, top_p 0.95, and top_k 64.
 
 ## Gemma 4 12B IT
 
@@ -90,6 +153,28 @@ temperature 1, top_k 64, and top_p 0.95. They are separate from the
 existing QAT builds. See the [source model](https://huggingface.co/google/gemma-4-12B-it)
 and [GGUF files](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF).
 
+## Ornith 1.5 9B Uncensored
+
+Junafinity's Ornith 1.5 9B Uncensored offers Q4_K_M, Q6_K, and Q8_0 GGUF
+builds for llama.cpp. Each includes the F16 vision projector for image input.
+Install with automatic variant selection:
+
+```bash
+local-ai models install ornith-1.5-9b-uncensored-q4
+```
+
+Select Q8 explicitly:
+
+```bash
+local-ai models install ornith-1.5-9b-uncensored-q4 --variant ornith-1.5-9b-uncensored-q8
+```
+
+These entries use the embedded chat template and a 32,768-token context.
+Sampling defaults are temperature 0.6, top_p 0.95, top_k 20, min_p 0,
+and repeat_penalty 1. The model has no MTP heads.
+See the [source model](https://huggingface.co/junafinity/Ornith-1.5-9B-uncensored)
+and [GGUF files](https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF).
+
 ## Add other galleries
 
 You can add other galleries by:
@@ -105,6 +190,8 @@ GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 3. **Using Configuration Files**: Add galleries to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory.
 
 The models in the gallery will be automatically indexed and available for installation.
+
+To use a gallery that needs authentication, such as a private GitHub repository or an internal server, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}).
 
 ## Dirk quantization variants
 
@@ -408,6 +495,13 @@ The same option exists on the CLI:
 
 ```bash
 local-ai models install nanbeige4.1-3b-q4 --variant nanbeige4.1-3b-q8
+```
+
+Ornith-1.5-35B-A3B offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds
+with a BF16 vision projector. For example, select Q6_K with:
+
+```bash
+local-ai models install ornith-1.5-35b-a3b-q4 --variant ornith-1.5-35b-a3b-q6
 ```
 
 The `install_model` MCP tool takes the same `variant` argument, so an assistant
@@ -819,3 +913,27 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+### Genesis Hermes Final
+
+Install the Qwen3.6-35B-A3B Genesis Hermes Final model for text chat,
+function calling, and image input:
+
+```bash
+local-ai models install qwen3.6-35b-a3b-genesis-hermes-final
+```
+
+The gallery offers APEX, APEX Compact, and Q8_K_P builds for llama.cpp.
+APEX and APEX Compact also have variants with multi-token prediction (MTP)
+enabled. Each build includes the F16 vision projector and uses the embedded
+Jinja chat template. LocalAI selects a variant according to available memory
+and serving features. To select the plain APEX build explicitly:
+
+```bash
+local-ai models install --variant qwen3.6-35b-a3b-genesis-hermes-final qwen3.6-35b-a3b-genesis-hermes-final
+```
+
+These entries set a 131,072-token context, following the
+[model card's guidance](https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF)
+for thinking mode. This context requires additional memory beyond the weights.
+The uncensored model uses the Apache-2.0 license.

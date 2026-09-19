@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
+	process "github.com/mudler/go-processmanager"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -76,6 +77,50 @@ var _ = Describe("ShutdownModel in distributed mode", func() {
 		Expect(err).ToNot(HaveOccurred(),
 			"stopping a model that is running on a worker must succeed, not report 'model not found'")
 	})
+
+	DescribeTable("stops mixed local and remote placements",
+		func(remoteErr error) {
+			unloader.unloadErr = remoteErr
+			modelLoader.SetRemoteUnloader(unloader)
+
+			localProcess := process.New(
+				process.WithTemporaryStateDir(),
+				process.WithName("/bin/sleep"),
+				process.WithArgs("300"),
+			)
+			Expect(localProcess.Run()).To(Succeed())
+			DeferCleanup(func() {
+				if localProcess.IsAlive() {
+					_ = localProcess.Stop()
+				}
+			})
+
+			_, err := modelLoader.LoadModel("mixed", "mixed", func(_, _, _ string) (*model.Model, error) {
+				return model.NewModel("mixed", "local", localProcess), nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			var hookCalls int
+			modelLoader.OnModelUnload(func(modelName string) {
+				Expect(modelName).To(Equal("mixed"))
+				hookCalls++
+			})
+
+			err = modelLoader.ShutdownModelForce("mixed")
+
+			Expect(localProcess.IsAlive()).To(BeFalse())
+			Expect(modelLoader.ListLoadedModels()).To(BeEmpty())
+			Expect(unloader.called).To(ConsistOf("mixed"))
+			Expect(hookCalls).To(Equal(1))
+			if remoteErr == nil {
+				Expect(err).NotTo(HaveOccurred())
+				return
+			}
+			Expect(errors.Is(err, remoteErr)).To(BeTrue())
+		},
+		Entry("when every placement stops", nil),
+		Entry("when local stop succeeds but a remote placement fails", errors.New("worker unreachable")),
+	)
 
 	It("reports not-found only after the registry confirms no node has it", func() {
 		unloader.present = false

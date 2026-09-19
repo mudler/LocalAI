@@ -72,6 +72,7 @@ const FILTERS = [
   { key: 'image', labelKey: 'filters.image', icon: 'fa-image' },
   { key: 'video', labelKey: 'filters.video', icon: 'fa-video' },
   { key: '3d', labelKey: 'filters.threed', icon: 'fa-cube' },
+  { key: '3d_animation', labelKey: 'filters.threedAnimation', icon: 'fa-person-walking' },
   { key: 'multimodal', labelKey: 'filters.multimodal', icon: 'fa-shapes' },
   { key: 'vision', labelKey: 'filters.vision', icon: 'fa-eye' },
   { key: 'tts', labelKey: 'filters.tts', icon: 'fa-microphone' },
@@ -105,7 +106,7 @@ const FILTER_SECTIONS = [
       'sound_generation', 'audio_transform', 'realtime_audio', 'vad'] },
   { id: 'visual', labelKey: 'groups.visual', icon: 'fa-image', pick: 'image',
     blurbKey: 'shelves.pickVisual',
-    keys: ['image', 'video', '3d'] },
+    keys: ['image', 'video', '3d', '3d_animation'] },
 ]
 
 function ModelsLifecycleNav({ activeView, searchParams, t }) {

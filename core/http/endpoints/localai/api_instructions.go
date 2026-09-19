@@ -89,9 +89,9 @@ var instructionDefs = []instructionDef{
 	},
 	{
 		Name:        "3d",
-		Description: "Image-to-3D asset generation (binary glTF / GLB) via TRELLIS.2",
+		Description: "3D mesh generation, remeshing, and animation (binary glTF / GLB)",
 		Tags:        []string{"3d"},
-		Intro:       "POST /3d/generations accepts a conditioning image as public URL, base64, or data URI (no text prompt) and returns one .glb asset as a URL under /generated-3d or as b64_json. quality selects the mesh pipeline (auto|coarse|512|1024); background controls solid-background removal (auto|keep|black|white); step, texture_steps, and cfg_scale tune the flow sampling. POST /3d/remesh accepts multipart model, mesh (GLB), and a single detail percentage to return a watertight print-ready GLB; the enclosing offset is derived automatically.",
+		Intro:       "POST /3d/generations accepts a conditioning image as public URL, base64, or data URI (no text prompt) and returns one .glb asset as a URL under /generated-3d or as b64_json. quality selects the mesh pipeline (auto|coarse|512|1024); background controls solid-background removal (auto|keep|black|white); step, texture_steps, and cfg_scale tune the flow sampling. POST /3d/remesh accepts multipart model, mesh (GLB), and a single detail percentage to return a watertight print-ready GLB; the enclosing offset is derived automatically. POST /3d/animate accepts named inputs with type and data, plus string-valued params. Consult the selected model's three_d_operations from /v1/models/capabilities for its required inputs, parameters, and output type. Kimodo produces text-conditioned animated skeletons without a mesh or skin; animation inputs are not universally text-only.",
 	},
 	{
 		Name:        "face-recognition",

@@ -23,7 +23,7 @@
       "describe": {
         "images": "Text to image, image to image, reference images",
         "video": "Text to video and image to video",
-        "threed": "Image to mesh reconstruction",
+        "threed": "Mesh generation and animation",
         "tts": "Text to speech using your voice library",
         "sound": "Music and sound effects from a prompt",
         "transform": "Separation, enhancement and voice conversion"
@@ -99,6 +99,18 @@
   },
   "threed": {
     "title": "3D Generation",
+    "animation": {
+      "skeletonHint": "Generates an animated skeleton, without a mesh or skin.",
+      "preview": "Animated skeleton preview",
+      "pause": "Pause",
+      "play": "Play",
+      "reset": "Reset view",
+      "timeline": "Timeline",
+      "zoom": "Zoom",
+      "inputTooLong": "Input exceeds the {{limit}} byte limit.",
+      "fileTooLarge": "The selected file is too large.",
+      "readFailed": "Could not read the selected file."
+    },
     "labels": {
       "model": "Model",
       "image": "Input image",

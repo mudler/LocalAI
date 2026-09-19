@@ -19,6 +19,7 @@ const (
 	UsecaseImage               = "image"
 	UsecaseVideo               = "video"
 	Usecase3D                  = "3d"
+	Usecase3DAnimation         = "3d_animation"
 	UsecaseTranscript          = "transcript"
 	UsecaseTTS                 = "tts"
 	UsecaseSoundGeneration     = "sound_generation"
@@ -47,6 +48,7 @@ const (
 	MethodUpscaleImage       GRPCMethod = "UpscaleImage"
 	MethodGenerateVideo      GRPCMethod = "GenerateVideo"
 	MethodGenerate3D         GRPCMethod = "Generate3D"
+	MethodAnimate3D          GRPCMethod = "Animate3D"
 	MethodAudioTranscription GRPCMethod = "AudioTranscription"
 	MethodTTS                GRPCMethod = "TTS"
 	MethodTTSStream          GRPCMethod = "TTSStream"
@@ -133,6 +135,11 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		Flag:        FLAG_3D,
 		GRPCMethod:  MethodGenerate3D,
 		Description: "Image-conditioned 3D asset generation via the Generate3D RPC — a binary glTF (GLB) mesh with optional PBR material (TRELLIS.2).",
+	},
+	Usecase3DAnimation: {
+		Flag:        FLAG_3D_ANIMATION,
+		GRPCMethod:  MethodAnimate3D,
+		Description: "3D animation with model-specific conditioning inputs, exported as binary glTF (GLB).",
 	},
 	UsecaseTranscript: {
 		Flag:        FLAG_TRANSCRIPT,
@@ -421,6 +428,12 @@ var BackendCapabilities = map[string]BackendCapability{
 	},
 
 	// --- 3D generation backends ---
+	"kimodocpp": {
+		GRPCMethods:      []GRPCMethod{MethodAnimate3D},
+		PossibleUsecases: []string{Usecase3DAnimation},
+		DefaultUsecases:  []string{Usecase3DAnimation},
+		Description:      "kimodo.cpp — text-to-motion on CPU/Vulkan, exported as animated skeleton GLB",
+	},
 	"trellis2cpp": {
 		GRPCMethods:      []GRPCMethod{MethodGenerate3D},
 		PossibleUsecases: []string{Usecase3D},
