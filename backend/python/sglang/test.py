@@ -3,8 +3,8 @@
 Helper-level tests run without launching the gRPC server or loading model
 weights — they only exercise the pure-Python helpers on
 ``BackendServicer``. They do still require ``sglang`` to be importable
-because ``_apply_engine_args`` validates keys against
-``ServerArgs``'s dataclass fields.
+because ``_apply_engine_args`` validates keys against ``ServerArgs``
+(a dataclass up to sglang 0.5.19, a ``msgspec.Struct`` from 0.5.20 on).
 """
 import unittest
 
@@ -76,6 +76,38 @@ class TestSglangHelpers(unittest.TestCase):
         msg = str(ctx.exception)
         self.assertIn("trust_remotecode", msg)
         self.assertIn("trust_remote_code", msg)
+
+    def test_apply_engine_args_msgspec_serverargs(self):
+        """sglang >= 0.5.20 exposes ServerArgs as a msgspec.Struct instead of a
+        dataclass; the field names then live in ``__struct_fields__``.
+
+        Pinned with a stand-in so the msgspec path is covered no matter which
+        sglang version happens to be installed.
+        """
+        import json as _json
+        servicer = self._servicer()
+        import backend as backend_mod
+
+        class _StructLikeServerArgs:
+            __struct_fields__ = ("model_path", "mem_fraction_static",
+                                 "trust_remote_code")
+
+        original = backend_mod.ServerArgs
+        backend_mod.ServerArgs = _StructLikeServerArgs
+        try:
+            out = servicer._apply_engine_args(
+                {}, _json.dumps({"trust_remote_code": True}),
+            )
+            self.assertTrue(out["trust_remote_code"])
+            with self.assertRaises(ValueError) as ctx:
+                servicer._apply_engine_args(
+                    {}, _json.dumps({"mem_fraction_statik": 0.7}),
+                )
+            msg = str(ctx.exception)
+            self.assertIn("mem_fraction_statik", msg)
+            self.assertIn("mem_fraction_static", msg)
+        finally:
+            backend_mod.ServerArgs = original
 
     def test_apply_engine_args_empty_passthrough(self):
         """Empty / None engine_args returns the kwargs dict untouched."""
