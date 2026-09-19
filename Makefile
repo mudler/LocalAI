@@ -639,6 +639,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/go/rfdetr-cpp
 	$(MAKE) -C backend/go/locate-anything-cpp
 	$(MAKE) -C backend/go/trellis2cpp
+	$(MAKE) -C backend/go/kimodocpp
 	$(MAKE) -C backend/go/valkey-store
 
 test-extra: prepare-test-extra
@@ -677,6 +678,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/vllm-cpp test
 	$(MAKE) -C backend/go/nemo-speech-cpp test
 	$(MAKE) -C backend/go/trellis2cpp test
+	$(MAKE) -C backend/go/kimodocpp test
 	$(MAKE) -C backend/go/valkey-store test
 
 ##
@@ -1332,6 +1334,7 @@ BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
 BACKEND_SILERO_VAD = silero-vad|golang|.|false|true
 BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|true
 BACKEND_TRELLIS2CPP = trellis2cpp|golang|.|--progress=plain|true
+BACKEND_KIMODOCPP = kimodocpp|golang|.|--progress=plain|true
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_CRISPASR = crispasr|golang|.|false|true
 BACKEND_PARAKEET_CPP = parakeet-cpp|golang|.|false|true
@@ -1437,6 +1440,14 @@ $(eval $(call generate-docker-build-target,$(BACKEND_HUGGINGFACE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TRELLIS2CPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_KIMODOCPP)))
+.NOTPARALLEL: backends/kimodocpp backends/kimodocpp-darwin
+docker-build-backends: docker-build-kimodocpp
+
+backends/kimodocpp-darwin:
+	BACKEND=kimodocpp BUILD_TYPE=cpu $(MAKE) build-darwin-go-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/kimodocpp.tar)"
+
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CRISPASR)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PARAKEET_CPP)))

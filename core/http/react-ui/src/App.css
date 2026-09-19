@@ -13785,3 +13785,9 @@ button.lane:hover {
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
+.animation-viewer canvas {
+  width: 100%;
+  height: 420px;
+  touch-action: none;
+  cursor: grab;
+}

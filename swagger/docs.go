@@ -22,6 +22,33 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/3d/animate": {
+            "post": {
+                "tags": [
+                    "3d"
+                ],
+                "summary": "Creates a 3D animation (binary glTF / GLB).",
+                "parameters": [
+                    {
+                        "description": "Named conditioning inputs and model-specific parameters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.Model3DAnimationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/3d/generations": {
             "post": {
                 "tags": [
@@ -4943,6 +4970,17 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.AnimationInput": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.AnthropicContentBlock": {
             "type": "object",
             "properties": {
@@ -6283,6 +6321,29 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.Model3DAnimationRequest": {
+            "type": "object",
+            "properties": {
+                "inputs": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/schema.AnimationInput"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "response_format": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.Model3DRequest": {
             "description": "3D asset generation request body. Generation is image-conditioned",
             "type": "object",
@@ -6341,6 +6402,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "context_size": {
+                    "description": "ContextSize is the effective context window in tokens the backend will\nrun with: the configured context_size, or the default when unset. 0 means\nthe value is unknown (e.g. a loose file with no config). Clients can use\nthis to size their context budget for auto-compaction and pruning.",
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -6359,6 +6424,12 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "three_d_operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ThreeDOperation"
                     }
                 }
             }
@@ -6652,7 +6723,6 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "type": {
-                    "description": "always \"function\"",
                     "type": "string"
                 }
             }
@@ -7867,6 +7937,87 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.WebhookConfig"
                     }
+                }
+            }
+        },
+        "schema.ThreeDInput": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "max_bytes": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ThreeDOperation": {
+            "type": "object",
+            "properties": {
+                "endpoint": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "inputs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ThreeDInput"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "output": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ThreeDParameter"
+                    }
+                }
+            }
+        },
+        "schema.ThreeDParameter": {
+            "type": "object",
+            "properties": {
+                "advanced": {
+                    "type": "boolean"
+                },
+                "default": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },

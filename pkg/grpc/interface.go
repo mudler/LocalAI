@@ -20,6 +20,7 @@ type AIModel interface {
 	UpscaleImage(*pb.UpscaleImageRequest) error
 	GenerateVideo(*pb.GenerateVideoRequest) error
 	Generate3D(*pb.Generate3DRequest) error
+	Animate3D(*pb.Animate3DRequest) error
 	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
 	Depth(*pb.DepthRequest) (pb.DepthResponse, error)
 	FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error)

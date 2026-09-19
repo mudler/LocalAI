@@ -33,6 +33,18 @@ an available compute backend, with CPU as the fallback. To force CPU execution,
 replace that option with `backend:cpu`. Model configurations that omit this
 option still default to CPU.
 
+### Sortformer installation
+
+Install the Sortformer model for speaker diarization from the gallery:
+
+```bash
+local-ai models install audio-cpp-sortformer-diarization
+```
+
+If installation fails with `SHA mismatch`, compare the reported metadata checksum
+with the current gallery entry. An outdated gallery checksum can reject a complete
+download. Report a persistent mismatch with both checksum values and the model name.
+
 ## What it serves
 
 One model serves one family, and a family advertises the tasks it can perform. The

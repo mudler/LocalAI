@@ -37,6 +37,7 @@ func ListModelCapabilitiesEndpoint(bcl *config.ModelConfigLoader, ml *model.Mode
 			entry := schema.ModelCapabilities{ID: m, Object: "model"}
 			if cfg, ok := bcl.GetModelConfig(m); ok {
 				entry.Capabilities = cfg.Capabilities()
+				entry.ThreeDOperations = cfg.ThreeDOperations()
 				entry.InputModalities = cfg.InputModalities()
 				entry.OutputModalities = cfg.OutputModalities()
 				if ctx := backend.EffectiveContextSize(cfg); ctx > 0 {

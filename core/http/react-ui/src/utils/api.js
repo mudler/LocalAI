@@ -278,6 +278,7 @@ export const videoApi = {
 }
 
 export const threeDApi = {
+  animate: (body) => postJSON(API_CONFIG.endpoints.threeDAnimate, body),
   generate: (body) => postJSON(API_CONFIG.endpoints.threeDGenerations, body),
   remesh: async (mesh, model, detail) => {
     const form = new FormData()
