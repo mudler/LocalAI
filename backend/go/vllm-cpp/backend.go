@@ -10,6 +10,7 @@ package main
 // backend embeds base.Base and not base.SingleThread).
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -273,6 +274,64 @@ func (v *VllmCpp) Predict(opts *pb.PredictOptions) (string, error) {
 	text := goString(out.Text)
 	vllmCompletionFree(unsafe.Pointer(&out)) // #nosec G103 -- frees out.Text
 	return text, nil
+}
+
+// defaultNerLabels is the general-purpose entity type set used when the model
+// config does not supply ner_labels. These cover the most common NER use cases
+// and match the categories the GLiNER2.5 model card demonstrates.
+var defaultNerLabels = []string{
+	"person", "organization", "location",
+	"date", "time", "money", "quantity",
+}
+
+// TokenClassify runs zero-shot NER on the loaded GLiNER2.5 engine via the
+// vllm_gliner_ner C ABI (ABI v27). The engine refuses non-BoundaryExtractor
+// architectures, so a model loaded for chat or embeddings returns an error
+// here rather than silent garbage.
+func (v *VllmCpp) TokenClassify(_ context.Context, in *pb.TokenClassifyRequest) (*pb.TokenClassifyResponse, error) {
+	if v.engine == 0 {
+		return nil, fmt.Errorf("vllm-cpp: model not loaded")
+	}
+	labels := v.opts.nerLabels
+	if len(labels) == 0 {
+		labels = defaultNerLabels
+	}
+	threshold := v.opts.nerThreshold
+	if in.Threshold > 0 {
+		threshold = in.Threshold
+	}
+	maxWidth := v.opts.nerMaxWidth
+
+	labelPtrs, labelBacking := cStringArray(labels)
+	if len(labelPtrs) == 0 {
+		return nil, fmt.Errorf("vllm-cpp: no NER labels configured")
+	}
+	labelsPtr := uintptr(unsafe.Pointer(&labelPtrs[0])) // #nosec G103 -- borrowed by C for the call only
+
+	var out cNerResult
+	rc := vllmGlinerNer(v.engine, in.Text, labelsPtr, int32(len(labelPtrs)), threshold, maxWidth, unsafe.Pointer(&out)) // #nosec G103 -- POD in/out params
+	runtime.KeepAlive(labelBacking)
+	if rc != vllmOK {
+		return nil, fmt.Errorf("vllm-cpp: NER failed: %s", vllmLastError())
+	}
+	defer vllmNerResultFree(unsafe.Pointer(&out)) // #nosec G103 -- frees C-owned members
+
+	entities := make([]*pb.TokenClassifyEntity, 0, out.nEntities)
+	if out.nEntities > 0 && out.entities != 0 {
+		// #nosec:govet // C-owned array, valid for this call before vllmNerResultFree
+		cents := unsafe.Slice((*cNerEntity)(unsafe.Pointer(out.entities)), int(out.nEntities)) // #nosec G103 -- C-owned, copied out immediately
+		for i := range cents {
+			e := &cents[i]
+			entities = append(entities, &pb.TokenClassifyEntity{
+				EntityGroup: goString(e.label),
+				Start:       e.charStart,
+				End:         e.charEnd,
+				Score:       e.confidence,
+				Text:        goString(e.text),
+			})
+		}
+	}
+	return &pb.TokenClassifyResponse{Entities: entities}, nil
 }
 
 func (v *VllmCpp) PredictStream(opts *pb.PredictOptions, results chan string) error {

@@ -97,3 +97,13 @@ type AIModelRich interface {
 	PredictRich(*pb.PredictOptions) (*pb.Reply, error)
 	PredictStreamRich(*pb.PredictOptions, chan<- *pb.Reply) error
 }
+
+// ClassifyModel is an optional extension to AIModel for backends that
+// implement the TokenClassify RPC (zero-shot NER). The gRPC server
+// type-asserts to this interface; backends that do not implement it
+// fall through to the UnimplementedBackendServer default. This mirrors
+// the AIModelRich pattern: adding a method to AIModel itself would
+// break every backend, so the capability is opt-in.
+type ClassifyModel interface {
+	TokenClassify(context.Context, *pb.TokenClassifyRequest) (*pb.TokenClassifyResponse, error)
+}

@@ -342,12 +342,17 @@ var BackendCapabilities = map[string]BackendCapability{
 	//
 	// AcceptsImages is the fl2va keyframe (start_image/end_image), the same
 	// reason longcat-video declares it; the text path takes no image input.
+	//
+	// TokenClassify is possible (GLiNER2.5 zero-shot NER via vllm_gliner_ner,
+	// ABI v27), declared explicitly via known_usecases: [token_classify]. The
+	// engine refuses non-BoundaryExtractor architectures, so a chat or embedding
+	// model returns an error rather than silent garbage.
 	"vllm-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateVideo},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVideo},
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateVideo, MethodTokenClassify},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVideo, UsecaseTokenClassify},
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true,
-		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation plus MiniMax-H3 video+audio generation",
+		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation, MiniMax-H3 video+audio generation, and GLiNER2.5 zero-shot NER",
 	},
 	"vllm-omni": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateImage, MethodGenerateVideo, MethodTTS},
