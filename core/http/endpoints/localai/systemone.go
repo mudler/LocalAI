@@ -146,6 +146,35 @@ func softmax(scores []float64) []float64 {
 	return exps
 }
 
+// optionText mirrors kev/api.py:option_text. "name" if desc is null/empty,
+// else "name: rendered_desc".
+func optionText(name string, desc json.RawMessage) string {
+	if len(desc) == 0 || string(desc) == "null" {
+		return name
+	}
+	var v interface{}
+	if err := json.Unmarshal(desc, &v); err != nil {
+		return name
+	}
+	rendered := renderState(v, 0)
+	if rendered == "" {
+		return name
+	}
+	return name + ": " + rendered
+}
+
+// getQuestionInstructions checks instructions first, then instr (alias).
+// The value is rendered to text, matching vllm.cpp GetInstructions.
+func getQuestionInstructions(q schema.SystemOneQuestion) string {
+	if len(q.Instructions) > 0 {
+		var v interface{}
+		if err := json.Unmarshal(q.Instructions, &v); err == nil {
+			return renderState(v, 0)
+		}
+	}
+	return q.Instr
+}
+
 // ---------------------------------------------------------------------------
 // Parsed question (internal).
 // ---------------------------------------------------------------------------
@@ -195,7 +224,8 @@ func parseSystemOneRequest(req *schema.SystemOneRequest) (*parsedSystemOne, erro
 		pq := parsedQuestion{id: qid, qtype: q.Type}
 		switch q.Type {
 		case "noul":
-			pq.labels = []string{qid}
+			instr := getQuestionInstructions(q)
+			pq.labels = []string{instr}
 			pq.keys = []string{"no", "yes"}
 		case "choice":
 			var criteria map[string]json.RawMessage
@@ -209,7 +239,7 @@ func parseSystemOneRequest(req *schema.SystemOneRequest) (*parsedSystemOne, erro
 			sort.Strings(ckeys)
 			for _, ck := range ckeys {
 				pq.keys = append(pq.keys, ck)
-				pq.labels = append(pq.labels, ck)
+				pq.labels = append(pq.labels, optionText(ck, criteria[ck]))
 			}
 		case "score":
 			var criteria []json.RawMessage
@@ -445,20 +475,28 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 		argmaxStable := true
 
 		for i := 0; i < nPerm; i++ {
-			order := make([]string, len(target.keys))
-			copy(order, target.keys)
+			idx := make([]int, len(target.keys))
+			for j := range idx {
+				idx[j] = j
+			}
 			if i > 0 {
-				rng.Shuffle(len(order), func(a, b int) { order[a], order[b] = order[b], order[a] })
+				rng.Shuffle(len(idx), func(a, b int) { idx[a], idx[b] = idx[b], idx[a] })
+			}
+			orderKeys := make([]string, len(idx))
+			orderLabels := make([]string, len(idx))
+			for j, k := range idx {
+				orderKeys[j] = target.keys[k]
+				orderLabels[j] = target.labels[k]
 			}
 			start := time.Now()
-			entities, err := classifier.TokenClassifyWithLabels(c.Request().Context(), parsed.text, order)
+			entities, err := classifier.TokenClassifyWithLabels(c.Request().Context(), parsed.text, orderLabels)
 			if err != nil {
 				return systemOneError(c, http.StatusInternalServerError, err.Error())
 			}
 			latencyMs := float64(time.Since(start).Microseconds()) / 1000.0
 
-			scores := make([]float64, len(order))
-			for j, label := range order {
+			scores := make([]float64, len(orderLabels))
+			for j, label := range orderLabels {
 				var maxConf float32
 				for _, e := range entities {
 					if e.Group == label && e.Score > maxConf {
@@ -474,11 +512,11 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 					argmax = j
 				}
 			}
-			probDist := make(map[string]float64, len(order))
-			for j, label := range order {
-				probDist[label] = r2(probs[j])
-				for k, key := range target.keys {
-					if label == key {
+			probDist := make(map[string]float64, len(orderKeys))
+			for j, key := range orderKeys {
+				probDist[key] = r2(probs[j])
+				for k, tk := range target.keys {
+					if key == tk {
 						if probs[j] < minProb[k] {
 							minProb[k] = probs[j]
 						}
@@ -489,14 +527,14 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 					}
 				}
 			}
-			choice := order[argmax]
+			choice := orderKeys[argmax]
 			if i == 0 {
 				firstChoice = choice
 			} else if choice != firstChoice {
 				argmaxStable = false
 			}
 			runs = append(runs, schema.SystemOnePermuteRun{
-				Order:         order,
+				Order:         orderKeys,
 				Probabilities: probDist,
 				Choice:        choice,
 				LatencyMs:     r2(latencyMs),

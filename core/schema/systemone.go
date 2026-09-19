@@ -20,15 +20,18 @@ type SystemOneRequest struct {
 }
 
 // SystemOneQuestion defines one question. Type is "noul", "choice", or
-// "score". Instr is optional human-readable instruction text. Criteria
-// is:
+// "score". Instructions (or the instr alias) is human-readable instruction
+// text. For noul questions the rendered instruction is the NER label.
+// Criteria is:
 //   - noul: omitted
-//   - choice: a map of option_name → description (each key is a NER label)
-//   - score: an array of level descriptions (each is a NER label)
+//   - choice: a map of option_name → description (NER label is
+//     "name: description", or "name" when the description is null/empty)
+//   - score: an array of level descriptions (each rendered text is a NER label)
 type SystemOneQuestion struct {
-	Type     string          `json:"type"`
-	Instr    string          `json:"instr,omitempty"`
-	Criteria json.RawMessage `json:"criteria,omitempty"`
+	Type         string          `json:"type"`
+	Instructions json.RawMessage `json:"instructions,omitempty"`
+	Instr        string          `json:"instr,omitempty"`
+	Criteria     json.RawMessage `json:"criteria,omitempty"`
 }
 
 // SystemOneResponse is the shared response shape for /v1/systemone and
