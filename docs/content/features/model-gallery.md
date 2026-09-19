@@ -54,6 +54,26 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## NeoHorse-1-9B
+
+Install NeoHorse-1-9B with automatic selection between Q4_K_M, Q5_K_M, and Q8_0 GGUF builds:
+
+```bash
+local-ai models install neohorse-1-9b-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install neohorse-1-9b-q4 --variant neohorse-1-9b-q8
+```
+
+[NeoHorse-1-9B](https://huggingface.co/TokenRhythm/NeoHorse-1-9B) is a text-only
+Qwen3.5-9B fine-tune for coding, reasoning, and tool use. These builds use
+llama.cpp, the embedded Jinja chat template, and a 32,768-token default context.
+The publisher's [GGUF files](https://huggingface.co/TokenRhythm/NeoHorse-1-9B-GGUF)
+are pinned to a revision and verified with SHA256 checksums.
+
 ## NeoHorse-1-4B
 
 Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q6_K, and Q8_0 GGUF builds:
