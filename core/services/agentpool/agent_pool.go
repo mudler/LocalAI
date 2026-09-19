@@ -186,6 +186,7 @@ func (s *AgentPoolService) Start(ctx context.Context) error {
 func (s *AgentPoolService) buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets string) *collections.Config {
 	cfg := s.appConfig.AgentPool
 	return &collections.Config{
+		ModelSettings:    s.collectionModelSettings(""),
 		LLMAPIURL:        apiURL,
 		LLMAPIKey:        apiKey,
 		LLMModel:         cfg.DefaultModel,
@@ -204,6 +205,7 @@ func (s *AgentPoolService) buildCollectionsConfig(apiURL, apiKey, collectionDBPa
 // Skills and collections are still initialized for the frontend UI.
 func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey string) error {
 	cfg := s.appConfig.AgentPool
+	s.configBackend = newDistributedAgentConfigBackend(s, s.distributed.agentStore)
 
 	// State dir for skills and outputs
 	stateDir := cmp.Or(cfg.StateDir, s.appConfig.DataPath, s.appConfig.DynamicConfigsDir, "agents")
@@ -258,9 +260,6 @@ func (s *AgentPoolService) startDistributed(ctx context.Context, apiURL, apiKey 
 		)
 		go scheduler.Start(ctx)
 	}
-
-	// Wire the distributed config backend
-	s.configBackend = newDistributedAgentConfigBackend(s, s.distributed.agentStore)
 
 	xlog.Info("Agent pool started in distributed mode (frontend dispatcher only)", "apiURL", apiURL, "stateDir", stateDir)
 	return nil
@@ -334,6 +333,7 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 		return fmt.Errorf("failed to create agent pool: %w", err)
 	}
 	s.localAGI.pool = pool
+	s.configBackend = newLocalAgentConfigBackend(s)
 
 	// Create in-process collections backend and RAG provider
 	collectionsCfg := s.buildCollectionsConfig(apiURL, apiKey, collectionDBPath, fileAssets)
@@ -357,9 +357,6 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 	if err := pool.StartAll(); err != nil {
 		xlog.Error("Failed to start agent pool", "error", err)
 	}
-
-	// Wire the local config backend
-	s.configBackend = newLocalAgentConfigBackend(s)
 
 	xlog.Info("Agent pool started (standalone/LocalAGI mode)", "stateDir", stateDir, "apiURL", apiURL)
 	return nil
@@ -704,6 +701,7 @@ func (s *AgentPoolService) ExportAgent(name string) ([]byte, error) {
 
 // SetUserServicesManager sets the user services manager for per-user scoping.
 func (s *AgentPoolService) SetUserServicesManager(usm *UserServicesManager) {
+	usm.collectionModelSettings = s.collectionModelSettings
 	s.users.userServices = usm
 }
 

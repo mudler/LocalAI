@@ -281,6 +281,27 @@ All agent endpoints are grouped under `/api/agents/`:
 
 ### Collections (Knowledge Base)
 
+In **Model Settings**, each agent can select an **Embedding Model** and an
+optional **Reranker Model**. These settings are saved as `embedding_model` and
+`reranker_model` in the agent configuration and apply to document uploads and
+agent knowledge-base searches in both standalone and distributed mode.
+
+An empty `embedding_model` uses `LOCALAI_AGENT_POOL_EMBEDDING_MODEL`. An empty
+`reranker_model` disables reranking. When set, the reranker orders the retrieved
+results before they reach the agent, preserving document metadata and citations.
+Explicit model selections must be allowed for the owning user.
+
+After indexing documents, changing the embedding model requires resetting the
+collection and uploading the documents again. Search and upload reject a model
+change until the collection is reset, so vectors from different models are not
+mixed. The selected embedding model is retained across restarts. A reranker can
+be changed without reindexing.
+
+If the collection has used external URL sources during the current process,
+reset it and restart LocalAI before recreating it with another embedding model.
+Removing a source does not cancel an in-flight fetch; the restart prevents that
+fetch from writing embeddings from the previous model.
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/agents/collections` | List collections |

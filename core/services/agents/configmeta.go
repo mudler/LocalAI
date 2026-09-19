@@ -80,6 +80,8 @@ func defaultFields() []ConfigField {
 		{Name: "transcription_model", Label: "Transcription Model", Type: FieldText, Tags: ConfigFieldTags{Section: "ModelSettings"}},
 		{Name: "transcription_language", Label: "Transcription Language", Type: FieldText, Tags: ConfigFieldTags{Section: "ModelSettings"}},
 		{Name: "tts_model", Label: "TTS Model", Type: FieldText, Tags: ConfigFieldTags{Section: "ModelSettings"}},
+		{Name: "embedding_model", Label: "Embedding Model", Type: FieldText, HelpText: "Leave empty to use the pool embedding model. Reset the collection before changing models after indexing documents.", Tags: ConfigFieldTags{Section: "ModelSettings"}},
+		{Name: "reranker_model", Label: "Reranker Model", Type: FieldText, HelpText: "Optional model to rerank knowledge-base search results. Leave empty to disable reranking.", Tags: ConfigFieldTags{Section: "ModelSettings"}},
 		{Name: "plan_reviewer_model", Label: "Plan Reviewer Model", Type: FieldText, Tags: ConfigFieldTags{Section: "ModelSettings"}},
 		{Name: "api_url", Label: "API URL", Type: FieldText, Tags: ConfigFieldTags{Section: "ModelSettings"}},
 		{Name: "api_key", Label: "API Key", Type: FieldPassword, Tags: ConfigFieldTags{Section: "ModelSettings"}},
