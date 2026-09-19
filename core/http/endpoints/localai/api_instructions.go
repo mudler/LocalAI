@@ -57,6 +57,7 @@ var instructionDefs = []instructionDef{
 		Name:        "model-management",
 		Description: "Browse the gallery, install, delete, and manage models and backends",
 		Tags:        []string{"models", "backends"},
+		Intro:       "An active gallery download can be throttled with POST /api/operations/:jobID/throttle?rate=2mb (0 removes the limit); the limit applies to in-flight reads immediately.",
 	},
 	{
 		Name:        "config-management",
