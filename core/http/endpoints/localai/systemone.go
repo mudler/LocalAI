@@ -433,7 +433,7 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 		if nPerm <= 0 {
 			nPerm = 6
 		}
-		rng := rand.New(rand.NewSource(req.Seed))
+		rng := rand.New(rand.NewSource(req.Seed)) // #nosec G404 -- seeded RNG for reproducible permutations, not crypto
 		runs := make([]schema.SystemOnePermuteRun, 0, nPerm)
 		minProb := make([]float64, len(target.keys))
 		maxProb := make([]float64, len(target.keys))
