@@ -30,6 +30,11 @@ type TokenClassifyOptions struct {
 	// callers (e.g. the PII redactor's MinScore) can still filter
 	// further once they know the per-request policy.
 	Threshold float32
+	// Labels overrides the backend's configured entity labels for this
+	// request. Empty means "use the model's configured labels" (the PII
+	// default). Non-empty enables zero-shot per-request label selection
+	// (kev / SystemOne questions).
+	Labels []string
 }
 
 // TokenClassifier runs a token-classification model over text and
@@ -39,6 +44,9 @@ type TokenClassifyOptions struct {
 // core/services/routing/piidetector).
 type TokenClassifier interface {
 	TokenClassify(ctx context.Context, text string) ([]TokenEntity, error)
+	// TokenClassifyWithLabels runs NER with the given labels, overriding
+	// the model's configured labels for this call.
+	TokenClassifyWithLabels(ctx context.Context, text string, labels []string) ([]TokenEntity, error)
 }
 
 // NewTokenClassifier binds (loader, modelConfig, appConfig) into a
@@ -57,6 +65,19 @@ type modelTokenClassifier struct {
 
 func (m *modelTokenClassifier) TokenClassify(ctx context.Context, text string) ([]TokenEntity, error) {
 	fn, err := ModelTokenClassify(text, m.opts, m.loader, m.modelConfig, m.appConfig)
+	if err != nil {
+		return nil, err
+	}
+	return fn(ctx)
+}
+
+// TokenClassifyWithLabels runs NER with the given labels, overriding the
+// model's configured labels for this call. Used by the SystemOne endpoints
+// where each question supplies its own labels.
+func (m *modelTokenClassifier) TokenClassifyWithLabels(ctx context.Context, text string, labels []string) ([]TokenEntity, error) {
+	opts := m.opts
+	opts.Labels = labels
+	fn, err := ModelTokenClassify(text, opts, m.loader, m.modelConfig, m.appConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -98,6 +119,7 @@ func ModelTokenClassify(text string, opts TokenClassifyOptions, loader *model.Mo
 			ModelIdentity: modelConfig.Model,
 			Text:          text,
 			Threshold:     opts.Threshold,
+			Labels:        opts.Labels,
 		})
 		entities := tokenClassifyResponseToEntities(resp)
 		if appConfig.EnableTracing {

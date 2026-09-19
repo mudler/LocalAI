@@ -293,6 +293,9 @@ func (v *VllmCpp) TokenClassify(_ context.Context, in *pb.TokenClassifyRequest) 
 		return nil, fmt.Errorf("vllm-cpp: model not loaded")
 	}
 	labels := v.opts.nerLabels
+	if len(in.Labels) > 0 {
+		labels = in.Labels
+	}
 	if len(labels) == 0 {
 		labels = defaultNerLabels
 	}
