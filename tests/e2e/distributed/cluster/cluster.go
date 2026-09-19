@@ -49,6 +49,10 @@ type Options struct {
 	// into each worker's backends directory as "mock-backend", which is the name
 	// model YAML refers to (see tests/e2e/e2e_suite_test.go:75).
 	MockBackend string
+	// MockBackendAliases installs the same fixture backend under additional
+	// production backend names. This lets endpoint conformance retain the real
+	// backend-specific capability discovery and validation path.
+	MockBackendAliases []string
 	// PGDSN points at infrastructure the caller already started.
 	//
 	// There is no NatsURL beside it any more. Removing the FIELD rather than
@@ -452,6 +456,14 @@ func (c *Cluster) startWorker(i int) (*Process, error) {
 	if c.opts.MockBackend != "" {
 		if err := copyExecutable(c.opts.MockBackend, filepath.Join(backends, "mock-backend")); err != nil {
 			return nil, fmt.Errorf("installing mock backend for %s: %w", name, err)
+		}
+		for _, alias := range c.opts.MockBackendAliases {
+			if filepath.Base(alias) != alias || alias == "." || alias == "" {
+				return nil, fmt.Errorf("invalid mock backend alias %q", alias)
+			}
+			if err := copyExecutable(c.opts.MockBackend, filepath.Join(backends, alias)); err != nil {
+				return nil, fmt.Errorf("installing mock backend alias %q for %s: %w", alias, name, err)
+			}
 		}
 	}
 

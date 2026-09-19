@@ -1165,6 +1165,8 @@ func handleAllocDir(w http.ResponseWriter, stagingDir, modelsDir, dataDir, key s
 		http.Error(w, "output directory must use models/ or data/", http.StatusBadRequest)
 		return
 	}
+	// #nosec G703 -- resolveKeyToDir selects one of the configured worker roots;
+	// request data only chooses the relative name handled below.
 	if err := os.MkdirAll(targetDir, 0o750); err != nil {
 		http.Error(w, fmt.Sprintf("creating output root: %v", err), http.StatusInternalServerError)
 		return
@@ -1174,6 +1176,8 @@ func handleAllocDir(w http.ResponseWriter, stagingDir, modelsDir, dataDir, key s
 		http.Error(w, "invalid directory path", http.StatusBadRequest)
 		return
 	}
+	// #nosec G703 -- validatePathInDir above resolves symlinks and proves this
+	// child remains under the selected worker root.
 	if err := os.MkdirAll(dirPath, 0o750); err != nil {
 		http.Error(w, fmt.Sprintf("creating directory: %v", err), http.StatusInternalServerError)
 		return
@@ -1193,6 +1197,8 @@ func handleReleaseDir(w http.ResponseWriter, stagingDir, modelsDir, dataDir, key
 		http.Error(w, "invalid directory path", http.StatusBadRequest)
 		return
 	}
+	// #nosec G703 -- validatePathInDir above resolves symlinks and proves this
+	// non-root child remains under the selected worker root.
 	if err := os.RemoveAll(dirPath); err != nil {
 		http.Error(w, fmt.Sprintf("removing directory: %v", err), http.StatusInternalServerError)
 		return

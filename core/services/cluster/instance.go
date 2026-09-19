@@ -27,10 +27,12 @@ var ErrInstanceNotFound = errors.New("cluster: instance not found")
 // itself. Column sizes mirror nodes.BackendNode so both tables agree on what an
 // ID and a host:port look like.
 type Instance struct {
-	ID             string    `gorm:"primaryKey;size:36" json:"id"`
-	AdvertisedAddr string    `gorm:"size:255" json:"advertised_addr"` // host:port other replicas dial
-	Version        string    `gorm:"size:64" json:"version"`
-	LastSeen       time.Time `gorm:"index" json:"last_seen"`
+	ID             string `gorm:"primaryKey;size:36" json:"id"`
+	AdvertisedAddr string `gorm:"size:255" json:"advertised_addr"` // host:port other replicas dial
+	// Development builds include git-describe output plus a full commit hash;
+	// after enough commits that legitimately exceeds 64 bytes.
+	Version  string    `gorm:"size:255" json:"version"`
+	LastSeen time.Time `gorm:"index" json:"last_seen"`
 	// PeerTokenHash is the SHA-256 of the credential this replica presents when
 	// it dials GET /api/cluster/peer, and is what turns the ?id= on that route
 	// from a self-declared label into a claim something checks. The replica

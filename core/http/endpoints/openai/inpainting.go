@@ -3,7 +3,6 @@ package openai
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -125,15 +124,15 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}()
 
 		id := uuid.New().String()
-		jsonPath := filepath.Join(stagingDir, fmt.Sprintf("inpaint_%s.json", id))
 		jsonFile := map[string]string{
 			"image":      b64Image,
 			"mask_image": b64Mask,
 		}
-		jf, err := os.OpenFile(jsonPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		jf, err := os.CreateTemp(stagingDir, "inpaint-*.json")
 		if err != nil {
 			return err
 		}
+		jsonPath := jf.Name()
 
 		// write original image and mask to disk as ref images so backends that
 		// accept reference image files can use them (maintainer request).
