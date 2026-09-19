@@ -1,13 +1,17 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,13 +46,27 @@ func startModelStopProcess() *process.Process {
 	return proc
 }
 
+// requestModelStop drives the model.stop verb over the HTTP control plane the
+// worker actually serves, rather than calling the method directly. These specs
+// are the ones that pin the acknowledged-stop contract, so routing them through
+// the carrier is what keeps a routing mistake from passing them.
 func requestModelStop(s *backendSupervisor, req messaging.ModelStopRequest) messaging.ModelStopReply {
+	GinkgoHelper()
 	data, err := json.Marshal(req)
 	Expect(err).NotTo(HaveOccurred())
-	var response []byte
-	s.handleModelStop(data, func(data []byte) { response = append([]byte(nil), data...) })
+
+	mux := http.NewServeMux()
+	s.RegisterControlRoutes(mux)
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	resp, err := srv.Client().Post(srv.URL+workerctl.PathModelStop, "application/json", bytes.NewReader(data))
+	Expect(err).NotTo(HaveOccurred())
+	defer func() { _ = resp.Body.Close() }()
+	Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
 	var reply messaging.ModelStopReply
-	Expect(json.Unmarshal(response, &reply)).To(Succeed())
+	Expect(json.NewDecoder(resp.Body).Decode(&reply)).To(Succeed())
 	return reply
 }
 

@@ -76,6 +76,38 @@ var _ = Describe("BackendLogStore", func() {
 		})
 	})
 
+	Describe("SubscriberCount", func() {
+		It("reports zero before anyone subscribes and drops back after unsubscribe", func() {
+			s.AppendLine("model-a", "stderr", "preload")
+			Expect(s.SubscriberCount("model-a")).To(Equal(0))
+
+			_, unsubscribe := s.Subscribe("model-a")
+			Expect(s.SubscriberCount("model-a")).To(Equal(1))
+
+			unsubscribe()
+			Expect(s.SubscriberCount("model-a")).To(Equal(0))
+		})
+
+		// Subscribe resolves a bare model ID across every replica buffer, so the
+		// count has to follow the same rule or a caller waiting on it would give
+		// up while a perfectly good subscription was in place.
+		It("sums the replica buffers a bare model ID resolves to", func() {
+			s.AppendLine("model-a#0", "stderr", "preload-r0")
+			s.AppendLine("model-a#1", "stderr", "preload-r1")
+
+			_, unsubscribe := s.Subscribe("model-a")
+			defer unsubscribe()
+
+			Expect(s.SubscriberCount("model-a")).To(Equal(2))
+			Expect(s.SubscriberCount("model-a#0")).To(Equal(1))
+			Expect(s.SubscriberCount("model-b")).To(Equal(0))
+		})
+
+		It("returns zero for a model that has no buffer at all", func() {
+			Expect(s.SubscriberCount("never-seen")).To(Equal(0))
+		})
+	})
+
 	Describe("Subscribe", func() {
 		// Confirms the WebSocket streaming path (the live tail UI) receives
 		// lines from every replica when the caller subscribes by bare modelID.

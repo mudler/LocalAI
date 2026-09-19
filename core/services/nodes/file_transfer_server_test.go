@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -110,6 +111,55 @@ func (g *recordingEphemeralCapacity) CapacityWriter(_ string, destination io.Wri
 	}
 	return nopWriteCloser{Writer: destination}, nil
 }
+
+// directNetDialerFor is the dial function these specs give the stager.
+//
+// The stager exists to reach a worker over that worker's TUNNEL, and it refuses
+// to reach one at all without a dialer. These specs are about the HTTP protocol
+// between the stager and the file-transfer server, and they run that server on
+// loopback, so a plain TCP dial is what stands in for the tunnel here. Nothing
+// in production supplies this: see the wiring in core/application.
+func directNetDialerFor(_ string) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	var d net.Dialer
+	return d.DialContext
+}
+
+var _ = Describe("The HTTP file stager without a worker dialer", func() {
+	// Every request refused, none sent. Staging reaches a worker over that
+	// worker's tunnel, and a stager that fell back to connecting to the
+	// registered address would move gigabytes over a path that exists only
+	// while workers still listen on one.
+	newBare := func() *HTTPFileStager {
+		return NewHTTPFileStager(func(string) (string, error) { return "127.0.0.1:1", nil }, "tok", nil)
+	}
+
+	It("refuses to upload", func() {
+		local := filepath.Join(GinkgoT().TempDir(), "f.bin")
+		Expect(os.WriteFile(local, []byte("payload"), 0o600)).To(Succeed())
+		_, err := newBare().EnsureRemote(context.Background(), "node-1", local, "f.bin")
+		Expect(err).To(MatchError(ErrNoWorkerDialer))
+	})
+
+	It("refuses to download", func() {
+		dst := filepath.Join(GinkgoT().TempDir(), "out.bin")
+		Expect(newBare().FetchRemoteByKey(context.Background(), "node-1", "f.bin", dst)).To(MatchError(ErrNoWorkerDialer))
+	})
+
+	It("refuses to allocate a remote temp file", func() {
+		_, err := newBare().AllocRemoteTemp(context.Background(), "node-1")
+		Expect(err).To(MatchError(ErrNoWorkerDialer))
+	})
+
+	It("refuses to allocate a remote output directory", func() {
+		_, err := newBare().AllocRemoteDir(context.Background(), "node-1", "models/export")
+		Expect(err).To(MatchError(ErrNoWorkerDialer))
+	})
+
+	It("refuses to list a remote directory", func() {
+		_, err := newBare().ListRemoteDir(context.Background(), "node-1", "models/")
+		Expect(err).To(MatchError(ErrNoWorkerDialer))
+	})
+})
 
 var _ = Describe("FileTransferServer", func() {
 	setupTestServer := func(token string, maxUploadSize int64) (*httptest.Server, string, string, string) {
@@ -251,6 +301,38 @@ var _ = Describe("FileTransferServer", func() {
 	})
 
 	Describe("Path Traversal Prevention", func() {
+		It("allocates only explicitly rooted model and data directories", func() {
+			stagingDir := GinkgoT().TempDir()
+			modelsDir := filepath.Join(GinkgoT().TempDir(), "models")
+			dataDir := filepath.Join(GinkgoT().TempDir(), "data")
+
+			for key, want := range map[string]string{
+				"models/export/nested": filepath.Join(modelsDir, "export", "nested"),
+				"data/quant/job":       filepath.Join(dataDir, "quant", "job"),
+			} {
+				recorder := httptest.NewRecorder()
+				handleAllocDir(recorder, stagingDir, modelsDir, dataDir, key)
+				Expect(recorder.Code).To(Equal(http.StatusOK))
+				var reply struct {
+					LocalPath string `json:"local_path"`
+				}
+				Expect(json.NewDecoder(recorder.Body).Decode(&reply)).To(Succeed())
+				Expect(reply.LocalPath).To(Equal(want))
+				Expect(reply.LocalPath).To(BeADirectory())
+			}
+		})
+
+		DescribeTable("refuses unsafe output directory prefixes",
+			func(key string) {
+				recorder := httptest.NewRecorder()
+				handleAllocDir(recorder, GinkgoT().TempDir(), GinkgoT().TempDir(), GinkgoT().TempDir(), key)
+				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
+			},
+			Entry("an unrooted key", "ephemeral/export"),
+			Entry("model traversal", "models/../../escape"),
+			Entry("data traversal", "data/../../escape"),
+		)
+
 		It("rejects path traversal via validatePathInDir", func() {
 			stagingDir := GinkgoT().TempDir()
 			err := validatePathInDir(filepath.Join(stagingDir, "..", "..", "etc", "passwd"), stagingDir)
@@ -645,7 +727,7 @@ var _ = Describe("FileTransferServer", func() {
 			DeferCleanup(ts.Close)
 			stager := NewHTTPFileStager(func(string) (string, error) {
 				return strings.TrimPrefix(ts.URL, "http://"), nil
-			}, "")
+			}, "", directNetDialerFor)
 
 			for range 2 {
 				path, err := stager.EnsureRemote(context.Background(), "node-1", localPath, key)
@@ -675,7 +757,7 @@ var _ = Describe("FileTransferServer", func() {
 			DeferCleanup(ts.Close)
 			stager := NewHTTPFileStager(func(string) (string, error) {
 				return strings.TrimPrefix(ts.URL, "http://"), nil
-			}, "")
+			}, "", directNetDialerFor)
 
 			path, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "ephemeral/audio/request/input.wav")
 
@@ -714,7 +796,7 @@ var _ = Describe("FileTransferServer", func() {
 				DeferCleanup(ts.Close)
 				stager := NewHTTPFileStager(func(string) (string, error) {
 					return strings.TrimPrefix(ts.URL, "http://"), nil
-				}, "")
+				}, "", directNetDialerFor)
 
 				backend := &lifecycleBackend{}
 				client := NewFileStagingClient(backend, stager, "node-1")
@@ -750,7 +832,7 @@ var _ = Describe("FileTransferServer", func() {
 			DeferCleanup(ts.Close)
 			stager := NewHTTPFileStager(func(string) (string, error) {
 				return strings.TrimPrefix(ts.URL, "http://"), nil
-			}, "")
+			}, "", directNetDialerFor)
 
 			path, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "models/tracking/model.bin")
 
@@ -780,7 +862,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "present.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -809,7 +891,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "changed.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -838,7 +920,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "new.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -874,7 +956,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "")
+			}, "", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "compat.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -1091,7 +1173,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			remotePath, err := stager.EnsureRemote(context.Background(), "node-1", localPath, "resume.bin")
 			Expect(err).ToNot(HaveOccurred())
@@ -1189,7 +1271,7 @@ var _ = Describe("FileTransferServer", func() {
 			addr := strings.TrimPrefix(ts.URL, "http://")
 			stager := NewHTTPFileStager(func(nodeID string) (string, error) {
 				return addr, nil
-			}, "tok")
+			}, "tok", directNetDialerFor)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
@@ -1250,6 +1332,71 @@ var _ = Describe("StartFileTransferServerWithListener", func() {
 		Expect(err).NotTo(HaveOccurred())
 		defer func() { _ = resp.Body.Close() }()
 		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+	})
+
+	It("authenticates directory allocation and cleanup and rejects symlink escapes", func() {
+		lis, err := net.Listen("tcp", "127.0.0.1:0")
+		Expect(err).NotTo(HaveOccurred())
+		root := GinkgoT().TempDir()
+		models := filepath.Join(root, "models")
+		data := filepath.Join(root, "data")
+		Expect(os.MkdirAll(models, 0o750)).To(Succeed())
+		Expect(os.MkdirAll(data, 0o750)).To(Succeed())
+		srv, err := StartFileTransferServerWithListener(lis, filepath.Join(root, "staging"), models, data, "secret", 0)
+		Expect(err).NotTo(HaveOccurred())
+		defer ShutdownFileTransferServer(srv)
+		base := "http://" + lis.Addr().String()
+
+		unauthorized, err := http.NewRequest(http.MethodDelete, base+"/v1/files-dir/data/job", nil)
+		Expect(err).NotTo(HaveOccurred())
+		resp, err := http.DefaultClient.Do(unauthorized)
+		Expect(err).NotTo(HaveOccurred())
+		_ = resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+
+		outside := GinkgoT().TempDir()
+		Expect(os.Symlink(outside, filepath.Join(data, "escape"))).To(Succeed())
+		for _, method := range []string{http.MethodPost, http.MethodDelete} {
+			for _, key := range []string{"data/../outside", "data/escape", "data/escape/nested"} {
+				req, reqErr := http.NewRequest(method, base+"/v1/files-dir/"+key, nil)
+				Expect(reqErr).NotTo(HaveOccurred())
+				req.Header.Set("Authorization", "Bearer secret")
+				response, doErr := http.DefaultClient.Do(req)
+				Expect(doErr).NotTo(HaveOccurred())
+				_ = response.Body.Close()
+				Expect(response.StatusCode).To(Equal(http.StatusBadRequest), method+" "+key)
+			}
+		}
+
+		stager := NewHTTPFileStager(func(string) (string, error) { return lis.Addr().String(), nil }, "secret", directNetDialerFor)
+		dir, err := stager.AllocRemoteDir(context.Background(), "node-1", "data/job")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(dir, "result"), []byte("x"), 0o600)).To(Succeed())
+		Expect(stager.ReleaseRemoteDir(context.Background(), "node-1", "data/job")).To(Succeed())
+		Expect(dir).ToNot(BeAnExistingFile())
+	})
+
+	It("never removes a configured root through a canonical path alias", func() {
+		root := GinkgoT().TempDir()
+		staging := filepath.Join(root, "staging")
+		models := filepath.Join(root, "models")
+		data := filepath.Join(root, "data")
+		Expect(os.MkdirAll(models, 0o750)).To(Succeed())
+		Expect(os.MkdirAll(data, 0o750)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(models, "keep-model"), []byte("model"), 0o600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(data, "keep-data"), []byte("data"), 0o600)).To(Succeed())
+
+		for _, key := range []string{
+			"models/", "models//", "models/child/..", "models/../models",
+			"data/", "data//", "data/child/..", "data/../data",
+			"models/../data/victim", "data/../models/victim",
+		} {
+			recorder := httptest.NewRecorder()
+			handleReleaseDir(recorder, staging, models, data, key)
+			Expect(recorder.Code).To(Equal(http.StatusBadRequest), key)
+		}
+		Expect(filepath.Join(models, "keep-model")).To(BeAnExistingFile())
+		Expect(filepath.Join(data, "keep-data")).To(BeAnExistingFile())
 	})
 
 	It("serves the unauthenticated health endpoints regardless of token", func() {

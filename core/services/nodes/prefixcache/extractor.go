@@ -24,7 +24,7 @@ import (
 // limitation, since the cap bounds the chain length for very long prompts.
 //
 // xxhash is used (not hash/maphash) because the hash MUST be identical across
-// frontend processes: peers exchange these hashes over NATS, and maphash uses a
+// frontend processes: peers exchange these hashes on the broadcast carrier, and maphash uses a
 // per-process random seed that would make peers disagree.
 func ExtractChain(model, prompt string, cfg Config) []uint64 {
 	if prompt == "" {
@@ -38,7 +38,7 @@ func ExtractChain(model, prompt string, cfg Config) []uint64 {
 	// state, so Reset()+Write produces the byte-identical value to a fresh
 	// New()+Write. xxhash seed 0 is stateless, so output is unchanged while we
 	// avoid allocating a Digest per block. The output determinism across
-	// processes (peers exchange these hashes over NATS) is preserved.
+	// processes (peers exchange these hashes on the broadcast carrier) is preserved.
 	h := xxhash.New()
 	chain := make([]uint64, 0, depth)
 	prev := salt

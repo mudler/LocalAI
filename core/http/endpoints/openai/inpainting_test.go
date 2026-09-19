@@ -3,11 +3,15 @@ package openai
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
@@ -56,8 +60,14 @@ var _ = Describe("Inpainting", func() {
 
 		appConf := config.NewApplicationConfig(config.WithGeneratedContentDir(tmpDir))
 
+		var backendSrc string
+		var backendDst string
+		var backendRefs []string
 		orig := backend.ImageGenerationFunc
 		backend.ImageGenerationFunc = func(ctx context.Context, height, width, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
+			backendSrc = src
+			backendDst = dst
+			backendRefs = append([]string(nil), refImages...)
 			fn := func() error {
 				return os.WriteFile(dst, []byte("PNGDATA"), 0644)
 			}
@@ -81,18 +91,67 @@ var _ = Describe("Inpainting", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(rec.Code).To(Equal(http.StatusOK))
 
-		body := rec.Body.String()
-		Expect(body).To(ContainSubstring("generated-images"))
-
-		idx := bytes.Index(rec.Body.Bytes(), []byte("generated-images/"))
-		Expect(idx).To(BeNumerically(">=", 0))
-		rest := rec.Body.Bytes()[idx:]
-		end := bytes.IndexAny(rest, "\",}\n")
-		if end == -1 {
-			end = len(rest)
+		var response struct {
+			Data []struct {
+				URL string `json:"url"`
+			} `json:"data"`
 		}
-		fname := string(rest[len("generated-images/"):end])
-		_, err = os.Stat(filepath.Join(tmpDir, fname))
+		Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+		Expect(response.Data).To(HaveLen(1))
+		generatedURL, err := url.Parse(response.Data[0].URL)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(generatedURL.Path).To(HavePrefix("/generated-images/"))
+
+		publicImages := filepath.Join(tmpDir, "images")
+		for _, sensitivePath := range append([]string{backendSrc}, backendRefs...) {
+			Expect(filepath.Clean(sensitivePath)).ToNot(HavePrefix(filepath.Clean(publicImages) + string(os.PathSeparator)))
+			_, statErr := os.Stat(sensitivePath)
+			Expect(os.IsNotExist(statErr)).To(BeTrue(), sensitivePath)
+		}
+		_, statErr := os.Stat(backendDst)
+		Expect(os.IsNotExist(statErr)).To(BeTrue(), backendDst)
+
+		entries, err := os.ReadDir(publicImages)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(entries).To(HaveLen(1), "only the generated output may persist in the public tree")
+
+		e.GET("/generated-images/*", echo.WrapHandler(http.StripPrefix("/generated-images/", http.FileServer(http.Dir(publicImages)))))
+		getReq := httptest.NewRequest(http.MethodGet, generatedURL.Path, nil)
+		getRec := httptest.NewRecorder()
+		e.ServeHTTP(getRec, getReq)
+		Expect(getRec.Code).To(Equal(http.StatusOK))
+		Expect(getRec.Body.Bytes()).To(Equal([]byte("PNGDATA")))
+		Expect(entries[0].Name()).To(Equal(strings.TrimPrefix(generatedURL.Path, "/generated-images/")))
+	})
+
+	It("removes private staging artifacts when generation fails", func() {
+		tmpDir := GinkgoT().TempDir()
+		appConf := config.NewApplicationConfig(config.WithGeneratedContentDir(tmpDir))
+		var staged []string
+
+		orig := backend.ImageGenerationFunc
+		backend.ImageGenerationFunc = func(_ context.Context, _, _, _, _ int, _, _, src, dst string, _ *model.ModelLoader, _ config.ModelConfig, _ *config.ApplicationConfig, refImages []string) (func() error, error) {
+			staged = append([]string{src, dst}, refImages...)
+			return func() error { return errors.New("fixture failure") }, nil
+		}
+		DeferCleanup(func() { backend.ImageGenerationFunc = orig })
+
+		req, _ := makeMultipartRequest(
+			map[string]string{"model": "inpaint", "prompt": "fixture"},
+			map[string][]byte{"image": []byte("private-image"), "mask": []byte("private-mask")},
+		)
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(req, rec)
+		c.Set(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG, &config.ModelConfig{Backend: "diffusers"})
+
+		Expect(InpaintingEndpoint(nil, nil, appConf)(c)).To(MatchError("fixture failure"))
+		Expect(staged).To(HaveLen(4))
+		for _, path := range staged {
+			_, statErr := os.Stat(path)
+			Expect(os.IsNotExist(statErr)).To(BeTrue(), path)
+		}
+		entries, err := os.ReadDir(filepath.Join(tmpDir, "images"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(entries).To(BeEmpty())
 	})
 })
