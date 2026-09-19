@@ -843,6 +843,26 @@ var _ = Describe("SmartRouter", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no available nodes"))
 		})
+
+		It("wraps ErrNoAvailableNodes when all nodes are full and eviction cannot help", func() {
+			// gorm.ErrRecordNotFound is the registry's verdict that no node
+			// matches — the scheduler then falls through to eviction. With
+			// DB nil, eviction returns ErrEvictionBusy, and the scheduler
+			// wraps the error with ErrNoAvailableNodes so the HTTP layer can
+			// map it to 503 instead of 500.
+			reg.findIdleErr = errors.New("no idle")
+			reg.findLeastLoadedErr = gorm.ErrRecordNotFound
+
+			router := NewSmartRouter(reg, SmartRouterOptions{
+				Unloader:      unloader,
+				ClientFactory: factory,
+			})
+
+			_, err := router.Route(context.Background(), "m5", "models/m5.gguf", "llama-cpp", "", nil, false)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrNoAvailableNodes)).To(BeTrue())
+			Expect(errors.Is(err, ErrEvictionBusy)).To(BeTrue())
+		})
 	})
 
 	Describe("UnloadModel (mock-based)", func() {
@@ -970,6 +990,7 @@ var _ = Describe("SmartRouter", func() {
 			_, err := router.Route(context.Background(), "aliased-model", "models/aliased.gguf", "llama-cpp", "", nil, false)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no healthy nodes match selector"))
+			Expect(errors.Is(err, ErrNoAvailableNodes)).To(BeTrue())
 		})
 
 		It("returns error when no nodes match selector", func() {
@@ -988,6 +1009,7 @@ var _ = Describe("SmartRouter", func() {
 			_, err := router.Route(context.Background(), "no-match-model", "models/nomatch.gguf", "llama-cpp", "", nil, false)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no healthy nodes match selector"))
+			Expect(errors.Is(err, ErrNoAvailableNodes)).To(BeTrue())
 		})
 
 		It("uses regular methods when model has no scheduling config", func() {
