@@ -148,6 +148,74 @@ export LOCALAI_EXTERNAL_BACKENDS="llm-backend,diffusion-backend"
 local-ai run
 ```
 
+## Backend Directory Format
+
+Every backend, whether the gallery installed it into the user-managed
+location or a system package shipped it, is a directory with one
+required file:
+
+- `run.sh` — the entry point LocalAI executes to start the backend.
+
+and one optional file, `metadata.json`:
+
+```json
+{
+  "name": "rocm-audio-cpp",
+  "alias": "audio-cpp"
+}
+```
+
+- `name` — the concrete backend name (defaults to the directory name).
+- `alias` — registers this directory as a *variant* of a backend
+  family. When several installed variants share an alias
+  (`cpu-audio-cpp`, `rocm-audio-cpp`, ... all aliased to `audio-cpp`),
+  a model config using `backend: audio-cpp` resolves to the variant
+  best matching the host's capability (CUDA before Vulkan before CPU
+  on an NVIDIA host, ROCm first on AMD, and so on). Each variant also
+  stays individually addressable by its concrete name, e.g.
+  `backend: cpu-audio-cpp` to keep VRAM free for other models.
+- `meta_backend_for` — points a meta entry at a concrete backend
+  directory installed next to it.
+
+A directory without `metadata.json` is a plain backend under its
+directory name. Gallery installs write this metadata automatically
+(with additional bookkeeping fields such as `gallery_url` and
+`installed_at`); it only needs writing by hand when packaging backends
+outside the gallery.
+
+## System-Provided Backends
+
+Backends do not have to come from the gallery: directories under
+`LOCALAI_BACKENDS_SYSTEM_PATH` (default `/var/lib/local-ai/backends`)
+are discovered on every scan, using the same
+[directory format](#backend-directory-format) as user-managed
+backends. This is the integration point for distribution packages —
+the package manager installs backends there, while gallery installs
+keep living in the user-managed `LOCALAI_BACKENDS_PATH`.
+
+One difference in error handling: a system directory with unreadable
+metadata is skipped with a warning, while unreadable metadata in the
+user-managed location fails the listing — a system package must never
+be able to break the discovery of the user's own backends.
+
+### Precedence between the two locations
+
+User-managed backends always win over system-provided ones:
+
+- **Same name in both locations** — the user-managed backend hides the
+  system one entirely.
+- **Family takeover** — installing *any* variant of an alias family
+  into the user-managed location (e.g. from the gallery) replaces the
+  whole system family: the alias resolves only among user-managed
+  variants, and the system family's concrete names disappear from the
+  listing. Variants of one family are versioned together; resolution
+  never mixes installations of different origins within a family, and
+  a stale system variant is not kept reachable.
+- **Names never get hijacked** — a system variant's alias cannot take
+  over a name that exists as a user-managed backend: `backend:
+  audio-cpp` keeps running the user's `audio-cpp` installation even if
+  a system package later ships variants aliased to that name.
+
 ## Creating a Backend
 
 To create a new backend, you need to:

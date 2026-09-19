@@ -111,6 +111,349 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		}))
 	})
 
+	It("ListSystemBackends resolves aliases for system-path backends", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		for _, name := range []string{"cpu-audio-cpp", "cuda12-audio-cpp"} {
+			dir := filepath.Join(sysRoot, name)
+			must(os.MkdirAll(dir, 0o750))
+			b, _ := json.Marshal(&BackendMetadata{Alias: "audio-cpp", Name: name})
+			must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+		}
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+		state.GPUVendor = "nvidia"
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		aliasBack, ok := backs.Get("audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(sysRoot, "cuda12-audio-cpp", "run.sh")))
+		Expect(aliasBack.IsSystem).To(BeTrue())
+
+		concrete, ok := backs.Get("cpu-audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(concrete.IsSystem).To(BeTrue())
+		Expect(concrete.Metadata).NotTo(BeNil())
+		Expect(concrete.Metadata.Alias).To(Equal("audio-cpp"))
+	})
+
+	It("ListSystemBackends lets a user-managed backend hide a same-named system backend", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		mkBackend := func(root, name, alias string) string {
+			dir := filepath.Join(root, name)
+			must(os.MkdirAll(dir, 0o750))
+			b, _ := json.Marshal(&BackendMetadata{Alias: alias, Name: name})
+			must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+			return dir
+		}
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		// The SAME concrete name exists in both roots.
+		mkBackend(sysRoot, "cpu-audio-cpp", "audio-cpp")
+		managedDir := mkBackend(managedRoot, "cpu-audio-cpp", "audio-cpp")
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "cpu"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		// Concrete name and alias BOTH run the managed installation and
+		// report its metadata — never the system executable with managed
+		// metadata (or any other cross-root mix).
+		concrete, ok := backs.Get("cpu-audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(concrete.RunFile).To(Equal(filepath.Join(managedDir, "run.sh")))
+		Expect(concrete.IsSystem).To(BeFalse())
+
+		aliasBack, ok := backs.Get("audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(managedDir, "run.sh")))
+		Expect(aliasBack.IsSystem).To(BeFalse())
+		Expect(aliasBack.Metadata).NotTo(BeNil())
+		Expect(aliasBack.Metadata.Name).To(Equal("cpu-audio-cpp"))
+	})
+
+	It("ListSystemBackends lets a user-managed variant take over its whole alias group", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		mkBackend := func(root, name, alias string) string {
+			dir := filepath.Join(root, name)
+			must(os.MkdirAll(dir, 0o750))
+			b, _ := json.Marshal(&BackendMetadata{Alias: alias, Name: name})
+			must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+			return dir
+		}
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		// System family with the variant an NVIDIA host would prefer;
+		// the user installs only the cpu variant via the gallery.
+		mkBackend(sysRoot, "cuda12-audio-cpp", "audio-cpp")
+		mkBackend(sysRoot, "vulkan-audio-cpp", "audio-cpp")
+		managedDir := mkBackend(managedRoot, "cpu-audio-cpp", "audio-cpp")
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+		state.GPUVendor = "nvidia"
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		// The alias resolves to the managed variant even though the
+		// capability tokens would prefer the system cuda build: a
+		// gallery-installed variant takes over its whole family.
+		aliasBack, ok := backs.Get("audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(managedDir, "run.sh")))
+		Expect(aliasBack.IsSystem).To(BeFalse())
+
+		// The system family is invisible entirely, concrete names
+		// included — a stale system variant may not work with newer
+		// models, so it must not stay reachable.
+		_, ok = backs.Get("cuda12-audio-cpp")
+		Expect(ok).To(BeFalse())
+		_, ok = backs.Get("vulkan-audio-cpp")
+		Expect(ok).To(BeFalse())
+	})
+
+	It("ListSystemBackends resolves a mixed population across both roots", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		// alias == "" installs no metadata.json at all (old-style dir).
+		mkBackend := func(root, name, alias string) string {
+			dir := filepath.Join(root, name)
+			must(os.MkdirAll(dir, 0o750))
+			if alias != "" {
+				b, _ := json.Marshal(&BackendMetadata{Alias: alias, Name: name})
+				must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			}
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+			return dir
+		}
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		// System root: two aliased families and a metadata-less loner.
+		mkBackend(sysRoot, "cpu-audio-cpp", "audio-cpp")
+		mkBackend(sysRoot, "cuda12-audio-cpp", "audio-cpp")
+		mkBackend(sysRoot, "cpu-llama-cpp", "llama-cpp")
+		sysVulkanLlama := mkBackend(sysRoot, "vulkan-llama-cpp", "llama-cpp")
+		mkBackend(sysRoot, "piper", "")
+
+		// Managed root: a family takeover, a metadata-less name
+		// collision, a metadata-less variant that must NOT take over
+		// its would-be family, a plain loner, and its own family.
+		managedCPUAudio := mkBackend(managedRoot, "cpu-audio-cpp", "audio-cpp")
+		managedWhisper := mkBackend(managedRoot, "whisper", "")
+		mkBackend(sysRoot, "whisper", "")
+		mkBackend(managedRoot, "rocm-llama-cpp", "")
+		mkBackend(managedRoot, "bark", "")
+		managedKokoro := mkBackend(managedRoot, "kokoro", "tts-suite")
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+		state.GPUVendor = "nvidia"
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		expectBackend := func(name, runFile string, isSystem bool) {
+			b, ok := backs.Get(name)
+			Expect(ok).To(BeTrue(), name)
+			Expect(b.RunFile).To(Equal(runFile), name)
+			Expect(b.IsSystem).To(Equal(isSystem), name)
+		}
+		expectGone := func(name string) {
+			_, ok := backs.Get(name)
+			Expect(ok).To(BeFalse(), name)
+		}
+
+		// audio-cpp family: the managed cpu variant takes over — the
+		// alias resolves to it despite the nvidia tokens preferring
+		// cuda, and the system family is gone, concretes included.
+		expectBackend("audio-cpp", filepath.Join(managedCPUAudio, "run.sh"), false)
+		expectBackend("cpu-audio-cpp", filepath.Join(managedCPUAudio, "run.sh"), false)
+		expectGone("cuda12-audio-cpp")
+
+		// llama-cpp family: the managed rocm-llama-cpp declares NO
+		// metadata, so it joins no family and triggers no takeover —
+		// the system family stays and resolves by capability (vulkan
+		// on this nvidia host, no cuda variant present).
+		expectBackend("llama-cpp", filepath.Join(sysVulkanLlama, "run.sh"), true)
+		expectBackend("cpu-llama-cpp", filepath.Join(sysRoot, "cpu-llama-cpp", "run.sh"), true)
+		expectBackend("vulkan-llama-cpp", filepath.Join(sysVulkanLlama, "run.sh"), true)
+		expectBackend("rocm-llama-cpp", filepath.Join(managedRoot, "rocm-llama-cpp", "run.sh"), false)
+
+		// whisper: same metadata-less name in both roots — managed
+		// hides system.
+		expectBackend("whisper", filepath.Join(managedWhisper, "run.sh"), false)
+
+		// Loners survive untouched on their own side.
+		expectBackend("piper", filepath.Join(sysRoot, "piper", "run.sh"), true)
+		expectBackend("bark", filepath.Join(managedRoot, "bark", "run.sh"), false)
+
+		// A managed-only alias group resolves within itself.
+		expectBackend("tts-suite", filepath.Join(managedKokoro, "run.sh"), false)
+		expectBackend("kokoro", filepath.Join(managedKokoro, "run.sh"), false)
+	})
+
+	It("ListSystemBackends: name collisions across roots, all metadata permutations", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		// withMeta installs metadata.json; alias may be empty (name-only
+		// metadata — possible and legal, e.g. a packaged backend that
+		// declares no family).
+		mk := func(root, name, alias string, withMeta bool) string {
+			dir := filepath.Join(root, name)
+			must(os.MkdirAll(dir, 0o750))
+			if withMeta {
+				b, _ := json.Marshal(&BackendMetadata{Alias: alias, Name: name})
+				must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			}
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+			return dir
+		}
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		// 1a. Metadata on BOTH sides, aliased side managed:
+		//     system concrete alpha (name-only metadata) vs managed
+		//     cuda-alpha aliased to alpha.
+		mk(sysRoot, "alpha", "", true)
+		cudaAlpha := mk(managedRoot, "cuda-alpha", "alpha", true)
+
+		// 1b. Reverse: managed concrete beta (name-only metadata) vs
+		//     system cuda-beta aliased to beta.
+		beta := mk(managedRoot, "beta", "", true)
+		mk(sysRoot, "cuda-beta", "beta", true)
+
+		// 2a. No metadata on ONE side (system): bare system gamma vs
+		//     managed cuda-gamma aliased to gamma.
+		mk(sysRoot, "gamma", "", false)
+		cudaGamma := mk(managedRoot, "cuda-gamma", "gamma", true)
+
+		// 2b. Reverse: bare managed delta vs system cuda-delta aliased
+		//     to delta.
+		delta := mk(managedRoot, "delta", "", false)
+		mk(sysRoot, "cuda-delta", "delta", true)
+
+		// 3a. Same name in BOTH roots, metadata on both.
+		epsilonManaged := mk(managedRoot, "epsilon", "", true)
+		mk(sysRoot, "epsilon", "", true)
+
+		// 3b. Same name in BOTH roots, metadata on neither.
+		zetaManaged := mk(managedRoot, "zeta", "", false)
+		mk(sysRoot, "zeta", "", false)
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+		state.GPUVendor = "nvidia"
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		expect := func(name, runFile string, isSystem bool) {
+			b, ok := backs.Get(name)
+			Expect(ok).To(BeTrue(), name)
+			Expect(b.RunFile).To(Equal(filepath.Join(runFile, "run.sh")), name)
+			Expect(b.IsSystem).To(Equal(isSystem), name)
+		}
+
+		// 1a: the managed alias owns the name; the system concrete
+		//     (metadata or not) is unreachable.
+		expect("alpha", cudaAlpha, false)
+		expect("cuda-alpha", cudaAlpha, false)
+
+		// 1b: the managed concrete keeps its name — a system alias
+		//     never hijacks it; the system variant stays concrete-only.
+		expect("beta", beta, false)
+		b, ok := backs.Get("cuda-beta")
+		Expect(ok).To(BeTrue())
+		Expect(b.IsSystem).To(BeTrue())
+
+		// 2a: same as 1a — the system concrete's missing metadata
+		//     changes nothing.
+		expect("gamma", cudaGamma, false)
+
+		// 2b: same as 1b — the managed concrete's missing metadata
+		//     changes nothing.
+		expect("delta", delta, false)
+		b, ok = backs.Get("cuda-delta")
+		Expect(ok).To(BeTrue())
+		Expect(b.IsSystem).To(BeTrue())
+
+		// 3a/3b: plain same-name hiding, managed wins, with or
+		//     without metadata on either side.
+		expect("epsilon", epsilonManaged, false)
+		expect("zeta", zetaManaged, false)
+	})
+
 	It("ListSystemBackends prefers optimal alias candidate", func() {
 		// Arrange two installed backends sharing the same alias
 		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
