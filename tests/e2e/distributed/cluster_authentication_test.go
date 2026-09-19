@@ -216,7 +216,8 @@ var _ = Describe("Authenticated distributed binaries", Label("Distributed"), Lab
 		spaBody, err := io.ReadAll(spa.Body)
 		Expect(err).ToNot(HaveOccurred())
 		_ = spa.Body.Close()
-		Expect(strings.ToLower(string(spaBody))).To(ContainSubstring("<html"))
+		Expect(spa.Header.Get("Content-Type")).To(ContainSubstring("text/html"))
+		Expect(spaBody).ToNot(BeEmpty())
 		var initialRoster []node
 		Expect(c.GetJSON(browser, 0, "/api/nodes", &initialRoster)).To(Succeed())
 		anonymousNodes, err := httpclient.NewWithTimeout(machineAuthTimeout).Get(baseURL + "/api/nodes")
