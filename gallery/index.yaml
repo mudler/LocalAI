@@ -1,4 +1,76 @@
 ---
+- name: "swift-qwen3.8-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF
+  description: |
+    Website &nbsp;&bull;&nbsp;
+    Learn more &nbsp;&bull;&nbsp;
+    GGUF &nbsp;&bull;&nbsp;
+    Enterprise licensing
+
+    # Swift-Qwen3.8-27B
+
+    Swift-Qwen3.8-27B is UkisAI's reasoning-efficient derivative of Qwen3.8-27B,
+    using **58.3% fewer thinking tokens** while maintaining near-identical performance
+    (**&lt;1% loss**) and as a result getting a **x1.95 speed-up** on several tasks.
+
+    The prompt is a sample from LiveCodeBench v6
+
+    ## Training approach
+
+    We built Swift by identifying reasoning-marker tokens that, in our analysis, trigger overthinking in Qwen’s
+    reasoning rollouts. We then fine-tuned Qwen by penalizing usage of those tokens while it reasons.
+
+    Swift produces shorter reasoning traces. In our testing, we also observe fewer overthinking errors.
+
+    For maximum gains, Swift also includes a transfer component derived from
+    BottleCap AI's ThinkingCap-Qwen3.6-27B.
+
+    ## Evaluation scope
+
+    > All results below compare the Qwen3.8-27B BF16 base with the same base plus the
+    > Swift adapter.
+
+    ## Benchmarks
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Swift-Qwen3.8-27B-Q4_K_M/Swift-Qwen3.8-27B-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Swift-Qwen3.8-27B-Q4_K_M/Swift-Qwen3.8-27B-Q4_K_M.gguf
+      sha256: ad5811e291431bd0de1cec0c4004a5eac98daee9850882edac69a823209e88ab
+      uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/Swift-Qwen3.8-27B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
+      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
+      uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/mmproj-Swift-Qwen3.8-27B-F16.gguf
 - name: "ornith-1.5-9b-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
