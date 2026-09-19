@@ -1,10 +1,10 @@
 # ds4 backend Makefile.
 #
-# Upstream pin lives below as DS4_VERSION?=6289c516273979173abbc062209a81dd3706b804
+# Upstream pin lives below as DS4_VERSION?=8db1d1d155cb0400a86a86b9c62d0defb3a6148b
 # (.github/bump_deps.sh) can find and update it - matches the
 # llama-cpp / ik-llama-cpp / turboquant convention.
 
-DS4_VERSION?=6289c516273979173abbc062209a81dd3706b804
+DS4_VERSION?=8db1d1d155cb0400a86a86b9c62d0defb3a6148b
 DS4_REPO?=https://github.com/antirez/ds4
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -80,17 +80,17 @@ endif
 endif
 
 # Upstream splits image preprocessing, distributed inference, tensor-parallel
-# transport, the SSD expert cache, and layer placement into GPU-agnostic
-# translation units. They are shared by every GPU mode, so append them
-# unconditionally below.
+# transport, the SSD expert cache, layer placement, and engram lookup into
+# GPU-agnostic translation units. They are shared by every GPU mode, so append
+# them unconditionally below.
 ifeq ($(BUILD_TYPE),cublas)
     CMAKE_ARGS += -DDS4_GPU=cuda
-    DS4_OBJ_TARGET := ds4.o ds4_image.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o \
+    DS4_OBJ_TARGET := ds4.o ds4_image.o ds4_cuda.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o ds4_engram.o \
         cuda/mmq/ds4_ggml_stubs.o cuda/mmq/ds4_mmq.o cuda/mmq/ds4_mmq_d2r.o \
         cuda/mmq/quantize.o cuda/mmq/mmid.o cuda/mmq/mmvq.o cuda/mmq/ds4_repack.o
 else ifeq ($(UNAME_S),Darwin)
     CMAKE_ARGS += -DDS4_GPU=metal
-    DS4_OBJ_TARGET := ds4.o ds4_image.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+    DS4_OBJ_TARGET := ds4.o ds4_image.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o ds4_engram.o
 else
     # CPU reference path (Linux only - macOS CPU path is broken by VM bug per ds4 README).
     CMAKE_ARGS += -DDS4_GPU=cpu
@@ -121,7 +121,7 @@ ds4/ds4.o: ds4
 ifeq ($(BUILD_TYPE),cublas)
 	+$(MAKE) -C ds4 $(DS4_ARCH_MAKEVARS) $(DS4_OBJ_TARGET)
 else ifeq ($(UNAME_S),Darwin)
-	+$(MAKE) -C ds4 ds4.o ds4_image.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
+	+$(MAKE) -C ds4 ds4.o ds4_image.o ds4_metal.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o ds4_engram.o
 else
 	+$(MAKE) -C ds4 ds4_cpu.o ds4_image.o ds4_distributed.o ds4_tp.o ds4_ssd.o ds4_layer_pack.o
 endif

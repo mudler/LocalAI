@@ -22,6 +22,7 @@ export const CAP_VIDEO = 'FLAG_VIDEO'
 // GetAllModelConfigUsecases() — so this must be FLAG_3D, not the lowercase
 // "3d" served by the OpenAI-style /v1/models/capabilities endpoint.
 export const CAP_3D = 'FLAG_3D'
+export const CAP_3D_ANIMATION = 'FLAG_3D_ANIMATION'
 export const CAP_DETECTION = 'FLAG_DETECTION'
 export const CAP_FACE_RECOGNITION = 'FLAG_FACE_RECOGNITION'
 export const CAP_SPEAKER_RECOGNITION = 'FLAG_SPEAKER_RECOGNITION'

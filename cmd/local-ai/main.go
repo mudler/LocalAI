@@ -105,6 +105,12 @@ For documentation and support:
 
 	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(*cli.CLI.LogLevel), *cli.CLI.LogFormat, logOpts...))
 
+	// Loaded here rather than in RunCMD so `worker`, `backends install` and
+	// `models install` authenticate the same way the server does.
+	if err := cli.LoadCredentials(cli.CLI.CredentialsFile); err != nil {
+		xlog.Fatal("Error loading credentials", "error", err)
+	}
+
 	// Run the thing!
 	err = ctx.Run(&cli.CLI.Context)
 	if err != nil {

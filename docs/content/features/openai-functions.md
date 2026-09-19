@@ -36,6 +36,34 @@ Reasoning content (`<think>...</think>` blocks from DeepSeek R1, Qwen3, Gemma 4,
 
 No configuration required - the autoparser detects the tool call format for any `ggml`/`gguf` model that was trained with tool support.
 
+#### Migrating older Ministral 3 configurations
+
+The `mistralai_ministral-3-14b-reasoning-2512-multimodal` gallery entry uses the model's embedded template and llama.cpp's native tool parser.
+Older installations inherit the Mistral 0.3 prompt and JSON parser, which can return tool calls such as `pick_tool{...}` as text.
+
+For an existing installation, replace the model YAML's `template` and `function` sections with:
+
+```yaml
+template:
+  use_tokenizer_template: true
+function:
+  disable_no_action: true
+  automatic_tool_parsing_fallback: true
+  grammar:
+    disable: true
+```
+
+Set `use_jinja:true` in the existing `options` list:
+
+```yaml
+options:
+  - use_jinja:true
+```
+
+Remove the inherited `stopwords` list so llama.cpp controls the model's end-of-turn markers.
+Keep your model path, `mmproj`, sampling settings, and MCP configuration. Reload the model after saving the YAML.
+Gallery changes do not rewrite installed model configurations.
+
 ### vLLM / vLLM Omni
 
 The parser must be specified explicitly because vLLM itself doesn't auto-detect one. Pass it via the model `options`:

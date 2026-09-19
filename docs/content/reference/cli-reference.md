@@ -7,6 +7,8 @@ url = '/reference/cli-reference'
 
 Complete reference for all LocalAI command-line interface (CLI) parameters and environment variables.
 
+For client-side text inference measurements, see [Benchmark text models]({{% relref "features/benchmark" %}}).
+
 These options configure the LocalAI server process. To configure an individual
 model, see [Model Configuration]({{% relref "advanced/model-configuration" %}}).
 
@@ -18,6 +20,7 @@ model, see [Model Configuration]({{% relref "advanced/model-configuration" %}}).
 |-----------|---------|-------------|----------------------|
 | `-h, --help` | | Show context-sensitive help | |
 | `--log-level` | `info` | Set the level of logs to output [error,warn,info,debug,trace] | `$LOCALAI_LOG_LEVEL` |
+| `--credentials-file` | | YAML file with credentials for private registries, galleries and download hosts. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}) | `$LOCALAI_CREDENTIALS_FILE` |
 | `--debug` | `false` | **DEPRECATED** - Use `--log-level=debug` instead. Enable debug logging | `$LOCALAI_DEBUG`, `$DEBUG` |
 
 ## Storage Flags

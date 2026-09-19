@@ -26,6 +26,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/mudler/LocalAI/pkg/credentials"
 	"github.com/mudler/LocalAI/pkg/xio"
 )
 
@@ -111,7 +112,7 @@ func newBlobRangeOpener(imageRef string, layer v1.Layer, auth *registrytypes.Aut
 	var authenticator authn.Authenticator
 	if auth != nil {
 		authenticator = staticAuth{auth}
-	} else if authenticator, err = authn.DefaultKeychain.Resolve(repo.Registry); err != nil {
+	} else if authenticator, err = credentials.Keychain().Resolve(repo); err != nil {
 		authenticator = authn.Anonymous
 	}
 	blobURL := fmt.Sprintf("%s://%s/v2/%s/blobs/%s", repo.Registry.Scheme(), repo.RegistryStr(), repo.RepositoryStr(), digest.String())
@@ -406,12 +407,12 @@ func GetImage(targetImage, targetPlatform string, auth *registrytypes.AuthConfig
 	if auth != nil {
 		opts = append(opts, remote.WithAuth(staticAuth{auth}))
 	} else {
-		opts = append(opts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+		opts = append(opts, remote.WithAuthFromKeychain(credentials.Keychain()))
 	}
 
 	image, err = remote.Image(ref, opts...)
 
-	return image, err
+	return image, wrapAuthError(targetImage, err)
 }
 
 // GetImageDigest returns the OCI image digest for the given image reference without downloading it.
@@ -454,12 +455,12 @@ func GetImageDigest(targetImage, targetPlatform string, auth *registrytypes.Auth
 	if auth != nil {
 		opts = append(opts, remote.WithAuth(staticAuth{auth}))
 	} else {
-		opts = append(opts, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+		opts = append(opts, remote.WithAuthFromKeychain(credentials.Keychain()))
 	}
 
 	desc, err := remote.Head(ref, opts...)
 	if err != nil {
-		return "", err
+		return "", wrapAuthError(targetImage, err)
 	}
 
 	return desc.Digest.String(), nil

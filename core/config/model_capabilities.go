@@ -162,6 +162,7 @@ func (c *ModelConfig) Capabilities() []string {
 	add(c.HasUsecases(FLAG_IMAGE), UsecaseImage)
 	add(c.HasUsecases(FLAG_VIDEO), UsecaseVideo)
 	add(c.HasUsecases(FLAG_3D), Usecase3D)
+	add(c.HasUsecases(FLAG_3D_ANIMATION), Usecase3DAnimation)
 	add(c.HasUsecases(FLAG_VAD), UsecaseVAD)
 	add(c.HasUsecases(FLAG_DETECTION), UsecaseDetection)
 	add(c.HasUsecases(FLAG_DEPTH), UsecaseDepth)
@@ -180,6 +181,18 @@ func (c *ModelConfig) Capabilities() []string {
 // handed to the active model directly.
 func (c *ModelConfig) InputModalities() []string {
 	modalities := declaredModalities(c.KnownInputModalities)
+	for _, operation := range c.ThreeDOperations() {
+		if operation.ID != "animate" {
+			continue
+		}
+		for _, input := range operation.Inputs {
+			modality := input.Type
+			if modality == "mesh" {
+				modality = Modality3D
+			}
+			modalities[modality] = true
+		}
+	}
 	imageGen := c.HasUsecases(FLAG_IMAGE)
 	videoGen := c.HasUsecases(FLAG_VIDEO)
 	chatish := c.HasUsecases(FLAG_CHAT) || c.HasUsecases(FLAG_COMPLETION)
@@ -217,7 +230,7 @@ func (c *ModelConfig) OutputModalities() []string {
 	audioOut := c.HasUsecases(FLAG_TTS) || c.HasUsecases(FLAG_SOUND_GENERATION) ||
 		c.HasUsecases(FLAG_AUDIO_TRANSFORM) || c.HasUsecases(FLAG_REALTIME_AUDIO)
 	videoOut := c.HasUsecases(FLAG_VIDEO)
-	threeDOut := c.HasUsecases(FLAG_3D)
+	threeDOut := c.HasUsecases(FLAG_3D) || c.HasUsecases(FLAG_3D_ANIMATION)
 
 	modalities[ModalityText] = modalities[ModalityText] || textOut
 	modalities[ModalityImage] = modalities[ModalityImage] || imageOut

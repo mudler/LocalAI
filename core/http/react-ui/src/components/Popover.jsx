@@ -20,6 +20,7 @@ import { createPortal } from 'react-dom'
 //   ariaLabel: accessible label for the dialog
 export default function Popover({ anchor, open, onClose, children, ariaLabel }) {
   const popoverRef = useRef(null)
+  const wasOpenRef = useRef(open)
   const [pos, setPos] = useState({ top: 0, left: 0, flipped: false })
 
   // Compute position from the anchor's bounding box whenever we open or the
@@ -68,16 +69,21 @@ export default function Popover({ anchor, open, onClose, children, ariaLabel }) 
     }
   }, [open, onClose, anchor])
 
-  // Return focus to the trigger when the popover closes — keyboard users
-  // shouldn't have to tab back through the whole page to find their spot.
+  // Return focus only after an open popover closes. Running this on initial
+  // mount makes every closed row menu contend for focus, and the final row
+  // wins. If the close also opened a modal, let that modal keep focus.
   useEffect(() => {
-    if (!open && anchor?.current) {
-      // requestAnimationFrame so the close is painted before focus jumps;
-      // otherwise screen readers announce the trigger mid-transition.
-      // preventScroll: focusing the trigger must not yank the page scroll.
-      const raf = requestAnimationFrame(() => anchor.current?.focus?.({ preventScroll: true }))
-      return () => cancelAnimationFrame(raf)
-    }
+    const wasOpen = wasOpenRef.current
+    wasOpenRef.current = open
+    if (open || !wasOpen || !anchor?.current) return undefined
+
+    const raf = requestAnimationFrame(() => {
+      const modals = document.querySelectorAll('[aria-modal="true"]')
+      const topmostModal = modals[modals.length - 1]
+      if (topmostModal?.contains(document.activeElement)) return
+      anchor.current?.focus?.({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(raf)
   }, [open, anchor])
 
   if (!open) return null

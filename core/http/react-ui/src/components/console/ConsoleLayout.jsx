@@ -18,13 +18,14 @@ let lastConsoleId = null
 // the correct (gated) item set immediately instead of flashing the wrong set
 // while a fresh fetch resolves on every sub-navigation.
 let featuresCache = {}
+const CONSOLE_RAIL_COLLAPSED_KEY = 'localai_console_rail_collapsed'
 
 // Generic secondary-rail layout shared by the Build and Operate consoles.
 // Driven entirely by a config from consoleConfig.js, so the rail, its gating,
 // and the sidebar entry that opens it stay in sync. Mounted as a PATHLESS
 // route in router.jsx — wrapped pages keep their existing flat URLs.
 
-function RailItem({ item, label }) {
+function RailItem({ item, label, collapsed }) {
   // Null outside Operate, where no provider is mounted — the rail then renders
   // exactly as it did before signals existed.
   const summary = useOperateSummary()
@@ -32,7 +33,7 @@ function RailItem({ item, label }) {
 
   if (item.external) {
     return (
-      <a className="nav-item" href={apiUrl(item.href)} target="_blank" rel="noopener noreferrer">
+      <a className="nav-item" href={apiUrl(item.href)} target="_blank" rel="noopener noreferrer" aria-label={collapsed ? label : undefined} title={collapsed ? label : undefined}>
         <i className={`${item.icon} nav-icon`} />
         <span className="nav-label">{label}</span>
         <i className="fas fa-external-link-alt nav-external" />
@@ -45,6 +46,8 @@ function RailItem({ item, label }) {
       className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
       onMouseEnter={() => preloadRoute(item.path)}
       onFocus={() => preloadRoute(item.path)}
+      aria-label={collapsed ? label : undefined}
+      title={collapsed ? label : undefined}
     >
       <i className={`${item.icon} nav-icon`} />
       <span className="nav-label">{label}</span>
@@ -61,6 +64,9 @@ function ConsoleLayoutInner({ config }) {
   const { isAdmin, authEnabled, hasFeature } = useAuth()
   const [features, setFeatures] = useState(featuresCache)
   const [railOpen, setRailOpen] = useState(false)
+  const [railCollapsed, setRailCollapsed] = useState(() => {
+    try { return localStorage.getItem(CONSOLE_RAIL_COLLAPSED_KEY) === 'true' } catch (_) { return false }
+  })
   const location = useLocation()
   // Forward the App-level outlet context (e.g. addToast) — a nested bare
   // <Outlet/> would otherwise shadow it with undefined and crash pages.
@@ -81,9 +87,15 @@ function ConsoleLayoutInner({ config }) {
 
   const auth = { isAdmin, authEnabled, hasFeature, features }
 
+  const toggleRailCollapsed = () => {
+    const next = !railCollapsed
+    try { localStorage.setItem(CONSOLE_RAIL_COLLAPSED_KEY, String(next)) } catch (_) { /* ignore */ }
+    setRailCollapsed(next)
+  }
+
   return (
     <div className="console-layout">
-      <nav className={`console-rail${entering ? ' console-rail--enter' : ''}${railOpen ? ' console-rail--open' : ''}`} aria-label={t(config.titleKey)}>
+      <nav className={`console-rail${entering ? ' console-rail--enter' : ''}${railOpen ? ' console-rail--open' : ''}${railCollapsed ? ' console-rail--collapsed' : ''}`} aria-label={t(config.titleKey)}>
         <div className="console-rail-header">
           <span className="console-rail-header__title">
             <i className={config.icon} aria-hidden="true" />
@@ -99,6 +111,16 @@ function ConsoleLayoutInner({ config }) {
           >
             <i className={`fas fa-chevron-${railOpen ? 'up' : 'down'}`} aria-hidden="true" />
           </button>
+          <button
+            type="button"
+            className="console-rail-collapse"
+            aria-pressed={railCollapsed}
+            aria-label={t(railCollapsed ? 'console.expandNavigation' : 'console.collapseNavigation', { section: t(config.titleKey) })}
+            title={t(railCollapsed ? 'console.expandNavigation' : 'console.collapseNavigation', { section: t(config.titleKey) })}
+            onClick={toggleRailCollapsed}
+          >
+            <i className={`fas fa-chevron-${railCollapsed ? 'right' : 'left'}`} aria-hidden="true" />
+          </button>
         </div>
         <div id={`console-rail-groups-${config.id}`} className="console-rail-groups">
           {config.groups.map((group, gi) => {
@@ -108,7 +130,7 @@ function ConsoleLayoutInner({ config }) {
               <div key={group.titleKey || gi} className="console-group">
                 {group.titleKey && <div className="console-group-title">{t(group.titleKey)}</div>}
                 {items.map(item => (
-                  <RailItem key={item.path || item.href} item={item} label={t(item.labelKey)} />
+                  <RailItem key={item.path || item.href} item={item} label={t(item.labelKey)} collapsed={railCollapsed} />
                 ))}
               </div>
             )

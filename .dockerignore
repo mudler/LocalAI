@@ -8,6 +8,8 @@ volumes
 examples/chatbot-ui/models
 backend/go/image/stablediffusion-ggml/build/
 backend/go/*/build
+backend/go/kimodocpp/build-*
+backend/go/kimodocpp/kimodocpp
 backend/go/*/.cache
 backend/go/*/sources
 backend/go/*/package

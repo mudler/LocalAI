@@ -1410,9 +1410,10 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 
     // Generate
     int num_frames_out = 0;
+    int effective_fps = fps;
     sd_image_t* frames = nullptr;
     sd_audio_t* audio = nullptr;
-    bool ok = generate_video(sd_c, p, &frames, &num_frames_out, &audio);
+    bool ok = generate_video(sd_c, p, &frames, &num_frames_out, &audio, &effective_fps);
     std::free(p);
 
     if (!ok || !frames || num_frames_out == 0) {
@@ -1425,7 +1426,7 @@ int gen_video(sd_vid_gen_params_t *p, int steps, char *dst, float cfg_scale, int
 
     fprintf(stderr, "Generated %d frames, muxing to %s via ffmpeg\n", num_frames_out, dst);
 
-    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, fps, audio, dst);
+    int rc = ffmpeg_mux_raw_to_mp4(frames, num_frames_out, effective_fps, audio, dst);
 
     for (int i = 0; i < num_frames_out; i++) {
         if (frames[i].data) free(frames[i].data);

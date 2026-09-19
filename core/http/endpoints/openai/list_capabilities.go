@@ -2,6 +2,7 @@ package openai
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	model "github.com/mudler/LocalAI/pkg/model"
@@ -36,8 +37,12 @@ func ListModelCapabilitiesEndpoint(bcl *config.ModelConfigLoader, ml *model.Mode
 			entry := schema.ModelCapabilities{ID: m, Object: "model"}
 			if cfg, ok := bcl.GetModelConfig(m); ok {
 				entry.Capabilities = cfg.Capabilities()
+				entry.ThreeDOperations = cfg.ThreeDOperations()
 				entry.InputModalities = cfg.InputModalities()
 				entry.OutputModalities = cfg.OutputModalities()
+				if ctx := backend.EffectiveContextSize(cfg); ctx > 0 {
+					entry.ContextSize = ctx
+				}
 			}
 			dataModels = append(dataModels, entry)
 		}

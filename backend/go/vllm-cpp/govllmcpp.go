@@ -1,6 +1,6 @@
 package main
 
-// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v23).
+// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v26).
 //
 // The structs below are hand-mirrored PODs of the C declarations, with
 // explicit padding so the Go layout matches the C layout on linux/darwin
@@ -21,7 +21,7 @@ import (
 // the header of the VLLM_CPP_VERSION pinned in the Makefile: the build checks
 // the two against each other, because a mismatch is only caught at runtime by
 // registerLib, where it takes the backend down on every load (issue #11379).
-const abiVersion = 23
+const abiVersion = 26
 
 // The ABI's tri-state toggles (enable_prefix_caching ABI v7,
 // enable_jump_forward ABI v10) share one encoding: 0 is NOT "off", it is
@@ -51,28 +51,28 @@ const (
 	vllmOK = 0
 )
 
-// cModelParams mirrors vllm_model_params. The int32 fields sit in pairs so the
-// interior needs no padding on LP64, but the struct is 8-aligned (it holds
-// pointers) and ends on a lone int32, so the trailing pad is explicit. Offsets
-// and total size are asserted in vllmcpp_test.go.
+// cModelParams mirrors vllm_model_params. Go's natural alignment and the
+// explicit pad after LanguageModelOnly match the C layout on LP64. Offsets and
+// total size are asserted in vllmcpp_test.go.
 type cModelParams struct {
-	ModelPath           uintptr // const char*
-	TokenizerConfigPath uintptr // const char*; NULL = <model_dir>/... (ABI v9)
-	BlockSize           int32
-	NumBlocks           int32
-	MaxModelLen         int32
-	MaxNumSeqs          int32
-	ToolParser          uintptr // const char*; NULL = auto-detect (ABI v4)
-	ReasoningParser     uintptr // const char*; NULL = auto-detect (ABI v5)
-	SpeculativeConfig   uintptr // const char* JSON; NULL = no speculation (ABI v6)
-	EnablePrefixCaching int32   // tri-state 0/1/2 (ABI v7)
-	MaxNumBatchedTokens int32   // <= 0 = per-arch default (ABI v9)
-	SchedulingPolicy    uintptr // const char*; NULL = "fcfs" (ABI v9)
-	KVTransferConfig    uintptr // const char* JSON; NULL = no connector (ABI v9)
-	OffloadConfig       uintptr // const char* JSON; NULL = no weight offload
-	EnableJumpForward   int32   // tri-state 0/1/2 (ABI v10)
-	// v14/v16 tail. LocalAI sets none of these (0 is "auto" for the device and
-	// "unset" for both sizing knobs, i.e. the pre-v14 engine byte for byte), but
+	ModelPath            uintptr // const char*
+	TokenizerConfigPath  uintptr // const char*; NULL = <model_dir>/... (ABI v9)
+	BlockSize            int32
+	NumBlocks            int32
+	MaxModelLen          int32
+	MaxNumSeqs           int32
+	ToolParser           uintptr // const char*; NULL = auto-detect (ABI v4)
+	ReasoningParser      uintptr // const char*; NULL = auto-detect (ABI v5)
+	SpeculativeConfig    uintptr // const char* JSON; NULL = no speculation (ABI v6)
+	EnablePrefixCaching  int32   // tri-state 0/1/2 (ABI v7)
+	MaxNumBatchedTokens  int32   // <= 0 = per-arch default (ABI v9)
+	SchedulingPolicy     uintptr // const char*; NULL = "fcfs" (ABI v9)
+	KVTransferConfig     uintptr // const char* JSON; NULL = no connector (ABI v9)
+	OffloadConfig        uintptr // const char* JSON; NULL = no weight offload
+	EnableJumpForward    int32   // tri-state 0/1/2 (ABI v10)
+	DisableSlidingWindow int32   // tri-state 0/1/2 (ABI v26)
+	// LocalAI sets none of the device and sizing fields below (0 is "auto" for
+	// the device and "unset" for both sizing knobs), but
 	// the fields MUST be mirrored: the C side reads sizeof(vllm_model_params)
 	// bytes off the pointer we hand it, so a Go struct that stopped at
 	// EnableJumpForward would have vllm_engine_load read 24 bytes past our
@@ -84,6 +84,7 @@ type cModelParams struct {
 	_                  [4]byte
 	LimitMMPerPrompt   uintptr // const char* JSON; NULL = default limits (ABI v19)
 	MMProjPath         uintptr // const char*; NULL = no GGUF projector (ABI v22)
+	KVCacheDType       uintptr // const char*; NULL = auto (ABI v24)
 }
 
 // cSamplingParams mirrors vllm_sampling_params (structured fields included).

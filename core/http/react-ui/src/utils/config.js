@@ -114,6 +114,7 @@ export const API_CONFIG = {
     tts: '/tts',
     video: '/video',
     threeDGenerations: '/3d/generations',
+    threeDAnimate: '/3d/animate',
     threeDRemesh: '/3d/remesh',
     backendMonitor: '/backend/monitor',
     backendShutdown: '/backend/shutdown',

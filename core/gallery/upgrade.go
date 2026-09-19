@@ -170,7 +170,12 @@ func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, syste
 
 		// Fall back to OCI digest comparison when versions are unavailable.
 		if downloader.URI(galleryEntry.URI).LooksLikeOCI() {
-			remoteDigest, err := oci.GetImageDigest(galleryEntry.URI, "", nil, nil)
+			// Strip the oci:// scheme — name.ParseReference (called by
+			// GetImageDigest) cannot parse it. Self-hosted registries must
+			// set the scheme to be recognised at all, so without stripping
+			// they silently lose upgrade detection.
+			remoteDigest, err := oci.GetImageDigest(
+				strings.TrimPrefix(galleryEntry.URI, downloader.OCIPrefix), "", nil, nil)
 			if err != nil {
 				xlog.Warn("Failed to get remote OCI digest for upgrade check", "backend", installed.Metadata.Name, "error", err)
 				continue

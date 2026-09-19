@@ -86,6 +86,7 @@
     "image": "Image",
     "video": "Video",
     "threed": "3D",
+    "threedAnimation": "3D Animation",
     "multimodal": "Multimodal",
     "vision": "Vision",
     "tts": "TTS",

@@ -1,0 +1,9 @@
+/sources/
+/build-native/
+/build-cpu/
+/build-vulkan/
+/build-native-avx2/
+/build-cpu-avx2/
+/build-vulkan-avx2/
+/package/
+/kimodocpp

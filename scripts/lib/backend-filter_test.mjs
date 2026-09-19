@@ -14,6 +14,11 @@ import {
   inferBackendPathDarwin,
 } from "./backend-filter.mjs";
 
+test("kimodocpp maps to its native Go wrapper on Linux and Darwin", () => {
+  assert.equal(inferBackendPath({ backend: "kimodocpp", dockerfile: "./backend/Dockerfile.golang" }), "backend/go/kimodocpp/");
+  assert.equal(inferBackendPathDarwin({ backend: "kimodocpp", lang: "go" }), "backend/go/kimodocpp/");
+});
+
 test("trellis2cpp maps to its Go backend source directory", () => {
   assert.equal(
     inferBackendPath({
