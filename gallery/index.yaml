@@ -6152,6 +6152,131 @@
     - filename: llama-cpp/models/qwen3.8-4b-distill/Qwen3.8-4B-Q8_0.gguf
       uri: huggingface://empero-ai/Qwen3.8-4B-Distill-GGUF/Qwen3.8-4B-Q8_0.gguf
       sha256: 770b780d6754a4954d1caf395c9239eaeb394f15c7a7ea34039883377c93c9c3
+- &qwen3-8-35b-a3b-distill
+  name: "qwen3.8-35b-a3b-distill-q4"
+  variants:
+    - model: qwen3.8-35b-a3b-distill-q5
+    - model: qwen3.8-35b-a3b-distill-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill
+    - https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill-GGUF
+  license: apache-2.0
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - reasoning
+    - qwen3.6
+  last_checked: "2026-09-19"
+  description: |
+    Empero's Qwen3.8 distillation into Qwen3.6-35B-A3B has 35B total
+    parameters and about 3B active per token. This Q4_K_M GGUF build
+    uses the embedded reasoning template and includes the F16 vision
+    projector. Vision is inherited from the base and was not evaluated
+    by the publisher.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-35b-a3b-distill/mmproj-Qwen3.8-35B-A3B-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-35b-a3b-distill/Qwen3.8-35B-A3B-Q4_K_M.gguf
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-35b-a3b-distill/Qwen3.8-35B-A3B-Q4_K_M.gguf
+      uri: https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill-GGUF/resolve/b1f9d1dcc3de8aa867669b0ab919384aeeb9b8d5/Qwen3.8-35B-A3B-Q4_K_M.gguf
+      sha256: 196103269085bc54c9b8f49ed21e9f53e1b56b465e8b796c6d8e31e06f63cfa5
+    - filename: llama-cpp/mmproj/qwen3.8-35b-a3b-distill/mmproj-Qwen3.8-35B-A3B-F16.gguf
+      uri: https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill-GGUF/resolve/b1f9d1dcc3de8aa867669b0ab919384aeeb9b8d5/mmproj-Qwen3.8-35B-A3B-F16.gguf
+      sha256: 4381cb5110074396c2c7b39221fffae0c31886aa95b674de8e103d97edf58b94
+- !!merge <<: *qwen3-8-35b-a3b-distill
+  name: "qwen3.8-35b-a3b-distill-q5"
+  variants: []
+  description: |
+    Empero's Qwen3.8 distillation into Qwen3.6-35B-A3B has 35B total
+    parameters and about 3B active per token. This Q5_K_M GGUF build
+    uses the embedded reasoning template and includes the F16 vision
+    projector. Vision is inherited from the base and was not evaluated
+    by the publisher.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-35b-a3b-distill/mmproj-Qwen3.8-35B-A3B-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-35b-a3b-distill/Qwen3.8-35B-A3B-Q5_K_M.gguf
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-35b-a3b-distill/Qwen3.8-35B-A3B-Q5_K_M.gguf
+      uri: https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill-GGUF/resolve/b1f9d1dcc3de8aa867669b0ab919384aeeb9b8d5/Qwen3.8-35B-A3B-Q5_K_M.gguf
+      sha256: f1903bac4ee3eec1f9013735298867c96d97dfb55c71f826a714b17214abc4ad
+    - filename: llama-cpp/mmproj/qwen3.8-35b-a3b-distill/mmproj-Qwen3.8-35B-A3B-F16.gguf
+      uri: https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill-GGUF/resolve/b1f9d1dcc3de8aa867669b0ab919384aeeb9b8d5/mmproj-Qwen3.8-35B-A3B-F16.gguf
+      sha256: 4381cb5110074396c2c7b39221fffae0c31886aa95b674de8e103d97edf58b94
+- !!merge <<: *qwen3-8-35b-a3b-distill
+  name: "qwen3.8-35b-a3b-distill-q8"
+  variants: []
+  description: |
+    Empero's Qwen3.8 distillation into Qwen3.6-35B-A3B has 35B total
+    parameters and about 3B active per token. This Q8_0 GGUF build
+    uses the embedded reasoning template and includes the F16 vision
+    projector. Vision is inherited from the base and was not evaluated
+    by the publisher.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-35b-a3b-distill/mmproj-Qwen3.8-35B-A3B-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-35b-a3b-distill/Qwen3.8-35B-A3B-Q8_0.gguf
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-35b-a3b-distill/Qwen3.8-35B-A3B-Q8_0.gguf
+      uri: https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill-GGUF/resolve/b1f9d1dcc3de8aa867669b0ab919384aeeb9b8d5/Qwen3.8-35B-A3B-Q8_0.gguf
+      sha256: 7d986d310e686a91cb514cdd819719b4f80ace899c9aaad7bfccfdf4670a9bb3
+    - filename: llama-cpp/mmproj/qwen3.8-35b-a3b-distill/mmproj-Qwen3.8-35B-A3B-F16.gguf
+      uri: https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill-GGUF/resolve/b1f9d1dcc3de8aa867669b0ab919384aeeb9b8d5/mmproj-Qwen3.8-35B-A3B-F16.gguf
+      sha256: 4381cb5110074396c2c7b39221fffae0c31886aa95b674de8e103d97edf58b94
 - &qwen3-8-9b-distill
   name: "qwen3.8-9b-distill-q4"
   variants:
