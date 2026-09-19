@@ -2182,6 +2182,281 @@
     - filename: llama-cpp/models/granite-4.2-30b/granite-4.2-30b-Q8_0.gguf
       uri: huggingface://ibm-granite/granite-4.2-30b-GGUF/granite-4.2-30b-Q8_0.gguf
       sha256: 005b0933353e9ba219b26e2667705bdb8dbc74eb50e4a4e6cb70fca108710f81
+- name: byteshape-qwen3.8-27b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/byteshape/Qwen3.8-27B-GGUF
+  license: apache-2.0
+  description: |
+    ByteShape's ShapeLearn quantization of Qwen3.8 27B for chat, reasoning,
+    coding, and image input. This IQ4_XS-3.84bpw build uses mixed tensor
+    precisions and includes a BF16 vision projector. MTP decoding is enabled.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - tools
+    - mtp
+  last_checked: "2026-09-19"
+  variants:
+    - model: byteshape-qwen3.8-27b-iq3-s
+    - model: byteshape-qwen3.8-27b-iq3-xs
+    - model: byteshape-qwen3.8-27b-iq3-xxs
+    - model: byteshape-qwen3.8-27b-iq2-xxs
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      model: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ4_XS-3.84bpw.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ4_XS-3.84bpw.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/Qwen3.8-27B-IQ4_XS-3.84bpw.gguf
+      sha256: 89434f23dc89c5f990894e3fe9fdad19d88c370f0d3638a176f29933f218b78b
+    - filename: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/mmproj-bf16.gguf
+      sha256: e43a597863a21bfa48b0fbd4553a771ae4117e25bb172e66f1dbc3fc6d037131
+- name: byteshape-qwen3.8-27b-iq3-s
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/byteshape/Qwen3.8-27B-GGUF
+  license: apache-2.0
+  description: |
+    ByteShape's ShapeLearn quantization of Qwen3.8 27B for chat, reasoning,
+    coding, and image input. This IQ3_S-3.23bpw build uses mixed tensor
+    precisions and includes a BF16 vision projector. MTP decoding is enabled.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - tools
+    - mtp
+  last_checked: "2026-09-19"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      model: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ3_S-3.23bpw.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ3_S-3.23bpw.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/Qwen3.8-27B-IQ3_S-3.23bpw.gguf
+      sha256: 40171062abb191d5fb8a04b19efea377a16daebf1fd17d5e8b25808537aa782f
+    - filename: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/mmproj-bf16.gguf
+      sha256: e43a597863a21bfa48b0fbd4553a771ae4117e25bb172e66f1dbc3fc6d037131
+- name: byteshape-qwen3.8-27b-iq3-xs
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/byteshape/Qwen3.8-27B-GGUF
+  license: apache-2.0
+  description: |
+    ByteShape's ShapeLearn quantization of Qwen3.8 27B for chat, reasoning,
+    coding, and image input. This IQ3_XS-3.01bpw build uses mixed tensor
+    precisions and includes a BF16 vision projector. MTP decoding is enabled.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - tools
+    - mtp
+  last_checked: "2026-09-19"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      model: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ3_XS-3.01bpw.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ3_XS-3.01bpw.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/Qwen3.8-27B-IQ3_XS-3.01bpw.gguf
+      sha256: 830eec2d0fff9ed82ca54a2e2557bfba26ec888fca473acb2c8e9a75b4021a0d
+    - filename: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/mmproj-bf16.gguf
+      sha256: e43a597863a21bfa48b0fbd4553a771ae4117e25bb172e66f1dbc3fc6d037131
+- name: byteshape-qwen3.8-27b-iq3-xxs
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/byteshape/Qwen3.8-27B-GGUF
+  license: apache-2.0
+  description: |
+    ByteShape's ShapeLearn quantization of Qwen3.8 27B for chat, reasoning,
+    coding, and image input. This IQ3_XXS-2.88bpw build uses mixed tensor
+    precisions and includes a BF16 vision projector. MTP decoding is enabled.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - tools
+    - mtp
+  last_checked: "2026-09-19"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      model: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ3_XXS-2.88bpw.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ3_XXS-2.88bpw.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/Qwen3.8-27B-IQ3_XXS-2.88bpw.gguf
+      sha256: 8f230e79ed04775bb0999fdf7687d795ffea1dfff80638297f87d30b09241055
+    - filename: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/mmproj-bf16.gguf
+      sha256: e43a597863a21bfa48b0fbd4553a771ae4117e25bb172e66f1dbc3fc6d037131
+- name: byteshape-qwen3.8-27b-iq2-xxs
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/byteshape/Qwen3.8-27B-GGUF
+  license: apache-2.0
+  description: |
+    ByteShape's ShapeLearn quantization of Qwen3.8 27B for chat, reasoning,
+    coding, and image input. This IQ2_XXS-2.56bpw build uses mixed tensor
+    precisions and includes a BF16 vision projector. MTP decoding is enabled.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - vision
+    - multimodal
+    - reasoning
+    - coding
+    - tools
+    - mtp
+  last_checked: "2026-09-19"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:3
+    parameters:
+      model: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ2_XXS-2.56bpw.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/byteshape-qwen3.8-27b/Qwen3.8-27B-IQ2_XXS-2.56bpw.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/Qwen3.8-27B-IQ2_XXS-2.56bpw.gguf
+      sha256: 901905c4b623d78a5e06421bba0c2ccd1a9acbb3d2643f5b6a611f00da2f1615
+    - filename: llama-cpp/mmproj/byteshape-qwen3.8-27b/mmproj-bf16.gguf
+      uri: https://huggingface.co/byteshape/Qwen3.8-27B-GGUF/resolve/3fdfbd9b4a618303ad36edb151e95d134ece8c18/mmproj-bf16.gguf
+      sha256: e43a597863a21bfa48b0fbd4553a771ae4117e25bb172e66f1dbc3fc6d037131
 - &dirk-qwen3-8-27b
   name: "dirk-qwen3.8-27b-q4"
   variants:

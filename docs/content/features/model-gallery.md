@@ -1032,3 +1032,25 @@ These entries set a 131,072-token context, following the
 [model card's guidance](https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF)
 for thinking mode. This context requires additional memory beyond the weights.
 The uncensored model uses the Apache-2.0 license.
+
+### ByteShape Qwen3.8 27B
+
+Install ByteShape's ShapeLearn GGUF builds for chat and image input:
+
+```bash
+local-ai models install byteshape-qwen3.8-27b
+```
+
+The default build uses IQ4_XS at 3.84 bits per weight. Four smaller variants
+use IQ3_S, IQ3_XS, IQ3_XXS, and IQ2_XXS with mixed tensor precisions.
+Automatic variant selection considers available memory. To select the smallest build:
+
+```bash
+local-ai models install byteshape-qwen3.8-27b --variant byteshape-qwen3.8-27b-iq2-xxs
+```
+
+Every build includes the BF16 vision projector and enables MTP decoding in
+llama.cpp with three draft tokens. The gallery uses a 32,768-token context
+and the publisher's thinking-mode temperature, top-p, and top-k settings.
+See the [publisher's model card](https://huggingface.co/byteshape/Qwen3.8-27B-GGUF)
+for quantization details and the Apache-2.0 license.
