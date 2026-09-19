@@ -202,7 +202,7 @@ func (b *EventBridge) PersistObservable(agentName, userID, eventType string, obs
 	}
 
 	// Always broadcast, which is what enables real-time SSE and remote persistence.
-	b.PublishEvent(agentName, userID, AgentEvent{
+	if err := b.PublishEvent(agentName, userID, AgentEvent{
 		AgentName:      agentName,
 		UserID:         userID,
 		EventType:      "observable_update",
@@ -210,7 +210,9 @@ func (b *EventBridge) PersistObservable(agentName, userID, eventType string, obs
 		SourceInstance: b.instanceID,
 		MessageID:      recordID,
 		Metadata:       payload,
-	})
+	}); err != nil {
+		xlog.Warn("Failed to publish agent observable", "agent", agentName, "user", userID, "error", err)
+	}
 }
 
 // PublishMessage broadcasts a chat message event for SSE bridging.

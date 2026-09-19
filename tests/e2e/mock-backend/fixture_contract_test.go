@@ -72,6 +72,12 @@ var _ = Describe("Mock backend fixture contracts", func() {
 					return backend.Generate3D(context.Background(), &pb.Generate3DRequest{Dst: dst})
 				},
 			},
+			{
+				name: "3d-animation", file: "animation.glb", want: wantGLB,
+				call: func(dst string) (*pb.Result, error) {
+					return backend.Animate3D(context.Background(), &pb.Animate3DRequest{Dst: dst})
+				},
+			},
 		}
 
 		for _, tc := range tests {
@@ -118,6 +124,11 @@ var _ = Describe("Mock backend fixture contracts", func() {
 			{"3d", wantGLB, "src", func(dst string) (*pb.Result, error) {
 				return backend.Generate3D(context.Background(), &pb.Generate3DRequest{Src: input, Dst: dst})
 			}},
+			{"3d-animation", wantGLB, "mesh", func(dst string) (*pb.Result, error) {
+				return backend.Animate3D(context.Background(), &pb.Animate3DRequest{Inputs: map[string]*pb.AnimationInput{
+					"mesh": {Type: "mesh", Data: input},
+				}, Dst: dst})
+			}},
 			{"upscale", wantPNG, "src", func(dst string) (*pb.Result, error) {
 				return backend.UpscaleImage(context.Background(), &pb.UpscaleImageRequest{Src: input, Dst: dst, Scale: 2})
 			}},
@@ -143,6 +154,22 @@ var _ = Describe("Mock backend fixture contracts", func() {
 				failFixture("exact comparison accepted a corrupt fixture")
 			}
 		}
+	})
+
+	It("FixtureImageCarriesNegativePromptDigest", func() {
+		backend := &MockBackend{}
+		dst := filepath.Join(GinkgoT().TempDir(), "image.png")
+		result, err := backend.GenerateImage(context.Background(), &pb.GenerateImageRequest{
+			NegativePrompt: "blurry",
+			Dst:            dst,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result.GetSuccess()).To(BeTrue(), result.GetMessage())
+
+		got, err := os.ReadFile(dst)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(Equal(fixtureArtifact(wantPNG,
+			fmt.Sprintf("negative_prompt=inline-sha256:%x", sha256.Sum256([]byte("blurry"))))))
 	})
 
 	It("ExtendedConformanceRPCFixtures", func() {
@@ -258,6 +285,10 @@ var _ = Describe("Mock backend fixture contracts", func() {
 		assertContainsDigest(video.GetMessage(), err, digest)
 		asset, err := backend.Generate3D(context.Background(), &pb.Generate3DRequest{Src: input, Dst: filepath.Join(dir, "asset.glb")})
 		assertContainsDigest(asset.GetMessage(), err, digest)
+		animation, err := backend.Animate3D(context.Background(), &pb.Animate3DRequest{Inputs: map[string]*pb.AnimationInput{
+			"mesh": {Type: "mesh", Data: input},
+		}, Dst: filepath.Join(dir, "animation.glb")})
+		assertContainsDigest(animation.GetMessage(), err, digest)
 		tts, err := backend.TTS(context.Background(), &pb.TTSRequest{
 			Model: input,
 			Voice: input,
@@ -531,6 +562,12 @@ func fixtureInputRPCCalls(input string) []fixtureInputRPCCall {
 		}},
 		{"Generate3D", func() (string, error) {
 			result, err := backend.Generate3D(context.Background(), &pb.Generate3DRequest{Src: input})
+			return result.GetMessage(), err
+		}},
+		{"Animate3D", func() (string, error) {
+			result, err := backend.Animate3D(context.Background(), &pb.Animate3DRequest{Inputs: map[string]*pb.AnimationInput{
+				"mesh": {Type: "mesh", Data: input},
+			}})
 			return result.GetMessage(), err
 		}},
 		{"TTS", func() (string, error) {

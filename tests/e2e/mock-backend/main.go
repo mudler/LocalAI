@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -117,6 +118,8 @@ func writeFixture(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 		return err
 	}
+	// #nosec G703 -- this test backend writes only the destination allocated by
+	// the worker staging layer; the binary conformance suite verifies its root.
 	return os.WriteFile(path, data, 0600)
 }
 
@@ -130,6 +133,8 @@ func fixtureArtifact(base []byte, markers string) []byte {
 }
 
 func fixtureDigest(path string) (string, error) {
+	// #nosec G304 -- callers pass only paths accepted by safeLocalFixturePath,
+	// including its symlink and optional expected-worker-root checks.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -220,6 +225,17 @@ func fixtureResult(message, markers string, err error) *pb.Result {
 		message += "; " + markers
 	}
 	return &pb.Result{Message: message, Success: true}
+}
+
+func fixtureInt32(value int) int32 {
+	if value > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if value < math.MinInt32 {
+		return math.MinInt32
+	}
+	// #nosec G115 -- the two guards above prove the conversion is in range.
+	return int32(value)
 }
 
 // lastLoadParams records the most recent LoadModel parameters so a Predict
@@ -704,7 +720,10 @@ func (m *MockBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageReq
 		return nil, err
 	}
 	xlog.Debug("GenerateImage called", "prompt", in.PositivePrompt)
-	inputs := []namedFixtureInput{{name: "src", value: in.Src}}
+	inputs := []namedFixtureInput{
+		{name: "negative_prompt", value: in.NegativePrompt},
+		{name: "src", value: in.Src},
+	}
 	for i, ref := range in.RefImages {
 		inputs = append(inputs, namedFixtureInput{name: fmt.Sprintf("ref_image[%d]", i), value: ref})
 	}
@@ -737,6 +756,29 @@ func (m *MockBackend) Generate3D(ctx context.Context, in *pb.Generate3DRequest) 
 		err = writeFixture(in.Dst, fixtureArtifact(glbFixture, markers))
 	}
 	return fixtureResult("3D asset generated successfully (mocked)", markers, err), nil
+}
+
+func (m *MockBackend) Animate3D(ctx context.Context, in *pb.Animate3DRequest) (*pb.Result, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(in.Inputs))
+	for name := range in.Inputs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	inputs := make([]namedFixtureInput, 0, len(names))
+	for _, name := range names {
+		input := in.Inputs[name]
+		if input != nil {
+			inputs = append(inputs, namedFixtureInput{name: name, value: input.Data})
+		}
+	}
+	markers, err := fixtureInputMarkers(inputs...)
+	if err == nil {
+		err = writeFixture(in.Dst, fixtureArtifact(glbFixture, markers))
+	}
+	return fixtureResult("3D animation generated successfully (mocked)", markers, err), nil
 }
 
 func (m *MockBackend) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest) (*pb.Result, error) {
@@ -870,7 +912,9 @@ func writeMinimalWAV(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
 		return err
 	}
-	f, err := os.Create(path)
+	// #nosec G304 -- path is the output allocated by the worker staging layer;
+	// the binary conformance suite verifies it is under the worker root.
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
@@ -890,6 +934,8 @@ func writeMinimalWAV(path string) error {
 	_ = binary.Write(f, binary.LittleEndian, uint16(bitsPerSample))
 	// data chunk — 440Hz sine wave
 	_, _ = f.Write([]byte("data"))
+	// #nosec G115 -- minimalPCM is half a second at the bounded fixture sample
+	// rate, so its byte length is well below the WAV uint32 limit.
 	_ = binary.Write(f, binary.LittleEndian, uint32(dataSize))
 	_, err = f.Write(pcm)
 	return err
@@ -903,6 +949,8 @@ func minimalPCM(sampleRate int) []byte {
 	for i := range numSamples {
 		t := float64(i) / float64(sampleRate)
 		sample := int16(math.MaxInt16 / 2 * math.Sin(2*math.Pi*freq*t))
+		// #nosec G115 -- WAV PCM stores the signed int16 bit pattern as two
+		// little-endian bytes; this conversion intentionally preserves the bits.
 		binary.LittleEndian.PutUint16(pcm[i*2:], uint16(sample))
 	}
 	return pcm
@@ -922,6 +970,8 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 		return nil, err
 	}
 	if path, ok := safeLocalFixturePath(dst); ok {
+		// #nosec G304 -- safeLocalFixturePath rejects non-absolute, unclean,
+		// non-regular and symlinked paths before this fixture read.
 		if data, readErr := os.ReadFile(path); readErr == nil {
 			if len(data) >= 44 {
 				wavSR = int(binary.LittleEndian.Uint32(data[24:28]))
@@ -1182,7 +1232,7 @@ func (m *MockBackend) TokenClassify(ctx context.Context, in *pb.TokenClassifyReq
 		return &pb.TokenClassifyResponse{}, nil
 	}
 	return &pb.TokenClassifyResponse{Entities: []*pb.TokenClassifyEntity{{
-		EntityGroup: "PER", Start: int32(start), End: int32(start + len(entity)), Score: 0.99, Text: entity,
+		EntityGroup: "PER", Start: fixtureInt32(start), End: fixtureInt32(start + len(entity)), Score: 0.99, Text: entity,
 	}}}, nil
 }
 
@@ -1381,6 +1431,8 @@ func (m *MockBackend) AudioTransform(ctx context.Context, in *pb.AudioTransformR
 	var input []byte
 	if path, ok := safeLocalFixturePath(in.AudioPath); ok {
 		var err error
+		// #nosec G304 -- safeLocalFixturePath rejects non-absolute, unclean,
+		// non-regular and symlinked paths before this fixture read.
 		input, err = os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("reading staged audio transform input: %w", err)
@@ -1401,8 +1453,8 @@ func (m *MockBackend) AudioTransform(ctx context.Context, in *pb.AudioTransformR
 	}
 	return &pb.AudioTransformResult{
 		Dst:               in.Dst,
-		SampleRate:        int32(ttsSampleRate()),
-		Samples:           int32(samples),
+		SampleRate:        fixtureInt32(ttsSampleRate()),
+		Samples:           fixtureInt32(samples),
 		ReferenceProvided: in.ReferencePath != "",
 	}, nil
 }
@@ -1454,7 +1506,13 @@ func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*
 // survive resampling (DC is sample-rate independent). Near-zero DC maps to a
 // neutral vector equidistant from both. Returns nil for unreadable audio.
 func voiceEmbedFromWAV(path string) []float32 {
-	data, err := os.ReadFile(path)
+	validated, ok := safeLocalFixturePath(path)
+	if !ok {
+		return nil
+	}
+	// #nosec G304 -- safeLocalFixturePath rejects non-absolute, unclean,
+	// non-regular and symlinked paths before this fixture read.
+	data, err := os.ReadFile(validated)
 	if err != nil || len(data) < 44 {
 		return nil
 	}
