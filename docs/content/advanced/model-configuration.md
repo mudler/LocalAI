@@ -225,7 +225,7 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | `threads` | int | `processor count` | Number of threads for parallel computation. A per-model value overrides the server-wide `--threads`/`LOCALAI_THREADS` setting |
 | `context_size` | int | `512` | Maximum context size in tokens. Set to `-1` to auto-use the model's full trained context from GGUF metadata (raw max, no VRAM capping; a warning is logged if it may not fit detected VRAM). |
 | `f16` | bool | `false` | Enable 16-bit floating point precision (GPU acceleration) |
-| `gpu_layers` | int | `0` | Number of layers to offload to GPU (0 = CPU only) |
+| `gpu_layers` | int | `99999999` | Number of layers to offload to GPU. The default requests all layers; `0` keeps model layers on CPU. See [mixed CPU/GPU inference](#mixed-cpugpu-inference). |
 
 ### Memory Management
 
@@ -243,6 +243,53 @@ These settings apply to most LLM backends (llama.cpp, vLLM, etc.):
 | `tensor_split` | string | Comma-separated GPU memory allocation (e.g., `"0.8,0.2"` for 80%/20%) |
 | `main_gpu` | string | Main GPU identifier for multi-GPU setups |
 | `cuda` | bool | Explicitly enable/disable CUDA |
+
+### Mixed CPU/GPU inference
+
+The `llama-cpp` backend can run one GGUF model across CPU and GPU, using both system RAM and GPU VRAM.
+Use a GPU-capable build of the backend for your hardware.
+A CPU-only build cannot offload layers to the GPU.
+
+#### Offload some model layers
+
+Set `gpu_layers` to a positive number smaller than the model's layer count.
+The remaining layers run on CPU.
+Merge these settings into your existing model YAML, keeping its model path, template, and other options:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 12
+context_size: 4096
+```
+
+The value `12` is an example, not a memory estimate.
+Reload the model after changing its configuration.
+Check the backend startup log for the number of layers offloaded and the CPU/GPU buffer sizes.
+Increase `gpu_layers` if VRAM has room; reduce it if loading runs out of GPU memory.
+Set `gpu_layers: 0` to keep all model layers on CPU.
+
+#### Keep MoE experts on CPU
+
+For a mixture-of-experts (MoE) model, you can keep expert weights in system RAM while offloading other tensors to the GPU:
+
+```yaml
+backend: llama-cpp
+gpu_layers: 99999999
+context_size: 4096
+options:
+  - cpu_moe:true
+```
+
+Append `cpu_moe:true` to any existing `options` list instead of replacing that list.
+This option applies to the main model's expert weights.
+To keep experts from only the first 12 layers on CPU, replace `cpu_moe:true` with `n_cpu_moe:12`.
+Use one of these options at a time.
+
+CPU execution and data transfers can reduce generation speed compared with a model that fits entirely on GPU.
+RAM and VRAM do not form one interchangeable allocation pool.
+Leave memory for the KV cache, compute buffers, the operating system, and other processes.
+Reduce `context_size` if the KV cache consumes too much memory.
+The [GPU auto-fit settings](#gpu-auto-fit-mode) provide a separate way to let llama.cpp choose the allocation.
 
 ### Sampling and Generation
 
@@ -1155,7 +1202,7 @@ feature_flags:
 
 ### GPU Auto-Fit Mode
 
-**Note**: By default, LocalAI sets `gpu_layers` to a very large value (9999999), which effectively disables llama-cpp's auto-fit functionality. This is intentional to work with LocalAI's VRAM-based model unloading mechanism.
+**Note**: By default, LocalAI sets `gpu_layers` to a very large value (99999999), which effectively disables llama-cpp's auto-fit functionality. This is intentional to work with LocalAI's VRAM-based model unloading mechanism.
 
 To enable llama-cpp's auto-fit mode, set `gpu_layers: -1` in your model configuration. However, be aware of the following:
 
