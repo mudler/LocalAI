@@ -191,7 +191,8 @@ User-managed backends always win over system-provided ones:
   never mixes installations of different origins within a family, and
   a stale system variant is not kept reachable.
 - **Names never get hijacked** — a system variant's alias cannot take
-  over a name that exists as a user-managed backend: `backend:
+  over a name that exists as a user-managed backend (including a meta
+  backend): `backend:
   audio-cpp` keeps running the user's `audio-cpp` installation even if
   a system package later ships variants aliased to that name.
 
