@@ -417,8 +417,12 @@ usage is reported back to the frontend:
   NVML library (and therefore `nvidia-smi`) is not available inside the
   container. CUDA compute still works, but the worker cannot query free VRAM
   and the Nodes page will show the node as fully used. Set
-  `NVIDIA_DRIVER_CAPABILITIES=compute,utility` (or, with the NVIDIA CDI
-  runtime, list `capabilities: [gpu, utility]` on the device reservation).
+  `NVIDIA_DRIVER_CAPABILITIES=compute,utility` when using the NVIDIA runtime.
+  For Docker Compose with `driver: nvidia`, use
+  `capabilities: [gpu, compute, utility]` on the device reservation.
+  Docker derives driver capabilities from this reservation, so include `compute`
+  for CUDA libraries such as `libcuda.so.1`. The `utility` capability alone
+  enables monitoring but does not provide CUDA libraries.
 
 - **Run the container with `init: true` (or `docker run --init`).** The
   worker process becomes PID 1 in the container and cannot reap zombies on
