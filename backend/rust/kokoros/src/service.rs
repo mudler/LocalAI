@@ -348,6 +348,13 @@ impl Backend for KokorosService {
         Err(Status::unimplemented("Not supported"))
     }
 
+    async fn animate3_d(
+        &self,
+        _: Request<backend::Animate3DRequest>,
+    ) -> Result<Response<backend::Result>, Status> {
+        Err(Status::unimplemented("Not supported"))
+    }
+
     async fn audio_transcription(
         &self,
         _: Request<backend::TranscriptRequest>,

@@ -3,6 +3,7 @@ package cluster_test
 import (
 	"context"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/cluster"
@@ -34,6 +35,16 @@ var _ = Describe("Instance registry", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.AdvertisedAddr).To(Equal("10.0.0.1:8080"))
 		Expect(got.Version).To(Equal("v1"))
+	})
+
+	It("preserves long development build versions", func() {
+		version := "v4.10.0-183-g46c57bf3d (" + strings.Repeat("a", 40) + ")"
+		Expect(len(version)).To(BeNumerically(">", 64))
+		Expect(reg.Register(ctx, "inst-dev", "10.0.0.1:8080", version, "")).To(Succeed())
+
+		got, err := reg.Get(ctx, "inst-dev")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.Version).To(Equal(version))
 	})
 
 	It("re-registering the same id updates the address instead of duplicating", func() {

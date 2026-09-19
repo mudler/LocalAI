@@ -89,6 +89,7 @@ var backendProtocolCoverage = []protocolCoverage{
 	inference("UpscaleImage", "UpscaleImage", unaryRPC, processConformance, imageProcess, true),
 	inference("GenerateVideo", "GenerateVideo", unaryRPC, processConformance, mediaProcess, true),
 	inference("Generate3D", "Generate3D", unaryRPC, processConformance, mediaProcess, true),
+	inference("Animate3D", "Animate3D", unaryRPC, processConformance, mediaProcess, true),
 	inference("TTS", "TTS", unaryRPC, processConformance, audioProcess, true),
 	inference("TTSStream", "TTSStream", serverStreamRPC, processConformance, audioProcess, true),
 	inference("SoundGeneration", "SoundGeneration", unaryRPC, processConformance, audioProcess, true),

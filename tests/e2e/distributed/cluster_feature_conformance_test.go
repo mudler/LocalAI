@@ -60,6 +60,7 @@ var fileStagingTopologyCoverage = []stagingTopologyCoverage{
 	{"UpscaleImage", "/v1/images/upscale", "Backend/UpscaleImage"},
 	{"GenerateVideo", "/video", "Backend/GenerateVideo"},
 	{"Generate3D", "/3d/generations", "Backend/Generate3D"},
+	{"Animate3D", "/3d/animate", "Backend/Animate3D"},
 	{"TTS", "/v1/audio/speech", "Backend/TTS"},
 	{"TTSStream", "/v1/audio/speech (stream)", "Backend/TTSStream"},
 	{"SoundGeneration", "/v1/sound-generation", "Backend/SoundGeneration"},
@@ -226,13 +227,28 @@ func conformanceWebSocket(client *http.Client, baseURL, path string) *websocket.
 	return conn
 }
 
-func runPublicBackendConformance(client *http.Client, baseURL, model string, fixtures conformanceFixtures) {
+func runPublicBackendConformance(client *http.Client, baseURL, model, animationModel string, fixtures conformanceFixtures) {
+	By("advertising the effective model context size")
+	resp, payload := conformanceDo(client, mustConformanceRequest(http.MethodGet, baseURL+"/v1/models/capabilities", nil))
+	expectConformanceStatus(resp, payload)
+	var capabilities struct {
+		Data []struct {
+			ID          string `json:"id"`
+			ContextSize int    `json:"context_size"`
+		} `json:"data"`
+	}
+	Expect(json.Unmarshal(payload, &capabilities)).To(Succeed())
+	Expect(capabilities.Data).To(ContainElement(And(
+		HaveField("ID", model),
+		HaveField("ContextSize", 4096),
+	)))
+
 	By("running non-streaming and streaming chat")
 	result, err := chat(client, baseURL, model, "fixture prompt")
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result.status).To(Equal(http.StatusOK), result.body)
 	Expect(result.content).To(Equal(mockedReply))
-	resp, payload := conformancePostJSON(client, baseURL, "/v1/chat/completions", map[string]any{
+	resp, payload = conformancePostJSON(client, baseURL, "/v1/chat/completions", map[string]any{
 		"model": model, "messages": []map[string]string{{"role": "user", "content": "fixture stream"}}, "stream": true,
 	})
 	expectConformanceStatus(resp, payload)
@@ -256,11 +272,12 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 	inlineImage := fixtures.inlineImage
 	imageDataURI := fixtures.imageDataURI
 	resp, payload = conformancePostJSON(client, baseURL, "/v1/images/generations", map[string]any{
-		"model": model, "prompt": "fixture", "size": "1x1", "response_format": "b64_json", "file": inlineImage,
+		"model": model, "prompt": "fixture", "negative_prompt": "blurry", "size": "1x1", "response_format": "b64_json", "file": inlineImage,
 	})
 	expectConformanceStatus(resp, payload)
 	imageArtifact := conformanceB64Item(payload)
-	Expect(imageArtifact).To(Equal(conformanceArtifact(conformancePNG, "src="+conformanceDigest(conformancePNG))))
+	Expect(imageArtifact).To(Equal(conformanceArtifact(conformancePNG,
+		"negative_prompt="+conformanceInlineDigest("blurry"), "src="+conformanceDigest(conformancePNG))))
 	resp, payload = conformancePostJSON(client, baseURL, "/video", map[string]any{
 		"model": model, "prompt": "fixture", "response_format": "b64_json", "start_image": inlineImage,
 	})
@@ -273,6 +290,13 @@ func runPublicBackendConformance(client *http.Client, baseURL, model string, fix
 	expectConformanceStatus(resp, payload)
 	assetArtifact := conformanceB64Item(payload)
 	Expect(assetArtifact).To(Equal(conformanceArtifact(conformanceGLB, "src="+conformanceDigest(conformancePNG))))
+	resp, payload = conformancePostJSON(client, baseURL, "/3d/animate", map[string]any{
+		"model": animationModel, "inputs": map[string]any{"prompt": map[string]string{"type": "text", "data": "walk forward"}},
+		"params": map[string]string{"frames": "60"}, "response_format": "b64_json",
+	})
+	expectConformanceStatus(resp, payload)
+	animationArtifact := conformanceB64Item(payload)
+	Expect(animationArtifact).To(Equal(conformanceArtifact(conformanceGLB, "prompt="+conformanceInlineDigest("walk forward"))))
 
 	By("staging a frontend-side GLB through the canonical remesh route")
 	resp, payload = conformancePostMultipartNamed(client, baseURL, "/3d/remesh", "mesh", "frontend-only.glb", map[string]string{
@@ -643,6 +667,10 @@ func conformanceDigest(data []byte) string {
 	return fmt.Sprintf("sha256:%x", sha256.Sum256(data))
 }
 
+func conformanceInlineDigest(value string) string {
+	return fmt.Sprintf("inline-sha256:%x", sha256.Sum256([]byte(value)))
+}
+
 func conformanceArtifact(base []byte, markers ...string) []byte {
 	result := append([]byte(nil), base...)
 	if len(markers) != 0 {
@@ -889,6 +917,20 @@ func runFileStagingConformance(c *cluster.Cluster, db *gorm.DB, owners *tunnelOw
 	Expect(err).ToNot(HaveOccurred())
 	Expect(generatedAsset).To(Equal(conformanceArtifact(conformanceGLB, "src="+conformanceDigest(image))))
 
+	animationOut := filepath.Join(fixtureDir, "outputs/animated.glb")
+	animationResult, err := backend.Animate3D(ctx, &pb.Animate3DRequest{
+		Inputs: map[string]*pb.AnimationInput{
+			"mesh":   {Type: "mesh", Data: imagePath},
+			"prompt": {Type: "text", Data: "walk forward"},
+		},
+		Dst: animationOut, Params: map[string]string{"extended-protocol": "preserved"},
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(animationResult.Success).To(BeTrue(), animationResult.Message)
+	Expect(animationResult.Message).To(ContainSubstring("mesh=" + conformanceDigest(image)))
+	Expect(os.ReadFile(animationOut)).To(Equal(conformanceArtifact(conformanceGLB,
+		"mesh="+conformanceDigest(image), "prompt="+conformanceInlineDigest("walk forward"))))
+
 	By("staging TTS model, voice and every multiple-reference input")
 	references, err := json.Marshal([]map[string]string{{"audio": refAPath, "text": "a"}, {"audio": refBPath, "text": "b"}})
 	Expect(err).ToNot(HaveOccurred())
@@ -987,9 +1029,11 @@ func requestIDForTest() string {
 var _ = Describe("Binary backend feature conformance", Label("Distributed"), Label("Cluster"), Label("BinaryConformance"), func() {
 	It("binary backend feature conformance through the tunnel owner and a peer relay", func() {
 		const model = "conformance"
+		const animationModel = "conformance-animation"
 		fixtures := newConformanceFixtures()
 		c, dsn := startClusterOnFreshDB(2, 2, withMockModel(model), func(o *cluster.Options) {
 			o.ConformanceStaging = true
+			o.MockBackendAliases = append(o.MockBackendAliases, "kimodocpp")
 			o.SpreadWorkerRegistrations = true
 			o.Models[model+".onnx"] = tinyArtifact()
 			o.Models[model+".onnx.json"] = `{"companion":true}`
@@ -998,6 +1042,7 @@ var _ = Describe("Binary backend feature conformance", Label("Distributed"), Lab
 			o.Models[model+"-mmproj.gguf"] = "frontend-only-mmproj"
 			o.Models[model+".yaml"] = fmt.Sprintf(`name: %s
 backend: mock-backend
+context_size: 4096
 parameters:
   model: %s.onnx
 draft_model: %s-draft.gguf
@@ -1029,6 +1074,13 @@ pii_detection:
   min_score: 0.5
   default_action: mask
 `, model, model, model, model, model)
+			o.Models[animationModel+".yaml"] = fmt.Sprintf(`name: %s
+backend: kimodocpp
+parameters:
+  model: %s.bin
+known_usecases:
+  - 3d_animation
+`, animationModel, model)
 		})
 		client := inferenceClient(c)
 		probe := newRosterProbe(c, client, 0)
@@ -1058,18 +1110,18 @@ pii_detection:
 		}, instanceRosterTimeout, instanceRosterPoll).Should(BeElementOf(0, 1), owners.describe)
 		relayFrontend := 1 - ownerFrontend
 		By("pinning the explicit owner-public and relay-protocol staging topology")
-		Expect(fileStagingTopologyCoverage).To(HaveLen(24))
+		Expect(fileStagingTopologyCoverage).To(HaveLen(25))
 		for _, coverage := range fileStagingTopologyCoverage {
 			Expect(coverage.method).ToNot(BeEmpty())
 			Expect(coverage.ownerPublicPath).ToNot(BeEmpty(), coverage.method)
 			Expect(coverage.relayProtocolPath).To(Equal("Backend/"+coverage.method), coverage.method)
 		}
 
-		runPublicBackendConformance(client, c.FrontendURL(ownerFrontend), model, fixtures)
+		runPublicBackendConformance(client, c.FrontendURL(ownerFrontend), model, animationModel, fixtures)
 		servedBy(c, client, ownerFrontend, model, workerID, probe.idOf(c.WorkerName(1)))
 		Expect(owners.ownerIndexOf(c, 2, workerID)).To(Equal(ownerFrontend))
 
-		runPublicBackendConformance(client, c.FrontendURL(relayFrontend), model, fixtures)
+		runPublicBackendConformance(client, c.FrontendURL(relayFrontend), model, animationModel, fixtures)
 		servedBy(c, client, relayFrontend, model, workerID, probe.idOf(c.WorkerName(1)))
 		Expect(owners.ownerIndexOf(c, 2, workerID)).To(Equal(ownerFrontend))
 
