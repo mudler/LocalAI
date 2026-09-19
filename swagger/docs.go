@@ -7184,6 +7184,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "negative_prompt": {
+                    "description": "NegativePrompt for image generation (matches Stable Diffusion WebUI /\nvLLM-Omni conventions). Combined, comma-separated, with any \"|\"-suffixed\nnegative tags in Prompt.",
                     "type": "string"
                 },
                 "negative_prompt_scale": {

@@ -2162,6 +2162,10 @@ definitions:
       n_keep:
         type: integer
       negative_prompt:
+        description: |-
+          NegativePrompt for image generation (matches Stable Diffusion WebUI /
+          vLLM-Omni conventions). Combined, comma-separated, with any "|"-suffixed
+          negative tags in Prompt.
         type: string
       negative_prompt_scale:
         type: number
