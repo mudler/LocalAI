@@ -855,6 +855,11 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		}
 		contentLength = resp.ContentLength + startPos
 	}
+	// Wrap with a rate limiter if one is attached to the context. The limiter
+	// is shared and dynamically adjustable, so reads honour the latest rate.
+	if rl := RateLimiterFromContext(ctx); rl != nil {
+		source = newRateLimitedReader(source, rl, ctx)
+	}
 	defer source.Close()
 
 	progress := &progressWriter{
