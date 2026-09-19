@@ -13,7 +13,7 @@ import './library.css'
 import SearchableModelSelect from '../components/SearchableModelSelect'
 // eslint-disable-next-line no-unused-vars
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
-import { CAP_CHAT, CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
+import { CAP_CHAT, CAP_TRANSCRIPT, CAP_TTS, CAP_EMBEDDINGS, CAP_RERANK } from '../utils/capabilities'
 // eslint-disable-next-line no-unused-vars
 import Toggle from '../components/Toggle'
 // eslint-disable-next-line no-unused-vars
@@ -128,14 +128,15 @@ function FormField({ field, value, onChange, disabled }) {
         </SettingRow>
       )
     default: {
-      const isModelField = /^(model|multimodal_model|transcription_model|tts_model|embedding_model)$/.test(field.name)
+      const isModelField = /^(model|multimodal_model|transcription_model|tts_model|embedding_model|reranker_model)$/.test(field.name)
       if (isModelField && !disabled && !field.disabled) {
         const capabilityMap = {
           model: CAP_CHAT,
           multimodal_model: CAP_CHAT,
           transcription_model: CAP_TRANSCRIPT,
           tts_model: CAP_TTS,
-          embedding_model: undefined,
+          embedding_model: CAP_EMBEDDINGS,
+          reranker_model: CAP_RERANK,
         }
         return (
           <SettingRow label={label} description={field.helpText}>
