@@ -318,7 +318,7 @@ func (v *VllmCpp) TokenClassify(_ context.Context, in *pb.TokenClassifyRequest) 
 
 	entities := make([]*pb.TokenClassifyEntity, 0, out.nEntities)
 	if out.nEntities > 0 && out.entities != 0 {
-		// #nosec:govet // C-owned array, valid for this call before vllmNerResultFree
+		//nolint:govet // C-owned array, valid for this call before vllmNerResultFree
 		cents := unsafe.Slice((*cNerEntity)(unsafe.Pointer(out.entities)), int(out.nEntities)) // #nosec G103 -- C-owned, copied out immediately
 		for i := range cents {
 			e := &cents[i]
