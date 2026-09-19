@@ -13,7 +13,7 @@ Copyright (c) 2024 Xbozon
 
 */
 
-// calculateRMS16 calculates the root mean square of the audio buffer for int16 samples.
+// CalculateRMS16 calculates the root mean square of the audio buffer for int16 samples.
 func CalculateRMS16(buffer []int16) float64 {
 	var sumSquares float64
 	for _, sample := range buffer {

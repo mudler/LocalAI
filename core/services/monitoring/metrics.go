@@ -25,7 +25,7 @@ func (m *LocalAIMetricsService) ObserveAPICall(method string, path string, durat
 	m.ApiTimeMetric.Record(context.Background(), duration, opts)
 }
 
-// setupOTelSDK bootstraps the OpenTelemetry pipeline.
+// NewLocalAIMetricsService bootstraps the OpenTelemetry metrics pipeline.
 // If it does not return an error, make sure to call shutdown for proper cleanup.
 func NewLocalAIMetricsService() (*LocalAIMetricsService, error) {
 	exporter, err := prometheus.New()
@@ -56,7 +56,7 @@ func NewLocalAIMetricsService() (*LocalAIMetricsService, error) {
 
 func (lams LocalAIMetricsService) Shutdown() error {
 	// TODO: Not sure how to actually do this:
-	//// setupOTelSDK bootstraps the OpenTelemetry pipeline.
+	//// NewLocalAIMetricsService bootstraps the OpenTelemetry metrics pipeline.
 	//// If it does not return an error, make sure to call shutdown for proper cleanup.
 
 	xlog.Warn("LocalAIMetricsService Shutdown called, but OTelSDK proper shutdown not yet implemented?")
