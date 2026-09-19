@@ -71,6 +71,7 @@ type downloadOptions struct {
 	verifier         ImageVerifier
 	bearerToken      string
 	transferProgress TransferProgressSink
+	stagingDir       string
 }
 
 // DownloadOption configures DownloadFileWithContext / DownloadFile.
@@ -91,6 +92,10 @@ func WithImageVerifier(v ImageVerifier) DownloadOption {
 // The token is stripped if a request redirects to a different origin.
 func WithBearerToken(token string) DownloadOption {
 	return func(o *downloadOptions) { o.bearerToken = token }
+}
+
+func WithStagingDir(dir string) DownloadOption {
+	return func(o *downloadOptions) { o.stagingDir = dir }
 }
 
 // WithTransferProgress attaches a sink for raw HTTP download byte progress.
@@ -627,7 +632,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 				return fmt.Errorf("failed to open tarball: %s", err.Error())
 			}
 
-			return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
+			return oci.ExtractOCIImage(ctx, img, url, filePath, dopts.stagingDir, downloadStatus)
 		}
 
 		url = URI(url).OCIReference()
@@ -653,7 +658,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			xlog.Info("Image signature verified", "ref", pinned)
 		}
 
-		return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
+		return oci.ExtractOCIImage(ctx, img, url, filePath, dopts.stagingDir, downloadStatus)
 	}
 
 	// Check for cancellation before starting

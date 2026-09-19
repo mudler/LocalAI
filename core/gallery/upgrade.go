@@ -283,6 +283,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	if err != nil {
 		return fmt.Errorf("upgrade %q: %w", backendName, err)
 	}
+	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
 
 	backendPath := filepath.Join(systemState.Backend.BackendsPath, backendName)
 	tmpPath := backendPath + ".upgrade-tmp"
