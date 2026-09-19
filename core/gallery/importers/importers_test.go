@@ -302,7 +302,7 @@ var _ = Describe("DiscoverModelConfig", func() {
 				names = append(names, e.Name)
 				modalities = append(modalities, e.Modality)
 			}
-			Expect(names).To(ContainElements("ik-llama-cpp", "turboquant"))
+			Expect(names).To(ContainElements("ik-llama-cpp", "turboquant", "cachyllama"))
 			for _, m := range modalities {
 				Expect(m).To(Equal("text"))
 			}
