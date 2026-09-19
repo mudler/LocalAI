@@ -96,7 +96,10 @@ type AgentPoolService struct {
 	outputsDir         string
 	apiURL             string // Resolved API URL for agent execution
 	apiKey             string // Resolved API key for agent execution
-	mu                 sync.Mutex
+	// ragFactory is the unwrapped in-process RAG factory used to probe whether a
+	// real RAG DB can be created (create/update validation). Nil in distributed mode.
+	ragFactory func(collectionName string) (agent.RAGDB, state.KBCompactionClient, bool)
+	mu         sync.Mutex
 }
 
 // AgentEventBridge is the interface for event publishing needed by AgentPoolService.
@@ -341,9 +344,11 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 	s.collectionsBackend = collectionsBackend
 
 	embedded := collections.RAGProviderFromState(collectionsState)
-	pool.SetRAGProvider(func(collectionName, _, _ string) (agent.RAGDB, state.KBCompactionClient, bool) {
-		return embedded(collectionName)
-	})
+	s.ragFactory = embedded
+	// Always return a non-nil RAGDB when LocalAGI asks for one. LocalAGI only
+	// wires WithRAGDB when enable_kb is set, but saveCurrentConversation still
+	// assumes ragdb is non-nil whenever long_term_memory is on (LocalAI#11975).
+	pool.SetRAGProvider(wrapRAGProvider(embedded))
 
 	// Build config metadata for UI
 	s.localAGI.configMeta = state.NewAgentConfigMeta(
@@ -352,6 +357,10 @@ func (s *AgentPoolService) startLocalAGI(_ context.Context, cfg config.AgentPool
 		agiServices.DynamicPromptsConfigMeta(cfg.CustomActionsDir),
 		agiServices.FiltersConfigMeta(),
 	)
+
+	// Persisted agents may have long_term_memory without enable_kb; force the
+	// wiring LocalAGI expects before StartAll so the first chat cannot SIGSEGV.
+	normalizeExistingLongTermMemoryAgents(pool)
 
 	// Start all agents
 	if err := pool.StartAll(); err != nil {
@@ -910,12 +919,19 @@ func (s *AgentPoolService) CreateAgentForUser(userID string, config *state.Agent
 		xlog.Info("Auto-generated API key for agent", "agent", config.Name, "user", userID)
 	}
 
+	// long_term_memory without a wired RAG DB crashes LocalAGI on save
+	// (nil ragdb.Store). Normalize enable_kb and reject bad configs early.
+	if err := s.prepareAgentMemoryConfig(userID, config); err != nil {
+		return err
+	}
+
 	if err := s.configBackend.SaveConfig(userID, config); err != nil {
 		return err
 	}
 
-	// Auto-create collection when knowledge base or long-term memory is enabled
-	if config.EnableKnowledgeBase || config.LongTermMemory {
+	// Auto-create collection when knowledge base is enabled without long-term
+	// memory. LTM path already ensured the collection inside prepareAgentMemoryConfig.
+	if config.EnableKnowledgeBase && !wantsLongTermMemory(config) {
 		if err := s.ensureCollectionForUser(userID, config.Name); err != nil {
 			xlog.Warn("Failed to auto-create collection for agent", "agent", config.Name, "error", err)
 		}
@@ -946,12 +962,15 @@ func (s *AgentPoolService) UpdateAgentForUser(userID, name string, config *state
 		config.APIKey = plaintext
 	}
 
+	if err := s.prepareAgentMemoryConfig(userID, config); err != nil {
+		return err
+	}
+
 	if err := s.configBackend.UpdateConfig(userID, name, config); err != nil {
 		return err
 	}
 
-	// Auto-create collection when knowledge base or long-term memory is enabled
-	if config.EnableKnowledgeBase || config.LongTermMemory {
+	if config.EnableKnowledgeBase && !wantsLongTermMemory(config) {
 		if err := s.ensureCollectionForUser(userID, config.Name); err != nil {
 			xlog.Warn("Failed to auto-create collection for agent", "agent", config.Name, "error", err)
 		}
