@@ -1,6 +1,8 @@
---extra-index-url https://download.pytorch.org/whl/rocm7.0
-torch==2.10.0+rocm7.0
-torchaudio==2.10.0+rocm7.0
+# torch + torchaudio are installed separately from AMD's multi-arch ROCm 7.14
+# index in install.sh (gfx1151 needs torch built against ROCm 7.13+; the
+# community whl/rocm7.0 wheel does not enumerate Strix Halo). uv aborts on that
+# index's 403-for-missing-pkg, so torch is pulled there; everything below resolves
+# from PyPI.
 transformers
 accelerate
 kokoro
