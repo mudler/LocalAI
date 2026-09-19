@@ -160,6 +160,23 @@ forward, which is the required contract for pooling models in vllm.cpp. A
 device-resident forward is tracked as a performance optimization, not a
 correctness gap.
 
+### SystemOne structured-extraction API
+
+The `vllm-cpp` backend also exposes kev-compatible SystemOne endpoints that
+turn zero-shot NER into structured question answering. These mirror the API
+from the [kev](https://github.com/jaredpalmer/kev) project:
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/v1/systemone` | POST | Answer all questions in one NER pass |
+| `/v1/systemone/permute` | POST | Re-run one choice question under n_perm option orders |
+| `/v1/systemone/separate` | POST | Answer each question in its own NER pass (N passes) |
+
+Each question has a `type` of `noul` (binary entity presence), `choice` (pick
+one option), or `score` (pick one level). The `model` field in the request body
+selects the NER model. Labels are derived from the question definition, so no
+`ner_labels` configuration is needed for these endpoints.
+
 ## Beyond text generation
 
 The `vllm-cpp` backend also serves MiniMax-H3, which generates video and audio

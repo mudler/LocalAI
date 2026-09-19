@@ -491,6 +491,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// mode by attributing requests to the synthetic "local" user.
 	routes.RegisterUsageRoutes(e, application)
 	routes.RegisterPIIRoutes(e, application)
+	routes.RegisterSystemOneRoutes(e, application)
 	routes.RegisterMiddlewareRoutes(e, application)
 
 	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
