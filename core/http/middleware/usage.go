@@ -129,6 +129,10 @@ func UsageMiddleware(recorder *billing.Recorder, fallbackUser *auth.User) echo.M
 				CorrelationID:          correlationIDFromContext(c),
 			}
 
+			if data, ok := c.Get(responseMetadataKey).(string); ok {
+				record.Metadata = data
+			}
+
 			if key := auth.GetAPIKey(c); key != nil {
 				id := key.ID
 				record.APIKeyID = &id

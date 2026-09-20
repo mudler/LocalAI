@@ -6,6 +6,12 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
+// AnimationMetadataModel optionally reports JSON metadata without changing the legacy
+// animation interface implemented by other backends.
+type AnimationMetadataModel interface {
+	Animate3DWithMetadata(*pb.Animate3DRequest) ([]byte, error)
+}
+
 type AIModel interface {
 	Busy() bool
 	Lock()

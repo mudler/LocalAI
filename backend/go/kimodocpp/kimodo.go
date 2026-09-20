@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"math"
@@ -16,6 +17,7 @@ import (
 	"unsafe"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
+	"github.com/mudler/LocalAI/pkg/grpc/metadata"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 )
@@ -31,26 +33,30 @@ type generationOptions struct {
 }
 
 var (
-	nativeABI         func() int32
-	nativeLoad        func(string, string, string, uintptr, *byte, int32) uintptr
-	nativeFree        func(uintptr)
-	nativeGenerate    func(uintptr, string, *generationOptions, *byte, int32) uintptr
-	nativeMotionFree  func(uintptr)
-	nativeFrames      func(uintptr) int32
-	nativeJoints      func(uintptr) int32
-	nativeRotations   func(uintptr) *float32
-	nativeRoots       func(uintptr) *float32
-	nativeConfigure   func(string, int32, int32) int32
-	nativeJointName   func(int32, int32) string
-	nativeJointParent func(int32, int32) int32
-	nativeJointOffset func(int32, int32) *float32
+	nativeABI           func() int32
+	nativeLoad          func(string, string, string, uintptr, *byte, int32) uintptr
+	nativeFree          func(uintptr)
+	nativeGenerate      func(uintptr, string, *generationOptions, *byte, int32) uintptr
+	nativeMotionFree    func(uintptr)
+	nativeFrames        func(uintptr) int32
+	nativeJoints        func(uintptr) int32
+	nativeRotations     func(uintptr) *float32
+	nativeRoots         func(uintptr) *float32
+	nativeConfigure     func(string, int32, int32) int32
+	nativeJointName     func(int32, int32) string
+	nativeJointParent   func(int32, int32) int32
+	nativeJointOffset   func(int32, int32) *float32
+	nativeTokenizerLoad func(string, *byte, int32) uintptr
+	nativeTokenizerFree func(uintptr)
+	nativePromptTokens  func(uintptr, string) int32
 )
 
 type Kimodo struct {
 	base.Base
-	mu       sync.Mutex
-	model    uintptr
-	defaults map[string]string
+	mu        sync.Mutex
+	model     uintptr
+	tokenizer uintptr
+	defaults  map[string]string
 }
 
 func parseGeneration(params map[string]string) (generationOptions, error) {
@@ -152,9 +158,18 @@ func (k *Kimodo) Load(options *pb.ModelOptions) error {
 	if loaded == 0 {
 		return fmt.Errorf("loading kimodo: %s", nativeError(errorBuffer))
 	}
+	tokenizer := nativeTokenizerLoad(textBundle, &errorBuffer[0], int32(len(errorBuffer)))
+	if tokenizer == 0 {
+		nativeFree(loaded)
+		return fmt.Errorf("loading kimodo tokenizer: %s", nativeError(errorBuffer))
+	}
 	if k.model != 0 {
 		nativeFree(k.model)
 	}
+	if k.tokenizer != 0 {
+		nativeTokenizerFree(k.tokenizer)
+	}
+	k.tokenizer = tokenizer
 	k.model, k.defaults = loaded, defaults
 	xlog.Info("Kimodo loaded", "device", device, "threads", threads, "text_layer_chunk", chunk)
 	return nil
@@ -174,23 +189,32 @@ func (k *Kimodo) Free() error {
 		nativeFree(k.model)
 		k.model = 0
 	}
+	if k.tokenizer != 0 {
+		nativeTokenizerFree(k.tokenizer)
+		k.tokenizer = 0
+	}
 	return nil
 }
 
 func (k *Kimodo) Animate3D(request *pb.Animate3DRequest) error {
+	_, err := k.Animate3DWithMetadata(request)
+	return err
+}
+
+func (k *Kimodo) Animate3DWithMetadata(request *pb.Animate3DRequest) ([]byte, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
 	if k.model == 0 {
-		return fmt.Errorf("kimodo model is not loaded")
+		return nil, fmt.Errorf("kimodo model is not loaded")
 	}
 	prompt := request.Inputs["prompt"]
 	if len(request.Inputs) != 1 || prompt == nil || prompt.Type != "text" ||
 		strings.TrimSpace(prompt.Data) == "" || len(prompt.Data) > 4096 ||
 		!utf8.ValidString(prompt.Data) || strings.ContainsRune(prompt.Data, 0) {
-		return fmt.Errorf("kimodo requires one UTF-8 text prompt of 1..4096 bytes without NUL characters")
+		return nil, fmt.Errorf("kimodo requires one UTF-8 text prompt of 1..4096 bytes without NUL characters")
 	}
 	if request.Dst == "" {
-		return fmt.Errorf("animation destination is required")
+		return nil, fmt.Errorf("animation destination is required")
 	}
 	params := maps.Clone(k.defaults)
 	if params == nil {
@@ -199,29 +223,37 @@ func (k *Kimodo) Animate3D(request *pb.Animate3DRequest) error {
 	maps.Copy(params, request.Params)
 	options, err := parseGeneration(params)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	promptTokens := nativePromptTokens(k.tokenizer, prompt.Data)
+	if promptTokens < 2 || promptTokens > 512 {
+		return nil, fmt.Errorf("cannot count kimodo prompt tokens (expected 1..511 tokens excluding BOS)")
 	}
 	errorBuffer := make([]byte, 1024)
 	motion := nativeGenerate(k.model, prompt.Data, &options, &errorBuffer[0], int32(len(errorBuffer)))
 	if motion == 0 {
-		return fmt.Errorf("generating kimodo motion: %s", nativeError(errorBuffer))
+		return nil, fmt.Errorf("generating kimodo motion: %s", nativeError(errorBuffer))
 	}
 	defer nativeMotionFree(motion)
 	frames, joints := nativeFrames(motion), nativeJoints(motion)
 	if frames != int32(options.Frames) || (joints != 22 && joints != 30 && joints != 34) {
-		return fmt.Errorf("unexpected kimodo motion dimensions: %d frames, %d joints", frames, joints)
+		return nil, fmt.Errorf("unexpected kimodo motion dimensions: %d frames, %d joints", frames, joints)
 	}
 	roots, rotations := nativeRoots(motion), nativeRotations(motion)
 	if roots == nil || rotations == nil {
-		return fmt.Errorf("kimodo returned empty motion buffers")
+		return nil, fmt.Errorf("kimodo returned empty motion buffers")
 	}
 	skeleton := make([]animationJoint, joints)
 	for joint := range joints {
 		offset := nativeJointOffset(joints, joint)
 		if offset == nil {
-			return fmt.Errorf("missing skeleton joint %d", joint)
+			return nil, fmt.Errorf("missing skeleton joint %d", joint)
 		}
 		skeleton[joint] = animationJoint{Name: nativeJointName(joints, joint), Parent: int(nativeJointParent(joints, joint)), Offset: [3]float32(unsafe.Slice(offset, 3))}
 	}
-	return writeAnimationGLB(request.Dst, unsafe.Slice(roots, int(frames)*3), unsafe.Slice(rotations, int(frames*joints)*4), skeleton)
+	if err := writeAnimationGLB(request.Dst, unsafe.Slice(roots, int(frames)*3), unsafe.Slice(rotations, int(frames*joints)*4), skeleton); err != nil {
+		return nil, err
+	}
+	details, _ := json.Marshal(map[string]int32{"output_frames": frames, "sampling_steps": int32(options.Steps)})
+	return metadata.EncodeUsage(metadata.Usage{InputUnits: int(promptTokens), OutputUnits: int(frames) * int(options.Steps), AccountingRule: "frame_steps_v1", Details: details})
 }

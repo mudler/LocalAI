@@ -4,12 +4,14 @@ package main
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"testing"
 	"unsafe"
 
+	"github.com/mudler/LocalAI/pkg/grpc/metadata"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,6 +55,10 @@ var _ = Describe("text encoder loading", func() {
 	var textPath string
 	BeforeEach(func() {
 		configure, load, free := nativeConfigure, nativeLoad, nativeFree
+		loadTokenizer, freeTokenizer := nativeTokenizerLoad, nativeTokenizerFree
+		DeferCleanup(func() { nativeTokenizerLoad, nativeTokenizerFree = loadTokenizer, freeTokenizer })
+		nativeTokenizerLoad = func(string, *byte, int32) uintptr { return 3 }
+		nativeTokenizerFree = func(uintptr) {}
 		DeferCleanup(func() { nativeConfigure, nativeLoad, nativeFree = configure, load, free })
 		chunk, textPath = 0, ""
 		nativeConfigure = func(_ string, threads, layers int32) int32 {
@@ -74,6 +80,31 @@ var _ = Describe("text encoder loading", func() {
 		Expect(chunk).To(Equal(int32(32)))
 		Expect(textPath).To(Equal(filepath.Join("/models", text)))
 	}, Entry("Q8 monolith", "kimodo/text/Llama-3-Kimodo-Q8_0.gguf"), Entry("low-bit monolith", "kimodo/text/Llama-3-Kimodo-Q4_K_M.gguf"), Entry("legacy directory", "kimodo/text"))
+	It("preserves the previous session and releases the new model if tokenizer loading fails", func() {
+		backend := &Kimodo{model: 10, tokenizer: 30}
+		var released []uintptr
+		nativeFree = func(handle uintptr) { released = append(released, handle) }
+		nativeTokenizerLoad = func(string, *byte, int32) uintptr { return 0 }
+		Expect(backend.Load(&pb.ModelOptions{ModelFile: "motion.gguf", Threads: 8,
+			Options: []string{"text_bundle:encoder.gguf"}})).To(MatchError(ContainSubstring("loading kimodo tokenizer")))
+		Expect(released).To(Equal([]uintptr{1}))
+		Expect(backend.model).To(Equal(uintptr(10)))
+		Expect(backend.tokenizer).To(Equal(uintptr(30)))
+	})
+	It("releases the old model and tokenizer on reload and frees the new pair only once", func() {
+		backend := &Kimodo{model: 10, tokenizer: 30}
+		var models, tokenizers []uintptr
+		nativeFree = func(handle uintptr) { models = append(models, handle) }
+		nativeTokenizerFree = func(handle uintptr) { tokenizers = append(tokenizers, handle) }
+		Expect(backend.Load(&pb.ModelOptions{ModelFile: "motion.gguf", Threads: 8,
+			Options: []string{"text_bundle:encoder.gguf"}})).To(Succeed())
+		Expect(models).To(Equal([]uintptr{10}))
+		Expect(tokenizers).To(Equal([]uintptr{30}))
+		Expect(backend.Free()).To(Succeed())
+		Expect(backend.Free()).To(Succeed())
+		Expect(models).To(Equal([]uintptr{10, 1}))
+		Expect(tokenizers).To(Equal([]uintptr{30, 3}))
+	})
 	DescribeTable("honors the layer residency option", func(value string, expected int32) {
 		backend := &Kimodo{}
 		DeferCleanup(backend.Free)
@@ -136,6 +167,9 @@ var _ = Describe("skeleton GLB export", func() {
 
 var _ = Describe("native resource lifetime", func() {
 	It("releases the native motion when exporting fails", func() {
+		oldCount := nativePromptTokens
+		DeferCleanup(func() { nativePromptTokens = oldCount })
+		nativePromptTokens = func(uintptr, string) int32 { return 3 }
 		oldGenerate, oldFree := nativeGenerate, nativeMotionFree
 		oldFrames, oldJoints := nativeFrames, nativeJoints
 		DeferCleanup(func() {
@@ -150,6 +184,88 @@ var _ = Describe("native resource lifetime", func() {
 		backend := &Kimodo{model: 1}
 		err := backend.Animate3D(&pb.Animate3DRequest{Dst: "unused.glb", Inputs: map[string]*pb.AnimationInput{"prompt": {Type: "text", Data: "walking"}}})
 		Expect(err).To(MatchError(ContainSubstring("dimensions")))
+		Expect(freed).To(BeTrue())
+	})
+})
+
+var _ = Describe("animation usage", func() {
+	var backend *Kimodo
+	var request *pb.Animate3DRequest
+	var freed bool
+	BeforeEach(func() {
+		count, generate, free := nativePromptTokens, nativeGenerate, nativeMotionFree
+		frames, joints, roots, rotations := nativeFrames, nativeJoints, nativeRoots, nativeRotations
+		name, parent, offset := nativeJointName, nativeJointParent, nativeJointOffset
+		DeferCleanup(func() {
+			nativePromptTokens, nativeGenerate, nativeMotionFree = count, generate, free
+			nativeFrames, nativeJoints, nativeRoots, nativeRotations = frames, joints, roots, rotations
+			nativeJointName, nativeJointParent, nativeJointOffset = name, parent, offset
+		})
+		backend = &Kimodo{model: 1, tokenizer: 3}
+		request = &pb.Animate3DRequest{Dst: filepath.Join(GinkgoT().TempDir(), "clip.glb"),
+			Inputs: map[string]*pb.AnimationInput{"prompt": {Type: "text", Data: "A person walks forward."}}}
+		freed = false
+		var generatedFrames int32
+		nativePromptTokens = func(handle uintptr, text string) int32 {
+			Expect(handle).To(Equal(uintptr(3)))
+			Expect(text).To(Equal(request.Inputs["prompt"].Data))
+			return 7
+		}
+		nativeGenerate = func(_ uintptr, _ string, options *generationOptions, _ *byte, _ int32) uintptr {
+			generatedFrames = int32(options.Frames)
+			return 2
+		}
+		nativeMotionFree = func(handle uintptr) { Expect(handle).To(Equal(uintptr(2))); freed = true }
+		nativeFrames = func(uintptr) int32 { return generatedFrames }
+		nativeJoints = func(uintptr) int32 { return 22 }
+		rootBuffer := make([]float32, 150*3)
+		rotationBuffer := make([]float32, 150*22*4)
+		for i := 3; i < len(rotationBuffer); i += 4 {
+			rotationBuffer[i] = 1
+		}
+		nativeRoots = func(uintptr) *float32 { return &rootBuffer[0] }
+		nativeRotations = func(uintptr) *float32 { return &rotationBuffer[0] }
+		nativeJointName = func(int32, int32) string { return "joint" }
+		nativeJointParent = func(_ int32, joint int32) int32 { return joint - 1 }
+		nativeJointOffset = func(int32, int32) *float32 { return &rootBuffer[0] }
+	})
+	DescribeTable("reports effective frame-steps and actual prompt tokens", func(defaults, params map[string]string, frames, steps int32) {
+		backend.defaults, request.Params = defaults, params
+		data, err := backend.Animate3DWithMetadata(request)
+		Expect(err).NotTo(HaveOccurred())
+		usage, err := metadata.ParseUsage(data)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(usage).NotTo(BeNil())
+		Expect(usage.InputUnits).To(Equal(7))
+		Expect(usage.OutputUnits).To(Equal(int(frames * steps)))
+		Expect(usage.Details).To(MatchJSON(fmt.Sprintf(`{"output_frames":%d,"sampling_steps":%d}`, frames, steps)))
+		Expect(usage.AccountingRule).To(Equal("frame_steps_v1"))
+		Expect(freed).To(BeTrue())
+	}, Entry("reference defaults", nil, nil, int32(150), int32(100)),
+		Entry("model defaults", map[string]string{"frames": "90", "steps": "20"}, nil, int32(90), int32(20)),
+		Entry("request overrides", map[string]string{"frames": "90", "steps": "20"}, map[string]string{"frames": "60", "steps": "1"}, int32(60), int32(1)),
+		Entry("maximum units", nil, map[string]string{"steps": "1000"}, int32(150), int32(1000)))
+	It("does not report usage when tokenization fails", func() {
+		nativePromptTokens = func(uintptr, string) int32 { return -1 }
+		nativeGenerate = func(uintptr, string, *generationOptions, *byte, int32) uintptr {
+			Fail("inference must not run")
+			return 0
+		}
+		data, err := backend.Animate3DWithMetadata(request)
+		Expect(err).To(HaveOccurred())
+		Expect(data).To(BeNil())
+	})
+	It("does not report usage when native generation fails", func() {
+		nativeGenerate = func(uintptr, string, *generationOptions, *byte, int32) uintptr { return 0 }
+		data, err := backend.Animate3DWithMetadata(request)
+		Expect(err).To(HaveOccurred())
+		Expect(data).To(BeNil())
+	})
+	It("does not report usage when GLB export fails", func() {
+		request.Dst = filepath.Join(GinkgoT().TempDir(), "missing", "clip.glb")
+		data, err := backend.Animate3DWithMetadata(request)
+		Expect(err).To(HaveOccurred())
+		Expect(data).To(BeNil())
 		Expect(freed).To(BeTrue())
 	})
 })

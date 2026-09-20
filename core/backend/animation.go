@@ -12,15 +12,15 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
-func Model3DAnimation(ctx context.Context, request *proto.Animate3DRequest, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (err error) {
+func Model3DAnimation(ctx context.Context, request *proto.Animate3DRequest, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (responseMetadata []byte, err error) {
 	inferenceModel, err := loader.Load(ModelOptions(modelConfig, appConfig)...)
 	if err != nil {
 		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
-		return err
+		return nil, err
 	}
 	release, err := AcquireGlobalBackendSlot()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer release()
 	if appConfig.EnableTracing {
@@ -40,10 +40,10 @@ func Model3DAnimation(ctx context.Context, request *proto.Animate3DRequest, load
 	request.ModelIdentity = modelConfig.Model
 	result, err := inferenceModel.Animate3D(ctx, request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if result == nil || !result.Success {
-		return fmt.Errorf("animation backend failed: %s", result.GetMessage())
+		return nil, fmt.Errorf("animation backend failed: %s", result.GetMessage())
 	}
-	return nil
+	return result.Metadata, nil
 }

@@ -3,6 +3,7 @@ package localai
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -20,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/xlog"
 )
 
 func validateAnimationRequest(input *schema.Model3DAnimationRequest, cfg *config.ModelConfig) error {
@@ -128,7 +130,8 @@ func Model3DAnimationEndpoint(ml *model.ModelLoader, appConfig *config.Applicati
 			return err
 		}
 		request.Dst = file.Name()
-		if err := backend.Model3DAnimation(c.Request().Context(), request, ml, *cfg, appConfig); err != nil {
+		responseMetadata, err := backend.Model3DAnimation(c.Request().Context(), request, ml, *cfg, appConfig)
+		if err != nil {
 			return mapBackendError(err)
 		}
 		item := schema.Item{}
@@ -145,6 +148,13 @@ func Model3DAnimationEndpoint(ml *model.ModelLoader, appConfig *config.Applicati
 			}
 			preserve = true
 		}
-		return c.JSON(http.StatusOK, schema.OpenAIResponse{ID: uuid.NewString(), Created: int(time.Now().Unix()), Data: []schema.Item{item}})
+		response := schema.OpenAIResponse{ID: uuid.NewString(), Model: input.Model, Created: int(time.Now().Unix()), Data: []schema.Item{item}}
+		metadataErr := middleware.StampResponseMetadata(c, input.Model, responseMetadata)
+		if metadataErr != nil {
+			xlog.Warn("ignoring invalid animation response metadata", "model", input.Model, "error", metadataErr)
+		} else {
+			response.Metadata = json.RawMessage(responseMetadata)
+		}
+		return c.JSON(http.StatusOK, response)
 	}
 }
