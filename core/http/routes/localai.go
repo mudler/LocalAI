@@ -231,6 +231,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	model3dHandler := localai.Model3DEndpoint(cl, ml, appConfig)
 	router.POST("/3d/animate",
 		localai.Model3DAnimationEndpoint(ml, appConfig),
+		middleware.UsageMiddleware(app.StatsRecorder(), app.FallbackUser()),
 		echomiddleware.BodyLimit("45M"),
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D_ANIMATION)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.Model3DAnimationRequest) }))

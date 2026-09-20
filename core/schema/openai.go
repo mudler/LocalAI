@@ -98,7 +98,8 @@ type OpenAIResponse struct {
 	// `"usage":{"prompt_tokens":0,...}` on every chunk and break
 	// OpenAI-SDK consumers that filter on a truthy `result.usage`
 	// (continuedev/continue, Kilo Code, Roo Code, etc.).
-	Usage *OpenAIUsage `json:"usage,omitempty"`
+	Usage    *OpenAIUsage    `json:"usage,omitempty"`
+	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
 
 // StreamOptions mirrors OpenAI's `stream_options` request field. The only

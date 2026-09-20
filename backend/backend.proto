@@ -539,6 +539,9 @@ message ProxyOptions {
 message Result {
   string message = 1;
   bool success = 2;
+  // JSON object containing arbitrary backend response metadata. Application
+  // conventions (such as metadata.usage) are independent of this schema.
+  bytes metadata = 4;
 }
 
 // EmbeddingLayout describes whether embeddings contains one final vector or

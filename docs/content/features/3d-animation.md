@@ -124,3 +124,90 @@ Kimodo accepts one prompt with 60–150 frames at 30 FPS. The reference defaults
 are 150 frames, 100 sampling steps, and text guidance 2. Parameters are strings;
 unsupported inputs and parameters are rejected. Multi-prompt transitions and
 mesh retargeting are not currently exposed by this adapter.
+
+## Usage accounting
+
+Kimodo reports one set of usage measurements through **generic backend metadata**.
+The gRPC `Result` has a `metadata` bytes field containing a JSON object; there is
+no separate gRPC usage field or model-specific usage message.
+
+### Backend metadata
+
+The JSON stored in `Result.metadata` looks like this:
+
+```json
+{
+  "usage": {
+    "input_units": 32,
+    "output_units": 15000,
+    "accounting_rule": "frame_steps_v1",
+    "details": {
+      "output_frames": 150,
+      "sampling_steps": 100
+    }
+  }
+}
+```
+
+`usage` is an application convention **inside** the generic metadata object.
+Other metadata keys and model-specific `details` can be added without changing
+the gRPC definitions or database schema.
+
+For kimodo, input units are the tokens produced by its text encoder's tokenizer,
+including the beginning-of-sequence (BOS) token. Output units are actual generated
+frames multiplied by effective sampling steps, after applying model defaults and
+request overrides. In the example, 150 frames × 100 steps = 15,000 output units.
+
+### HTTP response and recorded usage
+
+For `POST /3d/animate`, LocalAI returns the backend object under `metadata`.
+Usage appears only at `metadata.usage`; there is no top-level `usage` summary.
+The following is an excerpt from either a `url` or `b64_json` response:
+
+```json
+{
+  "metadata": {
+    "usage": {
+      "input_units": 32,
+      "output_units": 15000,
+      "accounting_rule": "frame_steps_v1",
+      "details": {
+        "output_frames": 150,
+        "sampling_steps": 100
+      }
+    }
+  }
+}
+```
+
+Internal accounting reads `metadata.usage` directly and records each successful
+request once. The existing token-named database columns store the unit counts:
+
+| Response metadata | Usage record column |
+|---|---|
+| `metadata.usage.input_units` | `PromptTokens` |
+| `metadata.usage.output_units` | `CompletionTokens` |
+| Sum of input and output units | `TotalTokens` |
+
+The record's single `Metadata` column retains the complete backend JSON,
+including the rule and frame/step breakdown. With statistics disabled, response
+metadata is still returned but no usage record is created.
+
+Both unit counts must be present, nonnegative integers whose sum fits a Go `int`.
+Explicit zero counts are valid. If metadata is absent, the response omits
+`metadata`. Metadata without a `usage` member is returned, but creates no usage
+record. Malformed metadata or invalid usage counts cause metadata to be omitted
+and a warning to be logged; the generated asset is still returned. Failed
+generations produce no usage record. Counts are never estimated for backends
+that do not report them.
+
+### Pricing units
+
+Kimodo's output units are **frame-steps**, not text tokens. They approximate
+computational work rather than runtime or hardware cost. A price per million
+output tokens therefore means dollars per million frame-steps for this model:
+
+`cost = (input_units × input_price + output_units × output_price) / 1,000,000`
+
+This describes how to interpret the existing token-based pricing dimensions;
+it does not set a price or charge money automatically.

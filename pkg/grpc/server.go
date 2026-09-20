@@ -188,6 +188,13 @@ func (s *server) Animate3D(ctx context.Context, in *pb.Animate3DRequest) (*pb.Re
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
+	if model, ok := s.llm.(AnimationMetadataModel); ok {
+		metadata, err := model.Animate3DWithMetadata(in)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.Result{Message: "3D animation generated", Success: true, Metadata: metadata}, nil
+	}
 	if err := s.llm.Animate3D(in); err != nil {
 		return nil, err
 	}
