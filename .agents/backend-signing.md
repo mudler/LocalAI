@@ -20,6 +20,12 @@ side (`pkg/oci/cosignverify` plus the gallery YAML).
 - **Consumer:** `pkg/oci/cosignverify` discovers the bundle via the
   referrers API, hands it to `sigstore-go`, and verifies it against the
   policy declared in the gallery YAML (`Gallery.Verification`).
+  A registry without the referrers API (CNCF distribution 3.0.0 has no such
+  route) sends the client to the referrers-tag index instead, and cosign
+  writes that index's `artifactType` from the manifest's *config* media
+  type. The verifier therefore falls back to asking each referrer manifest
+  what it is, rather than trusting the index entry: without that, correctly
+  signed images on such a registry read as unsigned.
 - **Revocation:** Keyless cosign certs are ephemeral (10-minute Fulcio
   validity), so revocation is policy-side, not CA-side. The gallery's
   `verification.not_before` (RFC3339) is the kill-switch — advance it to

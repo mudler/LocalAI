@@ -76,10 +76,61 @@ func bundleFromOCISignature(ref name.Reference, imageDigest v1.Hash, opts []remo
 		}
 		return b, nil
 	}
+
+	// Nothing advertised itself as a bundle, which does not mean nothing is
+	// one. A registry without the referrers API leaves the index to the
+	// signing client, and cosign fills the entry's artifactType from the
+	// manifest's config media type rather than from its artifactType, so a
+	// correctly signed image arrives here looking unsigned. The manifest
+	// itself always carries the truth, so ask it.
+	for i, desc := range manifest.Manifests {
+		if i >= maxReferrersInspected {
+			break
+		}
+		if isSigstoreBundleArtifactType(string(desc.ArtifactType)) {
+			continue // already tried above
+		}
+		if !isBundleManifest(ref, desc, opts) {
+			continue
+		}
+		b, err := fetchBundleFromReferrer(ref, desc, opts)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		return b, nil
+	}
+
 	if lastErr != nil {
 		return nil, fmt.Errorf("cosignverify: no usable Sigstore bundle referrer for %s: %w", digestRef.Name(), lastErr)
 	}
 	return nil, fmt.Errorf("cosignverify: no Sigstore bundle referrer for %s (signed with --new-bundle-format?)", digestRef.Name())
+}
+
+// maxReferrersInspected bounds the second pass. Each step there is a manifest
+// fetch, and the descriptors come from a registry, so an image with many
+// referrers must not turn one verification into an unbounded walk.
+const maxReferrersInspected = 16
+
+// isBundleManifest reports whether a referrer manifest is a Sigstore bundle
+// by its own account, whatever the index entry claimed. Both the manifest's
+// artifactType and its first layer are checked: the layer is what actually
+// holds the bundle, and a manifest can reach a registry with neither field
+// copied onto the index.
+func isBundleManifest(ref name.Reference, desc v1.Descriptor, opts []remote.Option) bool {
+	artRef := ref.Context().Digest(desc.Digest.String())
+	img, err := remote.Image(artRef, opts...)
+	if err != nil {
+		return false
+	}
+	m, err := img.Manifest()
+	if err != nil {
+		return false
+	}
+	if isSigstoreBundleArtifactType(m.ArtifactType) {
+		return true
+	}
+	return len(m.Layers) > 0 && isSigstoreBundleArtifactType(string(m.Layers[0].MediaType))
 }
 
 func fetchBundleFromReferrer(ref name.Reference, desc v1.Descriptor, opts []remote.Option) (*bundle.Bundle, error) {
