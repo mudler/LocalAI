@@ -252,7 +252,8 @@ jobs:
           name: digests${{ inputs.tag-suffix }}--${{ inputs.platform-tag || 'single' }}
           path: /tmp/digests/*
           if-no-files-found: error
-          retention-days: 1
+          # Release matrices and their retries can outlive a one-day artifact.
+          retention-days: 7
 
       - name: Build (PR)
         uses: docker/build-push-action@v7
