@@ -403,6 +403,14 @@ type RouterCorpusClearResult struct {
 	Cleared int    `json:"cleared"`
 }
 
+// ThrottleOperationRequest is the input for throttle_operation. Rate is a
+// human-readable bandwidth string (e.g. "2mb", "500kb") or "0" to remove
+// the limit, matching POST /api/operations/:jobID/throttle?rate=....
+type ThrottleOperationRequest struct {
+	JobID string `json:"job_id" jsonschema:"The operation job ID from get_job_status or the install response."`
+	Rate  string `json:"rate"    jsonschema:"Human-readable rate (e.g. 2mb, 500kb) or 0 to remove the limit."`
+}
+
 // VRAMEstimateRequest is the input for vram_estimate. The output type is
 // pkg/vram.EstimateResult — used directly via the LocalAIClient interface
 // so the LLM sees the same shape (size_bytes/size_display/vram_bytes/

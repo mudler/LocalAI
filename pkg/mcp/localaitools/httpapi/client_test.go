@@ -269,6 +269,29 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(c.DeleteScheduling(ctx, "qwen")).To(Succeed())
 		})
 	})
+
+	Describe("ThrottleOperation", func() {
+		It("POSTs to the throttle route with the rate query", func() {
+			var method, path, query string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				method = r.Method
+				path = r.URL.Path
+				query = r.URL.RawQuery
+				_ = json.NewEncoder(w).Encode(map[string]any{"success": true})
+			}))
+			DeferCleanup(srv.Close)
+
+			Expect(New(srv.URL, "").ThrottleOperation(context.Background(), localaitools.ThrottleOperationRequest{JobID: "job-1", Rate: "2mb"})).To(Succeed())
+			Expect(method).To(Equal(http.MethodPost))
+			Expect(path).To(Equal("/api/operations/job-1/throttle"))
+			Expect(query).To(ContainSubstring("rate=2mb"))
+		})
+
+		It("rejects empty job_id and rate without HTTP", func() {
+			Expect(New("http://example.com", "").ThrottleOperation(context.Background(), localaitools.ThrottleOperationRequest{Rate: "2mb"})).To(MatchError(ContainSubstring("job_id is required")))
+			Expect(New("http://example.com", "").ThrottleOperation(context.Background(), localaitools.ThrottleOperationRequest{JobID: "job-1"})).To(MatchError(ContainSubstring("rate is required")))
+		})
+	})
 })
 
 func schedulingJSONKeys(config *localaitools.ModelSchedulingConfig) map[string]any {

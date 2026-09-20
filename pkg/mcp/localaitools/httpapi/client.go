@@ -565,6 +565,18 @@ func (c *Client) ToggleModelPinned(ctx context.Context, name string, action mode
 	return c.do(ctx, http.MethodPut, routeToggleModelPinned(name, string(action)), nil, nil)
 }
 
+// ---- Operations ----
+
+func (c *Client) ThrottleOperation(ctx context.Context, req localaitools.ThrottleOperationRequest) error {
+	if req.JobID == "" {
+		return errors.New("job_id is required")
+	}
+	if req.Rate == "" {
+		return errors.New("rate is required")
+	}
+	return c.do(ctx, http.MethodPost, routeOperationThrottle(req.JobID, req.Rate), nil, nil)
+}
+
 // ---- Branding ----
 
 // brandingResponse mirrors the JSON shape emitted by GET /api/branding.

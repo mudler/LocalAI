@@ -46,3 +46,4 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `set_node_vram_budget` — Set or clear a federated node's VRAM budget override.
 - `set_scheduling` — Create or update a distributed per-model scheduling config.
 - `delete_scheduling` — Remove a distributed per-model scheduling config.
+- `throttle_operation` — Throttle an active gallery download to a rate (e.g. 2mb) or 0 to remove the limit.

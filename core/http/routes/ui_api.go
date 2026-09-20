@@ -122,47 +122,6 @@ func getDirectorySize(path string) (int64, error) {
 	return totalSize, nil
 }
 
-// parseRateString converts a human-readable bandwidth string (e.g. "2mb",
-// "500kb", "10mb") to bytes per second. Returns <= 0 for unlimited.
-func parseRateString(s string) (int64, error) {
-	s = strings.TrimSpace(strings.ToLower(s))
-	if s == "" || s == "0" || s == "unlimited" || s == "-1" {
-		return 0, nil
-	}
-	var multiplier int64 = 1
-	switch {
-	case strings.HasSuffix(s, "gb"):
-		multiplier = 1 << 30
-		s = strings.TrimSuffix(s, "gb")
-	case strings.HasSuffix(s, "g"):
-		multiplier = 1 << 30
-		s = strings.TrimSuffix(s, "g")
-	case strings.HasSuffix(s, "mb"):
-		multiplier = 1 << 20
-		s = strings.TrimSuffix(s, "mb")
-	case strings.HasSuffix(s, "m"):
-		multiplier = 1 << 20
-		s = strings.TrimSuffix(s, "m")
-	case strings.HasSuffix(s, "kb"):
-		multiplier = 1 << 10
-		s = strings.TrimSuffix(s, "kb")
-	case strings.HasSuffix(s, "k"):
-		multiplier = 1 << 10
-		s = strings.TrimSuffix(s, "k")
-	case strings.HasSuffix(s, "b"):
-		multiplier = 1
-		s = strings.TrimSuffix(s, "b")
-	}
-	val, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("cannot parse %q as a number", s)
-	}
-	if val <= 0 {
-		return 0, nil
-	}
-	return val * multiplier, nil
-}
-
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, applicationInstance *application.Application, adminMiddleware echo.MiddlewareFunc) {
 
@@ -513,38 +472,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 
-	// Throttle (rate-limit) an active download (admin only)
-	// Query param: ?rate=2mb or ?rate=500kb. Use 0 or -1 to remove the limit.
-	// @Summary Throttle an active gallery download to a byte-per-second rate
-	// @Tags operations
-	app.POST("/api/operations/:jobID/throttle", func(c echo.Context) error {
-		jobID := c.Param("jobID")
-		rateStr := c.QueryParam("rate")
-		if rateStr == "" {
-			return c.JSON(http.StatusBadRequest, map[string]any{
-				"error": "query parameter 'rate' is required (e.g. rate=2mb, rate=500kb)",
-			})
-		}
-		bytesPerSec, err := parseRateString(rateStr)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]any{
-				"error": fmt.Sprintf("invalid rate %q: %v", rateStr, err),
-			})
-		}
-
-		xlog.Debug("API request to throttle operation", "jobID", jobID, "rate", bytesPerSec)
-		if err := galleryService.SetOperationRateLimit(jobID, bytesPerSec); err != nil {
-			xlog.Error("Failed to throttle operation", "error", err, "jobID", jobID)
-			return c.JSON(http.StatusBadRequest, map[string]any{
-				"error": err.Error(),
-			})
-		}
-
-		return c.JSON(200, map[string]any{
-			"success": true,
-			"message": fmt.Sprintf("Operation throttled to %d bytes/sec", bytesPerSec),
-		})
-	}, adminMiddleware)
+	// Throttle (rate-limit) an active download (admin only).
+	// Handler lives in endpoints/localai so swagger picks up its annotations.
+	app.POST("/api/operations/:jobID/throttle", localai.ThrottleOperationEndpoint(galleryService), adminMiddleware)
 
 	// Model Gallery APIs (admin only)
 	app.GET("/api/models", func(c echo.Context) error {

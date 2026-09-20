@@ -155,6 +155,7 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListAliases, struct{}{}, "ListAliases"},
 		{ToolCreateVoiceProfile, CreateVoiceProfileRequest{Name: "Narrator", Transcript: "Reference words", AudioBase64: "UklGRg==", ConsentConfirmed: true}, "CreateVoiceProfile"},
 		{ToolDeleteVoiceProfile, DeleteVoiceProfileRequest{ID: "00000000-0000-0000-0000-000000000001"}, "DeleteVoiceProfile"},
+		{ToolThrottleOperation, ThrottleOperationRequest{JobID: "job-1", Rate: "2mb"}, "ThrottleOperation"},
 	}
 
 	for _, c := range cases {
@@ -247,6 +248,8 @@ var _ = Describe("Argument validation", func() {
 		{"set_scheduling requires model_name", ToolSetScheduling, SetSchedulingRequest{}, "model_name is required"},
 		{"set_scheduling rejects invalid replica range", ToolSetScheduling, SetSchedulingRequest{ModelName: "qwen", MinReplicas: 3, MaxReplicas: 1}, "min_replicas must be <= max_replicas"},
 		{"delete_scheduling requires model_name", ToolDeleteScheduling, DeleteSchedulingRequest{}, "model_name is required"},
+		{"throttle_operation requires job_id", ToolThrottleOperation, ThrottleOperationRequest{Rate: "2mb"}, "job_id is required"},
+		{"throttle_operation requires rate", ToolThrottleOperation, ThrottleOperationRequest{JobID: "job-1"}, "rate is required"},
 	}
 
 	for _, c := range cases {

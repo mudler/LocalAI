@@ -49,6 +49,7 @@ const (
 	ToolSetNodeVRAMBudget  = "set_node_vram_budget"
 	ToolSetScheduling      = "set_scheduling"
 	ToolDeleteScheduling   = "delete_scheduling"
+	ToolThrottleOperation  = "throttle_operation"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
@@ -83,4 +84,5 @@ var mutatingToolNames = []string{
 	ToolSetNodeVRAMBudget,
 	ToolSetScheduling,
 	ToolDeleteScheduling,
+	ToolThrottleOperation,
 }

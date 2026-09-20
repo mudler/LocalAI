@@ -67,6 +67,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolSetNodeVRAMBudget:  "PUT /api/nodes/:id/vram-budget",
 	ToolSetScheduling:      "POST /api/nodes/scheduling",
 	ToolDeleteScheduling:   "DELETE /api/nodes/scheduling/:model",
+	ToolThrottleOperation:  "POST /api/operations/:jobID/throttle?rate=...",
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in

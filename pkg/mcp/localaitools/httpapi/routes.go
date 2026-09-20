@@ -71,3 +71,7 @@ func routeNodeVRAMBudget(id string) string {
 func routeModelScheduling(modelName string) string {
 	return "/api/nodes/scheduling/" + url.PathEscape(modelName)
 }
+
+func routeOperationThrottle(jobID, rate string) string {
+	return "/api/operations/" + url.PathEscape(jobID) + "/throttle?rate=" + url.QueryEscape(rate)
+}

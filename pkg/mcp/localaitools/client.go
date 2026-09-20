@@ -130,4 +130,9 @@ type LocalAIClient interface {
 	// ClearRouterCorpus wipes a knn router's corpus — file and live
 	// index.
 	ClearRouterCorpus(ctx context.Context, routerModel string) (*RouterCorpusClearResult, error)
+
+	// ThrottleOperation throttles an active gallery download without
+	// restarting it. Rate "0" removes the limit. Mirrors POST
+	// /api/operations/:jobID/throttle?rate=....
+	ThrottleOperation(ctx context.Context, req ThrottleOperationRequest) error
 }
