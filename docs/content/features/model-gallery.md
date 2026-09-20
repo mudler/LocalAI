@@ -1058,24 +1058,31 @@ These entries set a 131,072-token context, following the
 for thinking mode. This context requires additional memory beyond the weights.
 The uncensored model uses the Apache-2.0 license.
 
-### ByteShape Qwen3.8 27B
+### Occamy-1.0
 
-Install ByteShape's ShapeLearn GGUF builds for chat and image input:
-
-```bash
-local-ai models install byteshape-qwen3.8-27b
-```
-
-The default build uses IQ4_XS at 3.84 bits per weight. Four smaller variants
-use IQ3_S, IQ3_XS, IQ3_XXS, and IQ2_XXS with mixed tensor precisions.
-Automatic variant selection considers available memory. To select the smallest build:
+[Occamy-1.0](https://huggingface.co/Accio-Lab/occamy-1.0) is a
+Qwen3.6-35B-A3B derivative trained for multi-step agent tasks and coding.
+Install it with:
 
 ```bash
-local-ai models install byteshape-qwen3.8-27b --variant byteshape-qwen3.8-27b-iq2-xxs
+local-ai models install occamy-1.0-q4
 ```
 
-Every build includes the BF16 vision projector and enables MTP decoding in
-llama.cpp with three draft tokens. The gallery uses a 32,768-token context
-and the publisher's thinking-mode temperature, top-p, and top-k settings.
-See the [publisher's model card](https://huggingface.co/byteshape/Qwen3.8-27B-GGUF)
-for quantization details and the Apache-2.0 license.
+The gallery offers Q4_K_M and Q8_0 GGUF builds for llama.cpp. Each build
+includes the F16 vision projector and uses the embedded Jinja chat template.
+LocalAI selects the variant according to available memory. To select Q4_K_M
+explicitly:
+
+```bash
+local-ai models install --variant occamy-1.0-q4 occamy-1.0-q4
+```
+
+Both entries use an 8,192-token context. Neither enables the publisher's
+separate experimental MTP head.
+
+Normalize prompt text to Unicode NFC in your client before sending requests.
+The GGUF tokenizer does not apply the source tokenizer's NFC normalization.
+Keep the embedded `qwen2` pre-tokenizer setting; the publisher's benchmark
+used a different setting. See the publisher's
+[tokenizer compatibility notes](https://huggingface.co/Accio-Lab/occamy-1.0-GGUF/blob/e8fe5e28e1b1c1f0cd0a39b85b16b631f17ca14e/TOKENIZER.md)
+for the validation limits.

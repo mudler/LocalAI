@@ -7883,6 +7883,94 @@
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-V6-Q8_0/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-V6-GGUF/resolve/main/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-F16.gguf
       sha256: f7197461d8581cd9be42384d4afe3f851d0844f6d72846d5c97e3dcc931b3cbc
+- name: occamy-1.0-q4
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: occamy-1.0-q8
+  urls:
+    - https://huggingface.co/Accio-Lab/occamy-1.0
+    - https://huggingface.co/Accio-Lab/occamy-1.0-GGUF
+  license: apache-2.0
+  description: |
+    Occamy-1.0 is a 35B MoE model with 3B active parameters, based on
+    Qwen3.6-35B-A3B and trained for multi-step agent tasks and coding.
+    This Q4_K_M GGUF build includes the F16 vision projector and uses
+    the embedded Jinja chat template with an 8K-token default context.
+    Normalize prompt text to Unicode NFC to match the source tokenizer.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - coding
+  last_checked: "2026-09-20"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/occamy-1.0/mmproj-occamy-1.0-F16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    function:
+      grammar:
+        disable: true
+    parameters:
+      model: llama-cpp/models/occamy-1.0/occamy-1.0-Q4_K_M.gguf
+  files:
+    - filename: llama-cpp/models/occamy-1.0/occamy-1.0-Q4_K_M.gguf
+      uri: https://huggingface.co/Accio-Lab/occamy-1.0-GGUF/resolve/e8fe5e28e1b1c1f0cd0a39b85b16b631f17ca14e/occamy-1.0-Q4_K_M.gguf
+      sha256: ffb25f763ff9c27f5f4e2adcdef399c5654f9f840fdac33dffe7035ba8266a87
+    - filename: llama-cpp/models/occamy-1.0/mmproj-occamy-1.0-F16.gguf
+      uri: https://huggingface.co/Accio-Lab/occamy-1.0-GGUF/resolve/e8fe5e28e1b1c1f0cd0a39b85b16b631f17ca14e/mmproj-occamy-1.0-F16.gguf
+      sha256: 8f827a1e495f23e987686a7f55c26064270502a5b6ee954a828f1aec0b2fd400
+- name: occamy-1.0-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Accio-Lab/occamy-1.0
+    - https://huggingface.co/Accio-Lab/occamy-1.0-GGUF
+  license: apache-2.0
+  description: |
+    Occamy-1.0 is a 35B MoE model with 3B active parameters, based on
+    Qwen3.6-35B-A3B and trained for multi-step agent tasks and coding.
+    This Q8_0 GGUF build includes the F16 vision projector and uses
+    the embedded Jinja chat template with an 8K-token default context.
+    Normalize prompt text to Unicode NFC to match the source tokenizer.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - coding
+  last_checked: "2026-09-20"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/occamy-1.0/mmproj-occamy-1.0-F16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    function:
+      grammar:
+        disable: true
+    parameters:
+      model: llama-cpp/models/occamy-1.0/occamy-1.0-Q8_0.gguf
+  files:
+    - filename: llama-cpp/models/occamy-1.0/occamy-1.0-Q8_0.gguf
+      uri: https://huggingface.co/Accio-Lab/occamy-1.0-GGUF/resolve/e8fe5e28e1b1c1f0cd0a39b85b16b631f17ca14e/occamy-1.0-Q8_0.gguf
+      sha256: 9bd6eceae8434098c8c7ebec33e4ca0d0bd3f004c2bddf37d16cd906448fdbdd
+    - filename: llama-cpp/models/occamy-1.0/mmproj-occamy-1.0-F16.gguf
+      uri: https://huggingface.co/Accio-Lab/occamy-1.0-GGUF/resolve/e8fe5e28e1b1c1f0cd0a39b85b16b631f17ca14e/mmproj-occamy-1.0-F16.gguf
+      sha256: 8f827a1e495f23e987686a7f55c26064270502a5b6ee954a828f1aec0b2fd400
 - &qwen3-6-35b-a3b-genesis-hermes-v7
   name: "qwen3.6-35b-a3b-genesis-hermes-v7"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
