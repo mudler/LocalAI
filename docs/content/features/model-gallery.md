@@ -34,6 +34,26 @@ The entries can return after LocalAI ships a compatible backend. See
 [the compatibility issue](https://github.com/mudler/LocalAI/issues/11681) and
 [upstream llama.cpp support](https://github.com/ggml-org/llama.cpp/pull/26467).
 
+## Hy-MT2-7B translation
+
+Install Tencent's [Hy-MT2-7B](https://huggingface.co/tencent/Hy-MT2-7B) translation model with:
+
+```bash
+local-ai models install hy-mt2-7b-q4
+```
+
+The entry offers Q4_K_M, Q6_K, and Q8_0 GGUF builds for the `llama-cpp` backend.
+LocalAI selects a variant according to available memory. To select Q4_K_M explicitly, use:
+
+```bash
+local-ai models install hy-mt2-7b-q4 --variant hy-mt2-7b-q4
+```
+
+Include the target language in the user message, for example:
+`Translate the following text into Italian, without additional explanation: Hello, how are you?`
+The configuration uses the model's embedded chat template and an 8,192-token context window.
+Increase `context_size` for longer documents if memory permits; the model supports up to 262,144 tokens.
+
 ## Useful Links and resources
 
 - [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.

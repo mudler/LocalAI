@@ -3057,6 +3057,123 @@
     - filename: llama-cpp/mmproj/Huihui-Qwen3.8-27B-abliterated-bf16/mmproj-model-bf16.gguf
       uri: huggingface://huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF/mmproj-model-bf16.gguf
       sha256: c9a09064683620bea3d3bfed5d4462e1a97a7d2fff7e5045d6862a0a85eeb5b5
+- name: "hy-mt2-7b-q4"
+  variants:
+    - model: hy-mt2-7b-q6
+    - model: hy-mt2-7b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/tencent/Hy-MT2-7B
+    - https://huggingface.co/tencent/Hy-MT2-7B-GGUF
+  description: |
+    Hy-MT2-7B is Tencent's 7B multilingual translation model. It supports
+    translation instructions across 33 languages, including terminology
+    control and style transfer. This Q4_K_M GGUF uses the embedded chat
+    template with an 8K context window. Include the target language in
+    your prompt.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - multilingual
+    - translation
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/hy-mt2-7b/Hy-MT2-7B-Q4_K_M.gguf
+      repeat_penalty: 1.05
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.6
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/hy-mt2-7b/Hy-MT2-7B-Q4_K_M.gguf
+      uri: https://huggingface.co/tencent/Hy-MT2-7B-GGUF/resolve/ab8472660ac61fac25f1af43fac2599d52a8a775/Hy-MT2-7B-Q4_K_M.gguf
+      sha256: 9f96256500f3fc1ab4d64336b58f52a949a95ad7516b0c229476eef782f9f77b
+- name: "hy-mt2-7b-q6"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/tencent/Hy-MT2-7B
+    - https://huggingface.co/tencent/Hy-MT2-7B-GGUF
+  description: |
+    Hy-MT2-7B is Tencent's 7B multilingual translation model. It supports
+    translation instructions across 33 languages, including terminology
+    control and style transfer. This Q6_K GGUF uses the embedded chat
+    template with an 8K context window. Include the target language in
+    your prompt.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - multilingual
+    - translation
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/hy-mt2-7b/HY-MT2-7B-Q6_K.gguf
+      repeat_penalty: 1.05
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.6
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/hy-mt2-7b/HY-MT2-7B-Q6_K.gguf
+      uri: https://huggingface.co/tencent/Hy-MT2-7B-GGUF/resolve/ab8472660ac61fac25f1af43fac2599d52a8a775/HY-MT2-7B-Q6_K.gguf
+      sha256: 88ef0aba59952a4cfe4be36cb5baf797dbb370bc60e9dcbd7297036021e52831
+- name: "hy-mt2-7b-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/tencent/Hy-MT2-7B
+    - https://huggingface.co/tencent/Hy-MT2-7B-GGUF
+  description: |
+    Hy-MT2-7B is Tencent's 7B multilingual translation model. It supports
+    translation instructions across 33 languages, including terminology
+    control and style transfer. This Q8_0 GGUF uses the embedded chat
+    template with an 8K context window. Include the target language in
+    your prompt.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - multilingual
+    - translation
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/hy-mt2-7b/HY-MT2-7B-Q8_0.gguf
+      repeat_penalty: 1.05
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.6
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/hy-mt2-7b/HY-MT2-7B-Q8_0.gguf
+      uri: https://huggingface.co/tencent/Hy-MT2-7B-GGUF/resolve/ab8472660ac61fac25f1af43fac2599d52a8a775/HY-MT2-7B-Q8_0.gguf
+      sha256: 58b3ad55dd6f6fa08c695cddc34fb5f8f708a844f78ae10508071914b0ed67c0
 - &hy-mt2-1-8b
   name: "hy-mt2-1.8b-q4"
   variants:
