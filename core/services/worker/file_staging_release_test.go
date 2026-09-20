@@ -60,7 +60,7 @@ func (*stagingObjectStore) List(context.Context, string) ([]string, error) {
 var _ = Describe("Worker exact-key staging release", func() {
 	It("shares capacity between HTTP uploads and S3 control requests and releases both over the worker transport", func() {
 		ctx := context.Background()
-		dir := GinkgoT().TempDir()
+		dir := canonicalWorkerTempDir()
 		cfg := &Config{ModelsPath: filepath.Join(dir, "models")}
 		stagingDir := filepath.Join(dir, "staging")
 		cacheDir := cfg.stagingCacheDir()
