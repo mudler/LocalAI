@@ -205,7 +205,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: cf423c6604662960a5b42de07e51647c1b29c1a19e6ebad198353148b36f41c1
+      sha256: 02dbb9f4b3e70e86672790a1d970c035ed9bc2fdb515a3d20869424dddf15e58
 - name: "qwopus3.8-27b-flash"
   variants:
     - model: qwopus3.8-27b-flash-q8
@@ -3410,7 +3410,6 @@
     - filename: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
       uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
       sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
-
 - !!merge <<: *ornith-1-5-9b-uncensored
   name: ornith-1.5-9b-uncensored-q6
   variants: []
@@ -3448,7 +3447,6 @@
     - filename: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
       uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
       sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
-
 - !!merge <<: *ornith-1-5-9b-uncensored
   name: ornith-1.5-9b-uncensored-q8
   variants: []
@@ -3486,7 +3484,6 @@
     - filename: llama-cpp/mmproj/ornith-1.5-9b-uncensored/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
       uri: https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF/resolve/1041d1eabbce89549c1b6e28b52e972093e832a1/Ornith-1.5-9B-uncensored.mmproj-f16.gguf
       sha256: 3170dd53d7ed442c944cfb378535e96a5981283d65ec4f6c389f07999f32b380
-
 - &ornith-1-5-9b-obliterated
   name: "ornith-1.5-9b-obliterated-q4"
   variants:
@@ -4535,7 +4532,7 @@
   files:
     - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_K_M.gguf
-      sha256: 31629f53165ab6a7dad8c9847dcfd1fdf55829dac1e6e748f4a68581b0033d34
+      sha256: c600de0300ae8a0eb3a6c0b8b5561b8b96f16bd2c863c2a66c42de29d391a747
     - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
@@ -4591,10 +4588,10 @@
   files:
     - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q4_K_M.gguf
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_K_M.gguf
-      sha256: 31629f53165ab6a7dad8c9847dcfd1fdf55829dac1e6e748f4a68581b0033d34
+      sha256: c600de0300ae8a0eb3a6c0b8b5561b8b96f16bd2c863c2a66c42de29d391a747
     - filename: llama-cpp/models/qwen3.8-27b/mtp-Qwen3.8-27B-Q4_0.gguf
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mtp-Qwen3.8-27B-Q4_0.gguf
-      sha256: 051a1764cff8c4f3ee6ae8b00593a0364c7539c67fa50ffc58f3f96509fca38e
+      sha256: c5be331f82fb61f5304adfa00ccd60c6743c8ce52255d66fa863446231d49ba4
     - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
@@ -4692,7 +4689,7 @@
   files:
     - filename: llama-cpp/models/qwen3.8-27b/Qwen3.8-27B-Q8_0.gguf
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q8_0.gguf
-      sha256: f5c702d8820d36fb55985bb238fc83ee3a313e920f4b752a437c3a6a9e14e4c8
+      sha256: aab65c67ef0dad127960efef9247f1832bca105faa1c7a052cc039b223cf86a1
     - filename: llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf
       uri: huggingface://ggml-org/Qwen3.8-27B-GGUF/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
@@ -7548,8 +7545,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
-      sha256: caefdcec9364e903fc7edac90c39df257f1d6671b5fc389a3cb7dc8ce8204a3b
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
+      sha256: 35026b978de6ee6ff63870d3d68be90ab0797a9a6cd5c83332e1f9c510c6a695
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
@@ -7586,8 +7583,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
-      sha256: c55f3a0acc94d28a192cf1262a9cc5dbdbe15ce7bad75894ce2b0d7e8b66ddb8
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
+      sha256: eda7e87b6ce8056e7f0d5a5a504b50e2163642bdf45b53085bda8fe81fc31ff2
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
@@ -7638,8 +7635,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
-      sha256: 01e16a28774e4f075a2bfd92ff889cb7b004e37511e68399caf39a3f4b195722
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
+      sha256: 612561952f0698539a133a479e1cf18ffce85bb6b4311a5d05e50d6160970c75
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
@@ -7690,8 +7687,8 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
-      sha256: fe921f9f7d3f48f9fbda1f28bb3e96824db051958cbc6e44dd0e5bebc690829a
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
+      sha256: 7a17aaff5ec81ba34e33d3a8b032a699abf4231d6cbe9930d1c9a159db3e87dc
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
@@ -7728,12 +7725,11 @@
       use_tokenizer_template: true
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
-      sha256: e1ac7246dd3ebfb036732874dc57acbacc8b0d7d02df4417e2ac0d1f376e8d1d
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
+      sha256: 38f75223355279d5c009aaecf3b0e25170202a7ff3a458d5e96fb032fc15c8ee
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
-
 - &kat-coder-v2-5-dev
   name: "kat-coder-v2.5-dev"
   variants:
@@ -15078,7 +15074,6 @@
     - filename: NeoHorse-1-4B.Q4_K_M.gguf
       uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q4_K_M.gguf
       sha256: 9a8426d0a5a1035d7e35ccc02794c404e027cca8e51f936b225d26d93bc44753
-
 - !!merge <<: *neohorse-1-4b
   name: neohorse-1-4b-q6
   variants: []
@@ -15107,7 +15102,6 @@
     - filename: NeoHorse-1-4B.Q6_K.gguf
       uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q6_K.gguf
       sha256: d29d06d4b778b21a4b7145428ba5d709bf368fc6dc7321e0af3463c1718fec41
-
 - !!merge <<: *neohorse-1-4b
   name: neohorse-1-4b-q8
   variants: []
@@ -15136,7 +15130,6 @@
     - filename: NeoHorse-1-4B.Q8_0.gguf
       uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q8_0.gguf
       sha256: ec5e02b4d3a102335333a692b1b83ee454e249e06a6d27f00b2f5bc81a199c98
-
 - name: qwen_qwen3.5-4b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
