@@ -40,7 +40,7 @@ jobs:
     # fetch their own toolchains, and no step uses sudo, apt, make or unzip.
     runs-on: ${{ github.repository == 'mudler/LocalAI' && 'arc-runner-set' || 'ubuntu-latest' }}
     env:
-      HUGO_VERSION: "0.146.3"
+      HUGO_VERSION: "0.165.0"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
