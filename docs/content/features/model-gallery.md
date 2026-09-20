@@ -231,6 +231,57 @@ Entries served this way may be stale: the copy is only as fresh as the last time
 
 The copy is deliberately kept out of the models directory itself, where LocalAI reads a `.yaml` file as an installed model's configuration. Deleting the cache directory is safe — the next successful fetch recreates it — and a machine that has never reached a gallery has nothing cached, so its first listing still fails.
 
+## Galleries published as OCI artifacts
+
+A gallery can live in a container registry instead of on a web server. Give the gallery a `url` with the `oci://` scheme and point it at an artifact reference:
+
+```json
+GALLERIES=[{"name":"premium", "url":"oci://quay.io/acme/gallery:latest"}]
+```
+
+LocalAI pulls the artifact, unpacks it into a cache directory beside your models directory (`<MODELS_PATH>/../cache/gallery/oci/`) and reads `index.yaml` from it. The unpacked copy is reused for one hour before the registry is asked again. Everything else works as it does for an HTTP gallery: an `oci://` URL can be a primary `url` or one of the `mirrors`, a failed pull puts the source in the same 10 minute cooldown, and the offline cache still serves the last good listing.
+
+This is the only format that carries a whole gallery in one object, so it is what to publish when the index and the model configuration files must travel together.
+
+### Entry URLs relative to the gallery
+
+An artifact holds the index and the files it refers to, so an entry can name its base configuration by its place in the tree:
+
+```yaml
+- name: premium-model
+  url: base/virtual.yaml
+```
+
+A `url` with no scheme is resolved against the root of the gallery it was read from: the unpacked artifact for an `oci://` gallery, and the directory of the index URL for an `http://`, `https://`, `github:`, `huggingface://` or `file://` gallery. A `url` that names a scheme, such as `https://example.org/base.yaml`, is always used as written.
+
+A relative `url` cannot leave the gallery root. An entry that tries to climb out of it, for example `url: ../../etc/passwd`, is refused: LocalAI drops that entry from the listing, logs the reason and keeps the rest of the gallery.
+
+### Signature verification
+
+An `oci://` gallery can be signed, and LocalAI verifies the signature before it unpacks anything. Add a `verification` block with the Fulcio issuer and the signing identity, in the same form the [backend galleries]({{%relref "features/backends#verifying-oci-backends" %}}) use:
+
+```json
+GALLERIES=[{"name":"premium","url":"oci://quay.io/acme/gallery:latest","verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/acme/gallery/\\.github/workflows/publish\\.yml@refs/tags/.+$"}}]
+```
+
+The tag is resolved to a digest, the signature is checked against that digest, and the same digest is then pulled. A gallery that fails verification is never written to the cache, so no unverified file reaches your disk. The optional `not_before` RFC3339 value revokes signatures logged before that time, exactly as it does for backends.
+
+{{% notice warning %}}
+With `--require-backend-integrity` (`LOCALAI_REQUIRE_BACKEND_INTEGRITY=1`), an `oci://` gallery that has no `verification` block is refused when the models are listed, not only when one is installed. Add a `verification` block to every `oci://` gallery before you turn strict integrity on, or the galleries without one stop listing. An `oci://` gallery without a policy still lists outside strict mode, with a warning in the log.
+{{% /notice %}}
+
+### Private registries
+
+A gallery in a private registry needs a credentials entry that matches the registry, the same entry an image pull from it would use:
+
+```yaml
+- match: quay.io/acme
+  username: bot
+  password_env: QUAY_TOKEN
+```
+
+See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}) for the file location, the other authentication types and the rules for registries on a local network, which also need `allow_insecure: true`.
+
 ## API Reference
 
 ### Model repositories

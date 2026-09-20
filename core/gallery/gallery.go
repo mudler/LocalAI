@@ -46,7 +46,7 @@ func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {
 		return config, err
 	}
 	uri := downloader.URI(url)
-	err := uri.ReadWithCallback(basePath, func(url string, d []byte) error {
+	err := uri.ReadWithCallback(galleryConfigReadRoot(url, basePath), func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ func GetGalleryConfigFromURLWithContext[T any](ctx context.Context, url string, 
 		return config, err
 	}
 	uri := downloader.URI(url)
-	err := uri.ReadWithAuthorizationAndCallback(ctx, basePath, "", func(url string, d []byte) error {
+	err := uri.ReadWithAuthorizationAndCallback(ctx, galleryConfigReadRoot(url, basePath), "", func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -291,14 +291,32 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 		// Resolve model URLs locally (for local galleries) and collect unique
 		// URLs that need fetching for backend resolution.
 		uniqueURLs := map[string]struct{}{}
+		usable := make([]*GalleryModel, 0, len(galleryModels))
 		for _, m := range galleryModels {
 			if m.URL != "" {
 				m.URL = resolveModelURLLocally(m.URL, gallery.URL)
+				// The gallery carried on the entry is the one the index was
+				// really read from, with a .ref indirection already followed,
+				// so it is the root an entry path is relative to.
+				resolved, err := resolveGalleryEntryURL(m.URL, m.GetGallery(), systemState.Model.ModelsPath)
+				if err != nil {
+					// One unusable entry must not cost the user the rest of
+					// the gallery, so it is dropped and named rather than
+					// failing the listing. It is left out entirely because an
+					// entry whose url does not resolve cannot be installed,
+					// and offering it would only fail later and further away.
+					xlog.Error("dropping a gallery entry whose url does not resolve",
+						"gallery", gallery.Name, "model", m.Name, "url", m.URL, "error", err)
+					continue
+				}
+				m.URL = resolved
 			}
+			usable = append(usable, m)
 			if m.Backend == "" && m.URL != "" {
 				uniqueURLs[m.URL] = struct{}{}
 			}
 		}
+		galleryModels = usable
 
 		// Pre-warm cache with parallel fetches to avoid sequential HTTP
 		// requests on cold start (~50 unique gallery config files).

@@ -198,27 +198,59 @@ func plainHTTP(registry string) bool {
 	return r.Scheme() == "http"
 }
 
-// artifactLayerPath resolves a layer title against root. The title comes from
-// the registry, so it is treated as hostile: anything that is not a plain
-// relative path inside root is refused rather than sanitized, since a title
-// that needed rewriting is not a title a publisher meant.
+// SafeRelativePath validates a relative path that came from outside the
+// process and returns it cleaned, with forward slashes.
+//
+// A registry annotation and a gallery entry URL are both published data, so
+// they are treated as hostile: anything that is not a plain relative path is
+// refused rather than sanitized, since a path that needed rewriting is not a
+// path a publisher meant.
+//
+// It only judges the path's shape, so callers that resolve against something
+// which is not a directory on disk, such as the URL a gallery index was served
+// from, can use the same rule as the ones that do.
+func SafeRelativePath(relative string) (string, error) {
+	if relative == "" {
+		return "", fmt.Errorf("the path is empty")
+	}
+	if strings.ContainsAny(relative, "\\\x00") {
+		return "", fmt.Errorf("%q contains a backslash or NUL byte that is not valid in a relative path", relative)
+	}
+	if path.IsAbs(relative) || filepath.IsAbs(relative) || filepath.VolumeName(relative) != "" {
+		return "", fmt.Errorf("%q is an absolute path", relative)
+	}
+	clean := path.Clean(relative)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return "", fmt.Errorf("%q escapes the root directory", relative)
+	}
+	return clean, nil
+}
+
+// ResolveInRoot resolves a relative path against root and refuses anything
+// that would land outside it. root is expected to be absolute and already
+// cleaned, which is what its callers hold.
+func ResolveInRoot(root, relative string) (string, error) {
+	clean, err := SafeRelativePath(relative)
+	if err != nil {
+		return "", err
+	}
+	target := filepath.Join(root, filepath.FromSlash(clean))
+	// filepath.Join cleans the result, so this catches anything the shape
+	// check could not see, a root with its own traversal in it included.
+	if target != root && !strings.HasPrefix(target, root+string(os.PathSeparator)) {
+		return "", fmt.Errorf("%q escapes the root directory", relative)
+	}
+	return target, nil
+}
+
+// artifactLayerPath resolves a layer title against root.
 func artifactLayerPath(root, title string) (string, error) {
 	if title == "" {
 		return "", fmt.Errorf("the layer has no %s title", ocispec.AnnotationTitle)
 	}
-	if strings.ContainsAny(title, "\\\x00") {
-		return "", fmt.Errorf("title %q contains a path separator or NUL byte that is not valid in an artifact title", title)
-	}
-	if path.IsAbs(title) || filepath.IsAbs(title) || filepath.VolumeName(title) != "" {
-		return "", fmt.Errorf("title %q is an absolute path", title)
-	}
-	clean := path.Clean(title)
-	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
-		return "", fmt.Errorf("title %q escapes the destination directory", title)
-	}
-	target := filepath.Join(root, filepath.FromSlash(clean))
-	if target != root && !strings.HasPrefix(target, root+string(os.PathSeparator)) {
-		return "", fmt.Errorf("title %q escapes the destination directory", title)
+	target, err := ResolveInRoot(root, title)
+	if err != nil {
+		return "", fmt.Errorf("the layer title is not usable: %w", err)
 	}
 	return target, nil
 }

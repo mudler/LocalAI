@@ -79,11 +79,26 @@ func looksLikeOCIGallery(candidate string) bool {
 // for a non-absolute models directory because only an absolute one names a
 // location we can reason about.
 func ociGalleryCacheDir(basePath, url string) string {
-	if !filepath.IsAbs(basePath) {
+	root := ociGalleryCacheRoot(basePath)
+	if root == "" {
 		return ""
 	}
 	sum := sha256.Sum256([]byte(url))
-	return filepath.Join(basePath, "..", "cache", "gallery", "oci", hex.EncodeToString(sum[:]))
+	return filepath.Join(root, hex.EncodeToString(sum[:]))
+}
+
+// ociGalleryCacheRoot is the directory every unpacked gallery artifact lives
+// under, or "" when the models directory does not name one we can reason
+// about.
+//
+// It is named on its own because it is also the trusted root a read of an
+// unpacked entry is confined to: the cache is deliberately a sibling of the
+// models directory, so the models directory cannot be that root.
+func ociGalleryCacheRoot(basePath string) string {
+	if !filepath.IsAbs(basePath) {
+		return ""
+	}
+	return filepath.Join(basePath, "..", "cache", "gallery", "oci")
 }
 
 // readCachedOCIGallery returns the cached index, if the cache holds one that
