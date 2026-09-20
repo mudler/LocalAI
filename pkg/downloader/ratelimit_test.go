@@ -21,6 +21,22 @@ func (s *stubCloser) Close() error {
 	return nil
 }
 
+// oneByteCloser returns at most one byte per Read call, modelling a valid
+// but dripping source (slow peer, tiny TLS records). Used to prove Reads
+// charge actual bytes rather than the requested chunk.
+type oneByteCloser struct {
+	*bytes.Reader
+}
+
+func (s *oneByteCloser) Read(p []byte) (int, error) {
+	if len(p) > 1 {
+		p = p[:1]
+	}
+	return s.Reader.Read(p)
+}
+
+func (s *oneByteCloser) Close() error { return nil }
+
 var _ = Describe("DynamicRateLimiter", func() {
 	It("is unlimited by default and WaitN returns immediately", func() {
 		rl := &DynamicRateLimiter{}
@@ -160,5 +176,93 @@ var _ = Describe("DynamicRateLimiter", func() {
 		case <-time.After(4 * time.Second):
 			Fail("WaitN did not observe SetRate increase within 4s")
 		}
+	})
+
+	It("does not starve an earlier waiter behind a later large reservation", func() {
+		rl := &DynamicRateLimiter{}
+		rl.SetRate(10000)
+		// Consume the initial burst so every subsequent byte must be earned.
+		Expect(rl.WaitN(context.Background(), 10000)).To(Succeed())
+
+		// Earlier small waiter with a tight deadline.
+		firstCtx, firstCancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+		defer firstCancel()
+		firstDone := make(chan error, 1)
+		go func() {
+			firstDone <- rl.WaitN(firstCtx, 1000) // ~100ms at 10KB/s
+		}()
+		// Let the first reservation land before the continuing reader starts.
+		time.Sleep(50 * time.Millisecond)
+
+		// Continuing reader: sequential chunked waits totalling 10KB behind it.
+		readerDone := make(chan error, 1)
+		go func() {
+			for i := 0; i < 5; i++ {
+				if err := rl.WaitN(context.Background(), 2000); err != nil {
+					readerDone <- err
+					return
+				}
+			}
+			readerDone <- nil
+		}()
+
+		select {
+		case err := <-firstDone:
+			Expect(err).To(Succeed(), "earlier waiter was starved by the later reservation")
+		case <-time.After(500 * time.Millisecond):
+			Fail("earlier 1000-byte waiter did not finish within 400ms deadline + margin")
+		}
+		select {
+		case err := <-readerDone:
+			Expect(err).To(Succeed())
+		case <-time.After(4 * time.Second):
+			Fail("continuing reader did not finish")
+		}
+	})
+
+	It("charges actual bytes on short reads instead of the requested chunk", func() {
+		data := bytes.Repeat([]byte("z"), 8)
+		rl := &DynamicRateLimiter{}
+		rl.SetRate(10000) // 1s burst = 10000 bytes
+		r := newRateLimitedReader(&oneByteCloser{Reader: bytes.NewReader(data)}, rl, context.Background())
+
+		buf := make([]byte, 10000)
+		n, err := r.Read(buf)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(n).To(Equal(1))
+
+		// Only one byte was transferred, so ~9999 of burst must have been
+		// refunded: the next 10000-byte chunk needs ~0.1ms, not ~1s.
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+		defer cancel()
+		r2 := newRateLimitedReader(&oneByteCloser{Reader: bytes.NewReader(data)}, rl, ctx)
+		n2, err := r2.Read(make([]byte, 10000))
+		Expect(err).ToNot(HaveOccurred(), "second read hit its deadline: short read was not refunded")
+		Expect(n2).To(Equal(1))
+	})
+
+	It("releases a cancelled reservation so later waiters proceed", func() {
+		rl := &DynamicRateLimiter{}
+		rl.SetRate(5000)
+		Expect(rl.WaitN(context.Background(), 5000)).To(Succeed()) // consume burst
+
+		ctx, cancel := context.WithCancel(context.Background())
+		bigDone := make(chan error, 1)
+		go func() {
+			bigDone <- rl.WaitN(ctx, 100000) // ~20s of future budget
+		}()
+		time.Sleep(100 * time.Millisecond) // let the big reservation queue
+		cancel()
+		select {
+		case err := <-bigDone:
+			Expect(err).To(MatchError(context.Canceled))
+		case <-time.After(2 * time.Second):
+			Fail("cancelled waiter did not return")
+		}
+
+		// With the big reservation released, 1000 bytes need ~0.2s.
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel2()
+		Expect(rl.WaitN(ctx2, 1000)).To(Succeed(), "later waiter still blocked by cancelled reservation")
 	})
 })
