@@ -124,7 +124,8 @@ local-ai models install minicpm5-2b --variant minicpm5-2b-f16
 ```
 
 The F16 weights require a 5.04 GB download, plus additional memory for inference.
-This entry uses the embedded chat template and an 8,192-token context.
+All three builds use the embedded chat template and an 8,192-token default context.
+To change the context in a model configuration, set `context_size` at the top level, alongside `parameters`.
 See the [official GGUF repository](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF).
 
 ## VRAM and download size estimates
