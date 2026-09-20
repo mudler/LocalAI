@@ -30,6 +30,13 @@ type SystemState struct {
 	// backend URI (the released image becomes a fallback) rather than only using
 	// development as a download fallback when the released image is missing.
 	PreferDevelopmentBackends bool
+
+	// RequireBackendIntegrity is the strict-integrity switch bound to
+	// --require-backend-integrity / LOCALAI_REQUIRE_BACKEND_INTEGRITY. The
+	// backend install path takes it as a call argument; the gallery index
+	// fetch reads it from here because the listing code it runs under never
+	// sees the application config.
+	RequireBackendIntegrity bool
 }
 
 type SystemStateOptions func(*SystemState)
@@ -67,6 +74,12 @@ func WithBackendImagesBranchTag(tag string) SystemStateOptions {
 func WithBackendDevSuffix(suffix string) SystemStateOptions {
 	return func(s *SystemState) {
 		s.BackendDevSuffix = suffix
+	}
+}
+
+func WithRequireBackendIntegrity(require bool) SystemStateOptions {
+	return func(s *SystemState) {
+		s.RequireBackendIntegrity = require
 	}
 }
 

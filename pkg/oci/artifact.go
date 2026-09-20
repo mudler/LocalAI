@@ -81,23 +81,10 @@ func PullArtifact(ctx context.Context, ref, dest string, opts ...ArtifactPullOpt
 		return "", err
 	}
 
-	repo, err := remote.NewRepository(ref)
+	repo, err := artifactRepository(ref)
 	if err != nil {
-		return "", fmt.Errorf("failed to create repository: %w", err)
+		return "", err
 	}
-	repo.SkipReferrersGC = true
-	// Loopback and private-network registries are reached over plain HTTP,
-	// matching how the go-containerregistry paths in this package resolve the
-	// scheme, so a local registry behaves the same whichever puller is used.
-	repo.PlainHTTP = plainHTTP(repo.Reference.Registry)
-
-	client := &auth.Client{
-		Client: retry.DefaultClient,
-		Cache:  auth.NewCache(),
-	}
-	client.SetUserAgent(UserAgent())
-	client.Credential = credentials.OrasCredential(repo.Reference.Registry + "/" + repo.Reference.Repository)
-	repo.Client = client
 
 	manifestDesc, rc, err := repo.FetchReference(ctx, repo.Reference.ReferenceOrDefault())
 	if err != nil {
@@ -155,6 +142,49 @@ func PullArtifact(ctx context.Context, ref, dest string, opts ...ArtifactPullOpt
 	}
 
 	return manifestDesc.Digest.String(), nil
+}
+
+// artifactRepository builds the ORAS client a pull or a resolve talks to, with
+// the credentials and the scheme detection both paths must agree on.
+func artifactRepository(ref string) (*remote.Repository, error) {
+	repo, err := remote.NewRepository(ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create repository: %w", err)
+	}
+	repo.SkipReferrersGC = true
+	// Loopback and private-network registries are reached over plain HTTP,
+	// matching how the go-containerregistry paths in this package resolve the
+	// scheme, so a local registry behaves the same whichever puller is used.
+	repo.PlainHTTP = plainHTTP(repo.Reference.Registry)
+
+	client := &auth.Client{
+		Client: retry.DefaultClient,
+		Cache:  auth.NewCache(),
+	}
+	client.SetUserAgent(UserAgent())
+	client.Credential = credentials.OrasCredential(repo.Reference.Registry + "/" + repo.Reference.Repository)
+	repo.Client = client
+	return repo, nil
+}
+
+// ResolveArtifactDigestRef resolves ref to a digest-pinned reference of the
+// form <registry>/<repository>@sha256:<hex>, without fetching any content.
+//
+// A caller that must verify a signature before it unpacks anything needs the
+// digest first: the signature is taken over the manifest digest, and pulling
+// the same digest afterwards is what makes the verification bind to the bytes
+// that land on disk. Verifying a tag and then pulling that tag again would
+// leave a window in which the tag moved.
+func ResolveArtifactDigestRef(ctx context.Context, ref string) (string, error) {
+	repo, err := artifactRepository(ref)
+	if err != nil {
+		return "", err
+	}
+	desc, err := repo.Resolve(ctx, repo.Reference.ReferenceOrDefault())
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve %q: %w", ref, err)
+	}
+	return repo.Reference.Registry + "/" + repo.Reference.Repository + "@" + desc.Digest.String(), nil
 }
 
 // plainHTTP mirrors go-containerregistry's scheme detection, which the image

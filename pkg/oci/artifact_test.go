@@ -169,3 +169,37 @@ var _ = Describe("PullArtifact", func() {
 		Expect(filepath.Join(dest, "index.yaml")).NotTo(BeAnExistingFile())
 	})
 })
+
+var _ = Describe("ResolveArtifactDigestRef", func() {
+	var server *httptest.Server
+
+	BeforeEach(func() {
+		server = httptest.NewServer(registry.New())
+		DeferCleanup(server.Close)
+	})
+
+	It("turns a tag into the digest the signature is taken over", func() {
+		ref, manifestDigest := pushTestArtifact(server.URL, "galleries/resolve", testGalleryArtifactType, []artifactFile{
+			{title: "index.yaml", body: "- name: one\n"},
+		})
+
+		digestRef, err := localoci.ResolveArtifactDigestRef(context.Background(), ref)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(digestRef).To(Equal(strings.TrimSuffix(ref, ":latest") + "@" + manifestDigest))
+
+		// The pinned reference must be pullable as it stands, since that is
+		// what a verified caller pulls once the signature checks out.
+		dest := filepath.Join(GinkgoT().TempDir(), "pinned")
+		Expect(os.MkdirAll(dest, 0o750)).To(Succeed())
+		_, err = localoci.PullArtifact(context.Background(), digestRef, dest,
+			localoci.WithArtifactType(testGalleryArtifactType))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.ReadFile(filepath.Join(dest, "index.yaml"))).To(BeEquivalentTo("- name: one\n"))
+	})
+
+	It("reports a reference that does not exist", func() {
+		host := strings.TrimPrefix(server.URL, "http://")
+		_, err := localoci.ResolveArtifactDigestRef(context.Background(), host+"/galleries/absent:latest")
+		Expect(err).To(HaveOccurred())
+	})
+})

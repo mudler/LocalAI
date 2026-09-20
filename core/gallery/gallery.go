@@ -278,7 +278,7 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 
 	// Get models from galleries
 	for _, gallery := range galleries {
-		galleryModels, err := getGalleryElements(gallery, systemState.Model.ModelsPath, func(model *GalleryModel) bool {
+		galleryModels, err := getGalleryElements(gallery, systemState.Model.ModelsPath, systemState.RequireBackendIntegrity, func(model *GalleryModel) bool {
 			if _, err := os.Stat(filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", model.GetName()))); err == nil {
 				return true
 			}
@@ -543,7 +543,7 @@ func availableBackendsWithFilter(galleries []config.Gallery, systemState *system
 
 	// Get backends from galleries
 	for _, gallery := range galleries {
-		galleryBackends, err := getGalleryElements(gallery, systemState.Backend.BackendsPath, func(backend *GalleryBackend) bool {
+		galleryBackends, err := getGalleryElements(gallery, systemState.Backend.BackendsPath, systemState.RequireBackendIntegrity, func(backend *GalleryBackend) bool {
 			return systemBackends.Exists(backend.GetName())
 		})
 		if err != nil {
@@ -591,7 +591,7 @@ func (entry galleryCacheEntry) hasExpired() bool {
 
 var galleryCache = xsync.NewSyncedMap[string, galleryCacheEntry]()
 
-func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string, isInstalledCallback func(T) bool) ([]T, error) {
+func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string, requireIntegrity bool, isInstalledCallback func(T) bool) ([]T, error) {
 	var models []T = []T{}
 
 	if strings.HasSuffix(gallery.URL, ".ref") {
@@ -620,7 +620,7 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 		// The cache key stays the gallery's identity rather than the URL that
 		// answered: a mirror serves the same index, so a mirror-served fetch
 		// must populate the entry the primary would have filled.
-		body, servedBy, err := fetchGalleryIndex(context.Background(), gallery, basePath)
+		body, servedBy, err := fetchGalleryIndex(context.Background(), gallery, basePath, requireIntegrity)
 		if err != nil {
 			return models, fmt.Errorf("failed to read gallery elements: %w", err)
 		}
