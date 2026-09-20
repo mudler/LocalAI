@@ -37,7 +37,7 @@ test('agent knowledge-base selectors filter models and save their selections', a
   await reranker.getByRole('option', { name: /rank-model/ }).click()
 
   const saved = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === '/api/agents')
-  await page.getByRole('button', { name: 'Create Agent', exact: true }).click()
+  await page.getByRole('button', { name: /Create Agent$/ }).click()
   expect((await saved).postDataJSON()).toMatchObject({
     name: 'research', model: 'chat-model', embedding_model: 'embed-model', reranker_model: 'rank-model',
   })
