@@ -125,6 +125,26 @@ are 150 frames, 100 sampling steps, and text guidance 2. Parameters are strings;
 unsupported inputs and parameters are rejected. Multi-prompt transitions and
 mesh retargeting are not currently exposed by this adapter.
 
+## Request traces
+
+With [tracing](/features/tracing) enabled, `POST /3d/animate` appears on the
+**Traces** page in both API and backend history. API traces include the JSON
+request, response, HTTP status, duration, and any returned error. Sensitive
+headers are redacted and body capture follows the configured size limit.
+
+The backend trace includes the model and backend, text prompt, requested
+parameters, model-loading time (`load_ms`), slot-waiting time (`queue_ms`),
+inference time (`inference_ms`), output file size (`output_bytes`), and returned
+`metadata`, including the usage breakdown. Parameters describe request overrides;
+`metadata.usage.details` reports the effective frames and sampling steps.
+Non-text inputs record their type and presence, without copying asset contents.
+Trace strings follow the existing backend trace size limit.
+
+A running backend entry appears before model loading begins. Completed entries
+contain the details above; failures include the error and the stage that failed.
+Total backend duration includes loading, waiting, and inference. Requests rejected
+by endpoint validation have an API trace but no animation backend trace.
+
 ## Usage accounting
 
 Kimodo reports one set of usage measurements through **generic backend metadata**.

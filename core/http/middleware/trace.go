@@ -3,6 +3,7 @@ package middleware
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"mime"
 	"net"
@@ -310,10 +311,15 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			// Restore original writer unconditionally
 			c.Response().Writer = mw.ResponseWriter
 
-			// Determine response status (use 500 if handler errored and no status was set)
+			// Echo renders returned errors after middleware unwinds. Its default
+			// response status is already 200, so use the error while uncommitted.
 			status := c.Response().Status
-			if status == 0 && handlerErr != nil {
+			if handlerErr != nil && !c.Response().Committed {
 				status = http.StatusInternalServerError
+				var httpErr *echo.HTTPError
+				if errors.As(handlerErr, &httpErr) {
+					status = httpErr.Code
+				}
 			}
 
 			// Create exchange log (always, even on error). Sensitive headers
