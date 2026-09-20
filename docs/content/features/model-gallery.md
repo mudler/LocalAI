@@ -806,6 +806,31 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 ## Examples
 
+### Qwen3.8 Flash Next GSQ-RCO
+
+The Flash Next gallery group includes ISTA DASLab's Q2_0, IQ2_XS, and
+IQ3_XXS mixed-precision GGUF builds. Select a specific build with `--variant`:
+
+```bash
+local-ai models install qwen3.8-flash-next-q4 --variant qwen3.8-flash-next-gsq-rco-iq3-xxs
+```
+
+You can also install a build directly, for example:
+
+```bash
+local-ai models install qwen3.8-flash-next-gsq-rco-q2-0
+```
+
+Each build downloads two model shards and a BF16 vision projector. Total
+downloads are approximately 67.3 GB (Q2_0), 68.9 GB (IQ2_XS), and 76.7 GB
+(IQ3_XXS). Allow additional memory for the context cache during inference.
+The entries use llama.cpp, memory mapping, the embedded chat template, and
+a 32,768-token default context.
+
+See the [publisher's model card](https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF)
+for quantization details. These weights inherit the base model's
+[Qwen Community License 1.0](https://huggingface.co/Qwen/Qwen3.8-Flash-Next/blob/main/LICENSE).
+
 ### Huihui Qwen3.8 Flash Next
 
 Install the abliterated Qwen3.8-Flash-Next build for text chat and image input:
