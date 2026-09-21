@@ -15856,108 +15856,150 @@
     - filename: llama-cpp/mmproj/mmproj-Qwen_Qwen3.5-2B-f16.gguf
       sha256: 044a0ea136cca70711ae16e23b24d754b44eab6f2462d187aee4d7c7a9503d36
       uri: https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/main/mmproj-Qwen_Qwen3.5-2B-f16.gguf
-- &neohorse-1-9b
-  name: neohorse-1-9b-q4
+- name: maple-preview-tq1-0-head-q4-k
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
-    - https://huggingface.co/TokenRhythm/NeoHorse-1-9B
-    - https://huggingface.co/TokenRhythm/NeoHorse-1-9B-GGUF
-  license: apache-2.0
+    - https://huggingface.co/deepgrove/maple-preview
+    - https://huggingface.co/deepgrove/maple-preview-GGUF
+  license: mit
+  description: |
+    Maple-Preview is DeepGrove's 20B mixture-of-experts reasoning model
+    with about 1B active parameters. This build uses TQ1_0
+    ternary GGUF weights with a Q4_K output head.
+    It uses the publisher's CPU configuration and embedded Jinja chat
+    template with an 8K default context. The native context is 128K tokens.
   tags:
     - llm
     - gguf
     - cpu
-    - gpu
     - reasoning
-    - coding
-    - tools
   variants:
-    - model: neohorse-1-9b-q5
-    - model: neohorse-1-9b-q8
-  description: |
-    NeoHorse-1-9B is TokenRhythm's text-only Qwen3.5-9B fine-tune for coding,
-    reasoning, and tool use. This build uses Q4_K_M GGUF weights with the
-    embedded Jinja chat template and a 32K-token default context.
+    - model: maple-preview-tq1-0-head-f16
+    - model: maple-preview-tq2-0-head-q4-k
+    - model: maple-preview-tq2-0-head-f16
   overrides:
     backend: llama-cpp
-    context_size: 32768
+    context_size: 8192
+    gpu_layers: 0
     known_usecases:
       - chat
     options:
       - use_jinja:true
     parameters:
-      model: NeoHorse-1-9B-Q4_K_M.gguf
+      model: maple-preview-TQ1_0-head-Q4_K.gguf
       temperature: 1
       top_p: 0.95
-      top_k: 20
-      min_p: 0
-      presence_penalty: 1.5
-      repeat_penalty: 1
     template:
       use_tokenizer_template: true
   files:
-    - filename: NeoHorse-1-9B-Q4_K_M.gguf
-      uri: https://huggingface.co/TokenRhythm/NeoHorse-1-9B-GGUF/resolve/ddcb4c939b5392c86a9d2733c7c0ed30db2554fd/NeoHorse-1-9B-Q4_K_M.gguf
-      sha256: a412add5457474d898ef0bf0cdbc057f7ffc3ea5cedba997c5123d36f116a957
-
-- !!merge <<: *neohorse-1-9b
-  name: neohorse-1-9b-q5
-  variants: []
+    - filename: maple-preview-TQ1_0-head-Q4_K.gguf
+      uri: https://huggingface.co/deepgrove/maple-preview-GGUF/resolve/f5466f918e0c50cdb9d4d47a6f35813509a42a30/maple-preview-TQ1_0-head-Q4_K.gguf
+      sha256: 54016e4d543bd688829e67103fc85b8396db94b7f8eb3f81fa95884e44393872
+- name: maple-preview-tq1-0-head-f16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/deepgrove/maple-preview
+    - https://huggingface.co/deepgrove/maple-preview-GGUF
+  license: mit
   description: |
-    NeoHorse-1-9B is TokenRhythm's text-only Qwen3.5-9B fine-tune for coding,
-    reasoning, and tool use. This build uses Q5_K_M GGUF weights with the
-    embedded Jinja chat template and a 32K-token default context.
+    Maple-Preview is DeepGrove's 20B mixture-of-experts reasoning model
+    with about 1B active parameters. This build uses TQ1_0
+    ternary GGUF weights with a F16 output head.
+    It uses the publisher's CPU configuration and embedded Jinja chat
+    template with an 8K default context. The native context is 128K tokens.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - reasoning
   overrides:
     backend: llama-cpp
-    context_size: 32768
+    context_size: 8192
+    gpu_layers: 0
     known_usecases:
       - chat
     options:
       - use_jinja:true
     parameters:
-      model: NeoHorse-1-9B-Q5_K_M.gguf
+      model: maple-preview-TQ1_0-head-F16.gguf
       temperature: 1
       top_p: 0.95
-      top_k: 20
-      min_p: 0
-      presence_penalty: 1.5
-      repeat_penalty: 1
     template:
       use_tokenizer_template: true
   files:
-    - filename: NeoHorse-1-9B-Q5_K_M.gguf
-      uri: https://huggingface.co/TokenRhythm/NeoHorse-1-9B-GGUF/resolve/ddcb4c939b5392c86a9d2733c7c0ed30db2554fd/NeoHorse-1-9B-Q5_K_M.gguf
-      sha256: 26eeb64e3835647277d820020e5c2468e9b202103c09978a186815c3391d5e15
-
-- !!merge <<: *neohorse-1-9b
-  name: neohorse-1-9b-q8
-  variants: []
+    - filename: maple-preview-TQ1_0-head-F16.gguf
+      uri: https://huggingface.co/deepgrove/maple-preview-GGUF/resolve/f5466f918e0c50cdb9d4d47a6f35813509a42a30/maple-preview-TQ1_0-head-F16.gguf
+      sha256: c20ecf619b2fd599d5dc6562cfc047b2b389e613d440a7771ccbf8eadac0d084
+- name: maple-preview-tq2-0-head-q4-k
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/deepgrove/maple-preview
+    - https://huggingface.co/deepgrove/maple-preview-GGUF
+  license: mit
   description: |
-    NeoHorse-1-9B is TokenRhythm's text-only Qwen3.5-9B fine-tune for coding,
-    reasoning, and tool use. This build uses Q8_0 GGUF weights with the
-    embedded Jinja chat template and a 32K-token default context.
+    Maple-Preview is DeepGrove's 20B mixture-of-experts reasoning model
+    with about 1B active parameters. This build uses TQ2_0
+    ternary GGUF weights with a Q4_K output head.
+    It uses the publisher's CPU configuration and embedded Jinja chat
+    template with an 8K default context. The native context is 128K tokens.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - reasoning
   overrides:
     backend: llama-cpp
-    context_size: 32768
+    context_size: 8192
+    gpu_layers: 0
     known_usecases:
       - chat
     options:
       - use_jinja:true
     parameters:
-      model: NeoHorse-1-9B-Q8_0.gguf
+      model: maple-preview-TQ2_0-head-Q4_K.gguf
       temperature: 1
       top_p: 0.95
-      top_k: 20
-      min_p: 0
-      presence_penalty: 1.5
-      repeat_penalty: 1
     template:
       use_tokenizer_template: true
   files:
-    - filename: NeoHorse-1-9B-Q8_0.gguf
-      uri: https://huggingface.co/TokenRhythm/NeoHorse-1-9B-GGUF/resolve/ddcb4c939b5392c86a9d2733c7c0ed30db2554fd/NeoHorse-1-9B-Q8_0.gguf
-      sha256: 519869730bda973ec50bb3ac42cd874569e5f3a57c3e0d5d23a2b5040e93310f
-
+    - filename: maple-preview-TQ2_0-head-Q4_K.gguf
+      uri: https://huggingface.co/deepgrove/maple-preview-GGUF/resolve/f5466f918e0c50cdb9d4d47a6f35813509a42a30/maple-preview-TQ2_0-head-Q4_K.gguf
+      sha256: 221f792cc9760d27a34f449b4229e258fa968a63bd4213993e45d9c0bb477a9e
+- name: maple-preview-tq2-0-head-f16
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/deepgrove/maple-preview
+    - https://huggingface.co/deepgrove/maple-preview-GGUF
+  license: mit
+  description: |
+    Maple-Preview is DeepGrove's 20B mixture-of-experts reasoning model
+    with about 1B active parameters. This build uses TQ2_0
+    ternary GGUF weights with a F16 output head.
+    It uses the publisher's CPU configuration and embedded Jinja chat
+    template with an 8K default context. The native context is 128K tokens.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    gpu_layers: 0
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: maple-preview-TQ2_0-head-F16.gguf
+      temperature: 1
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: maple-preview-TQ2_0-head-F16.gguf
+      uri: https://huggingface.co/deepgrove/maple-preview-GGUF/resolve/f5466f918e0c50cdb9d4d47a6f35813509a42a30/maple-preview-TQ2_0-head-F16.gguf
+      sha256: 2fad7b4903781aca6b1171881f2d273989fe1735b6b3ea704bc486b472d98039
 - &neohorse-1-4b
   name: neohorse-1-4b-q4
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
