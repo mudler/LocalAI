@@ -9865,7 +9865,10 @@ button.collapsible-header:focus-visible {
 .fleet-bulkbar strong { font-size: var(--text-xs); margin-right: var(--spacing-xs); }
 .fleet-bulkbar__clear { background: none; border: 0; color: var(--color-primary); cursor: pointer; font: inherit; font-size: var(--text-xs); }
 .fleet-bulkbar__count { color: var(--color-text-muted); font-size: var(--text-xs); margin-left: auto; }
-.fleet-table-wrap { overflow-x: auto; }
+/* position: relative makes the wrap the containing block for the headers'
+   absolutely positioned .sr-only labels. Without it they escape the scroll
+   container and widen the whole page on a phone. */
+.fleet-table-wrap { overflow-x: auto; position: relative; }
 .fleet-table { border-collapse: collapse; font-size: var(--text-xs); min-width: 820px; width: 100%; }
 .fleet-table th, .fleet-table td { border-bottom: 1px solid var(--color-border-subtle); padding: 10px 12px; text-align: left; vertical-align: middle; }
 .fleet-table thead th { background: var(--color-bg-secondary); color: var(--color-text-muted); font-weight: 600; }
@@ -9980,6 +9983,29 @@ button.collapsible-header:focus-visible {
 .model-inspector__node li { align-items: baseline; display: grid; font-size: .625rem; gap: 7px; grid-template-columns: auto minmax(0, 1fr) auto; padding-top: 4px; }
 .model-inspector__node li span { color: var(--color-text-muted); }
 .model-inspector__node code { color: var(--color-text-secondary); font-size: .5625rem; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+
+/* This machine: the single-node view of the Nodes page and the Operate
+   overview's "Running now" preview. Reuses the fleet widgets; only what one
+   host adds over a fleet is styled here. */
+.fleet-table__resource--cpu { --fleet-resource-color: var(--color-info); }
+.host-memory__track { fill: var(--color-bg-tertiary); }
+.host-memory__segment--0, .host-memory__dot--0 { fill: var(--color-primary); background: var(--color-primary); }
+.host-memory__segment--1, .host-memory__dot--1 { fill: var(--color-success); background: var(--color-success); }
+.host-memory__segment--2, .host-memory__dot--2 { fill: var(--color-info); background: var(--color-info); }
+.host-memory__segment--3, .host-memory__dot--3 { fill: var(--color-accent); background: var(--color-accent); }
+.host-memory__segment--4, .host-memory__dot--4 { fill: var(--color-secondary); background: var(--color-secondary); }
+.host-memory__segment + .host-memory__segment { stroke: var(--color-bg-secondary); stroke-width: .4; }
+.host-memory .fleet-health__headline { flex-wrap: wrap; row-gap: 2px; white-space: normal; }
+.host-memory .fleet-health__legend > div > span { min-width: 0; }
+.host-memory__name { overflow: hidden; text-overflow: ellipsis; }
+.local-running { margin-bottom: var(--spacing-lg); }
+.local-running .model-workbench__state { min-height: 180px; }
+.local-running__empty a { color: var(--color-primary); }
+.local-running__more { border-top: 1px solid var(--color-border-subtle); }
+.local-model-table th:first-child, .local-model-table td:first-child { width: 30%; }
+.local-model-table .fleet-table__row { cursor: default; }
+.local-model-table .fleet-table__node { cursor: text; overflow-wrap: anywhere; }
+.local-model-table .fleet-table__row.is-stopping { opacity: .55; }
 
 @container fleet-page (max-width: 760px) {
   .fleet-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }

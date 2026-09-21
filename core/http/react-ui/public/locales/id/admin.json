@@ -275,7 +275,18 @@
         "p95": "p95 latensi",
         "quiet": "Belum ada permintaan yang dilayani dalam jendela ini.",
         "host": "Memori host"
+      },
+      "running": {
+        "heading": "Berjalan sekarang",
+        "cluster": "Model berjalan",
+        "clusterSummary": "Replika yang dimuat di seluruh klaster, di halaman Node"
       }
     }
+  },
+  "localMachine": {
+    "title": "Mesin ini",
+    "subtitle": "Model yang dimuat di instans LocalAI ini dan kapasitas host yang digunakannya.",
+    "scaleOut": "Tambah mesin",
+    "hideScaleOut": "Sembunyikan pengaturan"
   }
 }

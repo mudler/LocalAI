@@ -252,7 +252,18 @@
         "p95": "p95 latency",
         "quiet": "No requests served in this window yet.",
         "host": "Host memory"
+      },
+      "running": {
+        "heading": "正在运行",
+        "cluster": "运行中的模型",
+        "clusterSummary": "集群中已加载的副本，见节点页面"
       }
     }
+  },
+  "localMachine": {
+    "title": "本机",
+    "subtitle": "此 LocalAI 实例上已加载的模型及其占用的主机容量。",
+    "scaleOut": "添加机器",
+    "hideScaleOut": "隐藏设置"
   }
 }

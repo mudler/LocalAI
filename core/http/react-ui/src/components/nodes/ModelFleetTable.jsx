@@ -1,7 +1,7 @@
 import { timeAgo } from './nodeStatus'
 import ActionMenu from '../ActionMenu'
 
-function SortButton({ column, label, sort, onSortChange }) {
+export function SortButton({ column, label, sort, onSortChange }) {
   const active = sort.key === column
   const nextDirection = active && sort.direction === 'asc' ? 'desc' : 'asc'
   return (

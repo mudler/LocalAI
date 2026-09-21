@@ -59,7 +59,8 @@
     "api": "API",
     "middleware": "Middleware",
     "activity": "Attività",
-    "overview": "Panoramica"
+    "overview": "Panoramica",
+    "thisMachine": "Questa macchina"
   },
   "footer": {
     "github": "GitHub",

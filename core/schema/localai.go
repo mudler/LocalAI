@@ -204,6 +204,23 @@ type SysInfoModel struct {
 	// so it is resolved from the model's config; empty when the model was
 	// loaded without one (a loose file, or a config since removed).
 	Backend string `json:"backend,omitempty"`
+	// Process is the backend process serving the model on this host. Absent
+	// when the model has no local process (a distributed worker holds it) or
+	// the process could not be read.
+	Process *SysInfoProcess `json:"process,omitempty"`
+}
+
+// SysInfoProcess is a point-in-time reading of one backend process.
+type SysInfoProcess struct {
+	PID int32 `json:"pid"`
+	// RSSBytes is resident host memory. Weights offloaded to a GPU are not
+	// in it.
+	RSSBytes      uint64  `json:"rss_bytes"`
+	MemoryPercent float32 `json:"memory_percent"`
+	// CPUPercent is the share of the whole host's CPU used since the previous
+	// reading, 0-100. Absent on the first reading of a process.
+	CPUPercent *float64  `json:"cpu_percent,omitempty"`
+	StartedAt  time.Time `json:"started_at,omitzero"`
 }
 
 type SystemInformationResponse struct {

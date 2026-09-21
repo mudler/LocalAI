@@ -9,7 +9,9 @@ const ATTENTION = [
   ['lowDisk', 'Low models disk'],
 ]
 
-function CapacityGauge({ label, metric, cpu = false, tone }) {
+// `single` drops the "N of M nodes reporting" coverage lines, which describe a
+// fleet and read as a fault when the "fleet" is the one host being viewed.
+export function CapacityGauge({ label, metric, cpu = false, tone, single = false, noDataText = 'No data' }) {
   const reporting = metric.reportingCount > 0
   const percent = reporting ? Math.round(metric.usagePercent) : 0
   const value = cpu
@@ -17,7 +19,7 @@ function CapacityGauge({ label, metric, cpu = false, tone }) {
     : formatCapacity(metric.used, metric.total)
   const available = cpu
     ? `${Number(metric.idleCoreEquivalents.toFixed(1))} idle · load ${metric.load1.toFixed(2)}`
-    : reporting ? `${formatCapacity(metric.available, metric.total).split(' / ')[0]} available` : 'No data'
+    : reporting ? `${formatCapacity(metric.available, metric.total).split(' / ')[0]} available` : noDataText
 
   return (
     <article className={`fleet-gauge fleet-gauge--${tone} fleet-overview__cell`} aria-label={`${label} capacity`}>
@@ -31,8 +33,8 @@ function CapacityGauge({ label, metric, cpu = false, tone }) {
       </div>
       <div className="fleet-gauge__value-text">{reporting ? value : 'No data'}</div>
       <div className="fleet-gauge__detail">{available}</div>
-      <span className="sr-only">Capacity coverage: {metric.reportingCount} of {metric.reportingCount + metric.unknownCount} nodes reporting; {metric.unknownCount} unknown.</span>
-      {metric.unknownCount > 0 && <div className="fleet-gauge__coverage">{metric.unknownCount} node{metric.unknownCount === 1 ? '' : 's'} unavailable</div>}
+      {!single && <span className="sr-only">Capacity coverage: {metric.reportingCount} of {metric.reportingCount + metric.unknownCount} nodes reporting; {metric.unknownCount} unknown.</span>}
+      {!single && metric.unknownCount > 0 && <div className="fleet-gauge__coverage">{metric.unknownCount} node{metric.unknownCount === 1 ? '' : 's'} unavailable</div>}
     </article>
   )
 }
