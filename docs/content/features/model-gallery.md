@@ -97,7 +97,7 @@ Downloads use a pinned revision and SHA256 checksums.
 
 ## NeoHorse-1-4B
 
-Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q6_K, and Q8_0 GGUF builds:
+Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q5_K_M, Q6_K, Q8_0, and BF16 GGUF builds:
 
 ```bash
 local-ai models install neohorse-1-4b-q4
@@ -112,7 +112,10 @@ local-ai models install neohorse-1-4b-q4 --variant neohorse-1-4b-q8
 [NeoHorse-1-4B](https://huggingface.co/TokenRhythm/NeoHorse-1-4B) is a text-only Qwen3.5 fine-tune for coding, reasoning, and agentic tasks.
 These builds use llama.cpp and the embedded Jinja chat template.
 The gallery defaults to 32,768 context tokens; the model supports up to 262,144 tokens with sufficient memory.
-The [GGUF downloads](https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF) are pinned to a revision and verified with SHA256 checksums.
+The Q4_K_M, Q6_K, and Q8_0 builds use [community GGUF downloads](https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF).
+The Q5_K_M and BF16 builds use [TokenRhythm’s official GGUF downloads](https://huggingface.co/TokenRhythm/NeoHorse-1-4B-GGUF).
+All downloads are pinned to a revision and verified with SHA256 checksums.
+Select `neohorse-1-4b-q5` or `neohorse-1-4b-bf16` with `--variant` to install an official build explicitly.
 
 ## Spark-X2.5-1.7B
 

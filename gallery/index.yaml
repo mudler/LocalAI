@@ -16102,8 +16102,10 @@
     - reasoning
     - coding
   variants:
+    - model: neohorse-1-4b-q5
     - model: neohorse-1-4b-q6
     - model: neohorse-1-4b-q8
+    - model: neohorse-1-4b-bf16
   description: |
     NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
     reasoning, and agentic tasks. This build uses Q4_K_M GGUF weights with
@@ -16185,6 +16187,68 @@
     - filename: NeoHorse-1-4B.Q8_0.gguf
       uri: https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF/resolve/926d357de701ecf787324228734866faaf02054e/NeoHorse-1-4B.Q8_0.gguf
       sha256: ec5e02b4d3a102335333a692b1b83ee454e249e06a6d27f00b2f5bc81a199c98
+- !!merge <<: *neohorse-1-4b
+  name: neohorse-1-4b-q5
+  variants: []
+  urls:
+    - https://huggingface.co/TokenRhythm/NeoHorse-1-4B
+    - https://huggingface.co/TokenRhythm/NeoHorse-1-4B-GGUF
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This official Q5_K_M GGUF build uses the
+    embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B-Q5_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B-Q5_K_M.gguf
+      uri: https://huggingface.co/TokenRhythm/NeoHorse-1-4B-GGUF/resolve/3c5d58ca82e580b5b0b3ce6eeffd34ac7d0fd95a/NeoHorse-1-4B-Q5_K_M.gguf
+      sha256: 617f51ff6e639d0c5049cbacad3ca736523d50de8510b7afff7d5d0fa9e7fc02
+- !!merge <<: *neohorse-1-4b
+  name: neohorse-1-4b-bf16
+  variants: []
+  urls:
+    - https://huggingface.co/TokenRhythm/NeoHorse-1-4B
+    - https://huggingface.co/TokenRhythm/NeoHorse-1-4B-GGUF
+  description: |
+    NeoHorse-1-4B is TokenRhythm's text-only Qwen3.5-4B fine-tune for coding,
+    reasoning, and agentic tasks. This official BF16 GGUF build uses the
+    embedded Jinja chat template and a 32K-token default context.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: NeoHorse-1-4B-BF16.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 1.5
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: NeoHorse-1-4B-BF16.gguf
+      uri: https://huggingface.co/TokenRhythm/NeoHorse-1-4B-GGUF/resolve/3c5d58ca82e580b5b0b3ce6eeffd34ac7d0fd95a/NeoHorse-1-4B-BF16.gguf
+      sha256: b27b4cb2770673ab948a8db166f52f9c74da3df3c88d43f5aa564377f1b4ae50
 - name: qwen_qwen3.5-4b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
