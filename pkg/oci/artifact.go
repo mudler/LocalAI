@@ -268,7 +268,8 @@ func writeArtifactLayer(ctx context.Context, repo *remote.Repository, layer ocis
 	// O_EXCL keeps the write from following a symlink already sitting at the
 	// target, and makes two layers claiming the same title an error instead of
 	// a silent overwrite.
-	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	// #nosec G304 -- target is validated by artifactLayerPath and ResolveInRoot before any layer is written.
+	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}

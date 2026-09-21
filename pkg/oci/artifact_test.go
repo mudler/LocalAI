@@ -91,6 +91,11 @@ var _ = Describe("PullArtifact", func() {
 
 		Expect(os.ReadFile(filepath.Join(dest, "index.yaml"))).To(BeEquivalentTo("- name: one\n"))
 		Expect(os.ReadFile(filepath.Join(dest, "base", "virtual.yaml"))).To(BeEquivalentTo("- name: two\n"))
+		for _, relative := range []string{"index.yaml", "base/virtual.yaml"} {
+			info, err := os.Stat(filepath.Join(dest, relative))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info.Mode().Perm() & 0o077).To(BeZero())
+		}
 	})
 
 	It("refuses a layer whose title escapes the destination with ..", func() {
