@@ -46,7 +46,7 @@ func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {
 		return config, err
 	}
 	uri := downloader.URI(url)
-	err := uri.ReadWithCallback(basePath, func(url string, d []byte) error {
+	err := uri.ReadWithCallback(galleryConfigReadRoot(url, basePath), func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ func GetGalleryConfigFromURLWithContext[T any](ctx context.Context, url string, 
 		return config, err
 	}
 	uri := downloader.URI(url)
-	err := uri.ReadWithAuthorizationAndCallback(ctx, basePath, "", func(url string, d []byte) error {
+	err := uri.ReadWithAuthorizationAndCallback(ctx, galleryConfigReadRoot(url, basePath), "", func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -278,7 +278,7 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 
 	// Get models from galleries
 	for _, gallery := range galleries {
-		galleryModels, err := getGalleryElements(gallery, systemState.Model.ModelsPath, func(model *GalleryModel) bool {
+		galleryModels, err := getGalleryElements(gallery, systemState.Model.ModelsPath, systemState.RequireBackendIntegrity, func(model *GalleryModel) bool {
 			if _, err := os.Stat(filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", model.GetName()))); err == nil {
 				return true
 			}
@@ -291,14 +291,32 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 		// Resolve model URLs locally (for local galleries) and collect unique
 		// URLs that need fetching for backend resolution.
 		uniqueURLs := map[string]struct{}{}
+		usable := make([]*GalleryModel, 0, len(galleryModels))
 		for _, m := range galleryModels {
 			if m.URL != "" {
 				m.URL = resolveModelURLLocally(m.URL, gallery.URL)
+				// The gallery carried on the entry is the one the index was
+				// really read from, with a .ref indirection already followed,
+				// so it is the root an entry path is relative to.
+				resolved, err := resolveGalleryEntryURL(m.URL, m.GetGallery(), systemState.Model.ModelsPath)
+				if err != nil {
+					// One unusable entry must not cost the user the rest of
+					// the gallery, so it is dropped and named rather than
+					// failing the listing. It is left out entirely because an
+					// entry whose url does not resolve cannot be installed,
+					// and offering it would only fail later and further away.
+					xlog.Error("dropping a gallery entry whose url does not resolve",
+						"gallery", gallery.Name, "model", m.Name, "url", m.URL, "error", err)
+					continue
+				}
+				m.URL = resolved
 			}
+			usable = append(usable, m)
 			if m.Backend == "" && m.URL != "" {
 				uniqueURLs[m.URL] = struct{}{}
 			}
 		}
+		galleryModels = usable
 
 		// Pre-warm cache with parallel fetches to avoid sequential HTTP
 		// requests on cold start (~50 unique gallery config files).
@@ -543,7 +561,7 @@ func availableBackendsWithFilter(galleries []config.Gallery, systemState *system
 
 	// Get backends from galleries
 	for _, gallery := range galleries {
-		galleryBackends, err := getGalleryElements(gallery, systemState.Backend.BackendsPath, func(backend *GalleryBackend) bool {
+		galleryBackends, err := getGalleryElements(gallery, systemState.Backend.BackendsPath, systemState.RequireBackendIntegrity, func(backend *GalleryBackend) bool {
 			return systemBackends.Exists(backend.GetName())
 		})
 		if err != nil {
@@ -591,7 +609,7 @@ func (entry galleryCacheEntry) hasExpired() bool {
 
 var galleryCache = xsync.NewSyncedMap[string, galleryCacheEntry]()
 
-func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string, isInstalledCallback func(T) bool) ([]T, error) {
+func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string, requireIntegrity bool, isInstalledCallback func(T) bool) ([]T, error) {
 	var models []T = []T{}
 
 	if strings.HasSuffix(gallery.URL, ".ref") {
@@ -620,7 +638,7 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 		// The cache key stays the gallery's identity rather than the URL that
 		// answered: a mirror serves the same index, so a mirror-served fetch
 		// must populate the entry the primary would have filled.
-		body, servedBy, err := fetchGalleryIndex(context.Background(), gallery, basePath)
+		body, servedBy, err := fetchGalleryIndex(context.Background(), gallery, basePath, requireIntegrity)
 		if err != nil {
 			return models, fmt.Errorf("failed to read gallery elements: %w", err)
 		}

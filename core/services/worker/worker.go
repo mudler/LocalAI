@@ -43,6 +43,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		system.WithModelPath(cfg.ModelsPath),
 		system.WithBackendPath(cfg.BackendsPath),
 		system.WithBackendSystemPath(cfg.BackendsSystemPath),
+		system.WithRequireBackendIntegrity(cfg.RequireBackendIntegrity),
 	)
 	if err != nil {
 		return fmt.Errorf("getting system state: %w", err)

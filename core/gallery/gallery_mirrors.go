@@ -197,7 +197,7 @@ func persistGalleryIndex(basePath, url string, body []byte) {
 // If no candidate answers, the last known good copy on disk is served and its
 // path is returned as the source. Nothing else in the chain helps a machine
 // that has no network at all.
-func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string) ([]byte, string, error) {
+func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string, requireIntegrity bool) ([]byte, string, error) {
 	candidates := galleryCandidates(g)
 	if len(candidates) == 0 {
 		return nil, "", fmt.Errorf("gallery %q has no URL", g.Name)
@@ -218,12 +218,23 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string) (
 		attemptCtx, cancel := context.WithTimeout(ctx, galleryFetchTimeout)
 
 		var body []byte
-		err := downloader.URI(candidate).ReadWithAuthorizationAndCallback(
-			attemptCtx, basePath, "",
-			func(_ string, d []byte) error {
-				body = d
-				return nil
-			})
+		var err error
+		// An oci:// candidate is an artifact in a registry, not a document at
+		// a URL: it is pulled, optionally signature-checked and unpacked. The
+		// rest of this loop does not care which it was, so mirrors, cooldown,
+		// the per-candidate timeout and the last known good copy all work the
+		// same for both schemes, and a gallery can even mirror an OCI primary
+		// with an HTTP fallback.
+		if looksLikeOCIGallery(candidate) {
+			body, err = fetchOCIGalleryIndex(attemptCtx, g, candidate, basePath, requireIntegrity)
+		} else {
+			err = downloader.URI(candidate).ReadWithAuthorizationAndCallback(
+				attemptCtx, basePath, "",
+				func(_ string, d []byte) error {
+					body = d
+					return nil
+				})
+		}
 		cancel()
 
 		if err == nil {
