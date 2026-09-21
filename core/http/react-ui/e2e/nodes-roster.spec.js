@@ -27,9 +27,19 @@ test.describe('Nodes fleet roster', () => {
     await expect(page.getByText('No workers registered yet')).toBeVisible({ timeout: 15_000 })
   })
 
-  test('preserves the distributed-disabled setup experience', async ({ page }) => {
-    await page.route('**/api/nodes', route => route.fulfill({ status: 503, body: 'Service Unavailable' }))
-    await page.goto('/app/nodes')
-    await expect(page.getByText('Distributed Mode Not Enabled')).toBeVisible({ timeout: 15_000 })
-  })
+  // A single-node server does not register the cluster routes at all, so the
+  // real answer is 404; 503 is what they say when mounted without a registry.
+  // Either way the page is about this host, with the distributed setup one
+  // click away rather than the whole page.
+  for (const status of [404, 503]) {
+    test(`shows this machine when the cluster API answers ${status}`, async ({ page }) => {
+      await page.route('**/api/nodes', route => route.fulfill({ status, body: 'unavailable' }))
+      await page.goto('/app/nodes')
+      await expect(page.getByTestId('local-machine')).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText('No workers registered yet')).toHaveCount(0)
+      await expect(page.getByTestId('scale-out')).toHaveCount(0)
+      await page.getByRole('button', { name: 'Add machines' }).click()
+      await expect(page.getByTestId('scale-out')).toContainText('Distributed mode is not enabled')
+    })
+  }
 })

@@ -67,6 +67,10 @@ export const operateConsole = {
       titleKey: 'operate.runtime',
       items: [
         { path: '/app/operate', icon: 'fas fa-gauge-high', labelKey: 'items.overview', adminOnly: true, signal: 'attention' },
+        // The Nodes route under the name it has on a single-node install,
+        // where it shows this host and what is loaded on it. With distributed
+        // mode on, the Cluster group's Nodes entry takes over instead.
+        { path: '/app/nodes', icon: 'fas fa-desktop', labelKey: 'items.thisMachine', adminOnly: true, unlessFeature: 'distributed', signal: 'running' },
         { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true, signal: 'backends' },
         { path: '/app/voice-library', icon: 'fas fa-wave-square', labelKey: 'items.voiceLibrary', adminOnly: true },
         { path: '/app/activity', icon: 'fas fa-download', labelKey: 'items.activity', adminOnly: true, badge: 'operations', signal: 'activity' },
@@ -109,6 +113,9 @@ export function isConsoleItemVisible(item, { isAdmin, authEnabled, hasFeature, f
   if (item.requiresAgentPool && features.agents === false) return false
   if (item.feature && features[item.feature] === false) return false
   if (item.feature && !hasFeature(item.feature)) return false
+  // Hidden until /api/features has answered: showing it and then swapping it
+  // for the cluster entry would move the rail under the user's pointer.
+  if (item.unlessFeature && features[item.unlessFeature] !== false) return false
   return true
 }
 

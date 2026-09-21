@@ -60,7 +60,8 @@
     "settings": "Pengaturan",
     "api": "API",
     "activity": "Aktivitas",
-    "overview": "Ikhtisar"
+    "overview": "Ikhtisar",
+    "thisMachine": "Mesin ini"
   },
   "footer": {
     "github": "GitHub",
