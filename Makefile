@@ -576,7 +576,7 @@ protoc:
 	  echo "Unsupported OS: $$OS_NAME"; exit 1; \
 	fi; \
 	URL=https://github.com/protocolbuffers/protobuf/releases/download/v31.1/$$FILE; \
-	curl -L $$URL -o protoc.zip && \
+	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 $$URL -o protoc.zip && \
 	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
 
 .PHONY: protogen-go
