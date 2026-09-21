@@ -49,11 +49,17 @@ cosign sign --yes --recursive \
 Sign by digest, never by tag — signing by tag binds the signature to
 whatever the tag points at *now*, and a subsequent tag push orphans it.
 
-`--registry-referrers-mode=oci-1-1` is still gated behind
-`COSIGN_EXPERIMENTAL=1` in cosign v2.4.x (set at the job env level in
-`backend_merge.yml`). Re-evaluate when bumping the pinned cosign release
-— newer versions are expected to graduate this flag and the env var can
+`--registry-referrers-mode=oci-1-1` is gated behind
+`COSIGN_EXPERIMENTAL=1` (set at the job env level in
+`backend_merge.yml`). Re-evaluate when bumping the pinned cosign release:
+newer versions are expected to graduate this flag and the env var can
 then be dropped.
+
+`--new-bundle-format` needs cosign v2.5.0 or newer, which is why
+`backend_merge.yml` pins v2.6.5. Without the flag cosign writes the legacy
+simplesigning format instead, and `pkg/oci/cosignverify` refuses it on
+purpose, so an older cosign silently publishes signatures this project
+cannot verify. Check both the flag and the pinned version together.
 
 `backend_build_darwin.yml` builds and pushes single-arch darwin images
 that bypass the manifest-list merge. If/when those entries get a gallery
