@@ -142,4 +142,44 @@ parameters:
 		Expect(entry).NotTo(BeNil())
 		Expect(entry.ContextSize).To(Equal(backend.DefaultContextSize))
 	})
+	It("reports an alias with its target's capabilities and context_size", func() {
+		writeConfig("real-llm", `
+name: real-llm
+backend: llama-cpp
+context_size: 100000
+known_usecases:
+  - FLAG_CHAT
+  - FLAG_VISION
+template:
+  chat: "{{ .Input }}"
+parameters:
+  model: model.gguf
+`)
+		writeConfig("friendly", `
+name: friendly
+alias: real-llm
+`)
+		resp := call()
+		target := entryFor(resp, "real-llm")
+		Expect(target).NotTo(BeNil())
+
+		entry := entryFor(resp, "friendly")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ID).To(Equal("friendly"))
+		Expect(entry.ContextSize).To(Equal(100000))
+		Expect(entry.Capabilities).To(Equal(target.Capabilities))
+		Expect(entry.InputModalities).To(Equal(target.InputModalities))
+		Expect(entry.OutputModalities).To(Equal(target.OutputModalities))
+	})
+
+	It("reports no context_size for an alias whose target does not exist", func() {
+		writeConfig("dangling", `
+name: dangling
+alias: missing-model
+`)
+		entry := entryFor(call(), "dangling")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(BeZero())
+		Expect(entry.Capabilities).To(BeEmpty())
+	})
 })
