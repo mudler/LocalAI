@@ -437,34 +437,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// could never read a token to send back.
 	if !application.ApplicationConfig().DisableCSRF {
 		xlog.Debug("Enabling CSRF middleware (Sec-Fetch-Site mode)")
-		e.Use(middleware.CSRFWithConfig(middleware.CSRFConfig{
-			Skipper: func(c echo.Context) bool {
-				// Skip CSRF for API clients using auth headers (may be cross-origin)
-				if c.Request().Header.Get("Authorization") != "" {
-					return true
-				}
-				if c.Request().Header.Get("x-api-key") != "" || c.Request().Header.Get("xi-api-key") != "" {
-					return true
-				}
-				// Skip when Sec-Fetch-Site header is absent (older browsers, reverse
-				// proxies that strip the header). The SameSite=Lax cookie attribute
-				// provides baseline CSRF protection for these clients.
-				if c.Request().Header.Get("Sec-Fetch-Site") == "" {
-					return true
-				}
-				return false
-			},
-			// Allow same-site requests (subdomains / different ports) in addition
-			// to same-origin which Echo already permits by default.
-			AllowSecFetchSiteFunc: func(c echo.Context) (bool, error) {
-				secFetchSite := c.Request().Header.Get("Sec-Fetch-Site")
-				if secFetchSite == "same-site" {
-					return true, nil
-				}
-				// cross-site: block
-				return false, nil
-			},
-		}))
+		e.Use(auth.CSRFMiddleware())
 	}
 
 	// Admin middleware: enforces admin role when auth is enabled, no-op otherwise
