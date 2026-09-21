@@ -54,6 +54,27 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Maple-Preview
+
+[Maple-Preview](https://huggingface.co/deepgrove/maple-preview-GGUF) is a 20B reasoning model with about 1B active parameters.
+Install it with automatic selection among four ternary GGUF builds:
+
+```bash
+local-ai models install maple-preview-tq1-0-head-q4-k
+```
+
+The variants combine TQ1_0 or TQ2_0 weights with a Q4_K or F16 output head.
+To select a build explicitly:
+
+```bash
+local-ai models install maple-preview-tq1-0-head-q4-k --variant maple-preview-tq2-0-head-q4-k
+```
+
+These entries use llama.cpp with the publisher's CPU configuration, sampling settings, and embedded Jinja chat template.
+The default context is 8,192 tokens; the model supports up to 131,072 tokens with sufficient memory.
+Use a current llama.cpp backend that includes the Maple architecture.
+Downloads use a pinned revision and SHA256 checksums.
+
 ## NeoHorse-1-4B
 
 Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q6_K, and Q8_0 GGUF builds:
