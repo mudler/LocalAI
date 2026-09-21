@@ -47,10 +47,13 @@ type Gallery struct {
 	// fallback for availability, not a load-balancing pool: the primary is
 	// always preferred, and a mirror is only consulted after the one before
 	// it fails. Any URI the gallery loader understands works here
-	// (https://, github:, file://).
+	// (https://, github:, file://, oci://).
 	Mirrors      []string             `json:"mirrors,omitempty" yaml:"mirrors,omitempty"`
 	Name         string               `json:"name" yaml:"name"`
 	Verification *GalleryVerification `json:"verification,omitempty" yaml:"verification,omitempty"`
+	// ArtifactVerification overrides Verification only for the gallery OCI artifact.
+	// Backend images keep their separate Verification policy.
+	ArtifactVerification *GalleryVerification `json:"artifact_verification,omitempty" yaml:"artifact_verification,omitempty"`
 }
 
 // Equal reports whether two gallery entries describe the same gallery.
@@ -66,6 +69,13 @@ func (g Gallery) Equal(other Gallery) bool {
 		return false
 	}
 	if !slices.Equal(g.Mirrors, other.Mirrors) {
+		return false
+	}
+	if g.ArtifactVerification == nil || other.ArtifactVerification == nil {
+		if g.ArtifactVerification != other.ArtifactVerification {
+			return false
+		}
+	} else if *g.ArtifactVerification != *other.ArtifactVerification {
 		return false
 	}
 	if g.Verification == nil || other.Verification == nil {

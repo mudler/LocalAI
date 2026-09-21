@@ -151,17 +151,18 @@ func readCachedOCIGallery(cacheDir string) ([]byte, bool) {
 // later fetch served would hand the user a truncated gallery with no sign that
 // anything went wrong.
 func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, basePath string, requireIntegrity bool) ([]byte, error) {
+	policy := galleryArtifactPolicy(g)
 	// Checked before the cache: a copy unpacked while strict integrity was
 	// off was never verified, and turning strict integrity on must not keep
 	// serving it for the rest of its TTL.
-	if g.Verification == nil && requireIntegrity {
+	if policy == nil && requireIntegrity {
 		return nil, &galleryVerificationError{
 			strict: true,
-			err:    fmt.Errorf("no verification policy is set for %q (set verification: in the gallery configuration or disable --require-backend-integrity)", candidate),
+			err:    fmt.Errorf("no verification policy is set for %q (set artifact_verification: in the gallery configuration or disable --require-backend-integrity)", candidate),
 		}
 	}
 
-	cacheDir := ociGalleryCacheDir(basePath, candidate, g.Verification)
+	cacheDir := ociGalleryCacheDir(basePath, candidate, policy)
 	if cacheDir == "" {
 		return nil, fmt.Errorf("gallery %q needs an absolute models directory to cache %q", g.Name, candidate)
 	}
@@ -171,7 +172,7 @@ func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, base
 
 	pullRef := downloader.URI(candidate).OCIReference()
 
-	if g.Verification != nil {
+	if policy != nil {
 		// Resolve first, verify the digest, then pull that same digest.
 		// Nothing has been fetched at this point beyond the manifest, so a
 		// policy failure leaves no content anywhere.
@@ -179,7 +180,7 @@ func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, base
 		if err != nil {
 			return nil, err
 		}
-		if err := verifyGalleryArtifact(ctx, g.Verification, digestRef); err != nil {
+		if err := verifyGalleryArtifact(ctx, policy, digestRef); err != nil {
 			// Only a decision about the artifact is a refusal. The
 			// verifier also reaches the Sigstore TUF mirror and the
 			// registry, and a timeout or a 5xx there says nothing about
@@ -238,4 +239,11 @@ func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, base
 	}
 
 	return body, nil
+}
+
+func galleryArtifactPolicy(g config.Gallery) *config.GalleryVerification {
+	if g.ArtifactVerification != nil {
+		return g.ArtifactVerification
+	}
+	return g.Verification
 }
