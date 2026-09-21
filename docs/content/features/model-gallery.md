@@ -342,6 +342,26 @@ local-ai models install --variant qwen3.8-27b-efficientthink-q8-dflash qwen3.8-2
 Use `qwen3.8-27b-efficientthink-q6` or `qwen3.8-27b-efficientthink-q8` as the
 variant name for ordinary decoding without a draft model.
 
+### Qwen3.8 Cyber GGUF builds
+
+[Qwen3.8-27B Uncensored Cyber](https://huggingface.co/philbert440/Qwen3.8-27B-Uncensored-Cyber)
+offers IQ4_XS and Q8_0 builds for llama.cpp. Both include the BF16 vision
+projector and use a 32,768-token default context. The IQ4_XS build is
+requantized from Q8_0 with an importance matrix calibrated on coding-agent
+conversations. These entries do not enable speculative decoding.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-cyber-iq4-xs
+```
+
+To select the original publisher's Q8_0 build explicitly:
+
+```bash
+local-ai models install --variant qwen3.8-27b-cyber-q8 qwen3.8-27b-cyber-iq4-xs
+```
+
 ### Model variants
 
 The `qwen3.5-9b-defiant-fable-mtp` entry offers Q4_K_M and Q8_0 builds for

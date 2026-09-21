@@ -2763,6 +2763,93 @@
     - filename: llama-cpp/mmproj/Qwen3.8-27B-Heretic-Q4_K_M/mmproj-Qwen3.8-27B-Q8_0.gguf
       sha256: 2e968a6af97ce35d8971890b257b9b7edabf20ad91450501fa53162a19ee33eb
       uri: https://huggingface.co/0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF/resolve/main/mmproj-Qwen3.8-27B-Q8_0.gguf
+- &qwen38-cyber
+  name: qwen3.8-27b-cyber-iq4-xs
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/philbert440/Qwen3.8-27B-Uncensored-Cyber
+    - https://huggingface.co/philbert440/Qwen3.8-27B-Uncensored-Cyber-GGUF
+    - https://huggingface.co/cyjin-yl/Qwen3.8-27B-Uncensored-Cyber-agentic-imatrix-GGUF
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - reasoning
+  variants:
+    - model: qwen3.8-27b-cyber-q8
+  description: |
+    Qwen3.8-27B Uncensored Cyber is philbert440's security-focused derivative
+    of Qwen3.8-27B. This IQ4_XS build is requantized from Q8_0 with an
+    importance matrix calibrated on coding-agent conversations.
+    Includes the BF16 vision projector, embedded Jinja chat template, and
+    a 32K-token default context. Speculative decoding is not enabled.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-cyber/mmproj-Qwen3.8-27B-Uncensored-Cyber-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-cyber/Qwen3.8-27B-Uncensored-Cyber-IQ4_XS-imatrix-fromq8.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-cyber/Qwen3.8-27B-Uncensored-Cyber-IQ4_XS-imatrix-fromq8.gguf
+      uri: https://huggingface.co/cyjin-yl/Qwen3.8-27B-Uncensored-Cyber-agentic-imatrix-GGUF/resolve/d82fb040934e0a491600a49477114d005accf59f/Qwen3.8-27B-Uncensored-Cyber-IQ4_XS-imatrix-fromq8.gguf
+      sha256: d11d28b9b253fb7fc9de277a46af5bbd790c000d6bfdfe5648fd7b62ec2560b7
+    - filename: llama-cpp/mmproj/qwen3.8-27b-cyber/mmproj-Qwen3.8-27B-Uncensored-Cyber-BF16.gguf
+      uri: https://huggingface.co/philbert440/Qwen3.8-27B-Uncensored-Cyber-GGUF/resolve/b2dc3ee9a0216898684d8d0607009626662724d4/mmproj-Qwen3.8-27B-Uncensored-Cyber-BF16.gguf
+      sha256: 560b365631576403a0a8be887ddeb0109309148cbc60785355da07d6dd17b4cb
+- !!merge <<: *qwen38-cyber
+  name: qwen3.8-27b-cyber-q8
+  variants: []
+  description: |
+    Qwen3.8-27B Uncensored Cyber is philbert440's security-focused derivative
+    of Qwen3.8-27B. This build uses the original publisher's Q8_0 weights.
+    Includes the BF16 vision projector, embedded Jinja chat template, and
+    a 32K-token default context. Speculative decoding is not enabled.
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-cyber/mmproj-Qwen3.8-27B-Uncensored-Cyber-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-cyber/Qwen3.8-27B-Uncensored-Cyber-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-cyber/Qwen3.8-27B-Uncensored-Cyber-Q8_0.gguf
+      uri: https://huggingface.co/philbert440/Qwen3.8-27B-Uncensored-Cyber-GGUF/resolve/b2dc3ee9a0216898684d8d0607009626662724d4/Qwen3.8-27B-Uncensored-Cyber-Q8_0.gguf
+      sha256: 48b2cbdc7b7714ac0b6d3b514cf4ebff49787c47a410fd22ff1230ae5a256c7f
+    - filename: llama-cpp/mmproj/qwen3.8-27b-cyber/mmproj-Qwen3.8-27B-Uncensored-Cyber-BF16.gguf
+      uri: https://huggingface.co/philbert440/Qwen3.8-27B-Uncensored-Cyber-GGUF/resolve/b2dc3ee9a0216898684d8d0607009626662724d4/mmproj-Qwen3.8-27B-Uncensored-Cyber-BF16.gguf
+      sha256: 560b365631576403a0a8be887ddeb0109309148cbc60785355da07d6dd17b4cb
 - &carbon-3b
   name: "carbon-3b-q4"
   variants:
