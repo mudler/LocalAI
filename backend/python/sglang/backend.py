@@ -105,6 +105,11 @@ MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 class BackendServicer(backend_pb2_grpc.BackendServicer):
     """gRPC servicer implementing the Backend service for sglang."""
 
+    # Class-level default so a servicer used before LoadModel (e.g. in unit
+    # tests that construct it directly) doesn't AttributeError in
+    # _build_sampling_params.
+    thinking_budget: Optional[int] = None
+
     def _parse_options(self, options_list) -> Dict[str, str]:
         opts: Dict[str, str] = {}
         for opt in options_list:
@@ -217,6 +222,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # request because sglang's parsers are stateful.
         self.tool_parser_name: Optional[str] = opts.get("tool_parser") or None
         self.reasoning_parser_name: Optional[str] = opts.get("reasoning_parser") or None
+
+        # Fixed reasoning-length budget for every request on this model, in
+        # tokens. There is no protobuf field to carry a per-request
+        # custom_params blob, so this rides the same model-level `options:`
+        # mechanism as tool_parser/reasoning_parser above — mirroring how
+        # sglang's own `--preferred-sampling-params` is a server-wide
+        # default, not a per-request choice. Requires `enable_strict_thinking`
+        # in `engine_args:` (sglang >=0.5.11); without it sglang has no
+        # tokenizer-derived budget mechanism to enforce this against.
+        thinking_budget_opt = opts.get("thinking_budget")
+        self.thinking_budget: Optional[int] = (
+            int(thinking_budget_opt) if thinking_budget_opt else None
+        )
 
         # Also hand the parser names to sglang's engine so its HTTP/OAI
         # paths work identically if someone hits the engine directly.
@@ -350,6 +368,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             except json.JSONDecodeError:
                 sampling_params["ebnf"] = grammar
 
+        if self.thinking_budget is not None:
+            sampling_params["custom_params"] = {"thinking_budget": self.thinking_budget}
+
         return sampling_params
 
     def _build_prompt(self, request) -> str:
@@ -426,12 +447,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         there files the answer as reasoning and leaves content empty. sglang's
         own server keeps the two apart for the same reason — its grammar
         backend owns the reasoning prefix when a reasoning parser is set.
+
+        Returns a ``(parser, forced)`` pair. ``forced`` is also the signal
+        ``_predict`` passes as ``Engine.async_generate(require_reasoning=...)``:
+        sglang's own OpenAI server derives that flag from per-template
+        config (``ChatServing._get_reasoning_from_request``); this backend
+        has no template manager, so the same prompt-suffix heuristic that
+        already decides parser forcing doubles as that signal.
         """
         if grammar_constrained:
             prompt = ""
 
         if not (HAS_REASONING_PARSERS and self.reasoning_parser_name):
-            return None
+            return None, False
 
         kwargs = {
             "model_type": self.reasoning_parser_name,
@@ -441,10 +469,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             parser = ReasoningParser(**kwargs)
         except Exception as e:
             print(f"ReasoningParser init failed: {e!r}", file=sys.stderr)
-            return None
+            return None, False
 
+        forced = False
         start = getattr(getattr(parser, "detector", None), "think_start_token", None)
         if start and prompt and prompt.rstrip().endswith(start):
+            forced = True
             try:
                 parser = ReasoningParser(force_reasoning=True, **kwargs)
             except TypeError:
@@ -457,10 +487,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     file=sys.stderr,
                 )
 
-        return parser
+        return parser, forced
 
     def _make_parsers(self, request, prompt: str = ""):
-        """Construct fresh per-request parser instances (stateful)."""
+        """Construct fresh per-request parser instances (stateful).
+
+        Also returns ``require_reasoning`` (see ``_new_reasoning_parser``),
+        which ``_predict`` forwards to ``Engine.async_generate()`` so
+        sglang's ``--enable-strict-thinking`` grammar backend knows this
+        request is in a reasoning block.
+        """
         tool_parser = None
 
         if HAS_TOOL_PARSERS and self.tool_parser_name and request.Tools:
@@ -473,17 +509,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             except Exception as e:
                 print(f"FunctionCallParser init failed: {e!r}", file=sys.stderr)
 
-        reasoning_parser = self._new_reasoning_parser(
+        reasoning_parser, require_reasoning = self._new_reasoning_parser(
             True, prompt, bool(getattr(request, "Grammar", "")),
         )
 
-        return tool_parser, reasoning_parser
+        return tool_parser, reasoning_parser, require_reasoning
 
     async def _predict(self, request, context, streaming: bool = False):
         sampling_params = self._build_sampling_params(request)
         prompt = self._build_prompt(request)
 
-        tool_parser, reasoning_parser = self._make_parsers(request, prompt)
+        tool_parser, reasoning_parser, require_reasoning = self._make_parsers(request, prompt)
 
         image_data = list(request.Images) if request.Images else None
         video_data = list(request.Videos) if request.Videos else None
@@ -496,6 +532,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 sampling_params=sampling_params,
                 image_data=image_data,
                 video_data=video_data,
+                require_reasoning=require_reasoning,
                 stream=True,
             )
         except Exception as e:
@@ -579,7 +616,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         final_tool_calls: List[backend_pb2.ToolCallDelta] = []
 
         if not streaming:
-            final_reasoning_parser = self._new_reasoning_parser(
+            final_reasoning_parser, _ = self._new_reasoning_parser(
                 False, prompt, bool(getattr(request, "Grammar", "")),
             )
 
