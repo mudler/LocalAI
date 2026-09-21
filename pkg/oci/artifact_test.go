@@ -98,6 +98,17 @@ var _ = Describe("PullArtifact", func() {
 		}
 	})
 
+	It("refuses writes through a directory symlink outside the destination", func() {
+		outside := GinkgoT().TempDir()
+		Expect(os.Symlink(outside, filepath.Join(dest, "linked"))).To(Succeed())
+		ref, _ := pushTestArtifact(server.URL, "galleries/symlink", testGalleryArtifactType, []artifactFile{
+			{title: "linked/escape.yaml", body: "owned\n"},
+		})
+		_, err := localoci.PullArtifact(context.Background(), ref, dest, localoci.WithArtifactType(testGalleryArtifactType))
+		Expect(err).To(HaveOccurred())
+		Expect(filepath.Join(outside, "escape.yaml")).NotTo(BeAnExistingFile())
+	})
+
 	It("refuses a layer whose title escapes the destination with ..", func() {
 		ref, _ := pushTestArtifact(server.URL, "galleries/escape", testGalleryArtifactType, []artifactFile{
 			{title: "../escape.yaml", body: "owned\n"},

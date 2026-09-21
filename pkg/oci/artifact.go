@@ -125,7 +125,10 @@ func PullArtifact(ctx context.Context, ref, dest string, opts ...ArtifactPullOpt
 		if err != nil {
 			return "", fmt.Errorf("refusing layer %d of %q: %w", i, ref, err)
 		}
-		targets[i] = target
+		targets[i], err = filepath.Rel(root, target)
+		if err != nil {
+			return "", err
+		}
 		if layer.Size < 0 {
 			return "", fmt.Errorf("layer %d of %q declares a negative size", i, ref)
 		}
@@ -135,8 +138,18 @@ func PullArtifact(ctx context.Context, ref, dest string, opts ...ArtifactPullOpt
 		}
 	}
 
+	if err := os.MkdirAll(root, 0o750); err != nil {
+		return "", err
+	}
+	// Confine directory creation and file writes even if dest contains symlinks.
+	output, err := os.OpenRoot(root)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = output.Close() }()
+
 	for i, layer := range manifest.Layers {
-		if err := writeArtifactLayer(ctx, repo, layer, targets[i]); err != nil {
+		if err := writeArtifactLayer(ctx, repo, layer, output, targets[i]); err != nil {
 			return "", fmt.Errorf("failed to write layer %d of %q: %w", i, ref, err)
 		}
 	}
@@ -255,8 +268,8 @@ func artifactLayerPath(root, title string) (string, error) {
 	return target, nil
 }
 
-func writeArtifactLayer(ctx context.Context, repo *remote.Repository, layer ocispec.Descriptor, target string) error {
-	if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
+func writeArtifactLayer(ctx context.Context, repo *remote.Repository, layer ocispec.Descriptor, root *os.Root, target string) error {
+	if err := root.MkdirAll(filepath.Dir(target), 0o750); err != nil {
 		return err
 	}
 	blob, err := repo.Fetch(ctx, layer)
@@ -268,8 +281,7 @@ func writeArtifactLayer(ctx context.Context, repo *remote.Repository, layer ocis
 	// O_EXCL keeps the write from following a symlink already sitting at the
 	// target, and makes two layers claiming the same title an error instead of
 	// a silent overwrite.
-	// #nosec G304 -- target is validated by artifactLayerPath and ResolveInRoot before any layer is written.
-	f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	f, err := root.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
@@ -287,7 +299,7 @@ func writeArtifactLayer(ctx context.Context, repo *remote.Repository, layer ocis
 	if err != nil {
 		// Content that failed to verify must not be left behind for a caller
 		// to read as if it were the published layer.
-		if rmErr := os.Remove(target); rmErr != nil {
+		if rmErr := root.Remove(target); rmErr != nil {
 			xlog.Debug("Could not remove a partially written artifact layer", "path", target, "error", rmErr)
 		}
 		return err

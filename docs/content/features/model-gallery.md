@@ -241,6 +241,9 @@ GALLERIES=[{"name":"premium", "url":"oci://quay.io/acme/gallery:latest"}]
 
 LocalAI pulls the artifact, unpacks it into a cache directory beside your models directory (`<MODELS_PATH>/../cache/gallery/oci/`) and reads `index.yaml` from it. The unpacked copy is reused for one hour before the registry is asked again. Everything else works as it does for an HTTP gallery: an `oci://` URL can be a primary `url` or one of the `mirrors`, a failed pull puts the source in the same 10 minute cooldown, and the offline cache still serves the last good listing.
 
+Downloaded artifact files are readable and writable only by the LocalAI process owner. File writes stay inside the cache directory, including when an existing subdirectory is a symbolic link.
+
+
 This is the only format that carries a whole gallery in one object, so it is what to publish when the index and the model configuration files must travel together.
 
 ### Entry URLs relative to the gallery
