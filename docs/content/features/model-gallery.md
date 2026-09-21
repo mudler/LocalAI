@@ -438,26 +438,25 @@ local-ai models install --variant qwen3.8-27b-efficientthink-q8-dflash qwen3.8-2
 Use `qwen3.8-27b-efficientthink-q6` or `qwen3.8-27b-efficientthink-q8` as the
 variant name for ordinary decoding without a draft model.
 
-### Qwen3.8 35B A3B Distill
+### Qwen3.8 Cyber GGUF builds
 
-[Empero's Qwen3.8-35B-A3B-Distill](https://huggingface.co/empero-ai/Qwen3.8-35B-A3B-Distill-GGUF)
-is available for llama.cpp in Q4_K_M, Q5_K_M, and Q8_0 formats.
-Each build includes the F16 vision projector and uses a 32,768-token context.
-The publisher did not evaluate the inherited vision capabilities.
+[Qwen3.8-27B Uncensored Cyber](https://huggingface.co/philbert440/Qwen3.8-27B-Uncensored-Cyber)
+offers IQ4_XS and Q8_0 builds for llama.cpp. Both include the BF16 vision
+projector and use a 32,768-token default context. The IQ4_XS build is
+requantized from Q8_0 with an importance matrix calibrated on coding-agent
+conversations. These entries do not enable speculative decoding.
 
 Install with automatic variant selection:
 
 ```bash
-local-ai models install qwen3.8-35b-a3b-distill-q4
+local-ai models install qwen3.8-27b-cyber-iq4-xs
 ```
 
-To select Q8_0 explicitly:
+To select the original publisher's Q8_0 build explicitly:
 
 ```bash
-local-ai models install --variant qwen3.8-35b-a3b-distill-q8 qwen3.8-35b-a3b-distill-q4
+local-ai models install --variant qwen3.8-27b-cyber-q8 qwen3.8-27b-cyber-iq4-xs
 ```
-
-Use `qwen3.8-35b-a3b-distill-q5` to select Q5_K_M.
 
 ### Model variants
 
