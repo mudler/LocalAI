@@ -104,6 +104,9 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		return nil, err
 	}
 	xlog.Debug("Predict called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
+		return nil, errMockContextOverflow
+	}
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
 	}
@@ -255,11 +258,18 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	}, nil
 }
 
+// errMockContextOverflow is llama.cpp's error for a prompt that does not fit
+// the slot's context (tools/server/server-context.cpp).
+var errMockContextOverflow = fmt.Errorf("request (9739 tokens) exceeds the available context size (8192 tokens), try increasing it")
+
 func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictStreamServer) error {
 	if err := checkModelIdentity(in); err != nil {
 		return err
 	}
 	xlog.Debug("PredictStream called", "prompt", in.Prompt)
+	if strings.Contains(in.Prompt, "MOCK_ERROR_CONTEXT_OVERFLOW") {
+		return errMockContextOverflow
+	}
 	if strings.Contains(in.Prompt, "MOCK_ERROR_IMMEDIATE") {
 		return fmt.Errorf("mock backend stream error: simulated failure")
 	}

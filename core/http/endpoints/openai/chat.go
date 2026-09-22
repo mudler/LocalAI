@@ -537,6 +537,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				}()
 
 				var finalUsage backend.TokenUsage
+				// wroteChunk records whether this iteration sent anything. The
+				// chunks go to the raw writer, so c.Response().Committed stays
+				// false and cannot tell.
+				wroteChunk := false
 				toolsCalled := false
 				var collectedToolCalls []schema.ToolCall
 				var collectedContent string
@@ -598,6 +602,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							input.Cancel()
 							return err
 						}
+						wroteChunk = true
 						c.Response().Flush()
 					case res := <-ended:
 						if res.err == nil {
@@ -605,6 +610,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							break LOOP
 						}
 						xlog.Error("Stream ended with error", "error", res.err)
+
+						// Nothing was sent yet, so the status line is still
+						// open: answer with a real HTTP error instead of an
+						// error chunk on a 200 stream. Clients then handle it
+						// like the same failure on a non-streaming request.
+						if mcpStreamIter == 0 && !wroteChunk {
+							h := c.Response().Header()
+							h.Del("Content-Type")
+							h.Del("Cache-Control")
+							h.Del("Connection")
+							return backendRequestError(res.err)
+						}
 
 						errorResp := schema.ErrorResponse{
 							Error: &schema.APIError{
@@ -881,7 +898,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					},
 				)
 				if err != nil {
-					return err
+					return backendRequestError(err)
 				}
 
 				// For non-tool requests: prefer C++ autoparser chat deltas over
