@@ -36,6 +36,9 @@ func ListModelCapabilitiesEndpoint(bcl *config.ModelConfigLoader, ml *model.Mode
 		for _, m := range modelNames {
 			entry := schema.ModelCapabilities{ID: m, Object: "model"}
 			if cfg, ok := modelConfigFor(bcl, m); ok {
+				if (cfg.ContextSize == nil || *cfg.ContextSize <= 0) && appConfig != nil && appConfig.ContextSize > 0 {
+					cfg.ContextSize = &appConfig.ContextSize
+				}
 				entry.Capabilities = cfg.Capabilities()
 				entry.ThreeDOperations = cfg.ThreeDOperations()
 				entry.InputModalities = cfg.InputModalities()
