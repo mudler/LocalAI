@@ -712,7 +712,7 @@ func modelTokenTrim(modelName string, deps ClassifierDeps) (func(string) (int, e
 	if count == nil {
 		return nil, 0
 	}
-	ceiling := backend.EffectiveContextSize(*cfg)
+	ceiling := backend.EffectiveRequestContextSize(*cfg)
 	if b := backend.EffectiveBatchSize(*cfg); b < ceiling {
 		ceiling = b
 	}

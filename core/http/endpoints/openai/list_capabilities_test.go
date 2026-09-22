@@ -131,6 +131,24 @@ parameters:
 		Expect(entry.ContextSize).To(Equal(32768))
 	})
 
+	It("reports the per-slot context_size when parallel slots do not share the KV cache", func() {
+		// llama.cpp gives each slot n_ctx/n_parallel here, so a client that
+		// budgets against the full 32768 overflows at 8192.
+		writeConfig("llm", `
+name: llm
+backend: llama-cpp
+context_size: 32768
+options:
+  - parallel:4
+  - kv_unified:false
+parameters:
+  model: model.gguf
+`)
+		entry := entryFor(call(), "llm")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(8192))
+	})
+
 	It("falls back to the default context size when context_size is unset", func() {
 		writeConfig("llm", `
 name: llm
