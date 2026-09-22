@@ -45553,6 +45553,110 @@
     - filename: flux2-vae.safetensors
       sha256: 868fe7b343cc8f3a19dbcfcafbc3d5f888802be3f89bd81b65b3621a066ce8f3
       uri: https://huggingface.co/Comfy-Org/Ideogram-4/resolve/main/vae/flux2-vae.safetensors
+- name: qwen-image-2.1-q4_k-ggml
+  variants:
+    - model: qwen-image-2.1-q8_0-ggml
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen-Image-2.1
+    - https://huggingface.co/leejet/Qwen-Image-2.1-GGUF
+  description: |
+    Qwen-Image 2.1 is the Qwen image generation foundation model, with strong prompt adherence and accurate text rendering (English and Chinese). It uses Qwen3-VL-8B as the text encoder and its own VAE, and supports both text-to-image and image editing: pass reference images to edit them.
+
+    This is the Q4_K (4-bit) quantization (~4.2GB diffusion model) by leejet for stable-diffusion.cpp. The bundle also pulls the Qwen3-VL-8B-Instruct text encoder with its vision projector (used for image editing) and the Qwen-Image 2.1 VAE. Use image dimensions divisible by 32.
+  license: qwen-research
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/qwen_image_logo.png
+  tags:
+    - qwen
+    - qwen-image
+    - text-to-image
+    - image-to-image
+    - image-editing
+    - text-rendering
+    - multilingual
+    - gguf
+    - quantized
+    - diffusion
+  last_checked: "2026-09-21"
+  overrides:
+    backend: stablediffusion-ggml
+    step: 25
+    # Qwen-Image 2.1 is not guidance-distilled: 6 matches the upstream
+    # stable-diffusion.cpp example.
+    cfg_scale: 6
+    options:
+      - diffusion_model
+      - llm_path:Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      - llm_vision_path:mmproj/mmproj-Qwen3-VL-8B-Instruct-F16.gguf
+      - vae_path:qwen_image_2.1_vae_bf16.safetensors
+      - sampler:euler
+      - offload_params_to_cpu:true
+    parameters:
+      model: qwen_image_2.1-Q4_K.gguf
+  files:
+    - filename: qwen_image_2.1-Q4_K.gguf
+      sha256: 29f9c83c249ff0292fb2943fceddfa2319b446601866c82a4f8be062abea72c2
+      uri: huggingface://leejet/Qwen-Image-2.1-GGUF/qwen_image_2.1-Q4_K.gguf
+    - filename: Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      sha256: 108e7ff92b78eefd3db4741885104acba514255c11b617d3c7b197a5f46efe89
+      uri: huggingface://unsloth/Qwen3-VL-8B-Instruct-GGUF/Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+    - filename: mmproj/mmproj-Qwen3-VL-8B-Instruct-F16.gguf
+      sha256: d406d03ebabefdef86a2c86bf0c1b65f9e046f7a81c218f25de4931b46a07fc4
+      uri: huggingface://unsloth/Qwen3-VL-8B-Instruct-GGUF/mmproj-F16.gguf
+    - filename: qwen_image_2.1_vae_bf16.safetensors
+      sha256: bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9
+      uri: https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors
+- name: qwen-image-2.1-q8_0-ggml
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen-Image-2.1
+    - https://huggingface.co/leejet/Qwen-Image-2.1-GGUF
+  description: |
+    Qwen-Image 2.1 is the Qwen image generation foundation model, with strong prompt adherence and accurate text rendering (English and Chinese). It uses Qwen3-VL-8B as the text encoder and its own VAE, and supports both text-to-image and image editing: pass reference images to edit them.
+
+    This is the Q8_0 (8-bit) quantization (~7.7GB diffusion model) by leejet for stable-diffusion.cpp. The bundle also pulls the Qwen3-VL-8B-Instruct text encoder with its vision projector (used for image editing) and the Qwen-Image 2.1 VAE. Use image dimensions divisible by 32.
+  license: qwen-research
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/qwen_image_logo.png
+  tags:
+    - qwen
+    - qwen-image
+    - text-to-image
+    - image-to-image
+    - image-editing
+    - text-rendering
+    - multilingual
+    - gguf
+    - quantized
+    - diffusion
+  last_checked: "2026-09-21"
+  overrides:
+    backend: stablediffusion-ggml
+    step: 25
+    # Qwen-Image 2.1 is not guidance-distilled: 6 matches the upstream
+    # stable-diffusion.cpp example.
+    cfg_scale: 6
+    options:
+      - diffusion_model
+      - llm_path:Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      - llm_vision_path:mmproj/mmproj-Qwen3-VL-8B-Instruct-F16.gguf
+      - vae_path:qwen_image_2.1_vae_bf16.safetensors
+      - sampler:euler
+      - offload_params_to_cpu:true
+    parameters:
+      model: qwen_image_2.1-Q8_0.gguf
+  files:
+    - filename: qwen_image_2.1-Q8_0.gguf
+      sha256: f8b244b00937f0e444a40dbf7866460871b89b30142594973b6012d1b471dc0a
+      uri: huggingface://leejet/Qwen-Image-2.1-GGUF/qwen_image_2.1-Q8_0.gguf
+    - filename: Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+      sha256: 108e7ff92b78eefd3db4741885104acba514255c11b617d3c7b197a5f46efe89
+      uri: huggingface://unsloth/Qwen3-VL-8B-Instruct-GGUF/Qwen3-VL-8B-Instruct-Q4_K_M.gguf
+    - filename: mmproj/mmproj-Qwen3-VL-8B-Instruct-F16.gguf
+      sha256: d406d03ebabefdef86a2c86bf0c1b65f9e046f7a81c218f25de4931b46a07fc4
+      uri: huggingface://unsloth/Qwen3-VL-8B-Instruct-GGUF/mmproj-F16.gguf
+    - filename: qwen_image_2.1_vae_bf16.safetensors
+      sha256: bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9
+      uri: https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors
 - name: whisper-1
   url: github:mudler/LocalAI/gallery/whisper-base.yaml@master
   urls:
