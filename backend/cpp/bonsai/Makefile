@@ -1,7 +1,7 @@
 
 # Pinned to the HEAD of the `prism` branch on https://github.com/PrismML-Eng/llama.cpp.
 # Auto-bumped nightly by .github/workflows/bump_deps.yaml.
-BONSAI_VERSION?=01ae597e3f7d4742909e1e831abb12fe3d24b2cf
+BONSAI_VERSION?=bdc23b56b4458b9f1655aec5287f3ab56ee8daaa
 LLAMA_REPO?=https://github.com/PrismML-Eng/llama.cpp
 
 CMAKE_ARGS?=
