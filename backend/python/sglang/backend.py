@@ -109,6 +109,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     # tests that construct it directly) doesn't AttributeError in
     # _build_sampling_params.
     thinking_budget: Optional[int] = None
+    reasoning_default: Optional[str] = None
 
     def _parse_options(self, options_list) -> Dict[str, str]:
         opts: Dict[str, str] = {}
@@ -235,6 +236,23 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.thinking_budget: Optional[int] = (
             int(thinking_budget_opt) if thinking_budget_opt else None
         )
+
+        # Model-level default for whether the chat template opens a reasoning
+        # block, as "off" or "on". Rides the same `options:` mechanism as
+        # thinking_budget above.
+        #
+        # Why this is needed even though `reasoning_effort` exists: that one
+        # only reaches this backend when a *caller* sets it per request (the
+        # Go side turns it into Metadata["enable_thinking"]). As a model-level
+        # `parameters:` default it is silently dropped, so a config reading
+        # `reasoning_effort: none` still produces full reasoning on every
+        # request - the config says one thing and the model does another.
+        #
+        # A per-request value always wins; this only fills in the gap when the
+        # request says nothing.
+        self.reasoning_default: Optional[str] = (
+            opts.get("reasoning_default") or ""
+        ).lower() or None
 
         # Also hand the parser names to sglang's engine so its HTTP/OAI
         # paths work identically if someone hits the engine directly.
@@ -373,6 +391,23 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         return sampling_params
 
+    def _thinking_default(self, request) -> Optional[bool]:
+        """Whether this request should render with reasoning on, off, or unset.
+
+        Per-request ``Metadata["enable_thinking"]`` wins; the model-level
+        ``reasoning_default`` option fills in when the request is silent.
+        Returns None when neither says anything, leaving template behaviour
+        untouched.
+        """
+        wanted = request.Metadata.get("enable_thinking", "").lower()
+        if wanted in ("true", "false"):
+            return wanted == "true"
+        if self.reasoning_default == "off":
+            return False
+        if self.reasoning_default == "on":
+            return True
+        return None
+
     def _build_prompt(self, request) -> str:
         prompt = request.Prompt
         if prompt or not request.UseTokenizerTemplate or not request.Messages:
@@ -393,9 +428,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 template_kwargs["tools"] = json.loads(request.Tools)
             except json.JSONDecodeError:
                 pass
-        _thinking = request.Metadata.get("enable_thinking", "").lower()
-        if _thinking in ("true", "false"):
-            template_kwargs["enable_thinking"] = (_thinking == "true")
+        _thinking = self._thinking_default(request)
+        if _thinking is not None:
+            template_kwargs["enable_thinking"] = _thinking
 
         # sglang locates the attached images/videos by scanning the rendered
         # prompt for the model's own media token, so the template has to be

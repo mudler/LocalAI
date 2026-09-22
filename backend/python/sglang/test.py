@@ -9,6 +9,13 @@ because ``_apply_engine_args`` validates keys against
 import unittest
 
 
+
+def _request(metadata=None):
+    """Minimal stand-in for a PredictOptions request in reasoning tests."""
+    from types import SimpleNamespace
+
+    return SimpleNamespace(Metadata=metadata or {})
+
 class TestSglangHelpers(unittest.TestCase):
     """Tests for the pure helpers on BackendServicer (no gRPC, no engine)."""
 
@@ -187,6 +194,38 @@ class TestSglangHelpers(unittest.TestCase):
         parser, require_reasoning = servicer._new_reasoning_parser(False, prompt="<think>")
         self.assertIsNone(parser)
         self.assertFalse(require_reasoning)
+
+    def test_reasoning_default_off_applies_when_request_is_silent(self):
+        """A model configured with reasoning_default:off must render with
+        thinking disabled even when the request carries no enable_thinking -
+        that is the whole point: `parameters: reasoning_effort:` never
+        reaches this backend, so without this the config lies about the
+        default."""
+        servicer = self._servicer()
+        servicer.reasoning_default = "off"
+        self.assertIs(servicer._thinking_default(_request(metadata={})), False)
+
+    def test_request_metadata_overrides_reasoning_default(self):
+        """A per-request value always wins over the model-level default -
+        in both directions."""
+        servicer = self._servicer()
+        servicer.reasoning_default = "off"
+        self.assertIs(
+            servicer._thinking_default(_request(metadata={"enable_thinking": "true"})),
+            True,
+        )
+        servicer.reasoning_default = "on"
+        self.assertIs(
+            servicer._thinking_default(_request(metadata={"enable_thinking": "false"})),
+            False,
+        )
+
+    def test_no_reasoning_default_leaves_template_untouched(self):
+        """Unconfigured must stay unconfigured: returning None means the
+        backend adds no enable_thinking kwarg at all, so the template keeps
+        whatever default it ships with."""
+        servicer = self._servicer()
+        self.assertIsNone(servicer._thinking_default(_request(metadata={})))
 
     def test_thinking_budget_added_to_sampling_params_as_custom_params(self):
         """The model-level thinking_budget option (set from LoadModel's
