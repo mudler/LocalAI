@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
-WHISPER_CPP_VERSION?=5670d5c0bbcb148feabef84400a07cfca9aa3b30
+WHISPER_CPP_VERSION?=307869af285d7f6f689ba100b3515e2d1b3feb05
 SO_TARGET?=libgowhisper.so
 
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
