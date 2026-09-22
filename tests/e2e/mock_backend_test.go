@@ -123,7 +123,7 @@ var _ = Describe("Mock Backend E2E Tests", Label("MockBackend"), func() {
 				req.Header.Set("Content-Type", "application/json")
 				resp, err := http.DefaultClient.Do(req)
 				Expect(err).ToNot(HaveOccurred())
-				defer resp.Body.Close()
+				defer func() { _ = resp.Body.Close() }()
 				data, err := io.ReadAll(resp.Body)
 				Expect(err).ToNot(HaveOccurred())
 				return resp, string(data)
