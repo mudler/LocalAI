@@ -40,7 +40,7 @@ func ListModelCapabilitiesEndpoint(bcl *config.ModelConfigLoader, ml *model.Mode
 				entry.ThreeDOperations = cfg.ThreeDOperations()
 				entry.InputModalities = cfg.InputModalities()
 				entry.OutputModalities = cfg.OutputModalities()
-				if ctx := backend.EffectiveContextSize(cfg); ctx > 0 {
+				if ctx := backend.EffectiveRequestContextSize(cfg); ctx > 0 {
 					entry.ContextSize = ctx
 				}
 			}
