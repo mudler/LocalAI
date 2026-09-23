@@ -34,6 +34,26 @@ The entries can return after LocalAI ships a compatible backend. See
 [the compatibility issue](https://github.com/mudler/LocalAI/issues/11681) and
 [upstream llama.cpp support](https://github.com/ggml-org/llama.cpp/pull/26467).
 
+## Hy-MT2-7B translation
+
+Install Tencent's [Hy-MT2-7B](https://huggingface.co/tencent/Hy-MT2-7B) translation model with:
+
+```bash
+local-ai models install hy-mt2-7b-q4
+```
+
+The entry offers Q4_K_M, Q6_K, and Q8_0 GGUF builds for the `llama-cpp` backend.
+LocalAI selects a variant according to available memory. To select Q4_K_M explicitly, use:
+
+```bash
+local-ai models install hy-mt2-7b-q4 --variant hy-mt2-7b-q4
+```
+
+Include the target language in the user message, for example:
+`Translate the following text into Italian, without additional explanation: Hello, how are you?`
+The configuration uses the model's embedded chat template and an 8,192-token context window.
+Increase `context_size` for longer documents if memory permits; the model supports up to 262,144 tokens.
+
 ## Useful Links and resources
 
 - [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.
@@ -54,9 +74,30 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Maple-Preview
+
+[Maple-Preview](https://huggingface.co/deepgrove/maple-preview-GGUF) is a 20B reasoning model with about 1B active parameters.
+Install it with automatic selection among four ternary GGUF builds:
+
+```bash
+local-ai models install maple-preview-tq1-0-head-q4-k
+```
+
+The variants combine TQ1_0 or TQ2_0 weights with a Q4_K or F16 output head.
+To select a build explicitly:
+
+```bash
+local-ai models install maple-preview-tq1-0-head-q4-k --variant maple-preview-tq2-0-head-q4-k
+```
+
+These entries use llama.cpp with the publisher's CPU configuration, sampling settings, and embedded Jinja chat template.
+The default context is 8,192 tokens; the model supports up to 131,072 tokens with sufficient memory.
+Use a current llama.cpp backend that includes the Maple architecture.
+Downloads use a pinned revision and SHA256 checksums.
+
 ## NeoHorse-1-4B
 
-Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q6_K, and Q8_0 GGUF builds:
+Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q5_K_M, Q6_K, Q8_0, and BF16 GGUF builds:
 
 ```bash
 local-ai models install neohorse-1-4b-q4
@@ -71,7 +112,10 @@ local-ai models install neohorse-1-4b-q4 --variant neohorse-1-4b-q8
 [NeoHorse-1-4B](https://huggingface.co/TokenRhythm/NeoHorse-1-4B) is a text-only Qwen3.5 fine-tune for coding, reasoning, and agentic tasks.
 These builds use llama.cpp and the embedded Jinja chat template.
 The gallery defaults to 32,768 context tokens; the model supports up to 262,144 tokens with sufficient memory.
-The [GGUF downloads](https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF) are pinned to a revision and verified with SHA256 checksums.
+The Q4_K_M, Q6_K, and Q8_0 builds use [community GGUF downloads](https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF).
+The Q5_K_M and BF16 builds use [TokenRhythm’s official GGUF downloads](https://huggingface.co/TokenRhythm/NeoHorse-1-4B-GGUF).
+All downloads are pinned to a revision and verified with SHA256 checksums.
+Select `neohorse-1-4b-q5` or `neohorse-1-4b-bf16` with `--variant` to install an official build explicitly.
 
 ## Spark-X2.5-1.7B
 
@@ -104,7 +148,8 @@ local-ai models install minicpm5-2b --variant minicpm5-2b-f16
 ```
 
 The F16 weights require a 5.04 GB download, plus additional memory for inference.
-This entry uses the embedded chat template and an 8,192-token context.
+All three builds use the embedded chat template and an 8,192-token default context.
+To change the context in a model configuration, set `context_size` at the top level, alongside `parameters`.
 See the [official GGUF repository](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF).
 
 ## VRAM and download size estimates
@@ -395,6 +440,26 @@ local-ai models install --variant qwen3.8-27b-efficientthink-q8-dflash qwen3.8-2
 
 Use `qwen3.8-27b-efficientthink-q6` or `qwen3.8-27b-efficientthink-q8` as the
 variant name for ordinary decoding without a draft model.
+
+### Qwen3.8 Cyber GGUF builds
+
+[Qwen3.8-27B Uncensored Cyber](https://huggingface.co/philbert440/Qwen3.8-27B-Uncensored-Cyber)
+offers IQ4_XS and Q8_0 builds for llama.cpp. Both include the BF16 vision
+projector and use a 32,768-token default context. The IQ4_XS build is
+requantized from Q8_0 with an importance matrix calibrated on coding-agent
+conversations. These entries do not enable speculative decoding.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-cyber-iq4-xs
+```
+
+To select the original publisher's Q8_0 build explicitly:
+
+```bash
+local-ai models install --variant qwen3.8-27b-cyber-q8 qwen3.8-27b-cyber-iq4-xs
+```
 
 ### Model variants
 
@@ -765,6 +830,31 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 
 ## Examples
 
+### Qwen3.8 Flash Next GSQ-RCO
+
+The Flash Next gallery group includes ISTA DASLab's Q2_0, IQ2_XS, and
+IQ3_XXS mixed-precision GGUF builds. Select a specific build with `--variant`:
+
+```bash
+local-ai models install qwen3.8-flash-next-q4 --variant qwen3.8-flash-next-gsq-rco-iq3-xxs
+```
+
+You can also install a build directly, for example:
+
+```bash
+local-ai models install qwen3.8-flash-next-gsq-rco-q2-0
+```
+
+Each build downloads two model shards and a BF16 vision projector. Total
+downloads are approximately 67.3 GB (Q2_0), 68.9 GB (IQ2_XS), and 76.7 GB
+(IQ3_XXS). Allow additional memory for the context cache during inference.
+The entries use llama.cpp, memory mapping, the embedded chat template, and
+a 32,768-token default context.
+
+See the [publisher's model card](https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF)
+for quantization details. These weights inherit the base model's
+[Qwen Community License 1.0](https://huggingface.co/Qwen/Qwen3.8-Flash-Next/blob/main/LICENSE).
+
 ### Huihui Qwen3.8 Flash Next
 
 Install the abliterated Qwen3.8-Flash-Next build for text chat and image input:
@@ -991,3 +1081,32 @@ These entries set a 131,072-token context, following the
 [model card's guidance](https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF)
 for thinking mode. This context requires additional memory beyond the weights.
 The uncensored model uses the Apache-2.0 license.
+
+### Occamy-1.0
+
+[Occamy-1.0](https://huggingface.co/Accio-Lab/occamy-1.0) is a
+Qwen3.6-35B-A3B derivative trained for multi-step agent tasks and coding.
+Install it with:
+
+```bash
+local-ai models install occamy-1.0-q4
+```
+
+The gallery offers Q4_K_M and Q8_0 GGUF builds for llama.cpp. Each build
+includes the F16 vision projector and uses the embedded Jinja chat template.
+LocalAI selects the variant according to available memory. To select Q4_K_M
+explicitly:
+
+```bash
+local-ai models install --variant occamy-1.0-q4 occamy-1.0-q4
+```
+
+Both entries use an 8,192-token context. Neither enables the publisher's
+separate experimental MTP head.
+
+Normalize prompt text to Unicode NFC in your client before sending requests.
+The GGUF tokenizer does not apply the source tokenizer's NFC normalization.
+Keep the embedded `qwen2` pre-tokenizer setting; the publisher's benchmark
+used a different setting. See the publisher's
+[tokenizer compatibility notes](https://huggingface.co/Accio-Lab/occamy-1.0-GGUF/blob/e8fe5e28e1b1c1f0cd0a39b85b16b631f17ca14e/TOKENIZER.md)
+for the validation limits.
