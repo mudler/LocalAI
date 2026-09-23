@@ -596,6 +596,25 @@ public:
             if (!parsed.options.device_set && !request->maingpu().empty()) {
                 parsed.options.device = parse_device_index(request->maingpu());
             }
+            // AUDIOCPP_DEFAULT_BACKEND is the deployment's backend fallback:
+            // an accelerator image sets it (typically to "best") so models
+            // without an explicit backend: option use the compiled
+            // accelerator instead of the CPU default — gallery entries carry
+            // backend:best, hand-written model configs get the same fix
+            // here. An explicit backend: option wins, matching threads and
+            // maingpu above. Validation reuses the option parser itself.
+            if (!parsed.options.backend_set) {
+                const char * env = std::getenv("AUDIOCPP_DEFAULT_BACKEND");
+                if (env != nullptr && *env != '\0') {
+                    auto fallback = audiocpp_backend::parse_model_options(
+                        {std::string("backend:") + env});
+                    if (!fallback.error.empty()) {
+                        throw audiocpp_backend::ConfigError(
+                            "audio-cpp: AUDIOCPP_DEFAULT_BACKEND: " + fallback.error);
+                    }
+                    parsed.options.backend = fallback.options.backend;
+                }
+            }
 
             const std::string path = audiocpp_backend::resolve_model_path(
                 request->modelpath(), request->modelfile(), request->model());
