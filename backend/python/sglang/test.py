@@ -262,6 +262,40 @@ class TestSglangHelpers(unittest.TestCase):
         params = servicer._build_sampling_params(request)
         self.assertNotIn("custom_params", params)
 
+    def test_thinking_budget_accepts_integral_spellings(self):
+        """YAML options arrive as strings; "512" and "512.0" both mean 512."""
+        servicer = self._servicer()
+        self.assertEqual(servicer._parse_thinking_budget("512"), 512)
+        self.assertEqual(servicer._parse_thinking_budget("512.0"), 512)
+        self.assertEqual(servicer._parse_thinking_budget(" 64 "), 64)
+        self.assertEqual(servicer._parse_thinking_budget(256), 256)
+
+    def test_thinking_budget_unset_is_none(self):
+        servicer = self._servicer()
+        self.assertIsNone(servicer._parse_thinking_budget(None))
+        self.assertIsNone(servicer._parse_thinking_budget(""))
+
+    def test_thinking_budget_zero_and_negative_are_ignored(self):
+        """No defined meaning in sglang -- ignored, not passed through."""
+        servicer = self._servicer()
+        self.assertIsNone(servicer._parse_thinking_budget("0"))
+        self.assertIsNone(servicer._parse_thinking_budget("-100"))
+
+    def test_thinking_budget_non_integer_does_not_raise(self):
+        """A bad value must not crash LoadModel for the whole model."""
+        servicer = self._servicer()
+        self.assertIsNone(servicer._parse_thinking_budget("12.5"))
+        self.assertIsNone(servicer._parse_thinking_budget("lots"))
+
+    def test_warns_when_budget_set_without_strict_thinking(self):
+        servicer = self._servicer()
+        self.assertIn(
+            "enable_strict_thinking",
+            servicer._strict_thinking_warning(512, {"model_path": "x"}),
+        )
+        self.assertIsNone(servicer._strict_thinking_warning(512, {"enable_strict_thinking": True}))
+        self.assertIsNone(servicer._strict_thinking_warning(None, {}))
+
     def test_explicit_zero_temperature_and_seed_are_preserved(self):
         """Temperature=0 is greedy decoding and 0 is a valid seed — neither is
         an unset value. A dropped seed turns a reproducible request random."""

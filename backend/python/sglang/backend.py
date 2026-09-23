@@ -120,6 +120,49 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             opts[key.strip()] = value.strip()
         return opts
 
+    @staticmethod
+    def _parse_thinking_budget(value) -> Optional[int]:
+        """Turn the `thinking_budget` model option into a positive int, or None.
+
+        Options arrive as strings from the YAML `options:` list, but a value
+        like "5000.0" is a plausible thing to write, and a crash here would
+        take down LoadModel for the whole model. So: integral numbers are
+        accepted in any spelling ("512", "512.0"), anything else is ignored
+        with a warning instead of raising. Zero and negative budgets are
+        ignored too: sglang gives them no defined meaning, and turning
+        reasoning off is what `reasoning_default: off` is for.
+        """
+        if value is None or str(value).strip() == "":
+            return None
+        raw = str(value).strip()
+        try:
+            number = float(raw)
+        except ValueError:
+            print(f"thinking_budget {raw!r} is not a number, ignoring it", file=sys.stderr)
+            return None
+        if not number.is_integer():
+            print(f"thinking_budget {raw!r} is not a whole number of tokens, ignoring it", file=sys.stderr)
+            return None
+        if number <= 0:
+            print(
+                f"thinking_budget {raw!r} must be positive, ignoring it "
+                "(use reasoning_default:off to disable reasoning)",
+                file=sys.stderr,
+            )
+            return None
+        return int(number)
+
+    @staticmethod
+    def _strict_thinking_warning(thinking_budget: Optional[int], engine_kwargs: dict) -> Optional[str]:
+        """sglang only enforces the budget with enable_strict_thinking on; without
+        it the budget is silently ignored, so say so at load time."""
+        if thinking_budget is not None and not engine_kwargs.get("enable_strict_thinking"):
+            return (
+                f"thinking_budget={thinking_budget} is set but enable_strict_thinking is not "
+                "in engine_args; sglang will ignore the budget"
+            )
+        return None
+
     def _apply_engine_args(self, engine_kwargs: dict, engine_args_json: str) -> dict:
         """Merge user-supplied engine_args (JSON object) into the kwargs dict
         that will be forwarded to ``sglang.Engine`` (which constructs a
@@ -232,9 +275,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # default, not a per-request choice. Requires `enable_strict_thinking`
         # in `engine_args:` (sglang >=0.5.11); without it sglang has no
         # tokenizer-derived budget mechanism to enforce this against.
-        thinking_budget_opt = opts.get("thinking_budget")
-        self.thinking_budget: Optional[int] = (
-            int(thinking_budget_opt) if thinking_budget_opt else None
+        self.thinking_budget: Optional[int] = self._parse_thinking_budget(
+            opts.get("thinking_budget")
         )
 
         # Model-level default for whether the chat template opens a reasoning
@@ -270,6 +312,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         except ValueError as err:
             print(f"engine_args error: {err}", file=sys.stderr)
             return backend_pb2.Result(success=False, message=str(err))
+
+        warning = self._strict_thinking_warning(self.thinking_budget, engine_kwargs)
+        if warning:
+            print(warning, file=sys.stderr)
 
         try:
             self.llm = Engine(**engine_kwargs)
