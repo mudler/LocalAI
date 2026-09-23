@@ -102,6 +102,21 @@ func (s *server) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.Embe
 	}, nil
 }
 
+func (s *server) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest) (*pb.TokenClassifyResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	cm, ok := s.llm.(ClassifyModel)
+	if !ok {
+		return nil, status.Errorf(codes.Unimplemented, "method TokenClassify not implemented")
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	return cm.TokenClassify(ctx, in)
+}
+
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()
