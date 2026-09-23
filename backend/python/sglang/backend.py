@@ -136,7 +136,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             raise ValueError(
                 f"engine_args must be a JSON object, got {type(extra).__name__}"
             )
-        valid = {f.name for f in dataclasses.fields(ServerArgs)}
+        if dataclasses.is_dataclass(ServerArgs):
+            valid = {f.name for f in dataclasses.fields(ServerArgs)}
+        else:
+            # sglang >= 0.5.20 moved the config tier from dataclasses to
+            # msgspec.Struct (sgl-project/sglang#38753); msgspec keeps the
+            # field names in __struct_fields__.
+            valid = set(getattr(ServerArgs, "__struct_fields__", ()))
+            if not valid:
+                raise ValueError(
+                    "cannot introspect ServerArgs fields: it is neither a "
+                    "dataclass nor a msgspec.Struct, so engine_args cannot "
+                    "be validated"
+                )
         for key in extra:
             if key not in valid:
                 suggestion = difflib.get_close_matches(key, valid, n=1)
