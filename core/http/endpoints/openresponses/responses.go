@@ -164,8 +164,24 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			openAIReq.ResponseFormat = convertTextFormatToResponseFormat(input.TextFormat)
 		}
 
+		strictMode := false
+		for _, f := range funcs {
+			if f.Strict {
+				strictMode = true
+				break
+			}
+		}
+		if !strictMode {
+			for _, t := range input.Tools {
+				if t.Function.Strict {
+					strictMode = true
+					break
+				}
+			}
+		}
+
 		// Generate grammar for function calling (similar to OpenAI chat endpoint)
-		if shouldUseFn && !cfg.FunctionsConfig.GrammarConfig.NoGrammar {
+		if shouldUseFn && (!cfg.FunctionsConfig.GrammarConfig.NoGrammar || strictMode) {
 			// Add no-action function to allow model to respond without calling a tool
 			noActionName := "answer"
 			noActionDescription := "use this action to answer without performing any action"
@@ -193,8 +209,8 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			funcsWithNoAction := make(functions.Functions, len(funcs))
 			copy(funcsWithNoAction, funcs)
 
-			// Append no-action function unless disabled
-			if !cfg.FunctionsConfig.DisableNoAction {
+			// Append no-action function unless disabled or in strict mode
+			if !cfg.FunctionsConfig.DisableNoAction && !strictMode {
 				funcsWithNoAction = append(funcsWithNoAction, noActionGrammar)
 			}
 
@@ -204,7 +220,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			}
 
 			// Generate grammar to constrain model output to valid function calls
-			jsStruct := funcsWithNoAction.ToJSONStructure(cfg.FunctionsConfig.FunctionNameKey, cfg.FunctionsConfig.FunctionNameKey)
+			jsStruct := funcsWithNoAction.ToJSONStructure(cfg.FunctionsConfig.FunctionNameKey, cfg.FunctionsConfig.FunctionArgumentsKey)
 			g, err := jsStruct.Grammar(cfg.FunctionsConfig.GrammarOptions()...)
 			if err == nil {
 				cfg.Grammar = g
