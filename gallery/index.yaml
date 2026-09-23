@@ -3,21 +3,7 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF
-  description: |
-    🤖 ModelScope&nbsp;&nbsp;|
-    &nbsp;&nbsp;🤗 HuggingFace&nbsp;&nbsp;|
-    &nbsp;&nbsp;📑 Blog&nbsp;&nbsp;|
-    &nbsp;&nbsp;🖥️ Demo&nbsp;&nbsp;|
-    &nbsp;&nbsp;🫨 Discord&nbsp;&nbsp;|
-    &nbsp;&nbsp;💬 WeChat
-
-    ## Introduction
-
-    We are excited to open-source **Qwen-Image-2.1**, a unified text-to-image generation and image editing model in the Qwen family. With just **7B parameters in its visual generation component** (32 Single-Stream DiT layers), Qwen-Image-2.1 balances generation quality, inference efficiency, and versatility.
-
-    Four key improvements define this release:
-
-    ...
+  description: "\U0001F916 ModelScope&nbsp;&nbsp;|\n&nbsp;&nbsp;\U0001F917 HuggingFace&nbsp;&nbsp;|\n&nbsp;&nbsp;\U0001F4D1 Blog&nbsp;&nbsp;|\n&nbsp;&nbsp;\U0001F5A5️ Demo&nbsp;&nbsp;|\n&nbsp;&nbsp;\U0001FAE8 Discord&nbsp;&nbsp;|\n&nbsp;&nbsp;\U0001F4AC WeChat\n\n## Introduction\n\nWe are excited to open-source **Qwen-Image-2.1**, a unified text-to-image generation and image editing model in the Qwen family. With just **7B parameters in its visual generation component** (32 Single-Stream DiT layers), Qwen-Image-2.1 balances generation quality, inference efficiency, and versatility.\n\nFour key improvements define this release:\n\n...\n"
   license: "other"
   tags:
     - llm
@@ -248,7 +234,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: b71a5ddeec2262e76130ab6a67bfa29f7098f14cfa3d22d3007798d5e6f8672f
+      sha256: dfc21a7e87b33514c8c4d482729a5502fbd32b140baf926cdffbde3009dabb28
 - name: "qwopus3.8-27b-flash"
   variants:
     - model: qwopus3.8-27b-flash-q8
