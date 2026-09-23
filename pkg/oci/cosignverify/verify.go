@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +34,7 @@ import (
 
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/credentials"
+	"github.com/sigstore/sigstore-go/pkg/fulcio/certificate"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
 	"github.com/sigstore/sigstore-go/pkg/verify"
@@ -55,6 +58,14 @@ type Policy struct {
 	IssuerRegex   string
 	Identity      string
 	IdentityRegex string
+
+	// SourceRepository, when set, must equal the signing certificate's
+	// source-repository extension exactly (for GitHub Actions,
+	// https://github.com/<owner>/<repo>). When a reusable signing
+	// workflow is shared by several repositories, the SAN names that
+	// shared workflow, so the SAN alone accepts a signature made for any
+	// of its callers; the source repository is what pins the caller.
+	SourceRepository string
 
 	// TUFRootURL overrides the default sigstore public-good TUF mirror
 	// (tuf-repo-cdn.sigstore.dev). Leave empty for the public good.
@@ -96,7 +107,31 @@ func (p Policy) Validate() error {
 	if p.Identity == "" && p.IdentityRegex == "" {
 		return errors.New("cosignverify: policy must set Identity or IdentityRegex")
 	}
+	if p.SourceRepository != "" {
+		u, err := url.Parse(p.SourceRepository)
+		if err != nil || u.Scheme != "https" || u.Host == "" || strings.TrimSpace(p.SourceRepository) != p.SourceRepository {
+			return errors.New("cosignverify: source repository must be an https URL, such as https://github.com/<owner>/<repo>")
+		}
+	}
 	return nil
+}
+
+// certificateIdentity is the identity a signature's certificate must match.
+// Without a source repository it is exactly the short identity used before
+// the field existed.
+func (p Policy) certificateIdentity() (verify.CertificateIdentity, error) {
+	if p.SourceRepository == "" {
+		return verify.NewShortCertificateIdentity(p.Issuer, p.IssuerRegex, p.Identity, p.IdentityRegex)
+	}
+	san, err := verify.NewSANMatcher(p.Identity, p.IdentityRegex)
+	if err != nil {
+		return verify.CertificateIdentity{}, err
+	}
+	issuer, err := verify.NewIssuerMatcher(p.Issuer, p.IssuerRegex)
+	if err != nil {
+		return verify.CertificateIdentity{}, err
+	}
+	return verify.NewCertificateIdentity(san, issuer, certificate.Extensions{SourceRepositoryURI: p.SourceRepository})
 }
 
 // Verifier verifies cosign-signed OCI images against a fixed Policy.
@@ -229,12 +264,7 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 		verifierOpts = append(verifierOpts, verify.WithObserverTimestamps(1))
 	}
 
-	certID, err := verify.NewShortCertificateIdentity(
-		v.policy.Issuer,
-		v.policy.IssuerRegex,
-		v.policy.Identity,
-		v.policy.IdentityRegex,
-	)
+	certID, err := v.policy.certificateIdentity()
 	if err != nil {
 		return fmt.Errorf("cosignverify: building identity policy: %w", err)
 	}
