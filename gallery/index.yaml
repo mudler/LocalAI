@@ -1,4 +1,47 @@
 ---
+- name: "qwen-image-2.1-uncensored"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF
+  description: |
+    🤖 ModelScope&nbsp;&nbsp;|
+    &nbsp;&nbsp;🤗 HuggingFace&nbsp;&nbsp;|
+    &nbsp;&nbsp;📑 Blog&nbsp;&nbsp;|
+    &nbsp;&nbsp;🖥️ Demo&nbsp;&nbsp;|
+    &nbsp;&nbsp;🫨 Discord&nbsp;&nbsp;|
+    &nbsp;&nbsp;💬 WeChat
+
+    ## Introduction
+
+    We are excited to open-source **Qwen-Image-2.1**, a unified text-to-image generation and image editing model in the Qwen family. With just **7B parameters in its visual generation component** (32 Single-Stream DiT layers), Qwen-Image-2.1 balances generation quality, inference efficiency, and versatility.
+
+    Four key improvements define this release:
+
+    ...
+  license: "other"
+  tags:
+    - llm
+    - gguf
+    - qwen
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/image2.1/logo.png
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen-image-2.1-UC-Q4_K_M/qwen-image-2.1-UC-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen-image-2.1-UC-Q4_K_M/qwen-image-2.1-UC-Q4_K_M.gguf
+      sha256: e79c8a009f2ecbdb6c70fd663d9aea9ee304a0d91f347e4169a756b8ad141b41
+      uri: https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q4_K_M.gguf
 - name: "ornith-1.5-9b-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
