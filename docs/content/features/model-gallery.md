@@ -23,41 +23,6 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
-## Instella-MoE availability
-
-The gallery excludes `instella-moe-16b-a3b-think` and
-`instella-moe-16b-a3b-think-q8` because the packaged llama.cpp backend does not
-support their `instella-moe` architecture. Loading these GGUF files fails with
-`unknown model architecture: 'instella-moe'`.
-
-The entries can return after LocalAI ships a compatible backend. See
-[the compatibility issue](https://github.com/mudler/LocalAI/issues/11681) and
-[upstream llama.cpp support](https://github.com/ggml-org/llama.cpp/pull/26467).
-
-## Hy-MT2-7B translation
-
-Install Tencent's [Hy-MT2-7B](https://huggingface.co/tencent/Hy-MT2-7B) translation model with:
-
-```bash
-local-ai models install hy-mt2-7b-q4
-```
-
-The entry offers Q4_K_M, Q6_K, and Q8_0 GGUF builds for the `llama-cpp` backend.
-LocalAI selects a variant according to available memory. To select Q4_K_M explicitly, use:
-
-```bash
-local-ai models install hy-mt2-7b-q4 --variant hy-mt2-7b-q4
-```
-
-Include the target language in the user message, for example:
-`Translate the following text into Italian, without additional explanation: Hello, how are you?`
-The configuration uses the model's embedded chat template and an 8,192-token context window.
-Increase `context_size` for longer documents if memory permits; the model supports up to 262,144 tokens.
-
-## Useful Links and resources
-
-- [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.
-
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
@@ -74,84 +39,6 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
-## Maple-Preview
-
-[Maple-Preview](https://huggingface.co/deepgrove/maple-preview-GGUF) is a 20B reasoning model with about 1B active parameters.
-Install it with automatic selection among four ternary GGUF builds:
-
-```bash
-local-ai models install maple-preview-tq1-0-head-q4-k
-```
-
-The variants combine TQ1_0 or TQ2_0 weights with a Q4_K or F16 output head.
-To select a build explicitly:
-
-```bash
-local-ai models install maple-preview-tq1-0-head-q4-k --variant maple-preview-tq2-0-head-q4-k
-```
-
-These entries use llama.cpp with the publisher's CPU configuration, sampling settings, and embedded Jinja chat template.
-The default context is 8,192 tokens; the model supports up to 131,072 tokens with sufficient memory.
-Use a current llama.cpp backend that includes the Maple architecture.
-Downloads use a pinned revision and SHA256 checksums.
-
-## NeoHorse-1-4B
-
-Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q5_K_M, Q6_K, Q8_0, and BF16 GGUF builds:
-
-```bash
-local-ai models install neohorse-1-4b-q4
-```
-
-To select Q8_0 explicitly:
-
-```bash
-local-ai models install neohorse-1-4b-q4 --variant neohorse-1-4b-q8
-```
-
-[NeoHorse-1-4B](https://huggingface.co/TokenRhythm/NeoHorse-1-4B) is a text-only Qwen3.5 fine-tune for coding, reasoning, and agentic tasks.
-These builds use llama.cpp and the embedded Jinja chat template.
-The gallery defaults to 32,768 context tokens; the model supports up to 262,144 tokens with sufficient memory.
-The Q4_K_M, Q6_K, and Q8_0 builds use [community GGUF downloads](https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF).
-The Q5_K_M and BF16 builds use [TokenRhythm’s official GGUF downloads](https://huggingface.co/TokenRhythm/NeoHorse-1-4B-GGUF).
-All downloads are pinned to a revision and verified with SHA256 checksums.
-Select `neohorse-1-4b-q5` or `neohorse-1-4b-bf16` with `--variant` to install an official build explicitly.
-
-## Spark-X2.5-1.7B
-
-Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0
-GGUF builds:
-
-```bash
-local-ai models install spark-x2.5-1.7b-q4
-```
-
-To select the Q8_0 build explicitly:
-
-```bash
-local-ai models install spark-x2.5-1.7b-q4 --variant spark-x2.5-1.7b-q8
-```
-
-These text-only builds use the llama.cpp backend and the embedded Jinja chat
-template. The gallery defaults to a 32,768-token context to limit memory use.
-The [source model](https://huggingface.co/XHToken/Spark-X2.5-1.7B) supports up to
-1,048,576 tokens; larger contexts require more memory. Use a current LocalAI
-llama.cpp backend with Spark-X2.5 support.
-
-## MiniCPM5-2B
-
-MiniCPM5-2B offers the official Q4_K_M, Q8_0, and F16 GGUF builds through
-llama.cpp. To install the F16 build explicitly:
-
-```bash
-local-ai models install minicpm5-2b --variant minicpm5-2b-f16
-```
-
-The F16 weights require a 5.04 GB download, plus additional memory for inference.
-All three builds use the embedded chat template and an 8,192-token default context.
-To change the context in a model configuration, set `context_size` at the top level, alongside `parameters`.
-See the [official GGUF repository](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF).
-
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
@@ -161,64 +48,9 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, the gallery shows whether the estimated VRAM fits (green) or may not fit (red) using a 95% headroom rule.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 
-## Gemma 4 Ortenzya 31B
+## Useful Links and resources
 
-[Ortenzya](https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF)
-is a Gemma 4 fine-tune for creative writing, translation, and roleplay.
-Install it with automatic selection between Q4_K_M and Q8_0:
-
-```bash
-local-ai models install gemma-4-31b-ortenzya-q4
-```
-
-To select Q8_0 explicitly:
-
-```bash
-local-ai models install gemma-4-31b-ortenzya-q4 --variant gemma-4-31b-ortenzya-q8
-```
-
-Both builds use llama.cpp, the embedded Jinja chat template, and the BF16
-vision projector for image prompts. The gallery uses a 32,768-token context
-to limit memory use, with temperature 1, top_p 0.95, and top_k 64.
-
-## Gemma 4 12B IT
-
-Install `gemma-4-12b-it-q4` for chat, tool use, and image prompts with
-llama.cpp. The gallery offers Unsloth Q4_K_M, Q5_K_M, Q6_K, and Q8_0
-builds, each with an F16 vision projector and the embedded chat template.
-LocalAI selects a quantization based on available memory. To choose one
-explicitly, run:
-
-```bash
-local-ai models install gemma-4-12b-it-q4 --variant gemma-4-12b-it-q8
-```
-
-These entries use a 32,768-token context and sampling defaults of
-temperature 1, top_k 64, and top_p 0.95. They are separate from the
-existing QAT builds. See the [source model](https://huggingface.co/google/gemma-4-12B-it)
-and [GGUF files](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF).
-
-## Ornith 1.5 9B Uncensored
-
-Junafinity's Ornith 1.5 9B Uncensored offers Q4_K_M, Q6_K, and Q8_0 GGUF
-builds for llama.cpp. Each includes the F16 vision projector for image input.
-Install with automatic variant selection:
-
-```bash
-local-ai models install ornith-1.5-9b-uncensored-q4
-```
-
-Select Q8 explicitly:
-
-```bash
-local-ai models install ornith-1.5-9b-uncensored-q4 --variant ornith-1.5-9b-uncensored-q8
-```
-
-These entries use the embedded chat template and a 32,768-token context.
-Sampling defaults are temperature 0.6, top_p 0.95, top_k 20, min_p 0,
-and repeat_penalty 1. The model has no MTP heads.
-See the [source model](https://huggingface.co/junafinity/Ornith-1.5-9B-uncensored)
-and [GGUF files](https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF).
+- [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.
 
 ## Add other galleries
 
@@ -237,16 +69,6 @@ GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 The models in the gallery will be automatically indexed and available for installation.
 
 To use a gallery that needs authentication, such as a private GitHub repository or an internal server, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}).
-
-## Dirk quantization variants
-
-Dirk Qwen3.8 27B offers Q4_K_XL, Q5_K_XL, Q6_K_XL, and Q8_K_XL GGUF builds
-with llama.cpp, MTP speculative decoding, and the shared F16 vision projector.
-Select Q6 explicitly with:
-
-```bash
-local-ai models install dirk-qwen3.8-27b-q4 --variant dirk-qwen3.8-27b-q6
-```
 
 ## Gallery mirrors
 
@@ -417,7 +239,7 @@ To install a model from the gallery repository, you can pass the model name in t
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
      "id": "localai@bert-embeddings"
-   }'  
+   }' 
 ```
 
 where:
@@ -425,53 +247,7 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
 
-### EfficientThink GGUF builds
-
-[Qwen3.8-27B EfficientThink](https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF)
-is available as Q6_K and Q8_0 builds for llama.cpp. Both include the matching
-Q8 vision projector and use a 32,768-token context. The DFlash variants also
-install the publisher's Q8 draft and enable speculative decoding.
-
-To select a build explicitly:
-
-```bash
-local-ai models install --variant qwen3.8-27b-efficientthink-q8-dflash qwen3.8-27b-efficientthink-q6
-```
-
-Use `qwen3.8-27b-efficientthink-q6` or `qwen3.8-27b-efficientthink-q8` as the
-variant name for ordinary decoding without a draft model.
-
-### Qwen3.8 Cyber GGUF builds
-
-[Qwen3.8-27B Uncensored Cyber](https://huggingface.co/philbert440/Qwen3.8-27B-Uncensored-Cyber)
-offers IQ4_XS and Q8_0 builds for llama.cpp. Both include the BF16 vision
-projector and use a 32,768-token default context. The IQ4_XS build is
-requantized from Q8_0 with an importance matrix calibrated on coding-agent
-conversations. These entries do not enable speculative decoding.
-
-Install with automatic variant selection:
-
-```bash
-local-ai models install qwen3.8-27b-cyber-iq4-xs
-```
-
-To select the original publisher's Q8_0 build explicitly:
-
-```bash
-local-ai models install --variant qwen3.8-27b-cyber-q8 qwen3.8-27b-cyber-iq4-xs
-```
-
 ### Model variants
-
-The `qwen3.5-9b-defiant-fable-mtp` entry offers Q4_K_M and Q8_0 builds for
-llama.cpp, with and without multi-token prediction (MTP). Each build includes
-the BF16 vision projector. To select the Q8_0 MTP build explicitly:
-
-```bash
-local-ai models install localai@qwen3.5-9b-defiant-fable-mtp --variant qwen3.5-9b-defiant-fable-q8-mtp
-```
-
-Use `--variant qwen3.5-9b-defiant-fable-q8` for Q8_0 with ordinary decoding.
 
 Some gallery entries offer several builds of the same model: different
 quantizations, or the same weights served by a different engine. Such an entry
@@ -511,13 +287,6 @@ whole page has variants.
 
 ```bash
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
-```
-
-The Tiel-Coder gallery entry offers Q4, Q5, Q6, and Q8 MTP builds for
-llama.cpp, each with the BF16 vision projector. To select the Q6 MTP build:
-
-```bash
-local-ai models install tiel-coder-35b-a3b-q4 --variant tiel-coder-35b-a3b-q6-mtp
 ```
 
 ### Collapsing the listing to one row per model
@@ -583,7 +352,6 @@ curl http://localhost:8080/api/models/variants/localai@nanbeige4.1-3b-q4
     { "model": "nanbeige4.1-3b-q8", "backend": "llama-cpp", "memory_bytes": 4187593113, "fits": true, "is_base": false },
     { "model": "nanbeige4.1-3b-q4", "backend": "llama-cpp", "fits": true, "is_base": true }
   ]
-}
 ```
 
 `auto_selected` is what installing without a choice would pick right now. `fits`
@@ -614,13 +382,6 @@ The same option exists on the CLI:
 
 ```bash
 local-ai models install nanbeige4.1-3b-q4 --variant nanbeige4.1-3b-q8
-```
-
-Ornith-1.5-35B-A3B offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds
-with a BF16 vision projector. For example, select Q6_K with:
-
-```bash
-local-ai models install ornith-1.5-35b-a3b-q4 --variant ornith-1.5-35b-a3b-q6
 ```
 
 The `install_model` MCP tool takes the same `variant` argument, so an assistant
@@ -698,6 +459,7 @@ echo "Job completed"
 
 To preload models on start instead you can use the `PRELOAD_MODELS` environment variable.
 
+
 <details>
 
 To preload models on start, use the `PRELOAD_MODELS` environment variable by setting it to a JSON array of model uri:
@@ -770,7 +532,7 @@ LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
      "url": "<MODEL_CONFIG_FILE>",
      "name": "<MODEL_NAME>"
-   }'  
+   }' 
 ```
 
 For example, to install a model as `gpt-3.5-turbo`:
@@ -780,7 +542,7 @@ LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
       "url": "github:mudler/LocalAI/gallery/gpt4all-j.yaml",
       "name": "gpt-3.5-turbo"
-   }'  
+   }' 
 ```
 ### Additional Files
 
@@ -800,7 +562,7 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
             "filename": "<additional_file_name>"
         }
      ]
-   }'  
+   }' 
 ```
 
 </details>
@@ -821,80 +583,14 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
         "f16": true,
         ...
      }
-   }'  
+   }' 
 ```
 
 </details>
 
-
+ 
 
 ## Examples
-
-### Qwen3.8 Flash Next GSQ-RCO
-
-The Flash Next gallery group includes ISTA DASLab's Q2_0, IQ2_XS, and
-IQ3_XXS mixed-precision GGUF builds. Select a specific build with `--variant`:
-
-```bash
-local-ai models install qwen3.8-flash-next-q4 --variant qwen3.8-flash-next-gsq-rco-iq3-xxs
-```
-
-You can also install a build directly, for example:
-
-```bash
-local-ai models install qwen3.8-flash-next-gsq-rco-q2-0
-```
-
-Each build downloads two model shards and a BF16 vision projector. Total
-downloads are approximately 67.3 GB (Q2_0), 68.9 GB (IQ2_XS), and 76.7 GB
-(IQ3_XXS). Allow additional memory for the context cache during inference.
-The entries use llama.cpp, memory mapping, the embedded chat template, and
-a 32,768-token default context.
-
-See the [publisher's model card](https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF)
-for quantization details. These weights inherit the base model's
-[Qwen Community License 1.0](https://huggingface.co/Qwen/Qwen3.8-Flash-Next/blob/main/LICENSE).
-
-### Huihui Qwen3.8 Flash Next
-
-Install the abliterated Qwen3.8-Flash-Next build for text chat and image input:
-
-```bash
-local-ai models install huihui-qwen3.8-flash-next-abliterated-q4
-```
-
-The entry downloads the publisher's four UD-Q4_K_XL GGUF shards and BF16
-vision projector, approximately 112 GB in total. It uses llama.cpp with the
-embedded chat template and a 32,768-token default context. The publisher
-currently provides one quantization, so this entry has no alternative variants.
-
-This model is modified to reduce refusals. See the
-[model card](https://huggingface.co/huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF)
-and [Qwen Community License 1.0](https://huggingface.co/huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF/blob/main/LICENSE)
-for model details and usage terms.
-
-### Embeddings: Bert
-
-<details>
-
-```bash
-curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "id": "bert-embeddings",
-     "name": "text-embedding-ada-002"
-   }'  
-```
-
-To test it:
-
-```bash
-LOCALAI=http://localhost:8080
-curl $LOCALAI/v1/embeddings -H "Content-Type: application/json" -d '{
-    "input": "Test",
-    "model": "text-embedding-ada-002"
-  }'
-```
-
-</details>
 
 ### Image generation: Stable diffusion
 
@@ -941,7 +637,7 @@ YAML:
 
 Test it:
 
-```
+```bash
 curl $LOCALAI/v1/images/generations -H "Content-Type: application/json" -d '{
             "prompt": "floating hair, portrait, ((loli)), ((one girl)), cute face, hidden hands, asymmetrical bangs, beautiful detailed eyes, eye shadow, hair ornament, ribbons, bowties, buttons, pleated skirt, (((masterpiece))), ((best quality)), colorful|((part of the head)), ((((mutated hands and fingers)))), deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb, blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, Octane renderer, lowres, bad anatomy, bad hands, text",
             "mode": 2,  "seed":9000,
@@ -1012,7 +708,7 @@ curl http://localhost:8080/models/apply -H "Content-Type: application/json" -d '
         },
       "overrides": { "backend": "...", "f16": true }
      ]
-   }
+   }'
 ```
 
 An optional, list of additional files can be specified to be downloaded within `files`. The `name` allows to override the model name. Finally it is possible to override the model config file with `override`.
@@ -1057,56 +753,3 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
-
-### Genesis Hermes Final
-
-Install the Qwen3.6-35B-A3B Genesis Hermes Final model for text chat,
-function calling, and image input:
-
-```bash
-local-ai models install qwen3.6-35b-a3b-genesis-hermes-final
-```
-
-The gallery offers APEX, APEX Compact, and Q8_K_P builds for llama.cpp.
-APEX and APEX Compact also have variants with multi-token prediction (MTP)
-enabled. Each build includes the F16 vision projector and uses the embedded
-Jinja chat template. LocalAI selects a variant according to available memory
-and serving features. To select the plain APEX build explicitly:
-
-```bash
-local-ai models install --variant qwen3.6-35b-a3b-genesis-hermes-final qwen3.6-35b-a3b-genesis-hermes-final
-```
-
-These entries set a 131,072-token context, following the
-[model card's guidance](https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF)
-for thinking mode. This context requires additional memory beyond the weights.
-The uncensored model uses the Apache-2.0 license.
-
-### Occamy-1.0
-
-[Occamy-1.0](https://huggingface.co/Accio-Lab/occamy-1.0) is a
-Qwen3.6-35B-A3B derivative trained for multi-step agent tasks and coding.
-Install it with:
-
-```bash
-local-ai models install occamy-1.0-q4
-```
-
-The gallery offers Q4_K_M and Q8_0 GGUF builds for llama.cpp. Each build
-includes the F16 vision projector and uses the embedded Jinja chat template.
-LocalAI selects the variant according to available memory. To select Q4_K_M
-explicitly:
-
-```bash
-local-ai models install --variant occamy-1.0-q4 occamy-1.0-q4
-```
-
-Both entries use an 8,192-token context. Neither enables the publisher's
-separate experimental MTP head.
-
-Normalize prompt text to Unicode NFC in your client before sending requests.
-The GGUF tokenizer does not apply the source tokenizer's NFC normalization.
-Keep the embedded `qwen2` pre-tokenizer setting; the publisher's benchmark
-used a different setting. See the publisher's
-[tokenizer compatibility notes](https://huggingface.co/Accio-Lab/occamy-1.0-GGUF/blob/e8fe5e28e1b1c1f0cd0a39b85b16b631f17ca14e/TOKENIZER.md)
-for the validation limits.
