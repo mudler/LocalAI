@@ -1,8 +1,8 @@
 ---
-- name: "qwen-image-2.1"
+- name: "qwen-image-2.1-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
-    - https://huggingface.co/abenzerps/Qwen-Image-2.1-GGUF
+    - https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF
   description: |
     🤖 ModelScope&nbsp;&nbsp;|
     &nbsp;&nbsp;🤗 HuggingFace&nbsp;&nbsp;|
@@ -35,13 +35,13 @@
     options:
       - use_jinja:true
     parameters:
-      model: llama-cpp/models/qwen-image-2.1-Q4_K_M/qwen-image-2.1-Q4_K_M.gguf
+      model: llama-cpp/models/qwen-image-2.1-UC-Q4_K_M/qwen-image-2.1-UC-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
   files:
-    - filename: llama-cpp/models/qwen-image-2.1-Q4_K_M/qwen-image-2.1-Q4_K_M.gguf
-      sha256: 833439e91bc1152d28f37aa198c7f6f4218b7de95754c2f7a318a2422ab4b2f8
-      uri: https://huggingface.co/abenzerps/Qwen-Image-2.1-GGUF/resolve/main/qwen-image-2.1-Q4_K_M.gguf
+    - filename: llama-cpp/models/qwen-image-2.1-UC-Q4_K_M/qwen-image-2.1-UC-Q4_K_M.gguf
+      sha256: e79c8a009f2ecbdb6c70fd663d9aea9ee304a0d91f347e4169a756b8ad141b41
+      uri: https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-Q4_K_M.gguf
 - name: "ornith-1.5-9b-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
