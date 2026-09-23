@@ -178,7 +178,7 @@ Tested on: Geekom A9 Mega (AMD Ryzen AI MAX+ 395, ROCm 7.11.0, Ubuntu 24.04, ker
 iommu=pt amdgpu.gttsize=126976 ttm.pages_limit=32505856
 ```
 
-**Required environment variables** for gfx1151 (set automatically in the ROCm/hipblas image):
+**Required environment variables** for gfx1151:
 
 | Variable | Value | Purpose |
 |----------|-------|---------|
