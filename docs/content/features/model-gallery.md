@@ -136,6 +136,8 @@ GALLERIES=[{"name":"premium","url":"oci://quay.io/acme/gallery:latest","verifica
 
 The tag is resolved to a digest, the signature is checked against that digest, and the same digest is then pulled. A gallery that fails verification is never written to the cache, so no unverified file reaches your disk. The optional `not_before` RFC3339 value revokes signatures logged before that time, exactly as it does for backends.
 
+The optional `source_repository` value works the same for `oci://` galleries as it does for backends: it pins the repository the signature was made for when a shared reusable workflow does the signing. See [Verifying OCI Backends]({{%relref "features/backends#verifying-oci-backends" %}}).
+
 {{% notice warning %}}
 With `--require-backend-integrity` (`LOCALAI_REQUIRE_BACKEND_INTEGRITY=1`), an `oci://` gallery that has no `verification` block is refused when the models are listed, not only when one is installed. Add a `verification` block to every `oci://` gallery before you turn strict integrity on, or the galleries without one stop listing. An `oci://` gallery without a policy still lists outside strict mode, with a warning in the log.
 {{% /notice %}}

@@ -147,12 +147,13 @@ var _ = Describe("GalleriesEqual", func() {
 				[]config.Gallery{{URL: "u", Verification: &config.GalleryVerification{Issuer: "i"}}})).To(BeFalse())
 		})
 
-		// GalleryVerification has five string fields; a value comparison must
+		// GalleryVerification has six string fields; a value comparison must
 		// notice a change in any of them, not just the first.
 		DescribeTable("notices a change in any verification field",
 			func(mutate func(*config.GalleryVerification)) {
 				full := config.GalleryVerification{
 					Issuer: "i", IssuerRegex: "ir", Identity: "id", IdentityRegex: "idr", NotBefore: "2026-05-01T00:00:00Z",
+					SourceRepository: "https://github.com/acme/gallery",
 				}
 				other := full
 				mutate(&other)
@@ -166,6 +167,15 @@ var _ = Describe("GalleriesEqual", func() {
 			Entry("identity", func(v *config.GalleryVerification) { v.Identity = "x" }),
 			Entry("identity regex", func(v *config.GalleryVerification) { v.IdentityRegex = "x" }),
 			Entry("not before", func(v *config.GalleryVerification) { v.NotBefore = "2030-01-01T00:00:00Z" }),
+			Entry("source repository", func(v *config.GalleryVerification) { v.SourceRepository = "https://github.com/acme/other" }),
 		)
+	})
+})
+
+var _ = Describe("GalleryVerification", func() {
+	It("reads source_repository from a gallery's verification block", func() {
+		var g []config.Gallery
+		Expect(json.Unmarshal([]byte(`[{"name":"g","url":"oci://example.com/acme/gallery:latest","verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/example/.*$","source_repository":"https://github.com/acme/gallery"}}]`), &g)).To(Succeed())
+		Expect(g[0].Verification.SourceRepository).To(Equal("https://github.com/acme/gallery"))
 	})
 })

@@ -118,6 +118,25 @@ the trusted images:
 }
 ```
 
+When one reusable workflow signs images for several repositories, the
+certificate identity names the shared workflow, not the repository that called
+it, so an identity match alone accepts an image signed for any of those
+repositories. Add `source_repository` to pin the repository the signature was
+made for. LocalAI compares it exactly with the source-repository extension of
+the signing certificate: a trailing slash, a different letter case or a `.git`
+suffix does not match. The value must be an `https://` URL, or LocalAI refuses
+the policy when it loads:
+
+```json
+{
+  "verification": {
+    "issuer": "https://token.actions.githubusercontent.com",
+    "identity_regex": "^https://github\\.com/example/signer/\\.github/workflows/release\\.yml@refs/tags/v.+$",
+    "source_repository": "https://github.com/acme/backends"
+  }
+}
+```
+
 ## Pre-installing Backends
 
 You can pre-install backends when starting LocalAI using the `LOCALAI_EXTERNAL_BACKENDS` environment variable:

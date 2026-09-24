@@ -175,10 +175,11 @@ func backendDownloadOptions(config *GalleryBackend, requireIntegrity bool) ([]do
 // time rather than during signature verification.
 func newGalleryVerifier(p *config.GalleryVerification) (*cosignverify.Verifier, error) {
 	pol := cosignverify.Policy{
-		Issuer:        p.Issuer,
-		IssuerRegex:   p.IssuerRegex,
-		Identity:      p.Identity,
-		IdentityRegex: p.IdentityRegex,
+		Issuer:           p.Issuer,
+		IssuerRegex:      p.IssuerRegex,
+		Identity:         p.Identity,
+		IdentityRegex:    p.IdentityRegex,
+		SourceRepository: p.SourceRepository,
 	}
 	if p.NotBefore != "" {
 		t, err := time.Parse(time.RFC3339, p.NotBefore)
