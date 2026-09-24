@@ -142,7 +142,7 @@ var _ = Describe("oci:// galleries", func() {
 
 		// The whole tree is unpacked, not just the index: entry URLs resolve
 		// against it.
-		Expect(filepath.Join(ociGalleryCacheDir(base, url), "base", "virtual.yaml")).To(BeAnExistingFile())
+		Expect(filepath.Join(ociGalleryCacheDir(base, url, nil), "base", "virtual.yaml")).To(BeAnExistingFile())
 	})
 
 	It("serves a second fetch from the cache instead of pulling again", func() {
