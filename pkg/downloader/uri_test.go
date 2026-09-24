@@ -87,6 +87,17 @@ var _ = Describe("Gallery API tests", func() {
 	})
 })
 
+var _ = Describe("OCIReference", func() {
+	DescribeTable("returns the registry reference without the oci:// scheme",
+		func(uri, want string) {
+			Expect(URI(uri).OCIReference()).To(Equal(want))
+		},
+		Entry("tag form", "oci://registry.example.com/acme/backend:v1", "registry.example.com/acme/backend:v1"),
+		Entry("digest form", "oci://registry.example.com:5000/acme/backend@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "registry.example.com:5000/acme/backend@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+		Entry("reference without a scheme", "quay.io/acme/backend:latest", "quay.io/acme/backend:latest"),
+	)
+})
+
 var _ = Describe("ContentLength", func() {
 	Context("local file", func() {
 		It("returns file size for existing file", func() {
