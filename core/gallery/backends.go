@@ -436,7 +436,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	// Record the OCI digest for upgrade detection (non-fatal on failure)
 	if uri.LooksLikeOCI() {
-		digest, digestErr := oci.GetImageDigest(string(uri), "", nil, nil)
+		digest, digestErr := oci.GetImageDigest(uri.OCIReference(), "", nil, nil)
 		if digestErr != nil {
 			xlog.Warn("Failed to get OCI image digest for backend", "uri", string(uri), "error", digestErr)
 		} else {

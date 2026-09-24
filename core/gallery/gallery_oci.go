@@ -143,7 +143,7 @@ func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, base
 		return body, nil
 	}
 
-	pullRef := strings.TrimPrefix(candidate, downloader.OCIPrefix)
+	pullRef := downloader.URI(candidate).OCIReference()
 
 	if g.Verification != nil {
 		// Resolve first, verify the digest, then pull that same digest.

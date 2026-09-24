@@ -315,6 +315,14 @@ func (s URI) LooksLikeOCI() bool {
 		strings.HasPrefix(string(s), "docker.io")
 }
 
+// OCIReference returns the registry reference an OCI URI names, without the
+// oci:// scheme. The scheme is LocalAI's own marker for "this is an image":
+// registry clients do not know it and read "oci" as the registry host, so
+// every consumer that hands a URI to a registry client goes through here.
+func (s URI) OCIReference() string {
+	return strings.TrimPrefix(string(s), OCIPrefix)
+}
+
 func (s URI) LooksLikeOCIFile() bool {
 	return strings.HasPrefix(string(s), OCIFilePrefix)
 }
@@ -606,7 +614,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
 		}
 
-		url = strings.TrimPrefix(url, OCIPrefix)
+		url = URI(url).OCIReference()
 		img, err := oci.GetImage(url, "", nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get image %q: %v", url, err)
