@@ -1,4 +1,54 @@
 ---
+- name: "qwen-image-2.1-text-encoder-heretic"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF
+  description: |
+    > 🍱 **All-GGUF Qwen-Image-2.1:** text encoder GGUF + DiT GGUF (Q8_0 / Q6_K / Q4_K_M, loads in stock ComfyUI-GGUF) + PE-T2I GGUF.
+
+    > [!IMPORTANT]
+    > **The 4 `model-0000x-of-00004` shards are the HF `transformers` checkpoint (bf16) — they do not load in ComfyUI.**
+    > ComfyUI text encoders use a different key layout (the `model.language_model.` prefix is dropped
+    > when repacking), so pointing ComfyUI at these shards will not work.
+    >
+    > For ComfyUI use one of these instead — all keep the vision tower, which 2.1 needs for editing.
+    > **Mac / non-CUDA:** use the single file `qwen3vl_8b_bf16_heretic.safetensors` in *this* repo (full bf16, 17.5 GB — also in the GGUF repo) —
+    > put it in `models/text_encoders/` and load it with the stock `CLIPLoader`, type `qwen_image`, then `TextEncodeQwenImage21`.
+    > It is the only format here that needs no CUDA-specific kernels.
+    >
+    > | Repo | File | Loader |
+    > |---|---|---|
+    > | **this repo** | `qwen3vl_8b_bf16_heretic.safetensors` (bf16 single file, any device) | `CLIPLoader`, type `qwen_image` |
+    > | `…-NVFP4` | `qwen3vl_8b_nvfp4_heretic.safetensors` | `CLIPLoader`, type `qwen_image` |
+    > | `…-W4A8` | `qwen3vl_8b_w4a8_heretic.safetensors` | `CLIPL
+
+    ...
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/qwen3vl_8b_heretic-Q4_K_M/mmproj-qwen3vl_8b_heretic-f16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3vl_8b_heretic-Q4_K_M/qwen3vl_8b_heretic-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3vl_8b_heretic-Q4_K_M/qwen3vl_8b_heretic-Q4_K_M.gguf
+      sha256: 1338274ac7a6344f262a16c7a52d1bd7fe789307d252733b23ea421126e5d343
+      uri: https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/qwen3vl_8b_heretic-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/qwen3vl_8b_heretic-Q4_K_M/mmproj-qwen3vl_8b_heretic-f16.gguf
+      sha256: 4649839491c8df1ebc9bed2de158ad2a45b53ed1d3b311d92a69056b6764f101
+      uri: https://huggingface.co/pottokao/Qwen-Image-2.1-Text-Encoder-Heretic-GGUF/resolve/main/mmproj-qwen3vl_8b_heretic-f16.gguf
 - name: "ornith-1.5-9b-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
