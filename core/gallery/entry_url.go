@@ -42,7 +42,7 @@ func ociGalleryRoot(g config.Gallery, basePath string) string {
 		if !looksLikeOCIGallery(candidate) {
 			continue
 		}
-		dir := ociGalleryCacheDir(basePath, candidate)
+		dir := ociGalleryCacheDir(basePath, candidate, g.Verification)
 		if dir == "" {
 			continue
 		}

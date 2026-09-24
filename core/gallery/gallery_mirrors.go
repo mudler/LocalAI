@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -101,12 +103,34 @@ func inCooldown(url string) bool {
 // resolve the sibling against the process' working directory, which is not
 // somewhere LocalAI should be dropping files. Only an absolute models
 // directory names a location we can reason about.
-func galleryCachePath(basePath, url string) string {
+func galleryCachePath(basePath, url string, policy *config.GalleryVerification) string {
 	if !filepath.IsAbs(basePath) {
 		return ""
 	}
-	sum := sha256.Sum256([]byte(url))
-	return filepath.Join(basePath, "..", "cache", "gallery", hex.EncodeToString(sum[:])+".yaml")
+	return filepath.Join(basePath, "..", "cache", "gallery", galleryCacheName(url, policy)+".yaml")
+}
+
+// galleryCacheName names a cached copy of a gallery by its URL and the
+// verification policy it was fetched under.
+//
+// The policy is part of the name because a cached copy is only as trusted as
+// the policy that admitted it. Keyed on the URL alone, a copy verified under
+// an older, looser policy (or none) kept being served after an operator
+// tightened it, until the cache expired or, while fetches failed, forever. A
+// changed policy now simply finds no copy and fetches again.
+//
+// A gallery without a policy keeps the URL-only name it always had, so the
+// copies already on disk stay usable across an upgrade.
+func galleryCacheName(url string, policy *config.GalleryVerification) string {
+	key := url
+	if policy != nil {
+		// Marshalling a struct is deterministic (field order, no maps), which
+		// is all a stable key needs. It cannot fail for a struct of strings.
+		encoded, _ := json.Marshal(policy)
+		key = url + "\x00" + string(encoded)
+	}
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:])
 }
 
 // isUsableGalleryIndex reports whether body is worth keeping as the last known
@@ -143,8 +167,8 @@ func isUsableGalleryIndex(body []byte) bool {
 // Every failure here is logged at debug and otherwise ignored: the copy is an
 // optimisation, and a read-only or full disk must not turn a gallery that was
 // fetched perfectly well into a failed listing.
-func persistGalleryIndex(basePath, url string, body []byte) {
-	path := galleryCachePath(basePath, url)
+func persistGalleryIndex(basePath, url string, policy *config.GalleryVerification, body []byte) {
+	path := galleryCachePath(basePath, url, policy)
 	if path == "" {
 		return
 	}
@@ -213,7 +237,7 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string, r
 		attempt = candidates
 	}
 
-	var lastErr error
+	var lastErr, refused error
 	for _, candidate := range attempt {
 		attemptCtx, cancel := context.WithTimeout(ctx, galleryFetchTimeout)
 
@@ -244,11 +268,15 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string, r
 			// Keyed on the gallery's own URL rather than the candidate that
 			// answered: a mirror serves the same index, so a mirror-served
 			// fetch must refresh the copy an offline run will look for.
-			persistGalleryIndex(basePath, g.URL, body)
+			persistGalleryIndex(basePath, g.URL, g.Verification, body)
 			return body, candidate, nil
 		}
 
 		lastErr = err
+		var notVerified *galleryVerificationError
+		if errors.As(err, &notVerified) {
+			refused = err
+		}
 		// Only blame the source for its own failures. If the caller gave up —
 		// a browser disconnecting mid-listing, once a request context is wired
 		// through here — recording that would blackhole every candidate for ten
@@ -260,10 +288,19 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string, r
 			"gallery", g.Name, "url", candidate, "error", err)
 	}
 
+	// A source that answered with content the policy refuses is not an
+	// outage: it is the publisher (or someone in between) serving something
+	// this machine must not trust. Falling back to an older copy there would
+	// turn a refusal into a silent downgrade, so it is reported instead.
+	if refused != nil {
+		return nil, "", fmt.Errorf("gallery %q was refused by its verification policy and no cached copy is served: %w", g.Name, refused)
+	}
+
 	// Every source failed. A copy from a previous run is much better than no
 	// gallery at all — this is what lets an offline or airgapped machine still
-	// list what it already knows about.
-	cachePath := galleryCachePath(basePath, g.URL)
+	// list what it already knows about. The copy is looked up under the
+	// current policy, so it is one that policy admitted.
+	cachePath := galleryCachePath(basePath, g.URL, g.Verification)
 	if cachePath != "" {
 		// #nosec G304 -- cachePath is galleryCachePath's own construction: a
 		// hex sha256 of the URL under the fixed <basePath>/../cache/gallery

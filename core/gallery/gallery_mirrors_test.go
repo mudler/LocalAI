@@ -369,7 +369,7 @@ var _ = Describe("galleryCachePath", func() {
 	// interpreted as an installed model config.
 	It("is outside the models directory", func() {
 		base := tempModelsDir()
-		got := galleryCachePath(base, "https://example/index.yaml")
+		got := galleryCachePath(base, "https://example/index.yaml", nil)
 		Expect(filepath.Dir(got)).ToNot(Equal(base), "cache path is inside the models directory")
 
 		// Nor anywhere below it: the models directory is walked and listed, and
@@ -385,19 +385,19 @@ var _ = Describe("galleryCachePath", func() {
 	// from being served as the other.
 	It("distinguishes galleries", func() {
 		base := tempModelsDir()
-		models := galleryCachePath(base, "https://example/index.yaml")
-		backends := galleryCachePath(base, "https://example/backends.yaml")
+		models := galleryCachePath(base, "https://example/index.yaml", nil)
+		backends := galleryCachePath(base, "https://example/backends.yaml", nil)
 		Expect(models).ToNot(Equal(backends), "one gallery would overwrite the other")
-		Expect(galleryCachePath(base, "https://example/index.yaml")).To(Equal(models),
+		Expect(galleryCachePath(base, "https://example/index.yaml", nil)).To(Equal(models),
 			"the same gallery URL produced two different cache paths")
 	})
 
 	// Without a models directory there is no sensible place for the cache, and
 	// a relative path would write next to the process' working directory.
 	It("yields nothing without a models directory", func() {
-		Expect(galleryCachePath("", "https://example/index.yaml")).To(BeEmpty())
+		Expect(galleryCachePath("", "https://example/index.yaml", nil)).To(BeEmpty())
 		// Must not panic or write anywhere either.
-		persistGalleryIndex("", "https://example/index.yaml", []byte("- name: x\n"))
+		persistGalleryIndex("", "https://example/index.yaml", nil, []byte("- name: x\n"))
 	})
 
 	// A relative models directory is the same failure as an empty one: "." and
@@ -405,10 +405,10 @@ var _ = Describe("galleryCachePath", func() {
 	// be running in, which is exactly what the guard exists to prevent.
 	DescribeTable("rejects a relative models directory",
 		func(base string) {
-			Expect(galleryCachePath(base, "https://example/index.yaml")).To(BeEmpty(),
+			Expect(galleryCachePath(base, "https://example/index.yaml", nil)).To(BeEmpty(),
 				"it resolves against the working directory")
 			// And nothing may be written next to the working directory either.
-			persistGalleryIndex(base, "https://example/index.yaml", []byte("- name: x\n"))
+			persistGalleryIndex(base, "https://example/index.yaml", nil, []byte("- name: x\n"))
 		},
 		Entry("the working directory itself", "."),
 		Entry("a bare relative name", "models"),
@@ -418,7 +418,7 @@ var _ = Describe("galleryCachePath", func() {
 
 	// Sanity: the guard must still let a real absolute models directory through.
 	It("accepts an absolute models directory", func() {
-		Expect(galleryCachePath(tempModelsDir(), "https://example/index.yaml")).ToNot(BeEmpty())
+		Expect(galleryCachePath(tempModelsDir(), "https://example/index.yaml", nil)).ToNot(BeEmpty())
 	})
 })
 
@@ -436,7 +436,7 @@ var _ = Describe("the last known good gallery index", func() {
 		_, _, err := fetchGalleryIndex(context.Background(), g, base, false)
 		Expect(err).ToNot(HaveOccurred())
 
-		body, err := os.ReadFile(galleryCachePath(base, srv.URL))
+		body, err := os.ReadFile(galleryCachePath(base, srv.URL, nil))
 		Expect(err).ToNot(HaveOccurred(), "no cached copy written")
 		Expect(string(body)).To(Equal("- name: cached\n"))
 	})
@@ -457,7 +457,7 @@ var _ = Describe("the last known good gallery index", func() {
 		body, served, err := fetchGalleryIndex(context.Background(), g, base, false)
 		Expect(err).ToNot(HaveOccurred(), "want the cached copy")
 		Expect(string(body)).To(Equal("- name: cached\n"))
-		Expect(served).To(Equal(galleryCachePath(base, srv.URL)))
+		Expect(served).To(Equal(galleryCachePath(base, srv.URL, nil)))
 	})
 
 	It("cannot rescue a fetch when there is no copy and no network", func() {
@@ -498,11 +498,11 @@ var _ = Describe("the last known good gallery index", func() {
 		_, _, err := fetchGalleryIndex(context.Background(), g, base, false)
 		Expect(err).ToNot(HaveOccurred())
 
-		body, err := os.ReadFile(galleryCachePath(base, g.URL))
+		body, err := os.ReadFile(galleryCachePath(base, g.URL, nil))
 		Expect(err).ToNot(HaveOccurred(), "no copy cached under the gallery's own URL")
 		Expect(string(body)).To(Equal("- name: from-mirror\n"))
 
-		_, err = os.ReadFile(galleryCachePath(base, mirror.URL))
+		_, err = os.ReadFile(galleryCachePath(base, mirror.URL, nil))
 		Expect(err).To(HaveOccurred(),
 			"the copy was cached under the mirror's URL, where an offline run will not look for it")
 	})
@@ -528,7 +528,7 @@ var _ = Describe("the last known good gallery index", func() {
 		Expect(string(body)).To(Equal("- name: new\n"), "want the live index from the source")
 		Expect(from).To(Equal(srv.URL))
 
-		onDisk, err := os.ReadFile(galleryCachePath(base, srv.URL))
+		onDisk, err := os.ReadFile(galleryCachePath(base, srv.URL, nil))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(onDisk)).To(Equal("- name: new\n"),
 			"the cached copy was not refreshed with what the source served")
@@ -548,7 +548,7 @@ var _ = Describe("the last known good gallery index", func() {
 		_, _, err := fetchGalleryIndex(context.Background(), g, base, false)
 		Expect(err).ToNot(HaveOccurred())
 
-		cacheDir := filepath.Dir(galleryCachePath(base, g.URL))
+		cacheDir := filepath.Dir(galleryCachePath(base, g.URL, nil))
 		entries, err := os.ReadDir(cacheDir)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(entries).To(HaveLen(1), "want just the index — a staging file was left behind")
@@ -558,7 +558,7 @@ var _ = Describe("the last known good gallery index", func() {
 		_, _, err = fetchGalleryIndex(context.Background(), g, base, false)
 		Expect(err).ToNot(HaveOccurred(), "fallback")
 
-		body, err := os.ReadFile(galleryCachePath(base, g.URL))
+		body, err := os.ReadFile(galleryCachePath(base, g.URL, nil))
 		Expect(err).ToNot(HaveOccurred(), "the cached copy is gone after a failed fetch")
 		Expect(string(body)).To(Equal("- name: cached\n"), "want it untouched by a failed fetch")
 
@@ -592,7 +592,7 @@ var _ = Describe("the last known good gallery index", func() {
 		Expect(from).To(Equal(srv.URL))
 		Expect(string(body)).To(Equal(served), "want the live response")
 
-		onDisk, err := os.ReadFile(galleryCachePath(base, g.URL))
+		onDisk, err := os.ReadFile(galleryCachePath(base, g.URL, nil))
 		Expect(err).ToNot(HaveOccurred(), "the cached copy is gone")
 		Expect(string(onDisk)).To(Equal("- name: cached\n"), "a 200 HTML page overwrote the good index")
 	})
@@ -620,7 +620,7 @@ var _ = Describe("the last known good gallery index", func() {
 
 		body, from, err := fetchGalleryIndex(context.Background(), g, base, false)
 		Expect(err).ToNot(HaveOccurred(), "offline fallback")
-		Expect(from).To(Equal(galleryCachePath(base, g.URL)), "want the cached copy")
+		Expect(from).To(Equal(galleryCachePath(base, g.URL, nil)), "want the cached copy")
 
 		// Readable by the offline path means parseable, not merely present.
 		var models []GalleryModel
@@ -651,7 +651,7 @@ var _ = Describe("the last known good gallery index", func() {
 			_, _, err = fetchGalleryIndex(context.Background(), g, base, false)
 			Expect(err).ToNot(HaveOccurred())
 
-			onDisk, err := os.ReadFile(galleryCachePath(base, g.URL))
+			onDisk, err := os.ReadFile(galleryCachePath(base, g.URL, nil))
 			Expect(err).ToNot(HaveOccurred(), "the cached copy is gone after an empty body %q", empty)
 			Expect(string(onDisk)).To(Equal("- name: cached\n"), "want the populated index kept")
 		},
@@ -671,7 +671,7 @@ var _ = Describe("the last known good gallery index", func() {
 		_, _, err := fetchGalleryIndex(context.Background(), g, base, false)
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = os.Stat(galleryCachePath(base, g.URL))
+		_, err = os.Stat(galleryCachePath(base, g.URL, nil))
 		Expect(err).To(HaveOccurred(), "an HTML page was written as the last known good gallery index")
 	})
 })

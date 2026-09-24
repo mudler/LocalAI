@@ -136,6 +136,8 @@ GALLERIES=[{"name":"premium","url":"oci://quay.io/acme/gallery:latest","verifica
 
 The tag is resolved to a digest, the signature is checked against that digest, and the same digest is then pulled. A gallery that fails verification is never written to the cache, so no unverified file reaches your disk. The optional `not_before` RFC3339 value revokes signatures logged before that time, exactly as it does for backends.
 
+Cached copies of a gallery are kept per verification policy. When you change the `verification` block (for example, you add `source_repository` or move `not_before` forward), LocalAI fetches the gallery again and verifies it under the new policy. It does not serve a copy that an older policy admitted. If the registry is unreachable, LocalAI serves the last copy that was verified under the current policy. If the registry answers with an artifact that fails verification, LocalAI shows an error and does not serve a cached copy.
+
 The optional `source_repository` value works the same for `oci://` galleries as it does for backends: it pins the repository the signature was made for when a shared reusable workflow does the signing. See [Verifying OCI Backends]({{%relref "features/backends#verifying-oci-backends" %}}).
 
 {{% notice warning %}}

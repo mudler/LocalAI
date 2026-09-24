@@ -2,8 +2,6 @@ package gallery
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +31,15 @@ const (
 	maxGalleryArtifactLayers = 512
 	maxGalleryArtifactBytes  = int64(64 << 20)
 )
+
+// galleryVerificationError marks a fetch that reached the source and was
+// refused by the verification policy (or by strict integrity), as opposed to
+// one that could not reach it. The caller must not answer a refusal with an
+// older cached copy.
+type galleryVerificationError struct{ err error }
+
+func (e *galleryVerificationError) Error() string { return e.err.Error() }
+func (e *galleryVerificationError) Unwrap() error { return e.err }
 
 // ociGalleryCacheTTL is how long an unpacked gallery artifact is served
 // without asking the registry again.
@@ -75,16 +82,17 @@ func looksLikeOCIGallery(candidate string) bool {
 //
 // It follows galleryCachePath's convention: a sibling of the models directory
 // so the unpacked YAML is never mistaken for an installed model config, named
-// by a digest of the gallery URL so two galleries cannot collide, and empty
+// by a digest of the gallery URL and its verification policy so two galleries
+// cannot collide and a changed policy never reuses what another one admitted,
+// and empty
 // for a non-absolute models directory because only an absolute one names a
 // location we can reason about.
-func ociGalleryCacheDir(basePath, url string) string {
+func ociGalleryCacheDir(basePath, url string, policy *config.GalleryVerification) string {
 	root := ociGalleryCacheRoot(basePath)
 	if root == "" {
 		return ""
 	}
-	sum := sha256.Sum256([]byte(url))
-	return filepath.Join(root, hex.EncodeToString(sum[:]))
+	return filepath.Join(root, galleryCacheName(url, policy))
 }
 
 // ociGalleryCacheRoot is the directory every unpacked gallery artifact lives
@@ -135,7 +143,14 @@ func readCachedOCIGallery(cacheDir string) ([]byte, bool) {
 // later fetch served would hand the user a truncated gallery with no sign that
 // anything went wrong.
 func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, basePath string, requireIntegrity bool) ([]byte, error) {
-	cacheDir := ociGalleryCacheDir(basePath, candidate)
+	// Checked before the cache: a copy unpacked while strict integrity was
+	// off was never verified, and turning strict integrity on must not keep
+	// serving it for the rest of its TTL.
+	if g.Verification == nil && requireIntegrity {
+		return nil, &galleryVerificationError{fmt.Errorf("strict integrity: gallery %q has no verification policy for %q (set verification: in the gallery configuration or disable --require-backend-integrity)", g.Name, candidate)}
+	}
+
+	cacheDir := ociGalleryCacheDir(basePath, candidate, g.Verification)
 	if cacheDir == "" {
 		return nil, fmt.Errorf("gallery %q needs an absolute models directory to cache %q", g.Name, candidate)
 	}
@@ -154,11 +169,9 @@ func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, base
 			return nil, err
 		}
 		if err := verifyGalleryArtifact(ctx, g.Verification, digestRef); err != nil {
-			return nil, fmt.Errorf("gallery %q failed signature verification: %w", g.Name, err)
+			return nil, &galleryVerificationError{fmt.Errorf("gallery %q failed signature verification: %w", g.Name, err)}
 		}
 		pullRef = digestRef
-	} else if requireIntegrity {
-		return nil, fmt.Errorf("strict integrity: gallery %q has no verification policy for %q (set verification: in the gallery configuration or disable --require-backend-integrity)", g.Name, candidate)
 	} else {
 		xlog.Warn("fetching an OCI gallery without signature verification",
 			"gallery", g.Name, "url", candidate)
