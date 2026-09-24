@@ -113,3 +113,13 @@ type AIModelRich interface {
 type ClassifyModel interface {
 	TokenClassify(context.Context, *pb.TokenClassifyRequest) (*pb.TokenClassifyResponse, error)
 }
+
+// ScoreModel is an optional extension to AIModel for backends that
+// implement the Score RPC (candidate scoring and decision pipelines).
+// The gRPC server type-asserts to this interface; backends that do not
+// implement it fall through to the UnimplementedBackendServer default.
+// This mirrors the ClassifyModel pattern: adding a method to AIModel
+// itself would break every backend, so the capability is opt-in.
+type ScoreModel interface {
+	Score(context.Context, *pb.ScoreRequest) (*pb.ScoreResponse, error)
+}

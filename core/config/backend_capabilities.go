@@ -348,11 +348,11 @@ var BackendCapabilities = map[string]BackendCapability{
 	// engine refuses non-BoundaryExtractor architectures, so a chat or embedding
 	// model returns an error rather than silent garbage.
 	"vllm-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateVideo, MethodTokenClassify},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVideo, UsecaseTokenClassify},
+		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateVideo, MethodTokenClassify, MethodScore},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVideo, UsecaseTokenClassify, UsecaseScore},
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true,
-		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation, MiniMax-H3 video+audio generation, and GLiNER2.5 zero-shot NER",
+		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation, MiniMax-H3 video+audio generation, GLiNER2.5 zero-shot NER, cua-s1-forms scoring, and kev/laya decision pipelines",
 	},
 	"vllm-omni": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateImage, MethodGenerateVideo, MethodTTS},

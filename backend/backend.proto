@@ -198,6 +198,12 @@ message ScoreRequest {
   // use it to place a reuse point exactly at the boundary, so the next
   // call re-processes only the tokens after it. 0 means unknown.
   int32 stable_prefix_len = 6;
+  // question_type signals a decision-pipeline request (kev/laya)
+  // rather than plain candidate scoring. When set to "systemone", the
+  // backend treats prompt as the raw /v1/systemone request JSON and
+  // returns the full response in ScoreResponse.response_json. Empty
+  // means plain candidate scoring.
+  string question_type = 7;
 }
 
 // CandidateScore is one row in the ScoreResponse, matching by index
@@ -223,6 +229,9 @@ message TokenLogProb {
 
 message ScoreResponse {
   repeated CandidateScore candidates = 1;
+  // response_json carries the full decision-pipeline JSON response when
+  // question_type is set on the request. Empty for plain scoring.
+  string response_json = 2;
 }
 
 message RerankRequest {
