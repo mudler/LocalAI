@@ -105,6 +105,25 @@ var _ = Describe("oci:// gallery verification outcomes", func() {
 		Expect(strings.Count(err.Error(), `"acme"`)).To(Equal(1), "gallery name repeated: %v", err)
 	})
 
+	// An unusable policy admits nothing, so it is reported as a refusal and
+	// not as an outage. The real verifier is used: it fails while building
+	// the policy, before it would reach the network.
+	It("reports a policy that cannot be used as a refusal", func() {
+		srv, _, _ := ociRegistry()
+		url := pushGalleryArtifact(srv.URL, "galleries/acme", galleryArtifactType, []ociGalleryFile{
+			{title: "index.yaml", body: index},
+		})
+		broken := *policy
+		broken.NotBefore = "last tuesday"
+
+		_, _, err := fetchGalleryIndex(context.Background(),
+			config.Gallery{URL: url, Name: "acme", Verification: &broken}, tempModelsDir(), false)
+		Expect(err).To(HaveOccurred())
+		var refused *galleryVerificationError
+		Expect(errors.As(err, &refused)).To(BeTrue(), "an unusable policy was reported as an outage: %v", err)
+		Expect(err.Error()).To(ContainSubstring("not_before"))
+	})
+
 	Context("with a mirror that is not an OCI artifact", func() {
 		It("does not let the mirror answer for a refused primary", func() {
 			g, base, verdict := signedGallery()

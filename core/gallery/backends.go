@@ -193,7 +193,8 @@ func newGalleryVerifier(p *config.GalleryVerification) (*cosignverify.Verifier, 
 	if p.NotBefore != "" {
 		t, err := time.Parse(time.RFC3339, p.NotBefore)
 		if err != nil {
-			return nil, fmt.Errorf("not_before %q: %w", p.NotBefore, err)
+			// A refusal, not an outage: no fetch can make this policy usable.
+			return nil, fmt.Errorf("%w: not_before %q: %w", cosignverify.ErrPolicyRejected, p.NotBefore, err)
 		}
 		pol.NotBefore = t
 	}

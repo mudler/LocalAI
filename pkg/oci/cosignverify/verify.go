@@ -162,7 +162,9 @@ type Verifier struct {
 // it is loaded on the first call to VerifyImage. auth and t may be nil.
 func NewVerifier(p Policy, auth *registrytypes.AuthConfig, t http.RoundTripper) (*Verifier, error) {
 	if err := p.Validate(); err != nil {
-		return nil, err
+		// A policy that cannot be used admits nothing, so a caller must
+		// treat it as a refusal and not as an outage a cached copy covers.
+		return nil, fmt.Errorf("%w: %w", ErrPolicyRejected, err)
 	}
 	return &Verifier{policy: p, auth: auth, transport: t}, nil
 }

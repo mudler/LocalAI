@@ -18,6 +18,7 @@
 package cosignverify
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -63,14 +64,23 @@ func bundleFromOCISignature(ref name.Reference, imageDigest v1.Hash, opts []remo
 		return nil, fmt.Errorf("cosignverify: no referrers found for %s: %w", digestRef.Name(), ErrPolicyRejected)
 	}
 
-	var lastErr error
+	// outage remembers a referrer the registry failed to serve. That one may
+	// be the valid signature, so it decides the result whatever else failed
+	// and in whatever order the index lists them.
+	var lastErr, outage error
+	noteFailure := func(err error) {
+		lastErr = err
+		if !errors.Is(err, ErrPolicyRejected) {
+			outage = err
+		}
+	}
 	for _, desc := range manifest.Manifests {
 		if !isSigstoreBundleArtifactType(string(desc.ArtifactType)) {
 			continue
 		}
 		b, err := fetchBundleFromReferrer(ref, desc, opts)
 		if err != nil {
-			lastErr = err
+			noteFailure(err)
 			continue
 		}
 		return b, nil
@@ -94,7 +104,7 @@ func bundleFromOCISignature(ref name.Reference, imageDigest v1.Hash, opts []remo
 			// Unread is not unsigned: a referrer the registry failed to
 			// serve may be the signature, so an outage here must not end
 			// up reported as "no signature".
-			lastErr = err
+			noteFailure(err)
 			continue
 		}
 		if !isBundle {
@@ -102,12 +112,15 @@ func bundleFromOCISignature(ref name.Reference, imageDigest v1.Hash, opts []remo
 		}
 		b, err := fetchBundleFromReferrer(ref, desc, opts)
 		if err != nil {
-			lastErr = err
+			noteFailure(err)
 			continue
 		}
 		return b, nil
 	}
 
+	if outage != nil {
+		return nil, fmt.Errorf("cosignverify: could not read every referrer of %s: %w", digestRef.Name(), outage)
+	}
 	if lastErr != nil {
 		return nil, fmt.Errorf("cosignverify: no usable Sigstore bundle referrer for %s: %w", digestRef.Name(), lastErr)
 	}
