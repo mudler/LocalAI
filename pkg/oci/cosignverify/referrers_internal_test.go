@@ -22,8 +22,9 @@ import (
 // does not register the route at all, so every client falls back to the
 // referrers-tag scheme.
 type fakeRegistry struct {
-	manifests map[string]manifestEntry // by tag and by digest
-	blobs     map[string][]byte        // by digest
+	manifests   map[string]manifestEntry // by tag and by digest
+	blobs       map[string][]byte        // by digest
+	unavailable map[string]bool          // manifest digests answered with a 503
 }
 
 type manifestEntry struct {
@@ -43,6 +44,10 @@ func (f *fakeRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 	case strings.Contains(p, "/manifests/"):
 		ref := p[strings.LastIndex(p, "/manifests/")+len("/manifests/"):]
+		if f.unavailable[ref] {
+			http.Error(w, "upstream down", http.StatusServiceUnavailable)
+			return
+		}
 		m, ok := f.manifests[ref]
 		if !ok {
 			http.Error(w, "unknown manifest", http.StatusNotFound)

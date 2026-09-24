@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -117,5 +118,77 @@ var _ = Describe("backends installed from an oci:// URI", func() {
 
 		Expect(UpgradeBackend(context.Background(), systemState, ml, galleries, "acme-backend", nil, false)).To(Succeed())
 		Expect(installedDigest("acme-backend")).To(Equal(newDigest))
+	})
+})
+
+// ocifile:// and ollama:// look like OCI to the downloader but name no
+// registry image, so the digest lookup that follows an install or backs an
+// upgrade check can only fail against them, with a warning every time.
+var _ = Describe("registry digest lookups", func() {
+	var (
+		systemState *system.SystemState
+		ml          *model.ModelLoader
+		backendsDir string
+		looked      []string
+	)
+
+	BeforeEach(func() {
+		backendsDir = GinkgoT().TempDir()
+		var err error
+		systemState, err = system.GetSystemState(system.WithBackendPath(backendsDir))
+		Expect(err).ToNot(HaveOccurred())
+		ml = model.NewModelLoader(systemState)
+
+		looked = nil
+		original := lookupImageDigest
+		lookupImageDigest = func(ref string) (string, error) {
+			looked = append(looked, ref)
+			return original(ref)
+		}
+		DeferCleanup(func() { lookupImageDigest = original })
+	})
+
+	// ociTarball writes a minimal backend image as a local OCI tarball, the
+	// form an ocifile:// URI names.
+	ociTarball := func() string {
+		GinkgoHelper()
+		layer, err := crane.Layer(map[string][]byte{"run.sh": []byte("#!/bin/sh\necho local\n")})
+		Expect(err).ToNot(HaveOccurred())
+		img, err := mutate.AppendLayers(empty.Image, layer)
+		Expect(err).ToNot(HaveOccurred())
+		ref, err := name.ParseReference("local/backend:v1")
+		Expect(err).ToNot(HaveOccurred())
+		path := filepath.Join(GinkgoT().TempDir(), "backend.tar")
+		Expect(tarball.WriteToFile(path, ref, img)).To(Succeed())
+		return path
+	}
+
+	It("does not ask a registry for the digest of a backend installed from ocifile://", func() {
+		uri := "ocifile://" + ociTarball()
+
+		Expect(InstallBackend(context.Background(), systemState, ml, &GalleryBackend{
+			Metadata: Metadata{Name: "local-backend"},
+			URI:      uri,
+		}, nil, false)).To(Succeed())
+		Expect(filepath.Join(backendsDir, "local-backend", "run.sh")).To(BeARegularFile())
+		Expect(looked).To(BeEmpty(), "a local tarball was looked up in a registry")
+	})
+
+	It("does not ask a registry for the digest of an ocifile:// gallery entry in an upgrade check", func() {
+		uri := "ocifile://" + ociTarball()
+		Expect(InstallBackend(context.Background(), systemState, ml, &GalleryBackend{
+			Metadata: Metadata{Name: "local-backend"},
+			URI:      uri,
+		}, nil, false)).To(Succeed())
+
+		galleryFile := filepath.Join(backendsDir, "gallery.yaml")
+		data, err := yaml.Marshal([]GalleryBackend{{Metadata: Metadata{Name: "local-backend"}, URI: uri}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(os.WriteFile(galleryFile, data, 0o644)).To(Succeed())
+
+		_, err = CheckBackendUpgrades(context.Background(),
+			[]config.Gallery{{Name: "local", URL: "file://" + galleryFile}}, systemState)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(looked).To(BeEmpty(), "a local tarball was looked up in a registry")
 	})
 })

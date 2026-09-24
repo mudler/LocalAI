@@ -25,6 +25,15 @@ import (
 // ErrBackendNotFound is returned when a backend is not found in the system.
 var ErrBackendNotFound = errors.New("backend not found")
 
+// lookupImageDigest asks a registry for the digest of an image reference. It
+// is what install and upgrade record for upgrade detection.
+//
+// A var so specs can see which references reach a registry client without
+// running one.
+var lookupImageDigest = func(ref string) (string, error) {
+	return oci.GetImageDigest(ref, "", nil, nil)
+}
+
 const (
 	metadataFile = "metadata.json"
 	runFile      = "run.sh"
@@ -184,7 +193,8 @@ func newGalleryVerifier(p *config.GalleryVerification) (*cosignverify.Verifier, 
 	if p.NotBefore != "" {
 		t, err := time.Parse(time.RFC3339, p.NotBefore)
 		if err != nil {
-			return nil, fmt.Errorf("not_before %q: %w", p.NotBefore, err)
+			// A refusal, not an outage: no fetch can make this policy usable.
+			return nil, fmt.Errorf("%w: not_before %q: %w", cosignverify.ErrPolicyRejected, p.NotBefore, err)
 		}
 		pol.NotBefore = t
 	}
@@ -435,8 +445,8 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	}
 
 	// Record the OCI digest for upgrade detection (non-fatal on failure)
-	if uri.LooksLikeOCI() {
-		digest, digestErr := oci.GetImageDigest(uri.OCIReference(), "", nil, nil)
+	if uri.LooksLikeRegistryOCI() {
+		digest, digestErr := lookupImageDigest(uri.OCIReference())
 		if digestErr != nil {
 			xlog.Warn("Failed to get OCI image digest for backend", "uri", string(uri), "error", digestErr)
 		} else {

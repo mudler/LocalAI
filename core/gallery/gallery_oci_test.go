@@ -3,7 +3,7 @@ package gallery
 import (
 	"bytes"
 	"context"
-	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -24,7 +25,7 @@ import (
 
 // errNoGallerySignature stands in for what the real verifier reports when an
 // artifact has no signature attached.
-var errNoGallerySignature = errors.New("no signature found for the gallery artifact")
+var errNoGallerySignature = fmt.Errorf("no signature found for the gallery artifact: %w", cosignverify.ErrPolicyRejected)
 
 // stubGalleryVerifier replaces the signature check for the duration of a spec
 // and restores it afterwards.

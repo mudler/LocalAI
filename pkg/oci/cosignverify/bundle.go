@@ -61,17 +61,26 @@ func bundleFromOCISignature(ref name.Reference, imageDigest v1.Hash, opts []remo
 	}
 
 	if len(manifest.Manifests) == 0 {
-		return nil, fmt.Errorf("cosignverify: no referrers found for %s", digestRef.Name())
+		return nil, fmt.Errorf("cosignverify: no referrers found for %s: %w", digestRef.Name(), ErrPolicyRejected)
 	}
 
-	var lastErr error
+	// outage remembers a referrer the registry failed to serve. That one may
+	// be the valid signature, so it decides the result whatever else failed
+	// and in whatever order the index lists them.
+	var lastErr, outage error
+	noteFailure := func(err error) {
+		lastErr = err
+		if !errors.Is(err, ErrPolicyRejected) {
+			outage = err
+		}
+	}
 	for _, desc := range manifest.Manifests {
 		if !isSigstoreBundleArtifactType(string(desc.ArtifactType)) {
 			continue
 		}
 		b, err := fetchBundleFromReferrer(ref, desc, opts)
 		if err != nil {
-			lastErr = err
+			noteFailure(err)
 			continue
 		}
 		return b, nil
@@ -90,21 +99,32 @@ func bundleFromOCISignature(ref name.Reference, imageDigest v1.Hash, opts []remo
 		if isSigstoreBundleArtifactType(string(desc.ArtifactType)) {
 			continue // already tried above
 		}
-		if !isBundleManifest(ref, desc, opts) {
+		isBundle, err := isBundleManifest(ref, desc, opts)
+		if err != nil {
+			// Unread is not unsigned: a referrer the registry failed to
+			// serve may be the signature, so an outage here must not end
+			// up reported as "no signature".
+			noteFailure(err)
+			continue
+		}
+		if !isBundle {
 			continue
 		}
 		b, err := fetchBundleFromReferrer(ref, desc, opts)
 		if err != nil {
-			lastErr = err
+			noteFailure(err)
 			continue
 		}
 		return b, nil
 	}
 
+	if outage != nil {
+		return nil, fmt.Errorf("cosignverify: could not read every referrer of %s: %w", digestRef.Name(), outage)
+	}
 	if lastErr != nil {
 		return nil, fmt.Errorf("cosignverify: no usable Sigstore bundle referrer for %s: %w", digestRef.Name(), lastErr)
 	}
-	return nil, fmt.Errorf("cosignverify: no Sigstore bundle referrer for %s (signed with --new-bundle-format?)", digestRef.Name())
+	return nil, fmt.Errorf("cosignverify: no Sigstore bundle referrer for %s (signed with --new-bundle-format?): %w", digestRef.Name(), ErrPolicyRejected)
 }
 
 // maxReferrersInspected bounds the second pass. Each step there is a manifest
@@ -117,20 +137,20 @@ const maxReferrersInspected = 16
 // artifactType and its first layer are checked: the layer is what actually
 // holds the bundle, and a manifest can reach a registry with neither field
 // copied onto the index.
-func isBundleManifest(ref name.Reference, desc v1.Descriptor, opts []remote.Option) bool {
+func isBundleManifest(ref name.Reference, desc v1.Descriptor, opts []remote.Option) (bool, error) {
 	artRef := ref.Context().Digest(desc.Digest.String())
 	img, err := remote.Image(artRef, opts...)
 	if err != nil {
-		return false
+		return false, fmt.Errorf("fetching referrer image %s: %w", artRef.Name(), err)
 	}
 	m, err := img.Manifest()
 	if err != nil {
-		return false
+		return false, fmt.Errorf("reading referrer manifest %s: %w", artRef.Name(), err)
 	}
 	if isSigstoreBundleArtifactType(m.ArtifactType) {
-		return true
+		return true, nil
 	}
-	return len(m.Layers) > 0 && isSigstoreBundleArtifactType(string(m.Layers[0].MediaType))
+	return len(m.Layers) > 0 && isSigstoreBundleArtifactType(string(m.Layers[0].MediaType)), nil
 }
 
 func fetchBundleFromReferrer(ref name.Reference, desc v1.Descriptor, opts []remote.Option) (*bundle.Bundle, error) {
@@ -144,7 +164,7 @@ func fetchBundleFromReferrer(ref name.Reference, desc v1.Descriptor, opts []remo
 		return nil, fmt.Errorf("reading referrer layers: %w", err)
 	}
 	if len(layers) == 0 {
-		return nil, errors.New("referrer artifact has no layers")
+		return nil, fmt.Errorf("referrer artifact has no layers: %w", ErrPolicyRejected)
 	}
 
 	rc, err := layers[0].Uncompressed()
@@ -160,7 +180,9 @@ func fetchBundleFromReferrer(ref name.Reference, desc v1.Descriptor, opts []remo
 
 	b := &bundle.Bundle{}
 	if err := b.UnmarshalJSON(data); err != nil {
-		return nil, fmt.Errorf("parsing bundle JSON: %w", err)
+		// The registry served this referrer in full; what it holds is not
+		// a signature, which is an answer about the image.
+		return nil, fmt.Errorf("parsing bundle JSON: %w: %w", ErrPolicyRejected, err)
 	}
 	return b, nil
 }

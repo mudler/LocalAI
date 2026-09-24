@@ -350,7 +350,7 @@ var _ = Describe("getGalleryElements", func() {
 		mirror, _ := countingServer(http.StatusOK, "- name: mirror-model\n  description: served by a mirror\n")
 
 		g := config.Gallery{Name: "mirror-fallback-spec", URL: primary.URL, Mirrors: []string{mirror.URL}}
-		DeferCleanup(func() { galleryCache.Delete(g.Name + "-" + g.URL) })
+		DeferCleanup(func() { galleryCache.Delete(galleryIndexCacheKey(g)) })
 
 		models, err := getGalleryElements(g, tempModelsDir(), false, func(*GalleryModel) bool { return false })
 		Expect(err).ToNot(HaveOccurred())
@@ -359,7 +359,7 @@ var _ = Describe("getGalleryElements", func() {
 
 		// The cache identifies the gallery, not whichever source answered, so a
 		// mirror-served fetch must populate the entry the primary URL would hit.
-		Expect(galleryCache.Exists(g.Name + "-" + g.URL)).To(BeTrue(),
+		Expect(galleryCache.Exists(galleryIndexCacheKey(g))).To(BeTrue(),
 			"mirror-served index was not cached under the gallery's own key")
 	})
 })

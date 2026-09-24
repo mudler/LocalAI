@@ -378,11 +378,11 @@ func GalleryGeneration() uint64 { return galleryGeneration.Load() }
 // ResetGalleryModelCache drops the cached model list, once any background
 // refresh already in flight has finished writing to it.
 //
-// It exists for tests. The cache is a package global keyed by nothing, which is
-// right for a process serving one gallery configuration and wrong for a suite
-// where each spec stands up its own: a refresh one spec triggered can land in
-// the middle of the next and answer it with the previous spec's entries, so
-// whichever assertion happens to straddle it fails at random.
+// The cache is a package global keyed by nothing, which is right for a process
+// serving one gallery configuration and wrong once that configuration changes:
+// see ResetGalleryModelCacheIfChanged. Suites use it too, because each spec
+// stands up its own configuration, and a refresh one spec triggered can land in
+// the middle of the next and answer it with the previous spec's entries.
 //
 // Waiting for the in-flight refresh rather than only clearing is the point. The
 // refresh publishes its result after this call would otherwise have returned,
@@ -398,6 +398,23 @@ func ResetGalleryModelCache() {
 	// Also clear the refresh stamp, or a suite that reset the cache would find
 	// the next refresh throttled by the previous spec's clock.
 	lastRefreshUnixNano.Store(0)
+}
+
+// ResetGalleryModelCacheIfChanged drops the cached model list when the model or
+// backend gallery configuration differs from what it was before a settings
+// change.
+//
+// The UI lists from that cache, and a gallery edit at runtime (a tightened
+// verification policy, a new mirror, another URL) must show at once. Kept
+// until the next background refresh, the old list would point relative entries
+// into a tree the new policy has not produced; and when the new policy refuses
+// the gallery, no refresh ever replaces it.
+func ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries []config.Gallery, cfg *config.ApplicationConfig) {
+	if config.GalleriesEqual(prevGalleries, cfg.Galleries) &&
+		config.GalleriesEqual(prevBackendGalleries, cfg.BackendGalleries) {
+		return
+	}
+	ResetGalleryModelCache()
 }
 
 // AvailableGalleryModelsCached returns gallery models from an in-memory cache.
@@ -609,6 +626,17 @@ func (entry galleryCacheEntry) hasExpired() bool {
 
 var galleryCache = xsync.NewSyncedMap[string, galleryCacheEntry]()
 
+// galleryIndexCacheKey names a gallery's entry in the in-memory index cache.
+//
+// The verification policy is part of it for the same reason it is part of the
+// on-disk name: the gallery settings can change at runtime, and a listing that
+// an older policy admitted must not keep being served under a new one. It
+// would also point relative entry urls at an unpacked tree the new policy has
+// not produced yet, so they could not be installed.
+func galleryIndexCacheKey(g config.Gallery) string {
+	return g.Name + "-" + galleryCacheName(g.URL, g.Verification)
+}
+
 func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string, requireIntegrity bool, isInstalledCallback func(T) bool) ([]T, error) {
 	var models []T = []T{}
 
@@ -620,7 +648,7 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 		}
 	}
 
-	cacheKey := fmt.Sprintf("%s-%s", gallery.Name, gallery.URL)
+	cacheKey := galleryIndexCacheKey(gallery)
 	if galleryCache.Exists(cacheKey) {
 		entry := galleryCache.Get(cacheKey)
 		// refresh if last updated is more than 1 hour ago

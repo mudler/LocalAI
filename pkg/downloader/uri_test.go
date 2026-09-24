@@ -98,6 +98,19 @@ var _ = Describe("OCIReference", func() {
 	)
 })
 
+var _ = Describe("LooksLikeRegistryOCI", func() {
+	DescribeTable("accepts only URIs that name an image in a registry",
+		func(uri string, want bool) {
+			Expect(URI(uri).LooksLikeRegistryOCI()).To(Equal(want))
+		},
+		Entry("oci:// reference", "oci://registry.example.com/acme/backend:v1", true),
+		Entry("bare quay.io reference", "quay.io/acme/backend:latest", true),
+		Entry("ollama:// model", "ollama://gemma:2b", false),
+		Entry("ocifile:// tarball", "ocifile:///srv/backend.tar", false),
+		Entry("https URL", "https://example.com/backend.tar", false),
+	)
+})
+
 var _ = Describe("ContentLength", func() {
 	Context("local file", func() {
 		It("returns file size for existing file", func() {
