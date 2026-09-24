@@ -22,11 +22,20 @@ import "slices"
 // NotBefore is the revocation lever: advance it to invalidate every
 // signature produced before a known compromise window. Keyless cosign
 // certs are ephemeral so there is no CA-side revocation.
+//
+// SourceRepository pins the certificate's source-repository extension. Set
+// it when the signing workflow is a reusable workflow shared by several
+// repositories: the identity then names the shared workflow, and only the
+// source repository says which repository the signature was made for.
 type GalleryVerification struct {
 	Issuer        string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 	IssuerRegex   string `json:"issuer_regex,omitempty" yaml:"issuer_regex,omitempty"`
 	Identity      string `json:"identity,omitempty" yaml:"identity,omitempty"`
 	IdentityRegex string `json:"identity_regex,omitempty" yaml:"identity_regex,omitempty"`
+
+	// SourceRepository is an https URL compared exactly against the
+	// certificate's source-repository extension. Empty skips the check.
+	SourceRepository string `json:"source_repository,omitempty" yaml:"source_repository,omitempty"`
 
 	// NotBefore is an RFC3339 timestamp. Empty disables the time check.
 	NotBefore string `json:"not_before,omitempty" yaml:"not_before,omitempty"`

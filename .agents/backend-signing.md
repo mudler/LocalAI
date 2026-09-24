@@ -87,11 +87,23 @@ entry (`backend/index.yaml`):
     identity_regex: "^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"
     # Optional revocation cutoff; advance during incident response.
     # not_before: "2026-06-01T00:00:00Z"
+    # Optional exact source-repository pin (https URL); see below.
+    # source_repository: "https://github.com/acme/backends"
 ```
 
 Identity matching pins the OIDC subject Fulcio issued the signing cert
 to. Without this, any image signed by *anyone* with a Fulcio cert would
 pass — the regex is what makes a signature mean "produced by our CI".
+
+Policy keys: `issuer` or `issuer_regex`, `identity` or `identity_regex`
+(one of each is required), and the optional `not_before` and
+`source_repository`. `source_repository` is compared exactly against the
+certificate's source-repository extension, and a value that is not an
+`https://` URL is refused when LocalAI uses the policy, when it installs a
+backend or fetches an `oci://` gallery. Set it when a reusable
+workflow shared by several repositories does the signing: the identity
+then names the shared workflow, and only the source repository says which
+repository the signature was made for.
 
 ## Strict mode
 
