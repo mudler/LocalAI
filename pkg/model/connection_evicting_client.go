@@ -143,3 +143,9 @@ func (c *ConnectionEvictingClient) Score(ctx context.Context, in *pb.ScoreReques
 	c.checkErr(err)
 	return result, err
 }
+
+func (c *ConnectionEvictingClient) SystemOne(ctx context.Context, in *pb.SystemOneRequest, opts ...ggrpc.CallOption) (*pb.SystemOneResponse, error) {
+	result, err := c.Backend.SystemOne(ctx, in, opts...)
+	c.checkErr(err)
+	return result, err
+}

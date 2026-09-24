@@ -616,6 +616,23 @@ func (c *Client) Score(ctx context.Context, in *pb.ScoreRequest, opts ...grpc.Ca
 	return client.Score(ctx, in, opts...)
 }
 
+func (c *Client) SystemOne(ctx context.Context, in *pb.SystemOneRequest, opts ...grpc.CallOption) (*pb.SystemOneResponse, error) {
+	if !c.parallel {
+		c.opMutex.Lock()
+		defer c.opMutex.Unlock()
+	}
+	c.setBusy(true)
+	defer c.setBusy(false)
+	defer c.wdMark()()
+	conn, err := c.dial()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = conn.Close() }()
+	client := pb.NewBackendClient(conn)
+	return client.SystemOne(ctx, in, opts...)
+}
+
 func (c *Client) GetTokenMetrics(ctx context.Context, in *pb.MetricsRequest, opts ...grpc.CallOption) (*pb.MetricsResponse, error) {
 	if !c.parallel {
 		c.opMutex.Lock()

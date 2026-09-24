@@ -737,6 +737,13 @@ func (m *MockBackend) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.Score
 	return out, nil
 }
 
+func (m *MockBackend) SystemOne(ctx context.Context, in *pb.SystemOneRequest) (*pb.SystemOneResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	return &pb.SystemOneResponse{ResponseJson: "{}"}, nil
+}
+
 // extractRouteHint returns the label after the LAST occurrence of
 // `ROUTE_HINT=` in the prompt, terminated by whitespace or end-of-string.
 // Using the last occurrence makes the marker stable across long

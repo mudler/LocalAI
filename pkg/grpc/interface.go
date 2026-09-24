@@ -113,3 +113,19 @@ type AIModelRich interface {
 type ClassifyModel interface {
 	TokenClassify(context.Context, *pb.TokenClassifyRequest) (*pb.TokenClassifyResponse, error)
 }
+
+// SystemOneModel is an optional extension to AIModel for backends that
+// implement the SystemOne RPC (kev/laya decision pipeline). The gRPC
+// server type-asserts to this interface; backends that do not implement
+// it fall through to the UnimplementedBackendServer default.
+type SystemOneModel interface {
+	SystemOne(context.Context, *pb.SystemOneRequest) (*pb.SystemOneResponse, error)
+}
+
+// ScoreModel is an optional extension to AIModel for backends that
+// implement the Score RPC (candidate scoring). The gRPC server type-
+// asserts to this interface; backends that do not implement it fall
+// through to the UnimplementedBackendServer default.
+type ScoreModel interface {
+	Score(context.Context, *pb.ScoreRequest) (*pb.ScoreResponse, error)
+}

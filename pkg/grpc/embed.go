@@ -161,6 +161,10 @@ func (e *embedBackend) Score(ctx context.Context, in *pb.ScoreRequest, opts ...g
 	return e.s.Score(ctx, in)
 }
 
+func (e *embedBackend) SystemOne(ctx context.Context, in *pb.SystemOneRequest, opts ...grpc.CallOption) (*pb.SystemOneResponse, error) {
+	return e.s.SystemOne(ctx, in)
+}
+
 func (e *embedBackend) VAD(ctx context.Context, in *pb.VADRequest, opts ...grpc.CallOption) (*pb.VADResponse, error) {
 	return e.s.VAD(ctx, in)
 }

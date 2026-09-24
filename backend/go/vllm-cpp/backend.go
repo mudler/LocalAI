@@ -11,7 +11,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -90,10 +92,16 @@ func validModelPath(model string) error {
 		return fmt.Errorf("vllm-cpp: model path %q not found: %w", model, err)
 	}
 	if info.IsDir() {
-		if _, err := os.Stat(filepath.Join(model, "config.json")); err != nil {
-			return fmt.Errorf("vllm-cpp: model dir %q has no config.json", model)
+		// vllm.cpp accepts three config filenames: config.json (standard),
+		// cua-s1-forms.json (cua-s1-forms scoring model), and
+		// rl_agent_config.json (laya decision model). The engine's
+		// model_loader.cpp checks them in that order.
+		for _, cfg := range []string{"config.json", "cua-s1-forms.json", "rl_agent_config.json"} {
+			if _, err := os.Stat(filepath.Join(model, cfg)); err == nil {
+				return nil
+			}
 		}
-		return nil
+		return fmt.Errorf("vllm-cpp: model dir %q has no config.json, cua-s1-forms.json, or rl_agent_config.json", model)
 	}
 	if strings.EqualFold(filepath.Ext(model), ".gguf") {
 		return nil
@@ -359,4 +367,75 @@ func (v *VllmCpp) PredictStream(opts *pb.PredictOptions, results chan string) er
 		}
 	}()
 	return nil
+}
+
+// Score runs the cua-s1-forms scoring pipeline via the vllm_score C ABI
+// (ABI v28). The engine refuses non-CuaS1Forms architectures, so a chat or
+// embedding model returns an error here.
+func (v *VllmCpp) Score(_ context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
+	if v.engine == 0 {
+		return nil, fmt.Errorf("vllm-cpp: model not loaded")
+	}
+	if len(in.Candidates) == 0 {
+		return nil, fmt.Errorf("vllm-cpp: score requires at least one candidate")
+	}
+	reqJSON, err := json.Marshal(map[string]any{
+		"context": in.Prompt,
+		"options": in.Candidates,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("vllm-cpp: score request encode: %w", err)
+	}
+	var out uintptr
+	rc := vllmScore(v.engine, string(reqJSON), unsafe.Pointer(&out)) // #nosec G103 -- char** out-param
+	if rc != vllmOK {
+		return nil, fmt.Errorf("vllm-cpp: score failed: %s", vllmLastError())
+	}
+	payload := goString(out)
+	vllmScoreFree(out)
+
+	var resp struct {
+		Probabilities []float64 `json:"probabilities"`
+	}
+	if err := json.Unmarshal([]byte(payload), &resp); err != nil {
+		return nil, fmt.Errorf("vllm-cpp: unparseable score response: %w", err)
+	}
+	candidates := make([]*pb.CandidateScore, len(in.Candidates))
+	for i, c := range in.Candidates {
+		var p float64
+		if i < len(resp.Probabilities) {
+			p = resp.Probabilities[i]
+		}
+		lp := math.Log(p) // probability → log-prob
+		if p <= 0 {
+			lp = -999.0 // JSON cannot encode -Inf; use a large negative sentinel
+		}
+		nTok := max((len(c)+3)/4, 1)
+		candidates[i] = &pb.CandidateScore{
+			LogProb:                 lp,
+			NumTokens:               int32(nTok),
+			LengthNormalizedLogProb: lp / float64(nTok),
+		}
+	}
+	return &pb.ScoreResponse{Candidates: candidates}, nil
+}
+
+// SystemOne runs the kev/laya decision pipeline via the vllm_systemone C
+// ABI (ABI v28). The engine refuses non-KevModel/LayaModel architectures.
+// The request_json is forwarded as-is; the response_json is returned as-is.
+func (v *VllmCpp) SystemOne(_ context.Context, in *pb.SystemOneRequest) (*pb.SystemOneResponse, error) {
+	if v.engine == 0 {
+		return nil, fmt.Errorf("vllm-cpp: model not loaded")
+	}
+	if in.RequestJson == "" {
+		return nil, fmt.Errorf("vllm-cpp: systemone requires a request body")
+	}
+	var out uintptr
+	rc := vllmSystemone(v.engine, in.RequestJson, unsafe.Pointer(&out)) // #nosec G103 -- char** out-param
+	if rc != vllmOK {
+		return nil, fmt.Errorf("vllm-cpp: systemone failed: %s", vllmLastError())
+	}
+	payload := goString(out)
+	vllmSystemoneFree(out)
+	return &pb.SystemOneResponse{ResponseJson: payload}, nil
 }

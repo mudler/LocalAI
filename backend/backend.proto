@@ -73,6 +73,12 @@ service Backend {
   // continuation rather than a generated one.
   rpc Score(ScoreRequest) returns (ScoreResponse) {}
 
+  // SystemOne runs the kev/laya decision pipeline (choice / noul / score
+  // question types) and returns the full /v1/systemone JSON response. The
+  // request_json is the raw POST body; the response_json is the complete
+  // answer. Backends without a kev/laya engine return UNIMPLEMENTED.
+  rpc SystemOne(SystemOneRequest) returns (SystemOneResponse) {}
+
   rpc GetMetrics(MetricsRequest) returns (MetricsResponse);
 
   rpc VAD(VADRequest) returns (VADResponse) {}
@@ -223,6 +229,20 @@ message TokenLogProb {
 
 message ScoreResponse {
   repeated CandidateScore candidates = 1;
+}
+
+// SystemOneRequest carries the raw /v1/systemone POST body. The backend
+// forwards it to the model's decision pipeline and returns the full JSON
+// response. This is a thin pass-through: the backend does not parse the
+// request; it hands the JSON to the C ABI.
+message SystemOneRequest {
+  string request_json = 1;
+  string ModelIdentity = 2;
+}
+
+// SystemOneResponse carries the full /v1/systemone JSON response.
+message SystemOneResponse {
+  string response_json = 1;
 }
 
 message RerankRequest {
