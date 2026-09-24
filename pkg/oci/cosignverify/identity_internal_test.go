@@ -59,5 +59,9 @@ var _ = Describe("certificateIdentity", func() {
 		id, err := p.certificateIdentity()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(id.Verify(summary("https://github.com/acme/gallery/.github/workflows/evil.yml@refs/heads/main", callerRepo))).NotTo(Succeed())
+		// Matching SAN and repository must still fail under a different issuer.
+		otherIssuer := summary(sharedSAN, callerRepo)
+		otherIssuer.Extensions.Issuer = "https://accounts.example.com"
+		Expect(id.Verify(otherIssuer)).NotTo(Succeed())
 	})
 })

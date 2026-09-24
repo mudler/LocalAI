@@ -125,7 +125,9 @@ repositories. Add `source_repository` to pin the repository the signature was
 made for. LocalAI compares it exactly with the source-repository extension of
 the signing certificate: a trailing slash, a different letter case or a `.git`
 suffix does not match. The value must be an `https://` URL, or LocalAI refuses
-the policy when it loads:
+the policy when it uses it, when it installs a backend or fetches an `oci://`
+gallery. LocalAI versions before this field existed ignore it and do not pin
+the repository, so upgrade every node, workers included, before you rely on it:
 
 ```json
 {

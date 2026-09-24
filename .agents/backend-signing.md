@@ -99,7 +99,8 @@ Policy keys: `issuer` or `issuer_regex`, `identity` or `identity_regex`
 (one of each is required), and the optional `not_before` and
 `source_repository`. `source_repository` is compared exactly against the
 certificate's source-repository extension, and a value that is not an
-`https://` URL is refused when the policy loads. Set it when a reusable
+`https://` URL is refused when LocalAI uses the policy, when it installs a
+backend or fetches an `oci://` gallery. Set it when a reusable
 workflow shared by several repositories does the signing: the identity
 then names the shared workflow, and only the source repository says which
 repository the signature was made for.
