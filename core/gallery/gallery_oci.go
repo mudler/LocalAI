@@ -2,6 +2,7 @@ package gallery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/oci"
+	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 	"github.com/mudler/xlog"
 )
 
@@ -36,7 +38,13 @@ const (
 // refused by the verification policy (or by strict integrity), as opposed to
 // one that could not reach it. The caller must not answer a refusal with an
 // older cached copy.
-type galleryVerificationError struct{ err error }
+//
+// strict tells the two refusals apart, so the message names the setting the
+// operator has to change rather than a policy that may not even exist.
+type galleryVerificationError struct {
+	err    error
+	strict bool
+}
 
 func (e *galleryVerificationError) Error() string { return e.err.Error() }
 func (e *galleryVerificationError) Unwrap() error { return e.err }
@@ -147,7 +155,10 @@ func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, base
 	// off was never verified, and turning strict integrity on must not keep
 	// serving it for the rest of its TTL.
 	if g.Verification == nil && requireIntegrity {
-		return nil, &galleryVerificationError{fmt.Errorf("strict integrity: gallery %q has no verification policy for %q (set verification: in the gallery configuration or disable --require-backend-integrity)", g.Name, candidate)}
+		return nil, &galleryVerificationError{
+			strict: true,
+			err:    fmt.Errorf("no verification policy is set for %q (set verification: in the gallery configuration or disable --require-backend-integrity)", candidate),
+		}
 	}
 
 	cacheDir := ociGalleryCacheDir(basePath, candidate, g.Verification)
@@ -169,7 +180,15 @@ func fetchOCIGalleryIndex(ctx context.Context, g config.Gallery, candidate, base
 			return nil, err
 		}
 		if err := verifyGalleryArtifact(ctx, g.Verification, digestRef); err != nil {
-			return nil, &galleryVerificationError{fmt.Errorf("gallery %q failed signature verification: %w", g.Name, err)}
+			// Only a decision about the artifact is a refusal. The
+			// verifier also reaches the Sigstore TUF mirror and the
+			// registry, and a timeout or a 5xx there says nothing about
+			// the gallery: it is an outage, and the caller may serve the
+			// copy this same policy verified before.
+			if errors.Is(err, cosignverify.ErrPolicyRejected) {
+				return nil, &galleryVerificationError{err: fmt.Errorf("signature verification of %q failed: %w", candidate, err)}
+			}
+			return nil, fmt.Errorf("could not verify the signature of %q: %w", candidate, err)
 		}
 		pullRef = digestRef
 	} else {

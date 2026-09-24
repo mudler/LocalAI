@@ -133,6 +133,44 @@ func galleryCacheName(url string, policy *config.GalleryVerification) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// indexCachePolicy is the policy a gallery's index is actually checked
+// against, which is what its cached copy may be named after.
+//
+// Only an oci:// gallery has its index verified. An HTTP gallery can carry a
+// verification block too, for the backend images it lists, but nothing checks
+// the index it serves, so naming that copy after the policy would claim a
+// check that never happened.
+func indexCachePolicy(g config.Gallery) *config.GalleryVerification {
+	if !looksLikeOCIGallery(g.URL) {
+		return nil
+	}
+	return g.Verification
+}
+
+// verifiableCandidates drops the candidates that cannot answer for a signed
+// gallery.
+//
+// A gallery whose index is signature-checked, or would have to be under strict
+// integrity, can only be served by sources the check applies to. An https://,
+// github: or file:// mirror of it would hand back an index no policy looked
+// at, and after a refusal it would turn "this artifact is not trusted" into
+// "use this other, unchecked copy instead".
+func verifiableCandidates(g config.Gallery, candidates []string, requireIntegrity bool) []string {
+	if !looksLikeOCIGallery(g.URL) || (g.Verification == nil && !requireIntegrity) {
+		return candidates
+	}
+	out := make([]string, 0, len(candidates))
+	for _, c := range candidates {
+		if !looksLikeOCIGallery(c) {
+			xlog.Warn("ignoring a gallery mirror that cannot be signature-checked: a signed oci:// gallery is only served from oci:// sources",
+				"gallery", g.Name, "url", c)
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
 // isUsableGalleryIndex reports whether body is worth keeping as the last known
 // good copy.
 //
@@ -222,7 +260,7 @@ func persistGalleryIndex(basePath, url string, policy *config.GalleryVerificatio
 // path is returned as the source. Nothing else in the chain helps a machine
 // that has no network at all.
 func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string, requireIntegrity bool) ([]byte, string, error) {
-	candidates := galleryCandidates(g)
+	candidates := verifiableCandidates(g, galleryCandidates(g), requireIntegrity)
 	if len(candidates) == 0 {
 		return nil, "", fmt.Errorf("gallery %q has no URL", g.Name)
 	}
@@ -237,7 +275,8 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string, r
 		attempt = candidates
 	}
 
-	var lastErr, refused error
+	var lastErr error
+	var refused *galleryVerificationError
 	for _, candidate := range attempt {
 		attemptCtx, cancel := context.WithTimeout(ctx, galleryFetchTimeout)
 
@@ -248,7 +287,8 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string, r
 		// rest of this loop does not care which it was, so mirrors, cooldown,
 		// the per-candidate timeout and the last known good copy all work the
 		// same for both schemes, and a gallery can even mirror an OCI primary
-		// with an HTTP fallback.
+		// with an HTTP fallback, unless its index must be signature-checked
+		// (see verifiableCandidates).
 		if looksLikeOCIGallery(candidate) {
 			body, err = fetchOCIGalleryIndex(attemptCtx, g, candidate, basePath, requireIntegrity)
 		} else {
@@ -268,14 +308,14 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string, r
 			// Keyed on the gallery's own URL rather than the candidate that
 			// answered: a mirror serves the same index, so a mirror-served
 			// fetch must refresh the copy an offline run will look for.
-			persistGalleryIndex(basePath, g.URL, g.Verification, body)
+			persistGalleryIndex(basePath, g.URL, indexCachePolicy(g), body)
 			return body, candidate, nil
 		}
 
 		lastErr = err
 		var notVerified *galleryVerificationError
 		if errors.As(err, &notVerified) {
-			refused = err
+			refused = notVerified
 		}
 		// Only blame the source for its own failures. If the caller gave up —
 		// a browser disconnecting mid-listing, once a request context is wired
@@ -293,14 +333,18 @@ func fetchGalleryIndex(ctx context.Context, g config.Gallery, basePath string, r
 	// this machine must not trust. Falling back to an older copy there would
 	// turn a refusal into a silent downgrade, so it is reported instead.
 	if refused != nil {
-		return nil, "", fmt.Errorf("gallery %q was refused by its verification policy and no cached copy is served: %w", g.Name, refused)
+		by := "its verification policy"
+		if refused.strict {
+			by = "strict integrity (--require-backend-integrity)"
+		}
+		return nil, "", fmt.Errorf("gallery %q was refused by %s and no cached copy is served: %w", g.Name, by, refused)
 	}
 
 	// Every source failed. A copy from a previous run is much better than no
 	// gallery at all — this is what lets an offline or airgapped machine still
 	// list what it already knows about. The copy is looked up under the
 	// current policy, so it is one that policy admitted.
-	cachePath := galleryCachePath(basePath, g.URL, g.Verification)
+	cachePath := galleryCachePath(basePath, g.URL, indexCachePolicy(g))
 	if cachePath != "" {
 		// #nosec G304 -- cachePath is galleryCachePath's own construction: a
 		// hex sha256 of the URL under the fixed <basePath>/../cache/gallery

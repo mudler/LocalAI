@@ -136,7 +136,16 @@ GALLERIES=[{"name":"premium","url":"oci://quay.io/acme/gallery:latest","verifica
 
 The tag is resolved to a digest, the signature is checked against that digest, and the same digest is then pulled. A gallery that fails verification is never written to the cache, so no unverified file reaches your disk. The optional `not_before` RFC3339 value revokes signatures logged before that time, exactly as it does for backends.
 
-Cached copies of a gallery are kept per verification policy. When you change the `verification` block (for example, you add `source_repository` or move `not_before` forward), LocalAI fetches the gallery again and verifies it under the new policy. It does not serve a copy that an older policy admitted. If the registry is unreachable, LocalAI serves the last copy that was verified under the current policy. If the registry answers with an artifact that fails verification, LocalAI shows an error and does not serve a cached copy.
+Cached copies of a gallery are kept per verification policy, both on disk and in the in-memory listing cache. When you change the `verification` block (for example, you add `source_repository` or move `not_before` forward), in the configuration or at runtime through the settings API, the next listing fetches the gallery again and verifies it under the new policy. LocalAI does not serve a copy that an older policy admitted.
+
+LocalAI tells a refusal apart from an outage:
+
+- **Refusal.** The artifact has no signature, or its signature does not match the issuer, identity, `source_repository` or `not_before` of the policy. LocalAI shows an error and does not serve a cached copy.
+- **Outage.** The registry or the Sigstore trust root cannot be reached, answers with a server error, or the fetch times out. This includes failures during the signature check itself. LocalAI serves the last copy that was verified under the current policy. If no such copy exists, it shows an error. It never serves a copy that was verified under a different policy.
+
+A gallery with a `verification` block is only served from `oci://` sources. LocalAI cannot check a signature on an `https://`, `github:` or `file://` mirror, so it ignores these mirrors for that gallery and logs a warning. List only `oci://` mirrors for a signed gallery.
+
+With strict integrity on (`--require-backend-integrity` or `LOCALAI_REQUIRE_BACKEND_INTEGRITY`), an `oci://` gallery without a `verification` block is refused. This is also true when a copy from an earlier fetch is in the cache, because that copy was never verified, and when the gallery has an `https://`, `github:` or `file://` mirror, because LocalAI ignores these mirrors in strict mode too.
 
 The optional `source_repository` value works the same for `oci://` galleries as it does for backends: it pins the repository the signature was made for when a shared reusable workflow does the signing. See [Verifying OCI Backends]({{%relref "features/backends#verifying-oci-backends" %}}).
 

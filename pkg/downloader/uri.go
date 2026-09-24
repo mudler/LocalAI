@@ -315,10 +315,26 @@ func (s URI) LooksLikeOCI() bool {
 		strings.HasPrefix(string(s), "docker.io")
 }
 
+// LooksLikeRegistryOCI reports whether the URI names an image in a registry.
+//
+// LooksLikeOCI also accepts ollama:// and ocifile://, which the downloader
+// pulls through its OCI path but which name no registry image: a caller about
+// to ask a registry about the URI must check this instead, or it sends
+// "ollama://..." or "ocifile:///path" to a registry client that can only fail.
+func (s URI) LooksLikeRegistryOCI() bool {
+	return s.LooksLikeOCI() &&
+		!strings.HasPrefix(string(s), OllamaPrefix) &&
+		!strings.HasPrefix(string(s), OCIFilePrefix)
+}
+
 // OCIReference returns the registry reference an OCI URI names, without the
 // oci:// scheme. The scheme is LocalAI's own marker for "this is an image":
 // registry clients do not know it and read "oci" as the registry host, so
 // every consumer that hands a URI to a registry client goes through here.
+//
+// It is only meaningful for a URI that LooksLikeRegistryOCI: ollama:// and
+// ocifile:// URIs come back unchanged, and no registry client can resolve
+// them.
 func (s URI) OCIReference() string {
 	return strings.TrimPrefix(string(s), OCIPrefix)
 }

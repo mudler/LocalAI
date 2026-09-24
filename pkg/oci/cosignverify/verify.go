@@ -40,6 +40,15 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
 
+// ErrPolicyRejected marks a verification that reached a decision: the image
+// carries no signature, or its signature does not satisfy the policy.
+//
+// Callers need the distinction because every other failure here (the TUF
+// root or the registry being unreachable, a timeout, a 5xx) says nothing
+// about the image, and a caller that keeps a copy verified earlier may serve
+// it through an outage but must never serve it over a refusal.
+var ErrPolicyRejected = errors.New("rejected by the signature policy")
+
 // Policy is the verification policy a backend image must satisfy.
 //
 // At least one of Issuer / IssuerRegex must be set, and at least one of
@@ -266,7 +275,9 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 
 	certID, err := v.policy.certificateIdentity()
 	if err != nil {
-		return fmt.Errorf("cosignverify: building identity policy: %w", err)
+		// A policy that cannot be built admits nothing, whatever the
+		// network does, so this is a decision rather than an outage.
+		return fmt.Errorf("cosignverify: building identity policy: %w: %w", ErrPolicyRejected, err)
 	}
 
 	sev, err := verify.NewVerifier(trusted, verifierOpts...)
@@ -282,7 +293,7 @@ func (v *Verifier) VerifyImage(ctx context.Context, imageRef string) error {
 
 	result, err := sev.Verify(bun, verify.NewPolicy(artifactPolicy, verify.WithCertificateIdentity(certID)))
 	if err != nil {
-		return fmt.Errorf("cosignverify: verification failed for %s: %w", imageRef, err)
+		return fmt.Errorf("cosignverify: verification failed for %s: %w: %w", imageRef, ErrPolicyRejected, err)
 	}
 
 	if !v.policy.NotBefore.IsZero() {
@@ -302,7 +313,7 @@ func enforceNotBefore(result *verify.VerificationResult, cutoff time.Time) error
 		// timestamp, so this branch is only reachable if a caller set
 		// RequireTLog=false. Treat as a hard error: if you opted into
 		// NotBefore, you implicitly opted into needing a timestamp.
-		return errors.New("signature has no verified timestamp; cannot enforce NotBefore")
+		return fmt.Errorf("%w: signature has no verified timestamp; cannot enforce NotBefore", ErrPolicyRejected)
 	}
 	earliest := result.VerifiedTimestamps[0].Timestamp
 	for _, ts := range result.VerifiedTimestamps[1:] {
@@ -311,8 +322,8 @@ func enforceNotBefore(result *verify.VerificationResult, cutoff time.Time) error
 		}
 	}
 	if earliest.Before(cutoff) {
-		return fmt.Errorf("signature integrated time %s is before NotBefore cutoff %s",
-			earliest.Format(time.RFC3339), cutoff.Format(time.RFC3339))
+		return fmt.Errorf("%w: signature integrated time %s is before NotBefore cutoff %s",
+			ErrPolicyRejected, earliest.Format(time.RFC3339), cutoff.Format(time.RFC3339))
 	}
 	return nil
 }
