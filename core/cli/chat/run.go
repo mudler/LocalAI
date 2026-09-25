@@ -368,11 +368,11 @@ func probeModels(ctx context.Context, opts Options) ([]string, error) {
 // offering to start one) would be an obstacle rather than a service.
 //
 // Two groups qualify. The management subcommands edit nib's own state: plugin,
-// skill, and the mcp verbs that add or remove configured servers, which is
-// asked of nib rather than restated, because bare 'mcp' and its transport
-// flags do serve the agent and do need a model. The other group is the flags
-// that only print something, above all --init: its shell snippet goes into an
-// rc file, typically long before any server exists.
+// skill, login, logout, and the mcp verbs that add or remove configured
+// servers, which is asked of nib rather than restated, because bare 'mcp' and
+// its transport flags do serve the agent and do need a model. The other group
+// is the flags that only print something, above all --init: its shell snippet
+// goes into an rc file, typically long before any server exists.
 func isLocalOnlyArgs(args []string) bool {
 	if len(args) == 0 {
 		return false
@@ -390,7 +390,7 @@ func isLocalOnlyArgs(args []string) bool {
 		}
 	}
 	switch args[0] {
-	case "plugin", "skill":
+	case "plugin", "skill", "login", "logout":
 		return true
 	case "mcp":
 		return len(args) >= 2 && nibcmd.IsMCPManageSubcommand(args[1])
