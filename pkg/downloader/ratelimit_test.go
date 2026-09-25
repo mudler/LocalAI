@@ -265,4 +265,55 @@ var _ = Describe("DynamicRateLimiter", func() {
 		defer cancel2()
 		Expect(rl.WaitN(ctx2, 1000)).To(Succeed(), "later waiter still blocked by cancelled reservation")
 	})
+
+	It("parses human-readable rates and rejects bad input", func() {
+		rate, err := ParseRateString("")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rate).To(Equal(int64(0)))
+
+		rate, err = ParseRateString("0")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rate).To(Equal(int64(0)))
+
+		rate, err = ParseRateString("unlimited")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rate).To(Equal(int64(0)))
+
+		rate, err = ParseRateString("-1")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rate).To(Equal(int64(0)))
+
+		rate, err = ParseRateString("-5mb")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rate).To(Equal(int64(0)))
+
+		rate, err = ParseRateString("2mb")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rate).To(Equal(int64(2 << 20)))
+
+		rate, err = ParseRateString("500kb")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rate).To(Equal(int64(500 << 10)))
+
+		rate, err = ParseRateString("10b")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rate).To(Equal(int64(10)))
+
+		_, err = ParseRateString("bogus")
+		Expect(err).To(HaveOccurred())
+
+		_, err = ParseRateString("mb")
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("treats SetRate(0) as unlimited without spinning", func() {
+		rl := &DynamicRateLimiter{}
+		rl.SetRate(1024)
+		Expect(rl.Unlimited()).To(BeFalse())
+		rl.SetRate(0)
+		Expect(rl.Unlimited()).To(BeTrue())
+		start := time.Now()
+		Expect(rl.WaitN(context.Background(), 1<<20)).To(Succeed())
+		Expect(time.Since(start)).To(BeNumerically("<", 500*time.Millisecond))
+	})
 })
