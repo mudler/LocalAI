@@ -117,6 +117,21 @@ func (s *server) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest)
 	return cm.TokenClassify(ctx, in)
 }
 
+func (s *server) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	sm, ok := s.llm.(ScoreModel)
+	if !ok {
+		return nil, status.Errorf(codes.Unimplemented, "method Score not implemented")
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	return sm.Score(ctx, in)
+}
+
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

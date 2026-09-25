@@ -21,7 +21,7 @@ import (
 // the header of the VLLM_CPP_VERSION pinned in the Makefile: the build checks
 // the two against each other, because a mismatch is only caught at runtime by
 // registerLib, where it takes the backend down on every load (issue #11379).
-const abiVersion = 27
+const abiVersion = 29
 
 // The ABI's tri-state toggles (enable_prefix_caching ABI v7,
 // enable_jump_forward ABI v10) share one encoding: 0 is NOT "off", it is
@@ -256,6 +256,11 @@ var (
 	// Zero-shot NER (ABI v27, GLiNER2.5).
 	vllmGlinerNer     func(engine uintptr, text string, labels uintptr, nLabels int32, threshold float32, maxWidth int32, out unsafe.Pointer) int32
 	vllmNerResultFree func(out unsafe.Pointer)
+
+	// Decide: unified decision pipeline (ABI v29, MODEL-KEV / MODEL-LAYA /
+	// MODEL-CUA-S1-FORMS). Replaces vllm_systemone + vllm_score from v28.
+	vllmDecide     func(engine uintptr, requestJSON string, out unsafe.Pointer) int32
+	vllmDecideFree func(json uintptr)
 )
 
 // cNerEntity mirrors vllm_ner_entity. Layout matches the C struct on LP64:
@@ -309,6 +314,8 @@ func registerLib(libName string) error {
 		{&vllmVideoMuxArgvFre, "vllm_video_mux_argv_free"},
 		{&vllmGlinerNer, "vllm_gliner_ner"},
 		{&vllmNerResultFree, "vllm_ner_result_free"},
+		{&vllmDecide, "vllm_decide"},
+		{&vllmDecideFree, "vllm_decide_free"},
 	} {
 		purego.RegisterLibFunc(lf.ptr, lib, lf.name)
 	}

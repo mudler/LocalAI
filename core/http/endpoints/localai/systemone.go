@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 )
 
@@ -369,13 +371,28 @@ func systemOneError(c echo.Context, status int, msg string) error {
 	})
 }
 
+// backendSupportsScore reports whether the named backend implements the
+// Score gRPC RPC. vllm-cpp does (kev/laya decision pipeline and cua-s1-forms
+// scoring via the unified vllm_decide C ABI); other backends fall through to
+// the NER-based path.
+func backendSupportsScore(backendName string) bool {
+	cap := config.GetBackendCapability(backendName)
+	if cap == nil {
+		return false
+	}
+	return slices.Contains(cap.GRPCMethods, config.MethodScore)
+}
+
 // ---------------------------------------------------------------------------
 // Endpoints.
 // ---------------------------------------------------------------------------
 
 // SystemOneEndpoint handles POST /v1/systemone.
-// Runs one NER pass over the rendered state with all question labels, then
-// builds a kev-compatible answer for each question.
+// For vllm-cpp models (kev/laya), forwards the raw request to the backend's
+// Score gRPC RPC with question_type set to "systemone" and returns the
+// response JSON as-is. For other backends, runs one NER pass over the
+// rendered state with all question labels, then builds a kev-compatible
+// answer for each question.
 // @Summary Answer structured-extraction questions over state text.
 // @Description Runs zero-shot NER over the supplied state and answers each question. Question types: noul (binary entity presence), choice (pick one option), score (pick one level).
 // @Tags systemone
@@ -391,6 +408,28 @@ func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 		if req.Model == "" {
 			return systemOneError(c, http.StatusBadRequest, "model is required")
 		}
+		// vllm-cpp models (kev/laya) implement the decision pipeline natively
+		// via the vllm_decide C ABI. Forward the raw request JSON through the
+		// Score RPC and return the backend's response as-is.
+		cl := app.ModelConfigLoader()
+		if cl != nil {
+			if cfg, ok := cl.GetModelConfig(req.Model); ok && backendSupportsScore(cfg.Backend) {
+				reqJSON, err := json.Marshal(req)
+				if err != nil {
+					return systemOneError(c, http.StatusInternalServerError, "failed to marshal request: "+err.Error())
+				}
+				fn, err := backend.ModelSystemOne(string(reqJSON), app.ModelLoader(), cfg, app.ApplicationConfig())
+				if err != nil {
+					return systemOneError(c, http.StatusInternalServerError, err.Error())
+				}
+				respJSON, err := fn(c.Request().Context())
+				if err != nil {
+					return systemOneError(c, http.StatusInternalServerError, err.Error())
+				}
+				return c.JSON(http.StatusOK, json.RawMessage(respJSON))
+			}
+		}
+		// NER-based path (GLiNER2.5 zero-shot NER).
 		parsed, err := parseSystemOneRequest(&req)
 		if err != nil {
 			return systemOneError(c, http.StatusBadRequest, err.Error())

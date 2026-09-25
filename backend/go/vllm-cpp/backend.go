@@ -11,7 +11,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -90,10 +92,16 @@ func validModelPath(model string) error {
 		return fmt.Errorf("vllm-cpp: model path %q not found: %w", model, err)
 	}
 	if info.IsDir() {
-		if _, err := os.Stat(filepath.Join(model, "config.json")); err != nil {
-			return fmt.Errorf("vllm-cpp: model dir %q has no config.json", model)
+		// vllm.cpp accepts three config filenames: config.json (standard),
+		// cua-s1-forms.json (cua-s1-forms scoring model), and
+		// rl_agent_config.json (laya decision model). The engine's
+		// model_loader.cpp checks them in that order.
+		for _, cfg := range []string{"config.json", "cua-s1-forms.json", "rl_agent_config.json"} {
+			if _, err := os.Stat(filepath.Join(model, cfg)); err == nil {
+				return nil
+			}
 		}
-		return nil
+		return fmt.Errorf("vllm-cpp: model dir %q has no config.json, cua-s1-forms.json, or rl_agent_config.json", model)
 	}
 	if strings.EqualFold(filepath.Ext(model), ".gguf") {
 		return nil
@@ -359,4 +367,69 @@ func (v *VllmCpp) PredictStream(opts *pb.PredictOptions, results chan string) er
 		}
 	}()
 	return nil
+}
+
+// Score runs the unified decision pipeline via the vllm_decide C ABI
+// (ABI v29). When question_type is "systemone", the prompt carries the
+// raw /v1/systemone request JSON and the response is returned in
+// response_json. When question_type is empty, the prompt and candidates
+// are scored as candidate continuations.
+func (v *VllmCpp) Score(_ context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
+	if v.engine == 0 {
+		return nil, fmt.Errorf("vllm-cpp: model not loaded")
+	}
+	if in.QuestionType == "systemone" {
+		// Decision pipeline (kev/laya): forward the raw request JSON.
+		var out uintptr
+		rc := vllmDecide(v.engine, in.Prompt, unsafe.Pointer(&out)) // #nosec G103 -- char** out-param
+		if rc != vllmOK {
+			return nil, fmt.Errorf("vllm-cpp: decide failed: %s", vllmLastError())
+		}
+		payload := goString(out)
+		vllmDecideFree(out)
+		return &pb.ScoreResponse{ResponseJson: payload}, nil
+	}
+	// Candidate scoring (cua-s1-forms): build a scoring request JSON.
+	if len(in.Candidates) == 0 {
+		return nil, fmt.Errorf("vllm-cpp: score requires at least one candidate")
+	}
+	reqJSON, err := json.Marshal(map[string]any{
+		"context": in.Prompt,
+		"options": in.Candidates,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("vllm-cpp: score request encode: %w", err)
+	}
+	var out uintptr
+	rc := vllmDecide(v.engine, string(reqJSON), unsafe.Pointer(&out)) // #nosec G103 -- char** out-param
+	if rc != vllmOK {
+		return nil, fmt.Errorf("vllm-cpp: decide failed: %s", vllmLastError())
+	}
+	payload := goString(out)
+	vllmDecideFree(out)
+
+	var resp struct {
+		Probabilities []float64 `json:"probabilities"`
+	}
+	if err := json.Unmarshal([]byte(payload), &resp); err != nil {
+		return nil, fmt.Errorf("vllm-cpp: unparseable score response: %w", err)
+	}
+	candidates := make([]*pb.CandidateScore, len(in.Candidates))
+	for i, c := range in.Candidates {
+		var p float64
+		if i < len(resp.Probabilities) {
+			p = resp.Probabilities[i]
+		}
+		lp := math.Log(p)
+		if p <= 0 {
+			lp = -999.0 // JSON cannot encode -Inf; use a large negative sentinel
+		}
+		nTok := max((len(c)+3)/4, 1)
+		candidates[i] = &pb.CandidateScore{
+			LogProb:                 lp,
+			NumTokens:               int32(nTok),
+			LengthNormalizedLogProb: lp / float64(nTok),
+		}
+	}
+	return &pb.ScoreResponse{Candidates: candidates}, nil
 }
