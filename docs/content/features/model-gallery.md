@@ -423,6 +423,24 @@ Deleting a model configuration does not delete its content-addressed snapshot
 bytes. This allows another configuration or a later reinstall to reuse the
 cache; safe cache garbage collection is deferred.
 
+### Throttling downloads
+
+An active gallery download can be throttled to a byte-per-second rate without
+restarting it (admin-only). Use `0` to remove the limit again.
+
+```bash
+LOCALAI=http://localhost:8080
+
+# Throttle a download, e.g. 2mb, 500kb
+curl -X POST "$LOCALAI/api/operations/<jobID>/throttle?rate=2mb"
+
+# Remove the limit
+curl -X POST "$LOCALAI/api/operations/<jobID>/throttle?rate=0"
+```
+
+Throttling is dynamic: the limit applies to in-flight reads immediately and
+can be changed or cleared at any time via the same endpoint.
+
 ### How to install a model not part of a gallery
 
 If you don't want to set any gallery repository, you can still install models by loading a model configuration file.

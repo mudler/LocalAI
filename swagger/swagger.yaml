@@ -456,6 +456,13 @@ definitions:
           $ref: '#/definitions/localai.TTSModelVoices'
         type: array
     type: object
+  localai.ThrottleResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
   localai.UpdateMaxReplicasPerModelRequest:
     properties:
       value:
@@ -4076,6 +4083,40 @@ paths:
       summary: List all loaded models cluster-wide
       tags:
       - Nodes
+  /api/operations/{jobID}/throttle:
+    post:
+      consumes:
+      - application/json
+      description: Throttle an active gallery download without restarting it. The
+        limit applies to in-flight reads immediately and can be changed or cleared
+        at any time. Use rate=0 to remove the limit.
+      parameters:
+      - description: Operation job ID
+        in: path
+        name: jobID
+        required: true
+        type: string
+      - description: Human-readable rate (e.g. 2mb, 500kb) or 0 to remove the limit
+        in: query
+        name: rate
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success and message with the applied bytes/sec rate
+          schema:
+            $ref: '#/definitions/localai.ThrottleResponse'
+        "400":
+          description: missing rate, invalid rate, or unknown operation
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Throttle an active gallery download to a byte-per-second rate
+      tags:
+      - operations
   /api/p2p:
     get:
       responses:

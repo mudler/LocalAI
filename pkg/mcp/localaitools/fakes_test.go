@@ -59,6 +59,7 @@ type fakeClient struct {
 	getPIIEvents        func(PIIEventsQuery) ([]PIIEvent, error)
 	getMiddlewareStatus func() (*MiddlewareStatus, error)
 	getRouterDecisions  func(RouterDecisionsQuery) ([]RouterDecision, error)
+	throttleOperation   func(ThrottleOperationRequest) error
 }
 
 type fakeCall struct {
@@ -392,4 +393,12 @@ func (f *fakeClient) SeedRouterCorpus(_ context.Context, req RouterCorpusSeedReq
 func (f *fakeClient) ClearRouterCorpus(_ context.Context, routerModel string) (*RouterCorpusClearResult, error) {
 	f.record("ClearRouterCorpus", routerModel)
 	return &RouterCorpusClearResult{Router: routerModel}, nil
+}
+
+func (f *fakeClient) ThrottleOperation(_ context.Context, req ThrottleOperationRequest) error {
+	f.record("ThrottleOperation", req)
+	if f.throttleOperation != nil {
+		return f.throttleOperation(req)
+	}
+	return nil
 }

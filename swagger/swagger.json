@@ -1394,6 +1394,54 @@
                 }
             }
         },
+        "/api/operations/{jobID}/throttle": {
+            "post": {
+                "description": "Throttle an active gallery download without restarting it. The limit applies to in-flight reads immediately and can be changed or cleared at any time. Use rate=0 to remove the limit.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "operations"
+                ],
+                "summary": "Throttle an active gallery download to a byte-per-second rate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Operation job ID",
+                        "name": "jobID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Human-readable rate (e.g. 2mb, 500kb) or 0 to remove the limit",
+                        "name": "rate",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "success and message with the applied bytes/sec rate",
+                        "schema": {
+                            "$ref": "#/definitions/localai.ThrottleResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "missing rate, invalid rate, or unknown operation",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/p2p": {
             "get": {
                 "tags": [
@@ -4700,6 +4748,17 @@
                     "items": {
                         "$ref": "#/definitions/localai.TTSModelVoices"
                     }
+                }
+            }
+        },
+        "localai.ThrottleResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
                 }
             }
         },

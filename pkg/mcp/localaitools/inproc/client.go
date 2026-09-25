@@ -32,6 +32,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/internal"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -682,6 +683,25 @@ func (c *Client) ToggleModelPinned(ctx context.Context, name string, action mode
 	// next idle tick or manual reload picks the new pinned set up.
 	_, err := c.modelAdmin.TogglePinned(ctx, name, action, nil)
 	return err
+}
+
+// ---- Operations ----
+
+func (c *Client) ThrottleOperation(_ context.Context, req localaitools.ThrottleOperationRequest) error {
+	if req.JobID == "" {
+		return errors.New("job_id is required")
+	}
+	if req.Rate == "" {
+		return errors.New("rate is required (e.g. 2mb, 500kb, or 0 to remove the limit)")
+	}
+	bytesPerSec, err := downloader.ParseRateString(req.Rate)
+	if err != nil {
+		return err
+	}
+	if c.Gallery == nil {
+		return errors.New("gallery service not available")
+	}
+	return c.Gallery.SetOperationRateLimit(req.JobID, bytesPerSec)
 }
 
 // ---- Branding ----

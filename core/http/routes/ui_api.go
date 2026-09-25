@@ -472,6 +472,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	}, adminMiddleware)
 
+	// Throttle (rate-limit) an active download (admin only).
+	// Handler lives in endpoints/localai so swagger picks up its annotations.
+	app.POST("/api/operations/:jobID/throttle", localai.ThrottleOperationEndpoint(galleryService), adminMiddleware)
+
 	// Model Gallery APIs (admin only)
 	app.GET("/api/models", func(c echo.Context) error {
 		// Trimmed once, here, so "is the user searching?" has a single answer
