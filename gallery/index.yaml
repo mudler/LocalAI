@@ -62288,7 +62288,7 @@
   files:
     - filename: OpenResearcher-30B-A3B-Q4_K_M.gguf
       uri: huggingface://OpenResearcher/OpenResearcher-30B-A3B-GGUF/OpenResearcher-30B-A3B-Q4_K_M.gguf
-      sha256: 2ac3981624ca76c1e3eca569b649cf041e91ad8c95ac6b2cc41897881d773c08
+      sha256: 2ac3981624ca76c1e3eca569b649cf041d91ad8c95ac6b2cc41897881d773c08
 - name: "openresearcher-30b-a3b-q8"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -62317,3 +62317,112 @@
     - filename: OpenResearcher-30B-A3B-Q8_0.gguf
       uri: huggingface://OpenResearcher/OpenResearcher-30B-A3B-GGUF/OpenResearcher-30B-A3B-Q8_0.gguf
       sha256: c216d75002a580f939ceaf944965b0d4fd7d7b5b29a0914a001d836e49866970
+- name: laya-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/convaiinnovations/laya
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Laya is a multilingual, non-autoregressive System 1 decision model.
+    Given a state (text, email, ticket, or JSON) and typed questions, it
+    returns typed answers with mathematically calibrated probabilities in a
+    single forward pass. It never generates text, so there is nothing to
+    parse and nothing to hallucinate.
+
+    In LocalAI, serve via POST /v1/systemone with this model. The vllm.cpp
+    engine runs the full decision pipeline (choice, noul, score question
+    types) through the vllm_decide C ABI, returning the complete
+    kev-compatible JSON response. ModernBERT-large backbone, 421M params,
+    512-token context. F16 weights, ~804 MB.
+  license: apache-2.0
+  tags:
+    - decision
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 804MB
+  last_checked: "2026-09-21"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+    parameters:
+      model: convaiinnovations/laya
+  artifacts:
+    - name: model
+      target: model
+      source:
+        type: huggingface
+        repo: convaiinnovations/laya
+- name: cua-s1-forms-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/cua-ai/cua-s1-forms
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    cua-s1-forms is a small, jev-like ("System One") one-pass option scorer
+    for GUI form filling. Given a UI element and a list of typed options,
+    it returns one probability per option in a single forward pass. Every
+    actionable element on a form is scored independently and in parallel.
+
+    In LocalAI, serve via POST /api/score with this model. The vllm.cpp
+    engine runs the scoring pipeline through the vllm_decide C ABI. 2.8 MB,
+    float32, CPU and GPU.
+  license: mit
+  tags:
+    - scoring
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 3MB
+  last_checked: "2026-09-21"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - score
+    parameters:
+      model: cua-ai/cua-s1-forms
+  artifacts:
+    - name: model
+      target: model
+      source:
+        type: huggingface
+        repo: cua-ai/cua-s1-forms
+- name: gliner2.5-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/fastino/gliner2.5-multi-v1
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    GLiNER2.5 is a zero-shot named entity recognition and structured
+    extraction model. Given a text and a set of label names, it extracts
+    entity spans in a single forward pass — no fine-tuning required. The
+    boundary architecture handles arbitrary span lengths up to the encoded
+    window.
+
+    In LocalAI, serve via the token classification endpoint with this model.
+    The vllm.cpp engine runs the GLiNER2.5 extraction pipeline through the
+    vllm_gliner_ner C ABI (ABI v27). mDeBERTa-v3-base backbone, 287M params,
+    multilingual, ~594 MB.
+  license: apache-2.0
+  tags:
+    - ner
+    - token-classify
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 594MB
+  last_checked: "2026-09-25"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - token_classify
+    parameters:
+      model: fastino/gliner2.5-multi-v1
+  artifacts:
+    - name: model
+      target: model
+      source:
+        type: huggingface
+        repo: fastino/gliner2.5-multi-v1
