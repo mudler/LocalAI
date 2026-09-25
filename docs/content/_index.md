@@ -41,7 +41,7 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 - **[Integrations]({{% relref "integrations" %}})** - projects and tools built
   on top of LocalAI.
 - **[News]({{% relref "whats-new" %}})** - where release notes live.
-- **[Model gallery](https://models.localai.io)** - browse the models you can
+- **[Model gallery](https://molai.io)** - browse the models you can
   install with one click.
 - **[GitHub](https://github.com/mudler/LocalAI)** and
   **[Discord](https://discord.gg/uJAeKSAGDy)** - report an issue or ask a
