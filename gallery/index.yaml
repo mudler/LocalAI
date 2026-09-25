@@ -234,7 +234,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: 8531c01241ef0cdde4ab18d4534efd7c42b161934c617c7b25575ddbb10b74a1
+      sha256: 237123aeeea5ac31d3327650e4fadd7125c8e1b32717fe110117dcfb0903f2b7
 - name: "qwopus3.8-27b-flash"
   variants:
     - model: qwopus3.8-27b-flash-q8
@@ -8452,7 +8452,7 @@
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX-Compact.gguf
-      sha256: eda7e87b6ce8056e7f0d5a5a504b50e2163642bdf45b53085bda8fe81fc31ff2
+      sha256: 3f5fa7bc39a5048ebc8d8d7bf3cd4304502140c69f72ab8c370b539700a9cd5d
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
@@ -8594,7 +8594,7 @@
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-Q8_K_P.gguf
-      sha256: 38f75223355279d5c009aaecf3b0e25170202a7ff3a458d5e96fb032fc15c8ee
+      sha256: 800c7a1afb31b319d167524dbfe92c3e3564ff796b2811a9cecd6a0e4c8bcfa0
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
@@ -62288,7 +62288,7 @@
   files:
     - filename: OpenResearcher-30B-A3B-Q4_K_M.gguf
       uri: huggingface://OpenResearcher/OpenResearcher-30B-A3B-GGUF/OpenResearcher-30B-A3B-Q4_K_M.gguf
-      sha256: 2ac3981624ca76c1e3eca569b649cf041d91ad8c95ac6b2cc41897881d773c08
+      sha256: 2ac3981624ca76c1e3eca569b649cf041e91ad8c95ac6b2cc41897881d773c08
 - name: "openresearcher-30b-a3b-q8"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
