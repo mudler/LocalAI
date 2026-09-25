@@ -62426,3 +62426,201 @@
       source:
         type: huggingface
         repo: fastino/gliner2.5-multi-v1
+- name: nemo-speech-cpp-sortformer-diarization-v2
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2
+    - https://github.com/NVIDIA/NeMo-Speech.cpp
+  description: |
+    Streaming Sortformer Diarization 4-speaker v2 (nemo-speech-cpp, Q8_0) -
+    speaker diarization for up to four speakers, served by the nemo-speech-cpp
+    backend through /v1/audio/diarization. Returns per-segment start, end and
+    speaker label; it does not transcribe, so pair it with an ASR model for
+    text. This is the streaming variant: use it when you cannot wait for the
+    full recording. For offline batch work the non-streaming v1 is faster and
+    more accurate.
+  license: cc-by-4.0
+  tags:
+    - nemo-speech-cpp
+    - sortformer
+    - diarization
+    - speaker-diarization
+    - streaming
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: nemo-speech-cpp
+    known_usecases:
+      - diarization
+    name: nemo-speech-cpp-sortformer-diarization-v2
+    parameters:
+      model: nemo-speech-cpp/diar_streaming_sortformer_4spk-v2.q8_0.gguf
+  files:
+    - filename: nemo-speech-cpp/diar_streaming_sortformer_4spk-v2.q8_0.gguf
+      uri: huggingface://nvidia/diar_streaming_sortformer_4spk-v2/diar_streaming_sortformer_4spk-v2.q8_0.gguf
+      sha256: 0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a
+- name: nemo-speech-cpp-nemotron-3.5-asr-streaming
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
+    - https://github.com/NVIDIA/NeMo-Speech.cpp
+  description: |
+    Nemotron 3.5 ASR Streaming 0.6B (nemo-speech-cpp, Q8_0) - multilingual
+    streaming speech to text for 40 language-locales, with native punctuation
+    and capitalization. Served by the nemo-speech-cpp backend through
+    /v1/audio/transcriptions and the streaming transcription path.
+
+    A standalone ASR entry. For per-word speaker tags, attach the sortformer
+    diarization model with the diar_model option.
+  license: openmdw-1.1
+  tags:
+    - nemo-speech-cpp
+    - nemotron
+    - asr
+    - speech-recognition
+    - transcription
+    - streaming
+    - multilingual
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: nemo-speech-cpp
+    known_usecases:
+      - transcript
+    name: nemo-speech-cpp-nemotron-3.5-asr-streaming
+    parameters:
+      model: nemo-speech-cpp/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+  files:
+    - filename: nemo-speech-cpp/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+      uri: huggingface://nvidia/nemotron-3.5-asr-streaming-0.6b/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+      sha256: 3fc991d3badad7277c11030a7519832cddaf2057aafed6d4b25147e953a070b1
+- name: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
+    - https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2
+    - https://github.com/NVIDIA/NeMo-Speech.cpp
+  description: |
+    Nemotron 3.5 ASR Streaming 0.6B with streaming Sortformer Diarization
+    4-speaker v2 (nemo-speech-cpp, Q8_0). Multilingual streaming ASR with
+    per-word speaker tags: the ASR model transcribes and the attached
+    sortformer model labels each word with its speaker. Served through
+    /v1/audio/transcriptions; segments are cut at each speaker change.
+
+    Q8_0 for both models. The diarization model is the streaming v2 variant,
+    for use when you cannot wait for the full recording.
+  license: openmdw-1.1
+  tags:
+    - nemo-speech-cpp
+    - nemotron
+    - sortformer
+    - asr
+    - diarization
+    - speech-recognition
+    - transcription
+    - streaming
+    - multilingual
+    - speaker-diarization
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: nemo-speech-cpp
+    known_usecases:
+      - transcript
+    name: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
+    options:
+      - diar_model:nemo-speech-cpp/diar_streaming_sortformer_4spk-v2.q8_0.gguf
+    parameters:
+      model: nemo-speech-cpp/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+  files:
+    - filename: nemo-speech-cpp/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+      uri: huggingface://nvidia/nemotron-3.5-asr-streaming-0.6b/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+      sha256: 3fc991d3badad7277c11030a7519832cddaf2057aafed6d4b25147e953a070b1
+    - filename: nemo-speech-cpp/diar_streaming_sortformer_4spk-v2.q8_0.gguf
+      uri: huggingface://nvidia/diar_streaming_sortformer_4spk-v2/diar_streaming_sortformer_4spk-v2.q8_0.gguf
+      sha256: 0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a
+- name: nemo-speech-cpp-parakeet-tdt-0.6b-v3
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+    - https://github.com/NVIDIA/NeMo-Speech.cpp
+  description: |
+    Parakeet TDT 0.6B v3 (nemo-speech-cpp, Q8_0) - multilingual streaming speech
+    to text for 25 languages. Served by the nemo-speech-cpp backend through
+    /v1/audio/transcriptions and the streaming transcription path.
+
+    A standalone ASR entry. For per-word speaker tags, install the
+    nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized entry instead, which attaches
+    the streaming Sortformer diarization model.
+  license: cc-by-4.0
+  tags:
+    - nemo-speech-cpp
+    - parakeet
+    - asr
+    - speech-recognition
+    - transcription
+    - streaming
+    - multilingual
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: nemo-speech-cpp
+    known_usecases:
+      - transcript
+    name: nemo-speech-cpp-parakeet-tdt-0.6b-v3
+    parameters:
+      model: nemo-speech-cpp/parakeet-tdt-0.6b-v3.q8_0.gguf
+  files:
+    - filename: nemo-speech-cpp/parakeet-tdt-0.6b-v3.q8_0.gguf
+      uri: huggingface://nvidia/parakeet-tdt-0.6b-v3/parakeet-tdt-0.6b-v3.q8_0.gguf
+      sha256: e3880d0aaaaf2c308ea2c35016b2b895c423eb3fda924c1b463d1c19b7f4d32e
+- name: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+    - https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2
+    - https://github.com/NVIDIA/NeMo-Speech.cpp
+  description: |
+    Parakeet TDT 0.6B v3 with streaming Sortformer Diarization 4-speaker v2
+    (nemo-speech-cpp, Q8_0). Multilingual streaming ASR with per-word speaker
+    tags: the ASR model transcribes and the attached sortformer model labels
+    each word with its speaker. Served through /v1/audio/transcriptions;
+    segments are cut at each speaker change.
+
+    Q8_0 for both models. The diarization model is the streaming v2 variant,
+    for use when you cannot wait for the full recording.
+  license: cc-by-4.0
+  tags:
+    - nemo-speech-cpp
+    - parakeet
+    - sortformer
+    - asr
+    - diarization
+    - speech-recognition
+    - transcription
+    - streaming
+    - multilingual
+    - speaker-diarization
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: nemo-speech-cpp
+    known_usecases:
+      - transcript
+    name: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
+    options:
+      - diar_model:nemo-speech-cpp/diar_streaming_sortformer_4spk-v2.q8_0.gguf
+    parameters:
+      model: nemo-speech-cpp/parakeet-tdt-0.6b-v3.q8_0.gguf
+  files:
+    - filename: nemo-speech-cpp/parakeet-tdt-0.6b-v3.q8_0.gguf
+      uri: huggingface://nvidia/parakeet-tdt-0.6b-v3/parakeet-tdt-0.6b-v3.q8_0.gguf
+      sha256: e3880d0aaaaf2c308ea2c35016b2b895c423eb3fda924c1b463d1c19b7f4d32e
+    - filename: nemo-speech-cpp/diar_streaming_sortformer_4spk-v2.q8_0.gguf
+      uri: huggingface://nvidia/diar_streaming_sortformer_4spk-v2/diar_streaming_sortformer_4spk-v2.q8_0.gguf
+      sha256: 0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a
