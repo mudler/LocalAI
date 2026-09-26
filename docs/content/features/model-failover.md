@@ -107,6 +107,9 @@ count toward the active backend limit (`--max-active-backends`) like any
 pinned model: LocalAI never evicts them to make room, and if they fill the
 limit, a new model still loads rather than being blocked.
 
+`warm` applies only to local targets. On a remote (`cloud-proxy`) target it
+has no effect, and LocalAI logs a warning when it loads the chain.
+
 ## Realtime pipelines
 
 A pipeline stage can name a chain:

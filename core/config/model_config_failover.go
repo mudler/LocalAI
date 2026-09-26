@@ -49,6 +49,17 @@ const (
 // IsFailover reports whether this config is a failover chain.
 func (c ModelConfig) IsFailover() bool { return c.Failover != nil }
 
+// IsRemoteProxy reports whether the model is served by a remote upstream
+// through a proxy backend. Failover probes such a target over HTTP, and
+// `warm` has no effect on it.
+func (c ModelConfig) IsRemoteProxy() bool {
+	switch c.Backend {
+	case "cloud-proxy", "localai-proxy":
+		return true
+	}
+	return false
+}
+
 func (f FailoverConfig) ProbeInterval() time.Duration {
 	return durationOr(f.Probe.Interval, DefaultFailoverProbeInterval)
 }

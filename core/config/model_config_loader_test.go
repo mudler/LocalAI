@@ -441,4 +441,14 @@ var _ = Describe("ModelConfigLoader failover validation", func() {
 		Expect(loader.FailoverTargetsShareUsecase(chain("a", "b"))).To(BeTrue())
 		Expect(loader.FailoverTargetsShareUsecase(chain("a", "tts"))).To(BeFalse())
 	})
+	It("finds warm targets that are remote, where warm has no effect", func() {
+		loader.configs["remote"] = ModelConfig{Name: "remote", Backend: "cloud-proxy"}
+		loader.configs["alias-remote"] = ModelConfig{Name: "alias-remote", Alias: "remote"}
+		c := chain("remote", "alias-remote", "a")
+		for i := range c.Failover.Targets {
+			c.Failover.Targets[i].Warm = true
+		}
+		Expect(failoverWarmRemoteTargets(c, loader.GetModelConfig)).To(Equal([]string{"remote", "alias-remote"}))
+		Expect(failoverWarmRemoteTargets(chain("remote", "a"), loader.GetModelConfig)).To(BeEmpty())
+	})
 })

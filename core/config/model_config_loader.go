@@ -543,6 +543,28 @@ func validateFailoverTargets(cfg *ModelConfig, lookup func(string) (ModelConfig,
 	return nil
 }
 
+// failoverWarmRemoteTargets lists the chain's targets marked warm that are
+// remote. Warm only keeps a local model loaded, so the flag does nothing there.
+func failoverWarmRemoteTargets(cfg *ModelConfig, lookup func(string) (ModelConfig, bool)) []string {
+	if cfg == nil || !cfg.IsFailover() {
+		return nil
+	}
+	var out []string
+	for _, t := range cfg.Failover.Targets {
+		if !t.Warm {
+			continue
+		}
+		target, ok := lookup(t.Model)
+		if ok && target.IsAlias() {
+			target, ok = lookup(target.Alias)
+		}
+		if ok && target.IsRemoteProxy() {
+			out = append(out, t.Model)
+		}
+	}
+	return out
+}
+
 func failoverTargetsShareUsecase(cfg *ModelConfig, lookup func(string) (ModelConfig, bool)) bool {
 	if cfg == nil || !cfg.IsFailover() {
 		return true
@@ -930,6 +952,9 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 		}
 		if !failoverTargetsShareUsecase(&c, lookup) {
 			xlog.Warn("failover chain targets share no known usecase", "model", name)
+		}
+		if remote := failoverWarmRemoteTargets(&c, lookup); len(remote) > 0 {
+			xlog.Warn("failover chain: warm has no effect on remote targets", "model", name, "targets", remote)
 		}
 	}
 

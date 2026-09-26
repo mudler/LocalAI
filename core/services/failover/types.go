@@ -87,8 +87,7 @@ type ChainStatus struct {
 // KindOf decides how a target is probed: proxy backends forward to another
 // server and are checked over HTTP, everything else runs in this instance.
 func KindOf(cfg config.ModelConfig) Kind {
-	switch cfg.Backend {
-	case "cloud-proxy", "localai-proxy":
+	if cfg.IsRemoteProxy() {
 		return KindRemote
 	}
 	return KindLocal

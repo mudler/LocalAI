@@ -190,7 +190,9 @@ this.
 The manager loads `warm: true` targets at startup and marks them pinned in the
 watchdog, so LRU and idle eviction skip them. They still count toward the
 active backend limit. When pinned warm targets leave no room for another load,
-that load fails with an error that names them. The docs state this.
+the loader never evicts them: it retries eviction and then loads the model
+anyway, over the limit, with no error that names the warm targets. The docs
+state this.
 
 ### Events
 
