@@ -27,10 +27,11 @@ type recordedRequest struct {
 }
 
 // scriptedResponse is the reply for one path. SSE, when set, is written as
-// "data: <frame>" events and wins over Body.
+// "data: <frame>" events and wins over Body. Header adds response headers.
 type scriptedResponse struct {
 	Status      int
 	ContentType string
+	Header      map[string]string
 	Body        string
 	SSE         []string
 }
@@ -132,6 +133,9 @@ func (f *fakeUpstream) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if resp.ContentType != "" {
 		w.Header().Set("Content-Type", resp.ContentType)
+	}
+	for k, v := range resp.Header {
+		w.Header().Set(k, v)
 	}
 	w.WriteHeader(resp.Status)
 	_, _ = io.WriteString(w, resp.Body)

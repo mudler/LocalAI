@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,7 +38,7 @@ func (p *LocalAIProxy) postJSON(ctx context.Context, path string, body, out any)
 	ctx, cancel := withTimeout(ctx, cfg)
 	defer cancel()
 
-	req, err := p.newRequest(ctx, cfg, path, bytes.NewReader(payload))
+	req, err := p.newRequest(ctx, cfg, http.MethodPost, path, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -51,48 +52,92 @@ func (p *LocalAIProxy) postJSON(ctx context.Context, path string, body, out any)
 // paths, and LocalAI's upload endpoints take them as multipart files. The
 // request_timeout_seconds limit applies.
 func (p *LocalAIProxy) postMultipart(ctx context.Context, path string, fields map[string]string, fileField, filePath string, out any) error {
+	form := multipartForm{fields: url.Values{}}
+	for k, v := range fields {
+		form.fields.Set(k, v)
+	}
+	if fileField != "" {
+		form.files = []formFile{{field: fileField, path: filePath}}
+	}
+	return p.postForm(ctx, path, form, out)
+}
+
+// postForm uploads form to path and decodes the 2xx JSON reply into out. The
+// request_timeout_seconds limit applies.
+func (p *LocalAIProxy) postForm(ctx context.Context, path string, form multipartForm, out any) error {
 	cfg, err := p.config()
 	if err != nil {
 		return err
 	}
-	var file *os.File
-	if fileField != "" {
-		// Open before contacting the upstream so a bad path is reported as a
-		// request error, not as a failure of the remote host.
-		if file, err = os.Open(filePath); err != nil {
-			return status.Errorf(codes.InvalidArgument, "localai-proxy: open %s: %v", filePath, err)
-		}
-		defer func() { _ = file.Close() }()
-	}
 	ctx, cancel := withTimeout(ctx, cfg)
 	defer cancel()
-
-	// Stream the form through a pipe so large audio files are not buffered
-	// in memory. The transport closes pr when the request ends, which
-	// unblocks the writer on every error path.
-	pr, pw := io.Pipe()
-	mw := multipart.NewWriter(pw)
-	go func() {
-		pw.CloseWithError(writeMultipart(mw, fields, fileField, file))
-	}()
-
-	req, err := p.newRequest(ctx, cfg, path, pr)
+	req, err := p.newMultipartRequest(ctx, cfg, path, form)
 	if err != nil {
-		_ = pr.CloseWithError(err)
 		return err
 	}
-	req.Header.Set("Content-Type", mw.FormDataContentType())
 	return p.do(req, path, out)
 }
 
-func writeMultipart(mw *multipart.Writer, fields map[string]string, fileField string, file *os.File) error {
-	for k, v := range fields {
-		if err := mw.WriteField(k, v); err != nil {
-			return err
+// multipartForm is an upload: repeated fields (timestamp_granularities[]) need
+// url.Values, and audio transforms send two files.
+type multipartForm struct {
+	fields url.Values
+	files  []formFile
+}
+
+type formFile struct {
+	field string
+	path  string
+}
+
+// newMultipartRequest builds a POST whose body streams form through a pipe,
+// so large audio files are not buffered in memory. The writer goroutine owns
+// the opened files and closes them when it finishes; the transport closes the
+// pipe when the request ends, which unblocks the writer on every error path.
+func (p *LocalAIProxy) newMultipartRequest(ctx context.Context, cfg *proxyConfig, path string, form multipartForm) (*http.Request, error) {
+	// Open before contacting the upstream so a bad path is reported as a
+	// request error, not as a failure of the remote host.
+	files := make([]*os.File, 0, len(form.files))
+	closeAll := func() {
+		for _, f := range files {
+			_ = f.Close()
 		}
 	}
-	if file != nil {
-		part, err := mw.CreateFormFile(fileField, filepath.Base(file.Name()))
+	for _, ff := range form.files {
+		f, err := os.Open(ff.path)
+		if err != nil {
+			closeAll()
+			return nil, status.Errorf(codes.InvalidArgument, "localai-proxy: open %s: %v", ff.path, err)
+		}
+		files = append(files, f)
+	}
+
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
+	go func() {
+		defer closeAll()
+		pw.CloseWithError(writeMultipart(mw, form, files))
+	}()
+
+	req, err := p.newRequest(ctx, cfg, http.MethodPost, path, pr)
+	if err != nil {
+		_ = pr.CloseWithError(err)
+		return nil, err
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	return req, nil
+}
+
+func writeMultipart(mw *multipart.Writer, form multipartForm, files []*os.File) error {
+	for k, vs := range form.fields {
+		for _, v := range vs {
+			if err := mw.WriteField(k, v); err != nil {
+				return err
+			}
+		}
+	}
+	for i, file := range files {
+		part, err := mw.CreateFormFile(form.files[i].field, filepath.Base(file.Name()))
 		if err != nil {
 			return err
 		}
@@ -115,11 +160,30 @@ func (p *LocalAIProxy) postStream(ctx context.Context, path string, body any) (*
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "localai-proxy: encode %s request: %v", path, err)
 	}
-	req, err := p.newRequest(ctx, cfg, path, bytes.NewReader(payload))
+	req, err := p.newRequest(ctx, cfg, http.MethodPost, path, bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	return p.doStream(req, path)
+}
+
+// postMultipartStream uploads form and returns the open response of a 2xx
+// reply; the caller must close its body. Like postStream, only ctx bounds it.
+func (p *LocalAIProxy) postMultipartStream(ctx context.Context, path string, form multipartForm) (*http.Response, error) {
+	cfg, err := p.config()
+	if err != nil {
+		return nil, err
+	}
+	req, err := p.newMultipartRequest(ctx, cfg, path, form)
+	if err != nil {
+		return nil, err
+	}
+	return p.doStream(req, path)
+}
+
+// doStream runs req and returns the open response of a 2xx reply.
+func (p *LocalAIProxy) doStream(req *http.Request, path string) (*http.Response, error) {
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return nil, transportError(path, err)
@@ -131,8 +195,8 @@ func (p *LocalAIProxy) postStream(ctx context.Context, path string, body any) (*
 	return resp, nil
 }
 
-func (p *LocalAIProxy) newRequest(ctx context.Context, cfg *proxyConfig, path string, body io.Reader) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.base+path, body)
+func (p *LocalAIProxy) newRequest(ctx context.Context, cfg *proxyConfig, method, path string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, cfg.base+path, body)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "localai-proxy: build %s request: %v", path, err)
 	}
@@ -223,4 +287,89 @@ func statusError(path string, resp *http.Response) error {
 	}
 	xlog.Warn("localai-proxy: upstream error", "path", path, "status", resp.StatusCode)
 	return status.Error(code, fmt.Sprintf("localai-proxy: upstream %s returned %d: %s", path, resp.StatusCode, msg))
+}
+
+// postJSONToFile sends body as JSON to path and writes a 2xx reply's body,
+// which is audio rather than JSON, to dst. The request_timeout_seconds limit
+// applies.
+func (p *LocalAIProxy) postJSONToFile(ctx context.Context, path string, body any, dst string) error {
+	cfg, err := p.config()
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "localai-proxy: encode %s request: %v", path, err)
+	}
+	ctx, cancel := withTimeout(ctx, cfg)
+	defer cancel()
+	req, err := p.newRequest(ctx, cfg, http.MethodPost, path, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	_, err = p.doToFile(req, path, dst)
+	return err
+}
+
+// postMultipartToFile uploads form to path and writes a 2xx reply's body to
+// dst, returning the reply headers for endpoints that describe extra outputs
+// there. The request_timeout_seconds limit applies.
+func (p *LocalAIProxy) postMultipartToFile(ctx context.Context, path string, form multipartForm, dst string) (http.Header, error) {
+	cfg, err := p.config()
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := withTimeout(ctx, cfg)
+	defer cancel()
+	req, err := p.newMultipartRequest(ctx, cfg, path, form)
+	if err != nil {
+		return nil, err
+	}
+	return p.doToFile(req, path, dst)
+}
+
+// getToFile downloads path to dst. The request_timeout_seconds limit applies.
+func (p *LocalAIProxy) getToFile(ctx context.Context, path, dst string) error {
+	cfg, err := p.config()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := withTimeout(ctx, cfg)
+	defer cancel()
+	req, err := p.newRequest(ctx, cfg, http.MethodGet, path, nil)
+	if err != nil {
+		return err
+	}
+	_, err = p.doToFile(req, path, dst)
+	return err
+}
+
+// doToFile runs req and writes a 2xx body to dst. A failed copy removes dst:
+// core serves whatever file it finds there, and a truncated recording must
+// not pass for a finished one.
+func (p *LocalAIProxy) doToFile(req *http.Request, path, dst string) (http.Header, error) {
+	resp, err := p.doStream(req, path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	f, err := os.Create(dst)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "localai-proxy: create %s: %v", dst, err)
+	}
+	_, copyErr := io.Copy(f, resp.Body)
+	closeErr := f.Close()
+	if copyErr != nil || closeErr != nil {
+		_ = os.Remove(dst)
+		if copyErr != nil {
+			if ctxErr := req.Context().Err(); ctxErr != nil {
+				return nil, transportError(path, ctxErr)
+			}
+			return nil, transportError(path, copyErr)
+		}
+		return nil, status.Errorf(codes.Internal, "localai-proxy: write %s: %v", dst, closeErr)
+	}
+	return resp.Header, nil
 }
