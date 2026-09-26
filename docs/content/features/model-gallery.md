@@ -39,6 +39,13 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Qwen-Image 2.1
+
+For image generation, install `qwen-image-2.1-q4_k-ggml` or its `qwen-image-2.1-q8_0-ggml` variant.
+These entries use `stablediffusion-ggml` and include the text encoder, vision projector, and VAE.
+The invalid `qwen-image-2.1-uncensored` chat entry was removed because llama.cpp cannot load its diffusion weights.
+This removal does not delete previously installed models. Remove that configuration before installing an image-generation entry.
+
 ## VRAM and download size estimates
 
 When browsing the gallery or importing a model by URI, LocalAI can show **estimated download size** and **estimated VRAM** for models.
