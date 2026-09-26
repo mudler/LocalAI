@@ -29,6 +29,9 @@ egress remains subject to the same redaction rules a local model would apply.
 - Use the intelligent router to send small or simple prompts to a local model
   and complex ones to Claude or GPT-4o.
 
+To fall back to a local model when the upstream is down, list the proxy model
+in a [failover chain]({{%relref "features/model-failover" %}}).
+
 ## How it works
 
 1. Request hits LocalAI on `/v1/chat/completions` (OpenAI-shaped) or
