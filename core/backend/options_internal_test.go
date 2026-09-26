@@ -44,6 +44,31 @@ var _ = Describe("grpcModelOpts EngineArgs", func() {
 	})
 })
 
+var _ = Describe("grpcModelOpts Proxy options", func() {
+	It("builds Proxy options for localai-proxy, the same as cloud-proxy", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Threads: &threads,
+			Backend: "localai-proxy",
+			Proxy: config.ProxyConfig{
+				UpstreamURL: "http://127.0.0.1:8081",
+				Mode:        config.ProxyModePassthrough,
+			},
+		}
+
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.Proxy).NotTo(BeNil())
+		Expect(opts.Proxy.UpstreamUrl).To(Equal("http://127.0.0.1:8081"))
+		Expect(opts.Proxy.Mode).To(Equal(config.ProxyModePassthrough))
+	})
+
+	It("leaves Proxy nil for a backend that is not a proxy", func() {
+		threads := 1
+		opts := grpcModelOpts(config.ModelConfig{Threads: &threads, Backend: "llama-cpp"}, "/tmp/models")
+		Expect(opts.Proxy).To(BeNil())
+	})
+})
+
 var _ = Describe("grpcModelOpts Diffusers options", func() {
 	It("forwards original_config_file without rewriting it", func() {
 		threads := 1

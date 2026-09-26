@@ -113,9 +113,12 @@ var _ AIModel = (*modalityBackend)(nil)
 // server implements, sending `identity` in each request's ModelIdentity field.
 // One call per RPC, so the returned error count is also the RPC count.
 //
-// Rerank, Score and TokenClassify are absent on purpose: the generic Go server
-// does not implement them (they fall through to UnimplementedBackendServer), so
-// only the C++ and Python backends can enforce them.
+// Score and TokenClassify are absent on purpose: the generic Go server does
+// not implement them (they fall through to UnimplementedBackendServer), so
+// only the C++ and Python backends can enforce them. Rerank is different: the
+// Go server does serve it (see server_rerank_test.go), but only for backends
+// that opt in via RerankModel — modalityBackend does not, so it is left out
+// here too rather than adding a no-op implementation with nothing to guard.
 func callAllModalities(c Backend, identity string) map[string]error {
 	ctx := context.Background()
 	errs := map[string]error{}

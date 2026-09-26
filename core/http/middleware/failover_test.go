@@ -23,6 +23,8 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 var _ = Describe("failover chains in the request pipeline", func() {
@@ -277,6 +279,18 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		st, _ := fm.ChainStatus("chain-capped")
 		Expect(st.Targets[0].State).To(Equal(failover.StateHealthy))
 		Expect(st.Active).To(Equal("capped"))
+	})
+
+	It("spills a capability gap (gRPC Unimplemented) to the next target without tripping it", func() {
+		behavior["a"] = func(echo.Context) error {
+			return grpcstatus.Error(codes.Unimplemented, "localai-proxy: Rerank has no upstream counterpart")
+		}
+		rec := chat("chain")
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring(`"served":"b"`))
+		Expect(calls).To(Equal([]string{"a", "b"}))
+		st, _ := fm.ChainStatus("chain")
+		Expect(st.Targets[0].State).To(Equal(failover.StateHealthy))
 	})
 
 	It("skips a disabled target without tripping it", func() {

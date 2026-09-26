@@ -37,3 +37,14 @@ var _ = DescribeTable("IsRetryable",
 	Entry("context overflow", errors.New("the request exceeds the available context size"), 0, false),
 	Entry("dial error", errors.New("dial tcp 10.0.0.1:8080: connect: connection refused"), 0, true),
 )
+
+var _ = DescribeTable("IsCapabilityGap",
+	func(err error, want bool) {
+		Expect(IsCapabilityGap(err)).To(Equal(want))
+	},
+	Entry("nil error", nil, false),
+	Entry("grpc unimplemented", grpcstatus.Error(codes.Unimplemented, "x"), true),
+	Entry("wrapped grpc unimplemented", fmt.Errorf("call: %w", grpcstatus.Error(codes.Unimplemented, "x")), true),
+	Entry("grpc unavailable", grpcstatus.Error(codes.Unavailable, "x"), false),
+	Entry("plain error", errors.New("boom"), false),
+)

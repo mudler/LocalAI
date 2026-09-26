@@ -542,7 +542,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		Tokenizer: c.Tokenizer,
 	}
 
-	if c.Backend == "cloud-proxy" {
+	if c.Backend == "cloud-proxy" || c.Backend == "localai-proxy" {
 		opts.Proxy = &pb.ProxyOptions{
 			UpstreamUrl:           c.Proxy.UpstreamURL,
 			Mode:                  c.Proxy.Mode,

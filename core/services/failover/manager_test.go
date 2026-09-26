@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 )
 
 var errBoom = errors.New("dial tcp: connection refused")
@@ -285,6 +287,21 @@ var _ = Describe("Manager", func() {
 			bad := errors.New("the request exceeds the available context size")
 			err := m.Do(context.Background(), "chain", func(_ context.Context, _ string, _ func()) error { return bad })
 			Expect(err).To(MatchError(bad))
+			st, _ := m.ChainStatus("chain")
+			Expect(st.Targets[0].State).To(Equal(StateHealthy))
+		})
+
+		It("skips an Unimplemented target without tripping it", func() {
+			var tried []string
+			err := m.Do(context.Background(), "chain", func(_ context.Context, target string, _ func()) error {
+				tried = append(tried, target)
+				if target == "a" {
+					return grpcstatus.Error(codes.Unimplemented, "localai-proxy: Rerank has no upstream counterpart")
+				}
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tried).To(Equal([]string{"a", "b"}))
 			st, _ := m.ChainStatus("chain")
 			Expect(st.Targets[0].State).To(Equal(StateHealthy))
 		})

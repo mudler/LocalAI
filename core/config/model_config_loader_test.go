@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -9,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/xlog"
 )
 
 type preloadArtifactMaterializer struct {
@@ -450,5 +453,79 @@ var _ = Describe("ModelConfigLoader failover validation", func() {
 		}
 		Expect(failoverWarmRemoteTargets(c, loader.GetModelConfig)).To(Equal([]string{"remote", "alias-remote"}))
 		Expect(failoverWarmRemoteTargets(chain("remote", "a"), loader.GetModelConfig)).To(BeEmpty())
+	})
+})
+
+var _ = Describe("ModelConfigLoader localai-proxy load-time warnings", func() {
+	var captured *bytes.Buffer
+
+	BeforeEach(func() {
+		captured = &bytes.Buffer{}
+		handler := slog.NewTextHandler(captured, &slog.HandlerOptions{Level: slog.LevelWarn})
+		xlog.SetLogger(xlog.NewLoggerWithHandler(handler, xlog.LogLevelWarn))
+	})
+
+	AfterEach(func() {
+		// xlog exposes no getter for the package logger, so restore the same
+		// default the suite entrypoint installs rather than the prior value.
+		xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text"))
+	})
+
+	It("warns and still loads when proxy.mode/proxy.provider are set (ignored by localai-proxy)", func() {
+		modelsPath := GinkgoT().TempDir()
+		cfgYAML := `
+name: proxied
+backend: localai-proxy
+known_usecases: [chat]
+proxy:
+  mode: translate
+  provider: openai
+  upstream_url: http://127.0.0.1:8081
+`
+		Expect(os.WriteFile(filepath.Join(modelsPath, "proxied.yaml"), []byte(cfgYAML), 0o600)).To(Succeed())
+
+		loader := NewModelConfigLoader(modelsPath)
+		Expect(loader.LoadModelConfigsFromPath(modelsPath)).To(Succeed())
+
+		_, ok := loader.GetModelConfig("proxied")
+		Expect(ok).To(BeTrue())
+		Expect(captured.String()).To(ContainSubstring("proxy.mode/proxy.provider"))
+		Expect(captured.String()).To(ContainSubstring("proxied"))
+	})
+
+	It("warns and still loads when known_usecases is empty", func() {
+		modelsPath := GinkgoT().TempDir()
+		cfgYAML := `
+name: proxied-no-usecase
+backend: localai-proxy
+proxy:
+  upstream_url: http://127.0.0.1:8081
+`
+		Expect(os.WriteFile(filepath.Join(modelsPath, "proxied.yaml"), []byte(cfgYAML), 0o600)).To(Succeed())
+
+		loader := NewModelConfigLoader(modelsPath)
+		Expect(loader.LoadModelConfigsFromPath(modelsPath)).To(Succeed())
+
+		_, ok := loader.GetModelConfig("proxied-no-usecase")
+		Expect(ok).To(BeTrue())
+		Expect(captured.String()).To(ContainSubstring("known_usecases"))
+		Expect(captured.String()).To(ContainSubstring("proxied-no-usecase"))
+	})
+
+	It("does not warn when localai-proxy uses only passthrough and known_usecases", func() {
+		modelsPath := GinkgoT().TempDir()
+		cfgYAML := `
+name: proxied-clean
+backend: localai-proxy
+known_usecases: [chat]
+proxy:
+  upstream_url: http://127.0.0.1:8081
+`
+		Expect(os.WriteFile(filepath.Join(modelsPath, "proxied.yaml"), []byte(cfgYAML), 0o600)).To(Succeed())
+
+		loader := NewModelConfigLoader(modelsPath)
+		Expect(loader.LoadModelConfigsFromPath(modelsPath)).To(Succeed())
+
+		Expect(captured.String()).To(BeEmpty())
 	})
 })

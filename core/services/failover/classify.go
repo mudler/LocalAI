@@ -61,6 +61,18 @@ func IsRetryable(err error, status int) bool {
 	return !isRequestError(msg)
 }
 
+// IsCapabilityGap reports a target that cannot serve this kind of request at
+// all (gRPC Unimplemented, anywhere in the error chain). The next target may
+// serve it, and this target is not broken: the failure carries no signal
+// about its health, so callers must skip it without tripping.
+func IsCapabilityGap(err error) bool {
+	if err == nil {
+		return false
+	}
+	st, ok := grpcstatus.FromError(err)
+	return ok && st.Code() == codes.Unimplemented
+}
+
 func retryableStatus(code int) bool {
 	return code >= 500 && code != http.StatusNotImplemented
 }

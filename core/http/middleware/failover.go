@@ -143,9 +143,12 @@ func (re *RequestExtractor) failoverRetry(h echo.HandlerFunc) echo.HandlerFunc {
 				}
 				return nil
 			}
-			if rejected, _ := c.Get(ContextKeyAdmissionRejected).(bool); rejected && !w.committed {
-				// The target is at capacity, not broken: spill this request to
-				// the next target without counting a failure.
+			rejected, _ := c.Get(ContextKeyAdmissionRejected).(bool)
+			gap := failover.IsCapabilityGap(err) && !w.committed
+			if (rejected && !w.committed) || gap {
+				// The target is at capacity, or cannot serve this kind of
+				// request at all: spill to the next target without counting
+				// a failure. Neither says anything about the target's health.
 				if !rec.replayable() || !att.Skip() {
 					w.release()
 					return err

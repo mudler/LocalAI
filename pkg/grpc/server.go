@@ -132,6 +132,21 @@ func (s *server) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreRespo
 	return sm.Score(ctx, in)
 }
 
+func (s *server) Rerank(ctx context.Context, in *pb.RerankRequest) (*pb.RerankResult, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	rm, ok := s.llm.(RerankModel)
+	if !ok {
+		return nil, status.Errorf(codes.Unimplemented, "method Rerank not implemented")
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	return rm.Rerank(ctx, in)
+}
+
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

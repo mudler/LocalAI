@@ -123,3 +123,13 @@ type ClassifyModel interface {
 type ScoreModel interface {
 	Score(context.Context, *pb.ScoreRequest) (*pb.ScoreResponse, error)
 }
+
+// RerankModel is an optional extension to AIModel for backends that
+// implement the Rerank RPC (candidate document reranking against a query).
+// The gRPC server type-asserts to this interface; backends that do not
+// implement it fall through to the UnimplementedBackendServer default. This
+// mirrors the ScoreModel pattern: adding a method to AIModel itself would
+// break every backend, so the capability is opt-in.
+type RerankModel interface {
+	Rerank(context.Context, *pb.RerankRequest) (*pb.RerankResult, error)
+}

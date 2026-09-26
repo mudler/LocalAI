@@ -958,6 +958,22 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 		}
 	}
 
+	// localai-proxy proxies straight through to another LocalAI instance, so
+	// it never translates the wire protocol the way cloud-proxy does; warn
+	// when a config carries settings that only make sense there, or lacks
+	// the usecases failover's own usecase-sharing check depends on.
+	for name, cfg := range bcl.configs {
+		if cfg.Backend != "localai-proxy" {
+			continue
+		}
+		if cfg.Proxy.Mode == ProxyModeTranslate || cfg.Proxy.Provider != "" {
+			xlog.Warn("localai-proxy backend proxies to another LocalAI instance and ignores proxy.mode/proxy.provider", "model", name)
+		}
+		if len(cfg.KnownUsecaseStrings) == 0 {
+			xlog.Warn("localai-proxy config has no known_usecases; failover usecase matching will skip it", "model", name)
+		}
+	}
+
 	return nil
 }
 
