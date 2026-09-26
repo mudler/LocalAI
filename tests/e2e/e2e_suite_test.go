@@ -120,17 +120,7 @@ var _ = BeforeSuite(func() {
 
 	// Failover chains, one per endpoint family: target 0 is a mock model whose
 	// load always fails (the mock rejects models named fail-load*), so every
-	// request exercises the retry onto failover-fallback. The fallback's model
-	// file must exist: the failover manager's liveness probe marks a local
-	// target with a missing file down, and mock-model.bin is never created.
-	Expect(os.WriteFile(filepath.Join(modelsPath, "failover-fallback.bin"), nil, 0644)).To(Succeed())
-	fallbackData, err := yaml.Marshal(map[string]any{
-		"name":       "failover-fallback",
-		"backend":    "mock-backend",
-		"parameters": map[string]any{"model": "failover-fallback.bin"},
-	})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(os.WriteFile(filepath.Join(modelsPath, "failover-fallback.yaml"), fallbackData, 0644)).To(Succeed())
+	// request exercises the retry onto mock-model.
 	for _, family := range []string{"chat", "completion", "embeddings", "transcription", "tts", "image", "rerank", "vad"} {
 		for _, cfg := range []map[string]any{
 			{
@@ -141,7 +131,7 @@ var _ = BeforeSuite(func() {
 			{
 				"name": "chain-" + family,
 				"failover": map[string]any{
-					"targets": []map[string]any{{"model": "fail-" + family}, {"model": "failover-fallback"}},
+					"targets": []map[string]any{{"model": "fail-" + family}, {"model": "mock-model"}},
 				},
 			},
 		} {

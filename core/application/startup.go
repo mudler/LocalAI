@@ -259,7 +259,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	application.failoverManager = failover.New(application.ModelConfigLoader(),
 		failover.WithProber(failover.NewProber(func(ctx context.Context, cfg config.ModelConfig) (grpc.Backend, error) {
 			return application.ModelLoader().Load(backend.ModelOptions(cfg, options)...)
-		}, application.ModelLoader().ModelPath)),
+		})),
 		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
 	)
 

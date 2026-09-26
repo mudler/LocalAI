@@ -23,18 +23,18 @@ var _ = Describe("Failover chains", Label("failover"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		return resp
 	}
-	expectServedByFallback := func(resp *http.Response) {
+	expectServedByMock := func(resp *http.Response) {
 		defer func() { _ = resp.Body.Close() }()
 		body, _ := io.ReadAll(resp.Body)
 		Expect(resp.StatusCode).To(BeNumerically("<", 300), "%s\nheaders: %v", body, resp.Header)
-		Expect(resp.Header.Get("X-LocalAI-Served-Model")).To(Equal("failover-fallback"))
+		Expect(resp.Header.Get("X-LocalAI-Served-Model")).To(Equal("mock-model"))
 		Expect(resp.Header.Get("X-LocalAI-Failover")).To(Equal("fallback"))
 	}
 
 	// The entry name is the chain suffix: chain-<name> is written by the suite.
 	DescribeTable("retries every endpoint family on the next target",
 		func(path string, body func(model string) map[string]any) {
-			expectServedByFallback(postJSON(path, body("chain-"+CurrentSpecReport().LeafNodeText)))
+			expectServedByMock(postJSON(path, body("chain-"+CurrentSpecReport().LeafNodeText)))
 		},
 		Entry("chat", "/chat/completions", func(m string) map[string]any {
 			return map[string]any{"model": m, "messages": []map[string]string{{"role": "user", "content": "hi"}}}
@@ -71,7 +71,7 @@ var _ = Describe("Failover chains", Label("failover"), func() {
 		Expect(mw.Close()).To(Succeed())
 		resp, err := http.Post(apiURL+"/audio/transcriptions", mw.FormDataContentType(), &body)
 		Expect(err).ToNot(HaveOccurred())
-		expectServedByFallback(resp)
+		expectServedByMock(resp)
 	})
 
 	Describe("remote targets", Ordered, func() {

@@ -7,8 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -77,7 +75,7 @@ var _ = Describe("DefaultProber", func() {
 	BeforeEach(func() {
 		up = newFakeUpstream()
 		DeferCleanup(up.srv.Close)
-		p = NewProber(nil, "")
+		p = NewProber(nil)
 	})
 
 	proxied := func(name, upstreamModel string, usecases ...string) config.ModelConfig {
@@ -140,7 +138,7 @@ var _ = Describe("DefaultProber", func() {
 
 	It("uses HealthCheck for warm local liveness and Predict for local chat inference", func() {
 		b := &fakeBackend{healthy: true}
-		p = NewProber(func(context.Context, config.ModelConfig) (grpc.Backend, error) { return b, nil }, "")
+		p = NewProber(func(context.Context, config.ModelConfig) (grpc.Backend, error) { return b, nil })
 		c := config.ModelConfig{Name: "gemma", Backend: "llama-cpp", KnownUsecaseStrings: []string{"chat"}}
 		c.KnownUsecases = config.GetUsecasesFromYAML(c.KnownUsecaseStrings)
 		Expect(p.Liveness(ctx, c, KindLocal, true)).To(Succeed())
@@ -152,18 +150,18 @@ var _ = Describe("DefaultProber", func() {
 		Expect(p.Inference(ctx, c, KindLocal, true)).To(HaveOccurred())
 	})
 
-	It("checks the model file for cold local liveness without loading", func() {
-		dir := GinkgoT().TempDir()
+	It("passes cold local liveness without a model file and without loading", func() {
 		p = NewProber(func(context.Context, config.ModelConfig) (grpc.Backend, error) {
 			Fail("cold liveness must not load the model")
 			return nil, nil
-		}, dir)
-		c := config.ModelConfig{Name: "cold", Backend: "llama-cpp"}
-		c.Model = "weights.gguf"
-		Expect(p.Liveness(ctx, c, KindLocal, false)).To(HaveOccurred())
-		Expect(os.WriteFile(filepath.Join(dir, "weights.gguf"), []byte("x"), 0o600)).To(Succeed())
-		Expect(p.Liveness(ctx, c, KindLocal, false)).To(Succeed())
-		c.Model = "org/some-hf-repo" // no extension: downloaded on demand
-		Expect(p.Liveness(ctx, c, KindLocal, false)).To(Succeed())
+		})
+		// None of these files exist: a missing file says nothing about whether
+		// the target can serve (download on first use, dotted names, backends
+		// that need no file). Only a real request may trip a cold target.
+		for _, model := range []string{"weights.gguf", "Phi-3.5-mini", "org/some-hf-repo", ""} {
+			c := config.ModelConfig{Name: "cold", Backend: "llama-cpp"}
+			c.Model = model
+			Expect(p.Liveness(ctx, c, KindLocal, false)).To(Succeed(), model)
+		}
 	})
 })

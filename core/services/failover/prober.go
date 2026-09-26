@@ -8,12 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"mime/multipart"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -27,13 +24,12 @@ type LoadFunc func(ctx context.Context, cfg config.ModelConfig) (grpc.Backend, e
 // DefaultProber probes remote targets over the upstream's OpenAI-compatible
 // API and local targets through their gRPC backend.
 type DefaultProber struct {
-	HTTP      *http.Client
-	Load      LoadFunc
-	ModelPath string
+	HTTP *http.Client
+	Load LoadFunc
 }
 
-func NewProber(load LoadFunc, modelPath string) *DefaultProber {
-	return &DefaultProber{HTTP: &http.Client{}, Load: load, ModelPath: modelPath}
+func NewProber(load LoadFunc) *DefaultProber {
+	return &DefaultProber{HTTP: &http.Client{}, Load: load}
 }
 
 func (p *DefaultProber) Liveness(ctx context.Context, cfg config.ModelConfig, kind Kind, warm bool) error {
@@ -43,7 +39,13 @@ func (p *DefaultProber) Liveness(ctx context.Context, cfg config.ModelConfig, ki
 	case warm:
 		return p.localHealth(ctx, cfg)
 	}
-	return p.coldLiveness(cfg)
+	// A cold target is judged only by real requests: loading it only to probe
+	// it could evict other models, and no cheaper check is reliable. A missing
+	// model file is not one: models download on first use, some backends need
+	// no file, and a dotted name like "Phi-3.5-mini" looks like a file path. A
+	// false "down" would take away the very fallback the chain exists for,
+	// while a real load failure still trips the target and the request moves on.
+	return nil
 }
 
 func (p *DefaultProber) Inference(ctx context.Context, cfg config.ModelConfig, kind Kind, warm bool) error {
@@ -261,23 +263,4 @@ func (p *DefaultProber) localInference(ctx context.Context, cfg config.ModelConf
 	// A backend process that answers HealthCheck rarely fails only for TTS or
 	// transcription, so a real request adds little here.
 	return p.localHealth(ctx, cfg)
-}
-
-// coldLiveness checks the model file without loading the model.
-func (p *DefaultProber) coldLiveness(cfg config.ModelConfig) error {
-	f := cfg.Model
-	if f == "" || p.ModelPath == "" || strings.Contains(f, "://") {
-		return nil
-	}
-	path := f
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(p.ModelPath, f)
-	}
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, fs.ErrNotExist) && filepath.Ext(f) == "" {
-			return nil // a repository id, downloaded on demand
-		}
-		return fmt.Errorf("model file %s: %w", f, err)
-	}
-	return nil
 }
