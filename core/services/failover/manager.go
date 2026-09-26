@@ -226,6 +226,17 @@ func (m *Manager) WarmTargets() []string {
 	return slices.Clone(m.warm)
 }
 
+// targetStates snapshots each target's health state for the metrics gauge.
+func (m *Manager) targetStates() map[string]TargetState {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make(map[string]TargetState, len(m.targets))
+	for name, ts := range m.targets {
+		out[name] = ts.state
+	}
+	return out
+}
+
 // Reevaluate recomputes every chain. Dwell-based fail-back needs no event, so
 // the scheduler calls this on every tick.
 func (m *Manager) Reevaluate() {
@@ -572,6 +583,9 @@ func (m *Manager) Subscribe(buffer int) (<-chan Event, func()) {
 }
 
 func (m *Manager) emitLocked(ev Event) {
+	if ev.Type == EventChainSwitched {
+		recordSwitch(ev)
+	}
 	for _, c := range m.subs {
 		select {
 		case c <- ev:

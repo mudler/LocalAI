@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -82,6 +83,7 @@ type Application struct {
 	routerRegistry    *router.Registry
 	routerCorpus      *corpus.Manager
 	admissionLimiter  *admission.Limiter
+	failoverManager   *failover.Manager
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
 	p2pMutex          sync.Mutex
@@ -477,6 +479,9 @@ func (a *Application) RouterClassifierRegistry() *router.Registry {
 func (a *Application) AdmissionLimiter() *admission.Limiter {
 	return a.admissionLimiter
 }
+
+// FailoverManager serves failover chains. Never nil after New.
+func (a *Application) FailoverManager() *failover.Manager { return a.failoverManager }
 
 // StartupConfig returns the original startup configuration (from env vars, before file loading)
 func (a *Application) StartupConfig() *config.ApplicationConfig {

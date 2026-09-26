@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -27,6 +29,7 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -249,6 +252,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Process-wide classifier cache shared across all route middlewares so
 	// the embedding-cache stats endpoint sees a single source of truth.
 	application.routerRegistry = router.NewRegistry()
+
+	// Failover chains: probe targets and track which one is active per
+	// chain. WithOnWarmChanged pins and preloads warm local targets so a
+	// switch to them does not wait for a cold load.
+	application.failoverManager = failover.New(application.ModelConfigLoader(),
+		failover.WithProber(failover.NewProber(func(ctx context.Context, cfg config.ModelConfig) (grpc.Backend, error) {
+			return application.ModelLoader().Load(backend.ModelOptions(cfg, options)...)
+		}, application.ModelLoader().ModelPath)),
+		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
+	)
 
 	// Subsystem 5: admission control. Limiter is always wired so a
 	// model that gains a limits: block via gallery install or YAML
@@ -547,6 +560,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 		}
 	}
+
+	// Start the failover scheduler: it syncs chains from config, runs
+	// liveness/recovery probes and dwell-based fail-back. Run is the only
+	// caller of Sync in production so onWarm callbacks stay ordered.
+	failover.RegisterMetrics(application.failoverManager)
+	go application.failoverManager.Run(options.Context)
 
 	// Watch the configuration directory
 	startWatcher(options)
