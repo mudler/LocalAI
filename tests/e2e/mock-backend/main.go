@@ -93,6 +93,10 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 		"draft_model", in.DraftModel,
 		"mmproj", in.MMProj)
 	recordLoadParams(in)
+	// Lets e2e specs build a failover target whose backend cannot load.
+	if strings.HasPrefix(in.Model, "fail-load") {
+		return &pb.Result{Message: "mock: load failure", Success: false}, nil
+	}
 	return &pb.Result{
 		Message: "Model loaded successfully (mocked)",
 		Success: true,
