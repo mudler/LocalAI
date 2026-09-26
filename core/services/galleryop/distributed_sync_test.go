@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,9 +16,10 @@ import (
 	"github.com/mudler/LocalAI/core/services/testutil"
 )
 
-// fakeBus is an in-memory MessagingClient that delivers each published
+// fakeBus is an in-memory messaging.Broadcaster that delivers each published
 // message synchronously to every registered subscriber whose subject filter
-// matches, including NATS-style wildcard subjects (`*` matches one token).
+// matches, using messaging.SubjectMatches so this double and the carrier agree
+// on what a wildcard filter means.
 //
 // Synchronous delivery keeps the specs deterministic: the moment Publish
 // returns, every subscriber's handler has run, so the spec body can read
@@ -37,26 +36,6 @@ type fakeBusSub struct {
 
 func newFakeBus() *fakeBus { return &fakeBus{} }
 
-func subjectMatches(filter, subject string) bool {
-	if filter == subject {
-		return true
-	}
-	fp := strings.Split(filter, ".")
-	sp := strings.Split(subject, ".")
-	if len(fp) != len(sp) {
-		return false
-	}
-	for i := range fp {
-		if fp[i] == "*" {
-			continue
-		}
-		if fp[i] != sp[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func (b *fakeBus) Publish(subject string, data any) error {
 	payload, err := json.Marshal(data)
 	if err != nil {
@@ -66,7 +45,7 @@ func (b *fakeBus) Publish(subject string, data any) error {
 	subs := append([]fakeBusSub(nil), b.subs...)
 	b.mu.Unlock()
 	for _, s := range subs {
-		if subjectMatches(s.subject, subject) {
+		if messaging.SubjectMatches(s.subject, subject) {
 			s.handler(payload)
 		}
 	}
@@ -97,25 +76,6 @@ func (b *fakeBus) Subscribe(subject string, handler func([]byte)) (messaging.Sub
 	b.mu.Unlock()
 	return &fakeBusSubscription{bus: b, subRef: sub}, nil
 }
-
-func (b *fakeBus) QueueSubscribe(subject, _ string, handler func([]byte)) (messaging.Subscription, error) {
-	return b.Subscribe(subject, handler)
-}
-
-func (b *fakeBus) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeBusSubscription{bus: b}, nil
-}
-
-func (b *fakeBus) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
-	return &fakeBusSubscription{bus: b}, nil
-}
-
-func (b *fakeBus) Request(string, []byte, time.Duration) ([]byte, error) {
-	return nil, nil
-}
-
-func (b *fakeBus) IsConnected() bool { return true }
-func (b *fakeBus) Close()            {}
 
 var _ = Describe("OpStatus JSON wire format", func() {
 	It("round-trips a non-nil Error through Marshal/Unmarshal as a string", func() {
@@ -172,8 +132,8 @@ var _ = Describe("OpCache distributed sync", func() {
 		svcB = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
 		opA = galleryop.NewOpCache(svcA)
 		opB = galleryop.NewOpCache(svcB)
-		opA.SetMessagingClient(bus)
-		opB.SetMessagingClient(bus)
+		opA.SetBroadcaster(bus)
+		opB.SetBroadcaster(bus)
 		Expect(opA.Start(context.Background())).To(Succeed())
 		Expect(opB.Start(context.Background())).To(Succeed())
 	})
@@ -261,8 +221,8 @@ var _ = Describe("GalleryService broadcast sync", func() {
 		bus = newFakeBus()
 		svcA = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
 		svcB = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
-		svcA.SetNATSClient(bus)
-		svcB.SetNATSClient(bus)
+		svcA.SetBroadcaster(bus)
+		svcB.SetBroadcaster(bus)
 		Expect(svcA.SubscribeBroadcasts()).To(Succeed())
 		Expect(svcB.SubscribeBroadcasts()).To(Succeed())
 	})
@@ -349,8 +309,8 @@ var _ = Describe("GalleryService cache invalidation broadcasts", func() {
 		bus = newFakeBus()
 		svcA = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
 		svcB = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
-		svcA.SetNATSClient(bus)
-		svcB.SetNATSClient(bus)
+		svcA.SetBroadcaster(bus)
+		svcB.SetBroadcaster(bus)
 	})
 
 	AfterEach(func() {
@@ -437,7 +397,7 @@ var _ = Describe("GalleryService cache invalidation broadcasts", func() {
 
 	It("BroadcastModelsChanged is a no-op when NATS is not wired (standalone)", func() {
 		standalone := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
-		// No SetNATSClient: must not panic and must simply do nothing.
+		// No SetBroadcaster: must not panic and must simply do nothing.
 		Expect(func() { standalone.BroadcastModelsChanged("x", "delete") }).ToNot(Panic())
 	})
 })

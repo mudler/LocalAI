@@ -23,6 +23,12 @@ func jobKey(j *job) string { return j.ID }
 
 const stateName = "test.jobs"
 
+// The retype this whole change rests on. Config.Bus is messaging.Broadcaster,
+// so anything a spec or a deployment hands it must satisfy that and nothing
+// wider; a fake that quietly needed MessagingClient would mean the component
+// still could not be handed the PostgreSQL carrier.
+var _ messaging.Broadcaster = (*testutil.FakeBus)(nil)
+
 func deltaSubject() string { return messaging.SubjectSyncStateDelta(stateName) }
 
 // fakeStore is an in-memory Store that records call counts so specs can assert
@@ -96,8 +102,8 @@ var _ = Describe("SyncedMap", func() {
 
 		BeforeEach(func() {
 			bus = testutil.NewFakeBus()
-			a = syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
-			b = syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
+			a = syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
+			b = syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
 			Expect(a.Start(ctx)).To(Succeed())
 			Expect(b.Start(ctx)).To(Succeed())
 		})
@@ -157,8 +163,8 @@ var _ = Describe("SyncedMap", func() {
 	Describe("echo-loop guard", func() {
 		It("applies its own broadcast once and does not re-publish", func() {
 			bus := testutil.NewFakeBus()
-			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
-			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
+			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
+			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
 			Expect(a.Start(ctx)).To(Succeed())
 			Expect(b.Start(ctx)).To(Succeed())
 			defer func() {
@@ -183,8 +189,8 @@ var _ = Describe("SyncedMap", func() {
 			bus := testutil.NewFakeBus()
 			storeA := newFakeStore()
 			storeB := newFakeStore()
-			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus, Store: storeA})
-			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus, Store: storeB})
+			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus, Store: storeA})
+			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus, Store: storeB})
 			Expect(a.Start(ctx)).To(Succeed())
 			Expect(b.Start(ctx)).To(Succeed())
 			defer func() {
@@ -215,9 +221,9 @@ var _ = Describe("SyncedMap", func() {
 				ops  []string
 				keys []string
 			)
-			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus})
+			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
 			b := syncstate.New(syncstate.Config[string, *job]{
-				Name: stateName, Key: jobKey, Nats: bus,
+				Name: stateName, Key: jobKey, Bus: bus,
 				OnApply: func(op string, k string, _ *job) {
 					mu.Lock()
 					ops = append(ops, op)
@@ -242,7 +248,32 @@ var _ = Describe("SyncedMap", func() {
 		})
 	})
 
-	Describe("standalone (nil Nats)", func() {
+	Describe("standalone (nil Bus)", func() {
+		It("registers nothing and broadcasts nothing, and still serves reads from hydrate", func() {
+			// The bus exists in this spec and is deliberately NOT handed over.
+			// Zero publishes and zero subscribers is the assertion: "nothing was
+			// delivered" cannot tell a strict no-op apart from a subscription
+			// nobody happened to publish to, and a component that reached for a
+			// carrier of its own would pass that weaker check.
+			bus := testutil.NewFakeBus()
+			store := newFakeStore(&job{ID: "seeded", Status: "completed"})
+
+			m := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Store: store})
+			Expect(m.Start(ctx)).To(Succeed())
+			defer func() { Expect(m.Close()).To(Succeed()) }()
+
+			Expect(bus.Subscribers()).To(Equal(0), "a standalone map must register no subscription anywhere")
+
+			got, ok := m.Get("seeded")
+			Expect(ok).To(BeTrue(), "hydrate must serve reads with no carrier at all")
+			Expect(got.Status).To(Equal("completed"))
+			Expect(m.List()).To(HaveLen(1))
+
+			Expect(m.Set(ctx, &job{ID: "local", Status: "running"})).To(Succeed())
+			Expect(m.Delete(ctx, "seeded")).To(Succeed())
+			Expect(bus.PublishCount(deltaSubject())).To(Equal(0), "a standalone map must not broadcast")
+		})
+
 		It("works in-memory with no panic and nothing to broadcast", func() {
 			m := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey})
 			Expect(m.Start(ctx)).To(Succeed())
@@ -268,7 +299,7 @@ var _ = Describe("SyncedMap", func() {
 		It("re-reads the source when the messaging client reconnects", func() {
 			bus := testutil.NewFakeBus()
 			store := newFakeStore(&job{ID: "init", Status: "running"})
-			m := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Nats: bus, Store: store})
+			m := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus, Store: store})
 			Expect(m.Start(ctx)).To(Succeed())
 			defer func() { Expect(m.Close()).To(Succeed()) }()
 
@@ -286,6 +317,179 @@ var _ = Describe("SyncedMap", func() {
 			Expect(ok).To(BeTrue(), "reconnect must re-hydrate from the source and pick up drift")
 			_, _, list := store.counts()
 			Expect(list).To(Equal(2), "exactly one Start hydrate plus one reconnect re-hydrate")
+		})
+	})
+})
+
+// Per-tenant maps.
+//
+// A SyncedMap instantiated once per tenant used to publish and subscribe on the
+// SAME subject as every other tenant's copy, so a delta was applied into every
+// other tenant's in-memory map. These specs assert the NEGATIVE case - tenant A
+// must not receive tenant B's traffic - at least as hard as the positive one,
+// because the negative case is the data-exposure bug and the positive case is
+// only the feature.
+var _ = Describe("SyncedMap per-tenant subjects", func() {
+	ctx := context.Background()
+
+	newTenantMap := func(bus *testutil.FakeBus, tenant string) *syncstate.SyncedMap[string, *job] {
+		m := syncstate.New(syncstate.Config[string, *job]{
+			Name:      stateName,
+			Key:       jobKey,
+			Bus:       bus,
+			PerTenant: true,
+			Tenant:    tenant,
+		})
+		Expect(m.Start(ctx)).To(Succeed())
+		return m
+	}
+
+	Describe("three maps on one bus", func() {
+		var (
+			bus             *testutil.FakeBus
+			cluster, u1, u2 *syncstate.SyncedMap[string, *job]
+		)
+
+		BeforeEach(func() {
+			bus = testutil.NewFakeBus()
+			// Tenant "" is the cluster-wide administrative view: it hydrates
+			// from every tenant's rows, so it must also apply every tenant's
+			// deltas or it is stale the moment any tenant writes.
+			cluster = newTenantMap(bus, "")
+			u1 = newTenantMap(bus, "u1")
+			u2 = newTenantMap(bus, "u2")
+		})
+
+		AfterEach(func() {
+			Expect(u2.Close()).To(Succeed())
+			Expect(u1.Close()).To(Succeed())
+			Expect(cluster.Close()).To(Succeed())
+		})
+
+		It("keeps a Set on u1 out of u2 while the cluster-wide view sees it", func() {
+			Expect(u1.Set(ctx, &job{ID: "j-u1", Status: "running"})).To(Succeed())
+
+			// Assert on Get, not on a publish counter: a counter is satisfied
+			// by a map that received the delta and applied it under a key the
+			// spec never looks up.
+			_, leaked := u2.Get("j-u1")
+			Expect(leaked).To(BeFalse(), "tenant u2 must never receive tenant u1's delta")
+
+			_, mine := u1.Get("j-u1")
+			Expect(mine).To(BeTrue(), "the originating tenant keeps its own write")
+
+			_, admin := cluster.Get("j-u1")
+			Expect(admin).To(BeTrue(), "the cluster-wide view must apply every tenant's delta")
+		})
+
+		It("keeps a Set on u2 out of u1 while the cluster-wide view sees it", func() {
+			// The mirror direction, spelled out rather than assumed: a filter
+			// built from the wrong tenant would pass one direction only.
+			Expect(u2.Set(ctx, &job{ID: "j-u2", Status: "running"})).To(Succeed())
+
+			_, leaked := u1.Get("j-u2")
+			Expect(leaked).To(BeFalse(), "tenant u1 must never receive tenant u2's delta")
+
+			_, admin := cluster.Get("j-u2")
+			Expect(admin).To(BeTrue(), "the cluster-wide view must apply every tenant's delta")
+		})
+
+		It("keeps a Delete on u1 out of u2", func() {
+			// A delete carries only op+key, so a leaked delete removes a row
+			// from a map that never held the create - the same boundary, the
+			// destructive direction.
+			Expect(u2.Set(ctx, &job{ID: "shared-id", Status: "u2s"})).To(Succeed())
+			Expect(u1.Set(ctx, &job{ID: "shared-id", Status: "u1s"})).To(Succeed())
+
+			Expect(u1.Delete(ctx, "shared-id")).To(Succeed())
+
+			_, survives := u2.Get("shared-id")
+			Expect(survives).To(BeTrue(), "tenant u1 deleting its own key must not erase tenant u2's")
+		})
+
+		It("keeps a Set on the cluster-wide map out of both tenant maps", func() {
+			Expect(cluster.Set(ctx, &job{ID: "j-admin", Status: "running"})).To(Succeed())
+
+			_, in1 := u1.Get("j-admin")
+			Expect(in1).To(BeFalse())
+			_, in2 := u2.Get("j-admin")
+			Expect(in2).To(BeFalse())
+		})
+
+		It("publishes a tenant's mutation on that tenant's subject alone", func() {
+			// The publish half of the rule, asserted by subject name so a map
+			// that published unscoped but subscribed scoped - which would look
+			// like a dead bus rather than a leak - fails here by name.
+			Expect(u1.Set(ctx, &job{ID: "j-u1", Status: "running"})).To(Succeed())
+
+			Expect(bus.PublishCount(messaging.SubjectSyncStateTenantDelta(stateName, "u1"))).To(Equal(1))
+			Expect(bus.PublishCount(deltaSubject())).To(Equal(0),
+				"a tenant must not put anything on the cluster-wide subject")
+			Expect(bus.PublishCount(messaging.SubjectSyncStateTenantDelta(stateName, "u2"))).To(Equal(0))
+		})
+
+		It("publishes the cluster-wide map's mutation on the unscoped subject", func() {
+			Expect(cluster.Set(ctx, &job{ID: "j-admin", Status: "running"})).To(Succeed())
+
+			Expect(bus.PublishCount(deltaSubject())).To(Equal(1))
+		})
+	})
+
+	Describe("Close on the cluster-wide map", func() {
+		It("drops BOTH of its subscriptions", func() {
+			// The cluster-wide view is the only map holding two subscriptions,
+			// so it is the only one where a Close that unsubscribes the first
+			// and returns leaves a live handler writing into a closed map.
+			bus := testutil.NewFakeBus()
+			cluster := newTenantMap(bus, "")
+			peerCluster := newTenantMap(bus, "")
+			u1 := newTenantMap(bus, "u1")
+			defer func() {
+				Expect(peerCluster.Close()).To(Succeed())
+				Expect(u1.Close()).To(Succeed())
+			}()
+
+			Expect(cluster.Close()).To(Succeed())
+
+			// The tenant-wildcard subscription.
+			Expect(u1.Set(ctx, &job{ID: "after-close-tenant", Status: "x"})).To(Succeed())
+			_, got := cluster.Get("after-close-tenant")
+			Expect(got).To(BeFalse(), "the tenant-wildcard subscription must be gone after Close")
+
+			// The unscoped subscription.
+			Expect(peerCluster.Set(ctx, &job{ID: "after-close-unscoped", Status: "x"})).To(Succeed())
+			_, got = cluster.Get("after-close-unscoped")
+			Expect(got).To(BeFalse(), "the unscoped subscription must be gone after Close")
+		})
+	})
+
+	Describe("PerTenant false", func() {
+		It("keeps exactly the subject it has today", func() {
+			// finetune.jobs, quantization and the responses store are unscoped
+			// adopters. Pin that this change moved none of them.
+			bus := testutil.NewFakeBus()
+			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
+			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
+			Expect(a.Start(ctx)).To(Succeed())
+			Expect(b.Start(ctx)).To(Succeed())
+			tenant := newTenantMap(bus, "u1")
+			defer func() {
+				Expect(a.Close()).To(Succeed())
+				Expect(b.Close()).To(Succeed())
+				Expect(tenant.Close()).To(Succeed())
+			}()
+
+			Expect(a.Set(ctx, &job{ID: "unscoped", Status: "running"})).To(Succeed())
+
+			Expect(bus.PublishCount(deltaSubject())).To(Equal(1))
+			_, peer := b.Get("unscoped")
+			Expect(peer).To(BeTrue(), "unscoped adopters must keep converging with each other")
+			_, crossed := tenant.Get("unscoped")
+			Expect(crossed).To(BeFalse(), "an unscoped map must not reach a tenant map")
+
+			Expect(tenant.Set(ctx, &job{ID: "scoped", Status: "running"})).To(Succeed())
+			_, back := a.Get("scoped")
+			Expect(back).To(BeFalse(), "a tenant map must not reach an unscoped map")
 		})
 	})
 })

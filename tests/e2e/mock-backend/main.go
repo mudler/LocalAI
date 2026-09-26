@@ -2,15 +2,19 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +36,206 @@ var (
 // text response instead of another tool call, letting the MCP loop complete.
 type MockBackend struct {
 	pb.UnimplementedBackendServer
+	quantizationMu      sync.RWMutex
+	quantizationOutputs map[string]string
+}
+
+var (
+	pngFixture = []byte{
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+		0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+		0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00,
+		0x0d, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0xf0,
+		0x1f, 0x00, 0x05, 0x00, 0x01, 0xff, 0x89, 0x99, 0x3d, 0x1d, 0x00, 0x00,
+		0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+	}
+	videoFixture = []byte("\x00\x00\x00\x18ftypisomMOCK-VIDEO")
+	glbFixture   = []byte{'g', 'l', 'T', 'F', 2, 0, 0, 0, 12, 0, 0, 0}
+)
+
+type namedFixtureInput struct {
+	name  string
+	value string
+}
+
+type ttsFixtureReference struct {
+	Audio string `json:"audio"`
+}
+
+// safeLocalFixturePath is the only gate through which fixture inputs may
+// reach filesystem APIs. Distributed staging produces short absolute paths;
+// inline base64, data URIs, URLs, and long opaque values must remain literals.
+func safeLocalFixturePath(value string) (string, bool) {
+	if value == "" || len(value) > 4096 || strings.IndexByte(value, 0) >= 0 || isInlineFixtureValue(value) || !filepath.IsAbs(value) {
+		return "", false
+	}
+	clean := filepath.Clean(value)
+	if clean != value {
+		return "", false
+	}
+	for _, component := range strings.Split(value, string(filepath.Separator)) {
+		if len(component) > 255 {
+			return "", false
+		}
+	}
+
+	current := string(filepath.Separator)
+	for _, component := range strings.Split(strings.TrimPrefix(clean, string(filepath.Separator)), string(filepath.Separator)) {
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 {
+			return "", false
+		}
+	}
+	info, err := os.Lstat(clean)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", false
+	}
+	return clean, true
+}
+
+func isInlineFixtureValue(value string) bool {
+	lower := strings.ToLower(value)
+	if strings.HasPrefix(lower, "data:") || strings.Contains(value, "://") {
+		return true
+	}
+	// Standard base64 may legitimately begin with '/'. Require a meaningful
+	// payload size so short Unix paths such as /tmp/foo are not ambiguous.
+	if len(value) < 64 {
+		return false
+	}
+	if _, err := base64.StdEncoding.DecodeString(value); err == nil {
+		return true
+	}
+	_, err := base64.RawStdEncoding.DecodeString(value)
+	return err == nil
+}
+
+func writeFixture(path string, data []byte) error {
+	if path == "" {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+		return err
+	}
+	// #nosec G703 -- this test backend writes only the destination allocated by
+	// the worker staging layer; the binary conformance suite verifies its root.
+	return os.WriteFile(path, data, 0600)
+}
+
+func fixtureArtifact(base []byte, markers string) []byte {
+	if markers == "" {
+		return base
+	}
+	out := append([]byte(nil), base...)
+	out = append(out, []byte("\nMOCK-INPUTS:"+markers+"\n")...)
+	return out
+}
+
+func fixtureDigest(path string) (string, error) {
+	// #nosec G304 -- callers pass only paths accepted by safeLocalFixturePath,
+	// including its symlink and optional expected-worker-root checks.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("sha256:%x", sha256.Sum256(data)), nil
+}
+
+func fixtureInputMarker(input namedFixtureInput) (string, error) {
+	if input.value == "" {
+		return "", nil
+	}
+	if path, ok := safeLocalFixturePath(input.value); ok {
+		if expectedRoot := os.Getenv("LOCALAI_MOCK_EXPECT_STAGING_ROOT"); expectedRoot != "" {
+			realRoot, rootErr := filepath.EvalSymlinks(expectedRoot)
+			realPath, pathErr := filepath.EvalSymlinks(path)
+			if rootErr != nil || pathErr != nil {
+				return "", fmt.Errorf("validating staged %s root", input.name)
+			}
+			rel, relErr := filepath.Rel(realRoot, realPath)
+			if relErr != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				return "", fmt.Errorf("staged %s path is outside expected worker root", input.name)
+			}
+		}
+		digest, err := fixtureDigest(path)
+		if err != nil {
+			return "", fmt.Errorf("reading staged %s: %w", input.name, err)
+		}
+		return input.name + "=" + digest, nil
+	}
+	return fmt.Sprintf("%s=inline-sha256:%x", input.name, sha256.Sum256([]byte(input.value))), nil
+}
+
+func fixtureInputMarkers(inputs ...namedFixtureInput) (string, error) {
+	markers := make([]string, 0, len(inputs))
+	for _, input := range inputs {
+		marker, err := fixtureInputMarker(input)
+		if err != nil {
+			return "", err
+		}
+		if marker != "" {
+			markers = append(markers, marker)
+		}
+	}
+	return strings.Join(markers, "; "), nil
+}
+
+func predictFixtureMarkers(in *pb.PredictOptions) (string, error) {
+	inputs := make([]namedFixtureInput, 0, len(in.Images)+len(in.Videos)+len(in.Audios))
+	for i, value := range in.Images {
+		inputs = append(inputs, namedFixtureInput{name: fmt.Sprintf("image[%d]", i), value: value})
+	}
+	for i, value := range in.Videos {
+		inputs = append(inputs, namedFixtureInput{name: fmt.Sprintf("video[%d]", i), value: value})
+	}
+	for i, value := range in.Audios {
+		inputs = append(inputs, namedFixtureInput{name: fmt.Sprintf("audio[%d]", i), value: value})
+	}
+	return fixtureInputMarkers(inputs...)
+}
+
+func ttsFixtureInputs(in *pb.TTSRequest) ([]namedFixtureInput, error) {
+	inputs := []namedFixtureInput{
+		{name: "model", value: in.Model},
+		{name: "voice", value: in.Voice},
+	}
+	raw := in.Params["multi_reference_cond"]
+	if raw == "" {
+		return inputs, nil
+	}
+	var references []ttsFixtureReference
+	if err := json.Unmarshal([]byte(raw), &references); err != nil {
+		return nil, fmt.Errorf("decoding TTS fixture references: %w", err)
+	}
+	for i, reference := range references {
+		inputs = append(inputs, namedFixtureInput{
+			name:  fmt.Sprintf("reference[%d]", i),
+			value: reference.Audio,
+		})
+	}
+	return inputs, nil
+}
+
+func fixtureResult(message, markers string, err error) *pb.Result {
+	if err != nil {
+		return &pb.Result{Message: err.Error(), Success: false}
+	}
+	if markers != "" {
+		message += "; " + markers
+	}
+	return &pb.Result{Message: message, Success: true}
+}
+
+func fixtureInt32(value int) int32 {
+	if value > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if value < math.MinInt32 {
+		return math.MinInt32
+	}
+	// #nosec G115 -- the two guards above prove the conversion is in range.
+	return int32(value)
 }
 
 // lastLoadParams records the most recent LoadModel parameters so a Predict
@@ -93,8 +297,21 @@ func (m *MockBackend) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.R
 		"draft_model", in.DraftModel,
 		"mmproj", in.MMProj)
 	recordLoadParams(in)
+	inputs := []namedFixtureInput{
+		{name: "model_file", value: in.ModelFile},
+		{name: "draft_model", value: in.DraftModel},
+		{name: "mmproj", value: in.MMProj},
+		{name: "original_config_file", value: in.OriginalConfigFile},
+	}
+	if _, err := os.Stat(in.ModelFile + ".json"); err == nil {
+		inputs = append(inputs, namedFixtureInput{name: "model_companion", value: in.ModelFile + ".json"})
+	}
+	markers, err := fixtureInputMarkers(inputs...)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.Result{
-		Message: "Model loaded successfully (mocked)",
+		Message: "Model loaded successfully (mocked) " + markers,
 		Success: true,
 	}, nil
 }
@@ -110,6 +327,13 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 	if strings.Contains(in.Prompt, "MOCK_ERROR") {
 		return nil, fmt.Errorf("mock backend predict error: simulated failure")
 	}
+	if strings.Contains(in.Prompt, "ECHO_FIXTURE_INPUTS") {
+		markers, err := predictFixtureMarkers(in)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.Reply{Message: []byte(markers), Tokens: 1, PromptTokens: 1}, nil
+	}
 
 	// ECHO_LOAD_PARAMS lets path-resolution tests inspect what LoadModel
 	// received without adding a new RPC. The reply carries a JSON snapshot
@@ -124,6 +348,9 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 			snapshot["model_file"] = opts.ModelFile
 			snapshot["draft_model"] = opts.DraftModel
 			snapshot["mmproj"] = opts.MMProj
+			snapshot["engine_args"] = opts.EngineArgs
+			snapshot["original_config_file"] = opts.OriginalConfigFile
+			snapshot["fixture_env"] = opts.EnvVars["FIXTURE_ENV"]
 		}
 		payload, err := json.Marshal(snapshot)
 		if err != nil {
@@ -287,6 +514,13 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 		case <-stream.Context().Done():
 			return stream.Context().Err()
 		}
+	}
+	if strings.Contains(in.Prompt, "ECHO_FIXTURE_INPUTS") {
+		markers, err := predictFixtureMarkers(in)
+		if err != nil {
+			return err
+		}
+		return stream.Send(&pb.Reply{Message: []byte(markers), Tokens: 1, PromptTokens: 1})
 	}
 
 	// Simulate C++ autoparser behavior: tool calls delivered via ChatDeltas
@@ -496,10 +730,18 @@ func (m *MockBackend) GenerateImage(ctx context.Context, in *pb.GenerateImageReq
 		return nil, err
 	}
 	xlog.Debug("GenerateImage called", "prompt", in.PositivePrompt)
-	return &pb.Result{
-		Message: "Image generated successfully (mocked)",
-		Success: true,
-	}, nil
+	inputs := []namedFixtureInput{
+		{name: "negative_prompt", value: in.NegativePrompt},
+		{name: "src", value: in.Src},
+	}
+	for i, ref := range in.RefImages {
+		inputs = append(inputs, namedFixtureInput{name: fmt.Sprintf("ref_image[%d]", i), value: ref})
+	}
+	markers, err := fixtureInputMarkers(inputs...)
+	if err == nil {
+		err = writeFixture(in.Dst, fixtureArtifact(pngFixture, markers))
+	}
+	return fixtureResult("Image generated successfully (mocked)", markers, err), nil
 }
 
 func (m *MockBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest) (*pb.Result, error) {
@@ -507,10 +749,54 @@ func (m *MockBackend) GenerateVideo(ctx context.Context, in *pb.GenerateVideoReq
 		return nil, err
 	}
 	xlog.Debug("GenerateVideo called", "prompt", in.Prompt)
-	return &pb.Result{
-		Message: "Video generated successfully (mocked)",
-		Success: true,
-	}, nil
+	markers, err := fixtureInputMarkers(
+		namedFixtureInput{name: "start_image", value: in.StartImage},
+		namedFixtureInput{name: "end_image", value: in.EndImage},
+		namedFixtureInput{name: "audio", value: in.Audio},
+	)
+	if err == nil {
+		err = writeFixture(in.Dst, fixtureArtifact(videoFixture, markers))
+	}
+	return fixtureResult("Video generated successfully (mocked)", markers, err), nil
+}
+
+func (m *MockBackend) Generate3D(ctx context.Context, in *pb.Generate3DRequest) (*pb.Result, error) {
+	markers, err := fixtureInputMarkers(namedFixtureInput{name: "src", value: in.Src})
+	if err == nil {
+		err = writeFixture(in.Dst, fixtureArtifact(glbFixture, markers))
+	}
+	return fixtureResult("3D asset generated successfully (mocked)", markers, err), nil
+}
+
+func (m *MockBackend) Animate3D(ctx context.Context, in *pb.Animate3DRequest) (*pb.Result, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(in.Inputs))
+	for name := range in.Inputs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	inputs := make([]namedFixtureInput, 0, len(names))
+	for _, name := range names {
+		input := in.Inputs[name]
+		if input != nil {
+			inputs = append(inputs, namedFixtureInput{name: name, value: input.Data})
+		}
+	}
+	markers, err := fixtureInputMarkers(inputs...)
+	if err == nil {
+		err = writeFixture(in.Dst, fixtureArtifact(glbFixture, markers))
+	}
+	return fixtureResult("3D animation generated successfully (mocked)", markers, err), nil
+}
+
+func (m *MockBackend) UpscaleImage(ctx context.Context, in *pb.UpscaleImageRequest) (*pb.Result, error) {
+	markers, err := fixtureInputMarkers(namedFixtureInput{name: "src", value: in.Src})
+	if err == nil {
+		err = writeFixture(in.Dst, fixtureArtifact(pngFixture, markers))
+	}
+	return fixtureResult("Image upscaled successfully (mocked)", markers, err), nil
 }
 
 func (m *MockBackend) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
@@ -518,19 +804,15 @@ func (m *MockBackend) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, e
 		return nil, err
 	}
 	xlog.Debug("TTS called", "text", in.Text)
-	dst := in.GetDst()
-	if dst != "" {
-		if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
-			return &pb.Result{Message: err.Error(), Success: false}, nil
-		}
-		if err := writeMinimalWAV(dst); err != nil {
-			return &pb.Result{Message: err.Error(), Success: false}, nil
-		}
+	inputs, err := ttsFixtureInputs(in)
+	markers := ""
+	if err == nil {
+		markers, err = fixtureInputMarkers(inputs...)
 	}
-	return &pb.Result{
-		Message: "TTS audio generated successfully (mocked)",
-		Success: true,
-	}, nil
+	if err == nil {
+		err = writeMinimalWAV(in.Dst)
+	}
+	return fixtureResult("TTS audio generated successfully (mocked)", markers, err), nil
 }
 
 func (m *MockBackend) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamServer) error {
@@ -538,13 +820,31 @@ func (m *MockBackend) TTSStream(in *pb.TTSRequest, stream pb.Backend_TTSStreamSe
 		return err
 	}
 	xlog.Debug("TTSStream called", "text", in.Text)
-	// Stream mock audio chunks (simplified - just send a few bytes)
-	chunks := [][]byte{
-		{0x52, 0x49, 0x46, 0x46}, // Mock WAV header start
-		{0x57, 0x41, 0x56, 0x45}, // Mock WAV header
-		{0x64, 0x61, 0x74, 0x61}, // Mock data chunk
+	inputs, err := ttsFixtureInputs(in)
+	if err != nil {
+		return err
 	}
-	for _, chunk := range chunks {
+	markers, err := fixtureInputMarkers(inputs...)
+	if err != nil {
+		return err
+	}
+	metadata := map[string]any{"sample_rate": ttsSampleRate()}
+	if markers != "" {
+		metadata["fixture_inputs"] = markers
+	}
+	message, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+	if err := stream.Send(&pb.Reply{Message: message}); err != nil {
+		return err
+	}
+	pcm := minimalPCM(ttsSampleRate())
+	const chunks = 3
+	chunkSize := (len(pcm) + chunks - 1) / chunks
+	for start := 0; start < len(pcm); start += chunkSize {
+		end := min(start+chunkSize, len(pcm))
+		chunk := pcm[start:end]
 		if err := stream.Send(&pb.Reply{Audio: chunk}); err != nil {
 			return err
 		}
@@ -566,19 +866,33 @@ func (m *MockBackend) SoundGeneration(ctx context.Context, in *pb.SoundGeneratio
 		"language", in.GetLanguage(),
 		"timesignature", in.GetTimesignature(),
 		"instrumental", in.GetInstrumental())
-	dst := in.GetDst()
-	if dst != "" {
-		if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
-			return &pb.Result{Message: err.Error(), Success: false}, nil
-		}
-		if err := writeMinimalWAV(dst); err != nil {
-			return &pb.Result{Message: err.Error(), Success: false}, nil
-		}
+	markers, err := fixtureInputMarkers(
+		namedFixtureInput{name: "model", value: in.Model},
+		namedFixtureInput{name: "src", value: in.GetSrc()},
+	)
+	if err == nil {
+		err = writeMinimalWAV(in.Dst)
 	}
-	return &pb.Result{
-		Message: "Sound generated successfully (mocked)",
-		Success: true,
-	}, nil
+	return fixtureResult("Sound generated successfully (mocked)", markers, err), nil
+}
+
+func (m *MockBackend) SoundDetection(ctx context.Context, in *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	markers, err := fixtureInputMarkers(namedFixtureInput{name: "src", value: in.Src})
+	if err != nil {
+		return nil, err
+	}
+	label := "mocked_sound"
+	if markers != "" {
+		label += "; " + markers
+	}
+	return &pb.SoundDetectionResponse{Detections: []*pb.SoundClass{{
+		Label: label,
+		Score: 0.99,
+		Index: 1,
+	}}}, nil
 }
 
 // ttsSampleRate returns the sample rate to use for TTS output, configurable
@@ -596,16 +910,21 @@ func ttsSampleRate() int {
 // so that tests can verify audio integrity end-to-end. The sample rate
 // is configurable via MOCK_TTS_SAMPLE_RATE to test rate mismatch bugs.
 func writeMinimalWAV(path string) error {
+	if path == "" {
+		return nil
+	}
 	sampleRate := ttsSampleRate()
 	const numChannels = 1
 	const bitsPerSample = 16
-	const freq = 440.0
-	const durationSec = 0.5
-	numSamples := int(float64(sampleRate) * durationSec)
-
-	dataSize := numSamples * numChannels * (bitsPerSample / 8)
+	pcm := minimalPCM(sampleRate)
+	dataSize := len(pcm)
 	const headerLen = 44
-	f, err := os.Create(path)
+	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+		return err
+	}
+	// #nosec G304 -- path is the output allocated by the worker staging layer;
+	// the binary conformance suite verifies it is under the worker root.
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
@@ -625,13 +944,26 @@ func writeMinimalWAV(path string) error {
 	_ = binary.Write(f, binary.LittleEndian, uint16(bitsPerSample))
 	// data chunk — 440Hz sine wave
 	_, _ = f.Write([]byte("data"))
+	// #nosec G115 -- minimalPCM is half a second at the bounded fixture sample
+	// rate, so its byte length is well below the WAV uint32 limit.
 	_ = binary.Write(f, binary.LittleEndian, uint32(dataSize))
+	_, err = f.Write(pcm)
+	return err
+}
+
+func minimalPCM(sampleRate int) []byte {
+	const freq = 440.0
+	const durationSec = 0.5
+	numSamples := int(float64(sampleRate) * durationSec)
+	pcm := make([]byte, numSamples*2)
 	for i := range numSamples {
 		t := float64(i) / float64(sampleRate)
 		sample := int16(math.MaxInt16 / 2 * math.Sin(2*math.Pi*freq*t))
-		_ = binary.Write(f, binary.LittleEndian, sample)
+		// #nosec G115 -- WAV PCM stores the signed int16 bit pattern as two
+		// little-endian bytes; this conversion intentionally preserves the bits.
+		binary.LittleEndian.PutUint16(pcm[i*2:], uint16(sample))
 	}
-	return nil
+	return pcm
 }
 
 func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
@@ -643,8 +975,14 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 	dataLen := 0
 	rms := 0.0
 
-	if dst != "" {
-		if data, err := os.ReadFile(dst); err == nil {
+	marker, err := fixtureInputMarker(namedFixtureInput{name: "audio", value: dst})
+	if err != nil {
+		return nil, err
+	}
+	if path, ok := safeLocalFixturePath(dst); ok {
+		// #nosec G304 -- safeLocalFixturePath rejects non-absolute, unclean,
+		// non-regular and symlinked paths before this fixture read.
+		if data, readErr := os.ReadFile(path); readErr == nil {
 			if len(data) >= 44 {
 				wavSR = int(binary.LittleEndian.Uint32(data[24:28]))
 				dataLen = int(binary.LittleEndian.Uint32(data[40:44]))
@@ -665,9 +1003,12 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 		}
 	}
 
-	xlog.Debug("AudioTranscription called", "dst", dst, "wav_sample_rate", wavSR, "data_len", dataLen, "rms", rms)
+	xlog.Debug("AudioTranscription called", "input", marker, "wav_sample_rate", wavSR, "data_len", dataLen, "rms", rms)
 
 	text := fmt.Sprintf("transcribed: rms=%.1f samples=%d sr=%d", rms, dataLen/2, wavSR)
+	if marker != "" {
+		text += "; " + marker
+	}
 	return &pb.TranscriptResult{
 		Text: text,
 		Segments: []*pb.TranscriptSegment{
@@ -680,6 +1021,17 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 			},
 		},
 	}, nil
+}
+
+func (m *MockBackend) AudioTranscriptionStream(in *pb.TranscriptRequest, stream pb.Backend_AudioTranscriptionStreamServer) error {
+	result, err := m.AudioTranscription(stream.Context(), in)
+	if err != nil {
+		return err
+	}
+	if err := stream.Send(&pb.TranscriptStreamResponse{Delta: result.Text}); err != nil {
+		return err
+	}
+	return stream.Send(&pb.TranscriptStreamResponse{FinalResult: result})
 }
 
 func (m *MockBackend) TokenizeString(ctx context.Context, in *pb.PredictOptions) (*pb.TokenizationResponse, error) {
@@ -802,6 +1154,9 @@ func (m *MockBackend) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.Det
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
+	if _, err := fixtureInputMarkers(namedFixtureInput{name: "src", value: in.Src}); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Detect called", "src", in.Src)
 	return &pb.DetectResponse{
 		Detections: []*pb.Detection{
@@ -815,6 +1170,80 @@ func (m *MockBackend) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.Det
 			},
 		},
 	}, nil
+}
+
+func (m *MockBackend) Depth(ctx context.Context, in *pb.DepthRequest) (*pb.DepthResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	markers, err := fixtureInputMarkers(namedFixtureInput{name: "src", value: in.Src})
+	if err != nil {
+		return nil, err
+	}
+	result := &pb.DepthResponse{
+		Width: 2, Height: 1, Depth: []float32{1.25, 2.5},
+		Confidence: []float32{0.9, 0.8}, Sky: []float32{0, 1},
+		Extrinsics: []float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0},
+		Intrinsics: []float32{1, 0, 0, 0, 1, 0, 0, 0, 1}, IsMetric: true,
+	}
+	if in.Dst != "" {
+		exportPath := filepath.Join(in.Dst, "nested", "depth.txt")
+		if err := writeFixture(exportPath, []byte(markers)); err != nil {
+			return nil, err
+		}
+		result.ExportPaths = []string{exportPath}
+	}
+	return result, nil
+}
+
+func (m *MockBackend) FaceAnalyze(ctx context.Context, in *pb.FaceAnalyzeRequest) (*pb.FaceAnalyzeResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	return &pb.FaceAnalyzeResponse{Faces: []*pb.FaceAnalysis{{
+		Region: &pb.FacialArea{X: 1, Y: 2, W: 3, H: 4}, FaceConfidence: 0.98,
+		Age: 34, DominantGender: "Woman", Gender: map[string]float32{"Woman": 0.9},
+		DominantEmotion: "happy", Emotion: map[string]float32{"happy": 0.8},
+	}}}, nil
+}
+
+func (m *MockBackend) FaceVerify(ctx context.Context, in *pb.FaceVerifyRequest) (*pb.FaceVerifyResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	return &pb.FaceVerifyResponse{
+		Verified: true, Distance: 0.05, Threshold: 0.25, Confidence: 95,
+		Model: "mock-face", Img1Area: &pb.FacialArea{X: 1, Y: 2, W: 3, H: 4},
+		Img2Area: &pb.FacialArea{X: 5, Y: 6, W: 7, H: 8},
+	}, nil
+}
+
+func (m *MockBackend) VoiceAnalyze(ctx context.Context, in *pb.VoiceAnalyzeRequest) (*pb.VoiceAnalyzeResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if _, err := fixtureInputMarkers(namedFixtureInput{name: "audio", value: in.Audio}); err != nil {
+		return nil, err
+	}
+	return &pb.VoiceAnalyzeResponse{Segments: []*pb.VoiceAnalysis{{
+		Start: 0, End: 1, Age: 42, DominantGender: "female",
+		Gender: map[string]float32{"female": 0.95}, DominantEmotion: "neutral",
+		Emotion: map[string]float32{"neutral": 0.9},
+	}}}, nil
+}
+
+func (m *MockBackend) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest) (*pb.TokenClassifyResponse, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	const entity = "Alice"
+	start := strings.Index(in.Text, entity)
+	if start < 0 {
+		return &pb.TokenClassifyResponse{}, nil
+	}
+	return &pb.TokenClassifyResponse{Entities: []*pb.TokenClassifyEntity{{
+		EntityGroup: "PER", Start: fixtureInt32(start), End: fixtureInt32(start + len(entity)), Score: 0.99, Text: entity,
+	}}}, nil
 }
 
 func (m *MockBackend) StoresSet(ctx context.Context, in *pb.StoresSetOptions) (*pb.Result, error) {
@@ -945,6 +1374,9 @@ func (m *MockBackend) Diarize(ctx context.Context, in *pb.DiarizeRequest) (*pb.D
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
+	if _, err := fixtureInputMarkers(namedFixtureInput{name: "audio", value: in.Dst}); err != nil {
+		return nil, err
+	}
 	xlog.Debug("Diarize called",
 		"dst", in.Dst,
 		"num_speakers", in.NumSpeakers,
@@ -999,6 +1431,76 @@ func (m *MockBackend) AudioDecode(ctx context.Context, in *pb.AudioDecodeRequest
 	}, nil
 }
 
+func (m *MockBackend) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest) (*pb.AudioTransformResult, error) {
+	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if _, err := fixtureInputMarker(namedFixtureInput{name: "audio", value: in.AudioPath}); err != nil {
+		return nil, err
+	}
+	var input []byte
+	if path, ok := safeLocalFixturePath(in.AudioPath); ok {
+		var err error
+		// #nosec G304 -- safeLocalFixturePath rejects non-absolute, unclean,
+		// non-regular and symlinked paths before this fixture read.
+		input, err = os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading staged audio transform input: %w", err)
+		}
+	} else {
+		input = []byte(in.AudioPath)
+	}
+	referenceMarker, err := fixtureInputMarker(namedFixtureInput{name: "reference", value: in.ReferencePath})
+	if err != nil {
+		return nil, err
+	}
+	if err := writeFixture(in.Dst, fixtureArtifact(input, referenceMarker)); err != nil {
+		return nil, fmt.Errorf("writing audio transform output: %w", err)
+	}
+	samples := 0
+	if len(input) > 44 {
+		samples = (len(input) - 44) / 2
+	}
+	return &pb.AudioTransformResult{
+		Dst:               in.Dst,
+		SampleRate:        fixtureInt32(ttsSampleRate()),
+		Samples:           fixtureInt32(samples),
+		ReferenceProvided: in.ReferencePath != "",
+	}, nil
+}
+
+func (m *MockBackend) AudioTransformStream(stream pb.Backend_AudioTransformStreamServer) error {
+	configured := false
+	var frameIndex int64
+	for {
+		request, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if request.GetConfig() != nil {
+			configured = true
+			continue
+		}
+		frame := request.GetFrame()
+		if frame == nil {
+			continue
+		}
+		if !configured {
+			return fmt.Errorf("audio transform stream frame received before config")
+		}
+		if err := stream.Send(&pb.AudioTransformFrameResponse{
+			Pcm:        append([]byte(nil), frame.AudioPcm...),
+			FrameIndex: frameIndex,
+		}); err != nil {
+			return err
+		}
+		frameIndex++
+	}
+}
+
 func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*pb.ModelMetadataResponse, error) {
 	xlog.Debug("ModelMetadata called", "model", in.Model)
 	return &pb.ModelMetadataResponse{
@@ -1014,7 +1516,13 @@ func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*
 // survive resampling (DC is sample-rate independent). Near-zero DC maps to a
 // neutral vector equidistant from both. Returns nil for unreadable audio.
 func voiceEmbedFromWAV(path string) []float32 {
-	data, err := os.ReadFile(path)
+	validated, ok := safeLocalFixturePath(path)
+	if !ok {
+		return nil
+	}
+	// #nosec G304 -- safeLocalFixturePath rejects non-absolute, unclean,
+	// non-regular and symlinked paths before this fixture read.
+	data, err := os.ReadFile(validated)
 	if err != nil || len(data) < 44 {
 		return nil
 	}
@@ -1045,6 +1553,9 @@ func (m *MockBackend) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) 
 	if err := checkModelIdentity(in); err != nil {
 		return nil, err
 	}
+	if _, err := fixtureInputMarkers(namedFixtureInput{name: "audio", value: in.Audio}); err != nil {
+		return nil, err
+	}
 	emb := voiceEmbedFromWAV(in.GetAudio())
 	xlog.Debug("VoiceEmbed called", "audio", in.GetAudio(), "embedding", emb)
 	if len(emb) == 0 {
@@ -1056,6 +1567,12 @@ func (m *MockBackend) VoiceEmbed(ctx context.Context, in *pb.VoiceEmbedRequest) 
 // VoiceVerify compares two clips by cosine distance over their mock embeddings.
 func (m *MockBackend) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest) (*pb.VoiceVerifyResponse, error) {
 	if err := checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	if _, err := fixtureInputMarkers(
+		namedFixtureInput{name: "audio1", value: in.Audio1},
+		namedFixtureInput{name: "audio2", value: in.Audio2},
+	); err != nil {
 		return nil, err
 	}
 	a := voiceEmbedFromWAV(in.GetAudio1())
@@ -1075,6 +1592,77 @@ func (m *MockBackend) VoiceVerify(ctx context.Context, in *pb.VoiceVerifyRequest
 		Threshold: threshold,
 		Model:     "mock-speaker",
 	}, nil
+}
+
+func (m *MockBackend) ExportModel(ctx context.Context, in *pb.ExportModelRequest) (*pb.Result, error) {
+	markers, err := fixtureInputMarkers(
+		namedFixtureInput{name: "checkpoint", value: in.CheckpointPath},
+		namedFixtureInput{name: "model", value: in.Model},
+	)
+	if err == nil && in.OutputPath != "" {
+		err = writeFixture(filepath.Join(in.OutputPath, "nested", "weights.bin"), []byte("MOCK-EXPORTED-WEIGHTS\n"))
+	}
+	if err == nil && in.OutputPath != "" {
+		err = writeFixture(filepath.Join(in.OutputPath, "nested", "config.json"), []byte("{\"mock\":true}\n"))
+	}
+	return fixtureResult("Model exported successfully (mocked)", markers, err), nil
+}
+
+func (m *MockBackend) StartQuantization(ctx context.Context, in *pb.QuantizationRequest) (*pb.QuantizationJobResult, error) {
+	marker, err := fixtureInputMarker(namedFixtureInput{name: "model", value: in.Model})
+	if err != nil {
+		return &pb.QuantizationJobResult{JobId: in.JobId, Success: false, Message: err.Error()}, nil
+	}
+
+	output := ""
+	if in.OutputDir != "" {
+		output = filepath.Join(in.OutputDir, "nested", in.JobId+".gguf")
+		if err := writeFixture(output, []byte("MOCK-GGUF:"+in.QuantizationType+"\n")); err != nil {
+			return &pb.QuantizationJobResult{JobId: in.JobId, Success: false, Message: err.Error()}, nil
+		}
+	}
+	m.quantizationMu.Lock()
+	if m.quantizationOutputs == nil {
+		m.quantizationOutputs = map[string]string{}
+	}
+	m.quantizationOutputs[in.JobId] = output
+	m.quantizationMu.Unlock()
+
+	message := "Quantization started successfully (mocked)"
+	if marker != "" {
+		message += "; " + marker
+	}
+	return &pb.QuantizationJobResult{JobId: in.JobId, Success: true, Message: message}, nil
+}
+
+func (m *MockBackend) QuantizationProgress(in *pb.QuantizationProgressRequest, stream pb.Backend_QuantizationProgressServer) error {
+	m.quantizationMu.RLock()
+	output, ok := m.quantizationOutputs[in.JobId]
+	m.quantizationMu.RUnlock()
+	if !ok {
+		return stream.Send(&pb.QuantizationProgressUpdate{
+			JobId:   in.JobId,
+			Status:  "failed",
+			Message: "unknown mock quantization job",
+		})
+	}
+	return stream.Send(&pb.QuantizationProgressUpdate{
+		JobId:           in.JobId,
+		ProgressPercent: 100,
+		Status:          "completed",
+		Message:         "Quantization completed successfully (mocked)",
+		OutputFile:      output,
+	})
+}
+
+func (m *MockBackend) StopQuantization(_ context.Context, in *pb.QuantizationStopRequest) (*pb.Result, error) {
+	m.quantizationMu.Lock()
+	defer m.quantizationMu.Unlock()
+	if _, ok := m.quantizationOutputs[in.JobId]; !ok {
+		return &pb.Result{Success: false, Message: "unknown mock quantization job"}, nil
+	}
+	delete(m.quantizationOutputs, in.JobId)
+	return &pb.Result{Success: true, Message: "Quantization stopped successfully (mocked)"}, nil
 }
 
 func main() {

@@ -284,8 +284,10 @@ var _ = Describe("JobStore", func() {
 	})
 
 	Describe("DeleteTask", func() {
-		It("removes a task and confirms it is gone", func() {
-			task := &TaskRecord{
+		var task *TaskRecord
+
+		BeforeEach(func() {
+			task = &TaskRecord{
 				UserID:  "user-del",
 				Name:    "to-delete",
 				Model:   "gpt-4",
@@ -296,10 +298,45 @@ var _ = Describe("JobStore", func() {
 
 			_, err := store.GetTask(task.ID)
 			Expect(err).ToNot(HaveOccurred())
+		})
 
-			Expect(store.DeleteTask(task.ID)).To(Succeed())
+		It("removes a task and confirms it is gone", func() {
+			Expect(store.DeleteTask("user-del", task.ID)).To(Succeed())
 
-			_, err = store.GetTask(task.ID)
+			_, err := store.GetTask(task.ID)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("deletes nothing when the caller is not the owner", func() {
+			// "not yours" and "not there" are the same outcome for the caller
+			// and neither is an error: a delete by primary key with no user
+			// predicate lets any tenant who learns another tenant's task id
+			// destroy that tenant's row.
+			Expect(store.DeleteTask("someone-else", task.ID)).To(Succeed())
+
+			survivor, err := store.GetTask(task.ID)
+			Expect(err).ToNot(HaveOccurred(), "the owner's row must still be readable")
+			Expect(survivor.UserID).To(Equal("user-del"))
+		})
+
+		It("leaves the owner's other rows alone when a foreign delete is refused", func() {
+			second := &TaskRecord{UserID: "user-del", Name: "keep-me", Model: "gpt-4", Prompt: "test"}
+			Expect(store.CreateTask(second)).To(Succeed())
+
+			Expect(store.DeleteTask("someone-else", task.ID)).To(Succeed())
+
+			remaining, err := store.ListTasks("user-del")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(remaining).To(HaveLen(2))
+		})
+
+		It("deletes for the administrative empty user id", func() {
+			// The empty user id already means "every user" for ListTasks and
+			// ListJobs in this store; the delete has to read it the same way or
+			// the cluster-wide agent job service can no longer clean up.
+			Expect(store.DeleteTask("", task.ID)).To(Succeed())
+
+			_, err := store.GetTask(task.ID)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -363,5 +400,52 @@ var _ = Describe("JobStore", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(jobs).To(HaveLen(5))
 		})
+	})
+})
+
+// The terminal-status set, asserted as ONE fact rather than as two agreeing
+// lists.
+//
+// It was written out at four call sites and pinned at none: twice in the SSE
+// bridge, which decides when to close a stream, and twice in the store, which
+// decides when to stamp completed_at and which rows are still writable. Drift
+// between those two is a stream that closes on a status the store still
+// considers open, or a row that accepts a second terminal write. These drive
+// both readers from the same exported set, so a status added to one of them
+// cannot be missing from the other.
+var _ = Describe("the statuses a job never leaves", func() {
+	var store *JobStore
+
+	BeforeEach(func() {
+		var err error
+		store, err = NewJobStore(testutil.SetupTestDB())
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("names at least one status", func() {
+		// An empty set would make every assertion below vacuous.
+		Expect(TerminalJobStatuses).ToNot(BeEmpty())
+	})
+
+	It("refuses a further write to a row in any of them", func() {
+		for _, status := range TerminalJobStatuses {
+			Expect(IsTerminalJobStatus(status)).To(BeTrue(), status)
+
+			job := &JobRecord{TaskID: "t", UserID: "u", Status: "running", TriggeredBy: "manual"}
+			Expect(store.CreateJob(job)).To(Succeed())
+			Expect(store.UpdateJobStatus(job.ID, status, "first", "")).To(Succeed())
+
+			Expect(store.UpdateJobStatus(job.ID, "running", "second", "")).To(Succeed())
+			stored, err := store.GetJob(job.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Status).To(Equal(status), "a settled job must not be reopened")
+			Expect(stored.CompletedAt).ToNot(BeNil(), status)
+		}
+	})
+
+	It("does not claim a status a job can still leave", func() {
+		for _, status := range []string{"pending", "running", "", "queued"} {
+			Expect(IsTerminalJobStatus(status)).To(BeFalse(), status)
+		}
 	})
 })

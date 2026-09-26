@@ -44,6 +44,18 @@ var _ = Describe("ReportedIndex", func() {
 		Expect(idx.Decide("m", []uint64{3, 4}, candidates, t0).Hot).To(Equal(rk("B", 0)))
 	})
 
+	It("drops a departed node from every model", func() {
+		idx.Apply(messaging.PrefixCacheResidencyEvent{Operation: messaging.PrefixCacheStore, Model: "m1", NodeID: "A", Replica: 0, Chain: []uint64{1}})
+		idx.Apply(messaging.PrefixCacheResidencyEvent{Operation: messaging.PrefixCacheStore, Model: "m2", NodeID: "A", Replica: 1, Chain: []uint64{2}})
+		idx.Apply(messaging.PrefixCacheResidencyEvent{Operation: messaging.PrefixCacheStore, Model: "m2", NodeID: "B", Replica: 0, Chain: []uint64{3}})
+
+		idx.DropNode("A")
+
+		Expect(idx.Decide("m1", []uint64{1}, []prefixcache.ReplicaKey{rk("A", 0)}, t0).HasHot).To(BeFalse())
+		Expect(idx.Decide("m2", []uint64{2}, []prefixcache.ReplicaKey{rk("A", 1)}, t0).HasHot).To(BeFalse())
+		Expect(idx.Decide("m2", []uint64{3}, []prefixcache.ReplicaKey{rk("B", 0)}, t0).HasHot).To(BeTrue())
+	})
+
 	It("ignores guessed request observations and keeps cold ordering deterministic", func() {
 		Expect(idx.Observe("m", []uint64{1, 2}, rk("A", 0), t0)).To(BeFalse())
 		d := idx.Decide("m", []uint64{1, 2}, []prefixcache.ReplicaKey{rk("B", 1), rk("A", 1), rk("A", 0)}, time.Now())

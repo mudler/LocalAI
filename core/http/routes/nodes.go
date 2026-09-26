@@ -10,7 +10,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
-	"github.com/mudler/LocalAI/pkg/natsauth"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +35,7 @@ func nodeReadyMiddleware(registry *nodes.NodeRegistry) echo.MiddlewareFunc {
 // token but do not verify per-node identity. A compromised worker can heartbeat/drain/
 // deregister other nodes. Future: issue per-node JWT at registration, validate node
 // identity on subsequent requests (compare :id param with token subject).
-func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, registrationToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) {
+func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, registrationToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string) {
 	if registry == nil {
 		return
 	}
@@ -45,7 +44,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 	tokenAuthMw := nodeTokenAuth(registrationToken)
 
 	node := e.Group("/api/node", readyMw, tokenAuthMw)
-	node.POST("/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret, natsCfg))
+	node.POST("/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret))
 	node.POST("/:id/heartbeat", localai.HeartbeatEndpoint(registry))
 	node.POST("/:id/drain", localai.DrainNodeEndpoint(registry))
 	node.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
@@ -61,7 +60,13 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 // backend install path (POST /:id/backends/install). That handler enqueues a
 // ManagementOp on the gallery channel rather than blocking on a NATS reply, so
 // the browser gets HTTP 202 + jobID immediately instead of waiting up to 3 minutes.
-func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, natsCfg natsauth.Config) {
+//
+// workerDialFor is how the log-proxy routes reach a worker's own HTTP server:
+// over the tunnel that worker holds, never by connecting to the address it
+// registered. It is nil outside distributed mode, and those two routes then
+// answer 502 rather than dialling, because a worker with no tunnel has nothing
+// for them to proxy to.
+func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, workerDialFor nodes.WorkerNetDialerFor) {
 	if registry == nil {
 		return
 	}
@@ -85,7 +90,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.DELETE("/:id", localai.DeregisterNodeEndpoint(registry))
 	admin.POST("/:id/drain", localai.DrainNodeEndpoint(registry))
 	admin.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
-	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret, natsCfg))
+	admin.POST("/:id/approve", localai.ApproveNodeEndpoint(registry, authDB, hmacSecret))
 
 	// Backend management on workers
 	admin.GET("/:id/backends", localai.ListBackendsOnNodeEndpoint(unloader, registry))
@@ -101,8 +106,8 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.POST("/:id/models/delete", localai.DeleteModelOnNodeEndpoint(unloader, registry))
 
 	// Backend log streaming (proxied from worker HTTP server)
-	admin.GET("/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, registrationToken))
-	admin.GET("/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, registrationToken))
+	admin.GET("/:id/backend-logs", localai.NodeBackendLogsListEndpoint(registry, registrationToken, workerDialFor))
+	admin.GET("/:id/backend-logs/:modelId", localai.NodeBackendLogsLinesEndpoint(registry, registrationToken, workerDialFor))
 
 	// Label management
 	admin.GET("/:id/labels", localai.GetNodeLabelsEndpoint(registry))
@@ -123,7 +128,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	admin.DELETE("/:id/vram-budget", localai.ResetVRAMBudgetEndpoint(registry))
 
 	// WebSocket proxy for real-time log streaming from workers
-	e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, registrationToken), readyMw, adminMw)
+	e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, registrationToken, workerDialFor), readyMw, adminMw)
 }
 
 // nodeTokenAuth validates the registration token for node self-service endpoints.

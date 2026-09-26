@@ -71,6 +71,13 @@ func NewJobStore(db *gorm.DB) (*JobStore, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("migrating job tables: %w", err)
 	}
+	// The claim queue's table, migrated here rather than by whoever happens to
+	// dispatch first. Enqueue writes a claim row on every job, so a deployment
+	// whose job store came up without this table accepts jobs and dispatches
+	// none, which is the exact failure the row was introduced to make visible.
+	if err := MigrateClaims(context.Background(), db); err != nil {
+		return nil, err
+	}
 	return &JobStore{db: db}, nil
 }
 
@@ -136,9 +143,18 @@ func (s *JobStore) ListTasks(userID string) ([]TaskRecord, error) {
 	return tasks, nil
 }
 
-// DeleteTask removes a task by ID.
-func (s *JobStore) DeleteTask(id string) error {
-	return s.db.Where("id = ?", id).Delete(&TaskRecord{}).Error
+// DeleteTask removes a task by ID, scoped to its owner.
+//
+// An empty userID is the administrative "any owner" scope, the same convention
+// ListTasks and ListJobs already use. A non-empty one deletes NOTHING when the
+// row belongs to somebody else and reports no error: "not yours" and "not
+// there" are the same answer to the caller, and neither is a store failure.
+func (s *JobStore) DeleteTask(userID, id string) error {
+	q := s.db.Where("id = ?", id)
+	if userID != "" {
+		q = q.Where("user_id = ?", userID)
+	}
+	return q.Delete(&TaskRecord{}).Error
 }
 
 // ListCronTasks returns all tasks that have a cron schedule and are enabled.
@@ -213,6 +229,27 @@ func (s *JobStore) DeleteJob(id string) error {
 	return s.db.Where("id = ?", id).Delete(&JobRecord{}).Error
 }
 
+// TerminalJobStatuses are the statuses a job never leaves.
+//
+// ONE spelling for the whole package, because the rule was stated at four call
+// sites and pinned at none of them: twice in the SSE bridge, which decides when
+// to close a stream, and twice here, which decides when to stamp completed_at
+// and which rows are still writable. A set that drifts between those two is a
+// stream that closes on a status the store still considers open, or a row that
+// accepts a second terminal write. Adding a status now means adding it here,
+// and every reader follows.
+var TerminalJobStatuses = []string{"completed", "failed", "cancelled"}
+
+// IsTerminalJobStatus reports whether a job in this status has finished.
+func IsTerminalJobStatus(status string) bool {
+	for _, terminal := range TerminalJobStatuses {
+		if status == terminal {
+			return true
+		}
+	}
+	return false
+}
+
 // UpdateJobStatus updates just the status (and optionally result/error) of a job.
 func (s *JobStore) UpdateJobStatus(id, status, result, errMsg string) error {
 	updates := map[string]any{
@@ -229,11 +266,11 @@ func (s *JobStore) UpdateJobStatus(id, status, result, errMsg string) error {
 	if status == "running" {
 		updates["started_at"] = &now
 	}
-	if status == "completed" || status == "failed" || status == "cancelled" {
+	if IsTerminalJobStatus(status) {
 		updates["completed_at"] = &now
 	}
 	return s.db.Model(&JobRecord{}).
-		Where("id = ? AND status NOT IN ?", id, []string{"completed", "failed", "cancelled"}).
+		Where("id = ? AND status NOT IN ?", id, TerminalJobStatuses).
 		Updates(updates).Error
 }
 

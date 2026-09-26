@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { useParams, useOutletContext, Link, useNavigate } from 'react-router-dom'
+import { useParams, useOutletContext, Link, useNavigate, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { nodesApi } from '../utils/api'
 import { formatTimestamp } from '../utils/format'
 import { apiUrl } from '../utils/basePath'
@@ -11,15 +12,16 @@ function wsUrl(path) {
   return `${proto}//${window.location.host}${apiUrl(path)}`
 }
 
-const STREAM_BADGE = {
-  stdout: { bg: 'var(--color-info-light)', color: 'var(--color-log-info)', label: 'stdout' },
-  stderr: { bg: 'var(--color-error-light)', color: 'var(--color-log-stderr)', label: 'stderr' },
-}
+const STREAM_BADGE = { stdout: 'stdout', stderr: 'stderr' }
 
 export default function NodeBackendLogs() {
   const { nodeId, modelId = '' } = useParams()
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
+  const location = useLocation()
+  const { t } = useTranslation('admin')
+  const requestedReturnPath = location.state?.from
+  const returnPath = typeof requestedReturnPath === 'string' && /^\/app\/nodes(?:\/[^/?#]+)?$/.test(requestedReturnPath) ? requestedReturnPath : '/app/nodes'
 
   // The route param can be a bare model name ("qwen3-0.6b") OR a per-replica
   // process key ("qwen3-0.6b#0"). The worker's BackendLogStore treats them
@@ -154,15 +156,21 @@ export default function NodeBackendLogs() {
     URL.revokeObjectURL(url)
   }
 
+  const handleClear = () => {
+    setLines([])
+    pendingLinesRef.current = []
+    addToast(t('backendLogs.cleared'), 'success')
+  }
+
   if (!nodeId || !modelId) {
     return (
       <div className="page page--wide">
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
-          <h2 className="empty-state-title">No node/model selected</h2>
+          <h2 className="empty-state-title">{t('backendLogs.noSelectionTitle')}</h2>
           <p className="empty-state-text">
-            View backend logs from the{' '}
-            <Link to="/app/nodes" className="text-primary">Nodes page</Link>.
+            {t('backendLogs.noSelectionPrefix')}{' '}
+            <Link to="/app/nodes" className="text-primary">{t('backendLogs.nodesPage')}</Link>.
           </p>
         </div>
       </div>
@@ -175,58 +183,32 @@ export default function NodeBackendLogs() {
   const showReplicaToggle = replicas.length > 1
 
   return (
-    <div className="page page--wide">
+    <div className="page page--wide node-backend-logs">
       <PageHeader
         title={
           <>
-            <i className="fas fa-terminal cell-mono" style={{ fontSize: '0.8em', marginRight: 'var(--spacing-sm)' }} />
+            <i className="fas fa-terminal node-backend-logs__title-icon" aria-hidden="true" />
             {baseModelName}
             {!isMerged && (
-              <span
-                style={{
-                  marginLeft: 'var(--spacing-sm)',
-                  fontSize: '0.6875rem',
-                  fontWeight: 500,
-                  padding: '2px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border-subtle)',
-                  color: 'var(--color-text-secondary)',
-                  verticalAlign: 'middle',
-                }}
-              >
-                replica {replicaIndex}
-              </span>
+              <span className="node-backend-logs__scope-tag">{t('backendLogs.replica', { number: replicaIndex + 1 })}</span>
             )}
             {isMerged && replicas.length > 1 && (
-              <span
-                style={{
-                  marginLeft: 'var(--spacing-sm)',
-                  fontSize: '0.6875rem',
-                  fontWeight: 500,
-                  padding: '2px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border-subtle)',
-                  color: 'var(--color-text-secondary)',
-                  verticalAlign: 'middle',
-                }}
-              >
-                merged · {replicas.length} replicas
+              <span className="node-backend-logs__scope-tag">
+                {t('backendLogs.merged', { count: replicas.length })}
               </span>
             )}
           </>
         }
         supporting={
           <>
-            Backend logs from node <strong>{nodeName || nodeId}</strong>
-            {' '}<Link to="/app/nodes" style={{ color: 'var(--color-primary)', fontSize: '0.8125rem' }}>(back to nodes)</Link>
+            {t('backendLogs.fromNode')} <strong>{nodeName || nodeId}</strong>
+            {' '}<Link to={returnPath} className="node-backend-logs__back">{nodeName && returnPath !== '/app/nodes' ? t('backendLogs.backToNode', { name: nodeName }) : t('backendLogs.backToNodes')}</Link>
           </>
         }
       />
 
       {showReplicaToggle && (
-        <div role="radiogroup" aria-label="Replica scope" className="segmented mb-sm">
+        <div role="radiogroup" aria-label={t('backendLogs.replicaScope')} className="segmented node-backend-logs__replicas">
           {replicas.map(idx => (
             <button
               key={idx}
@@ -234,9 +216,9 @@ export default function NodeBackendLogs() {
               role="radio"
               aria-checked={replicaIndex === idx}
               className={`segmented__item${replicaIndex === idx ? ' is-active' : ''}`}
-              onClick={() => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName + '#' + idx)}`)}
+              onClick={() => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName + '#' + idx)}`, { state: location.state })}
             >
-              Replica {idx}
+              {t('backendLogs.replica', { number: idx + 1 })}
             </button>
           ))}
           <button
@@ -244,54 +226,52 @@ export default function NodeBackendLogs() {
             role="radio"
             aria-checked={isMerged}
             className={`segmented__item${isMerged ? ' is-active' : ''}`}
-            onClick={() => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName)}`)}
-            title="Show an interleaved timeline of all replicas — useful for comparing replica behavior side-by-side"
+            onClick={() => navigate(`/app/node-backend-logs/${nodeId}/${encodeURIComponent(baseModelName)}`, { state: location.state })}
+            title={t('backendLogs.allMergedHelp')}
           >
-            <i className="fas fa-layer-group" aria-hidden="true" /> All merged
+            <i className="fas fa-layer-group" aria-hidden="true" /> {t('backendLogs.allMerged')}
           </button>
         </div>
       )}
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 2 }}>
+      <div className="node-backend-logs__toolbar">
+        <div className="node-backend-logs__filters">
           {['all', 'stdout', 'stderr'].map(f => (
             <button
               key={f}
               className={`btn btn-sm ${filter === f ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setFilter(f)}
             >
-              {f === 'all' ? 'All' : f}
+              {f === 'all' ? t('backendLogs.filterAll') : f}
             </button>
           ))}
         </div>
         <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={filteredLines.length === 0}>
-          <i className="fas fa-download" /> Export
+          <i className="fas fa-download" /> {t('backendLogs.export')}
+        </button>
+        <button className="btn btn-danger btn-sm" onClick={handleClear} disabled={lines.length === 0}>
+          <i className="fas fa-trash" /> {t('backendLogs.clear')}
         </button>
         <button
           className={`btn btn-sm ${showDetails ? 'btn-secondary' : 'btn-primary'}`}
           onClick={() => setShowDetails(prev => !prev)}
-          title={showDetails ? 'Hide timestamps and stream labels for easier copying' : 'Show timestamps and stream labels'}
+          title={showDetails ? t('backendLogs.hideDetailsHelp') : t('backendLogs.showDetailsHelp')}
         >
-          <i className={`fas ${showDetails ? 'fa-eye-slash' : 'fa-eye'}`} /> {showDetails ? 'Text only' : 'Show details'}
+          <i className={`fas ${showDetails ? 'fa-eye-slash' : 'fa-eye'}`} /> {showDetails ? t('backendLogs.textOnly') : t('backendLogs.showDetails')}
         </button>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: '0.8125rem' }}>
-          <span style={{
-            display: 'inline-block',
-            width: 8, height: 8,
-            borderRadius: '50%',
-            background: wsConnected ? 'var(--color-success)' : 'var(--color-text-muted)',
-          }} />
+        <div className="node-backend-logs__connection">
+          <span className={`node-backend-logs__connection-dot${wsConnected ? ' is-live' : ''}`} />
           <span className="text-secondary">
-            {wsConnected ? 'Live' : 'Reconnecting...'}
+            {wsConnected ? t('backendLogs.live') : t('backendLogs.reconnecting')}
           </span>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', marginLeft: 'var(--spacing-sm)' }}>
+          <label className="node-backend-logs__autoscroll">
             <input
               type="checkbox"
               checked={autoScroll}
               onChange={(e) => setAutoScroll(e.target.checked)}
             />
-            <span className="text-secondary">Auto-scroll</span>
+            <span className="text-secondary">{t('backendLogs.autoScroll')}</span>
           </label>
         </div>
       </div>
@@ -304,27 +284,15 @@ export default function NodeBackendLogs() {
       ) : filteredLines.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-icon"><i className="fas fa-terminal" /></div>
-          <h2 className="empty-state-title">No log lines</h2>
+          <h2 className="empty-state-title">{t('backendLogs.noLines')}</h2>
           <p className="empty-state-text">
             {filter !== 'all'
-              ? `No ${filter} output. Try switching to "All".`
-              : 'Log output will appear here as the backend process runs.'}
+              ? t('backendLogs.noFilteredLines', { stream: filter })
+              : t('backendLogs.waitingForLines')}
           </p>
         </div>
       ) : (
-        <div
-          ref={logContainerRef}
-          style={{
-            background: 'var(--color-bg-primary)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
-            overflow: 'auto',
-            maxHeight: 'calc(100vh - 280px)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.75rem',
-            lineHeight: '1.5',
-          }}
-        >
+        <div ref={logContainerRef} className="node-backend-logs__output">
           {filteredLines.map((line, i) => {
             const badge = STREAM_BADGE[line.stream] || STREAM_BADGE.stdout
             return (
@@ -332,28 +300,17 @@ export default function NodeBackendLogs() {
                 key={i}
                 data-log-line
                 data-timestamp={line.timestamp}
-                style={{
-                  display: 'flex',
-                  gap: showDetails ? 'var(--spacing-sm)' : undefined,
-                  padding: '2px var(--spacing-sm)',
-                  borderBottom: '1px solid var(--color-border-subtle, rgba(255,255,255,0.03))',
-                  alignItems: 'flex-start',
-                }}
+                className={`node-backend-logs__line${showDetails ? ' has-details' : ''}`}
               >
                 {showDetails && (<>
-                  <span style={{ color: 'var(--color-text-muted)', flexShrink: 0, minWidth: 90 }}>
+                  <span className="node-backend-logs__timestamp">
                     {formatTimestamp(line.timestamp)}
                   </span>
-                  <span style={{
-                    background: badge.bg, color: badge.color,
-                    padding: '0 4px', borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.625rem', fontWeight: 500, flexShrink: 0,
-                    lineHeight: '1.5',
-                  }}>
-                    {badge.label}
+                  <span className={`node-backend-logs__stream node-backend-logs__stream--${badge}`}>
+                    {badge}
                   </span>
                 </>)}
-                <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', flex: 1 }}>
+                <span className="node-backend-logs__text">
                   {line.text}
                 </span>
               </div>

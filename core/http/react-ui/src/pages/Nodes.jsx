@@ -12,43 +12,70 @@ import NodeInspector from '../components/nodes/NodeInspector'
 import ModelFleetTable from '../components/nodes/ModelFleetTable'
 import ModelInspector from '../components/nodes/ModelInspector'
 import LocalMachineView from '../components/nodes/LocalMachineView'
+import useInspectorDrawer from '../components/nodes/useInspectorDrawer'
 import ImageSelector, { dockerFlags, dockerImage, useImageSelector } from '../components/ImageSelector'
 
 function CommandBlock({ command, addToast }) {
+  const { t } = useTranslation('admin')
   const copy = () => {
     navigator.clipboard.writeText(command)
-    addToast('Copied to clipboard', 'success', 2000)
+    addToast(t('nodes.workerSetup.copied'), 'success', 2000)
   }
-  return <div className="p2p-cmd"><pre>{command}</pre><button onClick={copy} className="btn btn-sm p2p-cmd__copy" title="Copy"><i className="fas fa-copy" /></button></div>
+  return <div className="p2p-cmd"><pre>{command}</pre><button onClick={copy} className="btn btn-sm p2p-cmd__copy" title={t('nodes.workerSetup.copy')} aria-label={t('nodes.workerSetup.copy')}><i className="fas fa-copy" /></button></div>
 }
 
-function WorkerHintCard({ addToast, nodeType = 'backend', hasWorkers }) {
+function WorkerSetupDrawer({ open, onClose, addToast }) {
+  const { t } = useTranslation('admin')
   const frontendUrl = window.location.origin
+  const [nodeType, setNodeType] = useState('backend')
   const { selected, setSelected, option, dev, setDev } = useImageSelector('cpu')
+  const drawerRef = useRef(null)
+  const closeRef = useRef(null)
+  const invokerRef = useRef(null)
+  const modal = useInspectorDrawer(open, onClose, drawerRef)
   const isAgent = nodeType === 'agent'
   const workerCmd = isAgent ? 'agent-worker' : 'worker'
   const flags = dockerFlags(option)
   const flagsString = flags ? `${flags} \
   ` : ''
-  return (
-    <div className="card pad-lg mb-xl">
-      <h3 className="panel-title"><i className={`fas ${hasWorkers ? 'fa-plus-circle' : 'fa-info-circle'} text-primary`} />{hasWorkers ? 'Register another worker' : 'No workers registered yet'}</h3>
-      <p className="text-base text-secondary mb-md">Start a worker to add compute capacity. It will register with this frontend and appear here automatically.</p>
-      <p className="form-label">Select your hardware</p>
-      <ImageSelector selected={selected} onSelect={setSelected} dev={dev} onDevChange={setDev} />
-      <div className="stack">
-        <div><p className="form-label">CLI</p><CommandBlock command={`local-ai ${workerCmd} \
-  --register-to "${frontendUrl}" \
+  useEffect(() => {
+    if (open) {
+      invokerRef.current = document.activeElement
+      requestAnimationFrame(() => closeRef.current?.focus())
+    }
+  }, [open])
+  useEffect(() => {
+    if (!open && invokerRef.current) requestAnimationFrame(() => invokerRef.current?.focus())
+  }, [open])
+
+  if (!open) return null
+  return <>
+    <div className="node-inspector__scrim" aria-hidden="true" onClick={onClose} />
+    <aside ref={drawerRef} className="node-inspector worker-setup" role="dialog" aria-modal={modal ? 'true' : undefined} aria-label={t('nodes.workerSetup.title')} tabIndex={modal ? -1 : undefined}>
+      <header className="node-inspector__header">
+        <div className="node-inspector__topbar"><span className="fleet-kicker">{t('nodes.workerSetup.eyebrow')}</span><button ref={closeRef} type="button" className="btn btn-ghost btn-sm" aria-label={t('nodes.workerSetup.close')} onClick={onClose}><i className="fas fa-times" /></button></div>
+        <h2>{t('nodes.workerSetup.title')}</h2><p>{t('nodes.workerSetup.description')}</p>
+      </header>
+      <div className="node-inspector__body">
+        <section className="node-inspector__section"><h3>{t('nodes.workerSetup.type')}</h3><div role="radiogroup" aria-label={t('nodes.workerSetup.type')} className="segmented worker-setup__types">
+          {[['backend', t('nodes.workerSetup.backend')], ['agent', t('nodes.workerSetup.agent')]].map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={nodeType === value} className={`segmented__item${nodeType === value ? ' is-active' : ''}`} onClick={() => setNodeType(value)}>{label}</button>)}
+        </div></section>
+        <section className="node-inspector__section"><h3>{t('nodes.workerSetup.hardware')}</h3><ImageSelector selected={selected} onSelect={setSelected} dev={dev} onDevChange={setDev} /></section>
+        <section className="node-inspector__section worker-setup__commands">
+        <div><p className="form-label">{t('nodes.workerSetup.cli')}</p><CommandBlock command={`local-ai ${workerCmd} \
   --nats-url "nats://nats:4222" \
+  --register-to "${frontendUrl}" \
   --registration-token "$LOCALAI_REGISTRATION_TOKEN"`} addToast={addToast} /></div>
-        <div><p className="form-label">Docker</p><CommandBlock command={`docker run --net host ${flagsString}\
-  -e LOCALAI_REGISTER_TO="${frontendUrl}" \
+        <div><p className="form-label">{t('nodes.workerSetup.docker')}</p><CommandBlock command={`docker run --net host ${flagsString}\
   -e LOCALAI_NATS_URL="nats://nats:4222" \
+  -e LOCALAI_REGISTER_TO="${frontendUrl}" \
   -e LOCALAI_REGISTRATION_TOKEN="$TOKEN" \
   ${dockerImage(option, dev)} ${workerCmd}`} addToast={addToast} /></div>
+        </section>
       </div>
-    </div>
-  )
+      <footer className="node-inspector__actions node-inspector__actions--single"><a href="https://localai.io/features/distributed-mode/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">{t('nodes.workerSetup.docs')}</a></footer>
+    </aside>
+  </>
 }
 
 // The route to more than one machine, shown from the single-node view on
@@ -58,7 +85,7 @@ function ScaleOutCard({ addToast }) {
     <div className="card p2p-enable pad-lg mb-xl" data-testid="scale-out">
       <h3 className="panel-title"><i className="fas fa-rocket text-accent" />Distributed mode is not enabled</h3>
       <p className="text-base text-secondary mb-md">Distributed mode spreads models across worker machines and routes inference across the fleet. Start LocalAI with it enabled, then register a worker.</p>
-      <CommandBlock command={'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db" \\\n  --distributed-nats "nats://host:4222"'} addToast={addToast} />
+        <CommandBlock command={'local-ai run --distributed \\\n  --auth-database-url "postgres://user:pass@host/db"'} addToast={addToast} />
       <p className="text-note mt-md">See the <a href="https://localai.io/features/distributed-mode/" target="_blank" rel="noopener noreferrer" className="text-primary">Distributed Mode documentation</a> for production setup.</p>
     </div>
   )
@@ -95,8 +122,7 @@ export default function Nodes() {
   const [stoppingModelName, setStoppingModelName] = useState(null)
   const [bulkRunning, setBulkRunning] = useState(false)
   const bulkRunningRef = useRef(false)
-  const [showTips, setShowTips] = useState(false)
-  const [emptyNodeType, setEmptyNodeType] = useState('backend')
+  const [showWorkerSetup, setShowWorkerSetup] = useState(false)
   const [workbenchView, setWorkbenchView] = useState('nodes')
   const [modelRows, setModelRows] = useState([])
   const [modelLoadState, setModelLoadState] = useState('idle')
@@ -141,6 +167,12 @@ export default function Nodes() {
     const interval = setInterval(fetchNodes, 5000)
     return () => clearInterval(interval)
   }, [fetchNodes])
+
+  // Keep the former zero-worker onboarding behavior: the setup guidance is
+  // immediately available, now in the same focused drawer used by Add worker.
+  useEffect(() => {
+    if (!loading && nodes.length === 0) setShowWorkerSetup(true)
+  }, [loading, nodes.length])
 
   const summary = useMemo(() => summarizeFleet(nodes), [nodes])
   const labelKeys = useMemo(() => [...new Set(nodes.flatMap(node => Object.keys(node.labels || {})))].sort(), [nodes])
@@ -266,7 +298,7 @@ export default function Nodes() {
   }
 
   const openReplicaLogs = (nodeId, processKey) => {
-    navigate(`/app/node-backend-logs/${encodeURIComponent(nodeId)}/${encodeURIComponent(processKey)}`)
+    navigate(`/app/node-backend-logs/${encodeURIComponent(nodeId)}/${encodeURIComponent(processKey)}`, { state: { from: '/app/nodes' } })
   }
 
   const openModelLogs = (model, invoker) => {
@@ -336,18 +368,15 @@ export default function Nodes() {
   if (!enabled) return <LocalMachineView addToast={addToast} scaleOut={<ScaleOutCard addToast={addToast} />} />
   if (nodes.length === 0) return (
     <div className="page page--wide">
-      <PageHeader title={t('nodes.title')} supporting={t('nodes.subtitle')} />
-      <div role="radiogroup" aria-label="Worker type" className="segmented node-filter">
-        {[['backend', 'Backend'], ['agent', 'Agent']].map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={emptyNodeType === value} className={`segmented__item${emptyNodeType === value ? ' is-active' : ''}`} onClick={() => setEmptyNodeType(value)}>{label}</button>)}
-      </div>
-      <WorkerHintCard addToast={addToast} nodeType={emptyNodeType} />
+      <PageHeader title={t('nodes.title')} supporting={t('nodes.subtitle')} actions={<button type="button" className="btn btn-primary btn-sm" onClick={() => setShowWorkerSetup(true)}><i className="fas fa-plus" aria-hidden="true" /> {t('nodes.workerSetup.title')}</button>} />
+      <div className="empty-state"><div className="empty-state-icon"><i className="fas fa-server" /></div><h2 className="empty-state-title">{t('nodes.workerSetup.emptyTitle')}</h2><p className="empty-state-text">{t('nodes.workerSetup.emptyDescription')}</p><button type="button" className="btn btn-primary" onClick={() => setShowWorkerSetup(true)}>{t('nodes.workerSetup.title')}</button></div>
+      <WorkerSetupDrawer open={showWorkerSetup} onClose={() => setShowWorkerSetup(false)} addToast={addToast} />
     </div>
   )
 
   return (
     <div className={`page page--wide nodes-fleet-page${inspectedNode || inspectedModel || drilledNode ? ' nodes-fleet-page--inspecting' : ''}`}>
-      <PageHeader className="nodes-fleet-page__header" eyebrow={null} title={t('nodes.title')} supporting={t('nodes.subtitle')} actions={<button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowTips(value => !value)}>{showTips ? 'Hide setup' : 'Register worker'}</button>} />
-      {showTips && <WorkerHintCard addToast={addToast} hasWorkers />}
+      <PageHeader className="nodes-fleet-page__header" eyebrow={null} title={t('nodes.title')} supporting={t('nodes.subtitle')} actions={<button type="button" className="btn btn-primary btn-sm" onClick={() => setShowWorkerSetup(true)}><i className="fas fa-plus" aria-hidden="true" /> {t('nodes.workerSetup.title')}</button>} />
       <ClusterOverview summary={summary} activeAttention={activeAttention} onAttentionSelect={setActiveAttention} />
 
       <section className="fleet-workbench" aria-label="Fleet workbench">
@@ -367,6 +396,7 @@ export default function Nodes() {
           </div>
           {selectedIds.size > 0 && <div className="fleet-bulkbar">
             <strong>{selectedIds.size} selected</strong>
+            <span className="fleet-bulkbar__visibility">{t('nodes.selectionVisibility', { visible: [...selectedIds].filter(id => pagination.items.some(node => node.id === id)).length, hidden: selectedIds.size - [...selectedIds].filter(id => pagination.items.some(node => node.id === id)).length })}</span>
             <button type="button" className="btn btn-secondary btn-sm" disabled={bulkRunning} onClick={() => runBulk('drain')}>Drain selected</button>
             <button type="button" className="btn btn-secondary btn-sm" disabled={bulkRunning} onClick={() => runBulk('resume')}>Resume selected</button>
             <button type="button" className="btn btn-danger btn-sm" disabled={bulkRunning} onClick={() => setConfirmRemove(true)}>Remove selected</button>
@@ -404,6 +434,7 @@ export default function Nodes() {
       <ConfirmDialog open={!!confirmStopModel} title={confirmStopModel ? `Stop ${confirmStopModel.model_name}?` : 'Stop model?'}
         message={confirmStopModel ? `${confirmStopModel.model_name} has ${confirmStopModel.replica_count} loaded replica${confirmStopModel.replica_count === 1 ? '' : 's'} across ${confirmStopModel.node_count} unique node${confirmStopModel.node_count === 1 ? '' : 's'}. This will stop all loaded placements on those nodes.` : ''}
         confirmLabel="Stop model" pendingLabel="Stopping…" pending={!!stoppingModelName} danger onConfirm={stopModel} onCancel={cancelStopModel} />
+      <WorkerSetupDrawer open={showWorkerSetup} onClose={() => setShowWorkerSetup(false)} addToast={addToast} />
     </div>
   )
 }
