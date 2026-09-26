@@ -49,6 +49,14 @@ func (re *RequestExtractor) resolveFailover(c echo.Context, requested string, ch
 	}
 	for {
 		cfg, err := re.loadFailoverTarget(st.attempt.Target())
+		if err == nil && cfg.IsDisabled() {
+			// Disabled on purpose, not broken: move on without a trip.
+			if st.attempt.Skip() {
+				continue
+			}
+			c.Set(ContextKeyFailoverAttempt, nil)
+			return nil, fmt.Errorf("failover chain %q: target %q is disabled", chain.Name, cfg.Name)
+		}
 		if err == nil {
 			c.Set(ContextKeyRequestedModel, requested)
 			c.Set(ContextKeyServedModel, cfg.Name)
@@ -87,8 +95,13 @@ func setFailoverHeaders(h http.Header, att *failover.Attempt) {
 // failoverRetry runs h again on the next target while the response is not
 // committed. h is SetModelAndConfig's body plus the rest of the chain, so
 // every attempt binds the request again from the replayed body.
-func failoverRetry(appConfig *config.ApplicationConfig, h echo.HandlerFunc) echo.HandlerFunc {
+func (re *RequestExtractor) failoverRetry(h echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		// Without chains there is nothing to retry, so plain installations
+		// pay neither for the body copy nor for the writer.
+		if !re.failover.HasChains() {
+			return h(c)
+		}
 		req := c.Request()
 		src := req.Body
 		if src == nil {
@@ -109,10 +122,11 @@ func failoverRetry(appConfig *config.ApplicationConfig, h echo.HandlerFunc) echo
 			st, _ := c.Get(ContextKeyFailoverAttempt).(*failoverState)
 			return st != nil
 		}
-		tracing := appConfig != nil && appConfig.EnableTracing
+		tracing := re.applicationConfig != nil && re.applicationConfig.EnableTracing
 		for {
 			w := &failoverWriter{ResponseWriter: orig, active: active}
 			resp.Writer = w
+			c.Set(ContextKeyAdmissionRejected, nil)
 			err := h(c)
 			st, _ := c.Get(ContextKeyFailoverAttempt).(*failoverState)
 			if st == nil {
@@ -122,22 +136,34 @@ func failoverRetry(appConfig *config.ApplicationConfig, h echo.HandlerFunc) echo
 			att := st.attempt
 			status := w.held
 			if err == nil && status == 0 {
-				att.Succeed()
+				// A 4xx says nothing about the target's health.
+				if w.status < http.StatusBadRequest {
+					att.Succeed()
+				}
 				return nil
 			}
-			cause := attemptError(err, status, w.body.Bytes())
-			retryable := req.Context().Err() == nil && failover.IsRetryable(err, status)
-			if !retryable || w.committed || !rec.replayable() {
-				if retryable {
-					att.Report(cause)
+			if rejected, _ := c.Get(ContextKeyAdmissionRejected).(bool); rejected && !w.committed {
+				// The target is at capacity, not broken: spill this request to
+				// the next target without counting a failure.
+				if !rec.replayable() || !att.Skip() {
+					w.release()
+					return err
 				}
-				w.release()
-				return err
-			}
-			failover.RecordAttemptTrace(tracing, att.Chain(), att.Target(), cause)
-			if !att.Fail(cause) {
-				w.release()
-				return err
+			} else {
+				cause := attemptError(err, status, w.body.Bytes())
+				retryable := req.Context().Err() == nil && failover.IsRetryable(err, status)
+				if !retryable || w.committed || !rec.replayable() {
+					if retryable {
+						att.Report(cause)
+					}
+					w.release()
+					return err
+				}
+				failover.RecordAttemptTrace(tracing, att.Chain(), att.Target(), cause)
+				if !att.Fail(cause) {
+					w.release()
+					return err
+				}
 			}
 			// Temp files of a form parsed during this attempt would otherwise
 			// outlive the request: the server only cleans up the last form.
@@ -151,6 +177,14 @@ func failoverRetry(appConfig *config.ApplicationConfig, h echo.HandlerFunc) echo
 			c.SetRequest(req)
 			resetResponse(resp, baseHeader)
 		}
+	}
+}
+
+// stopFailoverRecording releases the recorded body of a request whose model
+// turned out not to be a chain: it will never be replayed.
+func stopFailoverRecording(c echo.Context) {
+	if rb, ok := c.Request().Body.(*replayBody); ok {
+		rb.stop()
 	}
 }
 
@@ -186,6 +220,8 @@ type failoverWriter struct {
 	held      int
 	body      bytes.Buffer
 	committed bool
+	// status is the code sent to the client, 0 until one is sent.
+	status int
 }
 
 func (w *failoverWriter) WriteHeader(code int) {
@@ -197,6 +233,7 @@ func (w *failoverWriter) WriteHeader(code int) {
 		return
 	}
 	w.committed = true
+	w.status = code
 	w.ResponseWriter.WriteHeader(code)
 }
 
@@ -248,14 +285,16 @@ type replayBody struct {
 	buf      bytes.Buffer
 	limit    int
 	overflow bool
+	stopped  bool
 }
 
 func (r *replayBody) Read(p []byte) (int, error) {
 	n, err := r.src.Read(p)
-	if n > 0 && !r.overflow {
+	if n > 0 && !r.overflow && !r.stopped {
 		if r.buf.Len()+n > r.limit {
 			r.overflow = true
-			r.buf.Reset()
+			// A new buffer, not Reset: Reset keeps the memory.
+			r.buf = bytes.Buffer{}
 		} else {
 			r.buf.Write(p[:n])
 		}
@@ -266,7 +305,13 @@ func (r *replayBody) Read(p []byte) (int, error) {
 func (r *replayBody) Close() error { return r.src.Close() }
 
 // replayable reports whether everything read so far was kept.
-func (r *replayBody) replayable() bool { return !r.overflow }
+func (r *replayBody) replayable() bool { return !r.overflow && !r.stopped }
+
+// stop ends recording and frees what was kept.
+func (r *replayBody) stop() {
+	r.stopped = true
+	r.buf = bytes.Buffer{}
+}
 
 // replay rewinds to the start of the body and keeps recording, so a third
 // attempt can replay too.

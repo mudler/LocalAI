@@ -49,6 +49,31 @@ var _ = Describe("Manager", func() {
 		Expect(st.Targets[1].Kind).To(Equal(KindLocal))
 	})
 
+	It("skips to the next target without recording a failure", func() {
+		att, _ := m.Plan("chain")
+		Expect(att.Skip()).To(BeTrue())
+		Expect(att.Target()).To(Equal("b"))
+		Expect(att.Skip()).To(BeFalse())
+		Expect(att.Target()).To(Equal("b"))
+		st, _ := m.ChainStatus("chain")
+		Expect(st.Active).To(Equal("a"))
+		Expect(st.Targets[0].State).To(Equal(StateHealthy))
+	})
+
+	It("reports whether any chain is configured, including one added since the last sync", func() {
+		empty := New(newFakeSource(remote("a")), WithClock(clock))
+		Expect(empty.HasChains()).To(BeFalse())
+		lateSrc := newFakeSource(remote("a"), local("b"))
+		late := New(lateSrc, WithClock(clock))
+		late.Sync()
+		Expect(late.HasChains()).To(BeFalse())
+		lateSrc.Put(chainCfg("chain", nil, t("a"), t("b")))
+		Expect(late.HasChains()).To(BeTrue())
+		Expect(m.HasChains()).To(BeTrue())
+		var nilManager *Manager
+		Expect(nilManager.HasChains()).To(BeFalse())
+	})
+
 	It("returns ErrChainNotFound for an unknown chain", func() {
 		_, err := m.Plan("nope")
 		Expect(errors.Is(err, ErrChainNotFound)).To(BeTrue())

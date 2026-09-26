@@ -38,6 +38,7 @@ func AdmissionControl(limiter *admission.Limiter, events pii.EventStore) echo.Mi
 			if !ok {
 				retryAfter := admission.RetryAfter(cfg.Limits.RetryAfterSeconds)
 				recordAdmissionRejection(events, cfg.Name, retryAfter)
+				c.Set(ContextKeyAdmissionRejected, true)
 				c.Response().Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())))
 				return c.JSON(http.StatusServiceUnavailable, map[string]any{
 					"error": map[string]any{

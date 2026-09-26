@@ -124,7 +124,7 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 // Otherwise, it's in its own method below for now
 func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIRequest) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return failoverRetry(re.applicationConfig, func(c echo.Context) error {
+		return re.failoverRetry(func(c echo.Context) error {
 			input := initializer()
 			if input == nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "unable to initialize body")
@@ -210,6 +210,8 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 					})
 				}
 				cfg = resolved
+			} else {
+				stopFailoverRecording(c)
 			}
 
 			// Check if the model is disabled

@@ -12,11 +12,13 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"testing/iotest"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/failover"
+	"github.com/mudler/LocalAI/core/services/routing/admission"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -27,6 +29,8 @@ var _ = Describe("failover chains in the request pipeline", func() {
 	var (
 		app      *echo.Echo
 		fm       *failover.Manager
+		re       *RequestExtractor
+		limiter  *admission.Limiter
 		mu       sync.Mutex
 		calls    []string
 		behavior map[string]func(c echo.Context) error
@@ -71,13 +75,17 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		write("b", "name: b\nbackend: fake-b\n")
 		write("plain", "name: plain\nbackend: fake-p\n")
 		write("chain", "name: chain\nfailover:\n  targets:\n    - model: a\n    - model: b\n")
+		write("capped", "name: capped\nbackend: fake-c\nlimits:\n  max_concurrent: 1\n")
+		write("off", "name: off\nbackend: fake-o\ndisabled: true\n")
+		write("chain-capped", "name: chain-capped\nfailover:\n  targets:\n    - model: capped\n    - model: b\n")
+		write("chain-off", "name: chain-off\nfailover:\n  targets:\n    - model: off\n    - model: b\n")
 
 		ss := &system.SystemState{Model: system.Model{ModelsPath: dir}}
 		appConfig := config.NewApplicationConfig()
 		appConfig.SystemState = ss
 		mcl := config.NewModelConfigLoader(dir)
 		Expect(mcl.LoadModelConfigsFromPath(dir)).To(Succeed())
-		re := NewRequestExtractor(mcl, model.NewModelLoader(ss), appConfig)
+		re = NewRequestExtractor(mcl, model.NewModelLoader(ss), appConfig)
 		fm = failover.New(mcl)
 		re.SetFailoverManager(fm)
 
@@ -96,6 +104,10 @@ var _ = Describe("failover chains in the request pipeline", func() {
 			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }))
 		app.POST("/v1/audio/transcriptions", handler,
 			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }))
+		limiter = admission.New()
+		app.POST("/v1/chat/admitted", handler,
+			re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+			AdmissionControl(limiter, nil))
 		// The real transcription route resolves a default model first, which
 		// parses the multipart form before SetModelAndConfig runs.
 		app.POST("/v1/audio/transcriptions-default", handler,
@@ -220,6 +232,71 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		Entry("read by the handler", "/v1/audio/transcriptions"),
 		Entry("parsed before SetModelAndConfig", "/v1/audio/transcriptions-default"),
 	)
+
+	It("spills an admission rejection to the next target without tripping it", func() {
+		release, ok := limiter.Acquire("capped", 1)
+		Expect(ok).To(BeTrue())
+		defer release()
+		rec := post("/v1/chat/admitted", `{"model":"chain-capped","messages":[{"role":"user","content":"hi"}]}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring(`"served":"b"`))
+		Expect(rec.Header().Get("Retry-After")).To(BeEmpty())
+		st, _ := fm.ChainStatus("chain-capped")
+		Expect(st.Targets[0].State).To(Equal(failover.StateHealthy))
+		Expect(st.Active).To(Equal("capped"))
+	})
+
+	It("skips a disabled target without tripping it", func() {
+		rec := chat("chain-off")
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring(`"served":"b"`))
+		Expect(calls).To(Equal([]string{"b"}))
+		st, _ := fm.ChainStatus("chain-off")
+		Expect(st.Targets[0].State).To(Equal(failover.StateHealthy))
+	})
+
+	It("counts a 4xx response as neither success nor failure", func() {
+		behavior["a"] = func(echo.Context) error { return errors.New("dial tcp: a down") }
+		behavior["b"] = func(echo.Context) error { return errors.New("dial tcp: b down") }
+		chat("chain") // trips both
+		behavior["a"] = func(c echo.Context) error {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "bad"})
+		}
+		rec := chat("chain")
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		st, _ := fm.ChainStatus("chain")
+		// a is a cold local target: a success would have recovered it.
+		Expect(st.Targets[0].State).To(Equal(failover.StateDown))
+	})
+
+	It("stops recording the body once the model is known not to be a chain", func() {
+		behavior["plain"] = func(c echo.Context) error {
+			rb, ok := c.Request().Body.(*replayBody)
+			Expect(ok).To(BeTrue())
+			Expect(rb.replayable()).To(BeFalse())
+			Expect(rb.buf.Cap()).To(BeZero())
+			return served(c)
+		}
+		Expect(chat("plain").Code).To(Equal(http.StatusOK))
+	})
+
+	It("does not record the body without a failover manager", func() {
+		re.SetFailoverManager(nil)
+		behavior["plain"] = func(c echo.Context) error {
+			_, ok := c.Request().Body.(*replayBody)
+			Expect(ok).To(BeFalse())
+			return served(c)
+		}
+		Expect(chat("plain").Code).To(Equal(http.StatusOK))
+	})
+
+	It("releases the recorded bytes on overflow", func() {
+		// One byte per read, so some bytes are recorded before the limit is hit.
+		rb := &replayBody{src: io.NopCloser(iotest.OneByteReader(bytes.NewReader(make([]byte, 64)))), limit: 16}
+		_, _ = io.ReadAll(rb)
+		Expect(rb.replayable()).To(BeFalse())
+		Expect(rb.buf.Cap()).To(BeZero())
+	})
 
 	It("leaves plain models untouched", func() {
 		behavior["plain"] = func(c echo.Context) error {

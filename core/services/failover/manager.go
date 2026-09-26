@@ -201,6 +201,28 @@ func (m *Manager) lookupTarget(name string) (config.ModelConfig, bool) {
 	return c, ok
 }
 
+// HasChains reports whether any failover chain is configured. The request
+// path uses it to skip chain bookkeeping on installations without chains.
+// Chains are synced lazily, so with none known yet the config source is
+// consulted, which catches a chain added since the last sync.
+func (m *Manager) HasChains() bool {
+	if m == nil {
+		return false
+	}
+	m.mu.Lock()
+	known := len(m.chains) > 0
+	m.mu.Unlock()
+	if known {
+		return true
+	}
+	for _, c := range m.src.GetAllModelsConfigs() {
+		if c.IsFailover() {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Manager) chainLocked(name string) *chainState {
 	if ch := m.chains[name]; ch != nil {
 		return ch
@@ -398,6 +420,17 @@ func (a *Attempt) Degraded() bool  { return a.degraded }
 // returns false when no target is left.
 func (a *Attempt) Fail(err error) bool {
 	a.m.ReportFailure(a.Target(), err)
+	if a.i+1 >= len(a.targets) {
+		return false
+	}
+	a.i++
+	return true
+}
+
+// Skip moves to the next target without recording a failure, for a target
+// that could not take this request although nothing is wrong with it (at
+// capacity, disabled). It returns false when no target is left.
+func (a *Attempt) Skip() bool {
 	if a.i+1 >= len(a.targets) {
 		return false
 	}
