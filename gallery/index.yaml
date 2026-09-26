@@ -45087,6 +45087,12 @@
       sha256: ""
       uri: https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors
 - name: kimodo-soma-rp
+  variants:
+    - model: kimodo-soma-rp-bf16
+    - model: kimodo-soma-rp-q4_k
+    - model: kimodo-soma-rp-q4_k_m
+    - model: kimodo-soma-rp-q5_k
+    - model: kimodo-soma-rp-q6_k
   url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
   backend: kimodocpp
   urls:
@@ -45274,6 +45280,12 @@
       uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
       sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
 - name: kimodo-soma-seed
+  variants:
+    - model: kimodo-soma-seed-bf16
+    - model: kimodo-soma-seed-q4_k
+    - model: kimodo-soma-seed-q4_k_m
+    - model: kimodo-soma-seed-q5_k
+    - model: kimodo-soma-seed-q6_k
   url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
   backend: kimodocpp
   urls:
@@ -45461,6 +45473,12 @@
       uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
       sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
 - name: kimodo-g1-rp
+  variants:
+    - model: kimodo-g1-rp-bf16
+    - model: kimodo-g1-rp-q4_k
+    - model: kimodo-g1-rp-q4_k_m
+    - model: kimodo-g1-rp-q5_k
+    - model: kimodo-g1-rp-q6_k
   url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
   backend: kimodocpp
   urls:
@@ -45648,6 +45666,12 @@
       uri: https://huggingface.co/LocalAI-io/Llama-3-Kimodo-GGML/resolve/3e8d958803beaddb6011ac534f2be972e2710c7d/Llama-3-Kimodo-BF16.gguf
       sha256: d9a60017b3981bac874c4d118fc7e34f05b41763a12f0c0c7ee1e3b84eebb20f
 - name: kimodo-g1-seed
+  variants:
+    - model: kimodo-g1-seed-bf16
+    - model: kimodo-g1-seed-q4_k
+    - model: kimodo-g1-seed-q4_k_m
+    - model: kimodo-g1-seed-q5_k
+    - model: kimodo-g1-seed-q6_k
   url: github:mudler/LocalAI/gallery/kimodocpp.yaml@master
   backend: kimodocpp
   urls:
