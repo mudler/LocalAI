@@ -117,6 +117,32 @@ func buildChainedLinkTar() []byte {
 	return buf.Bytes()
 }
 
+var _ = Describe("OCI download staging", func() {
+	It("uses the configured directory without OS temp space and cleans up", func() {
+		root := GinkgoT().TempDir()
+		staging := filepath.Join(root, "staging")
+		destination := filepath.Join(root, "destination")
+		Expect(os.Mkdir(destination, 0755)).To(Succeed())
+		layer := buildLayer(tar.Header{
+			Name: "payload", Mode: 0644,
+			PAXRecords: map[string]string{"content": "downloaded bytes"},
+		})
+		image, err := mutate.AppendLayers(empty.Image, layer)
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoT().Setenv("TMPDIR", filepath.Join(root, "missing-temp"))
+		GinkgoT().Setenv("TMP", filepath.Join(root, "missing-temp"))
+		GinkgoT().Setenv("TEMP", filepath.Join(root, "missing-temp"))
+
+		Expect(ExtractOCIImage(context.Background(), image, "test/image", destination, staging, nil)).To(Succeed())
+		content, err := os.ReadFile(filepath.Join(destination, "payload"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(Equal("downloaded bytes"))
+		entries, err := os.ReadDir(staging)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(entries).To(BeEmpty())
+	})
+})
+
 var _ = Describe("Tar extraction fallback for link-less filesystems", func() {
 	It("downloads a layered image once and preserves whiteouts before copying links", func() {
 		base := buildLayer(

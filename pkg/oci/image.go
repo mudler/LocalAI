@@ -28,6 +28,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/mudler/LocalAI/pkg/credentials"
 	"github.com/mudler/LocalAI/pkg/xio"
+	"github.com/mudler/xlog"
 )
 
 // ref: https://github.com/mudler/luet/blob/master/pkg/helpers/docker/docker.go#L117
@@ -345,7 +346,11 @@ func ExtractOCIImage(ctx context.Context, img v1.Image, imageRef string, targetD
 	if err != nil {
 		return fmt.Errorf("failed to create download directory: %v", err)
 	}
-	defer os.RemoveAll(downloadDir)
+	defer func() {
+		if err := os.RemoveAll(downloadDir); err != nil {
+			xlog.Warn("Failed to remove OCI download directory", "path", downloadDir, "error", err)
+		}
+	}()
 	tmpTarFile, err := os.CreateTemp(downloadDir, "image-*.tar")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary tar file: %v", err)
