@@ -634,7 +634,7 @@ var galleryCache = xsync.NewSyncedMap[string, galleryCacheEntry]()
 // would also point relative entry urls at an unpacked tree the new policy has
 // not produced yet, so they could not be installed.
 func galleryIndexCacheKey(g config.Gallery) string {
-	return g.Name + "-" + galleryCacheName(g.URL, g.Verification)
+	return g.Name + "-" + galleryCacheName(g.URL, galleryArtifactPolicy(g))
 }
 
 func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string, requireIntegrity bool, isInstalledCallback func(T) bool) ([]T, error) {

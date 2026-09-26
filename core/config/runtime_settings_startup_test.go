@@ -10,22 +10,22 @@ import (
 )
 
 var _ = Describe("default galleries", func() {
-	It("serves the model gallery from index.localai.io with GitHub as a mirror", func() {
+	It("serves the model gallery from index.localai.io with GitHub then OCI as mirrors", func() {
 		var galleries []config.Gallery
 		Expect(json.Unmarshal([]byte(config.DefaultGalleriesJSON), &galleries)).To(Succeed())
 		Expect(galleries).To(HaveLen(1))
 		Expect(galleries[0].Name).To(Equal("localai"))
 		Expect(galleries[0].URL).To(Equal("https://index.localai.io/models"))
-		Expect(galleries[0].Mirrors).To(Equal([]string{"github:mudler/LocalAI/gallery/index.yaml@master"}))
+		Expect(galleries[0].Mirrors).To(Equal([]string{"github:mudler/LocalAI/gallery/index.yaml@master", "oci://quay.io/go-skynet/local-ai-backends:gallery-models"}))
 	})
 
-	It("serves the backend gallery from index.localai.io with GitHub as a mirror", func() {
+	It("serves the backend gallery from index.localai.io with GitHub then OCI as mirrors", func() {
 		var galleries []config.Gallery
 		Expect(json.Unmarshal([]byte(config.DefaultBackendGalleriesJSON), &galleries)).To(Succeed())
 		Expect(galleries).To(HaveLen(1))
 		Expect(galleries[0].Name).To(Equal("localai"))
 		Expect(galleries[0].URL).To(Equal("https://index.localai.io/backends"))
-		Expect(galleries[0].Mirrors).To(Equal([]string{"github:mudler/LocalAI/backend/index.yaml@master"}))
+		Expect(galleries[0].Mirrors).To(Equal([]string{"github:mudler/LocalAI/backend/index.yaml@master", "oci://quay.io/go-skynet/local-ai-backends:gallery-backends"}))
 	})
 
 	// The mirror is the whole reason this default is safe to ship: if
@@ -37,6 +37,10 @@ var _ = Describe("default galleries", func() {
 			Expect(json.Unmarshal([]byte(raw), &galleries)).To(Succeed())
 			for _, g := range galleries {
 				Expect(g.Mirrors).ToNot(BeEmpty(), "default %q has no mirror", g.Name)
+				Expect(g.ArtifactVerification).ToNot(BeNil())
+				Expect(g.ArtifactVerification.Identity).To(Equal("https://github.com/mudler/LocalAI/.github/workflows/gallery_publish.yml@refs/heads/master"))
+				Expect(g.ArtifactVerification.Issuer).To(Equal("https://token.actions.githubusercontent.com"))
+				Expect(g.Verification).To(BeNil(), "gallery policy must not change backend image trust")
 			}
 		}
 	})
