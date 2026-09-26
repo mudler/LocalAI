@@ -77,7 +77,9 @@ func (ds *DistributedServices) Shutdown() {
 // Returns nil if distributed mode is not enabled.
 // configLoader is used by the SmartRouter to compute concurrency-group
 // anti-affinity at placement time (#9659); it may be nil in tests.
-func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader) (*DistributedServices, error) {
+// pinned, when set, replaces configLoader as the source of models the router
+// and reconciler must keep loaded (it adds warm failover targets).
+func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader, pinned nodes.PinnedModelResolver) (*DistributedServices, error) {
 	if !cfg.Distributed.Enabled {
 		return nil, nil
 	}
@@ -382,6 +384,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	if configLoader != nil {
 		conflictResolver = configLoader
 		pinnedResolver = configLoader
+	}
+	if pinned != nil {
+		pinnedResolver = pinned
 	}
 	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{

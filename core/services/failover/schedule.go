@@ -46,11 +46,14 @@ func (m *Manager) Run(ctx context.Context) {
 // leader decision.
 func (m *Manager) Tick(ctx context.Context) {
 	m.Sync()
-	if m.gate == nil {
+	m.mu.Lock()
+	gate := m.gate // SetLeaderGate may replace it after construction
+	m.mu.Unlock()
+	if gate == nil {
 		m.lead(ctx)
 		return
 	}
-	if m.gate(ctx, func() { m.lead(ctx) }) {
+	if gate(ctx, func() { m.lead(ctx) }) {
 		return
 	}
 	m.mu.Lock()

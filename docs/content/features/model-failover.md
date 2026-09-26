@@ -167,7 +167,8 @@ curl -X DELETE http://localhost:8080/api/failover/assistant-llm/pin
 ```
 
 While a chain is pinned, only the pinned target serves it. Health checks
-continue. A restart removes the pin.
+continue. On a single LocalAI instance, a restart removes the pin. In
+[distributed mode](#distributed-mode), pins persist.
 
 ## Assistant and MCP
 
@@ -175,10 +176,25 @@ The LocalAI Assistant and `local-ai mcp-server` offer `list_failover_chains`,
 `pin_failover_target` and `unpin_failover_target`. Create and edit chains with
 the model config tools, like any other model.
 
+## Distributed mode
+
+In [distributed mode]({{%relref "features/distributed-mode" %}}), all frontends
+share one failover state:
+
+- Pins apply to the whole cluster. LocalAI stores them in the database, so
+  they persist across restarts. A pin set on one frontend applies on all.
+- Target health and the active target of each chain are shared over NATS.
+  All frontends send a chain's requests to the same target.
+- One frontend, the probe leader, runs the health checks, decides fail-over
+  and fail-back, and loads warm targets. A PostgreSQL advisory lock selects
+  the leader. If the leader stops, another frontend takes over.
+- Warm targets stay loaded on the workers. The router and the replica
+  reconciler treat them like pinned models and do not evict them.
+- A frontend that starts late gets the current state within 10 seconds,
+  because the leader sends its full state again every 10 seconds.
+
 ## Limits
 
-- Failover state is kept in memory by each LocalAI instance. Several frontends
-  in distributed mode each keep their own view.
 - Chains do not nest.
 - See also [model aliases]({{%relref "features/model-aliases" %}}) and the
   [realtime API]({{%relref "features/openai-realtime" %}}).

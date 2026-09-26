@@ -48,6 +48,18 @@ type LeaderGate func(ctx context.Context, fn func()) bool
 // grants leadership. Without it the manager is always the leader.
 func WithLeaderGate(g LeaderGate) Option { return func(m *Manager) { m.gate = g } }
 
+// SetLeaderGate is WithLeaderGate for a manager that already exists: the
+// application builds the manager before distributed init, where the gate's
+// database becomes known. Leadership is reset to match New, so the first tick
+// that wins the gate counts as becoming leader (warm set redelivered, state
+// republished at once).
+func (m *Manager) SetLeaderGate(g LeaderGate) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.gate = g
+	m.leader = g == nil
+}
+
 // SetStateSync attaches the sync layer and hydrates pins from it. Pins are
 // read outside the lock because the store may need I/O.
 func (m *Manager) SetStateSync(s StateSync) {

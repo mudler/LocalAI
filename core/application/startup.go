@@ -286,12 +286,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// the model configs are loaded, so it is declared out here.
 	var revisionStore modeladmin.RevisionStore
 
-	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader())
+	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader(),
+		&failoverPinnedResolver{base: application.ModelConfigLoader(), fm: application.failoverManager})
 	if err != nil {
 		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
 	}
 	if distSvc != nil {
 		application.distributed = distSvc
+		// Before failoverManager.Run starts below: the gate and sync must be
+		// in place for its first tick.
+		application.startFailoverDistributed(options.Context)
 		// Wire remote model unloader so ShutdownModel works for remote nodes
 		// Uses NATS to tell serve-backend nodes to Free + kill their backend process
 		application.modelLoader.SetRemoteUnloader(distSvc.Unloader)

@@ -140,6 +140,18 @@ var _ = Describe("Manager state sync", func() {
 		Expect(st.Pinned).ToNot(BeNil())
 	})
 
+	It("SetLeaderGate gates a manager built without one", func() {
+		// Production builds the manager before distributed init, so the gate
+		// arrives through the setter rather than the option.
+		p := &fakeProber{fail: map[string]error{}}
+		m := New(src, WithClock(clock), WithProber(p))
+		Expect(m.IsLeader()).To(BeTrue())
+		m.SetLeaderGate(gateFor(false))
+		Expect(m.IsLeader()).To(BeFalse(), "a gated manager is not the leader until the gate grants it")
+		m.Tick(ctx)
+		Consistently(func() int { return len(p.take()) }, 200*time.Millisecond).Should(Equal(0), "a follower must not probe")
+	})
+
 	It("only the leader probes", func() {
 		pa, pb := &fakeProber{fail: map[string]error{}}, &fakeProber{fail: map[string]error{}}
 		a = New(src, WithClock(clock), WithProber(pa), WithLeaderGate(gateFor(true)))

@@ -24,8 +24,15 @@ var preloadModelByName = backend.PreloadModelByName
 // Tick, called from Run), before that tick's probes fire. A slow or hung
 // load here would freeze probing and fail-back for every chain, so it runs
 // in its own goroutine instead of blocking the scheduler loop.
+//
+// In distributed mode only the probe leader preloads: every frontend would
+// otherwise ask the workers for the same load. Followers still pin, so their
+// own watchdog never evicts a warm target they happen to hold.
 func (a *Application) applyFailoverWarmTargets(warm []string) {
 	a.SyncPinnedModelsToWatchdog()
+	if a.IsDistributed() && !a.failoverManager.IsLeader() {
+		return
+	}
 	go func() {
 		for _, name := range warm {
 			if _, err := preloadModelByName(a.ApplicationConfig().Context, a.ModelConfigLoader(), a.ModelLoader(), a.ApplicationConfig(), name); err != nil {

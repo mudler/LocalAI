@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/failover"
+	"github.com/mudler/LocalAI/core/services/failover/distsync"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -93,6 +94,10 @@ type Application struct {
 
 	// Distributed mode services (nil when not in distributed mode)
 	distributed *DistributedServices
+
+	// failoverSync shares failover state between frontends; nil in
+	// standalone mode or when it could not start.
+	failoverSync *distsync.Sync
 
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
@@ -515,6 +520,13 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		// Before distributed shutdown: the sync's subscriptions live on the
+		// NATS connection that closes there.
+		if a.failoverSync != nil {
+			if closeErr := a.failoverSync.Close(); closeErr != nil {
+				xlog.Warn("failover: closing state sync", "error", closeErr)
+			}
+		}
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {
 			err = a.modelLoader.StopAllGRPC()
