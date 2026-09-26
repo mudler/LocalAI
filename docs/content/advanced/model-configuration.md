@@ -783,6 +783,14 @@ Configure how the model handles function/tool calls:
 | `function.replace_llm_results` | array | | Replace LLM results with patterns |
 | `function.capture_llm_results` | array | | Capture LLM results as text (e.g., for "thinking" blocks) |
 
+The generated tool grammar uses `function_name_key` and `function_arguments_key` as separate JSON keys.
+Chat, Realtime, and Responses use these settings.
+
+For Chat and Responses, a function tool with `strict: true` enables grammar generation even when `function.grammar.disable` is set.
+Strict mode also omits the synthetic no-action function.
+In Chat requests, put `strict` inside the tool's `function` object.
+In Responses requests, put `strict` directly on the function tool.
+
 ### Grammar Configuration
 
 | Field | Type | Default | Description |

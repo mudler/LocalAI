@@ -173,7 +173,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		}
 		if !strictMode {
 			for _, t := range input.Tools {
-				if t.Function.Strict {
+				if t.Type == "function" && t.Strict {
 					strictMode = true
 					break
 				}

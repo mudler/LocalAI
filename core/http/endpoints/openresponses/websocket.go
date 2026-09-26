@@ -355,7 +355,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 	}
 	if !strictMode {
 		for _, t := range input.Tools {
-			if t.Function.Strict {
+			if t.Type == "function" && t.Strict {
 				strictMode = true
 				break
 			}
