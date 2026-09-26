@@ -58,6 +58,8 @@ type Manager struct {
 	// hasChains mirrors len(chains) > 0 as of the last sync, so the request
 	// path can check it without the lock or a config-source scan.
 	hasChains atomic.Bool
+	// probes counts running probes; only tests wait on it.
+	probes sync.WaitGroup
 }
 
 type targetState struct {
@@ -71,6 +73,9 @@ type targetState struct {
 	lastProbe     time.Time
 	lastActivity  time.Time
 	lastError     string
+	// probing is set while a probe runs, so the scheduler does not start a
+	// second one for the same target.
+	probing bool
 	// params come from the first chain, in name order, that lists the target.
 	params config.FailoverConfig
 }

@@ -2,6 +2,10 @@ package application
 
 import (
 	"github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/failover"
+	"github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
 
@@ -29,4 +33,20 @@ func (a *Application) applyFailoverWarmTargets(warm []string) {
 			}
 		}
 	}()
+}
+
+// failoverLoadedBackend gives the failover prober the running backend of a
+// local target without ever loading it. CheckIsLoaded may run the loader's
+// own health check and drop a dead process; the target is then "not loaded"
+// and the next real request loads and judges it.
+func failoverLoadedBackend(ml *model.ModelLoader) failover.LoadedFunc {
+	return func(cfg config.ModelConfig) grpc.Backend {
+		m := ml.CheckIsLoaded(cfg.ModelID())
+		if m == nil {
+			return nil
+		}
+		// Load always enables parallel requests; match it in case this is
+		// the first client built for the model.
+		return m.GRPC(true, ml.GetWatchDog())
+	}
 }

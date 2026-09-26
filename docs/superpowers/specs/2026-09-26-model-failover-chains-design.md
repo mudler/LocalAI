@@ -151,7 +151,7 @@ Chain states:
 | Target | Liveness (steady state) | Recovery confirmation |
 |---|---|---|
 | remote | `GET <base>/v1/models` returns 2xx and lists the upstream model. `<base>` is the scheme and host of `proxy.upstream_url` plus any path prefix before `/v1`. The upstream model is `proxy.upstream_model`, or the target name when it is empty. `/v1/models` works on any OpenAI-compatible upstream, and `/readyz` exists only on LocalAI. | one minimal real request, chosen by usecase |
-| local, `warm: true` | gRPC `HealthCheck` on the loaded backend. If the backend is not loaded (it crashed), a reload is the recovery attempt. | chat and completion: `Predict` with 1 token; embeddings: `Embedding` of `"ping"`; other usecases: `HealthCheck`. A local backend process that answers `HealthCheck` rarely fails only for TTS or transcription. |
+| local, `warm: true` | gRPC `HealthCheck` on the loaded backend, with the probe timeout. A probe never loads the model: when the backend is not loaded (the warm preload is still loading it, or a crash removed it), liveness passes and the next real request loads and judges it. | chat and completion: `Predict` with 1 token; embeddings: `Embedding` of `"ping"`; other usecases: `HealthCheck`. A local backend process that answers `HealthCheck` rarely fails only for TTS or transcription. When the backend is not loaded there is nothing to confirm against: the probe neither passes nor trips, and the target returns to `healthy` like a cold one, when `min_dwell` has passed since the trip. |
 | local, cold | none: a cold target is judged only by real requests; it is never loaded only to probe it. | none. After a trip, the target returns to `healthy` when `min_dwell` has passed. The next real request is the test. |
 
 Minimal requests by usecase:
@@ -165,8 +165,10 @@ Minimal requests by usecase:
 
 Probe load rules:
 
-- Each chain has one ticker with jitter. A target shared by chains is probed
-  once.
+- One global scheduler ticks every second, without jitter, and starts the
+  probes that are due. A target shared by chains is probed once. The
+  scheduler does not wait for a probe: a target whose probe is still running
+  is skipped, so one slow target does not delay the others.
 - A successful real request counts as a liveness pass, so a busy target is
   almost never probed.
 - Inference probes run only while a target is `recovering`.

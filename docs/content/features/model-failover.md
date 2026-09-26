@@ -87,7 +87,7 @@ targets were down.
 | Target | Regular check | Check before moving back |
 |---|---|---|
 | Remote (`cloud-proxy`) | `GET /v1/models` on the upstream lists the model | one small real request, for example a 1-token completion |
-| Local, `warm: true` | the backend answers a health check | one small real request |
+| Local, `warm: true` | the backend answers a health check. A check never loads the model: while it is not loaded, the check passes and real requests judge it | one small real request. While the model is not loaded, the target is used again after `min_dwell` |
 | Local, not warm | none: judged only by real requests; it is never loaded only to check it | none: the target is used again after `min_dwell` |
 
 A request that succeeds counts as a check, so a busy target is almost never

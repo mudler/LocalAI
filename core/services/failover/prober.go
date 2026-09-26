@@ -18,18 +18,26 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
-// LoadFunc returns the backend for a local target, loading it if needed.
-type LoadFunc func(ctx context.Context, cfg config.ModelConfig) (grpc.Backend, error)
+// ErrNotLoaded is what Inference returns for a local target whose backend is
+// not running. It neither confirms nor fails recovery: the manager judges the
+// target like a cold one, by real requests once min_dwell has passed.
+var ErrNotLoaded = errors.New("failover: target is not loaded")
+
+// LoadedFunc returns the running backend of a local target, or nil when it is
+// not loaded. It must never load the model: a probe that loads blocks until
+// the load ends (while the warm preload loads the same model) and then judges
+// the target on an expired context.
+type LoadedFunc func(cfg config.ModelConfig) grpc.Backend
 
 // DefaultProber probes remote targets over the upstream's OpenAI-compatible
 // API and local targets through their gRPC backend.
 type DefaultProber struct {
-	HTTP *http.Client
-	Load LoadFunc
+	HTTP   *http.Client
+	Loaded LoadedFunc
 }
 
-func NewProber(load LoadFunc) *DefaultProber {
-	return &DefaultProber{HTTP: &http.Client{}, Load: load}
+func NewProber(loaded LoadedFunc) *DefaultProber {
+	return &DefaultProber{HTTP: &http.Client{}, Loaded: loaded}
 }
 
 func (p *DefaultProber) Liveness(ctx context.Context, cfg config.ModelConfig, kind Kind, warm bool) error {
@@ -225,15 +233,25 @@ func silenceWAV() []byte {
 	return b
 }
 
+func (p *DefaultProber) loaded(cfg config.ModelConfig) grpc.Backend {
+	if p.Loaded == nil {
+		return nil
+	}
+	return p.Loaded(cfg)
+}
+
+// localHealth checks a warm target's running backend. A target that is not
+// loaded passes: the warm preload is loading it, or a crash removed it and
+// the next real request loads it again and judges it.
 func (p *DefaultProber) localHealth(ctx context.Context, cfg config.ModelConfig) error {
-	if p.Load == nil {
-		return errors.New("failover: no backend loader configured")
+	b := p.loaded(cfg)
+	if b == nil {
+		return nil
 	}
-	// Load returns the running backend, or starts it again after a crash.
-	b, err := p.Load(ctx, cfg)
-	if err != nil {
-		return err
-	}
+	return healthCheck(ctx, b)
+}
+
+func healthCheck(ctx context.Context, b grpc.Backend) error {
 	ok, err := b.HealthCheck(ctx)
 	if err != nil {
 		return err
@@ -245,13 +263,11 @@ func (p *DefaultProber) localHealth(ctx context.Context, cfg config.ModelConfig)
 }
 
 func (p *DefaultProber) localInference(ctx context.Context, cfg config.ModelConfig) error {
-	if p.Load == nil {
-		return errors.New("failover: no backend loader configured")
+	b := p.loaded(cfg)
+	if b == nil {
+		return ErrNotLoaded
 	}
-	b, err := p.Load(ctx, cfg)
-	if err != nil {
-		return err
-	}
+	var err error
 	switch {
 	case cfg.HasUsecases(config.FLAG_CHAT) || cfg.HasUsecases(config.FLAG_COMPLETION):
 		_, err = b.Predict(ctx, &pb.PredictOptions{Prompt: "ping", Tokens: 1})
@@ -262,5 +278,5 @@ func (p *DefaultProber) localInference(ctx context.Context, cfg config.ModelConf
 	}
 	// A backend process that answers HealthCheck rarely fails only for TTS or
 	// transcription, so a real request adds little here.
-	return p.localHealth(ctx, cfg)
+	return healthCheck(ctx, b)
 }

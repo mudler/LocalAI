@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -37,5 +39,25 @@ var _ = Describe("applyFailoverWarmTargets", func() {
 
 		Eventually(callReturned, time.Second).Should(BeClosed(), "applyFailoverWarmTargets must not wait on the preload goroutine")
 		Eventually(started, time.Second).Should(BeClosed(), "the preload goroutine should still run in the background")
+	})
+})
+
+type healthyBackend struct{ grpc.Backend }
+
+func (healthyBackend) HealthCheck(context.Context) (bool, error) { return true, nil }
+
+var _ = Describe("failoverLoadedBackend", func() {
+	It("returns the running backend and never loads a model that is not loaded", func() {
+		ml := model.NewModelLoader(&system.SystemState{Model: system.Model{ModelsPath: GinkgoT().TempDir()}})
+		store := model.NewInMemoryModelStore()
+		ml.SetModelStore(store)
+		loaded := failoverLoadedBackend(ml)
+
+		Expect(loaded(config.ModelConfig{Name: "gemma", Backend: "llama-cpp"})).To(BeNil())
+		Expect(ml.ListLoadedModels()).To(BeEmpty(), "the lookup must not start a load")
+
+		client := healthyBackend{}
+		store.Set("gemma", model.NewModelWithClient("gemma", "127.0.0.1:0", client))
+		Expect(loaded(config.ModelConfig{Name: "gemma", Backend: "llama-cpp"})).To(Equal(client))
 	})
 })

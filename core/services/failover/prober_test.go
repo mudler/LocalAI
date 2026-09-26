@@ -138,7 +138,7 @@ var _ = Describe("DefaultProber", func() {
 
 	It("uses HealthCheck for warm local liveness and Predict for local chat inference", func() {
 		b := &fakeBackend{healthy: true}
-		p = NewProber(func(context.Context, config.ModelConfig) (grpc.Backend, error) { return b, nil })
+		p = NewProber(func(config.ModelConfig) grpc.Backend { return b })
 		c := config.ModelConfig{Name: "gemma", Backend: "llama-cpp", KnownUsecaseStrings: []string{"chat"}}
 		c.KnownUsecases = config.GetUsecasesFromYAML(c.KnownUsecaseStrings)
 		Expect(p.Liveness(ctx, c, KindLocal, true)).To(Succeed())
@@ -150,10 +150,24 @@ var _ = Describe("DefaultProber", func() {
 		Expect(p.Inference(ctx, c, KindLocal, true)).To(HaveOccurred())
 	})
 
+	It("passes warm liveness for a target that is not loaded, and leaves recovery unconfirmed", func() {
+		// The warm preload loads the model; a probe that loaded it too would
+		// block until the load finished and then judge it on an expired ctx.
+		asked := 0
+		p = NewProber(func(config.ModelConfig) grpc.Backend { asked++; return nil })
+		for _, uc := range []string{"chat", "tts"} {
+			c := config.ModelConfig{Name: "gemma", Backend: "llama-cpp", KnownUsecaseStrings: []string{uc}}
+			c.KnownUsecases = config.GetUsecasesFromYAML(c.KnownUsecaseStrings)
+			Expect(p.Liveness(ctx, c, KindLocal, true)).To(Succeed())
+			Expect(p.Inference(ctx, c, KindLocal, true)).To(MatchError(ErrNotLoaded), uc)
+		}
+		Expect(asked).To(Equal(4))
+	})
+
 	It("passes cold local liveness without a model file and without loading", func() {
-		p = NewProber(func(context.Context, config.ModelConfig) (grpc.Backend, error) {
-			Fail("cold liveness must not load the model")
-			return nil, nil
+		p = NewProber(func(config.ModelConfig) grpc.Backend {
+			Fail("cold liveness must not look up the backend")
+			return nil
 		})
 		// None of these files exist: a missing file says nothing about whether
 		// the target can serve (download on first use, dotted names, backends

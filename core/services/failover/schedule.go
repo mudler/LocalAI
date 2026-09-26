@@ -2,7 +2,7 @@ package failover
 
 import (
 	"context"
-	"sync"
+	"errors"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -26,22 +26,29 @@ func (m *Manager) Run(ctx context.Context) {
 	}
 }
 
-// Tick runs one pass: sync configs, run due probes, recompute chains. It is
+// Tick runs one pass: sync configs, start due probes, recompute chains. It is
 // exported so tests can drive the manager without a real ticker. Like Run, it
 // must only be called from the scheduler goroutine (see Run's comment on Sync).
+//
+// Tick does not wait for the probes it starts: one slow target (a probe that
+// hangs until its timeout) must not delay probing and fail-back of every
+// other chain. Each probe applies its own result, and a target whose probe is
+// still running is skipped until it ends.
 func (m *Manager) Tick(ctx context.Context) {
 	m.Sync()
-	var wg sync.WaitGroup
 	for _, j := range m.dueProbes() {
-		wg.Add(1)
+		m.probes.Add(1)
 		go func(j probeJob) {
-			defer wg.Done()
+			defer m.probes.Done()
 			m.runProbe(ctx, j)
 		}(j)
 	}
-	wg.Wait()
 	m.Reevaluate()
 }
+
+// waitProbes waits for the probes started so far. Tests use it to see a
+// tick's results; the scheduler never waits.
+func (m *Manager) waitProbes() { m.probes.Wait() }
 
 type probeJob struct {
 	target    string
@@ -58,6 +65,9 @@ func (m *Manager) dueProbes() []probeJob {
 	now := m.clock.Now()
 	var jobs []probeJob
 	for _, ts := range m.targets {
+		if ts.probing {
+			continue
+		}
 		interval := ts.params.ProbeInterval()
 		inference := false
 		switch ts.state {
@@ -94,6 +104,7 @@ func (m *Manager) dueProbes() []probeJob {
 			continue
 		}
 		ts.lastProbe = now
+		ts.probing = true
 		jobs = append(jobs, probeJob{
 			target: ts.name, cfg: cfg, kind: ts.kind, warm: ts.warm,
 			inference: inference, timeout: ts.params.ProbeTimeout(),
@@ -112,16 +123,38 @@ func (m *Manager) runProbe(ctx context.Context, j probeJob) {
 		err = m.prober.Liveness(pctx, j.cfg, j.kind, j.warm)
 	}
 	if ctx.Err() != nil {
+		m.endProbe(j.target)
 		return // shutting down: a cancelled probe says nothing about the target
 	}
 	m.applyProbe(j, err)
+}
+
+func (m *Manager) endProbe(target string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if ts := m.targets[target]; ts != nil {
+		ts.probing = false
+	}
 }
 
 func (m *Manager) applyProbe(j probeJob, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	ts := m.targets[j.target]
-	if ts == nil || ts.state == StateMissing {
+	if ts == nil {
+		return
+	}
+	ts.probing = false
+	if ts.state == StateMissing {
+		return
+	}
+	if errors.Is(err, ErrNotLoaded) {
+		// Nothing running to confirm recovery against: judge the target like
+		// a cold one, by real requests once min_dwell has passed.
+		if ts.state == StateRecovering && m.clock.Now().Sub(ts.downSince) >= ts.params.MinDwell() {
+			m.setTargetLocked(ts, StateHealthy, ReasonRecovery, "")
+			m.recomputeForLocked(ts.name)
+		}
 		return
 	}
 	if err != nil {

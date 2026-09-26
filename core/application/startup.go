@@ -1,7 +1,6 @@
 package application
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -29,7 +28,6 @@ import (
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -257,9 +255,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// chain. WithOnWarmChanged pins and preloads warm local targets so a
 	// switch to them does not wait for a cold load.
 	application.failoverManager = failover.New(application.ModelConfigLoader(),
-		failover.WithProber(failover.NewProber(func(ctx context.Context, cfg config.ModelConfig) (grpc.Backend, error) {
-			return application.ModelLoader().Load(backend.ModelOptions(cfg, options)...)
-		})),
+		failover.WithProber(failover.NewProber(failoverLoadedBackend(application.ModelLoader()))),
 		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
 	)
 	// The assistant client was built in start() (above), before this
