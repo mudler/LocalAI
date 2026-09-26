@@ -120,7 +120,8 @@ pipeline:
   tts: voice-chain
 ```
 
-LocalAI resolves the chain for every call of the stage. When a chain switches,
+LocalAI resolves the chain for every call of the stage, in full pipelines and
+in transcription-only and sound-detection-only sessions. When a chain switches,
 the session stays open and keeps its conversation. The next turn uses the new
 target.
 
@@ -134,8 +135,6 @@ it starts (`reason: initial`) and each time a chain switches:
 
 Limits:
 
-- Chains are resolved only in full realtime pipelines. A transcription-only or
-  sound-detection-only session does not resolve chains yet.
 - After a `session.update` that changes the pipeline, `localai.model.failover`
   events keep describing the chains from session start.
 - A chain used as a router candidate, or as the classifier-mode scoring model,

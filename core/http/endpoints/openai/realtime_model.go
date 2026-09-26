@@ -86,17 +86,10 @@ type wrappedModel struct {
 	routerSessionID string
 	routerUserID    string
 
-	// failover and stageChains route pipeline stages that name a failover
-	// chain; stageChains maps a stage ("llm", "tts", ...) to its chain.
-	// The *Config fields above then hold the target that was active at
-	// session start, for the checks that run once (voice, templates).
-	failover          *failover.Manager
-	stageChains       map[string]string
-	stageTargetConfig func(name string) (*config.ModelConfig, error)
+	stageRouter
 	// tuneLLM applies the pipeline's LLM overrides (reasoning effort,
 	// disable_thinking) to a chain target loaded per call.
-	tuneLLM    func(cfg *config.ModelConfig)
-	appTracing bool
+	tuneLLM func(cfg *config.ModelConfig)
 }
 
 // anyToAnyModel represent a model which supports Any-to-Any operations
@@ -119,18 +112,38 @@ type transcriptOnlyModel struct {
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
 	confLoader  *config.ModelConfigLoader
+
+	stageRouter
 }
 
 func (m *transcriptOnlyModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
-	return backend.VAD(request, ctx, m.modelLoader, m.appConfig, *m.VADConfig)
+	var res *schema.VADResponse
+	err := m.stageCall(ctx, "vad", m.VADConfig, func(cfg *config.ModelConfig, _ func()) error {
+		var err error
+		res, err = backend.VAD(request, ctx, m.modelLoader, m.appConfig, *cfg)
+		return err
+	})
+	return res, err
 }
 
 func (m *transcriptOnlyModel) Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error) {
-	return backend.ModelTranscription(ctx, audio, language, translate, diarize, prompt, m.modelLoader, *m.TranscriptionConfig, m.appConfig)
+	var res *schema.TranscriptionResult
+	err := m.stageCall(ctx, "transcription", m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
+		var err error
+		res, err = backend.ModelTranscription(ctx, audio, language, translate, diarize, prompt, m.modelLoader, *cfg, m.appConfig)
+		return err
+	})
+	return res, err
 }
 
 func (m *transcriptOnlyModel) SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error) {
-	return modelSoundDetection(ctx, m.modelLoader, m.appConfig, m.SoundDetectionConfig, audio, topK, threshold)
+	var res *schema.SoundClassificationResult
+	err := m.stageCall(ctx, "sound_detection", m.SoundDetectionConfig, func(cfg *config.ModelConfig, _ func()) error {
+		var err error
+		res, err = modelSoundDetection(ctx, m.modelLoader, m.appConfig, cfg, audio, topK, threshold)
+		return err
+	})
+	return res, err
 }
 
 func (m *transcriptOnlyModel) Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools []types.ToolUnion, toolChoice *types.ToolChoiceUnion, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error) {
@@ -157,11 +170,27 @@ func (m *transcriptOnlyModel) TTSStream(ctx context.Context, text, voice, langua
 }
 
 func (m *transcriptOnlyModel) TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
-	return transcribeStream(ctx, m.modelLoader, *m.TranscriptionConfig, m.appConfig, audio, language, translate, diarize, prompt, onDelta)
+	var res *schema.TranscriptionResult
+	err := m.stageCall(ctx, "transcription", m.TranscriptionConfig, func(cfg *config.ModelConfig, commit func()) error {
+		var err error
+		res, err = transcribeStream(ctx, m.modelLoader, *cfg, m.appConfig, audio, language, translate, diarize, prompt, func(s string) {
+			commit()
+			onDelta(s)
+		})
+		return err
+	})
+	return res, err
 }
 
 func (m *transcriptOnlyModel) TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error) {
-	return backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *m.TranscriptionConfig, m.appConfig, onEvent)
+	var live backend.LiveTranscriptionSession
+	// Only opening the live session can move to the next target.
+	err := m.stageCall(ctx, "transcription", m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
+		var err error
+		live, err = backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *cfg, m.appConfig, onEvent)
+		return err
+	})
+	return live, err
 }
 
 func (m *transcriptOnlyModel) PredictConfig() *config.ModelConfig {
@@ -169,12 +198,11 @@ func (m *transcriptOnlyModel) PredictConfig() *config.ModelConfig {
 }
 
 func (m *transcriptOnlyModel) Warmup(ctx context.Context) error {
-	_, err := backend.PreloadStages(ctx, m.modelLoader, m.appConfig, []backend.PreloadStage{
+	return m.warmStages(ctx, m.modelLoader, m.appConfig, []backend.PreloadStage{
 		{Role: "vad", Cfg: m.VADConfig},
 		{Role: "transcription", Cfg: m.TranscriptionConfig},
 		{Role: "sound_detection", Cfg: m.SoundDetectionConfig},
 	})
-	return err
 }
 
 func (m *wrappedModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
@@ -812,32 +840,7 @@ func (m *wrappedModel) Warmup(ctx context.Context) error {
 	if m.ScoreConfig != nil && m.ScoreConfig != m.LLMConfig {
 		stages = append(stages, backend.PreloadStage{Role: "classifier", Cfg: m.ScoreConfig})
 	}
-	// A chain stage warms through its failover plan: a target that fails to
-	// load moves the stage to the next one instead of failing the session.
-	var (
-		plain []backend.PreloadStage
-		wg    sync.WaitGroup
-		mu    sync.Mutex
-		errs  []error
-	)
-	for _, s := range stages {
-		if !m.isChainStage(s.Role) {
-			plain = append(plain, s)
-			continue
-		}
-		wg.Go(func() {
-			err := m.stageCall(ctx, s.Role, s.Cfg, func(cfg *config.ModelConfig, _ func()) error {
-				_, err := backend.PreloadStages(ctx, m.modelLoader, m.appConfig, []backend.PreloadStage{{Role: s.Role, Cfg: cfg}})
-				return err
-			})
-			mu.Lock()
-			errs = append(errs, err)
-			mu.Unlock()
-		})
-	}
-	_, err := backend.PreloadStages(ctx, m.modelLoader, m.appConfig, plain)
-	wg.Wait()
-	return errors.Join(append(errs, err)...)
+	return m.warmStages(ctx, m.modelLoader, m.appConfig, stages)
 }
 
 // wavStreamHeaderBytes is the size of the WAV header that backend.ModelTTSStream
@@ -930,8 +933,12 @@ func loadSoundDetectionConfig(pipeline *config.Pipeline, cl *config.ModelConfigL
 	return cfg, nil
 }
 
-func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {
+func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, fm *failover.Manager) (Model, *config.ModelConfig, error) {
+	sr := newStageRouter(fm, cl, ml, appConfig)
 	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
+	if err == nil {
+		cfgVAD, err = sr.resolveStage("vad", cfgVAD)
+	}
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -942,6 +949,9 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 	}
 
 	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
+	if err == nil {
+		cfgSST, err = sr.resolveStage("transcription", cfgSST)
+	}
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -952,6 +962,9 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 	}
 
 	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
+	if err == nil {
+		cfgSound, err = sr.resolveStage("sound_detection", cfgSound)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -964,6 +977,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		confLoader:  cl,
 		modelLoader: ml,
 		appConfig:   appConfig,
+		stageRouter: sr,
 	}, cfgSST, nil
 }
 
@@ -972,8 +986,12 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 // a sound-detection-only realtime session, which activates on sounds (not
 // speech) and is driven by client-side windowing (turn_detection none +
 // input_audio_buffer.commit) rather than the voice VAD loop.
-func newSoundDetectionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, error) {
+func newSoundDetectionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, fm *failover.Manager) (Model, error) {
+	sr := newStageRouter(fm, cl, ml, appConfig)
 	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
+	if err == nil {
+		cfgSound, err = sr.resolveStage("sound_detection", cfgSound)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -985,6 +1003,7 @@ func newSoundDetectionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfi
 		confLoader:           cl,
 		modelLoader:          ml,
 		appConfig:            appConfig,
+		stageRouter:          sr,
 	}, nil
 }
 
@@ -1031,29 +1050,12 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	// A stage that names a failover chain is resolved on every call. Here it
 	// takes the chain's active target, so everything that inspects stage
 	// configs at session start (voice, reasoning, templates) sees a real model.
-	stageChains := map[string]string{}
-	loadTarget := func(name string) (*config.ModelConfig, error) {
-		cfg, err := cl.LoadResolvedModelConfig(name, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
-		if err != nil {
-			return nil, err
-		}
-		failover.PrepareTarget(cfg)
-		return cfg, nil
+	var fm *failover.Manager
+	if routing != nil {
+		fm = routing.Failover
 	}
-	resolveStage := func(stage string, cfg *config.ModelConfig) (*config.ModelConfig, error) {
-		if cfg == nil || !cfg.IsFailover() {
-			return cfg, nil
-		}
-		if routing == nil || routing.Failover == nil {
-			return nil, fmt.Errorf("pipeline %s stage %q is a failover chain, but failover is not running", stage, cfg.Name)
-		}
-		st, ok := routing.Failover.ChainStatus(cfg.Name)
-		if !ok {
-			return nil, fmt.Errorf("failover chain %q not found", cfg.Name)
-		}
-		stageChains[stage] = cfg.Name
-		return loadTarget(st.Active)
-	}
+	sr := newStageRouter(fm, cl, ml, appConfig)
+	resolveStage := sr.resolveStage
 
 	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err == nil {
@@ -1193,17 +1195,14 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		appConfig:   appConfig,
 		evaluator:   evaluator,
 
-		stageChains:       stageChains,
-		stageTargetConfig: loadTarget,
-		tuneLLM:           tuneLLM,
-		appTracing:        appConfig.EnableTracing,
+		stageRouter: sr,
+		tuneLLM:     tuneLLM,
 	}
 	if routing != nil {
 		wm.routerDeps = routing.Deps
 		wm.routerStore = routing.Store
 		wm.routerSessionID = routing.SessionID
 		wm.routerUserID = routing.UserID
-		wm.failover = routing.Failover
 	}
 	return wm, nil
 }

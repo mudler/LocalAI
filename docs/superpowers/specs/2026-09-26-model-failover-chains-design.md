@@ -278,8 +278,11 @@ Plain HTTP clients can see failover without subscribing to events.
 ## Request path (realtime)
 
 - In `core/http/endpoints/openai/realtime_model.go`, a pipeline stage that names
-  a chain is resolved **for each call** of `wrappedModel`, not once at session
-  start. A helper, `mgr.Do(ctx, chain, func(cfg *config.ModelConfig) error)`,
+  a chain is resolved **for each call**, not once at session start. This holds
+  for the full pipeline (`wrappedModel`) and for transcription-only and
+  sound-detection-only sessions (`transcriptOnlyModel`); both embed the same
+  stage router. A chain config never reaches the model loader: it has no
+  backend and would start backend auto-detection. A helper, `mgr.Do(ctx, chain, func(cfg *config.ModelConfig) error)`,
   goes through the plan with the same classification as HTTP.
 - Streaming stages (`Predict` with a token callback, `TTSStream`,
   `TranscribeStream`) wrap the callback. A retry is allowed only until the first
