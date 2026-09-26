@@ -29,6 +29,7 @@ LocalAI
 # Root-level build artifacts when running `go build ./...` against
 # Go backend packages whose main lives under backend/go/.
 /cloud-proxy
+/localai-proxy
 /local-store
 /valkey-store
 # prevent above rules from omitting the helm chart
@@ -50,6 +51,8 @@ tests/e2e-aio/backends
 /tests/e2e/mock-backend/mock-backend
 # The cloud-proxy backend binary the e2e suite runs next to the mock backend.
 /tests/e2e/mock-backend/cloud-proxy
+# The localai-proxy backend binary, built next to it the same way.
+/tests/e2e/mock-backend/localai-proxy
 
 release/
 
