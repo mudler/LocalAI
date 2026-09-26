@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
@@ -29,6 +30,7 @@ type RequestExtractor struct {
 	modelConfigLoader *config.ModelConfigLoader
 	modelLoader       *model.ModelLoader
 	applicationConfig *config.ApplicationConfig
+	failover          *failover.Manager
 }
 
 func NewRequestExtractor(modelConfigLoader *config.ModelConfigLoader, modelLoader *model.ModelLoader, applicationConfig *config.ApplicationConfig) *RequestExtractor {
@@ -122,7 +124,7 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 // Otherwise, it's in its own method below for now
 func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIRequest) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return failoverRetry(re.applicationConfig, func(c echo.Context) error {
 			input := initializer()
 			if input == nil {
 				return echo.NewHTTPError(http.StatusBadRequest, "unable to initialize body")
@@ -194,6 +196,22 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 				cfg = resolved
 			}
 
+			// A failover chain resolves to one of its targets, like an alias.
+			// failoverRetry re-runs this middleware for the next target.
+			if cfg != nil && cfg.IsFailover() {
+				resolved, fErr := re.resolveFailover(c, modelName, cfg)
+				if fErr != nil {
+					return c.JSON(http.StatusServiceUnavailable, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: fErr.Error(),
+							Code:    http.StatusServiceUnavailable,
+							Type:    "failover_unavailable",
+						},
+					})
+				}
+				cfg = resolved
+			}
+
 			// Check if the model is disabled
 			if cfg != nil && cfg.IsDisabled() {
 				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
@@ -209,7 +227,7 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
 
 			return next(c)
-		}
+		})
 	}
 }
 

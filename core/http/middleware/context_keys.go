@@ -47,4 +47,8 @@ const (
 	// router nor the body-parse path has produced one. Distinct from
 	// ContextKeyServedModel, which is the router's resolved choice.
 	ContextKeyResponseModel = "routing.response_model"
+
+	// ContextKeyFailoverAttempt holds the *failoverState of a request whose
+	// model is a failover chain.
+	ContextKeyFailoverAttempt = "failover.attempt"
 )
