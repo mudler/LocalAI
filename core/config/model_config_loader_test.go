@@ -402,3 +402,43 @@ var _ = Describe("ModelConfigLoader ResolveAliasName", func() {
 		Expect(target).To(BeEmpty())
 	})
 })
+
+var _ = Describe("ModelConfigLoader failover validation", func() {
+	var loader *ModelConfigLoader
+	chain := func(targets ...string) *ModelConfig {
+		c := &ModelConfig{Name: "chain", Failover: &FailoverConfig{}}
+		for _, t := range targets {
+			c.Failover.Targets = append(c.Failover.Targets, FailoverTarget{Model: t})
+		}
+		return c
+	}
+
+	BeforeEach(func() {
+		loader = NewModelConfigLoader("")
+		loader.configs["a"] = ModelConfig{Name: "a", Backend: "llama-cpp", KnownUsecaseStrings: []string{"chat"}}
+		loader.configs["b"] = ModelConfig{Name: "b", Backend: "llama-cpp", KnownUsecaseStrings: []string{"chat"}}
+		loader.configs["tts"] = ModelConfig{Name: "tts", Backend: "piper", KnownUsecaseStrings: []string{"tts"}}
+		loader.configs["alias-b"] = ModelConfig{Name: "alias-b", Alias: "b"}
+		loader.configs["other-chain"] = *chain("a", "b")
+		loader.configs["alias-chain"] = ModelConfig{Name: "alias-chain", Alias: "other-chain"}
+		for k, c := range loader.configs {
+			c.KnownUsecases = GetUsecasesFromYAML(c.KnownUsecaseStrings)
+			loader.configs[k] = c
+		}
+	})
+
+	It("accepts existing targets and alias targets", func() {
+		Expect(loader.ValidateFailoverTargets(chain("a", "alias-b"))).To(Succeed())
+	})
+	It("rejects a missing target", func() {
+		Expect(loader.ValidateFailoverTargets(chain("a", "nope"))).To(MatchError(ContainSubstring("does not exist")))
+	})
+	It("rejects a nested chain, directly or through an alias", func() {
+		Expect(loader.ValidateFailoverTargets(chain("a", "other-chain"))).To(MatchError(ContainSubstring("chains do not nest")))
+		Expect(loader.ValidateFailoverTargets(chain("a", "alias-chain"))).To(MatchError(ContainSubstring("chains do not nest")))
+	})
+	It("reports whether targets share a usecase", func() {
+		Expect(loader.FailoverTargetsShareUsecase(chain("a", "b"))).To(BeTrue())
+		Expect(loader.FailoverTargetsShareUsecase(chain("a", "tts"))).To(BeFalse())
+	})
+})

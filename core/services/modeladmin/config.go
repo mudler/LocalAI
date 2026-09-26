@@ -169,6 +169,9 @@ func (s *ConfigService) patchConfig(ctx context.Context, name string, patch map[
 	if err := s.Loader.ValidateAliasTarget(&updated); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidConfig, err)
 	}
+	if err := s.Loader.ValidateFailoverTargets(&updated); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidConfig, err)
+	}
 	var result *PatchResult
 	err = s.withMutationRollback([]string{configPath}, func() error {
 		if err := writeFileAtomic(configPath, yamlData, 0644); err != nil {
@@ -284,6 +287,9 @@ func (s *ConfigService) editYAML(ctx context.Context, name string, body []byte) 
 		return nil, ErrInvalidConfig
 	}
 	if err := s.Loader.ValidateAliasTarget(&req); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidConfig, err)
+	}
+	if err := s.Loader.ValidateFailoverTargets(&req); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidConfig, err)
 	}
 

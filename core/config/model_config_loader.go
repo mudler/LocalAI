@@ -501,6 +501,80 @@ func (bcl *ModelConfigLoader) ValidateAliasTarget(cfg *ModelConfig) error {
 	return nil
 }
 
+// failoverUsecases are the single usecases a chain can share. Checking one
+// flag at a time avoids treating "chat+tts" and "tts" as unrelated.
+var failoverUsecases = []ModelConfigUsecase{
+	FLAG_CHAT, FLAG_COMPLETION, FLAG_EMBEDDINGS, FLAG_RERANK, FLAG_IMAGE,
+	FLAG_TRANSCRIPT, FLAG_TTS, FLAG_SOUND_GENERATION, FLAG_VAD, FLAG_VIDEO,
+	FLAG_SOUND_CLASSIFICATION,
+}
+
+// ValidateFailoverTargets checks that every target of a chain exists and is
+// not itself a chain. Alias targets are allowed and resolve one hop.
+func (bcl *ModelConfigLoader) ValidateFailoverTargets(cfg *ModelConfig) error {
+	return validateFailoverTargets(cfg, bcl.GetModelConfig)
+}
+
+// FailoverTargetsShareUsecase reports whether all targets of a chain have at
+// least one usecase in common. A false result is only a warning: usecases are
+// often inferred.
+func (bcl *ModelConfigLoader) FailoverTargetsShareUsecase(cfg *ModelConfig) bool {
+	return failoverTargetsShareUsecase(cfg, bcl.GetModelConfig)
+}
+
+func validateFailoverTargets(cfg *ModelConfig, lookup func(string) (ModelConfig, bool)) error {
+	if cfg == nil || !cfg.IsFailover() {
+		return nil
+	}
+	for _, t := range cfg.Failover.Targets {
+		target, ok := lookup(t.Model)
+		if !ok {
+			return fmt.Errorf("failover chain %q: target %q does not exist", cfg.Name, t.Model)
+		}
+		if target.IsAlias() {
+			if resolved, ok := lookup(target.Alias); ok {
+				target = resolved
+			}
+		}
+		if target.IsFailover() {
+			return fmt.Errorf("failover chain %q: target %q is a chain (chains do not nest)", cfg.Name, t.Model)
+		}
+	}
+	return nil
+}
+
+func failoverTargetsShareUsecase(cfg *ModelConfig, lookup func(string) (ModelConfig, bool)) bool {
+	if cfg == nil || !cfg.IsFailover() {
+		return true
+	}
+	var targets []ModelConfig
+	for _, t := range cfg.Failover.Targets {
+		target, ok := lookup(t.Model)
+		if !ok {
+			return true // missing targets are reported by validateFailoverTargets
+		}
+		if target.IsAlias() {
+			if resolved, ok := lookup(target.Alias); ok {
+				target = resolved
+			}
+		}
+		targets = append(targets, target)
+	}
+	for _, u := range failoverUsecases {
+		all := true
+		for i := range targets {
+			if !targets[i].HasUsecases(u) {
+				all = false
+				break
+			}
+		}
+		if all {
+			return true
+		}
+	}
+	return false
+}
+
 type preloadWork struct {
 	key    string
 	config ModelConfig
@@ -834,6 +908,28 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 			xlog.Warn("alias points to unknown model", "alias", name, "target", c.Alias)
 		case target.IsAlias():
 			xlog.Warn("alias points to another alias (chains are not allowed)", "alias", name, "target", c.Alias)
+		}
+	}
+
+	// Reject failover chains whose targets are missing or are themselves
+	// chains. bcl.Lock() is held here, so look up configs directly rather
+	// than through GetModelConfig, which would deadlock on the same mutex.
+	lookup := func(n string) (ModelConfig, bool) { c, ok := bcl.configs[n]; return c, ok }
+	for name, cfg := range bcl.configs {
+		if !cfg.IsFailover() {
+			continue
+		}
+		c := cfg
+		if err := validateFailoverTargets(&c, lookup); err != nil {
+			if strict {
+				return fmt.Errorf("invalid model config %q: %w", name, err)
+			}
+			xlog.Error("skipping invalid failover chain", "model", name, "error", err)
+			delete(bcl.configs, name)
+			continue
+		}
+		if !failoverTargetsShareUsecase(&c, lookup) {
+			xlog.Warn("failover chain targets share no known usecase", "model", name)
 		}
 	}
 
