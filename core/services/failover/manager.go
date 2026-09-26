@@ -728,9 +728,8 @@ func (m *Manager) Do(ctx context.Context, chain string, fn func(ctx context.Cont
 			att.Succeed()
 			return nil
 		case IsCapabilityGap(err) && !committed.Load():
-			// This target cannot serve this kind of request, or is out of
-			// capacity; it is not broken, so move on without counting a
-			// failure.
+			// This target cannot serve this kind of request at all; it is
+			// not broken, so move on without counting a failure.
 			if !att.Skip() {
 				return err
 			}

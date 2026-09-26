@@ -176,7 +176,7 @@ var _ = Describe("localai-proxy", func() {
 			Expect(len(status.Convert(err).Message())).To(BeNumerically("<", 700))
 		})
 
-		It("maps a 429 upstream to ResourceExhausted so failover skips without tripping", func() {
+		It("maps a 429 upstream to ResourceExhausted so failover moves to the next target", func() {
 			p := loadProxy(up, nil)
 			up.script("/v1/completions", scriptedResponse{Status: http.StatusTooManyRequests, Body: "slow down"})
 
