@@ -106,6 +106,11 @@ var _ = Describe("Failover chains", Label("failover"), func() {
 			Expect(resp.Header.Get("X-LocalAI-Served-Model")).To(Equal("up-2"))
 			Expect(resp.Header.Get("X-LocalAI-Failover")).To(Equal("fallback"))
 			Expect(chainActive("chain-remote")).To(Equal("up-2"))
+			// The targets set no upstream_model: each upstream must get its
+			// target's name (what the liveness probe checks), not the chain
+			// name the client sent. up-2 is healthy, so only this request
+			// posted to it.
+			Expect(upstreamBodyModel(up2)).To(Equal("up-2"))
 
 			up1.SetScript(chatReply)
 			Eventually(func() string { return chainActive("chain-remote") }, 30*time.Second, 500*time.Millisecond).
@@ -116,9 +121,21 @@ var _ = Describe("Failover chains", Label("failover"), func() {
 			Expect(resp2.StatusCode).To(Equal(200))
 			Expect(resp2.Header.Get("X-LocalAI-Served-Model")).To(Equal("up-1"))
 			Expect(resp2.Header.Get("X-LocalAI-Failover")).To(BeEmpty())
+			Expect(upstreamBodyModel(up1)).To(Equal("up-1"))
 		})
 	})
 })
+
+// upstreamBodyModel returns the "model" field of the last request body the
+// fake upstream recorded.
+func upstreamBodyModel(up *fakeOpenAIUpstreamServer) string {
+	_, _, _, body := up.recorder.snapshot()
+	var req struct {
+		Model string `json:"model"`
+	}
+	Expect(json.Unmarshal(body, &req)).To(Succeed(), string(body))
+	return req.Model
+}
 
 // chainActive returns the active target of a chain as the REST status reports
 // it, or "" when the status cannot be read.

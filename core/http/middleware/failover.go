@@ -58,6 +58,7 @@ func (re *RequestExtractor) resolveFailover(c echo.Context, requested string, ch
 			return nil, fmt.Errorf("failover chain %q: target %q is disabled", chain.Name, cfg.Name)
 		}
 		if err == nil {
+			failover.PrepareTarget(cfg) // cfg is a copy
 			c.Set(ContextKeyRequestedModel, requested)
 			c.Set(ContextKeyServedModel, cfg.Name)
 			setFailoverHeaders(c.Response().Header(), st.attempt)

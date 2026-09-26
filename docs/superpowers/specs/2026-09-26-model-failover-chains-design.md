@@ -100,6 +100,12 @@ The behaviour matches aliases. Responses echo the chain name. Usage and traces
 record `requested=<chain>` and `served=<target>` through the existing
 `ContextKeyRequestedModel` and `ContextKeyServedModel` keys.
 
+The upstream of a remote target never sees the chain name. A request served
+through a chain reaches a remote target with that target's upstream model:
+`proxy.upstream_model`, or the target name when it is empty. This holds in
+passthrough and translate mode, and it is the same name the liveness probe
+looks for in `/v1/models` (one helper derives both).
+
 ## Failover manager
 
 New package: `core/services/failover`. The application creates one `Manager` at

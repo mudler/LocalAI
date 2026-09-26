@@ -50,6 +50,9 @@ Rules:
 - A chain cannot also set `alias` or `backend`.
 - Responses name the chain as the model. The `X-LocalAI-Served-Model` header
   names the target that served the request.
+- A remote (`cloud-proxy`) target receives its own model name, never the chain
+  name: `proxy.upstream_model`, or the target name when `upstream_model` is
+  empty. The health check looks for the same name.
 
 ## How the target is chosen
 

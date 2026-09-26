@@ -179,3 +179,20 @@ var _ = Describe("DefaultProber", func() {
 		}
 	})
 })
+
+var _ = Describe("PrepareTarget", func() {
+	It("names the upstream model of a remote target the way the probe does", func() {
+		plain := config.ModelConfig{Name: "argus-llm", Backend: "cloud-proxy"}
+		PrepareTarget(&plain)
+		Expect(plain.Proxy.UpstreamModel).To(Equal("argus-llm"))
+
+		mapped := config.ModelConfig{Name: "argus-llm", Backend: "cloud-proxy"}
+		mapped.Proxy.UpstreamModel = "big-llm"
+		PrepareTarget(&mapped)
+		Expect(mapped.Proxy.UpstreamModel).To(Equal("big-llm"))
+
+		local := config.ModelConfig{Name: "gemma", Backend: "llama-cpp"}
+		PrepareTarget(&local)
+		Expect(local.Proxy.UpstreamModel).To(BeEmpty())
+	})
+})

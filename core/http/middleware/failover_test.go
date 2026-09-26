@@ -79,6 +79,9 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		write("off", "name: off\nbackend: fake-o\ndisabled: true\n")
 		write("chain-capped", "name: chain-capped\nfailover:\n  targets:\n    - model: capped\n    - model: b\n")
 		write("chain-off", "name: chain-off\nfailover:\n  targets:\n    - model: off\n    - model: b\n")
+		write("remote", "name: remote\nbackend: cloud-proxy\nproxy:\n  mode: passthrough\n  upstream_url: http://127.0.0.1:1/v1/chat/completions\n")
+		write("remote-mapped", "name: remote-mapped\nbackend: cloud-proxy\nproxy:\n  mode: translate\n  provider: openai\n  upstream_url: http://127.0.0.1:1/v1/chat/completions\n  upstream_model: big-llm\n")
+		write("chain-remote", "name: chain-remote\nfailover:\n  targets:\n    - model: remote\n    - model: remote-mapped\n")
 
 		ss := &system.SystemState{Model: system.Model{ModelsPath: dir}}
 		appConfig := config.NewApplicationConfig()
@@ -128,6 +131,33 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		Expect(calls).To(Equal([]string{"a", "b"}))
 		st, _ := fm.ChainStatus("chain")
 		Expect(st.Active).To(Equal("b"))
+	})
+
+	It("sends a remote target its own upstream model, not the chain name", func() {
+		upstream := map[string]string{}
+		record := func(c echo.Context) error {
+			cfg := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+			mu.Lock()
+			upstream[cfg.Name] = cfg.Proxy.UpstreamModel
+			mu.Unlock()
+			return nil
+		}
+		behavior["remote"] = func(c echo.Context) error {
+			_ = record(c)
+			return errors.New("dial tcp: connection refused")
+		}
+		behavior["remote-mapped"] = func(c echo.Context) error { _ = record(c); return served(c) }
+		Expect(chat("chain-remote").Code).To(Equal(http.StatusOK))
+		// The probe checks the same name, so a request cannot fail on a model
+		// the liveness probe just found.
+		Expect(upstream).To(Equal(map[string]string{"remote": "remote", "remote-mapped": "big-llm"}))
+		for _, name := range []string{"remote", "remote-mapped"} {
+			cfg, ok := re.modelConfigLoader.GetModelConfig(name)
+			Expect(ok).To(BeTrue())
+			Expect(upstream[name]).To(Equal(failover.UpstreamModel(cfg)))
+		}
+		stored, _ := re.modelConfigLoader.GetModelConfig("remote")
+		Expect(stored.Proxy.UpstreamModel).To(BeEmpty(), "the shared config must not change")
 	})
 
 	It("serves the primary without the failover header", func() {

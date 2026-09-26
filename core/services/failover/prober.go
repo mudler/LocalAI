@@ -85,6 +85,17 @@ func UpstreamModel(cfg config.ModelConfig) string {
 	return cfg.Name
 }
 
+// PrepareTarget readies a copy of a target's config to serve a chain request.
+// A remote target gets its upstream model set explicitly: left empty,
+// passthrough forwards the client's "model" (the chain name) and translate
+// falls back to it, so the upstream would answer 404 for a model the liveness
+// probe (which checks UpstreamModel) just found.
+func PrepareTarget(cfg *config.ModelConfig) {
+	if KindOf(*cfg) == KindRemote {
+		cfg.Proxy.UpstreamModel = UpstreamModel(*cfg)
+	}
+}
+
 func (p *DefaultProber) authorize(req *http.Request, cfg config.ModelConfig) error {
 	key, err := cfg.Proxy.ResolveAPIKey()
 	if err != nil || key == "" {

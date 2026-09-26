@@ -1032,6 +1032,14 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	// takes the chain's active target, so everything that inspects stage
 	// configs at session start (voice, reasoning, templates) sees a real model.
 	stageChains := map[string]string{}
+	loadTarget := func(name string) (*config.ModelConfig, error) {
+		cfg, err := cl.LoadResolvedModelConfig(name, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
+		if err != nil {
+			return nil, err
+		}
+		failover.PrepareTarget(cfg)
+		return cfg, nil
+	}
 	resolveStage := func(stage string, cfg *config.ModelConfig) (*config.ModelConfig, error) {
 		if cfg == nil || !cfg.IsFailover() {
 			return cfg, nil
@@ -1044,7 +1052,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 			return nil, fmt.Errorf("failover chain %q not found", cfg.Name)
 		}
 		stageChains[stage] = cfg.Name
-		return cl.LoadResolvedModelConfig(st.Active, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
+		return loadTarget(st.Active)
 	}
 
 	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
@@ -1185,12 +1193,10 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		appConfig:   appConfig,
 		evaluator:   evaluator,
 
-		stageChains: stageChains,
-		stageTargetConfig: func(name string) (*config.ModelConfig, error) {
-			return cl.LoadResolvedModelConfig(name, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
-		},
-		tuneLLM:    tuneLLM,
-		appTracing: appConfig.EnableTracing,
+		stageChains:       stageChains,
+		stageTargetConfig: loadTarget,
+		tuneLLM:           tuneLLM,
+		appTracing:        appConfig.EnableTracing,
 	}
 	if routing != nil {
 		wm.routerDeps = routing.Deps
