@@ -61,16 +61,25 @@ func IsRetryable(err error, status int) bool {
 	return !isRequestError(msg)
 }
 
-// IsCapabilityGap reports a target that cannot serve this kind of request at
-// all (gRPC Unimplemented, anywhere in the error chain). The next target may
-// serve it, and this target is not broken: the failure carries no signal
-// about its health, so callers must skip it without tripping.
+// IsCapabilityGap reports a target that cannot serve this request right now
+// for a reason that says nothing about its health: it cannot serve this kind
+// of request at all (gRPC Unimplemented), or it is out of capacity, such as a
+// rate-limited upstream (gRPC ResourceExhausted, what localai-proxy returns
+// for an upstream 429). Matched anywhere in the error chain. The next target
+// may serve it, so callers must skip this one without tripping it.
 func IsCapabilityGap(err error) bool {
 	if err == nil {
 		return false
 	}
 	st, ok := grpcstatus.FromError(err)
-	return ok && st.Code() == codes.Unimplemented
+	if !ok {
+		return false
+	}
+	switch st.Code() {
+	case codes.Unimplemented, codes.ResourceExhausted:
+		return true
+	}
+	return false
 }
 
 func retryableStatus(code int) bool {

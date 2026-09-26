@@ -62,6 +62,33 @@ var _ = Describe("grpcModelOpts Proxy options", func() {
 		Expect(opts.Proxy.Mode).To(Equal(config.ProxyModePassthrough))
 	})
 
+	It("sends the config name as the localai-proxy upstream model when none is set", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Name:    "argus-whisper",
+			Threads: &threads,
+			Backend: "localai-proxy",
+			Proxy:   config.ProxyConfig{UpstreamURL: "http://127.0.0.1:8081"},
+		}
+		cfg.Model = "some-file"
+
+		Expect(grpcModelOpts(cfg, "/tmp/models").Proxy.UpstreamModel).To(Equal("argus-whisper"))
+
+		cfg.Proxy.UpstreamModel = "whisper-large"
+		Expect(grpcModelOpts(cfg, "/tmp/models").Proxy.UpstreamModel).To(Equal("whisper-large"))
+	})
+
+	It("leaves the cloud-proxy upstream model unset so translate mode keeps its fallback", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Name:    "claude-strict",
+			Threads: &threads,
+			Backend: "cloud-proxy",
+			Proxy:   config.ProxyConfig{UpstreamURL: "https://api.example.com", Mode: config.ProxyModeTranslate},
+		}
+		Expect(grpcModelOpts(cfg, "/tmp/models").Proxy.UpstreamModel).To(BeEmpty())
+	})
+
 	It("leaves Proxy nil for a backend that is not a proxy", func() {
 		threads := 1
 		opts := grpcModelOpts(config.ModelConfig{Threads: &threads, Backend: "llama-cpp"}, "/tmp/models")

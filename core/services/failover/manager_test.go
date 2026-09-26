@@ -305,5 +305,20 @@ var _ = Describe("Manager", func() {
 			st, _ := m.ChainStatus("chain")
 			Expect(st.Targets[0].State).To(Equal(StateHealthy))
 		})
+
+		It("skips a rate-limited (ResourceExhausted) target without tripping it", func() {
+			var tried []string
+			err := m.Do(context.Background(), "chain", func(_ context.Context, target string, _ func()) error {
+				tried = append(tried, target)
+				if target == "a" {
+					return grpcstatus.Error(codes.ResourceExhausted, "localai-proxy: upstream /v1/rerank returned 429: slow down")
+				}
+				return nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tried).To(Equal([]string{"a", "b"}))
+			st, _ := m.ChainStatus("chain")
+			Expect(st.Targets[0].State).To(Equal(StateHealthy))
+		})
 	})
 })

@@ -16,13 +16,15 @@ import (
 // textRequest is the body for /v1/chat/completions (Messages) and
 // /v1/completions (Prompt). Zero sampling values are omitted so the upstream
 // model's own config defaults apply, as they would for a direct caller.
+// Temperature is the exception: 0 is a real choice (greedy decoding), and
+// core always fills it from the model config, so it is always sent.
 type textRequest struct {
 	Model       string          `json:"model"`
 	Messages    []chatMessage   `json:"messages,omitempty"`
 	Prompt      string          `json:"prompt,omitempty"`
 	Stream      bool            `json:"stream,omitempty"`
 	MaxTokens   int32           `json:"max_tokens,omitempty"`
-	Temperature float32         `json:"temperature,omitempty"`
+	Temperature float32         `json:"temperature"`
 	TopP        float32         `json:"top_p,omitempty"`
 	TopK        int32           `json:"top_k,omitempty"`
 	Seed        int32           `json:"seed,omitempty"`
@@ -67,6 +69,11 @@ type choiceDelta struct {
 }
 
 type textResponse struct {
+	// Error is set on the frame LocalAI sends when generation fails after
+	// the stream has started (followed by [DONE]).
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error"`
 	Choices []textChoice `json:"choices"`
 	Usage   *struct {
 		PromptTokens     int32 `json:"prompt_tokens"`
@@ -79,6 +86,9 @@ type textResponse struct {
 // too); otherwise core already rendered the prompt and completions takes it
 // verbatim.
 func (p *LocalAIProxy) textRequest(opts *pb.PredictOptions, stream bool) (string, textRequest) {
+	if dropped := unforwardedFields(opts); len(dropped) > 0 {
+		xlog.Warn("localai-proxy: request fields are not forwarded upstream", "fields", dropped)
+	}
 	req := textRequest{
 		Model:       p.model(""),
 		Stream:      stream,
@@ -111,6 +121,27 @@ func (p *LocalAIProxy) textRequest(opts *pb.PredictOptions, stream bool) (string
 		req.Messages = append(req.Messages, msg)
 	}
 	return "/v1/chat/completions", req
+}
+
+// unforwardedFields names the request inputs the REST text endpoints cannot
+// carry from here: a grammar core compiled locally, and media that core hands
+// over as local paths or base64 outside the messages. They are dropped, so
+// say so instead of letting the answer silently ignore them.
+func unforwardedFields(opts *pb.PredictOptions) []string {
+	var out []string
+	if opts.GetGrammar() != "" {
+		out = append(out, "grammar")
+	}
+	if len(opts.GetImages()) > 0 {
+		out = append(out, "images")
+	}
+	if len(opts.GetAudios()) > 0 {
+		out = append(out, "audios")
+	}
+	if len(opts.GetVideos()) > 0 {
+		out = append(out, "videos")
+	}
+	return out
 }
 
 // rawJSON passes a JSON string through untouched, or omits it when it is
@@ -207,6 +238,13 @@ func (p *LocalAIProxy) PredictStreamRich(opts *pb.PredictOptions, results chan<-
 			xlog.Debug("localai-proxy: skip malformed SSE frame", "path", path, "error", err)
 			continue
 		}
+		if chunk.Error != nil {
+			// The upstream failed mid-generation. Returning nil would turn a
+			// cut-off answer into a success; Unavailable lets failover and
+			// the client see the failure.
+			xlog.Warn("localai-proxy: upstream stream error", "path", path, "error", chunk.Error.Message)
+			return status.Errorf(codes.Unavailable, "localai-proxy: upstream %s stream failed: %s", path, chunk.Error.Message)
+		}
 		if chunk.Usage != nil && len(chunk.Choices) == 0 {
 			results <- &pb.Reply{PromptTokens: chunk.Usage.PromptTokens, Tokens: chunk.Usage.CompletionTokens}
 			continue
@@ -273,7 +311,11 @@ func (p *LocalAIProxy) Rerank(ctx context.Context, in *pb.RerankRequest) (*pb.Re
 		"model":     p.model(""),
 		"query":     in.GetQuery(),
 		"documents": in.GetDocuments(),
-		"top_n":     in.GetTopN(),
+	}
+	// TopN 0 means "score every document" (the router's reranker sends it);
+	// upstream rejects top_n < 1, and an absent top_n means the same thing.
+	if n := in.GetTopN(); n > 0 {
+		body["top_n"] = n
 	}
 	var resp struct {
 		Usage struct {

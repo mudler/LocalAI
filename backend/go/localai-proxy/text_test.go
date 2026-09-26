@@ -176,6 +176,27 @@ var _ = Describe("localai-proxy", func() {
 			Expect(len(status.Convert(err).Message())).To(BeNumerically("<", 700))
 		})
 
+		It("maps a 429 upstream to ResourceExhausted so failover skips without tripping", func() {
+			p := loadProxy(up, nil)
+			up.script("/v1/completions", scriptedResponse{Status: http.StatusTooManyRequests, Body: "slow down"})
+
+			_, err := p.PredictRich(&pb.PredictOptions{Prompt: "x"})
+			Expect(codeOf(err)).To(Equal(codes.ResourceExhausted))
+			Expect(err.Error()).To(ContainSubstring("slow down"))
+		})
+
+		It("always sends temperature, even 0, so greedy decoding survives", func() {
+			p := loadProxy(up, nil)
+			up.replyJSON("/v1/completions", map[string]any{"choices": []any{map[string]any{"text": "t"}}})
+
+			_, err := p.PredictRich(&pb.PredictOptions{Prompt: "x"})
+			Expect(err).NotTo(HaveOccurred())
+			req := up.last()
+			Expect(req.JSON).To(HaveKeyWithValue("temperature", BeNumerically("==", 0)))
+			Expect(req.JSON).NotTo(HaveKey("top_p"))
+			Expect(req.JSON).NotTo(HaveKey("top_k"))
+		})
+
 		It("maps an unreachable upstream to Unavailable", func() {
 			p := loadProxy(up, nil)
 			up.Close()
@@ -229,6 +250,21 @@ var _ = Describe("localai-proxy", func() {
 			Expect(string((<-results).GetMessage())).To(Equal("b"))
 		})
 
+		It("returns a mid-stream upstream error frame as Unavailable", func() {
+			p := loadProxy(up, nil)
+			up.script("/v1/chat/completions", scriptedResponse{SSE: []string{
+				sseJSON(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": "partial"}}}}),
+				sseJSON(map[string]any{"error": map[string]any{"message": "backend crashed", "type": "server_error", "code": "server_error"}}),
+				"[DONE]",
+			}})
+
+			results := make(chan *pb.Reply, 10)
+			err := p.PredictStreamRich(&pb.PredictOptions{Messages: []*pb.Message{{Role: "user", Content: "hi"}}}, results)
+			Expect(codeOf(err)).To(Equal(codes.Unavailable))
+			Expect(err.Error()).To(ContainSubstring("backend crashed"))
+			Expect(results).To(HaveLen(1))
+		})
+
 		It("maps a failing upstream to a gRPC code", func() {
 			p := loadProxy(up, nil)
 			up.script("/v1/completions", scriptedResponse{Status: http.StatusBadGateway, Body: "gateway"})
@@ -258,6 +294,13 @@ var _ = Describe("localai-proxy", func() {
 			}
 			Expect(got).To(Equal([]string{"s1"}))
 		})
+	})
+
+	It("names the request fields it cannot forward", func() {
+		Expect(unforwardedFields(&pb.PredictOptions{Prompt: "x"})).To(BeEmpty())
+		Expect(unforwardedFields(&pb.PredictOptions{
+			Grammar: "root ::= x", Images: []string{"i"}, Audios: []string{"a"}, Videos: []string{"v"},
+		})).To(Equal([]string{"grammar", "images", "audios", "videos"}))
 	})
 
 	Describe("Embeddings", func() {
@@ -312,6 +355,15 @@ var _ = Describe("localai-proxy", func() {
 			Expect(req.JSON).To(HaveKeyWithValue("documents", ConsistOf("a", "b")))
 			Expect(req.JSON).To(HaveKeyWithValue("model", "remote-model"))
 		})
+	})
+
+	It("Rerank omits top_n when it is 0, which means score every document", func() {
+		p := loadProxy(up, nil)
+		up.replyJSON("/v1/rerank", map[string]any{"results": []any{}})
+
+		_, err := p.Rerank(context.Background(), &pb.RerankRequest{Query: "q", Documents: []string{"a", "b"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(up.last().JSON).NotTo(HaveKey("top_n"))
 	})
 
 	Describe("TokenizeString and Detokenize", func() {

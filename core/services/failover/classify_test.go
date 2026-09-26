@@ -45,6 +45,8 @@ var _ = DescribeTable("IsCapabilityGap",
 	Entry("nil error", nil, false),
 	Entry("grpc unimplemented", grpcstatus.Error(codes.Unimplemented, "x"), true),
 	Entry("wrapped grpc unimplemented", fmt.Errorf("call: %w", grpcstatus.Error(codes.Unimplemented, "x")), true),
+	Entry("grpc resource exhausted", grpcstatus.Error(codes.ResourceExhausted, "x"), true),
+	Entry("wrapped grpc resource exhausted", fmt.Errorf("call: %w", grpcstatus.Error(codes.ResourceExhausted, "x")), true),
 	Entry("grpc unavailable", grpcstatus.Error(codes.Unavailable, "x"), false),
 	Entry("plain error", errors.New("boom"), false),
 )

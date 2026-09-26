@@ -189,7 +189,7 @@ func transportError(path string, err error) error {
 // statusError maps a non-2xx upstream reply to a gRPC status. 5xx means the
 // upstream is unhealthy (Unavailable, so failover retries elsewhere); 4xx
 // means the request itself is wrong (InvalidArgument, so failover does not
-// trip a healthy target over a client error). 501 is the upstream saying it
+// trip a healthy target over a client error), except 429. 501 is the upstream saying it
 // cannot serve this kind of request, which failover treats as a capability
 // gap, like our own Unimplemented methods.
 func statusError(path string, resp *http.Response) error {
@@ -208,6 +208,10 @@ func statusError(path string, resp *http.Response) error {
 		code = codes.Unimplemented
 	case resp.StatusCode >= 500:
 		code = codes.Unavailable
+	case resp.StatusCode == http.StatusTooManyRequests:
+		// Rate limited: the upstream is healthy but out of capacity, so
+		// failover skips to the next target without tripping this one.
+		code = codes.ResourceExhausted
 	case resp.StatusCode >= 400:
 		code = codes.InvalidArgument
 	default:
