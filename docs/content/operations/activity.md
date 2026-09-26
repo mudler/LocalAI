@@ -12,6 +12,11 @@ of the app, and the **Activity** page, which holds the full picture.
 
 Both are admin-only.
 
+To see models currently loaded for inference, open **Home** (`/app`) and scroll
+to **Loaded models**. That list includes each model’s backend and a stop control.
+A loaded model can be idle; Activity reports management jobs rather than whether
+a model is resident or generating output.
+
 ## The operations strip
 
 While there is anything to report, a single line appears at the top of the app.

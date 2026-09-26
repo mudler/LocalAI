@@ -43,6 +43,9 @@ func loadNativeLibrary(path string) error {
 		{&nativeJointName, "localai_kimodo_joint_name"},
 		{&nativeJointParent, "localai_kimodo_joint_parent"},
 		{&nativeJointOffset, "localai_kimodo_joint_offset"},
+		{&nativeTokenizerLoad, "localai_kimodo_tokenizer_load"},
+		{&nativeTokenizerFree, "localai_kimodo_tokenizer_free"},
+		{&nativePromptTokens, "localai_kimodo_prompt_tokens"},
 	} {
 		purego.RegisterLibFunc(binding.function, lib, binding.name)
 	}

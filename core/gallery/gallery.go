@@ -46,7 +46,7 @@ func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {
 		return config, err
 	}
 	uri := downloader.URI(url)
-	err := uri.ReadWithCallback(basePath, func(url string, d []byte) error {
+	err := uri.ReadWithCallback(galleryConfigReadRoot(url, basePath), func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ func GetGalleryConfigFromURLWithContext[T any](ctx context.Context, url string, 
 		return config, err
 	}
 	uri := downloader.URI(url)
-	err := uri.ReadWithAuthorizationAndCallback(ctx, basePath, "", func(url string, d []byte) error {
+	err := uri.ReadWithAuthorizationAndCallback(ctx, galleryConfigReadRoot(url, basePath), "", func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -278,7 +278,7 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 
 	// Get models from galleries
 	for _, gallery := range galleries {
-		galleryModels, err := getGalleryElements(gallery, systemState.Model.ModelsPath, func(model *GalleryModel) bool {
+		galleryModels, err := getGalleryElements(gallery, systemState.Model.ModelsPath, systemState.RequireBackendIntegrity, func(model *GalleryModel) bool {
 			if _, err := os.Stat(filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", model.GetName()))); err == nil {
 				return true
 			}
@@ -291,14 +291,32 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 		// Resolve model URLs locally (for local galleries) and collect unique
 		// URLs that need fetching for backend resolution.
 		uniqueURLs := map[string]struct{}{}
+		usable := make([]*GalleryModel, 0, len(galleryModels))
 		for _, m := range galleryModels {
 			if m.URL != "" {
 				m.URL = resolveModelURLLocally(m.URL, gallery.URL)
+				// The gallery carried on the entry is the one the index was
+				// really read from, with a .ref indirection already followed,
+				// so it is the root an entry path is relative to.
+				resolved, err := resolveGalleryEntryURL(m.URL, m.GetGallery(), systemState.Model.ModelsPath)
+				if err != nil {
+					// One unusable entry must not cost the user the rest of
+					// the gallery, so it is dropped and named rather than
+					// failing the listing. It is left out entirely because an
+					// entry whose url does not resolve cannot be installed,
+					// and offering it would only fail later and further away.
+					xlog.Error("dropping a gallery entry whose url does not resolve",
+						"gallery", gallery.Name, "model", m.Name, "url", m.URL, "error", err)
+					continue
+				}
+				m.URL = resolved
 			}
+			usable = append(usable, m)
 			if m.Backend == "" && m.URL != "" {
 				uniqueURLs[m.URL] = struct{}{}
 			}
 		}
+		galleryModels = usable
 
 		// Pre-warm cache with parallel fetches to avoid sequential HTTP
 		// requests on cold start (~50 unique gallery config files).
@@ -360,11 +378,11 @@ func GalleryGeneration() uint64 { return galleryGeneration.Load() }
 // ResetGalleryModelCache drops the cached model list, once any background
 // refresh already in flight has finished writing to it.
 //
-// It exists for tests. The cache is a package global keyed by nothing, which is
-// right for a process serving one gallery configuration and wrong for a suite
-// where each spec stands up its own: a refresh one spec triggered can land in
-// the middle of the next and answer it with the previous spec's entries, so
-// whichever assertion happens to straddle it fails at random.
+// The cache is a package global keyed by nothing, which is right for a process
+// serving one gallery configuration and wrong once that configuration changes:
+// see ResetGalleryModelCacheIfChanged. Suites use it too, because each spec
+// stands up its own configuration, and a refresh one spec triggered can land in
+// the middle of the next and answer it with the previous spec's entries.
 //
 // Waiting for the in-flight refresh rather than only clearing is the point. The
 // refresh publishes its result after this call would otherwise have returned,
@@ -380,6 +398,23 @@ func ResetGalleryModelCache() {
 	// Also clear the refresh stamp, or a suite that reset the cache would find
 	// the next refresh throttled by the previous spec's clock.
 	lastRefreshUnixNano.Store(0)
+}
+
+// ResetGalleryModelCacheIfChanged drops the cached model list when the model or
+// backend gallery configuration differs from what it was before a settings
+// change.
+//
+// The UI lists from that cache, and a gallery edit at runtime (a tightened
+// verification policy, a new mirror, another URL) must show at once. Kept
+// until the next background refresh, the old list would point relative entries
+// into a tree the new policy has not produced; and when the new policy refuses
+// the gallery, no refresh ever replaces it.
+func ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries []config.Gallery, cfg *config.ApplicationConfig) {
+	if config.GalleriesEqual(prevGalleries, cfg.Galleries) &&
+		config.GalleriesEqual(prevBackendGalleries, cfg.BackendGalleries) {
+		return
+	}
+	ResetGalleryModelCache()
 }
 
 // AvailableGalleryModelsCached returns gallery models from an in-memory cache.
@@ -543,7 +578,7 @@ func availableBackendsWithFilter(galleries []config.Gallery, systemState *system
 
 	// Get backends from galleries
 	for _, gallery := range galleries {
-		galleryBackends, err := getGalleryElements(gallery, systemState.Backend.BackendsPath, func(backend *GalleryBackend) bool {
+		galleryBackends, err := getGalleryElements(gallery, systemState.Backend.BackendsPath, systemState.RequireBackendIntegrity, func(backend *GalleryBackend) bool {
 			return systemBackends.Exists(backend.GetName())
 		})
 		if err != nil {
@@ -591,7 +626,18 @@ func (entry galleryCacheEntry) hasExpired() bool {
 
 var galleryCache = xsync.NewSyncedMap[string, galleryCacheEntry]()
 
-func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string, isInstalledCallback func(T) bool) ([]T, error) {
+// galleryIndexCacheKey names a gallery's entry in the in-memory index cache.
+//
+// The verification policy is part of it for the same reason it is part of the
+// on-disk name: the gallery settings can change at runtime, and a listing that
+// an older policy admitted must not keep being served under a new one. It
+// would also point relative entry urls at an unpacked tree the new policy has
+// not produced yet, so they could not be installed.
+func galleryIndexCacheKey(g config.Gallery) string {
+	return g.Name + "-" + galleryCacheName(g.URL, g.Verification)
+}
+
+func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string, requireIntegrity bool, isInstalledCallback func(T) bool) ([]T, error) {
 	var models []T = []T{}
 
 	if strings.HasSuffix(gallery.URL, ".ref") {
@@ -602,7 +648,7 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 		}
 	}
 
-	cacheKey := fmt.Sprintf("%s-%s", gallery.Name, gallery.URL)
+	cacheKey := galleryIndexCacheKey(gallery)
 	if galleryCache.Exists(cacheKey) {
 		entry := galleryCache.Get(cacheKey)
 		// refresh if last updated is more than 1 hour ago
@@ -620,7 +666,7 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 		// The cache key stays the gallery's identity rather than the URL that
 		// answered: a mirror serves the same index, so a mirror-served fetch
 		// must populate the entry the primary would have filled.
-		body, servedBy, err := fetchGalleryIndex(context.Background(), gallery, basePath)
+		body, servedBy, err := fetchGalleryIndex(context.Background(), gallery, basePath, requireIntegrity)
 		if err != nil {
 			return models, fmt.Errorf("failed to read gallery elements: %w", err)
 		}

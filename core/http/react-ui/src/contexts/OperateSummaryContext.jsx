@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react'
-import { backendsApi, modelsApi, nodesApi, resourcesApi, tracesApi } from '../utils/api'
+import { backendsApi, modelsApi, nodesApi, resourcesApi, systemApi, tracesApi } from '../utils/api'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
@@ -43,14 +43,15 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   const [resourcesLoaded, setResourcesLoaded] = useState(false)
   const [traces, setTraces] = useState(null)
   const [installed, setInstalled] = useState({ backends: null, models: null })
+  const [running, setRunning] = useState(null)
   const { operations } = useOperations()
   // The cluster API answers 503 when distributed mode is off, so asking for it
   // on a single-node install is a guaranteed miss on every tick. The rail gates
   // the Nodes entry the same way.
-  const { enabled: distributed } = useDistributedMode()
+  const { enabled: distributed, loading: distributedLoading } = useDistributedMode()
 
   const fetchSummary = useCallback(async () => {
-    const [u, n, r, tr, bi, mi] = await Promise.all([
+    const [u, n, r, tr, bi, mi, sys] = await Promise.all([
       // GET /api/backends/upgrades returns the upgrade checker's cached view.
       // Never POST /upgrades/check on a timer — that forces a real registry
       // check.
@@ -60,6 +61,9 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       settle(tracesApi.summary(), null),
       settle(backendsApi.listInstalled?.() ?? Promise.resolve(null), null),
       settle(modelsApi.listCapabilities(), null),
+      // Only this process's loader: on a distributed controller the models
+      // live on workers, and the Nodes entry carries the cluster signal.
+      distributed ? Promise.resolve(null) : settle(systemApi.info(), null),
     ])
     setUpgrades(u && typeof u === 'object' ? u : {})
     setNodes(Array.isArray(n) ? n : (n?.nodes || []))
@@ -70,9 +74,12 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       backends: Array.isArray(bi) ? bi.length : (bi?.backends?.length ?? null),
       models: mi?.data?.length ?? null,
     })
+    setRunning(Array.isArray(sys?.loaded_models) ? sys.loaded_models.length : null)
   }, [distributed])
 
-  usePolling(fetchSummary, pollInterval)
+  // Wait for the cluster probe: several sources depend on the mode, and a
+  // first tick taken before it answers would ask a cluster for local state.
+  usePolling(fetchSummary, pollInterval, { enabled: !distributedLoading })
 
   const value = useMemo(() => {
     const upgradeList = Object.values(upgrades || {})
@@ -113,6 +120,9 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       operations,
       traces,
       installed,
+      // null until the cluster probe answers, so a consumer can wait rather
+      // than render the single-node view on a cluster for one frame.
+      distributed: distributedLoading ? null : distributed,
       attention,
       signals: {
         attention: attention.length || null,
@@ -122,9 +132,10 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
         host: memoryPercent(resources),
         traces: traces?.errors || null,
         usage: traces?.total ? compact(traces.total) : null,
+        running: running || null,
       },
     }
-  }, [upgrades, nodes, resources, resourcesLoaded, operations, traces, installed])
+  }, [upgrades, nodes, resources, resourcesLoaded, operations, traces, installed, running, distributed, distributedLoading])
 
   return (
     <OperateSummaryContext.Provider value={value}>

@@ -35,12 +35,12 @@ func ListModelCapabilitiesEndpoint(bcl *config.ModelConfigLoader, ml *model.Mode
 		dataModels := []schema.ModelCapabilities{}
 		for _, m := range modelNames {
 			entry := schema.ModelCapabilities{ID: m, Object: "model"}
-			if cfg, ok := bcl.GetModelConfig(m); ok {
+			if cfg, ok := modelConfigFor(bcl, m); ok {
 				entry.Capabilities = cfg.Capabilities()
 				entry.ThreeDOperations = cfg.ThreeDOperations()
 				entry.InputModalities = cfg.InputModalities()
 				entry.OutputModalities = cfg.OutputModalities()
-				if ctx := backend.EffectiveContextSize(cfg); ctx > 0 {
+				if ctx := backend.EffectiveRequestContextSize(cfg); ctx > 0 {
 					entry.ContextSize = ctx
 				}
 			}
@@ -52,4 +52,23 @@ func ListModelCapabilitiesEndpoint(bcl *config.ModelConfigLoader, ml *model.Mode
 			Data:   dataModels,
 		})
 	}
+}
+
+// modelConfigFor returns the config that describes what a listed model can
+// do. An alias is a pure redirect whose own config carries no backend, so its
+// capabilities, modalities and context_size would all be empty defaults;
+// report the target's instead, since that is the model a request for the
+// alias reaches. A dangling or chained alias returns false: the endpoint then
+// reports the entry without enrichment rather than advertise defaults no
+// model runs with.
+func modelConfigFor(bcl *config.ModelConfigLoader, name string) (config.ModelConfig, bool) {
+	cfg, ok := bcl.GetModelConfig(name)
+	if !ok {
+		return config.ModelConfig{}, false
+	}
+	resolved, _, err := bcl.ResolveAlias(&cfg)
+	if err != nil {
+		return config.ModelConfig{}, false
+	}
+	return *resolved, true
 }

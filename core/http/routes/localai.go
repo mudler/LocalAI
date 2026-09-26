@@ -231,7 +231,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	model3dHandler := localai.Model3DEndpoint(cl, ml, appConfig)
 	router.POST("/3d/animate",
 		localai.Model3DAnimationEndpoint(ml, appConfig),
+		middleware.UsageMiddleware(app.StatsRecorder(), app.FallbackUser()),
 		echomiddleware.BodyLimit("45M"),
+		middleware.TraceMiddleware(app),
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_3D_ANIMATION)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.Model3DAnimationRequest) }))
 	router.POST("/3d/generations",
@@ -442,7 +444,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		})
 	})
 
-	router.GET("/system", localai.SystemInformations(cl, ml, appConfig), adminMiddleware)
+	router.GET("/system", localai.SystemInformations(cl, ml, appConfig, monitoring.NewLocalProcessSampler()), adminMiddleware)
 
 	// misc
 	tokenizeHandler := localai.TokenizeEndpoint(cl, ml, appConfig)

@@ -3,6 +3,7 @@ package xsysinfo
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/gpu"
@@ -926,14 +928,23 @@ func getIntelXPUSMI() []GPUMemoryInfo {
 	return gpus
 }
 
+// intelGPUTopArgs returns flags for a single JSON sample from intel_gpu_top.
+// Do not use -s 1: on current intel_gpu_top, -s is the refresh period in
+// milliseconds and the default iteration count is infinite, which blocks startup.
+func intelGPUTopArgs() []string {
+	return []string{"-J", "-n", "1"}
+}
+
 // getIntelGPUTop queries Intel GPUs using intel_gpu_top
 func getIntelGPUTop() []GPUMemoryInfo {
 	if _, err := exec.LookPath("intel_gpu_top"); err != nil {
 		return nil
 	}
 
-	// intel_gpu_top with -J outputs JSON, -s 1 for single sample
-	cmd := exec.Command("intel_gpu_top", "-J", "-s", "1")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "intel_gpu_top", intelGPUTopArgs()...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

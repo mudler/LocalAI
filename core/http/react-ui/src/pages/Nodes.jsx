@@ -11,6 +11,7 @@ import NodeFleetTable from '../components/nodes/NodeFleetTable'
 import NodeInspector from '../components/nodes/NodeInspector'
 import ModelFleetTable from '../components/nodes/ModelFleetTable'
 import ModelInspector from '../components/nodes/ModelInspector'
+import LocalMachineView from '../components/nodes/LocalMachineView'
 import ImageSelector, { dockerFlags, dockerImage, useImageSelector } from '../components/ImageSelector'
 
 function CommandBlock({ command, addToast }) {
@@ -50,16 +51,15 @@ function WorkerHintCard({ addToast, nodeType = 'backend', hasWorkers }) {
   )
 }
 
-function DisabledState({ addToast }) {
+// The route to more than one machine, shown from the single-node view on
+// request rather than as the whole page.
+function ScaleOutCard({ addToast }) {
   return (
-    <div className="page page--wide">
-      <div className="p2p-hero"><i className="fas fa-network-wired" /><h1>Distributed Mode Not Enabled</h1><p>Enable distributed mode to manage backend nodes across multiple machines and route inference across the fleet.</p></div>
-      <div className="card p2p-enable pad-lg">
-        <h3 className="panel-title"><i className="fas fa-rocket text-accent" />How to Enable Distributed Mode</h3>
-        <p className="form-label">Start LocalAI with distributed mode</p>
-        <CommandBlock command={'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db" \\\n  --distributed-nats "nats://host:4222"'} addToast={addToast} />
-        <p className="text-note mt-md">Then register a worker and refresh this page. See the <a href="https://localai.io/features/distributed-mode/" target="_blank" rel="noopener noreferrer" className="text-primary">Distributed Mode documentation</a> for production setup.</p>
-      </div>
+    <div className="card p2p-enable pad-lg mb-xl" data-testid="scale-out">
+      <h3 className="panel-title"><i className="fas fa-rocket text-accent" />Distributed mode is not enabled</h3>
+      <p className="text-base text-secondary mb-md">Distributed mode spreads models across worker machines and routes inference across the fleet. Start LocalAI with it enabled, then register a worker.</p>
+      <CommandBlock command={'local-ai run --distributed \\\n  --distributed-db "postgres://user:pass@host/db" \\\n  --distributed-nats "nats://host:4222"'} addToast={addToast} />
+      <p className="text-note mt-md">See the <a href="https://localai.io/features/distributed-mode/" target="_blank" rel="noopener noreferrer" className="text-primary">Distributed Mode documentation</a> for production setup.</p>
     </div>
   )
 }
@@ -126,7 +126,11 @@ export default function Nodes() {
       })
       setEnabled(true)
     } catch (error) {
-      if (error.message?.includes('503') || error.message?.includes('Service Unavailable')) setEnabled(false)
+      // A single-node server never registers the cluster routes, so it
+      // answers 404 here; 503 is what the routes say when mounted without a
+      // registry. Treating only 503 as "not distributed" sent every
+      // single-node install to the empty worker-registration card.
+      if (error.status === 404 || error.status === 503 || error.message?.includes('503') || error.message?.includes('Service Unavailable')) setEnabled(false)
     } finally {
       setLoading(false)
     }
@@ -329,7 +333,7 @@ export default function Nodes() {
   }
 
   if (loading) return <div className="page page--wide loading-center"><LoadingSpinner size="lg" /></div>
-  if (!enabled) return <DisabledState addToast={addToast} />
+  if (!enabled) return <LocalMachineView addToast={addToast} scaleOut={<ScaleOutCard addToast={addToast} />} />
   if (nodes.length === 0) return (
     <div className="page page--wide">
       <PageHeader title={t('nodes.title')} supporting={t('nodes.subtitle')} />

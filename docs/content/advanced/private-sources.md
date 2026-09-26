@@ -84,7 +84,7 @@ The entry for such a registry needs `allow_insecure: true`, and its `match` must
 
 ## What uses the credentials
 
-- Gallery indexes and mirrors (`galleries`, `backend_galleries`), including `github:` URLs.
+- Gallery indexes and mirrors (`galleries`, `backend_galleries`), including `github:` URLs and galleries published as `oci://` artifacts.
 - Model files and model configs downloaded over HTTP(S) or `github:`.
 - Backend images and `oci://` / `ollama://` models, including resumed layer downloads and cosign signature checks.
 

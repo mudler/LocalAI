@@ -16,7 +16,7 @@ func TestVllmCpp(t *testing.T) {
 	RunSpecs(t, "vllm-cpp suite")
 }
 
-// The Go POD mirrors must match the C struct layout of vllm.h (ABI v26)
+// The Go POD mirrors must match the C struct layout of vllm.h (ABI v29)
 // byte-for-byte: these offsets are the C offsets on LP64 (linux/darwin
 // amd64+arm64). A failure here means govllmcpp.go drifted from vllm.h.
 var _ = Describe("C ABI struct mirrors", func() {
@@ -24,7 +24,7 @@ var _ = Describe("C ABI struct mirrors", func() {
 		// VLLM_ABI_VERSION in the vllm.h of VLLM_CPP_VERSION (Makefile).
 		// Moving the pin past this without growing the mirrors below ships a
 		// backend that refuses every load at startup (issue #11379).
-		Expect(abiVersion).To(Equal(26))
+		Expect(abiVersion).To(Equal(29))
 	})
 
 	It("cModelParams matches vllm_model_params", func() {
@@ -91,6 +91,25 @@ var _ = Describe("C ABI struct mirrors", func() {
 		Expect(unsafe.Offsetof(c.PromptTokens)).To(Equal(uintptr(16)))
 		Expect(unsafe.Offsetof(c.CompletionTokens)).To(Equal(uintptr(20)))
 		Expect(unsafe.Sizeof(c)).To(Equal(uintptr(24)))
+	})
+
+	It("cNerEntity matches vllm_ner_entity (ABI v27)", func() {
+		var e cNerEntity
+		Expect(unsafe.Offsetof(e.label)).To(Equal(uintptr(0)))
+		Expect(unsafe.Offsetof(e.text)).To(Equal(uintptr(8)))
+		Expect(unsafe.Offsetof(e.charStart)).To(Equal(uintptr(16)))
+		Expect(unsafe.Offsetof(e.charEnd)).To(Equal(uintptr(20)))
+		Expect(unsafe.Offsetof(e.tokenStart)).To(Equal(uintptr(24)))
+		Expect(unsafe.Offsetof(e.tokenEnd)).To(Equal(uintptr(28)))
+		Expect(unsafe.Offsetof(e.confidence)).To(Equal(uintptr(32)))
+		Expect(unsafe.Sizeof(e)).To(Equal(uintptr(40)))
+	})
+
+	It("cNerResult matches vllm_ner_result (ABI v27)", func() {
+		var r cNerResult
+		Expect(unsafe.Offsetof(r.entities)).To(Equal(uintptr(0)))
+		Expect(unsafe.Offsetof(r.nEntities)).To(Equal(uintptr(8)))
+		Expect(unsafe.Sizeof(r)).To(Equal(uintptr(16)))
 	})
 })
 

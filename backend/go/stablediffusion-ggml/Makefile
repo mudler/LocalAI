@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=2ea8aff7ef603977dc2ece7856bf9736dba96652
+STABLEDIFFUSION_GGML_VERSION?=2f886889e6e8b78738d6b87f7191f6018557c551
 
 CMAKE_ARGS+=-DGGML_MAX_NAME=128
 
@@ -70,6 +70,20 @@ sources/stablediffusion-ggml.cpp:
 	cd sources/stablediffusion-ggml.cpp && \
 	git checkout $(STABLEDIFFUSION_GGML_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
+	$(MAKE) sync-rpc-op-count
+
+# leejet's ggml fork adds ops (e.g. GGML_OP_SAGE_ATTN) without updating the
+# GGML_OP_COUNT static_assert in ggml-rpc.h, which breaks the build because we
+# enable SD_RPC while upstream CI does not. The new ops are appended before
+# GGML_OP_COUNT, so existing op ids on the wire are unchanged and the RPC
+# handshake only compares major/minor versions. Align the assert with the
+# count that ggml.c asserts; this is a no-op once upstream fixes it.
+sync-rpc-op-count:
+	@count=$$(grep -oE 'GGML_OP_COUNT == [0-9]+' sources/stablediffusion-ggml.cpp/ggml/src/ggml.c | head -n1 | grep -oE '[0-9]+'); \
+	if [ -n "$$count" ]; then \
+		sed -i.bak -E "s/GGML_OP_COUNT == [0-9]+/GGML_OP_COUNT == $$count/" sources/stablediffusion-ggml.cpp/ggml/include/ggml-rpc.h && \
+		rm -f sources/stablediffusion-ggml.cpp/ggml/include/ggml-rpc.h.bak; \
+	fi
 
 UNAME_S := $(shell uname -s)
 

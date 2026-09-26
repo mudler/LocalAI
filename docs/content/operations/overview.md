@@ -55,6 +55,39 @@ and model storage. Loading, unavailable, and empty states are explicit. This
 uses the same 15-second Operate summary poll as the rail and attention data, so
 opening the overview does not start a second resource poller.
 
+## Running now
+
+On a single-node install the overview lists the models loaded on this machine,
+heaviest first, up to five. Each row shows the backend, resident memory, CPU
+share and uptime, with **View logs** and **Stop model…** in the row menu.
+**Open this machine** leads to the full list.
+
+With distributed mode on, models run on workers rather than on the controller,
+so this section links to **Operate → Nodes → Running models** instead.
+
+## This machine
+
+On a single-node install, **Operate → This machine** (`/app/nodes`) shows the
+host and everything loaded on it:
+
+- **Capacity gauges** for VRAM, RAM, CPU and the models disk, the same gauges
+  the Nodes page draws for a cluster. A host without a GPU says so rather than
+  showing an empty VRAM gauge.
+- **A memory bar** splitting host RAM by running model, so you can see which
+  model is holding memory.
+- **Running models**: search, sort by memory, CPU or uptime, open a model's
+  logs, or stop it. Stopping asks for confirmation; the model loads again on
+  its next request.
+
+The page polls `GET /system` and `GET /api/resources` every five seconds. The
+per-model readings come from the `process` block of
+[`GET /system`]({{% relref "reference/system-info" %}}); the host CPU and disk
+readings come from the `cpu` and `disk` fields of `GET /api/resources`.
+
+**Add machines** reveals the command to start LocalAI in distributed mode. Once
+distributed mode is on, the same route becomes the Nodes page and the rail
+entry moves to the Cluster group.
+
 Models and backends no longer live under a nested Host page. Use **Models →
 Installed** for model runtime and configuration actions, and **Operate →
 Backends → Installed** for installed backend actions. The overview links into

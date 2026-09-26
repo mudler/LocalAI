@@ -33,3 +33,16 @@ the pinned upstream commit, verify the C ABI layout/version and all three
 skeleton families. Pin changes update a clean cached checkout automatically;
 local source modifications stop the update rather than being discarded. Preserve
 any such changes before using `make clean` to replace that generated checkout.
+
+## Response metadata
+
+`Animate3DWithMetadata` returns UTF-8 JSON bytes in the generic gRPC
+`Result.metadata` field. Kimodo populates `usage.input_units` with text token
+count (including BOS), `usage.output_units` with frames × sampling steps, and
+`usage.accounting_rule` with `frame_steps_v1`. `usage.details` retains
+`output_frames` and `sampling_steps`. There is no separate protobuf usage type.
+
+The HTTP handler returns this object under `metadata`, with usage only at
+`metadata.usage`. Internal accounting reads those counts and records the request
+once; no top-level HTTP usage summary is emitted. See the [usage accounting documentation](../../../docs/content/features/3d-animation.md#usage-accounting)
+for the distinct backend and HTTP formats, validation, and persistence behavior.

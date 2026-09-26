@@ -102,6 +102,36 @@ func (s *server) Embedding(ctx context.Context, in *pb.PredictOptions) (*pb.Embe
 	}, nil
 }
 
+func (s *server) TokenClassify(ctx context.Context, in *pb.TokenClassifyRequest) (*pb.TokenClassifyResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	cm, ok := s.llm.(ClassifyModel)
+	if !ok {
+		return nil, status.Errorf(codes.Unimplemented, "method TokenClassify not implemented")
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	return cm.TokenClassify(ctx, in)
+}
+
+func (s *server) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreResponse, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	sm, ok := s.llm.(ScoreModel)
+	if !ok {
+		return nil, status.Errorf(codes.Unimplemented, "method Score not implemented")
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	return sm.Score(ctx, in)
+}
+
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()
@@ -187,6 +217,13 @@ func (s *server) Animate3D(ctx context.Context, in *pb.Animate3DRequest) (*pb.Re
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
+	}
+	if model, ok := s.llm.(AnimationMetadataModel); ok {
+		metadata, err := model.Animate3DWithMetadata(in)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.Result{Message: "3D animation generated", Success: true, Metadata: metadata}, nil
 	}
 	if err := s.llm.Animate3D(in); err != nil {
 		return nil, err

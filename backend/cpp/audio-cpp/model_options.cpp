@@ -120,6 +120,7 @@ ParsedOptions parse_model_options(const std::vector<std::string> &entries) {
                 return parsed;
             }
             parsed.options.backend = value;
+            parsed.options.backend_set = true;
         } else if (key == "model_spec_override") {
             parsed.options.model_spec_override = value;
         } else if (key == "device") {

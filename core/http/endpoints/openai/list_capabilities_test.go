@@ -131,6 +131,24 @@ parameters:
 		Expect(entry.ContextSize).To(Equal(32768))
 	})
 
+	It("reports the per-slot context_size when parallel slots do not share the KV cache", func() {
+		// llama.cpp gives each slot n_ctx/n_parallel here, so a client that
+		// budgets against the full 32768 overflows at 8192.
+		writeConfig("llm", `
+name: llm
+backend: llama-cpp
+context_size: 32768
+options:
+  - parallel:4
+  - kv_unified:false
+parameters:
+  model: model.gguf
+`)
+		entry := entryFor(call(), "llm")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(8192))
+	})
+
 	It("falls back to the default context size when context_size is unset", func() {
 		writeConfig("llm", `
 name: llm
@@ -141,5 +159,45 @@ parameters:
 		entry := entryFor(call(), "llm")
 		Expect(entry).NotTo(BeNil())
 		Expect(entry.ContextSize).To(Equal(backend.DefaultContextSize))
+	})
+	It("reports an alias with its target's capabilities and context_size", func() {
+		writeConfig("real-llm", `
+name: real-llm
+backend: llama-cpp
+context_size: 100000
+known_usecases:
+  - FLAG_CHAT
+  - FLAG_VISION
+template:
+  chat: "{{ .Input }}"
+parameters:
+  model: model.gguf
+`)
+		writeConfig("friendly", `
+name: friendly
+alias: real-llm
+`)
+		resp := call()
+		target := entryFor(resp, "real-llm")
+		Expect(target).NotTo(BeNil())
+
+		entry := entryFor(resp, "friendly")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ID).To(Equal("friendly"))
+		Expect(entry.ContextSize).To(Equal(100000))
+		Expect(entry.Capabilities).To(Equal(target.Capabilities))
+		Expect(entry.InputModalities).To(Equal(target.InputModalities))
+		Expect(entry.OutputModalities).To(Equal(target.OutputModalities))
+	})
+
+	It("reports no context_size for an alias whose target does not exist", func() {
+		writeConfig("dangling", `
+name: dangling
+alias: missing-model
+`)
+		entry := entryFor(call(), "dangling")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(BeZero())
+		Expect(entry.Capabilities).To(BeEmpty())
 	})
 })

@@ -1,6 +1,6 @@
 package main
 
-// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v26).
+// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v27).
 //
 // The structs below are hand-mirrored PODs of the C declarations, with
 // explicit padding so the Go layout matches the C layout on linux/darwin
@@ -21,7 +21,7 @@ import (
 // the header of the VLLM_CPP_VERSION pinned in the Makefile: the build checks
 // the two against each other, because a mismatch is only caught at runtime by
 // registerLib, where it takes the backend down on every load (issue #11379).
-const abiVersion = 26
+const abiVersion = 29
 
 // The ABI's tri-state toggles (enable_prefix_caching ABI v7,
 // enable_jump_forward ABI v10) share one encoding: 0 is NOT "off", it is
@@ -252,7 +252,34 @@ var (
 	vllmVideoResultFree func(out unsafe.Pointer)
 	vllmVideoMuxArgv    func(params, outArgv, outArgc unsafe.Pointer) int32
 	vllmVideoMuxArgvFre func(argv uintptr, argc int32)
+
+	// Zero-shot NER (ABI v27, GLiNER2.5).
+	vllmGlinerNer     func(engine uintptr, text string, labels uintptr, nLabels int32, threshold float32, maxWidth int32, out unsafe.Pointer) int32
+	vllmNerResultFree func(out unsafe.Pointer)
+
+	// Decide: unified decision pipeline (ABI v29, MODEL-KEV / MODEL-LAYA /
+	// MODEL-CUA-S1-FORMS). Replaces vllm_systemone + vllm_score from v28.
+	vllmDecide     func(engine uintptr, requestJSON string, out unsafe.Pointer) int32
+	vllmDecideFree func(json uintptr)
 )
+
+// cNerEntity mirrors vllm_ner_entity. Layout matches the C struct on LP64:
+// two pointer-width fields, four int32, one float, padded to 40 bytes.
+type cNerEntity struct {
+	label      uintptr // char*
+	text       uintptr // char*
+	charStart  int32
+	charEnd    int32
+	tokenStart int32
+	tokenEnd   int32
+	confidence float32
+}
+
+// cNerResult mirrors vllm_ner_result.
+type cNerResult struct {
+	entities  uintptr // vllm_ner_entity*
+	nEntities int32
+}
 
 type libFunc struct {
 	ptr  any
@@ -285,6 +312,10 @@ func registerLib(libName string) error {
 		{&vllmVideoResultFree, "vllm_video_result_free"},
 		{&vllmVideoMuxArgv, "vllm_video_mux_argv"},
 		{&vllmVideoMuxArgvFre, "vllm_video_mux_argv_free"},
+		{&vllmGlinerNer, "vllm_gliner_ner"},
+		{&vllmNerResultFree, "vllm_ner_result_free"},
+		{&vllmDecide, "vllm_decide"},
+		{&vllmDecideFree, "vllm_decide_free"},
 	} {
 		purego.RegisterLibFunc(lf.ptr, lib, lf.name)
 	}

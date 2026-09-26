@@ -1897,6 +1897,22 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"watchdog_interval":   watchdogInterval,
 		}
 
+		// The same host readings a distributed worker reports in its
+		// heartbeat, so a single-node install can draw the CPU and models-disk
+		// gauges the Nodes page draws for a cluster. Each is omitted on a
+		// failed read rather than zeroed: 0 cores or 0 free bytes would be a
+		// claim, not an absence.
+		if cpuInfo, err := xsysinfo.GetCPUInfo(); err == nil {
+			response["cpu"] = map[string]any{
+				"logical_cores": cpuInfo.LogicalCores,
+				"usage_percent": cpuInfo.UsagePercent,
+				"load_1":        cpuInfo.Load1,
+			}
+		}
+		if diskInfo, err := xsysinfo.GetDiskInfo(appConfig.SystemState.Model.ModelsPath); err == nil {
+			response["disk"] = diskInfo
+		}
+
 		// An additional field, never a rewrite of the local aggregate above:
 		// the resource monitor reports this controller's genuine own usage, and
 		// only the model-sizing surfaces read the cluster block.

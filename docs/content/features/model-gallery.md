@@ -23,21 +23,6 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
-## Instella-MoE availability
-
-The gallery excludes `instella-moe-16b-a3b-think` and
-`instella-moe-16b-a3b-think-q8` because the packaged llama.cpp backend does not
-support their `instella-moe` architecture. Loading these GGUF files fails with
-`unknown model architecture: 'instella-moe'`.
-
-The entries can return after LocalAI ships a compatible backend. See
-[the compatibility issue](https://github.com/mudler/LocalAI/issues/11681) and
-[upstream llama.cpp support](https://github.com/ggml-org/llama.cpp/pull/26467).
-
-## Useful Links and resources
-
-- [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.
-
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
@@ -54,58 +39,19 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
-## NeoHorse-1-4B
+## Hemmingway-1
 
-Install NeoHorse-1-4B with automatic selection between Q4_K_M, Q6_K, and Q8_0 GGUF builds:
+Install `hemmingway-1` for English text generation with llama.cpp. The gallery groups its Q4_K_M and Q8_0 builds as variants.
+To select a specific build, use `local-ai models install hemmingway-1 --variant hemmingway-1-q8` for Q8_0.
+The configurations default to 32,768 context tokens. Increase the context size only if available memory permits.
+The [model license](https://huggingface.co/Altworld/Hemmingway-1) is CC BY-NC 4.0; commercial use requires a separate agreement.
 
-```bash
-local-ai models install neohorse-1-4b-q4
-```
+## Qwen-Image 2.1
 
-To select Q8_0 explicitly:
-
-```bash
-local-ai models install neohorse-1-4b-q4 --variant neohorse-1-4b-q8
-```
-
-[NeoHorse-1-4B](https://huggingface.co/TokenRhythm/NeoHorse-1-4B) is a text-only Qwen3.5 fine-tune for coding, reasoning, and agentic tasks.
-These builds use llama.cpp and the embedded Jinja chat template.
-The gallery defaults to 32,768 context tokens; the model supports up to 262,144 tokens with sufficient memory.
-The [GGUF downloads](https://huggingface.co/mradermacher/NeoHorse-1-4B-GGUF) are pinned to a revision and verified with SHA256 checksums.
-
-## Spark-X2.5-1.7B
-
-Install Spark-X2.5-1.7B with automatic selection between its Q4_K_M and Q8_0
-GGUF builds:
-
-```bash
-local-ai models install spark-x2.5-1.7b-q4
-```
-
-To select the Q8_0 build explicitly:
-
-```bash
-local-ai models install spark-x2.5-1.7b-q4 --variant spark-x2.5-1.7b-q8
-```
-
-These text-only builds use the llama.cpp backend and the embedded Jinja chat
-template. The gallery defaults to a 32,768-token context to limit memory use.
-The [source model](https://huggingface.co/XHToken/Spark-X2.5-1.7B) supports up to
-1,048,576 tokens; larger contexts require more memory. Use a current LocalAI
-llama.cpp backend with Spark-X2.5 support.
-
-## MiniCPM5-2B
-
-MiniCPM5-2B offers the official Q4_K_M, Q8_0, and F16 GGUF builds through
-llama.cpp. To install the F16 build explicitly:
-
-```bash
-local-ai models install minicpm5-2b --variant minicpm5-2b-f16
-```
-
-The F16 weights require a 5.04 GB download, plus additional memory for inference.
-This entry uses the embedded chat template and an 8,192-token context.
-See the [official GGUF repository](https://huggingface.co/openbmb/MiniCPM5-2B-GGUF).
+For image generation, install `qwen-image-2.1-q4_k-ggml` or its `qwen-image-2.1-q8_0-ggml` variant.
+These entries use `stablediffusion-ggml` and include the text encoder, vision projector, and VAE.
+The invalid `qwen-image-2.1-uncensored` chat entry was removed because llama.cpp cannot load its diffusion weights.
+This removal does not delete previously installed models. Remove that configuration before installing an image-generation entry.
 
 ## VRAM and download size estimates
 
@@ -116,64 +62,9 @@ When browsing the gallery or importing a model by URI, LocalAI can show **estima
 - **Hardware fit indicator**: When your system reports GPU or RAM capacity, the gallery shows whether the estimated VRAM fits (green) or may not fit (red) using a 95% headroom rule.
 - Estimates are best-effort and may be missing if the server does not support HEAD/Range or the request times out.
 
-## Gemma 4 Ortenzya 31B
+## Useful Links and resources
 
-[Ortenzya](https://huggingface.co/llmfan46/gemma-4-Ortenzya-The-Creative-Wordsmith-31B-it-uncensored-heretic-GGUF)
-is a Gemma 4 fine-tune for creative writing, translation, and roleplay.
-Install it with automatic selection between Q4_K_M and Q8_0:
-
-```bash
-local-ai models install gemma-4-31b-ortenzya-q4
-```
-
-To select Q8_0 explicitly:
-
-```bash
-local-ai models install gemma-4-31b-ortenzya-q4 --variant gemma-4-31b-ortenzya-q8
-```
-
-Both builds use llama.cpp, the embedded Jinja chat template, and the BF16
-vision projector for image prompts. The gallery uses a 32,768-token context
-to limit memory use, with temperature 1, top_p 0.95, and top_k 64.
-
-## Gemma 4 12B IT
-
-Install `gemma-4-12b-it-q4` for chat, tool use, and image prompts with
-llama.cpp. The gallery offers Unsloth Q4_K_M, Q5_K_M, Q6_K, and Q8_0
-builds, each with an F16 vision projector and the embedded chat template.
-LocalAI selects a quantization based on available memory. To choose one
-explicitly, run:
-
-```bash
-local-ai models install gemma-4-12b-it-q4 --variant gemma-4-12b-it-q8
-```
-
-These entries use a 32,768-token context and sampling defaults of
-temperature 1, top_k 64, and top_p 0.95. They are separate from the
-existing QAT builds. See the [source model](https://huggingface.co/google/gemma-4-12B-it)
-and [GGUF files](https://huggingface.co/unsloth/gemma-4-12b-it-GGUF).
-
-## Ornith 1.5 9B Uncensored
-
-Junafinity's Ornith 1.5 9B Uncensored offers Q4_K_M, Q6_K, and Q8_0 GGUF
-builds for llama.cpp. Each includes the F16 vision projector for image input.
-Install with automatic variant selection:
-
-```bash
-local-ai models install ornith-1.5-9b-uncensored-q4
-```
-
-Select Q8 explicitly:
-
-```bash
-local-ai models install ornith-1.5-9b-uncensored-q4 --variant ornith-1.5-9b-uncensored-q8
-```
-
-These entries use the embedded chat template and a 32,768-token context.
-Sampling defaults are temperature 0.6, top_p 0.95, top_k 20, min_p 0,
-and repeat_penalty 1. The model has no MTP heads.
-See the [source model](https://huggingface.co/junafinity/Ornith-1.5-9B-uncensored)
-and [GGUF files](https://huggingface.co/mradermacher/Ornith-1.5-9B-uncensored-GGUF).
+- [Open LLM Leaderboard](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard) - here you can find a list of the most performing models on the Open LLM benchmark. Keep in mind models compatible with LocalAI must be quantized in the `gguf` format.
 
 ## Add other galleries
 
@@ -192,16 +83,6 @@ GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 The models in the gallery will be automatically indexed and available for installation.
 
 To use a gallery that needs authentication, such as a private GitHub repository or an internal server, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}).
-
-## Dirk quantization variants
-
-Dirk Qwen3.8 27B offers Q4_K_XL, Q5_K_XL, Q6_K_XL, and Q8_K_XL GGUF builds
-with llama.cpp, MTP speculative decoding, and the shared F16 vision projector.
-Select Q6 explicitly with:
-
-```bash
-local-ai models install dirk-qwen3.8-27b-q4 --variant dirk-qwen3.8-27b-q6
-```
 
 ## Gallery mirrors
 
@@ -230,6 +111,73 @@ Only a response that actually parses as a gallery index is stored. A captive por
 Entries served this way may be stale: the copy is only as fresh as the last time the gallery could be reached, so models added or changed upstream since then will not show up, and an entry may point at a file that has since moved. A listing served from disk is a degraded mode, not a substitute for a reachable gallery.
 
 The copy is deliberately kept out of the models directory itself, where LocalAI reads a `.yaml` file as an installed model's configuration. Deleting the cache directory is safe — the next successful fetch recreates it — and a machine that has never reached a gallery has nothing cached, so its first listing still fails.
+
+## Galleries published as OCI artifacts
+
+A gallery can live in a container registry instead of on a web server. Give the gallery a `url` with the `oci://` scheme and point it at an artifact reference:
+
+```json
+GALLERIES=[{"name":"premium", "url":"oci://quay.io/acme/gallery:latest"}]
+```
+
+LocalAI pulls the artifact, unpacks it into a cache directory beside your models directory (`<MODELS_PATH>/../cache/gallery/oci/`) and reads `index.yaml` from it. The unpacked copy is reused for one hour before the registry is asked again. Everything else works as it does for an HTTP gallery: an `oci://` URL can be a primary `url` or one of the `mirrors`, a failed pull puts the source in the same 10 minute cooldown, and the offline cache still serves the last good listing.
+
+Downloaded artifact files are readable and writable only by the LocalAI process owner. File writes stay inside the cache directory, including when an existing subdirectory is a symbolic link.
+
+
+This is the only format that carries a whole gallery in one object, so it is what to publish when the index and the model configuration files must travel together.
+
+### Entry URLs relative to the gallery
+
+An artifact holds the index and the files it refers to, so an entry can name its base configuration by its place in the tree:
+
+```yaml
+- name: premium-model
+  url: base/virtual.yaml
+```
+
+A `url` with no scheme is resolved against the root of the gallery it was read from: the unpacked artifact for an `oci://` gallery, and the directory of the index URL for an `http://`, `https://`, `github:`, `huggingface://` or `file://` gallery. A `url` that names a scheme, such as `https://example.org/base.yaml`, is always used as written.
+
+A relative `url` cannot leave the gallery root. An entry that tries to climb out of it, for example `url: ../../etc/passwd`, is refused: LocalAI drops that entry from the listing, logs the reason and keeps the rest of the gallery.
+
+### Signature verification
+
+An `oci://` gallery can be signed, and LocalAI verifies the signature before it unpacks anything. Add a `verification` block with the Fulcio issuer and the signing identity, in the same form the [backend galleries]({{%relref "features/backends#verifying-oci-backends" %}}) use:
+
+```json
+GALLERIES=[{"name":"premium","url":"oci://quay.io/acme/gallery:latest","verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/acme/gallery/\\.github/workflows/publish\\.yml@refs/tags/.+$"}}]
+```
+
+The tag is resolved to a digest, the signature is checked against that digest, and the same digest is then pulled. A gallery that fails verification is never written to the cache, so no unverified file reaches your disk. The optional `not_before` RFC3339 value revokes signatures logged before that time, exactly as it does for backends.
+
+Cached copies of a gallery are kept per verification policy on disk, and the in-memory listings are dropped when the gallery settings change. When you change the `verification` block (for example, you add `source_repository` or move `not_before` forward), in the configuration, at runtime through the settings API, or by editing `runtime_settings.json`, the next listing fetches the gallery again and verifies it under the new policy. LocalAI does not serve a copy that an older policy admitted.
+
+LocalAI tells a refusal apart from an outage:
+
+- **Refusal.** The artifact has no signature, or its signature does not match the issuer, identity, `source_repository` or `not_before` of the policy, or the policy itself cannot be used (for example, `not_before` is not an RFC3339 time). LocalAI shows an error and does not serve a cached copy.
+- **Outage.** The registry or the Sigstore trust root cannot be reached, answers with a server error, or the fetch times out. This includes failures during the signature check itself. LocalAI serves the last copy that was verified under the current policy. If no such copy exists, it shows an error. It never serves a copy that was verified under a different policy.
+
+An `oci://` gallery with a `verification` block is only served from `oci://` sources. LocalAI cannot check a signature on an `https://`, `github:` or `file://` mirror, so it ignores these mirrors for that gallery and logs a warning. List only `oci://` mirrors for a signed gallery.
+
+With strict integrity on (`--require-backend-integrity` or `LOCALAI_REQUIRE_BACKEND_INTEGRITY`), an `oci://` gallery without a `verification` block is refused. This is also true when a copy from an earlier fetch is in the cache, because that copy was never verified, and when the gallery has an `https://`, `github:` or `file://` mirror, because LocalAI ignores these mirrors in strict mode too.
+
+The optional `source_repository` value works the same for `oci://` galleries as it does for backends: it pins the repository the signature was made for when a shared reusable workflow does the signing. See [Verifying OCI Backends]({{%relref "features/backends#verifying-oci-backends" %}}).
+
+{{% notice warning %}}
+With `--require-backend-integrity` (`LOCALAI_REQUIRE_BACKEND_INTEGRITY=1`), an `oci://` gallery that has no `verification` block is refused when the models are listed, not only when one is installed. Add a `verification` block to every `oci://` gallery before you turn strict integrity on, or the galleries without one stop listing. An `oci://` gallery without a policy still lists outside strict mode, with a warning in the log.
+{{% /notice %}}
+
+### Private registries
+
+A gallery in a private registry needs a credentials entry that matches the registry, the same entry an image pull from it would use:
+
+```yaml
+- match: quay.io/acme
+  username: bot
+  password_env: QUAY_TOKEN
+```
+
+See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}) for the file location, the other authentication types and the rules for registries on a local network, which also need `allow_insecure: true`.
 
 ## API Reference
 
@@ -318,7 +266,7 @@ To install a model from the gallery repository, you can pass the model name in t
 LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
      "id": "localai@bert-embeddings"
-   }'  
+   }' 
 ```
 
 where:
@@ -326,33 +274,7 @@ where:
 - `bert-embeddings` is the model name in the gallery
   (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
 
-### EfficientThink GGUF builds
-
-[Qwen3.8-27B EfficientThink](https://huggingface.co/nerkyor/Qwen3.8-27B-EfficientThink-Uncensored-K3-Opus5-Grok4.6-GPT5.6Sol-SFT-SimPO-DFlash2-GGUF)
-is available as Q6_K and Q8_0 builds for llama.cpp. Both include the matching
-Q8 vision projector and use a 32,768-token context. The DFlash variants also
-install the publisher's Q8 draft and enable speculative decoding.
-
-To select a build explicitly:
-
-```bash
-local-ai models install --variant qwen3.8-27b-efficientthink-q8-dflash qwen3.8-27b-efficientthink-q6
-```
-
-Use `qwen3.8-27b-efficientthink-q6` or `qwen3.8-27b-efficientthink-q8` as the
-variant name for ordinary decoding without a draft model.
-
 ### Model variants
-
-The `qwen3.5-9b-defiant-fable-mtp` entry offers Q4_K_M and Q8_0 builds for
-llama.cpp, with and without multi-token prediction (MTP). Each build includes
-the BF16 vision projector. To select the Q8_0 MTP build explicitly:
-
-```bash
-local-ai models install localai@qwen3.5-9b-defiant-fable-mtp --variant qwen3.5-9b-defiant-fable-q8-mtp
-```
-
-Use `--variant qwen3.5-9b-defiant-fable-q8` for Q8_0 with ordinary decoding.
 
 Some gallery entries offer several builds of the same model: different
 quantizations, or the same weights served by a different engine. Such an entry
@@ -392,13 +314,6 @@ whole page has variants.
 
 ```bash
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
-```
-
-The Tiel-Coder gallery entry offers Q4, Q5, Q6, and Q8 MTP builds for
-llama.cpp, each with the BF16 vision projector. To select the Q6 MTP build:
-
-```bash
-local-ai models install tiel-coder-35b-a3b-q4 --variant tiel-coder-35b-a3b-q6-mtp
 ```
 
 ### Collapsing the listing to one row per model
@@ -464,7 +379,6 @@ curl http://localhost:8080/api/models/variants/localai@nanbeige4.1-3b-q4
     { "model": "nanbeige4.1-3b-q8", "backend": "llama-cpp", "memory_bytes": 4187593113, "fits": true, "is_base": false },
     { "model": "nanbeige4.1-3b-q4", "backend": "llama-cpp", "fits": true, "is_base": true }
   ]
-}
 ```
 
 `auto_selected` is what installing without a choice would pick right now. `fits`
@@ -495,13 +409,6 @@ The same option exists on the CLI:
 
 ```bash
 local-ai models install nanbeige4.1-3b-q4 --variant nanbeige4.1-3b-q8
-```
-
-Ornith-1.5-35B-A3B offers Q4_K_M, Q5_K_M, Q6_K, and Q8_0 GGUF builds
-with a BF16 vision projector. For example, select Q6_K with:
-
-```bash
-local-ai models install ornith-1.5-35b-a3b-q4 --variant ornith-1.5-35b-a3b-q6
 ```
 
 The `install_model` MCP tool takes the same `variant` argument, so an assistant
@@ -579,6 +486,7 @@ echo "Job completed"
 
 To preload models on start instead you can use the `PRELOAD_MODELS` environment variable.
 
+
 <details>
 
 To preload models on start, use the `PRELOAD_MODELS` environment variable by setting it to a JSON array of model uri:
@@ -651,7 +559,7 @@ LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
      "url": "<MODEL_CONFIG_FILE>",
      "name": "<MODEL_NAME>"
-   }'  
+   }' 
 ```
 
 For example, to install a model as `gpt-3.5-turbo`:
@@ -661,7 +569,7 @@ LOCALAI=http://localhost:8080
 curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
       "url": "github:mudler/LocalAI/gallery/gpt4all-j.yaml",
       "name": "gpt-3.5-turbo"
-   }'  
+   }' 
 ```
 ### Additional Files
 
@@ -681,7 +589,7 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
             "filename": "<additional_file_name>"
         }
      ]
-   }'  
+   }' 
 ```
 
 </details>
@@ -702,55 +610,14 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
         "f16": true,
         ...
      }
-   }'  
+   }' 
 ```
 
 </details>
 
-
+ 
 
 ## Examples
-
-### Huihui Qwen3.8 Flash Next
-
-Install the abliterated Qwen3.8-Flash-Next build for text chat and image input:
-
-```bash
-local-ai models install huihui-qwen3.8-flash-next-abliterated-q4
-```
-
-The entry downloads the publisher's four UD-Q4_K_XL GGUF shards and BF16
-vision projector, approximately 112 GB in total. It uses llama.cpp with the
-embedded chat template and a 32,768-token default context. The publisher
-currently provides one quantization, so this entry has no alternative variants.
-
-This model is modified to reduce refusals. See the
-[model card](https://huggingface.co/huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF)
-and [Qwen Community License 1.0](https://huggingface.co/huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-GGUF/blob/main/LICENSE)
-for model details and usage terms.
-
-### Embeddings: Bert
-
-<details>
-
-```bash
-curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
-     "id": "bert-embeddings",
-     "name": "text-embedding-ada-002"
-   }'  
-```
-
-To test it:
-
-```bash
-LOCALAI=http://localhost:8080
-curl $LOCALAI/v1/embeddings -H "Content-Type: application/json" -d '{
-    "input": "Test",
-    "model": "text-embedding-ada-002"
-  }'
-```
-
-</details>
 
 ### Image generation: Stable diffusion
 
@@ -797,7 +664,7 @@ YAML:
 
 Test it:
 
-```
+```bash
 curl $LOCALAI/v1/images/generations -H "Content-Type: application/json" -d '{
             "prompt": "floating hair, portrait, ((loli)), ((one girl)), cute face, hidden hands, asymmetrical bangs, beautiful detailed eyes, eye shadow, hair ornament, ribbons, bowties, buttons, pleated skirt, (((masterpiece))), ((best quality)), colorful|((part of the head)), ((((mutated hands and fingers)))), deformed, blurry, bad anatomy, disfigured, poorly drawn face, mutation, mutated, extra limb, ugly, poorly drawn hands, missing limb, blurry, floating limbs, disconnected limbs, malformed hands, blur, out of focus, long neck, long body, Octane renderer, lowres, bad anatomy, bad hands, text",
             "mode": 2,  "seed":9000,
@@ -868,7 +735,7 @@ curl http://localhost:8080/models/apply -H "Content-Type: application/json" -d '
         },
       "overrides": { "backend": "...", "f16": true }
      ]
-   }
+   }'
 ```
 
 An optional, list of additional files can be specified to be downloaded within `files`. The `name` allows to override the model name. Finally it is possible to override the model config file with `override`.
@@ -913,27 +780,3 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
-
-### Genesis Hermes Final
-
-Install the Qwen3.6-35B-A3B Genesis Hermes Final model for text chat,
-function calling, and image input:
-
-```bash
-local-ai models install qwen3.6-35b-a3b-genesis-hermes-final
-```
-
-The gallery offers APEX, APEX Compact, and Q8_K_P builds for llama.cpp.
-APEX and APEX Compact also have variants with multi-token prediction (MTP)
-enabled. Each build includes the F16 vision projector and uses the embedded
-Jinja chat template. LocalAI selects a variant according to available memory
-and serving features. To select the plain APEX build explicitly:
-
-```bash
-local-ai models install --variant qwen3.6-35b-a3b-genesis-hermes-final qwen3.6-35b-a3b-genesis-hermes-final
-```
-
-These entries set a 131,072-token context, following the
-[model card's guidance](https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF)
-for thinking mode. This context requires additional memory beyond the weights.
-The uncensored model uses the Apache-2.0 license.

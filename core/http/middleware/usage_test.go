@@ -33,6 +33,31 @@ func (c *captureBackend) Aggregate(_ context.Context, _ billing.AggregateQuery) 
 func (c *captureBackend) Close() error { return nil }
 
 var _ = Describe("UsageMiddleware", func() {
+	DescribeTable("records animation units and their accounting basis only on success", func(status int) {
+		cap := &captureBackend{}
+		e := echo.New()
+		e.POST("/3d/animate", func(c echo.Context) error {
+			err := httpMiddleware.StampResponseMetadata(c, "kimodo", []byte(`{"usage":{"input_units":32,"output_units":15000,"accounting_rule":"frame_steps_v1","details":{"output_frames":150,"sampling_steps":100}},"custom":true}`))
+			Expect(err).NotTo(HaveOccurred())
+			return c.JSON(status, map[string]string{"model": "kimodo"})
+		}, httpMiddleware.UsageMiddleware(billing.NewRecorder(cap), &auth.User{ID: "local"}))
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/3d/animate", nil))
+		Expect(w.Code).To(Equal(status))
+		if status != http.StatusOK {
+			Expect(cap.records).To(BeEmpty())
+			return
+		}
+		Expect(cap.records).To(HaveLen(1))
+		r := cap.records[0]
+		Expect(r.Model).To(Equal("kimodo"))
+		Expect(r.Endpoint).To(Equal("/3d/animate"))
+		Expect(r.PromptTokens).To(Equal(int64(32)))
+		Expect(r.CompletionTokens).To(Equal(int64(15000)))
+		Expect(r.TotalTokens).To(Equal(int64(15032)))
+		Expect(r.Metadata).To(MatchJSON(`{"usage":{"input_units":32,"output_units":15000,"accounting_rule":"frame_steps_v1","details":{"output_frames":150,"sampling_steps":100}},"custom":true}`))
+	}, Entry("success", http.StatusOK), Entry("failure", http.StatusInternalServerError))
+
 	mockChat := func(usage string) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			c.Response().Header().Set("Content-Type", "application/json")

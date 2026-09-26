@@ -31,7 +31,11 @@ in the model YAML, or select it explicitly in the import form.
 The bundled audio-cpp gallery entries set `backend:best` in `options` to select
 an available compute backend, with CPU as the fallback. To force CPU execution,
 replace that option with `backend:cpu`. Model configurations that omit this
-option still default to CPU.
+option still default to CPU — unless the `AUDIOCPP_DEFAULT_BACKEND`
+environment variable is set on the backend process, which supplies the
+fallback for exactly those models (an explicit `backend:` option always
+wins). Set it to `best` in a deployment to give hand-written model
+configurations the same accelerator selection the gallery entries get.
 
 ### Sortformer installation
 
