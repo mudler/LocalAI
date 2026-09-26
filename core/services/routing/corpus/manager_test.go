@@ -31,17 +31,34 @@ func (e *countingEmbedder) Embed(_ context.Context, text string) ([]float32, err
 	return []float32{float32(len(text)), e.model}, nil
 }
 
-// capturingStore records index mutations. Search/SearchK are
-// irrelevant to the manager and return clean misses.
+// capturingStore records index mutations. Search answers like a live
+// index for vectors that were inserted (the manager probes with one of
+// its own vectors to detect a relaunched, empty store); SearchK is
+// irrelevant to the manager and returns a clean miss.
 type capturingStore struct {
 	mu          sync.Mutex
+	vecs        [][]float32
 	payloads    [][]byte
 	batches     int
 	deleted     [][]float32
 	failBatches int
 }
 
-func (s *capturingStore) Search(_ context.Context, _ []float32) (float64, []byte, bool, error) {
+func (s *capturingStore) Search(_ context.Context, vec []float32) (float64, []byte, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, v := range s.vecs {
+		if len(v) == len(vec) && func() bool {
+			for j := range v {
+				if v[j] != vec[j] {
+					return false
+				}
+			}
+			return true
+		}() {
+			return 1, s.payloads[i], true, nil
+		}
+	}
 	return 0, nil, false, nil
 }
 
@@ -49,9 +66,10 @@ func (s *capturingStore) SearchK(_ context.Context, _ []float32, _ int) ([]backe
 	return nil, nil
 }
 
-func (s *capturingStore) Insert(_ context.Context, _ []float32, payload []byte) error {
+func (s *capturingStore) Insert(_ context.Context, vec []float32, payload []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.vecs = append(s.vecs, vec)
 	s.payloads = append(s.payloads, payload)
 	return nil
 }
@@ -64,8 +82,8 @@ func (s *capturingStore) InsertBatch(_ context.Context, vecs [][]float32, payloa
 		s.failBatches--
 		return errors.New("transient batch failure")
 	}
+	s.vecs = append(s.vecs, vecs...)
 	s.payloads = append(s.payloads, payloads...)
-	_ = vecs
 	return nil
 }
 
@@ -115,6 +133,30 @@ var _ = Describe("corpus.Manager", func() {
 
 	AfterEach(func() {
 		_ = os.RemoveAll(dir)
+	})
+
+	It("re-seeds the index when the store comes back empty under an unchanged file", func() {
+		// The local-store backend is an in-memory process the model loader
+		// may evict (active-backend cap) and relaunch empty on the next
+		// request. The file is untouched, so the file fingerprint alone
+		// says "synced" — and the router goes blind: every probe falls back
+		// with similarity 0 while corpus/stats still reports the full count.
+		_, _, err := mgr.Add(ctx, storeName, "embed-1", fingerprint, embedder, store, seed)
+		Expect(err).NotTo(HaveOccurred())
+		n, err := mgr.EnsureLoaded(ctx, storeName, "embed-1", fingerprint, embedder, store)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(0), "live index holds the corpus: nothing to do")
+
+		relaunched := &capturingStore{}
+		n, err = mgr.EnsureLoaded(ctx, storeName, "embed-1", fingerprint, embedder, relaunched)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(len(seed)), "empty index under an unchanged file is re-seeded")
+		Expect(relaunched.payloads).To(HaveLen(len(seed)))
+		Expect(embedder.calls).To(Equal(len(seed)), "vectors come from the file, nothing is re-embedded")
+
+		n, err = mgr.EnsureLoaded(ctx, storeName, "embed-1", fingerprint, embedder, relaunched)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(0), "and the relaunched index counts as synced again")
 	})
 
 	It("adds entries: embeds, persists, and indexes them", func() {

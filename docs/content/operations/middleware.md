@@ -558,7 +558,12 @@ The corpus is persisted as one JSONL file per router under
 `<data path>/router-corpus/` (text, labels, vector, embedding-model name,
 and embedding fingerprint) — **the file is the source of truth** and
 survives restarts; the local-store index is rebuilt from it at classifier
-build time without re-embedding. The fingerprint follows the effective
+build time without re-embedding. Before each KNN lookup, LocalAI checks a stored
+vector against the live index. If the store restarts empty after eviction or
+an idle timeout, LocalAI restores the index from the file without re-embedding.
+A synchronization error fails the lookup.
+
+The fingerprint follows the effective
 embedding-model config and local artifact identity, so changing the model or
 replacing its local weights re-embeds the corpus on the next process load.
 For remote embedding services whose weights can change invisibly, bump
