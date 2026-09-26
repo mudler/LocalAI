@@ -183,15 +183,21 @@ share one failover state:
 
 - Pins apply to the whole cluster. LocalAI stores them in the database, so
   they persist across restarts. A pin set on one frontend applies on all.
-- Target health and the active target of each chain are shared over NATS.
-  All frontends send a chain's requests to the same target.
+- Target health and the active target of each chain are shared over NATS, so
+  all frontends converge on the same target for a chain.
 - One frontend, the probe leader, runs the health checks, decides fail-over
-  and fail-back, and loads warm targets. A PostgreSQL advisory lock selects
-  the leader. If the leader stops, another frontend takes over.
+  and fail-back, and loads warm targets. The leader holds a PostgreSQL
+  advisory lock and keeps it until it shuts down or its database connection
+  fails. Then another frontend takes the lock and becomes the leader.
 - Warm targets stay loaded on the workers. The router and the replica
   reconciler treat them like pinned models and do not evict them.
 - A frontend that starts late gets the current state within 10 seconds,
   because the leader sends its full state again every 10 seconds.
+- If PostgreSQL is not available, no frontend holds the lock. Health checks
+  and fail-back stop until the database is back. Requests still fail over to
+  the next target when a target fails during the request.
+- If a frontend cannot start the shared state, it logs an error and manages
+  failover alone, as a single LocalAI instance does.
 
 ## Limits
 

@@ -8,24 +8,31 @@ import (
 	"github.com/mudler/LocalAI/core/services/failover/distsync"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/xlog"
-	"gorm.io/gorm"
 )
 
 // failoverLeaderGate elects the frontend that probes failover targets and
 // decides chains, so N frontends do not probe every target N times or
-// disagree on which target is active. A lock error counts as "not leader":
-// skipping one tick is safe, two leaders are not.
-func failoverLeaderGate(db *gorm.DB) failover.LeaderGate {
+// disagree on which target is active.
+//
+// Leadership is sticky: the leader keeps the lock across ticks and loses it
+// only when its database session dies or it shuts down. A lock taken per tick
+// would pass between frontends on almost every tick, and each change of
+// leader redelivers the warm set and republishes all state. A lock error
+// counts as "not leader": skipping one tick is safe, two leaders are not.
+func failoverLeaderGate(l *advisorylock.HeldLock) failover.LeaderGate {
 	return func(ctx context.Context, fn func()) bool {
-		ok, err := advisorylock.TryWithLockCtx(ctx, db, advisorylock.KeyFailoverProber, func() error {
-			fn()
-			return nil
-		})
-		if err != nil {
-			xlog.Warn("failover: could not take the prober leader lock", "error", err)
-			return false
+		if !l.Held() || !l.Verify(ctx) {
+			ok, err := l.TryAcquire(ctx)
+			if err != nil {
+				xlog.Warn("failover: could not take the prober leader lock", "error", err)
+				return false
+			}
+			if !ok {
+				return false
+			}
 		}
-		return ok
+		fn()
+		return true
 	}
 }
 
@@ -65,5 +72,21 @@ func (a *Application) startFailoverDistributed(ctx context.Context) {
 	// Gate only once state is shared: a follower learns target health and
 	// chain decisions solely from the leader's publishes, so gating without
 	// the sync would leave every follower's chains frozen.
-	a.failoverManager.SetLeaderGate(failoverLeaderGate(db))
+	a.failoverLock = advisorylock.NewHeldLock(db, advisorylock.KeyFailoverProber)
+	a.failoverManager.SetLeaderGate(failoverLeaderGate(a.failoverLock))
+}
+
+// stopFailoverDistributed detaches the manager from the sync before closing
+// it, so nothing publishes into closed maps, and gives up leadership at once
+// instead of making another frontend wait for this session to time out.
+func (a *Application) stopFailoverDistributed() {
+	if a.failoverSync != nil {
+		a.failoverManager.SetStateSync(nil)
+		if err := a.failoverSync.Close(); err != nil {
+			xlog.Warn("failover: closing state sync", "error", err)
+		}
+	}
+	if a.failoverLock != nil {
+		a.failoverLock.Release()
+	}
 }

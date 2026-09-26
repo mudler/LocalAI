@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
@@ -57,23 +58,30 @@ var _ = Describe("failoverPinnedResolver", func() {
 })
 
 var _ = Describe("failoverLeaderGate", func() {
-	It("lets only one frontend lead at a time on the same database", func() {
+	It("keeps leadership with the first frontend until it releases", func() {
 		// Not PostgreSQL, so advisorylock falls back to its in-process lock,
 		// which has the same try-lock semantics as pg_try_advisory_lock.
 		db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 		Expect(err).ToNot(HaveOccurred())
-		first, second := failoverLeaderGate(db), failoverLeaderGate(db)
+		firstLock := advisorylock.NewHeldLock(db, advisorylock.KeyFailoverProber)
+		secondLock := advisorylock.NewHeldLock(db, advisorylock.KeyFailoverProber)
+		DeferCleanup(firstLock.Release)
+		DeferCleanup(secondLock.Release)
+		first, second := failoverLeaderGate(firstLock), failoverLeaderGate(secondLock)
 		ctx := context.Background()
 
-		var secondInside, secondRan bool
-		Expect(first(ctx, func() {
-			secondInside = second(ctx, func() { secondRan = true })
-		})).To(BeTrue())
-		Expect(secondInside).To(BeFalse(), "the second gate must not lead while the first holds the lock")
-		Expect(secondRan).To(BeFalse())
+		var firstRuns, secondRuns int
+		for range 5 {
+			Expect(first(ctx, func() { firstRuns++ })).To(BeTrue())
+			Expect(second(ctx, func() { secondRuns++ })).To(BeFalse(), "leadership must not flip between ticks")
+		}
+		Expect(firstRuns).To(Equal(5))
+		Expect(secondRuns).To(BeZero())
 
-		Expect(second(ctx, func() { secondRan = true })).To(BeTrue())
-		Expect(secondRan).To(BeTrue())
+		firstLock.Release()
+		Expect(second(ctx, func() { secondRuns++ })).To(BeTrue(), "a released leadership passes to the next frontend")
+		Expect(secondRuns).To(Equal(1))
+		Expect(first(ctx, func() { firstRuns++ })).To(BeFalse())
 	})
 })
 
@@ -98,5 +106,29 @@ var _ = Describe("applyFailoverWarmTargets in distributed mode", func() {
 
 		app.applyFailoverWarmTargets([]string{"b"})
 		Consistently(preloaded, 200*time.Millisecond).ShouldNot(Receive(), "only the probe leader preloads warm targets")
+	})
+
+	It("preloads warm targets on the probe leader", func() {
+		preloaded := make(chan string, 4)
+		orig := preloadModelByName
+		preloadModelByName = func(_ context.Context, _ *config.ModelConfigLoader, _ *model.ModelLoader, _ *config.ApplicationConfig, name string) ([]string, error) {
+			preloaded <- name
+			return nil, nil
+		}
+		DeferCleanup(func() { preloadModelByName = orig })
+
+		app := &Application{
+			applicationConfig: &config.ApplicationConfig{Context: context.Background()},
+			distributed:       &DistributedServices{},
+		}
+		// A gate that always grants: this frontend is the leader. The warm
+		// set is delivered on the first tick that wins it.
+		app.failoverManager = failover.New(warmChainSource(),
+			failover.WithLeaderGate(func(_ context.Context, fn func()) bool { fn(); return true }),
+			failover.WithOnWarmChanged(app.applyFailoverWarmTargets))
+
+		app.failoverManager.Tick(context.Background())
+		Eventually(preloaded, time.Second).Should(Receive(Equal("b")))
+		Eventually(preloaded, time.Second).Should(Receive(Equal("c")))
 	})
 })

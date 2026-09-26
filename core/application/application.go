@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
@@ -98,6 +99,9 @@ type Application struct {
 	// failoverSync shares failover state between frontends; nil in
 	// standalone mode or when it could not start.
 	failoverSync *distsync.Sync
+	// failoverLock is the probe-leader lock this frontend holds or tries
+	// for; nil when failoverSync is nil.
+	failoverLock *advisorylock.HeldLock
 
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
@@ -522,11 +526,7 @@ func (a *Application) Shutdown() error {
 	a.shutdownOnce.Do(func() {
 		// Before distributed shutdown: the sync's subscriptions live on the
 		// NATS connection that closes there.
-		if a.failoverSync != nil {
-			if closeErr := a.failoverSync.Close(); closeErr != nil {
-				xlog.Warn("failover: closing state sync", "error", closeErr)
-			}
-		}
+		a.stopFailoverDistributed()
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {
 			err = a.modelLoader.StopAllGRPC()
