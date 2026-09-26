@@ -99,7 +99,7 @@ type OpenAIResponse struct {
 	// OpenAI-SDK consumers that filter on a truthy `result.usage`
 	// (continuedev/continue, Kilo Code, Roo Code, etc.).
 	Usage    *OpenAIUsage    `json:"usage,omitempty"`
-	Metadata json.RawMessage `json:"metadata,omitempty"`
+	Metadata json.RawMessage `json:"metadata,omitempty" swaggertype:"object"`
 }
 
 // StreamOptions mirrors OpenAI's `stream_options` request field. The only

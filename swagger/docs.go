@@ -7313,6 +7313,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "metadata": {
+                    "type": "object"
+                },
                 "model": {
                     "type": "string"
                 },
