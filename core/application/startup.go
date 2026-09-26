@@ -262,6 +262,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 		})),
 		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
 	)
+	// The assistant client was built in start() (above), before this
+	// manager existed; wire it now so list_failover_chains /
+	// pin_failover_target / unpin_failover_target see real chains.
+	if application.assistantClient != nil {
+		application.assistantClient.Failover = application.failoverManager
+	}
 
 	// Subsystem 5: admission control. Limiter is always wired so a
 	// model that gains a limits: block via gallery install or YAML

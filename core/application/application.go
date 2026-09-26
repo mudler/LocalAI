@@ -101,6 +101,13 @@ type Application struct {
 	// is set; otherwise initialised in start() after galleryService.
 	localAIAssistant *mcpTools.LocalAIAssistantHolder
 
+	// assistantClient is the concrete inproc client backing localAIAssistant.
+	// start() constructs it before failoverManager exists (see New() in
+	// startup.go), so New() sets assistantClient.Failover once the manager
+	// is built, using this field to reach back into the already-registered
+	// MCP tool set. nil when DisableLocalAIAssistant is set.
+	assistantClient *localaiInproc.Client
+
 	// startupComplete flips to true once New() has finished its whole startup
 	// sequence. It backs the /readyz probe.
 	//
@@ -598,6 +605,12 @@ func (a *Application) start() error {
 		assistantClient.RouterEmbedder = a.Embedder
 		assistantClient.RouterEmbedderFingerprint = a.EmbedderFingerprint
 		assistantClient.RouterVectorStore = a.VectorStore
+		// Failover chains: failoverManager does not exist yet at this point
+		// in startup (New() in startup.go builds it after start() returns),
+		// so it can't be wired here like the fields above. New() sets
+		// assistantClient.Failover directly once the manager is built;
+		// stash the client so it can reach back into it.
+		a.assistantClient = assistantClient
 		if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
 			// Why log+continue instead of fail: the assistant is an optional
 			// feature; a failure here must not take down the whole server.
