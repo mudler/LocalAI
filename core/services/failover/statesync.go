@@ -176,16 +176,23 @@ func (m *Manager) ApplyChain(s ChainSnapshot) {
 	}
 }
 
-// ApplyPin sets (target != "") or clears a pin set on any frontend.
+// ApplyPin sets (target != "") or clears a pin set on any frontend. A pin for
+// a chain or target this frontend does not know yet is kept and applied by
+// syncLocked once the config catches up.
 func (m *Manager) ApplyPin(chain, target string) {
 	m.mu.Lock()
 	defer m.unlockAndFlush()
+	if target == "" {
+		delete(m.pins, chain)
+	} else {
+		m.pins[chain] = target
+	}
 	ch := m.chainLocked(chain)
 	if ch == nil {
 		return
 	}
 	if target != "" && !slices.Contains(ch.targets, target) {
-		xlog.Debug("failover: ignoring pin to a target not in the chain", "chain", chain, "target", target)
+		xlog.Debug("failover: deferring pin to a target not in the chain yet", "chain", chain, "target", target)
 		return
 	}
 	if ch.pinned == target {

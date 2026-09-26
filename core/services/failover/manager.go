@@ -43,11 +43,16 @@ func WithOnWarmChanged(fn func(warm []string)) Option { return func(m *Manager) 
 
 // Manager tracks health per target and the active target per chain.
 type Manager struct {
-	mu          sync.Mutex
-	src         ConfigSource
-	clock       Clock
-	prober      Prober
-	onWarm      func([]string)
+	mu     sync.Mutex
+	src    ConfigSource
+	clock  Clock
+	prober Prober
+	onWarm func([]string)
+	// pins holds every known pin by chain name, including pins for chains
+	// or targets this frontend's config does not have yet: with a sync
+	// layer the pin is delivered once, and a chain that appears (or is
+	// rebuilt) later must still pick it up.
+	pins        map[string]string
 	targets     map[string]*targetState
 	chains      map[string]*chainState
 	subs        map[int]chan Event
@@ -119,6 +124,7 @@ func New(src ConfigSource, opts ...Option) *Manager {
 		clock:   realClock{},
 		targets: map[string]*targetState{},
 		chains:  map[string]*chainState{},
+		pins:    map[string]string{},
 		subs:    map[int]chan Event{},
 	}
 	for _, o := range opts {
@@ -155,9 +161,14 @@ func (m *Manager) syncLocked() {
 		}
 		ch := m.chains[c.Name]
 		if ch == nil || !slices.Equal(ch.targets, names) {
-			pinned := ""
-			if ch != nil && slices.Contains(names, ch.pinned) {
-				pinned = ch.pinned
+			pinned := m.pins[c.Name]
+			if !slices.Contains(names, pinned) {
+				if m.sync == nil {
+					// Standalone, the pin lives with the chain: a target
+					// dropped from it takes the pin along.
+					delete(m.pins, c.Name)
+				}
+				pinned = ""
 			}
 			ch = &chainState{name: c.Name, targets: names, activeSince: now, state: ChainPrimary, pinned: pinned}
 			m.chains[c.Name] = ch
@@ -191,6 +202,11 @@ func (m *Manager) syncLocked() {
 	for name := range m.chains {
 		if !seenChains[name] {
 			delete(m.chains, name)
+			if m.sync == nil {
+				// With a sync layer the shared pin outlives a chain this
+				// frontend has not (re)loaded yet; standalone it does not.
+				delete(m.pins, name)
+			}
 		}
 	}
 	for name := range m.targets {
@@ -572,6 +588,7 @@ func (m *Manager) Pin(chain, target string) error {
 		return fmt.Errorf("%w: %q", ErrTargetNotInChain, target)
 	}
 	ch.pinned = target
+	m.pins[chain] = target
 	m.recomputeLocked(ch, ReasonManual)
 	s := m.sync
 	m.unlockAndFlush()
@@ -589,6 +606,7 @@ func (m *Manager) Unpin(chain string) error {
 		return fmt.Errorf("%w: %q", ErrChainNotFound, chain)
 	}
 	ch.pinned = ""
+	delete(m.pins, chain)
 	m.recomputeLocked(ch, ReasonManual)
 	s := m.sync
 	m.unlockAndFlush()

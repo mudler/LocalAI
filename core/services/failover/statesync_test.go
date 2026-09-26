@@ -176,6 +176,67 @@ var _ = Describe("Manager state sync", func() {
 		Expect(st.Active).To(Equal("y"))
 	})
 
+	It("keeps a pin for a chain it does not know yet and applies it when the chain appears", func() {
+		b.ApplyPin("later", "y")
+		_, ok := b.ChainStatus("later")
+		Expect(ok).To(BeFalse())
+		src.Put(chainCfg("later", nil, t("x"), t("y")))
+		b.Sync()
+		st, ok := b.ChainStatus("later")
+		Expect(ok).To(BeTrue())
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("y"))
+		Expect(st.Active).To(Equal("y"))
+	})
+
+	It("re-applies a shared pin when the chain is removed and re-added", func() {
+		Expect(a.Pin("chain", "y")).To(Succeed())
+		src.Delete("chain")
+		b.Sync()
+		_, ok := b.ChainStatus("chain")
+		Expect(ok).To(BeFalse())
+		src.Put(chainCfg("chain", nil, t("x"), t("y")))
+		b.Sync()
+		st, _ := b.ChainStatus("chain")
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("y"))
+	})
+
+	It("applies a deferred pin once its target joins the chain", func() {
+		src.Put(local("z"))
+		b.ApplyPin("chain", "z")
+		st, _ := b.ChainStatus("chain")
+		Expect(st.Pinned).To(BeNil())
+		src.Put(chainCfg("chain", nil, t("x"), t("y"), t("z")))
+		b.Sync()
+		st, _ = b.ChainStatus("chain")
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("z"))
+	})
+
+	It("hydrates a pin for an unknown chain and applies it when the chain appears", func() {
+		bus.pins["later"] = "y"
+		c := New(src, WithClock(clock), WithLeaderGate(gateFor(false)))
+		c.SetStateSync(bus)
+		src.Put(chainCfg("later", nil, t("x"), t("y")))
+		c.Sync()
+		st, ok := c.ChainStatus("later")
+		Expect(ok).To(BeTrue())
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("y"))
+	})
+
+	It("standalone, a removed chain drops its pin", func() {
+		m := New(src, WithClock(clock))
+		Expect(m.Pin("chain", "y")).To(Succeed())
+		src.Delete("chain")
+		m.Sync()
+		src.Put(chainCfg("chain", nil, t("x"), t("y")))
+		m.Sync()
+		st, _ := m.ChainStatus("chain")
+		Expect(st.Pinned).To(BeNil())
+	})
+
 	It("standalone manager (no sync, no gate) is always leader", func() {
 		m := New(src, WithClock(clock))
 		m.Tick(ctx)
