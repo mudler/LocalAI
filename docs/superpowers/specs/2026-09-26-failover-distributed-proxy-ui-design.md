@@ -60,8 +60,8 @@ below applies when distributed mode is on.
 | State | Writers | Mechanism | Survives restart |
 |---|---|---|---|
 | Pins | any frontend (REST, MCP) | `syncstate.SyncedMap` named `failover.pins`, key = chain, with a gorm `Store` | yes |
-| Target health: state, last error, since, consecutive passes | any frontend on a local transition, and the probe leader | `syncstate.SyncedMap` named `failover.targets`, key = target, NATS only, `Reconcile` on | no |
-| Chain state: active target, active since, chain state | the probe leader only | `syncstate.SyncedMap` named `failover.chains`, key = chain, NATS only, `Reconcile` on | no |
+| Target health: state, last error, since, consecutive passes | any frontend on a local transition, and the probe leader | `syncstate.SyncedMap` named `failover.targets`, key = target, NATS only | no |
+| Chain state: active target, active since, chain state | the probe leader only | `syncstate.SyncedMap` named `failover.chains`, key = chain, NATS only | no |
 
 - The pins table is created under `advisorylock.KeySchemaMigrate`, the same
   way the jobs store creates its tables.
@@ -70,6 +70,10 @@ below applies when distributed mode is on.
   maps. The manager does not import NATS or gorm directly.
 - A peer delta is applied through `OnApply`, which changes local state
   without publishing again (no echo loops).
+- The NATS-only maps have no `Store`, so `Reconcile` would re-hydrate them
+  empty. Instead the leader republishes every target and chain snapshot every
+  10 s. A frontend that joins late converges within 10 s and uses its own
+  state until then.
 
 ### Who does what
 
@@ -101,10 +105,10 @@ therefore shows the same events.
 - The SmartRouter's and ReplicaReconciler's pinned-model resolver includes
   `WarmTargets()`, so workers never evict a warm target.
 - Only the leader preloads warm targets.
-- A frontend cannot tell from its local model store whether a worker has a
-  model loaded. In distributed mode, warm-target liveness asks the node
-  registry whether a healthy node serves the model. When none does, the probe
-  is inconclusive: it neither passes nor trips, and real requests decide.
+- A frontend's loaded check sees only its own model stubs. A warm target
+  without a stub on the leader is treated as not loaded: its liveness passes
+  and its recovery is inconclusive (it heals after `min_dwell`). Worker health
+  is left to the node health monitor and to real requests.
 
 ### Tests
 
@@ -202,11 +206,24 @@ Core passes some inputs and outputs as local paths:
 
 ### Live transcription bridge
 
-`AudioTranscriptionLive` opens a WebSocket to the upstream `/v1/realtime`
-transcription session:
+The upstream realtime API needs a pipeline model (VAD and transcription). The
+proxy takes it from the model's backend options:
 
-1. On the first `TranscriptLiveConfig`, send the session update with the
-   upstream model, language and sample rate, then answer `ready`.
+```yaml
+options:
+  - realtime_pipeline:argus-transcribe   # an upstream pipeline config
+```
+
+Without this option, `AudioTranscriptionLive` returns the standard
+"live transcription unsupported" error, and realtime uses its non-live
+transcription path for the stage.
+
+With the option, `AudioTranscriptionLive` opens a WebSocket to
+`<upstream>/v1/realtime?model=<realtime_pipeline>`:
+
+1. On the first `TranscriptLiveConfig`, send `session.update` with
+   `type: transcription`, the input rate, the language and server VAD turn
+   detection. Answer `ready` when `session.updated` arrives.
 2. Forward each `TranscriptLiveAudio` as `input_audio_buffer.append`
    (PCM float to PCM16 base64 at the session rate).
 3. Map `conversation.item.input_audio_transcription.delta` to `delta`, and
