@@ -39,6 +39,20 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Sharp-Spark-X2.5-4B
+
+Install `sharp-spark-x2.5-4b` for coding and text chat with llama.cpp.
+The gallery groups Q4_K_XL, Q5_K_XL, and Q6_K_XL builds as variants.
+To select the publisher's recommended Q6 build, run:
+
+```bash
+local-ai models install sharp-spark-x2.5-4b --variant sharp-spark-x2.5-4b-q6
+```
+
+All builds use a 32,768-token default context and the embedded Sharp-Spark chat template.
+That template adds a terseness instruction to the system prompt.
+See the [publisher's model card](https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF) for quantization and template details.
+
 ## MiMo-V2.6-Distill-Qwen-9B
 
 Install `mimo-v2.6-distill-qwen-9b` for text and image chat with llama.cpp.

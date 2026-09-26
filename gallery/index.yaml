@@ -5725,6 +5725,120 @@
     - filename: llama-cpp/models/spark-x2.5-1.7b/Spark-X2.5-1.7B-Q8_0.gguf
       uri: huggingface://XHToken/Spark-X2.5-1.7B-GGUF/Spark-X2.5-1.7B-Q8_0.gguf
       sha256: cd77c03185a834bb1162a4b7713520be5838058bfc54873645beff470bb24442
+- name: sharp-spark-x2.5-4b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: sharp-spark-x2.5-4b-q5
+    - model: sharp-spark-x2.5-4b-q6
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.5-4B
+    - https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF
+  description: |
+    Sharp-Spark is an imatrix quantization of XHToken's Spark-X2.5-4B text model
+    with an adjusted chat template for coding. This Q4_K_XL build uses the
+    embedded Sharp-Spark template and a 32K-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-09-26"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Sharp-Spark-X2.5-4B-Q4_K_XL.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Sharp-Spark-X2.5-4B-Q4_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF/resolve/e797ddf6a57d9ecfddf68394438d2667ecb42dad/Sharp-Spark-X2.5-4B-Q4_K_XL.gguf
+      sha256: 8e5601dbd18fbc2b731cf674a040dd32f3ec2d09a312f4e0f3c4d7bc92998837
+
+- name: sharp-spark-x2.5-4b-q5
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.5-4B
+    - https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF
+  description: |
+    Sharp-Spark is an imatrix quantization of XHToken's Spark-X2.5-4B text model
+    with an adjusted chat template for coding. This Q5_K_XL build uses the
+    embedded Sharp-Spark template and a 32K-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-09-26"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Sharp-Spark-X2.5-4B-Q5_K_XL.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Sharp-Spark-X2.5-4B-Q5_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF/resolve/e797ddf6a57d9ecfddf68394438d2667ecb42dad/Sharp-Spark-X2.5-4B-Q5_K_XL.gguf
+      sha256: f445f1a57e58b70ea85078e1edcd29763843f71f154bac2efc57eea1b8333a26
+
+- name: sharp-spark-x2.5-4b-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/XHToken/Spark-X2.5-4B
+    - https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF
+  description: |
+    Sharp-Spark is an imatrix quantization of XHToken's Spark-X2.5-4B text model
+    with an adjusted chat template for coding. This Q6_K_XL build uses the
+    embedded Sharp-Spark template and a 32K-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-09-26"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Sharp-Spark-X2.5-4B-Q6_K_XL.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Sharp-Spark-X2.5-4B-Q6_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF/resolve/e797ddf6a57d9ecfddf68394438d2667ecb42dad/Sharp-Spark-X2.5-4B-Q6_K_XL.gguf
+      sha256: 793e673f34d2dde9674d24d277c25dbf03b89290333835aa31b7ee1d62e20dfc
+
 - &spark-x2-5-4b
   name: "spark-x2.5-4b-q4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
