@@ -302,6 +302,92 @@
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
       sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
+- name: mimo-v2.6-distill-qwen-9b
+  variants:
+    - model: mimo-v2.6-distill-qwen-9b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B
+    - https://huggingface.co/bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF
+  description: |
+    MiMo-V2.6-Distill-Qwen-9B is Xiaomi MiMo's 9B Qwen3.5 fine-tune for coding, agent tasks, and visual coding.
+    This Q4_K_M GGUF build uses llama.cpp with the model's embedded chat template and includes the F16 vision projector.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - vision
+    - multimodal
+  last_checked: "2026-09-26"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: MiMo-V2.6-Distill-Qwen-9B-Q4_K_M.gguf
+  files:
+    - filename: MiMo-V2.6-Distill-Qwen-9B-Q4_K_M.gguf
+      sha256: 4bca6f18c73f72270c7a20c2ea2bea581de8246e318714277120369d34048c81
+      uri: https://huggingface.co/bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF/resolve/4371da10c84fb26da3592d4cf312d24aa82b7b65/MiMo-V2.6-Distill-Qwen-9B-Q4_K_M.gguf
+    - filename: mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
+      sha256: ff348f3180a63188aa7285db85f550fe38acb61dd013c599eb8bad08d2cc2576
+      uri: https://huggingface.co/bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF/resolve/4371da10c84fb26da3592d4cf312d24aa82b7b65/mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
+- name: mimo-v2.6-distill-qwen-9b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B
+    - https://huggingface.co/bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF
+  description: |
+    MiMo-V2.6-Distill-Qwen-9B is Xiaomi MiMo's 9B Qwen3.5 fine-tune for coding, agent tasks, and visual coding.
+    This Q8_0 GGUF build uses llama.cpp with the model's embedded chat template and includes the F16 vision projector.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - vision
+    - multimodal
+  last_checked: "2026-09-26"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: MiMo-V2.6-Distill-Qwen-9B-Q8_0.gguf
+  files:
+    - filename: MiMo-V2.6-Distill-Qwen-9B-Q8_0.gguf
+      sha256: 2fad0aa11bb9e7aa491ff12f768954f9dd0a6e7d4ce4a897ca73ec420f3b90ae
+      uri: https://huggingface.co/bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF/resolve/4371da10c84fb26da3592d4cf312d24aa82b7b65/MiMo-V2.6-Distill-Qwen-9B-Q8_0.gguf
+    - filename: mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
+      sha256: ff348f3180a63188aa7285db85f550fe38acb61dd013c599eb8bad08d2cc2576
+      uri: https://huggingface.co/bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF/resolve/4371da10c84fb26da3592d4cf312d24aa82b7b65/mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
 - name: hemmingway-1
   variants:
     - model: hemmingway-1-q8

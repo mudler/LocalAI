@@ -39,6 +39,15 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## MiMo-V2.6-Distill-Qwen-9B
+
+Install `mimo-v2.6-distill-qwen-9b` for text and image chat with llama.cpp.
+This MIT-licensed 9B Qwen3.5 fine-tune targets coding, agent tasks, and visual coding.
+The gallery groups Q4_K_M and Q8_0 builds as variants; both include the F16 vision projector.
+To select Q8_0 explicitly, run `local-ai models install mimo-v2.6-distill-qwen-9b --variant mimo-v2.6-distill-qwen-9b-q8`.
+The configurations default to 32,768 context tokens and use the model's embedded chat template.
+See the [model card](https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B) for training details.
+
 ## Hemmingway-1
 
 Install `hemmingway-1` for English text generation with llama.cpp. The gallery groups its Q4_K_M and Q8_0 builds as variants.
