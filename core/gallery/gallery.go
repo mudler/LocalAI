@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -19,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/xlog"
+	"golang.org/x/sync/singleflight"
 
 	"gopkg.in/yaml.v3"
 )
@@ -276,13 +276,12 @@ func FindGalleryElement[T GalleryElement](models []T, name string) T {
 func AvailableGalleryModels(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryModel], error) {
 	var models []*GalleryModel
 
+	isInstalled := installedConfigs(systemState.Model.ModelsPath)
+
 	// Get models from galleries
 	for _, gallery := range galleries {
 		galleryModels, err := getGalleryElements(gallery, systemState.Model.ModelsPath, systemState.RequireBackendIntegrity, func(model *GalleryModel) bool {
-			if _, err := os.Stat(filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", model.GetName()))); err == nil {
-				return true
-			}
-			return false
+			return isInstalled(model.GetName())
 		})
 		if err != nil {
 			return nil, err
@@ -351,6 +350,7 @@ var (
 	// same cache-defeating loop the refresh interval exists to stop.
 	availableModelsLoaded bool
 	refreshing            atomic.Bool
+	coldLoad              singleflight.Group
 	galleryGeneration     atomic.Uint64
 	lastRefreshUnixNano   atomic.Int64
 )
@@ -429,12 +429,15 @@ func AvailableGalleryModelsCached(galleries []config.Gallery, systemState *syste
 	availableModelsMu.RUnlock()
 
 	if loaded {
+		// The directory is read before taking the lock. Held across the
+		// filesystem work, the lock serialized every caller behind it, and a
+		// page view is dozens of concurrent callers.
+		isInstalled := installedConfigs(systemState.Model.ModelsPath)
 		// Refresh installed status under write lock to avoid races with
 		// concurrent readers and the background refresh goroutine.
 		availableModelsMu.Lock()
 		for _, m := range cached {
-			_, err := os.Stat(filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", m.GetName())))
-			m.SetInstalled(err == nil)
+			m.SetInstalled(isInstalled(m.GetName()))
 		}
 		availableModelsMu.Unlock()
 		// Trigger a background refresh if one is not already running.
@@ -442,20 +445,29 @@ func AvailableGalleryModelsCached(galleries []config.Gallery, systemState *syste
 		return cached, nil
 	}
 
-	// No cache yet — must do a blocking load.
-	models, err := AvailableGalleryModels(galleries, systemState)
+	// No cache yet, so the load blocks. Callers arriving while it runs wait
+	// for it instead of each starting their own: a page view on a fresh
+	// server is the listing plus one estimate per row at once, and each load
+	// fetches the gallery index and every config it references.
+	v, err, _ := coldLoad.Do("gallery", func() (any, error) {
+		models, err := AvailableGalleryModels(galleries, systemState)
+		if err != nil {
+			return nil, err
+		}
+
+		availableModelsMu.Lock()
+		availableModelsCache = models
+		availableModelsLoaded = true
+		galleryGeneration.Add(1)
+		availableModelsMu.Unlock()
+		lastRefreshUnixNano.Store(time.Now().UnixNano())
+
+		return models, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	availableModelsMu.Lock()
-	availableModelsCache = models
-	availableModelsLoaded = true
-	galleryGeneration.Add(1)
-	availableModelsMu.Unlock()
-	lastRefreshUnixNano.Store(time.Now().UnixNano())
-
-	return models, nil
+	return v.(GalleryElements[*GalleryModel]), nil
 }
 
 // triggerGalleryRefresh starts a background goroutine that refreshes the
