@@ -88,7 +88,7 @@ var _ = Describe("Manager", func() {
 	})
 
 	It("fails back only after recovery probes and min_dwell", func() {
-		m.Plan("chain")
+		_, _ = m.Plan("chain")
 		m.ReportFailure("a", errBoom)
 		for i := 0; i < 3; i++ {
 			m.ReportSuccess("a") // a real success counts like a passed inference probe
@@ -158,7 +158,7 @@ var _ = Describe("Manager", func() {
 	})
 
 	It("marks a removed target missing and leaves it out of plans", func() {
-		m.Plan("chain")
+		_, _ = m.Plan("chain")
 		src.Delete("a")
 		m.Sync()
 		st, _ := m.ChainStatus("chain")

@@ -575,6 +575,7 @@ func (m *Manager) emitLocked(ev Event) {
 	}
 }
 
+//nolint:unused // wired by the Task 5 probe scheduler's Stop, which owns the manager's lifecycle
 func (m *Manager) close() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
