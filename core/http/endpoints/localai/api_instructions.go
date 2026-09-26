@@ -130,6 +130,12 @@ var instructionDefs = []instructionDef{
 		Intro:       "GET /api/middleware/status is the single round-trip the /app/middleware admin page reads to render the current state: every model's resolved PII enabled state and the NER detector models it references, recent event count, and the active routing models with their classifier configurations. Admin-only (the synthetic local user is admin in no-auth mode). PII detection policy is edited on each detector model's `pii_detection:` block via the model-config tools/UI — there is no global pattern set to mutate. GET /api/router/decisions returns the routing decision log filtered by correlation_id / user_id / router_model. The same surface is exposed as MCP tools (`get_middleware_status`, `get_pii_events`, `get_router_decisions`) for agent-driven inspection.",
 	},
 	{
+		Name:        "failover",
+		Description: "Model failover chains: target health, pinning and switch events",
+		Tags:        []string{"failover"},
+		Intro:       "A failover chain is a model config with a failover block. Requests for the chain name are served by its highest-priority healthy target; the X-LocalAI-Served-Model response header names it. Subscribe to GET /api/failover/events (SSE) to follow switches.",
+	},
+	{
 		Name:        "intelligent-routing",
 		Description: "Per-model `router:` configuration that classifies requests and rewrites the served model",
 		Tags:        []string{"router"},
