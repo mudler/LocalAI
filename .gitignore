@@ -48,6 +48,8 @@ tests/e2e-aio/backends
 # tests/e2e/mock-backend/.gitignore covers the same binary; kept here too so
 # the artifact stays ignored if that scoped file is ever removed.
 /tests/e2e/mock-backend/mock-backend
+# The cloud-proxy backend binary the e2e suite runs next to the mock backend.
+/tests/e2e/mock-backend/cloud-proxy
 
 release/
 
