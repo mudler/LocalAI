@@ -11,6 +11,29 @@ import (
 	"gorm.io/gorm"
 )
 
+// expectCloseIsFinal checks that Close frees the lock for a rival and that the
+// closed HeldLock never takes it back, as a still-running loop would try to.
+func expectCloseIsFinal(db *gorm.DB, key int64) {
+	ctx := context.Background()
+	l, rival := NewHeldLock(db, key), NewHeldLock(db, key)
+	DeferCleanup(rival.Release)
+
+	ok, err := l.TryAcquire(ctx)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(ok).To(BeTrue())
+	l.Close()
+	Expect(l.Held()).To(BeFalse())
+
+	ok, err = l.TryAcquire(ctx)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(ok).To(BeFalse(), "a closed lock is never taken again")
+
+	ok, err = rival.TryAcquire(ctx)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(ok).To(BeTrue(), "Close frees the lock for others")
+	l.Close() // idempotent
+}
+
 // expectStickyHandover checks the contract both backends share: the first
 // holder keeps the lock across repeated checks while a rival is denied, and
 // the rival gets it once the holder releases.
@@ -50,6 +73,12 @@ var _ = Describe("HeldLock (SQLite fallback)", Label("sqlite"), func() {
 		expectStickyHandover(db, 12101)
 	})
 
+	It("never takes the lock again after Close", func() {
+		db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+		Expect(err).ToNot(HaveOccurred())
+		expectCloseIsFinal(db, 12103)
+	})
+
 	It("is idempotent: acquiring twice and releasing twice is safe", func() {
 		db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 		Expect(err).ToNot(HaveOccurred())
@@ -78,6 +107,55 @@ var _ = Describe("HeldLock (PostgreSQL)", func() {
 
 	It("stays with its holder until Release, then hands over", func() {
 		expectStickyHandover(db, 12201)
+	})
+
+	It("never takes the lock again after Close", func() {
+		expectCloseIsFinal(db, 12203)
+	})
+
+	It("sets short TCP keepalives on its session so a dead host's lock expires", func() {
+		// Killing a host without closing its socket is not practical in a
+		// test; check the settings that make the server notice one.
+		ctx := context.Background()
+		l := NewHeldLock(db, 12204)
+		DeferCleanup(l.Release)
+		ok, err := l.TryAcquire(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+
+		show := func(name string) string {
+			var v string
+			Expect(l.conn.QueryRowContext(ctx, "SHOW "+name).Scan(&v)).To(Succeed())
+			return v
+		}
+		Expect(show("tcp_keepalives_idle")).To(Equal("10"))
+		Expect(show("tcp_keepalives_interval")).To(Equal("5"))
+		Expect(show("tcp_keepalives_count")).To(Equal("3"))
+		Expect(show("tcp_user_timeout")).To(Equal("30000")) // milliseconds
+	})
+
+	It("reuses one session while the lock is taken elsewhere", func() {
+		ctx := context.Background()
+		holder, follower := NewHeldLock(db, 12205), NewHeldLock(db, 12205)
+		DeferCleanup(holder.Release)
+		DeferCleanup(follower.Release)
+		ok, err := holder.TryAcquire(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue())
+
+		pid := func() int {
+			var p int
+			Expect(follower.conn.QueryRowContext(ctx, "SELECT pg_backend_pid()").Scan(&p)).To(Succeed())
+			return p
+		}
+		ok, err = follower.TryAcquire(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		before := pid()
+		ok, err = follower.TryAcquire(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		Expect(pid()).To(Equal(before), "a follower must not open a connection per attempt")
 	})
 
 	It("drops leadership when the holding session dies, freeing the lock", func() {

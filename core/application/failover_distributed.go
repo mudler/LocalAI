@@ -87,6 +87,8 @@ func (a *Application) stopFailoverDistributed() {
 		}
 	}
 	if a.failoverLock != nil {
-		a.failoverLock.Release()
+		// Close, not Release: Run may still be ticking and would take the
+		// lock straight back.
+		a.failoverLock.Close()
 	}
 }

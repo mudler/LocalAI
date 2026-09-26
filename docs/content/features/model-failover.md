@@ -187,8 +187,10 @@ share one failover state:
   all frontends converge on the same target for a chain.
 - One frontend, the probe leader, runs the health checks, decides fail-over
   and fail-back, and loads warm targets. The leader holds a PostgreSQL
-  advisory lock and keeps it until it shuts down or its database connection
-  fails. Then another frontend takes the lock and becomes the leader.
+  advisory lock and keeps it until it stops or its database connection fails.
+  Then another frontend takes the lock and becomes the leader: immediately
+  when the leader shuts down or its process exits, and within about 30 seconds
+  when the leader's host or network fails.
 - Warm targets stay loaded on the workers. The router and the replica
   reconciler treat them like pinned models and do not evict them.
 - A frontend that starts late gets the current state within 10 seconds,
