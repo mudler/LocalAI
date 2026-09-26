@@ -75,6 +75,10 @@ type ModelConfig struct {
 	// at create/swap time). See docs/content for Model Aliases.
 	Alias string `yaml:"alias,omitempty" json:"alias,omitempty"`
 
+	// Failover makes this config a failover chain over other models. Like an
+	// alias it has no backend of its own.
+	Failover *FailoverConfig `yaml:"failover,omitempty" json:"failover,omitempty"`
+
 	F16                 *bool               `yaml:"f16,omitempty" json:"f16,omitempty"`
 	Threads             *int                `yaml:"threads,omitempty" json:"threads,omitempty"`
 	Debug               *bool               `yaml:"debug,omitempty" json:"debug,omitempty"`
@@ -1642,6 +1646,13 @@ func (c *ModelConfig) Validate() (bool, error) {
 	}
 	if len(c.Artifacts) > 0 && primaries != 1 {
 		return false, fmt.Errorf("a config with artifacts must declare exactly one %q target, found %d", modelartifacts.TargetModel, primaries)
+	}
+
+	if c.IsFailover() {
+		if err := c.validateFailover(); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
 	// An alias is a pure redirect: validate only its own shape here. Target

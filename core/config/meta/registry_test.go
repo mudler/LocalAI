@@ -28,6 +28,17 @@ var _ = Describe("alias field metadata", func() {
 		}
 		Expect(found).To(BeTrue(), "DefaultSections should include an alias section")
 	})
+
+	It("registers the failover section", func() {
+		reg := meta.DefaultRegistry()
+		Expect(reg).To(HaveKey("failover.targets"))
+		Expect(reg["failover.targets"].Section).To(Equal("failover"))
+		var ids []string
+		for _, s := range meta.DefaultSections() {
+			ids = append(ids, s.ID)
+		}
+		Expect(ids).To(ContainElement("failover"))
+	})
 })
 
 var _ = Describe("MCP field metadata", func() {
