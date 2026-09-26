@@ -28,6 +28,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/mudler/LocalAI/pkg/credentials"
 	"github.com/mudler/LocalAI/pkg/xio"
+	"github.com/mudler/xlog"
 )
 
 // ref: https://github.com/mudler/luet/blob/master/pkg/helpers/docker/docker.go#L117
@@ -323,10 +324,34 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-// ExtractOCIImage will extract a given targetImage into a given targetDestination
-func ExtractOCIImage(ctx context.Context, img v1.Image, imageRef string, targetDestination string, downloadStatus func(string, string, string, float64)) error {
-	// Create a temporary tar file
-	tmpTarFile, err := os.CreateTemp("", "localai-oci-*.tar")
+// ExtractOCIImage will extract a given targetImage into a given
+// targetDestination. A non-empty stagingDir holds the in-flight image
+// tar and layers (the caller picks a directory whose filesystem can
+// hold them); empty falls back to the OS temp directory, which on many
+// systems is a RAM-backed tmpfs far smaller than a backend image.
+func ExtractOCIImage(ctx context.Context, img v1.Image, imageRef string, targetDestination, stagingDir string, downloadStatus func(string, string, string, float64)) error {
+	// Every download works in its own directory: the image tar and the
+	// layer staging below both live there, nothing is shared between
+	// concurrent downloads, and one removal cleans a download up.
+	var downloadDir string
+	var err error
+	if stagingDir != "" {
+		if err := os.MkdirAll(stagingDir, 0755); err != nil {
+			return fmt.Errorf("failed to create staging directory: %v", err)
+		}
+		downloadDir, err = os.MkdirTemp(stagingDir, "localai-oci-*")
+	} else {
+		downloadDir, err = os.MkdirTemp("", "localai-oci-*")
+	}
+	if err != nil {
+		return fmt.Errorf("failed to create download directory: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(downloadDir); err != nil {
+			xlog.Warn("Failed to remove OCI download directory", "path", downloadDir, "error", err)
+		}
+	}()
+	tmpTarFile, err := os.CreateTemp(downloadDir, "image-*.tar")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary tar file: %v", err)
 	}
@@ -504,7 +529,7 @@ func DownloadOCIImageTar(ctx context.Context, img v1.Image, imageRef string, tar
 	}
 
 	// Create a temporary directory to store the compressed layers
-	tmpDir, err := os.MkdirTemp("", "localai-oci-layers-*")
+	tmpDir, err := os.MkdirTemp(filepath.Dir(tarFilePath), "localai-oci-layers-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary directory: %v", err)
 	}

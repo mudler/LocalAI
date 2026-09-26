@@ -339,6 +339,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	if optsErr != nil {
 		return fmt.Errorf("backend %q: %w", config.Name, optsErr)
 	}
+	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
 
 	// PreferDevelopmentBackends installs the development image as the primary URI,
 	// keeping the released image reachable as the first fallback — instead of only
