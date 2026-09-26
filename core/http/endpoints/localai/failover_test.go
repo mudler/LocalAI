@@ -91,7 +91,7 @@ var _ = Describe("failover endpoints", func() {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/api/failover/events", nil)
 		resp, err := http.DefaultClient.Do(req)
 		Expect(err).ToNot(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		Expect(resp.Header.Get("Content-Type")).To(HavePrefix("text/event-stream"))
 		r := bufio.NewReader(resp.Body)
 		next := func() string {

@@ -32,17 +32,18 @@ type LoadedFunc func(cfg config.ModelConfig) grpc.Backend
 // DefaultProber probes remote targets over the upstream's OpenAI-compatible
 // API and local targets through their gRPC backend.
 type DefaultProber struct {
-	HTTP   *http.Client
-	Loaded LoadedFunc
+	HTTP      *http.Client
+	Loaded    LoadedFunc
+	EnvLookup func(string) string
 }
 
-func NewProber(loaded LoadedFunc) *DefaultProber {
+func NewProber(loaded LoadedFunc, envLookup func(string) string) *DefaultProber {
 	return &DefaultProber{HTTP: &http.Client{
 		// A redirect is a failed probe, not something to follow: Go resends
 		// custom headers such as x-api-key to any host, and the target's
 		// API key must reach only the configured upstream.
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}, Loaded: loaded}
+	}, Loaded: loaded, EnvLookup: envLookup}
 }
 
 func (p *DefaultProber) Liveness(ctx context.Context, cfg config.ModelConfig, kind Kind, warm bool) error {
@@ -102,7 +103,7 @@ func PrepareTarget(cfg *config.ModelConfig) {
 }
 
 func (p *DefaultProber) authorize(req *http.Request, cfg config.ModelConfig) error {
-	key, err := cfg.Proxy.ResolveAPIKey()
+	key, err := cfg.Proxy.ResolveAPIKey(p.EnvLookup)
 	if err != nil || key == "" {
 		return err
 	}
@@ -124,7 +125,7 @@ func (p *DefaultProber) do(req *http.Request, cfg config.ModelConfig) (*http.Res
 		return nil, err
 	}
 	if resp.StatusCode/100 != 2 {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("upstream %s: HTTP %d", req.URL.Path, resp.StatusCode)
 	}
 	return resp, nil
@@ -143,7 +144,7 @@ func (p *DefaultProber) remoteLiveness(ctx context.Context, cfg config.ModelConf
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var list struct {
 		Data []struct {
 			ID string `json:"id"`

@@ -70,25 +70,32 @@ failover:
 })
 
 var _ = Describe("ProxyConfig.ResolveAPIKey", func() {
-	It("reads the env var", func() {
-		GinkgoT().Setenv("FAILOVER_TEST_KEY", "k1")
-		Expect(ProxyConfig{APIKeyEnv: "FAILOVER_TEST_KEY"}.ResolveAPIKey()).To(Equal("k1"))
+	It("reads the key through the application lookup", func() {
+		app := NewApplicationConfig(WithProxyAPIKeyEnvLookup(func(name string) string {
+			Expect(name).To(Equal("FAILOVER_TEST_KEY"))
+			return "k1"
+		}))
+		Expect(ProxyConfig{APIKeyEnv: "FAILOVER_TEST_KEY"}.ResolveAPIKey(app.ProxyAPIKeyEnvLookup)).To(Equal("k1"))
+	})
+	It("fails without an environment lookup", func() {
+		_, err := ProxyConfig{APIKeyEnv: "FAILOVER_TEST_KEY"}.ResolveAPIKey(nil)
+		Expect(err).To(HaveOccurred())
 	})
 	It("fails on an unset env var", func() {
-		_, err := ProxyConfig{APIKeyEnv: "FAILOVER_TEST_UNSET_KEY"}.ResolveAPIKey()
+		_, err := ProxyConfig{APIKeyEnv: "FAILOVER_TEST_UNSET_KEY"}.ResolveAPIKey(os.Getenv)
 		Expect(err).To(HaveOccurred())
 	})
 	It("fails on a set-but-empty env var", func() {
 		GinkgoT().Setenv("FAILOVER_TEST_EMPTY_KEY", "")
-		_, err := ProxyConfig{APIKeyEnv: "FAILOVER_TEST_EMPTY_KEY"}.ResolveAPIKey()
+		_, err := ProxyConfig{APIKeyEnv: "FAILOVER_TEST_EMPTY_KEY"}.ResolveAPIKey(os.Getenv)
 		Expect(err).To(HaveOccurred())
 	})
 	It("reads and trims the key file", func() {
 		f := filepath.Join(GinkgoT().TempDir(), "key")
 		Expect(os.WriteFile(f, []byte(" k2\n"), 0o600)).To(Succeed())
-		Expect(ProxyConfig{APIKeyFile: f}.ResolveAPIKey()).To(Equal("k2"))
+		Expect(ProxyConfig{APIKeyFile: f}.ResolveAPIKey(os.Getenv)).To(Equal("k2"))
 	})
 	It("returns empty when nothing is set", func() {
-		Expect(ProxyConfig{}.ResolveAPIKey()).To(Equal(""))
+		Expect(ProxyConfig{}.ResolveAPIKey(os.Getenv)).To(Equal(""))
 	})
 })

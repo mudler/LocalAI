@@ -255,7 +255,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// chain. WithOnWarmChanged pins and preloads warm local targets so a
 	// switch to them does not wait for a cold load.
 	application.failoverManager = failover.New(application.ModelConfigLoader(),
-		failover.WithProber(failover.NewProber(failoverLoadedBackend(application.ModelLoader()))),
+		failover.WithProber(failover.NewProber(failoverLoadedBackend(application.ModelLoader()), options.ProxyAPIKeyEnvLookup)),
 		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
 	)
 	// The assistant client was built in start() (above), before this

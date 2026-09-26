@@ -237,7 +237,7 @@ var _ = Describe("Realtime WebSocket API", Label("Realtime"), func() {
 
 		It("switches the LLM mid-session and keeps the conversation", func() {
 			conn := connectWS("rt-failover")
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			Expect(readServerEvent(conn, 30*time.Second)["type"]).To(Equal("session.created"))
 			initial := drainUntil(conn, "localai.model.failover", 10*time.Second)
@@ -275,7 +275,7 @@ var _ = Describe("Realtime WebSocket API", Label("Realtime"), func() {
 
 		It("starts the session on the next target when the active one fails to warm up", func() {
 			conn := connectWS("rt-failover-warm")
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			Expect(readServerEvent(conn, 30*time.Second)["type"]).To(Equal("session.created"))
 			initial := drainUntil(conn, "localai.model.failover", 10*time.Second)

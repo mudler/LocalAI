@@ -306,10 +306,13 @@ const (
 // "" when neither is set. Mirrored (not imported, to keep backends independent
 // of core's package layout) by resolveAPIKey in backend/go/cloud-proxy/proxy.go
 // — keep the two in sync, empty-value handling included.
-func (p ProxyConfig) ResolveAPIKey() (string, error) {
+func (p ProxyConfig) ResolveAPIKey(envLookup func(string) string) (string, error) {
 	switch {
 	case p.APIKeyEnv != "":
-		v := os.Getenv(p.APIKeyEnv)
+		var v string
+		if envLookup != nil {
+			v = envLookup(p.APIKeyEnv)
+		}
 		if v == "" {
 			return "", fmt.Errorf("proxy api_key_env %q is unset", p.APIKeyEnv)
 		}

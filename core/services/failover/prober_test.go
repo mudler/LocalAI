@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -75,7 +76,7 @@ var _ = Describe("DefaultProber", func() {
 	BeforeEach(func() {
 		up = newFakeUpstream()
 		DeferCleanup(up.srv.Close)
-		p = NewProber(nil)
+		p = NewProber(nil, os.Getenv)
 	})
 
 	proxied := func(name, upstreamModel string, usecases ...string) config.ModelConfig {
@@ -155,7 +156,7 @@ var _ = Describe("DefaultProber", func() {
 
 	It("uses HealthCheck for warm local liveness and Predict for local chat inference", func() {
 		b := &fakeBackend{healthy: true}
-		p = NewProber(func(config.ModelConfig) grpc.Backend { return b })
+		p = NewProber(func(config.ModelConfig) grpc.Backend { return b }, nil)
 		c := config.ModelConfig{Name: "gemma", Backend: "llama-cpp", KnownUsecaseStrings: []string{"chat"}}
 		c.KnownUsecases = config.GetUsecasesFromYAML(c.KnownUsecaseStrings)
 		Expect(p.Liveness(ctx, c, KindLocal, true)).To(Succeed())
@@ -171,7 +172,7 @@ var _ = Describe("DefaultProber", func() {
 		// The warm preload loads the model; a probe that loaded it too would
 		// block until the load finished and then judge it on an expired ctx.
 		asked := 0
-		p = NewProber(func(config.ModelConfig) grpc.Backend { asked++; return nil })
+		p = NewProber(func(config.ModelConfig) grpc.Backend { asked++; return nil }, nil)
 		for _, uc := range []string{"chat", "tts"} {
 			c := config.ModelConfig{Name: "gemma", Backend: "llama-cpp", KnownUsecaseStrings: []string{uc}}
 			c.KnownUsecases = config.GetUsecasesFromYAML(c.KnownUsecaseStrings)
@@ -185,7 +186,7 @@ var _ = Describe("DefaultProber", func() {
 		p = NewProber(func(config.ModelConfig) grpc.Backend {
 			Fail("cold liveness must not look up the backend")
 			return nil
-		})
+		}, nil)
 		// None of these files exist: a missing file says nothing about whether
 		// the target can serve (download on first use, dotted names, backends
 		// that need no file). Only a real request may trip a cold target.
