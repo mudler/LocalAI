@@ -55,6 +55,9 @@ type Manager struct {
 	warm        []string
 	warmPending bool
 	closed      bool
+	// hasChains mirrors len(chains) > 0 as of the last sync, so the request
+	// path can check it without the lock or a config-source scan.
+	hasChains atomic.Bool
 }
 
 type targetState struct {
@@ -168,6 +171,7 @@ func (m *Manager) syncLocked() {
 			delete(m.targets, name)
 		}
 	}
+	m.hasChains.Store(len(m.chains) > 0)
 	for _, ch := range m.chains {
 		m.recomputeLocked(ch, "")
 	}
@@ -201,26 +205,18 @@ func (m *Manager) lookupTarget(name string) (config.ModelConfig, bool) {
 	return c, ok
 }
 
-// HasChains reports whether any failover chain is configured. The request
-// path uses it to skip chain bookkeeping on installations without chains.
-// Chains are synced lazily, so with none known yet the config source is
-// consulted, which catches a chain added since the last sync.
+// HasChains reports whether any failover chain was configured at the last
+// sync. The request path calls it on every request to skip chain bookkeeping
+// on installations without chains, so it reads a flag instead of scanning
+// the config source (which takes the loader's lock and copies every config).
+// A chain added since the last sync is still served, because Plan syncs on a
+// miss; only in-request retry is missing for it until the scheduler's next
+// tick, at most one second later.
 func (m *Manager) HasChains() bool {
 	if m == nil {
 		return false
 	}
-	m.mu.Lock()
-	known := len(m.chains) > 0
-	m.mu.Unlock()
-	if known {
-		return true
-	}
-	for _, c := range m.src.GetAllModelsConfigs() {
-		if c.IsFailover() {
-			return true
-		}
-	}
-	return false
+	return m.hasChains.Load()
 }
 
 func (m *Manager) chainLocked(name string) *chainState {

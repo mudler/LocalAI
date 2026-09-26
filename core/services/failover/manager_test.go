@@ -60,18 +60,34 @@ var _ = Describe("Manager", func() {
 		Expect(st.Targets[0].State).To(Equal(StateHealthy))
 	})
 
-	It("reports whether any chain is configured, including one added since the last sync", func() {
+	It("reports whether any chain was configured at the last sync", func() {
+		m.Sync()
+		Expect(m.HasChains()).To(BeTrue())
+		var nilManager *Manager
+		Expect(nilManager.HasChains()).To(BeFalse())
+	})
+
+	It("answers HasChains from the last sync without scanning the config source", func() {
 		empty := New(newFakeSource(remote("a")), WithClock(clock))
 		Expect(empty.HasChains()).To(BeFalse())
 		lateSrc := newFakeSource(remote("a"), local("b"))
 		late := New(lateSrc, WithClock(clock))
 		late.Sync()
-		Expect(late.HasChains()).To(BeFalse())
+		scans := lateSrc.Scans()
+		for range 100 {
+			Expect(late.HasChains()).To(BeFalse())
+		}
+		Expect(lateSrc.Scans()).To(Equal(scans))
+		// A chain added since the last sync is seen at the next sync, or
+		// sooner by Plan, which syncs on a miss.
 		lateSrc.Put(chainCfg("chain", nil, t("a"), t("b")))
+		Expect(late.HasChains()).To(BeFalse())
+		_, err := late.Plan("chain")
+		Expect(err).ToNot(HaveOccurred())
 		Expect(late.HasChains()).To(BeTrue())
-		Expect(m.HasChains()).To(BeTrue())
-		var nilManager *Manager
-		Expect(nilManager.HasChains()).To(BeFalse())
+		lateSrc.Delete("chain")
+		late.Sync()
+		Expect(late.HasChains()).To(BeFalse())
 	})
 
 	It("returns ErrChainNotFound for an unknown chain", func() {

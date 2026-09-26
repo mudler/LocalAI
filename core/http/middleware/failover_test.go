@@ -87,6 +87,9 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		Expect(mcl.LoadModelConfigsFromPath(dir)).To(Succeed())
 		re = NewRequestExtractor(mcl, model.NewModelLoader(ss), appConfig)
 		fm = failover.New(mcl)
+		// The scheduler's first tick syncs in the application; HasChains
+		// answers from the last sync.
+		fm.Sync()
 		re.SetFailoverManager(fm)
 
 		app = echo.New()

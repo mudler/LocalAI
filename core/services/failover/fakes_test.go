@@ -26,8 +26,9 @@ func (c *fakeClock) Advance(d time.Duration) {
 }
 
 type fakeSource struct {
-	mu   sync.Mutex
-	cfgs map[string]config.ModelConfig
+	mu    sync.Mutex
+	cfgs  map[string]config.ModelConfig
+	scans int // GetAllModelsConfigs calls
 }
 
 func newFakeSource(cfgs ...config.ModelConfig) *fakeSource {
@@ -39,6 +40,7 @@ func newFakeSource(cfgs ...config.ModelConfig) *fakeSource {
 }
 func (s *fakeSource) Put(c config.ModelConfig) { s.mu.Lock(); s.cfgs[c.Name] = c; s.mu.Unlock() }
 func (s *fakeSource) Delete(name string)       { s.mu.Lock(); delete(s.cfgs, name); s.mu.Unlock() }
+func (s *fakeSource) Scans() int               { s.mu.Lock(); defer s.mu.Unlock(); return s.scans }
 func (s *fakeSource) GetModelConfig(n string) (config.ModelConfig, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -48,6 +50,7 @@ func (s *fakeSource) GetModelConfig(n string) (config.ModelConfig, bool) {
 func (s *fakeSource) GetAllModelsConfigs() []config.ModelConfig {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.scans++
 	out := make([]config.ModelConfig, 0, len(s.cfgs))
 	for _, c := range s.cfgs {
 		out = append(out, c)
