@@ -245,6 +245,8 @@ test-ci-scripts:
 PYTHON_HELPER_TESTS?=python_utils_test vllm_utils_test model_utils_test mlx_utils_test parent_watch_test temp_utils_test
 test-python-helpers:
 	cd backend/python/common && python3 -m unittest $(PYTHON_HELPER_TESTS)
+	bash backend/python/vllm-omni/test_install.sh
+	python3 -m unittest discover -s backend/python/vllm-omni -p 'test_install.py'
 
 ## Runs the core suite ($(TEST_PATHS)) with statement-coverage instrumentation
 ## and writes a merged profile to $(COVERAGE_PROFILE). Deliberately omits
