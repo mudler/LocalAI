@@ -65,6 +65,31 @@ type CorpusLoader interface {
 	EnsureLoaded(ctx context.Context, storeName, embeddingModel, embeddingFingerprint string, embedder backend.Embedder, store backend.VectorStore) (int, error)
 }
 
+// reseedingVectorStore runs the corpus sync before every lookup. It
+// wraps the RAW store and hands that raw store to the loader, so the
+// loader's own probe lookup never re-enters this wrapper. A sync error
+// fails the lookup closed, like the build-time load does: a decision
+// taken on an index that could not be synced is exactly the blind-
+// router bug this guards against.
+type reseedingVectorStore struct {
+	backend.VectorStore
+	ensure func(ctx context.Context) error
+}
+
+func (s *reseedingVectorStore) SearchK(ctx context.Context, vec []float32, k int) ([]backend.Neighbor, error) {
+	if err := s.ensure(ctx); err != nil {
+		return nil, fmt.Errorf("router: knn corpus sync before lookup: %w", err)
+	}
+	return s.VectorStore.SearchK(ctx, vec, k)
+}
+
+func (s *reseedingVectorStore) Search(ctx context.Context, vec []float32) (float64, []byte, bool, error) {
+	if err := s.ensure(ctx); err != nil {
+		return 0, nil, false, fmt.Errorf("router: knn corpus sync before lookup: %w", err)
+	}
+	return s.VectorStore.Search(ctx, vec)
+}
+
 // ClassifierDeps bundles the backend factories the router middleware
 // needs to build a classifier and its optional L2 cache. Bundled into
 // one struct because RouteModel already takes many positional
@@ -478,12 +503,23 @@ func buildClassifier(cfg *config.ModelConfig, deps ClassifierDeps) (router.Class
 			// Loading fails closed: a live index from a different embedding
 			// space may have the same vector width and return plausible but
 			// incorrect routes.
-			if n, err := deps.Corpus.EnsureLoaded(context.Background(), storeName, rc.KNN.EmbeddingModel, embeddingFingerprint, embedder, vstore); err != nil {
+			raw := vstore
+			if n, err := deps.Corpus.EnsureLoaded(context.Background(), storeName, rc.KNN.EmbeddingModel, embeddingFingerprint, embedder, raw); err != nil {
 				return nil, fmt.Errorf("router classifier knn: load corpus %q: %w", storeName, err)
 			} else if n > 0 {
 				xlog.Info("router: knn corpus loaded",
 					"router_model", cfg.Name, "store", storeName, "entries", n)
 			}
+			// The classifier built below is cached for the process lifetime
+			// (GetOrBuildClassifier), so this sync would otherwise be the
+			// only one — while the local-store process behind the index can
+			// be evicted or idle-killed and relaunched EMPTY at any later
+			// request. Re-check on every lookup; the corpus loader probes
+			// the live index and re-seeds it from the file on a miss.
+			vstore = &reseedingVectorStore{VectorStore: raw, ensure: func(ctx context.Context) error {
+				_, err := deps.Corpus.EnsureLoaded(ctx, storeName, rc.KNN.EmbeddingModel, embeddingFingerprint, embedder, raw)
+				return err
+			}}
 		}
 		knnClassifier := router.NewKNNClassifier(embedder, vstore, router.KNNClassifierOptions{
 			K:                   rc.KNN.K,
