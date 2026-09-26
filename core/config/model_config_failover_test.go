@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -65,4 +67,23 @@ failover:
 		Entry("negative errors", func(c *ModelConfig) { c.Failover.Trip.Errors = -1 }, "trip.errors"),
 		Entry("no name", func(c *ModelConfig) { c.Name = "" }, "requires a name"),
 	)
+})
+
+var _ = Describe("ProxyConfig.ResolveAPIKey", func() {
+	It("reads the env var", func() {
+		GinkgoT().Setenv("FAILOVER_TEST_KEY", "k1")
+		Expect(ProxyConfig{APIKeyEnv: "FAILOVER_TEST_KEY"}.ResolveAPIKey()).To(Equal("k1"))
+	})
+	It("fails on an unset env var", func() {
+		_, err := ProxyConfig{APIKeyEnv: "FAILOVER_TEST_UNSET_KEY"}.ResolveAPIKey()
+		Expect(err).To(HaveOccurred())
+	})
+	It("reads and trims the key file", func() {
+		f := filepath.Join(GinkgoT().TempDir(), "key")
+		Expect(os.WriteFile(f, []byte(" k2\n"), 0o600)).To(Succeed())
+		Expect(ProxyConfig{APIKeyFile: f}.ResolveAPIKey()).To(Equal("k2"))
+	})
+	It("returns empty when nothing is set", func() {
+		Expect(ProxyConfig{}.ResolveAPIKey()).To(Equal(""))
+	})
 })

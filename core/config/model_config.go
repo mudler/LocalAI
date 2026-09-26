@@ -302,6 +302,26 @@ const (
 	ProxyProviderAnthropic = "anthropic"
 )
 
+// ResolveAPIKey returns the upstream key from api_key_env or api_key_file, or
+// "" when neither is set. The cloud-proxy backend applies the same rules.
+func (p ProxyConfig) ResolveAPIKey() (string, error) {
+	switch {
+	case p.APIKeyEnv != "":
+		v, ok := os.LookupEnv(p.APIKeyEnv)
+		if !ok {
+			return "", fmt.Errorf("proxy api_key_env %q is not set", p.APIKeyEnv)
+		}
+		return v, nil
+	case p.APIKeyFile != "":
+		b, err := os.ReadFile(p.APIKeyFile)
+		if err != nil {
+			return "", fmt.Errorf("proxy api_key_file: %w", err)
+		}
+		return strings.TrimSpace(string(b)), nil
+	}
+	return "", nil
+}
+
 // IsCloudProxyBackendPassthrough reports whether this model uses the
 // cloud-proxy gRPC backend in passthrough mode. Empty Mode counts as
 // passthrough (SetDefaults normalises it, but Validate accepts empty

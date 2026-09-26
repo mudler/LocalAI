@@ -152,7 +152,7 @@ Chain states:
 |---|---|---|
 | remote | `GET <base>/v1/models` returns 2xx and lists the upstream model. `<base>` is the scheme and host of `proxy.upstream_url` plus any path prefix before `/v1`. The upstream model is `proxy.upstream_model`, or the target name when it is empty. `/v1/models` works on any OpenAI-compatible upstream, and `/readyz` exists only on LocalAI. | one minimal real request, chosen by usecase |
 | local, `warm: true` | gRPC `HealthCheck` on the loaded backend. If the backend is not loaded (it crashed), a reload is the recovery attempt. | chat and completion: `Predict` with 1 token; embeddings: `Embedding` of `"ping"`; other usecases: `HealthCheck`. A local backend process that answers `HealthCheck` rarely fails only for TTS or transcription. |
-| local, cold | the config and model files exist and the backend is installed. The model is never loaded only to probe it. | none. After a trip, the target returns to `healthy` when `min_dwell` has passed. The next real request is the test. |
+| local, cold | the model file exists (skipped for URLs and repository ids). The model is never loaded only to probe it. | none. After a trip, the target returns to `healthy` when `min_dwell` has passed. The next real request is the test. |
 
 Minimal requests by usecase:
 
