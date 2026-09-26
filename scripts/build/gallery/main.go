@@ -26,7 +26,12 @@ func packageGallery(root, source, output string) error {
 	if source != "gallery" && source != "backend" {
 		return fmt.Errorf("unsupported gallery directory %q", source)
 	}
-	body, err := os.ReadFile(filepath.Join(root, source, "index.yaml"))
+	repository, err := os.OpenRoot(root)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = repository.Close() }()
+	body, err := repository.ReadFile(filepath.Join(source, "index.yaml"))
 	if err != nil {
 		return err
 	}
@@ -34,9 +39,15 @@ func packageGallery(root, source, output string) error {
 	if err := yaml.Unmarshal(body, &doc); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(output, 0755); err != nil {
+	// The build operator explicitly selects the output directory via the CLI.
+	if err := os.MkdirAll(output, 0700); err != nil { // #nosec G703 -- caller-selected output root
 		return err
 	}
+	destination, err := os.OpenRoot(output)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = destination.Close() }()
 	// Keep the tree relative to the repository root so repeated base configs
 	// share a layer, even when an index refers outside its own directory.
 	const prefix = "github:mudler/LocalAI/"
@@ -52,15 +63,14 @@ func packageGallery(root, source, output string) error {
 				if !filepath.IsLocal(path) {
 					return fmt.Errorf("base config escapes repository: %q", path)
 				}
-				config, err := os.ReadFile(filepath.Join(root, path))
+				config, err := repository.ReadFile(path)
 				if err != nil {
 					return err
 				}
-				dest := filepath.Join(output, path)
-				if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+				if err := destination.MkdirAll(filepath.Dir(path), 0700); err != nil {
 					return err
 				}
-				if err := os.WriteFile(dest, config, 0644); err != nil {
+				if err := destination.WriteFile(path, config, 0600); err != nil {
 					return err
 				}
 				value.Value = filepath.ToSlash(path)
@@ -80,5 +90,5 @@ func packageGallery(root, source, output string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(output, "index.yaml"), body, 0644)
+	return destination.WriteFile("index.yaml", body, 0600)
 }

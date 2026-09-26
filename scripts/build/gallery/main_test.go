@@ -58,4 +58,26 @@ var _ = Describe("Gallery packaging", func() {
 			Expect(packageGallery(root, "gallery", filepath.Join(root, "out"))).ToNot(Succeed())
 		}
 	})
+	It("rejects symlink escapes when reading configs or writing the bundle", func() {
+		for _, location := range []string{"source", "output"} {
+			root, out, outside := GinkgoT().TempDir(), GinkgoT().TempDir(), GinkgoT().TempDir()
+			for _, dir := range []string{filepath.Join(root, "gallery"), filepath.Join(out, "gallery")} {
+				Expect(os.Mkdir(dir, 0700)).To(Succeed())
+			}
+			index := []byte("- name: test\n  url: github:mudler/LocalAI/gallery/base.yaml@master\n")
+			Expect(os.WriteFile(filepath.Join(root, "gallery/index.yaml"), index, 0600)).To(Succeed())
+			outsideFile := filepath.Join(outside, "base.yaml")
+			Expect(os.WriteFile(outsideFile, []byte("outside"), 0600)).To(Succeed())
+			link := filepath.Join(root, "gallery/base.yaml")
+			if location == "output" {
+				Expect(os.WriteFile(link, []byte("inside"), 0600)).To(Succeed())
+				link = filepath.Join(out, "gallery/base.yaml")
+			}
+			Expect(os.Symlink(outsideFile, link)).To(Succeed())
+			Expect(packageGallery(root, "gallery", out)).ToNot(Succeed(), location)
+			data, err := os.ReadFile(outsideFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(data)).To(Equal("outside"))
+		}
+	})
 })
