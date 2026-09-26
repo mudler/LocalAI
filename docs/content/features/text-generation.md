@@ -1002,9 +1002,10 @@ LocalAI signals required reasoning when the rendered prompt ends with the config
 An explicit output grammar disables this detection.
 Configure a reasoning parser that matches your model.
 
-These options are read once, when LocalAI starts and loads the model configuration.
-`POST /models/reload` and restarting only the backend do not apply changed values;
-restart LocalAI itself after changing them.
+The backend reads these options when it loads the model.
+`POST /models/reload` rereads model configuration files but does not update options in an already loaded backend.
+Restarting only the backend does not reread configuration files.
+Restart LocalAI after changing these options to reload both the configuration and the backend.
 
 
 ### vllm.cpp
