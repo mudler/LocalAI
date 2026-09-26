@@ -37,7 +37,12 @@ type DefaultProber struct {
 }
 
 func NewProber(loaded LoadedFunc) *DefaultProber {
-	return &DefaultProber{HTTP: &http.Client{}, Loaded: loaded}
+	return &DefaultProber{HTTP: &http.Client{
+		// A redirect is a failed probe, not something to follow: Go resends
+		// custom headers such as x-api-key to any host, and the target's
+		// API key must reach only the configured upstream.
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}, Loaded: loaded}
 }
 
 func (p *DefaultProber) Liveness(ctx context.Context, cfg config.ModelConfig, kind Kind, warm bool) error {

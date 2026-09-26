@@ -125,6 +125,23 @@ var _ = Describe("DefaultProber", func() {
 		Expect(up.auth).To(Equal("Bearer sekret"))
 	})
 
+	It("does not follow a redirect, so the API key never leaves the upstream", func() {
+		GinkgoT().Setenv("FAILOVER_PROBE_KEY", "sekret")
+		other := newFakeUpstream()
+		DeferCleanup(other.srv.Close)
+		other.models = []string{"argus-llm"}
+		redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, other.srv.URL+r.URL.Path, http.StatusFound)
+		}))
+		DeferCleanup(redirect.Close)
+		c := proxied("argus-llm", "")
+		c.Proxy.UpstreamURL = redirect.URL + "/v1/chat/completions"
+		c.Proxy.APIKeyEnv = "FAILOVER_PROBE_KEY"
+		c.Proxy.Provider = config.ProxyProviderAnthropic
+		Expect(p.Liveness(ctx, c, KindRemote, false)).To(MatchError(ContainSubstring("302")))
+		Expect(other.paths).To(BeEmpty())
+	})
+
 	DescribeTable("remote inference hits the usecase endpoint",
 		func(usecase, path string) {
 			Expect(p.Inference(ctx, proxied("m", "", usecase), KindRemote, false)).To(Succeed())
