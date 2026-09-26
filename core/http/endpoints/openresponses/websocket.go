@@ -346,8 +346,24 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 		openAIReq.ResponseFormat = convertTextFormatToResponseFormat(input.TextFormat)
 	}
 
+	strictMode := false
+	for _, f := range funcs {
+		if f.Strict {
+			strictMode = true
+			break
+		}
+	}
+	if !strictMode {
+		for _, t := range input.Tools {
+			if t.Type == "function" && t.Strict {
+				strictMode = true
+				break
+			}
+		}
+	}
+
 	// Generate grammar for function calling
-	if shouldUseFn && !cfg.FunctionsConfig.GrammarConfig.NoGrammar {
+	if shouldUseFn && (!cfg.FunctionsConfig.GrammarConfig.NoGrammar || strictMode) {
 		noActionName := "answer"
 		noActionDescription := "use this action to answer without performing any action"
 		if cfg.FunctionsConfig.NoActionFunctionName != "" {
@@ -373,7 +389,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 		funcsWithNoAction := make(functions.Functions, len(funcs))
 		copy(funcsWithNoAction, funcs)
 
-		if !cfg.FunctionsConfig.DisableNoAction {
+		if !cfg.FunctionsConfig.DisableNoAction && !strictMode {
 			funcsWithNoAction = append(funcsWithNoAction, noActionGrammar)
 		}
 
@@ -381,7 +397,7 @@ func handleWSResponseCreate(connCtx context.Context, conn *lockedConn, connectio
 			funcsWithNoAction = funcsWithNoAction.Select(cfg.FunctionToCall())
 		}
 
-		jsStruct := funcsWithNoAction.ToJSONStructure(cfg.FunctionsConfig.FunctionNameKey, cfg.FunctionsConfig.FunctionNameKey)
+		jsStruct := funcsWithNoAction.ToJSONStructure(cfg.FunctionsConfig.FunctionNameKey, cfg.FunctionsConfig.FunctionArgumentsKey)
 		g, err := jsStruct.Grammar(cfg.FunctionsConfig.GrammarOptions()...)
 		if err == nil {
 			cfg.Grammar = g

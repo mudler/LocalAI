@@ -362,10 +362,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			"config.FunctionToCall()", config.FunctionToCall(),
 		)
 
-		for _, f := range input.Functions {
+		for _, f := range funcs {
 			if f.Strict {
 				strictMode = true
 				break
+			}
+		}
+		if !strictMode {
+			for _, t := range input.Tools {
+				if t.Function.Strict {
+					strictMode = true
+					break
+				}
 			}
 		}
 
@@ -451,7 +459,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			}
 
 			// Update input grammar or json_schema based on use_llama_grammar option
-			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
+			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionArgumentsKey)
 			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
 			if err == nil {
 				config.Grammar = g
