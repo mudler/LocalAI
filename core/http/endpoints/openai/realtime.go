@@ -754,6 +754,14 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		Session: session.ToServer(),
 	})
 
+	// Sent after session.created, which clients expect as the first event.
+	// This function runs until the connection closes, so the defer stops the
+	// events at session end.
+	if wrapped, ok := m.(*wrappedModel); ok && wrapped.failover != nil && len(wrapped.stageChains) > 0 {
+		stopFailoverEvents := startFailoverEvents(t, wrapped.failover, wrapped.stageChains)
+		defer stopFailoverEvents()
+	}
+
 	var (
 		msg []byte
 		wg  sync.WaitGroup

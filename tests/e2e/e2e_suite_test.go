@@ -273,6 +273,44 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline.yaml"), pipelineData, 0644)).To(Succeed())
 
+	// Realtime pipelines whose LLM is a failover chain: target 0 always fails
+	// to load, target 1 is mock-llm. rt-failover skips the warm-up so the
+	// switch happens on the first turn, mid-session; rt-failover-warm keeps it
+	// so the switch happens while the session starts. Each has its own chain
+	// because chain state is shared across sessions.
+	for _, rt := range []struct {
+		name, suffix  string
+		disableWarmup bool
+	}{{"rt-failover", "rt", true}, {"rt-failover-warm", "rt-warm", false}} {
+		for _, cfg := range []map[string]any{
+			{
+				"name":       "fail-" + rt.suffix,
+				"backend":    "mock-backend",
+				"parameters": map[string]any{"model": "fail-load-" + rt.suffix},
+			},
+			{
+				"name": "chain-" + rt.suffix,
+				"failover": map[string]any{
+					"targets": []map[string]any{{"model": "fail-" + rt.suffix}, {"model": "mock-llm"}},
+				},
+			},
+			{
+				"name": rt.name,
+				"pipeline": map[string]any{
+					"vad":            "mock-vad",
+					"transcription":  "mock-stt",
+					"llm":            "chain-" + rt.suffix,
+					"tts":            "mock-tts",
+					"disable_warmup": rt.disableWarmup,
+				},
+			},
+		} {
+			data, err := yaml.Marshal(cfg)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())
+		}
+	}
+
 	// Classifier-mode pipeline (LocalAI extension): responses are
 	// prefill-scored against the option list via the mock backend's
 	// ROUTE_HINT-driven Score instead of being generated. Threshold 0.6:
