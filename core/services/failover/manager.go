@@ -60,6 +60,21 @@ type Manager struct {
 	hasChains atomic.Bool
 	// probes counts running probes; only tests wait on it.
 	probes sync.WaitGroup
+
+	// sync shares state with other frontends; nil when standalone.
+	sync StateSync
+	// gate grants probing and chain decisions to one frontend; nil means
+	// this manager is always the leader.
+	gate   LeaderGate
+	leader bool
+	// applying is set while a peer's target state is applied, so the
+	// transition is not published back to the peers.
+	applying bool
+	// pending holds publishes queued under the lock; unlockAndFlush runs
+	// them after unlocking because the sync layer can call back into Apply*.
+	pending []func()
+	// ticks counts Run's ticks for the periodic republish; only Run uses it.
+	ticks int
 }
 
 type targetState struct {
@@ -73,6 +88,9 @@ type targetState struct {
 	lastProbe     time.Time
 	lastActivity  time.Time
 	lastError     string
+	// since and reason describe the last state change, for snapshots.
+	since  time.Time
+	reason Reason
 	// probing is set while a probe runs, so the scheduler does not start a
 	// second one for the same target.
 	probing bool
@@ -90,6 +108,9 @@ type chainState struct {
 	activeSince time.Time
 	pinned      string
 	state       ChainState
+	// adopted is set once a follower received the leader's decision for this
+	// chain; from then on it stops choosing the active target itself.
+	adopted bool
 }
 
 func New(src ConfigSource, opts ...Option) *Manager {
@@ -103,6 +124,7 @@ func New(src ConfigSource, opts ...Option) *Manager {
 	for _, o := range opts {
 		o(m)
 	}
+	m.leader = m.gate == nil
 	return m
 }
 
@@ -112,7 +134,7 @@ func (m *Manager) Sync() {
 	m.mu.Lock()
 	m.syncLocked()
 	warm, deliver := m.takeWarmLocked()
-	m.mu.Unlock()
+	m.unlockAndFlush()
 	if deliver && m.onWarm != nil {
 		m.onWarm(warm)
 	}
@@ -264,7 +286,7 @@ func (m *Manager) targetStates() map[string]TargetState {
 // the scheduler calls this on every tick.
 func (m *Manager) Reevaluate() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.unlockAndFlush()
 	for _, ch := range m.chains {
 		m.recomputeLocked(ch, "")
 	}
@@ -277,6 +299,7 @@ func (m *Manager) setTargetLocked(ts *targetState, to TargetState, reason Reason
 	from := ts.state
 	now := m.clock.Now()
 	ts.state = to
+	ts.since, ts.reason = now, reason
 	switch to {
 	case StateDown:
 		ts.downSince = now
@@ -287,11 +310,19 @@ func (m *Manager) setTargetLocked(ts *targetState, to TargetState, reason Reason
 		ts.failures = nil
 	}
 	m.emitLocked(Event{Type: EventTargetState, Target: ts.name, From: string(from), To: string(to), Reason: reason, Error: errMsg, At: now})
+	m.queuePublishTargetLocked(ts, from)
 }
 
 // recomputeLocked picks the active target. override replaces the reason of a
 // resulting switch (pin and unpin are always "manual").
 func (m *Manager) recomputeLocked(ch *chainState, override Reason) {
+	if m.sync != nil && !m.leader && ch.adopted && ch.pinned == "" {
+		// The leader decides; deciding here too would let frontends serve
+		// different targets. A pin is exempt: it fixes the active target
+		// the same way on every frontend, and applying it at once gives the
+		// caller read-your-writes.
+		return
+	}
 	now := m.clock.Now()
 	prev := ch.active
 	next := prev
@@ -333,6 +364,7 @@ func (m *Manager) recomputeLocked(ch *chainState, override Reason) {
 	default:
 		state = ChainFallback
 	}
+	changed := next != prev || state != ch.state
 	switch {
 	case next != prev:
 		ch.active = next
@@ -348,6 +380,17 @@ func (m *Manager) recomputeLocked(ch *chainState, override Reason) {
 		m.emitLocked(Event{Type: EventChainSwitched, Chain: ch.name, From: ch.targets[prev], To: ch.targets[next], State: string(state), Reason: ReasonRecovery, At: now})
 	}
 	ch.state = state
+	if changed {
+		pub := reason
+		if next == prev {
+			// Same reasons as the events above for a state-only change.
+			pub = ReasonRecovery
+			if state == ChainDegraded {
+				pub = ReasonDegraded
+			}
+		}
+		m.queuePublishChainLocked(ch, pub)
+	}
 }
 
 func (m *Manager) recomputeForLocked(target string) {
@@ -373,7 +416,7 @@ type Attempt struct {
 // order; a pinned chain only the pinned target.
 func (m *Manager) Plan(chain string) (*Attempt, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.unlockAndFlush()
 	ch := m.chainLocked(chain)
 	if ch == nil {
 		return nil, fmt.Errorf("%w: %q", ErrChainNotFound, chain)
@@ -447,7 +490,7 @@ func (a *Attempt) Succeed() { a.m.ReportSuccess(a.Target()) }
 
 func (m *Manager) ReportFailure(target string, err error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.unlockAndFlush()
 	ts := m.targetLocked(target)
 	if ts == nil {
 		return
@@ -483,7 +526,7 @@ func (m *Manager) recordFailureLocked(ts *targetState, msg string) {
 
 func (m *Manager) ReportSuccess(target string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.unlockAndFlush()
 	ts := m.targetLocked(target)
 	if ts == nil {
 		return
@@ -515,37 +558,50 @@ func (m *Manager) recordPassLocked(ts *targetState) {
 	}
 }
 
+// Pin takes effect here at once (read-your-writes), then is shared with the
+// other frontends.
 func (m *Manager) Pin(chain, target string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	ch := m.chainLocked(chain)
 	if ch == nil {
+		m.unlockAndFlush()
 		return fmt.Errorf("%w: %q", ErrChainNotFound, chain)
 	}
 	if !slices.Contains(ch.targets, target) {
+		m.unlockAndFlush()
 		return fmt.Errorf("%w: %q", ErrTargetNotInChain, target)
 	}
 	ch.pinned = target
 	m.recomputeLocked(ch, ReasonManual)
+	s := m.sync
+	m.unlockAndFlush()
+	if s != nil {
+		return s.SetPin(chain, target)
+	}
 	return nil
 }
 
 func (m *Manager) Unpin(chain string) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	ch := m.chainLocked(chain)
 	if ch == nil {
+		m.unlockAndFlush()
 		return fmt.Errorf("%w: %q", ErrChainNotFound, chain)
 	}
 	ch.pinned = ""
 	m.recomputeLocked(ch, ReasonManual)
+	s := m.sync
+	m.unlockAndFlush()
+	if s != nil {
+		return s.ClearPin(chain)
+	}
 	return nil
 }
 
 // Status returns every chain, sorted by name.
 func (m *Manager) Status() []ChainStatus {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.unlockAndFlush()
 	m.syncLocked()
 	names := make([]string, 0, len(m.chains))
 	for name := range m.chains {
@@ -561,7 +617,7 @@ func (m *Manager) Status() []ChainStatus {
 
 func (m *Manager) ChainStatus(name string) (ChainStatus, bool) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.unlockAndFlush()
 	ch := m.chainLocked(name)
 	if ch == nil {
 		return ChainStatus{}, false

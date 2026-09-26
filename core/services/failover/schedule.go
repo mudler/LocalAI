@@ -22,6 +22,12 @@ func (m *Manager) Run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			m.Tick(ctx)
+			// Publishes are fire-and-forget, so a frontend that missed one
+			// (restart, dropped message) converges within ten seconds.
+			m.ticks++
+			if m.ticks%10 == 0 && m.IsLeader() {
+				m.Republish()
+			}
 		}
 	}
 }
@@ -34,8 +40,45 @@ func (m *Manager) Run(ctx context.Context) {
 // hangs until its timeout) must not delay probing and fail-back of every
 // other chain. Each probe applies its own result, and a target whose probe is
 // still running is skipped until it ends.
+//
+// With a leader gate, only the leader probes and decides chains; followers
+// still recompute, which only moves chains that have not yet adopted a
+// leader decision.
 func (m *Manager) Tick(ctx context.Context) {
 	m.Sync()
+	if m.gate == nil {
+		m.lead(ctx)
+		return
+	}
+	if m.gate(ctx, func() { m.lead(ctx) }) {
+		return
+	}
+	m.mu.Lock()
+	m.leader = false
+	m.mu.Unlock()
+	m.Reevaluate()
+}
+
+// lead is the leader's share of a tick.
+func (m *Manager) lead(ctx context.Context) {
+	m.mu.Lock()
+	became := !m.leader
+	m.leader = true
+	if became {
+		// The previous leader owned the warm-set callback's effects;
+		// deliver the set again so this frontend takes them over.
+		m.warmPending = true
+	}
+	warm, deliver := m.takeWarmLocked()
+	m.unlockAndFlush()
+	if deliver && m.onWarm != nil {
+		m.onWarm(warm)
+	}
+	if became {
+		// Followers hold the old leader's view; send ours at once instead of
+		// letting them wait for the periodic republish.
+		m.Republish()
+	}
 	for _, j := range m.dueProbes() {
 		m.probes.Add(1)
 		go func(j probeJob) {
@@ -61,7 +104,7 @@ type probeJob struct {
 
 func (m *Manager) dueProbes() []probeJob {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.unlockAndFlush()
 	now := m.clock.Now()
 	var jobs []probeJob
 	for _, ts := range m.targets {
@@ -139,7 +182,7 @@ func (m *Manager) endProbe(target string) {
 
 func (m *Manager) applyProbe(j probeJob, err error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer m.unlockAndFlush()
 	ts := m.targets[j.target]
 	if ts == nil {
 		return
