@@ -150,8 +150,8 @@ Chain states:
 
 | Target | Liveness (steady state) | Recovery confirmation |
 |---|---|---|
-| remote | `GET <upstream>/readyz`, and the upstream model is listed in `GET <upstream>/v1/models` | one minimal real request, chosen by usecase |
-| local, `warm: true` | gRPC `HealthCheck` on the loaded backend. If the backend is not loaded (it crashed), a reload is the recovery attempt. | the same minimal request, run in-process |
+| remote | `GET <base>/v1/models` returns 2xx and lists the upstream model. `<base>` is the scheme and host of `proxy.upstream_url` plus any path prefix before `/v1`. The upstream model is `proxy.upstream_model`, or the target name when it is empty. `/v1/models` works on any OpenAI-compatible upstream, and `/readyz` exists only on LocalAI. | one minimal real request, chosen by usecase |
+| local, `warm: true` | gRPC `HealthCheck` on the loaded backend. If the backend is not loaded (it crashed), a reload is the recovery attempt. | chat and completion: `Predict` with 1 token; embeddings: `Embedding` of `"ping"`; other usecases: `HealthCheck`. A local backend process that answers `HealthCheck` rarely fails only for TTS or transcription. |
 | local, cold | the config and model files exist and the backend is installed. The model is never loaded only to probe it. | none. After a trip, the target returns to `healthy` when `min_dwell` has passed. The next real request is the test. |
 
 Minimal requests by usecase:
@@ -172,6 +172,10 @@ Probe load rules:
 - Inference probes run only while a target is `recovering`.
 - Remote probes use the URL and API key from the target's proxy config.
 - Probe results go into the same trip counter as request failures.
+
+When one target is in several chains, its `probe`, `trip` and `recovery`
+settings come from the first of those chains in name order. The docs state
+this.
 
 ### Warm targets
 
