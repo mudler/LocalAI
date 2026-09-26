@@ -415,6 +415,12 @@ func GetImage(targetImage, targetPlatform string, auth *registrytypes.AuthConfig
 	return image, wrapAuthError(targetImage, err)
 }
 
+// normalizeImageReference strips the oci:// scheme a gallery URI may carry so
+// the remainder is a plain registry reference.
+func normalizeImageReference(ref string) string {
+	return strings.TrimPrefix(ref, "oci://")
+}
+
 // GetImageDigest returns the OCI image digest for the given image reference without downloading it.
 // It uses remote.Head to fetch only the descriptor, which is much cheaper than pulling the full image.
 func GetImageDigest(targetImage, targetPlatform string, auth *registrytypes.AuthConfig, t http.RoundTripper) (string, error) {
@@ -433,7 +439,11 @@ func GetImageDigest(targetImage, targetPlatform string, auth *registrytypes.Auth
 		}
 	}
 
-	ref, err := name.ParseReference(targetImage)
+	// A gallery URI may carry the oci:// scheme (self-hosted registries must set
+	// it to be recognised as OCI at all). name.ParseReference cannot parse the
+	// scheme, so normalise here — every caller (install, upgrade, upgrade check)
+	// then records and compares the same digest. See #12138 for the check path.
+	ref, err := name.ParseReference(normalizeImageReference(targetImage))
 	if err != nil {
 		return "", err
 	}
