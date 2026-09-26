@@ -39,6 +39,13 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Hemmingway-1
+
+Install `hemmingway-1` for English text generation with llama.cpp. The gallery groups its Q4_K_M and Q8_0 builds as variants.
+To select a specific build, use `local-ai models install hemmingway-1 --variant hemmingway-1-q8` for Q8_0.
+The configurations default to 32,768 context tokens. Increase the context size only if available memory permits.
+The [model license](https://huggingface.co/Altworld/Hemmingway-1) is CC BY-NC 4.0; commercial use requires a separate agreement.
+
 ## Qwen-Image 2.1
 
 For image generation, install `qwen-image-2.1-q4_k-ggml` or its `qwen-image-2.1-q8_0-ggml` variant.

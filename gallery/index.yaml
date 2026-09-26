@@ -302,6 +302,74 @@
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
       sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
+- name: hemmingway-1
+  variants:
+    - model: hemmingway-1-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Altworld/Hemmingway-1
+    - https://huggingface.co/mradermacher/Hemmingway-1-GGUF
+  description: |
+    Hemmingway-1 is Altworld's English-first 27B text model, fine-tuned from Qwen3.8-27B for everyday messages and creative writing.
+    This Q4_K_M GGUF build uses llama.cpp and the model's embedded chat template. Licensed under CC BY-NC 4.0; commercial use requires a separate agreement.
+  license: cc-by-nc-4.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - text-generation
+    - creative-writing
+    - qwen
+  last_checked: "2026-09-26"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Hemmingway-1.Q4_K_M.gguf
+  files:
+    - filename: Hemmingway-1.Q4_K_M.gguf
+      sha256: d8a77565035547f39388969e1ef0e83f646f366e7bdef1e1ce63ad0b0d785dbc
+      uri: huggingface://mradermacher/Hemmingway-1-GGUF/Hemmingway-1.Q4_K_M.gguf
+- name: hemmingway-1-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Altworld/Hemmingway-1
+    - https://huggingface.co/mradermacher/Hemmingway-1-GGUF
+  description: |
+    Hemmingway-1 is Altworld's English-first 27B text model, fine-tuned from Qwen3.8-27B for everyday messages and creative writing.
+    This Q8_0 GGUF build uses llama.cpp and the model's embedded chat template. Licensed under CC BY-NC 4.0; commercial use requires a separate agreement.
+  license: cc-by-nc-4.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - text-generation
+    - creative-writing
+    - qwen
+  last_checked: "2026-09-26"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Hemmingway-1.Q8_0.gguf
+  files:
+    - filename: Hemmingway-1.Q8_0.gguf
+      sha256: 10b566343db6905215c2d635285ffb43ada05a2f9b1e8e85562c8e366fac1809
+      uri: huggingface://mradermacher/Hemmingway-1-GGUF/Hemmingway-1.Q8_0.gguf
 - name: "qwen3.8-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
