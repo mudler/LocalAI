@@ -305,7 +305,13 @@ func (m *Manager) recomputeLocked(ch *chainState, override Reason) {
 		ch.activeSince = now
 		m.emitLocked(Event{Type: EventChainSwitched, Chain: ch.name, From: ch.targets[prev], To: ch.targets[next], State: string(state), Reason: reason, At: now})
 	case state == ChainDegraded && ch.state != ChainDegraded:
+		// Entering degraded with no active-target change (every target is down).
 		m.emitLocked(Event{Type: EventChainSwitched, Chain: ch.name, From: ch.targets[prev], To: ch.targets[next], State: string(state), Reason: ReasonDegraded, At: now})
+	case state != ChainDegraded && ch.state == ChainDegraded:
+		// Leaving degraded with no active-target change (the active target
+		// itself recovered): SSE/realtime consumers watch chain.switched.state,
+		// so this must fire or they stay on "degraded" forever.
+		m.emitLocked(Event{Type: EventChainSwitched, Chain: ch.name, From: ch.targets[prev], To: ch.targets[next], State: string(state), Reason: ReasonRecovery, At: now})
 	}
 	ch.state = state
 }

@@ -132,6 +132,25 @@ var _ = Describe("Manager", func() {
 		Expect(att.Fail(errBoom)).To(BeFalse())
 	})
 
+	It("emits chain.switched when leaving degraded without an active-target change", func() {
+		m.ReportFailure("a", errBoom) // active moves to b
+		m.ReportFailure("b", errBoom) // both down: degraded, active stays b
+		st, _ := m.ChainStatus("chain")
+		Expect(st.State).To(Equal(ChainDegraded))
+		Expect(st.Active).To(Equal("b"))
+		events, cancel := m.Subscribe(16)
+		defer cancel()
+		m.ReportSuccess("b") // b is cold local: one success recovers it in place
+		st, _ = m.ChainStatus("chain")
+		Expect(st.State).To(Equal(ChainFallback))
+		Expect(st.Active).To(Equal("b"), "the active target itself recovered, no switch needed")
+		sw := switched(drain(events))
+		Expect(sw).To(HaveLen(1), "leaving degraded must still notify chain.switched listeners")
+		Expect(sw[0]).To(MatchFields(IgnoreExtras, Fields{
+			"Chain": Equal("chain"), "State": Equal("fallback"), "Reason": Equal(ReasonRecovery),
+		}))
+	})
+
 	It("pins a target regardless of health", func() {
 		Expect(m.Pin("chain", "b")).To(Succeed())
 		att, _ := m.Plan("chain")
