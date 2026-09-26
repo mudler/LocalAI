@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -86,8 +87,10 @@ func developmentURI(uri, latestTag, masterTag string) (string, bool) {
 
 // backendCandidate represents an installed concrete backend option for a given alias
 type backendCandidate struct {
-	name    string
-	runFile string
+	name     string
+	runFile  string
+	isSystem bool
+	metadata *BackendMetadata
 }
 
 // readBackendMetadata reads the metadata JSON file for a backend
@@ -635,65 +638,110 @@ func (b SystemBackends) GetAll() []SystemBackend {
 	return backends
 }
 
+// collectedBackend is one backend directory as scanned from its root,
+// before cross-root cleaning.
+type collectedBackend struct {
+	basePath string
+	metadata *BackendMetadata
+	isSystem bool
+}
+
+// collectBackendDir reads one backend directory's optional metadata.json
+// into the root's collection.
+func collectBackendDir(basePath, dir string, isSystem bool, entries map[string]collectedBackend) error {
+	metadata := &BackendMetadata{Name: dir}
+	if _, err := os.Stat(filepath.Join(basePath, dir, metadataFile)); err == nil {
+		m, rerr := readBackendMetadata(filepath.Join(basePath, dir))
+		if rerr != nil {
+			return rerr
+		}
+		if m != nil {
+			metadata = m
+		}
+	}
+	entries[dir] = collectedBackend{basePath: basePath, metadata: metadata, isSystem: isSystem}
+	return nil
+}
+
+// collectRoot scans one backends root into its own collection. Metadata
+// errors: warn-and-skip when lenient (system root), hard error otherwise
+// (user-managed root).
+func collectRoot(basePath string, isSystem, lenient bool) (map[string]collectedBackend, error) {
+	entries := make(map[string]collectedBackend)
+	dirEntries, err := os.ReadDir(basePath)
+	if err != nil {
+		return entries, err
+	}
+	for _, e := range dirEntries {
+		if !e.IsDir() {
+			continue
+		}
+		if cerr := collectBackendDir(basePath, e.Name(), isSystem, entries); cerr != nil {
+			if !lenient {
+				return nil, cerr
+			}
+			xlog.Warn("Skipping backend with unreadable metadata", "dir", e.Name(), "error", cerr)
+		}
+	}
+	return entries, nil
+}
+
 func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error) {
-	// Gather backends from system and user paths, then resolve alias conflicts by capability.
 	backends := make(SystemBackends)
 
-	// System-provided backends
-	if systemBackends, err := os.ReadDir(systemState.Backend.BackendsSystemPath); err == nil {
-		for _, systemBackend := range systemBackends {
-			if systemBackend.IsDir() {
-				run := filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile)
-				if _, err := os.Stat(run); err == nil {
-					backends[systemBackend.Name()] = SystemBackend{
-						Name:     systemBackend.Name(),
-						RunFile:  run,
-						IsMeta:   false,
-						IsSystem: true,
-						Metadata: nil,
-					}
-				}
-			}
+	// 1. Scan each root separately.
+	systemEntries, err := collectRoot(systemState.Backend.BackendsSystemPath, true, true)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			xlog.Debug("No system backends found")
+		} else {
+			xlog.Warn("Failed to read system backends, proceeding with user-managed backends", "error", err)
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		xlog.Warn("Failed to read system backends, proceeding with user-managed backends", "error", err)
-	} else if errors.Is(err, os.ErrNotExist) {
-		xlog.Debug("No system backends found")
 	}
-
-	// User-managed backends and alias collection
-	entries, err := os.ReadDir(systemState.Backend.BackendsPath)
+	managedEntries, err := collectRoot(systemState.Backend.BackendsPath, false, false)
 	if err != nil {
 		return nil, err
 	}
 
+	// 2. Clean the system collection against the user-managed one:
+	//    - a user-managed backend shadows a same-named system backend
+	//    - a user-managed alias member takes over its whole alias group:
+	//      resolution must never mix the roots (and their possibly
+	//      different versions) within one backend family, and a stale
+	//      system variant may not work with newer models, so the whole
+	//      system family becomes invisible, concrete names included
+	managedAliases := make(map[string]bool)
+	for _, e := range managedEntries {
+		if e.metadata.Alias != "" {
+			managedAliases[e.metadata.Alias] = true
+		}
+	}
+	for name, e := range systemEntries {
+		if _, shadowed := managedEntries[name]; shadowed {
+			delete(systemEntries, name)
+		} else if e.metadata.Alias != "" && managedAliases[e.metadata.Alias] {
+			delete(systemEntries, name)
+		}
+	}
+
+	// 3. Merge — disjoint by construction after cleaning.
+	entriesByDir := managedEntries
+	for name, e := range systemEntries {
+		entriesByDir[name] = e
+	}
+
+	// 4. Build concrete entries, alias candidacies and meta indirection
+	//    from the merged collection, in sorted order.
+	dirs := make([]string, 0, len(entriesByDir))
+	for dir := range entriesByDir {
+		dirs = append(dirs, dir)
+	}
+	slices.Sort(dirs)
+
 	aliasGroups := make(map[string][]backendCandidate)
-	metaMap := make(map[string]*BackendMetadata)
-
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		dir := e.Name()
-		run := filepath.Join(systemState.Backend.BackendsPath, dir, runFile)
-
-		var metadata *BackendMetadata
-		metadataPath := filepath.Join(systemState.Backend.BackendsPath, dir, metadataFile)
-		if _, err := os.Stat(metadataPath); os.IsNotExist(err) {
-			metadata = &BackendMetadata{Name: dir}
-		} else {
-			m, rerr := readBackendMetadata(filepath.Join(systemState.Backend.BackendsPath, dir))
-			if rerr != nil {
-				return nil, rerr
-			}
-			if m == nil {
-				metadata = &BackendMetadata{Name: dir}
-			} else {
-				metadata = m
-			}
-		}
-
-		metaMap[dir] = metadata
+	for _, dir := range dirs {
+		entry := entriesByDir[dir]
+		run := filepath.Join(entry.basePath, dir, runFile)
 
 		// Concrete-backend entry
 		if _, err := os.Stat(run); err == nil {
@@ -701,22 +749,25 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 				Name:     dir,
 				RunFile:  run,
 				IsMeta:   false,
-				Metadata: metadata,
+				IsSystem: entry.isSystem,
+				Metadata: entry.metadata,
 			}
 		}
 
 		// Alias candidates
-		if metadata.Alias != "" {
-			aliasGroups[metadata.Alias] = append(aliasGroups[metadata.Alias], backendCandidate{name: dir, runFile: run})
+		if entry.metadata.Alias != "" {
+			aliasGroups[entry.metadata.Alias] = append(aliasGroups[entry.metadata.Alias],
+				backendCandidate{name: dir, runFile: run, isSystem: entry.isSystem, metadata: entry.metadata})
 		}
 
 		// Meta backends indirection
-		if metadata.MetaBackendFor != "" {
-			backends[metadata.Name] = SystemBackend{
-				Name:     metadata.Name,
-				RunFile:  filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor, runFile),
+		if entry.metadata.MetaBackendFor != "" {
+			backends[entry.metadata.Name] = SystemBackend{
+				Name:     entry.metadata.Name,
+				RunFile:  filepath.Join(entry.basePath, entry.metadata.MetaBackendFor, runFile),
 				IsMeta:   true,
-				Metadata: metadata,
+				IsSystem: entry.isSystem,
+				Metadata: entry.metadata,
 			}
 		}
 	}
@@ -724,6 +775,11 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 	// Resolve aliases using system capability preferences
 	tokens := systemState.BackendPreferenceTokens()
 	for alias, cands := range aliasGroups {
+		// First-token-match depends on candidate order: sort by name so
+		// resolution is deterministic by construction, not by scan order.
+		slices.SortFunc(cands, func(a, b backendCandidate) int {
+			return strings.Compare(a.name, b.name)
+		})
 		chosen := backendCandidate{}
 		// Try preference tokens
 		for _, t := range tokens {
@@ -749,12 +805,17 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 		if chosen.runFile == "" {
 			continue
 		}
-		md := metaMap[chosen.name]
+		if existing, ok := backends[alias]; ok && !existing.IsSystem && chosen.isSystem {
+			// A system-derived alias never hijacks a user-managed
+			// backend of the same name, including meta indirection.
+			continue
+		}
 		backends[alias] = SystemBackend{
 			Name:     alias,
 			RunFile:  chosen.runFile,
 			IsMeta:   false,
-			Metadata: md,
+			IsSystem: chosen.isSystem,
+			Metadata: chosen.metadata,
 		}
 	}
 
