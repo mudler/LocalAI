@@ -1,0 +1,256 @@
+---
+name: 'build windows backend container images (reusable)'
+
+on:
+  workflow_call:
+    inputs:
+      backend:
+        description: 'Backend to build'
+        required: true
+        type: string
+      build-type:
+        description: 'Build type'
+        default: ''
+        type: string
+      lang:
+        description: 'Programming language (e.g. go)'
+        default: 'python'
+        type: string
+      go-version:
+        description: 'Go version to use'
+        default: '1.25.x'
+        type: string
+      tag-suffix:
+        description: 'Tag suffix for the built image'
+        required: true
+        type: string
+      runs-on:
+        description: 'Runner to use'
+        default: 'windows-latest'
+        type: string
+    secrets:
+      dockerUsername:
+        required: false
+      dockerPassword:
+        required: false
+      quayUsername:
+        required: true
+      quayPassword:
+        required: true
+
+jobs:
+  windows-backend-build:
+    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      matrix:
+        go-version: ['${{ inputs.go-version }}']
+    env:
+      # Every CMake variant below (gRPC + the three llama.cpp variants) compiles
+      # the same source trees with overlapping flags; ccache dedupes them.
+      # CCACHE_DIR is set in a run step (below), not here: a job-level env value
+      # is used verbatim, and MSYS2's $HOME must be expanded at runtime so it
+      # matches the ~/.cache/ccache path handed to actions/cache.
+      CMAKE_ARGS: "-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          # Caches ~/go/pkg/mod and %LOCALAPPDATA%\go-build keyed on go.sum.
+          cache: true
+
+      - name: Display Go version
+        run: go version
+
+      # ---- MSYS2 toolchain ----
+      # Native windows builds need a mingw gcc toolchain; windows-latest ships
+      # none by default (build-test-windows works only because LocalAI itself
+      # builds with CGO_ENABLED=0). UCRT64 matches the /ucrt64/bin DLL bundling
+      # in scripts/build/llama-cpp-windows.sh. `perl` is required by gRPC's
+      # third_party/openssl build (openssl's Configure is a perl script).
+      # `install` is a folded scalar (>-): every line folds into the pacman
+      # command, so no `#` comments may live inside it - they would become
+      # literal package names ("target not found: Vulkan:"). Vulkan packages:
+      # headers + loader (ucrt64) for FindVulkan, and the mingw64 shaderc
+      # build for glslc (no ucrt64 shaderc exists; glslc is a standalone tool
+      # so the prefix split is irrelevant). The loader's vulkan-1.dll is
+      # bundled next to the image's DLLs; ggml-vulkan loads it dynamically, so
+      # it is never a hard import. spirv-headers provides the cmake config
+      # ggml-vulkan requires (find_package(SPIRV-Headers CONFIG REQUIRED)).
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: false
+          install: >-
+            git
+            make
+            cmake
+            mingw-w64-ucrt-x86_64-cmake
+            ninja
+            pkg-config
+            perl
+            patch
+            unzip
+            curl
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-gcc-libs
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-ccache
+            mingw-w64-ucrt-x86_64-vulkan-headers
+            mingw-w64-ucrt-x86_64-vulkan-loader
+            mingw-w64-ucrt-x86_64-spirv-headers
+            mingw-w64-x86_64-shaderc
+
+      # Run steps that need bash/msys2 tools (make, ccache, grep) declare
+      # `shell: msys2 {0}` individually instead of a job-level defaults block:
+      # the msys2 shell only exists once the Set up MSYS2 step above has run.
+      - name: Set CCACHE_DIR
+        shell: msys2 {0}
+        run: echo "CCACHE_DIR=$HOME/.cache/ccache" >> "$GITHUB_ENV"
+
+      - name: Display toolchain versions
+        shell: msys2 {0}
+        run: |
+          gcc --version | head -1
+          cmake --version | head -1
+          make --version | head -1
+          ccache --version | head -1
+
+      # ---- ccache for llama.cpp CMake builds ----
+      # Same shape as the Darwin workflow: key on the pinned LLAMA_VERSION so a
+      # pin bump invalidates cleanly; restore-keys fall back to the latest entry
+      # for the same pin so unchanged TUs stay warm.
+      - name: Compute llama.cpp version
+        if: inputs.backend == 'llama-cpp'
+        id: llama-version
+        shell: msys2 {0}
+        run: |
+          version=$(grep '^LLAMA_VERSION' backend/cpp/llama-cpp/Makefile | head -1 | cut -d= -f2 | cut -d'?' -f1 | tr -d ' ')
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore ccache
+        if: inputs.backend == 'llama-cpp'
+        id: ccache-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/ccache
+          key: ccache-llama-windows-amd64-${{ steps.llama-version.outputs.version }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-llama-windows-amd64-${{ steps.llama-version.outputs.version }}-
+
+      # Only llama-cpp has a windows build path today - the matrix's
+      # includeWindows section lists exactly this backend. Fail loudly rather
+      # than upload an empty tar if a future entry dispatches here without a
+      # build step of its own. Keep in sync with WINDOWS_BESPOKE_BUILDERS in
+      # scripts/lib/backend-filter.mjs.
+      - name: Check backend is supported
+        if: inputs.backend != 'llama-cpp'
+        run: |
+          echo "::error::no windows build path for backend '${{ inputs.backend }}'"
+          exit 1
+
+      # The msys2 shell below resets PATH, so the Go toolchain setup-go put on
+      # the runner PATH is invisible to it (and setup-go only exports GOROOT
+      # for Go < 1.9). Resolve the install dir with the default shell, where
+      # `go` is reachable, and hand it to the script to prepend.
+      - name: Resolve Go toolchain path
+        id: go-toolchain
+        if: inputs.backend == 'llama-cpp'
+        shell: bash
+        run: echo "root=$(go env GOROOT)" >> "$GITHUB_OUTPUT"
+
+      - name: Build ${{ inputs.backend }} (llama-cpp)
+        if: inputs.backend == 'llama-cpp'
+        shell: msys2 {0}
+        env:
+          GO_TOOLCHAIN_ROOT: ${{ steps.go-toolchain.outputs.root }}
+        run: |
+          make backends/llama-cpp-windows
+
+      - name: ccache stats
+        if: inputs.backend == 'llama-cpp'
+        shell: msys2 {0}
+        run: ccache -s
+
+      - name: Save ccache
+        if: inputs.backend == 'llama-cpp' && github.event_name != 'pull_request'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/ccache
+          key: ccache-llama-windows-amd64-${{ steps.llama-version.outputs.version }}-${{ github.run_id }}
+
+      - name: Upload ${{ inputs.backend }}.tar
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.backend }}-tar
+          path: backend-images/${{ inputs.backend }}.tar
+
+  windows-backend-publish:
+    needs: windows-backend-build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download ${{ inputs.backend }}.tar
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.backend }}-tar
+          path: .
+
+      - name: Install crane
+        run: |
+          curl -L https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz | tar -xz
+          sudo mv crane /usr/local/bin/
+
+      - name: Log in to DockerHub
+        run: |
+          echo "${{ secrets.dockerPassword }}" | crane auth login docker.io -u "${{ secrets.dockerUsername }}" --password-stdin
+
+      - name: Log in to quay.io
+        run: |
+          echo "${{ secrets.quayPassword }}" | crane auth login quay.io -u "${{ secrets.quayUsername }}" --password-stdin
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            localai/localai-backends
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=auto
+            suffix=${{ inputs.tag-suffix }},onlatest=true
+
+      - name: Docker meta
+        id: quaymeta
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            quay.io/go-skynet/local-ai-backends
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=auto
+            suffix=${{ inputs.tag-suffix }},onlatest=true
+
+      - name: Push Docker image (DockerHub)
+        run: |
+          for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
+            crane push ${{ inputs.backend }}.tar $tag
+          done
+
+      - name: Push Docker image (Quay)
+        run: |
+          for tag in $(echo "${{ steps.quaymeta.outputs.tags }}" | tr ',' '\n'); do
+            crane push ${{ inputs.backend }}.tar $tag
+          done
