@@ -303,19 +303,21 @@ const (
 )
 
 // ResolveAPIKey returns the upstream key from api_key_env or api_key_file, or
-// "" when neither is set. The cloud-proxy backend applies the same rules.
+// "" when neither is set. Mirrored (not imported, to keep backends independent
+// of core's package layout) by resolveAPIKey in backend/go/cloud-proxy/proxy.go
+// — keep the two in sync, empty-value handling included.
 func (p ProxyConfig) ResolveAPIKey() (string, error) {
 	switch {
 	case p.APIKeyEnv != "":
-		v, ok := os.LookupEnv(p.APIKeyEnv)
-		if !ok {
-			return "", fmt.Errorf("proxy api_key_env %q is not set", p.APIKeyEnv)
+		v := os.Getenv(p.APIKeyEnv)
+		if v == "" {
+			return "", fmt.Errorf("proxy api_key_env %q is unset", p.APIKeyEnv)
 		}
 		return v, nil
 	case p.APIKeyFile != "":
 		b, err := os.ReadFile(p.APIKeyFile)
 		if err != nil {
-			return "", fmt.Errorf("proxy api_key_file: %w", err)
+			return "", fmt.Errorf("proxy api_key_file %q: %w", p.APIKeyFile, err)
 		}
 		return strings.TrimSpace(string(b)), nil
 	}

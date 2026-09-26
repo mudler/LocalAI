@@ -78,6 +78,11 @@ var _ = Describe("ProxyConfig.ResolveAPIKey", func() {
 		_, err := ProxyConfig{APIKeyEnv: "FAILOVER_TEST_UNSET_KEY"}.ResolveAPIKey()
 		Expect(err).To(HaveOccurred())
 	})
+	It("fails on a set-but-empty env var", func() {
+		GinkgoT().Setenv("FAILOVER_TEST_EMPTY_KEY", "")
+		_, err := ProxyConfig{APIKeyEnv: "FAILOVER_TEST_EMPTY_KEY"}.ResolveAPIKey()
+		Expect(err).To(HaveOccurred())
+	})
 	It("reads and trims the key file", func() {
 		f := filepath.Join(GinkgoT().TempDir(), "key")
 		Expect(os.WriteFile(f, []byte(" k2\n"), 0o600)).To(Succeed())
