@@ -3,7 +3,7 @@ title = "Cloud passthrough proxy"
 weight = 28
 toc = true
 url = "/features/cloud-proxy/"
-description = "Forward requests to OpenAI, Anthropic, or any compatible provider"
+description = "Forward requests to OpenAI, Anthropic, OrcaRouter, or any compatible provider"
 tags = ["Proxy", "Cloud", "Routing", "Advanced"]
 categories = ["Features"]
 +++
@@ -121,6 +121,48 @@ pii:
 
 Anthropic clients hit `http://localhost:8080/v1/messages` with
 `"model": "claude-sonnet-proxy"`.
+
+### OrcaRouter passthrough
+
+[OrcaRouter](https://www.orcarouter.ai) is a unified OpenAI-compatible gateway
+that routes to 150+ hosted models (Anthropic, OpenAI, DeepSeek, Gemini, Qwen,
+…) under a single key. It also runs gateway-level, zero-trust security for AI
+agents on the same endpoint — screening every prompt/response and governing
+every tool call on a default-deny basis, with no application code changes.
+
+OrcaRouter speaks the OpenAI chat-completions wire format, so point a
+cloud-proxy model at it with `provider: openai`:
+
+```yaml
+name: orcarouter-auto
+backend: cloud-proxy
+
+proxy:
+  mode: passthrough
+  provider: openai
+  upstream_url: https://api.orcarouter.ai/v1/chat/completions
+  api_key_env: ORCAROUTER_API_KEY
+  upstream_model: orcarouter/auto
+  request_timeout_seconds: 300
+
+pii:
+  enabled: true
+```
+
+Then start LocalAI with the key in the environment:
+
+```bash
+export ORCAROUTER_API_KEY=sk-orca-...
+local-ai run
+```
+
+Clients hit `http://localhost:8080/v1/chat/completions` with `"model":
+"orcarouter-auto"` and LocalAI forwards the request to OrcaRouter.
+
+`orcarouter/auto` lets OrcaRouter pick the best model for each prompt. To pin
+a specific model, set `upstream_model` to its OrcaRouter id — for example
+`deepseek/deepseek-v4-pro` or `anthropic/claude-sonnet-4-6`. Leave
+`upstream_model` empty to pass the client's `model` field through unchanged.
 
 ### Other OpenAI-compatible providers
 
