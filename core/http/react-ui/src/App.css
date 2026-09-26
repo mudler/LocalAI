@@ -13817,3 +13817,11 @@ button.lane:hover {
   touch-action: none;
   cursor: grab;
 }
+
+/* Group conversation: shared controls wrap on narrow screens. */
+.group-chat { max-width: 960px; margin: 0 auto; padding: var(--spacing-lg); }
+.group-chat .card { padding: var(--spacing-lg); }
+.group-chat-controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-md); }
+.group-chat-controls label { flex: 1 1 180px; }
+.group-chat textarea { width: 100%; resize: vertical; }
+.group-chat-content { white-space: pre-wrap; overflow-wrap: anywhere; }
