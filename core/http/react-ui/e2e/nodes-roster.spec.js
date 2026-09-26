@@ -49,6 +49,7 @@ test.describe('Nodes join command', () => {
     await mockCluster(page, [])
     await page.goto('/app/nodes')
 
+    await page.getByRole('button', { name: 'Add worker' }).first().click()
     await page.getByRole('radio', { name: /^Backend$/ }).click()
     const backendCli = page.locator('.p2p-cmd pre').first()
     await expect(backendCli).toContainText('local-ai worker', { timeout: 15_000 })
@@ -69,16 +70,15 @@ test.describe('Nodes join command', () => {
   })
 
   test('does not advertise flags the CLI does not have', async ({ page }) => {
-    // The "How to Enable Distributed Mode" card renders ONLY on the disabled
-    // state, which the page enters when /api/nodes answers 503. Mocking a
-    // healthy cluster here would assert absence against a card that was never
-    // on the page.
+    // The scale-out card is opened from the local-machine view when the
+    // cluster API answers 503. A healthy cluster would test a different view.
     await page.route('**/api/nodes', r => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
     await page.route('**/api/nodes/models', r => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
     await page.route('**/api/nodes/scheduling', r => r.fulfill({ status: 503, contentType: 'application/json', body: '{}' }))
     await page.goto('/app/nodes')
 
-    const card = page.locator('.p2p-enable')
+    await page.getByRole('button', { name: 'Add machines' }).click()
+    const card = page.getByTestId('scale-out')
     await expect(card).toBeVisible({ timeout: 15_000 })
     // --distributed-nats and --distributed-db were never real flags; a copied
     // command carrying them fails at kong before LocalAI does anything.
