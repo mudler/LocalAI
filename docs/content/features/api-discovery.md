@@ -141,6 +141,11 @@ curl http://localhost:8080/api/instructions/config-management?format=json
 
 An additive, LocalAI-specific superset of `/v1/models`. It returns the same set of models but enriches each entry with the **capabilities** the model supports and the **input/output modalities** it accepts and produces. Use it to decide, before sending a request, whether a given model can take an image, audio, or video attachment directly - or whether the input needs converting/transcribing first.
 
+The reported `context_size` uses a positive model-level value first.
+If that value is missing or non-positive, it uses **Settings → Performance → Default Context Size** when positive.
+Otherwise, it uses the backend fallback of 4096 tokens.
+For llama.cpp with separate KV caches, the reported value accounts for the number of parallel slots.
+
 Because it is purely additive, clients that only understand `/v1/models` keep working unchanged; they simply never call this route.
 
 ```bash
