@@ -1,4 +1,46 @@
 ---
+- name: "ternary-bonsai-2-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
+  description: |
+    Ternary Bonsai 2 27B (PrismML) is a 27B-class reasoning model with ternary
+    transformer weights. This PTQ1_0 build packs the trits densely at 1.75 bits
+    per weight (5.95 GB) and includes the Q8_0 vision projector. PTQ1_0 is a
+    Prism-private GGUF type, so the entry uses the bonsai backend (PrismML's
+    llama.cpp fork) instead of stock llama.cpp.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+  icon: https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf/resolve/main/assets/bonsai-logo.svg
+  overrides:
+    backend: bonsai
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-PTQ1_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-PTQ1_0.gguf
+      sha256: 53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3
+      uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/main/Ternary-Bonsai-2-27B-PTQ1_0.gguf
+    - filename: llama-cpp/mmproj/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
+      sha256: 6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903
+      uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/main/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
 - name: "swift-qwen3.8-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
