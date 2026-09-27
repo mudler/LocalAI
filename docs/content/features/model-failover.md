@@ -231,6 +231,33 @@ While a chain is pinned, only the pinned target serves it. Health checks
 continue. On a single LocalAI instance, a restart removes the pin. In
 [distributed mode](#distributed-mode), pins persist.
 
+## In the UI
+
+- The model editor's template picker has a **Failover Chain** template that
+  starts a new model with two empty targets. Any model can also add a
+  `failover.targets` field directly: each row picks a target model and a
+  **warm** toggle, with move up/down and remove controls. The warm toggle is
+  disabled, with an explanation, for a target on a remote (`localai-proxy` or
+  `cloud-proxy`) backend, since `warm` has no effect there. The field flags
+  fewer than two targets, a duplicate target, and the chain naming itself as
+  one of its own targets.
+- Opening an existing chain in the model editor shows a health strip: the
+  chain's status pill, its active target and how long it has been active,
+  and a table of every target with its kind, warm flag, status, last probe
+  time and last error. An admin sees a **Pin** button on each target and an
+  **Unpin** action for the chain, both behind a confirmation dialog.
+- The **Failover** page (`/app/failover`, admin only, linked from the
+  console navigation) lists every chain with its status pill, active target,
+  a small pill per target, and time since the last switch. It links each
+  chain name to its model editor page and shows an empty state linking to
+  the failover template when no chains exist yet.
+- The Installed Models list badges a model that belongs to a chain with
+  `chain → <active target>`, next to the alias badge.
+- All of the above update live from the same event stream as
+  `GET /api/failover/events` — the strip, the overview page and the badge do
+  not need a page refresh to reflect a `chain.switched` or `target.state`
+  event.
+
 ## Assistant and MCP
 
 The LocalAI Assistant and `local-ai mcp-server` offer `list_failover_chains`,

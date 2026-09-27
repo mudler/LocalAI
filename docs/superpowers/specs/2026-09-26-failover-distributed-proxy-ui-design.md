@@ -228,8 +228,11 @@ With the option, `AudioTranscriptionLive` opens a WebSocket to
    (PCM float to PCM16 base64 at the session rate).
 3. Map `conversation.item.input_audio_transcription.delta` to `delta`, and
    `...completed` to `delta` (any remaining text) plus `eou: true`.
-4. When the gRPC send side closes, commit the buffer, wait for the final
-   completion, send `final_result` and close.
+4. When the gRPC send side closes, do **not** commit the buffer: the upstream
+   rejects a manual commit under server VAD. Instead wait up to 5 s for any
+   turn already in flight (speaking, stopped-but-not-committed, or committed
+   but not yet completed) to finish on its own, then send `final_result` and
+   close.
 5. An upstream error or disconnect ends the gRPC stream with `Unavailable`.
    Word timings and `eob` are not available from the upstream and stay empty.
 

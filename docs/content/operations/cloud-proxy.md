@@ -307,16 +307,21 @@ Supported APIs:
 - Stores: set, get, delete, find.
 
 Methods that have no REST API on the upstream return the gRPC error
-`Unimplemented` ("localai-proxy: <method> has no upstream counterpart"):
-audio encoding and decoding, audio-to-audio streams, token classification
-(PII NER), model metadata, fine-tuning, quantization and model export. A
-failover chain skips a target that returns `Unimplemented` and tries the next
-target, but does not mark the target down.
+`Unimplemented` ("localai-proxy: <method> has no upstream counterpart"). The
+upstream returning `501 Not Implemented` maps to the same code. Both mean a
+capability gap, not a broken target: audio encoding and decoding,
+audio-to-audio streams, token classification (PII NER), model metadata,
+fine-tuning, quantization and model export fall in this bucket. A failover
+chain skips a target that returns `Unimplemented` and tries the next target,
+but does not mark the target down.
 
-Errors from the upstream: a 5xx response or a connection failure becomes
-`Unavailable`, and a failover chain marks the target down. A 4xx response
-becomes `InvalidArgument`, and LocalAI returns it to the client without a
-retry.
+Errors from the upstream: a 5xx response (other than 501) or a connection
+failure becomes `Unavailable`, and a failover chain marks the target down. A
+4xx response becomes `InvalidArgument`, and LocalAI returns it to the client
+without a retry or a trip — except `429 Too Many Requests`, which becomes
+`ResourceExhausted`: the request itself is fine, the upstream is just out of
+capacity, so a failover chain retries it on the next target and trips the
+rate-limited one, moving traffic off it until it recovers.
 
 Known limits:
 
