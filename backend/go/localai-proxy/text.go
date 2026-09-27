@@ -203,9 +203,15 @@ func replyFromChoice(c textChoice, streaming bool) *pb.Reply {
 }
 
 func (p *LocalAIProxy) PredictRich(opts *pb.PredictOptions) (*pb.Reply, error) {
+	return p.PredictRichContext(context.Background(), opts)
+}
+
+// PredictRichContext is PredictRich bound to the gRPC call: when the caller
+// goes away, the upstream request is cancelled too.
+func (p *LocalAIProxy) PredictRichContext(ctx context.Context, opts *pb.PredictOptions) (*pb.Reply, error) {
 	path, body := p.textRequest(opts, false)
 	var resp textResponse
-	if err := p.postJSON(context.Background(), path, body, &resp); err != nil {
+	if err := p.postJSON(ctx, path, body, &resp); err != nil {
 		return nil, err
 	}
 	if len(resp.Choices) == 0 {
@@ -222,8 +228,15 @@ func (p *LocalAIProxy) PredictRich(opts *pb.PredictOptions) (*pb.Reply, error) {
 // PredictStreamRich sends one Reply per upstream SSE delta. It does not close
 // results: the gRPC server does, after this returns.
 func (p *LocalAIProxy) PredictStreamRich(opts *pb.PredictOptions, results chan<- *pb.Reply) error {
+	return p.PredictStreamRichContext(context.Background(), opts, results)
+}
+
+// PredictStreamRichContext is PredictStreamRich bound to the gRPC stream: a
+// client that disconnects, or a failover that abandons this target, stops the
+// upstream generation instead of letting it run (and bill) to the end.
+func (p *LocalAIProxy) PredictStreamRichContext(ctx context.Context, opts *pb.PredictOptions, results chan<- *pb.Reply) error {
 	path, body := p.textRequest(opts, true)
-	resp, err := p.postStream(context.Background(), path, body)
+	resp, err := p.postStream(ctx, path, body)
 	if err != nil {
 		return err
 	}

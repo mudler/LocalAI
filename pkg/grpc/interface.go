@@ -104,6 +104,16 @@ type AIModelRich interface {
 	PredictStreamRich(*pb.PredictOptions, chan<- *pb.Reply) error
 }
 
+// AIModelRichContext is an optional extension to AIModelRich for backends
+// whose work outlives a plain function call, such as a proxy waiting on a
+// remote server. The gRPC server prefers it and passes the call's context, so
+// a caller that disconnects or gives up stops the work instead of letting it
+// run to the end. The channel contract is the same as PredictStreamRich.
+type AIModelRichContext interface {
+	PredictRichContext(context.Context, *pb.PredictOptions) (*pb.Reply, error)
+	PredictStreamRichContext(context.Context, *pb.PredictOptions, chan<- *pb.Reply) error
+}
+
 // ClassifyModel is an optional extension to AIModel for backends that
 // implement the TokenClassify RPC (zero-shot NER). The gRPC server
 // type-asserts to this interface; backends that do not implement it

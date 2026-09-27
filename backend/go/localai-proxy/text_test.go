@@ -285,6 +285,44 @@ var _ = Describe("localai-proxy", func() {
 			Expect(string((<-results).GetMessage())).To(Equal("b"))
 		})
 
+		It("stops the upstream request when the caller cancels", func() {
+			upstreamGone := make(chan struct{})
+			slow := newFakeUpstreamWithHandler(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/event-stream")
+				_, _ = w.Write([]byte("data: " + sseJSON(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": "a"}}}}) + "\n\n"))
+				w.(http.Flusher).Flush()
+				// A generation that outlasts the spec unless the proxy hangs up.
+				select {
+				case <-r.Context().Done():
+					close(upstreamGone)
+				case <-time.After(8 * time.Second):
+				}
+			})
+			DeferCleanup(slow.Close)
+			p := loadProxy(slow, nil)
+
+			addr := "test://localai-proxy-cancel"
+			grpc.Provide(addr, p)
+			client := grpc.NewClient(addr, true, nil, false)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			errCh := make(chan error, 1)
+			first := make(chan struct{}, 1)
+			go func() {
+				errCh <- client.PredictStream(ctx, &pb.PredictOptions{Messages: []*pb.Message{{Role: "user", Content: "hi"}}}, func(*pb.Reply) {
+					select {
+					case first <- struct{}{}:
+					default:
+					}
+				})
+			}()
+
+			Eventually(first, 5*time.Second).Should(Receive())
+			cancel()
+			Eventually(upstreamGone, 5*time.Second).Should(BeClosed(), "the upstream generation must stop with the caller")
+			Eventually(errCh, 5*time.Second).Should(Receive(HaveOccurred()))
+		})
+
 		It("returns a mid-stream upstream error frame as Unavailable", func() {
 			p := loadProxy(up, nil)
 			up.script("/v1/chat/completions", scriptedResponse{SSE: []string{

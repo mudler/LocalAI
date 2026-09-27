@@ -176,6 +176,9 @@ func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply,
 		s.llm.Lock()
 		defer s.llm.Unlock()
 	}
+	if rich, ok := s.llm.(AIModelRichContext); ok {
+		return rich.PredictRichContext(ctx, in)
+	}
 	if rich, ok := s.llm.(AIModelRich); ok {
 		return rich.PredictRich(in)
 	}
@@ -580,7 +583,12 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 		// Server-side close: PredictStreamRich implementations send into
 		// the channel and return when finished; closing is the host's
 		// concern so impls don't have to remember `defer close(...)`.
-		err := rich.PredictStreamRich(in, replyChan)
+		var err error
+		if withCtx, ok := s.llm.(AIModelRichContext); ok {
+			err = withCtx.PredictStreamRichContext(stream.Context(), in, replyChan)
+		} else {
+			err = rich.PredictStreamRich(in, replyChan)
+		}
 		close(replyChan)
 		<-done
 		return err

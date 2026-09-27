@@ -30,3 +30,7 @@ func main() {
 		panic(err)
 	}
 }
+
+// The gRPC server only passes the call's context to backends that implement
+// this, so keep the proxy on it.
+var _ grpc.AIModelRichContext = (*LocalAIProxy)(nil)
