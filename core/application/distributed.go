@@ -379,9 +379,13 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// All dependencies ready — build SmartRouter with all options at once
 	var conflictResolver nodes.ConcurrencyConflictResolver
 	var pinnedResolver nodes.PinnedModelResolver
+	var modelFiles func(string) []string
 	if configLoader != nil {
 		conflictResolver = configLoader
 		pinnedResolver = configLoader
+		if cfg.SystemState != nil {
+			modelFiles = declaredModelFiles(configLoader, cfg.SystemState.Model.ModelsPath)
+		}
 	}
 	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
@@ -393,6 +397,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		DB:               authDB,
 		ConflictResolver: conflictResolver,
 		PinnedResolver:   pinnedResolver,
+		ModelFiles:       modelFiles,
 		PrefixProvider:   prefixProvider,
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,
