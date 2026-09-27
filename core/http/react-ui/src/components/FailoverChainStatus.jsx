@@ -13,8 +13,9 @@ const UNITS = [
 ]
 
 // Localized "5 minutes ago" from an RFC 3339 timestamp. Intl keeps the phrase
-// in the viewer's language without a translation key per unit.
-function relative(ts, lng) {
+// in the viewer's language without a translation key per unit. Exported so
+// other failover surfaces (the overview table) share the same phrasing.
+export function relative(ts, lng) {
   const ms = Date.parse(ts)
   if (!ms) return null
   const seconds = Math.round((ms - Date.now()) / 1000)

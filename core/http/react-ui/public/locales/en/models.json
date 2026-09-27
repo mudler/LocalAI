@@ -40,7 +40,8 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
@@ -286,6 +287,22 @@
     "errors": {
       "pin": "Pin failed: {{error}}",
       "unpin": "Unpin failed: {{error}}"
+    },
+    "overview": {
+      "title": "Failover chains",
+      "subtitle": "Live health and the active target for every failover chain.",
+      "columns": {
+        "chain": "Chain",
+        "state": "State",
+        "active": "Active target",
+        "targets": "Targets",
+        "changed": "Changed"
+      },
+      "empty": {
+        "title": "No failover chains yet",
+        "text": "Add a failover chain to route around unhealthy targets automatically.",
+        "cta": "Create a failover chain"
+      }
     }
   }
 }

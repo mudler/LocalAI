@@ -40,7 +40,8 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
@@ -269,6 +270,22 @@
     "errors": {
       "pin": "固定失败：{{error}}",
       "unpin": "取消固定失败：{{error}}"
+    },
+    "overview": {
+      "title": "故障转移链",
+      "subtitle": "每条故障转移链的实时健康状态和当前目标。",
+      "columns": {
+        "chain": "链",
+        "state": "状态",
+        "active": "当前目标",
+        "targets": "目标",
+        "changed": "变更时间"
+      },
+      "empty": {
+        "title": "尚无故障转移链",
+        "text": "添加故障转移链以自动绕过不健康的目标。",
+        "cta": "创建故障转移链"
+      }
     }
   }
 }

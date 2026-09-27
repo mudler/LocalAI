@@ -40,7 +40,8 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
@@ -269,6 +270,22 @@
     "errors": {
       "pin": "No se pudo fijar: {{error}}",
       "unpin": "No se pudo liberar: {{error}}"
+    },
+    "overview": {
+      "title": "Cadenas de failover",
+      "subtitle": "Estado en vivo y destino activo de cada cadena de failover.",
+      "columns": {
+        "chain": "Cadena",
+        "state": "Estado",
+        "active": "Destino activo",
+        "targets": "Destinos",
+        "changed": "Cambiado"
+      },
+      "empty": {
+        "title": "Aún no hay cadenas de failover",
+        "text": "Agrega una cadena de failover para evitar automáticamente los destinos en mal estado.",
+        "cta": "Crear una cadena de failover"
+      }
     }
   }
 }

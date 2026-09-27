@@ -40,7 +40,8 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
@@ -253,6 +254,22 @@
     "errors": {
       "pin": "고정 실패: {{error}}",
       "unpin": "고정 해제 실패: {{error}}"
+    },
+    "overview": {
+      "title": "페일오버 체인",
+      "subtitle": "모든 페일오버 체인의 실시간 상태와 활성 대상입니다.",
+      "columns": {
+        "chain": "체인",
+        "state": "상태",
+        "active": "활성 대상",
+        "targets": "대상",
+        "changed": "변경됨"
+      },
+      "empty": {
+        "title": "아직 페일오버 체인이 없습니다",
+        "text": "상태가 나빌 대상을 자동으로 우회하려면 페일오버 체인을 추가하세요.",
+        "cta": "페일오버 체인 만들기"
+      }
     }
   }
 }

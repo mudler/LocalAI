@@ -60,7 +60,8 @@
     "middleware": "Middleware",
     "activity": "Attività",
     "overview": "Panoramica",
-    "thisMachine": "Questa macchina"
+    "thisMachine": "Questa macchina",
+    "failover": "Failover"
   },
   "footer": {
     "github": "GitHub",

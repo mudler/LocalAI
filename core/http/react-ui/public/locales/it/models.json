@@ -40,7 +40,8 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
@@ -269,6 +270,22 @@
     "errors": {
       "pin": "Fissaggio non riuscito: {{error}}",
       "unpin": "Sblocco non riuscito: {{error}}"
+    },
+    "overview": {
+      "title": "Catene di failover",
+      "subtitle": "Stato in tempo reale e destinazione attiva per ogni catena di failover.",
+      "columns": {
+        "chain": "Catena",
+        "state": "Stato",
+        "active": "Destinazione attiva",
+        "targets": "Destinazioni",
+        "changed": "Cambiato"
+      },
+      "empty": {
+        "title": "Nessuna catena di failover",
+        "text": "Aggiungi una catena di failover per aggirare automaticamente le destinazioni non integre.",
+        "cta": "Crea una catena di failover"
+      }
     }
   }
 }

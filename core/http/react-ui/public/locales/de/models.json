@@ -40,7 +40,8 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
@@ -269,6 +270,22 @@
     "errors": {
       "pin": "Fixieren fehlgeschlagen: {{error}}",
       "unpin": "Lösen fehlgeschlagen: {{error}}"
+    },
+    "overview": {
+      "title": "Failover-Ketten",
+      "subtitle": "Live-Zustand und aktives Ziel für jede Failover-Kette.",
+      "columns": {
+        "chain": "Kette",
+        "state": "Status",
+        "active": "Aktives Ziel",
+        "targets": "Ziele",
+        "changed": "Geändert"
+      },
+      "empty": {
+        "title": "Noch keine Failover-Ketten",
+        "text": "Fügen Sie eine Failover-Kette hinzu, um fehlerhafte Ziele automatisch zu umgehen.",
+        "cta": "Failover-Kette erstellen"
+      }
     }
   }
 }
