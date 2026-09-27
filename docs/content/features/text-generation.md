@@ -434,6 +434,11 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+For streaming requests with JSON tool output, LocalAI waits for the complete JSON
+object before emitting a completed `function_call` item. Arguments can span
+multiple tokens. Read the arguments from the `response.output_item.done` event
+before executing the tool.
+
 #### Reasoning Configuration
 
 Configure reasoning effort and summary style:
