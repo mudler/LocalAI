@@ -711,7 +711,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		var gateErr error
 		if session.voiceGate != nil {
 			_, gateErr = backend.PreloadStages(context.Background(), application.ModelLoader(), application.ApplicationConfig(), []backend.PreloadStage{
-				{Role: "voice_recognition", Cfg: session.voiceGate.recCfg},
+				{Role: config.PipelineStageVoiceRecognition, Cfg: session.voiceGate.recCfg},
 			})
 		}
 		if err := errors.Join(<-warmErr, gateErr); err != nil {

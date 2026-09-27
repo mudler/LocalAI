@@ -118,7 +118,7 @@ type transcriptOnlyModel struct {
 
 func (m *transcriptOnlyModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
 	var res *schema.VADResponse
-	err := m.stageCall(ctx, "vad", m.VADConfig, func(cfg *config.ModelConfig, _ func()) error {
+	err := m.stageCall(ctx, config.PipelineStageVAD, m.VADConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
 		res, err = backend.VAD(request, ctx, m.modelLoader, m.appConfig, *cfg)
 		return err
@@ -128,7 +128,7 @@ func (m *transcriptOnlyModel) VAD(ctx context.Context, request *schema.VADReques
 
 func (m *transcriptOnlyModel) Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error) {
 	var res *schema.TranscriptionResult
-	err := m.stageCall(ctx, "transcription", m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
+	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
 		res, err = backend.ModelTranscription(ctx, audio, language, translate, diarize, prompt, m.modelLoader, *cfg, m.appConfig)
 		return err
@@ -138,7 +138,7 @@ func (m *transcriptOnlyModel) Transcribe(ctx context.Context, audio, language st
 
 func (m *transcriptOnlyModel) SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error) {
 	var res *schema.SoundClassificationResult
-	err := m.stageCall(ctx, "sound_detection", m.SoundDetectionConfig, func(cfg *config.ModelConfig, _ func()) error {
+	err := m.stageCall(ctx, config.PipelineStageSoundDetection, m.SoundDetectionConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
 		res, err = modelSoundDetection(ctx, m.modelLoader, m.appConfig, cfg, audio, topK, threshold)
 		return err
@@ -171,7 +171,7 @@ func (m *transcriptOnlyModel) TTSStream(ctx context.Context, text, voice, langua
 
 func (m *transcriptOnlyModel) TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
 	var res *schema.TranscriptionResult
-	err := m.stageCall(ctx, "transcription", m.TranscriptionConfig, func(cfg *config.ModelConfig, commit func()) error {
+	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, commit func()) error {
 		var err error
 		res, err = transcribeStream(ctx, m.modelLoader, *cfg, m.appConfig, audio, language, translate, diarize, prompt, func(s string) {
 			commit()
@@ -185,7 +185,7 @@ func (m *transcriptOnlyModel) TranscribeStream(ctx context.Context, audio, langu
 func (m *transcriptOnlyModel) TranscribeLive(ctx context.Context, language string, onEvent func(backend.LiveTranscriptionEvent)) (backend.LiveTranscriptionSession, error) {
 	var live backend.LiveTranscriptionSession
 	// Only opening the live session can move to the next target.
-	err := m.stageCall(ctx, "transcription", m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
+	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
 		live, err = backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *cfg, m.appConfig, onEvent)
 		return err
@@ -199,15 +199,15 @@ func (m *transcriptOnlyModel) PredictConfig() *config.ModelConfig {
 
 func (m *transcriptOnlyModel) Warmup(ctx context.Context) error {
 	return m.warmStages(ctx, m.modelLoader, m.appConfig, []backend.PreloadStage{
-		{Role: "vad", Cfg: m.VADConfig},
-		{Role: "transcription", Cfg: m.TranscriptionConfig},
-		{Role: "sound_detection", Cfg: m.SoundDetectionConfig},
+		{Role: config.PipelineStageVAD, Cfg: m.VADConfig},
+		{Role: config.PipelineStageTranscription, Cfg: m.TranscriptionConfig},
+		{Role: config.PipelineStageSoundDetection, Cfg: m.SoundDetectionConfig},
 	})
 }
 
 func (m *wrappedModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
 	var res *schema.VADResponse
-	err := m.stageCall(ctx, "vad", m.VADConfig, func(cfg *config.ModelConfig, _ func()) error {
+	err := m.stageCall(ctx, config.PipelineStageVAD, m.VADConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
 		res, err = backend.VAD(request, ctx, m.modelLoader, m.appConfig, *cfg)
 		return err
@@ -217,7 +217,7 @@ func (m *wrappedModel) VAD(ctx context.Context, request *schema.VADRequest) (*sc
 
 func (m *wrappedModel) Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error) {
 	var res *schema.TranscriptionResult
-	err := m.stageCall(ctx, "transcription", m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
+	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
 		res, err = backend.ModelTranscription(ctx, audio, language, translate, diarize, prompt, m.modelLoader, *cfg, m.appConfig)
 		return err
@@ -227,7 +227,7 @@ func (m *wrappedModel) Transcribe(ctx context.Context, audio, language string, t
 
 func (m *wrappedModel) SoundDetection(ctx context.Context, audio string, topK int, threshold float32) (*schema.SoundClassificationResult, error) {
 	var res *schema.SoundClassificationResult
-	err := m.stageCall(ctx, "sound_detection", m.SoundDetectionConfig, func(cfg *config.ModelConfig, _ func()) error {
+	err := m.stageCall(ctx, config.PipelineStageSoundDetection, m.SoundDetectionConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
 		res, err = modelSoundDetection(ctx, m.modelLoader, m.appConfig, cfg, audio, topK, threshold)
 		return err
@@ -269,13 +269,13 @@ func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, im
 
 	// A routed turn dispatches to the router's pick: chains as router
 	// candidates are not resolved here.
-	if routed || !m.isChainStage("llm") {
+	if routed || !m.isChainStage(config.PipelineStageLLM) {
 		return infer(turnCfg, tokenCallback)
 	}
 
 	return func() (backend.LLMResponse, error) {
 		var resp backend.LLMResponse
-		err := m.stageCall(ctx, "llm", turnCfg, func(cfg *config.ModelConfig, commit func()) error {
+		err := m.stageCall(ctx, config.PipelineStageLLM, turnCfg, func(cfg *config.ModelConfig, commit func()) error {
 			if m.tuneLLM != nil {
 				m.tuneLLM(cfg)
 			}
@@ -513,7 +513,7 @@ func (m *wrappedModel) TTS(ctx context.Context, text, voice, language string) (s
 		out string
 		res *proto.Result
 	)
-	err := m.stageCall(ctx, "tts", m.TTSConfig, func(cfg *config.ModelConfig, _ func()) error {
+	err := m.stageCall(ctx, config.PipelineStageTTS, m.TTSConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
 		out, res, err = backend.ModelTTS(ctx, text, voice, language, "", maps.Clone(m.ttsParams), m.modelLoader, m.appConfig, *cfg)
 		return err
@@ -526,7 +526,7 @@ func (m *wrappedModel) setTTSParams(params map[string]string) {
 }
 
 func (m *wrappedModel) TTSStream(ctx context.Context, text, voice, language string, onAudio func(pcm []byte, sampleRate int) error) error {
-	return m.stageCall(ctx, "tts", m.TTSConfig, func(cfg *config.ModelConfig, commit func()) error {
+	return m.stageCall(ctx, config.PipelineStageTTS, m.TTSConfig, func(cfg *config.ModelConfig, commit func()) error {
 		// Audio that reached the client cannot be taken back, so the first
 		// chunk ends the retries.
 		return ttsStream(ctx, m.modelLoader, m.appConfig, *cfg, text, voice, language, maps.Clone(m.ttsParams), func(pcm []byte, sr int) error {
@@ -562,7 +562,7 @@ func resolveRealtimeVoice(ctx context.Context, configuredVoice string, ttsConfig
 
 func (m *wrappedModel) TranscribeStream(ctx context.Context, audio, language string, translate, diarize bool, prompt string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
 	var res *schema.TranscriptionResult
-	err := m.stageCall(ctx, "transcription", m.TranscriptionConfig, func(cfg *config.ModelConfig, commit func()) error {
+	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, commit func()) error {
 		var err error
 		res, err = transcribeStream(ctx, m.modelLoader, *cfg, m.appConfig, audio, language, translate, diarize, prompt, func(s string) {
 			commit()
@@ -577,7 +577,7 @@ func (m *wrappedModel) TranscribeLive(ctx context.Context, language string, onEv
 	var live backend.LiveTranscriptionSession
 	// Only opening the live session can move to the next target: once it is
 	// open, events flow to the client for the rest of the utterance.
-	err := m.stageCall(ctx, "transcription", m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
+	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
 		live, err = backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *cfg, m.appConfig, onEvent)
 		return err
@@ -830,11 +830,11 @@ func (m *wrappedModel) FillToolArguments(ctx context.Context, messages schema.Me
 
 func (m *wrappedModel) Warmup(ctx context.Context) error {
 	stages := []backend.PreloadStage{
-		{Role: "vad", Cfg: m.VADConfig},
-		{Role: "transcription", Cfg: m.TranscriptionConfig},
-		{Role: "llm", Cfg: m.LLMConfig},
-		{Role: "tts", Cfg: m.TTSConfig},
-		{Role: "sound_detection", Cfg: m.SoundDetectionConfig},
+		{Role: config.PipelineStageVAD, Cfg: m.VADConfig},
+		{Role: config.PipelineStageTranscription, Cfg: m.TranscriptionConfig},
+		{Role: config.PipelineStageLLM, Cfg: m.LLMConfig},
+		{Role: config.PipelineStageTTS, Cfg: m.TTSConfig},
+		{Role: config.PipelineStageSoundDetection, Cfg: m.SoundDetectionConfig},
 	}
 	// The scoring model is a separate stage only when it isn't the LLM.
 	if m.ScoreConfig != nil && m.ScoreConfig != m.LLMConfig {
@@ -937,7 +937,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 	sr := newStageRouter(fm, cl, ml, appConfig)
 	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err == nil {
-		cfgVAD, err = sr.resolveStage("vad", cfgVAD)
+		cfgVAD, err = sr.resolveStage(config.PipelineStageVAD, cfgVAD)
 	}
 	if err != nil {
 
@@ -950,7 +950,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 
 	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err == nil {
-		cfgSST, err = sr.resolveStage("transcription", cfgSST)
+		cfgSST, err = sr.resolveStage(config.PipelineStageTranscription, cfgSST)
 	}
 	if err != nil {
 
@@ -963,7 +963,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 
 	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
 	if err == nil {
-		cfgSound, err = sr.resolveStage("sound_detection", cfgSound)
+		cfgSound, err = sr.resolveStage(config.PipelineStageSoundDetection, cfgSound)
 	}
 	if err != nil {
 		return nil, nil, err
@@ -990,7 +990,7 @@ func newSoundDetectionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfi
 	sr := newStageRouter(fm, cl, ml, appConfig)
 	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
 	if err == nil {
-		cfgSound, err = sr.resolveStage("sound_detection", cfgSound)
+		cfgSound, err = sr.resolveStage(config.PipelineStageSoundDetection, cfgSound)
 	}
 	if err != nil {
 		return nil, err
@@ -1059,7 +1059,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 
 	cfgVAD, err := cl.LoadResolvedModelConfig(pipeline.VAD, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err == nil {
-		cfgVAD, err = resolveStage("vad", cfgVAD)
+		cfgVAD, err = resolveStage(config.PipelineStageVAD, cfgVAD)
 	}
 	if err != nil {
 
@@ -1073,7 +1073,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process
 	cfgSST, err := cl.LoadResolvedModelConfig(pipeline.Transcription, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err == nil {
-		cfgSST, err = resolveStage("transcription", cfgSST)
+		cfgSST, err = resolveStage(config.PipelineStageTranscription, cfgSST)
 	}
 	if err != nil {
 
@@ -1108,7 +1108,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
 	cfgLLM, err := cl.LoadResolvedModelConfig(pipeline.LLM, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err == nil {
-		cfgLLM, err = resolveStage("llm", cfgLLM)
+		cfgLLM, err = resolveStage(config.PipelineStageLLM, cfgLLM)
 	}
 	if err != nil {
 
@@ -1130,7 +1130,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 
 	cfgTTS, err := cl.LoadResolvedModelConfig(pipeline.TTS, ml.ModelPath, appConfig.ToConfigLoaderOptions()...)
 	if err == nil {
-		cfgTTS, err = resolveStage("tts", cfgTTS)
+		cfgTTS, err = resolveStage(config.PipelineStageTTS, cfgTTS)
 	}
 	if err != nil {
 
@@ -1143,7 +1143,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 
 	cfgSound, err := loadSoundDetectionConfig(pipeline, cl, ml, appConfig)
 	if err == nil {
-		cfgSound, err = resolveStage("sound_detection", cfgSound)
+		cfgSound, err = resolveStage(config.PipelineStageSoundDetection, cfgSound)
 	}
 	if err != nil {
 		return nil, err

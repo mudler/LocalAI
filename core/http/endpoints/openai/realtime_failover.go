@@ -19,7 +19,7 @@ import (
 // embeds one, so a chain resolves the same way whatever the session does.
 type stageRouter struct {
 	// failover and stageChains route pipeline stages that name a failover
-	// chain; stageChains maps a stage ("llm", "tts", ...) to its chain.
+	// chain; stageChains maps a stage (config.PipelineStage*) to its chain.
 	// The model's *Config fields then hold the target that was active at
 	// session start, for the checks that run once (voice, templates).
 	failover          *failover.Manager

@@ -39,14 +39,14 @@ var _ = Describe("realtime failover", func() {
 	})
 
 	chainModel := func() *wrappedModel {
-		return &wrappedModel{stageRouter: stageRouter{failover: fm, stageChains: map[string]string{"tts": "chain"},
+		return &wrappedModel{stageRouter: stageRouter{failover: fm, stageChains: map[string]string{config.PipelineStageTTS: "chain"},
 			stageTargetConfig: func(name string) (*config.ModelConfig, error) { return &config.ModelConfig{Name: name}, nil }}}
 	}
 
 	It("routes a chain stage through the plan and retries before commit", func() {
 		m := chainModel()
 		var tried []string
-		err := m.stageCall(context.Background(), "tts", nil, func(cfg *config.ModelConfig, _ func()) error {
+		err := m.stageCall(context.Background(), config.PipelineStageTTS, nil, func(cfg *config.ModelConfig, _ func()) error {
 			tried = append(tried, cfg.Name)
 			if cfg.Name == "a" {
 				return errors.New("dial tcp: refused")
@@ -60,7 +60,7 @@ var _ = Describe("realtime failover", func() {
 	It("does not retry a chain stage once output was committed", func() {
 		m := chainModel()
 		var tried []string
-		err := m.stageCall(context.Background(), "tts", nil, func(cfg *config.ModelConfig, commit func()) error {
+		err := m.stageCall(context.Background(), config.PipelineStageTTS, nil, func(cfg *config.ModelConfig, commit func()) error {
 			tried = append(tried, cfg.Name)
 			commit()
 			return errors.New("dial tcp: refused")
@@ -73,7 +73,7 @@ var _ = Describe("realtime failover", func() {
 		m := &wrappedModel{}
 		base := &config.ModelConfig{Name: "plain"}
 		calls := 0
-		err := m.stageCall(context.Background(), "tts", base, func(cfg *config.ModelConfig, _ func()) error {
+		err := m.stageCall(context.Background(), config.PipelineStageTTS, base, func(cfg *config.ModelConfig, _ func()) error {
 			calls++
 			Expect(cfg).To(BeIdenticalTo(base))
 			return nil
@@ -93,7 +93,7 @@ var _ = Describe("realtime failover", func() {
 			}
 			return out
 		}
-		stop := startFailoverEvents(t, fm, map[string]string{"llm": "chain"})
+		stop := startFailoverEvents(t, fm, map[string]string{config.PipelineStageLLM: "chain"})
 		Eventually(failoverEvents).Should(ContainElement(And(
 			HaveField("Reason", "initial"), HaveField("To", "a"), HaveField("Stage", "llm"))))
 		fm.ReportFailure("a", errors.New("dial tcp: refused"))
@@ -150,7 +150,7 @@ var _ = Describe("realtime failover in transcription-only and sound-only session
 		Expect(err).ToNot(HaveOccurred())
 		tm := m.(*transcriptOnlyModel)
 		Expect(tm.SoundDetectionConfig.Name).To(Equal("sound-a"))
-		Expect(tm.stageChains).To(Equal(map[string]string{"sound_detection": "sound-chain"}))
+		Expect(tm.stageChains).To(Equal(map[string]string{config.PipelineStageSoundDetection: "sound-chain"}))
 
 		var tried []string
 		tm.stageTargetConfig = func(name string) (*config.ModelConfig, error) {
@@ -176,7 +176,7 @@ var _ = Describe("realtime failover in transcription-only and sound-only session
 		Expect(cfg.Name).To(Equal("stt-a"))
 		tm := m.(*transcriptOnlyModel)
 		Expect(tm.VADConfig.Name).To(Equal("vad"))
-		Expect(tm.stageChains).To(Equal(map[string]string{"transcription": "stt-chain"}))
+		Expect(tm.stageChains).To(Equal(map[string]string{config.PipelineStageTranscription: "stt-chain"}))
 
 		var tried []string
 		tm.stageTargetConfig = func(name string) (*config.ModelConfig, error) {

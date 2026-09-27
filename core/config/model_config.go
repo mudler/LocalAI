@@ -800,6 +800,18 @@ type MCPSTDIOServer struct {
 	Command string            `json:"command,omitempty"`
 }
 
+// Pipeline stage names. They match the Pipeline yaml keys and are the stage
+// identifiers the realtime endpoint routes by (failover chains per stage,
+// model_failover events, preload roles), so every user shares one spelling.
+const (
+	PipelineStageVAD              = "vad"
+	PipelineStageTranscription    = "transcription"
+	PipelineStageLLM              = "llm"
+	PipelineStageTTS              = "tts"
+	PipelineStageSoundDetection   = "sound_detection"
+	PipelineStageVoiceRecognition = "voice_recognition"
+)
+
 // @Description Pipeline defines other models to use for audio-to-audio
 type Pipeline struct {
 	TTS           string `yaml:"tts,omitempty" json:"tts,omitempty"`
