@@ -116,6 +116,14 @@ type FunctionsConfig struct {
 	// - Parses tool calls from response content even when no tools were in the request
 	AutomaticToolParsingFallback bool `yaml:"automatic_tool_parsing_fallback,omitempty" json:"automatic_tool_parsing_fallback,omitempty"`
 
+	// DisableToolCallValidation keeps tool calls that LocalAI parsed from the
+	// model's text even when they do not fit the request's tools. By default a
+	// call parsed from text without a grammar (the backend's parser found no
+	// tool call) is checked against the declared schemas: an unknown tool, an
+	// unknown argument or a missing required one drops the call, and the text
+	// is returned as content instead. See ValidateFuncCall.
+	DisableToolCallValidation bool `yaml:"disable_tool_call_validation,omitempty" json:"disable_tool_call_validation,omitempty"`
+
 	// DisablePEGParser disables the PEG parser and falls back to the legacy iterative parser
 	DisablePEGParser bool `yaml:"disable_peg_parser,omitempty" json:"disable_peg_parser,omitempty"`
 
