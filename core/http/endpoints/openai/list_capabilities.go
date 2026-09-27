@@ -36,6 +36,12 @@ func ListModelCapabilitiesEndpoint(bcl *config.ModelConfigLoader, ml *model.Mode
 		for _, m := range modelNames {
 			entry := schema.ModelCapabilities{ID: m, Object: "model"}
 			if cfg, ok := modelConfigFor(bcl, m); ok {
+				// Mirror the request path: SetDefaults applies the application
+				// default only when the model leaves context_size unset. An
+				// explicit 0 or -1 falls through to the backend fallback there.
+				if cfg.ContextSize == nil && appConfig != nil && appConfig.ContextSize > 0 {
+					cfg.ContextSize = &appConfig.ContextSize
+				}
 				entry.Capabilities = cfg.Capabilities()
 				entry.ThreeDOperations = cfg.ThreeDOperations()
 				entry.InputModalities = cfg.InputModalities()
