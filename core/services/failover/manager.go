@@ -87,7 +87,10 @@ type Manager struct {
 }
 
 type targetState struct {
-	name          string
+	name string
+	// serving is the model that serves this target: its own name, or the
+	// model an alias points to. Model loading and eviction only know it.
+	serving       string
 	kind          Kind
 	warm          bool
 	state         TargetState
@@ -196,6 +199,7 @@ func (m *Manager) syncLocked() {
 				continue
 			}
 			ts.kind = KindOf(tc)
+			ts.serving = tc.Name
 			if t.Warm && ts.kind == KindLocal {
 				ts.warm = true
 			}
@@ -224,9 +228,9 @@ func (m *Manager) syncLocked() {
 		m.recomputeLocked(ch, "")
 	}
 	var warm []string
-	for name, ts := range m.targets {
-		if ts.warm {
-			warm = append(warm, name)
+	for _, ts := range m.targets {
+		if ts.warm && ts.serving != "" && !slices.Contains(warm, ts.serving) {
+			warm = append(warm, ts.serving)
 		}
 	}
 	sort.Strings(warm)

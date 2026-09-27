@@ -248,6 +248,18 @@ var _ = Describe("Manager", func() {
 		Expect(m.WarmTargets()).To(Equal([]string{"b"}))
 	})
 
+	It("reports the model an alias target serves from as warm, not the alias", func() {
+		var got []string
+		m = New(src, WithClock(clock), WithOnWarmChanged(func(w []string) { got = w }))
+		// The preloader and the eviction guard work on loaded model names; an
+		// alias is never loaded under its own name.
+		src.Put(config.ModelConfig{Name: "al", Alias: "b"})
+		src.Put(chainCfg("chain", nil, t("a"), warmT("al")))
+		m.Sync()
+		Expect(got).To(Equal([]string{"b"}))
+		Expect(m.WarmTargets()).To(Equal([]string{"b"}))
+	})
+
 	It("closes a subscription on cancel", func() {
 		events, cancel := m.Subscribe(1)
 		cancel()
