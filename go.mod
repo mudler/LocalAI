@@ -238,7 +238,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260927200938-f2a2af4e982c
+	github.com/mudler/LocalAGI v0.0.0-20260927202351-7e0947d7ebca
 	github.com/mudler/localrecall v0.6.5 // indirect
 	github.com/mudler/skillserver v0.0.7-0.20260520220837-a7317cbf9145
 	github.com/olekukonko/tablewriter v0.0.5 // indirect

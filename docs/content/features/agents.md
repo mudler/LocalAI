@@ -188,6 +188,10 @@ Each agent has its own configuration that controls its behavior. Key settings in
 - **Connectors** - external integrations (Slack, Discord, etc.)
 - **Knowledge Base** - collections of documents for RAG
 - **MCP Servers** - Model Context Protocol servers for additional tool access
+- **Allowed / Excluded Tools** (`allowed_tools`, `excluded_tools`) - limit the tools the agent can see, including MCP tools. The agent always keeps its control actions (`send_message`, `stop`, `update_state`). If a tool is in both lists, it is excluded.
+- **Required Tool Before Finish** (`required_tool_before_finish`) - a tool the agent must call successfully before it can give its final answer, for example a validation or policy check. `required_tool_before_finish_prompt` changes the reminder the model gets when it tries to finish early. `required_tool_before_finish_attempts` sets how many reminders it gets before the answer goes through anyway (default 3).
+
+The tool lists and the required-tool settings are available only in single-node mode. The agent form in distributed mode does not show them yet.
 
 The pool-level defaults (API URL, API key, models) can be set via environment variables. Individual agents can further override these in their configuration, allowing them to use different LLM providers (OpenAI, other LocalAI instances, etc.) on a per-agent basis.
 
