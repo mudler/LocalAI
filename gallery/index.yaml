@@ -574,6 +574,102 @@
     - filename: mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
       sha256: ff348f3180a63188aa7285db85f550fe38acb61dd013c599eb8bad08d2cc2576
       uri: https://huggingface.co/bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF/resolve/4371da10c84fb26da3592d4cf312d24aa82b7b65/mmproj-MiMo-V2.6-Distill-Qwen-9B-f16.gguf
+- name: thinkingcap-qwen3.8-27b
+  variants:
+    - model: thinkingcap-qwen3.8-27b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B
+    - https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF
+  description: |
+    ThinkingCap is a 27B Qwen3.8 fine-tune trained to reduce reasoning tokens, with text and image input.
+    This Q4_K_M GGUF build uses llama.cpp, the embedded chat template, and the F16 vision projector.
+    Licensed under PolyForm Small Business 1.0.0 with the publisher's personal-use grant; see the model license for permitted use.
+  license: polyform-small-business-1.0.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+    - reasoning
+  last_checked: "2026-09-27"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: ThinkingCap-Qwen3.8-27B-Q4_K_M.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+  files:
+    - filename: ThinkingCap-Qwen3.8-27B-Q4_K_M.gguf
+      sha256: fafa890ce2ce8531b4ade225c7dbd5f5d72a92303ca9ef72890c6cf78f19f299
+      uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/resolve/108ff8f24ce8e9335fbf308844cd3c59c13380a4/ThinkingCap-Qwen3.8-27B-Q4_K_M.gguf
+    - filename: mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+      sha256: 98fa9aad59b42449786a16bbce96bcd92204d03cac0aee0cdccca711c2adefd1
+      uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/resolve/108ff8f24ce8e9335fbf308844cd3c59c13380a4/mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+- name: thinkingcap-qwen3.8-27b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B
+    - https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF
+  description: |
+    ThinkingCap is a 27B Qwen3.8 fine-tune trained to reduce reasoning tokens, with text and image input.
+    This Q8_0 GGUF build uses llama.cpp, the embedded chat template, and the F16 vision projector.
+    Licensed under PolyForm Small Business 1.0.0 with the publisher's personal-use grant; see the model license for permitted use.
+  license: polyform-small-business-1.0.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+    - reasoning
+  last_checked: "2026-09-27"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: ThinkingCap-Qwen3.8-27B-Q8_0.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+  files:
+    - filename: ThinkingCap-Qwen3.8-27B-Q8_0.gguf
+      sha256: 41070725606f4be781db804e8458f3346c699d0dac24f2b96d2a734556c6c0f7
+      uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/resolve/108ff8f24ce8e9335fbf308844cd3c59c13380a4/ThinkingCap-Qwen3.8-27B-Q8_0.gguf
+    - filename: mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+      sha256: 98fa9aad59b42449786a16bbce96bcd92204d03cac0aee0cdccca711c2adefd1
+      uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/resolve/108ff8f24ce8e9335fbf308844cd3c59c13380a4/mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
 - name: hemmingway-1
   variants:
     - model: hemmingway-1-q8

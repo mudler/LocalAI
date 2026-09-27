@@ -88,6 +88,21 @@ Weights and projector downloads are pinned to a Hugging Face revision and verifi
 This Apache-2.0 release is a further post-training of Qwopus3.8 Flash for reasoning and agent tasks.
 See the [publisher's model card](https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF) for evaluation details and limitations.
 
+## ThinkingCap Qwen3.8-27B
+
+Install `thinkingcap-qwen3.8-27b` for a 27B reasoning model with text and image input.
+The llama.cpp entries include Q4_K_M and Q8_0 weights, each paired with the F16 vision projector.
+LocalAI selects between the builds using the gallery variant rules. To request Q8_0 explicitly:
+
+```bash
+local-ai models install thinkingcap-qwen3.8-27b --variant thinkingcap-qwen3.8-27b-q8
+```
+
+Both builds use the embedded chat template, a 32,768-token default context, and the publisher's sampled decoding settings.
+MTP speculative decoding is not enabled by these entries.
+The weights use [PolyForm Small Business 1.0.0 with a personal-use grant](https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/blob/main/LICENSE).
+Review that license for permitted use.
+
 ## Hemmingway-1
 
 Install `hemmingway-1` for English text generation with llama.cpp. The gallery groups its Q4_K_M and Q8_0 builds as variants.
