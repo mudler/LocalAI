@@ -910,55 +910,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 				// Tool parsing is deferred here (only when shouldUseFn) so chat deltas are available
 				if shouldUseFn {
-					var funcResults []functions.FuncCallResults
-					// parsedFromText: funcResults came from Go-side parsing of the
-					// raw text rather than from the C++ autoparser.
-					parsedFromText := false
-
-					// Try pre-parsed tool calls from C++ autoparser first
-					if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
-						xlog.Debug("[ChatDeltas] non-SSE: using C++ autoparser tool calls, skipping Go-side parsing", "count", len(deltaToolCalls))
-						funcResults = deltaToolCalls
-						textContentToReturn = functions.ContentFromChatDeltas(chatDeltas)
-						cbReasoning = functions.ReasoningFromChatDeltas(chatDeltas)
-					} else if deltaContent := functions.ContentFromChatDeltas(chatDeltas); len(chatDeltas) > 0 && deltaContent != "" {
-						// ChatDeltas have content but no tool calls — model answered without using tools.
-						// This happens with thinking models (e.g. Gemma 4) where the Go-side reasoning
-						// extraction misclassifies clean content as reasoning, leaving cbRawResult empty.
-						xlog.Debug("[ChatDeltas] non-SSE: using C++ autoparser content (no tool calls)", "content_len", len(deltaContent))
-						textContentToReturn = deltaContent
-						cbReasoning = functions.ReasoningFromChatDeltas(chatDeltas)
-					} else {
-						// Fallback: parse tool calls from raw text
-						xlog.Debug("[ChatDeltas] non-SSE: no chat deltas, falling back to Go-side text parsing")
-						textContentToReturn = functions.ParseTextContent(cbRawResult, config.FunctionsConfig)
-						cbRawResult = functions.CleanupLLMResult(cbRawResult, config.FunctionsConfig)
-						funcResults = functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
-						parsedFromText = true
-					}
-
-					// Content-based tool call fallback: if no tool calls were found,
-					// try parsing the raw result — ParseFunctionCall handles detection internally.
-					if len(funcResults) == 0 {
-						contentFuncResults := functions.ParseFunctionCall(cbRawResult, config.FunctionsConfig)
-						if len(contentFuncResults) > 0 {
-							funcResults = contentFuncResults
-							textContentToReturn = functions.StripToolCallMarkup(cbRawResult)
-							parsedFromText = true
-						}
-					}
-
-					// A call parsed from text was not constrained by any grammar:
-					// neither LocalAI's (config.Grammar is empty) nor the backend's,
-					// whose parser returned no call. Drop the calls that do not fit
-					// the request's tools; if none remain, the text is the answer.
-					if parsedFromText && config.Grammar == "" && !config.FunctionsConfig.DisableToolCallValidation {
-						valid := functions.FilterValidFuncCalls(funcResults, functions.DeclaredFunctions(input.Functions, input.Tools), noActionName)
-						if len(valid) < len(funcResults) && !hasRealCall(valid, noActionName) {
-							textContentToReturn = ""
-						}
-						funcResults = valid
-					}
+					resolved := resolveNonStreamToolCalls(chatDeltas, cbRawResult, cbReasoning, config,
+						functions.DeclaredFunctions(input.Functions, input.Tools), noActionName)
+					funcResults := resolved.calls
+					textContentToReturn = resolved.content
+					cbReasoning = resolved.reasoning
+					cbRawResult = resolved.raw
 
 					noActionsToRun := len(funcResults) > 0 && funcResults[0].Name == noActionName || len(funcResults) == 0
 

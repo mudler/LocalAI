@@ -8,25 +8,28 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-// A tool call LocalAI parses from the model's text, with no grammar behind
-// it, must fit the request's tools. The case that prompted this: a model
-// called a bash tool whose schema has "script" with {"command": ...}; the
-// call went out unchecked and the client's tool server rejected every one.
-var _ = Describe("streaming tool calls parsed from text are validated", func() {
+// A tool call that does not fit the request's tools must not reach the
+// client, whether Go-side parsing found it in the text or the C++ autoparser
+// returned it. The case that prompted this: a model called a bash tool whose
+// schema has "script" with {"command": ...}; the call went out unchecked and
+// the client's tool server rejected every one.
+var _ = Describe("streaming tool calls are validated", func() {
 	var origInference modelInferenceFunc
 	appCfg := config.NewApplicationConfig()
 
 	BeforeEach(func() { origInference = backend.ModelInferenceFunc })
 	AfterEach(func() { backend.ModelInferenceFunc = origInference })
 
-	// streamText makes the stub backend stream text through the token
-	// callback, as a backend whose parser found no tool call does.
-	streamText := func(text string) {
+	// streamWith makes the stub backend stream text through the token
+	// callback and return deltas as the C++ autoparser's ChatDeltas. With no
+	// deltas it is a backend whose parser found no tool call.
+	streamWith := func(text string, deltas []*pb.ChatDelta) {
 		backend.ModelInferenceFunc = func(
 			ctx context.Context, s string, messages schema.Messages,
 			images, videos, audios []string,
@@ -40,12 +43,13 @@ var _ = Describe("streaming tool calls parsed from text are validated", func() {
 		) (func() (backend.LLMResponse, error), error) {
 			return func() (backend.LLMResponse, error) {
 				if tokenCallback != nil {
-					tokenCallback(text, backend.TokenUsage{})
+					tokenCallback(text, backend.TokenUsage{ChatDeltas: deltas})
 				}
-				return backend.LLMResponse{Response: text}, nil
+				return backend.LLMResponse{Response: text, ChatDeltas: deltas}, nil
 			}, nil
 		}
 	}
+	streamText := func(text string) { streamWith(text, nil) }
 
 	bashReq := func() *schema.OpenAIRequest {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -113,6 +117,19 @@ var _ = Describe("streaming tool calls parsed from text are validated", func() {
 		cfg := &config.ModelConfig{}
 		cfg.FunctionsConfig.DisableToolCallValidation = true
 		calls, _ := run(cfg)
+		Expect(calls).ToNot(BeEmpty())
+	})
+
+	It("does not emit an autoparser call with an argument the schema does not list", func() {
+		streamWith("", []*pb.ChatDelta{{ToolCalls: []*pb.ToolCallDelta{{Name: "bash", Arguments: `{"command":"ls"}`}}}})
+		calls, content := run(&config.ModelConfig{})
+		Expect(calls).To(BeEmpty())
+		Expect(content).To(ContainSubstring(`"command"`), "the dropped call is answered as text")
+	})
+
+	It("emits an autoparser call that fits", func() {
+		streamWith("", []*pb.ChatDelta{{ToolCalls: []*pb.ToolCallDelta{{Name: "bash", Arguments: `{"script":"ls"}`}}}})
+		calls, _ := run(&config.ModelConfig{})
 		Expect(calls).ToNot(BeEmpty())
 	})
 
