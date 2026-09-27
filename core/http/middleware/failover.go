@@ -144,7 +144,9 @@ func (re *RequestExtractor) failoverRetry(h echo.HandlerFunc) echo.HandlerFunc {
 				return nil
 			}
 			rejected, _ := c.Get(ContextKeyAdmissionRejected).(bool)
-			gap := failover.IsCapabilityGap(err) && !w.committed
+			// A handler that wrote its 501 itself instead of returning it
+			// reports the same gap.
+			gap := (failover.IsCapabilityGap(err) || status == http.StatusNotImplemented) && !w.committed
 			if (rejected && !w.committed) || gap {
 				// The target is at capacity, or cannot serve this kind of
 				// request at all: spill to the next target without counting

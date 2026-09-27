@@ -293,6 +293,18 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		Expect(st.Targets[0].State).To(Equal(failover.StateHealthy))
 	})
 
+	It("spills a written 501 to the next target without tripping it", func() {
+		behavior["a"] = func(c echo.Context) error {
+			return c.JSON(http.StatusNotImplemented, map[string]string{"error": "not supported"})
+		}
+		rec := chat("chain")
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring(`"served":"b"`))
+		Expect(calls).To(Equal([]string{"a", "b"}))
+		st, _ := fm.ChainStatus("chain")
+		Expect(st.Targets[0].State).To(Equal(failover.StateHealthy))
+	})
+
 	It("fails a rate-limited target (gRPC ResourceExhausted) over to the next target and trips it", func() {
 		behavior["a"] = func(echo.Context) error {
 			return grpcstatus.Error(codes.ResourceExhausted, "localai-proxy: upstream /v1/chat/completions returned 429: slow down")

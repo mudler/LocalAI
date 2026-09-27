@@ -66,12 +66,17 @@ func IsRetryable(err error, status int) bool {
 }
 
 // IsCapabilityGap reports a target that cannot serve this kind of request at
-// all (gRPC Unimplemented, anywhere in the error chain). The next target may
-// serve it, and this target is not broken: the failure carries no signal
-// about its health, so callers must skip it without tripping.
+// all (gRPC Unimplemented, anywhere in the error chain, or the HTTP 501 that
+// the non-OpenAI endpoints map it to). The next target may serve it, and this
+// target is not broken: the failure carries no signal about its health, so
+// callers must skip it without tripping.
 func IsCapabilityGap(err error) bool {
 	if err == nil {
 		return false
+	}
+	var he *echo.HTTPError
+	if errors.As(err, &he) && he.Code == http.StatusNotImplemented {
+		return true
 	}
 	st, ok := grpcstatus.FromError(err)
 	return ok && st.Code() == codes.Unimplemented
