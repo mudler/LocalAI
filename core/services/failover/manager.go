@@ -713,7 +713,12 @@ func (m *Manager) Subscribe(buffer int) (<-chan Event, func()) {
 }
 
 func (m *Manager) emitLocked(ev Event) {
-	if ev.Type == EventChainSwitched {
+	// Every frontend emits the switch to its own subscribers, but only the
+	// one that decided it counts it, or the cluster-wide total would be N
+	// times the real one. Followers adopt the leader's switches (ApplyChain)
+	// and apply pins the leader applies too. Without a sync layer each
+	// frontend decides for itself, so each counts.
+	if ev.Type == EventChainSwitched && (m.leader || m.sync == nil) {
 		recordSwitch(ev)
 	}
 	for _, c := range m.subs {
