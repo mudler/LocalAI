@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"math"
 	"net/http"
 	"runtime"
 	"strings"
@@ -147,6 +148,27 @@ func liveGoroutines() int {
 	return n
 }
 
+func ev(typ string) map[string]any { return map[string]any{"type": typ} }
+
+func item(typ, id string) map[string]any { return map[string]any{"type": typ, "item_id": id} }
+
+func completed(id, transcript string) map[string]any {
+	return map[string]any{"type": "conversation.item.input_audio_transcription.completed", "item_id": id, "transcript": transcript}
+}
+
+// stallAfterUpdate plays session.created, reads the session.update and then
+// never answers, as a hung upstream would, until the spec ends.
+func stallAfterUpdate(c *websocket.Conn, gone chan<- struct{}) {
+	wsSend(c, map[string]any{"type": "session.created", "session": map[string]any{}})
+	wsRecv(c)
+	for {
+		if _, ok := wsRecv(c); !ok {
+			close(gone)
+			return
+		}
+	}
+}
+
 func withPipeline(o *pb.ModelOptions) {
 	o.Options = append(o.Options, "realtime_pipeline:remote-pipe")
 }
@@ -249,25 +271,30 @@ var _ = Describe("AudioTranscriptionLive", func() {
 
 		lc.audio(0, 0.5, -1, 1, 2)
 		lc.audio(-0.25)
+		lc.audio(float32(math.NaN()))
 		close(lc.in)
 		Expect(lc.finish()).To(Succeed())
 
 		Eventually(frames, 2*time.Second).Should(Receive(Equal([][]int16{
 			{0, 16383, -32767, 32767, 32767},
 			{-8191},
+			{0},
 		})))
 	})
 
 	It("maps deltas and completions to Delta and Eou, and finishes with the full text", func() {
 		up := wsUpstream(func(c *websocket.Conn, _ *http.Request) {
 			wsHandshake(c)
-			wsSend(c, map[string]any{"type": "input_audio_buffer.speech_started"})
+			wsSend(c, ev("input_audio_buffer.speech_started"))
+			wsSend(c, ev("input_audio_buffer.speech_stopped"))
+			wsSend(c, item("input_audio_buffer.committed", "a"))
 			wsSend(c, map[string]any{"type": "conversation.item.input_audio_transcription.delta", "item_id": "a", "delta": "hel"})
 			wsSend(c, map[string]any{"type": "conversation.item.input_audio_transcription.delta", "item_id": "a", "delta": "lo"})
-			wsSend(c, map[string]any{"type": "input_audio_buffer.speech_stopped"})
-			wsSend(c, map[string]any{"type": "conversation.item.input_audio_transcription.completed", "item_id": "a", "transcript": "hello world"})
-			wsSend(c, map[string]any{"type": "input_audio_buffer.speech_started"})
-			wsSend(c, map[string]any{"type": "conversation.item.input_audio_transcription.completed", "item_id": "b", "transcript": "again"})
+			wsSend(c, completed("a", "hello world"))
+			wsSend(c, ev("input_audio_buffer.speech_started"))
+			wsSend(c, ev("input_audio_buffer.speech_stopped"))
+			wsSend(c, item("input_audio_buffer.committed", "b"))
+			wsSend(c, completed("b", "again"))
 			wsDrain(c)
 		})
 		DeferCleanup(up.Close)
@@ -291,27 +318,56 @@ var _ = Describe("AudioTranscriptionLive", func() {
 		Expect(lc.finish()).To(Succeed())
 	})
 
-	It("waits for an in-flight utterance before the final result", func() {
+	It("waits for a committed utterance before the final result", func() {
 		up := wsUpstream(func(c *websocket.Conn, _ *http.Request) {
 			wsHandshake(c)
-			wsSend(c, map[string]any{"type": "input_audio_buffer.speech_started"})
-			// The client closes its side now; the transcription lands later.
+			wsSend(c, ev("input_audio_buffer.speech_started"))
+			wsSend(c, ev("input_audio_buffer.speech_stopped"))
+			wsSend(c, item("input_audio_buffer.committed", "a"))
+			wsSend(c, map[string]any{"type": "conversation.item.input_audio_transcription.delta", "item_id": "a", "delta": "late"})
+			// The client closes its side once it sees the delta; the
+			// transcription completes later.
 			time.Sleep(300 * time.Millisecond)
-			wsSend(c, map[string]any{"type": "input_audio_buffer.speech_stopped"})
-			wsSend(c, map[string]any{"type": "conversation.item.input_audio_transcription.completed", "item_id": "a", "transcript": "late words"})
+			wsSend(c, completed("a", "late words"))
 			wsDrain(c)
 		})
 		DeferCleanup(up.Close)
 		lc := startLive(loadProxy(up, withPipeline))
 		lc.config("en", 16000)
 		Expect(lc.next().GetReady()).To(BeTrue())
+		Expect(lc.next().GetDelta()).To(Equal("late"))
 		close(lc.in)
 
 		r := lc.next()
-		Expect(r.GetDelta()).To(Equal("late words"))
+		Expect(r.GetDelta()).To(Equal(" words"))
 		Expect(r.GetEou()).To(BeTrue())
 		Expect(lc.next().GetFinalResult().GetText()).To(Equal("late words"))
 		Expect(lc.finish()).To(Succeed())
+	})
+
+	It("does not hold the close for a turn the upstream discarded", func() {
+		up := wsUpstream(func(c *websocket.Conn, _ *http.Request) {
+			wsHandshake(c)
+			wsSend(c, ev("input_audio_buffer.speech_started"))
+			wsSend(c, ev("input_audio_buffer.speech_stopped"))
+			wsSend(c, item("input_audio_buffer.committed", "a"))
+			wsSend(c, completed("a", "kept"))
+			// A stop that is never committed, then nothing more.
+			wsSend(c, ev("input_audio_buffer.speech_started"))
+			wsSend(c, ev("input_audio_buffer.speech_stopped"))
+			wsDrain(c)
+		})
+		DeferCleanup(up.Close)
+		lc := startLive(loadProxy(up, withPipeline))
+		lc.config("en", 16000)
+		Expect(lc.next().GetReady()).To(BeTrue())
+		Expect(lc.next().GetDelta()).To(Equal("kept"))
+		close(lc.in)
+
+		start := time.Now()
+		Expect(lc.next().GetFinalResult().GetText()).To(Equal("kept"))
+		Expect(lc.finish()).To(Succeed())
+		Expect(time.Since(start)).To(BeNumerically("<", finalWait/2))
 	})
 
 	It("ends with Unavailable on an upstream error event during setup", func() {
@@ -375,6 +431,103 @@ var _ = Describe("AudioTranscriptionLive", func() {
 
 		Expect(status.Code(lc.finish())).To(Equal(codes.Unavailable))
 		Eventually(liveGoroutines, time.Second).Should(Equal(before))
+		close(lc.in)
+	})
+
+	It("gives up with Canceled when the caller closes before the ready ack", func() {
+		before := liveGoroutines()
+		gone := make(chan struct{})
+		up := wsUpstream(func(c *websocket.Conn, _ *http.Request) { stallAfterUpdate(c, gone) })
+		DeferCleanup(up.Close)
+		lc := startLive(loadProxy(up, withPipeline))
+		lc.config("en", 16000)
+		lc.audio(0.1)
+		close(lc.in)
+
+		Expect(status.Code(lc.finish())).To(Equal(codes.Canceled))
+		Eventually(gone, 2*time.Second).Should(BeClosed(), "upstream socket left open")
+		Eventually(liveGoroutines, time.Second).Should(Equal(before))
+	})
+
+	It("bounds a hung setup by request_timeout_seconds", func() {
+		before := liveGoroutines()
+		gone := make(chan struct{})
+		up := wsUpstream(func(c *websocket.Conn, _ *http.Request) { stallAfterUpdate(c, gone) })
+		DeferCleanup(up.Close)
+		p := loadProxy(up, func(o *pb.ModelOptions) {
+			withPipeline(o)
+			o.Proxy.RequestTimeoutSeconds = 1
+		})
+		lc := startLive(p)
+		lc.config("en", 16000)
+
+		var err error
+		Eventually(lc.errc, 3*time.Second).Should(Receive(&err))
+		Expect(status.Code(err)).To(Equal(codes.Unavailable))
+		Expect(lc.out).To(BeClosed())
+		Eventually(gone, 2*time.Second).Should(BeClosed(), "upstream socket left open")
+		Eventually(liveGoroutines, time.Second).Should(Equal(before))
+		close(lc.in)
+	})
+
+	It("bounds a hung setup by default when request_timeout_seconds is unset", func() {
+		Expect(defaultLiveSetupTimeout).To(BeNumerically(">=", 2*time.Minute))
+		saved := liveSetupTimeout
+		liveSetupTimeout = 300 * time.Millisecond
+		DeferCleanup(func() { liveSetupTimeout = saved })
+
+		before := liveGoroutines()
+		gone := make(chan struct{})
+		up := wsUpstream(func(c *websocket.Conn, _ *http.Request) { stallAfterUpdate(c, gone) })
+		DeferCleanup(up.Close)
+		lc := startLive(loadProxy(up, withPipeline))
+		lc.config("en", 16000)
+
+		Expect(status.Code(lc.finish())).To(Equal(codes.Unavailable))
+		Eventually(gone, 2*time.Second).Should(BeClosed(), "upstream socket left open")
+		Eventually(liveGoroutines, time.Second).Should(Equal(before))
+		close(lc.in)
+	})
+
+	It("forwards audio sent before the ready ack once ready", func() {
+		release := make(chan struct{})
+		frames := make(chan [][]int16, 1)
+		up := wsUpstream(func(c *websocket.Conn, _ *http.Request) {
+			wsSend(c, map[string]any{"type": "session.created", "session": map[string]any{}})
+			wsRecv(c)
+			<-release
+			wsSend(c, map[string]any{"type": "session.updated", "session": map[string]any{}})
+			frames <- wsDrain(c)
+		})
+		DeferCleanup(up.Close)
+		lc := startLive(loadProxy(up, withPipeline))
+		lc.config("en", 16000)
+		lc.audio(0.5)
+		close(release)
+		Expect(lc.next().GetReady()).To(BeTrue())
+		close(lc.in)
+		Expect(lc.finish()).To(Succeed())
+		Eventually(frames, 2*time.Second).Should(Receive(Equal([][]int16{{16383}})))
+	})
+
+	It("refuses more than the backlog cap of audio before the ready ack", func() {
+		gone := make(chan struct{})
+		up := wsUpstream(func(c *websocket.Conn, _ *http.Request) { stallAfterUpdate(c, gone) })
+		DeferCleanup(up.Close)
+		lc := startLive(loadProxy(up, withPipeline))
+		lc.config("en", 16000)
+		second := make([]float32, 16000)
+		for range maxBacklogSeconds + 1 {
+			select {
+			case lc.in <- &pb.TranscriptLiveRequest{Payload: &pb.TranscriptLiveRequest_Audio{Audio: &pb.TranscriptLiveAudio{Pcm: second}}}:
+			case <-time.After(2 * time.Second):
+				Fail("bridge stopped reading audio before the cap")
+			}
+		}
+
+		err := lc.finish()
+		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+		Expect(err.Error()).To(ContainSubstring("before the live transcription session was ready"))
 		close(lc.in)
 	})
 })

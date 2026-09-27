@@ -28,11 +28,23 @@ const (
 	defaultLiveSampleRate = 16000
 
 	// finalWait bounds how long a closing session waits for an utterance the
-	// upstream VAD already started. The upstream transcribes only after its
+	// upstream still has in flight. The upstream transcribes only after its
 	// VAD sees the speech end, so a slow model can finish after the client
 	// stops sending; waiting forever would pin the gRPC call on a hung
 	// upstream.
 	finalWait = 5 * time.Second
+
+	// commitGrace is how long a speech_stopped waits for its
+	// input_audio_buffer.committed. The upstream sends the two back to back,
+	// so a stop with no commit inside this window is a discarded turn and
+	// must not hold a closing session for the full finalWait.
+	commitGrace = 500 * time.Millisecond
+
+	// maxBacklogSeconds caps the audio held before the ready ack. Callers
+	// wait for the ack before streaming, so more than this means a client
+	// that ignores the contract, and holding it unbounded while a cold
+	// upstream loads models would grow memory without limit.
+	maxBacklogSeconds = 5
 
 	// liveWriteTimeout turns an upstream that stops reading into an error
 	// instead of a call blocked on a full socket buffer.
@@ -40,15 +52,29 @@ const (
 
 	// liveHandshakeTimeout bounds the WebSocket upgrade only. The upstream
 	// warms the pipeline models before it sends session.created, which can
-	// take minutes on a cold box, so the setup phase after the upgrade is
-	// bounded by request_timeout_seconds instead.
+	// take minutes on a cold box, so the setup phase after the upgrade has
+	// its own, longer bound.
 	liveHandshakeTimeout = 30 * time.Second
+
+	// defaultLiveSetupTimeout bounds the session setup (upgrade to
+	// session.updated) when request_timeout_seconds is unset. Core waits for
+	// the ready ack with a plain Recv, so without a bound a hung upstream
+	// would hold the call, and the failover that should move the stage to
+	// the next target, forever. It is generous because a cold upstream loads
+	// the pipeline's VAD and transcription models before it answers.
+	defaultLiveSetupTimeout = 3 * time.Minute
 )
+
+// liveSetupTimeout is defaultLiveSetupTimeout, as a variable so tests can
+// exercise the bound without waiting minutes.
+var liveSetupTimeout = defaultLiveSetupTimeout
 
 // realtimeEvent holds the fields the bridge reads from any upstream server
 // event; unrelated events decode into it harmlessly.
 type realtimeEvent struct {
-	Type       string `json:"type"`
+	Type string `json:"type"`
+	// ItemID is set on committed, delta, completed and failed events; the
+	// upstream uses the committed turn's id for its transcription events.
 	ItemID     string `json:"item_id"`
 	Delta      string `json:"delta"`
 	Transcript string `json:"transcript"`
@@ -99,21 +125,26 @@ func (p *LocalAIProxy) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveReques
 	defer func() { _ = conn.Close() }()
 
 	s := &liveSession{
-		conn:     conn,
-		out:      out,
-		pipeline: cfg.realtimePipeline,
-		language: lc.GetLanguage(),
-		rate:     rate,
-		sent:     map[string]string{},
-		events:   make(chan realtimeEvent),
-		done:     make(chan struct{}),
+		conn:      conn,
+		out:       out,
+		pipeline:  cfg.realtimePipeline,
+		language:  lc.GetLanguage(),
+		rate:      rate,
+		sent:      map[string]string{},
+		committed: map[string]bool{},
+		events:    make(chan realtimeEvent),
+		done:      make(chan struct{}),
 	}
 	// Closing done releases the reader if it is blocked handing over an
 	// event; closing conn (deferred above, runs after this) unblocks its read.
 	defer close(s.done)
 	go s.readLoop()
 
-	return s.run(in, cfg.timeout)
+	setup := cfg.timeout
+	if setup <= 0 {
+		setup = liveSetupTimeout
+	}
+	return s.run(in, setup)
 }
 
 // dialRealtime opens the upstream WebSocket. A refused upgrade is mapped like
@@ -159,9 +190,16 @@ type liveSession struct {
 	language string
 	rate     int
 
-	sent    map[string]string // text already sent as deltas, per upstream item
-	final   []string          // completed transcripts, in order
-	pending int               // utterances started upstream and not yet transcribed
+	sent  map[string]string // text already sent as deltas, per upstream item
+	final []string          // completed transcripts, in order
+
+	// In-flight tracking, so a closing session waits only for an utterance
+	// the upstream will still transcribe. The upstream VAD emits
+	// speech_started, then either speech_stopped plus committed (a turn it
+	// will transcribe) or nothing at all (a turn it discarded as no speech).
+	speaking  bool            // between speech_started and speech_stopped
+	stopping  bool            // speech_stopped seen, its committed not yet
+	committed map[string]bool // committed items not yet completed
 
 	events  chan realtimeEvent
 	readErr error // set before events is closed
@@ -199,53 +237,47 @@ func (s *liveSession) run(in <-chan *pb.TranscriptLiveRequest, setupTimeout time
 		created, ready bool
 		inClosed       bool
 		backlog        []*pb.TranscriptLiveRequest
-		setupTimer     <-chan time.Time
+		backlogSamples int
 		drainTimer     <-chan time.Time
-		drain          *time.Timer
+		graceTimer     <-chan time.Time
 	)
-	defer func() {
-		if drain != nil {
-			drain.Stop()
-		}
-	}()
-	if setupTimeout > 0 {
-		t := time.NewTimer(setupTimeout)
-		defer t.Stop()
-		setupTimer = t.C
-	}
-
-	// finishOrDrain finalizes once nothing is in flight, else waits (bounded)
-	// for the upstream to finish the utterance it already started.
-	finishOrDrain := func() (bool, error) {
-		if s.pending <= 0 {
-			return true, s.finish()
-		}
-		if drain == nil {
-			drain = time.NewTimer(finalWait)
-			drainTimer = drain.C
-		}
-		return false, nil
-	}
+	setup := time.NewTimer(setupTimeout)
+	defer setup.Stop()
+	setupTimer := setup.C
+	drain := time.NewTimer(finalWait)
+	drain.Stop()
+	defer drain.Stop()
+	grace := time.NewTimer(commitGrace)
+	grace.Stop()
+	defer grace.Stop()
 
 	for {
 		select {
 		case req, ok := <-in:
 			if !ok {
 				in, inClosed = nil, true
-				if ready {
-					if done, err := finishOrDrain(); done {
-						return err
-					}
+				if !ready {
+					// The caller gave up waiting for the ready ack (core
+					// closes its send side on failure or cancel). Canceled
+					// rather than nil: there is no session to report as
+					// complete, and failover neither retries nor trips a
+					// target on a canceled call.
+					return status.Error(codes.Canceled, "localai-proxy: live transcription closed before the upstream session was ready")
 				}
-				continue
-			}
-			if !ready {
-				// Callers wait for the ready ack before streaming, but hold
-				// anything sent early rather than drop it.
+				if s.inFlight() {
+					drain.Reset(finalWait)
+					drainTimer = drain.C
+				}
+			} else if !ready {
+				// Hold audio sent before the ready ack rather than drop it,
+				// up to a bound.
+				backlogSamples += len(req.GetAudio().GetPcm())
+				if backlogSamples > maxBacklogSeconds*s.rate {
+					return status.Errorf(codes.InvalidArgument,
+						"localai-proxy: more than %d s of audio sent before the live transcription session was ready", maxBacklogSeconds)
+				}
 				backlog = append(backlog, req)
-				continue
-			}
-			if err := s.forward(req); err != nil {
+			} else if err := s.forward(req); err != nil {
 				return err
 			}
 
@@ -275,35 +307,52 @@ func (s *liveSession) run(in <-chan *pb.TranscriptLiveRequest, setupTimeout time
 					}
 				}
 				backlog = nil
-				if inClosed {
-					if done, err := finishOrDrain(); done {
-						return err
-					}
-				}
 			case "error":
 				return s.upstreamError("error", ev)
 			case "conversation.item.input_audio_transcription.failed":
 				return s.upstreamError("transcription failed", ev)
 			case "input_audio_buffer.speech_started":
-				s.pending++
+				s.speaking, s.stopping = true, false
+			case "input_audio_buffer.speech_stopped":
+				if s.speaking {
+					s.speaking, s.stopping = false, true
+					grace.Reset(commitGrace)
+					graceTimer = grace.C
+				}
+			case "input_audio_buffer.committed":
+				s.stopping, graceTimer = false, nil
+				if ev.ItemID != "" {
+					s.committed[ev.ItemID] = true
+				}
 			case "conversation.item.input_audio_transcription.delta":
 				s.delta(ev)
 			case "conversation.item.input_audio_transcription.completed":
 				s.completed(ev)
-				if inClosed && s.pending <= 0 {
-					return s.finish()
-				}
 			}
 
+		case <-graceTimer:
+			// A stop the upstream never committed: the turn was discarded.
+			s.stopping, graceTimer = false, nil
+
 		case <-setupTimer:
-			return status.Errorf(codes.Unavailable, "localai-proxy: upstream %s did not set up the transcription session in %s", realtimePath, setupTimeout)
+			return status.Errorf(codes.Unavailable, "localai-proxy: upstream %s did not set up the transcription session within %s", realtimePath, setupTimeout)
 
 		case <-drainTimer:
 			xlog.Warn("localai-proxy: upstream did not finish the last utterance in time; finalizing without it",
 				"pipeline", s.pipeline, "wait", finalWait)
 			return s.finish()
 		}
+
+		if inClosed && !s.inFlight() {
+			return s.finish()
+		}
 	}
+}
+
+// inFlight reports an utterance the upstream is still expected to
+// transcribe.
+func (s *liveSession) inFlight() bool {
+	return s.speaking || s.stopping || len(s.committed) > 0
 }
 
 func (s *liveSession) sessionUpdate() map[string]any {
@@ -343,7 +392,13 @@ func (s *liveSession) forward(req *pb.TranscriptLiveRequest) error {
 func pcm16LE(pcm []float32) []byte {
 	buf := make([]byte, len(pcm)*2)
 	for i, f := range pcm {
-		v := math.Max(-1, math.Min(1, float64(f)))
+		v := float64(f)
+		if math.IsNaN(v) {
+			// A NaN would convert to an arbitrary int16; silence is the
+			// only neutral value.
+			v = 0
+		}
+		v = math.Max(-1, math.Min(1, v))
 		binary.LittleEndian.PutUint16(buf[i*2:], uint16(int16(v*math.MaxInt16)))
 	}
 	return buf
@@ -368,9 +423,7 @@ func (s *liveSession) completed(ev realtimeEvent) {
 	if !ok {
 		rest = ""
 	}
-	if s.pending > 0 {
-		s.pending--
-	}
+	delete(s.committed, ev.ItemID)
 	if t := strings.TrimSpace(ev.Transcript); t != "" {
 		s.final = append(s.final, t)
 	}
