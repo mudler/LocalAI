@@ -178,12 +178,32 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 
 		// Try pre-parsed tool calls from C++ autoparser first, fall back to text parsing
 		var toolCalls []functions.FuncCallResults
+		fromDeltas := false
 		if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 			xlog.Debug("[ChatDeltas] Anthropic: using pre-parsed tool calls", "count", len(deltaToolCalls))
 			toolCalls = deltaToolCalls
+			fromDeltas = true
 		} else {
 			xlog.Debug("[ChatDeltas] Anthropic: no pre-parsed tool calls, falling back to Go-side text parsing")
 			toolCalls = functions.ParseFunctionCall(result, cfg.FunctionsConfig)
+		}
+
+		// Unless LocalAI sent its own grammar, drop the calls that do not fit
+		// the request's tools, from either source (see
+		// functions.ValidatesToolCalls). With none left, the response is a
+		// text block: the model's text, or for autoparser calls, whose source
+		// text is not in result, the content followed by the calls.
+		answerText := result
+		if len(toolCalls) > 0 && functions.ValidatesToolCalls(cfg.Grammar, cfg.FunctionsConfig, funcs) {
+			valid, dropped := functions.SplitFuncCalls(toolCalls, funcs, "")
+			toolCalls = valid
+			if len(dropped) > 0 && len(valid) == 0 && fromDeltas {
+				content := result
+				if strings.TrimSpace(content) == "" {
+					content = functions.ContentFromChatDeltas(chatDeltas)
+				}
+				answerText = functions.AnswerText(content, dropped, true)
+			}
 		}
 
 		// MCP server-side tool execution: if any tool calls are MCP tools, execute and loop
@@ -289,7 +309,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 			contentBlocks = buildAnthropicContentBlocks(buildParams{
 				reasoning:       reasoning,
 				thinkingEnabled: thinkingEnabled,
-				text:            result,
+				text:            answerText,
 				id:              id,
 			})
 		}
@@ -297,7 +317,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		// Anthropic responses must carry at least one content block; keep the
 		// empty-text fallback the pre-refactor assembly guaranteed.
 		if len(contentBlocks) == 0 {
-			contentBlocks = []schema.AnthropicContentBlock{{Type: "text", Text: result}}
+			contentBlocks = []schema.AnthropicContentBlock{{Type: "text", Text: answerText}}
 		}
 
 		resp := &schema.AnthropicResponse{
@@ -380,6 +400,19 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		// Collect tool calls for MCP execution
 		var collectedToolCalls []functions.FuncCallResults
 
+		// Unless LocalAI sent its own grammar, tool calls are checked against
+		// the request's tools, from either source (see
+		// functions.ValidatesToolCalls). Calls parsed from the text as it
+		// streams are checked when they first appear: textCallsChecked counts
+		// the parsed calls checked so far and validTextCalls keeps the ones
+		// that fit. tool_use blocks are emitted from validTextCalls only, so a
+		// call that does not fit never opens a block and its text streams as
+		// text like any other. The autoparser's calls are checked after
+		// inference, before their blocks are emitted.
+		validateCalls := functions.ValidatesToolCalls(cfg.Grammar, cfg.FunctionsConfig, funcs)
+		textCallsChecked := 0
+		var validTextCalls []functions.FuncCallResults
+
 		// SSE keepalive: send comment pings every 3s until the first token arrives.
 		// This prevents clients (e.g. Claude Code) from timing out while the model loads or processes the prompt.
 		firstTokenReceived := make(chan struct{})
@@ -412,6 +445,17 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 			if shouldUseFn {
 				cleanedResult := functions.CleanupLLMResult(accumulatedContent, cfg.FunctionsConfig)
 				toolCalls := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+				if validateCalls {
+					for ; textCallsChecked < len(toolCalls); textCallsChecked++ {
+						tc := toolCalls[textCallsChecked]
+						if err := functions.ValidateFuncCall(tc, funcs); err != nil {
+							functions.LogDroppedFuncCall(err)
+							continue
+						}
+						validTextCalls = append(validTextCalls, tc)
+					}
+					toolCalls = validTextCalls
+				}
 
 				if len(toolCalls) > toolCallsEmitted {
 					if !inToolCall && currentBlockIndex == 0 {
@@ -508,6 +552,27 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 						Text: deltaContent,
 					},
 				})
+			}
+
+			if len(deltaToolCalls) > 0 && len(collectedToolCalls) == 0 && validateCalls {
+				valid, dropped := functions.SplitFuncCalls(deltaToolCalls, funcs, "")
+				deltaToolCalls = valid
+				if len(dropped) > 0 && len(valid) == 0 && !inToolCall {
+					// Every call was dropped: answer with the calls as text,
+					// after whatever content the text block already holds.
+					text := functions.DroppedCallsText(dropped)
+					if deltaContent != "" || accumulatedContent != "" {
+						text = "\n" + text
+					}
+					sendAnthropicSSE(c, schema.AnthropicStreamEvent{
+						Type:  "content_block_delta",
+						Index: intPtr(0),
+						Delta: &schema.AnthropicStreamDelta{
+							Type: "text_delta",
+							Text: text,
+						},
+					})
+				}
 			}
 
 			// Emit tool_use blocks from ChatDeltas, preceded by a fully-closed

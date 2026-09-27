@@ -108,3 +108,51 @@ var _ = Describe("FilterValidFuncCalls", func() {
 		Expect(FilterValidFuncCalls(calls, nil, "answer")).To(Equal(calls))
 	})
 })
+
+var _ = Describe("ValidatesToolCalls", func() {
+	declared := Functions{{Name: "bash"}}
+
+	It("validates when LocalAI sent no grammar", func() {
+		Expect(ValidatesToolCalls("", FunctionsConfig{}, declared)).To(BeTrue())
+	})
+	It("does not validate under LocalAI's own grammar", func() {
+		Expect(ValidatesToolCalls("root ::= x", FunctionsConfig{}, declared)).To(BeFalse())
+	})
+	It("does not validate when turned off", func() {
+		Expect(ValidatesToolCalls("", FunctionsConfig{DisableToolCallValidation: true}, declared)).To(BeFalse())
+	})
+	It("does not validate without declared tools", func() {
+		Expect(ValidatesToolCalls("", FunctionsConfig{}, nil)).To(BeFalse())
+	})
+})
+
+var _ = Describe("SplitFuncCalls and AnswerText", func() {
+	declared := Functions{{
+		Name:       "bash",
+		Parameters: map[string]any{"properties": map[string]any{"script": map[string]any{}}},
+	}}
+
+	It("returns the dropped calls", func() {
+		valid, dropped := SplitFuncCalls([]FuncCallResults{
+			{Name: "bash", Arguments: `{"command":"ls"}`},
+			{Name: "bash", Arguments: `{"script":"pwd"}`},
+		}, declared, "answer")
+		Expect(valid).To(HaveLen(1))
+		Expect(dropped).To(HaveLen(1))
+		Expect(dropped[0].Arguments).To(ContainSubstring("command"))
+	})
+
+	It("renders autoparser calls after the content", func() {
+		dropped := []FuncCallResults{{Name: "bash", Arguments: `{"command":"ls"}`}}
+		Expect(AnswerText("", dropped, true)).To(Equal(`{"name":"bash","arguments":{"command":"ls"}}`))
+		Expect(AnswerText("running it\n", dropped, true)).To(Equal("running it\n" + `{"name":"bash","arguments":{"command":"ls"}}`))
+	})
+
+	It("leaves text-parsed content as it is: it already holds the calls", func() {
+		Expect(AnswerText("raw text", []FuncCallResults{{Name: "bash"}}, false)).To(Equal("raw text"))
+	})
+
+	It("keeps arguments that are not JSON as a string", func() {
+		Expect(DroppedCallsText([]FuncCallResults{{Name: "bash", Arguments: "ls -la"}})).To(Equal(`{"name":"bash","arguments":"ls -la"}`))
+	})
+})
