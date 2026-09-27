@@ -3,34 +3,30 @@
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf
+    - https://github.com/PrismML-Eng/llama.cpp
   description: |
-    # Qwen3.8-27B
-
-    > [!Note]
-    > This repository contains model weights and configuration files for the post-trained model in the Hugging Face Transformers format.
-    >
-    > These artifacts are compatible with Hugging Face Transformers, vLLM, SGLang, TokenSpeed, etc.
-
-    > [!Tip]
-    > For users seeking managed, scalable inference without infrastructure maintenance, the official Qwen API service is provided by Qwen Cloud.
-    > In particular, **Qwen3.8-27B** will be available as a hosted version with more production features, e.g., 1M context length by default, official built-in tools. For more information, please refer to the Qwen3.8-27B Overview. The service is coming soon. Stay tuned for updates.
-
-    Following the widespread community adoption of the Qwen3.5 and Qwen3.6 series, we are pleased to introduce Qwen3.8, the most capable generation in the Qwen open-model family to date.
-
-    ...
+    Ternary Bonsai 2 27B (PrismML) is a 27B-class reasoning model with ternary
+    transformer weights. This PTQ1_0 build packs the trits densely at 1.75 bits
+    per weight (5.95 GB) and includes the Q8_0 vision projector. PTQ1_0 is a
+    Prism-private GGUF type, so the entry uses the bonsai backend (PrismML's
+    llama.cpp fork) instead of stock llama.cpp.
   license: "apache-2.0"
   tags:
     - llm
     - gguf
-  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+    - reasoning
+    - vision
+    - multimodal
+  icon: https://huggingface.co/prism-ml/Ternary-Bonsai-27B-gguf/resolve/main/assets/bonsai-logo.svg
   overrides:
-    backend: llama-cpp
+    backend: bonsai
     function:
       automatic_tool_parsing_fallback: true
       grammar:
         disable: true
     known_usecases:
       - chat
+      - vision
     mmproj: llama-cpp/mmproj/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
     options:
       - use_jinja:true
