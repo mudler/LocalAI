@@ -7313,6 +7313,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "metadata": {
+                    "type": "object"
+                },
                 "model": {
                     "type": "string"
                 },
@@ -7807,6 +7810,10 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "size_vram": {
+                    "description": "SizeVRAM is DRM-accounted resident device memory in bytes. Nil means\nthe backend process tree has no complete supported reading.",
+                    "type": "integer"
                 }
             }
         },

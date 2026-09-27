@@ -88,8 +88,10 @@ page in the frontend shows the node as fully used, check two things:
    NVML work inside the container. With `--gpus all` alone (or
    `--runtime nvidia` without extra flags) only `compute` is wired in on
    some driver versions. Add `-e NVIDIA_DRIVER_CAPABILITIES=compute,utility`
-   to your `docker run`, or `capabilities: [gpu, utility]` in compose /
-   Kubernetes device reservations.
+   to your `docker run`. For Docker Compose with `driver: nvidia`, use
+   `capabilities: [gpu, compute, utility]` on the device reservation.
+   Include `compute` for CUDA libraries such as `libcuda.so.1`; `utility`
+   alone only provides monitoring libraries and tools.
 2. Pass `--init` to `docker run` (or `init: true` in compose) so the
    container has a proper PID 1 reaper - otherwise short-lived child
    processes like `nvidia-smi` can intermittently fail with

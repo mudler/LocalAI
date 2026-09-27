@@ -340,6 +340,15 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+#### Streaming responses
+
+Set `"stream": true` to receive Server-Sent Events. Each `response.output_item.added` event assigns an `output_index` to an item.
+Use that index and the item ID to associate later deltas and completion events with the same item.
+
+If a request without explicit tools produces reasoning, the stream uses separate items for reasoning and answer text.
+Each item keeps its original index throughout the stream.
+The `response.completed` event includes both items in the same index order, followed by any automatically parsed tool calls.
+
 #### Background Processing
 
 Run requests in the background for long-running tasks:
@@ -433,6 +442,11 @@ curl http://localhost:8080/v1/responses \
     "max_output_tokens": 1024
   }'
 ```
+
+For streaming requests with JSON tool output, LocalAI waits for the complete JSON
+object before emitting a completed `function_call` item. Arguments can span
+multiple tokens. Read the arguments from the `response.output_item.done` event
+before executing the tool.
 
 #### Reasoning Configuration
 

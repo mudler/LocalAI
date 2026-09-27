@@ -39,6 +39,99 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Cyber-Tiel-Coder
+
+Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
+The gallery groups UD-Q4_K_XL and UD-Q8_K_XL builds; both enable MTP speculative decoding and include a BF16 vision projector.
+To select Q8 explicitly, run `local-ai models install cyber-tiel-coder-35b-a3b-q4-mtp --variant cyber-tiel-coder-35b-a3b-q8-mtp`.
+Both configurations use the embedded chat template and default to 32,768 context tokens.
+The [model card](https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP) describes its abliterated Ornith-1.5 base and MIT license.
+
+## Qwen3.8-27B Agention Precision
+
+The gallery includes Agention Precision IQ4_XS and Q4_K_M GGUF builds of
+Qwen3.8-27B for llama.cpp. Both include the BF16 vision projector for image
+input and use a 32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-agention-iq4-xs
+```
+
+To select a specific build, pass `--variant qwen3.8-27b-agention-iq4-xs`
+or `--variant qwen3.8-27b-agention-q4-k-m` to the same command.
+The files use standard llama.cpp quantization types and the Apache-2.0 license.
+See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF)
+for quantization details. These entries do not enable MTP speculative decoding.
+
+## Swift 1.5 Qwen3.8-27B GSQ-RCO
+
+Install `swift-1.5-qwen3.8-27b-gsq-rco` for text chat with llama.cpp.
+The gallery groups IQ2_XS, IQ2_S, IQ3_XXS, and IQ3_S quantizations of this 27B reasoning and coding model.
+To select IQ3_S explicitly, run:
+
+```bash
+local-ai models install swift-1.5-qwen3.8-27b-gsq-rco --variant swift-1.5-qwen3.8-27b-gsq-rco-iq3-s
+```
+
+The configurations use the embedded chat template and default to 32,768 context tokens.
+These builds support text chat only: the publisher has no verified vision projector for this release.
+They use standard GGUF files without MTP decoding.
+See the [model card](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF) and [Swift Open License v1.0](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/blob/main/LICENSE) for usage terms.
+
+## Sharp-Spark-X2.5-4B
+
+Install `sharp-spark-x2.5-4b` for coding and text chat with llama.cpp.
+The gallery groups Q4_K_XL, Q5_K_XL, and Q6_K_XL builds as variants.
+To select the publisher's recommended Q6 build, run:
+
+```bash
+local-ai models install sharp-spark-x2.5-4b --variant sharp-spark-x2.5-4b-q6
+```
+
+All builds use a 32,768-token default context and the embedded Sharp-Spark chat template.
+That template adds a terseness instruction to the system prompt.
+See the [publisher's model card](https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF) for quantization and template details.
+
+## MiMo-V2.6-Distill-Qwen-9B
+
+Install `mimo-v2.6-distill-qwen-9b` for text and image chat with llama.cpp.
+This MIT-licensed 9B Qwen3.5 fine-tune targets coding, agent tasks, and visual coding.
+The gallery groups Q4_K_M and Q8_0 builds as variants; both include the F16 vision projector.
+To select Q8_0 explicitly, run `local-ai models install mimo-v2.6-distill-qwen-9b --variant mimo-v2.6-distill-qwen-9b-q8`.
+The configurations default to 32,768 context tokens and use the model's embedded chat template.
+See the [model card](https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B) for training details.
+
+## Qwopus3.8 Flash V2
+
+Install `qwopus3.8-27b-flash-v2` for the Q4_K_M GGUF build, with Q8_0 available through variant selection:
+
+```bash
+local-ai models install qwopus3.8-27b-flash-v2
+local-ai models install qwopus3.8-27b-flash-v2 --variant qwopus3.8-27b-flash-v2-q8
+```
+
+Both builds use llama.cpp with the embedded chat template, MTP speculative decoding, and the F32 vision projector.
+Weights and projector downloads are pinned to a Hugging Face revision and verified with SHA256.
+This Apache-2.0 release is a further post-training of Qwopus3.8 Flash for reasoning and agent tasks.
+See the [publisher's model card](https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF) for evaluation details and limitations.
+
+## ThinkingCap Qwen3.8-27B
+
+Install `thinkingcap-qwen3.8-27b` for a 27B reasoning model with text and image input.
+The llama.cpp entries include Q4_K_M and Q8_0 weights, each paired with the F16 vision projector.
+LocalAI selects between the builds using the gallery variant rules. To request Q8_0 explicitly:
+
+```bash
+local-ai models install thinkingcap-qwen3.8-27b --variant thinkingcap-qwen3.8-27b-q8
+```
+
+Both builds use the embedded chat template, a 32,768-token default context, and the publisher's sampled decoding settings.
+MTP speculative decoding is not enabled by these entries.
+The weights use [PolyForm Small Business 1.0.0 with a personal-use grant](https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/blob/main/LICENSE).
+Review that license for permitted use.
+
 ## Hemmingway-1
 
 Install `hemmingway-1` for English text generation with llama.cpp. The gallery groups its Q4_K_M and Q8_0 builds as variants.
@@ -88,7 +181,7 @@ To use a gallery that needs authentication, such as a private GitHub repository 
 
 A gallery entry can declare a `mirrors` list of alternative locations for the same index file. Mirrors exist for availability, not for load balancing: LocalAI always prefers the `url`, and only falls back to the mirrors, in the order you listed them, when the one before it cannot be fetched. If the primary works, the mirrors are never contacted.
 
-Mirrors accept any URI the gallery loader understands — `https://`, `github:`, `huggingface://` (also `hf://` and `hf.co/`), and `file://` — and the same rules apply to them as to a primary URL, so a `file://` mirror must still live inside your models directory.
+Mirrors accept any URI the gallery loader understands — `https://`, `github:`, `huggingface://` (also `hf://` and `hf.co/`), `file://`, and `oci://` — and the same rules apply to them as to a primary URL, so a `file://` mirror must still live inside your models directory.
 
 ```json
 GALLERIES=[{"name":"localai", "url":"https://example.org/gallery/index.yaml", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]
@@ -142,10 +235,10 @@ A relative `url` cannot leave the gallery root. An entry that tries to climb out
 
 ### Signature verification
 
-An `oci://` gallery can be signed, and LocalAI verifies the signature before it unpacks anything. Add a `verification` block with the Fulcio issuer and the signing identity, in the same form the [backend galleries]({{%relref "features/backends#verifying-oci-backends" %}}) use:
+An `oci://` gallery can be signed, and LocalAI verifies the signature before it unpacks anything. Add an `artifact_verification` block with the Fulcio issuer and the signing identity, in the same form the [backend galleries]({{%relref "features/backends#verifying-oci-backends" %}}) use:
 
 ```json
-GALLERIES=[{"name":"premium","url":"oci://quay.io/acme/gallery:latest","verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/acme/gallery/\\.github/workflows/publish\\.yml@refs/tags/.+$"}}]
+GALLERIES=[{"name":"premium","url":"oci://quay.io/acme/gallery:latest","artifact_verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/acme/gallery/\\.github/workflows/publish\\.yml@refs/tags/.+$"}}]
 ```
 
 The tag is resolved to a digest, the signature is checked against that digest, and the same digest is then pulled. A gallery that fails verification is never written to the cache, so no unverified file reaches your disk. The optional `not_before` RFC3339 value revokes signatures logged before that time, exactly as it does for backends.
@@ -164,8 +257,16 @@ With strict integrity on (`--require-backend-integrity` or `LOCALAI_REQUIRE_BACK
 The optional `source_repository` value works the same for `oci://` galleries as it does for backends: it pins the repository the signature was made for when a shared reusable workflow does the signing. See [Verifying OCI Backends]({{%relref "features/backends#verifying-oci-backends" %}}).
 
 {{% notice warning %}}
-With `--require-backend-integrity` (`LOCALAI_REQUIRE_BACKEND_INTEGRITY=1`), an `oci://` gallery that has no `verification` block is refused when the models are listed, not only when one is installed. Add a `verification` block to every `oci://` gallery before you turn strict integrity on, or the galleries without one stop listing. An `oci://` gallery without a policy still lists outside strict mode, with a warning in the log.
+`artifact_verification` applies only to the gallery artifact. Backend image signatures use `verification`. For compatibility, the artifact loader uses `verification` when `artifact_verification` is absent. Set both fields when the gallery and its backend images have different signing identities.
+
+With `--require-backend-integrity` (`LOCALAI_REQUIRE_BACKEND_INTEGRITY=1`), an `oci://` gallery with neither policy is refused when the models are listed, not only when one is installed. An `oci://` gallery without a policy still lists outside strict mode, with a warning in the log.
 {{% /notice %}}
+
+### Official gallery publishing
+
+The `gallery_publish.yml` workflow publishes both official galleries on relevant changes to `master`, or through a manual dispatch on `master`. It uses the existing `LOCALAI_REGISTRY_USERNAME` and `LOCALAI_REGISTRY_PASSWORD` secrets. It reuses the public backend repository `go-skynet/local-ai-backends`. The `gallery-models` and `gallery-backends` tags move only after their artifact digest has been signed. Revision tags include the source commit SHA.
+
+To prepare the same files locally, run `go run ./scripts/build/gallery . gallery /tmp/model-gallery` or use `backend` as the source directory. The helper rewrites repository-local base configuration URLs to artifact-relative paths and copies the files. The published artifact type is `application/vnd.localai.gallery.v1`; each file is a separate layer with its relative path as its title.
 
 ### Private registries
 
@@ -198,10 +299,10 @@ GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 For example, to spell out the default `localai` repository, you can start `local-ai` with:
 
 ```
-GALLERIES=[{"name":"localai", "url":"https://index.localai.io/models", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]
+GALLERIES=[{"name":"localai","url":"https://index.localai.io/models","mirrors":["github:mudler/LocalAI/gallery/index.yaml@master","oci://quay.io/go-skynet/local-ai-backends:gallery-models"],"artifact_verification":{"issuer":"https://token.actions.githubusercontent.com","identity":"https://github.com/mudler/LocalAI/.github/workflows/gallery_publish.yml@refs/heads/master"}}]
 ```
 
-`https://index.localai.io/models` is a caching mirror of the same index file, and the `github:` entry is the fallback used whenever it cannot be reached. `github:mudler/LocalAI/gallery/index.yaml@master` is expanded automatically to `https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/index.yaml`.
+LocalAI tries `https://index.localai.io/models` first, GitHub second, and the signed OCI gallery last. The OCI artifact includes the repository-local base configurations, so reading those configurations does not require GitHub. Model weights and external URLs still require their original hosts. `github:mudler/LocalAI/gallery/index.yaml@master` is expanded automatically to `https://raw.githubusercontent.com/mudler/LocalAI/master/gallery/index.yaml`.
 
 Note: the url are expanded automatically for `github` and `huggingface`, however `https://` and `http://` prefix works as well.
 

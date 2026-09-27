@@ -63,9 +63,9 @@ against - and two modes:
 `proxy.provider` selects the auth scheme and (in translate mode) the wire
 format. Supported values: `openai`, `anthropic`.
 
-API keys are loaded from either an environment variable (`api_key_env`) or a
-file (`api_key_file`). The key never appears in the config file or the admin
-UI; pick whichever fits your secret-management setup.
+If the upstream requires an API key, configure either an environment variable
+(`api_key_env`) or a file (`api_key_file`). The key never appears in the config
+file or the admin UI. If the upstream requires no API key, omit both fields.
 
 ### OpenAI passthrough
 
@@ -129,7 +129,7 @@ Anthropic clients hit `http://localhost:8080/v1/messages` with
 
 Most third-party providers (Together, Groq, DeepInfra, OpenRouter, …) speak
 the OpenAI chat-completions wire format. Use `provider: openai` with the
-provider's URL and API key:
+provider's URL and, if required, its API key:
 
 ```yaml
 name: llama-3-70b-via-together
@@ -142,6 +142,37 @@ proxy:
   api_key_env: TOGETHER_API_KEY
   upstream_model: meta-llama/Llama-3-70b-chat-hf
 ```
+
+### Upstreams without an API key
+
+For an OpenAI-compatible upstream that accepts requests without authentication,
+omit both `api_key_env` and `api_key_file`:
+
+```yaml
+name: internal-chat-proxy
+backend: cloud-proxy
+
+proxy:
+  mode: passthrough
+  provider: openai
+  upstream_url: http://inference.internal:8000/v1/chat/completions
+  upstream_model: my-model
+```
+
+Replace the example URL and model name with your upstream's values. LocalAI
+loads this configuration without resolving a key and adds no upstream
+`Authorization` header. This also applies to OpenAI-compatible upstreams in
+translate mode.
+
+Omitting both fields differs from setting `api_key_env` to an empty or unset
+environment variable: the latter causes a backend load error.
+
+LocalAI's client authentication is separate. Clients must still authenticate
+to LocalAI when its authentication is enabled. LocalAI does not forward their
+`Authorization` header to the upstream.
+
+An upstream without API keys can still require another authentication or
+payment protocol. Omitting these fields does not implement that protocol.
 
 ### Translate mode
 
