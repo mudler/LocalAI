@@ -391,6 +391,8 @@ See the [Model Configuration]({{% relref "advanced/model-configuration" %}}) gui
 
 ### List Installed Models
 
+Ollama clients can list configured models with `GET /api/tags` and loaded models with `GET /api/ps`. Each entry includes `size` in bytes when LocalAI can resolve a non-empty primary weights file on disk. This is the size of that file, not the total size of a multi-file model or its memory use. Unknown sizes are omitted; `/api/ps` also omits `size_vram` because per-model VRAM use is not available.
+
 ```bash
 # Via API
 curl http://localhost:8080/v1/models
