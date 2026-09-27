@@ -1,4 +1,54 @@
 ---
+- name: "swift-qwen3.8-27b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-Qwen3.8-27b
+    - https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF
+  description: |
+    Swift-Qwen3.8-27B is UkisAI's reasoning-efficient fine-tune of Qwen3.8-27B.
+    The publisher reports 58.3% fewer thinking tokens with less than 1% quality loss.
+    This Q4_K_M GGUF includes the F16 vision projector and enables MTP speculative decoding.
+    The weights use the Swift Open License v1.0.
+  license: "swift-open-license-1.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+    - mtp
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Swift-Qwen3.8-27B-Q4_K_M/Swift-Qwen3.8-27B-Q4_K_M.gguf
+      presence_penalty: 1.5
+      repeat_penalty: 1
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.8
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Swift-Qwen3.8-27B-Q4_K_M/Swift-Qwen3.8-27B-Q4_K_M.gguf
+      sha256: ad5811e291431bd0de1cec0c4004a5eac98daee9850882edac69a823209e88ab
+      uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/Swift-Qwen3.8-27B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
+      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
+      uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/mmproj-Swift-Qwen3.8-27B-F16.gguf
 - name: "ornith-1.5-9b-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
