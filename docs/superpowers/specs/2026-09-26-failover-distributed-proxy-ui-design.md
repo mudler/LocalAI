@@ -70,8 +70,9 @@ below applies when distributed mode is on.
   maps. The manager does not import NATS or gorm directly.
 - A peer delta is applied through `OnApply`, which changes local state
   without publishing again (no echo loops).
-- The NATS-only maps have no `Store`, so `Reconcile` would re-hydrate them
-  empty. Instead the leader republishes every target and chain snapshot every
+- The NATS-only maps have no `Store`, so a `Reconcile` tick's hydrate would be
+  a no-op — nothing durable to pull from, so it could never help a late
+  joiner. Instead the leader republishes every target and chain snapshot every
   10 s. A frontend that joins late converges within 10 s and uses its own
   state until then.
 

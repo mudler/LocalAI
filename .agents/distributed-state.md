@@ -44,9 +44,9 @@ Examples:
   `failover.targets` and `failover.chains` are ephemeral live-health state
   with no `Store`, republished by the leader every 10 s.
 
-**Gotcha:** `Reconcile` with neither a `Store` nor a `Loader` re-hydrates the
-map **empty** on a reconnect or a late join — there is nothing for it to pull
-from. If your map has no durable backing, a leader (or another privileged
+**Gotcha:** `Reconcile` with neither a `Store` nor a `Loader` does **nothing**
+— there is nothing for it to pull from, so it cannot help a late joiner catch
+up. If your map has no durable backing, a leader (or another privileged
 writer) must republish its live state after a reconnect instead of relying on
 `Reconcile` to recover it.
 

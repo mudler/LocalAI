@@ -236,11 +236,11 @@ continue. On a single LocalAI instance, a restart removes the pin. In
 - The model editor's template picker has a **Failover Chain** template that
   starts a new model with two empty targets. Any model can also add a
   `failover.targets` field directly: each row picks a target model and a
-  **warm** toggle, with move up/down and remove controls. The warm toggle is
-  disabled, with an explanation, for a target on a remote (`localai-proxy` or
-  `cloud-proxy`) backend, since `warm` has no effect there. The field flags
-  fewer than two targets, a duplicate target, and the chain naming itself as
-  one of its own targets.
+  **warm** toggle, with move up/down and remove controls. The toggle is
+  available on every row; `warm` has no effect on a remote (`localai-proxy` or
+  `cloud-proxy`) target, and LocalAI logs a warning when it loads a chain with
+  one set. The field flags fewer than two targets, a duplicate target, and the
+  chain naming itself as one of its own targets.
 - Opening an existing chain in the model editor shows a health strip: the
   chain's status pill, its active target and how long it has been active,
   and a table of every target with its kind, warm flag, status, last probe

@@ -25,9 +25,9 @@ var (
 //     PinStore is given) so a late joiner hydrates every pin from the DB on
 //     Start, not just from whatever peers happen to broadcast afterwards.
 //   - failover.targets and failover.chains are ephemeral live-health state,
-//     NATS-only with no Store and no Reconcile: there is nothing durable to
-//     hydrate from, and a Reconcile tick would re-hydrate them empty and wipe
-//     live state clean off a running frontend. A late joiner instead catches
+//     NATS-only with no Store and no Reconcile: with neither set, a Reconcile
+//     tick's hydrate is a no-op (nothing durable to pull from), so it could
+//     never help a late joiner catch up anyway. A late joiner instead catches
 //     up from the leader's periodic Republish (see failover.Manager.Republish).
 type Sync struct {
 	pins    *syncstate.SyncedMap[string, PinRecord]
