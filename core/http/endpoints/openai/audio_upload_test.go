@@ -50,6 +50,22 @@ var _ = Describe("audio upload endpoints reject bad uploads as client errors", f
 		Expect(he.Code).To(Equal(http.StatusBadRequest))
 	}
 
+	// An unknown response_format is the caller's fault too, and must be
+	// rejected before the backend runs: a failover chain would otherwise
+	// transcribe on every target and count the error against each of them.
+	for name, ec := range map[string]endpointCase{
+		"transcription": cases["transcription"],
+		"diarization":   cases["diarization"],
+	} {
+		It(name+": unknown response_format", func() {
+			body := "--xyz\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\nbogus\r\n" +
+				"--xyz\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.wav\"\r\n\r\nRIFF\r\n--xyz--\r\n"
+			var err error
+			Expect(func() { err = run(ec, "multipart/form-data; boundary=xyz", body) }).NotTo(Panic(), "the backend must not be reached")
+			expectBadRequest(err)
+		})
+	}
+
 	for name, ec := range cases {
 		It(name+": multipart content type without a boundary", func() {
 			expectBadRequest(run(ec, "multipart/form-data", ""))

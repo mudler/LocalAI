@@ -2,7 +2,6 @@ package openai
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -115,6 +114,13 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			if b, err := strconv.ParseBool(v); err == nil {
 				stream = b
 			}
+		}
+
+		// Reject an unknown format before the backend runs: the backend work
+		// would be wasted, and a failover chain would count the error
+		// against every target.
+		if !stream && !validTranscriptionResponseFormat(responseFormat) {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format")
 		}
 
 		// retrieve the file data from the request
@@ -230,9 +236,19 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			}
 			return c.JSON(http.StatusOK, trs)
 		default:
-			return errors.New("invalid response_format")
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format")
 		}
 	}
+}
+
+func validTranscriptionResponseFormat(f schema.TranscriptionResponseFormatType) bool {
+	switch f {
+	case "", schema.TranscriptionResponseFormatLrc, schema.TranscriptionResponseFormatText,
+		schema.TranscriptionResponseFormatSrt, schema.TranscriptionResponseFormatVtt,
+		schema.TranscriptionResponseFormatJson, schema.TranscriptionResponseFormatJsonVerbose:
+		return true
+	}
+	return false
 }
 
 // streamTranscription emits OpenAI-format SSE events for a transcription

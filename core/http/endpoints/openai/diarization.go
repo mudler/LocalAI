@@ -1,7 +1,6 @@
 package openai
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -75,6 +74,13 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		if responseFormat == "" {
 			responseFormat = schema.DiarizationResponseFormatJson
 		}
+		switch responseFormat {
+		case schema.DiarizationResponseFormatJson, schema.DiarizationResponseFormatJsonVerbose, schema.DiarizationResponseFormatRTTM:
+		default:
+			// Checked before the backend runs, for the same reason as in
+			// TranscriptEndpoint.
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format (expected: json, verbose_json, rttm)")
+		}
 
 		file, err := uploadedFile(c, "file")
 		if err != nil {
@@ -126,7 +132,7 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		case schema.DiarizationResponseFormatJsonVerbose:
 			return c.JSON(http.StatusOK, result)
 		default:
-			return errors.New("invalid response_format (expected: json, verbose_json, rttm)")
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format (expected: json, verbose_json, rttm)")
 		}
 	}
 }
