@@ -1552,6 +1552,16 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 
 		r.stagingTracker.FileComplete(trackingKey, fileIdx, totalFiles)
 		xlog.Debug("Staged model field", "field", f.name, "remotePath", remotePath)
+
+		if err := r.stageSplitShards(ctx, node, trackingKey, localPath, keyMapper.Key, &fileIdx, totalFiles); err != nil {
+			if f.name == "ModelFile" {
+				xlog.Error("Failed to stage split GGUF for remote node", "node", node.Name, "field", f.name, "path", localPath, "error", err)
+				return nil, fmt.Errorf("staging model file: %w", err)
+			}
+			xlog.Warn("Failed to stage split GGUF, clearing field", "field", f.name, "path", localPath, "error", err)
+			*f.val = ""
+			continue
+		}
 		*f.val = remotePath
 
 		// Derive ModelPath from the first staged file (ModelFile).
@@ -1702,7 +1712,20 @@ func pathBytes(path string) int64 {
 		return 0
 	}
 	if !fi.IsDir() {
-		return fi.Size()
+		shards := ggufSplitShards(path)
+		if shards == nil {
+			return fi.Size()
+		}
+		// The configured first shard of a split can be a few MB of metadata
+		// while the weights sit in the others; sizing it alone starves the
+		// load budget and the disk-headroom check.
+		var total int64
+		for _, shard := range shards {
+			if si, err := os.Stat(shard); err == nil {
+				total += si.Size()
+			}
+		}
+		return total
 	}
 	var total int64
 	_ = filepath.WalkDir(path, func(_ string, d fs.DirEntry, walkErr error) error {
@@ -1753,6 +1776,10 @@ func countStageableFiles(path string) int {
 		return 0
 	}
 	if !fi.IsDir() {
+		// stageSplitShards uploads the rest of a split GGUF alongside it.
+		if shards := ggufSplitShards(path); shards != nil {
+			return len(shards)
+		}
 		return 1
 	}
 	n := 0
