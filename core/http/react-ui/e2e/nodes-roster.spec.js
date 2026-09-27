@@ -49,7 +49,7 @@ test.describe('Nodes join command', () => {
     await mockCluster(page, [])
     await page.goto('/app/nodes')
 
-    await page.getByRole('button', { name: 'Add worker' }).first().click()
+    await expect(page.getByRole('dialog', { name: 'Add worker' })).toBeVisible({ timeout: 15_000 })
     await page.getByRole('radio', { name: /^Backend$/ }).click()
     const backendCli = page.locator('.p2p-cmd pre').first()
     await expect(backendCli).toContainText('local-ai worker', { timeout: 15_000 })
