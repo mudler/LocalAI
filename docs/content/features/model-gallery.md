@@ -80,6 +80,20 @@ These builds support text chat only: the publisher has no verified vision projec
 They use standard GGUF files without MTP decoding.
 See the [model card](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF) and [Swift Open License v1.0](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/blob/main/LICENSE) for usage terms.
 
+## Sharp-Spark-X2.5-4B
+
+Install `sharp-spark-x2.5-4b` for coding and text chat with llama.cpp.
+The gallery groups Q4_K_XL, Q5_K_XL, and Q6_K_XL builds as variants.
+To select the publisher's recommended Q6 build, run:
+
+```bash
+local-ai models install sharp-spark-x2.5-4b --variant sharp-spark-x2.5-4b-q6
+```
+
+All builds use a 32,768-token default context and the embedded Sharp-Spark chat template.
+That template adds a terseness instruction to the system prompt.
+See the [publisher's model card](https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF) for quantization and template details.
+
 ## MiMo-V2.6-Distill-Qwen-9B
 
 Install `mimo-v2.6-distill-qwen-9b` for text and image chat with llama.cpp.
