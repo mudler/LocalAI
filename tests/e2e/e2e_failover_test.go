@@ -6,23 +6,13 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("Failover chains", Label("failover"), func() {
-	postJSON := func(path string, body map[string]any) *http.Response {
-		b, err := json.Marshal(body)
-		Expect(err).ToNot(HaveOccurred())
-		resp, err := http.Post(apiURL+path, "application/json", bytes.NewReader(b))
-		Expect(err).ToNot(HaveOccurred())
-		return resp
-	}
 	expectServedByMock := func(resp *http.Response) {
 		defer func() { _ = resp.Body.Close() }()
 		body, _ := io.ReadAll(resp.Body)
@@ -34,7 +24,7 @@ var _ = Describe("Failover chains", Label("failover"), func() {
 	// The entry name is the chain suffix: chain-<name> is written by the suite.
 	DescribeTable("retries every endpoint family on the next target",
 		func(path string, body func(model string) map[string]any) {
-			expectServedByMock(postJSON(path, body("chain-"+CurrentSpecReport().LeafNodeText)))
+			expectServedByMock(postJSONTo(path, body("chain-"+CurrentSpecReport().LeafNodeText)))
 		},
 		Entry("chat", "/chat/completions", func(m string) map[string]any {
 			return map[string]any{"model": m, "messages": []map[string]string{{"role": "user", "content": "hi"}}}
@@ -99,7 +89,7 @@ var _ = Describe("Failover chains", Label("failover"), func() {
 			})
 			up2.SetScript(chatReply)
 
-			resp := postJSON("/chat/completions", map[string]any{"model": "chain-remote", "messages": []map[string]string{{"role": "user", "content": "hi"}}})
+			resp := postJSONTo("/chat/completions", map[string]any{"model": "chain-remote", "messages": []map[string]string{{"role": "user", "content": "hi"}}})
 			defer func() { _ = resp.Body.Close() }()
 			body, _ := io.ReadAll(resp.Body)
 			Expect(resp.StatusCode).To(Equal(200), string(body))
@@ -116,7 +106,7 @@ var _ = Describe("Failover chains", Label("failover"), func() {
 			Eventually(func() string { return chainActive("chain-remote") }, 30*time.Second, 500*time.Millisecond).
 				Should(Equal("up-1"))
 
-			resp2 := postJSON("/chat/completions", map[string]any{"model": "chain-remote", "messages": []map[string]string{{"role": "user", "content": "hi"}}})
+			resp2 := postJSONTo("/chat/completions", map[string]any{"model": "chain-remote", "messages": []map[string]string{{"role": "user", "content": "hi"}}})
 			defer func() { _ = resp2.Body.Close() }()
 			Expect(resp2.StatusCode).To(Equal(200))
 			Expect(resp2.Header.Get("X-LocalAI-Served-Model")).To(Equal("up-1"))
@@ -178,12 +168,7 @@ func registerFailoverRemoteModels(url1, url2 string) {
 			"recovery": map[string]any{"probes": 2, "min_dwell": "2s"},
 		},
 	}
-	for _, cfg := range []map[string]any{proxyModel("up-1", url1), proxyModel("up-2", url2), chain} {
-		data, err := yaml.Marshal(cfg)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())
-	}
-	Expect(localAIApp.ModelConfigLoader().LoadModelConfigsFromPath(modelsPath)).To(Succeed())
+	registerModelConfigs(proxyModel("up-1", url1), proxyModel("up-2", url2), chain)
 	Eventually(func() string { return chainActive("chain-remote") }, 10*time.Second, 200*time.Millisecond).
 		Should(Equal("up-1"))
 }

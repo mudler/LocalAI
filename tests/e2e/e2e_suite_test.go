@@ -39,6 +39,7 @@ var (
 	apiURL            string
 	mockBackendPath   string
 	cloudProxyPath    string
+	localAIProxyPath  string
 	mcpServerURL      string
 	mcpServerShutdown func()
 	localAIApp        *localaiapp.Application
@@ -646,6 +647,23 @@ var _ = BeforeSuite(func() {
 		}
 	}
 
+	// localai-proxy backend: its models point back at this server, whose URL
+	// exists only once it listens, so the specs register them at runtime.
+	// Like cloud-proxy, a missing binary makes those specs Skip.
+	for _, p := range []string{
+		filepath.Join("..", "e2e", "mock-backend", "localai-proxy"),
+		filepath.Join("tests", "e2e", "mock-backend", "localai-proxy"),
+		filepath.Join("..", "..", "tests", "e2e", "mock-backend", "localai-proxy"),
+	} {
+		if _, err := os.Stat(p); err == nil {
+			localAIProxyPath = p
+			break
+		}
+	}
+	if localAIProxyPath != "" {
+		Expect(os.Chmod(localAIProxyPath, 0755)).To(Succeed())
+	}
+
 	// Live PII NER tier. When PII_NER_MODEL_GGUF points at a downloaded
 	// privacy-filter GGUF, register two detector models that drive the real
 	// gRPC TokenClassify path on the privacy-filter backend (discovered via
@@ -702,6 +720,9 @@ var _ = BeforeSuite(func() {
 	localAIApp.ModelLoader().SetExternalBackend("opus", mockBackendPath)
 	if cloudProxyPath != "" {
 		localAIApp.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
+	}
+	if localAIProxyPath != "" {
+		localAIApp.ModelLoader().SetExternalBackend("localai-proxy", localAIProxyPath)
 	}
 
 	// Create HTTP app

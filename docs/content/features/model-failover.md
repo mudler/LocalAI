@@ -20,7 +20,7 @@ provider, and to fall back to a local model when the remote one is down.
 name: assistant-llm
 failover:
   targets:
-    - model: argus-llm          # for example a cloud-proxy model
+    - model: argus-llm          # for example a localai-proxy or cloud-proxy model
     - model: gemma-local
       warm: true                # keep it loaded
 ```
@@ -50,9 +50,9 @@ Rules:
 - A chain cannot also set `alias` or `backend`.
 - Responses name the chain as the model. The `X-LocalAI-Served-Model` header
   names the target that served the request.
-- A remote (`cloud-proxy`) target receives its own model name, never the chain
-  name: `proxy.upstream_model`, or the target name when `upstream_model` is
-  empty. The health check looks for the same name.
+- A remote (`localai-proxy` or `cloud-proxy`) target receives its own model
+  name, never the chain name: `proxy.upstream_model`, or the target name when
+  `upstream_model` is empty. The health check looks for the same name.
 
 ## How the target is chosen
 
@@ -89,7 +89,7 @@ targets were down.
 
 | Target | Regular check | Check before moving back |
 |---|---|---|
-| Remote (`cloud-proxy`) | `GET /v1/models` on the upstream lists the model | one small real request, for example a 1-token completion |
+| Remote (`localai-proxy`, `cloud-proxy`) | `GET /v1/models` on the upstream lists the model | one small real request, for example a 1-token completion |
 | Local, `warm: true` | the backend answers a health check. A check never loads the model: while it is not loaded, the check passes and real requests judge it | one small real request. While the model is not loaded, the target is used again after `min_dwell` |
 | Local, not warm | none: judged only by real requests; it is never loaded only to check it | none: the target is used again after `min_dwell` |
 
@@ -107,8 +107,9 @@ count toward the active backend limit (`--max-active-backends`) like any
 pinned model: LocalAI never evicts them to make room, and if they fill the
 limit, a new model still loads rather than being blocked.
 
-`warm` applies only to local targets. On a remote (`cloud-proxy`) target it
-has no effect, and LocalAI logs a warning when it loads the chain.
+`warm` applies only to local targets. On a remote (`localai-proxy` or
+`cloud-proxy`) target it has no effect, and LocalAI logs a warning when it
+loads the chain.
 
 ## Realtime pipelines
 
@@ -135,6 +136,66 @@ it starts (`reason: initial`) and each time a chain switches:
 {"type":"localai.model.failover","chain":"assistant-llm","stage":"llm",
  "from":"argus-llm","to":"gemma-local","state":"fallback","reason":"trip"}
 ```
+
+### Example: stages on a remote LocalAI
+
+This pipeline runs its transcription, LLM and TTS stages on a remote LocalAI
+(`argus`) through [`localai-proxy`]({{% relref "operations/cloud-proxy" %}})
+models, and uses local models when the remote instance is down. Each stage has
+its own chain, so one stage can fail over while the others stay remote.
+
+```yaml
+# Remote targets: each one names the model on the upstream LocalAI.
+name: argus-stt
+backend: localai-proxy
+known_usecases: [transcript]
+options:
+  - realtime_pipeline:asr-pipeline   # upstream pipeline for live transcription
+proxy:
+  upstream_url: http://argus.lan:8080
+  upstream_model: parakeet
+---
+name: argus-llm
+backend: localai-proxy
+known_usecases: [chat]
+proxy:
+  upstream_url: http://argus.lan:8080
+  upstream_model: gemma-3-12b
+---
+name: argus-tts
+backend: localai-proxy
+known_usecases: [tts]
+proxy:
+  upstream_url: http://argus.lan:8080
+  upstream_model: kokoro
+---
+# One chain per stage, remote first, local second.
+name: stt-chain
+failover:
+  targets: [{model: argus-stt}, {model: whisper-local, warm: true}]
+---
+name: llm-chain
+failover:
+  targets: [{model: argus-llm}, {model: gemma-local, warm: true}]
+---
+name: tts-chain
+failover:
+  targets: [{model: argus-tts}, {model: piper-local}]
+---
+name: assistant
+pipeline:
+  vad: silero-vad
+  transcription: stt-chain
+  llm: llm-chain
+  tts: tts-chain
+```
+
+The example shows the configs as one YAML stream; put each config in its own
+file in the models directory. When `argus` stops
+answering, the next call of each stage fails over to the local model and the
+session receives a `localai.model.failover` event for that stage. A remote
+target that does not support a call (it returns `Unimplemented`) is skipped for
+that call and is not marked down.
 
 Limits:
 
