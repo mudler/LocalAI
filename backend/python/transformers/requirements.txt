@@ -3,4 +3,4 @@ protobuf==7.36.1
 certifi
 setuptools
 scipy==1.18.0
-numpy>=2.5.2
+numpy>=2.5.3
