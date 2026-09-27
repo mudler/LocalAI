@@ -414,6 +414,17 @@ test-e2e: build-mock-backend build-cloud-proxy-backend build-localai-proxy-backe
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
 
+# Windows host smoke test: builds a real local-ai.exe and the mock-backend,
+# lays the mock backend into a --backends-path the way the gallery ships it
+# (run.sh for discovery + run.ps1 to launch), then boots local-ai.exe and
+# asserts a chat completion plus job-object process cleanup. The suite builds
+# both binaries itself into a temp dir (CGO_ENABLED=0) and skips entirely on
+# non-Windows hosts. To reuse pre-built binaries instead, pass LOCAL_AI_EXE
+# and MOCK_BACKEND_EXE to the ginkgo invocation.
+.PHONY: test-windows-smoke
+test-windows-smoke: protogen-go react-ui
+	go run github.com/onsi/ginkgo/v2/ginkgo -v ./tests/e2e/windows
+
 # `docker stop` returns as soon as the container exits, but Docker reaps a
 # `--rm` container asynchronously after that. The `docker rmi localai-tests` in
 # test-e2e then loses the race against the reaper and fails on a still

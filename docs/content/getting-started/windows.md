@@ -89,8 +89,19 @@ releases will be signed.
 
 ### Firewall
 
-LocalAI listens on `http://localhost:8080` by default. Allow it through the
-firewall on first run when prompted.
+LocalAI binds `:8080` on **all interfaces** by default, with no API key
+configured — on a shared network that exposes the API to anyone who can
+reach the host. For local use, bind explicitly to the loopback interface
+and set a key instead:
+
+```powershell
+./local-ai.exe --address 127.0.0.1:8080 --api-key your-key-here
+```
+
+When the firewall prompts on first run, allow local-ai.exe only if you
+intend to listen on non-loopback interfaces (for example, to serve models
+to other machines on your LAN); for a loopback-only setup, deny the
+prompt.
 
 ## Building from source
 
@@ -174,5 +185,14 @@ The pipeline:
    the matrix),
    and pushes the OCI image to both registries.
 
-The gallery entry (with its `verification:` block) points at the published
-image, so `local-ai backends install` fetches the exact artifact CI produced.
+The gallery entry points at the published image, so `local-ai backends install`
+fetches the exact artifact CI produced.
+
+The published image is signed keyless with Sigstore/cosign, the same way the
+platform images that go through the `backend_merge.yml` manifest merge are:
+the publish job resolves the pushed digest and signs it with an OCI 1.1
+referrer bundle. The gallery does not enforce a `verification:` policy yet —
+`backend/index.yaml` still ships without those blocks populated, and strict
+mode stays off until a gallery covers every published variant — so installs
+verify the signature, but a missing or invalid one degrades to a warning
+rather than a refusal.

@@ -195,6 +195,18 @@ jobs:
     needs: windows-backend-build
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # id-token: write is required for keyless cosign — the workflow exchanges
+    # the GitHub OIDC token for a short-lived Fulcio cert that signs each
+    # pushed image. Without this permission the runner cannot mint the token,
+    # and `cosign sign` fails with "no token".
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # cosign gates --registry-referrers-mode=oci-1-1 behind this flag.
+      # Without it, signing fails with "invalid argument \"oci-1-1\" ...
+      # you must set COSIGN_EXPERIMENTAL=1".
+      COSIGN_EXPERIMENTAL: '1'
     steps:
       - name: Download ${{ inputs.backend }}.tar
         uses: actions/download-artifact@v8
@@ -243,14 +255,37 @@ jobs:
             latest=auto
             suffix=${{ inputs.tag-suffix }},onlatest=true
 
+      # This workflow pushes the Windows image directly and so bypasses
+      # backend_merge.yml — the same reason every other per-platform image is
+      # signed by the merge job does not apply here. Sign in-line so the
+      # published artifact carries the same Sigstore bundle the merged images
+      # do, ready for the gallery verification policy that will cover it.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.6.5'
+
       - name: Push Docker image (DockerHub)
         run: |
           for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
             crane push ${{ inputs.backend }}.tar $tag
           done
+          # Sign by digest so the signature outlives tag moves (signing by tag
+          # would orphan it the next time the tag moves). --recursive mirrors
+          # backend_merge.yml; on a single-manifest image it is a no-op.
+          digest=$(crane digest "$(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n' | head -n1)")
+          cosign sign --yes --recursive \
+            --new-bundle-format \
+            --registry-referrers-mode=oci-1-1 \
+            "localai/localai-backends@${digest}"
 
       - name: Push Docker image (Quay)
         run: |
           for tag in $(echo "${{ steps.quaymeta.outputs.tags }}" | tr ',' '\n'); do
             crane push ${{ inputs.backend }}.tar $tag
           done
+          digest=$(crane digest "$(echo "${{ steps.quaymeta.outputs.tags }}" | tr ',' '\n' | head -n1)")
+          cosign sign --yes --recursive \
+            --new-bundle-format \
+            --registry-referrers-mode=oci-1-1 \
+            "quay.io/go-skynet/local-ai-backends@${digest}"

@@ -29,6 +29,13 @@ type backendProcessRuntime struct {
 	once    sync.Once
 	// diagnosticsDone closes after the exit watcher has read the state files.
 	diagnosticsDone chan struct{}
+	// windowsJob is the Windows job object owning the backend's process tree
+	// (wrapper + backend binary), or 0 on other platforms / until assigned.
+	// Kill-on-close makes the OS reap the tree even if local-ai.exe dies
+	// abruptly, not just when we stop the backend explicitly.
+	windowsJob uintptr
+	// jobOnce serializes job termination so concurrent stop paths are safe.
+	jobOnce sync.Once
 }
 
 func backendRuntimeRoot() string {
@@ -130,6 +137,7 @@ func (r *backendProcessRuntime) cleanup() {
 		return
 	}
 	r.once.Do(func() {
+		r.terminateWindowsJobObject()
 		r.cleanupScratch()
 		if err := r.lock.Unlock(); err != nil {
 			xlog.Warn("Failed to unlock backend process runtime", "dir", r.dir, "error", err)
@@ -137,6 +145,35 @@ func (r *backendProcessRuntime) cleanup() {
 		if err := os.RemoveAll(r.dir); err != nil {
 			xlog.Warn("Failed to remove backend process runtime", "dir", r.dir, "error", err)
 		}
+	})
+}
+
+// assignWindowsJobObject records the job object created at launch so a later
+// stop can terminate the whole backend process tree. Best-effort: a host that
+// placed the backend in a non-breakaway job makes assignment fail, which is
+// logged as a warning rather than failing the backend load.
+func (r *backendProcessRuntime) assignWindowsJobObject(pid int) {
+	if r == nil {
+		return
+	}
+	handle, err := createWindowsJobObject(pid)
+	if err != nil {
+		xlog.Warn("Failed to wrap backend process tree in a Windows job object; an abrupt LocalAI exit may leave orphaned backend processes", "pid", pid, "error", err)
+		return
+	}
+	r.windowsJob = handle
+}
+
+// terminateWindowsJobObject kills every process in the job (the wrapper and
+// its backend child) and releases the handle. jobOnce makes concurrent stops
+// of the same backend safe, and re-running after cleanup is a no-op.
+func (r *backendProcessRuntime) terminateWindowsJobObject() {
+	if r == nil {
+		return
+	}
+	r.jobOnce.Do(func() {
+		terminateWindowsJobObject(r.windowsJob)
+		r.windowsJob = 0
 	})
 }
 
