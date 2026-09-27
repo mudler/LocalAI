@@ -587,15 +587,32 @@ func (m *Manager) Pin(chain, target string) error {
 		m.unlockAndFlush()
 		return fmt.Errorf("%w: %q", ErrTargetNotInChain, target)
 	}
+	prev := m.pins[chain]
 	ch.pinned = target
 	m.pins[chain] = target
 	m.recomputeLocked(ch, ReasonManual)
 	s := m.sync
 	m.unlockAndFlush()
-	if s != nil {
-		return s.SetPin(chain, target)
+	if s == nil {
+		return nil
+	}
+	if err := s.SetPin(chain, target); err != nil {
+		m.rollbackPin(chain, target, prev)
+		return err
 	}
 	return nil
+}
+
+// rollbackPin restores prev after a pin change that the other frontends
+// never saw: serving it here alone would split the cluster. A newer change
+// made meanwhile is kept.
+func (m *Manager) rollbackPin(chain, applied, prev string) {
+	m.mu.Lock()
+	current := m.pins[chain]
+	m.mu.Unlock()
+	if current == applied {
+		m.ApplyPin(chain, prev)
+	}
 }
 
 func (m *Manager) Unpin(chain string) error {
@@ -605,13 +622,18 @@ func (m *Manager) Unpin(chain string) error {
 		m.unlockAndFlush()
 		return fmt.Errorf("%w: %q", ErrChainNotFound, chain)
 	}
+	prev := m.pins[chain]
 	ch.pinned = ""
 	delete(m.pins, chain)
 	m.recomputeLocked(ch, ReasonManual)
 	s := m.sync
 	m.unlockAndFlush()
-	if s != nil {
-		return s.ClearPin(chain)
+	if s == nil {
+		return nil
+	}
+	if err := s.ClearPin(chain); err != nil {
+		m.rollbackPin(chain, "", prev)
+		return err
 	}
 	return nil
 }

@@ -52,6 +52,12 @@ func (l *loopSync) Pins() map[string]string {
 	return out
 }
 
+// failingPinSync is a StateSync whose pin writes fail (the DB is down).
+type failingPinSync struct{ *loopSync }
+
+func (failingPinSync) SetPin(string, string) error { return errBoom }
+func (failingPinSync) ClearPin(string) error       { return errBoom }
+
 var _ = Describe("Manager state sync", func() {
 	var (
 		clock     *fakeClock
@@ -170,6 +176,32 @@ var _ = Describe("Manager state sync", func() {
 		st, ok := b.ChainStatus("later")
 		Expect(ok).To(BeTrue())
 		Expect(st.Pinned).ToNot(BeNil())
+	})
+
+	It("rolls a pin back when the shared write fails", func() {
+		m := New(src, WithClock(clock))
+		m.SetStateSync(failingPinSync{bus})
+		Expect(m.Pin("chain", "y")).To(MatchError(errBoom))
+		st, _ := m.ChainStatus("chain")
+		Expect(st.Pinned).To(BeNil())
+	})
+
+	It("restores the previous pin when a re-pin or an unpin fails to share", func() {
+		m := New(src, WithClock(clock))
+		m.SetStateSync(bus)
+		Expect(m.Pin("chain", "y")).To(Succeed())
+		m.SetStateSync(failingPinSync{bus})
+
+		Expect(m.Pin("chain", "x")).To(MatchError(errBoom))
+		st, _ := m.ChainStatus("chain")
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("y"))
+
+		Expect(m.Unpin("chain")).To(MatchError(errBoom))
+		st, _ = m.ChainStatus("chain")
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("y"))
+		Expect(st.Active).To(Equal("y"))
 	})
 
 	It("SetLeaderGate gates a manager built without one", func() {
