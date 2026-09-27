@@ -32,6 +32,13 @@ type textRequest struct {
 	Stop        []string        `json:"stop,omitempty"`
 	Tools       json.RawMessage `json:"tools,omitempty"`
 	ToolChoice  json.RawMessage `json:"tool_choice,omitempty"`
+	// StreamOptions is set on streamed requests: the upstream sends the
+	// usage trailer only when include_usage asks for it.
+	StreamOptions *streamOptions `json:"stream_options,omitempty"`
+}
+
+type streamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
 }
 
 type chatMessage struct {
@@ -101,6 +108,9 @@ func (p *LocalAIProxy) textRequest(opts *pb.PredictOptions, stream bool) (string
 		Stop:        opts.GetStopPrompts(),
 		Tools:       rawJSON(opts.GetTools()),
 		ToolChoice:  rawJSON(opts.GetToolChoice()),
+	}
+	if stream {
+		req.StreamOptions = &streamOptions{IncludeUsage: true}
 	}
 	if len(opts.GetMessages()) == 0 {
 		req.Prompt = opts.GetPrompt()
@@ -298,6 +308,11 @@ func (p *LocalAIProxy) Embeddings(opts *pb.PredictOptions) ([]float32, error) {
 		} `json:"data"`
 	}
 	body := map[string]any{"model": p.model(""), "input": opts.GetEmbeddings()}
+	// Core sends tokenized input in EmbeddingTokens and leaves Embeddings
+	// empty; a list of token lists is how the REST API takes tokens.
+	if tokens := opts.GetEmbeddingTokens(); len(tokens) > 0 {
+		body["input"] = [][]int32{tokens}
+	}
 	if err := p.postJSON(context.Background(), "/v1/embeddings", body, &resp); err != nil {
 		return nil, err
 	}

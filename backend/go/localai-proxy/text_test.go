@@ -251,6 +251,25 @@ var _ = Describe("localai-proxy", func() {
 			Expect(up.last().JSON).To(HaveKeyWithValue("stream", true))
 		})
 
+		It("asks the upstream for the usage trailer and reports its token counts", func() {
+			p := loadProxy(up, nil)
+			up.script("/v1/chat/completions", scriptedResponse{SSE: []string{
+				sseJSON(map[string]any{"choices": []any{map[string]any{"delta": map[string]any{"content": "hi"}}}}),
+				sseJSON(map[string]any{"choices": []any{}, "usage": map[string]any{"prompt_tokens": 7, "completion_tokens": 1}}),
+				"[DONE]",
+			}})
+
+			results := make(chan *pb.Reply, 10)
+			Expect(p.PredictStreamRich(&pb.PredictOptions{Messages: []*pb.Message{{Role: "user", Content: "hi"}}}, results)).To(Succeed())
+			// LocalAI (like OpenAI) only sends the usage trailer on request.
+			Expect(up.last().JSON).To(HaveKeyWithValue("stream_options", HaveKeyWithValue("include_usage", true)))
+			Expect(results).To(HaveLen(2))
+			<-results
+			usage := <-results
+			Expect(usage.GetPromptTokens()).To(Equal(int32(7)))
+			Expect(usage.GetTokens()).To(Equal(int32(1)))
+		})
+
 		It("streams /v1/completions text for a bare prompt", func() {
 			p := loadProxy(up, nil)
 			up.script("/v1/completions", scriptedResponse{SSE: []string{
@@ -333,6 +352,17 @@ var _ = Describe("localai-proxy", func() {
 			Expect(req.Path).To(Equal("/v1/embeddings"))
 			Expect(req.JSON).To(HaveKeyWithValue("input", "embed me"))
 			Expect(req.JSON).To(HaveKeyWithValue("model", "remote-model"))
+		})
+
+		It("sends token input as a token array, not as an empty string", func() {
+			p := loadProxy(up, nil)
+			up.replyJSON("/v1/embeddings", map[string]any{
+				"data": []any{map[string]any{"embedding": []float32{0.5}}},
+			})
+
+			_, err := p.Embeddings(&pb.PredictOptions{EmbeddingTokens: []int32{1, 2, 3}})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(up.last().JSON).To(HaveKeyWithValue("input", []any{[]any{1.0, 2.0, 3.0}}))
 		})
 
 		It("fails when the upstream returns no vector", func() {
