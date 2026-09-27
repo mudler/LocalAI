@@ -4767,6 +4767,110 @@
     - filename: llama-cpp/mmproj/thomson-1.0-small/mmproj-bf16.gguf
       uri: huggingface://bartowski/thomsonreuters_Thomson-1.0-Small-GGUF/mmproj-thomsonreuters_Thomson-1.0-Small-bf16.gguf
       sha256: 11634fcccd59c23f1b95e34e5cf479dec86290eeb3dda980324aabd8b0b48f41
+- name: cyber-tiel-coder-35b-a3b-q4-mtp
+  variants:
+    - model: cyber-tiel-coder-35b-a3b-q8-mtp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  license: mit
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated
+    - https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP
+  description: |
+    Cyber-Tiel-Coder is a 35B mixture-of-experts coding model with 3B active parameters,
+    based on Huihui's abliterated Ornith-1.5. This UD-Q4_K_XL build includes
+    MTP speculative decoding, the embedded Sharp chat template, and a BF16 vision projector.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - coding
+    - tools
+    - vision
+    - multimodal
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+    parameters:
+      model: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP/resolve/fa19d4f33561dc0d107c2a2f8943f1ca2e288109/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q4_K_XL.gguf
+      sha256: 0bbcf3cc9be4c976bad20e641baf629dad9c178d39ebdc9cd72129179943c06a
+    - filename: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP/resolve/fa19d4f33561dc0d107c2a2f8943f1ca2e288109/mmproj-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
+- name: cyber-tiel-coder-35b-a3b-q8-mtp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  license: mit
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Ornith-1.5-35B-A3B-abliterated
+    - https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP
+  description: |
+    Cyber-Tiel-Coder is a 35B mixture-of-experts coding model with 3B active parameters,
+    based on Huihui's abliterated Ornith-1.5. This UD-Q8_K_XL build includes
+    MTP speculative decoding, the embedded Sharp chat template, and a BF16 vision projector.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - moe
+    - coding
+    - tools
+    - vision
+    - multimodal
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+    parameters:
+      model: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/cyber-tiel-coder-35b-a3b/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP/resolve/fa19d4f33561dc0d107c2a2f8943f1ca2e288109/Cyber-Tiel-Coder-35B-A3B-MTP-UD-Q8_K_XL.gguf
+      sha256: 601052bb18c97b40808a5d93992b25eeb64b9b0bc5e2de0681c15681adf19961
+    - filename: llama-cpp/mmproj/cyber-tiel-coder-35b-a3b/mmproj-BF16.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP/resolve/fa19d4f33561dc0d107c2a2f8943f1ca2e288109/mmproj-BF16.gguf
+      sha256: d9ce31026d1cb1f3f8d5152e2e2a014d9d2b302b6c93a7dc07bb0a0487f52837
 - &tiel-coder-35b-a3b
   name: "tiel-coder-35b-a3b-q4"
   variants:

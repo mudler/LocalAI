@@ -39,6 +39,14 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Cyber-Tiel-Coder
+
+Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
+The gallery groups UD-Q4_K_XL and UD-Q8_K_XL builds; both enable MTP speculative decoding and include a BF16 vision projector.
+To select Q8 explicitly, run `local-ai models install cyber-tiel-coder-35b-a3b-q4-mtp --variant cyber-tiel-coder-35b-a3b-q8-mtp`.
+Both configurations use the embedded chat template and default to 32,768 context tokens.
+The [model card](https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP) describes its abliterated Ornith-1.5 base and MIT license.
+
 ## MiMo-V2.6-Distill-Qwen-9B
 
 Install `mimo-v2.6-distill-qwen-9b` for text and image chat with llama.cpp.
