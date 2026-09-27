@@ -12,9 +12,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// heldLockCheckTimeout bounds the liveness check and the unlock, so a hung
-// database cannot stall the caller's loop.
-const heldLockCheckTimeout = 5 * time.Second
+// heldLockCheckTimeout bounds an acquire, the liveness check and the unlock,
+// so a hung database cannot stall the caller's loop. A var so tests can
+// shorten it.
+var heldLockCheckTimeout = 5 * time.Second
 
 // heldLockSessionSettings make the server notice a lock holder whose host
 // died without closing the connection (crash, power loss, partition) within
@@ -80,6 +81,12 @@ func (l *HeldLock) TryAcquire(ctx context.Context) (bool, error) {
 		}
 	}
 
+	// Callers pass long-lived contexts (the application's, which never ends),
+	// and l.mu is held throughout: a hung database would otherwise block this
+	// caller and every other user of the lock for good. The deadline only
+	// covers obtaining the session, which stays usable afterwards.
+	ctx, cancel := context.WithTimeout(ctx, heldLockCheckTimeout)
+	defer cancel()
 	if l.conn == nil {
 		conn, err := l.openSession(ctx)
 		if err != nil {
