@@ -206,6 +206,100 @@
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
       sha256: 9c46395af7320ec1d68afe81ec7fa1c7060a07117dceabfd977f12a95fa30cdf
+- name: "qwopus3.8-27b-flash-v2"
+  variants:
+    - model: qwopus3.8-27b-flash-v2-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash
+    - https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF
+  description: |
+    Qwopus3.8-27B-Flash-V2 is a new post-training release for reasoning and agent
+    workloads. This Q4_K_M GGUF includes the F32 vision projector and uses
+    llama.cpp's embedded chat template with MTP speculative decoding.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - qwen3
+    - vision
+    - multimodal
+    - instruction-tuned
+    - reasoning
+    - mtp
+  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.8-27B-Flash-V2-MTP-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.8-27B-Flash-V2-MTP-Q4_K_M/Qwopus3.8-27B-Flash-V2-MTP-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.8-27B-Flash-V2-MTP-Q4_K_M/Qwopus3.8-27B-Flash-V2-MTP-Q4_K_M.gguf
+      uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF/resolve/ecb87867b0977dfd1554d2fc54105a802b34345a/Qwopus3.8-27B-Flash-V2-MTP-Q4_K_M.gguf
+      sha256: 227bedb8ebf4a05e342c99f1f852be19cf0ed394f6cc5901823c07a735ea983e
+    - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-V2-MTP-Q4_K_M/mmproj-F32.gguf
+      uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF/resolve/ecb87867b0977dfd1554d2fc54105a802b34345a/mmproj-F32.gguf
+      sha256: c9d201ea8a2a474ce55cfab6d1e1480d4b2e1574dda976db15aee267072ca4d6
+- name: "qwopus3.8-27b-flash-v2-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash
+    - https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF
+  description: |
+    Qwopus3.8-27B-Flash-V2 is a new post-training release for reasoning and agent
+    workloads. This Q8_0 GGUF includes the F32 vision projector and uses
+    llama.cpp's embedded chat template with MTP speculative decoding.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - qwen3
+    - vision
+    - multimodal
+    - instruction-tuned
+    - reasoning
+    - mtp
+  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwopus3.8-27B-Flash-V2-MTP-Q4_K_M/mmproj-F32.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+      - spec_n_max:6
+      - spec_p_min:0.75
+    parameters:
+      model: llama-cpp/models/Qwopus3.8-27B-Flash-V2-MTP-Q8_0/Qwopus3.8-27B-Flash-V2-MTP-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwopus3.8-27B-Flash-V2-MTP-Q8_0/Qwopus3.8-27B-Flash-V2-MTP-Q8_0.gguf
+      uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF/resolve/ecb87867b0977dfd1554d2fc54105a802b34345a/Qwopus3.8-27B-Flash-V2-MTP-Q8_0.gguf
+      sha256: bc291a2ab2ac209d2cd97f0e0d25bfb98381d4cb4ee4f8baa4cd3c662db95f78
+    - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-V2-MTP-Q4_K_M/mmproj-F32.gguf
+      uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF/resolve/ecb87867b0977dfd1554d2fc54105a802b34345a/mmproj-F32.gguf
+      sha256: c9d201ea8a2a474ce55cfab6d1e1480d4b2e1574dda976db15aee267072ca4d6
 - name: "qwopus3.8-27b-flash"
   variants:
     - model: qwopus3.8-27b-flash-q8

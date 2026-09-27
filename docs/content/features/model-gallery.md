@@ -56,6 +56,20 @@ To select Q8_0 explicitly, run `local-ai models install mimo-v2.6-distill-qwen-9
 The configurations default to 32,768 context tokens and use the model's embedded chat template.
 See the [model card](https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B) for training details.
 
+## Qwopus3.8 Flash V2
+
+Install `qwopus3.8-27b-flash-v2` for the Q4_K_M GGUF build, with Q8_0 available through variant selection:
+
+```bash
+local-ai models install qwopus3.8-27b-flash-v2
+local-ai models install qwopus3.8-27b-flash-v2 --variant qwopus3.8-27b-flash-v2-q8
+```
+
+Both builds use llama.cpp with the embedded chat template, MTP speculative decoding, and the F32 vision projector.
+Weights and projector downloads are pinned to a Hugging Face revision and verified with SHA256.
+This Apache-2.0 release is a further post-training of Qwopus3.8 Flash for reasoning and agent tasks.
+See the [publisher's model card](https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF) for evaluation details and limitations.
+
 ## Hemmingway-1
 
 Install `hemmingway-1` for English text generation with llama.cpp. The gallery groups its Q4_K_M and Q8_0 builds as variants.
