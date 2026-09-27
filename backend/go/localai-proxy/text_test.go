@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -546,5 +547,15 @@ var _ = Describe("localai-proxy", func() {
 			Expect(codeOf(p.AudioToAudioStream(make(chan *pb.AudioToAudioRequest), out))).To(Equal(codes.Unimplemented))
 			Eventually(out).Should(BeClosed())
 		})
+	})
+})
+
+var _ = Describe("clampInt32", func() {
+	It("passes in-range values through and saturates the rest", func() {
+		Expect(clampInt32(0)).To(Equal(int32(0)))
+		Expect(clampInt32(42)).To(Equal(int32(42)))
+		Expect(clampInt32(-7)).To(Equal(int32(-7)))
+		Expect(clampInt32(math.MaxInt32 + 1)).To(Equal(int32(math.MaxInt32)))
+		Expect(clampInt32(math.MinInt32 - 1)).To(Equal(int32(math.MinInt32)))
 	})
 })

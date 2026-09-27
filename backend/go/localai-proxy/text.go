@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"math"
 	"strings"
 
 	"github.com/mudler/xlog"
@@ -181,7 +182,7 @@ func replyFromChoice(c textChoice, streaming bool) *pb.Reply {
 	delta := &pb.ChatDelta{Content: content, ReasoningContent: reasoning}
 	for _, tc := range d.ToolCalls {
 		delta.ToolCalls = append(delta.ToolCalls, &pb.ToolCallDelta{
-			Index:     int32(tc.Index),
+			Index:     clampInt32(tc.Index),
 			Id:        tc.ID,
 			Name:      tc.Function.Name,
 			Arguments: tc.Function.Arguments,
@@ -350,7 +351,7 @@ func (p *LocalAIProxy) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationR
 	if err := p.postJSON(context.Background(), "/v1/tokenize", body, &resp); err != nil {
 		return pb.TokenizationResponse{}, err
 	}
-	return pb.TokenizationResponse{Length: int32(len(resp.Tokens)), Tokens: resp.Tokens}, nil
+	return pb.TokenizationResponse{Length: clampInt32(len(resp.Tokens)), Tokens: resp.Tokens}, nil
 }
 
 func (p *LocalAIProxy) Detokenize(in *pb.DetokenizeRequest) (pb.DetokenizeResponse, error) {
@@ -401,4 +402,18 @@ func (p *LocalAIProxy) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.Scor
 		out.Candidates = append(out.Candidates, cs)
 	}
 	return out, nil
+}
+
+// clampInt32 narrows an upstream-supplied int (token counts, tool-call
+// indexes) to the int32 the gRPC protocol carries. The upstream is another
+// server, so an absurd value must saturate rather than wrap to a negative or
+// small number that core would take at face value.
+func clampInt32(n int) int32 {
+	switch {
+	case n > math.MaxInt32:
+		return math.MaxInt32
+	case n < math.MinInt32:
+		return math.MinInt32
+	}
+	return int32(n)
 }

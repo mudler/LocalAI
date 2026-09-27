@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -159,7 +160,8 @@ func resolveAPIKey(envName, filePath string) (string, error) {
 		return v, nil
 	}
 	if filePath != "" {
-		b, err := os.ReadFile(filePath)
+		// #nosec G304 -- api_key_file comes from the operator's model config (passed by core as a backend option), not from a request
+		b, err := os.ReadFile(filepath.Clean(filePath))
 		if err != nil {
 			return "", fmt.Errorf("localai-proxy: read api_key_file %q: %w", filePath, err)
 		}

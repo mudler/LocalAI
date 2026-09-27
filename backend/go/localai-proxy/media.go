@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -26,7 +27,8 @@ func fileToBase64(path string) (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	data, err := os.ReadFile(path)
+	// #nosec G304 -- path is a staging file core wrote for this call, never a caller-supplied path
+	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return "", status.Errorf(codes.InvalidArgument, "localai-proxy: read %s: %v", path, err)
 	}
@@ -82,7 +84,9 @@ func (p *LocalAIProxy) writeGenItem(ctx context.Context, path string, items []ge
 		if err != nil {
 			return status.Errorf(codes.Internal, "localai-proxy: decode %s b64_json: %v", path, err)
 		}
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
+		// 0o600: core runs as the same user and serves the file itself, so no
+		// one else needs to read generated media.
+		if err := os.WriteFile(dst, data, 0o600); err != nil {
 			_ = os.Remove(dst)
 			return status.Errorf(codes.Internal, "localai-proxy: write %s: %v", dst, err)
 		}

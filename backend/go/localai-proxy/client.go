@@ -355,7 +355,8 @@ func (p *LocalAIProxy) doToFile(req *http.Request, path, dst string) (http.Heade
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	f, err := os.Create(dst)
+	// #nosec G304 -- dst is the output path core chose for this call (generated content dir), never a caller-supplied path
+	f, err := os.Create(filepath.Clean(dst))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "localai-proxy: create %s: %v", dst, err)
 	}

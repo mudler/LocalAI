@@ -399,6 +399,7 @@ func pcm16LE(pcm []float32) []byte {
 			v = 0
 		}
 		v = math.Max(-1, math.Min(1, v))
+		// #nosec G115 -- two's-complement reinterpretation for little-endian PCM16 encoding, value range already clamped
 		binary.LittleEndian.PutUint16(buf[i*2:], uint16(int16(v*math.MaxInt16)))
 	}
 	return buf
