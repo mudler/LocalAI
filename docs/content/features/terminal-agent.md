@@ -117,12 +117,13 @@ when you have set it. Override it with `--config-dir`, or with
 `LOCALAI_CHAT_CONFIG_DIR`. The directory is user-scoped rather than server-scoped, because
 the agent is a client and may be pointed at a remote LocalAI.
 
-## Plugins, skills and MCP servers
+## Plugins, skills, logins, and MCP servers
 
 The agent's own management commands are reached by passing them through:
 
 ```bash
 local-ai chat plugin install https://github.com/user/plugin
+local-ai chat login openai
 local-ai chat skill list
 local-ai chat mcp add my-server -- npx -y @modelcontextprotocol/server-filesystem /tmp
 ```

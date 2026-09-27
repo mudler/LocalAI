@@ -225,6 +225,8 @@ var _ = Describe("prepare", func() {
 			},
 			Entry("plugin", "plugin", "list"),
 			Entry("skill", "skill", "list"),
+			Entry("login", "login", "openai"),
+			Entry("logout", "logout", "openai"),
 			Entry("mcp add", "mcp", "add", "srv"),
 			Entry("mcp list", "mcp", "list"),
 			// The shell snippet is what a user puts in their rc file, long
@@ -347,7 +349,7 @@ var _ = Describe("prepare", func() {
 			err := runSession(ctx, server, func(ctx context.Context) error {
 				cancel()
 				Eventually(func() int32 { return proc.interrupts.Load() }).
-					WithTimeout(5 * time.Second).
+					WithTimeout(5*time.Second).
 					Should(BeNumerically(">", 0), "the server has to be stopped while the agent is still running")
 				return nil
 			})

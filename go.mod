@@ -36,11 +36,11 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.5.0
-	github.com/mudler/cogito v0.11.1-0.20260721122412-6eece18a6bb6
+	github.com/mudler/cogito v0.11.1-0.20260923083907-5cbfdb15460b
 	github.com/mudler/edgevpn v0.34.0
 	github.com/mudler/go-processmanager v0.1.2-0.20260823202314-dfa0ed852db6
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
-	github.com/mudler/nib v0.6.0
+	github.com/mudler/nib v0.9.9
 	github.com/mudler/xlog v0.0.6
 	github.com/nats-io/jwt/v2 v2.7.4
 	github.com/nats-io/nats.go v1.52.0
@@ -169,6 +169,25 @@ require (
 	github.com/moby/moby/client v0.4.1 // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
 	github.com/moby/sys/signal v0.7.0 // indirect
+	github.com/msuozzo/bonsai v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-bash v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-c v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-dockerfile v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-go v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-gotemplate v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-groovy v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-java v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-javascript v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-kotlin v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-markdown v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-markdown-inline v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-python v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-ruby v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-rust v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-terraform v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-tsx v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-typescript v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-yaml v0.4.0 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
