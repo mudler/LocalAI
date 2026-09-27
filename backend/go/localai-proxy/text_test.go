@@ -63,6 +63,21 @@ var _ = Describe("localai-proxy", func() {
 			Expect(cfg.timeout).To(Equal(7 * time.Second))
 		})
 
+		DescribeTable("strips an OpenAI-style /v1 suffix, as the failover prober does",
+			func(suffix string) {
+				p := loadProxy(up, func(o *pb.ModelOptions) { o.Proxy.UpstreamUrl = up.URL + suffix })
+				Expect(p.cfg.Load().base).To(Equal(up.URL))
+			},
+			Entry("/v1", "/v1"),
+			Entry("/v1/", "/v1/"),
+			Entry("a full endpoint path", "/v1/chat/completions"),
+		)
+
+		It("keeps a path prefix in front of /v1", func() {
+			p := loadProxy(up, func(o *pb.ModelOptions) { o.Proxy.UpstreamUrl = up.URL + "/localai/v1" })
+			Expect(p.cfg.Load().base).To(Equal(up.URL + "/localai"))
+		})
+
 		It("falls back to the model name when upstream_model is unset", func() {
 			p := loadProxy(up, func(o *pb.ModelOptions) { o.Proxy.UpstreamModel = "" })
 			Expect(p.model("")).To(Equal("local-name"))

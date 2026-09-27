@@ -74,6 +74,17 @@ func (p *LocalAIProxy) Load(opts *pb.ModelOptions) error {
 		return fmt.Errorf("localai-proxy: proxy.upstream_url %q must be an http(s) URL with a host", raw)
 	}
 
+	// Every request path starts with /v1, so upstream_url is the server's
+	// root. A URL copied from an OpenAI-style config ends in /v1 (or a full
+	// endpoint): cut the path at /v1 as the failover prober does, or the
+	// prober reports the target healthy while every request 404s.
+	base := strings.TrimRight(raw, "/")
+	if i := strings.Index(u.Path, "/v1"); i >= 0 {
+		base = strings.TrimRight(u.Scheme+"://"+u.Host+u.Path[:i], "/")
+		xlog.Warn("localai-proxy: proxy.upstream_url should be the server root; ignoring its /v1 path",
+			"upstream_url", raw, "using", base)
+	}
+
 	// There is no translate mode: the upstream always speaks LocalAI's API.
 	if po.GetMode() != "" || po.GetProvider() != "" {
 		xlog.Warn("localai-proxy: proxy.mode and proxy.provider are ignored",
@@ -106,13 +117,13 @@ func (p *LocalAIProxy) Load(opts *pb.ModelOptions) error {
 	}
 
 	p.cfg.Store(&proxyConfig{
-		base:             strings.TrimRight(raw, "/"),
+		base:             base,
 		upstreamModel:    model,
 		apiKey:           key,
 		realtimePipeline: pipeline,
 		timeout:          timeout,
 	})
-	xlog.Info("localai-proxy: ready", "upstream", raw, "upstream_model", model,
+	xlog.Info("localai-proxy: ready", "upstream", base, "upstream_model", model,
 		"has_key", key != "", "realtime_pipeline", pipeline)
 	return nil
 }
