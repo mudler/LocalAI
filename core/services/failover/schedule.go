@@ -23,10 +23,14 @@ func (m *Manager) Run(ctx context.Context) {
 		case <-ticker.C:
 			m.Tick(ctx)
 			// Publishes are fire-and-forget, so a frontend that missed one
-			// (restart, dropped message) converges within ten seconds.
+			// (restart, dropped message) converges within ten seconds. Pins
+			// are not republished: every frontend re-reads the shared set.
 			m.ticks++
-			if m.ticks%10 == 0 && m.IsLeader() {
-				m.Republish()
+			if m.ticks%10 == 0 {
+				m.ReconcilePins()
+				if m.IsLeader() {
+					m.Republish()
+				}
 			}
 		}
 	}

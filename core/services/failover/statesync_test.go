@@ -140,6 +140,38 @@ var _ = Describe("Manager state sync", func() {
 		Expect(st.Pinned).ToNot(BeNil())
 	})
 
+	It("ReconcilePins converges a frontend that missed a pin and an unpin", func() {
+		// The shared pin set changes without B hearing the delta, as after a
+		// NATS reconnect whose re-hydrate fires no OnApply.
+		bus.mu.Lock()
+		bus.pins["chain"] = "y"
+		bus.mu.Unlock()
+		b.ReconcilePins()
+		st, _ := b.ChainStatus("chain")
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("y"))
+		Expect(st.Active).To(Equal("y"))
+
+		bus.mu.Lock()
+		delete(bus.pins, "chain")
+		bus.mu.Unlock()
+		b.ReconcilePins()
+		st, _ = b.ChainStatus("chain")
+		Expect(st.Pinned).To(BeNil())
+	})
+
+	It("ReconcilePins leaves a pin for a chain this frontend does not know yet", func() {
+		bus.mu.Lock()
+		bus.pins["later"] = "y"
+		bus.mu.Unlock()
+		b.ReconcilePins()
+		src.Put(chainCfg("later", nil, t("x"), t("y")))
+		b.Sync()
+		st, ok := b.ChainStatus("later")
+		Expect(ok).To(BeTrue())
+		Expect(st.Pinned).ToNot(BeNil())
+	})
+
 	It("SetLeaderGate gates a manager built without one", func() {
 		// Production builds the manager before distributed init, so the gate
 		// arrives through the setter rather than the option.

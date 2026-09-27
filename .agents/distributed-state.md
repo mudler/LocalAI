@@ -50,6 +50,15 @@ up. If your map has no durable backing, a leader (or another privileged
 writer) must republish its live state after a reconnect instead of relying on
 `Reconcile` to recover it.
 
+**Gotcha:** a hydrate (on `Start`, after a NATS reconnect, and on every
+`Reconcile` tick) replaces the map's contents **without firing `OnApply`**.
+If `OnApply` feeds derived state (the failover manager's pins, a cache, a
+running process), that state stays stale after a reconnect or a repaired
+missed delta. Re-sync the derived state from the map's `Snapshot()`: on a
+periodic tick, and/or from an `OnReconnect` callback registered after the
+map's `Start` (callbacks run in registration order, so the map has already
+re-hydrated). `failover.Manager.ReconcilePins` is the example.
+
 ### 2. Single-runner
 
 Use `advisorylock.RunLeaderLoop` or `advisorylock.TryWithLockCtx`
@@ -117,7 +126,9 @@ When your PR adds or changes state that lives longer than a single request:
       (`advisorylock`) / stateless / documented per-instance
 - [ ] If shared: `Store` added if the state must survive a cluster restart,
       or a `Loader` for standalone rehydration; if neither, a leader
-      republishes after reconnect instead of relying on bare `Reconcile`
+      republishes after reconnect instead of relying on bare `Reconcile`;
+      state derived through `OnApply` re-syncs from `Snapshot()` after a
+      hydrate (hydrate fires no `OnApply`)
 - [ ] If single-runner: new lock key added to `keys.go`; `HeldLock` chosen
       over `RunLeaderLoop`/`TryWithLockCtx` if leadership must be sticky
       across ticks

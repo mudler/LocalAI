@@ -156,6 +156,28 @@ var _ = Describe("distsync", func() {
 		Expect(*stC.Pinned).To(Equal("y"))
 	})
 
+	It("re-applies pins that changed while B missed the deltas, after a reconnect", func() {
+		a, _ := newManager("a")
+		b, _ := newManager("b")
+		a.Tick(ctx)
+		b.Tick(ctx)
+
+		// Written to the DB with no broadcast: B's map only learns it from
+		// the reconnect re-hydrate, which fires no OnApply.
+		Expect(pinStore.Upsert(ctx, distsync.PinRecord{Chain: "chain", Target: "y", UpdatedAt: time.Now()})).To(Succeed())
+		bus.TriggerReconnect()
+		st, _ := b.ChainStatus("chain")
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("y"))
+
+		Expect(pinStore.Delete(ctx, "chain")).To(Succeed())
+		bus.TriggerReconnect()
+		st, _ = b.ChainStatus("chain")
+		Expect(st.Pinned).To(BeNil())
+		st, _ = a.ChainStatus("chain")
+		Expect(st.Pinned).To(BeNil())
+	})
+
 	It("a trip on B makes A's plan skip the target", func() {
 		a, _ := newManager("a")
 		b, _ := newManager("b")

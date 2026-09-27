@@ -69,7 +69,35 @@ func (m *Manager) SetStateSync(s StateSync) {
 	if s == nil {
 		return
 	}
-	for chain, target := range s.Pins() {
+	m.ReconcilePins()
+}
+
+// ReconcilePins makes this frontend's pins match the shared pin set. Pins
+// normally arrive as deltas, but a re-hydrate of the shared set (after a NATS
+// reconnect, or a missed delta repaired from the DB) changes it without
+// delivering them; a frontend left with a stale pin would serve it while the
+// others do not. The scheduler runs this periodically on every frontend.
+func (m *Manager) ReconcilePins() {
+	m.mu.Lock()
+	s := m.sync
+	m.mu.Unlock()
+	if s == nil {
+		return
+	}
+	// Read outside the lock: the store may need I/O.
+	want := s.Pins()
+	m.mu.Lock()
+	var stale []string
+	for chain := range m.pins {
+		if _, ok := want[chain]; !ok {
+			stale = append(stale, chain)
+		}
+	}
+	m.mu.Unlock()
+	for _, chain := range stale {
+		m.ApplyPin(chain, "")
+	}
+	for chain, target := range want {
 		m.ApplyPin(chain, target)
 	}
 }

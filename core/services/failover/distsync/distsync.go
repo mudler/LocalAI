@@ -19,11 +19,15 @@ var (
 	_ failover.StateSync                 = (*Sync)(nil)
 )
 
+// pinReconcileInterval is how often the pins map re-reads the DB.
+const pinReconcileInterval = 30 * time.Second
+
 // Sync is a failover.StateSync backed by three syncstate.SyncedMaps:
 //
 //   - failover.pins keeps the durable source of truth: Store-backed (when a
 //     PinStore is given) so a late joiner hydrates every pin from the DB on
-//     Start, not just from whatever peers happen to broadcast afterwards.
+//     Start, not just from whatever peers happen to broadcast afterwards,
+//     and re-reads it every pinReconcileInterval to repair a missed delta.
 //   - failover.targets and failover.chains are ephemeral live-health state,
 //     NATS-only with no Store and no Reconcile: with neither set, a Reconcile
 //     tick's hydrate is a no-op (nothing durable to pull from), so it could
@@ -53,11 +57,20 @@ func New(ctx context.Context, nats messaging.MessagingClient, pins syncstate.Sto
 		pinStore = pins
 	}
 
+	// A delta dropped without a reconnect would leave this map stale until
+	// the next reconnect; re-reading the DB repairs it, and the manager's
+	// periodic ReconcilePins carries the repair into the chains. It also
+	// drops a pin that a failed Store write left in memory.
+	var reconcile time.Duration
+	if pinStore != nil {
+		reconcile = pinReconcileInterval
+	}
 	s.pins = syncstate.New(syncstate.Config[string, PinRecord]{
-		Name:  "failover.pins",
-		Key:   func(p PinRecord) string { return p.Chain },
-		Nats:  nats,
-		Store: pinStore,
+		Name:      "failover.pins",
+		Key:       func(p PinRecord) string { return p.Chain },
+		Nats:      nats,
+		Store:     pinStore,
+		Reconcile: reconcile,
 		OnApply: func(op string, chain string, v PinRecord) {
 			if op == "delete" {
 				m.ApplyPin(chain, "")
@@ -98,6 +111,12 @@ func New(ctx context.Context, nats messaging.MessagingClient, pins syncstate.Sto
 	}
 
 	m.SetStateSync(s)
+	// The pins map re-hydrates from the DB on reconnect without OnApply, so
+	// hand the manager the result. Registered after the map's own callback,
+	// which runs first.
+	if r, ok := nats.(interface{ OnReconnect(func()) }); ok {
+		r.OnReconnect(m.ReconcilePins)
+	}
 	return s, nil
 }
 
