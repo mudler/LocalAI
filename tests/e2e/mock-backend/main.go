@@ -648,6 +648,7 @@ func (m *MockBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptR
 	rms := 0.0
 
 	if dst != "" {
+		// #nosec G304 -- test-only mock backend reading the path core just staged
 		if data, err := os.ReadFile(dst); err == nil {
 			if len(data) >= 44 {
 				wavSR = int(binary.LittleEndian.Uint32(data[24:28]))
@@ -1018,7 +1019,7 @@ func (m *MockBackend) ModelMetadata(ctx context.Context, in *pb.ModelOptions) (*
 // survive resampling (DC is sample-rate independent). Near-zero DC maps to a
 // neutral vector equidistant from both. Returns nil for unreadable audio.
 func voiceEmbedFromWAV(path string) []float32 {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- test-only mock backend reading the path core just staged
 	if err != nil || len(data) < 44 {
 		return nil
 	}

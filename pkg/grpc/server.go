@@ -1098,7 +1098,7 @@ func NewBackendServer(model AIModel) pb.BackendServer {
 }
 
 // AuthTokenEnvVar is the environment variable used to configure gRPC bearer token auth.
-const AuthTokenEnvVar = "LOCALAI_GRPC_AUTH_TOKEN"
+const AuthTokenEnvVar = "LOCALAI_GRPC_AUTH_TOKEN" // #nosec G101 -- the name of an environment variable, not a credential
 
 // validateToken extracts the bearer token from gRPC metadata and validates it.
 func validateToken(ctx context.Context, expected string) error {
