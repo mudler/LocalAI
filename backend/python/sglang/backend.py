@@ -90,6 +90,19 @@ except Exception:
     _SEED_KEY = "sampling_seed"
 
 
+# Engine.async_generate() only grew a require_reasoning keyword in sglang
+# 0.5.13. The CPU build compiles v0.5.11 from source and the other profiles
+# only set a >=0.5.11 floor, and async_generate() takes no **kwargs, so
+# passing the keyword unconditionally fails every request with TypeError.
+try:
+    import inspect as _inspect
+    _ASYNC_GENERATE_HAS_REQUIRE_REASONING = (
+        "require_reasoning" in _inspect.signature(Engine.async_generate).parameters
+    )
+except Exception:
+    _ASYNC_GENERATE_HAS_REQUIRE_REASONING = False
+
+
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 # proto3 has no field presence, so an explicit 0 is indistinguishable from
@@ -273,7 +286,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # mechanism as tool_parser/reasoning_parser above — mirroring how
         # sglang's own `--preferred-sampling-params` is a server-wide
         # default, not a per-request choice. Requires `enable_strict_thinking`
-        # in `engine_args:` (sglang >=0.5.11); without it sglang has no
+        # in `engine_args:` (sglang >=0.5.12); without it sglang has no
         # tokenizer-derived budget mechanism to enforce this against.
         self.thinking_budget: Optional[int] = self._parse_thinking_budget(
             opts.get("thinking_budget")
@@ -607,14 +620,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # Kick off streaming generation. We always use stream=True so the
         # non-stream path still gets parser coverage on the final text.
+        generate_kwargs = {}
+        if _ASYNC_GENERATE_HAS_REQUIRE_REASONING:
+            generate_kwargs["require_reasoning"] = require_reasoning
+
         try:
             iterator = await self.llm.async_generate(
                 prompt=prompt,
                 sampling_params=sampling_params,
                 image_data=image_data,
                 video_data=video_data,
-                require_reasoning=require_reasoning,
                 stream=True,
+                **generate_kwargs,
             )
         except Exception as e:
             print(f"sglang async_generate failed: {e!r}", file=sys.stderr)
