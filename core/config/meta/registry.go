@@ -424,7 +424,7 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Section:     "failover",
 			Label:       "Failover targets",
 			Description: "Ordered list of models that serve this chain. The first healthy target serves each request; later targets take over when it fails. Mark a local target warm to keep it loaded.",
-			Component:   "json-editor",
+			Component:   "failover-targets",
 			Order:       0,
 		},
 		"failover.probe.interval": {

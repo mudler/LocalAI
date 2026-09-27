@@ -12268,6 +12268,15 @@ button.collapsible-header:focus-visible {
 .cfr-num { width: 120px; font-size: var(--text-sm); }
 .cfr-select { width: 220px; font-size: var(--text-sm); }
 .cfr-radio { display: flex; align-items: center; gap: var(--spacing-sm); font-size: var(--text-sm); cursor: pointer; }
+
+/* Failover targets editor — chain member list with a warm toggle and
+   duplicate/self-reference warnings. */
+.fte-list { display: flex; flex-direction: column; gap: var(--spacing-sm); width: 100%; }
+.fte-empty { font-size: var(--text-sm); color: var(--color-text-muted); padding: var(--spacing-sm) 0; }
+.fte-warning { font-size: var(--text-xs); color: var(--color-warning); padding: var(--spacing-sm) 0; }
+.fte-row { padding: var(--spacing-sm); display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.fte-row--error { border-color: var(--color-error); }
+.fte-row__head { font-size: var(--text-xs); color: var(--color-text-muted); }
 .pill-tiny { padding: 2px 6px; font-size: var(--text-xs); }
 
 /* ===========================================================================

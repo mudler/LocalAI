@@ -33,6 +33,7 @@ var _ = Describe("alias field metadata", func() {
 		reg := meta.DefaultRegistry()
 		Expect(reg).To(HaveKey("failover.targets"))
 		Expect(reg["failover.targets"].Section).To(Equal("failover"))
+		Expect(reg["failover.targets"].Component).To(Equal("failover-targets"))
 		var ids []string
 		for _, s := range meta.DefaultSections() {
 			ids = append(ids, s.ID)
