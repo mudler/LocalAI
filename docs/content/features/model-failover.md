@@ -288,6 +288,14 @@ share one failover state:
   the next target when a target fails during the request.
 - If a frontend cannot start the shared state, it logs an error and manages
   failover alone, as a single LocalAI instance does.
+- Leadership follows the database lock, not NATS. A leader that loses its NATS
+  connection but keeps its database connection stays the leader. Until NATS
+  recovers, the other frontends keep the last decisions they received from it,
+  and its new decisions do not reach them.
+- Each frontend reads the pins from the database again every 30 seconds and
+  after a NATS reconnect, and applies any change within 10 seconds. A frontend
+  that missed a pin or an unpin catches up in this way. If a pin cannot be written to the database, LocalAI returns an
+  error and restores the previous pin.
 
 ## Limits
 

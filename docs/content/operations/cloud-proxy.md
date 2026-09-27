@@ -313,7 +313,9 @@ capability gap, not a broken target: audio encoding and decoding,
 audio-to-audio streams, token classification (PII NER), model metadata,
 fine-tuning, quantization and model export fall in this bucket. A failover
 chain skips a target that returns `Unimplemented` and tries the next target,
-but does not mark the target down.
+but does not mark the target down. This applies to every API, also to the APIs
+that report `Unimplemented` to the client as HTTP `501` (images, video, 3D,
+detection, depth, face and voice).
 
 Errors from the upstream: a 5xx response (other than 501) or a connection
 failure becomes `Unavailable`, and a failover chain marks the target down. A
@@ -336,6 +338,16 @@ Known limits:
   transcriptions through the proxy never set it. Live transcription through
   `realtime_pipeline` sets `eou` at the end of each utterance.
 - Sound generation from a source audio file is not supported.
+- Chat and completions do not forward grammars, so JSON mode and other
+  grammar-constrained output are not enforced by the upstream. Images, audio
+  and video attached to messages are not forwarded either. The backend logs a
+  warning for each request that loses one of these fields.
+- Streamed TTS cannot detect an upstream synthesis failure that ends the
+  stream cleanly. The client receives the audio produced so far as a complete
+  response, and a failover chain does not retry it. A stream that is cut off
+  is reported as an error.
+- `upstream_url` is the root of the upstream server. If it has a `/v1` path,
+  the backend removes `/v1` and everything after it, and logs a warning.
 
 ## Limitations
 
