@@ -581,6 +581,29 @@ var (
 	errTestKNNInsert = errors.New("knn classifier must never insert into the corpus")
 )
 
+// reseedingCorpusLoader mirrors corpus.Manager's contract: EnsureLoaded
+// is a no-op while the index still answers, and re-seeds it when the
+// store came back empty. It insists on the RAW scripted store, so a
+// wrapper leaking into the loader (and recursing) fails the spec.
+type reseedingCorpusLoader struct {
+	seed           []backend.Neighbor
+	calls, reseeds int
+}
+
+func (r *reseedingCorpusLoader) EnsureLoaded(_ context.Context, _, _, _ string, _ backend.Embedder, store backend.VectorStore) (int, error) {
+	r.calls++
+	s, ok := store.(*scriptedVectorStore)
+	if !ok {
+		return 0, errors.New("corpus loader must receive the raw store, not a wrapper")
+	}
+	if len(s.neighbors) == 0 {
+		s.neighbors = r.seed
+		r.reseeds++
+		return len(r.seed), nil
+	}
+	return 0, nil
+}
+
 type failingCorpusLoader struct{ err error }
 
 func (f failingCorpusLoader) EnsureLoaded(context.Context, string, string, string, backend.Embedder, backend.VectorStore) (int, error) {
@@ -708,6 +731,43 @@ var _ = Describe("RouteModel middleware (knn classifier)", func() {
 			openAIChat("hello"), knnDeps())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("knn"))
+	})
+
+	It("re-seeds a relaunched corpus index behind the cached classifier", func() {
+		// The classifier is built once and cached; the local-store
+		// process behind its index may be evicted or idle-killed and
+		// relaunched empty afterwards. Measured in production: every probe
+		// then fell back with similarity 0 while corpus/stats still
+		// reported the full count. The lookup path must re-seed.
+		routerCfg := newKNNRouterModel(modelDir, "smart-router")
+		writeCandidate(modelDir, "small-model")
+		writeCandidate(modelDir, "big-model")
+		seeded := []backend.Neighbor{
+			{Similarity: 0.92, Payload: corpusPayload("code-generation")},
+			{Similarity: 0.88, Payload: corpusPayload("code-generation")},
+		}
+		vstore.neighbors = seeded
+		corpus := &reseedingCorpusLoader{seed: seeded}
+		deps := knnDeps()
+		deps.EmbedderFingerprint = func(string) (string, error) { return "fp", nil }
+		deps.Corpus = corpus
+		registry := router.NewRegistry()
+
+		first, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		d, err := first.Classify(context.Background(), router.Probe{Prompt: "debug my Go null pointer"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.Labels).To(ContainElement("code-generation"))
+		Expect(corpus.reseeds).To(Equal(0), "a healthy index is not re-seeded")
+
+		vstore.neighbors = nil // the store process was relaunched empty
+		again, err := GetOrBuildClassifier(registry, routerCfg, deps)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(again).To(BeIdenticalTo(first), "the classifier stays cached — the sync must live on the lookup path")
+		d, err = again.Classify(context.Background(), router.Probe{Prompt: "debug my Go null pointer"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.Labels).To(ContainElement("code-generation"), "lookup on a relaunched index re-seeds instead of falling back")
+		Expect(corpus.reseeds).To(Equal(1))
 	})
 
 	It("fails closed when the persisted corpus cannot sync into the live index", func() {
