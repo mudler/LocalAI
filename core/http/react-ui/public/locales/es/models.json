@@ -224,5 +224,51 @@
     "pickVision": "Leer imágenes y documentos",
     "pickAudio": "Voz de entrada y de salida",
     "pickVisual": "Generar imágenes y vídeo"
+  },
+  "failover": {
+    "title": "Cadena de failover",
+    "servedBy": "Servido por",
+    "changed": "cambió {{time}}",
+    "pinnedTo": "Fijado en {{target}}",
+    "warm": "Precargado",
+    "never": "Nunca",
+    "states": {
+      "primary": "Primario",
+      "fallback": "Respaldo",
+      "degraded": "Degradado",
+      "healthy": "Correcto",
+      "down": "Caído",
+      "recovering": "Recuperándose",
+      "missing": "Ausente"
+    },
+    "kinds": {
+      "local": "Local",
+      "remote": "Remoto"
+    },
+    "columns": {
+      "target": "Destino",
+      "kind": "Tipo",
+      "warm": "Precargado",
+      "health": "Estado",
+      "lastProbe": "Última comprobación",
+      "lastError": "Último error",
+      "actions": "Acciones"
+    },
+    "actions": {
+      "pin": "Fijar",
+      "pinning": "Fijando…",
+      "unpin": "Liberar",
+      "unpinning": "Liberando…"
+    },
+    "confirm": {
+      "pinTitle": "¿Fijar {{target}}?",
+      "pinMessage": "Solo {{target}} atiende {{chain}} hasta que lo liberes. El failover automático se detiene para esta cadena.",
+      "unpinTitle": "¿Liberar {{chain}}?",
+      "unpinMessage": "{{chain}} vuelve al failover automático."
+    },
+    "errors": {
+      "pin": "No se pudo fijar: {{error}}",
+      "unpin": "No se pudo liberar: {{error}}"
+    }
   }
 }

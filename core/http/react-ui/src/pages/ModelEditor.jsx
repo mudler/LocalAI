@@ -11,6 +11,7 @@ import FieldBrowser from '../components/FieldBrowser'
 import ConfigFieldRenderer from '../components/ConfigFieldRenderer'
 import { FormContextProvider } from '../contexts/FormContext'
 import TemplateSelector from '../components/TemplateSelector'
+import { ModelFailoverStatus } from '../components/FailoverChainStatus'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
 
@@ -461,6 +462,9 @@ export default function ModelEditor() {
           )}
         </div>
       </div>
+
+      {/* Live failover health; renders only when this model is a chain */}
+      {!isCreateMode && <ModelFailoverStatus name={name} addToast={addToast} />}
 
       {/* Template selector (create mode, step 1) */}
       {showTemplateSelector && <TemplateSelector onSelect={handleSelectTemplate} />}

@@ -237,5 +237,51 @@
     "pickVision": "Membaca gambar dan dokumen",
     "pickAudio": "Suara masuk dan keluar",
     "pickVisual": "Membuat gambar dan video"
+  },
+  "failover": {
+    "title": "Rantai failover",
+    "servedBy": "Dilayani oleh",
+    "changed": "berubah {{time}}",
+    "pinnedTo": "Disematkan ke {{target}}",
+    "warm": "Siap",
+    "never": "Belum pernah",
+    "states": {
+      "primary": "Utama",
+      "fallback": "Cadangan",
+      "degraded": "Menurun",
+      "healthy": "Sehat",
+      "down": "Mati",
+      "recovering": "Memulihkan",
+      "missing": "Tidak ada"
+    },
+    "kinds": {
+      "local": "Lokal",
+      "remote": "Jarak jauh"
+    },
+    "columns": {
+      "target": "Target",
+      "kind": "Jenis",
+      "warm": "Siap",
+      "health": "Kesehatan",
+      "lastProbe": "Pemeriksaan terakhir",
+      "lastError": "Kesalahan terakhir",
+      "actions": "Aksi"
+    },
+    "actions": {
+      "pin": "Sematkan",
+      "pinning": "Menyematkan…",
+      "unpin": "Lepas",
+      "unpinning": "Melepas…"
+    },
+    "confirm": {
+      "pinTitle": "Sematkan {{target}}?",
+      "pinMessage": "Hanya {{target}} yang melayani {{chain}} sampai Anda melepasnya. Failover otomatis berhenti untuk rantai ini.",
+      "unpinTitle": "Lepas {{chain}}?",
+      "unpinMessage": "{{chain}} kembali ke failover otomatis."
+    },
+    "errors": {
+      "pin": "Gagal menyematkan: {{error}}",
+      "unpin": "Gagal melepas: {{error}}"
+    }
   }
 }

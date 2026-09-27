@@ -224,5 +224,51 @@
     "pickVision": "读取图像与文档",
     "pickAudio": "语音输入与输出",
     "pickVisual": "生成图像与视频"
+  },
+  "failover": {
+    "title": "故障转移链",
+    "servedBy": "当前服务",
+    "changed": "{{time}}变更",
+    "pinnedTo": "已固定到 {{target}}",
+    "warm": "预热",
+    "never": "从未",
+    "states": {
+      "primary": "主用",
+      "fallback": "备用",
+      "degraded": "降级",
+      "healthy": "健康",
+      "down": "不可用",
+      "recovering": "恢复中",
+      "missing": "缺失"
+    },
+    "kinds": {
+      "local": "本地",
+      "remote": "远程"
+    },
+    "columns": {
+      "target": "目标",
+      "kind": "类型",
+      "warm": "预热",
+      "health": "健康状态",
+      "lastProbe": "上次探测",
+      "lastError": "上次错误",
+      "actions": "操作"
+    },
+    "actions": {
+      "pin": "固定",
+      "pinning": "正在固定…",
+      "unpin": "取消固定",
+      "unpinning": "正在取消固定…"
+    },
+    "confirm": {
+      "pinTitle": "固定 {{target}}？",
+      "pinMessage": "在取消固定之前，只有 {{target}} 为 {{chain}} 提供服务。此链的自动故障转移将停止。",
+      "unpinTitle": "取消固定 {{chain}}？",
+      "unpinMessage": "{{chain}} 将恢复自动故障转移。"
+    },
+    "errors": {
+      "pin": "固定失败：{{error}}",
+      "unpin": "取消固定失败：{{error}}"
+    }
   }
 }

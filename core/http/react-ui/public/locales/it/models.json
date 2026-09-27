@@ -224,5 +224,51 @@
     "pickVision": "Leggere immagini e documenti",
     "pickAudio": "Voce in ingresso e in uscita",
     "pickVisual": "Generare immagini e video"
+  },
+  "failover": {
+    "title": "Catena di failover",
+    "servedBy": "Servito da",
+    "changed": "cambiato {{time}}",
+    "pinnedTo": "Fissato su {{target}}",
+    "warm": "Pronto",
+    "never": "Mai",
+    "states": {
+      "primary": "Primario",
+      "fallback": "Fallback",
+      "degraded": "Degradato",
+      "healthy": "Integro",
+      "down": "Non disponibile",
+      "recovering": "In ripristino",
+      "missing": "Mancante"
+    },
+    "kinds": {
+      "local": "Locale",
+      "remote": "Remoto"
+    },
+    "columns": {
+      "target": "Destinazione",
+      "kind": "Tipo",
+      "warm": "Pronto",
+      "health": "Stato",
+      "lastProbe": "Ultimo controllo",
+      "lastError": "Ultimo errore",
+      "actions": "Azioni"
+    },
+    "actions": {
+      "pin": "Fissa",
+      "pinning": "Fissaggio…",
+      "unpin": "Sblocca",
+      "unpinning": "Sblocco…"
+    },
+    "confirm": {
+      "pinTitle": "Fissare {{target}}?",
+      "pinMessage": "Solo {{target}} serve {{chain}} finché non lo sblocchi. Il failover automatico si ferma per questa catena.",
+      "unpinTitle": "Sbloccare {{chain}}?",
+      "unpinMessage": "{{chain}} torna al failover automatico."
+    },
+    "errors": {
+      "pin": "Fissaggio non riuscito: {{error}}",
+      "unpin": "Sblocco non riuscito: {{error}}"
+    }
   }
 }

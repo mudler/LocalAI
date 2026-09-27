@@ -240,5 +240,51 @@
     "pickVision": "Leia imagens e documentos",
     "pickAudio": "Fala de entrada e saída",
     "pickVisual": "Gere imagens e vídeos"
+  },
+  "failover": {
+    "title": "Cadeia de failover",
+    "servedBy": "Atendido por",
+    "changed": "alterado {{time}}",
+    "pinnedTo": "Fixado em {{target}}",
+    "warm": "Pré-carregado",
+    "never": "Nunca",
+    "states": {
+      "primary": "Primário",
+      "fallback": "Reserva",
+      "degraded": "Degradado",
+      "healthy": "Saudável",
+      "down": "Fora do ar",
+      "recovering": "Recuperando",
+      "missing": "Ausente"
+    },
+    "kinds": {
+      "local": "Local",
+      "remote": "Remoto"
+    },
+    "columns": {
+      "target": "Destino",
+      "kind": "Tipo",
+      "warm": "Pré-carregado",
+      "health": "Saúde",
+      "lastProbe": "Última verificação",
+      "lastError": "Último erro",
+      "actions": "Ações"
+    },
+    "actions": {
+      "pin": "Fixar",
+      "pinning": "Fixando…",
+      "unpin": "Desafixar",
+      "unpinning": "Desafixando…"
+    },
+    "confirm": {
+      "pinTitle": "Fixar {{target}}?",
+      "pinMessage": "Somente {{target}} atende {{chain}} até você desafixar. O failover automático para nesta cadeia.",
+      "unpinTitle": "Desafixar {{chain}}?",
+      "unpinMessage": "{{chain}} volta ao failover automático."
+    },
+    "errors": {
+      "pin": "Falha ao fixar: {{error}}",
+      "unpin": "Falha ao desafixar: {{error}}"
+    }
   }
 }

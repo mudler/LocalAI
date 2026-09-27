@@ -208,5 +208,51 @@
     "pickVision": "이미지와 문서 읽기",
     "pickAudio": "음성 입력과 출력",
     "pickVisual": "이미지와 영상 생성"
+  },
+  "failover": {
+    "title": "페일오버 체인",
+    "servedBy": "처리 대상",
+    "changed": "{{time}} 변경됨",
+    "pinnedTo": "{{target}}에 고정됨",
+    "warm": "예열됨",
+    "never": "없음",
+    "states": {
+      "primary": "기본",
+      "fallback": "대체",
+      "degraded": "성능 저하",
+      "healthy": "정상",
+      "down": "중단",
+      "recovering": "복구 중",
+      "missing": "없음"
+    },
+    "kinds": {
+      "local": "로컬",
+      "remote": "원격"
+    },
+    "columns": {
+      "target": "대상",
+      "kind": "종류",
+      "warm": "예열",
+      "health": "상태",
+      "lastProbe": "마지막 확인",
+      "lastError": "마지막 오류",
+      "actions": "작업"
+    },
+    "actions": {
+      "pin": "고정",
+      "pinning": "고정 중…",
+      "unpin": "고정 해제",
+      "unpinning": "고정 해제 중…"
+    },
+    "confirm": {
+      "pinTitle": "{{target}}을(를) 고정할까요?",
+      "pinMessage": "고정을 해제할 때까지 {{target}}만 {{chain}}을(를) 처리합니다. 이 체인의 자동 페일오버가 중지됩니다.",
+      "unpinTitle": "{{chain}} 고정을 해제할까요?",
+      "unpinMessage": "{{chain}}이(가) 자동 페일오버로 돌아갑니다."
+    },
+    "errors": {
+      "pin": "고정 실패: {{error}}",
+      "unpin": "고정 해제 실패: {{error}}"
+    }
   }
 }
