@@ -39,6 +39,21 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Swift 1.5 Qwen3.8-27B GSQ-RCO
+
+Install `swift-1.5-qwen3.8-27b-gsq-rco` for text chat with llama.cpp.
+The gallery groups IQ2_XS, IQ2_S, IQ3_XXS, and IQ3_S quantizations of this 27B reasoning and coding model.
+To select IQ3_S explicitly, run:
+
+```bash
+local-ai models install swift-1.5-qwen3.8-27b-gsq-rco --variant swift-1.5-qwen3.8-27b-gsq-rco-iq3-s
+```
+
+The configurations use the embedded chat template and default to 32,768 context tokens.
+These builds support text chat only: the publisher has no verified vision projector for this release.
+They use standard GGUF files without MTP decoding.
+See the [model card](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF) and [Swift Open License v1.0](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/blob/main/LICENSE) for usage terms.
+
 ## MiMo-V2.6-Distill-Qwen-9B
 
 Install `mimo-v2.6-distill-qwen-9b` for text and image chat with llama.cpp.

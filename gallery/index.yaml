@@ -5533,6 +5533,178 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-ridge/mmproj-Qwen3.8-27B-BF16.gguf
       uri: huggingface://empero-ai/Qwen3.8-27B-Ridge-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 52228402ce4823f10705d901813cd43ced71859524cf2d8bf83305ad6b7dcbc2
+- name: "swift-1.5-qwen3.8-27b-gsq-rco"
+  variants:
+    - model: swift-1.5-qwen3.8-27b-gsq-rco-iq2-s
+    - model: swift-1.5-qwen3.8-27b-gsq-rco-iq3-xxs
+    - model: swift-1.5-qwen3.8-27b-gsq-rco-iq3-s
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF
+  license: "swift-open-license-1.0"
+  description: |
+    Swift 1.5 is a 27B Qwen3.8 fine-tune for reasoning, coding, and agent tasks.
+    This IQ2_XS GGUF uses GSQ-RCO mixed-precision quantization with llama.cpp.
+    Text chat only; the publisher provides no verified vision projector for this release.
+    The weights use the Swift Open License v1.0.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/swift-1.5-qwen3.8-27b-gsq-rco/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ2_XS.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-27b-gsq-rco/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ2_XS.gguf
+      sha256: 714c509c3fc496ea4abc409097658df7cd218bc966f78e1459fc1649758a9de8
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/resolve/d74895bbe5db4bec1e0024e7cc87d59c02d7631a/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ2_XS.gguf
+- name: "swift-1.5-qwen3.8-27b-gsq-rco-iq2-s"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF
+  license: "swift-open-license-1.0"
+  description: |
+    Swift 1.5 is a 27B Qwen3.8 fine-tune for reasoning, coding, and agent tasks.
+    This IQ2_S GGUF uses GSQ-RCO mixed-precision quantization with llama.cpp.
+    Text chat only; the publisher provides no verified vision projector for this release.
+    The weights use the Swift Open License v1.0.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/swift-1.5-qwen3.8-27b-gsq-rco/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ2_S.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-27b-gsq-rco/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ2_S.gguf
+      sha256: 08fac9876117b2cadb6b79fc7708d9612511c2fa31f3726f162e757870272455
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/resolve/d74895bbe5db4bec1e0024e7cc87d59c02d7631a/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ2_S.gguf
+- name: "swift-1.5-qwen3.8-27b-gsq-rco-iq3-xxs"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF
+  license: "swift-open-license-1.0"
+  description: |
+    Swift 1.5 is a 27B Qwen3.8 fine-tune for reasoning, coding, and agent tasks.
+    This IQ3_XXS GGUF uses GSQ-RCO mixed-precision quantization with llama.cpp.
+    Text chat only; the publisher provides no verified vision projector for this release.
+    The weights use the Swift Open License v1.0.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/swift-1.5-qwen3.8-27b-gsq-rco/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-27b-gsq-rco/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf
+      sha256: 86969b8bde72e602bfb42deb83eb8bb3706c8f14250641f6444dd2355f934ac2
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/resolve/d74895bbe5db4bec1e0024e7cc87d59c02d7631a/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_XXS.gguf
+- name: "swift-1.5-qwen3.8-27b-gsq-rco-iq3-s"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF
+  license: "swift-open-license-1.0"
+  description: |
+    Swift 1.5 is a 27B Qwen3.8 fine-tune for reasoning, coding, and agent tasks.
+    This IQ3_S GGUF uses GSQ-RCO mixed-precision quantization with llama.cpp.
+    Text chat only; the publisher provides no verified vision projector for this release.
+    The weights use the Swift Open License v1.0.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/swift-1.5-qwen3.8-27b-gsq-rco/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/swift-1.5-qwen3.8-27b-gsq-rco/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf
+      sha256: 1333c6ea70ef348d4ac6d62732772e8ad6571ac5b3754c14ed54f1a0d904a786
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GSQ-RCO-GGUF/resolve/d74895bbe5db4bec1e0024e7cc87d59c02d7631a/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf
 - !!merge <<: *qwen3-8-27b
   name: "qwen3.8-27b-gsq-rco-iq2-xs"
   variants: []
