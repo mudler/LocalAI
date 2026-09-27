@@ -12,10 +12,12 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/xlog"
 )
 
 // ErrNotLoaded is what Inference returns for a local target whose backend is
@@ -35,6 +37,11 @@ type DefaultProber struct {
 	HTTP      *http.Client
 	Loaded    LoadedFunc
 	EnvLookup func(string) string
+
+	// unresolvableEnvWarned tracks which api_key_env names already got the
+	// "no lookup configured" warning below, so a chain with no working
+	// credential lookup does not re-log on every probe tick.
+	unresolvableEnvWarned sync.Map // map[string]struct{}
 }
 
 func NewProber(loaded LoadedFunc, envLookup func(string) string) *DefaultProber {
@@ -103,6 +110,11 @@ func PrepareTarget(cfg *config.ModelConfig) {
 }
 
 func (p *DefaultProber) authorize(req *http.Request, cfg config.ModelConfig) error {
+	if cfg.Proxy.APIKeyEnv != "" && p.EnvLookup == nil {
+		if _, warned := p.unresolvableEnvWarned.LoadOrStore(cfg.Proxy.APIKeyEnv, struct{}{}); !warned {
+			xlog.Warn("failover: remote target has api_key_env set but no credential lookup is configured; liveness and requests will fail authorization", "target", cfg.Name, "api_key_env", cfg.Proxy.APIKeyEnv)
+		}
+	}
 	key, err := cfg.Proxy.ResolveAPIKey(p.EnvLookup)
 	if err != nil || key == "" {
 		return err

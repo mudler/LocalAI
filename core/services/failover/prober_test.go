@@ -1,22 +1,39 @@
 package failover
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ggrpc "google.golang.org/grpc"
 )
+
+// captureXlog redirects the package-wide xlog logger to buf for the duration
+// of a test and restores the suite's default on cleanup. xlog exposes no
+// getter for the current logger, so this restores the same default the
+// entrypoint installs rather than the prior value (same pattern as
+// core/config/model_artifact_fallback_test.go).
+func captureXlog(buf *bytes.Buffer) {
+	handler := slog.NewTextHandler(buf, &slog.HandlerOptions{Level: slog.LevelWarn})
+	xlog.SetLogger(xlog.NewLoggerWithHandler(handler, xlog.LogLevelWarn))
+	DeferCleanup(func() {
+		xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text"))
+	})
+}
 
 type fakeUpstream struct {
 	mu     sync.Mutex
@@ -141,6 +158,42 @@ var _ = Describe("DefaultProber", func() {
 		c.Proxy.Provider = config.ProxyProviderAnthropic
 		Expect(p.Liveness(ctx, c, KindRemote, false)).To(MatchError(ContainSubstring("302")))
 		Expect(other.paths).To(BeEmpty())
+	})
+
+	It("warns once when a remote target has api_key_env set but no credential lookup is configured", func() {
+		var buf bytes.Buffer
+		captureXlog(&buf)
+
+		noLookup := NewProber(nil, nil)
+		c := proxied("argus-llm", "")
+		c.Proxy.APIKeyEnv = "FAILOVER_PROBE_KEY"
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, up.srv.URL+"/v1/models", nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		// authorize surfaces the misconfiguration as an error on every call
+		// (liveness/inference must not silently proceed unauthenticated)...
+		Expect(noLookup.authorize(req, c)).To(HaveOccurred())
+		Expect(noLookup.authorize(req, c)).To(HaveOccurred())
+
+		// ...but only logs the warning once per api_key_env, so a chain with
+		// no lookup configured does not spam the log on every probe tick.
+		Expect(strings.Count(buf.String(), "no credential lookup is configured")).To(Equal(1))
+		Expect(buf.String()).To(ContainSubstring("FAILOVER_PROBE_KEY"))
+	})
+
+	It("does not warn when a lookup is configured, even if the env var itself is unset", func() {
+		var buf bytes.Buffer
+		captureXlog(&buf)
+
+		c := proxied("argus-llm", "")
+		c.Proxy.APIKeyEnv = "FAILOVER_PROBE_KEY_UNSET"
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, up.srv.URL+"/v1/models", nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		// p (from BeforeEach) has a real lookup (os.Getenv); the env var is
+		// simply unset, which is a different, already-reported failure mode.
+		Expect(p.authorize(req, c)).To(HaveOccurred())
+		Expect(buf.String()).ToNot(ContainSubstring("no credential lookup is configured"))
 	})
 
 	DescribeTable("remote inference hits the usecase endpoint",
