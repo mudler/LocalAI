@@ -881,6 +881,160 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/failover": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "List failover chains and the health of their targets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.FailoverChainsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/failover/events": {
+            "get": {
+                "description": "The first event is \"snapshot\" with the full state, then \"chain.switched\" and \"target.state\" events.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Stream failover events (server-sent events)",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/failover/{chain}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Get one failover chain",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/failover/{chain}/pin": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Pin a failover chain to one target",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Target to pin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FailoverPinRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Remove the pin from a failover chain",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/instructions": {
             "get": {
                 "description": "Returns a compact list of instruction areas with descriptions and URLs for detailed guides",
@@ -3770,6 +3924,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/systemone": {
+            "post": {
+                "description": "Runs zero-shot NER over the supplied state and answers each question. Question types: noul (binary entity presence), choice (pick one option), score (pick one level).",
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Answer structured-extraction questions over state text.",
+                "parameters": [
+                    {
+                        "description": "state + questions",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/systemone/permute": {
+            "post": {
+                "description": "Re-runs one choice question under n_perm option orders. Reports per-order probabilities, argmax stability, and spread.",
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Re-run a choice question under multiple option orders.",
+                "parameters": [
+                    {
+                        "description": "request + question + n_perm + seed",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOnePermuteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOnePermuteResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/systemone/separate": {
+            "post": {
+                "description": "Runs N independent NER passes, one per question, against the same state. Response shape matches /v1/systemone.",
+                "tags": [
+                    "systemone"
+                ],
+                "summary": "Answer each question in a separate NER pass.",
+                "parameters": [
+                    {
+                        "description": "state + questions",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SystemOneResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/text-to-speech/{voice-id}": {
             "post": {
                 "tags": [
@@ -4093,8 +4331,16 @@ const docTemplate = `{
         "config.Gallery": {
             "type": "object",
             "properties": {
+                "artifact_verification": {
+                    "description": "ArtifactVerification overrides Verification only for the gallery OCI artifact.\nBackend images keep their separate Verification policy.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.GalleryVerification"
+                        }
+                    ]
+                },
                 "mirrors": {
-                    "description": "Mirrors are tried in order when URL cannot be fetched. They are a\nfallback for availability, not a load-balancing pool: the primary is\nalways preferred, and a mirror is only consulted after the one before\nit fails. Any URI the gallery loader understands works here\n(https://, github:, file://).",
+                    "description": "Mirrors are tried in order when URL cannot be fetched. They are a\nfallback for availability, not a load-balancing pool: the primary is\nalways preferred, and a mirror is only consulted after the one before\nit fails. Any URI the gallery loader understands works here\n(https://, github:, file://, oci://).",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -4129,6 +4375,10 @@ const docTemplate = `{
                 "not_before": {
                     "description": "NotBefore is an RFC3339 timestamp. Empty disables the time check.",
                     "type": "string"
+                },
+                "source_repository": {
+                    "description": "SourceRepository is an https URL compared exactly against the\ncertificate's source-repository extension. Empty skips the check.",
+                    "type": "string"
                 }
             }
         },
@@ -4143,6 +4393,97 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "failover.ChainState": {
+            "type": "string",
+            "enum": [
+                "primary",
+                "fallback",
+                "degraded"
+            ],
+            "x-enum-varnames": [
+                "ChainPrimary",
+                "ChainFallback",
+                "ChainDegraded"
+            ]
+        },
+        "failover.ChainStatus": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "active_since": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pinned": {
+                    "type": "string"
+                },
+                "state": {
+                    "$ref": "#/definitions/failover.ChainState"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/failover.TargetStatus"
+                    }
+                }
+            }
+        },
+        "failover.Kind": {
+            "type": "string",
+            "enum": [
+                "local",
+                "remote"
+            ],
+            "x-enum-varnames": [
+                "KindLocal",
+                "KindRemote"
+            ]
+        },
+        "failover.TargetState": {
+            "type": "string",
+            "enum": [
+                "healthy",
+                "down",
+                "recovering",
+                "missing"
+            ],
+            "x-enum-varnames": [
+                "StateHealthy",
+                "StateDown",
+                "StateRecovering",
+                "StateMissing"
+            ]
+        },
+        "failover.TargetStatus": {
+            "type": "object",
+            "properties": {
+                "consecutive_ok": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "$ref": "#/definitions/failover.Kind"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "last_probe": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "state": {
+                    "$ref": "#/definitions/failover.TargetState"
+                },
+                "warm": {
+                    "type": "boolean"
                 }
             }
         },
@@ -4552,6 +4893,25 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "logo_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.FailoverChainsResponse": {
+            "type": "object",
+            "properties": {
+                "chains": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/failover.ChainStatus"
+                    }
+                }
+            }
+        },
+        "localai.FailoverPinRequest": {
+            "type": "object",
+            "properties": {
+                "target": {
                     "type": "string"
                 }
             }
@@ -7811,9 +8171,39 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "process": {
+                    "description": "Process is the backend process serving the model on this host. Absent\nwhen the model has no local process (a distributed worker holds it) or\nthe process could not be read.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.SysInfoProcess"
+                        }
+                    ]
+                },
                 "size_vram": {
                     "description": "SizeVRAM is DRM-accounted resident device memory in bytes. Nil means\nthe backend process tree has no complete supported reading.",
                     "type": "integer"
+                }
+            }
+        },
+        "schema.SysInfoProcess": {
+            "type": "object",
+            "properties": {
+                "cpu_percent": {
+                    "description": "CPUPercent is the share of the whole host's CPU used since the previous\nreading, 0-100. Absent on the first reading of a process.",
+                    "type": "number"
+                },
+                "memory_percent": {
+                    "type": "number"
+                },
+                "pid": {
+                    "type": "integer"
+                },
+                "rss_bytes": {
+                    "description": "RSSBytes is resident host memory. Weights offloaded to a GPU are not\nin it.",
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
                 }
             }
         },
@@ -7833,6 +8223,158 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.SysInfoModel"
                     }
+                }
+            }
+        },
+        "schema.SystemOneAnswer": {
+            "type": "object",
+            "properties": {
+                "choice": {
+                    "type": "string"
+                },
+                "confidence": {
+                    "type": "number"
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SystemOneEntity"
+                    }
+                },
+                "legend": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "noul": {
+                    "type": "number"
+                },
+                "probabilities": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "score": {
+                    "type": "number"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SystemOneEntity": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "number"
+                },
+                "end": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SystemOnePermuteRequest": {
+            "type": "object",
+            "properties": {
+                "n_perm": {
+                    "type": "integer"
+                },
+                "question": {
+                    "type": "string"
+                },
+                "request": {
+                    "$ref": "#/definitions/schema.SystemOneRequest"
+                },
+                "seed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SystemOnePermuteResponse": {
+            "type": "object",
+            "properties": {
+                "argmax_stable": {
+                    "type": "boolean"
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SystemOnePermuteRun"
+                    }
+                },
+                "spread": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                }
+            }
+        },
+        "schema.SystemOnePermuteRun": {
+            "type": "object",
+            "properties": {
+                "choice": {
+                    "type": "string"
+                },
+                "latency_ms": {
+                    "type": "number"
+                },
+                "order": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "probabilities": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                }
+            }
+        },
+        "schema.SystemOneRequest": {
+            "type": "object"
+        },
+        "schema.SystemOneResponse": {
+            "type": "object",
+            "properties": {
+                "answers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/schema.SystemOneAnswer"
+                    }
+                },
+                "latency_ms": {
+                    "type": "number"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "usage": {
+                    "$ref": "#/definitions/schema.SystemOneUsage"
+                }
+            }
+        },
+        "schema.SystemOneUsage": {
+            "type": "object",
+            "properties": {
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens": {
+                    "type": "integer"
                 }
             }
         },
