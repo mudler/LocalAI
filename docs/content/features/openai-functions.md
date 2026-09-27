@@ -265,6 +265,31 @@ will catch
 function_name({ "foo": "bar"})
 ```
 
+### Tool calls parsed from text
+
+When a backend's own parser returns no tool call (the model wrote the call
+without its format's markers, or llama.cpp's autoparser did not recognize the
+template), LocalAI parses the model's text for tool calls. No grammar
+constrained that text, so LocalAI checks each call against the request's
+tools. A call is dropped when:
+
+- the tool is not in the request,
+- an argument is not in the tool's schema (unless the schema sets
+  `additionalProperties` to `true` or to a schema), or
+- a required argument is missing.
+
+When every call is dropped, the model's text is returned as the message
+content. The server log names the tool and the unknown or missing
+arguments. Calls produced by the backend's parser or by LocalAI's own
+grammar are not checked here: the grammar already constrained them.
+
+To keep every call parsed from text, as older versions did:
+
+```yaml
+function:
+  disable_tool_call_validation: true
+```
+
 ### Parallel tools calls
 
 This feature is experimental and has to be configured in the YAML of the model by enabling `function.parallel_calls`:
