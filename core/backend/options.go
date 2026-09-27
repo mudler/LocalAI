@@ -542,7 +542,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		Tokenizer: c.Tokenizer,
 	}
 
-	if c.Backend == "cloud-proxy" || c.Backend == "localai-proxy" {
+	if c.IsRemoteProxy() {
 		opts.Proxy = &pb.ProxyOptions{
 			UpstreamUrl:           c.Proxy.UpstreamURL,
 			Mode:                  c.Proxy.Mode,
@@ -558,7 +558,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		// failover.UpstreamModel uses. Not for cloud-proxy: its translate mode
 		// falls back to parameters.model and passthrough keeps the client's
 		// model when upstream_model is empty.
-		if c.Backend == "localai-proxy" && opts.Proxy.UpstreamModel == "" {
+		if c.Backend == model.LocalAIProxyBackend && opts.Proxy.UpstreamModel == "" {
 			opts.Proxy.UpstreamModel = c.Name
 		}
 	}

@@ -51,6 +51,12 @@ const (
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
 	ValkeyStoreBackend  = "valkey-store"
+
+	// Proxy backends serve a model by forwarding to another server instead
+	// of loading weights. Core special-cases both (credentials, failover
+	// kind, PII defaults), so every check goes through these names.
+	CloudProxyBackend   = "cloud-proxy"
+	LocalAIProxyBackend = "localai-proxy"
 )
 
 // starts the grpcModelProcess for the backend, and returns a grpc client

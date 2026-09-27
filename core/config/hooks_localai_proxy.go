@@ -1,7 +1,9 @@
 package config
 
+import "github.com/mudler/LocalAI/pkg/model"
+
 func init() {
-	RegisterBackendHook("localai-proxy", localAIProxyDefaults)
+	RegisterBackendHook(model.LocalAIProxyBackend, localAIProxyDefaults)
 }
 
 // localAIProxyDefaults makes chat requests reach the upstream as structured

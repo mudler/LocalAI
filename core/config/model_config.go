@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/piipattern"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
@@ -332,7 +333,7 @@ func (p ProxyConfig) ResolveAPIKey(envLookup func(string) string) (string, error
 // passthrough (SetDefaults normalises it, but Validate accepts empty
 // too — handlers should not rely on a particular call order).
 func (c *ModelConfig) IsCloudProxyBackendPassthrough() bool {
-	if c.Backend != "cloud-proxy" {
+	if c.Backend != model.CloudProxyBackend {
 		return false
 	}
 	return c.Proxy.Mode == "" || c.Proxy.Mode == ProxyModePassthrough
@@ -670,7 +671,7 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 	if c.PII.Enabled != nil {
 		return *c.PII.Enabled
 	}
-	return c.Backend == "cloud-proxy"
+	return c.Backend == model.CloudProxyBackend
 }
 
 // PIIDetectors returns the names of the token-classification models that
@@ -701,7 +702,7 @@ var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG
 // false naturally: HasUsecases short-circuits to false for any usecase a
 // declared score/token_classify model did not itself declare.
 func (c *ModelConfig) PIIFilterApplies() bool {
-	if c.Backend == "cloud-proxy" {
+	if c.Backend == model.CloudProxyBackend {
 		return true
 	}
 	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)

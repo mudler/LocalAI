@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/safefile"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -963,7 +964,7 @@ func (bcl *ModelConfigLoader) loadModelConfigsFromPath(path string, strict bool,
 	// when a config carries settings that only make sense there, or lacks
 	// the usecases failover's own usecase-sharing check depends on.
 	for name, cfg := range bcl.configs {
-		if cfg.Backend != "localai-proxy" {
+		if cfg.Backend != model.LocalAIProxyBackend {
 			continue
 		}
 		if cfg.Proxy.Mode == ProxyModeTranslate || cfg.Proxy.Provider != "" {
