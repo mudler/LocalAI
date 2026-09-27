@@ -76,7 +76,7 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 			responseFormat = schema.DiarizationResponseFormatJson
 		}
 
-		file, err := c.FormFile("file")
+		file, err := uploadedFile(c, "file")
 		if err != nil {
 			return err
 		}

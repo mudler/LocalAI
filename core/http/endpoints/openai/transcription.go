@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
@@ -56,6 +57,18 @@ func resolveTranscriptionTranslate(formTranslate string, configTranslate bool) b
 	return configTranslate
 }
 
+// uploadedFile reads a required multipart file field. Any failure here (no
+// multipart boundary, malformed body, missing field) is caused by the request,
+// so it maps to 400 instead of leaking the parser error as a 500.
+func uploadedFile(c echo.Context, field string) (*multipart.FileHeader, error) {
+	file, err := c.FormFile(field)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest,
+			fmt.Sprintf("missing or invalid %q file upload: %v", field, err))
+	}
+	return file, nil
+}
+
 func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
@@ -105,7 +118,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		// retrieve the file data from the request
-		file, err := c.FormFile("file")
+		file, err := uploadedFile(c, "file")
 		if err != nil {
 			return err
 		}
