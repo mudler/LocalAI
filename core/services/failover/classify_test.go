@@ -36,6 +36,10 @@ var _ = DescribeTable("IsRetryable",
 	Entry("cloud-proxy upstream 503", errors.New("cloud-proxy: upstream 503: no healthy nodes"), 0, true),
 	Entry("cloud-proxy upstream 429 stays 4xx", errors.New("cloud-proxy: upstream 429: slow down"), 0, false),
 	Entry("context overflow", errors.New("the request exceeds the available context size"), 0, false),
+	Entry("grpc received message over the size limit", grpcstatus.Error(codes.ResourceExhausted, "grpc: received message larger than max (60000000 vs. 52428800)"), 0, false),
+	Entry("grpc sent message over the size limit", grpcstatus.Error(codes.ResourceExhausted, "grpc: trying to send message larger than max (60000000 vs. 52428800)"), 0, false),
+	Entry("embeddings over the gRPC message limit", fmt.Errorf("conversation too long for per-token embeddings (gRPC message limit exceeded): %w",
+		grpcstatus.Error(codes.ResourceExhausted, "grpc: received message larger than max (1 vs. 0)")), 0, false),
 	Entry("dial error", errors.New("dial tcp 10.0.0.1:8080: connect: connection refused"), 0, true),
 )
 

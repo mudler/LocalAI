@@ -22,6 +22,11 @@ var requestErrorMarkers = []string{
 	"exceeds the available context size",
 	"is larger than the max context size",
 	"maximum context length",
+	// A payload over the gRPC message cap is ResourceExhausted too, but it
+	// is the request's size, not the target's load: every target has the
+	// same cap.
+	"larger than max",
+	"gRPC message limit exceeded",
 }
 
 // IsRetryable reports whether a failed attempt should move to the next
