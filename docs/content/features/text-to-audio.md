@@ -87,7 +87,18 @@ Administrators can manage reusable voice-cloning references from **Build → Voi
 3. Confirm that you have permission to clone the voice, then save the profile.
 4. Open **Text to Speech**, choose a model marked **Cloning ready**, and select the saved voice.
 
-The browser converts uploads and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. A profile can contain up to ten ordered references. Each clip must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
+To create a reference from a description, select **Design a voice** on the create page:
+
+1. Select an installed TTS model that supports voice design.
+2. Enter **Voice instructions** to describe the voice and **Sample text** for it to speak.
+3. Select **Generate reference**, then listen to the preview.
+4. Review the prefilled transcript, enter a voice name, confirm authorization, and select **Save voice**.
+
+The model list includes all installed TTS models. Select a model with voice-design support, such as a Qwen3-TTS VoiceDesign variant. Models without this support can reject or ignore the instructions.
+
+Generation does not save a profile automatically. Changing the model, instructions, or sample text clears the generated reference; generate again before saving. The transcript initially matches the text sent for generation. Review it against the audio before saving.
+
+The browser converts generated samples, uploads, and recordings to mono, 24 kHz, 16-bit PCM WAV so the same profile works across compatible backends. A profile can contain up to ten ordered references. Each clip must be between 1 and 120 seconds and no larger than 50 MiB; 6-30 seconds of clean audio is recommended. Profile audio is private biometric source material: LocalAI stores it below its configured data path, serves previews only to authenticated TTS users, and never returns its filesystem path.
 
 ### Voice profile API
 
