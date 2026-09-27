@@ -62,6 +62,14 @@ func (s *fakeSource) GetAllModelsConfigs() []config.ModelConfig {
 type memPinStore struct {
 	mu   sync.Mutex
 	data map[string]distsync.PinRecord
+	// down, when set, makes every call fail, simulating a database outage.
+	down error
+}
+
+func (s *memPinStore) setDown(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.down = err
 }
 
 func newMemPinStore() *memPinStore { return &memPinStore{data: map[string]distsync.PinRecord{}} }
@@ -69,6 +77,9 @@ func newMemPinStore() *memPinStore { return &memPinStore{data: map[string]distsy
 func (s *memPinStore) List(context.Context) ([]distsync.PinRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.down != nil {
+		return nil, s.down
+	}
 	out := make([]distsync.PinRecord, 0, len(s.data))
 	for _, v := range s.data {
 		out = append(out, v)
@@ -79,6 +90,9 @@ func (s *memPinStore) List(context.Context) ([]distsync.PinRecord, error) {
 func (s *memPinStore) Upsert(_ context.Context, v distsync.PinRecord) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.down != nil {
+		return s.down
+	}
 	s.data[v.Chain] = v
 	return nil
 }
@@ -86,6 +100,9 @@ func (s *memPinStore) Upsert(_ context.Context, v distsync.PinRecord) error {
 func (s *memPinStore) Delete(_ context.Context, k string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.down != nil {
+		return s.down
+	}
 	delete(s.data, k)
 	return nil
 }
@@ -176,6 +193,39 @@ var _ = Describe("distsync", func() {
 		Expect(st.Pinned).To(BeNil())
 		st, _ = a.ChainStatus("chain")
 		Expect(st.Pinned).To(BeNil())
+	})
+
+	It("does not re-apply a pin whose write failed during a database outage", func() {
+		a, _ := newManager("a")
+		b, _ := newManager("b")
+		a.Tick(ctx)
+		b.Tick(ctx)
+
+		pinStore.setDown(errBoom)
+		Expect(a.Pin("chain", "y")).To(MatchError(errBoom))
+		st, _ := a.ChainStatus("chain")
+		Expect(st.Pinned).To(BeNil(), "a failed pin write must be rolled back")
+
+		// The periodic pin re-sync runs while the database is still down: it
+		// must not resurrect the pin the rollback just undid.
+		a.ReconcilePins()
+		st, _ = a.ChainStatus("chain")
+		Expect(st.Pinned).To(BeNil(), "the failed pin must not come back on this frontend")
+		st, _ = b.ChainStatus("chain")
+		Expect(st.Pinned).To(BeNil(), "the failed pin must never reach a peer")
+
+		// Same for an unpin that fails: the pin stays in force everywhere.
+		pinStore.setDown(nil)
+		Expect(a.Pin("chain", "y")).To(Succeed())
+		pinStore.setDown(errBoom)
+		Expect(a.Unpin("chain")).To(MatchError(errBoom))
+		a.ReconcilePins()
+		st, _ = a.ChainStatus("chain")
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("y"))
+		st, _ = b.ChainStatus("chain")
+		Expect(st.Pinned).ToNot(BeNil())
+		Expect(*st.Pinned).To(Equal("y"))
 	})
 
 	It("a trip on B makes A's plan skip the target", func() {

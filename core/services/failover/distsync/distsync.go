@@ -59,8 +59,7 @@ func New(ctx context.Context, nats messaging.MessagingClient, pins syncstate.Sto
 
 	// A delta dropped without a reconnect would leave this map stale until
 	// the next reconnect; re-reading the DB repairs it, and the manager's
-	// periodic ReconcilePins carries the repair into the chains. It also
-	// drops a pin that a failed Store write left in memory.
+	// periodic ReconcilePins carries the repair into the chains.
 	var reconcile time.Duration
 	if pinStore != nil {
 		reconcile = pinReconcileInterval
