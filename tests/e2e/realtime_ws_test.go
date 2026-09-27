@@ -304,7 +304,7 @@ var _ = Describe("Realtime WebSocket API", Label("Realtime"), func() {
 				Should(Equal("lp-rt-llm"))
 
 			conn := connectWS("rt-lp")
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			Expect(readServerEvent(conn, 30*time.Second)["type"]).To(Equal("session.created"))
 			initial := drainUntil(conn, "localai.model.failover", 10*time.Second)
