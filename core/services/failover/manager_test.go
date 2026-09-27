@@ -260,6 +260,23 @@ var _ = Describe("Manager", func() {
 		Expect(m.WarmTargets()).To(Equal([]string{"b"}))
 	})
 
+	It("never plans a target that has since become a chain itself", func() {
+		// Validation rejects a nested chain when the outer chain is saved,
+		// but not when one of its targets is later edited into a chain.
+		src.Put(chainCfg("inner", nil, t("a")))
+		src.Put(chainCfg("chain", nil, t("a"), t("inner")))
+		m.Sync()
+		m.ReportFailure("a", errBoom)
+
+		st, ok := m.ChainStatus("chain")
+		Expect(ok).To(BeTrue())
+		Expect(st.Targets[1].State).To(Equal(StateMissing))
+		att, err := m.Plan("chain")
+		if err == nil {
+			Expect(att.Target()).NotTo(Equal("inner"))
+		}
+	})
+
 	It("closes a subscription on cancel", func() {
 		events, cancel := m.Subscribe(1)
 		cancel()

@@ -49,13 +49,15 @@ func (re *RequestExtractor) resolveFailover(c echo.Context, requested string, ch
 	}
 	for {
 		cfg, err := re.loadFailoverTarget(st.attempt.Target())
-		if err == nil && cfg.IsDisabled() {
+		// A target that became a chain after its chain was saved has no
+		// backend of its own; like a disabled one it is skipped, not tripped.
+		if err == nil && (cfg.IsDisabled() || cfg.IsFailover()) {
 			// Disabled on purpose, not broken: move on without a trip.
 			if st.attempt.Skip() {
 				continue
 			}
 			c.Set(ContextKeyFailoverAttempt, nil)
-			return nil, fmt.Errorf("failover chain %q: target %q is disabled", chain.Name, cfg.Name)
+			return nil, fmt.Errorf("failover chain %q: target %q is disabled or is itself a chain", chain.Name, cfg.Name)
 		}
 		if err == nil {
 			failover.PrepareTarget(cfg) // cfg is a copy

@@ -198,6 +198,14 @@ func (m *Manager) syncLocked() {
 				m.setTargetLocked(ts, StateMissing, ReasonMissing, "target config not found")
 				continue
 			}
+			if tc.IsFailover() {
+				// Nested chains are rejected when a chain is saved, but a
+				// target edited into a chain later slips past that check.
+				// Serving its chain config would load a model with no
+				// backend, so treat it as unusable.
+				m.setTargetLocked(ts, StateMissing, ReasonMissing, "target is itself a failover chain")
+				continue
+			}
 			ts.kind = KindOf(tc)
 			ts.serving = tc.Name
 			if t.Warm && ts.kind == KindLocal {
