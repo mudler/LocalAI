@@ -1032,6 +1032,8 @@ github.com/mudler/LocalAGI v0.0.0-20260606071251-14aed1ae4336 h1:iKBkSnpisOvMVxF
 github.com/mudler/LocalAGI v0.0.0-20260606071251-14aed1ae4336/go.mod h1:U+g6u8mF2wQxhkdBl3dr8G4db1cv3n7KTKmraoJ7D0c=
 github.com/mudler/LocalAGI v0.0.0-20260911225740-d93d478e42f1 h1:AqQJhjUIMFvpJ+8ShSpzEp8ClaW5vNqJKq+/9bKTNpc=
 github.com/mudler/LocalAGI v0.0.0-20260911225740-d93d478e42f1/go.mod h1:Z97IpFdxmKaigCCpIzfo2Jz6wLwwbnaQrcBTLxyrF+o=
+github.com/mudler/LocalAGI v0.0.0-20260912140006-8253de99163e h1:ZaKo7Pp44STT196mJS0OUYSnN2TU62KQmSXKvQ8HS0Q=
+github.com/mudler/LocalAGI v0.0.0-20260912140006-8253de99163e/go.mod h1:Wo2UItZdZZd2PkMvhDT19a9MPyiwC+8gnk2nLZniVcY=
 github.com/mudler/cogito v0.11.1-0.20260721122412-6eece18a6bb6 h1:eYTR8od5HdaHlh9AKCkxkRoHs2/wmx24BF5qrUh2TRY=
 github.com/mudler/cogito v0.11.1-0.20260721122412-6eece18a6bb6/go.mod h1:6sfja3lcu2nWRzEc0wwqGNu/eCG3EWgij+8s7xyUeQ4=
 github.com/mudler/edgevpn v0.34.0 h1:qDrD/rCPFY/FdURbXudIZWihVKY4VOX3nMn3CcbeQEU=
