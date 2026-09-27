@@ -1,6 +1,6 @@
 // Package admission is routing-module subsystem 5: per-model
 // concurrency control + audit. The middleware acquires a slot
-// before the handler runs; on full, the request gets 503 with
+// before the handler runs; on full, the request gets 429 with
 // Retry-After so clients back off rather than pile on. The audit
 // row goes into the shared event store alongside PII and proxy
 // rows so admins see a single timeline of routing pressure.
