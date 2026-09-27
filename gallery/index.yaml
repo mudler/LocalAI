@@ -5537,6 +5537,104 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-obliterated/mmproj-model-bf16.gguf
       uri: huggingface://OBLITERATUS/Qwen3.8-27B-OBLITERATED/mmproj-model-bf16.gguf
       sha256: e484e3b7e907ed0e0644c0de56c3f5929c7ad5c9c6cc84d35a9d8dc08d461545
+- name: qwen3.8-27b-agention-iq4-xs
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: qwen3.8-27b-agention-q4-k-m
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF
+  license: apache-2.0
+  description: |
+    Qwen3.8-27B with Agention Precision IQ4_XS quantization for llama.cpp.
+    This 27B reasoning model supports text and image input. The download
+    includes the BF16 vision projector and uses the embedded chat template.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-agention/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-agention/Qwen3.8-27B-AP-IQ4_XS.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-agention/Qwen3.8-27B-AP-IQ4_XS.gguf
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/17bf39b5fafab9e8ac379c78c207568d73da9a7b/Qwen3.8-27B-AP-IQ4_XS.gguf
+      sha256: 2074fd5c3c7f6540913c2f62ad02c50b3f7dde7880d18b3acb02432f2edcab67
+    - filename: llama-cpp/mmproj/qwen3.8-27b-agention/mmproj-BF16.gguf
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/17bf39b5fafab9e8ac379c78c207568d73da9a7b/mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+- name: qwen3.8-27b-agention-q4-k-m
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF
+  license: apache-2.0
+  description: |
+    Qwen3.8-27B with Agention Precision Q4_K_M quantization for llama.cpp.
+    This 27B reasoning model supports text and image input. The download
+    includes the BF16 vision projector and uses the embedded chat template.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - reasoning
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/qwen3.8-27b-agention/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/qwen3.8-27b-agention/Qwen3.8-27B-AP-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-27b-agention/Qwen3.8-27B-AP-Q4_K_M.gguf
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/17bf39b5fafab9e8ac379c78c207568d73da9a7b/Qwen3.8-27B-AP-Q4_K_M.gguf
+      sha256: c4c4b1d393b288205d6303c941c0c954d0ea57ef8e3228bca74187cc858e9d8e
+    - filename: llama-cpp/mmproj/qwen3.8-27b-agention/mmproj-BF16.gguf
+      uri: https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF/resolve/17bf39b5fafab9e8ac379c78c207568d73da9a7b/mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
 - &qwen3-8-27b
   name: "qwen3.8-27b-q4"
   variants:

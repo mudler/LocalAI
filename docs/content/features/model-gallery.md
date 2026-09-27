@@ -47,6 +47,24 @@ To select Q8 explicitly, run `local-ai models install cyber-tiel-coder-35b-a3b-q
 Both configurations use the embedded chat template and default to 32,768 context tokens.
 The [model card](https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP) describes its abliterated Ornith-1.5 base and MIT license.
 
+## Qwen3.8-27B Agention Precision
+
+The gallery includes Agention Precision IQ4_XS and Q4_K_M GGUF builds of
+Qwen3.8-27B for llama.cpp. Both include the BF16 vision projector for image
+input and use a 32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-agention-iq4-xs
+```
+
+To select a specific build, pass `--variant qwen3.8-27b-agention-iq4-xs`
+or `--variant qwen3.8-27b-agention-q4-k-m` to the same command.
+The files use standard llama.cpp quantization types and the Apache-2.0 license.
+See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF)
+for quantization details. These entries do not enable MTP speculative decoding.
+
 ## MiMo-V2.6-Distill-Qwen-9B
 
 Install `mimo-v2.6-distill-qwen-9b` for text and image chat with llama.cpp.
