@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -30,6 +31,30 @@ func fileToBase64(path string) (string, error) {
 		return "", status.Errorf(codes.InvalidArgument, "localai-proxy: read %s: %v", path, err)
 	}
 	return base64.StdEncoding.EncodeToString(data), nil
+}
+
+// toDataURI wraps a base64 payload as a data URI. Detect/Depth/FaceVerify/
+// FaceAnalyze's REST endpoints decode their image field with
+// utils.GetContentURIAsBase64, which only accepts an http(s) URL or a
+// `data:<mime>;base64,<payload>` string — never bare base64. That is exactly
+// what core hands the backend for these methods (see
+// core/http/endpoints/localai/images.go's decodeImageInput, which already
+// stripped any data: prefix off before we ever see it), so forwarding it
+// unwrapped 400s on every real call. The MIME type isn't carried alongside
+// the payload, so it's sniffed from the decoded bytes.
+func toDataURI(b64 string) (string, error) {
+	if b64 == "" {
+		return "", nil
+	}
+	data, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return "", status.Errorf(codes.InvalidArgument, "localai-proxy: decode base64 image: %v", err)
+	}
+	mime := http.DetectContentType(data)
+	if mime == "application/octet-stream" {
+		mime = "image/png"
+	}
+	return "data:" + mime + ";base64," + b64, nil
 }
 
 // genItem is one schema.Item as the image/video/3D generation endpoints
@@ -66,20 +91,42 @@ func (p *LocalAIProxy) writeGenItem(ctx context.Context, path string, items []ge
 	if item.URL == "" {
 		return status.Errorf(codes.Internal, "localai-proxy: upstream %s returned neither b64_json nor url", path)
 	}
-	return p.getToFile(ctx, p.relativePath(item.URL), dst)
+	rel, err := generatedContentPath(path, item.URL)
+	if err != nil {
+		return err
+	}
+	return p.getToFile(ctx, rel, dst)
 }
 
-// relativePath strips the configured upstream base from a URL the upstream
-// handed back (e.g. "<upstream>/generated-images/x.png"), so the follow-up
-// download goes through the normal request path instead of concatenating two
-// absolute URLs.
-func (p *LocalAIProxy) relativePath(raw string) string {
-	if cfg := p.cfg.Load(); cfg != nil {
-		if rel, ok := strings.CutPrefix(raw, cfg.base); ok {
-			return rel
+// generatedContentPrefixes are the static paths a LocalAI instance serves
+// generated media under (core/http/app.go's e.Static calls). A generation
+// reply's URL is only ever safe to re-fetch through this proxy's own
+// authenticated client when it resolves to one of these.
+var generatedContentPrefixes = []string{"/generated-images/", "/generated-videos/", "/generated-audio/", "/generated-3d/"}
+
+// generatedContentPath extracts the path to re-download raw from, ignoring
+// whatever host is in it. A literal-prefix strip of the configured upstream
+// base (the previous approach) breaks the moment the upstream advertises a
+// different host than the one this proxy is configured with — LOCALAI_BASE_URL,
+// a reverse proxy, or X-Forwarded-Host can all change it — so only the path is
+// trusted, and only when it is one this proxy's upstream is actually known to
+// serve generated media under; anything else could point anywhere, and taking
+// it on faith would let a compromised or misconfigured upstream make this
+// proxy fetch (with its bearer key) whatever URL it likes.
+func generatedContentPath(callPath, raw string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", status.Errorf(codes.Internal, "localai-proxy: upstream %s returned an invalid url %q: %v", callPath, raw, err)
+	}
+	for _, prefix := range generatedContentPrefixes {
+		if strings.HasPrefix(u.Path, prefix) {
+			if u.RawQuery != "" {
+				return u.Path + "?" + u.RawQuery, nil
+			}
+			return u.Path, nil
 		}
 	}
-	return raw
+	return "", status.Errorf(codes.InvalidArgument, "localai-proxy: upstream %s returned an unexpected url %q", callPath, raw)
 }
 
 // --- Images ---------------------------------------------------------
@@ -335,13 +382,19 @@ type detectResponseBody struct {
 	Detections []detectionBody `json:"detections"`
 }
 
-// Detect posts Src, which core already carries as a base64 payload (the same
-// convention DetectionEndpoint uses to call this method locally), and maps
-// each detection, decoding its PNG mask.
+// Detect posts Src, which core already carries as a bare base64 payload (the
+// same convention DetectionEndpoint uses to call this method locally) — but
+// the upstream's own endpoint only accepts a URL or a data URI, so it is
+// re-wrapped as one (see toDataURI) — and maps each detection, decoding its
+// PNG mask.
 func (p *LocalAIProxy) Detect(req *pb.DetectOptions) (pb.DetectResponse, error) {
+	image, err := toDataURI(req.GetSrc())
+	if err != nil {
+		return pb.DetectResponse{}, err
+	}
 	body := detectRequestBody{
 		Model:     p.model(""),
-		Image:     req.GetSrc(),
+		Image:     image,
 		Prompt:    req.GetPrompt(),
 		Points:    req.GetPoints(),
 		Boxes:     req.GetBoxes(),
@@ -371,17 +424,18 @@ func (p *LocalAIProxy) Detect(req *pb.DetectOptions) (pb.DetectResponse, error) 
 	return pb.DetectResponse{Detections: detections}, nil
 }
 
+// depthRequestBody has no Dst/Exports fields: Depth refuses those requests
+// before building the body (see the Depth doc comment), so they never reach
+// the upstream.
 type depthRequestBody struct {
-	Model             string   `json:"model"`
-	Image             string   `json:"image"`
-	Dst               string   `json:"dst,omitempty"`
-	IncludeDepth      bool     `json:"include_depth,omitempty"`
-	IncludeConfidence bool     `json:"include_confidence,omitempty"`
-	IncludePose       bool     `json:"include_pose,omitempty"`
-	IncludeSky        bool     `json:"include_sky,omitempty"`
-	IncludePoints     bool     `json:"include_points,omitempty"`
-	PointsConfThresh  float32  `json:"points_conf_thresh,omitempty"`
-	Exports           []string `json:"exports,omitempty"`
+	Model             string  `json:"model"`
+	Image             string  `json:"image"`
+	IncludeDepth      bool    `json:"include_depth,omitempty"`
+	IncludeConfidence bool    `json:"include_confidence,omitempty"`
+	IncludePose       bool    `json:"include_pose,omitempty"`
+	IncludeSky        bool    `json:"include_sky,omitempty"`
+	IncludePoints     bool    `json:"include_points,omitempty"`
+	PointsConfThresh  float32 `json:"points_conf_thresh,omitempty"`
 }
 
 type depthResponseBody struct {
@@ -399,20 +453,29 @@ type depthResponseBody struct {
 	IsMetric    bool      `json:"is_metric"`
 }
 
-// Depth posts Src (a base64 payload, per the same convention as Detect) and
-// maps the full response, decoding the point-cloud color bytes.
+// Depth posts Src (a bare base64 payload, per the same convention as Detect,
+// re-wrapped as a data URI via toDataURI) and maps the full response,
+// decoding the point-cloud color bytes. A request for exports or a dst
+// directory is refused: those would be written to the upstream's own local
+// disk, and ExportPaths would name files this proxy (and whatever asked it
+// for them) can never reach.
 func (p *LocalAIProxy) Depth(req *pb.DepthRequest) (pb.DepthResponse, error) {
+	if req.GetDst() != "" || len(req.GetExports()) > 0 {
+		return pb.DepthResponse{}, unimplemented("Depth exports (written to the upstream's own local disk, unreachable from here)")
+	}
+	image, err := toDataURI(req.GetSrc())
+	if err != nil {
+		return pb.DepthResponse{}, err
+	}
 	body := depthRequestBody{
 		Model:             p.model(""),
-		Image:             req.GetSrc(),
-		Dst:               req.GetDst(),
+		Image:             image,
 		IncludeDepth:      req.GetIncludeDepth(),
 		IncludeConfidence: req.GetIncludeConfidence(),
 		IncludePose:       req.GetIncludePose(),
 		IncludeSky:        req.GetIncludeSky(),
 		IncludePoints:     req.GetIncludePoints(),
 		PointsConfThresh:  req.GetPointsConfThresh(),
-		Exports:           req.GetExports(),
 	}
 	var resp depthResponseBody
 	if err := p.postJSON(context.Background(), "/v1/depth", body, &resp); err != nil {
@@ -472,11 +535,21 @@ type faceVerifyResponseBody struct {
 	Img2AntispoofScore *float32       `json:"img2_antispoof_score,omitempty"`
 }
 
-// FaceVerify posts Img1/Img2, which core already carries as base64 (the same
-// convention FaceVerifyEndpoint uses to call this method locally).
+// FaceVerify posts Img1/Img2, which core already carries as bare base64 (the
+// same convention FaceVerifyEndpoint uses to call this method locally) —
+// re-wrapped as data URIs via toDataURI, since the upstream's own endpoint
+// only accepts a URL or a data URI.
 func (p *LocalAIProxy) FaceVerify(req *pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error) {
+	img1, err := toDataURI(req.GetImg1())
+	if err != nil {
+		return pb.FaceVerifyResponse{}, err
+	}
+	img2, err := toDataURI(req.GetImg2())
+	if err != nil {
+		return pb.FaceVerifyResponse{}, err
+	}
 	body := faceVerifyRequestBody{
-		Model: p.model(""), Img1: req.GetImg1(), Img2: req.GetImg2(),
+		Model: p.model(""), Img1: img1, Img2: img2,
 		Threshold: req.GetThreshold(), AntiSpoofing: req.GetAntiSpoofing(),
 	}
 	var resp faceVerifyResponseBody
@@ -536,10 +609,16 @@ type faceAnalyzeResponseBody struct {
 	Faces []faceAnalysisBody `json:"faces"`
 }
 
-// FaceAnalyze posts Img, which core already carries as base64.
+// FaceAnalyze posts Img, which core already carries as bare base64 —
+// re-wrapped as a data URI via toDataURI, since the upstream's own endpoint
+// only accepts a URL or a data URI.
 func (p *LocalAIProxy) FaceAnalyze(req *pb.FaceAnalyzeRequest) (pb.FaceAnalyzeResponse, error) {
+	img, err := toDataURI(req.GetImg())
+	if err != nil {
+		return pb.FaceAnalyzeResponse{}, err
+	}
 	body := faceAnalyzeRequestBody{
-		Model: p.model(""), Img: req.GetImg(), Actions: req.GetActions(), AntiSpoofing: req.GetAntiSpoofing(),
+		Model: p.model(""), Img: img, Actions: req.GetActions(), AntiSpoofing: req.GetAntiSpoofing(),
 	}
 	var resp faceAnalyzeResponseBody
 	if err := p.postJSON(context.Background(), "/v1/face/analyze", body, &resp); err != nil {

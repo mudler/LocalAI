@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/utils"
 )
 
 // b64 is the base64 encoding a spec expects the proxy to have produced from
@@ -82,6 +84,38 @@ var _ = Describe("media methods", func() {
 
 			err := p.GenerateImage(&pb.GenerateImageRequest{PositivePrompt: "x", Dst: dst})
 			Expect(codeOf(err)).To(Equal(codes.Unavailable))
+			Expect(dst).NotTo(BeAnExistingFile())
+		})
+
+		It("downloads a reply URL from the configured upstream even when its host does not match", func() {
+			// A reverse proxy, LOCALAI_BASE_URL, or X-Forwarded-Host can all make
+			// the upstream hand back a URL on a different host than the one this
+			// proxy is configured with. Only the path should matter: the proxy
+			// must still fetch it from cfg.base (this fake upstream), with its
+			// own bearer key, never from the host named in the URL.
+			p := loadProxy(up, nil)
+			up.replyJSON("/v1/images/generations", map[string]any{
+				"data": []map[string]any{{"url": "http://mismatched-host.invalid:1/generated-images/out.png"}},
+			})
+			up.script("/generated-images/out.png", scriptedResponse{Status: http.StatusOK, ContentType: "image/png", Body: "downloaded-bytes"})
+			dst := filepath.Join(GinkgoT().TempDir(), "out.png")
+
+			Expect(p.GenerateImage(&pb.GenerateImageRequest{PositivePrompt: "a cat", Dst: dst})).To(Succeed())
+
+			got, err := os.ReadFile(dst)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(got)).To(Equal("downloaded-bytes"))
+		})
+
+		It("refuses a reply URL whose path is not a known generated-content path", func() {
+			p := loadProxy(up, nil)
+			up.replyJSON("/v1/images/generations", map[string]any{
+				"data": []map[string]any{{"url": up.URL + "/etc/passwd"}},
+			})
+			dst := filepath.Join(GinkgoT().TempDir(), "out.png")
+
+			err := p.GenerateImage(&pb.GenerateImageRequest{PositivePrompt: "a cat", Dst: dst})
+			Expect(codeOf(err)).To(Equal(codes.InvalidArgument))
 			Expect(dst).NotTo(BeAnExistingFile())
 		})
 	})
@@ -211,105 +245,162 @@ var _ = Describe("media methods", func() {
 		})
 	})
 
-	Describe("Detect", func() {
-		It("posts the image and maps detections including the mask", func() {
-			p := loadProxy(up, nil)
-			mask := base64.StdEncoding.EncodeToString([]byte("png-mask"))
-			up.replyJSON("/v1/detection", map[string]any{
-				"detections": []map[string]any{
-					{"x": 1.0, "y": 2.0, "width": 3.0, "height": 4.0, "confidence": 0.9, "class_name": "cat", "mask": mask},
-				},
-			})
+	// pngBytes is a minimal payload with a real PNG magic number, so
+	// http.DetectContentType (which toDataURI uses) sniffs "image/png" the
+	// way it would for a real image, and decodeAndCheckImage below can tell
+	// this test wrote a valid data URI apart from one that merely echoes bare
+	// base64.
+	pngBytes := append([]byte("\x89PNG\r\n\x1a\n"), []byte("fake-png-body")...)
 
-			res, err := p.Detect(&pb.DetectOptions{Src: "base64-image-data", Prompt: "cat", Threshold: 0.5})
+	// decodeAndCheckImage extracts field from an upstream request body and
+	// decodes it exactly the way the real REST handlers do — with
+	// utils.GetContentURIAsBase64 (core/http/endpoints/localai/images.go's
+	// decodeImageInput calls the same function) — so a spec here fails the
+	// same way a live upstream would if the proxy ever regressed to sending
+	// bare base64, which that function rejects outright.
+	decodeAndCheckImage := func(body map[string]any, field string, want []byte) {
+		raw, _ := body[field].(string)
+		decoded, err := utils.GetContentURIAsBase64(raw)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "the real upstream would reject %s the same way", field)
+		got, err := base64.StdEncoding.DecodeString(decoded)
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		ExpectWithOffset(1, got).To(Equal(want))
+	}
+
+	Describe("Detect", func() {
+		It("wraps the bare base64 image as a data URI the real upstream decoder accepts, and maps detections", func() {
+			up = newFakeUpstreamWithHandler(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				decodeAndCheckImage(body, "image", pngBytes)
+				Expect(body["prompt"]).To(Equal("cat"))
+
+				mask := base64.StdEncoding.EncodeToString([]byte("png-mask"))
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"detections": []map[string]any{
+						{"x": 1.0, "y": 2.0, "width": 3.0, "height": 4.0, "confidence": 0.9, "class_name": "cat", "mask": mask},
+					},
+				})
+			})
+			DeferCleanup(up.Close)
+			p := loadProxy(up, nil)
+
+			res, err := p.Detect(&pb.DetectOptions{
+				Src: base64.StdEncoding.EncodeToString(pngBytes), Prompt: "cat", Threshold: 0.5,
+			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.Detections).To(HaveLen(1))
 			Expect(res.Detections[0].ClassName).To(Equal("cat"))
 			Expect(res.Detections[0].Confidence).To(BeNumerically("~", 0.9, 1e-6))
 			Expect(res.Detections[0].Mask).To(Equal([]byte("png-mask")))
-
-			req := up.last()
-			Expect(req.Path).To(Equal("/v1/detection"))
-			Expect(req.JSON).To(HaveKeyWithValue("image", "base64-image-data"))
-			Expect(req.JSON).To(HaveKeyWithValue("prompt", "cat"))
-			Expect(req.JSON).To(HaveKeyWithValue("threshold", BeNumerically("~", 0.5, 1e-6)))
 		})
 	})
 
 	Describe("Depth", func() {
-		It("posts the image and maps the full depth response", func() {
-			p := loadProxy(up, nil)
-			colors := base64.StdEncoding.EncodeToString([]byte("rgb"))
-			up.replyJSON("/v1/depth", map[string]any{
-				"width": 2, "height": 1, "depth": []float64{0.1, 0.2},
-				"point_colors": colors, "is_metric": true,
-			})
+		It("wraps the bare base64 image as a data URI and maps the full depth response", func() {
+			up = newFakeUpstreamWithHandler(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				decodeAndCheckImage(body, "image", pngBytes)
+				Expect(body["include_depth"]).To(Equal(true))
 
-			res, err := p.Depth(&pb.DepthRequest{Src: "base64-image-data", IncludeDepth: true})
+				colors := base64.StdEncoding.EncodeToString([]byte("rgb"))
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"width": 2, "height": 1, "depth": []float64{0.1, 0.2},
+					"point_colors": colors, "is_metric": true,
+				})
+			})
+			DeferCleanup(up.Close)
+			p := loadProxy(up, nil)
+
+			res, err := p.Depth(&pb.DepthRequest{Src: base64.StdEncoding.EncodeToString(pngBytes), IncludeDepth: true})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.Width).To(Equal(int32(2)))
 			Expect(res.Height).To(Equal(int32(1)))
 			Expect(res.Depth).To(Equal([]float32{0.1, 0.2}))
 			Expect(res.PointColors).To(Equal([]byte("rgb")))
 			Expect(res.IsMetric).To(BeTrue())
+		})
 
-			req := up.last()
-			Expect(req.Path).To(Equal("/v1/depth"))
-			Expect(req.JSON).To(HaveKeyWithValue("image", "base64-image-data"))
-			Expect(req.JSON).To(HaveKeyWithValue("include_depth", true))
+		It("refuses a request for exports or a dst directory without calling the upstream, so failover moves on", func() {
+			p := loadProxy(up, nil)
+
+			_, exportsErr := p.Depth(&pb.DepthRequest{Src: "irrelevant", Exports: []string{"glb"}})
+			Expect(codeOf(exportsErr)).To(Equal(codes.Unimplemented))
+
+			_, dstErr := p.Depth(&pb.DepthRequest{Src: "irrelevant", Dst: "/some/output/dir"})
+			Expect(codeOf(dstErr)).To(Equal(codes.Unimplemented))
+
+			Expect(up.recorded()).To(BeEmpty(), "an exports/dst request must never reach the upstream")
 		})
 	})
 
 	Describe("FaceVerify", func() {
-		It("posts both images and maps the response, including liveness fields", func() {
-			p := loadProxy(up, nil)
-			up.replyJSON("/v1/face/verify", map[string]any{
-				"verified": true, "distance": 0.1, "threshold": 0.4, "confidence": 92.0, "model": "buffalo_l",
-				"img1_area":    map[string]any{"x": 1.0, "y": 2.0, "w": 3.0, "h": 4.0},
-				"img2_area":    map[string]any{"x": 5.0, "y": 6.0, "w": 7.0, "h": 8.0},
-				"img1_is_real": true, "img1_antispoof_score": 0.99,
-				"img2_is_real": false, "img2_antispoof_score": 0.1,
-			})
+		It("wraps both bare base64 images as data URIs and maps the response, including liveness fields", func() {
+			img2Bytes := append([]byte("\x89PNG\r\n\x1a\n"), []byte("other-face")...)
+			up = newFakeUpstreamWithHandler(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				decodeAndCheckImage(body, "img1", pngBytes)
+				decodeAndCheckImage(body, "img2", img2Bytes)
+				Expect(body["anti_spoofing"]).To(Equal(true))
 
-			res, err := p.FaceVerify(&pb.FaceVerifyRequest{Img1: "img1-b64", Img2: "img2-b64", AntiSpoofing: true})
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"verified": true, "distance": 0.1, "threshold": 0.4, "confidence": 92.0, "model": "buffalo_l",
+					"img1_area":    map[string]any{"x": 1.0, "y": 2.0, "w": 3.0, "h": 4.0},
+					"img2_area":    map[string]any{"x": 5.0, "y": 6.0, "w": 7.0, "h": 8.0},
+					"img1_is_real": true, "img1_antispoof_score": 0.99,
+					"img2_is_real": false, "img2_antispoof_score": 0.1,
+				})
+			})
+			DeferCleanup(up.Close)
+			p := loadProxy(up, nil)
+
+			res, err := p.FaceVerify(&pb.FaceVerifyRequest{
+				Img1: base64.StdEncoding.EncodeToString(pngBytes), Img2: base64.StdEncoding.EncodeToString(img2Bytes),
+				AntiSpoofing: true,
+			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.Verified).To(BeTrue())
 			Expect(res.Model).To(Equal("buffalo_l"))
 			Expect(res.Img1Area.W).To(BeNumerically("==", 3))
 			Expect(res.Img1IsReal).To(BeTrue())
 			Expect(res.Img2IsReal).To(BeFalse())
-
-			req := up.last()
-			Expect(req.Path).To(Equal("/v1/face/verify"))
-			Expect(req.JSON).To(HaveKeyWithValue("img1", "img1-b64"))
-			Expect(req.JSON).To(HaveKeyWithValue("img2", "img2-b64"))
-			Expect(req.JSON).To(HaveKeyWithValue("anti_spoofing", true))
 		})
 	})
 
 	Describe("FaceAnalyze", func() {
-		It("posts the image and maps per-face demographic attributes", func() {
-			p := loadProxy(up, nil)
-			up.replyJSON("/v1/face/analyze", map[string]any{
-				"faces": []map[string]any{
-					{
-						"region":          map[string]any{"x": 1.0, "y": 2.0, "w": 3.0, "h": 4.0},
-						"face_confidence": 0.95, "age": 30.0, "dominant_gender": "Man",
-						"gender": map[string]any{"Man": 0.9, "Woman": 0.1},
-					},
-				},
-			})
+		It("wraps the bare base64 image as a data URI and maps per-face demographic attributes", func() {
+			up = newFakeUpstreamWithHandler(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				decodeAndCheckImage(body, "img", pngBytes)
+				Expect(body["actions"]).To(ConsistOf("age", "gender"))
 
-			res, err := p.FaceAnalyze(&pb.FaceAnalyzeRequest{Img: "img-b64", Actions: []string{"age", "gender"}})
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"faces": []map[string]any{
+						{
+							"region":          map[string]any{"x": 1.0, "y": 2.0, "w": 3.0, "h": 4.0},
+							"face_confidence": 0.95, "age": 30.0, "dominant_gender": "Man",
+							"gender": map[string]any{"Man": 0.9, "Woman": 0.1},
+						},
+					},
+				})
+			})
+			DeferCleanup(up.Close)
+			p := loadProxy(up, nil)
+
+			res, err := p.FaceAnalyze(&pb.FaceAnalyzeRequest{
+				Img: base64.StdEncoding.EncodeToString(pngBytes), Actions: []string{"age", "gender"},
+			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.Faces).To(HaveLen(1))
 			Expect(res.Faces[0].DominantGender).To(Equal("Man"))
 			Expect(res.Faces[0].Gender).To(HaveKeyWithValue("Man", Equal(float32(0.9))))
-
-			req := up.last()
-			Expect(req.Path).To(Equal("/v1/face/analyze"))
-			Expect(req.JSON).To(HaveKeyWithValue("img", "img-b64"))
-			Expect(req.JSON).To(HaveKeyWithValue("actions", ConsistOf("age", "gender")))
 		})
 	})
 
