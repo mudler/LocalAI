@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/xlog"
 )
@@ -43,7 +44,10 @@ func WithOnWarmChanged(fn func(warm []string)) Option { return func(m *Manager) 
 
 // Manager tracks health per target and the active target per chain.
 type Manager struct {
-	mu     sync.Mutex
+	mu sync.Mutex
+	// id tells this manager's own target publishes apart when the sync
+	// layer echoes them back.
+	id     string
 	src    ConfigSource
 	clock  Clock
 	prober Prober
@@ -120,6 +124,7 @@ type chainState struct {
 
 func New(src ConfigSource, opts ...Option) *Manager {
 	m := &Manager{
+		id:      uuid.NewString(),
 		src:     src,
 		clock:   realClock{},
 		targets: map[string]*targetState{},

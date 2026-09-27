@@ -16,6 +16,8 @@ type TargetSnapshot struct {
 	Error         string      `json:"error,omitempty"`
 	ConsecutiveOK int         `json:"consecutive_ok"`
 	Since         time.Time   `json:"since"`
+	// Origin is the publishing manager, so it can drop its own echoes.
+	Origin string `json:"origin,omitempty"`
 }
 
 // ChainSnapshot is one chain's active target as decided by the leader.
@@ -129,7 +131,7 @@ func (m *Manager) targetSnapshotLocked(ts *targetState) TargetSnapshot {
 	}
 	return TargetSnapshot{
 		Target: ts.name, State: ts.state, Reason: ts.reason, Error: ts.lastError,
-		ConsecutiveOK: ts.consecutiveOK, Since: since,
+		ConsecutiveOK: ts.consecutiveOK, Since: since, Origin: m.id,
 	}
 }
 
@@ -158,11 +160,17 @@ func (m *Manager) queuePublishChainLocked(ch *chainState, reason Reason) {
 	m.pending = append(m.pending, func() { s.PublishChain(snap) })
 }
 
-// ApplyTarget takes a target state published by any frontend, this one
-// included. The echo of an own publish finds the same state and does nothing.
+// ApplyTarget takes a target state published by another frontend. The echo
+// of an own publish is dropped: this manager already holds that state or a
+// newer one, and publishes are snapshotted when queued, so an echo can arrive
+// after a later local transition (down -> recovering -> healthy under one
+// lock queues two) and would roll the target back.
 func (m *Manager) ApplyTarget(s TargetSnapshot) {
 	m.mu.Lock()
 	defer m.unlockAndFlush()
+	if s.Origin != "" && s.Origin == m.id {
+		return
+	}
 	ts := m.targetLocked(s.Target)
 	if ts == nil || ts.state == StateMissing || s.State == StateMissing {
 		return

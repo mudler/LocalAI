@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -104,6 +106,28 @@ var _ = Describe("Manager state sync", func() {
 			}
 		}
 		Expect(n).To(Equal(1))
+	})
+
+	It("does not let the echo of its own earlier publish undo a newer local state", func() {
+		// One recovery probe: a success moves x down -> recovering -> healthy
+		// under one lock, which queues two publishes. Their echoes arrive
+		// after x is already healthy here.
+		src.Put(chainCfg("chain", &config.FailoverConfig{Recovery: config.FailoverRecovery{Probes: 1}}, t("x"), t("y")))
+		a.Sync()
+		b.Sync()
+		a.ReportFailure("x", errBoom)
+		st, _ := a.ChainStatus("chain")
+		Expect(st.Active).To(Equal("y"))
+
+		clock.Advance(10 * time.Minute) // past any dwell
+		a.ReportSuccess("x")
+
+		st, _ = a.ChainStatus("chain")
+		Expect(st.Targets[0].State).To(Equal(StateHealthy))
+		Expect(st.Active).To(Equal("x"), "the leader must stay failed back to x")
+		st, _ = b.ChainStatus("chain")
+		Expect(st.Targets[0].State).To(Equal(StateHealthy))
+		Expect(st.Active).To(Equal("x"))
 	})
 
 	It("a trip on one frontend is skipped by the other's plan", func() {
