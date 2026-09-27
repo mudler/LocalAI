@@ -39,6 +39,15 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Dolphin3-Cyber-8B
+
+Install `dolphin3-cyber-8b` for cybersecurity chat with llama.cpp.
+The gallery offers Q4_K_M and Q8_0 GGUF builds as variants.
+To select Q8 explicitly, run `local-ai models install dolphin3-cyber-8b --variant dolphin3-cyber-8b-q8`.
+
+The default context is 2,048 tokens, matching the fine-tuning context reported in the [model card](https://huggingface.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF).
+The model uses the Llama 3.1 license.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.

@@ -39101,6 +39101,76 @@
     - filename: Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
       sha256: 254c7ccc4ea3818fe5f6e3ffd5500c779b02058b98f9ce9a3856e54106d008e3
       uri: huggingface://QuantFactory/Llama3.1-8B-PRM-Deepseek-Data-GGUF/Llama3.1-8B-PRM-Deepseek-Data.Q4_K_M.gguf
+- name: dolphin3-cyber-8b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: dolphin3-cyber-8b-q8
+  urls:
+    - https://huggingface.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF
+    - https://huggingface.co/huihui-ai/Dolphin3.0-Llama3.1-8B-abliterated
+  description: |
+    Dolphin3-Cyber-8B is an 8B Llama 3.1 fine-tune for cybersecurity education and security analysis.
+    This Q4_K_M GGUF build uses the embedded ChatML template with llama.cpp.
+  license: llama3.1
+  tags:
+    - llm
+    - gguf
+    - chat
+    - cybersecurity
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 2048
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    stopwords:
+      - <|im_end|>
+      - <|end_of_text|>
+    parameters:
+      model: dolphin3-cyber-8b/Dolphin3.0-Llama3.1-8B-abliterated.Q4_K_M.gguf
+  files:
+    - filename: dolphin3-cyber-8b/Dolphin3.0-Llama3.1-8B-abliterated.Q4_K_M.gguf
+      sha256: 73da18db1557e19e8ec2d6c1e8ef08e182c735d72f3bd526f6940f4fec96c1cb
+      uri: https://huggingface.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF/resolve/145d66f096c8a99aad63be19ada1fbc46d3230bd/Dolphin3.0-Llama3.1-8B-abliterated.Q4_K_M.gguf
+- name: dolphin3-cyber-8b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF
+    - https://huggingface.co/huihui-ai/Dolphin3.0-Llama3.1-8B-abliterated
+  description: |
+    Dolphin3-Cyber-8B is an 8B Llama 3.1 fine-tune for cybersecurity education and security analysis.
+    This Q8_0 GGUF build uses the embedded ChatML template with llama.cpp.
+  license: llama3.1
+  tags:
+    - llm
+    - gguf
+    - chat
+    - cybersecurity
+    - cpu
+    - gpu
+  overrides:
+    backend: llama-cpp
+    context_size: 2048
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    stopwords:
+      - <|im_end|>
+      - <|end_of_text|>
+    parameters:
+      model: dolphin3-cyber-8b/Dolphin3.0-Llama3.1-8B-abliterated.Q8_0.gguf
+  files:
+    - filename: dolphin3-cyber-8b/Dolphin3.0-Llama3.1-8B-abliterated.Q8_0.gguf
+      sha256: fe10b8371a33a0a31dd1f9597dcd6f8c76fd47cd38411a0fe7c9e45ea29b484e
+      uri: https://huggingface.co/RavichandranJ/Dolphin3-Cyber-8B-GGUF/resolve/145d66f096c8a99aad63be19ada1fbc46d3230bd/Dolphin3.0-Llama3.1-8B-abliterated.Q8_0.gguf
 - name: dolphin3.0-llama3.1-8b
   url: github:mudler/LocalAI/gallery/chatml.yaml@master
   urls:
