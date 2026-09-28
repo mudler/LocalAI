@@ -595,11 +595,13 @@ type ConversationItemInputAudioTranscriptionSegmentEvent struct {
 	// The speaker label for the segment, if available.
 	Speaker string `json:"speaker,omitempty"`
 
-	// The start time of the segment in seconds.
-	Start float64 `json:"start,omitempty"`
+	// The start time of the segment in seconds. Always present (not
+	// omitempty: a segment starting at 0.0s must still carry "start").
+	Start float64 `json:"start"`
 
-	// The end time of the segment in seconds.
-	End float64 `json:"end,omitempty"`
+	// The end time of the segment in seconds. Always present (not
+	// omitempty: see Start).
+	End float64 `json:"end"`
 
 	// The text content of the segment.
 	Text string `json:"text,omitempty"`

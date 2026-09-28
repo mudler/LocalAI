@@ -52,6 +52,32 @@ var _ = Describe("ConversationItemSoundDetectionEvent JSON", func() {
 	})
 })
 
+// ConversationItemInputAudioTranscriptionSegmentEvent.Start/End are plain
+// float64 (no omitempty): a speaker segment starting at 0.0s must still
+// carry "start" in the JSON, unlike the sound-detection event's optional
+// pointer fields above.
+var _ = Describe("ConversationItemInputAudioTranscriptionSegmentEvent JSON", func() {
+	It("marshals start:0 and end:1.5 even when start is the zero value", func() {
+		ev := types.ConversationItemInputAudioTranscriptionSegmentEvent{
+			ItemID:  "item1",
+			Speaker: "1",
+			Start:   0,
+			End:     1.5,
+		}
+		b, err := json.Marshal(ev)
+		Expect(err).ToNot(HaveOccurred())
+
+		var got map[string]any
+		Expect(json.Unmarshal(b, &got)).To(Succeed())
+		_, hasStart := got["start"]
+		_, hasEnd := got["end"]
+		Expect(hasStart).To(BeTrue())
+		Expect(hasEnd).To(BeTrue())
+		Expect(got["start"]).To(BeNumerically("~", 0.0, 1e-9))
+		Expect(got["end"]).To(BeNumerically("~", 1.5, 1e-9))
+	})
+})
+
 // emitSoundDetection classifies a committed utterance and emits a single
 // conversation.item.sound_detection event carrying the scored AudioSet tags.
 var _ = Describe("emitSoundDetection", func() {
