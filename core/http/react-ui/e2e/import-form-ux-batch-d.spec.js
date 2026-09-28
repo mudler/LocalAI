@@ -93,7 +93,7 @@ test.describe('Import form UX — Batch D (progressive disclosure)', () => {
   })
 
   test('D1 — selecting cachyllama shows GGUF Quantizations + MMProj', async ({ page }) => {
-    await enterPowerPreferences(page)
+    await openOptions(page)
     await selectBackend(page, 'cachyllama')
     await expect(quantizationsInput(page)).toBeVisible()
     await expect(mmprojInput(page)).toBeVisible()
