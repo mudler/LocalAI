@@ -539,6 +539,21 @@
     amd: "vulkan-kimodocpp"
     intel: "vulkan-kimodocpp"
     metal: "cpu-darwin-arm64-kimodocpp"
+- &pixal3dcpp
+  name: "pixal3dcpp"
+  alias: "pixal3dcpp"
+  license: mit
+  description: "Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI"
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  tags: [image-to-3d, 3d-generation, CPU, GPU, CUDA, Vulkan, Metal]
+  capabilities:
+    default: "cpu-pixal3dcpp"
+    nvidia: "cuda12-pixal3dcpp"
+    nvidia-cuda-12: "cuda12-pixal3dcpp"
+    nvidia-cuda-13: "cuda13-pixal3dcpp"
+    vulkan: "vulkan-pixal3dcpp"
+    metal: "metal-pixal3dcpp"
 - &trellis2cpp
   name: "trellis2cpp"
   alias: "trellis2cpp"
@@ -7376,3 +7391,64 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-funasr"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-funasr
+
+## pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "pixal3dcpp-development"
+  capabilities:
+    default: "cpu-pixal3dcpp-development"
+    nvidia: "cuda12-pixal3dcpp-development"
+    nvidia-cuda-12: "cuda12-pixal3dcpp-development"
+    nvidia-cuda-13: "cuda13-pixal3dcpp-development"
+    vulkan: "vulkan-pixal3dcpp-development"
+    metal: "metal-pixal3dcpp-development"
+- !!merge <<: *pixal3dcpp
+  name: "cpu-pixal3dcpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:latest-cpu-pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "cpu-pixal3dcpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:master-cpu-pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "cuda12-pixal3dcpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "cuda12-pixal3dcpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "cuda13-pixal3dcpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "cuda13-pixal3dcpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "vulkan-pixal3dcpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-vulkan-pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "vulkan-pixal3dcpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-vulkan-pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "metal-pixal3dcpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-pixal3dcpp
+- !!merge <<: *pixal3dcpp
+  name: "metal-pixal3dcpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-pixal3dcpp"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-pixal3dcpp

@@ -725,6 +725,8 @@ message Animate3DRequest {
 }
 
 message Generate3DRequest {
+  repeated string images = 10; // Staged canonical views: front, right, back, left
+  double mesh_scale = 11; // Explicit finite positive Pixal3D object scale
   string src = 1;          // Path to the staged conditioning image (3D generation is image-conditioned)
   string dst = 2;          // Output path for the generated binary glTF (.glb) asset
   int32 seed = 3;          // <=0 lets the backend pick a random seed
