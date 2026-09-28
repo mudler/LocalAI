@@ -26,11 +26,33 @@ import (
 // backchannel ("uh-huh") ended — callers must NOT treat Eob as a turn
 // boundary.
 type LiveTranscriptionEvent struct {
-	Delta string
-	Eou   bool
-	Eob   bool
-	Words []schema.TranscriptionWord
-	Final *schema.TranscriptionResult
+	Delta    string
+	Eou      bool
+	Eob      bool
+	Words    []schema.TranscriptionWord
+	Speakers []LiveSpeakerSegment
+	Sounds   []LiveSoundEvent
+	Final    *schema.TranscriptionResult
+}
+
+// LiveSpeakerSegment is one closed speaker segment from a companion
+// diarization/scene stream running alongside live transcription. Start/End
+// are stream-relative seconds (mapped from the backend's nanoseconds).
+type LiveSpeakerSegment struct {
+	Speaker string
+	Start   float64
+	End     float64
+}
+
+// LiveSoundEvent is one closed sound event from a companion sound/scene
+// stream running alongside live transcription. Start/End are stream-relative
+// seconds (mapped from the backend's nanoseconds).
+type LiveSoundEvent struct {
+	Label string
+	Index int
+	Peak  float32
+	Start float64
+	End   float64
 }
 
 // LiveTranscriptionSession is a handle on an open live transcription stream.
@@ -301,6 +323,22 @@ func liveEventFromProto(r *proto.TranscriptLiveResponse) LiveTranscriptionEvent 
 			Start: time.Duration(w.Start),
 			End:   time.Duration(w.End),
 			Text:  w.Text,
+		})
+	}
+	for _, s := range r.GetSpeakers() {
+		ev.Speakers = append(ev.Speakers, LiveSpeakerSegment{
+			Speaker: s.GetSpeaker(),
+			Start:   time.Duration(s.GetStart()).Seconds(),
+			End:     time.Duration(s.GetEnd()).Seconds(),
+		})
+	}
+	for _, s := range r.GetSounds() {
+		ev.Sounds = append(ev.Sounds, LiveSoundEvent{
+			Label: s.GetLabel(),
+			Index: int(s.GetIndex()),
+			Peak:  s.GetPeak(),
+			Start: time.Duration(s.GetStart()).Seconds(),
+			End:   time.Duration(s.GetEnd()).Seconds(),
 		})
 	}
 	if r.GetFinalResult() != nil {

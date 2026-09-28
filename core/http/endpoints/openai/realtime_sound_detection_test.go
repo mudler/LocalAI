@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"os"
 
@@ -13,6 +14,43 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
 )
+
+// ConversationItemSoundDetectionEvent gained optional Start/End (seconds)
+// for the live scene-event path; the unary/windowed paths never set them,
+// so existing consumers must see no start/end keys at all.
+var _ = Describe("ConversationItemSoundDetectionEvent JSON", func() {
+	It("omits start and end when nil", func() {
+		ev := types.ConversationItemSoundDetectionEvent{
+			ItemID:     "item1",
+			Detections: []types.SoundDetectionTag{{Label: "Speech", Score: 0.5, Index: 7}},
+		}
+		b, err := json.Marshal(ev)
+		Expect(err).ToNot(HaveOccurred())
+
+		var got map[string]any
+		Expect(json.Unmarshal(b, &got)).To(Succeed())
+		_, hasStart := got["start"]
+		_, hasEnd := got["end"]
+		Expect(hasStart).To(BeFalse())
+		Expect(hasEnd).To(BeFalse())
+	})
+
+	It("includes start and end when set", func() {
+		start, end := 0.5, 0.9
+		ev := types.ConversationItemSoundDetectionEvent{
+			ItemID: "item1",
+			Start:  &start,
+			End:    &end,
+		}
+		b, err := json.Marshal(ev)
+		Expect(err).ToNot(HaveOccurred())
+
+		var got map[string]any
+		Expect(json.Unmarshal(b, &got)).To(Succeed())
+		Expect(got["start"]).To(BeNumerically("~", 0.5, 1e-9))
+		Expect(got["end"]).To(BeNumerically("~", 0.9, 1e-9))
+	})
+})
 
 // emitSoundDetection classifies a committed utterance and emits a single
 // conversation.item.sound_detection event carrying the scored AudioSet tags.

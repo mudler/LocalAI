@@ -512,6 +512,15 @@ type ConversationItemSoundDetectionEvent struct {
 
 	// The scored sound-event tags, in score-descending order.
 	Detections []SoundDetectionTag `json:"detections"`
+
+	// The start time of the detection window in seconds, when known. Set by
+	// the live scene-event path (a companion sound stream alongside live
+	// transcription); omitted by the unary/windowed sound-detection paths,
+	// which have no per-event timing.
+	Start *float64 `json:"start,omitempty"`
+
+	// The end time of the detection window in seconds, when known.
+	End *float64 `json:"end,omitempty"`
 }
 
 func (m ConversationItemSoundDetectionEvent) ServerEventType() ServerEventType {

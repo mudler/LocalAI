@@ -59,6 +59,34 @@ var _ = Describe("liveEventFromProto", func() {
 		Expect(ev.Eob).To(BeTrue())
 		Expect(ev.Eou).To(BeFalse())
 	})
+
+	It("maps speaker segments and sound events (ns -> seconds)", func() {
+		ev := liveEventFromProto(&proto.TranscriptLiveResponse{
+			Speakers: []*proto.LiveSpeakerSegment{
+				{Speaker: "1", Start: int64(1500 * time.Millisecond), End: int64(3200 * time.Millisecond)},
+			},
+			Sounds: []*proto.LiveSoundEvent{
+				{Label: "Dog bark", Index: 5, Peak: 0.8, Start: int64(500 * time.Millisecond), End: int64(900 * time.Millisecond)},
+			},
+		})
+		Expect(ev.Speakers).To(HaveLen(1))
+		Expect(ev.Speakers[0].Speaker).To(Equal("1"))
+		Expect(ev.Speakers[0].Start).To(BeNumerically("~", 1.5, 1e-9))
+		Expect(ev.Speakers[0].End).To(BeNumerically("~", 3.2, 1e-9))
+
+		Expect(ev.Sounds).To(HaveLen(1))
+		Expect(ev.Sounds[0].Label).To(Equal("Dog bark"))
+		Expect(ev.Sounds[0].Index).To(Equal(5))
+		Expect(ev.Sounds[0].Peak).To(BeNumerically("~", 0.8, 1e-6))
+		Expect(ev.Sounds[0].Start).To(BeNumerically("~", 0.5, 1e-9))
+		Expect(ev.Sounds[0].End).To(BeNumerically("~", 0.9, 1e-9))
+	})
+
+	It("leaves speakers and sounds nil when the proto carries none", func() {
+		ev := liveEventFromProto(&proto.TranscriptLiveResponse{Delta: "hi"})
+		Expect(ev.Speakers).To(BeNil())
+		Expect(ev.Sounds).To(BeNil())
+	})
 })
 
 // liveTraceState is what makes streaming-only pipelines visible on the
