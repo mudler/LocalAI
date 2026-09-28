@@ -133,10 +133,18 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		return fmt.Errorf("parakeet-cpp: parakeet_capi_load failed for %q", opts.ModelFile)
 	}
 	loaded := []uintptr{primary}
+	// freeLoaded undoes everything loadRoles opened this call: every context
+	// it freed AND every ParakeetCpp field it may have assigned (the primary
+	// lands in one of ctxPtr/diarCtx/tagCtx before the companion loop runs,
+	// and an earlier companion's spec.assign runs before a later one fails).
+	// Leaving a role field pointing at a freed ctx would double-free it on a
+	// later Free() call.
 	freeLoaded := func() {
 		for _, c := range loaded {
 			CppFree(c)
 		}
+		p.ctxPtr, p.diarCtx, p.tagCtx = 0, 0, 0
+		p.companions = nil
 	}
 
 	primaryKind := int32(modelKindASR) // old-library default: today's behavior

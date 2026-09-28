@@ -41,6 +41,9 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 	defer close(out)
 
 	if p.ctxPtr == 0 {
+		if err := p.notASRError(); err != nil {
+			return err
+		}
 		return grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 

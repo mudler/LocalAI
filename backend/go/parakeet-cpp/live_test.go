@@ -106,6 +106,19 @@ var _ = Describe("AudioTranscriptionLive (stubbed C API)", func() {
 
 	AfterEach(func() { restore() })
 
+	It("names the loaded role instead of a generic model-not-loaded error for a sound primary", func() {
+		// The ctxPtr==0 check returns before AudioTranscriptionLive ever reads
+		// from `in`, so nothing may be sent on it (unbuffered: a send would
+		// block forever waiting for a read that never happens).
+		p2 := &ParakeetCpp{tagCtx: 1}
+		in, out, errCh := runLive(p2)
+		close(in)
+
+		err := <-errCh
+		Expect(err).To(MatchError(ContainSubstring("sound model")))
+		Expect(collectLive(out)).To(BeEmpty())
+	})
+
 	It("rejects a stream whose first message is not a config", func() {
 		in, out, errCh := runLive(p)
 		in <- liveAudio([]float32{0.1})

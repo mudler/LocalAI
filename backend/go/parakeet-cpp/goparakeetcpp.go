@@ -751,6 +751,9 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	defer close(results)
 
 	if p.ctxPtr == 0 {
+		if err := p.notASRError(); err != nil {
+			return err
+		}
 		return grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 	if opts.Dst == "" {

@@ -171,6 +171,18 @@ var _ = Describe("model roles (stubbed C API)", func() {
 		Expect(err.Error()).To(ContainSubstring("sound_model"))
 		Expect(err.Error()).To(ContainSubstring("diarization"))
 		Expect(f.freed).To(HaveLen(2), "the primary and the wrong-kind companion must both be freed")
+
+		// Every role field the failed load may have assigned (the primary
+		// lands in ctxPtr before the companion loop runs) must be reset, or a
+		// later Free() would double-free an already-freed context.
+		Expect(p.ctxPtr).To(BeZero())
+		Expect(p.diarCtx).To(BeZero())
+		Expect(p.tagCtx).To(BeZero())
+		Expect(p.companions).To(BeEmpty())
+
+		freedBeforeFree := len(f.freed)
+		Expect(p.Free()).To(Succeed())
+		Expect(f.freed).To(HaveLen(freedBeforeFree), "Free after a failed Load must not free anything again")
 	})
 
 	It("parses diarization_latency:very_low", func() {

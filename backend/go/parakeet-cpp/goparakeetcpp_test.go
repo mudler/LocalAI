@@ -203,6 +203,24 @@ var _ = Describe("ParakeetCpp", func() {
 	})
 
 	Context("AudioTranscriptionStream", func() {
+		It("names the loaded role instead of a generic model-not-loaded error for a diarization primary", func() {
+			// CppStreamBegin/CppStreamBeginLang are left nil (zero value): if
+			// AudioTranscriptionStream tried to call either, this would panic
+			// instead of returning cleanly, so a clean typed error here also
+			// proves no C call was made.
+			p := &ParakeetCpp{diarCtx: 1}
+			results := make(chan *pb.TranscriptStreamResponse, 8)
+			err := p.AudioTranscriptionStream(context.Background(),
+				&pb.TranscriptRequest{Dst: "ignored.wav"}, results)
+			Expect(err).To(MatchError(ContainSubstring("diarization model")))
+
+			var emitted []*pb.TranscriptStreamResponse
+			for r := range results {
+				emitted = append(emitted, r)
+			}
+			Expect(emitted).To(BeEmpty())
+		})
+
 		It("returns the typed Unimplemented signal for non-streaming models (no offline fallback)", func() {
 			// stream_begin == 0 means the loaded model is not a cache-aware
 			// streaming model. The backend must surface that, not silently
