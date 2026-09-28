@@ -129,6 +129,66 @@ A client `session.update` still overrides `type` and `eagerness` per session.
 - `false` (default): the transcript accumulated from the live stream is used as-is - the model runs once per utterance and the LLM starts immediately at commit.
 - `true`: the committed audio is re-transcribed offline. If the batch decode also ends with the end-of-utterance token the turn proceeds (using the batch transcript); if it does **not**, the commit is cancelled and the session keeps listening - treating the streaming token as a false positive. Both transcripts are compared and logged, which makes this mode a useful diagnostic for how well the streaming and batch decodes align, at the cost of one extra decode per turn.
 
+### Live speaker and sound events (parakeet-cpp)
+
+When the `semantic_vad` transcription model is a parakeet-cpp model loaded with a `diarization_model` and/or `sound_model` companion (see [Audio to Text]({{% relref "audio-to-text" %}})), the realtime session also streams speaker and sound events while a turn is live, alongside the transcript deltas. Nothing needs to change on the client: unrecognized event types are ignored by standard OpenAI Realtime clients.
+
+The transcription model, with its companions:
+
+```yaml
+name: parakeet-realtime-scene
+backend: parakeet-cpp
+parameters:
+  model: realtime_eou_120m-v1-f16.gguf
+options:
+  - diarization_model:nemotron-3-diarization-q8_0.gguf
+  - sound_model:ced-tiny-q8_0.gguf
+```
+
+The realtime pipeline that uses it:
+
+```yaml
+name: gpt-realtime
+pipeline:
+  vad: silero-vad-ggml
+  transcription: parakeet-realtime-scene
+  llm: qwen3-4b
+  tts: tts-1
+  turn_detection:
+    type: semantic_vad
+```
+
+Each closed speaker segment emits a `conversation.item.input_audio_transcription.segment` event under the turn's item id, with an empty `text` (the event exists to carry the speaker boundary, not a transcript - the transcript still comes from the ordinary delta/completed events):
+
+```json
+{
+  "type": "conversation.item.input_audio_transcription.segment",
+  "item_id": "item_abc",
+  "content_index": 0,
+  "speaker": "0",
+  "start": 1.92,
+  "end": 4.10,
+  "text": ""
+}
+```
+
+Each sound event emits a `conversation.item.sound_detection` event with one tag and the detection window's `start`/`end` (seconds, stream-relative - the same clock as the live words):
+
+```json
+{
+  "type": "conversation.item.sound_detection",
+  "item_id": "item_abc",
+  "content_index": 0,
+  "detections": [{"label": "Rooster", "score": 0.91, "index": 17}],
+  "start": 24.0,
+  "end": 30.0
+}
+```
+
+`score` is the peak score seen for that tag while the sound was live, not an average. On session close the companion stream is flushed and its remaining events are sent before the final result; a mid-stream `session.update` that changes the transcription model resets it along with the ASR session.
+
+**Limitation**: under `semantic_vad`, live transcription (and so this companion stream) only runs during speech turns - it does not see audio between turns. A sound that happens while nobody is speaking is not detected this way. If you need sound events independent of speech turns, use the pipeline's `sound_detection` model instead (see [Sound Classification]({{% relref "audio-classification" %}})), which classifies each VAD-committed utterance on its own. Use one or the other, not both, on the same session - they overlap in purpose and would emit sound detections twice.
+
 ### Disabling thinking
 
 For reasoning models, you can force the pipeline LLM's thinking off without editing the LLM model config:

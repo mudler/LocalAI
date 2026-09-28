@@ -12,7 +12,7 @@ The transcription endpoint allows to convert audio files to text. The endpoint s
 - **moonshine**: Ultra-fast transcription engine optimized for low-end devices
 - **faster-whisper**: Fast Whisper implementation with CTranslate2
 - **WhisperX**: Whisper transcription with word alignment and optional speaker diarization. Set `HF_TOKEN` and pass `diarize=true` to load WhisperX's gated pyannote diarization pipeline.
-- **[parakeet-cpp](https://github.com/mudler/parakeet.cpp)**: A C++/ggml port of NVIDIA NeMo Parakeet (FastConformer TDT/CTC/RNNT/hybrid). Runs quantized GGUFs on CPU or GPU, emits word-level timestamps, and supports cache-aware streaming (the `realtime_eou` model surfaces end-of-utterance events).
+- **[parakeet-cpp](https://github.com/mudler/parakeet.cpp)**: A C++/ggml port of NVIDIA NeMo Parakeet (FastConformer TDT/CTC/RNNT/hybrid). Runs quantized GGUFs on CPU or GPU, emits word-level timestamps, and supports cache-aware streaming (the `realtime_eou` model surfaces end-of-utterance events). The same backend also loads Nemotron-3-Diarization (`/v1/audio/diarization`) and CED sound models (`/v1/audio/classification`), and can attach either as a companion to a transcription model.
 - **llama-cpp**: Route transcription to any multimodal-audio GGUF model served by the `llama-cpp` backend (e.g. [Qwen3-ASR](https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF), Voxtral, Qwen2-Audio). Under the hood the request is converted into a chat completion with the audio attached via the model's audio encoder - the same path the upstream llama.cpp server uses. Set `backend: llama-cpp` in the model YAML and point `mmproj` at the matching audio encoder.
 - **voxtral**: Voxtral-family models served by a dedicated backend
 - **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)**: NVIDIA's C++/ggml runtime for the Nemotron Speech models. Serves offline, streaming and live transcription, with VAD, punctuation, inverse text normalization and Sortformer speaker tags attached through model options, and covers diarization, speech synthesis and translation from the same backend. See the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}}) page for the model options.
@@ -189,6 +189,19 @@ curl http://localhost:8080/v1/audio/transcriptions \
 ```
 
 For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v1-*.gguf`) and pass `-F stream=true`. Deltas are emitted as the audio is decoded, with end-of-utterance events closing each segment.
+
+### Diarization and sound classification
+
+The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classification` endpoints, and can attach a diarization or sound model to a live transcription session. `options:` accepts paths relative to the models directory, or absolute:
+
+| Option | Allowed on | Used for |
+|---|---|---|
+| `asr_model:<path>` | a diarization model | `include_text` on `/v1/audio/diarization` |
+| `diarization_model:<path>` | an ASR model | speaker segments during realtime live transcription |
+| `sound_model:<path>` | an ASR model | sound events during realtime live transcription |
+| `diarization_latency:<model\|low\|very_low\|ultra_low>` | any model with a diarization companion | latency mode for the live speaker stream; default `low` |
+
+A companion model of the wrong kind (for example `sound_model:` pointing at an ASR GGUF) fails to load, naming the kind it expected. See [Speaker Diarization]({{% relref "audio-diarization" %}}) for the `Diarize` RPC and [Sound Classification]({{% relref "audio-classification" %}}) for `SoundDetection`, and [Realtime API]({{% relref "openai-realtime" %}}) for the live speaker/sound events emitted during a realtime session.
 
 ### Segment timestamps
 
