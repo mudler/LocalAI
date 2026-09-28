@@ -90,6 +90,13 @@ func main() {
 		purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
 	}
 
+	// Speaker diarization (ABI v7): a diarization GGUF, or one attached to an
+	// ASR model with the diar_model option. Same probe pattern; absent in older
+	// libparakeet.so, where diarization is reported as unavailable.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_pcm"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppDiarizePcm, lib, "parakeet_capi_diarize_pcm")
+	}
+
 	fmt.Fprintf(os.Stderr, "[parakeet-cpp] ABI=%d\n", CppAbiVersion())
 
 	flag.Parse()

@@ -43,7 +43,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | Fast Whisper with CTranslate2 | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [WhisperX](https://github.com/m-bain/whisperX) | Word-level timestamps and speaker diarization | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [moonshine](https://github.com/moonshine-ai/moonshine) | Ultra-fast transcription for low-end devices (ONNX) | CPU, CUDA 12/13, Metal |
-| [parakeet.cpp](https://github.com/mudler/parakeet.cpp) | C++/GGML port of NVIDIA NeMo Parakeet (tdt/ctc/rnnt/hybrid), with cache-aware streaming | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
+| [parakeet.cpp](https://github.com/mudler/parakeet.cpp) | C++/GGML port of NVIDIA NeMo Parakeet (tdt/ctc/rnnt/hybrid), with cache-aware streaming and Nemotron-3-Diarization speaker diarization | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [CrispASR](https://github.com/CrispStrobe/CrispASR) | Unified speech engine (whisper.cpp fork) supporting Parakeet, Canary, and many ASR architectures, plus TTS | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [voxtral](https://github.com/antirez/voxtral.c) | Voxtral Realtime 4B speech-to-text in pure C | CPU, Metal |
 | [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) | Qwen3 automatic speech recognition | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |

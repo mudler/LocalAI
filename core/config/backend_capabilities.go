@@ -477,11 +477,14 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseTranscript},
 		Description:      "NVIDIA NeMo speech recognition",
 	},
+	// parakeet-cpp: an ASR GGUF transcribes (and tags speakers when a
+	// diarization GGUF is attached with the diar_model option); a diarization
+	// GGUF (Nemotron-3-Diarization) only answers Diarize.
 	"parakeet-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodAudioTranscription},
-		PossibleUsecases: []string{UsecaseTranscript},
+		GRPCMethods:      []GRPCMethod{MethodAudioTranscription, MethodDiarize},
+		PossibleUsecases: []string{UsecaseTranscript, UsecaseDiarization},
 		DefaultUsecases:  []string{UsecaseTranscript},
-		Description:      "NVIDIA NeMo Parakeet ASR (parakeet.cpp)",
+		Description:      "NVIDIA NeMo Parakeet ASR and Nemotron-3-Diarization speaker diarization (parakeet.cpp)",
 	},
 	// nemo-speech-cpp is one gRPC server in front of four NeMo-Speech.cpp model
 	// families, picked at load time from the GGUF general.architecture key, so

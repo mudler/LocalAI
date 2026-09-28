@@ -148,6 +148,14 @@ type ParakeetCpp struct {
 	// YAML option, default 0=off). When >0 it adds NeMo's silence-gap split on
 	// top of the punctuation split; converted to seconds via the JSON frame_sec.
 	segmentGapFrames int
+
+	// Speaker diarization (see diarize.go). isDiarModel: ctxPtr itself holds a
+	// diarization model, so there is no ASR. diarCtx: a diarization model
+	// attached to an ASR model through the diar_model option. diarMu
+	// serializes calls on whichever context diarizes.
+	isDiarModel bool
+	diarCtx     uintptr
+	diarMu      sync.Mutex
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
@@ -158,6 +166,16 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 		return errors.New("parakeet-cpp: ModelFile is required")
 	}
 
+	// A diarization GGUF loads into the same kind of context but serves only
+	// Diarize: no ASR, so none of the transcription setup below applies.
+	if arch, err := parakeetArch(opts.ModelFile); err == nil && arch == diarModelArch {
+		if CppDiarizePcm == nil {
+			return fmt.Errorf("parakeet-cpp: %q is a diarization model but libparakeet.so has "+
+				"no diarization C-API (needs parakeet.cpp ABI >= 7)", opts.ModelFile)
+		}
+		p.isDiarModel = true
+	}
+
 	ctx := CppLoad(opts.ModelFile)
 	if ctx == 0 {
 		// No ctx to ask for last_error (the C-API's last-error buffer
@@ -166,6 +184,19 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 		return fmt.Errorf("parakeet-cpp: parakeet_capi_load failed for %q", opts.ModelFile)
 	}
 	p.ctxPtr = ctx
+	if p.isDiarModel {
+		xlog.Info("parakeet-cpp: loaded a speaker diarization model (Diarize only)")
+		return nil
+	}
+
+	// Optional speaker diarization for transcripts (diarize.go).
+	if dm := optString(opts, "diar_model"); dm != "" {
+		if err := p.loadDiarModel(resolveModelPath(opts.ModelPath, dm)); err != nil {
+			CppFree(p.ctxPtr)
+			p.ctxPtr = 0
+			return err
+		}
+	}
 
 	// Dynamic batching knobs (model YAML options:, key:value form). Batching is
 	// OFF by default (batch_max_size:1): each request runs on its own. On GPU,
@@ -287,8 +318,9 @@ func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
 // OpenAI API, whose default is segment-level); token ids always populate
 // Segment.Tokens.
 //
-// translate/diarize/prompt/temperature/threads are not applicable to parakeet
-// and are ignored; language is honored on the batched + streaming paths (see
+// With a diar_model attached, diarize=true tags each segment with its speaker
+// (diarize.go). translate/prompt/temperature/threads are not applicable to
+// parakeet and are ignored; language is honored on the batched + streaming paths (see
 // opts.GetLanguage() below); streaming is handled by AudioTranscriptionStream
 // (L2).
 func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
@@ -297,6 +329,9 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	}
 	if opts.Dst == "" {
 		return pb.TranscriptResult{}, errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
+	}
+	if p.isDiarModel {
+		return pb.TranscriptResult{}, errDiarModelNoASR
 	}
 
 	// Fallback when the batched C-API is unavailable: transcribe from a file
@@ -331,26 +366,63 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	if err != nil {
 		return pb.TranscriptResult{}, err
 	}
+	doc, err := p.transcribeDocCtx(ctx, pcm, opts.GetLanguage())
+	if err != nil {
+		return pb.TranscriptResult{}, err
+	}
+
+	// With a diar_model attached, tag each segment with its speaker. The
+	// request's diarize flag can turn it off (the OpenAI endpoint sends true
+	// unless the client passes diarize=false).
+	var speakers []int
+	if p.diarCtx != 0 && opts.GetDiarize() && len(doc.Words) > 0 {
+		dd, err := p.runDiarization(pcm)
+		if err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		speakers = assignSpeakers(doc.Words, dd.Segments)
+	}
+	return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, speakers), nil
+}
+
+// errDiarModelNoASR is returned by the transcription RPCs on a diarization
+// model: it answers Diarize, it cannot transcribe.
+var errDiarModelNoASR = status.Error(codes.FailedPrecondition,
+	"parakeet-cpp: this is a speaker diarization model; use the diarization endpoint, "+
+		"or attach it to an ASR model with the diar_model option")
+
+// transcribeDocCtx runs one clip through the batcher and returns its decoded
+// transcript document. Honours ctx cancellation on both channel operations.
+func (p *ParakeetCpp) transcribeDocCtx(ctx context.Context, pcm []float32, lang string) (transcriptJSON, error) {
+	if p.bat == nil {
+		return transcriptJSON{}, errors.New("parakeet-cpp: libparakeet.so has no batched C-API")
+	}
 	rep := make(chan batchReply, 1)
 	select {
-	case p.bat.submit <- &batchRequest{pcm: pcm, decoder: 0, language: opts.GetLanguage(), reply: rep}:
+	case p.bat.submit <- &batchRequest{pcm: pcm, decoder: 0, language: lang, reply: rep}:
 	case <-ctx.Done():
-		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
+		return transcriptJSON{}, status.Error(codes.Canceled, "transcription cancelled")
 	}
 	var res batchReply
 	select {
 	case res = <-rep:
 	case <-ctx.Done():
-		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
+		return transcriptJSON{}, status.Error(codes.Canceled, "transcription cancelled")
 	}
 	if res.err != nil {
-		return pb.TranscriptResult{}, res.err
+		return transcriptJSON{}, res.err
 	}
 	var doc transcriptJSON
 	if err := json.Unmarshal([]byte(res.json), &doc); err != nil {
-		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
 	}
-	return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
+	return doc, nil
+}
+
+// transcribeDoc is transcribeDocCtx for callers without a request context
+// (the Diarize RPC).
+func (p *ParakeetCpp) transcribeDoc(pcm []float32, lang string) (transcriptJSON, error) {
+	return p.transcribeDocCtx(context.Background(), pcm, lang)
 }
 
 // segmentSeparators is NeMo's default segment_seperators (sentence-ending
@@ -365,6 +437,13 @@ var segmentSeparators = []rune{'.', '?', '!'}
 // the caller requested word granularity; token ids populate each segment's
 // Tokens by time-window membership. Shared by the batched and direct paths.
 func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int) pb.TranscriptResult {
+	return transcriptResultWithSpeakers(doc, opts, gapFrames, nil)
+}
+
+// transcriptResultWithSpeakers is transcriptResultFromDoc plus optional
+// per-word speakers (indexed like doc.Words, -1 = none): segments additionally
+// split wherever the speaker changes and carry the speaker's label.
+func transcriptResultWithSpeakers(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int, speakers []int) pb.TranscriptResult {
 	text, eou := stripEouMarker(strings.TrimSpace(doc.Text))
 
 	// Frame-unit gap threshold -> seconds (NeMo segment_gap_threshold). 0 = off.
@@ -388,6 +467,11 @@ func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gap
 		}
 	}
 
+	var groupSpeakers []int
+	if len(speakers) == len(doc.Words) && speakers != nil {
+		groups, groupSpeakers = splitAtSpeakerChanges(groups, speakers)
+	}
+
 	wantWords := wordsRequested(opts.TimestampGranularities)
 	segments := make([]*pb.TranscriptSegment, 0, len(groups))
 	for id, group := range groups {
@@ -401,6 +485,9 @@ func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gap
 			End:    secondsToNanos(group[len(group)-1].End),
 			Text:   strings.TrimSpace(strings.Join(parts, " ")),
 			Tokens: tokensInWindow(doc.Tokens, group[0].Start, group[len(group)-1].End),
+		}
+		if groupSpeakers != nil {
+			seg.Speaker = speakerLabel(groupSpeakers[id])
 		}
 		if wantWords {
 			ws := make([]*pb.TranscriptWord, len(group))
@@ -695,6 +782,9 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 		return status.Error(codes.Canceled, "transcription cancelled")
 	}
 
+	if p.isDiarModel {
+		return errDiarModelNoASR
+	}
 	stream, err := p.streamBegin(opts.GetLanguage())
 	if err != nil {
 		return err
@@ -833,6 +923,12 @@ func (p *ParakeetCpp) Free() error {
 	if p.ctxPtr != 0 {
 		CppFree(p.ctxPtr)
 		p.ctxPtr = 0
+	}
+	p.diarMu.Lock()
+	defer p.diarMu.Unlock()
+	if p.diarCtx != 0 {
+		CppFree(p.diarCtx)
+		p.diarCtx = 0
 	}
 	return nil
 }

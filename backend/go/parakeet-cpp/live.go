@@ -43,6 +43,9 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 	if p.ctxPtr == 0 {
 		return grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
+	if p.isDiarModel {
+		return errDiarModelNoASR
+	}
 
 	first, ok := <-in
 	if !ok {

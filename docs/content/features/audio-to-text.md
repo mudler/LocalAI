@@ -205,6 +205,21 @@ options:
 - segment_gap_threshold:12   # split on silence > 12 encoder frames (default 0 = off, punctuation-only)
 ```
 
+### Speaker labels
+
+Attach a speaker diarization model with the `diar_model` option and each transcript segment carries a `speaker` (`"0"`, `"1"`, ... in order of first appearance). Segments split wherever the speaker changes, on top of the punctuation split. The model is NVIDIA Nemotron-3-Diarization, converted with parakeet.cpp's converter; see [Speaker Diarization]({{< relref "audio-diarization.md" >}}) for the conversion and for the `/v1/audio/diarization` endpoint the same model serves.
+
+```yaml
+name: parakeet-speakers
+backend: parakeet-cpp
+parameters:
+  model: tdt-0.6b-v3-f16.gguf
+options:
+- diar_model:nemotron-3-diarization-q8_0.gguf   # relative to the models directory
+```
+
+The `diarize` form field turns it off per request (`-F diarize=false`). Streaming transcription does not carry speaker labels.
+
 ### Dynamic batching
 
 The backend can coalesce concurrent transcription requests into a single batched engine call, which improves throughput on GPU when many requests arrive at once. Batching is **off by default** (`batch_max_size:1`, one request at a time); raise it to opt in. Two `options:` knobs control it:

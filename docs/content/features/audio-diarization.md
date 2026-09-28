@@ -9,11 +9,12 @@ url = "/features/audio-diarization/"
 
 Speaker diarization answers the question **"who spoke when?"** - given an audio clip with multiple speakers, it returns time-stamped segments labelled with a stable speaker ID (`SPEAKER_00`, `SPEAKER_01`, …).
 
-LocalAI exposes this through the `/v1/audio/diarization` endpoint, modelled after `/v1/audio/transcriptions`. Four backends are supported today:
+LocalAI exposes this through the `/v1/audio/diarization` endpoint, modelled after `/v1/audio/transcriptions`. Five backends are supported today:
 
 - **[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)** - pyannote-3.0 segmentation + a speaker-embedding extractor (3D-Speaker, NeMo, WeSpeaker) + fast clustering. Pure diarization - no transcription cost. Recommended when you only need speaker turns.
 - **[vibevoice.cpp](https://github.com/microsoft/VibeVoice)** - produces speaker-labelled segments as a by-product of its long-form ASR pass, so you can optionally get a transcript per segment for free.
 - **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)** - NVIDIA Sortformer, served standalone by the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}}). It is end to end, so the speaker capacity is fixed by the checkpoint and the count hints are ignored. The same backend can instead put speaker tags on a transcript, by attaching a Sortformer model to an ASR one.
+- **[parakeet.cpp](https://github.com/mudler/parakeet.cpp)** - NVIDIA Nemotron-3-Diarization (Sortformer, up to 8 speakers), matched against NeMo. A diarization model runs on its own, or attaches to a Parakeet ASR model to put speaker labels on transcripts and text on diarization segments.
 - **[audio.cpp](https://github.com/0xShug0/audio.cpp)** - the `sortformer_diar` family, served by the multi-modality [audio.cpp backend]({{%relref "features/audio-cpp" %}}).
 
 Because diarization is exposed as a regular OpenAI-compatible endpoint, any HTTP client works. There is no Python dependency on pyannote or NeMo on the consumer side.
@@ -105,7 +106,7 @@ curl http://localhost:8080/v1/audio/diarization \
   -F num_speakers=3
 ```
 
-The sections below show how to configure the two supported backends by hand when you want full control over the segmentation and embedding models.
+The sections below show how to configure some of the supported backends by hand when you want full control over the segmentation and embedding models.
 
 ## Backend setup - sherpa-onnx (pure diarization)
 
@@ -156,6 +157,43 @@ curl http://localhost:8080/v1/audio/diarization \
   -F include_text=true \
   -F response_format=verbose_json
 ```
+
+## Backend setup - parakeet.cpp (Nemotron-3-Diarization)
+
+The [parakeet-cpp backend]({{%relref "features/audio-to-text#using-the-parakeet-cpp-backend" %}}) runs [nvidia/Nemotron-3-Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization). Convert the checkpoint to GGUF with parakeet.cpp's converter (Q8_0 is 109 MB and gives the same segments as F32):
+
+```bash
+python scripts/convert_parakeet_to_gguf.py \
+    --model nvidia/Nemotron-3-Diarization --dtype q8_0 \
+    --output nemotron-3-diarization-q8_0.gguf
+```
+
+A diarization-only model:
+
+```yaml
+name: nemotron-diarization
+backend: parakeet-cpp
+parameters:
+  model: nemotron-3-diarization-q8_0.gguf
+known_usecases:
+  - FLAG_DIARIZATION
+```
+
+Attach the same GGUF to a Parakeet ASR model with `diar_model` to get both: transcripts gain a speaker per segment, and `include_text=true` on `/v1/audio/diarization` fills each segment with the words its speaker said.
+
+```yaml
+name: parakeet-speakers
+backend: parakeet-cpp
+parameters:
+  model: tdt-0.6b-v3-f16.gguf
+options:
+  - diar_model:nemotron-3-diarization-q8_0.gguf
+known_usecases:
+  - FLAG_TRANSCRIPT
+  - FLAG_DIARIZATION
+```
+
+Sortformer is end to end: the speaker count, clustering and segment-duration fields of the request have no equivalent and are ignored (the backend logs which ones). It processes audio the way NeMo's `diarize()` does for this checkpoint, in 21 s chunks with a speaker cache, so long recordings keep consistent speaker IDs: a 12 minute, 3 speaker recording diarizes in about 7 s on a desktop CPU.
 
 ## Notes
 
