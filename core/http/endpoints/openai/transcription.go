@@ -191,18 +191,20 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			}
 			for _, word := range tr.Words {
 				trs.Words = append(trs.Words, schema.TranscriptionWordSeconds{
-					Start: word.Start.Seconds(),
-					End:   word.End.Seconds(),
-					Text:  word.Text,
+					Start:   word.Start.Seconds(),
+					End:     word.End.Seconds(),
+					Text:    word.Text,
+					Speaker: word.Speaker,
 				})
 			}
 			for _, seg := range tr.Segments {
 				segWords := []schema.TranscriptionWordSeconds{}
 				for _, word := range seg.Words {
 					segWords = append(segWords, schema.TranscriptionWordSeconds{
-						Start: word.Start.Seconds(),
-						End:   word.End.Seconds(),
-						Text:  word.Text,
+						Start:   word.Start.Seconds(),
+						End:     word.End.Seconds(),
+						Text:    word.Text,
+						Speaker: word.Speaker,
 					})
 				}
 				trs.Segments = append(trs.Segments, schema.TranscriptionSegmentSeconds{
@@ -309,12 +311,16 @@ func streamTranscription(c echo.Context, req backend.TranscriptionRequest, ml *m
 	if len(finalResult.Segments) > 0 {
 		segs := make([]map[string]any, 0, len(finalResult.Segments))
 		for _, seg := range finalResult.Segments {
-			segs = append(segs, map[string]any{
+			entry := map[string]any{
 				"id":    seg.Id,
 				"start": seg.Start.Seconds(),
 				"end":   seg.End.Seconds(),
 				"text":  seg.Text,
-			})
+			}
+			if seg.Speaker != "" {
+				entry["speaker"] = seg.Speaker
+			}
+			segs = append(segs, entry)
 		}
 		doneEvent["segments"] = segs
 	}

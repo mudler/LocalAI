@@ -647,6 +647,7 @@ message TranscriptWord {
   int64 start = 1;
   int64 end = 2;
   string text = 3;
+  string speaker = 4;   // backend speaker label when diarizing; empty otherwise
 }
 
 message TranscriptSegment {
