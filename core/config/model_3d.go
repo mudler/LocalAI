@@ -34,6 +34,20 @@ func (c *ModelConfig) ThreeDOperations() []schema.ThreeDOperation {
 			Inputs:     []schema.ThreeDInput{{Name: "prompt", Type: "text", Label: "Motion prompt", Required: true, MaxBytes: 4096}},
 			Parameters: params,
 		}}
+	case "pixal3dcpp":
+		if !c.HasUsecases(FLAG_3D) {
+			return nil
+		}
+		return []schema.ThreeDOperation{{
+			ID: "generate_multiview", Label: "Generate from four views", Endpoint: "/3d/generations", Output: "mesh",
+			Inputs: []schema.ThreeDInput{
+				{Name: "front", Type: "image", Label: "Front RGBA PNG", Required: true},
+				{Name: "right", Type: "image", Label: "Right RGBA PNG", Required: true},
+				{Name: "back", Type: "image", Label: "Back RGBA PNG", Required: true},
+				{Name: "left", Type: "image", Label: "Left RGBA PNG", Required: true},
+			},
+			Parameters: []schema.ThreeDParameter{{Name: "mesh_scale", Label: "Mesh scale (required, positive)", Type: "number", Min: 0}},
+		}}
 	case "trellis2cpp":
 		if !c.HasUsecases(FLAG_3D) {
 			return nil
