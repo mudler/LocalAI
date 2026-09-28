@@ -62,6 +62,13 @@ func ensureLibLoaded() {
 		if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_pcm"); err == nil && sym != 0 {
 			purego.RegisterLibFunc(&CppDiarizePcm, lib, "parakeet_capi_diarize_pcm")
 		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_stream_begin_latency"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppDiarizeStreamBeginLatency, lib, "parakeet_capi_diarize_stream_begin_latency")
+			purego.RegisterLibFunc(&CppDiarizeStreamFeed, lib, "parakeet_capi_diarize_stream_feed")
+			purego.RegisterLibFunc(&CppDiarizeStreamActive, lib, "parakeet_capi_diarize_stream_active")
+			purego.RegisterLibFunc(&CppDiarizeStreamFree, lib, "parakeet_capi_diarize_stream_free")
+			purego.RegisterLibFunc(&CppFreeDiarSegments, lib, "parakeet_capi_free_diar_segments")
+		}
 		purego.RegisterLibFunc(&CppFreeString, lib, "parakeet_capi_free_string")
 		purego.RegisterLibFunc(&CppLastError, lib, "parakeet_capi_last_error")
 	})

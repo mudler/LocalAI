@@ -71,6 +71,26 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 	// current when the RPC unwinds.
 	defer func() { p.streamFree(stream) }()
 
+	// Speaker labels (diarize.go): a low-latency diarization stream runs next
+	// to the ASR stream when a diar_model is attached, unless the session
+	// opts out with params diarize=false.
+	var diar *liveDiarizer
+	var allWords []transcriptWord
+	startDiar := func(c *pb.TranscriptLiveConfig) error {
+		diar.free()
+		diar, allWords = nil, nil
+		if p.diarCtx == 0 || !liveDiarizationAvailable() || c.GetParams()["diarize"] == "false" {
+			return nil
+		}
+		var err error
+		diar, err = p.newLiveDiarizer(p.liveDiarLatency)
+		return err
+	}
+	if err := startDiar(cfg); err != nil {
+		return err
+	}
+	defer func() { diar.free() }()
+
 	out <- &pb.TranscriptLiveResponse{Ready: true}
 
 	var (
@@ -97,11 +117,18 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 			full.WriteString(r.Delta)
 		}
 		if r.Delta != "" || r.Eou || r.Eob || len(r.Words) > 0 {
+			words := liveWordsToProto(r.Words)
+			if diar != nil && len(r.Words) > 0 {
+				allWords = append(allWords, r.Words...)
+				for i, spk := range diar.speakersFor(r.Words) {
+					words[i].Speaker = speakerLabel(spk)
+				}
+			}
 			out <- &pb.TranscriptLiveResponse{
 				Delta: r.Delta,
 				Eou:   r.Eou,
 				Eob:   r.Eob,
-				Words: liveWordsToProto(r.Words),
+				Words: words,
 			}
 		}
 		return nil
@@ -125,11 +152,20 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 			}
 			full.Reset()
 			fedSecs = 0
+			if err := startDiar(payload.Config); err != nil {
+				return err
+			}
 		case *pb.TranscriptLiveRequest_Audio:
 			pcm := payload.Audio.GetPcm()
 			audioSec := float64(len(pcm)) / liveSampleRate
 			fedSecs += audioSec
 			start := time.Now()
+			// Diarize first so the words this feed finalizes can be labelled.
+			if diar != nil {
+				if err := diar.feed(pcm, false); err != nil {
+					return err
+				}
+			}
 			// nil ctx: a live session is bounded by this request channel, not a
 			// context — cancellation is the caller closing the stream.
 			if err := p.feedSlices(nil, stream, pcm, emit); err != nil {
@@ -153,15 +189,23 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 	}
 
 	// Send side closed: flush the streaming tail and emit the final transcript.
-	// The live FinalResult carries only Text — the authoritative full-turn
-	// transcript the realtime core commits. Per-utterance segments, duration,
-	// and the terminal <EOU> flag are not produced on the live path.
+	// The live FinalResult carries Text — the authoritative full-turn
+	// transcript the realtime core commits — plus, when diarizing, one segment
+	// per speaker turn. Duration and the terminal <EOU> flag are not produced
+	// on the live path.
 	if err := p.flushTail(stream, emit); err != nil {
 		return err
 	}
-	out <- &pb.TranscriptLiveResponse{
-		FinalResult: &pb.TranscriptResult{Text: strings.TrimSpace(full.String())},
+	final := &pb.TranscriptResult{Text: strings.TrimSpace(full.String())}
+	// With speakers, the final result also carries one segment per speaker
+	// turn, relabelled now that diarization has seen the whole session.
+	if diar != nil && len(allWords) > 0 {
+		if err := diar.feed(nil, true); err != nil {
+			return err
+		}
+		final.Segments = speakerTurns(allWords, assignSpeakers(allWords, diar.closed))
 	}
+	out <- &pb.TranscriptLiveResponse{FinalResult: final}
 	return nil
 }
 

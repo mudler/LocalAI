@@ -97,6 +97,16 @@ func main() {
 		purego.RegisterLibFunc(&CppDiarizePcm, lib, "parakeet_capi_diarize_pcm")
 	}
 
+	// Streaming diarization with latency modes, for speaker labels on live
+	// transcripts. All-or-nothing: live diarization needs every entry point.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_stream_begin_latency"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppDiarizeStreamBeginLatency, lib, "parakeet_capi_diarize_stream_begin_latency")
+		purego.RegisterLibFunc(&CppDiarizeStreamFeed, lib, "parakeet_capi_diarize_stream_feed")
+		purego.RegisterLibFunc(&CppDiarizeStreamActive, lib, "parakeet_capi_diarize_stream_active")
+		purego.RegisterLibFunc(&CppDiarizeStreamFree, lib, "parakeet_capi_diarize_stream_free")
+		purego.RegisterLibFunc(&CppFreeDiarSegments, lib, "parakeet_capi_free_diar_segments")
+	}
+
 	fmt.Fprintf(os.Stderr, "[parakeet-cpp] ABI=%d\n", CppAbiVersion())
 
 	flag.Parse()

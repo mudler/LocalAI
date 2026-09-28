@@ -218,7 +218,29 @@ options:
 - diar_model:nemotron-3-diarization-q8_0.gguf   # relative to the models directory
 ```
 
-The `diarize` form field turns it off per request (`-F diarize=false`). Streaming transcription does not carry speaker labels.
+The `diarize` form field turns it off per request (`-F diarize=false`). With word timestamps (`timestamp_granularities[]=word`) each word carries its speaker too.
+
+Streaming works as well:
+
+- `stream=true`: the closing `transcript.text.done` event lists the segments with their `speaker`. Speakers are assigned once the whole file is transcribed, with the same diarization as a non-streaming request.
+- Live transcription (a cache-aware streaming model such as `realtime_eou_120m-v1`, driven through the live transcription API): a low-latency diarization stream runs alongside the recognizer, each finalized word carries a `speaker`, and the final result lists one segment per speaker turn. Pass the live config parameter `diarize=false` to turn it off for a session.
+
+Live labels trail the audio by the diarization latency, set with `diar_latency` (the Nemotron-3-Diarization model card's modes):
+
+| `diar_latency` | Latency | |
+|---|---|---|
+| `low` (default) | 1.04 s | the model card's recommended configuration |
+| `very_low` | 0.64 s | |
+| `ultra_low` | 0.32 s | |
+| `model` | 21.12 s | the checkpoint's own configuration, what non-live requests use |
+
+A word said before diarization has caught up takes the speaker who is talking at that moment, so right after a speaker change the first word or two can carry the previous speaker; the final result is relabelled once the whole session has been diarized.
+
+```yaml
+options:
+- diar_model:nemotron-3-diarization-q8_0.gguf
+- diar_latency:very_low
+```
 
 ### Dynamic batching
 

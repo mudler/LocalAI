@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	gguf "github.com/gpustack/gguf-parser-go"
 	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
@@ -40,6 +41,177 @@ import (
 //
 // Present only in libparakeet.so with ABI >= 7; nil disables diarization.
 var CppDiarizePcm func(ctx uintptr, samples []float32, nSamples int32, sampleRate int32) uintptr
+
+// Streaming diarization (parakeet_capi_diarize_stream_*), used by live
+// transcription. begin_latency takes a PARAKEET_DIAR_LATENCY_* mode; feed and
+// active return a malloc'd parakeet_diar_segment array through out/nOut (free
+// with CppFreeDiarSegments) and 0 on success. Present only in newer
+// libparakeet.so; nil disables speaker labels on live transcripts.
+var (
+	CppDiarizeStreamBeginLatency func(ctx uintptr, latency int32) uintptr
+	CppDiarizeStreamFeed         func(s uintptr, pcm []float32, nSamples int32, isLast int32, out unsafe.Pointer, nOut unsafe.Pointer) int32
+	CppDiarizeStreamActive       func(s uintptr, out unsafe.Pointer, nOut unsafe.Pointer) int32
+	CppDiarizeStreamFree         func(s uintptr)
+	CppFreeDiarSegments          func(segs uintptr)
+)
+
+// cDiarSegment mirrors parakeet_diar_segment {int speaker; float start, end}.
+type cDiarSegment struct {
+	Speaker int32
+	Start   float32
+	End     float32
+}
+
+// Latency modes of parakeet_capi_diarize_stream_begin_latency
+// (PARAKEET_DIAR_LATENCY_*), by diar_latency option value.
+var diarLatencyModes = map[string]int32{
+	"model":     0, // the checkpoint's configuration (21.12 s for Nemotron-3)
+	"low":       1, // 1.04 s
+	"very_low":  2, // 0.64 s
+	"ultra_low": 3, // 0.32 s
+}
+
+// defaultLiveDiarLatency is used for live transcription when diar_latency is
+// unset: the model card's recommended low-latency configuration.
+const defaultLiveDiarLatency = "low"
+
+// liveDiarizationAvailable reports whether the library can diarize live.
+func liveDiarizationAvailable() bool {
+	return CppDiarizeStreamBeginLatency != nil && CppDiarizeStreamFeed != nil &&
+		CppDiarizeStreamActive != nil && CppDiarizeStreamFree != nil && CppFreeDiarSegments != nil
+}
+
+// takeDiarSegments copies a C parakeet_diar_segment array and frees it.
+func takeDiarSegments(ptr uintptr, n int32) []diarSegmentDoc {
+	if ptr == 0 || n <= 0 {
+		return nil
+	}
+	// C-owned malloc'd array, not Go-GC memory; copied out before freeing.
+	cs := unsafe.Slice((*cDiarSegment)(unsafe.Pointer(ptr)), int(n)) //nolint:govet // see goStringFromCPtr
+	out := make([]diarSegmentDoc, len(cs))
+	for i, c := range cs {
+		out[i] = diarSegmentDoc{Speaker: int(c.Speaker), Start: float64(c.Start), End: float64(c.End)}
+	}
+	CppFreeDiarSegments(ptr)
+	return out
+}
+
+// liveDiarizer runs a streaming diarization session next to a live ASR
+// stream. It keeps every closed segment (a live session is bounded by its
+// caller, and segments are small) so the final transcript can be relabelled
+// with complete information.
+type liveDiarizer struct {
+	p      *ParakeetCpp
+	stream uintptr
+	closed []diarSegmentDoc
+	active []diarSegmentDoc
+}
+
+func (p *ParakeetCpp) newLiveDiarizer(latency int32) (*liveDiarizer, error) {
+	p.diarMu.Lock()
+	defer p.diarMu.Unlock()
+	if p.diarCtx == 0 {
+		return nil, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	s := CppDiarizeStreamBeginLatency(p.diarCtx, latency)
+	if s == 0 {
+		return nil, fmt.Errorf("parakeet-cpp: diarize stream begin failed: %s", CppLastError(p.diarCtx))
+	}
+	return &liveDiarizer{p: p, stream: s}, nil
+}
+
+// feed pushes PCM (and, with last, flushes the stream), recording the segments
+// that closed and those still open.
+func (d *liveDiarizer) feed(pcm []float32, last bool) error {
+	d.p.diarMu.Lock()
+	defer d.p.diarMu.Unlock()
+	if d.p.diarCtx == 0 {
+		return grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	var ptr uintptr
+	var n int32
+	isLast := int32(0)
+	if last {
+		isLast = 1
+	}
+	if CppDiarizeStreamFeed(d.stream, pcm, int32(len(pcm)), isLast, unsafe.Pointer(&ptr), unsafe.Pointer(&n)) != 0 {
+		return fmt.Errorf("parakeet-cpp: diarize stream feed failed: %s", CppLastError(d.p.diarCtx))
+	}
+	d.closed = append(d.closed, takeDiarSegments(ptr, n)...)
+	ptr, n = 0, 0
+	if CppDiarizeStreamActive(d.stream, unsafe.Pointer(&ptr), unsafe.Pointer(&n)) != 0 {
+		return fmt.Errorf("parakeet-cpp: diarize stream active failed: %s", CppLastError(d.p.diarCtx))
+	}
+	d.active = takeDiarSegments(ptr, n)
+	return nil
+}
+
+// speakersFor labels words with what is known so far. Diarization trails the
+// audio by its latency, so an open segment is assumed to go on through the
+// words it has not reached yet; a word is only mislabelled right at a turn
+// that diarization has not seen.
+func (d *liveDiarizer) speakersFor(words []transcriptWord) []int {
+	segs := append([]diarSegmentDoc(nil), d.closed...)
+	var lastEnd float64
+	for _, w := range words {
+		lastEnd = max(lastEnd, w.End)
+	}
+	for _, a := range d.active {
+		a.End = max(a.End, lastEnd)
+		segs = append(segs, a)
+	}
+	return assignSpeakers(words, segs)
+}
+
+func (d *liveDiarizer) free() {
+	if d == nil || d.stream == 0 {
+		return
+	}
+	d.p.diarMu.Lock()
+	defer d.p.diarMu.Unlock()
+	CppDiarizeStreamFree(d.stream)
+	d.stream = 0
+}
+
+// speakerTurns groups labelled words into one segment per speaker turn.
+func speakerTurns(words []transcriptWord, speakers []int) []*pb.TranscriptSegment {
+	var out []*pb.TranscriptSegment
+	start := 0
+	for i := 1; i <= len(words); i++ {
+		if i < len(words) && speakers[i] == speakers[start] {
+			continue
+		}
+		parts := make([]string, 0, i-start)
+		for _, w := range words[start:i] {
+			parts = append(parts, w.W)
+		}
+		out = append(out, &pb.TranscriptSegment{
+			Id:      int32(len(out)),
+			Start:   secondsToNanos(words[start].Start),
+			End:     secondsToNanos(words[i-1].End),
+			Text:    strings.TrimSpace(strings.Join(parts, " ")),
+			Speaker: speakerLabel(speakers[start]),
+		})
+		start = i
+	}
+	return out
+}
+
+// majoritySpeaker is the speaker covering most of the words' duration, or -1.
+func majoritySpeaker(words []transcriptWord, speakers []int) int {
+	dur := map[int]float64{}
+	best, bestDur := -1, 0.0
+	for i, w := range words {
+		if speakers[i] < 0 {
+			continue
+		}
+		dur[speakers[i]] += max(w.End-w.Start, 1e-3)
+		if dur[speakers[i]] > bestDur {
+			best, bestDur = speakers[i], dur[speakers[i]]
+		}
+	}
+	return best
+}
 
 // diarModelArch is the parakeet.arch GGUF value of a diarization model.
 const diarModelArch = "diarization"

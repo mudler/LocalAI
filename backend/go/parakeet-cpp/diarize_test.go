@@ -89,6 +89,11 @@ var _ = Describe("speaker diarization helpers", func() {
 			Expect(res.Segments[1].Speaker).To(Equal("1"))
 			Expect(res.Segments[2].Text).To(Equal("hello"))
 			Expect(res.Segments[2].Speaker).To(Equal("1"))
+
+			// With word timestamps requested, words carry their speaker too.
+			res = transcriptResultWithSpeakers(doc, &pb.TranscriptRequest{TimestampGranularities: []string{"word"}}, 0, []int{0, 1, 1})
+			Expect(res.Segments[0].Words[0].Speaker).To(Equal("0"))
+			Expect(res.Segments[2].Words[0].Speaker).To(Equal("1"))
 			for i, seg := range res.Segments {
 				Expect(seg.Id).To(Equal(int32(i)))
 			}
@@ -117,6 +122,40 @@ var _ = Describe("speaker diarization helpers", func() {
 		It("leaves text empty without words", func() {
 			segs, _ := diarizeSegments(diarJSON{Segments: []diarSegmentDoc{ds(0, 0, 1)}}, nil)
 			Expect(segs[0].Text).To(BeEmpty())
+		})
+	})
+
+	Context("live speaker labels", func() {
+		It("assumes an open segment continues through words diarization has not reached", func() {
+			d := &liveDiarizer{
+				closed: []diarSegmentDoc{ds(0, 0.0, 2.0)},
+				active: []diarSegmentDoc{ds(1, 2.5, 3.0)}, // diarized up to 3.0 s
+			}
+			words := []transcriptWord{tw("a", 0.5, 0.9), tw("b", 2.6, 2.9), tw("c", 3.4, 3.9)}
+			Expect(d.speakersFor(words)).To(Equal([]int{0, 1, 1}))
+		})
+
+		It("groups labelled words into speaker turns", func() {
+			words := []transcriptWord{tw("hi", 0, 0.3), tw("there.", 0.3, 0.6), tw("hello", 1.0, 1.4)}
+			segs := speakerTurns(words, []int{0, 0, 1})
+			Expect(segs).To(HaveLen(2))
+			Expect(segs[0].Text).To(Equal("hi there."))
+			Expect(segs[0].Speaker).To(Equal("0"))
+			Expect(segs[1].Text).To(Equal("hello"))
+			Expect(segs[1].Speaker).To(Equal("1"))
+			Expect(segs[1].Id).To(Equal(int32(1)))
+		})
+
+		It("picks the speaker covering most of an utterance", func() {
+			words := []transcriptWord{tw("a", 0, 0.2), tw("b", 0.2, 1.5), tw("c", 1.5, 1.6)}
+			Expect(majoritySpeaker(words, []int{0, 1, 0})).To(Equal(1))
+			Expect(majoritySpeaker(words, []int{-1, -1, -1})).To(Equal(-1))
+		})
+
+		It("maps diar_latency option values to the C-API modes", func() {
+			Expect(diarLatencyModes).To(HaveKeyWithValue("model", int32(0)))
+			Expect(diarLatencyModes).To(HaveKeyWithValue(defaultLiveDiarLatency, int32(1)))
+			Expect(diarLatencyModes).To(HaveKeyWithValue("ultra_low", int32(3)))
 		})
 	})
 
@@ -253,5 +292,71 @@ var _ = Describe("ParakeetCpp speaker diarization", func() {
 		defer func() { _ = p.Free() }()
 		_, err := p.Diarize(&pb.DiarizeRequest{Dst: wavPath})
 		Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+	})
+})
+
+var _ = Describe("ParakeetCpp live speaker labels", func() {
+	It("labels live words and returns speaker turns in the final result", func() {
+		diarModel := os.Getenv("PARAKEET_BACKEND_TEST_DIAR_MODEL")
+		streamModel := os.Getenv("PARAKEET_BACKEND_TEST_STREAM_MODEL")
+		wavPath := os.Getenv("PARAKEET_BACKEND_TEST_DIAR_WAV")
+		if diarModel == "" || streamModel == "" || wavPath == "" {
+			Skip("set PARAKEET_BACKEND_TEST_DIAR_MODEL, PARAKEET_BACKEND_TEST_STREAM_MODEL " +
+				"(a cache-aware streaming ASR model) and PARAKEET_BACKEND_TEST_DIAR_WAV")
+		}
+		ensureLibLoaded()
+		if !liveDiarizationAvailable() {
+			Skip("libparakeet.so has no streaming diarization C-API")
+		}
+		p := &ParakeetCpp{}
+		Expect(p.Load(&pb.ModelOptions{
+			ModelFile: streamModel,
+			Options:   []string{"diar_model:" + diarModel},
+		})).To(Succeed())
+		defer func() { _ = p.Free() }()
+
+		pcm, _, err := decodeWavMono16k(wavPath)
+		Expect(err).ToNot(HaveOccurred())
+		in := make(chan *pb.TranscriptLiveRequest)
+		out := make(chan *pb.TranscriptLiveResponse, 1024)
+		errCh := make(chan error, 1)
+		go func() { errCh <- p.AudioTranscriptionLive(in, out) }()
+		in <- &pb.TranscriptLiveRequest{Payload: &pb.TranscriptLiveRequest_Config{Config: &pb.TranscriptLiveConfig{}}}
+		for lo := 0; lo < len(pcm); lo += 1600 {
+			hi := min(lo+1600, len(pcm))
+			in <- &pb.TranscriptLiveRequest{Payload: &pb.TranscriptLiveRequest_Audio{
+				Audio: &pb.TranscriptLiveAudio{Pcm: pcm[lo:hi]}}}
+		}
+		close(in)
+		Expect(<-errCh).To(Succeed())
+
+		var live []string
+		var final *pb.TranscriptResult
+		for r := range out {
+			for _, w := range r.GetWords() {
+				live = append(live, w.GetSpeaker())
+			}
+			if r.GetFinalResult() != nil {
+				final = r.GetFinalResult()
+			}
+		}
+		Expect(live).ToNot(BeEmpty())
+		labelled := 0
+		for _, l := range live {
+			if l != "" {
+				labelled++
+			}
+		}
+		// Words finalized before diarization's first chunk (1.04 s) have no
+		// speaker yet; nearly all others do.
+		Expect(labelled).To(BeNumerically(">=", len(live)*9/10), "live labels: %v", live)
+		Expect(turns(live)).To(ContainElements("0", "1"))
+
+		Expect(final).ToNot(BeNil())
+		labels := make([]string, len(final.Segments))
+		for i, s := range final.Segments {
+			labels[i] = s.Speaker
+		}
+		Expect(turns(labels)).To(Equal([]string{"0", "1", "0", "1"}), "final turns: %v", labels)
 	})
 })

@@ -156,6 +156,9 @@ type ParakeetCpp struct {
 	isDiarModel bool
 	diarCtx     uintptr
 	diarMu      sync.Mutex
+	// liveDiarLatency is the PARAKEET_DIAR_LATENCY_* mode live transcription
+	// diarizes with (diar_latency option, default low = 1.04 s).
+	liveDiarLatency int32
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
@@ -190,6 +193,15 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	}
 
 	// Optional speaker diarization for transcripts (diarize.go).
+	lat := optString(opts, "diar_latency")
+	if lat == "" {
+		lat = defaultLiveDiarLatency
+	}
+	mode, ok := diarLatencyModes[lat]
+	if !ok {
+		return fmt.Errorf("parakeet-cpp: unknown diar_latency %q (model, low, very_low, ultra_low)", lat)
+	}
+	p.liveDiarLatency = mode
 	if dm := optString(opts, "diar_model"); dm != "" {
 		if err := p.loadDiarModel(resolveModelPath(opts.ModelPath, dm)); err != nil {
 			CppFree(p.ctxPtr)
@@ -492,7 +504,8 @@ func transcriptResultWithSpeakers(doc transcriptJSON, opts *pb.TranscriptRequest
 		if wantWords {
 			ws := make([]*pb.TranscriptWord, len(group))
 			for i, gw := range group {
-				ws[i] = &pb.TranscriptWord{Start: secondsToNanos(gw.Start), End: secondsToNanos(gw.End), Text: gw.W}
+				ws[i] = &pb.TranscriptWord{Start: secondsToNanos(gw.Start), End: secondsToNanos(gw.End), Text: gw.W,
+					Speaker: seg.Speaker}
 			}
 			seg.Words = ws
 		}
@@ -590,7 +603,8 @@ func tokensInWindow(tokens []transcriptToken, start, end float64) []int32 {
 // text-only library (no words) it falls back to segmenting the delta text, so
 // the same assembler serves both paths.
 type streamSegmenter struct {
-	segs    []*pb.TranscriptSegment
+	segs     []*pb.TranscriptSegment
+	segWords [][]transcriptWord // words of each segment (nil for text-only ones)
 	cur     []transcriptWord // words for the open segment (ABI v4 JSON path)
 	curText []string         // delta text for the open segment (text-only path)
 	nextID  int32
@@ -621,12 +635,14 @@ func (s *streamSegmenter) flush() {
 			End:   secondsToNanos(s.cur[len(s.cur)-1].End),
 			Text:  strings.TrimSpace(strings.Join(parts, " ")),
 		})
+		s.segWords = append(s.segWords, s.cur)
 		s.nextID++
 	case len(s.curText) > 0:
 		// No words this segment: emit a text-only segment (no timestamps),
 		// skipping a purely-whitespace one as the legacy text path did.
 		if t := strings.TrimSpace(strings.Join(s.curText, "")); t != "" {
 			s.segs = append(s.segs, &pb.TranscriptSegment{Id: s.nextID, Text: t})
+			s.segWords = append(s.segWords, nil)
 			s.nextID++
 		}
 	}
@@ -843,6 +859,28 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	// The single-segment fallback stays trimmed.
 	fullText := full.String()
 	segments := seg.segments()
+
+	// With a diar_model attached, label each utterance with the speaker who
+	// said most of it. The whole file is available, so this runs the same
+	// diarization as the unary path rather than a low-latency stream.
+	if p.diarCtx != 0 && opts.GetDiarize() && len(seg.segWords) == len(segments) {
+		var all []transcriptWord
+		for _, ws := range seg.segWords {
+			all = append(all, ws...)
+		}
+		if len(all) > 0 {
+			dd, err := p.runDiarization(data)
+			if err != nil {
+				return err
+			}
+			speakers := assignSpeakers(all, dd.Segments)
+			k := 0
+			for i, ws := range seg.segWords {
+				segments[i].Speaker = speakerLabel(majoritySpeaker(ws, speakers[k:k+len(ws)]))
+				k += len(ws)
+			}
+		}
+	}
 	if trimmed := strings.TrimSpace(fullText); len(segments) == 0 && trimmed != "" {
 		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: trimmed})
 	}
