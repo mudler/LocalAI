@@ -71,6 +71,21 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 	// current when the RPC unwinds.
 	defer func() { p.streamFree(stream) }()
 
+	// sceneStream runs a no-ASR scene stream (diarization/sound only) beside
+	// the ASR session when a diarization_model:/sound_model: companion is
+	// loaded (see scene.go). 0 means scene events are disabled: no
+	// companions, or the begin/a later feed call failed (logged below /
+	// in feedSlicesScene), in which case live transcription continues
+	// ASR-only. Reassigned on a mid-stream Config reset alongside stream.
+	var sceneStream uintptr
+	if p.sceneWanted() {
+		sceneStream = p.sceneBegin()
+		if sceneStream == 0 {
+			xlog.Warn("parakeet-cpp: scene stream begin failed; live continues without speaker/sound events")
+		}
+	}
+	defer func() { p.sceneFree(sceneStream) }()
+
 	out <- &pb.TranscriptLiveResponse{Ready: true}
 
 	var (
@@ -87,21 +102,30 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 	)
 
 	// emit forwards one decode increment: it streams the per-feed tokens the
-	// realtime turn detector consumes (delta/eou/eob/words) and accumulates the
-	// running transcript for the closing FinalResult. No segmentation or
+	// realtime turn detector consumes (delta/eou/eob/words), any closed
+	// speaker/sound events from the companion scene stream, and accumulates
+	// the running transcript for the closing FinalResult. No segmentation or
 	// boundary latch here — the live consumer reads only the streamed tokens
 	// and the final Text; per-utterance segments and the terminal <EOU> flag
 	// are an offline-path concern (see AudioTranscriptionStream / boundary.go).
-	emit := func(r streamFeedResult) error {
+	//
+	// A slice with no ASR output (delta/eou/eob/words) but a closed scene
+	// event still sends its own response, and a slice with both sends one
+	// response carrying everything.
+	emit := func(r streamFeedResult, scene sceneFeedJSON) error {
 		if r.Delta != "" {
 			full.WriteString(r.Delta)
 		}
-		if r.Delta != "" || r.Eou || r.Eob || len(r.Words) > 0 {
+		speakers := liveSpeakersToProto(scene.Speakers)
+		sounds := liveSoundsToProto(scene.Sounds)
+		if r.Delta != "" || r.Eou || r.Eob || len(r.Words) > 0 || len(speakers) > 0 || len(sounds) > 0 {
 			out <- &pb.TranscriptLiveResponse{
-				Delta: r.Delta,
-				Eou:   r.Eou,
-				Eob:   r.Eob,
-				Words: liveWordsToProto(r.Words),
+				Delta:    r.Delta,
+				Eou:      r.Eou,
+				Eob:      r.Eob,
+				Words:    liveWordsToProto(r.Words),
+				Speakers: speakers,
+				Sounds:   sounds,
 			}
 		}
 		return nil
@@ -123,6 +147,16 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 				return grpcerrors.LiveTranscriptionUnsupported("parakeet-cpp",
 					"loaded model is not a cache-aware streaming model")
 			}
+			// The scene stream is freed and begun again alongside the ASR
+			// session, mirroring the reset above.
+			p.sceneFree(sceneStream)
+			sceneStream = 0
+			if p.sceneWanted() {
+				sceneStream = p.sceneBegin()
+				if sceneStream == 0 {
+					xlog.Warn("parakeet-cpp: scene stream begin failed; live continues without speaker/sound events")
+				}
+			}
 			full.Reset()
 			fedSecs = 0
 		case *pb.TranscriptLiveRequest_Audio:
@@ -132,7 +166,8 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 			start := time.Now()
 			// nil ctx: a live session is bounded by this request channel, not a
 			// context — cancellation is the caller closing the stream.
-			if err := p.feedSlices(nil, stream, pcm, emit); err != nil {
+			sceneStream, err = p.feedSlicesScene(nil, stream, sceneStream, pcm, emit)
+			if err != nil {
 				return err
 			}
 			wallSec := time.Since(start).Seconds()
@@ -156,8 +191,22 @@ func (p *ParakeetCpp) AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest
 	// The live FinalResult carries only Text — the authoritative full-turn
 	// transcript the realtime core commits. Per-utterance segments, duration,
 	// and the terminal <EOU> flag are not produced on the live path.
-	if err := p.flushTail(stream, emit); err != nil {
+	if err := p.flushTail(stream, func(r streamFeedResult) error {
+		return emit(r, sceneFeedJSON{})
+	}); err != nil {
 		return err
+	}
+	// The scene stream gets its own is_last flush (it consumes no new audio
+	// here, so it is not part of flushTail above); its remaining events go
+	// out before the terminal FinalResult, then the stream is released by the
+	// deferred sceneFree above.
+	if sceneStream != 0 {
+		doc, err := p.sceneFeed(sceneStream, nil, true)
+		if err != nil {
+			xlog.Warn("parakeet-cpp: live scene finalize failed", "err", err)
+		} else if err := emit(streamFeedResult{}, doc); err != nil {
+			return err
+		}
 	}
 	out <- &pb.TranscriptLiveResponse{
 		FinalResult: &pb.TranscriptResult{Text: strings.TrimSpace(full.String())},
