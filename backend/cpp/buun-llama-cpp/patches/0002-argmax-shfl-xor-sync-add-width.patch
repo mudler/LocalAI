@@ -1,0 +1,32 @@
+Subject: [PATCH] ggml-cuda/argmax: pass WARP_SIZE to the top-K __shfl_xor_sync calls
+
+Two __shfl_xor_sync calls in the top-K intra-warp merge drop the `width`
+argument and rely on the CUDA default (warpSize). Every other call in
+the same file already passes WARP_SIZE explicitly, and the HIP/ROCm
+compatibility shim at ggml/src/ggml-cuda/vendors/hip.h:33 is a 4-arg
+function-like macro — so the 3-arg form fails to preprocess when
+building with hipcc against ROCm:
+
+    argmax.cu:265: error: too few arguments provided to function-like
+      macro invocation
+    note: macro '__shfl_xor_sync' defined here:
+      #define __shfl_xor_sync(mask, var, laneMask, width) \
+              __shfl_xor(var, laneMask, width)
+
+Align the two call sites with the rest of the file by passing WARP_SIZE
+explicitly. On CUDA the generated code is unchanged (warpSize is the
+default); on HIP it now matches the macro's arity.
+
+--- a/ggml/src/ggml-cuda/argmax.cu
++++ b/ggml/src/ggml-cuda/argmax.cu
+@@ -262,8 +262,8 @@
+     // Each step: lane gets partner's min element, if it beats our min, replace and re-heapify
+     for (int offset = WARP_SIZE / 2; offset > 0; offset >>= 1) {
+         for (int i = 0; i < K; i++) {
+-            float partner_val = __shfl_xor_sync(0xFFFFFFFF, heap_val[i], offset);
+-            int partner_idx = __shfl_xor_sync(0xFFFFFFFF, heap_idx[i], offset);
++            float partner_val = __shfl_xor_sync(0xFFFFFFFF, heap_val[i], offset, WARP_SIZE);
++            int partner_idx = __shfl_xor_sync(0xFFFFFFFF, heap_idx[i], offset, WARP_SIZE);
+             if (partner_val > heap_val[0]) {
+                 heap_val[0] = partner_val;
+                 heap_idx[0] = partner_idx;

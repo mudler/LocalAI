@@ -1,0 +1,46 @@
+Subject: [PATCH] ggml-cuda/fattn: provide atomicAdd(double*,double) shim for pre-sm_60
+
+Buun's Q² calibration path in ggml_cuda_turbo_scale_q calls
+  atomicAdd(&d_q_channel_sq_fattn[threadIdx.x], (double)(val * val));
+but native double atomicAdd is only available on compute capability 6.0
+and newer. Compiling against a CUDA arch list that includes older
+architectures (LocalAI's CUDA 12 Docker image builds for the full
+published arch range) fails with:
+
+    fattn.cu(812): error: no instance of overloaded function "atomicAdd"
+      matches the argument list, argument types are: (double *, double)
+
+Add the canonical CUDA-programming-guide shim at the top of fattn.cu so
+pre-sm_60 codegen has a definition to call. On sm_60+ the native CUDA
+intrinsic is used and the shim is elided via __CUDA_ARCH__.
+
+--- a/ggml/src/ggml-cuda/fattn.cu
++++ b/ggml/src/ggml-cuda/fattn.cu
+@@ -7,6 +7,27 @@
+
+ #include <atomic>
+
++// Pre-sm_60 double atomicAdd shim. Native double atomicAdd(double*,double)
++// is only available on CUDA compute capability 6.0+ (see CUDA C Programming
++// Guide, B.15 Atomic Functions). Buun's Q² calibration path below calls
++// atomicAdd with a double*; without this definition, nvcc fails to find a
++// matching overload whenever the compile target list includes pre-sm_60
++// architectures. The standard CAS loop implementation below matches the
++// semantics of the native intrinsic.
++#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 600
++static __device__ double atomicAdd(double * address, double val) {
++    unsigned long long int * address_as_ull = (unsigned long long int *)address;
++    unsigned long long int old = *address_as_ull;
++    unsigned long long int assumed;
++    do {
++        assumed = old;
++        old = atomicCAS(address_as_ull, assumed,
++                        __double_as_longlong(val + __longlong_as_double(assumed)));
++    } while (assumed != old);
++    return __longlong_as_double(old);
++}
++#endif
++
+ // InnerQ: update the fattn-side inverse scale array from host (all devices)
+ void turbo_innerq_update_fattn_scales(const float * scale_inv) {
+     int cur_device;
