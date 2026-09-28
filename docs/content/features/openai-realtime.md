@@ -172,20 +172,24 @@ Each closed speaker segment emits a `conversation.item.input_audio_transcription
 }
 ```
 
-Each sound event emits a `conversation.item.sound_detection` event with one tag and the detection window's `start`/`end` (seconds, stream-relative - the same clock as the live words):
+Each sound event emits a `conversation.item.sound_detection` event with one tag and the detection window's `start`/`end`:
 
 ```json
 {
   "type": "conversation.item.sound_detection",
   "item_id": "item_abc",
   "content_index": 0,
-  "detections": [{"label": "Rooster", "score": 0.91, "index": 17}],
+  "detections": [{"label": "Chicken, rooster", "score": 0.91, "index": 99}],
   "start": 24.0,
   "end": 30.0
 }
 ```
 
-`score` is the peak score seen for that tag while the sound was live, not an average. On session close the companion stream is flushed and its remaining events are sent before the final result; a mid-stream `session.update` that changes the transcription model resets it along with the ASR session.
+The `start`/`end` on both event types are seconds measured from the start of the current turn's own audio, not the session or the WebSocket connection - the same base the streamed transcript words use.
+
+The companion stream is opened fresh for each speech turn, alongside that turn's ASR live session, and closed when the turn commits: whatever it had not yet emitted is drained and sent at that point. Because the diarization model runs a brand new session every turn, its speaker indices are scoped to the turn too - `"speaker": "0"` in one turn and `"speaker": "0"` in the next are not guaranteed to be the same person, even within the same conversation.
+
+`score` is the peak score seen for that tag while the sound was live, not an average.
 
 **Limitation**: under `semantic_vad`, live transcription (and so this companion stream) only runs during speech turns - it does not see audio between turns. A sound that happens while nobody is speaking is not detected this way. If you need sound events independent of speech turns, use the pipeline's `sound_detection` model instead (see [Sound Classification]({{% relref "audio-classification" %}})), which classifies each VAD-committed utterance on its own. Use one or the other, not both, on the same session - they overlap in purpose and would emit sound detections twice.
 

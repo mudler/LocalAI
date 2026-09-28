@@ -194,14 +194,14 @@ For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v
 
 The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classification` endpoints, and can attach a diarization or sound model to a live transcription session. `options:` accepts paths relative to the models directory, or absolute:
 
-| Option | Use on | Used for |
+| Option | Allowed on | Used for |
 |---|---|---|
 | `asr_model:<path>` | a diarization model | `include_text` on `/v1/audio/diarization` |
 | `diarization_model:<path>` | an ASR model | speaker segments during realtime live transcription |
 | `sound_model:<path>` | an ASR model | sound events during realtime live transcription |
 | `diarization_latency:<model\|low\|very_low\|ultra_low>` | a model with a diarization companion | latency mode for the live speaker stream; default `low` |
 
-"Use on" is the intended pairing; the loader does not check the primary model's kind before accepting an option, it only checks that the companion GGUF it loads matches the expected kind (for example `sound_model:` pointing at an ASR GGUF fails to load, naming the kind it expected). See [Speaker Diarization]({{% relref "audio-diarization" %}}) for the `Diarize` RPC and [Sound Classification]({{% relref "audio-classification" %}}) for `SoundDetection`, and [Realtime API]({{% relref "openai-realtime" %}}) for the live speaker/sound events emitted during a realtime session.
+The loader rejects a companion whose role duplicates the primary's own (for example `asr_model:` on an already-ASR primary, or `sound_model:` on a CED primary), and rejects a companion GGUF that does not match the role its option names (for example `sound_model:` pointing at an ASR GGUF fails to load, naming the kind it expected). See [Speaker Diarization]({{% relref "audio-diarization" %}}) for the `Diarize` RPC and [Sound Classification]({{% relref "audio-classification" %}}) for `SoundDetection`, and [Realtime API]({{% relref "openai-realtime" %}}) for the live speaker/sound events emitted during a realtime session.
 
 ### Segment timestamps
 
