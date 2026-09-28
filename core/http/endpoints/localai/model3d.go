@@ -94,7 +94,7 @@ func Model3DEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appCon
 					return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid view %d: %v", i, stageErr))
 				}
 				images = append(images, path)
-				data, readErr := os.ReadFile(path)
+				data, readErr := os.ReadFile(path) // #nosec G304 -- stageVideoMediaWithLimit returns a server-created temporary file
 				if readErr != nil {
 					return readErr
 				}
