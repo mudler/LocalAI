@@ -72,6 +72,25 @@ var _ = Describe("utils/path tests", func() {
 		})
 	})
 
+	Describe("VerifyResolvedPath", func() {
+		It("accepts a full path inside the base", func() {
+			Expect(VerifyResolvedPath("/srv/models/a/model.yaml", "/srv/models")).To(Succeed())
+		})
+
+		It("rejects a full path outside the base", func() {
+			// VerifyPath would join this onto the base and accept it.
+			Expect(VerifyResolvedPath("/etc/passwd", "/srv/models")).ToNot(Succeed())
+		})
+
+		It("rejects a joined path that climbed out of the base", func() {
+			Expect(VerifyResolvedPath(filepath.Join("/srv/models", "../other/x"), "/srv/models")).ToNot(Succeed())
+		})
+
+		It("cleans both paths before comparing", func() {
+			Expect(VerifyResolvedPath("/srv/models/./a/../b.yaml", "/srv/models/")).To(Succeed())
+		})
+	})
+
 	Describe("InTrustedRoot", func() {
 		It("accepts a strict descendant of the trusted root", func() {
 			Expect(InTrustedRoot("/srv/models/file", "/srv/models")).To(Succeed())

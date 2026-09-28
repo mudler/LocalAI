@@ -93,7 +93,7 @@ func (s *ConfigService) GetConfig(_ context.Context, name string) (*ConfigView, 
 	if configPath == "" {
 		return nil, ErrConfigFileMissing
 	}
-	if err := utils.VerifyPath(configPath, s.modelsPath()); err != nil {
+	if err := utils.VerifyResolvedPath(configPath, s.modelsPath()); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 	}
 	data, err := os.ReadFile(configPath)
@@ -137,7 +137,7 @@ func (s *ConfigService) patchConfig(ctx context.Context, name string, patch map[
 		return nil, fmt.Errorf("%w: PATCH cannot rename model %q to %q; use the model edit endpoint", ErrInvalidConfig, name, patchedName)
 	}
 	configPath := cfg.GetModelConfigFile()
-	if err := utils.VerifyPath(configPath, s.modelsPath()); err != nil {
+	if err := utils.VerifyResolvedPath(configPath, s.modelsPath()); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 	}
 	diskYAML, err := os.ReadFile(configPath)
@@ -289,7 +289,7 @@ func (s *ConfigService) editYAML(ctx context.Context, name string, body []byte) 
 
 	configPath := existing.GetModelConfigFile()
 	modelsPath := s.modelsPath()
-	if err := utils.VerifyPath(configPath, modelsPath); err != nil {
+	if err := utils.VerifyResolvedPath(configPath, modelsPath); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 	}
 
@@ -304,7 +304,7 @@ func (s *ConfigService) editYAML(ctx context.Context, name string, body []byte) 
 		}
 		newConfigPath := filepath.Join(modelsPath, req.Name+".yaml")
 		paths = append(paths, newConfigPath, filepath.Join(modelsPath, gallery.GalleryFileName(name)), filepath.Join(modelsPath, gallery.GalleryFileName(req.Name)))
-		if err := utils.VerifyPath(newConfigPath, modelsPath); err != nil {
+		if err := utils.VerifyPath(req.Name+".yaml", modelsPath); err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrPathNotTrusted, err)
 		}
 		if _, err := os.Stat(newConfigPath); err == nil {
