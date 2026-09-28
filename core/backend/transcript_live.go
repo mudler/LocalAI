@@ -320,9 +320,10 @@ func liveEventFromProto(r *proto.TranscriptLiveResponse) LiveTranscriptionEvent 
 	}
 	for _, w := range r.GetWords() {
 		ev.Words = append(ev.Words, schema.TranscriptionWord{
-			Start: time.Duration(w.Start),
-			End:   time.Duration(w.End),
-			Text:  w.Text,
+			Start:   time.Duration(w.Start),
+			End:     time.Duration(w.End),
+			Text:    w.Text,
+			Speaker: w.Speaker,
 		})
 	}
 	for _, s := range r.GetSpeakers() {

@@ -54,6 +54,20 @@ var _ = Describe("liveEventFromProto", func() {
 		Expect(ev.Final).To(BeNil())
 	})
 
+	It("carries word speakers and final segment speakers from a diarizing backend", func() {
+		ev := liveEventFromProto(&proto.TranscriptLiveResponse{
+			Words: []*proto.TranscriptWord{{Text: "hi", Speaker: "1"}},
+		})
+		Expect(ev.Words[0].Speaker).To(Equal("1"))
+		ev = liveEventFromProto(&proto.TranscriptLiveResponse{
+			FinalResult: &proto.TranscriptResult{
+				Text:     "hi there",
+				Segments: []*proto.TranscriptSegment{{Text: "hi", Speaker: "0"}, {Text: "there", Speaker: "1"}},
+			},
+		})
+		Expect(ev.Final.Segments[1].Speaker).To(Equal("1"))
+	})
+
 	It("maps the eob backchannel flag separately from eou", func() {
 		ev := liveEventFromProto(&proto.TranscriptLiveResponse{Delta: "uh-huh", Eob: true})
 		Expect(ev.Eob).To(BeTrue())
