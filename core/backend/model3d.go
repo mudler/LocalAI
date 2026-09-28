@@ -15,6 +15,8 @@ import (
 // this layer.
 type Model3DGenerationOptions struct {
 	Image        string
+	Images       []string
+	MeshScale    float64
 	Destination  string
 	Seed         int32
 	Step         int32
@@ -38,6 +40,8 @@ func Model3DGeneration(options Model3DGenerationOptions, loader *model.ModelLoad
 			appConfig.Context,
 			&proto.Generate3DRequest{
 				Src:          options.Image,
+				Images:       append([]string(nil), options.Images...),
+				MeshScale:    options.MeshScale,
 				Dst:          options.Destination,
 				Seed:         options.Seed,
 				Step:         options.Step,

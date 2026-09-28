@@ -43107,3 +43107,375 @@
   urls:
     - https://github.com/modelscope/FunASR
   version: 0.0.0-development
+- alias: pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: latest
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: pixal3dcpp
+  kind: backend
+  license: mit
+  name: pixal3dcpp
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-latest
+- alias: pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp-development
+    metal: metal-pixal3dcpp-development
+    nvidia: cuda12-pixal3dcpp-development
+    nvidia-cuda-12: cuda12-pixal3dcpp-development
+    nvidia-cuda-13: cuda13-pixal3dcpp-development
+    vulkan: vulkan-pixal3dcpp-development
+  channel: development
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: pixal3dcpp-development
+  kind: backend
+  license: mit
+  name: pixal3dcpp-development
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-development
+- alias: pixal3dcpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-cpu-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: latest
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: cpu-pixal3dcpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-cpu-pixal3dcpp
+  mutable: true
+  name: cpu-pixal3dcpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-latest
+- alias: pixal3dcpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-cpu-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: development
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: cpu-pixal3dcpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-cpu-pixal3dcpp
+  mutable: true
+  name: cpu-pixal3dcpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-development
+- alias: pixal3dcpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: latest
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: cuda12-pixal3dcpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-nvidia-cuda-12-pixal3dcpp
+  mutable: true
+  name: cuda12-pixal3dcpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-latest
+- alias: pixal3dcpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: development
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: cuda12-pixal3dcpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-nvidia-cuda-12-pixal3dcpp
+  mutable: true
+  name: cuda12-pixal3dcpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-development
+- alias: pixal3dcpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: latest
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: cuda13-pixal3dcpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-nvidia-cuda-13-pixal3dcpp
+  mutable: true
+  name: cuda13-pixal3dcpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-latest
+- alias: pixal3dcpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: development
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: cuda13-pixal3dcpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-nvidia-cuda-13-pixal3dcpp
+  mutable: true
+  name: cuda13-pixal3dcpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-development
+- alias: pixal3dcpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: latest
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: vulkan-pixal3dcpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-gpu-vulkan-pixal3dcpp
+  mutable: true
+  name: vulkan-pixal3dcpp
+  os: linux
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-latest
+- alias: pixal3dcpp
+  arch: amd64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: development
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: vulkan-pixal3dcpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-gpu-vulkan-pixal3dcpp
+  mutable: true
+  name: vulkan-pixal3dcpp-development
+  os: linux
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-development
+- alias: pixal3dcpp
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: latest
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: metal-pixal3dcpp
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:latest-metal-darwin-arm64-pixal3dcpp
+  mutable: true
+  name: metal-pixal3dcpp
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-latest
+- alias: pixal3dcpp
+  arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-pixal3dcpp
+  capabilities:
+    default: cpu-pixal3dcpp
+    metal: metal-pixal3dcpp
+    nvidia: cuda12-pixal3dcpp
+    nvidia-cuda-12: cuda12-pixal3dcpp
+    nvidia-cuda-13: cuda13-pixal3dcpp
+    vulkan: vulkan-pixal3dcpp
+  channel: development
+  description: Pixal3D canonical four-view RGBA input to textured GLB via the native C++/ggml CLI
+  id: metal-pixal3dcpp-development
+  kind: backend
+  license: mit
+  mirrors:
+    - oci://localai/localai-backends:master-metal-darwin-arm64-pixal3dcpp
+  mutable: true
+  name: metal-pixal3dcpp-development
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - image-to-3d
+    - 3d-generation
+    - CPU
+    - GPU
+    - CUDA
+    - Vulkan
+    - Metal
+  urls:
+    - https://github.com/raven38/pixal3d.cpp
+  version: 0.0.0-development
