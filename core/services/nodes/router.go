@@ -59,6 +59,12 @@ type SmartRouterOptions struct {
 	// nil disables the exclusion. Deliberate teardown (UnloadModel, admin
 	// endpoints, node drain) is unaffected.
 	PinnedResolver PinnedModelResolver
+	// ModelFiles, when set, returns the absolute local paths of every file a
+	// model's install declared (gallery `files:`, config `download_files`).
+	// The path fields of a load request name only what the backend opens
+	// first; this is how staging learns about the rest, such as the other
+	// shards of a split GGUF. nil stages the path fields alone.
+	ModelFiles func(modelName string) []string
 	// PrefixProvider, when set, enables prefix-cache-aware routing: requests
 	// carrying a prompt prefix chain (distributedhdr.PrefixChain) are biased
 	// toward the node that already holds the longest matching prefix, subject
@@ -170,6 +176,9 @@ type SmartRouter struct {
 	// pinnedResolver feeds the eviction paths the set of pinned model names
 	// (see SmartRouterOptions.PinnedResolver). nil disables the exclusion.
 	pinnedResolver PinnedModelResolver
+	// modelFiles resolves a model's declared files (see
+	// SmartRouterOptions.ModelFiles). nil stages the path fields alone.
+	modelFiles func(modelName string) []string
 	// prefixProvider is the prefix-cache routing seam (nil disables it; see
 	// SmartRouterOptions.PrefixProvider). prefixConfig holds the global policy
 	// and thresholds.
@@ -254,6 +263,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		stagingTracker:      NewStagingTracker(),
 		conflictResolver:    opts.ConflictResolver,
 		pinnedResolver:      opts.PinnedResolver,
+		modelFiles:          opts.ModelFiles,
 		probeCache:          newProbeCache(probeCacheTTL),
 		prefixProvider:      opts.PrefixProvider,
 		prefixConfig:        opts.PrefixConfig,
@@ -382,7 +392,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 	// Size the remote load budget BEFORE staging: stageModelFiles rewrites the
 	// path fields to their remote equivalents on a clone, and only the local
 	// paths can be stat'ed here.
-	payloadBytes := modelPayloadBytes(modelOpts)
+	payloadBytes := r.stagingPayloadBytes(trackingKey, modelOpts)
 	loadTimeout := r.loadTimeoutFor(payloadBytes)
 
 	// Pre-stage model files via FileStager before loading
@@ -1261,7 +1271,7 @@ func (r *SmartRouter) narrowByDiskHeadroom(ctx context.Context, modelID string, 
 		return candidateNodeIDs, nil
 	}
 
-	requiredDisk := DiskRequirementFor(modelPayloadBytes(modelOpts))
+	requiredDisk := DiskRequirementFor(r.stagingPayloadBytes(modelID, modelOpts))
 	diskCandidates, diskErr := r.registry.NarrowByDiskHeadroom(ctx, candidateNodeIDs, requiredDisk)
 
 	// The check runs even when disabled. "Disabled" means do not BLOCK, not do
@@ -1435,6 +1445,10 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 		localModelDir = filepath.Dir(opts.ModelFile)
 	}
 
+	// Resolved before the path fields are rewritten to remote paths below,
+	// since that is what tells which declared files the fields already cover.
+	declared := existingFiles(r.declaredExtraFiles(trackingKey, opts), node.Name, trackingKey)
+
 	// keyMapper generates storage keys namespaced under trackingKey, preserving
 	// subdirectory structure relative to frontendModelsDir. This ensures:
 	// 1. All files for a model land in one directory on the worker for clean deletion
@@ -1480,6 +1494,7 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 			totalFiles++
 		}
 	}
+	totalFiles += len(declared)
 
 	// Start tracking staging progress
 	r.stagingTracker.Start(trackingKey, node.Name, totalFiles)
@@ -1608,6 +1623,21 @@ func (r *SmartRouter) stageModelFiles(ctx context.Context, node *BackendNode, op
 				opts.LoraBase = ""
 			}
 		}
+	}
+
+	for _, localPath := range declared {
+		fileIdx++
+		fileName := filepath.Base(localPath)
+		stageCtx := r.withStagingCallback(ctx, trackingKey, fileName, fileIdx, totalFiles)
+
+		xlog.Info("Staging declared model file", "model", trackingKey, "node", node.Name, "file", fileName, "fileIndex", fileIdx, "totalFiles", totalFiles)
+		if _, err := r.fileStager.EnsureRemote(stageCtx, node.ID, localPath, keyMapper.Key(localPath)); err != nil {
+			// The install declared it, so the backend may read it: loading
+			// without it fails later with a less useful error.
+			xlog.Error("Failed to stage declared model file for remote node", "node", node.Name, "path", localPath, "error", err)
+			return nil, fmt.Errorf("staging declared model file %s: %w", localPath, err)
+		}
+		r.stagingTracker.FileComplete(trackingKey, fileIdx, totalFiles)
 	}
 
 	// Stage file paths referenced in generic Options (key:value pairs where values
