@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -65,7 +66,7 @@ func (p *ParakeetCpp) SoundDetection(ctx context.Context, req *pb.SoundDetection
 
 	pcm, _, err := decodeWavMono16k(req.GetSrc())
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.InvalidArgument, "parakeet-cpp: decode audio: %s", err)
 	}
 
 	windows, nClasses, err := p.soundStreamScores(ctx, pcm)
@@ -119,6 +120,14 @@ func (p *ParakeetCpp) soundStreamScores(ctx context.Context, pcm []float32) ([]s
 func (p *ParakeetCpp) soundStreamDrain(ctx context.Context, pcm []float32) (string, int, error) {
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
+
+	// SoundDetection's own p.tagCtx==0 check runs before this lock is taken;
+	// re-check here so a Free() racing in between (which zeroes p.tagCtx
+	// under this same engineMu) is caught instead of handed to the C side,
+	// mirroring streamFeedDoc's/sceneFeed's re-check.
+	if p.tagCtx == 0 {
+		return "", 0, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
 
 	nClasses := int(CppNumClasses(p.tagCtx))
 

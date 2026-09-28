@@ -6,6 +6,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -301,6 +302,42 @@ var _ = Describe("ParakeetCpp.SoundDetection", func() {
 		Expect(status.Code(err)).To(Equal(codes.Canceled))
 		Expect(feedCount).To(Equal(1))
 		Expect(freed).To(BeTrue())
+	})
+
+	It("wraps a decode failure as InvalidArgument", func() {
+		// Every required symbol must be non-nil to clear SoundDetection's own
+		// Unimplemented gate and reach the decode step this spec targets;
+		// none of them may actually be called.
+		fail := func(string) { Fail("no C call once the decode itself has failed") }
+		CppNumClasses = func(uintptr) int32 { fail("num_classes"); return 0 }
+		CppSoundStreamBegin = func(tagger uintptr, o *cSoundOpts) uintptr { fail("begin"); return 0 }
+		CppSoundStreamFeed = func(s uintptr, pcm *float32, n int32, isLast int32, out *uintptr, nOut *int32) int32 {
+			fail("feed")
+			return 0
+		}
+		CppSoundStreamDrainScoresJSON = func(uintptr) uintptr { fail("drain"); return 0 }
+		CppSoundStreamFree = func(uintptr) { fail("free") }
+
+		p := &ParakeetCpp{tagCtx: 42}
+		_, err := p.SoundDetection(context.Background(), &pb.SoundDetectionRequest{
+			Src: filepath.Join(GinkgoT().TempDir(), "missing.wav"),
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+	})
+
+	It("returns ModelNotLoaded without a C call when tagCtx is zeroed between the entry check and the call", func() {
+		called := false
+		CppNumClasses = func(uintptr) int32 { called = true; return 2 }
+
+		p := &ParakeetCpp{tagCtx: 42}
+		// Simulate a Free() racing between SoundDetection's own tagCtx==0
+		// check and soundStreamDrain's lock, exactly as it zeroes tagCtx
+		// under engineMu.
+		p.tagCtx = 0
+		_, _, err := p.soundStreamDrain(context.Background(), make([]float32, 10))
+		Expect(grpcerrors.IsModelNotLoaded(err)).To(BeTrue())
+		Expect(called).To(BeFalse(), "no C call once tagCtx was cleared")
 	})
 })
 
