@@ -13,13 +13,18 @@ func ExistsInPath(path string, s string) bool {
 }
 
 func InTrustedRoot(path string, trustedRoot string) error {
-	for path != "/" {
-		path = filepath.Dir(path)
+	for {
+		parent := filepath.Dir(path)
+		// Dir stops changing at "/" for an absolute path and at "." for a
+		// relative one; waiting for "/" alone spins forever on the latter.
+		if parent == path {
+			return fmt.Errorf("path is outside of trusted root")
+		}
+		path = parent
 		if path == trustedRoot {
 			return nil
 		}
 	}
-	return fmt.Errorf("path is outside of trusted root")
 }
 
 // VerifyPath verifies that path is based in basePath.
