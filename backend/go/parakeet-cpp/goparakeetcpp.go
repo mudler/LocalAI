@@ -74,7 +74,54 @@ var (
 	// libparakeet.so; nil falls back to the text-only CppStreamFeed/Finalize path.
 	CppStreamFeedJSON     func(s uintptr, pcm []float32, nSamples int32) uintptr
 	CppStreamFinalizeJSON func(s uintptr) uintptr
+
+	// CppModelKind reports which kind of model a loaded context holds
+	// (parakeet_capi_model_kind, ABI v8): see the modelKind* constants in
+	// roles.go. nil on an older libparakeet.so; Load then treats the primary
+	// as ASR (pre-v8 behavior) and rejects companion model options.
+	CppModelKind func(ctx uintptr) int32
+
+	// Speaker diarization (ABI v7). CppDiarizePCM runs offline diarization
+	// over in-memory mono float PCM; CppTranscribeAndDiarizeJSON pairs it with
+	// an ASR context for speaker-attributed text. Both return a malloc'd char*
+	// JSON document (uintptr, freed via CppFreeString).
+	CppDiarizePCM               func(ctx uintptr, samples *float32, n int32, sampleRate int32) uintptr
+	CppTranscribeAndDiarizeJSON func(asr, diar uintptr, samples *float32, n int32, sampleRate int32) uintptr
+
+	// Sound-event detection (CED) and the combined scene stream (ABI v8).
+	// CppNumClasses/CppSoundOptsDefault/CppSoundStreamBegin.../
+	// CppSceneOptsDefault/CppSceneStreamBegin... are only registered when
+	// CppModelKind is present (see main.go); nil otherwise.
+	CppNumClasses                 func(ctx uintptr) int32
+	CppSoundOptsDefault           func(o *cSoundOpts)
+	CppSoundStreamBegin           func(tagger uintptr, o *cSoundOpts) uintptr
+	CppSoundStreamFeed            func(s uintptr, pcm *float32, n int32, isLast int32, out *uintptr, nOut *int32) int32
+	CppSoundStreamDrainScoresJSON func(s uintptr) uintptr
+	CppFreeSoundSegments          func(segs uintptr)
+	CppSoundStreamFree            func(s uintptr)
+	CppSceneOptsDefault           func(o *cSceneOpts)
+	CppSceneStreamBegin           func(asr, diar, tagger uintptr, o *cSceneOpts) uintptr
+	CppSceneStreamFeedJSON        func(s uintptr, pcm *float32, n int32, isLast int32) uintptr
+	CppSceneStreamLastError       func(s uintptr) string
+	CppSceneStreamFree            func(s uintptr)
 )
+
+// cSoundOpts and cSceneOpts mirror parakeet_sound_opts / parakeet_scene_opts
+// in parakeet_capi.h field-for-field (int -> int32, float -> float32); the
+// C side sizes/versions them via the leading `size` field, set by the
+// matching *_opts_default call.
+type cSoundOpts struct {
+	Size                                                         int32
+	WindowSec, HopSec, OnThreshold, OffThreshold, MinDurationSec float32
+	TopK                                                         int32
+}
+
+type cSceneOpts struct {
+	Size        int32
+	DiarLatency int32
+	Sound       cSoundOpts
+	Flags       int32
+}
 
 // streamChunkSamples is how much 16 kHz mono PCM we hand to stream_feed per
 // call (1 s). The session buffers internally and decodes once a full
@@ -140,10 +187,23 @@ type transcriptToken struct {
 // touch it concurrently.
 type ParakeetCpp struct {
 	base.Base
-	ctxPtr   uintptr
-	engineMu sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
-	bat      *batcher
-	batStop  chan struct{}
+	ctxPtr uintptr // ASR context: the primary when it is an ASR model, or the asr_model companion
+	// diarCtx / tagCtx are the diarization and sound (CED) model contexts:
+	// the primary when it is that kind, or the diarization_model/sound_model
+	// companion. See roles.go.
+	diarCtx uintptr
+	tagCtx  uintptr
+	// diarLatency is the PARAKEET_DIAR_LATENCY_* mode for diarization
+	// streaming (diarization_latency: option, default "low"). Unused until
+	// the diarization/scene streaming paths land.
+	diarLatency int32
+	// companions holds every context this backend loaded itself beyond the
+	// primary (asr_model:/diarization_model:/sound_model: options), so Free
+	// can release them after the primary.
+	companions []uintptr
+	engineMu   sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
+	bat        *batcher
+	batStop    chan struct{}
 	// segmentGapFrames is NeMo's segment_gap_threshold in ENCODER FRAMES (model
 	// YAML option, default 0=off). When >0 it adds NeMo's silence-gap split on
 	// top of the punctuation split; converted to seconds via the JSON frame_sec.
@@ -151,21 +211,17 @@ type ParakeetCpp struct {
 }
 
 // Load is the LocalAI gRPC entry point for LoadModel: it calls
-// parakeet_capi_load with the GGUF path and stashes the resulting
-// opaque context pointer for AudioTranscription.
+// parakeet_capi_load with the GGUF path, classifies it and any companion
+// models named in Options[] by role (see roles.go), and starts the dynamic
+// batcher when an ASR context (primary or companion) ends up loaded.
 func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	if opts.ModelFile == "" {
 		return errors.New("parakeet-cpp: ModelFile is required")
 	}
 
-	ctx := CppLoad(opts.ModelFile)
-	if ctx == 0 {
-		// No ctx to ask for last_error (the C-API's last-error buffer
-		// lives on the ctx that was never returned). Surface the path
-		// so the operator at least knows which load failed.
-		return fmt.Errorf("parakeet-cpp: parakeet_capi_load failed for %q", opts.ModelFile)
+	if err := p.loadRoles(opts); err != nil {
+		return err
 	}
-	p.ctxPtr = ctx
 
 	// Dynamic batching knobs (model YAML options:, key:value form). Batching is
 	// OFF by default (batch_max_size:1): each request runs on its own. On GPU,
@@ -182,6 +238,12 @@ func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
 	// default matches NeMo's default (punctuation-only segments); when set it
 	// additionally splits segments on inter-word silence (see transcriptResultFromDoc).
 	p.segmentGapFrames = optInt(opts, "segment_gap_threshold", 0)
+
+	// The batcher only ever drives the ASR context; a diarization/sound
+	// primary with no asr_model companion has no ctxPtr and needs none.
+	if p.ctxPtr == 0 {
+		return nil
+	}
 	if CppTranscribePcmBatchJSON != nil {
 		p.batStop = make(chan struct{})
 		p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
@@ -293,6 +355,9 @@ func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
 // (L2).
 func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if p.ctxPtr == 0 {
+		if err := p.notASRError(); err != nil {
+			return pb.TranscriptResult{}, err
+		}
 		return pb.TranscriptResult{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 	if opts.Dst == "" {
@@ -817,8 +882,10 @@ func decodeWavMono16k(path string) ([]float32, float32, error) {
 	return data, duration, nil
 }
 
-// Free releases the underlying parakeet_ctx. Called by LocalAI when the
-// model is unloaded.
+// Free releases every parakeet_ctx this backend holds (the primary and any
+// asr_model:/diarization_model:/sound_model: companions loaded in Load) and
+// is idempotent: fields are zeroed as they are freed, so a second call frees
+// nothing. Called by LocalAI when the model is unloaded.
 func (p *ParakeetCpp) Free() error {
 	// Stop the dispatcher before releasing the engine so no in-flight runBatch
 	// can touch a freed ctx (close leak / use-after-free on reload).
@@ -830,10 +897,13 @@ func (p *ParakeetCpp) Free() error {
 	// re-checks ctxPtr under the lock) can never feed into a freed ctx.
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
-	if p.ctxPtr != 0 {
-		CppFree(p.ctxPtr)
-		p.ctxPtr = 0
+	for _, ctxField := range [...]*uintptr{&p.ctxPtr, &p.diarCtx, &p.tagCtx} {
+		if *ctxField != 0 {
+			CppFree(*ctxField)
+			*ctxField = 0
+		}
 	}
+	p.companions = nil
 	return nil
 }
 
