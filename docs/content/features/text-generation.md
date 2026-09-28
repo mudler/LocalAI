@@ -240,6 +240,37 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+#### Reuse assistant messages
+
+When you manage conversation history in your client, append assistant messages from a response's `output` array to the next request's `input`.
+Keep their content type as `output_text`. Use `input_text` for new user messages.
+Include earlier conversation items that the model still needs.
+
+For example, submit this body to `POST /v1/responses`:
+
+```json
+{
+  "model": "ggml-koala-7b-model-q4_0-r2.bin",
+  "input": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [{"type": "input_text", "text": "What is the capital of France?"}]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "content": [{"type": "output_text", "text": "Paris is the capital of France."}]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [{"type": "input_text", "text": "Which river flows through it?"}]
+    }
+  ]
+}
+```
+
 #### WebSocket Responses
 
 Connect to `ws://localhost:8080/v1/responses` (or `wss://` when TLS is
