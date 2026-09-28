@@ -22,7 +22,7 @@ type sceneSpeakerJSON struct {
 }
 
 // sceneSoundJSON mirrors one element of a scene feed document's "sounds"
-// array: {"index":365,"label":"Chicken, rooster","start":24.0,"end":30.0,"peak":0.86}.
+// array: {"index":99,"label":"Chicken, rooster","start":24.0,"end":30.0,"peak":0.86}.
 type sceneSoundJSON struct {
 	Index int     `json:"index"`
 	Label string  `json:"label"`

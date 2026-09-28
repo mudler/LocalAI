@@ -514,7 +514,7 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 		}
 		liveSceneStubs(func(calls int, s uintptr, isLast int32) uintptr {
 			if calls == 1 {
-				return pool.cstr(`{"speakers":[],"sounds":[{"index":365,` +
+				return pool.cstr(`{"speakers":[],"sounds":[{"index":99,` +
 					`"label":"Chicken, rooster","start":24.0,"end":30.0,"peak":0.86}]}`)
 			}
 			return pool.cstr(`{"speakers":[],"sounds":[]}`)
@@ -533,7 +533,7 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 		Expect(got[2].Delta).To(BeEmpty())
 		Expect(got[2].Sounds).To(HaveLen(1))
 		Expect(got[2].Sounds[0].Label).To(Equal("Chicken, rooster"))
-		Expect(got[2].Sounds[0].Index).To(Equal(int32(365)))
+		Expect(got[2].Sounds[0].Index).To(Equal(int32(99)))
 		Expect(got[2].Sounds[0].Peak).To(BeNumerically("~", 0.86, 1e-6))
 		Expect(got[2].Sounds[0].Start).To(Equal(int64(24.0 * 1e9)))
 		Expect(got[2].Sounds[0].End).To(Equal(int64(30.0 * 1e9)))
