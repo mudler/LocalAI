@@ -39,6 +39,31 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## LFM2.5-2.6B Turbo Brilliance
+
+DavidAU's Turbo Brilliance edition uses the LFM2.5-2.6B text model with a custom chat template.
+The gallery groups NEO-MAX IQ4_XS, Q6_K, and Q8_0 builds for llama.cpp.
+All builds use the embedded template and a 32,768-token default context.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install lfm2.5-2.6b-turbo-brilliance
+```
+
+To select Q8_0 explicitly, run:
+
+```bash
+local-ai models install lfm2.5-2.6b-turbo-brilliance --variant lfm2.5-2.6b-turbo-brilliance-q8
+```
+
+The [publisher's model card](https://huggingface.co/DavidAU/LFM2.5-2.6B-Qwen3.8-Turbo-Brilliance-Power-X12-NEO-MAX-GGUF) describes the experimental reasoning modes and prompt tags.
+For example, `{REASON:help} Menu` requests the mode menu.
+The entries use the publisher's sampling settings: temperature 1, top-k 64, top-p 0.95, min-p 0.05, and repetition penalty 1.
+
+The GGUF metadata identifies the [LFM Open License v1.0](https://huggingface.co/LiquidAI/LFM2.5-2.6B/blob/main/LICENSE).
+The gallery preserves this base-model license information; the publisher's repository card instead lists Apache-2.0.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
