@@ -2317,7 +2317,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_3D) == FLAG_3D {
-		threeDBackends := []string{"trellis2cpp"}
+		threeDBackends := []string{"trellis2cpp", "pixal3dcpp"}
 		if !slices.Contains(threeDBackends, c.Backend) {
 			return false
 		}

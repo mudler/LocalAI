@@ -148,6 +148,7 @@ var defaultImporters = []Importer{
 	// run before LlamaCPPImporter so its GGUF sets aren't claimed by the
 	// generic .gguf importer; matches only trellis-named URIs/repos or the
 	// distinctive component filenames, so arbitrary GGUFs are never claimed.
+	&Pixal3DImporter{},
 	&Trellis2CppImporter{},
 	&KimodoCppImporter{},
 	&ACEStepImporter{},
