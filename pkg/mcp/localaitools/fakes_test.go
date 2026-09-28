@@ -59,6 +59,9 @@ type fakeClient struct {
 	getPIIEvents        func(PIIEventsQuery) ([]PIIEvent, error)
 	getMiddlewareStatus func() (*MiddlewareStatus, error)
 	getRouterDecisions  func(RouterDecisionsQuery) ([]RouterDecision, error)
+	listFailoverChains  func() ([]FailoverChainInfo, error)
+	pinFailoverTarget   func(string, string) error
+	unpinFailoverTarget func(string) error
 }
 
 type fakeCall struct {
@@ -392,4 +395,28 @@ func (f *fakeClient) SeedRouterCorpus(_ context.Context, req RouterCorpusSeedReq
 func (f *fakeClient) ClearRouterCorpus(_ context.Context, routerModel string) (*RouterCorpusClearResult, error) {
 	f.record("ClearRouterCorpus", routerModel)
 	return &RouterCorpusClearResult{Router: routerModel}, nil
+}
+
+func (f *fakeClient) ListFailoverChains(_ context.Context) ([]FailoverChainInfo, error) {
+	f.record("ListFailoverChains", nil)
+	if f.listFailoverChains != nil {
+		return f.listFailoverChains()
+	}
+	return []FailoverChainInfo{}, nil
+}
+
+func (f *fakeClient) PinFailoverTarget(_ context.Context, chain, target string) error {
+	f.record("PinFailoverTarget", []any{chain, target})
+	if f.pinFailoverTarget != nil {
+		return f.pinFailoverTarget(chain, target)
+	}
+	return nil
+}
+
+func (f *fakeClient) UnpinFailoverTarget(_ context.Context, chain string) error {
+	f.record("UnpinFailoverTarget", chain)
+	if f.unpinFailoverTarget != nil {
+		return f.unpinFailoverTarget(chain)
+	}
+	return nil
 }

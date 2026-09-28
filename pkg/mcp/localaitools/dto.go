@@ -417,3 +417,26 @@ type VRAMEstimateRequest struct {
 	GPULayers   int    `json:"gpu_layers,omitempty"    jsonschema:"Number of layers to offload to GPU. -1 for all."`
 	KVQuantBits int    `json:"kv_quant_bits,omitempty" jsonschema:"KV cache quantization bits (e.g. 4, 8, 16)."`
 }
+
+// FailoverTargetInfo is the LLM-facing view of one failover chain target's
+// health. It mirrors failover.TargetStatus but drops ConsecutiveOK and
+// LastProbe — internal probing detail the LLM doesn't need to decide
+// whether to pin or unpin a target.
+type FailoverTargetInfo struct {
+	Model     string `json:"model"`
+	Kind      string `json:"kind"`
+	Warm      bool   `json:"warm"`
+	State     string `json:"state"`
+	LastError string `json:"last_error,omitempty"`
+}
+
+// FailoverChainInfo is the LLM-facing view of one failover chain: its
+// current state, the target serving it now, an optional pin, and every
+// target's health.
+type FailoverChainInfo struct {
+	Name    string               `json:"name"`
+	State   string               `json:"state"`
+	Active  string               `json:"active"`
+	Pinned  string               `json:"pinned,omitempty"`
+	Targets []FailoverTargetInfo `json:"targets"`
+}

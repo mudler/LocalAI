@@ -131,6 +131,7 @@ const NotFound = page(null, () => import('./pages/NotFound'))
 const Usage = page('usage', () => import('./pages/Usage'))
 const Users = page('users', () => import('./pages/Users'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
+const Failover = page('failover', () => import('./pages/Failover'))
 const Account = page('account', () => import('./pages/Account'))
 
 import ConsoleLayout from './components/console/ConsoleLayout'
@@ -223,6 +224,7 @@ const appChildren = [
       { path: 'usage', element: <Usage /> },
       { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
       { path: 'middleware', element: <Admin><Middleware /></Admin> },
+      { path: 'failover', element: <Admin><Failover /></Admin> },
     ],
   },
 

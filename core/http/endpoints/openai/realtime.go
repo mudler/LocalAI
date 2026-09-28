@@ -32,6 +32,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/turncoord"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/templates"
@@ -638,6 +639,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			application.ModelConfigLoader(),
 			application.ModelLoader(),
 			application.ApplicationConfig(),
+			application.FailoverManager(),
 		)
 	} else {
 		m, err = newModel(
@@ -709,7 +711,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		var gateErr error
 		if session.voiceGate != nil {
 			_, gateErr = backend.PreloadStages(context.Background(), application.ModelLoader(), application.ApplicationConfig(), []backend.PreloadStage{
-				{Role: "voice_recognition", Cfg: session.voiceGate.recCfg},
+				{Role: config.PipelineStageVoiceRecognition, Cfg: session.voiceGate.recCfg},
 			})
 		}
 		if err := errors.Join(<-warmErr, gateErr); err != nil {
@@ -753,6 +755,13 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		},
 		Session: session.ToServer(),
 	})
+
+	// Sent after session.created, which clients expect as the first event.
+	// This function runs until the connection closes, so the defer stops the
+	// events at session end. A transcription session.update that swaps the
+	// model restarts them for the new model's chains.
+	stopFailoverEvents := startModelFailoverEvents(t, m)
+	defer func() { stopFailoverEvents() }()
 
 	var (
 		msg []byte
@@ -824,12 +833,14 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 			// Handle transcription session update
 			if e.Session.Transcription != nil {
+				prevModel := session.ModelInterface
 				if err := updateTransSession(
 					session,
 					&e.Session,
 					application.ModelConfigLoader(),
 					application.ModelLoader(),
 					application.ApplicationConfig(),
+					application.FailoverManager(),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
 					// The cause is validation feedback on the client's own
@@ -846,6 +857,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					},
 					Session: session.ToServer(),
 				})
+				if session.ModelInterface != prevModel {
+					stopFailoverEvents()
+					stopFailoverEvents = startModelFailoverEvents(t, session.ModelInterface)
+				}
 			}
 
 			// Handle realtime session update
@@ -1143,7 +1158,7 @@ func sendTestTone(t Transport) {
 	}
 }
 
-func updateTransSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) error {
+func updateTransSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, fm *failover.Manager) error {
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
 
@@ -1166,7 +1181,7 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 			return fmt.Errorf("model is not a valid pipeline model: %s", trUpd.Model)
 		}
 
-		m, cfg, err := newTranscriptionOnlyModel(&cfg.Pipeline, cl, ml, appConfig)
+		m, cfg, err := newTranscriptionOnlyModel(&cfg.Pipeline, cl, ml, appConfig, fm)
 		if err != nil {
 			return err
 		}

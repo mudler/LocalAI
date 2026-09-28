@@ -92,7 +92,7 @@ type delta[K comparable, V any] struct {
 }
 
 // SyncedMap is a cross-replica in-memory map. A local write (Set/Delete) updates
-// memory, the optional durable Store, then broadcasts a delta to peers. A peer's
+// the optional durable Store, then memory, then broadcasts a delta to peers. A peer's
 // delta updates memory only and fires OnApply - it never re-broadcasts and never
 // writes the Store. That structural split is the echo-loop guard (same pattern as
 // galleryop.mergeStatus / OpCache.applyStart): receiving your own broadcast just
@@ -220,34 +220,40 @@ func (m *SyncedMap[K, V]) Close() error {
 	return firstErr
 }
 
-// Set updates the value locally, writes through the Store, then broadcasts.
-// Per the data-flow contract the Store write happens under the lock so memory and
-// durable state move together; the broadcast is best-effort after unlocking.
+// Set writes through the Store, then updates the value locally, then
+// broadcasts. The Store write comes first and happens under the lock so memory
+// and durable state move together: when it fails, Set returns the error with
+// memory and peers untouched. Keeping an unpersisted value in memory would let
+// this replica serve it (and a caller that re-reads the map re-apply it) while
+// the Store and every other replica disagree, until the next re-hydrate.
+// The broadcast is best-effort after unlocking.
 func (m *SyncedMap[K, V]) Set(ctx context.Context, v V) error {
 	k := m.cfg.Key(v)
 	m.mu.Lock()
-	m.data[k] = v
 	if m.cfg.Store != nil {
 		if err := m.cfg.Store.Upsert(ctx, v); err != nil {
 			m.mu.Unlock()
 			return err
 		}
 	}
+	m.data[k] = v
 	m.mu.Unlock()
 	m.publish(opSet, k, v)
 	return nil
 }
 
-// Delete removes the key locally, deletes it from the Store, then broadcasts.
+// Delete deletes the key from the Store, then removes it locally, then
+// broadcasts. A failed Store delete leaves memory and peers untouched, for the
+// same reason as Set.
 func (m *SyncedMap[K, V]) Delete(ctx context.Context, k K) error {
 	m.mu.Lock()
-	delete(m.data, k)
 	if m.cfg.Store != nil {
 		if err := m.cfg.Store.Delete(ctx, k); err != nil {
 			m.mu.Unlock()
 			return err
 		}
 	}
+	delete(m.data, k)
 	m.mu.Unlock()
 	var zero V
 	m.publish(opDelete, k, zero)

@@ -878,6 +878,160 @@
                 }
             }
         },
+        "/api/failover": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "List failover chains and the health of their targets",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.FailoverChainsResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/failover/events": {
+            "get": {
+                "description": "The first event is \"snapshot\" with the full state, then \"chain.switched\" and \"target.state\" events.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Stream failover events (server-sent events)",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/failover/{chain}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Get one failover chain",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/failover/{chain}/pin": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Pin a failover chain to one target",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Target to pin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.FailoverPinRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "failover"
+                ],
+                "summary": "Remove the pin from a failover chain",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chain name",
+                        "name": "chain",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/failover.ChainStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/instructions": {
             "get": {
                 "description": "Returns a compact list of instruction areas with descriptions and URLs for detailed guides",
@@ -4239,6 +4393,97 @@
                 }
             }
         },
+        "failover.ChainState": {
+            "type": "string",
+            "enum": [
+                "primary",
+                "fallback",
+                "degraded"
+            ],
+            "x-enum-varnames": [
+                "ChainPrimary",
+                "ChainFallback",
+                "ChainDegraded"
+            ]
+        },
+        "failover.ChainStatus": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "string"
+                },
+                "active_since": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pinned": {
+                    "type": "string"
+                },
+                "state": {
+                    "$ref": "#/definitions/failover.ChainState"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/failover.TargetStatus"
+                    }
+                }
+            }
+        },
+        "failover.Kind": {
+            "type": "string",
+            "enum": [
+                "local",
+                "remote"
+            ],
+            "x-enum-varnames": [
+                "KindLocal",
+                "KindRemote"
+            ]
+        },
+        "failover.TargetState": {
+            "type": "string",
+            "enum": [
+                "healthy",
+                "down",
+                "recovering",
+                "missing"
+            ],
+            "x-enum-varnames": [
+                "StateHealthy",
+                "StateDown",
+                "StateRecovering",
+                "StateMissing"
+            ]
+        },
+        "failover.TargetStatus": {
+            "type": "object",
+            "properties": {
+                "consecutive_ok": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "$ref": "#/definitions/failover.Kind"
+                },
+                "last_error": {
+                    "type": "string"
+                },
+                "last_probe": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "state": {
+                    "$ref": "#/definitions/failover.TargetState"
+                },
+                "warm": {
+                    "type": "boolean"
+                }
+            }
+        },
         "functions.Function": {
             "type": "object",
             "properties": {
@@ -4645,6 +4890,25 @@
                     "type": "string"
                 },
                 "logo_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.FailoverChainsResponse": {
+            "type": "object",
+            "properties": {
+                "chains": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/failover.ChainStatus"
+                    }
+                }
+            }
+        },
+        "localai.FailoverPinRequest": {
+            "type": "object",
+            "properties": {
+                "target": {
                     "type": "string"
                 }
             }

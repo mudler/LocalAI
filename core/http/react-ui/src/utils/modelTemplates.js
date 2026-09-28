@@ -143,6 +143,16 @@ const MODEL_TEMPLATES = [
     },
   },
   {
+    id: 'failover',
+    label: 'Failover Chain',
+    icon: 'fa-shuffle',
+    description: 'Serve one model name from an ordered list of models. The first healthy one answers; the next takes over when it fails.',
+    fields: {
+      'name': '',
+      'failover.targets': [{ model: '' }, { model: '' }],
+    },
+  },
+  {
     id: 'alias',
     label: 'Alias / Routing',
     icon: 'fa-arrow-right-arrow-left',
