@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/pixal3d"
+	"github.com/mudler/xlog"
 )
 
 var modelFiles = []string{"dinov3.gguf", "pixal3d_naf.gguf", "pixal3d_ss_flow_mv.gguf", "ss_dec.gguf", "pixal3d_shape_flow_512_mv.gguf", "shape_dec.gguf", "pixal3d_shape_flow_1024_mv.gguf", "pixal3d_tex_flow_1024_mv.gguf", "tex_dec.gguf"}
@@ -31,7 +32,7 @@ type Pixal3D struct {
 }
 
 func validateModels(dir string) error {
-	f, err := os.Open(filepath.Join(dir, "pixal3d-models.json"))
+	f, err := os.Open(filepath.Join(dir, "pixal3d-models.json")) // #nosec G304 -- fixed manifest name in the administrator-configured model directory
 	if err != nil {
 		return fmt.Errorf("Pixal3D model manifest: %w", err)
 	}
@@ -44,7 +45,10 @@ func validateModels(dir string) error {
 		} `json:"files"`
 	}
 	err = json.NewDecoder(io.LimitReader(f, 1<<20)).Decode(&manifest)
-	f.Close()
+	closeErr := f.Close()
+	if closeErr != nil {
+		return fmt.Errorf("close Pixal3D manifest: %w", closeErr)
+	}
 	if err != nil || manifest.Schema != 1 || (manifest.Family != "" && manifest.Family != "mv") {
 		return fmt.Errorf("invalid Pixal3D MV model manifest")
 	}
@@ -56,14 +60,17 @@ func validateModels(dir string) error {
 		sizes[file.Name] = file.Size
 	}
 	for _, name := range modelFiles {
-		f, err := os.Open(filepath.Join(dir, name))
+		f, err := os.Open(filepath.Join(dir, name)) // #nosec G304 -- name comes from the fixed modelFiles list, not manifest input
 		if err != nil {
 			return fmt.Errorf("not a Pixal3D MV model set: %s: %w", name, err)
 		}
 		stat, err := f.Stat()
 		var magic [4]byte
 		_, readErr := io.ReadFull(f, magic[:])
-		f.Close()
+		closeErr := f.Close()
+		if closeErr != nil {
+			return fmt.Errorf("close Pixal3D component %s: %w", name, closeErr)
+		}
 		if err != nil || !stat.Mode().IsRegular() || readErr != nil || string(magic[:]) != "GGUF" || sizes[name] <= 0 || stat.Size() != sizes[name] {
 			return fmt.Errorf("invalid Pixal3D component %s (check manifest and file size)", name)
 		}
@@ -138,13 +145,21 @@ func (p *Pixal3D) Generate3D(req *pb.Generate3DRequest) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			xlog.Warn("Failed to remove Pixal3D staged views", "error", err)
+		}
+	}()
 	// The native CLI writes texture and mesh sidecars beside its GLB.
 	outputDir, err := os.MkdirTemp("", "pixal3d-output-")
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(outputDir)
+	defer func() {
+		if err := os.RemoveAll(outputDir); err != nil {
+			xlog.Warn("Failed to remove Pixal3D staged output", "error", err)
+		}
+	}()
 	output := filepath.Join(outputDir, "output.glb")
 	args, err := commandArgs(models, dir, output, req)
 	if err != nil {
@@ -152,12 +167,15 @@ func (p *Pixal3D) Generate3D(req *pb.Generate3DRequest) error {
 	}
 	names := []string{"0_front.png", "1_right.png", "2_back.png", "3_left.png"}
 	for i, path := range req.Images {
-		f, err := os.Open(path)
+		f, err := os.Open(path) // #nosec G304 -- images are local files staged by the server, not raw HTTP input
 		if err != nil {
 			return err
 		}
 		data, err := io.ReadAll(io.LimitReader(f, pixal3d.MaxInputBytes+1))
-		f.Close()
+		closeErr := f.Close()
+		if closeErr != nil {
+			return closeErr
+		}
 		if err != nil {
 			return err
 		}
@@ -173,17 +191,21 @@ func (p *Pixal3D) Generate3D(req *pb.Generate3DRequest) error {
 		args = append([]string{cli}, args...)
 		cli = loader
 	}
-	cmd := exec.CommandContext(ctx, cli, args...)
+	cmd := exec.CommandContext(ctx, cli, args...) // #nosec G204 -- Load resolves the packaged CLI and loader beside this executable; arguments never pass through a shell
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("Pixal3D generation failed: %w", err)
 	}
-	f, err := os.Open(output)
+	f, err := os.Open(output) // #nosec G304 -- fixed output.glb name inside the private directory created above
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			xlog.Warn("Failed to close Pixal3D output", "error", err)
+		}
+	}()
 	var header [4]byte
 	if _, err := io.ReadFull(f, header[:]); err != nil || string(header[:]) != "glTF" {
 		return fmt.Errorf("Pixal3D did not produce a GLB")
@@ -199,7 +221,9 @@ func (p *Pixal3D) Generate3D(req *pb.Generate3DRequest) error {
 	_, copyErr := io.Copy(dst, f)
 	closeErr := dst.Close()
 	if copyErr != nil || closeErr != nil {
-		os.Remove(req.Dst)
+		if err := os.Remove(req.Dst); err != nil {
+			xlog.Warn("Failed to remove incomplete Pixal3D output", "error", err)
+		}
 		if copyErr != nil {
 			return copyErr
 		}
