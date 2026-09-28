@@ -14,6 +14,7 @@ import StatGrid from '../components/split/StatGrid'
 import { useModels } from '../hooks/useModels'
 import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
 import { useOperations } from '../hooks/useOperations'
+import useFailoverChains from '../hooks/useFailoverChains'
 import { backendControlApi, modelsApi, nodesApi, systemApi } from '../utils/api'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import { safeHref } from '../utils/url'
@@ -106,6 +107,7 @@ export default function InstalledModels({
   const { models, loading, error: loadError, refetch } = useModels()
   const { enrichModel } = useGalleryEnrichment()
   const { operations } = useOperations()
+  const { byName: failoverChains } = useFailoverChains()
   const [loadedModelIds, setLoadedModelIds] = useState(() => new Set())
   const [aliasTargets, setAliasTargets] = useState({})
   const [distributedMode, setDistributedMode] = useState(false)
@@ -337,6 +339,7 @@ export default function InstalledModels({
     const enriched = enrichModel(selectedModel.id)
     const useCases = modelUseCases(selectedModel)
     const running = isRunning(selectedModel)
+    const chain = failoverChains[selectedModel.id]
     const pending = pendingActions.has(selectedModel.id)
     return (
       <ModelLifecycleDetailShell
@@ -421,7 +424,7 @@ export default function InstalledModels({
           </>
         )}
       >
-        {(aliasTargets[selectedModel.id] || selectedModel.source === 'registry-only') && (
+        {(aliasTargets[selectedModel.id] || selectedModel.source === 'registry-only' || chain) && (
           <div className="badge-row">
             {selectedModel.source === 'registry-only' && (
               <span className="badge badge-warning" title={t('lifecycle.detail.adoptedHint')}>
@@ -431,6 +434,11 @@ export default function InstalledModels({
             {aliasTargets[selectedModel.id] && (
               <span className="badge badge-info" title={t('lifecycle.detail.aliasTitle', { target: aliasTargets[selectedModel.id] })}>
                 <i className="fas fa-arrow-right-arrow-left" /> {t('lifecycle.detail.alias', { target: aliasTargets[selectedModel.id] })}
+              </span>
+            )}
+            {chain && (
+              <span className="badge badge-info" title={t('lifecycle.detail.chainTitle', { target: chain.active })}>
+                <i className="fas fa-shuffle" /> {t('lifecycle.detail.chain', { target: chain.active })}
               </span>
             )}
           </div>

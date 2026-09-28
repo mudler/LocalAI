@@ -34,6 +34,7 @@ const (
 	routeMiddleware      = "/api/middleware/status"
 	routeRouterDecisions = "/api/router/decisions"
 	routeVoiceProfiles   = "/api/voice-profiles"
+	routeFailover        = "/api/failover"
 )
 
 func routeJobStatus(jobID string) string {

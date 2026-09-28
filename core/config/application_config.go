@@ -14,6 +14,9 @@ import (
 )
 
 type ApplicationConfig struct {
+	// ProxyAPIKeyEnvLookup resolves upstream credentials at the CLI boundary.
+	ProxyAPIKeyEnvLookup func(string) string `json:"-" yaml:"-"`
+
 	Context          context.Context
 	ConfigFile       string
 	SystemState      *system.SystemState
@@ -270,6 +273,10 @@ type AgentPoolConfig struct {
 }
 
 type AppOption func(*ApplicationConfig)
+
+func WithProxyAPIKeyEnvLookup(lookup func(string) string) AppOption {
+	return func(o *ApplicationConfig) { o.ProxyAPIKeyEnvLookup = lookup }
+}
 
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{

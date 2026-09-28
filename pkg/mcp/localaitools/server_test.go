@@ -92,6 +92,7 @@ var expectedReadOnlyCatalog = sortedStrings(
 	ToolListVoiceProfiles,
 	ToolSystemInfo,
 	ToolVRAMEstimate,
+	ToolListFailoverChains,
 )
 
 // expectedFullCatalog derives from the read-only catalog plus the canonical
@@ -155,6 +156,9 @@ var _ = Describe("Tool dispatch", func() {
 		{ToolListAliases, struct{}{}, "ListAliases"},
 		{ToolCreateVoiceProfile, CreateVoiceProfileRequest{Name: "Narrator", Transcript: "Reference words", AudioBase64: "UklGRg==", ConsentConfirmed: true}, "CreateVoiceProfile"},
 		{ToolDeleteVoiceProfile, DeleteVoiceProfileRequest{ID: "00000000-0000-0000-0000-000000000001"}, "DeleteVoiceProfile"},
+		{ToolListFailoverChains, map[string]any{}, "ListFailoverChains"},
+		{ToolPinFailoverTarget, map[string]any{"chain": "c", "target": "b"}, "PinFailoverTarget"},
+		{ToolUnpinFailoverTarget, map[string]any{"chain": "c"}, "UnpinFailoverTarget"},
 	}
 
 	for _, c := range cases {

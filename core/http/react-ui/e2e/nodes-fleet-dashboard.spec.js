@@ -47,7 +47,7 @@ test.describe('Nodes fleet dashboard', () => {
 
     const rail = page.locator('.console-layout > .console-rail')
     await expect(rail).toBeVisible()
-    await expect(rail.locator('a.nav-item')).toHaveCount(13)
+    await expect(rail.locator('a.nav-item')).toHaveCount(14)
     await expect(rail.locator('a[href="/app/nodes"]')).toHaveClass(/active/)
     await expect(rail.locator('a[href$="/swagger/index.html"]')).toHaveAttribute('target', '_blank')
   })
@@ -67,7 +67,7 @@ test.describe('Nodes fleet dashboard', () => {
     await expect(rail.locator('.console-rail-groups')).toBeHidden()
     await rail.getByRole('button', { name: 'Expand Operate navigation' }).click()
     await expect(rail.locator('.console-rail-groups')).toBeVisible()
-    await expect(rail.locator('a.nav-item')).toHaveCount(13)
+    await expect(rail.locator('a.nav-item')).toHaveCount(14)
   })
 
   test('shows aggregate health, capacity, attention filtering, search, sorting, and grouping', async ({ page }) => {

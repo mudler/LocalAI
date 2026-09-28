@@ -27,7 +27,11 @@ const (
 	// ServerEventTypeClassifierResult is a LocalAI extension: it carries the
 	// classifier-mode score distribution and decision for a response. OpenAI
 	// clients ignore it.
-	ServerEventTypeClassifierResult                   ServerEventType = "localai.classifier.result"
+	ServerEventTypeClassifierResult ServerEventType = "localai.classifier.result"
+	// ServerEventTypeModelFailover is a LocalAI extension: it names the target
+	// that serves a pipeline stage backed by a failover chain, at session start
+	// and on every chain switch. OpenAI clients ignore it.
+	ServerEventTypeModelFailover                      ServerEventType = "localai.model.failover"
 	ServerEventTypeInputAudioBufferCommitted          ServerEventType = "input_audio_buffer.committed"
 	ServerEventTypeInputAudioBufferCleared            ServerEventType = "input_audio_buffer.cleared"
 	ServerEventTypeInputAudioBufferSpeechStarted      ServerEventType = "input_audio_buffer.speech_started"

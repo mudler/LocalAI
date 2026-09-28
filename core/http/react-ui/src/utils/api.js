@@ -600,6 +600,16 @@ export const quantizationApi = {
   downloadUrl: (id) => apiUrl(`/api/quantization/jobs/${enc(id)}/download`),
 }
 
+// Failover chains API. Health is pushed over /api/failover/events (SSE);
+// list() seeds the view and backs the periodic resync.
+export const failoverApi = {
+  list: () => fetchJSON(API_CONFIG.endpoints.failoverChains),
+  get: (name) => fetchJSON(API_CONFIG.endpoints.failoverChain(name)),
+  pin: (name, target) => postJSON(API_CONFIG.endpoints.failoverPin(name), { target }),
+  unpin: (name) => fetchJSON(API_CONFIG.endpoints.failoverPin(name), { method: 'DELETE' }),
+  eventsUrl: () => API_CONFIG.endpoints.failoverEvents,
+}
+
 // Nodes API (distributed)
 export const nodesApi = {
   list: () => fetchJSON(API_CONFIG.endpoints.nodes),

@@ -40,7 +40,8 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
@@ -237,5 +238,67 @@
     "pickVision": "Membaca gambar dan dokumen",
     "pickAudio": "Suara masuk dan keluar",
     "pickVisual": "Membuat gambar dan video"
+  },
+  "failover": {
+    "title": "Rantai failover",
+    "servedBy": "Dilayani oleh",
+    "changed": "berubah {{time}}",
+    "pinnedTo": "Disematkan ke {{target}}",
+    "warm": "Siap",
+    "never": "Belum pernah",
+    "states": {
+      "primary": "Utama",
+      "fallback": "Cadangan",
+      "degraded": "Menurun",
+      "healthy": "Sehat",
+      "down": "Mati",
+      "recovering": "Memulihkan",
+      "missing": "Tidak ada"
+    },
+    "kinds": {
+      "local": "Lokal",
+      "remote": "Jarak jauh"
+    },
+    "columns": {
+      "target": "Target",
+      "kind": "Jenis",
+      "warm": "Siap",
+      "health": "Kesehatan",
+      "lastProbe": "Pemeriksaan terakhir",
+      "lastError": "Kesalahan terakhir",
+      "actions": "Aksi"
+    },
+    "actions": {
+      "pin": "Sematkan",
+      "pinning": "Menyematkan…",
+      "unpin": "Lepas",
+      "unpinning": "Melepas…"
+    },
+    "confirm": {
+      "pinTitle": "Sematkan {{target}}?",
+      "pinMessage": "Hanya {{target}} yang melayani {{chain}} sampai Anda melepasnya. Failover otomatis berhenti untuk rantai ini.",
+      "unpinTitle": "Lepas {{chain}}?",
+      "unpinMessage": "{{chain}} kembali ke failover otomatis."
+    },
+    "errors": {
+      "pin": "Gagal menyematkan: {{error}}",
+      "unpin": "Gagal melepas: {{error}}"
+    },
+    "overview": {
+      "title": "Rantai failover",
+      "subtitle": "Kesehatan langsung dan target aktif untuk setiap rantai failover.",
+      "columns": {
+        "chain": "Rantai",
+        "state": "Status",
+        "active": "Target aktif",
+        "targets": "Target",
+        "changed": "Berubah"
+      },
+      "empty": {
+        "title": "Belum ada rantai failover",
+        "text": "Tambahkan rantai failover untuk melewati target yang tidak sehat secara otomatis.",
+        "cta": "Buat rantai failover"
+      }
+    }
   }
 }

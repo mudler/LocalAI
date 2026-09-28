@@ -11,6 +11,7 @@ import FieldBrowser from '../components/FieldBrowser'
 import ConfigFieldRenderer from '../components/ConfigFieldRenderer'
 import { FormContextProvider } from '../contexts/FormContext'
 import TemplateSelector from '../components/TemplateSelector'
+import { ModelFailoverStatus } from '../components/FailoverChainStatus'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
 
@@ -19,7 +20,7 @@ const SECTION_ICONS = {
   templates: 'fa-file-code', functions: 'fa-wrench', reasoning: 'fa-brain',
   diffusers: 'fa-image', tts: 'fa-volume-up', pipeline: 'fa-code-branch',
   grpc: 'fa-server', agent: 'fa-robot', mcp: 'fa-plug', router: 'fa-route', proxy: 'fa-cloud',
-  mitm: 'fa-user-secret', pii: 'fa-user-shield', other: 'fa-ellipsis-h',
+  mitm: 'fa-user-secret', pii: 'fa-user-shield', failover: 'fa-shuffle', other: 'fa-ellipsis-h',
 }
 
 const SECTION_COLORS = {
@@ -28,7 +29,7 @@ const SECTION_COLORS = {
   reasoning: 'var(--color-accent)', diffusers: 'var(--color-warning)', tts: 'var(--color-success)',
   pipeline: 'var(--color-accent)', grpc: 'var(--color-text-muted)', agent: 'var(--color-primary)',
   mcp: 'var(--color-accent)', router: 'var(--color-accent)', proxy: 'var(--color-info, var(--color-primary))',
-  mitm: 'var(--color-warning)', pii: 'var(--color-error)', other: 'var(--color-text-muted)',
+  mitm: 'var(--color-warning)', pii: 'var(--color-error)', failover: 'var(--color-accent)', other: 'var(--color-text-muted)',
 }
 
 // flattenConfig turns a parsed YAML config into a flat { 'a.b.c': value }
@@ -461,6 +462,9 @@ export default function ModelEditor() {
           )}
         </div>
       </div>
+
+      {/* Live failover health; renders only when this model is a chain */}
+      {!isCreateMode && <ModelFailoverStatus name={name} addToast={addToast} />}
 
       {/* Template selector (create mode, step 1) */}
       {showTemplateSelector && <TemplateSelector onSelect={handleSelectTemplate} />}

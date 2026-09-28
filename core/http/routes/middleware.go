@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // RegisterMiddlewareRoutes wires the routing-module admin surface that
@@ -348,7 +349,7 @@ func buildPIIStatus(app *application.Application) map[string]any {
 			// Why is this on? backend default (cloud-proxy) vs an explicit YAML
 			// toggle. Helps admins understand the resolved state without
 			// reading source.
-			"default_for_backend": !explicit && cfg.Backend == "cloud-proxy",
+			"default_for_backend": !explicit && cfg.Backend == model.CloudProxyBackend,
 			// The detectors came from the global default, not this model's YAML.
 			"detectors_from_default": enabled && len(ownDetectors) == 0 && len(detectors) > 0,
 		}
@@ -403,7 +404,7 @@ func buildPIIStatus(app *application.Application) map[string]any {
 
 	return map[string]any{
 		"enabled_globally":             true,
-		"default_enabled_for_backends": []string{"cloud-proxy"},
+		"default_enabled_for_backends": []string{model.CloudProxyBackend},
 		"models":                       models,
 		"detector_models":              detectorModels,
 		"recent_event_count":           recentCount,

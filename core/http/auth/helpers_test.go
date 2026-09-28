@@ -77,6 +77,9 @@ func newAuthTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 	e.GET("/api/settings", ok)
 	e.POST("/api/settings", ok)
 
+	// Failover chain reads and the event stream: standard auth, no admin gate.
+	e.GET("/api/failover", ok)
+
 	// Auth routes (exempt)
 	e.GET("/api/auth/status", ok)
 	e.GET("/api/auth/github/login", ok)
@@ -136,6 +139,10 @@ func newAdminTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Ech
 	e.POST("/models/apply", ok, adminMw)
 	e.POST("/backends/apply", ok, adminMw)
 	e.GET("/api/agents", ok, adminMw)
+
+	// Failover chain pin/unpin (admin only)
+	e.POST("/api/failover/:chain/pin", ok, adminMw)
+	e.DELETE("/api/failover/:chain/pin", ok, adminMw)
 
 	// Trace/log endpoints (admin only)
 	e.GET("/api/traces", ok, adminMw)

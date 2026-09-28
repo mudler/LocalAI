@@ -11,6 +11,7 @@ import PatternListEditor from './PatternListEditor'
 import ModelMultiSelect from './ModelMultiSelect'
 import RouterCandidatesEditor from './RouterCandidatesEditor'
 import RouterPoliciesEditor from './RouterPoliciesEditor'
+import FailoverTargetsEditor from './FailoverTargetsEditor'
 
 // Map autocomplete provider to SearchableModelSelect capability
 const PROVIDER_TO_CAPABILITY = {
@@ -377,6 +378,23 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
           </div>
         </div>
         <RouterPoliciesEditor value={value} onChange={handleChange} />
+      </div>
+    )
+  }
+
+  // Failover targets — ordered member list of a failover chain. Each row
+  // is {model, warm}; duplicate/self-reference detection reads the edited
+  // model's own name from FormContext.
+  if (component === 'failover-targets') {
+    return (
+      <div className="list-row">
+        <div className="hstack hstack--between mb-xs">
+          <div>
+            <div className="text-base fw-medium"><FieldLabel field={field} /></div>
+            <div className="text-meta mt-xs">{description}</div>
+          </div>
+        </div>
+        <FailoverTargetsEditor value={value} onChange={handleChange} />
       </div>
     )
   }

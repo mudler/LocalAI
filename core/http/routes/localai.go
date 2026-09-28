@@ -170,6 +170,16 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		return nil
 	}))
 
+	// Failover chains: reads and the event stream use standard auth (any
+	// authenticated caller may watch chain health); pin/unpin are admin-only
+	// since they override the routing decision for every caller of the chain.
+	fm := app.FailoverManager()
+	router.GET("/api/failover", localai.ListFailoverChainsEndpoint(fm))
+	router.GET("/api/failover/events", localai.FailoverEventsEndpoint(fm))
+	router.GET("/api/failover/:chain", localai.GetFailoverChainEndpoint(fm))
+	router.POST("/api/failover/:chain/pin", localai.PinFailoverTargetEndpoint(fm), adminMiddleware)
+	router.DELETE("/api/failover/:chain/pin", localai.UnpinFailoverTargetEndpoint(fm), adminMiddleware)
+
 	voiceProfiles := app.VoiceProfileStore()
 	router.GET("/api/voice-profiles", localai.ListVoiceProfilesEndpoint(voiceProfiles))
 	router.GET("/api/voice-profiles/:id/audio", localai.ServeVoiceProfileAudioEndpoint(voiceProfiles))

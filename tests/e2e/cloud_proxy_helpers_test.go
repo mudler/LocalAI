@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -46,6 +47,9 @@ type fakeOpenAIUpstreamServer struct {
 
 	mu     sync.Mutex
 	script func(req []byte) (status int, body string, contentType string)
+	// models is what GET /v1/models lists: failover liveness probes check
+	// that the upstream still serves the target's model.
+	models []string
 }
 
 func newFakeOpenAIUpstream() *fakeOpenAIUpstreamServer {
@@ -59,6 +63,20 @@ func newFakeOpenAIUpstream() *fakeOpenAIUpstreamServer {
 }
 
 func (f *fakeOpenAIUpstreamServer) serve(w http.ResponseWriter, r *http.Request) {
+	// Answered before recording: periodic probes must not overwrite the
+	// request a spec is about to assert on.
+	if r.Method == http.MethodGet && r.URL.Path == "/v1/models" {
+		f.mu.Lock()
+		ids := slices.Clone(f.models)
+		f.mu.Unlock()
+		data := make([]map[string]string, 0, len(ids))
+		for _, id := range ids {
+			data = append(data, map[string]string{"id": id})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+		return
+	}
 	atomic.AddInt32(&f.recorder.RequestHits, 1)
 	body, _ := io.ReadAll(r.Body)
 	f.recorder.mu.Lock()
@@ -79,6 +97,12 @@ func (f *fakeOpenAIUpstreamServer) serve(w http.ResponseWriter, r *http.Request)
 
 func (f *fakeOpenAIUpstreamServer) URL() string { return f.srv.URL }
 func (f *fakeOpenAIUpstreamServer) Close()      { f.srv.Close() }
+
+func (f *fakeOpenAIUpstreamServer) SetModels(ids ...string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.models = ids
+}
 
 func (f *fakeOpenAIUpstreamServer) SetScript(script func(req []byte) (status int, body string, contentType string)) {
 	f.mu.Lock()

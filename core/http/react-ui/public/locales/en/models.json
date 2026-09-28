@@ -40,7 +40,8 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
@@ -241,5 +242,67 @@
     "pickVision": "Read images and documents",
     "pickAudio": "Speech in and speech out",
     "pickVisual": "Generate images and video"
+  },
+  "failover": {
+    "title": "Failover chain",
+    "servedBy": "Served by",
+    "changed": "changed {{time}}",
+    "pinnedTo": "Pinned to {{target}}",
+    "warm": "Warm",
+    "never": "Never",
+    "states": {
+      "primary": "Primary",
+      "fallback": "Fallback",
+      "degraded": "Degraded",
+      "healthy": "Healthy",
+      "down": "Down",
+      "recovering": "Recovering",
+      "missing": "Missing"
+    },
+    "kinds": {
+      "local": "Local",
+      "remote": "Remote"
+    },
+    "columns": {
+      "target": "Target",
+      "kind": "Kind",
+      "warm": "Warm",
+      "health": "Health",
+      "lastProbe": "Last probe",
+      "lastError": "Last error",
+      "actions": "Actions"
+    },
+    "actions": {
+      "pin": "Pin",
+      "pinning": "Pinning…",
+      "unpin": "Unpin",
+      "unpinning": "Unpinning…"
+    },
+    "confirm": {
+      "pinTitle": "Pin {{target}}?",
+      "pinMessage": "Only {{target}} serves {{chain}} until you unpin it. Automatic failover stops for this chain.",
+      "unpinTitle": "Unpin {{chain}}?",
+      "unpinMessage": "{{chain}} returns to automatic failover."
+    },
+    "errors": {
+      "pin": "Pin failed: {{error}}",
+      "unpin": "Unpin failed: {{error}}"
+    },
+    "overview": {
+      "title": "Failover chains",
+      "subtitle": "Live health and the active target for every failover chain.",
+      "columns": {
+        "chain": "Chain",
+        "state": "State",
+        "active": "Active target",
+        "targets": "Targets",
+        "changed": "Changed"
+      },
+      "empty": {
+        "title": "No failover chains yet",
+        "text": "Add a failover chain to route around unhealthy targets automatically.",
+        "cta": "Create a failover chain"
+      }
+    }
   }
 }

@@ -40,7 +40,8 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
@@ -224,5 +225,67 @@
     "pickVision": "Bilder und Dokumente lesen",
     "pickAudio": "Sprache rein, Sprache raus",
     "pickVisual": "Bilder und Video erzeugen"
+  },
+  "failover": {
+    "title": "Failover-Kette",
+    "servedBy": "Bedient von",
+    "changed": "geändert {{time}}",
+    "pinnedTo": "Fixiert auf {{target}}",
+    "warm": "Vorgeladen",
+    "never": "Nie",
+    "states": {
+      "primary": "Primär",
+      "fallback": "Fallback",
+      "degraded": "Beeinträchtigt",
+      "healthy": "Gesund",
+      "down": "Ausgefallen",
+      "recovering": "Erholt sich",
+      "missing": "Fehlt"
+    },
+    "kinds": {
+      "local": "Lokal",
+      "remote": "Remote"
+    },
+    "columns": {
+      "target": "Ziel",
+      "kind": "Art",
+      "warm": "Vorgeladen",
+      "health": "Zustand",
+      "lastProbe": "Letzte Prüfung",
+      "lastError": "Letzter Fehler",
+      "actions": "Aktionen"
+    },
+    "actions": {
+      "pin": "Fixieren",
+      "pinning": "Wird fixiert…",
+      "unpin": "Lösen",
+      "unpinning": "Wird gelöst…"
+    },
+    "confirm": {
+      "pinTitle": "{{target}} fixieren?",
+      "pinMessage": "Nur {{target}} bedient {{chain}}, bis Sie die Fixierung lösen. Das automatische Failover ist für diese Kette angehalten.",
+      "unpinTitle": "{{chain}} lösen?",
+      "unpinMessage": "{{chain}} kehrt zum automatischen Failover zurück."
+    },
+    "errors": {
+      "pin": "Fixieren fehlgeschlagen: {{error}}",
+      "unpin": "Lösen fehlgeschlagen: {{error}}"
+    },
+    "overview": {
+      "title": "Failover-Ketten",
+      "subtitle": "Live-Zustand und aktives Ziel für jede Failover-Kette.",
+      "columns": {
+        "chain": "Kette",
+        "state": "Status",
+        "active": "Aktives Ziel",
+        "targets": "Ziele",
+        "changed": "Geändert"
+      },
+      "empty": {
+        "title": "Noch keine Failover-Ketten",
+        "text": "Fügen Sie eine Failover-Kette hinzu, um fehlerhafte Ziele automatisch zu umgehen.",
+        "cta": "Failover-Kette erstellen"
+      }
+    }
   }
 }

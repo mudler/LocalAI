@@ -13,9 +13,12 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
+	"github.com/mudler/LocalAI/core/services/failover"
+	"github.com/mudler/LocalAI/core/services/failover/distsync"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -82,6 +85,7 @@ type Application struct {
 	routerRegistry    *router.Registry
 	routerCorpus      *corpus.Manager
 	admissionLimiter  *admission.Limiter
+	failoverManager   *failover.Manager
 	watchdogMutex     sync.Mutex
 	watchdogStop      chan bool
 	p2pMutex          sync.Mutex
@@ -92,12 +96,26 @@ type Application struct {
 	// Distributed mode services (nil when not in distributed mode)
 	distributed *DistributedServices
 
+	// failoverSync shares failover state between frontends; nil in
+	// standalone mode or when it could not start.
+	failoverSync *distsync.Sync
+	// failoverLock is the probe-leader lock this frontend holds or tries
+	// for; nil when failoverSync is nil.
+	failoverLock *advisorylock.HeldLock
+
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
 
 	// LocalAI Assistant in-process MCP server. nil when DisableLocalAIAssistant
 	// is set; otherwise initialised in start() after galleryService.
 	localAIAssistant *mcpTools.LocalAIAssistantHolder
+
+	// assistantClient is the concrete inproc client backing localAIAssistant.
+	// start() constructs it before failoverManager exists (see New() in
+	// startup.go), so New() sets assistantClient.Failover once the manager
+	// is built, using this field to reach back into the already-registered
+	// MCP tool set. nil when DisableLocalAIAssistant is set.
+	assistantClient *localaiInproc.Client
 
 	// startupComplete flips to true once New() has finished its whole startup
 	// sequence. It backs the /readyz probe.
@@ -478,6 +496,9 @@ func (a *Application) AdmissionLimiter() *admission.Limiter {
 	return a.admissionLimiter
 }
 
+// FailoverManager serves failover chains. Never nil after New.
+func (a *Application) FailoverManager() *failover.Manager { return a.failoverManager }
+
 // StartupConfig returns the original startup configuration (from env vars, before file loading)
 func (a *Application) StartupConfig() *config.ApplicationConfig {
 	return a.startupConfig
@@ -503,6 +524,9 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		// Before distributed shutdown: the sync's subscriptions live on the
+		// NATS connection that closes there.
+		a.stopFailoverDistributed()
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {
 			err = a.modelLoader.StopAllGRPC()
@@ -593,6 +617,12 @@ func (a *Application) start() error {
 		assistantClient.RouterEmbedder = a.Embedder
 		assistantClient.RouterEmbedderFingerprint = a.EmbedderFingerprint
 		assistantClient.RouterVectorStore = a.VectorStore
+		// Failover chains: failoverManager does not exist yet at this point
+		// in startup (New() in startup.go builds it after start() returns),
+		// so it can't be wired here like the fields above. New() sets
+		// assistantClient.Failover directly once the manager is built;
+		// stash the client so it can reach back into it.
+		a.assistantClient = assistantClient
 		if err := holder.Initialize(a.applicationConfig.Context, assistantClient, localaitools.Options{}); err != nil {
 			// Why log+continue instead of fail: the assistant is an optional
 			// feature; a failure here must not take down the whole server.

@@ -61,7 +61,8 @@
     "api": "API",
     "activity": "Atividade",
     "overview": "Visão geral",
-    "thisMachine": "Esta máquina"
+    "thisMachine": "Esta máquina",
+    "failover": "Failover"
   },
   "footer": {
     "github": "GitHub",

@@ -155,12 +155,13 @@ func (ds *DistributedServices) Shutdown() {
 // configLoader is used by the SmartRouter to compute concurrency-group
 // anti-affinity at placement time (#9659); it may be nil in tests.
 //
+// pinned adds warm failover targets to the models kept loaded.
 // galleryProgress is the gallery service, narrowed to the one method a node
 // departure needs. It is a PARAMETER and not a later setter because the
 // registration of every per-node cache a departure evicts happens here, in one
 // place, and a cache registered somewhere else is a cache a reader cannot find
 // by reading this function.
-func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader, galleryProgress nodeProgressDropper) (*DistributedServices, error) {
+func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader, galleryProgress nodeProgressDropper, pinned nodes.PinnedModelResolver) (*DistributedServices, error) {
 	if !cfg.Distributed.Enabled {
 		return nil, nil
 	}
@@ -630,6 +631,9 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		if cfg.SystemState != nil {
 			modelFiles = declaredModelFiles(configLoader, cfg.SystemState.Model.ModelsPath)
 		}
+	}
+	if pinned != nil {
+		pinnedResolver = pinned
 	}
 	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	// Absence is stamped on by distributedSchedulerOptions rather than written

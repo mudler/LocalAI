@@ -130,4 +130,15 @@ type LocalAIClient interface {
 	// ClearRouterCorpus wipes a knn router's corpus — file and live
 	// index.
 	ClearRouterCorpus(ctx context.Context, routerModel string) (*RouterCorpusClearResult, error)
+
+	// ---- Failover chains ----
+	// ListFailoverChains reports every configured failover chain, its
+	// currently active target, and the health of each target.
+	ListFailoverChains(ctx context.Context) ([]FailoverChainInfo, error)
+	// PinFailoverTarget forces chain to serve every request from target,
+	// regardless of health, until unpinned.
+	PinFailoverTarget(ctx context.Context, chain, target string) error
+	// UnpinFailoverTarget removes chain's pin so health decides the
+	// active target again.
+	UnpinFailoverTarget(ctx context.Context, chain string) error
 }

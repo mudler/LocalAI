@@ -105,6 +105,7 @@ const TYPE_COLORS = {
   vector_store: { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
   token_classify: { bg: 'var(--color-info-light)', color: 'var(--color-data-3)' },
   pattern_pii: { bg: 'var(--color-error-light)', color: 'var(--color-data-2)' },
+  failover: { bg: 'var(--color-warning-light)', color: 'var(--color-data-2)' },
 }
 
 function typeBadgeStyle(type) {

@@ -2038,6 +2038,21 @@
   capabilities:
     default: "cpu-cloud-proxy"
     metal: "metal-cloud-proxy"
+- &localai-proxy
+  name: "localai-proxy"
+  alias: "localai-proxy"
+  urls:
+    - https://github.com/mudler/LocalAI/tree/master/backend/go/localai-proxy
+  description: |
+    Serve a model from another LocalAI instance: text, embeddings, rerank, audio, image and video requests are forwarded to its REST API.
+  tags:
+    - text-to-text
+    - proxy
+    - CPU
+  license: MIT
+  capabilities:
+    default: "cpu-localai-proxy"
+    metal: "metal-localai-proxy"
 - &valkey-store
   name: "valkey-store"
   urls:
@@ -2623,6 +2638,31 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-cloud-proxy"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-cloud-proxy
+- !!merge <<: *localai-proxy
+  name: "cpu-localai-proxy"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-localai-proxy"
+  mirrors:
+    - localai/localai-backends:latest-cpu-localai-proxy
+- !!merge <<: *localai-proxy
+  name: "cpu-localai-proxy-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-localai-proxy"
+  mirrors:
+    - localai/localai-backends:master-cpu-localai-proxy
+- !!merge <<: *localai-proxy
+  name: "localai-proxy-development"
+  capabilities:
+    default: "cpu-localai-proxy-development"
+    metal: "metal-localai-proxy-development"
+- !!merge <<: *localai-proxy
+  name: "metal-localai-proxy"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-localai-proxy"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-localai-proxy
+- !!merge <<: *localai-proxy
+  name: "metal-localai-proxy-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-localai-proxy"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-localai-proxy
 - !!merge <<: *valkey-store
   name: "cpu-valkey-store"
   alias: "valkey-store"

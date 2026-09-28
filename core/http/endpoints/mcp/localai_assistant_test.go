@@ -214,3 +214,11 @@ func (stubClient) SeedRouterCorpus(_ context.Context, req localaitools.RouterCor
 func (stubClient) ClearRouterCorpus(_ context.Context, routerModel string) (*localaitools.RouterCorpusClearResult, error) {
 	return &localaitools.RouterCorpusClearResult{Router: routerModel}, nil
 }
+
+func (stubClient) ListFailoverChains(_ context.Context) ([]localaitools.FailoverChainInfo, error) {
+	return []localaitools.FailoverChainInfo{}, nil
+}
+
+func (stubClient) PinFailoverTarget(_ context.Context, _, _ string) error { return nil }
+
+func (stubClient) UnpinFailoverTarget(_ context.Context, _ string) error { return nil }

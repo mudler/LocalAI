@@ -48,6 +48,7 @@ const (
 	BackendTraceTokenClassify   BackendTraceType = "token_classify"
 	BackendTracePatternPII      BackendTraceType = "pattern_pii"
 	BackendTraceVectorStore     BackendTraceType = "vector_store"
+	BackendTraceFailover        BackendTraceType = "failover"
 )
 
 const (

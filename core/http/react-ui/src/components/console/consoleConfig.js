@@ -74,6 +74,7 @@ export const operateConsole = {
         { path: '/app/backends', icon: 'fas fa-server', labelKey: 'items.backends', adminOnly: true, signal: 'backends' },
         { path: '/app/voice-library', icon: 'fas fa-wave-square', labelKey: 'items.voiceLibrary', adminOnly: true },
         { path: '/app/activity', icon: 'fas fa-download', labelKey: 'items.activity', adminOnly: true, badge: 'operations', signal: 'activity' },
+        { path: '/app/failover', icon: 'fas fa-shuffle', labelKey: 'items.failover', adminOnly: true },
       ],
     },
     {

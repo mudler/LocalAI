@@ -132,6 +132,21 @@ func (s *server) Score(ctx context.Context, in *pb.ScoreRequest) (*pb.ScoreRespo
 	return sm.Score(ctx, in)
 }
 
+func (s *server) Rerank(ctx context.Context, in *pb.RerankRequest) (*pb.RerankResult, error) {
+	if err := s.checkModelIdentity(in); err != nil {
+		return nil, err
+	}
+	rm, ok := s.llm.(RerankModel)
+	if !ok {
+		return nil, status.Errorf(codes.Unimplemented, "method Rerank not implemented")
+	}
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	return rm.Rerank(ctx, in)
+}
+
 func (s *server) LoadModel(ctx context.Context, in *pb.ModelOptions) (*pb.Result, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()
@@ -160,6 +175,9 @@ func (s *server) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.Reply,
 	if s.llm.Locking() {
 		s.llm.Lock()
 		defer s.llm.Unlock()
+	}
+	if rich, ok := s.llm.(AIModelRichContext); ok {
+		return rich.PredictRichContext(ctx, in)
 	}
 	if rich, ok := s.llm.(AIModelRich); ok {
 		return rich.PredictRich(in)
@@ -565,7 +583,12 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 		// Server-side close: PredictStreamRich implementations send into
 		// the channel and return when finished; closing is the host's
 		// concern so impls don't have to remember `defer close(...)`.
-		err := rich.PredictStreamRich(in, replyChan)
+		var err error
+		if withCtx, ok := s.llm.(AIModelRichContext); ok {
+			err = withCtx.PredictStreamRichContext(stream.Context(), in, replyChan)
+		} else {
+			err = rich.PredictStreamRich(in, replyChan)
+		}
 		close(replyChan)
 		<-done
 		return err
@@ -1083,7 +1106,7 @@ func NewBackendServer(model AIModel) pb.BackendServer {
 }
 
 // AuthTokenEnvVar is the environment variable used to configure gRPC bearer token auth.
-const AuthTokenEnvVar = "LOCALAI_GRPC_AUTH_TOKEN"
+const AuthTokenEnvVar = "LOCALAI_GRPC_AUTH_TOKEN" // #nosec G101 -- the name of an environment variable, not a credential
 
 // validateToken extracts the bearer token from gRPC metadata and validates it.
 func validateToken(ctx context.Context, expected string) error {

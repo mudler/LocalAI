@@ -223,6 +223,17 @@ var _ = Describe("Auth Middleware", func() {
 			Expect(rec.Code).To(Equal(http.StatusOK))
 		})
 
+		It("allows requests to the failover status endpoint with a valid session", func() {
+			sessionID := createTestSession(db, user.ID)
+			rec := doRequest(app, http.MethodGet, "/api/failover", withSessionCookie(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+
+		It("returns 401 for the failover status endpoint without credentials", func() {
+			rec := doRequest(app, http.MethodGet, "/api/failover")
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+		})
+
 		It("allows authenticated users to call moderation by default", func() {
 			sessionID := createTestSession(db, user.ID)
 			rec := doRequest(app, http.MethodPost, "/v1/moderations", withSessionCookie(sessionID))
@@ -523,6 +534,30 @@ var _ = Describe("Auth Middleware", func() {
 			app := newAdminTestApp(db, appConfig)
 
 			rec := doRequest(app, http.MethodPost, "/models/apply", withSessionCookie(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusForbidden))
+		})
+
+		It("allows admin to pin and unpin failover chains", func() {
+			admin := createTestUser(db, "admin5@example.com", auth.RoleAdmin, auth.ProviderGitHub)
+			sessionID := createTestSession(db, admin.ID)
+			app := newAdminTestApp(db, appConfig)
+
+			rec := doRequest(app, http.MethodPost, "/api/failover/chain/pin", withSessionCookie(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			rec = doRequest(app, http.MethodDelete, "/api/failover/chain/pin", withSessionCookie(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+
+		It("blocks non-admin from pinning or unpinning failover chains", func() {
+			user := createTestUser(db, "user5@example.com", auth.RoleUser, auth.ProviderGitHub)
+			sessionID := createTestSession(db, user.ID)
+			app := newAdminTestApp(db, appConfig)
+
+			rec := doRequest(app, http.MethodPost, "/api/failover/chain/pin", withSessionCookie(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusForbidden))
+
+			rec = doRequest(app, http.MethodDelete, "/api/failover/chain/pin", withSessionCookie(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusForbidden))
 		})
 

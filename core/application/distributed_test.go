@@ -204,7 +204,7 @@ var _ = Describe("wiring the per-node caches a departure evicts", func() {
 		for _, a := range arm {
 			a(cfg)
 		}
-		ds, err := initDistributed(cfg, db, nil, galleryop.NewGalleryService(cfg, nil))
+		ds, err := initDistributed(cfg, db, nil, galleryop.NewGalleryService(cfg, nil), nil)
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(ds.Shutdown)
 		return ds

@@ -2,6 +2,7 @@ package syncstate_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,6 +41,8 @@ type fakeStore struct {
 	upsertCalls int
 	deleteCalls int
 	listCalls   int
+	// fail, when set, makes Upsert and Delete return it without writing.
+	fail error
 }
 
 func newFakeStore(seed ...*job) *fakeStore {
@@ -65,6 +68,9 @@ func (s *fakeStore) Upsert(_ context.Context, j *job) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.upsertCalls++
+	if s.fail != nil {
+		return s.fail
+	}
 	s.data[j.ID] = j
 	return nil
 }
@@ -73,6 +79,9 @@ func (s *fakeStore) Delete(_ context.Context, k string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.deleteCalls++
+	if s.fail != nil {
+		return s.fail
+	}
 	delete(s.data, k)
 	return nil
 }
@@ -210,6 +219,41 @@ var _ = Describe("SyncedMap", func() {
 			_, delB, _ := storeB.counts()
 			Expect(delA).To(Equal(1), "local Delete must delete from its own Store")
 			Expect(delB).To(Equal(0), "the apply path must never delete from the peer's Store")
+		})
+	})
+
+	Describe("failed Store write", func() {
+		It("leaves memory and peers untouched when Set or Delete cannot persist", func() {
+			bus := testutil.NewFakeBus()
+			storeA := newFakeStore(&job{ID: "kept", Status: "running"})
+			a := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus, Store: storeA})
+			b := syncstate.New(syncstate.Config[string, *job]{Name: stateName, Key: jobKey, Bus: bus})
+			Expect(a.Start(ctx)).To(Succeed())
+			Expect(b.Start(ctx)).To(Succeed())
+			defer func() {
+				Expect(a.Close()).To(Succeed())
+				Expect(b.Close()).To(Succeed())
+			}()
+
+			errDown := errors.New("database down")
+			storeA.mu.Lock()
+			storeA.fail = errDown
+			storeA.mu.Unlock()
+
+			Expect(a.Set(ctx, &job{ID: "new", Status: "running"})).To(MatchError(errDown))
+			_, ok := a.Get("new")
+			Expect(ok).To(BeFalse(), "a value that was not persisted must not be served")
+			_, ok = b.Get("new")
+			Expect(ok).To(BeFalse(), "a value that was not persisted must not be broadcast")
+
+			Expect(a.Set(ctx, &job{ID: "kept", Status: "done"})).To(MatchError(errDown))
+			got, ok := a.Get("kept")
+			Expect(ok).To(BeTrue())
+			Expect(got.Status).To(Equal("running"), "a failed overwrite must keep the persisted value")
+
+			Expect(a.Delete(ctx, "kept")).To(MatchError(errDown))
+			_, ok = a.Get("kept")
+			Expect(ok).To(BeTrue(), "a failed delete must keep the persisted value")
 		})
 	})
 
