@@ -1,6 +1,8 @@
 package openresponses
 
 import (
+	"encoding/json"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 
@@ -48,6 +50,66 @@ var _ = Describe("convertORInputToMessages", func() {
 		Expect(msgs).To(HaveLen(1))
 		Expect(msgs[0].StringContent).To(Equal("Typed"))
 		Expect(msgs[0].Content).To(Equal("Typed"))
+	})
+
+	Context("replaying serialized response output", func() {
+		outputItems := func(items ...schema.ORItemField) []any {
+			data, err := json.Marshal(schema.ORResponseResource{Output: items})
+			Expect(err).NotTo(HaveOccurred())
+			var response struct {
+				Output []any `json:"output"`
+			}
+			Expect(json.Unmarshal(data, &response)).To(Succeed())
+			return response.Output
+		}
+		convertRequest := func(input []any) []schema.Message {
+			data, err := json.Marshal(schema.OpenResponsesRequest{Input: input})
+			Expect(err).NotTo(HaveOccurred())
+			var request schema.OpenResponsesRequest
+			Expect(json.Unmarshal(data, &request)).To(Succeed())
+			msgs, err := convertORInputToMessages(request.Input, cfg)
+			Expect(err).NotTo(HaveOccurred())
+			return msgs
+		}
+		assistant := func(parts ...string) schema.ORItemField {
+			var content []schema.ORContentPart
+			for _, text := range parts {
+				content = append(content, schema.ORContentPart{Type: "output_text", Text: text})
+			}
+			return schema.ORItemField{Type: "message", Role: "assistant", Content: content}
+		}
+		user := func(text string) any {
+			return map[string]any{"role": "user", "content": []any{
+				map[string]any{"type": "input_text", "text": text},
+			}}
+		}
+
+		It("preserves assistant output_text in both content fields", func() {
+			msgs := convertRequest(outputItems(assistant("Hello again")))
+			Expect(msgs).To(HaveLen(1))
+			Expect(msgs[0].Role).To(Equal("assistant"))
+			Expect(msgs[0].Content).To(Equal("Hello again"))
+			Expect(msgs[0].StringContent).To(Equal("Hello again"))
+		})
+
+		It("joins text parts and contiguous assistant messages across user input_text boundaries", func() {
+			input := []any{user("First question")}
+			input = append(input, outputItems(assistant("First ", "answer"), assistant("More detail"))...)
+			input = append(input, user("Next question"))
+			input = append(input, outputItems(assistant("Second answer"))...)
+			msgs := convertRequest(input)
+			Expect(msgs).To(HaveLen(4))
+			for i, expected := range []struct{ role, text string }{
+				{"user", "First question"},
+				{"assistant", "First answer\nMore detail"},
+				{"user", "Next question"},
+				{"assistant", "Second answer"},
+			} {
+				Expect(msgs[i].Role).To(Equal(expected.role))
+				Expect(msgs[i].Content).To(Equal(expected.text))
+				Expect(msgs[i].StringContent).To(Equal(expected.text))
+			}
+		})
 	})
 
 	It("does not treat a non-message item (no content key) as a message", func() {
