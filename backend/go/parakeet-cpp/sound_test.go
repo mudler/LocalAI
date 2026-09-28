@@ -249,6 +249,59 @@ var _ = Describe("ParakeetCpp.SoundDetection", func() {
 		Expect(err.Error()).To(ContainSubstring("boom"))
 		Expect(freed).To(BeTrue())
 	})
+
+	It("returns Canceled without feeding when ctx is already cancelled, and frees the stream", func() {
+		freed := false
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		CppNumClasses = func(uintptr) int32 { return 2 }
+		CppSoundStreamBegin = func(tagger uintptr, o *cSoundOpts) uintptr { return 1 }
+		CppSoundStreamFeed = func(s uintptr, pcm *float32, n int32, isLast int32, out *uintptr, nOut *int32) int32 {
+			Fail("sound_stream_feed must not be called when ctx is already cancelled")
+			return 0
+		}
+		CppSoundStreamDrainScoresJSON = func(uintptr) uintptr {
+			Fail("drain_scores_json must not be called when ctx is already cancelled")
+			return 0
+		}
+		CppSoundStreamFree = func(uintptr) { freed = true }
+
+		p := &ParakeetCpp{tagCtx: 42}
+		_, err := p.SoundDetection(ctx, &pb.SoundDetectionRequest{Src: soundWav(15)})
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.Canceled))
+		Expect(freed).To(BeTrue())
+	})
+
+	It("stops feeding and frees the stream when ctx is cancelled mid-feed", func() {
+		freed := false
+		feedCount := 0
+		ctx, cancel := context.WithCancel(context.Background())
+
+		CppNumClasses = func(uintptr) int32 { return 2 }
+		CppSoundStreamBegin = func(tagger uintptr, o *cSoundOpts) uintptr { return 1 }
+		CppSoundStreamFeed = func(s uintptr, pcm *float32, n int32, isLast int32, out *uintptr, nOut *int32) int32 {
+			feedCount++
+			cancel() // cancel after the first feed so a second chunk would exist if not stopped
+			*out = 0
+			*nOut = 0
+			return 0
+		}
+		CppSoundStreamDrainScoresJSON = func(uintptr) uintptr {
+			Fail("drain_scores_json must not be called when the feed loop was cancelled")
+			return 0
+		}
+		CppSoundStreamFree = func(uintptr) { freed = true }
+
+		// Two 10 s chunks, so a second feed call would happen without the cancel.
+		p := &ParakeetCpp{tagCtx: 42}
+		_, err := p.SoundDetection(ctx, &pb.SoundDetectionRequest{Src: soundWav(15)})
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.Canceled))
+		Expect(feedCount).To(Equal(1))
+		Expect(freed).To(BeTrue())
+	})
 })
 
 var _ = Describe("averageWindowScores", func() {

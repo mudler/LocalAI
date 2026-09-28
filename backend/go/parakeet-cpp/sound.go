@@ -68,7 +68,7 @@ func (p *ParakeetCpp) SoundDetection(ctx context.Context, req *pb.SoundDetection
 		return nil, err
 	}
 
-	windows, nClasses, err := p.soundStreamScores(pcm)
+	windows, nClasses, err := p.soundStreamScores(ctx, pcm)
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +89,34 @@ func (p *ParakeetCpp) SoundDetection(ctx context.Context, req *pb.SoundDetection
 }
 
 // soundStreamScores runs pcm through a fresh sound stream and returns the
-// drained per-window scores plus the tagger's class count. Every C call runs
-// under engineMu; the stream is freed (deferred right after a successful
-// begin) even when a later feed or drain call fails. Each feed's returned
-// segments array is freed with parakeet_capi_free_sound_segments even though
-// SoundDetection has no use for the segments themselves (it only reads the
-// drained window scores).
-func (p *ParakeetCpp) soundStreamScores(pcm []float32) ([]soundWindowJSON, int, error) {
+// drained per-window scores plus the tagger's class count. The C calls run
+// under engineMu (see soundStreamDrain); JSON decoding happens after the
+// lock is released.
+func (p *ParakeetCpp) soundStreamScores(ctx context.Context, pcm []float32) ([]soundWindowJSON, int, error) {
+	doc, nClasses, err := p.soundStreamDrain(ctx, pcm)
+	if err != nil {
+		return nil, nClasses, err
+	}
+
+	var windows []soundWindowJSON
+	if err := json.Unmarshal([]byte(doc), &windows); err != nil {
+		return nil, nClasses, fmt.Errorf("parakeet-cpp: decode sound scores json: %w", err)
+	}
+	return windows, nClasses, nil
+}
+
+// soundStreamDrain runs pcm through a fresh sound stream and returns the
+// raw JSON document parakeet_capi_sound_stream_drain_scores_json drained,
+// plus the tagger's class count. Every C call (opts default, begin, feed,
+// free, drain) runs under engineMu; the stream is freed (deferred right
+// after a successful begin) even when a later feed or drain call fails, or
+// ctx is cancelled mid-feed. Each feed's returned segments array is freed
+// with parakeet_capi_free_sound_segments even though SoundDetection has no
+// use for the segments themselves (it only reads the drained window
+// scores). ctx.Err() is checked before each feed slice, mirroring
+// driver.go's feedSlices, so a long clip can be cancelled mid-feed; the
+// caller decodes the returned JSON outside the lock.
+func (p *ParakeetCpp) soundStreamDrain(ctx context.Context, pcm []float32) (string, int, error) {
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
 
@@ -109,12 +130,18 @@ func (p *ParakeetCpp) soundStreamScores(pcm []float32) ([]soundWindowJSON, int, 
 
 	stream := CppSoundStreamBegin(p.tagCtx, &opts)
 	if stream == 0 {
-		return nil, nClasses, fmt.Errorf("parakeet-cpp: sound_stream_begin failed: %s", soundLastError(p.tagCtx))
+		return "", nClasses, fmt.Errorf("parakeet-cpp: sound_stream_begin failed: %s", soundLastError(p.tagCtx))
 	}
 	defer CppSoundStreamFree(stream)
 
 	offset := 0
 	for {
+		if ctx != nil {
+			if err := ctx.Err(); err != nil {
+				return "", nClasses, status.Error(codes.Canceled, "parakeet-cpp: sound detection cancelled")
+			}
+		}
+
 		end := offset + soundFeedChunkSamples
 		isLast := int32(0)
 		if end >= len(pcm) {
@@ -133,7 +160,7 @@ func (p *ParakeetCpp) soundStreamScores(pcm []float32) ([]soundWindowJSON, int, 
 			CppFreeSoundSegments(segsOut)
 		}
 		if rc != 0 {
-			return nil, nClasses, fmt.Errorf("parakeet-cpp: sound_stream_feed failed: %s", soundLastError(p.tagCtx))
+			return "", nClasses, fmt.Errorf("parakeet-cpp: sound_stream_feed failed: %s", soundLastError(p.tagCtx))
 		}
 
 		offset = end
@@ -144,16 +171,11 @@ func (p *ParakeetCpp) soundStreamScores(pcm []float32) ([]soundWindowJSON, int, 
 
 	raw := CppSoundStreamDrainScoresJSON(stream)
 	if raw == 0 {
-		return nil, nClasses, fmt.Errorf("parakeet-cpp: sound_stream_drain_scores_json failed: %s", soundLastError(p.tagCtx))
+		return "", nClasses, fmt.Errorf("parakeet-cpp: sound_stream_drain_scores_json failed: %s", soundLastError(p.tagCtx))
 	}
 	doc := goStringFromCPtr(raw)
 	CppFreeString(raw)
-
-	var windows []soundWindowJSON
-	if err := json.Unmarshal([]byte(doc), &windows); err != nil {
-		return nil, nClasses, fmt.Errorf("parakeet-cpp: decode sound scores json: %w", err)
-	}
-	return windows, nClasses, nil
+	return doc, nClasses, nil
 }
 
 // soundLastError reads ctx's last_error, substituting a fallback message
