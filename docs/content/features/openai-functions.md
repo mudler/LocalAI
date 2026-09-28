@@ -281,6 +281,7 @@ the request's tools, in the chat completions, Anthropic messages and Responses
 endpoints, streaming and non-streaming. A call is dropped when:
 
 - the tool is not in the request,
+- arguments contain a JSON value other than an object, including `null`,
 - an argument is not in the tool's schema (unless the schema sets
   `additionalProperties` to `true` or to a schema), or
 - a required argument is missing.

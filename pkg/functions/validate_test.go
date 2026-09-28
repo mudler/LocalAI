@@ -47,6 +47,24 @@ var _ = Describe("ValidateFuncCall", func() {
 			To(MatchError(ContainSubstring("not a JSON object")))
 	})
 
+	DescribeTable("checks object arguments even without required properties",
+		func(arguments string, valid bool) {
+			f := Function{Name: "status", Parameters: map[string]any{
+				"type": "object", "properties": map[string]any{},
+			}}
+			err := ValidateFuncCall(FuncCallResults{Name: "status", Arguments: arguments}, Functions{f})
+			if valid {
+				Expect(err).ToNot(HaveOccurred())
+			} else {
+				Expect(err).To(MatchError(ContainSubstring("not a JSON object")))
+			}
+		},
+		Entry("null", "null", false),
+		Entry("null with whitespace", " \nnull\t", false),
+		Entry("empty object", "{}", true),
+		Entry("omitted arguments", "", true),
+	)
+
 	DescribeTable("treats additionalProperties the way llama.cpp's grammar does",
 		func(ap any, set bool, wantOK bool) {
 			params := map[string]any{"properties": map[string]any{"a": map[string]any{"type": "string"}}}

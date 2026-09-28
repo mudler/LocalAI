@@ -987,6 +987,41 @@ options:
 The full list of registered parsers lives in `sglang.srt.function_call`
 and `sglang.srt.parser.reasoning_parser`.
 
+#### Reasoning defaults and token budgets
+
+Set SGLang reasoning options in the model's `options:` list:
+
+```yaml
+options:
+  - reasoning_parser:qwen3
+  - thinking_budget:512
+  - reasoning_default:on
+engine_args:
+  enable_strict_thinking: true
+```
+
+`thinking_budget` sets a positive integer token budget for reasoning on each request.
+Invalid, zero, and negative values produce a warning and leave the budget unset.
+SGLang requires `engine_args.enable_strict_thinking: true` to enforce the budget.
+LocalAI warns if you configure a budget without that engine option.
+Keep the budget well below the `max_tokens` of your requests: if `max_tokens` is reached first,
+the budget never triggers and the whole reply can be spent on reasoning, leaving the answer empty.
+
+`reasoning_default:on` or `reasoning_default:off` sets the default for LocalAI's tokenizer chat template.
+Request metadata `enable_thinking` set to `"true"` or `"false"` overrides this default.
+An explicit prompt bypasses tokenizer template rendering.
+When no default or request override is set, the template keeps its own behavior.
+
+LocalAI signals required reasoning when the rendered prompt ends with the configured parser's opening reasoning token.
+An explicit output grammar disables this detection.
+Configure a reasoning parser that matches your model.
+
+The backend reads these options when it loads the model.
+`POST /models/reload` rereads model configuration files but does not update options in an already loaded backend.
+Restarting only the backend does not reread configuration files.
+Restart LocalAI after changing these options to reload both the configuration and the backend.
+
+
 ### vllm.cpp
 
 [vllm.cpp](https://github.com/mudler/vllm.cpp) is the LocalAI team's C++ port of

@@ -77,7 +77,7 @@ func ValidateFuncCall(call FuncCallResults, declared Functions) error {
 
 	args := map[string]any{}
 	if s := strings.TrimSpace(call.Arguments); s != "" {
-		if err := json.Unmarshal([]byte(s), &args); err != nil {
+		if err := json.Unmarshal([]byte(s), &args); err != nil || args == nil {
 			return ToolCallMismatch{Name: call.Name, Reason: "arguments are not a JSON object"}
 		}
 	}
