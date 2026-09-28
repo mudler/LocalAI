@@ -181,6 +181,23 @@ var _ = Describe("LlamaCPPImporter", func() {
 			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"))
 		})
 
+		It("swaps the emitted backend to rocmfp4 when preferred", func() {
+			preferences := json.RawMessage(`{"backend": "rocmfp4"}`)
+			details := Details{
+				URI:         "https://example.com/my-model.gguf",
+				Preferences: preferences,
+			}
+
+			modelConfig, err := importer.Import(details)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: rocmfp4"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).NotTo(ContainSubstring("backend: llama-cpp\n"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: my-model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(len(modelConfig.Files)).To(Equal(1))
+			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"))
+		})
+
 		It("swaps the emitted backend to vllm-cpp when preferred, keeping engine-side templating", func() {
 			preferences := json.RawMessage(`{"backend": "vllm-cpp"}`)
 			details := Details{
