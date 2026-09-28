@@ -955,7 +955,7 @@ func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID str
 		return nil, fmt.Errorf("looking up nodes for selector %s: %w", sched.NodeSelector, err)
 	}
 	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no healthy nodes match selector for model %s: %s", modelID, sched.NodeSelector)
+		return nil, fmt.Errorf("no healthy nodes match selector for model %s: %s: %w", modelID, sched.NodeSelector, ErrNoAvailableNodes)
 	}
 	return extractNodeIDs(candidates), nil
 }
@@ -1167,9 +1167,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		evictedNode, evictErr := r.evictLRUAndFreeNodeFrom(ctx, candidateNodeIDs)
 		if evictErr != nil {
 			if errors.Is(evictErr, ErrEvictionBusy) {
-				return nil, "", 0, fmt.Errorf("no healthy nodes available: %w", evictErr)
+				return nil, "", 0, fmt.Errorf("no healthy nodes available: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 			}
-			return nil, "", 0, fmt.Errorf("no healthy nodes available and eviction failed: %w", evictErr)
+			return nil, "", 0, fmt.Errorf("no healthy nodes available and eviction failed: %w", errors.Join(evictErr, ErrNoAvailableNodes))
 		}
 		node = evictedNode
 	}
@@ -2058,6 +2058,13 @@ func (r *SmartRouter) EvictLRU(ctx context.Context, nodeID string) (string, erro
 // ErrEvictionBusy is returned when all loaded models have in-flight requests
 // and none can be evicted to make room.
 var ErrEvictionBusy = errors.New("all models busy, cannot evict")
+
+// ErrNoAvailableNodes is returned when the scheduler cannot find any healthy
+// node to serve a model — all nodes are full and eviction cannot free a slot,
+// or a node selector excludes every candidate. The HTTP layer maps this to
+// 503 so clients treat it as a transient condition rather than a server bug
+// (which is what 500 would imply).
+var ErrNoAvailableNodes = errors.New("no available nodes")
 
 // evictLRUAndFreeNode finds the globally least-recently-used model with zero in-flight,
 // unloads it, and returns its node for reuse. If all models are busy, retries briefly.
