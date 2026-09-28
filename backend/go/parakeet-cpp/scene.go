@@ -84,6 +84,12 @@ func (p *ParakeetCpp) sceneBegin() sceneStreamHandle {
 	var opts cSceneOpts
 	CppSceneOptsDefault(&opts)
 	opts.DiarLatency = p.diarLatency
+	// The live scene path never drains sound scores (unlike the offline
+	// SoundDetection RPC, see sound.go), so the default top_k of 5 would
+	// leave the C side's per-window score queue growing for the session's
+	// whole lifetime. 0 disables per-class score retention; sound EVENTS
+	// (onset/offset, what the live path actually consumes) are unaffected.
+	opts.Sound.TopK = 0
 	s := CppSceneStreamBegin(0, diar, tag, &opts)
 	if s == 0 {
 		return sceneStreamHandle{}
