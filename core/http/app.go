@@ -475,6 +475,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	mcpJobsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCPJobs)
 
 	requestExtractor := httpMiddleware.NewRequestExtractor(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
+	requestExtractor.SetFailoverManager(application.FailoverManager())
 
 	// Register auth routes (login, callback, API keys, user management)
 	routes.RegisterAuthRoutes(e, application)

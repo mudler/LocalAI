@@ -53,6 +53,70 @@ definitions:
       name:
         type: string
     type: object
+  failover.ChainState:
+    enum:
+    - primary
+    - fallback
+    - degraded
+    type: string
+    x-enum-varnames:
+    - ChainPrimary
+    - ChainFallback
+    - ChainDegraded
+  failover.ChainStatus:
+    properties:
+      active:
+        type: string
+      active_since:
+        type: string
+      name:
+        type: string
+      pinned:
+        type: string
+      state:
+        $ref: '#/definitions/failover.ChainState'
+      targets:
+        items:
+          $ref: '#/definitions/failover.TargetStatus'
+        type: array
+    type: object
+  failover.Kind:
+    enum:
+    - local
+    - remote
+    type: string
+    x-enum-varnames:
+    - KindLocal
+    - KindRemote
+  failover.TargetState:
+    enum:
+    - healthy
+    - down
+    - recovering
+    - missing
+    type: string
+    x-enum-varnames:
+    - StateHealthy
+    - StateDown
+    - StateRecovering
+    - StateMissing
+  failover.TargetStatus:
+    properties:
+      consecutive_ok:
+        type: integer
+      kind:
+        $ref: '#/definitions/failover.Kind'
+      last_error:
+        type: string
+      last_probe:
+        type: string
+      model:
+        type: string
+      state:
+        $ref: '#/definitions/failover.TargetState'
+      warm:
+        type: boolean
+    type: object
   functions.Function:
     properties:
       description:
@@ -342,6 +406,18 @@ definitions:
       logo_horizontal_url:
         type: string
       logo_url:
+        type: string
+    type: object
+  localai.FailoverChainsResponse:
+    properties:
+      chains:
+        items:
+          $ref: '#/definitions/failover.ChainStatus'
+        type: array
+    type: object
+  localai.FailoverPinRequest:
+    properties:
+      target:
         type: string
     type: object
   localai.GalleryBackend:
@@ -3866,6 +3942,107 @@ paths:
       summary: Upload a branding asset
       tags:
       - branding
+  /api/failover:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.FailoverChainsResponse'
+      summary: List failover chains and the health of their targets
+      tags:
+      - failover
+  /api/failover/{chain}:
+    get:
+      parameters:
+      - description: Chain name
+        in: path
+        name: chain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/failover.ChainStatus'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get one failover chain
+      tags:
+      - failover
+  /api/failover/{chain}/pin:
+    delete:
+      parameters:
+      - description: Chain name
+        in: path
+        name: chain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/failover.ChainStatus'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Remove the pin from a failover chain
+      tags:
+      - failover
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Chain name
+        in: path
+        name: chain
+        required: true
+        type: string
+      - description: Target to pin
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.FailoverPinRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/failover.ChainStatus'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Pin a failover chain to one target
+      tags:
+      - failover
+  /api/failover/events:
+    get:
+      description: The first event is "snapshot" with the full state, then "chain.switched"
+        and "target.state" events.
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+      summary: Stream failover events (server-sent events)
+      tags:
+      - failover
   /api/instructions:
     get:
       description: Returns a compact list of instruction areas with descriptions and

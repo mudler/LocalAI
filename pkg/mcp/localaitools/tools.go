@@ -49,10 +49,19 @@ const (
 	ToolSetNodeVRAMBudget  = "set_node_vram_budget"
 	ToolSetScheduling      = "set_scheduling"
 	ToolDeleteScheduling   = "delete_scheduling"
+	// ToolPinFailoverTarget and ToolUnpinFailoverTarget live here (rather
+	// than grouped with ToolListFailoverChains below) so mutatingToolNames
+	// stays a contiguous scan of this block.
+	ToolPinFailoverTarget   = "pin_failover_target"
+	ToolUnpinFailoverTarget = "unpin_failover_target"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
 	ToolListAliases = "list_aliases"
+
+	// ToolListFailoverChains is read-only but lives here so the failover
+	// tools stay grouped; the catalog tests assert its read-only placement.
+	ToolListFailoverChains = "list_failover_chains"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when
@@ -83,4 +92,6 @@ var mutatingToolNames = []string{
 	ToolSetNodeVRAMBudget,
 	ToolSetScheduling,
 	ToolDeleteScheduling,
+	ToolPinFailoverTarget,
+	ToolUnpinFailoverTarget,
 }

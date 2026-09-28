@@ -829,3 +829,23 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 	}
 	return &out, nil
 }
+
+// ---- Failover chains ----
+
+func (c *Client) ListFailoverChains(ctx context.Context) ([]localaitools.FailoverChainInfo, error) {
+	var out struct {
+		Chains []localaitools.FailoverChainInfo `json:"chains"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeFailover, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Chains, nil
+}
+
+func (c *Client) PinFailoverTarget(ctx context.Context, chain, target string) error {
+	return c.do(ctx, http.MethodPost, routeFailover+"/"+url.PathEscape(chain)+"/pin", map[string]string{"target": target}, nil)
+}
+
+func (c *Client) UnpinFailoverTarget(ctx context.Context, chain string) error {
+	return c.do(ctx, http.MethodDelete, routeFailover+"/"+url.PathEscape(chain)+"/pin", nil, nil)
+}

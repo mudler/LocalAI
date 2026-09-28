@@ -31,6 +31,8 @@ This configuration links the following components:
 
 Make sure all referenced models (`silero-vad-ggml`, `whisper-large-turbo`, `qwen3-4b`, `tts-1`) are also installed or defined in your LocalAI instance.
 
+A pipeline stage can name a [failover chain]({{%relref "features/model-failover" %}}); the stage then switches targets without closing the session.
+
 ### Streaming the pipeline
 
 By default each stage runs to completion before the next begins: the whole utterance is transcribed, the full LLM reply is generated, then it is synthesized. Each stage can instead be streamed incrementally, which lowers the time-to-first-audio of a turn:
