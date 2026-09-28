@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import StatusPill from './StatusPill'
-import { formatBytes, formatCapacity, timeAgo } from './nodeStatus'
+import { formatBytes, formatCapacity, timeAgo, modelStateConfig } from './nodeStatus'
 import { nodesApi } from '../../utils/api'
 import { capacityReading, nodeLifecycleAction } from '../../utils/nodeFleet'
 import useInspectorDrawer from './useInspectorDrawer'
@@ -24,6 +24,8 @@ function ResourceBar({ label, total, available, tone }) {
 export default function NodeInspector({ node, open, onClose, onApprove, onDrain, onResume, onBack, backLabel }) {
   const [backends, setBackends] = useState(null)
   const [backendError, setBackendError] = useState('')
+  const [models, setModels] = useState(null)
+  const [modelError, setModelError] = useState('')
   const nodeId = node?.id
   const backRef = useRef(null)
   const closeRef = useRef(null)
@@ -44,6 +46,19 @@ export default function NodeInspector({ node, open, onClose, onApprove, onDrain,
       if (current) setBackends(Array.isArray(data) ? data : [])
     }).catch(error => {
       if (current) setBackendError(error.message || 'Unable to load backends')
+    })
+    return () => { current = false }
+  }, [open, nodeId])
+
+  useEffect(() => {
+    if (!open || !nodeId) return undefined
+    let current = true
+    setModels(null)
+    setModelError('')
+    nodesApi.getModels(nodeId).then(data => {
+      if (current) setModels(Array.isArray(data) ? data : [])
+    }).catch(error => {
+      if (current) setModelError(error.message || 'Unable to load models')
     })
     return () => { current = false }
   }, [open, nodeId])
@@ -74,6 +89,7 @@ export default function NodeInspector({ node, open, onClose, onApprove, onDrain,
         <h3>Node</h3>
         <dl className="node-inspector__metrics">
           <InspectorMetric label="Address"><span className="node-inspector__address">{node.address || 'No address reported'}</span></InspectorMetric>
+          <InspectorMetric label="Version">{node.version || '—'}</InspectorMetric>
           <InspectorMetric label="Heartbeat">{timeAgo(node.last_heartbeat)}</InspectorMetric>
         </dl>
         <div className="node-inspector__labels" aria-label="Node labels">{Object.keys(node.labels || {}).length ? Object.entries(node.labels).map(([key, value]) => <span key={key}>{key}={value}</span>) : <span className="text-muted">No labels</span>}</div>
@@ -94,6 +110,26 @@ export default function NodeInspector({ node, open, onClose, onApprove, onDrain,
           <InspectorMetric label="Backends">{backendError ? <span className="text-error">{backendError}</span> : backends === null ? 'Loading…' : `${backends.length} backend${backends.length === 1 ? '' : 's'}`}</InspectorMetric>
           <InspectorMetric label="In-flight work">{node.in_flight_count ?? 0}</InspectorMetric>
         </dl>
+        <div className="node-inspector__models">
+          <dt className="drawer-eyebrow">Running models</dt>
+          <dd>
+            {modelError ? <span className="text-error">{modelError}</span>
+             : models === null ? <span className="text-muted">Loading…</span>
+             : models.length === 0 ? <span className="text-muted">No models loaded</span>
+             : <ul className="node-inspector__model-list">
+                {models.map(model => {
+                  const stCfg = modelStateConfig[model.state] || modelStateConfig.idle
+                  return (
+                    <li key={model.id || `${model.model_name}#${model.replica_index}`} className="node-inspector__model-row">
+                      <span className="cell-mono">{model.model_name}</span>
+                      <span className="state-pill" style={{ background: stCfg.bg, color: stCfg.color, border: `1px solid ${stCfg.border}` }}>{model.state}</span>
+                      <span className="text-muted">{model.in_flight ?? 0} in flight</span>
+                    </li>
+                  )
+                })}
+               </ul>}
+          </dd>
+        </div>
         </section>
       </div>
       <footer className="node-inspector__actions">

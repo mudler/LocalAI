@@ -161,10 +161,10 @@ func resolveModels(modelFile, modelPath string, options []string) (modelSet, err
 			continue
 		}
 		if !filepath.IsAbs(value) {
-			value = filepath.Join(modelPath, value)
 			if err := utils.VerifyPath(value, modelPath); err != nil {
 				return modelSet{}, fmt.Errorf("option %s: %w", key, err)
 			}
+			value = filepath.Join(modelPath, value)
 		}
 		overrides[key] = value
 	}

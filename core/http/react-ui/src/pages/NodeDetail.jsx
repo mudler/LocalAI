@@ -139,6 +139,10 @@ export default function NodeDetail() {
           <span className="cell-mono">{node.in_flight_count || 0}</span>
         </div>
         <div>
+          <div className="drawer-eyebrow">Version</div>
+          <span className="cell-mono">{node.version || '—'}</span>
+        </div>
+        <div>
           <div className="drawer-eyebrow">Heartbeat</div>
           <span>{timeAgo(node.last_heartbeat)}</span>
         </div>

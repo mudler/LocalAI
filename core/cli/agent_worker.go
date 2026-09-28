@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/jobs"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/cogito"
 	"github.com/mudler/cogito/clients"
 	"github.com/mudler/xlog"
@@ -163,6 +164,8 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	registrationBody := map[string]any{
 		"name":      nodeName,
 		"node_type": "agent",
+		"version":   internal.Version,
+		"commit":    internal.Commit,
 	}
 	if cmd.RegistrationToken != "" {
 		registrationBody["token"] = cmd.RegistrationToken

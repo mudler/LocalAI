@@ -373,7 +373,7 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 where:
 - `localai` is the repository. It is optional and can be omitted. If the repository is omitted LocalAI will search the model by name in all the repositories. In the case the same model name is present in both galleries the first match wins.
 - `bert-embeddings` is the model name in the gallery
-  (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
+  (read its [config here](https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml)).
 
 ### Model variants
 

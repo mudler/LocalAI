@@ -9966,6 +9966,13 @@ button.collapsible-header:focus-visible {
 .node-inspector__actions .btn { justify-content: center; min-width: 0; }
 .node-inspector__back { align-items: center; background: transparent; border: 0; color: var(--color-primary); cursor: pointer; display: flex; font: inherit; font-size: var(--text-xs); gap: 6px; max-width: 285px; overflow: hidden; padding: 3px 0; text-overflow: ellipsis; white-space: nowrap; }
 .node-inspector__back:focus-visible { border-radius: var(--radius-sm); outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.node-inspector__models { margin: 10px 0 0; }
+.node-inspector__models > dd { margin: 0; }
+.node-inspector__model-list { display: grid; gap: 4px; list-style: none; margin: 6px 0 0; padding: 0; }
+.node-inspector__model-row { align-items: center; display: flex; flex-wrap: wrap; gap: 6px; font-size: var(--text-xs); }
+.node-inspector__model-row .cell-mono { font-family: var(--font-mono); font-size: .625rem; overflow-wrap: anywhere; }
+.node-inspector__model-row .state-pill { border-radius: var(--radius-full); font-size: .5625rem; font-weight: 600; padding: 1px 7px; text-transform: capitalize; }
+.node-inspector__model-row .text-muted { font-size: .5625rem; }
 .model-inspector__backends { margin-top: 10px; }
 .model-inspector__nodes { display: grid; gap: 9px; }
 .model-inspector__node { background: var(--color-bg-tertiary); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); padding: 10px; }

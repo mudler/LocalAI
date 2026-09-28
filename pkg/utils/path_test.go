@@ -3,6 +3,7 @@ package utils_test
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	. "github.com/mudler/LocalAI/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
@@ -71,6 +72,25 @@ var _ = Describe("utils/path tests", func() {
 		})
 	})
 
+	Describe("VerifyResolvedPath", func() {
+		It("accepts a full path inside the base", func() {
+			Expect(VerifyResolvedPath("/srv/models/a/model.yaml", "/srv/models")).To(Succeed())
+		})
+
+		It("rejects a full path outside the base", func() {
+			// VerifyPath would join this onto the base and accept it.
+			Expect(VerifyResolvedPath("/etc/passwd", "/srv/models")).ToNot(Succeed())
+		})
+
+		It("rejects a joined path that climbed out of the base", func() {
+			Expect(VerifyResolvedPath(filepath.Join("/srv/models", "../other/x"), "/srv/models")).ToNot(Succeed())
+		})
+
+		It("cleans both paths before comparing", func() {
+			Expect(VerifyResolvedPath("/srv/models/./a/../b.yaml", "/srv/models/")).To(Succeed())
+		})
+	})
+
 	Describe("InTrustedRoot", func() {
 		It("accepts a strict descendant of the trusted root", func() {
 			Expect(InTrustedRoot("/srv/models/file", "/srv/models")).To(Succeed())
@@ -92,6 +112,21 @@ var _ = Describe("utils/path tests", func() {
 
 		It("rejects an unrelated absolute path", func() {
 			Expect(InTrustedRoot("/etc/passwd", "/srv/models")).ToNot(Succeed())
+		})
+
+		It("rejects a relative path outside a relative root instead of looping", func() {
+			// Walking up a relative path ends at ".", never at "/", so the
+			// walk must stop when it stops making progress.
+			done := make(chan error, 1)
+			go func() { done <- InTrustedRoot("x", "models") }()
+			Eventually(done).WithTimeout(2 * time.Second).Should(Receive(HaveOccurred()))
+
+			go func() { done <- VerifyPath("../x", "models") }()
+			Eventually(done).WithTimeout(2 * time.Second).Should(Receive(HaveOccurred()))
+		})
+
+		It("accepts a relative descendant of a relative root", func() {
+			Expect(InTrustedRoot("models/a/file", "models")).To(Succeed())
 		})
 	})
 

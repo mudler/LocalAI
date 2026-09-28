@@ -98,7 +98,7 @@ availability may lag upstream releases.
 - [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)
 - [Logseq GPT3 OpenAI plugin](https://github.com/briansunter/logseq-plugin-gpt3-openai)
 - [CodeGPT (JetBrains)](https://plugins.jetbrains.com/plugin/21056-codegpt) - Custom OpenAI-compatible endpoints
-- [Wave Terminal](https://docs.waveterm.dev/features/supportedLLMs/localai) - Native LocalAI support
+- [Wave Terminal](https://docs.waveterm.dev/ai-presets) - Native LocalAI support
 - [Obsidian BMO Chatbot](https://github.com/longy2k/obsidian-bmo-chatbot)
 - [spark](https://github.com/cedriking/spark)
 - [openops (Mattermost)](https://github.com/mattermost/openops)

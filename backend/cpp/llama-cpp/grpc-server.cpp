@@ -539,8 +539,10 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 
     // Initialize ctx_shift to false by default (can be overridden by options)
     params.ctx_shift = false;
-    // Initialize cache_ram_mib to -1 by default (no limit, can be overridden by options)
-    params.cache_ram_mib = -1;
+    // cache_ram_mib keeps llama.cpp's own default (8192 MiB) unless overridden by
+    // options. It used to be forced to -1 (no limit): since kv_unified and
+    // cache_idle_slots are on by default, every distinct prompt then leaves its
+    // slot state in host RAM and the backend grows without bound.
     // Initialize n_parallel to 1 by default (can be overridden by options)
     params.n_parallel = 1;
     // Initialize grpc_servers to empty (can be overridden by options)
@@ -656,7 +658,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
                 try {
                     params.cache_ram_mib = std::stoi(optval_str);
                 } catch (const std::exception& e) {
-                    // If conversion fails, keep default value (-1)
+                    // If conversion fails, keep the default value
                 }
             }
         } else if (!strcmp(optname, "parallel") || !strcmp(optname, "n_parallel")) {

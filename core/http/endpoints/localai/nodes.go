@@ -114,6 +114,11 @@ type RegisterNodeRequest struct {
 	// VRAMBudget is the worker's operator-set VRAM cap ("80%" or "12GB"). The
 	// registry resolves and enforces it against the raw reported VRAM.
 	VRAMBudget string `json:"vram_budget,omitempty"`
+	// Version is the LocalAI build version reported by the worker at
+	// registration. Empty for workers registered before this field existed.
+	Version string `json:"version,omitempty"`
+	// Commit is the git commit hash the worker binary was built from.
+	Commit string `json:"commit,omitempty"`
 }
 
 // RegisterNodeEndpoint registers a new backend node.
@@ -191,6 +196,8 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			Capability:           req.Capability,
 			MaxReplicasPerModel:  maxReplicasPerModel,
 			VRAMBudget:           req.VRAMBudget,
+			Version:              req.Version,
+			Commit:               req.Commit,
 		}
 
 		ctx := c.Request().Context()
