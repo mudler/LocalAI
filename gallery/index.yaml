@@ -53833,9 +53833,9 @@
     conversation.item.input_audio_transcription.segment and
     conversation.item.sound_detection events). Live speaker/sound events only
     fire during speech turns under semantic_vad; sounds between turns are not
-    seen by this path. License per model: transcription model CC-BY-4.0,
-    diarization model OpenMDW-1.1, CED-Tiny Apache-2.0.
-  license: cc-by-4.0
+    seen by this path. License per model: transcription model NVIDIA Open
+    Model License, diarization model OpenMDW-1.1, CED-Tiny Apache-2.0.
+  license: nvidia-open-model-license
   tags:
     - parakeet
     - parakeet-cpp

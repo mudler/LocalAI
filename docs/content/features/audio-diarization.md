@@ -173,7 +173,7 @@ known_usecases:
   - diarization
 ```
 
-`asr_model` is what turns on `include_text`: without it, segments carry no text and no error is raised. Sortformer has a fixed speaker capacity and no clustering stage, so `num_speakers`, `min_speakers`, `max_speakers` and `clustering_threshold` are ignored (logged at debug); `min_duration_on` and `min_duration_off` are honored. Speaker labels are the decimal index the model assigned (`"0"`, `"1"`, …), or `"unknown"` when a segment has no diarized speaker.
+Getting text on each segment needs both: an `asr_model` companion loaded on the model, and `include_text=true` on the request. With only one of the two, segments carry no text and no error is raised. Sortformer has a fixed speaker capacity and no clustering stage, so `num_speakers`, `min_speakers`, `max_speakers` and `clustering_threshold` are ignored (logged at debug); `min_duration_on` and `min_duration_off` are honored. Speaker labels are the decimal index the model assigned (`"0"`, `"1"`, …), or `"unknown"` when a segment has no diarized speaker.
 
 ```bash
 curl http://localhost:8080/v1/audio/diarization \
