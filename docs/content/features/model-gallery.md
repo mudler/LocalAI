@@ -65,6 +65,22 @@ The files use standard llama.cpp quantization types and the Apache-2.0 license.
 See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF)
 for quantization details. These entries do not enable MTP speculative decoding.
 
+## Swift 1.5 Qwen3.8-27B
+
+Install `swift-1.5-qwen3.8-27b-q4` for text and image chat with llama.cpp.
+This group offers Q4_K_M and Q8_0 builds, each with the publisher's F16 vision projector.
+To select Q8_0 explicitly, run:
+
+```bash
+local-ai models install swift-1.5-qwen3.8-27b-q4 --variant swift-1.5-qwen3.8-27b-q8
+```
+
+Both builds use the embedded chat template and a 32,768-token default context.
+The separate GSQ-RCO group below offers smaller, text-only builds.
+See the [model card](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF)
+and [Swift Open License v1.0](https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b/blob/main/LICENSE) for usage terms.
+Commercial use above the license's revenue threshold requires a separate enterprise license.
+
 ## Swift 1.5 Qwen3.8-27B GSQ-RCO
 
 Install `swift-1.5-qwen3.8-27b-gsq-rco` for text chat with llama.cpp.

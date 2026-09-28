@@ -6017,6 +6017,104 @@
     - filename: llama-cpp/mmproj/qwen3.8-27b-ridge/mmproj-Qwen3.8-27B-BF16.gguf
       uri: huggingface://empero-ai/Qwen3.8-27B-Ridge-GGUF/mmproj-Qwen3.8-27B-BF16.gguf
       sha256: 52228402ce4823f10705d901813cd43ced71859524cf2d8bf83305ad6b7dcbc2
+- name: swift-1.5-qwen3.8-27b-q4
+  variants:
+    - model: swift-1.5-qwen3.8-27b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF
+  license: "swift-open-license-1.0"
+  description: |
+    Swift 1.5 is a 27B Qwen3.8 fine-tune for reasoning, coding, and agent tasks.
+    This Q4_K_M GGUF build uses llama.cpp, the embedded chat template, and an F16 vision projector for image input.
+    The Swift Open License v1.0 requires a separate license for commercial use above its revenue threshold.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Swift-1.5-Qwen3.8-27B-Q4_K_M.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Swift-1.5-Qwen3.8-27B-Q4_K_M.gguf
+      sha256: 2ebba0ff1e63c1ac3fadd4e83efcea189f47f33ec72c91877af94de6ebe30590
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q4_K_M.gguf
+    - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+- name: swift-1.5-qwen3.8-27b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b
+    - https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF
+  license: "swift-open-license-1.0"
+  description: |
+    Swift 1.5 is a 27B Qwen3.8 fine-tune for reasoning, coding, and agent tasks.
+    This Q8_0 GGUF build uses llama.cpp, the embedded chat template, and an F16 vision projector for image input.
+    The Swift Open License v1.0 requires a separate license for commercial use above its revenue threshold.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+    - reasoning
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: Swift-1.5-Qwen3.8-27B-Q8_0.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: Swift-1.5-Qwen3.8-27B-Q8_0.gguf
+      sha256: 0b3b4aa0e367c620756de4f9db77fc18f94fbeb256db208281cbb84c48e2a101
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/Swift-1.5-Qwen3.8-27B-Q8_0.gguf
+    - filename: mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
+      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
+      uri: https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27B-GGUF/resolve/a1614465cfa35d04d3e8575d713fa779662b5eab/mmproj-Swift-1.5-Qwen3.8-27B-F16.gguf
 - name: "swift-1.5-qwen3.8-27b-gsq-rco"
   variants:
     - model: swift-1.5-qwen3.8-27b-gsq-rco-iq2-s
