@@ -613,6 +613,43 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 		Expect(feedCalls).To(Equal(0), "no C call once the scene stream's contexts were freed")
 	})
 
+	It("degrades to ASR-only after a mid-session scene feed failure: freed once, no more scene events, ASR keeps working", func() {
+		CppStreamFeedJSON = func(s uintptr, pcm []float32, n int32) uintptr {
+			return pool.cstr(`{"text":"hi ","eou":0,"frame_sec":0.08,` +
+				`"words":[{"w":"hi","start":0.1,"end":0.3,"conf":0.9}]}`)
+		}
+		sceneFeedCalls := 0
+		begun, freed := liveSceneStubs(func(calls int, s uintptr, isLast int32) uintptr {
+			sceneFeedCalls++
+			return 0 // fails every call; only the first should ever be reached
+		})
+
+		in, out, errCh := runLive(p)
+		in <- liveConfig("")
+		in <- liveAudio(make([]float32, 10)) // scene feed fails here: warn, free, zero the handle
+		in <- liveAudio(make([]float32, 10)) // ASR-only: no scene C call at all
+		close(in)
+		Expect(<-errCh).NotTo(HaveOccurred())
+
+		got := collectLive(out)
+		// ready, ASR delta (msg 1), ASR delta (msg 2), final: no scene-only
+		// response ever appears, before or after the failure.
+		Expect(got).To(HaveLen(4))
+		Expect(got[0].Ready).To(BeTrue())
+		Expect(got[1].Delta).To(Equal("hi "))
+		Expect(got[2].Delta).To(Equal("hi "))
+		for _, r := range got {
+			Expect(r.Speakers).To(BeEmpty(), "no speaker events once the scene stream has failed")
+			Expect(r.Sounds).To(BeEmpty(), "no sound events once the scene stream has failed")
+		}
+		Expect(got[3].FinalResult).NotTo(BeNil())
+		Expect(got[3].FinalResult.Text).To(Equal("hi hi"))
+
+		Expect(*begun).To(Equal(1))
+		Expect(sceneFeedCalls).To(Equal(1), "the second audio message must not retry the broken scene stream")
+		Expect(*freed).To(Equal(1), "the broken scene stream is freed exactly once, not again at RPC unwind")
+	})
+
 	It("continues without scene events when scene begin fails", func() {
 		CppSceneOptsDefault = func(o *cSceneOpts) { *o = cSceneOpts{} }
 		CppSceneStreamBegin = func(asr, diar, tagger uintptr, o *cSceneOpts) uintptr { return 0 }
