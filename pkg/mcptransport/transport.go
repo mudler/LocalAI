@@ -66,14 +66,14 @@ func Connect(ctx context.Context, client *mcp.Client, endpoint string, httpClien
 type initializeStatus struct {
 	base http.RoundTripper
 	seen atomic.Bool
-	code atomic.Int32
+	code atomic.Int64
 }
 
 func (t *initializeStatus) RoundTrip(r *http.Request) (*http.Response, error) {
 	initial := r.Method == http.MethodPost && t.seen.CompareAndSwap(false, true)
 	response, err := t.base.RoundTrip(r)
 	if initial && err == nil {
-		t.code.Store(int32(response.StatusCode))
+		t.code.Store(int64(response.StatusCode))
 	}
 	return response, err
 }
