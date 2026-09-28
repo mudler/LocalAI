@@ -185,6 +185,107 @@ var _ = Describe("model roles (stubbed C API)", func() {
 		Expect(f.freed).To(HaveLen(freedBeforeFree), "Free after a failed Load must not free anything again")
 	})
 
+	It("rejects an asr_model companion on an already-ASR primary and frees everything it opened", func() {
+		f := newFakeLib().
+			withModel("asr.gguf", modelKindASR).
+			withModel("/models/other.gguf", modelKindASR)
+		restore = f.install()
+
+		p := &ParakeetCpp{}
+		err := p.Load(&pb.ModelOptions{
+			ModelFile: "asr.gguf",
+			ModelPath: "/models",
+			Options:   []string{"asr_model:other.gguf"},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(Equal(`parakeet-cpp: asr_model is not allowed on an ASR model`))
+		Expect(f.loadedPaths).To(Equal([]string{"asr.gguf"}))
+		Expect(f.freed).To(HaveLen(1), "the primary must be freed too, or it leaks")
+
+		Expect(p.ctxPtr).To(BeZero())
+		Expect(p.diarCtx).To(BeZero())
+		Expect(p.tagCtx).To(BeZero())
+		Expect(p.companions).To(BeEmpty())
+	})
+
+	It("rejects a diarization_model companion on an already-diarization primary", func() {
+		f := newFakeLib().
+			withModel("diar.gguf", modelKindDiarization).
+			withModel("/models/other.gguf", modelKindDiarization)
+		restore = f.install()
+
+		p := &ParakeetCpp{}
+		err := p.Load(&pb.ModelOptions{
+			ModelFile: "diar.gguf",
+			ModelPath: "/models",
+			Options:   []string{"diarization_model:other.gguf"},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(Equal(`parakeet-cpp: diarization_model is not allowed on a diarization model`))
+		Expect(f.loadedPaths).To(Equal([]string{"diar.gguf"}))
+		Expect(p.diarCtx).To(BeZero())
+	})
+
+	It("rejects a sound_model companion on an already-sound (CED) primary", func() {
+		f := newFakeLib().
+			withModel("sound.gguf", modelKindSound).
+			withModel("/models/other.gguf", modelKindSound)
+		restore = f.install()
+
+		p := &ParakeetCpp{}
+		err := p.Load(&pb.ModelOptions{
+			ModelFile: "sound.gguf",
+			ModelPath: "/models",
+			Options:   []string{"sound_model:other.gguf"},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(Equal(`parakeet-cpp: sound_model is not allowed on a sound model`))
+		Expect(f.loadedPaths).To(Equal([]string{"sound.gguf"}))
+		Expect(p.tagCtx).To(BeZero())
+	})
+
+	It("does not overwrite ctxPtr (and so does not leak the primary) when an asr_model companion "+
+		"duplicates an ASR primary loaded alongside other companions", func() {
+		// Regression for the leak this whole check exists to close: before
+		// the fix, spec.assign(p, cctx) overwrote p.ctxPtr with the
+		// companion's ctx, and Free() (which only walks
+		// ctxPtr/diarCtx/tagCtx) never saw the original primary again.
+		f := newFakeLib().
+			withModel("asr.gguf", modelKindASR).
+			withModel("/models/diar.gguf", modelKindDiarization).
+			withModel("/models/dup.gguf", modelKindASR)
+		restore = f.install()
+
+		p := &ParakeetCpp{}
+		err := p.Load(&pb.ModelOptions{
+			ModelFile: "asr.gguf",
+			ModelPath: "/models",
+			// diarization_model loads first (declared first in loadRoles'
+			// specs) and succeeds; asr_model then collides with the primary.
+			Options: []string{"diarization_model:diar.gguf", "asr_model:dup.gguf"},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(f.freed).To(HaveLen(2), "the primary and the already-loaded diarization companion")
+		Expect(f.loadedPaths).To(Equal([]string{"asr.gguf", "/models/diar.gguf"}),
+			"dup.gguf must never be loaded: the role check runs before CppLoad")
+
+		Expect(p.ctxPtr).To(BeZero())
+		Expect(p.diarCtx).To(BeZero())
+		Expect(p.companions).To(BeEmpty())
+	})
+
+	It("treats a primary reporting PARAKEET_MODEL_KIND_NONE as ASR", func() {
+		f := newFakeLib().withModel("model.gguf", modelKindNone)
+		restore = f.install()
+
+		p := &ParakeetCpp{}
+		Expect(p.Load(&pb.ModelOptions{ModelFile: "model.gguf"})).To(Succeed())
+
+		Expect(p.ctxPtr).ToNot(BeZero())
+		Expect(p.diarCtx).To(BeZero())
+		Expect(p.tagCtx).To(BeZero())
+	})
+
 	It("parses diarization_latency:very_low", func() {
 		f := newFakeLib().withModel("diar.gguf", modelKindDiarization)
 		restore = f.install()

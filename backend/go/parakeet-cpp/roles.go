@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/xlog"
 )
 
 // Model kinds returned by parakeet_capi_model_kind (ABI v8; mirrors the
@@ -87,13 +88,29 @@ func parseDiarLatency(s string) (int32, error) {
 
 // companionSpec is one asr_model:/diarization_model:/sound_model: option: its
 // name (for error messages and path resolution), the raw option value, the
-// model kind the loaded companion must report, and the ParakeetCpp field it
-// is assigned to on success.
+// model kind the loaded companion must report, the ParakeetCpp field it is
+// assigned to on success, and a getter for that same field's current value
+// (used to reject a companion whose role the primary already occupies).
 type companionSpec struct {
 	optName  string
 	value    string
 	wantKind int32
 	assign   func(*ParakeetCpp, uintptr)
+	current  func(*ParakeetCpp) uintptr
+}
+
+// indefiniteArticle returns "an" for a word starting with a vowel sound and
+// "a" otherwise, for grammatical error messages built from modelKindName.
+func indefiniteArticle(word string) string {
+	if len(word) == 0 {
+		return "a"
+	}
+	switch word[0] {
+	case 'A', 'E', 'I', 'O', 'U', 'a', 'e', 'i', 'o', 'u':
+		return "an"
+	default:
+		return "a"
+	}
 }
 
 // loadRoles loads opts.ModelFile as the primary parakeet_ctx, classifies it
@@ -150,6 +167,10 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 	primaryKind := int32(modelKindASR) // old-library default: today's behavior
 	if CppModelKind != nil {
 		primaryKind = CppModelKind(primary)
+		if primaryKind == modelKindNone {
+			xlog.Warn("parakeet-cpp: parakeet_capi_model_kind reported PARAKEET_MODEL_KIND_NONE " +
+				"for a successfully loaded primary; treating it as an ASR model")
+		}
 	}
 	switch primaryKind {
 	case modelKindDiarization:
@@ -161,13 +182,28 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 	}
 
 	specs := []companionSpec{
-		{"diarization_model", diarModelOpt, modelKindDiarization, func(pp *ParakeetCpp, c uintptr) { pp.diarCtx = c }},
-		{"asr_model", asrModelOpt, modelKindASR, func(pp *ParakeetCpp, c uintptr) { pp.ctxPtr = c }},
-		{"sound_model", soundModelOpt, modelKindSound, func(pp *ParakeetCpp, c uintptr) { pp.tagCtx = c }},
+		{"diarization_model", diarModelOpt, modelKindDiarization,
+			func(pp *ParakeetCpp, c uintptr) { pp.diarCtx = c },
+			func(pp *ParakeetCpp) uintptr { return pp.diarCtx }},
+		{"asr_model", asrModelOpt, modelKindASR,
+			func(pp *ParakeetCpp, c uintptr) { pp.ctxPtr = c },
+			func(pp *ParakeetCpp) uintptr { return pp.ctxPtr }},
+		{"sound_model", soundModelOpt, modelKindSound,
+			func(pp *ParakeetCpp, c uintptr) { pp.tagCtx = c },
+			func(pp *ParakeetCpp) uintptr { return pp.tagCtx }},
 	}
 	for _, spec := range specs {
 		if spec.value == "" {
 			continue
+		}
+		// A companion whose role the primary already occupies (e.g. asr_model:
+		// on an already-ASR primary) would overwrite that role field below,
+		// leaking the primary ctx: Free() only walks ctxPtr/diarCtx/tagCtx, so
+		// the overwritten pointer is never freed. Reject it before loading.
+		if spec.current(p) != 0 {
+			freeLoaded()
+			return fmt.Errorf("parakeet-cpp: %s is not allowed on %s %s model",
+				spec.optName, indefiniteArticle(modelKindName(spec.wantKind)), modelKindName(spec.wantKind))
 		}
 		resolved := resolveModelPath(opts.ModelPath, spec.value)
 		cctx := CppLoad(resolved)
