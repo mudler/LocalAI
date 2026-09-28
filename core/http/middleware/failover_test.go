@@ -200,6 +200,18 @@ var _ = Describe("failover chains in the request pipeline", func() {
 		Expect(st.Targets[0].State).To(Equal(failover.StateHealthy))
 	})
 
+	It("sends a handler's own 429 as is, without retrying or tripping", func() {
+		behavior["a"] = func(c echo.Context) error {
+			return c.JSON(http.StatusTooManyRequests, map[string]string{"error": "slow down"})
+		}
+		rec := chat("chain")
+		Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
+		Expect(rec.Body.String()).To(ContainSubstring("slow down"))
+		Expect(calls).To(Equal([]string{"a"}))
+		st, _ := fm.ChainStatus("chain")
+		Expect(st.Targets[0].State).To(Equal(failover.StateHealthy))
+	})
+
 	It("does not retry when the client cancelled", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		behavior["a"] = func(echo.Context) error { cancel(); return context.Canceled }

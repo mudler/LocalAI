@@ -220,8 +220,10 @@ func resetResponse(resp *echo.Response, base http.Header) {
 	resp.Size = 0
 }
 
-// failoverWriter holds back an error response (status >= 500) of a chain
-// request until the handler returns, so the retry can drop it.
+// failoverWriter holds back an error response of a chain request until the
+// handler returns, so the retry can drop it. It holds every 5xx, and 429 too
+// because admission control rejects with 429 and that must spill to the next
+// target; any other 429 is not retryable and is released unchanged.
 type failoverWriter struct {
 	http.ResponseWriter
 	active    func() bool
@@ -236,7 +238,7 @@ func (w *failoverWriter) WriteHeader(code int) {
 	if w.held != 0 {
 		return
 	}
-	if !w.committed && code >= 500 && w.active() {
+	if !w.committed && (code >= 500 || code == http.StatusTooManyRequests) && w.active() {
 		w.held = code
 		return
 	}
