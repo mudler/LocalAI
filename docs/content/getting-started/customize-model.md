@@ -25,17 +25,17 @@ Here's an example to initiate the **phi-2** model:
 docker run -p 8080:8080 localai/localai:{{< version >}} https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
 ```
 
-You can also check all the embedded models configurations [here](https://github.com/mudler/LocalAI/tree/master/embedded/models).
+You can also check all the embedded models configurations [here](https://github.com/mudler/LocalAI/tree/master/gallery).
 
 {{% notice tip %}}
-The model configurations used in the quickstart are accessible here: [https://github.com/mudler/LocalAI/tree/master/embedded/models](https://github.com/mudler/LocalAI/tree/master/embedded/models). Contributions are welcome; please feel free to submit a Pull Request.
+The model configurations used in the quickstart are accessible here: [https://github.com/mudler/LocalAI/tree/master/gallery](https://github.com/mudler/LocalAI/tree/master/gallery). Contributions are welcome; please feel free to submit a Pull Request.
 
-The `phi-2` model configuration from the quickstart is expanded from [https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml](https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml).
+The `phi-2` model configuration from the quickstart is expanded from [https://github.com/mudler/LocalAI-examples/blob/main/configurations/phi-2.yaml](https://github.com/mudler/LocalAI-examples/blob/main/configurations/phi-2.yaml).
  {{% /notice %}}
 
 ## Example: Customizing the Prompt Template
 
-To modify the prompt template, create a Github gist or a Pastebin file, and copy the content from [https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml](https://github.com/mudler/LocalAI/blob/master/examples/configurations/phi-2.yaml). Alter the fields as needed:
+To modify the prompt template, create a Github gist or a Pastebin file, and copy the content from [https://github.com/mudler/LocalAI-examples/blob/main/configurations/phi-2.yaml](https://github.com/mudler/LocalAI-examples/blob/main/configurations/phi-2.yaml). Alter the fields as needed:
 
 ```yaml
 name: phi-2
