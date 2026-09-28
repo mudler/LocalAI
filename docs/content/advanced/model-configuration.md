@@ -74,6 +74,8 @@ When using `--models-config-file`, you can define multiple models as a list:
   backend: llama-cpp
 ```
 
+LocalAI changes only config files that are inside the models directory. If the file from `--models-config-file` is outside the models directory, you cannot view, edit, pin, enable or disable its models from the web UI or the model admin API. Edit the file directly, then restart LocalAI.
+
 ## Core Configuration Fields
 
 ### Basic Model Settings

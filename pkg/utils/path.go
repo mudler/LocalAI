@@ -27,10 +27,19 @@ func InTrustedRoot(path string, trustedRoot string) error {
 	}
 }
 
-// VerifyPath verifies that path is based in basePath.
+// VerifyPath verifies that path, taken relative to basePath, is based in
+// basePath. It joins path onto basePath first, so an absolute path is read as
+// relative to the base as well: give it the untrusted relative name, never a
+// path that has already been joined. For a full path use VerifyResolvedPath.
 func VerifyPath(path, basePath string) error {
 	c := filepath.Clean(filepath.Join(basePath, path))
 	return InTrustedRoot(c, filepath.Clean(basePath))
+}
+
+// VerifyResolvedPath verifies that path, a full path rather than one relative
+// to basePath, is based in basePath.
+func VerifyResolvedPath(path, basePath string) error {
+	return InTrustedRoot(filepath.Clean(path), filepath.Clean(basePath))
 }
 
 // SanitizeFileName sanitizes the given filename

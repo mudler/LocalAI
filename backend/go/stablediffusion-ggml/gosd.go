@@ -137,8 +137,8 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 		// If it's an option path, we resolve absolute path from the model path
 		if strings.Contains(op, ":") && strings.Contains(op, "path") {
 			data := strings.Split(op, ":")
-			data[1] = filepath.Join(opts.ModelPath, data[1])
 			if err := utils.VerifyPath(data[1], opts.ModelPath); err == nil {
+				data[1] = filepath.Join(opts.ModelPath, data[1])
 				oo = append(oo, strings.Join(data, ":"))
 			}
 		} else {
