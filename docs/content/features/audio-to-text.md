@@ -207,7 +207,7 @@ options:
 
 ### Speaker labels
 
-Attach a speaker diarization model with the `diar_model` option and each transcript segment carries a `speaker` (`"0"`, `"1"`, ... in order of first appearance). Segments split wherever the speaker changes, on top of the punctuation split. The model is NVIDIA Nemotron-3-Diarization, converted with parakeet.cpp's converter; see [Speaker Diarization]({{< relref "audio-diarization.md" >}}) for the conversion and for the `/v1/audio/diarization` endpoint the same model serves.
+Attach a speaker diarization model with the `diar_model` option and each transcript segment carries a `speaker` (`"0"`, `"1"`, ... in order of first appearance). Segments split wherever the speaker changes, on top of the punctuation split. The model is NVIDIA Nemotron-3-Diarization, published as `nemotron-3-diarization-f16.gguf` and `nemotron-3-diarization-q8_0.gguf` in [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf); see [Speaker Diarization]({{< relref "audio-diarization.md" >}}) for the conversion and for the `/v1/audio/diarization` endpoint the same model serves.
 
 ```yaml
 name: parakeet-speakers

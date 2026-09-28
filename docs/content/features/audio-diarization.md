@@ -160,15 +160,13 @@ curl http://localhost:8080/v1/audio/diarization \
 
 ## Backend setup - parakeet.cpp (Nemotron-3-Diarization)
 
-The [parakeet-cpp backend]({{%relref "features/audio-to-text#using-the-parakeet-cpp-backend" %}}) runs [nvidia/Nemotron-3-Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization). Convert the checkpoint to GGUF with parakeet.cpp's converter (Q8_0 is 109 MB and gives the same segments as F32):
+The [parakeet-cpp backend]({{%relref "features/audio-to-text#using-the-parakeet-cpp-backend" %}}) runs [nvidia/Nemotron-3-Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization). GGUF weights are published in [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf): F16 (191 MB) and Q8_0 (104 MB) both give the same segments as NeMo. Import one directly:
 
 ```bash
-python scripts/convert_parakeet_to_gguf.py \
-    --model nvidia/Nemotron-3-Diarization --dtype q8_0 \
-    --output nemotron-3-diarization-q8_0.gguf
+local-ai models import https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/nemotron-3-diarization-q8_0.gguf
 ```
 
-A diarization-only model:
+Or configure it by hand, as a diarization-only model:
 
 ```yaml
 name: nemotron-diarization
