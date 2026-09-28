@@ -63380,6 +63380,8 @@
       uri: huggingface://nvidia/diar_streaming_sortformer_4spk-v2/diar_streaming_sortformer_4spk-v2.q8_0.gguf
       sha256: 0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a
 - name: nemo-speech-cpp-nemotron-3.5-asr-streaming
+  variants:
+    - model: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b
@@ -63462,6 +63464,8 @@
       uri: huggingface://nvidia/diar_streaming_sortformer_4spk-v2/diar_streaming_sortformer_4spk-v2.q8_0.gguf
       sha256: 0679cfeb1ce356d0dea9470b31274f4bfc7eb927497d82005483770666da998a
 - name: nemo-speech-cpp-parakeet-tdt-0.6b-v3
+  variants:
+    - model: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
     - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
