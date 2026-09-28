@@ -670,6 +670,80 @@
     - filename: mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
       sha256: 98fa9aad59b42449786a16bbce96bcd92204d03cac0aee0cdccca711c2adefd1
       uri: https://huggingface.co/bottlecapai/ThinkingCap-Qwen3.8-27B-GGUF/resolve/108ff8f24ce8e9335fbf308844cd3c59c13380a4/mmproj-ThinkingCap-Qwen3.8-27B-f16.gguf
+- name: hemmingway-1-heretic
+  variants:
+    - model: hemmingway-1-heretic-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Altworld/Hemmingway-1
+    - https://huggingface.co/arelath/Hemmingway-1-heretic-adapter
+    - https://huggingface.co/Abiray/Hemmingway-1-heretic-GGUF
+  description: |
+    Hemmingway-1 Heretic is a 27B English text model for conversation and creative writing, based on Qwen3.8.
+    This build merges the Heretic adapter into Hemmingway-1 and uses Q4_K_M GGUF weights with llama.cpp's embedded chat template.
+    Licensed under CC BY-NC 4.0; commercial use requires a separate agreement with Altworld.
+  license: cc-by-nc-4.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - text-generation
+    - creative-writing
+    - qwen
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Hemmingway-1-heretic-Q4_K_M.gguf
+  files:
+    - filename: Hemmingway-1-heretic-Q4_K_M.gguf
+      sha256: a7d03f71e32be07806164d85a99be2b9a31c1fc15af13c28510e595fe23c240b
+      uri: https://huggingface.co/Abiray/Hemmingway-1-heretic-GGUF/resolve/2b0efc551a808832a0d549678abe50f5556f6474/Hemmingway-1-heretic-Q4_K_M.gguf
+
+- name: hemmingway-1-heretic-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Altworld/Hemmingway-1
+    - https://huggingface.co/arelath/Hemmingway-1-heretic-adapter
+    - https://huggingface.co/Abiray/Hemmingway-1-heretic-GGUF
+  description: |
+    Hemmingway-1 Heretic is a 27B English text model for conversation and creative writing, based on Qwen3.8.
+    This build merges the Heretic adapter into Hemmingway-1 and uses Q8_0 GGUF weights with llama.cpp's embedded chat template.
+    Licensed under CC BY-NC 4.0; commercial use requires a separate agreement with Altworld.
+  license: cc-by-nc-4.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - text-generation
+    - creative-writing
+    - qwen
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Hemmingway-1-heretic-Q8_0.gguf
+  files:
+    - filename: Hemmingway-1-heretic-Q8_0.gguf
+      sha256: 0aa7674dd00b5c7944f317c4ff5462db6abf5a81e69e30fbc8359919ddc1e04e
+      uri: https://huggingface.co/Abiray/Hemmingway-1-heretic-GGUF/resolve/2b0efc551a808832a0d549678abe50f5556f6474/Hemmingway-1-heretic-Q8_0.gguf
+
 - name: hemmingway-1
   variants:
     - model: hemmingway-1-q8
