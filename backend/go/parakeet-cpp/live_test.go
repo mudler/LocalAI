@@ -64,9 +64,10 @@ func liveStubs() (restore func()) {
 // liveSceneStubs wires a minimal scene stream stub set onto p (a diarization
 // and/or sound companion context so sceneWanted() is true) and returns the
 // call-count trackers the specs assert on. feedJSON is called once per scene
-// feed (including the is_last flush) and must return the canned document for
-// that call.
-func liveSceneStubs(feedJSON func(calls int, isLast int32) uintptr) (begun, freed *int) {
+// feed (including the is_last flush) with the stream handle the C side would
+// have received (so a reset spec can tell a pre-reset feed from a post-reset
+// one) and must return the canned document for that call.
+func liveSceneStubs(feedJSON func(calls int, s uintptr, isLast int32) uintptr) (begun, freed *int) {
 	begun, freed = new(int), new(int)
 	CppSceneOptsDefault = func(o *cSceneOpts) { *o = cSceneOpts{} }
 	CppSceneStreamBegin = func(asr, diar, tagger uintptr, o *cSceneOpts) uintptr {
@@ -76,7 +77,7 @@ func liveSceneStubs(feedJSON func(calls int, isLast int32) uintptr) (begun, free
 	calls := 0
 	CppSceneStreamFeedJSON = func(s uintptr, pcm *float32, n int32, isLast int32) uintptr {
 		calls++
-		return feedJSON(calls, isLast)
+		return feedJSON(calls, s, isLast)
 	}
 	CppSceneStreamLastError = func(s uintptr) string { return "scene stub error" }
 	CppSceneStreamFree = func(s uintptr) { *freed++ }
@@ -84,12 +85,18 @@ func liveSceneStubs(feedJSON func(calls int, isLast int32) uintptr) (begun, free
 }
 
 // runLive starts the RPC on its own goroutine and returns the request
-// channel plus a collector for everything the backend emitted.
+// channel plus a collector for everything the backend emitted. GinkgoRecover
+// turns an Expect/Fail failure inside a stub called from this goroutine into
+// a normal spec failure instead of a panic that would crash the whole test
+// binary (Ginkgo's failure handling is goroutine-local).
 func runLive(p *ParakeetCpp) (chan *pb.TranscriptLiveRequest, chan *pb.TranscriptLiveResponse, chan error) {
 	in := make(chan *pb.TranscriptLiveRequest)
 	out := make(chan *pb.TranscriptLiveResponse, 32)
 	errCh := make(chan error, 1)
-	go func() { errCh <- p.AudioTranscriptionLive(in, out) }()
+	go func() {
+		defer GinkgoRecover()
+		errCh <- p.AudioTranscriptionLive(in, out)
+	}()
 	return in, out, errCh
 }
 
@@ -478,7 +485,7 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 	AfterEach(func() { restore() })
 
 	It("emits a closed speaker segment as its own response", func() {
-		liveSceneStubs(func(calls int, isLast int32) uintptr {
+		liveSceneStubs(func(calls int, s uintptr, isLast int32) uintptr {
 			if calls == 1 {
 				return pool.cstr(`{"speakers":[{"speaker":0,"start":0.1,"end":0.6}],"sounds":[]}`)
 			}
@@ -500,12 +507,12 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 		Expect(got[1].Speakers[0].End).To(Equal(int64(0.6 * 1e9)))
 	})
 
-	It("combines an ASR delta and a scene sound event in one response", func() {
+	It("sends the ASR delta and a scene sound event as two responses, ASR first", func() {
 		CppStreamFeedJSON = func(s uintptr, pcm []float32, n int32) uintptr {
 			return pool.cstr(`{"text":"hello ","eou":0,"frame_sec":0.08,` +
 				`"words":[{"w":"hello","start":0.1,"end":0.4,"conf":0.9}]}`)
 		}
-		liveSceneStubs(func(calls int, isLast int32) uintptr {
+		liveSceneStubs(func(calls int, s uintptr, isLast int32) uintptr {
 			if calls == 1 {
 				return pool.cstr(`{"speakers":[],"sounds":[{"index":365,` +
 					`"label":"Chicken, rooster","start":24.0,"end":30.0,"peak":0.86}]}`)
@@ -520,18 +527,20 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 		Expect(<-errCh).NotTo(HaveOccurred())
 
 		got := collectLive(out)
-		Expect(got).To(HaveLen(3)) // ready, combined delta+sound, final
+		Expect(got).To(HaveLen(4)) // ready, ASR delta, sound-only, final
 		Expect(got[1].Delta).To(Equal("hello "))
-		Expect(got[1].Sounds).To(HaveLen(1))
-		Expect(got[1].Sounds[0].Label).To(Equal("Chicken, rooster"))
-		Expect(got[1].Sounds[0].Index).To(Equal(int32(365)))
-		Expect(got[1].Sounds[0].Peak).To(BeNumerically("~", 0.86, 1e-6))
-		Expect(got[1].Sounds[0].Start).To(Equal(int64(24.0 * 1e9)))
-		Expect(got[1].Sounds[0].End).To(Equal(int64(30.0 * 1e9)))
+		Expect(got[1].Sounds).To(BeEmpty(), "the ASR response must not wait on the scene feed")
+		Expect(got[2].Delta).To(BeEmpty())
+		Expect(got[2].Sounds).To(HaveLen(1))
+		Expect(got[2].Sounds[0].Label).To(Equal("Chicken, rooster"))
+		Expect(got[2].Sounds[0].Index).To(Equal(int32(365)))
+		Expect(got[2].Sounds[0].Peak).To(BeNumerically("~", 0.86, 1e-6))
+		Expect(got[2].Sounds[0].Start).To(Equal(int64(24.0 * 1e9)))
+		Expect(got[2].Sounds[0].End).To(Equal(int64(30.0 * 1e9)))
 	})
 
 	It("flushes the scene stream is_last before the final result, then frees it", func() {
-		begun, freed := liveSceneStubs(func(calls int, isLast int32) uintptr {
+		begun, freed := liveSceneStubs(func(calls int, s uintptr, isLast int32) uintptr {
 			if calls == 2 {
 				Expect(isLast).To(Equal(int32(1)))
 				return pool.cstr(`{"speakers":[{"speaker":1,"start":1.0,"end":2.0}],"sounds":[]}`)
@@ -558,7 +567,9 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 	It("frees and begins the scene stream again on a mid-stream config reset", func() {
 		streamBegun := 0
 		CppStreamBegin = func(ctx uintptr) uintptr { streamBegun++; return uintptr(10 + streamBegun) }
-		begun, freed := liveSceneStubs(func(calls int, isLast int32) uintptr {
+		var seenStreams []uintptr
+		begun, freed := liveSceneStubs(func(calls int, s uintptr, isLast int32) uintptr {
+			seenStreams = append(seenStreams, s)
 			return pool.cstr(`{"speakers":[],"sounds":[]}`)
 		})
 
@@ -573,6 +584,33 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 
 		Expect(*begun).To(Equal(2), "scene stream begun again on reset")
 		Expect(*freed).To(Equal(2), "old scene stream freed on reset, new one on unwind")
+		// One scene feed per audio message (pre-reset, post-reset) plus the
+		// close is_last flush, which runs on the post-reset stream.
+		Expect(seenStreams).To(HaveLen(3))
+		Expect(seenStreams[0]).NotTo(Equal(seenStreams[1]), "post-reset audio must go to the new scene stream handle")
+		Expect(seenStreams[2]).To(Equal(seenStreams[1]), "the close flush uses the post-reset stream too")
+	})
+
+	It("returns without a C call when Free() ran between begin and a scene feed", func() {
+		feedCalls := 0
+		CppSceneOptsDefault = func(o *cSceneOpts) { *o = cSceneOpts{} }
+		CppSceneStreamBegin = func(asr, diar, tagger uintptr, o *cSceneOpts) uintptr { return 999 }
+		CppSceneStreamFeedJSON = func(s uintptr, pcm *float32, n int32, isLast int32) uintptr {
+			feedCalls++
+			return pool.cstr(`{"speakers":[],"sounds":[]}`)
+		}
+
+		h := p.sceneBegin()
+		Expect(h.s).NotTo(BeZero())
+
+		// Simulate a Free() racing in between the begin and the next feed: it
+		// zeroes the companion context under engineMu, exactly as the real
+		// Free() does.
+		p.diarCtx = 0
+
+		_, err := p.sceneFeed(h, make([]float32, 10), false)
+		Expect(grpcerrors.IsModelNotLoaded(err)).To(BeTrue())
+		Expect(feedCalls).To(Equal(0), "no C call once the scene stream's contexts were freed")
 	})
 
 	It("continues without scene events when scene begin fails", func() {

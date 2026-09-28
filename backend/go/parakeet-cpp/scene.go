@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc/codes"
@@ -53,38 +55,74 @@ func (p *ParakeetCpp) sceneWanted() bool {
 		CppSceneStreamFeedJSON != nil && CppSceneStreamFree != nil
 }
 
+// sceneStreamHandle bundles the C scene_stream pointer with the diar/tag
+// contexts it was begun with. sceneFeed re-checks those against p.diarCtx/
+// p.tagCtx under engineMu before every call, so a Free() racing between the
+// begin and a later feed (freeing the very contexts the stream borrows) is
+// caught instead of handed to the C side — mirroring streamFeedDoc's re-check
+// of p.ctxPtr (see the "Per-C-call engine serialization" comment in
+// goparakeetcpp.go). The zero value (s == 0) means "no scene stream".
+type sceneStreamHandle struct {
+	s    uintptr
+	diar uintptr
+	tag  uintptr
+}
+
 // sceneBegin opens a no-ASR scene stream (diarization and/or sound events
 // only; the live path's own ASR session already covers transcription) under
-// engineMu. Call only when sceneWanted() is true. A 0 return means the C
-// call itself failed; the caller logs a warning and continues the live
-// session without speaker/sound events.
-func (p *ParakeetCpp) sceneBegin() uintptr {
+// engineMu. Call only when sceneWanted() is true. Refuses to begin with both
+// contexts 0 (defensive: sceneWanted() already guards this). A zero handle
+// means the C call itself failed; the caller logs a warning and continues
+// the live session without speaker/sound events.
+func (p *ParakeetCpp) sceneBegin() sceneStreamHandle {
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
+	diar, tag := p.diarCtx, p.tagCtx
+	if diar == 0 && tag == 0 {
+		return sceneStreamHandle{}
+	}
 	var opts cSceneOpts
 	CppSceneOptsDefault(&opts)
 	opts.DiarLatency = p.diarLatency
-	return CppSceneStreamBegin(0, p.diarCtx, p.tagCtx, &opts)
+	s := CppSceneStreamBegin(0, diar, tag, &opts)
+	if s == 0 {
+		return sceneStreamHandle{}
+	}
+	return sceneStreamHandle{s: s, diar: diar, tag: tag}
 }
 
-// sceneFree releases a scene stream opened by sceneBegin. A 0 stream (scene
-// events disabled or never began) is a no-op.
-func (p *ParakeetCpp) sceneFree(s uintptr) {
-	if s == 0 {
+// sceneFree releases a scene stream opened by sceneBegin. A zero handle
+// (scene events disabled or never began) is a no-op. Safe to call even after
+// the contexts the stream borrowed have been freed: parakeet_scene_stream's
+// destructor only releases its own buffers and never dereferences the
+// borrowed asr/diar/tagger pointers (verified against
+// parakeet.cpp's parakeet_capi_scene_stream_free / SceneStream::~SceneStream
+// / DiarPcmStream::~DiarPcmStream, all `= default`), unlike a feed call.
+func (p *ParakeetCpp) sceneFree(h sceneStreamHandle) {
+	if h.s == 0 {
 		return
 	}
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
-	CppSceneStreamFree(s)
+	CppSceneStreamFree(h.s)
 }
 
 // sceneFeed runs one scene-stream feed (or the is_last flush) under
-// engineMu and returns the parsed document. last_error is stream-scoped
-// (parakeet_capi_scene_stream_last_error), so it is read under the same
-// lock as the failing call.
-func (p *ParakeetCpp) sceneFeed(s uintptr, pcm []float32, isLast bool) (sceneFeedJSON, error) {
+// engineMu and returns the parsed document. Before touching the C side it
+// re-checks that p.diarCtx/p.tagCtx still match what the stream was begun
+// with: Free() can run between the caller's ASR feed and this call (both
+// take engineMu individually, never for a session's lifetime, so nothing
+// blocks a concurrent Free()) and free the very model the stream borrows.
+// A mismatch returns ModelNotLoaded without making the C call; last_error is
+// otherwise stream-scoped (parakeet_capi_scene_stream_last_error), read
+// under the same lock as the failing call.
+func (p *ParakeetCpp) sceneFeed(h sceneStreamHandle, pcm []float32, isLast bool) (sceneFeedJSON, error) {
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
+
+	if p.diarCtx != h.diar || p.tagCtx != h.tag {
+		return sceneFeedJSON{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
 
 	var last int32
 	if isLast {
@@ -94,11 +132,11 @@ func (p *ParakeetCpp) sceneFeed(s uintptr, pcm []float32, isLast bool) (sceneFee
 	if len(pcm) > 0 {
 		ptr = &pcm[0]
 	}
-	ret := CppSceneStreamFeedJSON(s, ptr, int32(len(pcm)), last)
+	ret := CppSceneStreamFeedJSON(h.s, ptr, int32(len(pcm)), last)
 	if ret == 0 {
 		msg := ""
 		if CppSceneStreamLastError != nil {
-			msg = CppSceneStreamLastError(s)
+			msg = CppSceneStreamLastError(h.s)
 		}
 		if msg == "" {
 			msg = "unknown error"
@@ -116,48 +154,63 @@ func (p *ParakeetCpp) sceneFeed(s uintptr, pcm []float32, isLast bool) (sceneFee
 
 // feedSlicesScene mirrors driver.go's feedSlices but also feeds the same pcm
 // slice to an optional companion scene stream right after each ASR slice, so
-// the live path's speaker/sound events stay time-aligned with the ASR
-// decode increments. sceneStream == 0 disables scene feeding for this call
-// (no companions, or a previous scene feed already disabled it this
-// session).
+// the live path's speaker/sound events stay time-aligned with the ASR decode
+// increments. scene.s == 0 disables scene feeding for this call (no
+// companions, or a previous scene feed already disabled it this session).
+//
+// The ASR result is emitted immediately after the ASR feed — the same
+// response contents/timing a no-companion session would produce — before the
+// scene feed for that slice runs, so a companion model never adds scene
+// compute latency in front of the ASR delta/<EOU> that drives realtime turn
+// detection. Any closed speakers/sounds from the scene feed are emitted
+// afterward as their own response, so a slice with both produces two
+// responses, ASR first.
 //
 // A scene feed failure degrades gracefully rather than aborting live
 // transcription over a secondary feature: it frees the broken stream, warns
-// once, and returns 0 so the caller carries the ASR-only session forward.
-// It returns the (possibly now-zeroed) scene stream for the caller to keep
-// across the next call.
-func (p *ParakeetCpp) feedSlicesScene(ctx context.Context, stream, sceneStream uintptr, pcm []float32, onFeed func(streamFeedResult, sceneFeedJSON) error) (uintptr, error) {
+// once, and zeroes the handle so the caller carries the ASR-only session
+// forward. Returns the (possibly now-zeroed) scene handle plus the
+// cumulative ASR and scene wall time this call spent in feedChunk/sceneFeed,
+// for the caller's lag log line.
+func (p *ParakeetCpp) feedSlicesScene(ctx context.Context, stream uintptr, scene sceneStreamHandle, pcm []float32, onFeed func(streamFeedResult, sceneFeedJSON) error) (sceneStreamHandle, time.Duration, time.Duration, error) {
+	var asrWall, sceneWall time.Duration
 	for off := 0; off < len(pcm); off += streamChunkSamples {
 		if ctx != nil {
 			if err := ctx.Err(); err != nil {
-				return sceneStream, status.Error(codes.Canceled, "transcription cancelled")
+				return scene, asrWall, sceneWall, status.Error(codes.Canceled, "transcription cancelled")
 			}
 		}
 		end := min(off+streamChunkSamples, len(pcm))
 		chunk := pcm[off:end]
 
+		asrStart := time.Now()
 		res, err := p.feedChunk(stream, chunk, false)
+		asrWall += time.Since(asrStart)
 		if err != nil {
-			return sceneStream, err
+			return scene, asrWall, sceneWall, err
+		}
+		if err := onFeed(res, sceneFeedJSON{}); err != nil {
+			return scene, asrWall, sceneWall, err
 		}
 
-		var sceneDoc sceneFeedJSON
-		if sceneStream != 0 {
-			sceneDoc, err = p.sceneFeed(sceneStream, chunk, false)
-			if err != nil {
-				xlog.Warn("parakeet-cpp: live scene feed failed; disabling speaker/sound events for this session",
-					"err", err)
-				p.sceneFree(sceneStream)
-				sceneStream = 0
-				sceneDoc = sceneFeedJSON{}
-			}
+		if scene.s == 0 {
+			continue
 		}
-
-		if err := onFeed(res, sceneDoc); err != nil {
-			return sceneStream, err
+		sceneStart := time.Now()
+		sceneDoc, serr := p.sceneFeed(scene, chunk, false)
+		sceneWall += time.Since(sceneStart)
+		if serr != nil {
+			xlog.Warn("parakeet-cpp: live scene feed failed; disabling speaker/sound events for this session",
+				"err", serr)
+			p.sceneFree(scene)
+			scene = sceneStreamHandle{}
+			continue
+		}
+		if err := onFeed(streamFeedResult{}, sceneDoc); err != nil {
+			return scene, asrWall, sceneWall, err
 		}
 	}
-	return sceneStream, nil
+	return scene, asrWall, sceneWall, nil
 }
 
 // liveSpeakersToProto maps a scene feed document's closed "speakers" into
