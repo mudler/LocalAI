@@ -107,6 +107,13 @@ type AgentConfig struct {
 	LoopDetection              int   `json:"loop_detection"`
 	EnableAutoCompaction       bool  `json:"enable_auto_compaction"`
 	AutoCompactionThreshold    int   `json:"auto_compaction_threshold"`
+
+	// Tool policy (see toolpolicy.go)
+	RequiredToolBeforeFinish         string    `json:"required_tool_before_finish"`
+	RequiredToolBeforeFinishPrompt   string    `json:"required_tool_before_finish_prompt"`
+	RequiredToolBeforeFinishAttempts int       `json:"required_tool_before_finish_attempts"`
+	AllowedTools                     ToolNames `json:"allowed_tools"`
+	ExcludedTools                    ToolNames `json:"excluded_tools"`
 }
 
 // ConnectorConfig defines a connector integration (Slack, Discord, etc.).
