@@ -5,6 +5,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -194,5 +195,81 @@ var _ = Describe("ParakeetCpp.Diarize", func() {
 		_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(1)})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("boom"))
+	})
+
+	It("reports last_error from both contexts when the include_text C call returns NULL", func() {
+		// Diarize's Unimplemented gate checks CppDiarizePCM regardless of
+		// wantText, so it needs a non-nil (never called) stub here too.
+		CppDiarizePCM = func(ctx uintptr, samples *float32, n int32, sampleRate int32) uintptr {
+			Fail("diarize_pcm must not be called when include_text has an ASR companion to pair with")
+			return 0
+		}
+		CppTranscribeAndDiarizeJSON = func(asr, diar uintptr, samples *float32, n int32, sampleRate int32) uintptr {
+			return 0
+		}
+		CppLastError = func(ctx uintptr) string {
+			if ctx == 7 {
+				return "asr side broke"
+			}
+			return "diar side broke"
+		}
+
+		p := &ParakeetCpp{diarCtx: 42, ctxPtr: 7}
+		_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(1), IncludeText: true})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("asr side broke"))
+		Expect(err.Error()).To(ContainSubstring("diar side broke"))
+	})
+
+	It("wraps a decode failure as InvalidArgument", func() {
+		CppDiarizePCM = func(ctx uintptr, samples *float32, n int32, sampleRate int32) uintptr {
+			Fail("decode must fail before any C call is made")
+			return 0
+		}
+
+		p := &ParakeetCpp{diarCtx: 42}
+		_, err := p.Diarize(&pb.DiarizeRequest{Dst: filepath.Join(GinkgoT().TempDir(), "missing.wav")})
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+	})
+
+	It("returns ModelNotLoaded without a C call when diarCtx is zeroed between the entry check and the call", func() {
+		called := false
+		CppDiarizePCM = func(ctx uintptr, samples *float32, n int32, sampleRate int32) uintptr {
+			called = true
+			return pool.cstr(`{"speakers":8,"segments":[]}`)
+		}
+		CppFreeString = func(uintptr) {}
+
+		p := &ParakeetCpp{diarCtx: 42}
+		// Simulate a Free() racing between Diarize's own diarCtx==0 check and
+		// diarizeCall's lock, exactly as it zeroes diarCtx under engineMu.
+		p.diarCtx = 0
+		_, err := p.diarizeCall(make([]float32, 10), false)
+		Expect(grpcerrors.IsModelNotLoaded(err)).To(BeTrue())
+		Expect(called).To(BeFalse(), "no C call once diarCtx was cleared")
+	})
+
+	It("merges same-speaker segments across an intervening different speaker (A, B, A)", func() {
+		CppDiarizePCM = func(ctx uintptr, samples *float32, n int32, sampleRate int32) uintptr {
+			return pool.cstr(`{"speakers":8,"segments":[` +
+				`{"speaker":0,"start":0.00,"end":1.00},` +
+				`{"speaker":1,"start":1.05,"end":1.20},` + // short B segment sits between the two A's
+				`{"speaker":0,"start":1.30,"end":2.00}]}`) // 0.1s gap from the first A: same speaker, merges
+		}
+		CppFreeString = func(uintptr) {}
+
+		p := &ParakeetCpp{diarCtx: 42}
+		resp, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(3), MinDurationOff: 0.5})
+		Expect(err).ToNot(HaveOccurred())
+		// The two speaker-0 segments merge into one spanning 0.00-2.00, and
+		// the timeline re-sort puts speaker 1's untouched segment in between.
+		Expect(resp.Segments).To(HaveLen(2))
+		Expect(resp.Segments[0].Speaker).To(Equal("0"))
+		Expect(resp.Segments[0].Start).To(BeNumerically("~", 0.0, 0.001))
+		Expect(resp.Segments[0].End).To(BeNumerically("~", 2.0, 0.001))
+		Expect(resp.Segments[1].Speaker).To(Equal("1"))
+		Expect(resp.Segments[1].Start).To(BeNumerically("~", 1.05, 0.001))
+		Expect(resp.Segments[1].End).To(BeNumerically("~", 1.20, 0.001))
 	})
 })

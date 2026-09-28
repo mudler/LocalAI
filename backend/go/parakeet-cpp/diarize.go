@@ -3,8 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc/codes"
@@ -104,7 +107,7 @@ func (p *ParakeetCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, error
 
 	pcm, duration, err := decodeWavMono16k(req.GetDst())
 	if err != nil {
-		return pb.DiarizeResponse{}, err
+		return pb.DiarizeResponse{}, status.Errorf(codes.InvalidArgument, "parakeet-cpp: decode audio: %s", err)
 	}
 	if len(pcm) == 0 {
 		return pb.DiarizeResponse{}, status.Error(codes.InvalidArgument, "parakeet-cpp: empty audio")
@@ -133,12 +136,19 @@ func (p *ParakeetCpp) Diarize(req *pb.DiarizeRequest) (pb.DiarizeResponse, error
 
 // diarizeCall runs the single C call Diarize needs (transcribe_and_diarize_json
 // when wantText, else diarize_pcm) under engineMu, and returns the raw JSON
-// document. last_error is ctx-shared, so it is read under the same lock as the
-// failing call, off p.diarCtx (the context both entry points share as their
-// diarization side).
+// document. p.diarCtx (and, on the include_text path, p.ctxPtr) is re-checked
+// under the lock before the C call: Diarize's own p.diarCtx==0/wantText checks
+// run before this lock is taken, so a Free() racing in between (which zeroes
+// those fields under the same engineMu) would otherwise reach the C side with
+// a freed context. last_error is ctx-shared, so it is read under the same
+// lock as the failing call.
 func (p *ParakeetCpp) diarizeCall(pcm []float32, wantText bool) (string, error) {
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
+
+	if p.diarCtx == 0 || (wantText && p.ctxPtr == 0) {
+		return "", grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
 
 	var cstr uintptr
 	if wantText {
@@ -147,15 +157,32 @@ func (p *ParakeetCpp) diarizeCall(pcm []float32, wantText bool) (string, error) 
 		cstr = CppDiarizePCM(p.diarCtx, &pcm[0], int32(len(pcm)), 16000)
 	}
 	if cstr == 0 {
-		msg := CppLastError(p.diarCtx)
-		if msg == "" {
-			msg = "unknown error"
-		}
-		return "", fmt.Errorf("parakeet-cpp: diarize failed: %s", msg)
+		return "", fmt.Errorf("parakeet-cpp: diarize failed: %s", diarizeLastError(p, wantText))
 	}
 	raw := goStringFromCPtr(cstr)
 	CppFreeString(cstr)
 	return raw, nil
+}
+
+// diarizeLastError reads last_error off p.diarCtx and, on the include_text
+// path, p.ctxPtr too — the failing call is CppTranscribeAndDiarizeJSON there,
+// and either side of the pairing may be the one that set it — then joins
+// whichever came back non-empty. Called under the same engineMu as the
+// failing call (last_error is ctx-shared state).
+func diarizeLastError(p *ParakeetCpp, wantText bool) string {
+	var msgs []string
+	if m := CppLastError(p.diarCtx); m != "" {
+		msgs = append(msgs, m)
+	}
+	if wantText {
+		if m := CppLastError(p.ctxPtr); m != "" {
+			msgs = append(msgs, m)
+		}
+	}
+	if len(msgs) == 0 {
+		return "unknown error"
+	}
+	return strings.Join(msgs, "; ")
 }
 
 // parseDiarizeDoc decodes the raw JSON diarizeCall returned into
@@ -208,34 +235,60 @@ func applyDurationFilters(segs []*pb.DiarizeSegment, minOn, minOff float32) []*p
 	return segs
 }
 
-// mergeCloseSegments merges consecutive SAME-SPEAKER segments separated by a
-// gap shorter than minOff into one segment spanning both (and concatenating
-// any text). Segments from different speakers are never merged, regardless of
-// gap: the gap only ever means "the same speaker paused", never "two speakers
-// are actually one".
+// mergeCloseSegments merges SAME-SPEAKER segments separated by a gap shorter
+// than minOff into one segment spanning both (and concatenating any text).
+// Segments from different speakers are never merged, regardless of gap: the
+// gap only ever means "the same speaker paused", never "two speakers are
+// actually one".
+//
+// Merging runs per speaker rather than on the single start-sorted list: two
+// segments of the same speaker are not necessarily adjacent in that list once
+// another speaker's turn falls between them (A, B, A), and a start-sorted
+// walk would then never compare the two A's at all. Grouping by speaker first
+// keeps each group's own start order (segs is assumed start-sorted, as
+// parakeet_capi_diarize_pcm and parakeet_capi_transcribe_and_diarize_json
+// document), merges within the group, then the merged segments are re-sorted
+// by start so interleaved speakers come back out in timeline order.
 func mergeCloseSegments(segs []*pb.DiarizeSegment, minOff float32) []*pb.DiarizeSegment {
 	if minOff <= 0 || len(segs) < 2 {
 		return segs
 	}
-	out := make([]*pb.DiarizeSegment, 0, len(segs))
-	out = append(out, segs[0])
-	for _, s := range segs[1:] {
-		prev := out[len(out)-1]
-		if s.GetSpeaker() == prev.GetSpeaker() && s.GetStart()-prev.GetEnd() < minOff {
-			if s.GetEnd() > prev.GetEnd() {
-				prev.End = s.End
-			}
-			if s.GetText() != "" {
-				if prev.GetText() != "" {
-					prev.Text = prev.GetText() + " " + s.GetText()
-				} else {
-					prev.Text = s.GetText()
-				}
-			}
-			continue
+
+	bySpeaker := make(map[string][]*pb.DiarizeSegment)
+	var order []string // first-seen speaker order, for a deterministic group walk
+	for _, s := range segs {
+		if _, ok := bySpeaker[s.GetSpeaker()]; !ok {
+			order = append(order, s.GetSpeaker())
 		}
-		out = append(out, s)
+		bySpeaker[s.GetSpeaker()] = append(bySpeaker[s.GetSpeaker()], s)
 	}
+
+	out := make([]*pb.DiarizeSegment, 0, len(segs))
+	for _, speaker := range order {
+		group := bySpeaker[speaker]
+		merged := make([]*pb.DiarizeSegment, 0, len(group))
+		merged = append(merged, group[0])
+		for _, s := range group[1:] {
+			prev := merged[len(merged)-1]
+			if s.GetStart()-prev.GetEnd() < minOff {
+				if s.GetEnd() > prev.GetEnd() {
+					prev.End = s.End
+				}
+				if s.GetText() != "" {
+					if prev.GetText() != "" {
+						prev.Text = prev.GetText() + " " + s.GetText()
+					} else {
+						prev.Text = s.GetText()
+					}
+				}
+				continue
+			}
+			merged = append(merged, s)
+		}
+		out = append(out, merged...)
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].GetStart() < out[j].GetStart() })
 	return out
 }
 
