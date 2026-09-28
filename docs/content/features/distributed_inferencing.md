@@ -98,7 +98,7 @@ LLAMACPP_GRPC_SERVERS="address1:port,address2:port" local-ai run
 ```
 The workload on the LocalAI server will then be distributed across the specified nodes.
 
-Alternatively, you can build the RPC workers/server following the llama.cpp [README](https://github.com/ggerganov/llama.cpp/blob/master/examples/rpc/README.md), which is compatible with LocalAI.
+Alternatively, you can build the RPC workers/server following the llama.cpp [README](https://github.com/ggml-org/llama.cpp/blob/master/tools/rpc/README.md), which is compatible with LocalAI.
 
 ## Manual example (worker)
 

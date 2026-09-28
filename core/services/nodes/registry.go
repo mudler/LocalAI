@@ -124,6 +124,11 @@ type BackendNode struct {
 	// worker's re-registration value does not clobber it (mirrors
 	// MaxReplicasPerModelManuallySet).
 	VRAMBudgetManuallySet bool      `gorm:"column:vram_budget_manually_set;default:false" json:"vram_budget_manually_set"`
+	// Version is the LocalAI build version reported by the worker at
+	// registration. Empty for workers registered before this field existed.
+	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
+	// Commit is the git commit hash the worker binary was built from.
+	Commit string `gorm:"column:commit;size:64" json:"commit,omitempty"`
 	APIKeyID              string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
 	AuthUserID            string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
 	LastHeartbeat         time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`

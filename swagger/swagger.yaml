@@ -2,13 +2,19 @@ basePath: /
 definitions:
   config.Gallery:
     properties:
+      artifact_verification:
+        allOf:
+        - $ref: '#/definitions/config.GalleryVerification'
+        description: |-
+          ArtifactVerification overrides Verification only for the gallery OCI artifact.
+          Backend images keep their separate Verification policy.
       mirrors:
         description: |-
           Mirrors are tried in order when URL cannot be fetched. They are a
           fallback for availability, not a load-balancing pool: the primary is
           always preferred, and a mirror is only consulted after the one before
           it fails. Any URI the gallery loader understands works here
-          (https://, github:, file://).
+          (https://, github:, file://, oci://).
         items:
           type: string
         type: array
@@ -31,6 +37,11 @@ definitions:
         type: string
       not_before:
         description: NotBefore is an RFC3339 timestamp. Empty disables the time check.
+        type: string
+      source_repository:
+        description: |-
+          SourceRepository is an https URL compared exactly against the
+          certificate's source-repository extension. Empty skips the check.
         type: string
     type: object
   config.TTSVoice:
@@ -2654,11 +2665,37 @@ definitions:
         type: string
       id:
         type: string
+      process:
+        allOf:
+        - $ref: '#/definitions/schema.SysInfoProcess'
+        description: |-
+          Process is the backend process serving the model on this host. Absent
+          when the model has no local process (a distributed worker holds it) or
+          the process could not be read.
       size_vram:
         description: |-
           SizeVRAM is DRM-accounted resident device memory in bytes. Nil means
           the backend process tree has no complete supported reading.
         type: integer
+    type: object
+  schema.SysInfoProcess:
+    properties:
+      cpu_percent:
+        description: |-
+          CPUPercent is the share of the whole host's CPU used since the previous
+          reading, 0-100. Absent on the first reading of a process.
+        type: number
+      memory_percent:
+        type: number
+      pid:
+        type: integer
+      rss_bytes:
+        description: |-
+          RSSBytes is resident host memory. Weights offloaded to a GPU are not
+          in it.
+        type: integer
+      started_at:
+        type: string
     type: object
   schema.SystemInformationResponse:
     properties:
@@ -2672,6 +2709,106 @@ definitions:
         items:
           $ref: '#/definitions/schema.SysInfoModel'
         type: array
+    type: object
+  schema.SystemOneAnswer:
+    properties:
+      choice:
+        type: string
+      confidence:
+        type: number
+      entities:
+        items:
+          $ref: '#/definitions/schema.SystemOneEntity'
+        type: array
+      legend:
+        additionalProperties:
+          type: string
+        type: object
+      noul:
+        type: number
+      probabilities:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+      score:
+        type: number
+      type:
+        type: string
+    type: object
+  schema.SystemOneEntity:
+    properties:
+      confidence:
+        type: number
+      end:
+        type: integer
+      start:
+        type: integer
+      text:
+        type: string
+    type: object
+  schema.SystemOnePermuteRequest:
+    properties:
+      n_perm:
+        type: integer
+      question:
+        type: string
+      request:
+        $ref: '#/definitions/schema.SystemOneRequest'
+      seed:
+        type: integer
+    type: object
+  schema.SystemOnePermuteResponse:
+    properties:
+      argmax_stable:
+        type: boolean
+      runs:
+        items:
+          $ref: '#/definitions/schema.SystemOnePermuteRun'
+        type: array
+      spread:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+    type: object
+  schema.SystemOnePermuteRun:
+    properties:
+      choice:
+        type: string
+      latency_ms:
+        type: number
+      order:
+        items:
+          type: string
+        type: array
+      probabilities:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+    type: object
+  schema.SystemOneRequest:
+    type: object
+  schema.SystemOneResponse:
+    properties:
+      answers:
+        additionalProperties:
+          $ref: '#/definitions/schema.SystemOneAnswer'
+        type: object
+      latency_ms:
+        type: number
+      model:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.SystemOneUsage'
+    type: object
+  schema.SystemOneUsage:
+    properties:
+      input_tokens:
+        type: integer
+      output_tokens:
+        type: integer
     type: object
   schema.TTSRequest:
     description: TTS request body
@@ -5672,6 +5809,64 @@ paths:
       summary: Generates audio from the input text.
       tags:
       - audio
+  /v1/systemone:
+    post:
+      description: 'Runs zero-shot NER over the supplied state and answers each question.
+        Question types: noul (binary entity presence), choice (pick one option), score
+        (pick one level).'
+      parameters:
+      - description: state + questions
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SystemOneRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SystemOneResponse'
+      summary: Answer structured-extraction questions over state text.
+      tags:
+      - systemone
+  /v1/systemone/permute:
+    post:
+      description: Re-runs one choice question under n_perm option orders. Reports
+        per-order probabilities, argmax stability, and spread.
+      parameters:
+      - description: request + question + n_perm + seed
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SystemOnePermuteRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SystemOnePermuteResponse'
+      summary: Re-run a choice question under multiple option orders.
+      tags:
+      - systemone
+  /v1/systemone/separate:
+    post:
+      description: Runs N independent NER passes, one per question, against the same
+        state. Response shape matches /v1/systemone.
+      parameters:
+      - description: state + questions
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SystemOneRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SystemOneResponse'
+      summary: Answer each question in a separate NER pass.
+      tags:
+      - systemone
   /v1/text-to-speech/{voice-id}:
     post:
       parameters:
