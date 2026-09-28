@@ -30,9 +30,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/xlog"
+
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/services/routing/router"
-	"github.com/mudler/xlog"
 )
 
 // Entry is one labelled exemplar. Vector, EmbeddingModel, and
@@ -104,6 +105,9 @@ type storeState struct {
 	syncedFile           fileFingerprint
 	needsSync            bool
 	indexedEntries       int
+	// probe is a vector we inserted ourselves; storeHolds uses it to
+	// tell a live index apart from a relaunched, empty one.
+	probe []float32
 }
 
 type cachedStats struct {
@@ -172,7 +176,17 @@ func (m *Manager) EnsureLoaded(ctx context.Context, storeName, embeddingModel, e
 			}
 			delete(m.states, storeName)
 		} else if !state.needsSync && state.syncedFile.equal(fileKey) {
-			return 0, nil
+			if state.indexedEntries == 0 || store == nil || storeHolds(ctx, store, state.probe) {
+				return 0, nil
+			}
+			// The file is unchanged but the live index no longer answers
+			// for a vector we inserted: the store backend was relaunched
+			// (evicted by the active-backend cap or memory pressure, then
+			// started fresh and empty on this request). Fall through and
+			// re-seed it from the file — no re-embedding, the vectors are
+			// persisted.
+			xlog.Warn("router: knn corpus index came back empty, re-seeding from file",
+				"store", storeName, "entries", state.indexedEntries)
 		}
 	}
 
@@ -224,8 +238,38 @@ func (m *Manager) EnsureLoaded(ctx context.Context, storeName, embeddingModel, e
 		embeddingFingerprint: embeddingFingerprint,
 		syncedFile:           fileKey,
 		indexedEntries:       len(entries),
+		probe:                entries[0].Vector,
 	}
 	return len(entries), nil
+}
+
+// storeHolds reports whether the live vector index still contains the
+// corpus. The local-store backend is an in-memory gRPC process: when
+// the model loader evicts it (active-backend cap, memory pressure) and
+// relaunches it on the next request, it comes back EMPTY while the
+// manager still records the file as synced — from then on every probe
+// routes to the fallback with similarity 0, and corpus/stats keeps
+// reporting the full count because it reads the file. One nearest-
+// neighbour lookup with a vector we inserted ourselves tells the two
+// states apart. An index that cannot answer is treated as empty; the
+// re-seed that follows surfaces the real error.
+func storeHolds(ctx context.Context, store backend.VectorStore, probe []float32) bool {
+	if len(probe) == 0 {
+		return true
+	}
+	sim, _, ok, err := store.Search(ctx, probe)
+	return err == nil && ok && sim > 0.999
+}
+
+// firstVector returns the vector of the first entry across lists —
+// the probe storeHolds checks the live index with.
+func firstVector(lists ...[]Entry) []float32 {
+	for _, l := range lists {
+		if len(l) > 0 {
+			return l[0].Vector
+		}
+	}
+	return nil
 }
 
 // Add validates, embeds, persists, and indexes new exemplars. Entries
@@ -288,6 +332,7 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel, embeddingF
 			embeddingFingerprint: embeddingFingerprint,
 			syncedFile:           m.fingerprint(storeName),
 			indexedEntries:       len(existing),
+			probe:                firstVector(existing),
 		}
 	}
 	seen := make(map[string]struct{}, len(existing))
@@ -377,6 +422,7 @@ func (m *Manager) Add(ctx context.Context, storeName, embeddingModel, embeddingF
 			embeddingFingerprint: embeddingFingerprint,
 			syncedFile:           m.fingerprint(storeName),
 			indexedEntries:       entryCount,
+			probe:                firstVector(current, added),
 		}
 	} else {
 		m.states[storeName] = storeState{embeddingFingerprint: embeddingFingerprint, needsSync: true, indexedEntries: entryCount}

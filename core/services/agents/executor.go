@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -181,6 +182,11 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 
 	// Build cogito options
 	var cogitoOpts []cogito.Option
+	// Local tools are collected first so the tool filter applies to all of
+	// them at once; cogito only runs tools it offered, so filtering what is
+	// offered also filters the lookup of the model's tool calls.
+	var localTools []cogito.ToolDefinitionInterface
+	filter := newToolFilter(cfg.AllowedTools, cfg.ExcludedTools)
 
 	// MCP sessions
 	sessions, cleanup := setupMCPSessions(ctx, cfg)
@@ -188,7 +194,7 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		defer cleanup()
 	}
 	if len(sessions) > 0 {
-		cogitoOpts = append(cogitoOpts, cogito.WithMCPs(sessions...))
+		cogitoOpts = append(cogitoOpts, cogito.WithMCPs(sessions...), cogito.WithMCPToolFilter(filter.mcpToolFilter()))
 	}
 
 	// KB tools (search_memory / add_memory) — when kb mode is "tools" or "both"
@@ -197,7 +203,7 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 		if kbResults <= 0 {
 			kbResults = 5
 		}
-		cogitoOpts = append(cogitoOpts, cogito.WithTools(
+		localTools = append(localTools,
 			cogito.NewToolDefinition(
 				KBSearchMemoryTool{APIURL: effectiveURL, APIKey: effectiveKey, Collection: cfg.Name, MaxResults: kbResults, UserID: userID, CitationCollector: kbCitations},
 				KBSearchMemoryArgs{},
@@ -210,7 +216,7 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 				"add_memory",
 				"Store content in memory for later retrieval",
 			),
-		))
+		)
 	}
 
 	// Skill tools — when skills_mode is "tools" or "both"
@@ -220,17 +226,35 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 			allSkills, _ := skillProvider.ListSkills()
 			filtered := FilterSkills(allSkills, cfg.SelectedSkills)
 			if len(filtered) > 0 {
-				cogitoOpts = append(cogitoOpts, cogito.WithTools(
+				localTools = append(localTools,
 					cogito.NewToolDefinition(
 						RequestSkillTool{Skills: filtered},
 						RequestSkillArgs{},
 						"request_skill",
 						"Request a skill by name. Available skills: "+skillNames(filtered),
 					),
-				))
+				)
 			}
 		}
 	}
+
+	localTools = filter.filterTools(localTools)
+	if len(localTools) > 0 {
+		cogitoOpts = append(cogitoOpts, cogito.WithTools(localTools...))
+	}
+
+	// Required-tool gate: the agent must run the configured tool to success
+	// before its answer is final. It is enforced on the output because a
+	// model follows "always call X first" unreliably.
+	requiredTool := cfg.RequiredToolBeforeFinish
+	requiredPassed := false
+	requiredAttempts := 0
+	maxRequiredAttempts := cfg.RequiredToolBeforeFinishAttempts
+	if maxRequiredAttempts <= 0 {
+		maxRequiredAttempts = defaultRequiredFinishAttempts
+	}
+	requiredPrompt := requiredFinishPromptFor(requiredTool, cfg.RequiredToolBeforeFinishPrompt)
+	requiredAvailable := requiredTool != "" && requiredToolAvailable(ctx, requiredTool, localTools, sessions, filter)
 
 	// Sink state is always disabled — the agent responds directly when no tools match.
 	cogitoOpts = append(cogitoOpts, cogito.DisableSinkState)
@@ -250,8 +274,11 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 	}
 
 	// Tool call result callback
-	if cb.OnToolResult != nil || cb.OnToolCall != nil {
+	if cb.OnToolResult != nil || cb.OnToolCall != nil || requiredAvailable {
 		cogitoOpts = append(cogitoOpts, cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
+			if requiredAvailable && t.Name == requiredTool && requiredToolResultOK(t.Result) {
+				requiredPassed = true
+			}
 			if isInternalCogitoTool(t.Name) {
 				return
 			}
@@ -325,6 +352,32 @@ func ExecuteChatWithLLM(ctx context.Context, llm cogito.LLM, cfg *AgentConfig, m
 			cb.OnStatus("error: " + err.Error())
 		}
 		return "", fmt.Errorf("agent execution failed: %w", err)
+	}
+
+	for len(result.Messages) > 0 && textFinalizationNeedsRequiredTool(requiredAvailable, requiredPassed,
+		requiredAttempts, maxRequiredAttempts, result.LastMessage().Role, result.LastMessage().Content) {
+		requiredAttempts++
+		xlog.Info("required-tool gate: answer without the required tool, nudging",
+			"agent", cfg.Name, "tool", requiredTool, "attempt", requiredAttempts)
+		answered := result
+		next, err := cogito.ExecuteTools(llm, result.AddMessage(cogito.UserMessageRole, requiredPrompt), cogitoOpts...)
+		if err != nil && ctx.Err() != nil {
+			if cb.OnStatus != nil {
+				cb.OnStatus("error: " + err.Error())
+			}
+			return "", fmt.Errorf("agent execution failed: %w", err)
+		}
+		// A failed retry must not throw away the answer the model already gave.
+		if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
+			xlog.Error("required-tool gate: retry failed, keeping the previous answer", "agent", cfg.Name, "error", err)
+			result = answered
+			break
+		}
+		result = next
+	}
+	if requiredAvailable && !requiredPassed && requiredAttempts >= maxRequiredAttempts {
+		xlog.Warn("required-tool gate: bypass after max attempts, answer finalized ungated",
+			"agent", cfg.Name, "tool", requiredTool)
 	}
 
 	// Extract response

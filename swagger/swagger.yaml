@@ -2266,6 +2266,8 @@ definitions:
         type: array
       id:
         type: string
+      metadata:
+        type: object
       model:
         type: string
       object:
@@ -2652,6 +2654,11 @@ definitions:
         type: string
       id:
         type: string
+      size_vram:
+        description: |-
+          SizeVRAM is DRM-accounted resident device memory in bytes. Nil means
+          the backend process tree has no complete supported reading.
+        type: integer
     type: object
   schema.SystemInformationResponse:
     properties:

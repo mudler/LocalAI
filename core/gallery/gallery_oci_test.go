@@ -229,6 +229,21 @@ var _ = Describe("oci:// galleries", func() {
 		})
 	})
 
+	It("uses the artifact policy without replacing backend image verification", func() {
+		srv, _, _ := ociRegistry()
+		url := pushGalleryArtifact(srv.URL, "galleries/separate-policy", galleryArtifactType, []ociGalleryFile{{title: "index.yaml", body: "- name: demo\n"}})
+		backendPolicy := &config.GalleryVerification{Identity: "backend-workflow"}
+		artifactPolicy := &config.GalleryVerification{Identity: "gallery-workflow"}
+		var seen *config.GalleryVerification
+		stubGalleryVerifier(func(_ context.Context, policy *config.GalleryVerification, _ string) error { seen = policy; return nil })
+		g := config.Gallery{URL: srv.URL + "/unavailable", Mirrors: []string{srv.URL + "/also-unavailable", url}, Name: "separate", Verification: backendPolicy, ArtifactVerification: artifactPolicy}
+		_, source, err := fetchGalleryIndex(context.Background(), g, tempModelsDir(), true)
+		Expect(source).To(Equal(url))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(seen).To(Equal(artifactPolicy))
+		Expect(g.Verification).To(Equal(backendPolicy))
+	})
+
 	It("refuses an unsigned gallery in strict integrity mode", func() {
 		srv, _, blobs := ociRegistry()
 		url := pushGalleryArtifact(srv.URL, "galleries/strict", galleryArtifactType, []ociGalleryFile{

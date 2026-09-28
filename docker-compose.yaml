@@ -59,6 +59,7 @@ services:
     #           capabilities: [gpu, utility]
     #
     # For legacy NVIDIA driver (for older NVIDIA Container Toolkit):
+    # Request compute for CUDA libraries (libcuda.so.1) and utility for NVML.
     # environment:
     #   NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
     # init: true
@@ -68,7 +69,7 @@ services:
     #       devices:
     #         - driver: nvidia
     #           count: 1
-    #           capabilities: [gpu, utility]
+    #           capabilities: [gpu, compute, utility]
 
   ## Uncomment for PostgreSQL-backed knowledge base (see Agents docs)
   # postgres:

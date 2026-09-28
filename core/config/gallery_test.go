@@ -179,3 +179,24 @@ var _ = Describe("GalleryVerification", func() {
 		Expect(g[0].Verification.SourceRepository).To(Equal("https://github.com/acme/gallery"))
 	})
 })
+
+var _ = Describe("Gallery artifact verification", func() {
+	It("compares artifact policies by value and preserves them in JSON and YAML", func() {
+		a := config.Gallery{Name: "gallery", ArtifactVerification: &config.GalleryVerification{Identity: "gallery-workflow"}}
+		b := config.Gallery{Name: "gallery", ArtifactVerification: &config.GalleryVerification{Identity: "gallery-workflow"}}
+		Expect(a.Equal(b)).To(BeTrue())
+		b.ArtifactVerification.Identity = "another-workflow"
+		Expect(a.Equal(b)).To(BeFalse())
+		b.ArtifactVerification = nil
+		Expect(a.Equal(b)).To(BeFalse())
+		raw, err := json.Marshal(a)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(json.Unmarshal(raw, &b)).To(Succeed())
+		Expect(a.Equal(b)).To(BeTrue())
+		raw, err = yaml.Marshal(a)
+		Expect(err).ToNot(HaveOccurred())
+		b = config.Gallery{}
+		Expect(yaml.Unmarshal(raw, &b)).To(Succeed())
+		Expect(a.Equal(b)).To(BeTrue())
+	})
+})

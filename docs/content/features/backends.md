@@ -82,6 +82,8 @@ tags:
 
 ### Verifying OCI Backends
 
+The default backend gallery tries `https://index.localai.io/backends`, then `github:mudler/LocalAI/backend/index.yaml@master`, then `oci://quay.io/go-skynet/local-ai-backends:gallery-backends`. The OCI fallback is signed by `gallery_publish.yml`. Its `artifact_verification` policy applies only to the gallery artifact; `verification` continues to control backend image signatures. Existing custom gallery lists are not changed. See [gallery publishing]({{% relref "features/model-gallery#official-gallery-publishing" %}}) for details.
+
 Backend galleries can require keyless Sigstore signatures for every OCI image
 they provide. Add a `verification` policy to the gallery configuration, then
 enable strict integrity mode:

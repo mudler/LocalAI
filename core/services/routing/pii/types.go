@@ -109,7 +109,7 @@ const (
 	// model's MaxConcurrent ceiling is full. The Host field carries
 	// the model name (overloading the existing column rather than
 	// adding a new one — admins read it as "the thing that was
-	// busy"); StatusCode is 503.
+	// busy"); StatusCode is 429.
 	KindAdmission EventKind = "admission"
 )
 

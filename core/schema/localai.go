@@ -208,6 +208,9 @@ type SysInfoModel struct {
 	// when the model has no local process (a distributed worker holds it) or
 	// the process could not be read.
 	Process *SysInfoProcess `json:"process,omitempty"`
+	// SizeVRAM is DRM-accounted resident device memory in bytes. Nil means
+	// the backend process tree has no complete supported reading.
+	SizeVRAM *uint64 `json:"size_vram,omitempty"`
 }
 
 // SysInfoProcess is a point-in-time reading of one backend process.

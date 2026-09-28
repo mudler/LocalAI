@@ -931,7 +931,8 @@ function eventDetails(e) {
     }
     case 'admission': {
       const retry = e.duration_ms != null ? `retry-after ${Math.round(e.duration_ms / 1000)}s` : ''
-      return `HTTP 503 rejected · ${retry}`
+      // Older audit rows were recorded as 503; newer ones as 429.
+      return `HTTP ${e.status_code || 429} rejected · ${retry}`
     }
     default: {
       const len = e.length != null ? `len ${e.length}` : ''
