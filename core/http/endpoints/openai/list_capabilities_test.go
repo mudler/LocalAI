@@ -160,6 +160,33 @@ parameters:
 		Expect(entry).NotTo(BeNil())
 		Expect(entry.ContextSize).To(Equal(backend.DefaultContextSize))
 	})
+
+	It("uses application config context size when model context_size is unset", func() {
+		writeConfig("llm-app-default", `
+name: llm-app-default
+backend: llama-cpp
+parameters:
+  model: model.gguf
+`)
+		appConf.ContextSize = 8192
+		entry := entryFor(call(), "llm-app-default")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(8192))
+	})
+
+	It("keeps the backend fallback when the model sets a non-positive context_size", func() {
+		writeConfig("llm-explicit-zero", `
+name: llm-explicit-zero
+backend: llama-cpp
+context_size: 0
+parameters:
+  model: model.gguf
+`)
+		appConf.ContextSize = 8192
+		entry := entryFor(call(), "llm-explicit-zero")
+		Expect(entry).NotTo(BeNil())
+		Expect(entry.ContextSize).To(Equal(backend.DefaultContextSize))
+	})
 	It("reports an alias with its target's capabilities and context_size", func() {
 		writeConfig("real-llm", `
 name: real-llm

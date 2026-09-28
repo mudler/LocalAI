@@ -22,7 +22,8 @@ on:
         type: string
       go-version:
         description: 'Go version to use'
-        default: '1.24.x'
+        # Go 1.27 stamps pure-Go hosts with SDK metadata that supports modern Metal APIs.
+        default: '1.27.x'
         type: string
       tag-suffix:
         description: 'Tag suffix for the built image'

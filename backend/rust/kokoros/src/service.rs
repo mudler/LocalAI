@@ -132,6 +132,7 @@ impl Backend for KokorosService {
         Ok(Response::new(backend::Result {
             success: true,
             message: "Kokoros TTS model loaded".into(),
+            ..Default::default()
         }))
     }
 
@@ -180,11 +181,13 @@ impl Backend for KokorosService {
                     return Ok(Response::new(backend::Result {
                         success: false,
                         message: format!("Failed to write WAV: {}", e),
+                        ..Default::default()
                     }));
                 }
                 Ok(Response::new(backend::Result {
                     success: true,
                     message: String::new(),
+                    ..Default::default()
                 }))
             }
             Err(e) => {
@@ -192,6 +195,7 @@ impl Backend for KokorosService {
                 Ok(Response::new(backend::Result {
                     success: false,
                     message: format!("TTS error: {}", e),
+                    ..Default::default()
                 }))
             }
         }
@@ -292,6 +296,7 @@ impl Backend for KokorosService {
         Ok(Response::new(backend::Result {
             success: true,
             message: "Model freed".into(),
+            ..Default::default()
         }))
     }
 
