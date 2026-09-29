@@ -1,6 +1,6 @@
 # parakeet-cpp backend Makefile.
 #
-# Upstream pin lives below as PARAKEET_VERSION?=2bf88954dc628b32835734e2e9159550a75a1dc6
+# Upstream pin lives below as PARAKEET_VERSION?=6dea76a81ee0bba83c6dad320dccc2fbeef111e2
 # (.github/bump_deps.sh) can find and update it - matches the
 # whisper.cpp / ds4 / vibevoice-cpp convention.
 #
@@ -15,10 +15,7 @@
 # That's what the L0 smoke test uses. The default target below does the
 # proper clone-at-pin + cmake build so CI doesn't need a side-checkout.
 
-# Tracks mudler/parakeet.cpp PR #75 (diarization/CED model roles + sound and
-# scene streaming, ABI v8) until it merges to master; repin to the merge
-# commit once it lands.
-PARAKEET_VERSION?=c018537fbe0bdd3ccb3ecb387a2119bbf901e90d
+PARAKEET_VERSION?=6dea76a81ee0bba83c6dad320dccc2fbeef111e2
 PARAKEET_REPO?=https://github.com/mudler/parakeet.cpp
 
 GOCMD?=go
