@@ -297,7 +297,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: f33633d55f5379e8571db06674bf7a07a2ea7bb7b44287e1a9bdc3686d69a5c6
+      sha256: 0ee532bce971b1464cce75ce74b7e5205dfd5cc4a844d27ce8f4b4de82a7136f
 - name: "qwopus3.8-27b-flash-v2"
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -54137,7 +54137,7 @@
   files:
     - filename: cohere-transcribe-q4_k.gguf
       uri: huggingface://cstr/cohere-transcribe-03-2026-GGUF/cohere-transcribe-q4_k.gguf
-      sha256: 237261c543dc9124a3f08f95b48c9c672896ef0d79dc8cadce3fb4ddc09a2ef8
+      sha256: 116f4c4f7ff1b03997100d3a097e13fecd84350555b9979867b241cd6803e4f5
 - name: wav2vec2-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
