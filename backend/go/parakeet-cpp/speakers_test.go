@@ -121,3 +121,46 @@ var _ = Describe("ParakeetCpp transcript speakers (real models)", func() {
 		Expect(plain.Text).To(Equal(res.Text))
 	})
 })
+
+var _ = Describe("ParakeetCpp scene companions on an offline ASR model (real models)", func() {
+	It("labels speakers and detects sounds from one model with both companions", func() {
+		asrModel := os.Getenv("PARAKEET_BACKEND_TEST_SCENE_ASR_MODEL") // e.g. tdt-0.6b-v3
+		diarModel := os.Getenv("PARAKEET_BACKEND_TEST_DIAR_MODEL")
+		soundModel := os.Getenv("PARAKEET_BACKEND_TEST_SOUND_MODEL")
+		wavPath := os.Getenv("PARAKEET_BACKEND_TEST_SCENE_WAV")     // speech + a non-speech sound
+		wantLabel := os.Getenv("PARAKEET_BACKEND_TEST_SCENE_LABEL") // e.g. "Chicken, rooster"
+		if asrModel == "" || diarModel == "" || soundModel == "" || wavPath == "" || wantLabel == "" {
+			Skip("set PARAKEET_BACKEND_TEST_SCENE_ASR_MODEL, _DIAR_MODEL, _SOUND_MODEL, " +
+				"PARAKEET_BACKEND_TEST_SCENE_WAV and PARAKEET_BACKEND_TEST_SCENE_LABEL")
+		}
+		ensureLibLoaded()
+		if CppDiarizePCM == nil || CppModelKind == nil {
+			Skip("libparakeet.so has no diarization / model-kind C-API")
+		}
+		p := &ParakeetCpp{}
+		Expect(p.Load(&pb.ModelOptions{
+			ModelFile: asrModel,
+			Options:   []string{"diarization_model:" + diarModel, "sound_model:" + soundModel},
+		})).To(Succeed())
+		defer func() { _ = p.Free() }()
+
+		res, err := p.AudioTranscription(context.Background(), &pb.TranscriptRequest{Dst: wavPath, Diarize: true})
+		Expect(err).ToNot(HaveOccurred())
+		labels := make([]string, 0, len(res.Segments))
+		for _, s := range res.Segments {
+			GinkgoWriter.Printf("[%5.1f-%5.1f] spk %q: %s\n", float64(s.Start)/1e9, float64(s.End)/1e9, s.Speaker, s.Text)
+			labels = append(labels, s.Speaker)
+		}
+		Expect(len(speakerTurnsOf(labels))).To(BeNumerically(">=", 3), "speaker turns: %v", labels)
+		Expect(labels).To(ContainElements("0", "1"))
+
+		sd, err := p.SoundDetection(context.Background(), &pb.SoundDetectionRequest{Src: wavPath, TopK: 5})
+		Expect(err).ToNot(HaveOccurred())
+		var got []string
+		for _, d := range sd.GetDetections() {
+			GinkgoWriter.Printf("sound %q %.2f\n", d.GetLabel(), d.GetScore())
+			got = append(got, d.GetLabel())
+		}
+		Expect(got).To(ContainElement(wantLabel))
+	})
+})

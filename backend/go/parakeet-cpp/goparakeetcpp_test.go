@@ -68,6 +68,13 @@ func ensureLibLoaded() {
 		}
 		if sym, err := purego.Dlsym(lib, "parakeet_capi_model_kind"); err == nil && sym != 0 {
 			purego.RegisterLibFunc(&CppModelKind, lib, "parakeet_capi_model_kind")
+			purego.RegisterLibFunc(&CppNumClasses, lib, "parakeet_capi_num_classes")
+			purego.RegisterLibFunc(&CppSoundOptsDefault, lib, "parakeet_capi_sound_opts_default")
+			purego.RegisterLibFunc(&CppSoundStreamBegin, lib, "parakeet_capi_sound_stream_begin")
+			purego.RegisterLibFunc(&CppSoundStreamFeed, lib, "parakeet_capi_sound_stream_feed")
+			purego.RegisterLibFunc(&CppSoundStreamDrainScoresJSON, lib, "parakeet_capi_sound_stream_drain_scores_json")
+			purego.RegisterLibFunc(&CppFreeSoundSegments, lib, "parakeet_capi_free_sound_segments")
+			purego.RegisterLibFunc(&CppSoundStreamFree, lib, "parakeet_capi_sound_stream_free")
 		}
 		purego.RegisterLibFunc(&CppFreeString, lib, "parakeet_capi_free_string")
 		purego.RegisterLibFunc(&CppLastError, lib, "parakeet_capi_last_error")

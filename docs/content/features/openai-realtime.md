@@ -193,6 +193,38 @@ The companion stream is opened fresh for each speech turn, alongside that turn's
 
 **Limitation**: under `semantic_vad`, live transcription (and so this companion stream) only runs during speech turns - it does not see audio between turns. A sound that happens while nobody is speaking is not detected this way. If you need sound events independent of speech turns, use the pipeline's `sound_detection` model instead (see [Sound Classification]({{% relref "audio-classification" %}})), which classifies each VAD-committed utterance on its own. Use one or the other, not both, on the same session - they overlap in purpose and would emit sound detections twice.
 
+### Speaker and sound events with an offline model (Parakeet TDT v3)
+
+The live events above need a cache-aware streaming transcription model. An offline model such as Parakeet TDT 0.6B v3 (25 languages) runs under `server_vad` instead: each VAD-committed turn is transcribed as a whole. The gallery model `parakeet-cpp-realtime-scene-tdt` bundles it with Nemotron-3-Diarization and CED-Tiny, so one parakeet-cpp backend handles transcription, speakers and sounds. Point both `transcription` and `sound_detection` at it and turn on `diarization`:
+
+```yaml
+name: gpt-realtime-scene
+pipeline:
+  vad: silero-vad-ggml
+  transcription: parakeet-cpp-realtime-scene-tdt
+  sound_detection: parakeet-cpp-realtime-scene-tdt
+  diarization: true
+  llm: qwen3-4b
+  tts: tts-1
+```
+
+`pipeline.diarization` asks the transcription model for speaker labels on each committed turn and emits every labelled segment as a `conversation.item.input_audio_transcription.segment` event before the turn's `completed` event. Unlike the live path, these segments carry their `text`:
+
+```json
+{
+  "type": "conversation.item.input_audio_transcription.segment",
+  "item_id": "item_abc",
+  "content_index": 0,
+  "id": "seg_1",
+  "speaker": "1",
+  "start": 6.85,
+  "end": 10.82,
+  "text": "Well, I don't wish to see it any more, observed Phoebe, turning away her eyes."
+}
+```
+
+`sound_detection` classifies the same committed audio and emits one `conversation.item.sound_detection` event per turn (see [Sound Classification]({{% relref "audio-classification" %}})). As on the live path, times are relative to the turn's audio and speaker labels are only consistent within a turn. `pipeline.diarization` is off by default: it needs a transcription model that diarizes (parakeet-cpp with a `diarization_model` companion), and some other backends fail a diarization request they cannot serve.
+
 ### Disabling thinking
 
 For reasoning models, you can force the pipeline LLM's thinking off without editing the LLM model config:
