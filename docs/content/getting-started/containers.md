@@ -265,6 +265,12 @@ podman run -ti --name local-ai -p 8080:8080 \
   docker.io/localai/localai:latest
 ```
 
+## Easypanel
+
+[Easypanel](https://easypanel.io) is a self-hosted Docker deployment platform, and it maintains a one-click deployment template for LocalAI:
+
+[![Deploy on Easypanel](https://easypanel.io/img/deploy-on-easypanel-40.svg)](https://easypanel.io/templates/localai)
+
 ## Next Steps
 
 After installation:
