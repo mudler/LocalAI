@@ -12,7 +12,7 @@
 # runs 'make -C backend/go/$(BACKEND) build' and then copies package/), so it
 # has to produce the binary and the package, not just the shared libraries.
 
-NEMO_SPEECH_VERSION?=97a15afa5caa9bce5baaa86c1184103877af4101
+NEMO_SPEECH_VERSION?=0f706e43cf1fbc031bad1423e05460d3acaeaa1c
 NEMO_SPEECH_REPO?=https://github.com/NVIDIA/NeMo-Speech.cpp
 
 GOCMD?=go
