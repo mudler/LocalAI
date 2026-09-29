@@ -39,6 +39,22 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## JetBrains Qwen3.8/3.6 27B blend
+
+The gallery offers IQ3_S, Q4_K_M, and Q5_K_M GGUF builds of JetBrains' Qwen3.8/3.6 27B blend.
+All three use llama.cpp with native MTP decoding, thinking enabled, and the shared BF16 vision projector.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-3.6-27b-blend
+```
+
+To select a build explicitly, pass `--variant qwen3.8-3.6-27b-blend` (Q4_K_M),
+`--variant qwen3.8-3.6-27b-blend-iq3-s`, or `--variant qwen3.8-3.6-27b-blend-q5-k-m`.
+See the [publisher's model card](https://huggingface.co/JetBrains/Qwen3.8-3.6-27B-blend-GGUF)
+for the merge method and Apache-2.0 license.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
