@@ -14,6 +14,9 @@ import (
 // fetchModelPackViaLlmman acquires a CNCF ModelPack artifact through a running
 // `llmman serve` daemon and materialises it at dst.
 //
+// reference must be digest-pinned to the manifest the caller inspected and
+// verified, so llmman cannot re-resolve a tag to different bytes.
+//
 // The daemon does the pull (POST /api/pull, streamed so progress is not a
 // multi-gigabyte silence) but deliberately exposes no local path, so
 // `llmman resolve --no-pull` is asked where the bytes landed. Both pieces are
@@ -27,17 +30,7 @@ func fetchModelPackViaLlmman(ctx context.Context, reference, dst string, downloa
 
 	xlog.Info("Pulling CNCF ModelPack artifact via llmman", "ref", reference, "endpoint", endpoint)
 
-	progress := func(status string, completed, total int64) {
-		if downloadStatus == nil {
-			return
-		}
-		var pct float64
-		if total > 0 {
-			pct = float64(completed) / float64(total) * 100
-		}
-		downloadStatus(reference, "", status, pct)
-	}
-	if err := llmman.Pull(ctx, llmman.DefaultClient(), endpoint, reference, progress); err != nil {
+	if err := llmman.Pull(ctx, llmman.DefaultClient(), endpoint, reference, modelPackProgress(reference, downloadStatus)); err != nil {
 		return err
 	}
 
@@ -47,6 +40,23 @@ func fetchModelPackViaLlmman(ctx context.Context, reference, dst string, downloa
 	}
 
 	return linkOrCopyTree(src, dst)
+}
+
+// modelPackProgress adapts llmman pull progress to the downloadStatus contract
+// of (fileName, written, total, percentage).
+func modelPackProgress(reference string, downloadStatus func(string, string, string, float64)) llmman.ProgressFunc {
+	return func(_ string, completed, total int64) {
+		if downloadStatus == nil {
+			return
+		}
+		var totalText string
+		var pct float64
+		if total > 0 {
+			totalText = formatBytes(total)
+			pct = float64(completed) / float64(total) * 100
+		}
+		downloadStatus(reference, formatBytes(completed), totalText, pct)
+	}
 }
 
 // linkOrCopyTree materialises src at dst, hard-linking files where possible so
@@ -101,15 +111,14 @@ func linkOrCopyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	out, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-
 	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
 		return err
 	}
 	return out.Close()

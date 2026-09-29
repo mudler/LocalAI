@@ -150,6 +150,33 @@ local-ai run ollama://gemma:2b
 local-ai run oci://localai/phi-2:latest
 ```
 
+#### CNCF ModelPack artifacts
+
+An `oci://` reference to a [CNCF ModelPack](https://github.com/modelpack/model-spec) artifact (a model published as an OCI artifact rather than a container image) is detected automatically and fetched through [llmman](https://github.com/llmmanorg/llmman). Container images take the extraction path above unchanged.
+
+This needs two things on the machine running LocalAI:
+
+- a running `llmman serve` daemon, which does the registry pull and keeps a content-addressed store
+- the `llmman` binary on `PATH`, which reports where the pulled files landed
+
+```bash
+curl -fsSL https://llmmanorg.github.io/install.sh | sh
+llmman serve
+```
+
+```yaml
+name: my-model
+parameters:
+  model: oci://ghcr.io/org/model:tag
+```
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `LLMMAN_HOST` | `127.0.0.1:17434` | Address of the `llmman serve` daemon. Accepts `[scheme://]host[:port]`; a wildcard bind such as `0.0.0.0` is treated as loopback. |
+| `LOCALAI_LLMMAN_BIN` | `llmman` | Path to the `llmman` binary. |
+
+LocalAI resolves the reference to its manifest digest first and hands llmman that digest, so llmman pulls exactly what LocalAI inspected (and verified, when image verification is enabled). Files are hard-linked out of llmman's store where possible, so a model shared with llmman is stored once; across filesystems they are copied. If the daemon is unreachable or the binary is missing, the download fails with an error naming the missing piece.
+
 {{% notice note %}}
 On every model download — Ollama and OCI registries, the model gallery, and plain HTTP(S) file URLs alike — LocalAI identifies itself with a `LocalAI/<version> (<os>; <arch>)` `User-Agent` header (for example `LocalAI/v3.2.1 (linux; amd64)`) so registry and gallery operators can attribute usage to LocalAI. Builds from source that carry no stamped version send `LocalAI (<os>; <arch>)` instead.
 {{% /notice %}}

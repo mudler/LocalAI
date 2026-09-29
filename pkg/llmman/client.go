@@ -23,6 +23,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 const (
@@ -44,14 +46,20 @@ const (
 // when the daemon does not report byte counts for a step.
 type ProgressFunc func(status string, completed, total int64)
 
+// envTrimmed reads a variable from llmman's own environment contract. The
+// downloader has no ApplicationConfig in scope to plumb these through.
+func envTrimmed(name string) string {
+	//nolint:forbidigo // llmman's own env interface, read the way its clients do
+	return strings.TrimSpace(os.Getenv(name))
+}
+
 // Endpoint returns the http origin of the llmman daemon.
 //
 // LLMMAN_HOST is parsed as [scheme://]host[:port]; a wildcard bind host
 // (0.0.0.0 or ::) is rewritten to loopback, since a client cannot connect to
 // "every interface". This mirrors llmman's own client-side resolution.
 func Endpoint() string {
-	raw := strings.TrimSpace(os.Getenv(HostEnv))
-	raw = strings.Trim(raw, `"'`)
+	raw := strings.Trim(envTrimmed(HostEnv), `"'`)
 	if raw == "" {
 		return "http://" + net.JoinHostPort(DefaultHost, DefaultPort)
 	}
@@ -85,7 +93,7 @@ func Endpoint() string {
 
 // Binary returns the llmman executable name, overridable via LOCALAI_LLMMAN_BIN.
 func Binary() string {
-	if v := strings.TrimSpace(os.Getenv(BinEnv)); v != "" {
+	if v := envTrimmed(BinEnv); v != "" {
 		return v
 	}
 	return defaultBinary
@@ -105,7 +113,7 @@ func CheckDaemon(ctx context.Context, client *http.Client, endpoint string) erro
 	if err != nil {
 		return fmt.Errorf("no llmman daemon reachable at %s: %w. Start one with `llmman serve`, or point %s at an existing daemon", endpoint, err, HostEnv)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("llmman daemon at %s answered /api/version with HTTP %d", endpoint, resp.StatusCode)
@@ -149,7 +157,7 @@ func Pull(ctx context.Context, client *http.Client, endpoint, reference string, 
 	if err != nil {
 		return fmt.Errorf("llmman pull of %q failed: %w", reference, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("llmman pull of %q failed: HTTP %d", reference, resp.StatusCode)
@@ -248,14 +256,14 @@ func parseResolveOutput(stdout, reference string) (string, error) {
 	return out.Path, nil
 }
 
-// DefaultClient is a http client with no overall timeout, since a pull of a
-// multi-gigabyte model is expected to be long-running; cancellation is the
-// caller's context.
+// DefaultClient is the hardened client for the pull stream. It has no overall
+// timeout, since a pull of a multi-gigabyte model is expected to be
+// long-running; cancellation is the caller's context.
 func DefaultClient() *http.Client {
-	return &http.Client{Transport: http.DefaultTransport}
+	return httpclient.New()
 }
 
 // ProbeClient is used only for the short /api/version reachability check.
 func ProbeClient() *http.Client {
-	return &http.Client{Timeout: 5 * time.Second}
+	return httpclient.NewWithTimeout(5 * time.Second)
 }
