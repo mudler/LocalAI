@@ -1,4 +1,45 @@
 ---
+- name: "bonsai-2-27b-ternary-crack-pq2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/dealignai/Bonsai-2-27B-Ternary-CRACK-GGUF
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf
+  description: |
+    Bonsai 2 27B Ternary CRACK is dealignai's abliterated version of PrismML's
+    Ternary Bonsai 2. This PQ2_0 build includes the Q8_0 vision projector for
+    image input and uses the Bonsai backend for PrismML's ternary format.
+    The default context is 8,192 tokens. License: Apache 2.0.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+  overrides:
+    backend: bonsai
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: bonsai/mmproj/ternary-crack-27b/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: bonsai/models/ternary-crack-27b/Bonsai-2-27B-PQ2_0-CRACK.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: bonsai/models/ternary-crack-27b/Bonsai-2-27B-PQ2_0-CRACK.gguf
+      sha256: 5b24ea3eebc3e0bccd05fb474eb88b10c57699d71a5db2f29485e3789a70d55d
+      uri: https://huggingface.co/dealignai/Bonsai-2-27B-Ternary-CRACK-GGUF/resolve/3d36486a5fb2a3868116b8f6e768179e2391d28d/Bonsai-2-27B-PQ2_0-CRACK.gguf
+    - filename: bonsai/mmproj/ternary-crack-27b/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
+      sha256: 6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903
+      uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/b072e1d3b35a0a630cece372c2127528e0994386/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
 - name: "ternary-bonsai-2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

@@ -39,6 +39,20 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Bonsai 2 27B Ternary CRACK
+
+Install the PQ2_0 build with:
+
+```bash
+local-ai models install bonsai-2-27b-ternary-crack-pq2
+```
+
+This entry uses the Bonsai backend and includes the Q8_0 vision projector for image input.
+It uses the embedded chat template with an 8,192-token context by default.
+The publisher provides one weight build, so this entry has no alternative variants.
+The [model card](https://huggingface.co/dealignai/Bonsai-2-27B-Ternary-CRACK-GGUF)
+describes the abliterated Ternary Bonsai 2 base and Apache 2.0 license.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
