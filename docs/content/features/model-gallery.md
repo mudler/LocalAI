@@ -39,6 +39,21 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Ternary Bonsai 2 27B Abliterated preview
+
+Install Hikari's PQ2_0 build for text chat with the Bonsai backend:
+
+```bash
+local-ai models install ternary-bonsai-2-27b-abliterated-pq2
+```
+
+This preview modifies Ternary Bonsai 2 to reduce refusals. The configuration uses
+the embedded chat template, medium reasoning effort, and a 32,768-token context.
+PQ2_0 requires the Bonsai backend. This entry supports text input and includes
+one build, with no alternative variants.
+See the [publisher's model card](https://huggingface.co/Hikari07jp/Ternary-Bonsai-2-27B-Abliterated-GGUF)
+for the preview's limitations and Apache-2.0 license.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.

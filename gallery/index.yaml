@@ -1,4 +1,46 @@
 ---
+- name: ternary-bonsai-2-27b-abliterated-pq2
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Hikari07jp/Ternary-Bonsai-2-27B-Abliterated-GGUF
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf
+  description: |
+    Hikari's Ternary Bonsai 2 27B Abliterated is a preview release with reduced refusals for text chat and reasoning.
+    This PQ2_0 GGUF build requires the Bonsai backend and uses the embedded chat template with medium reasoning effort.
+    The configuration defaults to 32,768 context tokens.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - reasoning
+    - preview
+  last_checked: "2026-09-29"
+  overrides:
+    backend: bonsai
+    context_size: 32768
+    chat_template_kwargs:
+      reasoning_effort: medium
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Ternary-Bonsai-2-27B-Abliterated-PQ2_0.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: Ternary-Bonsai-2-27B-Abliterated-PQ2_0.gguf
+      sha256: 41a362f422b70a8c2dc74a3cc14447ad0ea702c440f0dbe41dc1796da7b7e342
+      uri: https://huggingface.co/Hikari07jp/Ternary-Bonsai-2-27B-Abliterated-GGUF/resolve/e7f6daf95ab820ef8de7d8f5e883d95d546ab02c/Ternary-Bonsai-2-27B-Abliterated-PQ2_0.gguf
 - name: "ternary-bonsai-2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
