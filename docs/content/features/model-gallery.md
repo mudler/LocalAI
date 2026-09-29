@@ -117,6 +117,24 @@ Weights and projector downloads are pinned to a Hugging Face revision and verifi
 This Apache-2.0 release is a further post-training of Qwopus3.8 Flash for reasoning and agent tasks.
 See the [publisher's model card](https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF) for evaluation details and limitations.
 
+## Agention Precision Qwen3.8-27B
+
+Install `qwen3.8-27b-agention-ap` for Agention Precision quantizations of Qwen3.8-27B with text and image input.
+The gallery groups IQ4_XS, IQ2_S, and Q4_K_XL builds as variants.
+To select a build explicitly:
+
+```bash
+local-ai models install qwen3.8-27b-agention-ap --variant qwen3.8-27b-agention-ap
+local-ai models install qwen3.8-27b-agention-ap --variant qwen3.8-27b-agention-ap-iq2-s
+local-ai models install qwen3.8-27b-agention-ap --variant qwen3.8-27b-agention-ap-q4-k-xl
+```
+
+Each build uses llama.cpp, the embedded chat template, a BF16 vision projector, and a 32,768-token default context.
+The entries use upstream thinking-mode sampling settings. MTP speculative decoding is not enabled.
+Downloads use a fixed revision and SHA256 checksums.
+See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF) for quantization details.
+The weights use the Apache-2.0 license.
+
 ## ThinkingCap Qwen3.8-27B
 
 Install `thinkingcap-qwen3.8-27b` for a 27B reasoning model with text and image input.
