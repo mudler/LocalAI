@@ -39,6 +39,19 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Swift Bonsai 2
+
+Install the current PQ2_0 build for text chat with the Bonsai backend:
+
+```bash
+local-ai models install swift-bonsai-2-pq2
+```
+
+This experimental 27B reasoning model uses Prism's ternary tensor format.
+The entry sets a 32,768-token context and the publisher's sampling defaults.
+The publisher's PTQ1_0 file contains an earlier Swift release, so it is not grouped as a quantization variant.
+See the [model card](https://huggingface.co/ukisai/Swift-Bonsai-2-GGUF) for details and the Apache-2.0 license.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.

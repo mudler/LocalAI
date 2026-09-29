@@ -10626,6 +10626,47 @@
     - filename: bonsai/mmproj/Bonsai-27B-gguf/Bonsai-27B-mmproj-Q8_0.gguf
       sha256: eb561d41a7bbeb0fcf04883c8af11078ef6cae0a66862a0b68443cfca495269d
       uri: huggingface://prism-ml/Bonsai-27B-gguf/Bonsai-27B-mmproj-Q8_0.gguf
+- name: swift-bonsai-2-pq2
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ukisai/Swift-Bonsai-2-GGUF
+    - https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf
+  description: |
+    Swift Bonsai 2 is ukisai's experimental 27B reasoning model derived from Ternary Bonsai 2.
+    This PQ2_0 GGUF contains the updated merged Swift weights and runs text chat through LocalAI's Bonsai backend.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - text-generation
+    - reasoning
+    - bonsai
+    - ternary
+  last_checked: "2026-09-29"
+  overrides:
+    backend: bonsai
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Swift-Bonsai-2-PQ2_0.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+      repeat_penalty: 1
+      presence_penalty: 0
+  files:
+    - filename: Swift-Bonsai-2-PQ2_0.gguf
+      sha256: 5912bb739217cf25b4283a098c7b893d9baff36bdf2e72d3dbf4cb999d5633d5
+      uri: https://huggingface.co/ukisai/Swift-Bonsai-2-GGUF/resolve/a3bdac086bbb6b04d87d0108d18943b5f63868f7/Swift-Bonsai-2-PQ2_0.gguf
+
 - &ternary-bonsai-27b
   name: "ternary-bonsai-27b"
   variants:
