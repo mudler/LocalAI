@@ -175,7 +175,7 @@ parameters:
 | `LLMMAN_HOST` | `127.0.0.1:17434` | Address of the `llmman serve` daemon. Accepts `[scheme://]host[:port]`; a wildcard bind such as `0.0.0.0` is treated as loopback. |
 | `LOCALAI_LLMMAN_BIN` | `llmman` | Path to the `llmman` binary. |
 
-LocalAI resolves the reference to its manifest digest first and hands llmman that digest, so llmman pulls exactly what LocalAI inspected (and verified, when image verification is enabled). Files are hard-linked out of llmman's store where possible, so a model shared with llmman is stored once; across filesystems they are copied. If the daemon is unreachable or the binary is missing, the download fails with an error naming the missing piece.
+LocalAI resolves the reference to its manifest digest first and hands llmman that digest, so llmman pulls exactly what LocalAI inspected (and verified, when image verification is enabled). A single-file GGUF result keeps the requested destination filename; when the destination is an existing directory, it is placed inside that directory under its original filename. Files are hard-linked out of llmman's store where possible, so a model shared with llmman is stored once; across filesystems they are copied. If the daemon is unreachable or the binary is missing, the download fails with an error naming the missing piece.
 
 {{% notice note %}}
 On every model download — Ollama and OCI registries, the model gallery, and plain HTTP(S) file URLs alike — LocalAI identifies itself with a `LocalAI/<version> (<os>; <arch>)` `User-Agent` header (for example `LocalAI/v3.2.1 (linux; amd64)`) so registry and gallery operators can attribute usage to LocalAI. Builds from source that carry no stamped version send `LocalAI (<os>; <arch>)` instead.

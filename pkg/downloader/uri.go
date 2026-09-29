@@ -534,6 +534,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	dopts := applyDownloadOptions(opts)
 	url := uri.ResolveURL()
 	if uri.LooksLikeOCI() {
+		requestedPath := filePath
 
 		// Only Ollama wants to download to the file, for the rest, we want to download to the directory
 		// so we check if filepath has any extension, otherwise we assume it's a directory.
@@ -615,7 +616,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		}
 
 		if isModelPack {
-			return fetchModelPackViaLlmman(ctx, pinned, filePath, downloadStatus)
+			return fetchModelPackViaLlmman(ctx, pinned, filePath, requestedPath, downloadStatus)
 		}
 
 		return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)

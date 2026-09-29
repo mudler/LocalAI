@@ -181,6 +181,35 @@ var _ = Describe("ModelPack acquisition", func() {
 		Expect(filepath.Join(fetchInto, "model.gguf")).To(BeARegularFile())
 	})
 
+	DescribeTable("installs a single-file ModelPack without replacing its destination directory",
+		func(directoryTarget bool) {
+			pushModelPack("org/model")
+			src := filepath.Join(modelDir, "model.gguf")
+			script := filepath.Join(GinkgoT().TempDir(), "llmman")
+			output, err := json.Marshal(map[string]string{"path": src})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(script, []byte("#!/bin/sh\nprintf '%s\\n' '"+string(output)+"'\n"), 0o755)).To(Succeed())
+			GinkgoT().Setenv("LOCALAI_LLMMAN_BIN", script)
+
+			dir := GinkgoT().TempDir()
+			sentinel := filepath.Join(dir, "existing-model")
+			Expect(os.WriteFile(sentinel, []byte("keep"), 0o644)).To(Succeed())
+			dst := filepath.Join(dir, "renamed.gguf")
+			want := dst
+			if directoryTarget {
+				dst, want = dir, filepath.Join(dir, "model.gguf")
+			}
+			Expect(URI("oci://"+host+"/org/model:v1").DownloadFileWithContext(
+				context.Background(), dst, "", 1, 1, nil)).To(Succeed())
+			got, err := os.ReadFile(want)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(got)).To(Equal("gguf"))
+			Expect(sentinel).To(BeARegularFile())
+		},
+		Entry("explicit filename", false),
+		Entry("existing directory", true),
+	)
+
 	It("pins the reference without a verifier too", func() {
 		pushModelPack("org/model")
 

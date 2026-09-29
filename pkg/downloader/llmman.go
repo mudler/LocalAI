@@ -21,7 +21,7 @@ import (
 // multi-gigabyte silence) but deliberately exposes no local path, so
 // `llmman resolve --no-pull` is asked where the bytes landed. Both pieces are
 // therefore required, and each missing one has its own error.
-func fetchModelPackViaLlmman(ctx context.Context, reference, dst string, downloadStatus func(string, string, string, float64)) error {
+func fetchModelPackViaLlmman(ctx context.Context, reference, dst, requestedPath string, downloadStatus func(string, string, string, float64)) error {
 	endpoint := llmman.Endpoint()
 
 	if err := llmman.CheckDaemon(ctx, llmman.ProbeClient(), endpoint); err != nil {
@@ -39,6 +39,15 @@ func fetchModelPackViaLlmman(ctx context.Context, reference, dst string, downloa
 		return err
 	}
 
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	// OCI extraction normalizes filenames to directories, but a GGUF result
+	// must retain the filename requested by the caller.
+	if !info.IsDir() {
+		dst = requestedPath
+	}
 	return linkOrCopyTree(src, dst)
 }
 
@@ -69,7 +78,10 @@ func linkOrCopyTree(src, dst string) error {
 	}
 
 	if !info.IsDir() {
-		// A single-file payload (e.g. GGUF): dst names the file itself.
+		// An existing directory is a container for the resolved file.
+		if target, err := os.Stat(dst); err == nil && target.IsDir() {
+			dst = filepath.Join(dst, filepath.Base(src))
+		}
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return err
 		}
