@@ -477,11 +477,15 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{UsecaseTranscript},
 		Description:      "NVIDIA NeMo speech recognition",
 	},
+	// parakeet-cpp loads three model kinds, picked from the GGUF: an ASR model
+	// transcribes (and labels speakers when a diarization_model companion is
+	// attached), a Nemotron-3-Diarization model answers Diarize, and a CED model
+	// answers SoundDetection. PossibleUsecases is their union.
 	"parakeet-cpp": {
-		GRPCMethods:      []GRPCMethod{MethodAudioTranscription},
-		PossibleUsecases: []string{UsecaseTranscript},
+		GRPCMethods:      []GRPCMethod{MethodAudioTranscription, MethodDiarize, MethodSoundDetection},
+		PossibleUsecases: []string{UsecaseTranscript, UsecaseDiarization, UsecaseSoundClassification},
 		DefaultUsecases:  []string{UsecaseTranscript},
-		Description:      "NVIDIA NeMo Parakeet ASR (parakeet.cpp)",
+		Description:      "NVIDIA NeMo Parakeet ASR, Nemotron-3-Diarization speaker diarization and CED sound-event detection (parakeet.cpp)",
 	},
 	// nemo-speech-cpp is one gRPC server in front of four NeMo-Speech.cpp model
 	// families, picked at load time from the GGUF general.architecture key, so

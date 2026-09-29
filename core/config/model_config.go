@@ -833,6 +833,14 @@ type Pipeline struct {
 	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
 	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
 
+	// Diarization asks the transcription model for speaker labels on each
+	// VAD-committed utterance and emits every labelled segment as a
+	// conversation.item.input_audio_transcription.segment event. It needs a
+	// transcription model that diarizes (e.g. parakeet-cpp with a
+	// diarization_model companion); off by default because some backends fail
+	// a diarize request they cannot serve. Speaker labels are per turn.
+	Diarization bool `yaml:"diarization,omitempty" json:"diarization,omitempty"`
+
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
 	// own reasoning_effort. Unset leaves the LLM model config in charge.
