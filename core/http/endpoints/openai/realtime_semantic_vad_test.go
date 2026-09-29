@@ -303,7 +303,7 @@ var _ = Describe("liveTurnState", func() {
 			lts.drainEvents(3.4)
 
 			var got []types.ConversationItemInputAudioTranscriptionSegmentEvent
-			for _, e := range ftr.events {
+			for _, e := range ftr.events() {
 				if seg, ok := e.(types.ConversationItemInputAudioTranscriptionSegmentEvent); ok {
 					got = append(got, seg)
 				}
@@ -326,7 +326,7 @@ var _ = Describe("liveTurnState", func() {
 			lts.drainEvents(1.0)
 
 			var got []types.ConversationItemSoundDetectionEvent
-			for _, e := range ftr.events {
+			for _, e := range ftr.events() {
 				if sd, ok := e.(types.ConversationItemSoundDetectionEvent); ok {
 					got = append(got, sd)
 				}
