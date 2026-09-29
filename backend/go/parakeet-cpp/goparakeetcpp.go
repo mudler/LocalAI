@@ -349,10 +349,11 @@ func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
 // OpenAI API, whose default is segment-level); token ids always populate
 // Segment.Tokens.
 //
-// translate/diarize/prompt/temperature/threads are not applicable to parakeet
-// and are ignored; language is honored on the batched + streaming paths (see
-// opts.GetLanguage() below); streaming is handled by AudioTranscriptionStream
-// (L2).
+// With a diarization_model companion, diarize=true labels segments with their
+// speaker (speakers.go). translate/prompt/temperature/threads are not
+// applicable to parakeet and are ignored; language is honored on the batched +
+// streaming paths (see opts.GetLanguage() below); streaming is handled by
+// AudioTranscriptionStream (L2).
 func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	if p.ctxPtr == 0 {
 		if err := p.notASRError(); err != nil {
@@ -415,7 +416,17 @@ func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.Transcrip
 	if err := json.Unmarshal([]byte(res.json), &doc); err != nil {
 		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
 	}
-	return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
+
+	// With a diarization_model companion, label each segment with its speaker.
+	var speakers []int
+	if p.wantSpeakers(opts.GetDiarize()) && len(doc.Words) > 0 {
+		segs, err := p.diarizeSegmentsPCM(pcm)
+		if err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		speakers = assignSpeakers(doc.Words, segs)
+	}
+	return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, speakers), nil
 }
 
 // segmentSeparators is NeMo's default segment_seperators (sentence-ending
@@ -430,6 +441,14 @@ var segmentSeparators = []rune{'.', '?', '!'}
 // the caller requested word granularity; token ids populate each segment's
 // Tokens by time-window membership. Shared by the batched and direct paths.
 func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int) pb.TranscriptResult {
+	return transcriptResultWithSpeakers(doc, opts, gapFrames, nil)
+}
+
+// transcriptResultWithSpeakers is transcriptResultFromDoc plus optional
+// per-word speakers (indexed like doc.Words, -1 = none; see speakers.go):
+// segments additionally split wherever the speaker changes, and segments and
+// words carry the speaker's label.
+func transcriptResultWithSpeakers(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int, speakers []int) pb.TranscriptResult {
 	text, eou := stripEouMarker(strings.TrimSpace(doc.Text))
 
 	// Frame-unit gap threshold -> seconds (NeMo segment_gap_threshold). 0 = off.
@@ -453,6 +472,11 @@ func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gap
 		}
 	}
 
+	var groupSpeakers []int
+	if speakers != nil && len(speakers) == len(doc.Words) {
+		groups, groupSpeakers = splitAtSpeakerChanges(groups, speakers)
+	}
+
 	wantWords := wordsRequested(opts.TimestampGranularities)
 	segments := make([]*pb.TranscriptSegment, 0, len(groups))
 	for id, group := range groups {
@@ -467,10 +491,14 @@ func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gap
 			Text:   strings.TrimSpace(strings.Join(parts, " ")),
 			Tokens: tokensInWindow(doc.Tokens, group[0].Start, group[len(group)-1].End),
 		}
+		if groupSpeakers != nil {
+			seg.Speaker = transcriptSpeaker(groupSpeakers[id])
+		}
 		if wantWords {
 			ws := make([]*pb.TranscriptWord, len(group))
 			for i, gw := range group {
-				ws[i] = &pb.TranscriptWord{Start: secondsToNanos(gw.Start), End: secondsToNanos(gw.End), Text: gw.W}
+				ws[i] = &pb.TranscriptWord{Start: secondsToNanos(gw.Start), End: secondsToNanos(gw.End), Text: gw.W,
+					Speaker: seg.Speaker}
 			}
 			seg.Words = ws
 		}
@@ -568,10 +596,11 @@ func tokensInWindow(tokens []transcriptToken, start, end float64) []int32 {
 // text-only library (no words) it falls back to segmenting the delta text, so
 // the same assembler serves both paths.
 type streamSegmenter struct {
-	segs    []*pb.TranscriptSegment
-	cur     []transcriptWord // words for the open segment (ABI v4 JSON path)
-	curText []string         // delta text for the open segment (text-only path)
-	nextID  int32
+	segs     []*pb.TranscriptSegment
+	segWords [][]transcriptWord // words of each segment (nil for text-only ones)
+	cur      []transcriptWord   // words for the open segment (ABI v4 JSON path)
+	curText  []string           // delta text for the open segment (text-only path)
+	nextID   int32
 }
 
 func (s *streamSegmenter) add(r streamFeedResult) {
@@ -599,12 +628,14 @@ func (s *streamSegmenter) flush() {
 			End:   secondsToNanos(s.cur[len(s.cur)-1].End),
 			Text:  strings.TrimSpace(strings.Join(parts, " ")),
 		})
+		s.segWords = append(s.segWords, s.cur)
 		s.nextID++
 	case len(s.curText) > 0:
 		// No words this segment: emit a text-only segment (no timestamps),
 		// skipping a purely-whitespace one as the legacy text path did.
 		if t := strings.TrimSpace(strings.Join(s.curText, "")); t != "" {
 			s.segs = append(s.segs, &pb.TranscriptSegment{Id: s.nextID, Text: t})
+			s.segWords = append(s.segWords, nil)
 			s.nextID++
 		}
 	}
@@ -821,6 +852,28 @@ func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.Tra
 	// The single-segment fallback stays trimmed.
 	fullText := full.String()
 	segments := seg.segments()
+
+	// With a diarization_model companion, label each utterance with the
+	// speaker who said most of it. The whole file is available, so this runs
+	// the same diarization as the unary path.
+	if p.wantSpeakers(opts.GetDiarize()) && len(seg.segWords) == len(segments) {
+		var all []transcriptWord
+		for _, ws := range seg.segWords {
+			all = append(all, ws...)
+		}
+		if len(all) > 0 {
+			segs, err := p.diarizeSegmentsPCM(data)
+			if err != nil {
+				return err
+			}
+			speakers := assignSpeakers(all, segs)
+			k := 0
+			for i, ws := range seg.segWords {
+				segments[i].Speaker = transcriptSpeaker(majoritySpeaker(ws, speakers[k:k+len(ws)]))
+				k += len(ws)
+			}
+		}
+	}
 	if trimmed := strings.TrimSpace(fullText); len(segments) == 0 && trimmed != "" {
 		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: trimmed})
 	}

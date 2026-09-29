@@ -59,6 +59,16 @@ func ensureLibLoaded() {
 			purego.RegisterLibFunc(&CppStreamFeedJSON, lib, "parakeet_capi_stream_feed_json")
 			purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
 		}
+		// Diarization and model roles, probed like main.go (speakers_test.go).
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_pcm"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppDiarizePCM, lib, "parakeet_capi_diarize_pcm")
+		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_and_diarize_json"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppTranscribeAndDiarizeJSON, lib, "parakeet_capi_transcribe_and_diarize_json")
+		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_model_kind"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppModelKind, lib, "parakeet_capi_model_kind")
+		}
 		purego.RegisterLibFunc(&CppFreeString, lib, "parakeet_capi_free_string")
 		purego.RegisterLibFunc(&CppLastError, lib, "parakeet_capi_last_error")
 	})

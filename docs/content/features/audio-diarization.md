@@ -15,7 +15,7 @@ LocalAI exposes this through the `/v1/audio/diarization` endpoint, modelled afte
 - **[vibevoice.cpp](https://github.com/microsoft/VibeVoice)** - produces speaker-labelled segments as a by-product of its long-form ASR pass, so you can optionally get a transcript per segment for free.
 - **[NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp)** - NVIDIA Sortformer, served standalone by the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}}). It is end to end, so the speaker capacity is fixed by the checkpoint and the count hints are ignored. The same backend can instead put speaker tags on a transcript, by attaching a Sortformer model to an ASR one.
 - **[audio.cpp](https://github.com/0xShug0/audio.cpp)** - the `sortformer_diar` family, served by the multi-modality [audio.cpp backend]({{%relref "features/audio-cpp" %}}).
-- **[parakeet.cpp](https://github.com/mudler/parakeet.cpp)** - NVIDIA Nemotron-3-Diarization (Sortformer), served standalone or paired with a Parakeet ASR model for per-segment text. See the [Audio to Text]({{% relref "audio-to-text" %}}) page for the parakeet-cpp option reference.
+- **[parakeet.cpp](https://github.com/mudler/parakeet.cpp)** - NVIDIA Nemotron-3-Diarization (Sortformer, up to 8 speakers), served standalone or paired with a Parakeet ASR model for per-segment text. See the [Audio to Text]({{% relref "audio-to-text" %}}) page for the parakeet-cpp option reference.
 
 Because diarization is exposed as a regular OpenAI-compatible endpoint, any HTTP client works. There is no Python dependency on pyannote or NeMo on the consumer side.
 
