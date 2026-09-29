@@ -304,14 +304,12 @@ func (c *Client) listFilesInPath(repoID, path string) ([]FileInfo, error) {
 		switch item.Type {
 		// If it's a directory/folder, recursively list its contents
 		case "directory", "folder":
-			// Build the subfolder path
+			// The tree API returns every entry's path relative to the repo
+			// root ("assets/plots", not "plots"), so it is already the path
+			// to recurse into. Prefixing the parent again requested
+			// "assets/assets/plots", which 404s and failed the whole listing
+			// for any repo nested more than one directory deep.
 			subPath := item.Path
-			if path != "" {
-				subPath = fmt.Sprintf("%s/%s", path, item.Path)
-			}
-
-			// Recursively get files from subfolder
-			// The recursive call will already prepend the subPath to each file's path
 			subFiles, err := c.listFilesInPath(repoID, subPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to list files in subfolder %s: %w", subPath, err)
@@ -319,10 +317,6 @@ func (c *Client) listFilesInPath(repoID, path string) ([]FileInfo, error) {
 
 			allFiles = append(allFiles, subFiles...)
 		case "file":
-			// It's a file, prepend the current path to make it relative to root
-			//	if path != "" {
-			//		item.Path = fmt.Sprintf("%s/%s", path, item.Path)
-			//	}
 			allFiles = append(allFiles, item)
 		}
 	}
