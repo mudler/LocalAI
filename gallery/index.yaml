@@ -53931,6 +53931,128 @@
     - filename: parakeet-cpp/ced-tiny-q8_0.gguf
       uri: huggingface://mudler/ced-gguf/ced-tiny-q8_0.gguf
       sha256: 48bee4e2fc3cc85d7806e03471db24e77fda6c2a2e81ffe9ef67caebaf2bd674
+- name: parakeet-cpp-realtime-scene-base
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/nvidia/parakeet_realtime_eou_120m-v1
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/mispeech/ced-base
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Cache-aware streaming RNNT FastConformer with end-of-utterance (EOU)
+    detection, 120M, paired with Nemotron-3-Diarization and CED-Base (86M, the largest CED;
+    more confident sound tags than CED-Tiny at a small extra cost: on CPU the
+    live diarization + sound stream runs at 0.125 of real time against 0.103
+    with CED-Tiny) through
+    the diarization_model and sound_model options. F16/Q8_0 GGUF for the
+    parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). Use with streaming
+    transcription: while a turn is live, closed speaker segments and sound
+    events are surfaced alongside the ASR text (realtime
+    conversation.item.input_audio_transcription.segment and
+    conversation.item.sound_detection events). Live speaker/sound events only
+    fire during speech turns under semantic_vad; sounds between turns are not
+    seen by this path. License per model: transcription model NVIDIA Open
+    Model License, diarization model OpenMDW-1.1, CED-Base Apache-2.0.
+  license: nvidia-open-model-license
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - ced
+    - asr
+    - speech-recognition
+    - diarization
+    - sound-classification
+    - streaming
+    - realtime
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-realtime-scene-base
+    options:
+      - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      - sound_model:parakeet-cpp/ced-base-q8_0.gguf
+    parameters:
+      model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+  files:
+    - filename: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/realtime_eou_120m-v1-f16.gguf
+      sha256: d1a2b12f12b8a096a57499c9111ed13b442a2b786e17a292c168be45088f0edc
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/ced-base-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-base-q8_0.gguf
+      sha256: bd34a7710169f0047fea17267965d211f967828ab25ba6fb9d3768481393f6e2
+- name: parakeet-cpp-realtime-scene-tdt-base
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/mispeech/ced-base
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Parakeet TDT 0.6B v3 (multilingual, 25 European languages) paired with
+    Nemotron-3-Diarization and CED-Base (86M, the largest CED; about 0.03 s of
+    CPU per second of audio per committed turn, against 0.005 for CED-Tiny)
+    through the diarization_model and
+    sound_model options: one parakeet-cpp backend transcribes, labels speakers
+    and tags sound events. GGUF for the parakeet-cpp backend (C++/ggml port of
+    NVIDIA NeMo). TDT is not a streaming model, so in a realtime pipeline use
+    it with server_vad: set it as both transcription and sound_detection and
+    turn on pipeline.diarization, and each committed turn gets speaker segments
+    (conversation.item.input_audio_transcription.segment, with text) and
+    sound tags (conversation.item.sound_detection). Also labels speakers on
+    /v1/audio/transcriptions. Speaker labels are per turn. License per model:
+    transcription model CC-BY-4.0, diarization model OpenMDW-1.1, CED-Tiny
+    Apache-2.0.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - ced
+    - asr
+    - speech-recognition
+    - diarization
+    - sound-classification
+    - multilingual
+    - realtime
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+      - diarization
+      - sound_classification
+    name: parakeet-cpp-realtime-scene-tdt-base
+    options:
+      - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      - sound_model:parakeet-cpp/ced-base-q8_0.gguf
+    parameters:
+      model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt-0.6b-v3-f16.gguf
+      sha256: 8ba47343e1e919895aca90e099150a01ed203ee0942d8ed31e27295efc5abb22
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/ced-base-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-base-q8_0.gguf
+      sha256: bd34a7710169f0047fea17267965d211f967828ab25ba6fb9d3768481393f6e2
 - name: moss-transcribe-cpp-0.9b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

@@ -225,6 +225,17 @@ pipeline:
 
 `sound_detection` classifies the same committed audio and emits one `conversation.item.sound_detection` event per turn (see [Sound Classification]({{% relref "audio-classification" %}})). As on the live path, times are relative to the turn's audio and speaker labels are only consistent within a turn. `pipeline.diarization` is off by default: it needs a transcription model that diarizes (parakeet-cpp with a `diarization_model` companion), and some other backends fail a diarization request they cannot serve.
 
+#### Choosing the sound model
+
+Both scene models ship with CED-Tiny, the cheapest to run all the time. `parakeet-cpp-realtime-scene-base` and `parakeet-cpp-realtime-scene-tdt-base` are the same pipelines with CED-Base (86M, the largest CED), which tags sounds more confidently. Any CED GGUF from [`mudler/ced-gguf`](https://huggingface.co/mudler/ced-gguf) (tiny, mini, small, base) works as `sound_model`. Measured on CPU (Ryzen 9 9950X3D) over a 37 s clip with two speakers and a rooster, as a fraction of real time:
+
+| | CED-Tiny | CED-Base |
+|---|---|---|
+| Live scene stream (diarization `low` + sound), EOU path | 0.103 | 0.125 |
+| Sound detection per committed turn, TDT path | 0.005 | 0.031 |
+
+The EOU model's own ASR stream adds 0.016. Diarization dominates the live cost, so CED-Base keeps the live path about 7x faster than real time.
+
 ### Disabling thinking
 
 For reasoning models, you can force the pipeline LLM's thinking off without editing the LLM model config:
