@@ -170,7 +170,10 @@ GStatus BuildRequest(const backend::PredictOptions* request, gb::GenRequest* out
   for (const auto& s : request->stopprompts()) out->stop.push_back(s);
   out->max_tokens = request->tokens() > 0 ? static_cast<std::size_t>(request->tokens()) : 0;
 
-  // LocalAI sends zero for "not configured"; leaving those unset keeps the model's preset.
+  // LocalAI fills temperature and top_p itself on every request, so a wire
+  // temperature of 0 is an explicit greedy choice and is applied as sent.
+  // Model-recommended sampling reaches gufo through the gallery entries. The
+  // other fields keep "0 = not set": the model's preset applies.
   auto& s = out->sampling;
   s.temperature = request->temperature();
   s.top_p = request->topp();
@@ -204,18 +207,7 @@ void FillFinal(const gb::GenResult& r, bool with_text, backend::Reply* reply) {
       tc->set_index(static_cast<std::int32_t>(i));
       tc->set_id(call.id);
       tc->set_name(call.name);
-      // Arguments go out as a JSON object string, as the OpenAI wire format carries them.
-      nlohmann::json args = nlohmann::json::object();
-      for (const auto& a : call.args) {
-        if (a.is_string) {
-          args[a.name] = a.value;
-        } else {
-          auto parsed = nlohmann::json::parse(a.value, nullptr, /*allow_exceptions=*/false);
-          args[a.name] = parsed.is_discarded() ? nlohmann::json(a.value) : parsed;
-        }
-      }
-      // Model output can hold invalid UTF-8; the default dump() throws on it.
-      tc->set_arguments(args.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace));
+      tc->set_arguments(gb::ArgumentsToJson(call.args));
     }
   }
   reply->set_tokens(static_cast<std::int32_t>(r.completion_tokens));

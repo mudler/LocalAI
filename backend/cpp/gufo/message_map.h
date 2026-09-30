@@ -176,6 +176,31 @@ inline bool ParseToolCallsJson(const std::string& json, std::vector<PlainToolCal
   }
 }
 
+// Bounds the text a single argument value may hold before it is parsed. The
+// parse is iterative, so this caps memory and time, not stack; the depth check
+// in ParseBounded is what keeps dump() from recursing off the stack.
+constexpr std::size_t kMaxArgumentValueBytes = 1 << 20;
+
+// Renders a model's tool-call arguments as the JSON object text the OpenAI
+// wire format carries. The values are model output, so a value that is not
+// valid, bounded JSON is sent as a string rather than trusted, and invalid
+// UTF-8 is replaced instead of throwing. Keys come out in sorted order.
+inline std::string ArgumentsToJson(const std::vector<ToolArg>& args) {
+  try {
+    nlohmann::json obj = nlohmann::json::object();
+    for (const ToolArg& a : args) {
+      nlohmann::json value;
+      if (a.is_string || a.value.size() > kMaxArgumentValueBytes || detail::ParseBounded(a.value, &value) != nullptr)
+        value = a.value;
+      obj[a.name] = std::move(value);
+    }
+    return obj.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+  } catch (const std::exception&) {
+    // Only allocation failure is left; an empty object keeps the reply well formed.
+    return "{}";
+  }
+}
+
 inline bool ParseToolsJson(const std::string& json, std::vector<PlainTool>* out, std::string* error) {
   out->clear();
   if (json.empty()) return true;

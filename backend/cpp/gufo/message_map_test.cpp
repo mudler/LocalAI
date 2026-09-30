@@ -174,6 +174,41 @@ int main() {
     for (int i = 0; i < 32; ++i) schema = R"({"type":"object","properties":{"p":)" + schema + "}}";
     CHECK(ParseToolsJson(R"([{"name":"deep","parameters":)" + schema + "}]", &tools, &err) && tools.size() == 1);
   }
+  // Tool-call arguments rendered back to JSON for the reply.
+  {
+    CHECK(ArgumentsToJson({}) == "{}");
+    CHECK(ArgumentsToJson({{"city", "Rome", true}}) == R"({"city":"Rome"})");
+    // A string argument that looks like JSON stays a string.
+    CHECK(ArgumentsToJson({{"s", "42", true}}) == R"({"s":"42"})");
+    CHECK(ArgumentsToJson({{"n", "3", false}, {"f", "2.5", false}, {"b", "true", false}, {"z", "null", false}}) ==
+          R"({"b":true,"f":2.5,"n":3,"z":null})");
+    CHECK(ArgumentsToJson({{"o", R"({"k":[1,{"x":"y"}]})", false}}) == R"({"o":{"k":[1,{"x":"y"}]}})");
+    // Deterministic key order whatever the input order.
+    CHECK(ArgumentsToJson({{"b", "1", false}, {"a", "x", true}}) == ArgumentsToJson({{"a", "x", true}, {"b", "1", false}}));
+    CHECK(ArgumentsToJson({{"b", "1", false}, {"a", "x", true}}) == R"({"a":"x","b":1})");
+    // A non-string value that is not JSON falls back to a string.
+    CHECK(ArgumentsToJson({{"v", "not json", false}}) == R"({"v":"not json"})");
+    // Invalid UTF-8 in a value or a key is replaced, not thrown.
+    std::string bad = "ok\xff\xfe";
+    std::string out;
+    bool threw = false;
+    try { out = ArgumentsToJson({{"s", bad, true}, {bad, "1", false}}); } catch (...) { threw = true; }
+    CHECK(!threw && out.find("\xef\xbf\xbd") != std::string::npos);
+    // A runaway model emitting deep nesting must not overflow the stack.
+    const std::string deep(200000, '[');
+    threw = false;
+    try { out = ArgumentsToJson({{"d", deep, false}}); } catch (...) { threw = true; }
+    CHECK(!threw && out.size() == deep.size() + 8 && out.rfind(R"({"d":"[[)", 0) == 0);
+    const std::string deep_valid = Nested(200000);
+    try { out = ArgumentsToJson({{"d", deep_valid, false}}); } catch (...) { threw = true; }
+    CHECK(!threw && out.rfind(R"({"d":")", 0) == 0);
+    // Reasonable nesting is kept as JSON.
+    const std::string ok_depth = Nested(100);
+    CHECK(ArgumentsToJson({{"d", ok_depth, false}}) == "{\"d\":" + ok_depth + "}");
+    // Oversized values are not parsed.
+    const std::string big = "[" + std::string(kMaxArgumentValueBytes, ' ') + "]";
+    CHECK(ArgumentsToJson({{"d", big, false}}).rfind(R"({"d":"[)", 0) == 0);
+  }
   CHECK(kMaxImages == 16);
   return failures == 0 ? 0 : 1;
 }

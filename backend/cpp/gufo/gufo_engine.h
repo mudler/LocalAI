@@ -35,9 +35,12 @@ struct LoadArgs {
   Options options;
 };
 
-// Zero means "not set": the model's own preset applies.
+// temperature is applied exactly as sent, 0 included (greedy); unset keeps
+// the model's preset. For every other field zero means "not set": the
+// model's own preset applies.
 struct SamplingRequest {
-  float temperature = 0, top_p = 0, min_p = 0;
+  std::optional<float> temperature;
+  float top_p = 0, min_p = 0;
   float repeat_penalty = 0, frequency_penalty = 0, presence_penalty = 0;
   int top_k = 0;
   int seed = 0;

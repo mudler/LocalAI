@@ -104,7 +104,7 @@ gufo::ReasoningOptions ResolveRequestReasoning(const GenRequest& req, const gufo
 }
 
 gufo::sampling::SamplingConfig ApplySampling(gufo::sampling::SamplingConfig base, const SamplingRequest& s) {
-  if (s.temperature > 0) base.temperature = s.temperature;
+  if (s.temperature) base.temperature = *s.temperature;
   if (s.top_p > 0) base.top_p = s.top_p;
   if (s.top_k > 0) base.top_k = s.top_k;
   if (s.min_p > 0) base.min_p = s.min_p;
