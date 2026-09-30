@@ -45,11 +45,16 @@ them must not name NATS, and any new transport is an implementation of them.
 3. An unreachable peer: not a verdict about the worker.
 4. The worker's own answer, including a refusal: the worker is present.
 
-The only state change allowed on `ErrNoRoute` is the status-only
+On `ErrNoRoute` the only change to the node's own state is the status-only
 `MarkUnhealthy`, which the next heartbeat reverses. A caller may also route
 around the node (the scheduler skips it, and an upgrade falls back to the older
 install subject). Never delete `node_models` rows on it. Timeouts are not
 `ErrNoRoute`.
+
+A pending backend op that fails with `ErrNoRoute` is still recorded as a failed
+attempt (`RecordPendingBackendOpFailure`, the reconciler's attempt count, and
+the dead-letter after the maximum attempts). That is accounting for the op, not
+a verdict about the node.
 
 The carrier's own sentinel (`nats.ErrNoResponders`) is mapped onto
 `ErrNoRoute` in `core/services/nodes/control_nats.go` and nowhere else. A
@@ -61,4 +66,5 @@ node, which is the mistake this contract exists to prevent.
 Run it against `messagingtest.RunBroadcasterConformance`
 (`core/services/messaging/messagingtest`) in its own package. `FakeBus` runs it
 in `core/services/testutil`. The NATS run is in `core/services/messaging`; it
-needs Docker and skips without it.
+needs Docker. Without Docker it skips, except when `CI` is set on a non-macOS
+runner, where it fails so a runner without Docker cannot hide the check.

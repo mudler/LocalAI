@@ -11,7 +11,7 @@ import (
 )
 
 // The scheduler's liveness probe asks a worker a question over NATS and treats
-// "no route" as proof the worker is gone. That is only sound if every
+// "no route" as reason to skip the worker. That is only sound if every
 // worker in the fleet subscribes to the subject asked.
 //
 // It originally asked models.running, which arrived in 4.6. A 4.5 worker is
