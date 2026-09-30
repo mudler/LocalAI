@@ -33,6 +33,14 @@ type FakeBus struct {
 	// spec exercise the component's reconnect re-hydrate path without a real
 	// NATS server.
 	reconnectCbs []func()
+
+	// queueGroups records the queue group each queue subscription asked for,
+	// keyed by subject, because a group name decides which processes compete
+	// and a spec has to be able to pin it.
+	queueGroups map[string]string
+	// replyHandlers keeps each reply subscription's handler so a spec can play
+	// the requester through DeliverReply.
+	replyHandlers map[string]func([]byte, func([]byte))
 }
 
 type fakeBusSub struct {
@@ -43,7 +51,11 @@ type fakeBusSub struct {
 
 // NewFakeBus returns a ready-to-use in-memory bus.
 func NewFakeBus() *FakeBus {
-	return &FakeBus{publishCounts: map[string]int{}}
+	return &FakeBus{
+		publishCounts: map[string]int{},
+		queueGroups:   map[string]string{},
+		replyHandlers: map[string]func([]byte, func([]byte)){},
+	}
 }
 
 // Publish marshals data as JSON and delivers it synchronously to every matching
@@ -104,12 +116,56 @@ func (b *FakeBus) Subscribe(subject string, handler func([]byte)) (messaging.Sub
 	return &fakeBusSubscription{bus: b, subRef: sub}, nil
 }
 
-func (b *FakeBus) QueueSubscribe(subject, _ string, handler func([]byte)) (messaging.Subscription, error) {
-	return b.Subscribe(subject, handler)
+func (b *FakeBus) QueueSubscribe(subject, queue string, handler func([]byte)) (messaging.Subscription, error) {
+	sub, err := b.Subscribe(subject, handler)
+	if err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	b.queueGroups[subject] = queue
+	b.mu.Unlock()
+	return sub, nil
 }
 
-func (b *FakeBus) QueueSubscribeReply(string, string, func([]byte, func([]byte))) (messaging.Subscription, error) {
+func (b *FakeBus) QueueSubscribeReply(subject, queue string, handler func([]byte, func([]byte))) (messaging.Subscription, error) {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	b.queueGroups[subject] = queue
+	b.replyHandlers[subject] = handler
+	b.mu.Unlock()
 	return &fakeBusSubscription{bus: b}, nil
+}
+
+// QueueGroups returns a copy of the queue group recorded for each subject by
+// QueueSubscribe and QueueSubscribeReply.
+func (b *FakeBus) QueueGroups() map[string]string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make(map[string]string, len(b.queueGroups))
+	for k, v := range b.queueGroups {
+		out[k] = v
+	}
+	return out
+}
+
+// DeliverReply calls the reply handler registered on the exact subject with
+// data and returns what it replied. ok is false when no handler is registered
+// on the subject or the handler returned without replying, the two cases a
+// real requester sees as a timeout.
+func (b *FakeBus) DeliverReply(subject string, data []byte) (reply []byte, ok bool) {
+	b.mu.Lock()
+	h := b.replyHandlers[subject]
+	b.mu.Unlock()
+	if h == nil {
+		return nil, false
+	}
+	h(data, func(r []byte) {
+		reply = r
+		ok = true
+	})
+	return reply, ok
 }
 
 func (b *FakeBus) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
