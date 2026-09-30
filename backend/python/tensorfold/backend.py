@@ -80,7 +80,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     @staticmethod
     def _cancel_flag(context) -> threading.Event:
         gone = threading.Event()
-        context.add_callback(gone.set)
+        # add_callback returns False when the RPC has already terminated; the
+        # callback then never fires, so the request is treated as cancelled.
+        if not context.add_callback(gone.set):
+            gone.set()
         return gone
 
     def Predict(self, request, context):

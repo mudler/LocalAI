@@ -11,10 +11,13 @@ from tf_loader import LoadError
 
 
 class Context:
-    def __init__(self):
+    # registers=False mimics grpc's add_callback when the RPC has already
+    # terminated: the callback is not registered and add_callback returns False.
+    def __init__(self, registers=True):
         self.code = None
         self.details = None
         self.callbacks = []
+        self.registers = registers
 
     def set_code(self, code):
         self.code = code
@@ -23,6 +26,8 @@ class Context:
         self.details = details
 
     def add_callback(self, callback):
+        if not self.registers:
+            return False
         self.callbacks.append(callback)
         return True
 
@@ -152,6 +157,18 @@ class BackendServicerTest(unittest.TestCase):
         ctx.disconnect()
         release.set()
         self.assertEqual(list(stream), [])
+
+    def test_predict_on_an_already_terminated_rpc_is_cancelled(self):
+        ctx = Context(registers=False)
+        engine = FakeEngine(deltas=[Delta(content="a")])
+        reply = loaded_servicer(engine).Predict(chat_request(), ctx)
+        self.assertEqual(reply.message, b"")
+        self.assertIsNone(ctx.code)
+
+    def test_stream_on_an_already_terminated_rpc_ends_without_output(self):
+        engine = FakeEngine(deltas=[Delta(content="a")])
+        replies = list(loaded_servicer(engine).PredictStream(chat_request(), Context(registers=False)))
+        self.assertEqual(replies, [])
 
     def test_stream_error_after_start_sets_internal(self):
         ctx = Context()
