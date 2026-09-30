@@ -233,7 +233,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	workQueue := messaging.NewNATSWorkQueue(natsClient)
 
 	// Initialize job dispatcher
-	dispatcher := jobs.NewDispatcher(jobStore, workQueue, natsClient, authDB, cfg.Distributed.InstanceID, cfg.Distributed.JobWorkerConcurrency)
+	dispatcher := jobs.NewDispatcher(jobStore, workQueue, natsClient, authDB, cfg.Distributed.InstanceID)
 
 	// Initialize agent store
 	agentStore, err := agents.NewAgentStore(authDB)

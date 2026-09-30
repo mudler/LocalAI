@@ -3,6 +3,7 @@ package distributed_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync/atomic"
 	"time"
 
@@ -170,9 +171,9 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Job Distribution via NATS", func() {
 		It("should enqueue job via NATS and worker picks it up", func() {
-			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance")
 			var processed atomic.Int32
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
+			startTaskWorker(infra.NC, func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				processed.Add(1)
 				store.UpdateJobStatus(job.ID, "completed", "done", "")
 				return nil
@@ -201,9 +202,9 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should cancel running job via NATS", func() {
-			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance")
 			jobStarted := make(chan struct{})
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
+			startTaskWorker(infra.NC, func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				close(jobStarted)
 				// Simulate long work — wait for cancellation
 				<-ctx.Done()
@@ -239,8 +240,8 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should report job progress via NATS", func() {
-			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance")
+			startTaskWorker(infra.NC, func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				dispatcher.PublishProgress(job.ID, "running", "step 1")
 				time.Sleep(50 * time.Millisecond)
 				dispatcher.PublishProgress(job.ID, "running", "step 2")
@@ -317,7 +318,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Progress Streaming (NATS → SSE bridge)", func() {
 		It("should bridge NATS progress events", func() {
-			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance")
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -345,7 +346,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should filter SSE events by job ID", func() {
-			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance")
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -376,7 +377,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Enriched Job Payload (DB-free worker)", func() {
 		It("should enrich JobEvent with full Job and Task data", func() {
-			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "enrichment-test", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "enrichment-test")
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -418,14 +419,12 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should process job from enriched payload without DB access", func() {
-			// Create a worker-side dispatcher with NO store (simulating DB-free worker)
-			workerDispatcher := jobs.NewDispatcher(nil, messaging.NewNATSWorkQueue(infra.NC), infra.NC, nil, "worker-no-db", 0)
-
+			// The worker has no store: everything it needs is in the payload.
 			var receivedJob *jobs.JobRecord
 			var receivedTask *jobs.TaskRecord
 			processed := make(chan struct{})
 
-			workerDispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
+			startTaskWorker(infra.NC, func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				receivedJob = job
 				receivedTask = task
 				job.Result = "processed without DB"
@@ -433,14 +432,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 				return nil
 			})
 
-			dCtx, dCancel := context.WithCancel(infra.Ctx)
-			defer dCancel()
-			Expect(workerDispatcher.Start(dCtx)).To(Succeed())
-			defer workerDispatcher.Stop()
-
-			FlushNATS(infra.NC)
-
-			// Publish an enriched event directly (simulating what the frontend does)
+			// Enqueue an enriched event directly (simulating what the frontend does)
 			evt := jobs.JobEvent{
 				JobID:  "test-job-123",
 				TaskID: "test-task-456",
@@ -459,7 +451,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 					Prompt: "do something",
 				},
 			}
-			Expect(infra.NC.Publish(messaging.SubjectJobsNew, evt)).To(Succeed())
+			Expect(messaging.NewNATSWorkQueue(infra.NC).Enqueue(infra.Ctx, messaging.WorkTask, evt)).To(Succeed())
 
 			Eventually(processed, "10s").Should(BeClosed())
 
@@ -472,8 +464,8 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should publish job result via NATS on completion", func() {
-			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "result-test", 0)
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "result-test")
+			startTaskWorker(infra.NC, func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				job.Result = "job finished successfully"
 				return nil
 			})
@@ -507,8 +499,8 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should stream traces via NATS progress events", func() {
-			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "trace-test", 0)
-			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "trace-test")
+			startTaskWorker(infra.NC, func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				dispatcher.PublishTrace(job.ID, "reasoning", "thinking about the problem")
 				dispatcher.PublishTrace(job.ID, "tool_call", "calling search tool")
 				return nil
@@ -588,3 +580,57 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 	})
 })
+
+// startTaskWorker stands in for a task worker. Nothing in production consumes
+// WorkTask, so these specs bring their own consumer on the WorkConsumer real
+// workers use, and report the job lifecycle on events so the frontend
+// dispatcher's result and progress subscriptions have something to persist.
+func startTaskWorker(nc *messaging.Client, run func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error) {
+	GinkgoHelper()
+	ctx, cancel := context.WithCancel(context.Background())
+	sub, err := messaging.NewNATSWorkConsumer(nc).Consume(ctx, messaging.WorkTask, 0, func(ctx context.Context, payload []byte, events messaging.Publisher) error {
+		var evt jobs.JobEvent
+		if err := json.Unmarshal(payload, &evt); err != nil {
+			return err
+		}
+		if evt.Job == nil || evt.Task == nil {
+			jobs.PublishJobResult(events, evt.JobID, "failed", "", "job event carries no job or task")
+			return nil
+		}
+
+		jobCtx, cancelJob := context.WithCancel(ctx)
+		defer cancelJob()
+		cancelSub, err := messaging.SubscribeJSON(nc, messaging.SubjectJobCancel(evt.JobID), func(jobs.CancelEvent) {
+			cancelJob()
+		})
+		if err != nil {
+			return err
+		}
+		defer func() { _ = cancelSub.Unsubscribe() }()
+		// A spec cancels as soon as run signals it started; the cancel
+		// subscription has to be on the server by then.
+		if err := nc.Conn().Flush(); err != nil {
+			return err
+		}
+
+		jobs.PublishJobProgress(events, evt.JobID, "running", "Job started")
+		runErr := run(jobCtx, evt.Job, evt.Task)
+		switch {
+		case errors.Is(jobCtx.Err(), context.Canceled):
+			jobs.PublishJobResult(events, evt.JobID, "cancelled", "", "")
+		case runErr != nil:
+			jobs.PublishJobResult(events, evt.JobID, "failed", "", runErr.Error())
+		default:
+			jobs.PublishJobResult(events, evt.JobID, "completed", evt.Job.Result, "")
+		}
+		return nil
+	})
+	Expect(err).ToNot(HaveOccurred())
+	// Cancel first so a handler parked on its job context returns and the
+	// unsubscribe, which waits for in-flight handlers, does not hang.
+	DeferCleanup(func() {
+		cancel()
+		_ = sub.Unsubscribe()
+	})
+	FlushNATS(nc)
+}

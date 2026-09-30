@@ -57,7 +57,7 @@ var _ = Describe("Dispatcher", func() {
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			disp = NewDispatcher(store, nil, nil, db, "test-instance", 0)
+			disp = NewDispatcher(store, nil, nil, db, "test-instance")
 		})
 
 		It("returns true when no previous job exists", func() {
@@ -200,7 +200,7 @@ var _ = Describe("Dispatcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			queue = &fakeWorkQueue{}
 			bus = testutil.NewFakeBus()
-			disp = NewDispatcher(store, queue, bus, db, "test-instance", 0)
+			disp = NewDispatcher(store, queue, bus, db, "test-instance")
 		})
 
 		It("enqueues MCP jobs as WorkMCPCI", func() {
@@ -329,7 +329,7 @@ var _ = Describe("Dispatcher", func() {
 			store, err = NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 			queue = &fakeWorkQueue{}
-			disp = NewDispatcher(store, queue, nil, db, "test-instance", 0)
+			disp = NewDispatcher(store, queue, nil, db, "test-instance")
 		})
 
 		It("includes full job and task records in the event", func() {
@@ -408,4 +408,67 @@ var _ = Describe("Dispatcher", func() {
 			Expect(decoded.TaskID).To(Equal(task.ID))
 		})
 	})
+
+	// -----------------------------------------------------------------------
+	// The frontend dispatcher only fans out: jobs leave through the WorkQueue
+	// and nothing here consumes them, so a Broadcaster is all it may ask for.
+	// -----------------------------------------------------------------------
+	Describe("on a fan-out-only bus", func() {
+		var (
+			store *JobStore
+			queue *fakeWorkQueue
+			bus   *testutil.FakeBus
+			disp  *Dispatcher
+		)
+
+		BeforeEach(func() {
+			db := testutil.SetupTestDB()
+			var err error
+			store, err = NewJobStore(db)
+			Expect(err).ToNot(HaveOccurred())
+			queue = &fakeWorkQueue{}
+			bus = testutil.NewFakeBus()
+			// broadcastOnly hides the queue and request methods, so this
+			// compiles only while NewDispatcher asks for no more than it uses.
+			disp = NewDispatcher(store, queue, broadcastOnly{bus}, db, "test-instance")
+			ctx, cancel := context.WithCancel(context.Background())
+			Expect(disp.Start(ctx)).To(Succeed())
+			DeferCleanup(func() {
+				disp.Stop()
+				cancel()
+			})
+		})
+
+		It("still enqueues jobs and joins no queue group", func() {
+			task := &TaskRecord{UserID: "user-1", Name: "fanout-task", Model: "m", Enabled: true}
+			Expect(store.CreateTask(task)).To(Succeed())
+			job := &JobRecord{TaskID: task.ID, UserID: "user-1", Status: "pending", TriggeredBy: "manual"}
+			Expect(store.CreateJob(job)).To(Succeed())
+
+			Expect(disp.Enqueue(job.ID, task.ID, "user-1")).To(Succeed())
+
+			Expect(queue.calls).To(HaveLen(1))
+			Expect(queue.calls[0].kind).To(Equal(messaging.WorkTask))
+			Expect(bus.QueueGroups()).To(BeEmpty())
+		})
+
+		It("persists the result a worker publishes", func() {
+			task := &TaskRecord{UserID: "user-1", Name: "result-task", Model: "m", Enabled: true}
+			Expect(store.CreateTask(task)).To(Succeed())
+			job := &JobRecord{TaskID: task.ID, UserID: "user-1", Status: "running", TriggeredBy: "manual"}
+			Expect(store.CreateJob(job)).To(Succeed())
+
+			PublishJobResult(bus, job.ID, "completed", "the answer", "")
+
+			stored, err := store.GetJob(job.ID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Status).To(Equal("completed"))
+			Expect(stored.Result).To(Equal("the answer"))
+		})
+	})
 })
+
+// broadcastOnly narrows a FakeBus to the Broadcaster surface.
+type broadcastOnly struct {
+	messaging.Broadcaster
+}

@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/LocalAI/core/services/messaging"
-	"github.com/mudler/LocalAI/pkg/concurrency"
 	"github.com/mudler/xlog"
 	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
@@ -55,35 +53,19 @@ type CancelEvent struct {
 	JobID string `json:"job_id"`
 }
 
-// WorkerFunc is the function signature for processing a job.
-// It receives the job record, task record, and a context that will be cancelled
-// if the job is cancelled via NATS.
-type WorkerFunc func(ctx context.Context, job *JobRecord, task *TaskRecord) error
-
-// Dispatcher distributes jobs across instances via NATS queue groups
-// and coordinates cron execution via PostgreSQL advisory locks.
+// Dispatcher hands jobs to the work queue, persists the results and traces
+// workers publish, and coordinates cron execution via PostgreSQL advisory locks.
 type Dispatcher struct {
 	store        *JobStore
 	queue        messaging.WorkQueue
-	nats         messaging.MessagingClient
+	nats         messaging.Broadcaster
 	db           *gorm.DB
 	instanceID   string
 	configLoader ModelConfigLoader // optional: to enrich job events with model config
 
-	// Worker function (set by the application)
-	workerFn WorkerFunc
-
-	// Cancel registry (notetaker pattern)
-	cancelRegistry messaging.CancelRegistry
-
 	// NATS subscriptions
-	jobSub      messaging.Subscription
-	cancelSub   messaging.Subscription
 	resultSub   messaging.Subscription
 	progressSub messaging.Subscription
-
-	// Concurrency limiter; nil = unlimited
-	sem chan struct{}
 
 	// Lifecycle
 	ctx    context.Context
@@ -91,20 +73,16 @@ type Dispatcher struct {
 }
 
 // NewDispatcher creates a new distributed job Dispatcher. Jobs leave through
-// queue; nc carries cancel, progress and result fan-out.
-// maxConcurrent limits the number of concurrent job goroutines; 0 means unlimited.
-func NewDispatcher(store *JobStore, queue messaging.WorkQueue, nc messaging.MessagingClient, db *gorm.DB, instanceID string, maxConcurrent int) *Dispatcher {
-	d := &Dispatcher{
+// queue and workers consume them; nc carries cancel, progress and result
+// fan-out.
+func NewDispatcher(store *JobStore, queue messaging.WorkQueue, nc messaging.Broadcaster, db *gorm.DB, instanceID string) *Dispatcher {
+	return &Dispatcher{
 		store:      store,
 		queue:      queue,
 		nats:       nc,
 		db:         db,
 		instanceID: instanceID,
 	}
-	if maxConcurrent > 0 {
-		d.sem = make(chan struct{}, maxConcurrent)
-	}
-	return d
 }
 
 // ModelConfigLoader loads model configurations by name.
@@ -112,29 +90,13 @@ type ModelConfigLoader interface {
 	GetModelConfig(name string) (config.ModelConfig, bool)
 }
 
-// NewWorkerDispatcher creates a dispatcher that also consumes and processes jobs.
-// Use this instead of NewDispatcher + SetWorkerFunc + SetModelConfigLoader when both
-// the worker function and config loader are available at construction time.
-func NewWorkerDispatcher(store *JobStore, queue messaging.WorkQueue, nc messaging.MessagingClient, db *gorm.DB, instanceID string, maxConcurrent int, workerFn WorkerFunc, configLoader ModelConfigLoader) *Dispatcher {
-	d := NewDispatcher(store, queue, nc, db, instanceID, maxConcurrent)
-	d.workerFn = workerFn
-	d.configLoader = configLoader
-	return d
-}
-
-// SetWorkerFunc sets the function that processes jobs.
-// Deprecated: prefer NewWorkerDispatcher when the worker function is available at construction time.
-func (d *Dispatcher) SetWorkerFunc(fn WorkerFunc) {
-	d.workerFn = fn
-}
-
 // SetModelConfigLoader sets the model config loader for enriching job events.
-// Deprecated: prefer NewWorkerDispatcher when the config loader is available at construction time.
 func (d *Dispatcher) SetModelConfigLoader(cl ModelConfigLoader) {
 	d.configLoader = cl
 }
 
-// Start begins listening for jobs via NATS and starts the cron leader loop.
+// Start subscribes to the results and traces workers publish and starts the
+// cron leader loop. It consumes no jobs: workers do.
 func (d *Dispatcher) Start(ctx context.Context) error {
 	d.ctx, d.cancel = context.WithCancel(ctx)
 	success := false
@@ -144,35 +106,7 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 		}
 	}()
 
-	// Subscribe to job queue only if a worker function is configured.
-	// In distributed mode, the frontend dispatcher publishes jobs but does not consume them —
-	// agent workers pick them up from the same NATS queue.
 	var err error
-	if d.workerFn != nil {
-		d.jobSub, err = messaging.QueueSubscribeJSON(d.nats, messaging.SubjectJobsNew, messaging.QueueWorkers, func(evt JobEvent) {
-			concurrency.SafeGo(func() {
-				if d.sem != nil {
-					d.sem <- struct{}{}
-					defer func() { <-d.sem }()
-				}
-				d.processJob(evt)
-			})
-		})
-		if err != nil {
-			return fmt.Errorf("subscribing to job queue: %w", err)
-		}
-	}
-
-	// Subscribe to cancel events (broadcast to all — each instance checks its registry)
-	d.cancelSub, err = messaging.SubscribeJSON(d.nats, messaging.SubjectJobCancelWildcard, func(evt CancelEvent) {
-		if d.cancelRegistry.Cancel(evt.JobID) {
-			xlog.Info("Cancelled job via NATS", "jobID", evt.JobID)
-		}
-	})
-	if err != nil {
-		return fmt.Errorf("subscribing to cancel events: %w", err)
-	}
-
 	// Subscribe to job result events from workers (persist to DB)
 	if d.store != nil {
 		d.resultSub, err = messaging.SubscribeJSON(d.nats, messaging.SubjectJobResultWildcard, func(evt JobResultEvent) {
@@ -206,14 +140,6 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 // unsubscribeAll nil-checks, unsubscribes, and nils out each NATS subscription.
 // Safe to call multiple times.
 func (d *Dispatcher) unsubscribeAll() {
-	if d.jobSub != nil {
-		d.jobSub.Unsubscribe()
-		d.jobSub = nil
-	}
-	if d.cancelSub != nil {
-		d.cancelSub.Unsubscribe()
-		d.cancelSub = nil
-	}
 	if d.resultSub != nil {
 		d.resultSub.Unsubscribe()
 		d.resultSub = nil
@@ -224,7 +150,7 @@ func (d *Dispatcher) unsubscribeAll() {
 	}
 }
 
-// Stop cleans up subscriptions and cancels running jobs.
+// Stop cleans up subscriptions and stops the cron leader loop.
 func (d *Dispatcher) Stop() {
 	if d.cancel != nil {
 		d.cancel()
@@ -287,116 +213,6 @@ func (d *Dispatcher) PublishProgress(jobID, status, message string) error {
 // SubscribeProgress subscribes to progress events for a specific job (for SSE bridging).
 func (d *Dispatcher) SubscribeProgress(jobID string, handler func(ProgressEvent)) (messaging.Subscription, error) {
 	return messaging.SubscribeJSON(d.nats, messaging.SubjectJobProgress(jobID), handler)
-}
-
-// processJob is called by the NATS queue subscriber to execute a job.
-// It prefers Job+Task from the enriched NATS payload (no DB needed).
-// Results are published back via NATS for the frontend to persist.
-func (d *Dispatcher) processJob(evt JobEvent) {
-	if d.workerFn == nil {
-		xlog.Error("No worker function set for job dispatcher")
-		d.publishResult(evt.JobID, "failed", "", "no worker function configured")
-		return
-	}
-
-	// Prefer enriched payload; fall back to DB for backward compat
-	job := evt.Job
-	if job == nil && d.store != nil {
-		var err error
-		job, err = d.store.GetJob(evt.JobID)
-		if err != nil {
-			xlog.Error("Failed to load job", "jobID", evt.JobID, "error", err)
-			return
-		}
-	}
-	if job == nil {
-		xlog.Error("No job data available", "jobID", evt.JobID)
-		return
-	}
-
-	task := evt.Task
-	if task == nil && d.store != nil {
-		var err error
-		task, err = d.store.GetTask(job.TaskID)
-		if err != nil {
-			xlog.Error("Failed to load task for job", "jobID", evt.JobID, "taskID", job.TaskID, "error", err)
-			d.publishResult(evt.JobID, "failed", "", "task not found")
-			return
-		}
-	}
-	if task == nil {
-		xlog.Error("No task data available", "jobID", evt.JobID)
-		d.publishResult(evt.JobID, "failed", "", "task not found")
-		return
-	}
-
-	// Pre-register so cancels arriving before context creation are captured
-	cancelled := make(chan struct{}, 1)
-	d.cancelRegistry.Register(evt.JobID, func() {
-		select {
-		case cancelled <- struct{}{}:
-		default:
-		}
-	})
-
-	ctx, cancelFn := context.WithCancel(d.ctx)
-	d.cancelRegistry.Register(evt.JobID, cancelFn) // overwrite with real cancel
-
-	// Check if cancel arrived during the registration window
-	select {
-	case <-cancelled:
-		cancelFn()
-	default:
-	}
-
-	// Check if job was cancelled in the DB before we picked it up
-	if d.store != nil {
-		if dbJob, err := d.store.GetJob(evt.JobID); err == nil && dbJob.Status == "cancelled" {
-			cancelFn()
-		}
-	}
-
-	defer func() {
-		d.cancelRegistry.Deregister(evt.JobID)
-		cancelFn()
-	}()
-
-	// Check if already cancelled before starting
-	select {
-	case <-ctx.Done():
-		d.publishResult(evt.JobID, "cancelled", "", "")
-		return
-	default:
-	}
-
-	// Mark as running
-	job.FrontendID = d.instanceID
-	d.PublishProgress(evt.JobID, "running", "Job started")
-
-	// Execute
-	err := d.workerFn(ctx, job, task)
-
-	if errors.Is(ctx.Err(), context.Canceled) {
-		d.publishResult(evt.JobID, "cancelled", "", "")
-		d.PublishProgress(evt.JobID, "cancelled", "Job cancelled")
-		return
-	}
-
-	if err != nil {
-		d.publishResult(evt.JobID, "failed", "", err.Error())
-		d.PublishProgress(evt.JobID, "failed", err.Error())
-		return
-	}
-
-	// Publish completion — result is set on the job by workerFn
-	d.publishResult(evt.JobID, "completed", job.Result, "")
-	d.PublishProgress(evt.JobID, "completed", "Job completed")
-}
-
-// publishResult publishes the terminal job result via NATS.
-// The frontend subscribes to these events and persists to DB.
-func (d *Dispatcher) publishResult(jobID, status, result, errMsg string) {
-	PublishJobResult(d.nats, jobID, status, result, errMsg)
 }
 
 // PublishTrace publishes a trace event for a running job via NATS.

@@ -40,17 +40,6 @@ type AgentChatEvent struct {
 	Skills []SkillInfo  `json:"skills,omitempty"` // resolved per-user skills
 }
 
-// Dispatcher routes agent chat requests to the executor.
-// Two implementations: LocalDispatcher (direct goroutine) and NATSDispatcher (queue).
-type Dispatcher interface {
-	// Dispatch sends a chat message to an agent and returns immediately.
-	// The response is delivered asynchronously via the configured event delivery mechanism.
-	Dispatch(userID, agentName, message string) (messageID string, err error)
-
-	// Start initializes the dispatcher (e.g., subscribes to NATS queue).
-	Start(ctx context.Context) error
-}
-
 // ConfigProvider loads agent configs. Implemented by both file-based and DB-backed stores.
 type ConfigProvider interface {
 	GetAgentConfig(userID, name string) (*AgentConfig, error)
@@ -278,31 +267,6 @@ func (d *NATSDispatcher) Stop() error {
 		return err
 	}
 	return nil
-}
-
-func (d *NATSDispatcher) Dispatch(userID, agentName, message string) (string, error) {
-	messageID := uuid.New().String()
-
-	// Send user message to SSE immediately
-	if d.eventBridge != nil {
-		d.eventBridge.PublishMessage(agentName, userID, RoleUser, message, messageID+"-user")
-		d.eventBridge.PublishStatus(agentName, userID, "processing")
-	}
-
-	evt := AgentChatEvent{
-		AgentName: agentName,
-		UserID:    userID,
-		Message:   message,
-		MessageID: messageID,
-		Role:      RoleUser,
-	}
-	if d.eventBridge == nil {
-		return "", fmt.Errorf("failed to dispatch agent chat: no event bridge to publish on")
-	}
-	if err := messaging.NewNATSWorkQueue(d.eventBridge.nats).Enqueue(context.Background(), messaging.WorkAgentRun, evt); err != nil {
-		return "", fmt.Errorf("failed to dispatch agent chat: %w", err)
-	}
-	return messageID, nil
 }
 
 func (d *NATSDispatcher) handleJob(ctx context.Context, evt AgentChatEvent) {

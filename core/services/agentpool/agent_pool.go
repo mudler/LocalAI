@@ -73,7 +73,6 @@ type distributedBridge struct {
 	agentStore  *agents.AgentStore      // PostgreSQL agent config store
 	eventBridge AgentEventBridge        // Event bridge for SSE + persistence
 	skillStore  *distributed.SkillStore // PostgreSQL skill metadata (distributed mode)
-	dispatcher  agents.Dispatcher       // Native dispatcher (distributed or local)
 }
 
 // userManager handles per-user services, storage, and auth.

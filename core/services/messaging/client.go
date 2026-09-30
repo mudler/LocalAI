@@ -285,19 +285,6 @@ func SubscribeJSON[T any](c Broadcaster, subject string, handler func(T)) (Subsc
 	})
 }
 
-// QueueSubscribeJSON creates a queue subscription that automatically unmarshals JSON messages.
-// Invalid JSON messages are logged and skipped.
-func QueueSubscribeJSON[T any](c MessagingClient, subject, queue string, handler func(T)) (Subscription, error) {
-	return c.QueueSubscribe(subject, queue, func(data []byte) {
-		var evt T
-		if err := json.Unmarshal(data, &evt); err != nil {
-			xlog.Warn("Failed to unmarshal NATS message", "subject", subject, "error", err)
-			return
-		}
-		handler(evt)
-	})
-}
-
 // RequestJSON sends a JSON request-reply via NATS, marshaling the request and
 // unmarshaling the reply. This eliminates the repeated marshal/request/unmarshal
 // boilerplate across all NATS request-reply call sites.

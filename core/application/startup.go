@@ -324,8 +324,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		go distSvc.ModelCleanup.Run(options.Context)
 		// In distributed mode, MCP CI jobs are executed by agent workers (not the frontend)
 		// because the frontend can't create MCP sessions (e.g., stdio servers using docker).
-		// The dispatcher still subscribes to jobs.new for persistence (result/progress subs)
-		// but does NOT set a workerFn — agent workers consume jobs from the same NATS queue.
+		// The dispatcher only enqueues jobs and persists the results and traces workers publish.
 
 		// Wire model config loader so job events include model config for agent workers
 		distSvc.Dispatcher.SetModelConfigLoader(application.backendLoader)
