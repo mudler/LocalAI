@@ -151,6 +151,23 @@ type BackendClientFactory interface {
 	NewClient(address string, parallel bool) grpc.Backend
 }
 
+// NodeBackendClientFactory is the optional node-aware form of
+// BackendClientFactory. A dialer that has to know WHICH node it is reaching, as
+// a tunnel does, implements it; a factory that dials the address it is handed
+// implements only NewClient and keeps working.
+type NodeBackendClientFactory interface {
+	NewNodeClient(nodeID, address string, parallel bool) grpc.Backend
+}
+
+// newBackendClient is the single place a backend client is built, so a second
+// dialer needs one seam and not one per call site.
+func newBackendClient(f BackendClientFactory, nodeID, address string, parallel bool) grpc.Backend {
+	if nf, ok := f.(NodeBackendClientFactory); ok {
+		return nf.NewNodeClient(nodeID, address, parallel)
+	}
+	return f.NewClient(address, parallel)
+}
+
 // tokenClientFactory is the default BackendClientFactory that creates gRPC
 // clients with an optional bearer token for distributed auth.
 type tokenClientFactory struct {
@@ -162,4 +179,10 @@ func (f *tokenClientFactory) NewClient(address string, parallel bool) grpc.Backe
 		return grpc.NewClientWithToken(address, parallel, nil, false, f.token)
 	}
 	return grpc.NewClient(address, parallel, nil, false)
+}
+
+// NewNodeClient ignores the node id: this factory dials the address directly,
+// so the address alone already names the target.
+func (f *tokenClientFactory) NewNodeClient(_, address string, parallel bool) grpc.Backend {
+	return f.NewClient(address, parallel)
 }
