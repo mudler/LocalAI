@@ -57,8 +57,12 @@ def tool_calls_from_openai(calls: list[dict[str, Any]] | None) -> list[ToolCall]
     out: list[ToolCall] = []
     for index, call in enumerate(calls or []):
         function = call.get("function") or {}
-        arguments = function.get("arguments", "")
-        if not isinstance(arguments, str):
+        # A null "arguments" must not become the string "null", while an empty
+        # dict is still a real (empty) argument object and encodes as "{}".
+        arguments = function.get("arguments")
+        if arguments is None:
+            arguments = ""
+        elif not isinstance(arguments, str):
             arguments = json.dumps(arguments)
         out.append(
             ToolCall(

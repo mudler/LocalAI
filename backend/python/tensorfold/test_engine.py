@@ -20,6 +20,16 @@ class ToolCallsFromOpenAITest(unittest.TestCase):
         calls = tool_calls_from_openai([{"function": {"name": "f", "arguments": {"x": 1}}}])
         self.assertEqual(calls[0].arguments, '{"x": 1}')
 
+    def test_null_or_missing_arguments_become_empty(self):
+        calls = tool_calls_from_openai(
+            [{"function": {"name": "f", "arguments": None}}, {"function": {"name": "g"}}]
+        )
+        self.assertEqual([c.arguments for c in calls], ["", ""])
+
+    def test_empty_dict_arguments_stay_an_empty_object(self):
+        calls = tool_calls_from_openai([{"function": {"name": "f", "arguments": {}}}])
+        self.assertEqual(calls[0].arguments, "{}")
+
     def test_missing_id_is_generated_from_the_index(self):
         calls = tool_calls_from_openai(
             [{"function": {"name": "a", "arguments": ""}}, {"function": {"name": "b", "arguments": ""}}]
