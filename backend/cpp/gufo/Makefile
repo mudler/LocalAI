@@ -8,6 +8,9 @@ CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 # Extra cmake arguments for machines without the dev packages gufo needs (see cpu-check).
 CPU_CHECK_CMAKE_ARGS ?=
+# ON also links grpc-server on the CPU preset, for hosts with gRPC dev files.
+CPU_CHECK_GRPC ?= OFF
+CPU_CHECK_TARGETS = gufo_engine $(if $(filter ON,$(CPU_CHECK_GRPC)),grpc-server)
 
 .PHONY: all gufo-src cpu-check grpc-server package test clean purge
 all: grpc-server
@@ -32,8 +35,8 @@ gufo-src: $(GUFO_STAMP)
 cpu-check: gufo-src
 	cd gufo && cmake --preset cpu-test \
 		-DGUFO_LOCALAI_BACKEND_DIR=$(CURRENT_MAKEFILE_DIR) \
-		-DGUFO_BACKEND_BUILD_GRPC=OFF $(CPU_CHECK_CMAKE_ARGS) && \
-		cmake --build build/cpu-test --target gufo_engine -j $(JOBS)
+		-DGUFO_BACKEND_BUILD_GRPC=$(CPU_CHECK_GRPC) $(CPU_CHECK_CMAKE_ARGS) && \
+		cmake --build build/cpu-test --target $(CPU_CHECK_TARGETS) -j $(JOBS)
 
 grpc-server: gufo-src
 	cd gufo && cmake --preset release \
