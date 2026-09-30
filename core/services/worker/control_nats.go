@@ -40,6 +40,16 @@ func (n *natsControlServer) subject(v controlVerb) (string, error) {
 		return messaging.SubjectNodeModelDelete(n.nodeID), nil
 	case verbNodeStop:
 		return messaging.SubjectNodeStop(n.nodeID), nil
+	case verbFilesEnsure:
+		return messaging.SubjectNodeFilesEnsure(n.nodeID), nil
+	case verbFilesStage:
+		return messaging.SubjectNodeFilesStage(n.nodeID), nil
+	case verbFilesTemp:
+		return messaging.SubjectNodeFilesTemp(n.nodeID), nil
+	case verbFilesListDir:
+		return messaging.SubjectNodeFilesListDir(n.nodeID), nil
+	case verbFilesRelease:
+		return messaging.SubjectNodeFilesRelease(n.nodeID), nil
 	}
 	return "", fmt.Errorf("no NATS subject for control verb %q", v)
 }

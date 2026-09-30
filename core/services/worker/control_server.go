@@ -23,6 +23,11 @@ const (
 	verbModelStop      controlVerb = "model.stop"
 	verbModelDelete    controlVerb = "model.delete"
 	verbNodeStop       controlVerb = "node.stop"
+	verbFilesEnsure    controlVerb = "files.ensure"
+	verbFilesStage     controlVerb = "files.stage"
+	verbFilesTemp      controlVerb = "files.temp"
+	verbFilesListDir   controlVerb = "files.listdir"
+	verbFilesRelease   controlVerb = "files.release"
 )
 
 // progressSink receives install progress while a long-running verb runs.
@@ -89,8 +94,8 @@ func decodeJSON[Req any](body []byte) (Req, error) {
 }
 
 // ignoreBody is the decode of a verb that never read its body (backend.list,
-// models.running). It never fails, so a malformed body is still answered, as
-// today.
+// models.running, files.temp). It never fails, so a malformed body is still
+// answered, as today.
 func ignoreBody[Req any]([]byte) (Req, error) {
 	var req Req
 	return req, nil

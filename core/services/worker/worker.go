@@ -257,14 +257,15 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}),
 	))
 
-	if err := supervisor.registerLifecycleVerbs(newNATSControlServer(natsClient, nodeID)); err != nil {
+	control := newNATSControlServer(natsClient, nodeID)
+	if err := supervisor.registerLifecycleVerbs(control); err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)
 		return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
 	}
 
-	// Subscribe to file staging NATS subjects if S3 is configured
+	// Serve the file staging verbs only when S3 is configured
 	if cfg.StorageURL != "" {
-		if err := cfg.subscribeFileStaging(natsClient, nodeID, ephemeralCapacity); err != nil {
+		if err := cfg.registerFileStagingVerbs(control, ephemeralCapacity); err != nil {
 			nodes.ShutdownFileTransferServer(httpServer)
 			return fmt.Errorf("subscribing to file staging subjects: %w", err)
 		}
