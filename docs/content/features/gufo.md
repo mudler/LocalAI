@@ -153,9 +153,9 @@ options:
   model YAML, resolved under the models directory) is used instead.
 - `cache_disk` is resolved relative to the directory of the model file when it
   is not absolute.
-- LocalAI always sends a context size of at least 4096 tokens: a model YAML
-  without `context_size` runs with 4096, not with the model's native context.
-  Set `context_size` explicitly.
+- LocalAI always sends a context size to the backend. A model YAML without
+  `context_size` runs with 4096 tokens, not with the model's native context,
+  so set `context_size` explicitly.
 - gufo's chat templates are compiled into the engine. Keep
   `use_tokenizer_template: true` so LocalAI sends structured messages; a plain
   prompt without messages goes through gufo's raw completion path.
