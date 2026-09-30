@@ -78,6 +78,11 @@ var _ = Describe("attachKnownVoices", func() {
 		Expect(req.KnownVoices[0].Name).To(Equal("Ada"))
 	})
 
+	It("warns once per key", func() {
+		Expect(warnOnce("diarization|warn-once-test.gguf")).To(BeTrue())
+		Expect(warnOnce("diarization|warn-once-test.gguf")).To(BeFalse())
+		Expect(warnOnce("live|warn-once-test.gguf")).To(BeTrue())
+	})
 	It("leaves the request alone without a speaker_model option", func() {
 		req := backend.DiarizationRequest{}
 		attachKnownVoices(context.Background(), &req, []string{"other:x"},

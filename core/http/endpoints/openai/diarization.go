@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
@@ -148,6 +149,15 @@ func attachKnownVoices(ctx context.Context, req *backend.DiarizationRequest, opt
 	req.KnownVoices = selectKnownVoices(ctx, "diarization", options, registry)
 }
 
+// warned remembers the (feature, speaker model) pairs already warned about.
+var warned sync.Map
+
+// warnOnce reports true the first time it sees key, false afterwards.
+func warnOnce(key string) bool {
+	_, loaded := warned.LoadOrStore(key, struct{}{})
+	return !loaded
+}
+
 // selectKnownVoices returns the registered voices a backend may use to name
 // speakers, or nil when the model has no speaker_model, there is no registry,
 // or the registry cannot be read. It never fails the caller: unnamed speakers
@@ -163,8 +173,12 @@ func selectKnownVoices(ctx context.Context, feature string, options []string, re
 		return nil
 	}
 	if len(sel.Voices) == 0 && sel.OtherEncoder > 0 {
-		xlog.Warn(feature+": registered voices were made with a different encoder than this model's speaker_model; speakers stay unnamed",
-			"speaker_model", sm, "voices_from_other_encoder", sel.OtherEncoder)
+		msg := feature + ": registered voices were made with a different encoder than this model's speaker_model; speakers stay unnamed"
+		if warnOnce(feature + "|" + sm) {
+			xlog.Warn(msg, "speaker_model", sm, "voices_from_other_encoder", sel.OtherEncoder)
+		} else {
+			xlog.Debug(msg, "speaker_model", sm, "voices_from_other_encoder", sel.OtherEncoder)
+		}
 	}
 	return sel.Voices
 }

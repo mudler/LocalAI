@@ -218,7 +218,10 @@ gallery entry). The tag must equal the base name of the `speaker_model:`
 file. Voices made with another encoder are ignored, and LocalAI logs a
 warning when that leaves no usable voice. Voices registered before the tag
 existed have no tag: they are used when their embedding size matches the
-tagged ones (or all of them, when no voice carries a matching tag).
+tagged ones (or all of them, when no voice carries a matching tag). The
+backend skips a voice whose embedding size does not match the speaker model's,
+with a warning in the LocalAI log. Naming then falls back to the remaining
+voices, or to no names.
 
 {{% notice warning %}}
 Do not set a `model_name:` option on the voice-detect model config. It
@@ -246,6 +249,10 @@ speakers and makes fewer mistakes.
 
 - The voice registry is in memory and global. Registered names disappear when
   LocalAI restarts, and every user of the instance shares them.
+- Anyone who is allowed to call a model with `speaker_model:` can learn which
+  registered names match their audio, and their audio is matched against voices
+  registered by any user, because the voice registry is global. Restrict such
+  models with the per-user model allowlist.
 - With `include_text=true` the names use the default threshold and margin:
   `speaker_threshold` and `speaker_margin` only apply to diarization without
   text.
