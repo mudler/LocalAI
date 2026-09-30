@@ -14,7 +14,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -112,8 +111,13 @@ type backendSupervisor struct {
 	systemState *system.SystemState
 	galleries   []config.Gallery
 	nodeID      string
-	nats        messaging.MessagingClient
 	sigCh       chan<- os.Signal // send shutdown signal instead of os.Exit
+
+	// installFn and upgradeFn are the installers serveInstall and serveUpgrade
+	// run. nil means installBackend and upgradeBackend; specs set them to drive
+	// the verbs without a gallery.
+	installFn func(req workerctl.BackendInstallRequest, force bool, downloadCb func(file, current, total string, percentage float64)) (string, error)
+	upgradeFn func(req workerctl.BackendUpgradeRequest, downloadCb func(file, current, total string, percentage float64)) ([]string, error)
 
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name

@@ -1,17 +1,22 @@
 package worker
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/system"
 )
 
@@ -24,6 +29,12 @@ type recordingBus struct {
 	subjects []string
 	handlers map[string]func([]byte, func([]byte))
 	failOn   map[string]error
+	publish  []published
+}
+
+type published struct {
+	subject string
+	payload any
 }
 
 func newRecordingBus() *recordingBus {
@@ -41,7 +52,18 @@ func (b *recordingBus) record(subject string, h func([]byte, func([]byte))) (mes
 	return releaseSubscription{}, nil
 }
 
-func (b *recordingBus) Publish(string, any) error { return nil }
+func (b *recordingBus) Publish(subject string, payload any) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.publish = append(b.publish, published{subject: subject, payload: payload})
+	return nil
+}
+
+func (b *recordingBus) published() []published {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]published(nil), b.publish...)
+}
 func (b *recordingBus) Subscribe(subject string, h func([]byte)) (messaging.Subscription, error) {
 	return b.record(subject, func(data []byte, _ func([]byte)) { h(data) })
 }
@@ -205,5 +227,148 @@ var _ = Describe("Worker control verbs over NATS", func() {
 		Eventually(listReturned).Should(Receive(&listReplies))
 		Expect(listReplies).To(Receive(Equal(`{}`)))
 		Eventually(installReplies).Should(Receive(Equal(`{}`)))
+	})
+})
+
+// lockedBuffer lets a spec read what a handler goroutine logged.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+var _ = Describe("Worker control verbs: install progress and malformed requests", func() {
+	var (
+		bus *recordingBus
+		s   *backendSupervisor
+	)
+
+	BeforeEach(func() {
+		bus = newRecordingBus()
+		s = newLifecycleTestSupervisor(make(chan os.Signal, 1))
+		Expect(registerLifecycleForTest(s, bus)).To(Succeed())
+	})
+
+	// emitTwo stands in for a gallery download that ticks twice. It reports
+	// whether the handler handed it a callback at all, which is how an install
+	// without an OpID stays silent.
+	emitTwo := func(onDownload func(file, current, total string, percentage float64)) bool {
+		if onDownload == nil {
+			return false
+		}
+		onDownload("backend.tar", "1 MB", "2 MB", 50)
+		onDownload("backend.tar", "2 MB", "2 MB", 100)
+		return true
+	}
+
+	progressOn := func(subject string) []workerctl.BackendInstallProgressEvent {
+		var evs []workerctl.BackendInstallProgressEvent
+		for _, p := range bus.published() {
+			Expect(p.subject).To(Equal(subject))
+			ev, ok := p.payload.(workerctl.BackendInstallProgressEvent)
+			Expect(ok).To(BeTrue(), "progress payload is %T", p.payload)
+			evs = append(evs, ev)
+		}
+		return evs
+	}
+
+	expectTwoEvents := func(evs []workerctl.BackendInstallProgressEvent) {
+		Expect(evs).To(HaveLen(2))
+		for _, ev := range evs {
+			Expect(ev.OpID).To(Equal("op1"))
+			Expect(ev.NodeID).To(Equal("n1"))
+			Expect(ev.Backend).To(Equal("vllm"))
+			Expect(ev.Phase).To(Equal(workerctl.PhaseDownloading))
+		}
+		// The second tick lands inside the debounce window, so it only reaches
+		// the bus through the terminal flush that runs before the reply.
+		Expect(evs[0].Percentage).To(Equal(50.0))
+		Expect(evs[1].Percentage).To(Equal(100.0))
+	}
+
+	It("publishes install progress on the per-op subject before replying", func() {
+		s.installFn = func(_ workerctl.BackendInstallRequest, _ bool, onDownload func(string, string, string, float64)) (string, error) {
+			emitTwo(onDownload)
+			return "127.0.0.1:50051", nil
+		}
+		body, err := json.Marshal(workerctl.BackendInstallRequest{Backend: "vllm", OpID: "op1"})
+		Expect(err).NotTo(HaveOccurred())
+
+		var reply string
+		Eventually(bus.deliver(messaging.SubjectNodeBackendInstall("n1"), body)).Should(Receive(&reply))
+		Expect(reply).To(ContainSubstring(`"success":true`))
+		expectTwoEvents(progressOn(messaging.SubjectNodeBackendInstallProgress("n1", "op1")))
+	})
+
+	It("publishes upgrade progress on the per-op subject before replying", func() {
+		s.upgradeFn = func(_ workerctl.BackendUpgradeRequest, onDownload func(string, string, string, float64)) ([]string, error) {
+			emitTwo(onDownload)
+			return nil, nil
+		}
+		body, err := json.Marshal(workerctl.BackendUpgradeRequest{Backend: "vllm", OpID: "op1"})
+		Expect(err).NotTo(HaveOccurred())
+
+		var reply string
+		Eventually(bus.deliver(messaging.SubjectNodeBackendUpgrade("n1"), body)).Should(Receive(&reply))
+		Expect(reply).To(ContainSubstring(`"success":true`))
+		expectTwoEvents(progressOn(messaging.SubjectNodeBackendInstallProgress("n1", "op1")))
+	})
+
+	It("reports no progress for an install without an OpID", func() {
+		gotCallback := make(chan bool, 1)
+		s.installFn = func(_ workerctl.BackendInstallRequest, _ bool, onDownload func(string, string, string, float64)) (string, error) {
+			gotCallback <- emitTwo(onDownload)
+			return "127.0.0.1:50051", nil
+		}
+		body, err := json.Marshal(workerctl.BackendInstallRequest{Backend: "vllm"})
+		Expect(err).NotTo(HaveOccurred())
+
+		Eventually(bus.deliver(messaging.SubjectNodeBackendInstall("n1"), body)).Should(Receive())
+		Expect(gotCallback).To(Receive(BeFalse()))
+		Expect(bus.published()).To(BeEmpty())
+	})
+
+	Context("with a malformed request", func() {
+		var logs *lockedBuffer
+
+		BeforeEach(func() {
+			logs = &lockedBuffer{}
+			handler := slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelWarn})
+			xlog.SetLogger(xlog.NewLoggerWithHandler(handler, xlog.LogLevelWarn))
+		})
+
+		AfterEach(func() {
+			// xlog has no getter for the package logger, so restore the
+			// default the suite starts with.
+			xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text"))
+		})
+
+		DescribeTable("leaves a warning that names the verb",
+			func(subject func(string) string, verb string) {
+				Eventually(bus.deliver(subject("n1"), []byte(malformedBody))).Should(Receive())
+				Expect(logs.String()).To(And(
+					ContainSubstring(`msg="Ignoring malformed control request"`),
+					ContainSubstring("verb="+verb),
+					ContainSubstring("unexpected end of JSON input"),
+				))
+			},
+			Entry("backend.install", messaging.SubjectNodeBackendInstall, "backend.install"),
+			Entry("backend.upgrade", messaging.SubjectNodeBackendUpgrade, "backend.upgrade"),
+			Entry("backend.delete", messaging.SubjectNodeBackendDelete, "backend.delete"),
+			Entry("model.unload", messaging.SubjectNodeModelUnload, "model.unload"),
+			Entry("model.stop", messaging.SubjectNodeModelStop, "model.stop"),
+			Entry("model.delete", messaging.SubjectNodeModelDelete, "model.delete"),
+		)
 	})
 })

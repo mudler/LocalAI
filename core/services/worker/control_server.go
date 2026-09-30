@@ -74,8 +74,8 @@ func withProgress[Req, Reply any](decode func([]byte) (Req, error), refuse func(
 	}
 }
 
-// signal builds the handler of a verb that has no request and no reply.
-func signal(h func(context.Context)) controlHandler {
+// noReply builds the handler of a verb that has no request and no reply.
+func noReply(h func(context.Context)) controlHandler {
 	return func(ctx context.Context, _ []byte) (any, error) {
 		h(ctx)
 		return nil, nil

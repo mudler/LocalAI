@@ -12,7 +12,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/xlog"
 )
@@ -54,13 +53,14 @@ func buildProcessKey(modelID, backend string, replicaIndex int) string {
 //  4. Find backend binary
 //  5. Start gRPC process on a new port
 //
-// Returns the gRPC address of the backend process.
+// Returns the gRPC address of the backend process. downloadCb receives the
+// gallery download ticks; nil keeps the install silent.
 //
 // ProcessKey includes the replica index so a worker with MaxReplicasPerModel>1
 // can host multiple processes for the same model on distinct ports. Old
 // controllers (no replica_index in the request) implicitly target replica 0,
 // which preserves single-replica behavior.
-func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, force bool) (string, error) {
+func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, force bool, downloadCb func(file, current, total string, percentage float64)) (string, error) {
 	processKey := buildProcessKey(req.ModelID, req.Backend, int(req.ReplicaIndex))
 
 	if !force {
@@ -129,20 +129,6 @@ func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, 
 		galleries = reqGalleries
 	}
 
-	// When the master tagged this install with an OpID, stream the
-	// gallery download progress back to it on the per-op NATS subject.
-	// Old masters that omit OpID stay on the silent path so they keep
-	// working without changes. The publisher releases its mutex before
-	// every Publish so a slow link never stalls the download loop, and
-	// the deferred Flush guarantees a terminal-percentage event reaches
-	// the master even when the install errors out.
-	var downloadCb func(file, current, total string, percentage float64)
-	if req.OpID != "" && s.nats != nil {
-		publisher := nodes.NewDebouncedInstallProgressPublisher(s.nats, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
-		downloadCb = publisher.OnDownload
-		defer publisher.Flush()
-	}
-
 	// On upgrade, run the gallery install path even if the binary already
 	// exists on disk: findBackend would otherwise short-circuit and we'd
 	// restart the same stale binary. The force flag passed to
@@ -196,8 +182,8 @@ func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, 
 // It returns the process keys it terminated so the controller can drop the
 // NodeModel rows addressing them: an upgrade stops every process using the
 // binary and starts none back up, recycling their gRPC ports while the rows
-// still point at those addresses.
-func (s *backendSupervisor) upgradeBackend(req workerctl.BackendUpgradeRequest) ([]string, error) {
+// still point at those addresses. downloadCb is as for installBackend.
+func (s *backendSupervisor) upgradeBackend(req workerctl.BackendUpgradeRequest, downloadCb func(file, current, total string, percentage float64)) ([]string, error) {
 	// Stop every live process for this backend (peer replicas + the bare
 	// processKey). Same logic as the force branch in installBackend.
 	toStop := s.resolveProcessKeysForBackend(s.backendIdentity(req.Backend))
@@ -226,18 +212,6 @@ func (s *backendSupervisor) upgradeBackend(req workerctl.BackendUpgradeRequest) 
 			return stopped, fmt.Errorf("decoding backend galleries: %w", err)
 		}
 		galleries = reqGalleries
-	}
-
-	// When the master tagged this upgrade with an OpID, stream gallery download
-	// progress back on the per-op subject (reused from install — an upgrade is a
-	// force-reinstall). Old masters omit OpID and stay on the silent path. The
-	// deferred Flush guarantees a terminal-percentage event even if the upgrade
-	// errors out, so the master's per-node bar never hangs mid-download.
-	var downloadCb func(file, current, total string, percentage float64)
-	if req.OpID != "" && s.nats != nil {
-		publisher := nodes.NewDebouncedInstallProgressPublisher(s.nats, s.nodeID, req.OpID, req.Backend, installProgressDebounce)
-		downloadCb = publisher.OnDownload
-		defer publisher.Flush()
 	}
 
 	if req.URI != "" {

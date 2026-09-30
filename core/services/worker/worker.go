@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	ossignal "os/signal"
+	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -215,7 +215,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	basePort := cfg.effectiveBasePort()
 	// Buffered so NATS stop handler can send without blocking
 	sigCh := make(chan os.Signal, 1)
-	ossignal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	// Set the registration token once before any backends are started
 	if cfg.RegistrationToken != "" {
@@ -231,7 +231,6 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		systemState:  systemState,
 		galleries:    galleries,
 		nodeID:       nodeID,
-		nats:         natsClient,
 		sigCh:        sigCh,
 		processes:    make(map[string]*backendProcess),
 		portAffinity: make(map[string]portOwnership),

@@ -30,20 +30,8 @@ type scriptedMessagingClient struct {
 	errs                       map[string]error
 	calls                      []requestCall
 	matchedReplies             map[string][]matchedReply
-	publishes                  []progressPublishCall
 	scheduledProgressPublishes []scheduledProgressPublish
 	subscribes                 []string
-}
-
-// progressPublishCall records a single Publish invocation. The progress
-// publisher tests assert on the sequence of BackendInstallProgressEvent
-// values written to a per-op subject, so we capture both subject and the
-// decoded event. Named to avoid clashing with the simpler `publishCall`
-// already defined in unloader_test.go (which stores raw JSON bytes for
-// non-progress assertions).
-type progressPublishCall struct {
-	Subject string
-	Event   workerctl.BackendInstallProgressEvent
 }
 
 // scheduledProgressPublish queues a batch of BackendInstallProgressEvent
@@ -162,38 +150,10 @@ func (s *scriptedMessagingClient) Request(subject string, data []byte, timeout t
 	return nil, &fakeNoRespondersErr{}
 }
 
-// Publish records each call so progress-publisher tests can assert on the
-// stream of events written to a subject. The real messaging.Client JSON
-// encodes the payload before sending, but our publisher hands a typed
-// struct directly, so we handle both shapes.
-func (s *scriptedMessagingClient) Publish(subject string, data any) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	switch ev := data.(type) {
-	case workerctl.BackendInstallProgressEvent:
-		s.publishes = append(s.publishes, progressPublishCall{Subject: subject, Event: ev})
-	case []byte:
-		var e workerctl.BackendInstallProgressEvent
-		_ = json.Unmarshal(ev, &e)
-		s.publishes = append(s.publishes, progressPublishCall{Subject: subject, Event: e})
-	}
+// Publish drops every event: no spec reads what the frontend publishes
+// through this fake.
+func (s *scriptedMessagingClient) Publish(string, any) error {
 	return nil
-}
-
-// publishCalls returns every BackendInstallProgressEvent that was published
-// to `subject`, in order. Lets tests assert on debounce behavior without
-// depending on internal Publish timing.
-func (s *scriptedMessagingClient) publishCalls(subject string) []workerctl.BackendInstallProgressEvent {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]workerctl.BackendInstallProgressEvent, 0)
-	for _, c := range s.publishes {
-		if c.Subject != subject {
-			continue
-		}
-		out = append(out, c.Event)
-	}
-	return out
 }
 
 // scheduleProgressPublish queues a set of BackendInstallProgressEvent values
