@@ -1,0 +1,16 @@
+---
+name: "tensorfold"
+
+config_file: |
+    backend: tensorfold
+    context_size: 8192
+    parameters:
+      max_tokens: 4096
+    function:
+      disable_no_action: true
+      grammar:
+        disable: true
+        parallel_calls: true
+        expect_strings_after_json: true
+    template:
+      use_tokenizer_template: true
