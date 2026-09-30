@@ -29,7 +29,19 @@ func parseSpeakerThreshold(s string) (float32, error) {
 		}
 		d = v
 	}
-	return float32(1 - d), nil
+	return nonZero(float32(1 - d)), nil
+}
+
+// minPositive stands in for an exact 0 threshold or margin. The C side reads 0 as
+// "use the default", so a distance of 1 (cosine 0) or a margin of 0 would silently
+// become 0.5 or 0.05.
+const minPositive = float32(1e-6)
+
+func nonZero(v float32) float32 {
+	if v == 0 {
+		return minPositive
+	}
+	return v
 }
 
 // parseSpeakerMargin reads speaker_margin, the runner-up margin in [0, 1).
@@ -41,14 +53,15 @@ func parseSpeakerMargin(s string) (float32, error) {
 	if err != nil || math.IsNaN(v) || v < 0 || v >= 1 {
 		return 0, fmt.Errorf("parakeet-cpp: speaker_margin %q must be a number in [0, 1)", s)
 	}
-	return float32(v), nil
+	return nonZero(float32(v)), nil
 }
 
 // buildSpeakerRegistryLocked makes a parakeet_speaker_registry from the registered voices
 // of one request or stream. Caller holds engineMu. It returns 0 (and no error) when there is
 // nothing to build: no speaker model loaded or no usable voices. A voice whose embedding size
-// differs from the speaker model's is an error naming the voice and both sizes. The caller
-// frees a non-zero result with freeSpeakerRegistry.
+// differs from the speaker model's, or that the C side refuses, is skipped with a warning
+// (without its name: the log is not for the caller who may not see voice names) so one bad
+// voice cannot fail every request. The caller frees a non-zero result with freeSpeakerRegistry.
 func (p *ParakeetCpp) buildSpeakerRegistryLocked(voices []*pb.KnownVoice) (uintptr, error) {
 	if p.spkCtx == 0 || CppSpeakerRegistryNew == nil || CppSpeakerRegistryAddEmbedding == nil || len(voices) == 0 {
 		return 0, nil
@@ -61,7 +74,7 @@ func (p *ParakeetCpp) buildSpeakerRegistryLocked(voices []*pb.KnownVoice) (uintp
 	if reg == 0 {
 		return 0, status.Error(codes.Internal, "parakeet-cpp: could not create a speaker registry")
 	}
-	added := 0
+	added, skipped := 0, 0
 	for _, v := range voices {
 		emb := v.GetEmbedding()
 		if v.GetName() == "" || len(emb) == 0 {
@@ -69,19 +82,22 @@ func (p *ParakeetCpp) buildSpeakerRegistryLocked(voices []*pb.KnownVoice) (uintp
 			continue
 		}
 		if dim > 0 && len(emb) != dim {
-			CppSpeakerRegistryFree(reg)
-			return 0, status.Errorf(codes.InvalidArgument,
-				"parakeet-cpp: known voice %q has a %d-value embedding but the speaker model produces %d; "+
-					"register the voices again with the same speaker encoder", v.GetName(), len(emb), dim)
+			xlog.Warn("parakeet-cpp: skipped a registered voice: embedding size does not match the speaker model's",
+				"voice_size", len(emb), "speaker_model_size", dim)
+			skipped++
+			continue
 		}
 		if rc := CppSpeakerRegistryAddEmbedding(reg, v.GetName(), &emb[0], int32(len(emb))); rc != 0 {
-			msg := CppSpeakerRegistryLastError(reg)
-			CppSpeakerRegistryFree(reg)
-			return 0, status.Errorf(codes.InvalidArgument, "parakeet-cpp: known voice %q was refused: %s", v.GetName(), msg)
+			xlog.Warn("parakeet-cpp: skipped a registered voice the speaker registry refused", "error", CppSpeakerRegistryLastError(reg))
+			skipped++
+			continue
 		}
 		added++
 	}
 	if added == 0 {
+		if skipped > 0 {
+			xlog.Warn("parakeet-cpp: no registered voice is usable with this speaker model; speakers stay unnamed", "skipped", skipped)
+		}
 		CppSpeakerRegistryFree(reg)
 		return 0, nil
 	}

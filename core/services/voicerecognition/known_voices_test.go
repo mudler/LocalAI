@@ -80,6 +80,11 @@ var _ = Describe("SelectKnownVoices", func() {
 		Expect(sel.Voices).To(HaveLen(1))
 		Expect(sel.Untagged).To(Equal(1))
 	})
+	It("includes untagged voices of different sizes when no voice is tagged for this encoder", func() {
+		sel := voicerecognition.SelectKnownVoices([]voicerecognition.Entry{entry("old", "", 1, 0), entry("older", "", 1, 0, 0)}, wespeaker)
+		Expect(sel.Voices).To(HaveLen(2)) // the backend skips the ones whose size does not match
+		Expect(sel.Untagged).To(Equal(2))
+	})
 	It("skips voices without a name or an embedding", func() {
 		sel := voicerecognition.SelectKnownVoices([]voicerecognition.Entry{entry("", wespeaker, 1, 0), entry("x", wespeaker)}, wespeaker)
 		Expect(sel.Voices).To(BeEmpty())

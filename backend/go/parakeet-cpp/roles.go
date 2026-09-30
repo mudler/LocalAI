@@ -224,7 +224,7 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		}
 		// A companion whose role the primary already occupies (e.g. asr_model:
 		// on an already-ASR primary) would overwrite that role field below,
-		// leaking the primary ctx: Free() only walks ctxPtr/diarCtx/tagCtx, so
+		// leaking the primary ctx: Free() walks ctxPtr/diarCtx/tagCtx/spkCtx, so
 		// the overwritten pointer is never freed. Reject it before loading.
 		if spec.current(p) != 0 {
 			freeLoaded()

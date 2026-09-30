@@ -68,6 +68,8 @@ func SelectKnownVoices(entries []Entry, speakerModelPath string) KnownVoiceSelec
 			sel.OtherEncoder++
 		}
 	}
+	// With no tagged match every untagged voice is included whatever its size; the
+	// backend skips the voices whose size differs from its speaker model's.
 	for _, e := range untagged {
 		if matchedDim != 0 && len(e.Embedding) != matchedDim {
 			continue

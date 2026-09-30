@@ -344,13 +344,22 @@ var _ = Describe("ParakeetCpp.Diarize", func() {
 			Expect(used).To(Equal("plain"))
 			Expect(freed).To(Equal([]uintptr{9})) // the empty registry built for it is released, once
 		})
-		It("fails clearly on a voice of the wrong size and frees the registry", func() {
+		It("takes the plain path, without failing, when the only voice has the wrong size", func() {
 			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
-			_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5),
+			res, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5),
 				KnownVoices: []*pb.KnownVoice{{Name: "Ada", Embedding: []float32{1, 0, 0}}}})
-			Expect(err).To(HaveOccurred())
-			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
-			Expect(err.Error()).To(ContainSubstring("Ada"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(used).To(Equal("plain"))
+			Expect(res.Segments[0].Name).To(BeEmpty())
+			Expect(freed).To(Equal([]uintptr{9}))
+		})
+		It("takes the plain path when the C side refuses the only voice", func() {
+			CppSpeakerRegistryAddEmbedding = func(uintptr, string, *float32, int32) int32 { return 1 }
+			CppSpeakerRegistryLastError = func(uintptr) string { return "nope" }
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
+			_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5), KnownVoices: ada})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(used).To(Equal("plain"))
 			Expect(freed).To(Equal([]uintptr{9}))
 		})
 		It("reports a missing v10 symbol instead of silently dropping the names", func() {

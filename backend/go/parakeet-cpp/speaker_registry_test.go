@@ -21,6 +21,18 @@ var _ = Describe("speaker options", func() {
 			Expect(err).To(HaveOccurred(), bad)
 		}
 	})
+	It("never hands the C side an exact zero, which it reads as use the default", func() {
+		a, err := parseSpeakerThreshold("1") // distance 1 is cosine 0
+		Expect(err).ToNot(HaveOccurred())
+		Expect(a).To(Equal(float32(1e-6)))
+		m, err := parseSpeakerMargin("0")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(m).To(Equal(float32(1e-6)))
+		a, _ = parseSpeakerThreshold("")
+		Expect(a).To(BeNumerically("~", 0.5, 1e-6))
+		m, _ = parseSpeakerMargin("")
+		Expect(m).To(BeNumerically("~", 0.05, 1e-6))
+	})
 	It("parses the margin, default 0.05, within [0, 1)", func() {
 		m, err := parseSpeakerMargin("")
 		Expect(err).ToNot(HaveOccurred())
@@ -67,22 +79,28 @@ var _ = Describe("buildSpeakerRegistry", func() {
 		Expect(added).To(Equal([]string{"ada", "ben"}))
 		Expect(freed).To(BeEmpty())
 	})
-	It("refuses a voice of the wrong size with both sizes in the message, and frees the registry", func() {
+	It("skips a voice of the wrong size without failing, and frees the registry when none is left", func() {
 		p := &ParakeetCpp{spkCtx: 5}
-		reg, err := p.buildSpeakerRegistry([]*pb.KnownVoice{{Name: "ada", Embedding: []float32{1, 0, 0}}, voice("cy", 5)})
-		Expect(err).To(HaveOccurred())
+		reg, err := p.buildSpeakerRegistry([]*pb.KnownVoice{voice("cy", 5)})
+		Expect(err).ToNot(HaveOccurred())
 		Expect(reg).To(Equal(uintptr(0)))
-		Expect(err.Error()).To(ContainSubstring(`"cy"`))
-		Expect(err.Error()).To(ContainSubstring("5"))
-		Expect(err.Error()).To(ContainSubstring("3"))
+		Expect(added).To(BeEmpty())
 		Expect(freed).To(Equal([]uintptr{77}))
 	})
-	It("reports the C error when a voice is refused, and frees the registry", func() {
+	It("keeps the usable voices when another one has the wrong size", func() {
+		p := &ParakeetCpp{spkCtx: 5}
+		reg, err := p.buildSpeakerRegistry([]*pb.KnownVoice{voice("cy", 5), {Name: "ada", Embedding: []float32{1, 0, 0}}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reg).To(Equal(uintptr(77)))
+		Expect(added).To(Equal([]string{"ada"}))
+		Expect(freed).To(BeEmpty())
+	})
+	It("skips a voice the C side refuses, and frees the registry when none is left", func() {
 		CppSpeakerRegistryAddEmbedding = func(uintptr, string, *float32, int32) int32 { return 1 }
 		p := &ParakeetCpp{spkCtx: 5}
-		_, err := p.buildSpeakerRegistry([]*pb.KnownVoice{{Name: "ada", Embedding: []float32{0, 0, 0}}})
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("stub error"))
+		reg, err := p.buildSpeakerRegistry([]*pb.KnownVoice{{Name: "ada", Embedding: []float32{0, 0, 0}}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reg).To(Equal(uintptr(0)))
 		Expect(freed).To(Equal([]uintptr{77}))
 	})
 	It("returns no registry when no speaker model is loaded", func() {
