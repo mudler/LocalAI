@@ -54,15 +54,18 @@ var _ = Describe("standalone chat contract", func() {
 	})
 
 	It("sends the user's message to the LLM under the configured model", func() {
-		_, stop := collectSSE(svc, "alice", "chatty")
-		defer stop()
 		_, err := svc.ChatForUser("alice", "chatty", "ping")
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(llm.Requests, "30s", "100ms").ShouldNot(BeEmpty())
 		req := llm.Requests()[0]
 		Expect(req.Model).To(Equal("fake-model"))
-		Expect(req.Messages).ToNot(BeEmpty())
+		// Observed shape: content is a plain string, not a parts array. A
+		// switch to parts would change what an OpenAI-compatible backend sees.
+		Expect(req.Messages).To(ContainElement(And(
+			HaveKeyWithValue("role", "user"),
+			HaveKeyWithValue("content", "ping"),
+		)))
 	})
 
 	It("reports chat with an unknown agent as ErrAgentNotFound", func() {

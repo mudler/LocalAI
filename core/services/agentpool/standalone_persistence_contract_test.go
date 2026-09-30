@@ -37,6 +37,10 @@ var _ = Describe("standalone persistence contract", func() {
 		Expect(pool).To(HaveKey("alice:keeper"))
 		Expect(pool).To(HaveKey("anon"))
 		Expect(pool["alice:keeper"]["model"]).To(Equal("fake-model"))
+		// The stored name repeats the key, prefix included: the P2 importer
+		// strips the prefix, so it depends on this.
+		Expect(pool["alice:keeper"]["name"]).To(Equal("alice:keeper"))
+		Expect(pool["anon"]["name"]).To(Equal("anon"))
 	})
 
 	It("restores agents after a restart on the same state dir", func() {
@@ -52,9 +56,9 @@ var _ = Describe("standalone persistence contract", func() {
 		Expect(again.ListAgentsForUser("alice")).To(HaveKey("survivor"))
 	})
 
-	// Pause is only an in-memory flag on the running agent: neither pool.json
-	// nor the per-agent state files record it, so a restart brings the agent
-	// back active. Pinned as a known gap for the native-store migration to
+	// Pause is only an in-memory flag on the running agent: pool.json has no
+	// status field and no per-agent file records pause, so a restart brings
+	// the agent back active. Pinned as a known gap for the native-store migration to
 	// close on purpose rather than by accident.
 	It("does not keep a paused agent paused across a restart", func() {
 		svc := startStandalone(dir, llm.URL())
@@ -72,6 +76,9 @@ var _ = Describe("standalone persistence contract", func() {
 
 	// The /v1/responses interceptor decides "is this model an agent" with
 	// GetAgent(name) using the raw pool key, with no user prefix.
+	// Known gap, not a contract: any caller who sends model "alice:mine" runs
+	// alice's agent (the interceptor has no user check), while alice's own
+	// request for "mine" falls through; a later fix must not read as a break.
 	It("resolves an agent by its raw key for the responses interceptor", func() {
 		svc := startStandalone(dir, llm.URL())
 		DeferCleanup(svc.Stop)

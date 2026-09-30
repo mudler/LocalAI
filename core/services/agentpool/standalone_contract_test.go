@@ -107,7 +107,7 @@ var _ = Describe("standalone agent service contract", func() {
 		// Known defect pinned on purpose: export returns the stored config, whose
 		// name is the pool key, and import refuses ":" in names. A rewrite that
 		// fixes this must flip this spec rather than silently change behavior.
-		It("exports a user's agent under its pool key, which import then rejects", func() {
+		It("known defect: exports a user's agent under its pool key, which import then rejects", func() {
 			cfg := newAgentConfig("portable")
 			cfg.Description = "carry me"
 			Expect(svc.CreateAgentForUser("alice", cfg)).To(Succeed())
@@ -125,7 +125,9 @@ var _ = Describe("standalone agent service contract", func() {
 		})
 
 		// P5 strips connectors and actions and the P2 migration reads old configs,
-		// so record what a config that carries them looks like today.
+		// so record what a config that carries them looks like today. LocalAGI
+		// logs "Failed to create IRC client" for this fixture because the IRC
+		// config has no nickname; that is expected and is not a failure.
 		It("accepts and returns a config that carries connectors and actions", func() {
 			raw := []byte(`{
 				"name": "legacy",
@@ -143,6 +145,17 @@ var _ = Describe("standalone agent service contract", func() {
 			Expect(json.Unmarshal(data, &out)).To(Succeed())
 			Expect(out["connectors"]).To(HaveLen(1))
 			Expect(out["actions"]).To(HaveLen(1))
+			// The P2 migration reads these element shapes. The action name is
+			// what LocalAGI actually stores, observed as the name sent in, not a
+			// resolved alias.
+			Expect(out["connectors"]).To(ConsistOf(And(
+				HaveKeyWithValue("type", "irc"),
+				HaveKeyWithValue("config", BeAssignableToTypeOf("")),
+			)))
+			Expect(out["actions"]).To(ConsistOf(And(
+				HaveKeyWithValue("name", "search"),
+				HaveKeyWithValue("config", BeAssignableToTypeOf("")),
+			)))
 		})
 	})
 

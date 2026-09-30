@@ -56,7 +56,10 @@ func (f *fakeLLM) SetReply(r string) {
 // SetToolCall makes the fake answer with one call to the named function until
 // the conversation carries a tool result, then with the plain reply. Keying on
 // the tool message rather than a request counter keeps the fake independent of
-// how many planning requests the agent makes before it runs the tool.
+// how many planning requests the agent makes before it runs the tool. The
+// flip side: tool mode stays on until a request carries a role "tool"
+// message, so a client that restarts with trimmed history would get the
+// tool call again and loop until its iteration cap.
 func (f *fakeLLM) SetToolCall(name, argsJSON string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -111,7 +114,15 @@ func (f *fakeLLM) handle(w http.ResponseWriter, r *http.Request) {
 	message := map[string]any{"role": "assistant", "content": reply}
 	finish := "stop"
 	if toolCall != nil {
-		message = map[string]any{"role": "assistant", "content": "", "tool_calls": []map[string]any{toolCall}}
+		// "index" belongs only to streaming deltas, so the non-streaming
+		// message carries a copy without it.
+		plain := map[string]any{}
+		for k, v := range toolCall {
+			if k != "index" {
+				plain[k] = v
+			}
+		}
+		message = map[string]any{"role": "assistant", "content": "", "tool_calls": []map[string]any{plain}}
 		finish = "tool_calls"
 	}
 
@@ -182,13 +193,21 @@ func newAgentConfig(name string) *state.AgentConfig {
 // crash the test binary. Run starts its workers only after Scheduler.Start has
 // returned, and jobQueue is unbuffered, so Execute returning proves Start is
 // done. The job's context is already cancelled, so the worker finishes it as
-// expired without calling the LLM or recording an observable.
+// expired without calling the LLM or recording an observable. This depends on
+// LocalAGI not short-circuiting a cancelled job before a worker receives it,
+// so re-check it when LocalAGI is bumped; the timeout turns a hang into a
+// failure if that ever changes.
 func awaitRunning(svc *agentpool.AgentPoolService, userID, name string) {
 	a := svc.GetAgentForUser(userID, name)
 	Expect(a).ToNot(BeNil())
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	a.Execute(types.NewJob(types.WithContext(ctx)))
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		a.Execute(types.NewJob(types.WithContext(ctx)))
+	}()
+	Eventually(done, "10s").Should(BeClosed())
 }
 
 type sseEvent struct {
@@ -201,7 +220,9 @@ type sseEvent struct {
 func collectSSE(svc *agentpool.AgentPoolService, userID, name string) (events func() []sseEvent, stop func()) {
 	mgr := svc.GetSSEManagerForUser(userID, name)
 	Expect(mgr).ToNot(BeNil())
-	client := sse.NewClient("contract-" + name)
+	// Include the user: the manager keys listeners by ID, so two users'
+	// same-named agents must never share one if a manager is ever shared.
+	client := sse.NewClient("contract-" + userID + "-" + name)
 	mgr.Register(client)
 
 	var mu sync.Mutex

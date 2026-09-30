@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/mudler/LocalAGI/core/state"
+	"github.com/mudler/LocalAGI/core/types"
 
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	. "github.com/onsi/ginkgo/v2"
@@ -160,11 +161,13 @@ var _ = Describe("standalone status and observables contract", func() {
 
 			st := svc.GetAgentStatusForUser("alice", "tooled")
 			Expect(st).ToNot(BeNil())
-			Expect(st.Results()).ToNot(BeEmpty())
-
-			h := st.Results()[0]
-			Expect(h.ActionCurrentState.Action).ToNot(BeNil())
-			Expect(h.ActionCurrentState.Action.Definition().Name.String()).To(Equal("counter"))
+			// Select by action name rather than position: the order of
+			// status entries is a LocalAGI detail, not part of the contract.
+			var h types.ActionState
+			Expect(st.Results()).To(ContainElement(Satisfy(func(s types.ActionState) bool {
+				return s.ActionCurrentState.Action != nil &&
+					s.ActionCurrentState.Action.Definition().Name.String() == "counter"
+			}), &h))
 			Expect(h.ActionCurrentState.Params).To(HaveKeyWithValue("name", "contract"))
 			Expect(h.Result).To(ContainSubstring("Created counter 'contract'"))
 
