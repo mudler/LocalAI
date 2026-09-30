@@ -81,8 +81,9 @@ type ResolveEnv struct {
 	BackendCompatible func(backend string) bool
 	// EnginePreference lists the ENGINE NAMES this host prefers, best first, as
 	// SystemState.EnginePreferenceTokens reports them (e.g. NVIDIA gives
-	// ["vllm", "sglang", "llama-cpp"], metal gives ["mlx", "llama-cpp"]). A
-	// token is matched as a substring of a variant's backend name.
+	// ["vllm", "sglang", "tensorfold", "llama-cpp"], metal gives
+	// ["mlx", "tensorfold", "llama-cpp"]). A token is matched as a substring
+	// of a variant's backend name.
 	//
 	// The vocabulary is load bearing. VariantOption.Backend is a gallery entry's
 	// `backend:` value, which is an engine name and never carries a build tag,

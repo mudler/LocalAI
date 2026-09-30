@@ -216,11 +216,20 @@ var _ = Describe("EnginePreferenceTokens", func() {
 	It("puts vLLM ahead of llama.cpp on nvidia", func() {
 		// The rule the whole engine table exists to express. A build tag list
 		// here would match no engine name at all and this would read empty.
-		Expect(tokensFor("nvidia-cuda-12")).To(Equal([]string{"vllm", "sglang", "llama-cpp"}))
+		// TensorFold sits below the other GPU serving engines until it has
+		// shipped and been measured, and above the portable fallback.
+		Expect(tokensFor("nvidia-cuda-12")).To(Equal([]string{"vllm", "sglang", "tensorfold", "llama-cpp"}))
 	})
 
-	It("puts MLX ahead of llama.cpp on apple silicon", func() {
-		Expect(tokensFor(metal)).To(Equal([]string{"mlx", "llama-cpp"}))
+	It("puts MLX ahead of TensorFold and TensorFold ahead of llama.cpp on apple silicon", func() {
+		Expect(tokensFor(metal)).To(Equal([]string{"mlx", "tensorfold", "llama-cpp"}))
+	})
+
+	It("never ranks TensorFold on hosts it has no build for", func() {
+		for _, capability := range []string{AMD, Intel, vulkan, defaultCapability, darwinX86} {
+			Expect(tokensFor(capability)).ToNot(ContainElement("tensorfold"),
+				"capability %q would rank an engine that has no image there", capability)
+		}
 	})
 
 	It("gives the GPU serving engines to every vendor that has builds of them", func() {

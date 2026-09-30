@@ -49,10 +49,11 @@ const (
 	// Engine names (private). Unlike the tokens above these are whole backend
 	// identities as a gallery entry's `backend:` field spells them, not build
 	// tags. See the two preference tables below for why the distinction matters.
-	engineVLLM     = "vllm"
-	engineSGLang   = "sglang"
-	engineLlamaCpp = "llama-cpp"
-	engineMLX      = "mlx"
+	engineVLLM       = "vllm"
+	engineSGLang     = "sglang"
+	engineLlamaCpp   = "llama-cpp"
+	engineMLX        = "mlx"
+	engineTensorfold = "tensorfold"
 
 	// Serving feature names (private). A third vocabulary again: not a build
 	// tag and not an engine, but the inference-time strategy a published build
@@ -153,13 +154,18 @@ var engineNamePreferenceRules = []backendPreferenceRule{
 	// SGLang sits directly behind it: same class of GPU serving engine, ships
 	// cuda/rocm/intel builds alike, but it is behind vLLM because vLLM covers
 	// far more of the gallery. llama-cpp is the portable fallback.
-	{Nvidia, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
+	// TensorFold ships images for CUDA 13 and Apple silicon only, so it is
+	// listed only on those rows, and ranks behind the established serving
+	// engines until it has shipped and been measured.
+	{Nvidia, []string{engineVLLM, engineSGLang, engineTensorfold, engineLlamaCpp}},
 	{AMD, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
 	{Intel, []string{engineVLLM, engineSGLang, engineLlamaCpp}},
 	// MLX is the native accelerated runtime on Apple silicon, whereas a
 	// metal-enabled GGUF build is the portable engine merely compiled with GPU
 	// offload. No vLLM or SGLang build targets metal, so neither is listed.
-	{metal, []string{engineMLX, engineLlamaCpp}},
+	// TensorFold runs on MLX too, but ranks behind plain MLX until it has
+	// shipped and been measured, and ahead of the portable GGUF fallback.
+	{metal, []string{engineMLX, engineTensorfold, engineLlamaCpp}},
 	// A Vulkan host has exactly one LLM engine with a Vulkan build, so a
 	// llama-cpp variant is the only one that will use the GPU at all.
 	{vulkan, []string{engineLlamaCpp}},
