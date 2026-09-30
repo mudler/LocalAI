@@ -181,7 +181,7 @@ type BackendInstallRequest struct {
 	// callers MUST send to SubjectNodeBackendUpgrade instead. Workers continue
 	// to honor Force=true here so a rolling update with new master + old
 	// worker still works (the master's install fallback path also uses this
-	// when backend.upgrade returns nats.ErrNoResponders).
+	// when backend.upgrade finds no route to the worker).
 	Force bool `json:"force,omitempty"`
 	// OpID identifies the admin-side operation. When non-empty the worker
 	// publishes BackendInstallProgressEvent values to

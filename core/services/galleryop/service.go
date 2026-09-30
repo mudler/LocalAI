@@ -31,7 +31,7 @@ type GalleryService struct {
 	cancellations  map[string]cancellationActions
 
 	// Distributed mode (nil when not in distributed mode).
-	// natsClient is the wider MessagingClient (Publisher + subscribe methods)
+	// natsClient is a messaging.Broadcaster (Publisher + Subscribe)
 	// when wired by the distributed startup path; broadcastSubs holds the
 	// progress + cancel subscriptions opened by SubscribeBroadcasts.
 	natsClient    messaging.Broadcaster
@@ -118,7 +118,7 @@ func (g *GalleryService) ModelArtifactMaterializer() config.ArtifactMaterializer
 }
 
 // SetNATSClient sets the NATS client for distributed progress publishing.
-// Accepting the wider MessagingClient (vs. plain Publisher) lets
+// Accepting a Broadcaster (vs. plain Publisher) lets
 // SubscribeBroadcasts wire the wildcard subscriptions that keep peer
 // replicas' statuses + cancellations in sync.
 func (g *GalleryService) SetNATSClient(nc messaging.Broadcaster) {

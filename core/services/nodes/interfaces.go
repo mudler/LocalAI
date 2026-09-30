@@ -154,13 +154,17 @@ type BackendClientFactory interface {
 // NodeBackendClientFactory is the optional node-aware form of
 // BackendClientFactory. A dialer that has to know WHICH node it is reaching, as
 // a tunnel does, implements it; a factory that dials the address it is handed
-// implements only NewClient and keeps working.
+// implements only NewClient and keeps working. When a factory has both
+// methods, NewNodeClient wins, so a wrapper around one must override both.
 type NodeBackendClientFactory interface {
 	NewNodeClient(nodeID, address string, parallel bool) grpc.Backend
 }
 
-// newBackendClient is the single place a backend client is built, so a second
-// dialer needs one seam and not one per call site.
+// newBackendClient is where every BackendClientFactory call goes, so a
+// node-aware dialer needs one seam and not one per call site. It is not yet
+// every dial: grpcModelProber in reconciler.go still dials the backend address
+// directly, and must be routed through here before a non-direct dialer is
+// added.
 func newBackendClient(f BackendClientFactory, nodeID, address string, parallel bool) grpc.Backend {
 	if nf, ok := f.(NodeBackendClientFactory); ok {
 		return nf.NewNodeClient(nodeID, address, parallel)

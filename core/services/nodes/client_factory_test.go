@@ -38,7 +38,7 @@ var _ = Describe("newBackendClient", func() {
 		Expect(f.addrs).To(BeEmpty())
 	})
 
-	It("keeps the default factory dialling the address it was given", func() {
+	It("offers the node-aware form from the default factory", func() {
 		var f BackendClientFactory = &tokenClientFactory{}
 		_, ok := f.(NodeBackendClientFactory)
 		Expect(ok).To(BeTrue(), "the default factory must implement the node-aware form")
