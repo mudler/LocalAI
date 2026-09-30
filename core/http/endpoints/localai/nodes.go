@@ -743,7 +743,7 @@ func DeleteModelOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *nodes
 
 // NodeBackendLogsListEndpoint proxies a request to a worker node's /v1/backend-logs
 // endpoint to list model IDs that have backend logs.
-func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		nodeID := c.Param("id")
@@ -756,7 +756,7 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, "node has no HTTP address"))
 		}
 
-		resp, err := proxyHTTPToWorker(node.HTTPAddress, "/v1/backend-logs", registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, node.HTTPAddress, "/v1/backend-logs", registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -771,7 +771,7 @@ func NodeBackendLogsListEndpoint(registry *nodes.NodeRegistry, registrationToken
 
 // NodeBackendLogsLinesEndpoint proxies a request to a worker node's
 // /v1/backend-logs/{modelId} endpoint to get buffered log lines.
-func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		nodeID := c.Param("id")
@@ -787,7 +787,7 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 		}
 
 		path := "/v1/backend-logs/" + url.PathEscape(modelID)
-		resp, err := proxyHTTPToWorker(node.HTTPAddress, path, registrationToken)
+		resp, err := proxyHTTPToWorker(ctx, dialFor, node.ID, node.HTTPAddress, path, registrationToken)
 		if err != nil {
 			return c.JSON(http.StatusBadGateway, nodeError(http.StatusBadGateway, fmt.Sprintf("failed to reach worker: %v", err)))
 		}
@@ -802,7 +802,7 @@ func NodeBackendLogsLinesEndpoint(registry *nodes.NodeRegistry, registrationToke
 
 // NodeBackendLogsWSEndpoint proxies a WebSocket connection to a worker node's
 // /v1/backend-logs/{modelId}/ws endpoint for real-time log streaming.
-func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string) echo.HandlerFunc {
+func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken string, dialFor nodes.WorkerNetDialerFor) echo.HandlerFunc {
 	browserUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
@@ -841,7 +841,7 @@ func NodeBackendLogsWSEndpoint(registry *nodes.NodeRegistry, registrationToken s
 			workerHeaders.Set("Authorization", "Bearer "+registrationToken)
 		}
 
-		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
+		workerDialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second, NetDialContext: dialFor(node.ID)}
 		workerWS, _, err := workerDialer.Dial(workerURL, workerHeaders)
 		if err != nil {
 			browserWS.WriteMessage(websocket.CloseMessage,
@@ -1312,9 +1312,11 @@ func DeleteSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 }
 
 // proxyHTTPToWorker makes a GET request to a worker's HTTP server with bearer token auth.
-func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) {
+// The connection goes through dialFor(nodeID) because the advertised address
+// alone does not say how this frontend reaches that worker.
+func proxyHTTPToWorker(ctx context.Context, dialFor nodes.WorkerNetDialerFor, nodeID, httpAddress, path, token string) (*http.Response, error) {
 	reqURL := fmt.Sprintf("http://%s%s", httpAddress, path)
-	req, err := http.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1322,6 +1324,8 @@ func proxyHTTPToWorker(httpAddress, path, token string) (*http.Response, error) 
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	client := httpclient.NewWithTimeout(15 * time.Second)
+	t := httpclient.HardenedTransport()
+	t.DialContext = dialFor(nodeID)
+	client := httpclient.NewWithTimeout(15*time.Second, httpclient.WithTransport(t))
 	return client.Do(req)
 }

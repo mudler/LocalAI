@@ -44,6 +44,10 @@ type DistributedServices struct {
 	Unloader     *nodes.RemoteUnloaderAdapter
 	ModelCleanup *nodes.ModelCleanupService
 
+	// WorkerHTTPDial reaches a worker's own HTTP server for the admin
+	// backend-logs proxy, the same way the HTTP file stager does.
+	WorkerHTTPDial nodes.WorkerNetDialerFor
+
 	shutdownOnce sync.Once
 }
 
@@ -261,6 +265,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	xlog.Info("File manager initialized", "cacheDir", cacheDir)
 
 	// Create FileStager for distributed file transfer
+	workerHTTPDial := nodes.DirectWorkerNetDialer()
 	var fileStager nodes.FileStager
 	if cfg.Distributed.StorageURL != "" {
 		fileStager = nodes.NewS3NATSFileStager(fileMgr, natsClient)
@@ -275,7 +280,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 				return "", fmt.Errorf("node %s has no HTTP address for file transfer", nodeID)
 			}
 			return node.HTTPAddress, nil
-		}, cfg.Distributed.RegistrationToken, nodes.DirectWorkerNetDialer())
+		}, cfg.Distributed.RegistrationToken, workerHTTPDial)
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}
 	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
@@ -489,6 +494,8 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		ModelAdapter: modelAdapter,
 		Unloader:     remoteUnloader,
 		ModelCleanup: modelCleanup,
+
+		WorkerHTTPDial: workerHTTPDial,
 	}, nil
 }
 
