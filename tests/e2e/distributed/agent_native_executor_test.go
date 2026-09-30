@@ -341,7 +341,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			defer sub.Unsubscribe()
 
 			adapter := infra.NC
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.test.execute", "test-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.test.execute", "test-workers")), bridge, configs, "http://localhost:8080", "test-key", 0)
 
 			err = dispatcher.Start(infra.Ctx)
 			Expect(err).ToNot(HaveOccurred())
@@ -402,7 +402,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 			// Create dispatcher with NO ConfigProvider (simulating DB-free worker)
 			adapter := infra.NC
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, "http://localhost:8080", "test-key", "agent.enriched.execute", "enriched-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.enriched.execute", "enriched-workers")), bridge, nil, "http://localhost:8080", "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Subscribe to events to verify processing
@@ -662,7 +662,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 				"flow-agent": &cfg,
 			}}
 
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.flow.execute", "flow-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.flow.execute", "flow-workers")), bridge, configs, "http://localhost:8080", "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Dispatch
@@ -758,7 +758,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			Expect(err).ToNot(HaveOccurred())
 			defer sub.Unsubscribe()
 
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, configs, "http://localhost:8080", "test-key", "agent.bg.execute", "bg-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.bg.execute", "bg-workers")), bridge, configs, "http://localhost:8080", "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			// Dispatch as background/system role
@@ -1082,7 +1082,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 
 			adapter := infra.NC
 			// Point dispatcher at our mock LLM server
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.e2e.execute", "e2e-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.e2e.execute", "e2e-workers")), bridge, nil, llmURL, "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			FlushNATS(infra.NC)
@@ -1157,7 +1157,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			defer sub.Unsubscribe()
 
 			adapter := infra.NC
-			dispatcher := agents.NewNATSDispatcher(adapter, bridge, nil, llmURL, "test-key", "agent.bg-e2e.execute", "bg-e2e-workers", 0)
+			dispatcher := agents.NewNATSDispatcher(messaging.NewNATSWorkConsumer(adapter, messaging.WithAgentRunRoute("agent.bg-e2e.execute", "bg-e2e-workers")), bridge, nil, llmURL, "test-key", 0)
 			Expect(dispatcher.Start(infra.Ctx)).To(Succeed())
 
 			FlushNATS(infra.NC)

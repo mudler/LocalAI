@@ -199,14 +199,17 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		defer cancelSub.Unsubscribe()
 	}
 
+	// One consumer serves both queued kinds; the route option only moves the
+	// agent-run subject and group, which operators may set.
+	work := messaging.NewNATSWorkConsumer(natsClient, messaging.WithAgentRunRoute(cmd.Subject, cmd.Queue))
+
 	// Create and start the NATS dispatcher.
 	// No ConfigProvider or SkillStore needed — config and skills arrive in the job payload.
 	dispatcher := agents.NewNATSDispatcher(
-		natsClient,
+		work,
 		eventBridge,
 		nil, // no ConfigProvider: config comes in the enriched NATS payload
 		apiURL, cmd.APIToken,
-		cmd.Subject, cmd.Queue,
 		0, // no concurrency limit (CLI worker)
 	)
 
@@ -238,10 +241,12 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 	mcpCIJobTimeout = cmp.Or(mcpCIJobTimeout, config.DefaultMCPCIJobTimeout)
 
-	if _, err := natsClient.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func(data []byte) {
-		handleMCPCIJob(shutdownCtx, data, apiURL, cmd.APIToken, natsClient, mcpCIJobTimeout)
+	// maxInFlight 1 keeps MCP CI jobs one at a time per worker, run inline on
+	// the delivery, as they always were.
+	if _, err := work.Consume(shutdownCtx, messaging.WorkMCPCI, 1, func(ctx context.Context, data []byte, events messaging.Publisher) error {
+		return handleMCPCIJob(ctx, data, apiURL, cmd.APIToken, events, mcpCIJobTimeout)
 	}); err != nil {
-		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPCIJobsNew, err)
+		return err
 	}
 
 	// Subscribe to backend stop events to clean up cached MCP sessions.
@@ -384,44 +389,46 @@ func sendMCPDiscoveryReply(reply func([]byte), servers []mcpRemote.MCPServerInfo
 
 // handleMCPCIJob processes an MCP CI job on the agent worker.
 // The agent worker can create MCP sessions (has docker) and call the LocalAI API for inference.
-func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken string, natsClient messaging.MessagingClient, jobTimeout time.Duration) {
+// Every outcome, failures included, is reported on events or logged, so it
+// always returns nil: a carrier that redelivers on error would only repeat it.
+func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken string, events messaging.Publisher, jobTimeout time.Duration) error {
 	var evt jobs.JobEvent
 	if err := json.Unmarshal(data, &evt); err != nil {
 		xlog.Error("Failed to unmarshal job event", "error", err)
-		return
+		return nil
 	}
 
 	job := evt.Job
 	task := evt.Task
 	if job == nil || task == nil {
 		xlog.Error("MCP CI job missing enriched data", "jobID", evt.JobID)
-		publishJobResult(natsClient, evt.JobID, "failed", "", "job or task data missing from NATS event")
-		return
+		publishJobResult(events, evt.JobID, "failed", "", "job or task data missing from NATS event")
+		return nil
 	}
 
 	modelCfg := evt.ModelConfig
 	if modelCfg == nil {
-		publishJobResult(natsClient, evt.JobID, "failed", "", "model config missing from job event")
-		return
+		publishJobResult(events, evt.JobID, "failed", "", "model config missing from job event")
+		return nil
 	}
 
 	xlog.Info("Processing MCP CI job", "jobID", evt.JobID, "taskID", evt.TaskID, "model", task.Model)
 
 	// Publish running status
-	natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+	publishJobTrace(events, jobs.ProgressEvent{
 		JobID: evt.JobID, Status: "running", Message: "Job started on agent worker",
 	})
 
 	// Parse MCP config
 	if modelCfg.MCP.Servers == "" && modelCfg.MCP.Stdio == "" {
-		publishJobResult(natsClient, evt.JobID, "failed", "", "no MCP servers configured for model")
-		return
+		publishJobResult(events, evt.JobID, "failed", "", "no MCP servers configured for model")
+		return nil
 	}
 
 	remote, stdio, err := modelCfg.MCP.MCPConfigFromYAML()
 	if err != nil {
-		publishJobResult(natsClient, evt.JobID, "failed", "", fmt.Sprintf("failed to parse MCP config: %v", err))
-		return
+		publishJobResult(events, evt.JobID, "failed", "", fmt.Sprintf("failed to parse MCP config: %v", err))
+		return nil
 	}
 
 	// Create MCP sessions locally (agent worker has docker)
@@ -431,8 +438,8 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 		if err != nil {
 			errMsg = fmt.Sprintf("failed to create MCP sessions: %v", err)
 		}
-		publishJobResult(natsClient, evt.JobID, "failed", "", errMsg)
-		return
+		publishJobResult(events, evt.JobID, "failed", "", errMsg)
+		return nil
 	}
 
 	// Build prompt from template
@@ -464,7 +471,7 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 	defer cancel()
 
 	// Update job status to running in DB
-	publishJobStatus(natsClient, evt.JobID, "running", "")
+	publishJobStatus(events, evt.JobID, "running", "")
 
 	// Buffer stream tokens and flush as complete blocks
 	var reasoningBuf, contentBuf strings.Builder
@@ -472,13 +479,13 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 
 	flushStreamBuf := func() {
 		if reasoningBuf.Len() > 0 {
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			publishJobTrace(events, jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "reasoning", TraceContent: reasoningBuf.String(),
 			})
 			reasoningBuf.Reset()
 		}
 		if contentBuf.Len() > 0 {
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			publishJobTrace(events, jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "content", TraceContent: contentBuf.String(),
 			})
 			contentBuf.Reset()
@@ -491,13 +498,13 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 		cogito.WithMCPs(sessions...),
 		cogito.WithStatusCallback(func(status string) {
 			flushStreamBuf()
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			publishJobTrace(events, jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "status", TraceContent: status,
 			})
 		}),
 		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
 			flushStreamBuf()
-			natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+			publishJobTrace(events, jobs.ProgressEvent{
 				JobID: evt.JobID, TraceType: "tool_result", TraceContent: fmt.Sprintf("%s: %s", t.Name, t.Result),
 			})
 		}),
@@ -513,7 +520,7 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 			case cogito.StreamEventContent:
 				contentBuf.WriteString(ev.Content)
 			case cogito.StreamEventToolCall:
-				natsClient.Publish(messaging.SubjectJobProgress(evt.JobID), jobs.ProgressEvent{
+				publishJobTrace(events, jobs.ProgressEvent{
 					JobID: evt.JobID, TraceType: "tool_call", TraceContent: fmt.Sprintf("%s(%s)", ev.ToolName, ev.ToolArgs),
 				})
 			}
@@ -528,22 +535,31 @@ func handleMCPCIJob(shutdownCtx context.Context, data []byte, apiURL, apiToken s
 	flushStreamBuf() // flush any remaining buffered tokens
 
 	if err != nil {
-		publishJobResult(natsClient, evt.JobID, "failed", "", fmt.Sprintf("cogito execution failed: %v", err))
-		return
+		publishJobResult(events, evt.JobID, "failed", "", fmt.Sprintf("cogito execution failed: %v", err))
+		return nil
 	}
 
 	result := ""
 	if msg := f.LastMessage(); msg != nil {
 		result = msg.Content
 	}
-	publishJobResult(natsClient, evt.JobID, "completed", result, "")
+	publishJobResult(events, evt.JobID, "completed", result, "")
 	xlog.Info("MCP CI job completed", "jobID", evt.JobID, "resultLen", len(result))
+	return nil
 }
 
-func publishJobStatus(nc messaging.MessagingClient, jobID, status, message string) {
-	jobs.PublishJobProgress(nc, jobID, status, message)
+func publishJobStatus(events messaging.Publisher, jobID, status, message string) {
+	jobs.PublishJobProgress(events, jobID, status, message)
 }
 
-func publishJobResult(nc messaging.MessagingClient, jobID, status, result, errMsg string) {
-	jobs.PublishJobResult(nc, jobID, status, result, errMsg)
+func publishJobResult(events messaging.Publisher, jobID, status, result, errMsg string) {
+	jobs.PublishJobResult(events, jobID, status, result, errMsg)
+}
+
+// publishJobTrace sends a progress or trace line; a lost line must not fail
+// the job, so the error is only logged.
+func publishJobTrace(events messaging.Publisher, ev jobs.ProgressEvent) {
+	if err := events.Publish(messaging.SubjectJobProgress(ev.JobID), ev); err != nil {
+		xlog.Error("Failed to publish job progress", "jobID", ev.JobID, "error", err)
+	}
 }
