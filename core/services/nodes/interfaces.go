@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -164,4 +165,18 @@ func (f *tokenClientFactory) NewClient(_, address string, parallel bool) grpc.Ba
 		return grpc.NewClientWithToken(address, parallel, nil, false, f.token)
 	}
 	return grpc.NewClient(address, parallel, nil, false)
+}
+
+// WorkerNetDialerFor returns the dial function that reaches one worker's own
+// HTTP server, in the shape http.Transport.DialContext and
+// websocket.Dialer.NetDialContext take. It is keyed by node id, not address,
+// because two workers can report the same HTTP address (NAT, loopback) and a
+// tunnel must still reach the right one.
+type WorkerNetDialerFor func(nodeID string) func(ctx context.Context, network, addr string) (net.Conn, error)
+
+// DirectWorkerNetDialer dials the address it is handed, whatever the node.
+func DirectWorkerNetDialer() WorkerNetDialerFor {
+	// Aggressive keepalive suits the long LAN transfers the file stager makes.
+	dial := (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 15 * time.Second}).DialContext
+	return func(string) func(context.Context, string, string) (net.Conn, error) { return dial }
 }

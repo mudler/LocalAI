@@ -113,7 +113,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 
 		localPath := filepath.Join(canonicalWorkerTempDir(), "input.wav")
 		Expect(os.WriteFile(localPath, content, 0o600)).To(Succeed())
-		stager := nodes.NewHTTPFileStager(func(string) (string, error) { return addr, nil }, "secret")
+		stager := nodes.NewHTTPFileStager(func(string) (string, error) { return addr, nil }, "secret", nodes.DirectWorkerNetDialer())
 		for range 2 {
 			path, ensureErr := stager.EnsureRemote(context.Background(), "worker", localPath, key)
 			Expect(ensureErr).NotTo(HaveOccurred())

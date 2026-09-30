@@ -77,7 +77,7 @@ var _ = Describe("File stager exact-key release", func() {
 		Expect(err).NotTo(HaveOccurred())
 		return NewHTTPFileStager(func(string) (string, error) {
 				return listener.Addr().String(), nil
-			}, token), func() {
+			}, token, DirectWorkerNetDialer()), func() {
 				Expect(server.Shutdown(context.Background())).To(Succeed())
 			}
 	}
@@ -161,7 +161,7 @@ var _ = Describe("File stager exact-key release", func() {
 		DeferCleanup(server.Close)
 		stager := NewHTTPFileStager(func(string) (string, error) {
 			return strings.TrimPrefix(server.URL, "http://"), nil
-		}, "")
+		}, "", DirectWorkerNetDialer())
 		keys := []string{
 			"ephemeral/audio/request-id/input.wav",
 			"ephemeral/images/request-id/frame.jpg",
@@ -178,7 +178,7 @@ var _ = Describe("File stager exact-key release", func() {
 		stager := NewHTTPFileStager(func(string) (string, error) {
 			resolved = true
 			return "127.0.0.1:1", nil
-		}, "token")
+		}, "token", DirectWorkerNetDialer())
 
 		for _, key := range []string{
 			"models/model.gguf",

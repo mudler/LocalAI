@@ -275,7 +275,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 				return "", fmt.Errorf("node %s has no HTTP address for file transfer", nodeID)
 			}
 			return node.HTTPAddress, nil
-		}, cfg.Distributed.RegistrationToken)
+		}, cfg.Distributed.RegistrationToken, nodes.DirectWorkerNetDialer())
 		xlog.Info("File stager initialized (HTTP direct transfer)")
 	}
 	// Create RemoteUnloaderAdapter — needed by SmartRouter and startup.go
