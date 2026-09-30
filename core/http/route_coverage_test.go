@@ -73,6 +73,19 @@ var _ = Describe("Route auth coverage", func() {
 		Expect(os.RemoveAll(tmpdir)).To(Succeed())
 	})
 
+	It("exposes only session controls and duplex streaming for motion", func() {
+		var motionRoutes []string
+		for _, route := range app.Routes() {
+			if strings.HasPrefix(route.Path, "/api/motion/") {
+				motionRoutes = append(motionRoutes, route.Method+" "+route.Path)
+			}
+		}
+		Expect(motionRoutes).To(ConsistOf(
+			"POST /api/motion/sessions", "GET /api/motion/sessions/:id", "DELETE /api/motion/sessions/:id",
+			"POST /api/motion/sessions/:id/tickets", "GET /api/motion/sessions/:id/poses",
+		))
+	})
+
 	It("enforces the anonymous-access decision for every registered route", func() {
 		type routePattern struct {
 			method string

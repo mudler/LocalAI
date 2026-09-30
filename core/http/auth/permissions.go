@@ -48,6 +48,7 @@ const (
 	FeatureDetection           = "detection"
 	FeatureVideo               = "video"
 	Feature3D                  = "3d"
+	FeatureMotion              = "motion"
 	FeatureEmbeddings          = "embeddings"
 	FeatureSound               = "sound"
 	FeatureRealtime            = "realtime"
@@ -76,7 +77,7 @@ var GeneralFeatures = []string{FeatureFineTuning, FeatureQuantization}
 var APIFeatures = []string{
 	FeatureChat, FeatureImages, FeatureAudioSpeech, FeatureAudioTranscription,
 	FeatureAudioDiarization, FeatureAudioClassification,
-	FeatureVAD, FeatureDetection, FeatureVideo, Feature3D, FeatureEmbeddings, FeatureSound,
+	FeatureVAD, FeatureDetection, FeatureVideo, Feature3D, FeatureMotion, FeatureEmbeddings, FeatureSound,
 	FeatureRealtime, FeatureModeration, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
 	FeaturePIIFilter, FeatureDecisions,

@@ -23,12 +23,20 @@ test.describe('Models Explore - the view scrolls, not the page', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/api/models*', (route) =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify(MOCK) }))
+    await page.route('**/api/resources', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ aggregate: { total_memory: 12 * 1024 ** 3, gpu_count: 1 } }),
+      }))
   })
 
   test('a long detail scrolls the pane and leaves the page height alone', async ({ page }) => {
     await page.setViewportSize({ width: 1400, height: 900 })
     await page.goto('/app/models')
     await expect(page.locator('[data-testid="discover-rail-item"]').first()).toBeVisible({ timeout: 10_000 })
+    // Resources load independently of the gallery; the fits toggle takes a
+    // row from the rail, so include it before measuring selection's effect.
+    await expect(page.getByText('Fits in GPU', { exact: true })).toBeVisible()
 
     const pageHeight = () => page.evaluate(() => document.documentElement.scrollHeight)
     const railHeight = () => page.evaluate(

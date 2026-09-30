@@ -374,7 +374,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Build auth middleware: use the new auth.Middleware when auth is enabled or
 	// as a unified replacement for the legacy key-auth middleware.
-	authMiddleware := auth.Middleware(application.AuthDB(), application.ApplicationConfig())
+	authMiddleware := auth.WithWebSocketTickets(application.WebSocketTickets(),
+		auth.Middleware(application.AuthDB(), application.ApplicationConfig()))
 
 	// Favicon handler
 	e.GET("/favicon.svg", func(c echo.Context) error {
@@ -457,7 +458,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// could never read a token to send back.
 	if !application.ApplicationConfig().DisableCSRF {
 		xlog.Debug("Enabling CSRF middleware (Sec-Fetch-Site mode)")
-		e.Use(auth.CSRFMiddleware())
+		e.Use(auth.CSRFMiddlewareWithCORS(
+			application.ApplicationConfig().CORS && application.ApplicationConfig().CORSAllowOrigins != ""))
 	}
 
 	// Admin middleware: enforces admin role when auth is enabled, no-op otherwise

@@ -218,6 +218,10 @@ func (f *fakeGRPCBackend) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.C
 	return nil, nil
 }
 
+func (f *fakeGRPCBackend) MotionStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.MotionStreamClient, error) {
+	return nil, fmt.Errorf("motion streaming not implemented by in-flight fake")
+}
+
 func (f *fakeGRPCBackend) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {
 	return nil, nil
 }

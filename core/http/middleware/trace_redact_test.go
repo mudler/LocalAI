@@ -13,6 +13,12 @@ import (
 // any heap inspection. This pins the redaction contract so a future refactor
 // of TraceMiddleware can't silently regress it.
 var _ = Describe("redactSensitiveHeaders", func() {
+	It("redacts WebSocket ticket subprotocols", func() {
+		h := http.Header{}
+		h.Set("Sec-WebSocket-Protocol", "localai.motion.v2, localai.ticket.secret")
+		Expect(redactSensitiveHeaders(h).Get("Sec-WebSocket-Protocol")).To(Equal("[redacted]"))
+	})
+
 	It("redacts Authorization", func() {
 		h := http.Header{}
 		h.Set("Authorization", "Bearer sk-secret-1234567890")

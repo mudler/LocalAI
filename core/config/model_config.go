@@ -2234,6 +2234,11 @@ const (
 	// Marks a model as an image upscaler served by the UpscaleImage RPC.
 	FLAG_UPSCALE ModelConfigUsecase = 1 << 26
 
+	// Marks a model as a motion-capture backend (GEM-X pose streaming).
+	// Keep every usecase flag a distinct bit: TestUsecaseFlagsAreDistinct
+	// guards against two flags silently sharing one.
+	FLAG_MOTION ModelConfigUsecase = 1 << 27
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -2243,7 +2248,7 @@ const (
 // both text/language). A model is multimodal when its usecases span 2+ groups.
 var ModalityGroups = []ModelConfigUsecase{
 	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                           // text/language
-	FLAG_VISION | FLAG_DETECTION,                                      // visual understanding
+	FLAG_VISION | FLAG_DETECTION | FLAG_MOTION,                        // visual understanding
 	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
 	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
 	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
@@ -2298,6 +2303,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
 		"FLAG_DECISIONS":            FLAG_DECISIONS,
 		"FLAG_UPSCALE":              FLAG_UPSCALE,
+		"FLAG_MOTION":               FLAG_MOTION,
 	}
 }
 
@@ -2351,6 +2357,9 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	// Upscaling requires a dedicated model declaration, not just an image backend.
 	if u&FLAG_UPSCALE != 0 {
+		return false
+	}
+	if u&FLAG_MOTION != 0 && c.Backend != "gemxcpp" {
 		return false
 	}
 	// Backends that are clearly not text-generation

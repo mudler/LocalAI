@@ -10,6 +10,8 @@ backend/go/image/stablediffusion-ggml/build/
 backend/go/*/build
 backend/go/kimodocpp/build-*
 backend/go/kimodocpp/kimodocpp
+backend/go/gemxcpp/build-*
+backend/go/gemxcpp/gemxcpp
 backend/go/*/.cache
 backend/go/*/sources
 backend/go/*/package

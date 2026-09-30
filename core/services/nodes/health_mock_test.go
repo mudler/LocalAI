@@ -257,6 +257,10 @@ func (c *fakeBackendClient) AudioToAudioStream(_ context.Context, _ ...ggrpc.Cal
 func (c *fakeBackendClient) AudioTranscriptionLive(_ context.Context, _ ...ggrpc.CallOption) (grpc.AudioTranscriptionLiveClient, error) {
 	return nil, nil
 }
+func (c *fakeBackendClient) MotionStream(_ context.Context, _ ...ggrpc.CallOption) (grpc.MotionStreamClient, error) {
+	return nil, fmt.Errorf("motion streaming not implemented by health fake")
+}
+
 func (c *fakeBackendClient) Forward(_ context.Context, _ ...ggrpc.CallOption) (grpc.ForwardClient, error) {
 	return nil, nil
 }

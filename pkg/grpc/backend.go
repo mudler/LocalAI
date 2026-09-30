@@ -124,6 +124,7 @@ type ControlBackend interface {
 	AudioTransformStream(ctx context.Context, opts ...grpc.CallOption) (AudioTransformStreamClient, error)
 	AudioToAudioStream(ctx context.Context, opts ...grpc.CallOption) (AudioToAudioStreamClient, error)
 	AudioTranscriptionLive(ctx context.Context, opts ...grpc.CallOption) (AudioTranscriptionLiveClient, error)
+	MotionStream(ctx context.Context, opts ...grpc.CallOption) (MotionStreamClient, error)
 
 	// Forward proxies a raw HTTP request to an upstream provider for
 	// passthrough-mode cloud-proxy backends. Caller streams a single
