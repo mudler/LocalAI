@@ -145,20 +145,28 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 // missing registry or speaker model, or a registry read error, leaves the
 // request unnamed.
 func attachKnownVoices(ctx context.Context, req *backend.DiarizationRequest, options []string, registry voicerecognition.Registry) {
+	req.KnownVoices = selectKnownVoices(ctx, "diarization", options, registry)
+}
+
+// selectKnownVoices returns the registered voices a backend may use to name
+// speakers, or nil when the model has no speaker_model, there is no registry,
+// or the registry cannot be read. It never fails the caller: unnamed speakers
+// are the fallback. feature only prefixes the log messages.
+func selectKnownVoices(ctx context.Context, feature string, options []string, registry voicerecognition.Registry) []voicerecognition.KnownVoice {
 	sm := voicerecognition.SpeakerModelFromOptions(options)
 	if sm == "" || registry == nil {
-		return
+		return nil
 	}
 	sel, err := voicerecognition.KnownVoicesFor(ctx, registry, sm)
 	if err != nil {
-		xlog.Warn("diarization: could not read the voice registry; speakers stay unnamed", "error", err)
-		return
+		xlog.Warn(feature+": could not read the voice registry; speakers stay unnamed", "error", err)
+		return nil
 	}
-	req.KnownVoices = sel.Voices
 	if len(sel.Voices) == 0 && sel.OtherEncoder > 0 {
-		xlog.Warn("diarization: registered voices were made with a different encoder than this model's speaker_model; speakers stay unnamed",
+		xlog.Warn(feature+": registered voices were made with a different encoder than this model's speaker_model; speakers stay unnamed",
 			"speaker_model", sm, "voices_from_other_encoder", sel.OtherEncoder)
 	}
+	return sel.Voices
 }
 
 // renderRTTM emits NIST RTTM rows. Each row:
