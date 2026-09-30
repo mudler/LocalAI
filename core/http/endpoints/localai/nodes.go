@@ -25,9 +25,9 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
@@ -668,7 +668,7 @@ func ListBackendsOnNodeEndpoint(unloader nodes.NodeCommandSender, registry *node
 		// single-node and cluster-wide views stay consistent.
 		if node, err := registry.Get(c.Request().Context(), nodeID); err == nil {
 			if node.NodeType != "" && node.NodeType != nodes.NodeTypeBackend {
-				return c.JSON(http.StatusOK, []messaging.NodeBackendInfo{})
+				return c.JSON(http.StatusOK, []workerctl.NodeBackendInfo{})
 			}
 		}
 		if unloader == nil {

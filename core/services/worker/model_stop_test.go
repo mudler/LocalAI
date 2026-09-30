@@ -7,12 +7,12 @@ import (
 	"net"
 	"sync/atomic"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gogrpc "google.golang.org/grpc"
 
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -42,12 +42,12 @@ func startModelStopProcess() *process.Process {
 	return proc
 }
 
-func requestModelStop(s *backendSupervisor, req messaging.ModelStopRequest) messaging.ModelStopReply {
+func requestModelStop(s *backendSupervisor, req workerctl.ModelStopRequest) workerctl.ModelStopReply {
 	data, err := json.Marshal(req)
 	Expect(err).NotTo(HaveOccurred())
 	var response []byte
 	s.handleModelStop(data, func(data []byte) { response = append([]byte(nil), data...) })
-	var reply messaging.ModelStopReply
+	var reply workerctl.ModelStopReply
 	Expect(json.Unmarshal(response, &reply)).To(Succeed())
 	return reply
 }
@@ -64,9 +64,9 @@ var _ = Describe("Acknowledged exact model stop", func() {
 			"model#1": other,
 		}}
 
-		reply := requestModelStop(s, messaging.ModelStopRequest{ModelName: "model", ProcessKey: "model#0", ExpectedAddress: addr})
+		reply := requestModelStop(s, workerctl.ModelStopRequest{ModelName: "model", ProcessKey: "model#0", ExpectedAddress: addr})
 
-		Expect(reply).To(Equal(messaging.ModelStopReply{Matched: true, Freed: true, Terminated: true, ProcessKey: "model#0", Address: addr}))
+		Expect(reply).To(Equal(workerctl.ModelStopReply{Matched: true, Freed: true, Terminated: true, ProcessKey: "model#0", Address: addr}))
 		Expect(backend.freeCalls.Load()).To(Equal(int32(1)))
 		Expect(s.processes).To(HaveKeyWithValue("model#1", other))
 		Expect(s.processes).NotTo(HaveKey("model#0"))
@@ -83,7 +83,7 @@ var _ = Describe("Acknowledged exact model stop", func() {
 		}()
 		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{"model#0": {proc: proc, addr: "127.0.0.1:50051", port: 50051}}}
 
-		reply := requestModelStop(s, messaging.ModelStopRequest{ProcessKey: "model#0", ExpectedAddress: "127.0.0.1:50052"})
+		reply := requestModelStop(s, workerctl.ModelStopRequest{ProcessKey: "model#0", ExpectedAddress: "127.0.0.1:50052"})
 
 		Expect(reply.Matched).To(BeTrue())
 		Expect(reply.Terminated).To(BeFalse())
@@ -94,8 +94,8 @@ var _ = Describe("Acknowledged exact model stop", func() {
 
 	It("treats an absent exact process key as idempotently terminated", func() {
 		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{}}
-		reply := requestModelStop(s, messaging.ModelStopRequest{ProcessKey: "missing#0", ExpectedAddress: "127.0.0.1:50051"})
-		Expect(reply).To(Equal(messaging.ModelStopReply{Matched: false, Terminated: true, ProcessKey: "missing#0"}))
+		reply := requestModelStop(s, workerctl.ModelStopRequest{ProcessKey: "missing#0", ExpectedAddress: "127.0.0.1:50051"})
+		Expect(reply).To(Equal(workerctl.ModelStopReply{Matched: false, Terminated: true, ProcessKey: "missing#0"}))
 	})
 
 	It("reports Free failure but still terminates the process", func() {
@@ -105,7 +105,7 @@ var _ = Describe("Acknowledged exact model stop", func() {
 		proc := startModelStopProcess()
 		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{"model#0": {proc: proc, addr: addr, port: port}}}
 
-		reply := requestModelStop(s, messaging.ModelStopRequest{ProcessKey: "model#0", ExpectedAddress: addr})
+		reply := requestModelStop(s, workerctl.ModelStopRequest{ProcessKey: "model#0", ExpectedAddress: addr})
 
 		Expect(reply.Matched).To(BeTrue())
 		Expect(reply.Freed).To(BeFalse())
@@ -121,7 +121,7 @@ var _ = Describe("Acknowledged exact model stop", func() {
 		proc := startModelStopProcess()
 		s := &backendSupervisor{cfg: &Config{}, processes: map[string]*backendProcess{"model#0": {proc: proc, addr: addr, port: port}}}
 
-		reply := requestModelStop(s, messaging.ModelStopRequest{ProcessKey: "model#0", ExpectedAddress: addr, Force: true})
+		reply := requestModelStop(s, workerctl.ModelStopRequest{ProcessKey: "model#0", ExpectedAddress: addr, Force: true})
 
 		Expect(reply.Matched).To(BeTrue())
 		Expect(reply.Freed).To(BeFalse())

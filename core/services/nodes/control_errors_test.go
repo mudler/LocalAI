@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // The scheduler demotes a node on ErrNoRoute. Demoting on anything weaker
@@ -26,9 +27,9 @@ var _ = Describe("Control request error classification", func() {
 		subject = messaging.SubjectNodeBackendInstall(nodeID)
 	})
 
-	request := func() (*messaging.BackendInstallReply, error) {
-		return controlRequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](
-			mc, subject, messaging.BackendInstallRequest{Backend: "b"}, time.Second)
+	request := func() (*workerctl.BackendInstallReply, error) {
+		return controlRequestJSON[workerctl.BackendInstallRequest, workerctl.BackendInstallReply](
+			mc, subject, workerctl.BackendInstallRequest{Backend: "b"}, time.Second)
 	}
 
 	It("reports a subject nobody answers as ErrNoRoute", func() {
@@ -53,7 +54,7 @@ var _ = Describe("Control request error classification", func() {
 	})
 
 	It("does not report a worker's own refusal as ErrNoRoute", func() {
-		mc.scriptReply(subject, messaging.BackendInstallReply{Success: false, Error: "disk full"})
+		mc.scriptReply(subject, workerctl.BackendInstallReply{Success: false, Error: "disk full"})
 		reply, err := request()
 		Expect(err).ToNot(HaveOccurred())
 		Expect(reply.Success).To(BeFalse())

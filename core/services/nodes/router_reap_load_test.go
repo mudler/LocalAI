@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc/codes"
@@ -69,7 +69,7 @@ var _ = Describe("reaping an abandoned remote load", func() {
 		reg = &replicaSlotRouter{fakeModelRouter: base, replica: 2}
 		backend = &failingLoadBackend{}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
 		}
 	})
 

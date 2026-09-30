@@ -10,8 +10,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"gorm.io/gorm"
 )
@@ -51,7 +51,7 @@ var _ = Describe("Route cold-load jobs", func() {
 		backend = &stubBackend{healthResult: true, loadResult: &pb.Result{Success: true}}
 		factory = &stubClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
 		}
 	})
 
@@ -123,7 +123,7 @@ var _ = Describe("Route cold-load jobs", func() {
 	It("reports the load's real failure to every waiter", func() {
 		release := make(chan struct{})
 		unloader.installHook = func() { <-release }
-		unloader.installReply = &messaging.BackendInstallReply{Success: false, Error: "worker out of disk"}
+		unloader.installReply = &workerctl.BackendInstallReply{Success: false, Error: "worker out of disk"}
 
 		router := newRouter()
 

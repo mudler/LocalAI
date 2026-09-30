@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	ggrpc "google.golang.org/grpc"
@@ -108,7 +108,7 @@ var _ = Describe("size-derived remote LoadModel budget", func() {
 		backend = &holdBackend{}
 		factory = &holdClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
+			installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:9001"},
 		}
 		dir = GinkgoT().TempDir()
 	})

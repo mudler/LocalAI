@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // DebouncedInstallProgressPublisher buffers backend-install download ticks
@@ -30,7 +31,7 @@ type DebouncedInstallProgressPublisher struct {
 	backend         string
 	interval        time.Duration
 	lastPublishedAt time.Time
-	pending         *messaging.BackendInstallProgressEvent
+	pending         *workerctl.BackendInstallProgressEvent
 	timer           *time.Timer
 }
 
@@ -52,7 +53,7 @@ func NewDebouncedInstallProgressPublisher(client messaging.Broadcaster, nodeID, 
 // galleryop.InstallExternalBackend pass into the worker. Each invocation
 // represents a single tick from the underlying io.Reader copy loop.
 func (p *DebouncedInstallProgressPublisher) OnDownload(file, current, total string, percentage float64) {
-	ev := messaging.BackendInstallProgressEvent{
+	ev := workerctl.BackendInstallProgressEvent{
 		OpID:       p.opID,
 		NodeID:     p.nodeID,
 		Backend:    p.backend,
@@ -60,7 +61,7 @@ func (p *DebouncedInstallProgressPublisher) OnDownload(file, current, total stri
 		Current:    current,
 		Total:      total,
 		Percentage: percentage,
-		Phase:      messaging.PhaseDownloading,
+		Phase:      workerctl.PhaseDownloading,
 	}
 
 	p.mu.Lock()

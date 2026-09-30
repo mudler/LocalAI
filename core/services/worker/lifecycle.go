@@ -12,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 )
@@ -56,9 +57,9 @@ func (s *backendSupervisor) subscribeLifecycleEvents() error {
 }
 
 func (s *backendSupervisor) handleModelStop(data []byte, reply func([]byte)) {
-	var req messaging.ModelStopRequest
+	var req workerctl.ModelStopRequest
 	if err := json.Unmarshal(data, &req); err != nil {
-		replyJSON(reply, messaging.ModelStopReply{Error: fmt.Sprintf("invalid request: %v", err)})
+		replyJSON(reply, workerctl.ModelStopReply{Error: fmt.Sprintf("invalid request: %v", err)})
 		return
 	}
 	replyJSON(reply, s.stopModelExact(req))
@@ -76,9 +77,9 @@ func (s *backendSupervisor) handleModelStop(data []byte, reply func([]byte)) {
 func (s *backendSupervisor) handleBackendInstall(data []byte, reply func([]byte)) {
 	go func() {
 		xlog.Info("Received NATS backend.install event")
-		var req messaging.BackendInstallRequest
+		var req workerctl.BackendInstallRequest
 		if err := json.Unmarshal(data, &req); err != nil {
-			resp := messaging.BackendInstallReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
+			resp := workerctl.BackendInstallReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
 			replyJSON(reply, resp)
 			return
 		}
@@ -93,7 +94,7 @@ func (s *backendSupervisor) handleBackendInstall(data []byte, reply func([]byte)
 		addr, err := s.installBackend(req, req.Force)
 		if err != nil {
 			xlog.Error("Failed to install backend via NATS", "error", err)
-			resp := messaging.BackendInstallReply{Success: false, Error: err.Error()}
+			resp := workerctl.BackendInstallReply{Success: false, Error: err.Error()}
 			replyJSON(reply, resp)
 			return
 		}
@@ -110,7 +111,7 @@ func (s *backendSupervisor) handleBackendInstall(data []byte, reply func([]byte)
 				advertiseAddr = net.JoinHostPort(advertiseHost, port)
 			}
 		}
-		resp := messaging.BackendInstallReply{Success: true, Address: advertiseAddr}
+		resp := workerctl.BackendInstallReply{Success: true, Address: advertiseAddr}
 		replyJSON(reply, resp)
 	}()
 }
@@ -122,9 +123,9 @@ func (s *backendSupervisor) handleBackendInstall(data []byte, reply func([]byte)
 func (s *backendSupervisor) handleBackendUpgrade(data []byte, reply func([]byte)) {
 	go func() {
 		xlog.Info("Received NATS backend.upgrade event")
-		var req messaging.BackendUpgradeRequest
+		var req workerctl.BackendUpgradeRequest
 		if err := json.Unmarshal(data, &req); err != nil {
-			resp := messaging.BackendUpgradeReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
+			resp := workerctl.BackendUpgradeReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
 			replyJSON(reply, resp)
 			return
 		}
@@ -138,7 +139,7 @@ func (s *backendSupervisor) handleBackendUpgrade(data []byte, reply func([]byte)
 		stopped, err := s.upgradeBackend(req)
 		if err != nil {
 			xlog.Error("Failed to upgrade backend via NATS", "error", err)
-			replyJSON(reply, messaging.BackendUpgradeReply{
+			replyJSON(reply, workerctl.BackendUpgradeReply{
 				Success:                 false,
 				Error:                   err.Error(),
 				StoppedProcessKeys:      stopped,
@@ -146,7 +147,7 @@ func (s *backendSupervisor) handleBackendUpgrade(data []byte, reply func([]byte)
 			})
 			return
 		}
-		replyJSON(reply, messaging.BackendUpgradeReply{
+		replyJSON(reply, workerctl.BackendUpgradeReply{
 			Success:                 true,
 			StoppedProcessKeys:      stopped,
 			ReportsStoppedProcesses: true,
@@ -164,7 +165,7 @@ func (s *backendSupervisor) handleBackendStop(data []byte, reply func([]byte)) {
 	req, stopAll, err := decodeBackendStopRequest(data)
 	if err != nil {
 		xlog.Error("Ignoring malformed NATS backend.stop event", "error", err)
-		replyJSON(reply, messaging.BackendStopReply{
+		replyJSON(reply, workerctl.BackendStopReply{
 			Error:                   fmt.Sprintf("invalid request: %v", err),
 			ReportsStoppedProcesses: true,
 		})
@@ -173,7 +174,7 @@ func (s *backendSupervisor) handleBackendStop(data []byte, reply func([]byte)) {
 	if stopAll {
 		xlog.Info("Received NATS backend.stop event (all)", "force", req.Force)
 		stopped := s.stopAllBackends(req.Force)
-		replyJSON(reply, messaging.BackendStopReply{
+		replyJSON(reply, workerctl.BackendStopReply{
 			Success:                 true,
 			StoppedProcessKeys:      stopped,
 			ReportsStoppedProcesses: true,
@@ -198,7 +199,7 @@ func (s *backendSupervisor) handleBackendStop(data []byte, reply func([]byte)) {
 	// failure: stopping a backend that is not running is the state the caller
 	// asked for. The empty list is what tells the caller nothing matched, and
 	// ReportsStoppedProcesses is what makes that emptiness trustworthy.
-	res := messaging.BackendStopReply{
+	res := workerctl.BackendStopReply{
 		Success:                 len(failures) == 0,
 		StoppedProcessKeys:      stopped,
 		ReportsStoppedProcesses: true,
@@ -209,13 +210,13 @@ func (s *backendSupervisor) handleBackendStop(data []byte, reply func([]byte)) {
 	replyJSON(reply, res)
 }
 
-func decodeBackendStopRequest(data []byte) (messaging.BackendStopRequest, bool, error) {
+func decodeBackendStopRequest(data []byte) (workerctl.BackendStopRequest, bool, error) {
 	if len(data) == 0 {
-		return messaging.BackendStopRequest{}, true, nil
+		return workerctl.BackendStopRequest{}, true, nil
 	}
-	var req messaging.BackendStopRequest
+	var req workerctl.BackendStopRequest
 	if err := json.Unmarshal(data, &req); err != nil {
-		return messaging.BackendStopRequest{}, false, fmt.Errorf("decoding backend stop request: %w", err)
+		return workerctl.BackendStopRequest{}, false, fmt.Errorf("decoding backend stop request: %w", err)
 	}
 	return req, req.Backend == "", nil
 }
@@ -223,9 +224,9 @@ func decodeBackendStopRequest(data []byte) (messaging.BackendStopRequest, bool, 
 // handleBackendDelete is the NATS callback for backend.delete — stop the
 // backend process if running, then remove its files from disk (request-reply).
 func (s *backendSupervisor) handleBackendDelete(data []byte, reply func([]byte)) {
-	var req messaging.BackendDeleteRequest
+	var req workerctl.BackendDeleteRequest
 	if err := json.Unmarshal(data, &req); err != nil {
-		resp := messaging.BackendDeleteReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
+		resp := workerctl.BackendDeleteReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
 		replyJSON(reply, resp)
 		return
 	}
@@ -255,8 +256,8 @@ func (s *backendSupervisor) handleBackendDelete(data []byte, reply func([]byte))
 	// key is appended only after its process is confirmed gone, which is what
 	// lets the controller trust the list on the partial-failure replies below.
 	stopped := make([]string, 0, len(keys))
-	deleteReply := func(success bool, errMsg string) messaging.BackendDeleteReply {
-		return messaging.BackendDeleteReply{
+	deleteReply := func(success bool, errMsg string) workerctl.BackendDeleteReply {
+		return workerctl.BackendDeleteReply{
 			Success:                 success,
 			Error:                   errMsg,
 			StoppedProcessKeys:      stopped,
@@ -300,12 +301,12 @@ func (s *backendSupervisor) handleBackendList(data []byte, reply func([]byte)) {
 	xlog.Info("Received NATS backend.list event")
 	backends, err := gallery.ListSystemBackends(s.systemState)
 	if err != nil {
-		resp := messaging.BackendListReply{Error: err.Error()}
+		resp := workerctl.BackendListReply{Error: err.Error()}
 		replyJSON(reply, resp)
 		return
 	}
 
-	var infos []messaging.NodeBackendInfo
+	var infos []workerctl.NodeBackendInfo
 	for name, b := range backends {
 		// Drop synthetic alias rows: ListSystemBackends emits an entry
 		// keyed by the alias name that re-uses the chosen concrete's
@@ -319,7 +320,7 @@ func (s *backendSupervisor) handleBackendList(data []byte, reply func([]byte)) {
 		if b.Metadata != nil && b.Metadata.Name != "" && name != b.Metadata.Name {
 			continue
 		}
-		info := messaging.NodeBackendInfo{
+		info := workerctl.NodeBackendInfo{
 			Name:     name,
 			IsSystem: b.IsSystem,
 			IsMeta:   b.IsMeta,
@@ -334,7 +335,7 @@ func (s *backendSupervisor) handleBackendList(data []byte, reply func([]byte)) {
 		infos = append(infos, info)
 	}
 
-	resp := messaging.BackendListReply{Backends: infos}
+	resp := workerctl.BackendListReply{Backends: infos}
 	replyJSON(reply, resp)
 }
 
@@ -342,9 +343,9 @@ func (s *backendSupervisor) handleBackendList(data []byte, reply func([]byte)) {
 // to release GPU memory without killing the backend process (request-reply).
 func (s *backendSupervisor) handleModelUnload(data []byte, reply func([]byte)) {
 	xlog.Info("Received NATS model.unload event")
-	var req messaging.ModelUnloadRequest
+	var req workerctl.ModelUnloadRequest
 	if err := json.Unmarshal(data, &req); err != nil {
-		resp := messaging.ModelUnloadReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
+		resp := workerctl.ModelUnloadReply{Success: false, Error: fmt.Sprintf("invalid request: %v", err)}
 		replyJSON(reply, resp)
 		return
 	}
@@ -373,7 +374,7 @@ func (s *backendSupervisor) handleModelUnload(data []byte, reply func([]byte)) {
 		cancel()
 	}
 
-	resp := messaging.ModelUnloadReply{Success: true}
+	resp := workerctl.ModelUnloadReply{Success: true}
 	replyJSON(reply, resp)
 }
 
@@ -381,19 +382,19 @@ func (s *backendSupervisor) handleModelUnload(data []byte, reply func([]byte)) {
 // files from disk (request-reply).
 func (s *backendSupervisor) handleModelDelete(data []byte, reply func([]byte)) {
 	xlog.Info("Received NATS model.delete event")
-	var req messaging.ModelDeleteRequest
+	var req workerctl.ModelDeleteRequest
 	if err := json.Unmarshal(data, &req); err != nil {
-		replyJSON(reply, messaging.ModelDeleteReply{Success: false, Error: "invalid request"})
+		replyJSON(reply, workerctl.ModelDeleteReply{Success: false, Error: "invalid request"})
 		return
 	}
 
 	if err := gallery.DeleteStagedModelFiles(s.cfg.ModelsPath, req.ModelName); err != nil {
 		xlog.Warn("Failed to delete model files", "model", req.ModelName, "error", err)
-		replyJSON(reply, messaging.ModelDeleteReply{Success: false, Error: err.Error()})
+		replyJSON(reply, workerctl.ModelDeleteReply{Success: false, Error: err.Error()})
 		return
 	}
 
-	replyJSON(reply, messaging.ModelDeleteReply{Success: true})
+	replyJSON(reply, workerctl.ModelDeleteReply{Success: true})
 }
 
 // handleNodeStop is the NATS callback for node.stop — trigger the normal

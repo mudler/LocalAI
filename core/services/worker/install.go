@@ -12,8 +12,8 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/xlog"
 )
 
@@ -60,7 +60,7 @@ func buildProcessKey(modelID, backend string, replicaIndex int) string {
 // can host multiple processes for the same model on distinct ports. Old
 // controllers (no replica_index in the request) implicitly target replica 0,
 // which preserves single-replica behavior.
-func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, force bool) (string, error) {
+func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, force bool) (string, error) {
 	processKey := buildProcessKey(req.ModelID, req.Backend, int(req.ReplicaIndex))
 
 	if !force {
@@ -197,7 +197,7 @@ func (s *backendSupervisor) installBackend(req messaging.BackendInstallRequest, 
 // NodeModel rows addressing them: an upgrade stops every process using the
 // binary and starts none back up, recycling their gRPC ports while the rows
 // still point at those addresses.
-func (s *backendSupervisor) upgradeBackend(req messaging.BackendUpgradeRequest) ([]string, error) {
+func (s *backendSupervisor) upgradeBackend(req workerctl.BackendUpgradeRequest) ([]string, error) {
 	// Stop every live process for this backend (peer replicas + the bare
 	// processKey). Same logic as the force branch in installBackend.
 	toStop := s.resolveProcessKeysForBackend(s.backendIdentity(req.Backend))

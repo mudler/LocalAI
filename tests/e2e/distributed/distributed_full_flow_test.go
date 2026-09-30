@@ -13,6 +13,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 
@@ -256,12 +257,12 @@ var _ = Describe("Full Distributed Inference Flow", Label("Distributed"), func()
 		// by registering after each node. In practice, we rely on the test registering
 		// nodes before calling Route, so we subscribe to a catch-all pattern.
 		infra.NC.Conn().Subscribe("nodes.*.backend.install", func(msg *nats.Msg) {
-			reply := messaging.BackendInstallReply{Success: true}
+			reply := workerctl.BackendInstallReply{Success: true}
 			data, _ := json.Marshal(reply)
 			msg.Respond(data)
 		})
 		_, err := infra.NC.Conn().Subscribe("nodes.*.models.running", func(msg *nats.Msg) {
-			data, _ := json.Marshal(messaging.ModelsRunningReply{})
+			data, _ := json.Marshal(workerctl.ModelsRunningReply{})
 			_ = msg.Respond(data)
 		})
 		Expect(err).NotTo(HaveOccurred())

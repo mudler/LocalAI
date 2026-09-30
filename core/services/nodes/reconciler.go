@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -50,7 +50,7 @@ type ModelProber interface {
 // against the backend's own serving port cannot make that distinction, which
 // is why it is only the fallback for workers that do not answer.
 type NodeProcessLister interface {
-	ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error)
+	ListRunningModels(nodeID string) (*workerctl.ModelsRunningReply, error)
 }
 
 // probeTimeout bounds a single liveness probe. Kept short because a healthy
@@ -723,7 +723,7 @@ type replicaKey struct {
 }
 
 // replyError safely extracts the error text from a possibly-nil reply.
-func replyError(reply *messaging.ModelsRunningReply) string {
+func replyError(reply *workerctl.ModelsRunningReply) string {
 	if reply == nil {
 		return "nil reply"
 	}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // These specs pin the reactions the seams contract allows on ErrNoRoute: the
@@ -81,8 +82,8 @@ var _ = Describe("ErrNoRoute reactions", func() {
 
 			mc.scriptNoResponders(messaging.SubjectNodeBackendUpgrade(n.ID))
 			mc.scriptReplyMatching(messaging.SubjectNodeBackendInstall(n.ID),
-				func(req messaging.BackendInstallRequest) bool { return req.Force },
-				messaging.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
+				func(req workerctl.BackendInstallRequest) bool { return req.Force },
+				workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
 
 			rc.drainPendingBackendOps(ctx)
 
@@ -92,7 +93,7 @@ var _ = Describe("ErrNoRoute reactions", func() {
 				if call.Subject != messaging.SubjectNodeBackendInstall(n.ID) {
 					continue
 				}
-				var req messaging.BackendInstallRequest
+				var req workerctl.BackendInstallRequest
 				Expect(json.Unmarshal(call.Data, &req)).To(Succeed())
 				if req.Force && req.Backend == "vllm" {
 					forcedInstalls++
@@ -149,7 +150,7 @@ var _ = Describe("ErrNoRoute reactions", func() {
 			answering := registerHealthy("worker-answering")
 			mc.scriptNoResponders(messaging.SubjectNodeBackendDelete(gone.ID))
 			mc.scriptReply(messaging.SubjectNodeBackendDelete(answering.ID),
-				messaging.BackendDeleteReply{Success: false, Error: "backend not installed"})
+				workerctl.BackendDeleteReply{Success: false, Error: "backend not installed"})
 
 			Expect(mgr.DeleteBackend("vllm")).ToNot(Succeed())
 

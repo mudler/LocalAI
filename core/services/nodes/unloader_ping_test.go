@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // The scheduler's liveness probe asks a worker a question over NATS and treats
@@ -34,7 +35,7 @@ var _ = Describe("Node liveness probe subject", func() {
 	It("treats a worker that answers backend.list as alive", func() {
 		// A worker old enough to predate models.running: it answers the
 		// long-standing backend.list subject and nothing else.
-		mc.scriptReply(messaging.SubjectNodeBackendList(nodeID), messaging.BackendListReply{})
+		mc.scriptReply(messaging.SubjectNodeBackendList(nodeID), workerctl.BackendListReply{})
 		mc.scriptNoResponders(messaging.SubjectNodeModelsRunning(nodeID))
 
 		Expect(errors.Is(adapter.PingNode(nodeID), ErrNoRoute)).To(BeFalse(),

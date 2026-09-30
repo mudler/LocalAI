@@ -14,6 +14,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 )
 
 // --- Fakes ---
@@ -145,7 +146,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 		// backend.stop is request-reply, so the default fake must answer the
 		// way a current worker does. Specs that care about the reply override
 		// requestReply themselves.
-		mc.requestReply = mustJSON(messaging.BackendStopReply{
+		mc.requestReply = mustJSON(workerctl.BackendStopReply{
 			Success:                 true,
 			StoppedProcessKeys:      []string{"llama#0"},
 			ReportsStoppedProcesses: true,
@@ -253,9 +254,9 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			locator.nodes = []BackendNode{{ID: "node-1", Name: "worker-1"}}
 			Expect(adapter.UnloadRemoteModelContext(context.Background(), "llama", true)).To(Succeed())
 
-			var payload messaging.BackendStopRequest
+			var payload workerctl.BackendStopRequest
 			Expect(json.Unmarshal(mc.requestCalls[0].Data, &payload)).To(Succeed())
-			Expect(payload).To(Equal(messaging.BackendStopRequest{Backend: "llama", Force: true}))
+			Expect(payload).To(Equal(workerctl.BackendStopRequest{Backend: "llama", Force: true}))
 		})
 	})
 
@@ -268,7 +269,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			// An empty Backend is the wire signal for "stop all"; the worker's
 			// decodeBackendStopRequest reads it the same way it read the bare
 			// nil payload this replaced.
-			var payload messaging.BackendStopRequest
+			var payload workerctl.BackendStopRequest
 			Expect(json.Unmarshal(mc.requestCalls[0].Data, &payload)).To(Succeed())
 			Expect(payload.Backend).To(BeEmpty())
 		})
@@ -276,7 +277,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 		// The bug this reply exists for: the worker could not stop what was
 		// asked, and the caller was told everything was fine.
 		It("reports a stop the worker could not carry out", func() {
-			mc.requestReply = mustJSON(messaging.BackendStopReply{
+			mc.requestReply = mustJSON(workerctl.BackendStopReply{
 				Success:                 false,
 				Error:                   "llama#0: process refused to die",
 				ReportsStoppedProcesses: true,
@@ -290,7 +291,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 		// it stays a success — eviction and cleanup paths stop models that are
 		// already gone all the time.
 		It("succeeds when the worker matched no running process", func() {
-			mc.requestReply = mustJSON(messaging.BackendStopReply{
+			mc.requestReply = mustJSON(workerctl.BackendStopReply{
 				Success:                 true,
 				ReportsStoppedProcesses: true,
 			})
@@ -316,7 +317,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(adapter.StopBackend("node-1", "llama-backend")).To(Succeed())
 			Expect(mc.requestCalls).To(HaveLen(1))
 
-			var payload messaging.BackendStopRequest
+			var payload workerctl.BackendStopRequest
 			Expect(json.Unmarshal(mc.requestCalls[0].Data, &payload)).To(Succeed())
 			Expect(payload.Backend).To(Equal("llama-backend"))
 			Expect(payload.Force).To(BeFalse())
@@ -325,7 +326,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 
 	Describe("StopModelReplica", func() {
 		It("requests an acknowledged stop for the exact process", func() {
-			mc.requestReply, _ = json.Marshal(messaging.ModelStopReply{Matched: true, Terminated: true, ProcessKey: "llama#2"})
+			mc.requestReply, _ = json.Marshal(workerctl.ModelStopReply{Matched: true, Terminated: true, ProcessKey: "llama#2"})
 			replica := NodeModel{ModelName: "llama", ReplicaIndex: 2, Address: "127.0.0.1:5002", ConfigRevision: "rev-1"}
 
 			reply, err := adapter.StopModelReplica(context.Background(), "node-1", replica, true)
@@ -335,9 +336,9 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(mc.requestCalls[0].Subject).To(Equal(messaging.SubjectNodeModelStop("node-1")))
 			Expect(mc.requestCalls[0].Timeout).To(BeNumerically(">", 0))
 
-			var request messaging.ModelStopRequest
+			var request workerctl.ModelStopRequest
 			Expect(json.Unmarshal(mc.requestCalls[0].Data, &request)).To(Succeed())
-			Expect(request).To(Equal(messaging.ModelStopRequest{
+			Expect(request).To(Equal(workerctl.ModelStopRequest{
 				ModelName: "llama", ProcessKey: "llama#2", ExpectedAddress: "127.0.0.1:5002", Force: true, ConfigRevision: "rev-1",
 			}))
 		})
@@ -427,7 +428,7 @@ func (f *failOnceMessagingClient) Close()            {}
 var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
 	It("passes the configured install timeout to the messaging client", func() {
 		mc := newScriptedMessagingClient()
-		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), workerctl.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
 
 		_, err := adapter.InstallBackend("n1", "llama-cpp", "", "[]", "", "", "", 0, "", nil)
@@ -439,7 +440,7 @@ var _ = Describe("RemoteUnloaderAdapter timeout configuration", func() {
 
 	It("passes the configured upgrade timeout to the messaging client", func() {
 		mc := newScriptedMessagingClient()
-		mc.scriptReply(messaging.SubjectNodeBackendUpgrade("n1"), messaging.BackendUpgradeReply{Success: true})
+		mc.scriptReply(messaging.SubjectNodeBackendUpgrade("n1"), workerctl.BackendUpgradeReply{Success: true})
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 7*time.Minute, 11*time.Minute)
 
 		_, err := adapter.UpgradeBackend("n1", "llama-cpp", "[]", "", "", "", 0, "", nil)
@@ -477,18 +478,18 @@ var _ = Describe("RemoteUnloaderAdapter NATS timeout handling", func() {
 var _ = Describe("RemoteUnloaderAdapter install progress streaming", func() {
 	It("forwards BackendInstallProgressEvent values into the onProgress callback when the worker publishes them", func() {
 		mc := newScriptedMessagingClient()
-		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
-		mc.scheduleProgressPublish("n1", "op-abc", []messaging.BackendInstallProgressEvent{
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), workerctl.BackendInstallReply{Success: true, Address: "127.0.0.1:0"})
+		mc.scheduleProgressPublish("n1", "op-abc", []workerctl.BackendInstallProgressEvent{
 			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "100 MB", Total: "1 GB", Percentage: 10},
 			{OpID: "op-abc", NodeID: "n1", Backend: "vllm", FileName: "vllm.tar.zst", Current: "500 MB", Total: "1 GB", Percentage: 50},
 		})
 
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 1*time.Second, 1*time.Second)
 		var (
-			received []messaging.BackendInstallProgressEvent
+			received []workerctl.BackendInstallProgressEvent
 			mu       sync.Mutex
 		)
-		onProgress := func(ev messaging.BackendInstallProgressEvent) {
+		onProgress := func(ev workerctl.BackendInstallProgressEvent) {
 			mu.Lock()
 			defer mu.Unlock()
 			received = append(received, ev)
@@ -506,7 +507,7 @@ var _ = Describe("RemoteUnloaderAdapter install progress streaming", func() {
 
 	It("does NOT subscribe when onProgress is nil (reconciler retry path)", func() {
 		mc := newScriptedMessagingClient()
-		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), messaging.BackendInstallReply{Success: true})
+		mc.scriptReply(messaging.SubjectNodeBackendInstall("n1"), workerctl.BackendInstallReply{Success: true})
 
 		adapter := NewRemoteUnloaderAdapter(nil, mc, 1*time.Second, 1*time.Second)
 		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)

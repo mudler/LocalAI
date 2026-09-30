@@ -9,8 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -193,7 +193,7 @@ var _ = Describe("revision eligibility consumers", func() {
 			Expect(prober.nodeIDs).To(ConsistOf(nodes["current"].ID))
 		}),
 		Entry("reconcileNodeProcesses", func(_ *recordingEligibilityProber, lister *recordingEligibilityLister) {
-			lister.running = map[string][]messaging.RunningModelInfo{nodes["current"].ID: {{ModelID: modelName, ReplicaIndex: 0}}}
+			lister.running = map[string][]workerctl.RunningModelInfo{nodes["current"].ID: {{ModelID: modelName, ReplicaIndex: 0}}}
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{Registry: registry, DB: db, ProcessLister: lister, ProbeStaleAfter: time.Minute})
 			rc.reconcileNodeProcesses(ctx)
 			Expect(lister.nodeIDs).To(ConsistOf(nodes["current"].ID))
@@ -274,10 +274,10 @@ func (p *recordingEligibilityProber) Probe(_ context.Context, nodeID, address st
 
 type recordingEligibilityLister struct {
 	nodeIDs []string
-	running map[string][]messaging.RunningModelInfo
+	running map[string][]workerctl.RunningModelInfo
 }
 
-func (l *recordingEligibilityLister) ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error) {
+func (l *recordingEligibilityLister) ListRunningModels(nodeID string) (*workerctl.ModelsRunningReply, error) {
 	l.nodeIDs = append(l.nodeIDs, nodeID)
-	return &messaging.ModelsRunningReply{Models: l.running[nodeID]}, nil
+	return &workerctl.ModelsRunningReply{Models: l.running[nodeID]}, nil
 }

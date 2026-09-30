@@ -3,7 +3,7 @@ package worker
 import (
 	"encoding/json"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -189,11 +189,11 @@ var _ = Describe("Worker per-replica process keying", func() {
 			req, stopAll, err := decodeBackendStopRequest(nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(stopAll).To(BeTrue())
-			Expect(req).To(Equal(messaging.BackendStopRequest{}))
+			Expect(req).To(Equal(workerctl.BackendStopRequest{}))
 		})
 
 		It("preserves force for a structured stop-all command", func() {
-			data, err := json.Marshal(messaging.BackendStopRequest{Force: true})
+			data, err := json.Marshal(workerctl.BackendStopRequest{Force: true})
 			Expect(err).NotTo(HaveOccurred())
 
 			req, stopAll, err := decodeBackendStopRequest(data)

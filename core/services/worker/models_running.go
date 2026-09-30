@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/xlog"
 )
 
@@ -33,11 +33,11 @@ func parseProcessKey(key string) (modelID string, replicaIndex int, ok bool) {
 //
 // Processes being stopped are excluded: they are alive but on their way out,
 // and reporting them would resurrect a replica the controller just released.
-func (s *backendSupervisor) runningModels() []messaging.RunningModelInfo {
+func (s *backendSupervisor) runningModels() []workerctl.RunningModelInfo {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	running := make([]messaging.RunningModelInfo, 0, len(s.processes))
+	running := make([]workerctl.RunningModelInfo, 0, len(s.processes))
 	for key, bp := range s.processes {
 		if bp == nil || bp.stopping || bp.proc == nil || !bp.proc.IsAlive() {
 			continue
@@ -47,7 +47,7 @@ func (s *backendSupervisor) runningModels() []messaging.RunningModelInfo {
 			xlog.Warn("Skipping unparseable process key when reporting running models", "key", key)
 			continue
 		}
-		running = append(running, messaging.RunningModelInfo{
+		running = append(running, workerctl.RunningModelInfo{
 			ModelID:      modelID,
 			ReplicaIndex: replicaIndex,
 			Address:      bp.addr,
@@ -61,5 +61,5 @@ func (s *backendSupervisor) runningModels() []messaging.RunningModelInfo {
 func (s *backendSupervisor) handleModelsRunning(_ []byte, reply func([]byte)) {
 	running := s.runningModels()
 	xlog.Debug("Answering models.running", "nodeID", s.nodeID, "count", len(running))
-	replyJSON(reply, messaging.ModelsRunningReply{Models: running})
+	replyJSON(reply, workerctl.ModelsRunningReply{Models: running})
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -475,7 +475,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 		// per-node sink (so OpStatus.Nodes gets a "downloading" tick
 		// per file/percentage with node attribution). Defined inside the
 		// loop so each node captures its own node.Name into the closure.
-		onProgress := func(ev messaging.BackendInstallProgressEvent) {
+		onProgress := func(ev workerctl.BackendInstallProgressEvent) {
 			if progressCb != nil {
 				progressCb(ev.FileName, ev.Current, ev.Total, ev.Percentage)
 			}
@@ -495,7 +495,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 		// nil-callback shortcut: when there is nothing to deliver to,
 		// hand the adapter a nil onProgress so it skips the per-op NATS
 		// subscription. Matches the pre-Phase-4 bridgeProgressCb semantics.
-		var onProgressArg func(messaging.BackendInstallProgressEvent)
+		var onProgressArg func(workerctl.BackendInstallProgressEvent)
 		if progressCb != nil || d.progressSink != nil {
 			onProgressArg = onProgress
 		}
@@ -575,7 +575,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 		// InstallBackend does. Defined per-node so each closure captures its own
 		// node.Name. Without this an upgrade blocks opaque at progress 0 for the
 		// whole 15m round-trip (the original "reinstalling but nothing happens").
-		onProgress := func(ev messaging.BackendInstallProgressEvent) {
+		onProgress := func(ev workerctl.BackendInstallProgressEvent) {
 			if progressCb != nil {
 				progressCb(ev.FileName, ev.Current, ev.Total, ev.Percentage)
 			}
@@ -592,7 +592,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 				})
 			}
 		}
-		var onProgressArg func(messaging.BackendInstallProgressEvent)
+		var onProgressArg func(workerctl.BackendInstallProgressEvent)
 		if progressCb != nil || d.progressSink != nil {
 			onProgressArg = onProgress
 		}
