@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 
+	"github.com/mudler/LocalAGI/core/sse"
 	"github.com/mudler/LocalAGI/core/state"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/agentpool"
@@ -120,4 +122,54 @@ func newAgentConfig(name string) *state.AgentConfig {
 		Description:  "contract test agent",
 		SystemPrompt: "You are a test agent.",
 	}
+}
+
+type sseEvent struct {
+	Name string
+	Data map[string]any
+}
+
+// collectSSE registers a listener on the agent's SSE manager and records every
+// event until stop is called. Subscribe before Chat so nothing is missed.
+func collectSSE(svc *agentpool.AgentPoolService, userID, name string) (events func() []sseEvent, stop func()) {
+	mgr := svc.GetSSEManagerForUser(userID, name)
+	Expect(mgr).ToNot(BeNil())
+	client := sse.NewClient("contract-" + name)
+	mgr.Register(client)
+
+	var mu sync.Mutex
+	var got []sseEvent
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case env, ok := <-client.Chan():
+				if !ok {
+					return
+				}
+				ev := sseEvent{}
+				for _, line := range strings.Split(env.String(), "\n") {
+					switch {
+					case strings.HasPrefix(line, "event:"):
+						ev.Name = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+					case strings.HasPrefix(line, "data:"):
+						_ = json.Unmarshal([]byte(strings.TrimSpace(strings.TrimPrefix(line, "data:"))), &ev.Data)
+					}
+				}
+				mu.Lock()
+				got = append(got, ev)
+				mu.Unlock()
+			}
+		}
+	}()
+	return func() []sseEvent {
+			mu.Lock()
+			defer mu.Unlock()
+			return append([]sseEvent(nil), got...)
+		}, func() {
+			close(done)
+			mgr.Unregister(client.ID())
+		}
 }
