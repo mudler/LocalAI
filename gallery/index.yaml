@@ -63710,6 +63710,117 @@
           type: huggingface
           repo: fastino/GLiNER2.5-Decide
           revision: 5a7adf72a23b4d311abae6ce050d7f0012bb3416
+- name: tev1-4b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/togethercomputer/Tev1-4B-experimental
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Tev1-4B-experimental is an experimental decision model from Together
+    AI: a supervised fine-tune of Qwen3.5-4B that picks one option letter
+    for a state, a question and 2 to 24 labeled options. It keeps the standard
+    next-token head, so it is autoregressive, unlike Laya or GLiNER2.5-Decide.
+
+    In LocalAI, serve it via POST /v1/systemone. The vllm.cpp engine scores the
+    answer letters of each choice, noul and score question through the
+    vllm_decide C ABI and returns probabilities with an entropy confidence, as
+    Ollama does for tev1. A choice or score question accepts at most 24 options
+    (Ollama allows 26) and every option needs a nonempty description. The
+    published config.json names Qwen3_5ForConditionalGeneration, so this entry
+    sets hf_overrides to load it as Tev1Model without editing the download.
+
+    Checked against transformers BF16 on CPU over seven
+    questions: 7/7 answers equal, largest probability difference 0.0004. The decision route is verified on CPU only; GPU serving has not
+    been measured. BF16 weights, about 9.3GB, pinned to a revision. The
+    fine-tune license is still being finalized by Together AI (base model
+    Apache-2.0).
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 9.3GB
+  last_checked: "2026-09-30"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    template:
+      use_tokenizer_template: true
+    context_size: 2048
+    engine_args:
+      hf_overrides:
+        architectures:
+          - Tev1Model
+      block_size: 32
+      num_blocks: 256
+      max_num_seqs: 4
+    parameters:
+      model: togethercomputer/Tev1-4B-experimental
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: togethercomputer/Tev1-4B-experimental
+          revision: 0b7becf017daa0e5eb222f8ce7483c8c8259c52f
+- name: tev1-0.8b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/togethercomputer/Tev1-0.8B-experimental
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Tev1-0.8B-experimental is an experimental decision model from Together
+    AI: a supervised fine-tune of Qwen3.5-0.8B that picks one option letter
+    for a state, a question and 2 to 24 labeled options. It keeps the standard
+    next-token head, so it is autoregressive, unlike Laya or GLiNER2.5-Decide.
+
+    In LocalAI, serve it via POST /v1/systemone. The vllm.cpp engine scores the
+    answer letters of each choice, noul and score question through the
+    vllm_decide C ABI and returns probabilities with an entropy confidence, as
+    Ollama does for tev1. A choice or score question accepts at most 24 options
+    (Ollama allows 26) and every option needs a nonempty description. The
+    published config.json names Qwen3_5ForConditionalGeneration, so this entry
+    sets hf_overrides to load it as Tev1Model without editing the download.
+
+    Checked against transformers BF16 on CPU over seven
+    questions: 6/7 answers equal, the miss a near tie (0.453 against 0.514
+    in transformers, 0.4845 each here), largest probability difference 0.031. The decision route is verified on CPU only; GPU serving has not
+    been measured. BF16 weights, about 1.8GB, pinned to a revision. The
+    fine-tune license is still being finalized by Together AI (base model
+    Apache-2.0).
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 1.8GB
+  last_checked: "2026-09-30"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    template:
+      use_tokenizer_template: true
+    context_size: 2048
+    engine_args:
+      hf_overrides:
+        architectures:
+          - Tev1Model
+      block_size: 32
+      num_blocks: 256
+      max_num_seqs: 4
+    parameters:
+      model: togethercomputer/Tev1-0.8B-experimental
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: togethercomputer/Tev1-0.8B-experimental
+          revision: 6bb2dff14b38fea90ddb14d870166ccaf77374e9
 - name: qwen3-vl-4b-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
