@@ -166,7 +166,9 @@ Engine::~Engine() = default;
 
 bool Engine::loaded() const { return impl_->loaded.load(std::memory_order_acquire); }
 
-bool Engine::Load(const LoadArgs& args, std::string* error) {
+namespace {
+
+bool LoadInto(gs::InferenceBackend& backend, const LoadArgs& args, std::string* error) {
   const Options& o = args.options;
 
   // Same rule as gufo's ResolveReasoningDefaults: an effort implies thinking
@@ -209,26 +211,23 @@ bool Engine::Load(const LoadArgs& args, std::string* error) {
   disk.directory = o.cache_disk;
   if (o.cache_disk_bytes > 0) disk.capacity_bytes = o.cache_disk_bytes;
 
-  if (!impl_->backend.load(args.model_path, error, args.max_context, o.sessions, gs::TextPrefillPolicy{}, scheduler,
+  if (!backend.load(args.model_path, error, args.max_context, o.sessions, gs::TextPrefillPolicy{}, scheduler,
                            spec, disk, args.mmproj_path)) {
     return false;
   }
-  impl_->backend.set_model_id(args.model_path);
+  backend.set_model_id(args.model_path);
 
   // Start from the model's own defaults so an unset option keeps them.
-  gufo::ReasoningOptions reasoning = impl_->backend.reasoning_defaults();
+  gufo::ReasoningOptions reasoning = backend.reasoning_defaults();
   if (reasoning_overrides.enabled) reasoning.enabled = reasoning_overrides.enabled;
   if (reasoning_overrides.effort) reasoning.effort = reasoning_overrides.effort;
   if (reasoning_overrides.preserve_thinking) reasoning.preserve_thinking = reasoning_overrides.preserve_thinking;
-  impl_->backend.set_reasoning_defaults(reasoning);
-  impl_->loaded.store(true, std::memory_order_release);
+  backend.set_reasoning_defaults(reasoning);
   return true;
 }
 
-GenResult Engine::Generate(const GenRequest& req, const std::function<bool(const Piece&)>& on_piece,
-                           const std::function<bool()>& is_cancelled) {
-  if (!loaded()) throw EngineError(ErrorKind::kFailedPrecondition, "gufo: no model is loaded");
-  gs::InferenceBackend& backend = impl_->backend;
+GenResult GenerateOn(gs::InferenceBackend& backend, const GenRequest& req,
+                     const std::function<bool(const Piece&)>& on_piece, const std::function<bool()>& is_cancelled) {
   const bool raw = req.messages.empty();
   if (raw && req.raw_prompt.empty()) throw EngineError(ErrorKind::kInvalidArgument, "gufo: the request has no messages and no prompt");
 
@@ -262,7 +261,7 @@ GenResult Engine::Generate(const GenRequest& req, const std::function<bool(const
   gufo::core::Utf8Decoder decoder;
 
   GenResult out;
-  try {
+  {
     std::shared_ptr<gs::TextGenerationBackend::GenerationRequest> generation;
     // gufo copies is_cancelled into the request and polls it from its
     // scheduler thread; passing it directly (not a lambda over this frame)
@@ -337,14 +336,51 @@ GenResult Engine::Generate(const GenRequest& req, const std::function<bool(const
       out.tool_calls.push_back(std::move(pc));
     }
     out.finish_reason = out.tool_calls.empty() ? FinishName(result.finish_reason) : "tool_calls";
+  }
+  return out;
+}
+
+}  // namespace
+
+bool Engine::Load(const LoadArgs& args, std::string* error) {
+  // gufo wraps only some of its load paths; GGUF reads, disk-cache setup or an
+  // allocation can still throw, and LoadModel must answer success=false rather
+  // than a gRPC error. loaded stays false on every failure path, so a
+  // half-initialized backend is never used.
+  try {
+    if (!LoadInto(impl_->backend, args, error)) return false;
+  } catch (const std::exception& e) {
+    *error = std::string("gufo: ") + e.what();
+    return false;
+  } catch (...) {
+    *error = "gufo: the model failed to load with an unknown error";
+    return false;
+  }
+  impl_->loaded.store(true, std::memory_order_release);
+  return true;
+}
+
+GenResult Engine::Generate(const GenRequest& req, const std::function<bool(const Piece&)>& on_piece,
+                           const std::function<bool()>& is_cancelled) {
+  if (!loaded()) throw EngineError(ErrorKind::kFailedPrecondition, "gufo: no model is loaded");
+  // The scheduler rethrows worker failures (HIP errors, overflow_error,
+  // bad_alloc) and callback exceptions out of Wait, and request conversion can
+  // throw too; the header promises EngineError only.
+  try {
+    return GenerateOn(impl_->backend, req, on_piece, is_cancelled);
+  } catch (const EngineError&) {
+    throw;
   } catch (const gs::TextGenerationError& e) {
     Rethrow(e);
   } catch (const std::invalid_argument& e) {
     throw EngineError(ErrorKind::kInvalidArgument, e.what());
   } catch (const std::length_error& e) {
     throw EngineError(ErrorKind::kInvalidArgument, std::string("gufo: context length exceeded: ") + e.what());
+  } catch (const std::exception& e) {
+    throw EngineError(ErrorKind::kInternal, std::string("gufo: ") + e.what());
+  } catch (...) {
+    throw EngineError(ErrorKind::kInternal, "gufo: generation failed with an unknown error");
   }
-  return out;
 }
 
 std::vector<std::uint32_t> Engine::Tokenize(const std::string& text) const { return impl_->backend.tokenize(text); }
