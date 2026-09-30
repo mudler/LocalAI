@@ -40,7 +40,21 @@ func diarizeStubs() (restore func()) {
 	savedTranscribeAndDiarize := CppTranscribeAndDiarizeJSON
 	savedFreeString := CppFreeString
 	savedLastError := CppLastError
+	savedNamedDiarize := CppDiarizeNamedPCMJSON
+	savedNamedText := CppTranscribeAndDiarizeNamedJSON
+	savedRegNew := CppSpeakerRegistryNew
+	savedRegFree := CppSpeakerRegistryFree
+	savedRegAdd := CppSpeakerRegistryAddEmbedding
+	savedRegLastError := CppSpeakerRegistryLastError
+	savedSpeakerDim := CppSpeakerDim
 	return func() {
+		CppDiarizeNamedPCMJSON = savedNamedDiarize
+		CppTranscribeAndDiarizeNamedJSON = savedNamedText
+		CppSpeakerRegistryNew = savedRegNew
+		CppSpeakerRegistryFree = savedRegFree
+		CppSpeakerRegistryAddEmbedding = savedRegAdd
+		CppSpeakerRegistryLastError = savedRegLastError
+		CppSpeakerDim = savedSpeakerDim
 		CppDiarizePCM = savedDiarize
 		CppTranscribeAndDiarizeJSON = savedTranscribeAndDiarize
 		CppFreeString = savedFreeString
@@ -245,7 +259,7 @@ var _ = Describe("ParakeetCpp.Diarize", func() {
 		// Simulate a Free() racing between Diarize's own diarCtx==0 check and
 		// diarizeCall's lock, exactly as it zeroes diarCtx under engineMu.
 		p.diarCtx = 0
-		_, err := p.diarizeCall(make([]float32, 10), false)
+		_, err := p.diarizeCall(make([]float32, 10), false, 0)
 		Expect(grpcerrors.IsModelNotLoaded(err)).To(BeTrue())
 		Expect(called).To(BeFalse(), "no C call once diarCtx was cleared")
 	})
@@ -271,5 +285,135 @@ var _ = Describe("ParakeetCpp.Diarize", func() {
 		Expect(resp.Segments[1].Speaker).To(Equal("1"))
 		Expect(resp.Segments[1].Start).To(BeNumerically("~", 1.05, 0.001))
 		Expect(resp.Segments[1].End).To(BeNumerically("~", 1.20, 0.001))
+	})
+	Describe("with known voices", func() {
+		var freed []uintptr
+		var used string
+		ada := []*pb.KnownVoice{{Name: "Ada", Embedding: []float32{1, 0}}}
+		BeforeEach(func() {
+			freed, used = nil, ""
+			CppFreeString = func(uintptr) {}
+			CppSpeakerDim = func(uintptr) int32 { return 2 }
+			CppSpeakerRegistryNew = func() uintptr { return 9 }
+			CppSpeakerRegistryFree = func(r uintptr) { freed = append(freed, r) }
+			CppSpeakerRegistryAddEmbedding = func(uintptr, string, *float32, int32) int32 { return 0 }
+			CppDiarizePCM = func(uintptr, *float32, int32, int32) uintptr {
+				used = "plain"
+				return pool.cstr(`{"speakers":8,"segments":[{"speaker":0,"start":0.5,"end":2}]}`)
+			}
+			CppDiarizeNamedPCMJSON = func(diar, spk, reg uintptr, s *float32, n, sr int32, accept, margin float32) uintptr {
+				used = "named"
+				Expect(reg).To(Equal(uintptr(9)))
+				Expect(accept).To(BeNumerically("~", 0.7, 1e-6))
+				Expect(margin).To(BeNumerically("~", 0.05, 1e-6))
+				return pool.cstr(`{"speakers":8,"segments":[{"speaker":0,"start":0.5,"end":2.0},{"speaker":1,"start":2.5,"end":4.0}],` +
+					`"names":{"0":{"name":"Ada","score":0.93},"1":{"name":"","score":0.2}}}`)
+			}
+		})
+
+		It("puts the registered names on the segments and frees the registry", func() {
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2, speakerAccept: 0.7, speakerMargin: 0.05}
+			res, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5), KnownVoices: ada})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(used).To(Equal("named"))
+			Expect(res.Segments).To(HaveLen(2))
+			Expect(res.Segments[0].Name).To(Equal("Ada"))
+			Expect(res.Segments[0].NameScore).To(BeNumerically("~", 0.93, 1e-6))
+			Expect(res.Segments[1].Name).To(BeEmpty())
+			Expect(freed).To(Equal([]uintptr{9}))
+		})
+		It("uses the plain path when the request has no known voices", func() {
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
+			res, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5)})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(used).To(Equal("plain"))
+			Expect(res.Segments[0].Name).To(BeEmpty())
+			Expect(freed).To(BeEmpty())
+		})
+		It("uses the plain path when no speaker model is loaded, even with known voices", func() {
+			p := &ParakeetCpp{diarCtx: 1}
+			_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5), KnownVoices: ada})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(used).To(Equal("plain"))
+		})
+		It("uses the plain path, without a registry, when no voice has an embedding", func() {
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
+			_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5),
+				KnownVoices: []*pb.KnownVoice{{Name: "Ada"}, {Embedding: []float32{1, 0}}}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(used).To(Equal("plain"))
+			Expect(freed).To(Equal([]uintptr{9})) // the empty registry built for it is released, once
+		})
+		It("fails clearly on a voice of the wrong size and frees the registry", func() {
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
+			_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5),
+				KnownVoices: []*pb.KnownVoice{{Name: "Ada", Embedding: []float32{1, 0, 0}}}})
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+			Expect(err.Error()).To(ContainSubstring("Ada"))
+			Expect(freed).To(Equal([]uintptr{9}))
+		})
+		It("reports a missing v10 symbol instead of silently dropping the names", func() {
+			CppDiarizeNamedPCMJSON = nil
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
+			_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5), KnownVoices: ada})
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+			Expect(freed).To(Equal([]uintptr{9}))
+		})
+		It("reports a missing named transcribe symbol on the include_text path", func() {
+			CppTranscribeAndDiarizeJSON = func(asr, diar uintptr, s *float32, n, sr int32) uintptr { return 0 }
+			CppTranscribeAndDiarizeNamedJSON = nil
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2, ctxPtr: 3}
+			_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5), IncludeText: true, KnownVoices: ada})
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.Unimplemented))
+			Expect(freed).To(Equal([]uintptr{9}))
+		})
+		It("names utterances on the include_text path", func() {
+			// wantText also requires the plain text symbol, present in any library that has the named one.
+			CppTranscribeAndDiarizeJSON = func(asr, diar uintptr, s *float32, n, sr int32) uintptr { return 0 }
+			CppTranscribeAndDiarizeNamedJSON = func(asr, diar, spk, reg uintptr, s *float32, n, sr int32) uintptr {
+				used = "named-text"
+				return pool.cstr(`{"speakers":8,"names":{"0":{"name":"Ada","score":0.9}},"utterances":[{"speaker":0,"name":"Ada","text":"hello","start":0.5,"end":2.0,"conf":0.9},{"speaker":-1,"text":"hm","start":2.5,"end":3.0,"conf":0.5}],"words":[]}`)
+			}
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2, ctxPtr: 3}
+			res, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5), IncludeText: true, KnownVoices: ada})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(used).To(Equal("named-text"))
+			Expect(res.Segments[0].Name).To(Equal("Ada"))
+			Expect(res.Segments[0].Text).To(Equal("hello"))
+			Expect(res.Segments[1].Name).To(BeEmpty()) // speaker -1 has no name
+			Expect(freed).To(Equal([]uintptr{9}))
+		})
+		It("keeps the name when close segments of one speaker are merged", func() {
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2, speakerAccept: 0.7, speakerMargin: 0.05}
+			CppDiarizeNamedPCMJSON = func(diar, spk, reg uintptr, s *float32, n, sr int32, a, m float32) uintptr {
+				return pool.cstr(`{"speakers":8,"segments":[{"speaker":0,"start":0.5,"end":2.0},{"speaker":0,"start":2.1,"end":3.0}],"names":{"0":{"name":"Ada","score":0.9}}}`)
+			}
+			res, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5), MinDurationOff: 0.5, KnownVoices: ada})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Segments).To(HaveLen(1))
+			Expect(res.Segments[0].Name).To(Equal("Ada"))
+			Expect(res.Segments[0].NameScore).To(BeNumerically("~", 0.9, 1e-6))
+		})
+		It("includes the speaker context message when the named call fails", func() {
+			CppDiarizeNamedPCMJSON = func(diar, spk, reg uintptr, s *float32, n, sr int32, a, m float32) uintptr { return 0 }
+			CppLastError = func(ctx uintptr) string {
+				switch ctx {
+				case 1:
+					return "diar side broke"
+				case 2:
+					return "speaker side broke"
+				}
+				return ""
+			}
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
+			_, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5), KnownVoices: ada})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("diar side broke"))
+			Expect(err.Error()).To(ContainSubstring("speaker side broke"))
+			Expect(freed).To(Equal([]uintptr{9}))
+		})
 	})
 })
