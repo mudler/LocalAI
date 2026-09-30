@@ -23,7 +23,9 @@ class FakeApp:
             "prompt_tokens": 4, "completion_tokens": 2, "cached_tokens": 0, "reasoning_tokens": 0, "stats": {}}
         self.emits, self.raises, self.prepare_raises = emits, raises, prepare_raises
         self.seen = {}
-        self.tok = types.SimpleNamespace(encode=lambda text: types.SimpleNamespace(ids=[7, 8]))
+        self.encode_kwargs = []
+        self.tok = types.SimpleNamespace(
+            encode=lambda text, **kw: (self.encode_kwargs.append(kw), types.SimpleNamespace(ids=[7, 8]))[1])
 
     def prepare(self, body, chat):
         if self.prepare_raises:
@@ -92,5 +94,7 @@ class CudaEngineTest(unittest.TestCase):
             CudaEngine(FakeApp(raises=RequestCancelled("gone")), HELPERS).generate(
                 {"messages": []}, True, None, lambda: False)
 
-    def test_tokenize_uses_the_app_tokenizer(self):
-        self.assertEqual(CudaEngine(FakeApp(), HELPERS).tokenize("x"), [7, 8])
+    def test_tokenize_uses_the_app_tokenizer_without_special_tokens(self):
+        app = FakeApp()
+        self.assertEqual(CudaEngine(app, HELPERS).tokenize("x"), [7, 8])
+        self.assertEqual(app.encode_kwargs, [{"add_special_tokens": False}])

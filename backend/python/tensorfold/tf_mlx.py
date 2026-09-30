@@ -147,7 +147,8 @@ class MlxEngine:
         )
 
     def tokenize(self, text: str) -> list[int]:
-        encoded = self._app.tokenizer.encode(text)
+        # TokenizeString counts the text itself; a BOS would inflate every count.
+        encoded = self._app.tokenizer.encode(text, add_special_tokens=False)
         return list(encoded.tolist() if hasattr(encoded, "tolist") else encoded)
 
     def close(self) -> None:

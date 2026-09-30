@@ -215,7 +215,9 @@ class MlxEngineTest(unittest.TestCase):
         with self.assertRaises(GenerationCancelled):
             engine.generate({"messages": MSG, "tools": tools}, True, lambda d: None, lambda: True)
 
-    def test_tokenize_uses_the_app_tokenizer(self):
+    def test_tokenize_uses_the_app_tokenizer_without_special_tokens(self):
         app = FakeApp()
-        app.tokenizer = types.SimpleNamespace(encode=lambda text: [1, 2, 3])
+        seen = []
+        app.tokenizer = types.SimpleNamespace(encode=lambda text, **kw: (seen.append(kw), [1, 2, 3])[1])
         self.assertEqual(MlxEngine(app, make_helpers()).tokenize("abc"), [1, 2, 3])
+        self.assertEqual(seen, [{"add_special_tokens": False}])

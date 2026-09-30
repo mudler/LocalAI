@@ -64,7 +64,8 @@ class CudaEngine:
         )
 
     def tokenize(self, text: str) -> list[int]:
-        return list(self._app.tok.encode(text).ids)
+        # TokenizeString counts the text itself; a BOS would inflate every count.
+        return list(self._app.tok.encode(text, add_special_tokens=False).ids)
 
     def close(self) -> None:
         closer = getattr(getattr(self._app, "engine", None), "close", None)
