@@ -29685,6 +29685,123 @@
     - filename: minicpm-v-4_6-mmproj-f16.gguf
       sha256: ca931d861d0801d9003e50697cd764721a334107c0e0415a51168ee1938462de
       uri: huggingface://openbmb/MiniCPM-V-4.6-gguf/mmproj-model-f16.gguf
+- name: sharp-minicpm5-2b
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: sharp-minicpm5-2b-q6
+    - model: sharp-minicpm5-2b-q8
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM5-2B
+    - https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF
+  description: |
+    Sharp-MiniCPM5-2B is an imatrix quantization of OpenBMB's 2.5B-parameter
+    text model with an adjusted chat template for coding and reasoning.
+    This Q4_K_S build uses the embedded Sharp-MiniCPM template and an
+    8K-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Sharp-MiniCPM5-2B-Q4_K_S.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+  files:
+    - filename: Sharp-MiniCPM5-2B-Q4_K_S.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q4_K_S.gguf
+      sha256: f30598a08c4d7ee5b9397a5f97ec3b14846332a0b5d07471674505b464b9d1a9
+- name: sharp-minicpm5-2b-q6
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM5-2B
+    - https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF
+  description: |
+    Sharp-MiniCPM5-2B is an imatrix quantization of OpenBMB's 2.5B-parameter
+    text model with an adjusted chat template for coding and reasoning.
+    This Q6_K_XL build uses the embedded Sharp-MiniCPM template and an
+    8K-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Sharp-MiniCPM5-2B-Q6_K_XL.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+  files:
+    - filename: Sharp-MiniCPM5-2B-Q6_K_XL.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q6_K_XL.gguf
+      sha256: f67c038e7f1fbfb54ffa4bc5e1197cd2748700580cd1d1fd076e5998ac923ef4
+- name: sharp-minicpm5-2b-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM5-2B
+    - https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF
+  description: |
+    Sharp-MiniCPM5-2B is an imatrix quantization of OpenBMB's 2.5B-parameter
+    text model with an adjusted chat template for coding and reasoning.
+    This Q8_K_M build uses the embedded Sharp-MiniCPM template and an
+    8K-token default context.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+    - reasoning
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Sharp-MiniCPM5-2B-Q8_K_M.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+      min_p: 0.0
+  files:
+    - filename: Sharp-MiniCPM5-2B-Q8_K_M.gguf
+      uri: https://huggingface.co/peculiar-ragdoll/Sharp-MiniCPM5-2B-GGUF/resolve/040713a6c4da5e58e7512e8e483d315caef41b73/Sharp-MiniCPM5-2B-Q8_K_M.gguf
+      sha256: d2e70bd38c72f6bd3c0277509150f18d8658f65e9b2a37cd977c311a914f7684
 - &minicpm5-2b
   name: minicpm5-2b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
