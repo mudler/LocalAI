@@ -79,6 +79,7 @@ var _ = Describe("Subject rules", func() {
 
 	It("serves every subject the constructors in subjects.go build", func() {
 		const id = "11111111-2222-3333-4444-555555555555"
+		// When you add a subject constant or constructor, add it here too.
 		subjects := []string{
 			messaging.SubjectJobsNew, messaging.SubjectMCPCIJobsNew, messaging.SubjectAgentExecute,
 			messaging.SubjectMCPToolExecute, messaging.SubjectMCPDiscovery,
@@ -107,6 +108,7 @@ var _ = Describe("Subject rules", func() {
 			messaging.SubjectNodeFilesEnsure(id), messaging.SubjectNodeFilesStage(id),
 			messaging.SubjectNodeFilesRelease(id), messaging.SubjectNodeFilesTemp(id),
 			messaging.SubjectNodeFilesListDir(id),
+			messaging.SubjectNodeBackendInstallProgress(id, "op1"),
 		}
 		for _, s := range subjects {
 			Expect(messaging.ValidateSubject(s)).To(Succeed(), "subject %q", s)

@@ -3,6 +3,8 @@ package messaging_test
 import (
 	"context"
 	"fmt"
+	"os"
+	"runtime"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -61,6 +63,13 @@ var _ = Describe("NATS client", func() {
 	messagingtest.RunBroadcasterConformance(func() (messaging.Broadcaster, func()) {
 		url, err := sharedNATS()
 		if err != nil {
+			// This is the only spec that runs the rules against a real carrier.
+			// A CI runner that lost Docker must go red, not quietly report a
+			// pass with the check skipped. Local runs without Docker still skip,
+			// and so does macOS CI, whose runners have no Docker by design.
+			if os.Getenv("CI") != "" && runtime.GOOS != "darwin" {
+				Fail("testcontainers requires Docker and CI is set: " + err.Error())
+			}
 			Skip("testcontainers requires Docker: " + err.Error())
 		}
 		c, err := messaging.New(url)
