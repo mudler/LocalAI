@@ -63821,6 +63821,60 @@
           type: huggingface
           repo: togethercomputer/Tev1-0.8B-experimental
           revision: 6bb2dff14b38fea90ddb14d870166ccaf77374e9
+- name: kev-0.8b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/kev-0.8b-vllm-cpp
+    - https://huggingface.co/jaredpalmer/kev-0.8b
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    kev is a System 1 decision model by Jared Palmer. It answers typed choice,
+    noul and score questions about a text state with one scoring pass per
+    question. It does not generate text. The model is a frozen
+    Qwen3.5-0.8B-Base backbone, a rank-16 LoRA adapter and a PointerHead
+    readout.
+
+    This entry installs a converted redistribution of jaredpalmer/kev-0.8b:
+    the LoRA is merged into the BF16 backbone, the head is stored as
+    head.safetensors, and config.json names the KevModel architecture. The
+    checkpoint only works with vllm.cpp (the vllm-cpp backend); transformers,
+    vLLM and llama.cpp cannot load it.
+
+    In LocalAI, serve it via POST /v1/systemone. The vllm.cpp project records
+    PointerHead golden-vector tests (25 cases) and a 5-case end-to-end
+    comparison against the kev reference server as equal. The upload itself
+    was smoke-tested with one request on CPU; there is no accuracy benchmark
+    and no GPU run. The entry sets a 2048-token context and an explicit KV
+    pool, because the default 4096-token context does not fit the default
+    CPU KV pool and the load fails. BF16 weights, about 1.53 GB, pinned to a
+    revision.
+  license: apache-2.0
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 1.53GB
+  last_checked: "2026-09-30"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    context_size: 2048
+    engine_args:
+      block_size: 32
+      num_blocks: 256
+      max_num_seqs: 4
+    parameters:
+      model: mudler/kev-0.8b-vllm-cpp
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: mudler/kev-0.8b-vllm-cpp
+          revision: c17e73666ded1e9d284470eae7e0de9a27294e77
 - name: qwen3-vl-4b-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
