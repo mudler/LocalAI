@@ -967,7 +967,7 @@ var _ = Describe("HostResolveEnv engine preference wiring", func() {
 
 	It("hands the ranker engine names an NVIDIA host's gallery entries can match", func() {
 		preference := envFor("nvidia-cuda-12").EnginePreference
-		Expect(preference).To(Equal([]string{"vllm", "sglang", "tensorfold", "llama-cpp"}))
+		Expect(preference).To(Equal([]string{"vllm", "sglang", "llama-cpp"}))
 	})
 
 	It("installs the vLLM build over a larger llama.cpp one on a real NVIDIA host", func() {
