@@ -92,6 +92,13 @@ class LoadAppTest(unittest.TestCase):
             load_app(CFG, tf, platform="darwin", cuda_capability=lambda: (9, 0))
         self.assertIn("weights do not fit", str(caught.exception))
 
+    def test_serve_system_exit_becomes_a_load_error(self):
+        message = "--parallel takes a number or auto, not 'x'"
+        tf, _, _ = make_tf("mlx", serve_raises=SystemExit(message))
+        with self.assertRaises(LoadError) as caught:
+            load_app(CFG, tf, platform="darwin", cuda_capability=lambda: (9, 0))
+        self.assertIn(message, str(caught.exception))
+
     def test_argparse_exit_becomes_a_load_error(self):
         tf, _, _ = make_tf("mlx")
         tf.cli.build_parser = lambda: types.SimpleNamespace(

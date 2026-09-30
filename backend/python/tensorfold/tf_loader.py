@@ -131,6 +131,12 @@ def load_app(
             tf.cli.cmd_serve(args)
         except _Captured as done:
             captured["app"] = done.app
+        except SystemExit as exc:
+            # Upstream option checks (such as cli._parallel) exit instead of
+            # raising; let that end the load, not the gRPC worker.
+            if isinstance(exc.code, str):
+                raise LoadError(exc.code) from exc
+            raise LoadError(f"tensorfold serve exited while loading: exit {exc.code}") from exc
         except Exception as exc:  # noqa: BLE001
             raise LoadError(str(exc) or type(exc).__name__) from exc
 
