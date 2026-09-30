@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/jobs"
+	"github.com/mudler/LocalAI/core/services/messaging"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +39,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 
 	Context("NATS job dispatch", func() {
 		It("should enqueue job via NATS when dispatcher is set", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "dispatch-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "dispatch-instance", 0)
 			var processed atomic.Int32
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				processed.Add(1)
@@ -103,7 +104,7 @@ var _ = Describe("Job Dispatch", Label("Distributed"), func() {
 
 	Context("NATS job cancellation", func() {
 		It("should cancel running job via NATS cancel subject", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "cancel-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "cancel-instance", 0)
 			jobStarted := make(chan struct{})
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				close(jobStarted)

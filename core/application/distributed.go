@@ -28,6 +28,7 @@ import (
 // DistributedServices holds all services initialized for distributed mode.
 type DistributedServices struct {
 	Nats         *messaging.Client
+	WorkQueue    messaging.WorkQueue
 	Store        storage.ObjectStore
 	Registry     *nodes.NodeRegistry
 	Router       *nodes.SmartRouter
@@ -229,8 +230,10 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	}
 	xlog.Info("Distributed job store initialized")
 
+	workQueue := messaging.NewNATSWorkQueue(natsClient)
+
 	// Initialize job dispatcher
-	dispatcher := jobs.NewDispatcher(jobStore, natsClient, authDB, cfg.Distributed.InstanceID, cfg.Distributed.JobWorkerConcurrency)
+	dispatcher := jobs.NewDispatcher(jobStore, workQueue, natsClient, authDB, cfg.Distributed.InstanceID, cfg.Distributed.JobWorkerConcurrency)
 
 	// Initialize agent store
 	agentStore, err := agents.NewAgentStore(authDB)
@@ -479,6 +482,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	success = true
 	return &DistributedServices{
 		Nats:         natsClient,
+		WorkQueue:    workQueue,
 		Store:        store,
 		Registry:     registry,
 		Router:       router,

@@ -6,6 +6,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/jobs"
+	"github.com/mudler/LocalAI/core/services/messaging"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,7 +37,7 @@ var _ = Describe("SSE Routes", Label("Distributed"), func() {
 			jobStore, err := jobs.NewJobStore(db)
 			Expect(err).ToNot(HaveOccurred())
 
-			dispatcher := jobs.NewDispatcher(jobStore, infra.NC, db, "sse-instance", 0)
+			dispatcher := jobs.NewDispatcher(jobStore, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "sse-instance", 0)
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()

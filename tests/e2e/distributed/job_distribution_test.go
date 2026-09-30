@@ -170,7 +170,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Job Distribution via NATS", func() {
 		It("should enqueue job via NATS and worker picks it up", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
 			var processed atomic.Int32
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				processed.Add(1)
@@ -201,7 +201,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should cancel running job via NATS", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
 			jobStarted := make(chan struct{})
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				close(jobStarted)
@@ -239,7 +239,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should report job progress via NATS", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				dispatcher.PublishProgress(job.ID, "running", "step 1")
 				time.Sleep(50 * time.Millisecond)
@@ -317,7 +317,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Progress Streaming (NATS → SSE bridge)", func() {
 		It("should bridge NATS progress events", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -345,7 +345,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should filter SSE events by job ID", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "test-instance", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "test-instance", 0)
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -376,7 +376,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 	Context("Enriched Job Payload (DB-free worker)", func() {
 		It("should enrich JobEvent with full Job and Task data", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "enrichment-test", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "enrichment-test", 0)
 
 			dCtx, dCancel := context.WithCancel(infra.Ctx)
 			defer dCancel()
@@ -419,7 +419,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 
 		It("should process job from enriched payload without DB access", func() {
 			// Create a worker-side dispatcher with NO store (simulating DB-free worker)
-			workerDispatcher := jobs.NewDispatcher(nil, infra.NC, nil, "worker-no-db", 0)
+			workerDispatcher := jobs.NewDispatcher(nil, messaging.NewNATSWorkQueue(infra.NC), infra.NC, nil, "worker-no-db", 0)
 
 			var receivedJob *jobs.JobRecord
 			var receivedTask *jobs.TaskRecord
@@ -472,7 +472,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should publish job result via NATS on completion", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "result-test", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "result-test", 0)
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				job.Result = "job finished successfully"
 				return nil
@@ -507,7 +507,7 @@ var _ = Describe("Phase 2: Jobs & Tasks", Label("Distributed"), func() {
 		})
 
 		It("should stream traces via NATS progress events", func() {
-			dispatcher := jobs.NewDispatcher(store, infra.NC, db, "trace-test", 0)
+			dispatcher := jobs.NewDispatcher(store, messaging.NewNATSWorkQueue(infra.NC), infra.NC, db, "trace-test", 0)
 			dispatcher.SetWorkerFunc(func(ctx context.Context, job *jobs.JobRecord, task *jobs.TaskRecord) error {
 				dispatcher.PublishTrace(job.ID, "reasoning", "thinking about the problem")
 				dispatcher.PublishTrace(job.ID, "tool_call", "calling search tool")

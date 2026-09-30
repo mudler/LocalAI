@@ -8,9 +8,9 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/pkg/concurrency"
 	"github.com/mudler/LocalAI/core/services/dbutil"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/concurrency"
 	"github.com/mudler/xlog"
 	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
@@ -64,6 +64,7 @@ type WorkerFunc func(ctx context.Context, job *JobRecord, task *TaskRecord) erro
 // and coordinates cron execution via PostgreSQL advisory locks.
 type Dispatcher struct {
 	store        *JobStore
+	queue        messaging.WorkQueue
 	nats         messaging.MessagingClient
 	db           *gorm.DB
 	instanceID   string
@@ -89,11 +90,13 @@ type Dispatcher struct {
 	cancel context.CancelFunc
 }
 
-// NewDispatcher creates a new distributed job Dispatcher.
+// NewDispatcher creates a new distributed job Dispatcher. Jobs leave through
+// queue; nc carries cancel, progress and result fan-out.
 // maxConcurrent limits the number of concurrent job goroutines; 0 means unlimited.
-func NewDispatcher(store *JobStore, nc messaging.MessagingClient, db *gorm.DB, instanceID string, maxConcurrent int) *Dispatcher {
+func NewDispatcher(store *JobStore, queue messaging.WorkQueue, nc messaging.MessagingClient, db *gorm.DB, instanceID string, maxConcurrent int) *Dispatcher {
 	d := &Dispatcher{
 		store:      store,
+		queue:      queue,
 		nats:       nc,
 		db:         db,
 		instanceID: instanceID,
@@ -112,8 +115,8 @@ type ModelConfigLoader interface {
 // NewWorkerDispatcher creates a dispatcher that also consumes and processes jobs.
 // Use this instead of NewDispatcher + SetWorkerFunc + SetModelConfigLoader when both
 // the worker function and config loader are available at construction time.
-func NewWorkerDispatcher(store *JobStore, nc messaging.MessagingClient, db *gorm.DB, instanceID string, maxConcurrent int, workerFn WorkerFunc, configLoader ModelConfigLoader) *Dispatcher {
-	d := NewDispatcher(store, nc, db, instanceID, maxConcurrent)
+func NewWorkerDispatcher(store *JobStore, queue messaging.WorkQueue, nc messaging.MessagingClient, db *gorm.DB, instanceID string, maxConcurrent int, workerFn WorkerFunc, configLoader ModelConfigLoader) *Dispatcher {
+	d := NewDispatcher(store, queue, nc, db, instanceID, maxConcurrent)
 	d.workerFn = workerFn
 	d.configLoader = configLoader
 	return d
@@ -229,7 +232,7 @@ func (d *Dispatcher) Stop() {
 	d.unsubscribeAll()
 }
 
-// Enqueue publishes a job to the NATS queue for distributed processing.
+// Enqueue hands a job to the work queue for distributed processing.
 // The event is enriched with the full Job and Task records so that the
 // worker does not need direct database access.
 func (d *Dispatcher) Enqueue(jobID, taskID, userID string) error {
@@ -255,12 +258,14 @@ func (d *Dispatcher) Enqueue(jobID, taskID, userID string) error {
 		}
 	}
 
-	subject := messaging.SubjectJobsNew
+	kind := messaging.WorkTask
 	if evt.ModelConfig != nil && evt.ModelConfig.MCP.HasMCPServers() {
-		subject = messaging.SubjectMCPCIJobsNew
+		kind = messaging.WorkMCPCI
 	}
 
-	return d.nats.Publish(subject, evt)
+	// Enqueue takes no ctx from its callers (an HTTP handler and the cron
+	// loop), and the NATS carrier ignores it anyway.
+	return d.queue.Enqueue(context.Background(), kind, evt)
 }
 
 // Cancel publishes a cancel event to NATS (broadcast to all instances).

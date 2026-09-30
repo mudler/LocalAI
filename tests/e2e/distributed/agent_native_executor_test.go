@@ -866,7 +866,9 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			// Subscribe to NATS to capture background run events
 			var receivedEvents []agents.AgentChatEvent
 			var eventMu sync.Mutex
-			sub, err := infra.NC.Subscribe("agent.sched.execute", func(data []byte) {
+			// A plain subscription sees every publish, alongside any queue
+			// group that also listens on the agent-run subject.
+			sub, err := infra.NC.Subscribe(messaging.SubjectAgentExecute, func(data []byte) {
 				var evt agents.AgentChatEvent
 				if json.Unmarshal(data, &evt) == nil {
 					eventMu.Lock()
@@ -878,8 +880,7 @@ var _ = Describe("Native Agent Executor", Label("Distributed", "AgentNative"), f
 			defer sub.Unsubscribe()
 
 			// Start scheduler with short poll interval for testing
-			adapter := infra.NC
-			scheduler := agents.NewAgentScheduler(db, adapter, store, "agent.sched.execute")
+			scheduler := agents.NewAgentScheduler(db, messaging.NewNATSWorkQueue(infra.NC), store)
 
 			schedCtx, schedCancel := context.WithCancel(infra.Ctx)
 			defer schedCancel()
