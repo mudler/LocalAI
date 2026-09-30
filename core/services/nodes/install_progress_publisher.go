@@ -23,7 +23,7 @@ import (
 // network to stall the underlying gallery download loop.
 type DebouncedInstallProgressPublisher struct {
 	mu              sync.Mutex
-	client          messaging.MessagingClient
+	client          messaging.Broadcaster
 	subject         string
 	nodeID          string
 	opID            string
@@ -37,7 +37,7 @@ type DebouncedInstallProgressPublisher struct {
 // NewDebouncedInstallProgressPublisher constructs a publisher for one
 // install operation. interval is the leading-edge debounce window
 // (~250ms in production).
-func NewDebouncedInstallProgressPublisher(client messaging.MessagingClient, nodeID, opID, backend string, interval time.Duration) *DebouncedInstallProgressPublisher {
+func NewDebouncedInstallProgressPublisher(client messaging.Broadcaster, nodeID, opID, backend string, interval time.Duration) *DebouncedInstallProgressPublisher {
 	return &DebouncedInstallProgressPublisher{
 		client:   client,
 		subject:  messaging.SubjectNodeBackendInstallProgress(nodeID, opID),

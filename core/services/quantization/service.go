@@ -74,7 +74,7 @@ func NewQuantizationService(
 	appConfig *config.ApplicationConfig,
 	modelLoader *model.ModelLoader,
 	configLoader *config.ModelConfigLoader,
-	nats messaging.MessagingClient,
+	nats messaging.Broadcaster,
 	store *distributed.QuantStore,
 ) *QuantizationService {
 	s := &QuantizationService{

@@ -38,7 +38,7 @@ type Store[K comparable, V any] interface {
 type Config[K comparable, V any] struct {
 	Name      string                                 // subject namespace, e.g. "finetune.jobs"
 	Key       func(V) K                              // extract the key from a value
-	Nats      messaging.MessagingClient              // nil => standalone: in-memory only, no broadcast/subscribe
+	Nats      messaging.Broadcaster              // nil => standalone: in-memory only, no broadcast/subscribe
 	Store     Store[K, V]                            // optional read-through persistence
 	Loader    func(ctx context.Context) ([]V, error) // source when there is no Store (e.g. disk reload)
 	OnApply   func(op string, k K, v V)              // optional hook after an applied change (e.g. ShutdownModel)
