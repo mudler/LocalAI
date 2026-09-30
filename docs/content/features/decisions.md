@@ -1,17 +1,19 @@
 +++
 disableToc = false
-title = "SystemOne decisions"
+title = "Decisions API"
 weight = 66
-url = "/features/systemone/"
+url = "/features/decisions/"
 +++
 
-SystemOne is an API for fast, typed decisions. You send a piece of text (the
+The Decisions API is a fast, typed decision layer. You send a piece of text (the
 *state*) and a set of named questions. A decision model answers each question
 with a value and a confidence, in one pass. The model does not generate text, so
 there is nothing to parse and no free-form output to validate.
 
-The request and response shapes follow the [kev](https://github.com/jaredpalmer/kev)
-project and match the `/v1/systemone` endpoint that Ollama added in 0.35.
+LocalAI serves it on the `/v1/systemone` routes. The request and response shapes
+follow the [kev](https://github.com/jaredpalmer/kev) project and match the
+`/v1/systemone` endpoint that Ollama added in 0.35. The wire contract is called
+SystemOne; the capability a model declares is called `decisions`.
 
 ## Endpoints
 
@@ -25,7 +27,7 @@ Which route a model can serve depends on its kind:
 
 | Model kind | `/v1/systemone` | `/permute` and `/separate` |
 |---|---|---|
-| Decision model (`systemone`), such as Laya or GLiNER2.5-Decide | Yes | No, returns `400` |
+| Decision model (`decisions`), such as Laya or GLiNER2.5-Decide | Yes | No, returns `400` |
 | Zero-shot NER model (`token_classify`), such as GLiNER2.5 | Yes, through the NER path | Yes |
 
 ## Question types
@@ -70,28 +72,28 @@ reports token usage and `latency_ms`. The NER path does not report token usage.
 
 ## Choosing a model
 
-A model can serve SystemOne only if it is a decision model. Declare the usecase
+A model can serve the Decisions API only if it is a decision model. Declare the usecase
 in the model config:
 
 ```yaml
 name: laya
 backend: vllm-cpp
 known_usecases:
-  - systemone
+  - decisions
 parameters:
   model: convaiinnovations/laya
 ```
 
-`systemone` is never guessed, and a model that declares it is not listed as a
+`decisions` is never guessed, and a model that declares it is not listed as a
 chat, completion or embeddings model. A model that declares usecases without
-`systemone` or `token_classify` gets a `400` from these endpoints that names the
-missing usecase. A model that declares `token_classify` and not `systemone` is
+`decisions` or `token_classify` gets a `400` from these endpoints that names the
+missing usecase. A model that declares `token_classify` and not `decisions` is
 served by the zero-shot NER path. A vllm-cpp config that declares no usecases is
 treated as a decision model, so setups that predate the flag keep working, but a
 config that declares only `chat` (as an older `laya` gallery entry did) now gets
-the `400` and needs `known_usecases: [systemone]`.
+the `400` and needs `known_usecases: [decisions]`.
 
-Install one from the gallery and filter on the `systemone` tag:
+Install one from the gallery and filter on the `decisions` tag:
 
 | Gallery entry | Model | Notes |
 |---|---|---|
@@ -107,6 +109,6 @@ and does not serve `/v1/systemone` yet.
 
 ## Access control
 
-When authentication is on, the three routes need the `systemone` feature. It is
+When authentication is on, the three routes need the `decisions` feature. It is
 on by default for every user, like the other API features, and an administrator
 can turn it off per user.

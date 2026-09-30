@@ -160,12 +160,12 @@ forward, which is the required contract for pooling models in vllm.cpp. A
 device-resident forward is tracked as a performance optimization, not a
 correctness gap.
 
-### SystemOne decision API
+### Decisions API
 
-The `vllm-cpp` backend serves the kev-compatible SystemOne endpoints: typed
+The `vllm-cpp` backend serves the kev-compatible SystemOne endpoints (the Decisions API): typed
 `choice`, `noul` and `score` questions over a state text, answered by a
 non-generative decision model in one pass. A decision model declares
-`known_usecases: [systemone]`. See [SystemOne decisions]({{% relref "features/systemone" %}})
+`known_usecases: [decisions]`. See [Decisions API]({{% relref "features/decisions" %}})
 for the request shape, the models you can install and the access rules.
 
 | Endpoint | Method | Description |

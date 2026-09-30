@@ -2056,12 +2056,12 @@ const (
 	FLAG_3D           ModelConfigUsecase = 0b100000000000000000000000
 	FLAG_3D_ANIMATION ModelConfigUsecase = 1 << 24
 
-	// Marks a model as wired for the SystemOne decision API (POST
-	// /v1/systemone: typed choice / noul / score questions over a state).
+	// Marks a model as a decision model: it answers typed choice / noul /
+	// score questions over a state (served by POST /v1/systemone).
 	// Explicit only, like FLAG_SCORE: a decision model never generates
 	// text, so guessing chat or embeddings for it would surface it in
 	// pickers it cannot serve.
-	FLAG_SYSTEMONE ModelConfigUsecase = 1 << 25
+	FLAG_DECISIONS ModelConfigUsecase = 1 << 25
 
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
@@ -2125,7 +2125,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 		"FLAG_3D":                   FLAG_3D,
 		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
-		"FLAG_SYSTEMONE":            FLAG_SYSTEMONE,
+		"FLAG_DECISIONS":            FLAG_DECISIONS,
 	}
 }
 
@@ -2154,9 +2154,9 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 //
 // Declared known_usecases are normally additive — the guessing heuristic
 // still adds whatever it can infer from backend/templates. The exceptions
-// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY and FLAG_SYSTEMONE: when the operator
+// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY and FLAG_DECISIONS: when the operator
 // declared any of them, they reserved the model for a direct-decode primitive
-// (the router classifier, the PII NER tier, or a SystemOne decision head). Letting GuessUsecases
+// (the router classifier, the PII NER tier, or a decision head). Letting GuessUsecases
 // paint chat/completion/embeddings on top would surface it in pickers it
 // was deliberately kept out of. So a declared score or token_classify
 // list is authoritative; declare the generation usecases explicitly
@@ -2166,7 +2166,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_SYSTEMONE)) != 0 {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_DECISIONS)) != 0 {
 			return false
 		}
 	}
@@ -2389,10 +2389,10 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		return false
 	}
 
-	if (u & FLAG_SYSTEMONE) == FLAG_SYSTEMONE {
-		// No heuristic: SystemOne intent is a deliberate operator choice
+	if (u & FLAG_DECISIONS) == FLAG_DECISIONS {
+		// No heuristic: decisions intent is a deliberate operator choice
 		// (the model is a non-generative decision head), so
-		// HasUsecases(FLAG_SYSTEMONE) is true only when KnownUsecases
+		// HasUsecases(FLAG_DECISIONS) is true only when KnownUsecases
 		// declares it explicitly.
 		return false
 	}

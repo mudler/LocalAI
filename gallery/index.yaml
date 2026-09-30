@@ -63653,7 +63653,7 @@
     512-token context. F16 weights, ~804 MB.
   license: apache-2.0
   tags:
-    - decision
+    - decisions
     - systemone
     - vllm-cpp
     - cpu
@@ -63663,7 +63663,7 @@
   overrides:
     backend: vllm-cpp
     known_usecases:
-      - systemone
+      - decisions
     parameters:
       model: convaiinnovations/laya
   artifacts:
@@ -63690,7 +63690,7 @@
     checkpoint it was checked against.
   license: apache-2.0
   tags:
-    - decision
+    - decisions
     - systemone
     - vllm-cpp
     - cpu
@@ -63700,7 +63700,7 @@
   overrides:
     backend: vllm-cpp
     known_usecases:
-      - systemone
+      - decisions
     parameters:
       model: fastino/GLiNER2.5-Decide
   artifacts:

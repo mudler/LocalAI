@@ -71,10 +71,10 @@ var RouteFeatureRegistry = []RouteFeature{
 	// Detection
 	{"POST", "/v1/detection", FeatureDetection},
 
-	// SystemOne decision API
-	{"POST", "/v1/systemone", FeatureSystemOne},
-	{"POST", "/v1/systemone/permute", FeatureSystemOne},
-	{"POST", "/v1/systemone/separate", FeatureSystemOne},
+	// Decisions API (SystemOne wire contract)
+	{"POST", "/v1/systemone", FeatureDecisions},
+	{"POST", "/v1/systemone/permute", FeatureDecisions},
+	{"POST", "/v1/systemone/separate", FeatureDecisions},
 
 	// Face recognition
 	{"POST", "/v1/face/verify", FeatureFaceRecognition},
@@ -214,6 +214,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureVoiceRecognition, "Voice Recognition", true},
 		{FeatureAudioTransform, "Audio Transform", true},
 		{FeaturePIIFilter, "PII Analyze / Redact", true},
-		{FeatureSystemOne, "SystemOne Decisions", true},
+		{FeatureDecisions, "Decisions", true},
 	}
 }

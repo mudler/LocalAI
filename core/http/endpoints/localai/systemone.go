@@ -379,10 +379,10 @@ func systemOneModelAllowed(cfg config.ModelConfig) error {
 	if cfg.KnownUsecases == nil {
 		return nil
 	}
-	if *cfg.KnownUsecases&(config.FLAG_SYSTEMONE|config.FLAG_TOKEN_CLASSIFY) != 0 {
+	if *cfg.KnownUsecases&(config.FLAG_DECISIONS|config.FLAG_TOKEN_CLASSIFY) != 0 {
 		return nil
 	}
-	return fmt.Errorf("model %q does not declare the systemone usecase (known_usecases: [systemone])", cfg.Name)
+	return fmt.Errorf("model %q does not declare the decisions usecase (known_usecases: [decisions])", cfg.Name)
 }
 
 // checkSystemOneModel applies systemOneModelAllowed to a model looked up by
@@ -405,7 +405,7 @@ func checkSystemOneModel(app *application.Application, modelName string) error {
 // A model that declares token_classify without systemone is a zero-shot NER
 // model: the backend's decision entry point refuses those architectures, so it
 // goes to the NER path instead. A config that declares nothing keeps the
-// decision pipeline, which is what setups that predate the systemone usecase
+// decision pipeline, which is what setups that predate the decisions usecase
 // relied on.
 func systemOneUsesDecisionPipeline(cfg config.ModelConfig) bool {
 	if !backendSupportsScore(cfg.Backend) {
@@ -415,7 +415,7 @@ func systemOneUsesDecisionPipeline(cfg config.ModelConfig) bool {
 		return true
 	}
 	declared := *cfg.KnownUsecases
-	if declared&config.FLAG_SYSTEMONE != 0 {
+	if declared&config.FLAG_DECISIONS != 0 {
 		return true
 	}
 	return declared&config.FLAG_TOKEN_CLASSIFY == 0
@@ -429,7 +429,7 @@ func systemOneNERAllowed(cfg config.ModelConfig) error {
 		return nil
 	}
 	declared := *cfg.KnownUsecases
-	if declared&config.FLAG_SYSTEMONE != 0 && declared&config.FLAG_TOKEN_CLASSIFY == 0 {
+	if declared&config.FLAG_DECISIONS != 0 && declared&config.FLAG_TOKEN_CLASSIFY == 0 {
 		return fmt.Errorf("model %q is a decision model: /permute and /separate use the NER path, use POST /v1/systemone instead", cfg.Name)
 	}
 	return nil

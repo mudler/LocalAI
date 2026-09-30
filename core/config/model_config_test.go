@@ -956,11 +956,11 @@ var _ = Describe("ModelConfig alias", func() {
 	})
 })
 
-var _ = Describe("systemone usecase", func() {
-	// A decision model never generates text, so a declared systemone list
+var _ = Describe("decisions usecase", func() {
+	// A decision model never generates text, so a declared decisions list
 	// must stay authoritative and the heuristic must never guess the flag.
 	It("is authoritative when declared and never guessed", func() {
-		declared := GetUsecasesFromYAML([]string{"systemone"})
+		declared := GetUsecasesFromYAML([]string{"decisions"})
 		Expect(declared).NotTo(BeNil())
 		Expect(*declared).NotTo(Equal(FLAG_ANY))
 
@@ -984,7 +984,7 @@ var _ = Describe("systemone usecase", func() {
 	})
 
 	It("is a reserved usecase for the GGUF importer chat-default guard", func() {
-		declared := GetUsecasesFromYAML([]string{"systemone"})
+		declared := GetUsecasesFromYAML([]string{"decisions"})
 		Expect(reservedNonChatModel(&ModelConfig{Backend: "vllm-cpp", KnownUsecases: declared})).To(BeTrue())
 	})
 })

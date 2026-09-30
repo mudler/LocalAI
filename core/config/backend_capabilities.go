@@ -35,7 +35,7 @@ const (
 	UsecaseSpeakerRecognition  = "speaker_recognition"
 	UsecaseTokenClassify       = "token_classify"
 	UsecaseScore               = "score"
-	UsecaseSystemOne           = "systemone"
+	UsecaseDecisions           = "decisions"
 )
 
 // GRPCMethod identifies a Backend service RPC from backend.proto.
@@ -217,10 +217,10 @@ var UsecaseInfoMap = map[string]UsecaseInfo{
 		GRPCMethod:  MethodScore,
 		Description: "Joint log-probability scoring of candidate continuations via the Score RPC. Declared explicitly via known_usecases and usable alongside generation usecases.",
 	},
-	UsecaseSystemOne: {
-		Flag:        FLAG_SYSTEMONE,
+	UsecaseDecisions: {
+		Flag:        FLAG_DECISIONS,
 		GRPCMethod:  MethodScore,
-		Description: "SystemOne decision API (POST /v1/systemone): typed choice, noul and score questions over a state text, answered by a non-generative decision model through the Score RPC (question_type systemone). Declared explicitly via known_usecases.",
+		Description: "Decision models (served by POST /v1/systemone): typed choice, noul and score questions over a state text, answered by a non-generative decision model through the Score RPC (question_type systemone). Declared explicitly via known_usecases.",
 	},
 }
 
@@ -355,10 +355,10 @@ var BackendCapabilities = map[string]BackendCapability{
 	// model returns an error rather than silent garbage.
 	"vllm-cpp": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateVideo, MethodTokenClassify, MethodScore},
-		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVision, UsecaseVideo, UsecaseTokenClassify, UsecaseScore, UsecaseSystemOne},
+		PossibleUsecases: []string{UsecaseChat, UsecaseCompletion, UsecaseVision, UsecaseVideo, UsecaseTokenClassify, UsecaseScore, UsecaseDecisions},
 		DefaultUsecases:  []string{UsecaseChat},
 		AcceptsImages:    true,
-		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation, MiniMax-H3 video+audio generation, GLiNER2.5 zero-shot NER, cua-s1-forms scoring, and SystemOne decision models (kev, laya, CLM, GLiNER2.5-Decide, xor, nimble)",
+		Description:      "vllm.cpp — the LocalAI team's C++20 port of vLLM; text generation, MiniMax-H3 video+audio generation, GLiNER2.5 zero-shot NER, cua-s1-forms scoring, and decision models (kev, laya, CLM, GLiNER2.5-Decide, xor, nimble)",
 	},
 	"vllm-omni": {
 		GRPCMethods:      []GRPCMethod{MethodPredict, MethodPredictStream, MethodGenerateImage, MethodGenerateVideo, MethodTTS},

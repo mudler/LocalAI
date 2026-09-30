@@ -19,7 +19,7 @@ var _ = Describe("gallery/index.yaml vllm-cpp capability tags", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		tagToFlag := map[string]config.ModelConfigUsecase{
-			"systemone":      config.FLAG_SYSTEMONE,
+			"decisions":      config.FLAG_DECISIONS,
 			"vision":         config.FLAG_VISION,
 			"token-classify": config.FLAG_TOKEN_CLASSIFY,
 			"scoring":        config.FLAG_SCORE,

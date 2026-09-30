@@ -172,17 +172,17 @@ test.describe('Models lifecycle', () => {
     await expect(installedPane(page)).toContainText('Worker one')
   })
 
-  test('shows the systemone use case on a decision model', async ({ page }) => {
+  test('shows the decisions use case on a decision model', async ({ page }) => {
     await page.route('**/api/models/capabilities', route => route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        data: [...installedModels, { id: 'decider', backend: 'vllm-cpp', capabilities: ['FLAG_SYSTEMONE'] }],
+        data: [...installedModels, { id: 'decider', backend: 'vllm-cpp', capabilities: ['FLAG_DECISIONS'] }],
       }),
     }))
     await page.goto('/app/models?view=installed&model=decider')
 
     await expect(installedPane(page)).toContainText('decider')
-    await expect(installedPane(page)).toContainText('SystemOne')
+    await expect(installedPane(page)).toContainText('Decisions')
   })
 
   test('stops a running model with confirmation', async ({ page }) => {

@@ -6,19 +6,19 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("SystemOne feature registration", func() {
+var _ = Describe("Decisions feature registration", func() {
 	It("gates the three decision routes behind one default-on API feature", func() {
-		Expect(APIFeatures).To(ContainElement(FeatureSystemOne))
+		Expect(APIFeatures).To(ContainElement(FeatureDecisions))
 
 		patterns := []string{}
 		for _, route := range RouteFeatureRegistry {
-			if route.Feature == FeatureSystemOne {
+			if route.Feature == FeatureDecisions {
 				Expect(route.Method).To(Equal("POST"))
 				patterns = append(patterns, route.Pattern)
 			}
 		}
 		Expect(patterns).To(ConsistOf("/v1/systemone", "/v1/systemone/permute", "/v1/systemone/separate"))
 
-		Expect(APIFeatureMetas()).To(ContainElement(FeatureMeta{Key: FeatureSystemOne, Label: "SystemOne Decisions", DefaultValue: true}))
+		Expect(APIFeatureMetas()).To(ContainElement(FeatureMeta{Key: FeatureDecisions, Label: "Decisions", DefaultValue: true}))
 	})
 })

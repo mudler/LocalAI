@@ -16,8 +16,8 @@ var _ = Describe("systemOneModelAllowed", func() {
 		}
 	}
 
-	It("accepts a declared systemone model", func() {
-		Expect(systemOneModelAllowed(mk("systemone"))).To(Succeed())
+	It("accepts a declared decisions model", func() {
+		Expect(systemOneModelAllowed(mk("decisions"))).To(Succeed())
 	})
 
 	It("accepts a token_classify model, which the NER path serves", func() {
@@ -29,7 +29,7 @@ var _ = Describe("systemOneModelAllowed", func() {
 	})
 
 	It("refuses a chat-only model with an actionable message", func() {
-		Expect(systemOneModelAllowed(mk("chat"))).To(MatchError(ContainSubstring("known_usecases: [systemone]")))
+		Expect(systemOneModelAllowed(mk("chat"))).To(MatchError(ContainSubstring("known_usecases: [decisions]")))
 	})
 })
 
@@ -44,7 +44,7 @@ var _ = Describe("systemone routing by model kind", func() {
 
 	Describe("systemOneUsesDecisionPipeline", func() {
 		It("sends a declared decision model to the decision pipeline", func() {
-			Expect(systemOneUsesDecisionPipeline(mk("vllm-cpp", "systemone"))).To(BeTrue())
+			Expect(systemOneUsesDecisionPipeline(mk("vllm-cpp", "decisions"))).To(BeTrue())
 		})
 		It("sends a token_classify model to the NER path, since vllm_decide refuses NER architectures", func() {
 			Expect(systemOneUsesDecisionPipeline(mk("vllm-cpp", "token_classify"))).To(BeFalse())
@@ -53,16 +53,16 @@ var _ = Describe("systemone routing by model kind", func() {
 			Expect(systemOneUsesDecisionPipeline(mk("vllm-cpp"))).To(BeTrue())
 		})
 		It("prefers the decision pipeline when both usecases are declared", func() {
-			Expect(systemOneUsesDecisionPipeline(mk("vllm-cpp", "systemone", "token_classify"))).To(BeTrue())
+			Expect(systemOneUsesDecisionPipeline(mk("vllm-cpp", "decisions", "token_classify"))).To(BeTrue())
 		})
 		It("never uses it for a backend without the Score RPC", func() {
-			Expect(systemOneUsesDecisionPipeline(mk("no-such-backend", "systemone"))).To(BeFalse())
+			Expect(systemOneUsesDecisionPipeline(mk("no-such-backend", "decisions"))).To(BeFalse())
 		})
 	})
 
 	Describe("systemOneNERAllowed", func() {
 		It("refuses a decision model on the NER-only routes with an actionable message", func() {
-			Expect(systemOneNERAllowed(mk("vllm-cpp", "systemone"))).To(MatchError(ContainSubstring("/v1/systemone")))
+			Expect(systemOneNERAllowed(mk("vllm-cpp", "decisions"))).To(MatchError(ContainSubstring("/v1/systemone")))
 		})
 		It("accepts a token_classify model", func() {
 			Expect(systemOneNERAllowed(mk("vllm-cpp", "token_classify"))).To(Succeed())
