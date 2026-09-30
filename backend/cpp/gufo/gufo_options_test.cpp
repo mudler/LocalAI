@@ -74,5 +74,45 @@ int main() {
     CHECK(ParseOptions({"speculative:off"}).ok());
     CHECK(!ParseOptions({"speculative:dflash2"}).ok());
   }
+  {
+    // strtoull skips whitespace and takes a sign, so these would wrap to 2^64-1 unless refused.
+    for (const char* key : {"max_pending", "request_timeout_ms", "cache_disk_bytes"}) {
+      for (const char* bad : {" -1", "+5", " 5", "-1"}) {
+        const std::string entry = std::string(key) + ":" + bad;
+        const bool rejected = !ParseOptions({entry}).ok();
+        if (!rejected) std::cerr << "accepted: '" << entry << "'\n";
+        CHECK(rejected);
+      }
+    }
+  }
+  {
+    // gufo stores the timeout as signed milliseconds and throws on a negative count.
+    auto r = ParseOptions({"request_timeout_ms:86400000"});
+    CHECK(r.ok());
+    CHECK(r.options.request_timeout_ms == 86400000ULL);
+    auto big = ParseOptions({"request_timeout_ms:86400001"});
+    CHECK(!big.ok());
+    CHECK(big.error.find("request_timeout_ms") != std::string::npos);
+  }
+  {
+    // gufo refuses per-client > total with an opaque error, so the default follows max_pending down.
+    auto r = ParseOptions({"max_pending:2"});
+    CHECK(r.ok());
+    CHECK(r.options.max_pending_per_client == 2);
+    auto bad = ParseOptions({"max_pending:2", "max_pending_per_client:3"});
+    CHECK(!bad.ok());
+    CHECK(bad.error.find("max_pending_per_client must not exceed max_pending") != std::string::npos);
+    auto good = ParseOptions({"max_pending:8", "max_pending_per_client:3"});
+    CHECK(good.ok());
+    CHECK(good.options.max_pending == 8);
+    CHECK(good.options.max_pending_per_client == 3);
+  }
+  {
+    CHECK(!ParseOptions({"draft_tokens:3", "min_draft_tokens:4"}).ok());
+    CHECK(!ParseOptions({"draft_tokens:65"}).ok());
+    CHECK(!ParseOptions({"sessions:65"}).ok());
+    CHECK(!ParseOptions({"max_pending:0"}).ok());
+    CHECK(!ParseOptions({"max_buffered_output_bytes:0"}).ok());
+  }
   return failures == 0 ? 0 : 1;
 }

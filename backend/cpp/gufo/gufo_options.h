@@ -42,7 +42,12 @@ struct ParseResult {
 namespace detail {
 
 inline bool ParseUnsigned(const std::string& text, unsigned long long* out) {
-  if (text.empty() || text[0] == '-') return false;
+  // strtoull skips leading whitespace and accepts a sign, so " -1" would wrap
+  // to 2^64-1; only a bare run of ASCII digits is a valid value.
+  if (text.empty()) return false;
+  for (const char c : text) {
+    if (c < '0' || c > '9') return false;
+  }
   errno = 0;
   char* end = nullptr;
   const unsigned long long value = std::strtoull(text.c_str(), &end, 10);
@@ -62,6 +67,7 @@ inline bool ParseBool(const std::string& text, bool* out) {
 inline ParseResult ParseOptions(const std::vector<std::string>& raw) {
   ParseResult result;
   Options& o = result.options;
+  bool per_client_set = false;
   auto fail = [&](const std::string& message) {
     result.error = "gufo: " + message;
     return result;
@@ -94,8 +100,12 @@ inline ParseResult ParseOptions(const std::vector<std::string>& raw) {
     } else if (key == "max_pending_per_client") {
       if (!detail::ParseUnsigned(value, &number) || number == 0) return fail("max_pending_per_client must be a positive integer");
       o.max_pending_per_client = number;
+      per_client_set = true;
     } else if (key == "request_timeout_ms") {
-      if (!detail::ParseUnsigned(value, &number)) return fail("request_timeout_ms must be a non-negative integer");
+      // gufo keeps this as signed std::chrono::milliseconds and throws on a
+      // negative count, so a huge value must be refused here with a clear name.
+      if (!detail::ParseUnsigned(value, &number) || number > 86400000ULL)
+        return fail("request_timeout_ms must be an integer from 0 to 86400000 (24 h)");
       o.request_timeout_ms = number;
     } else if (key == "max_output_bytes") {
       if (!detail::ParseUnsigned(value, &number) || number == 0) return fail("max_output_bytes must be a positive integer");
@@ -126,6 +136,13 @@ inline ParseResult ParseOptions(const std::vector<std::string>& raw) {
     }
   }
   if (o.min_draft_tokens > o.draft_tokens) return fail("min_draft_tokens must not exceed draft_tokens");
+  // gufo rejects per-client > total with an opaque "invalid text scheduler
+  // limits"; the default follows a small max_pending down, an explicit value
+  // gets a named error instead.
+  if (o.max_pending_per_client > o.max_pending) {
+    if (per_client_set) return fail("max_pending_per_client must not exceed max_pending");
+    o.max_pending_per_client = o.max_pending;
+  }
   // Every gufo speculative mode reads its drafter from a separate GGUF (the MTP
   // head included), so none of them can start without draft_model.
   if (!o.speculative.empty() && o.speculative != "off" && o.draft_model.empty())
