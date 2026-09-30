@@ -46,7 +46,7 @@
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
       "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
-      "rerank": "Rerank", "vad": "VAD", "score": "Score"
+      "rerank": "Rerank", "vad": "VAD", "score": "Score", "systemone": "SystemOne"
     },
     "empty": {
       "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
