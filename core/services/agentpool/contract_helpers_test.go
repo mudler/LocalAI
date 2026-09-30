@@ -36,6 +36,9 @@ type fakeLLM struct {
 	requests []fakeLLMRequest
 	toolName string
 	toolArgs string
+	// failStatus, when non-zero, makes every chat completion fail with that
+	// HTTP status so a spec can drive the agent's error path.
+	failStatus int
 }
 
 func newFakeLLM(reply string) *fakeLLM {
@@ -56,7 +59,10 @@ func (f *fakeLLM) SetReply(r string) {
 // SetToolCall makes the fake answer with one call to the named function until
 // the conversation carries a tool result, then with the plain reply. Keying on
 // the tool message rather than a request counter keeps the fake independent of
-// how many planning requests the agent makes before it runs the tool. The
+// how many planning requests the agent makes before it runs the tool. Only
+// the LocalAGI counter-action specs use it today; P2 keeps it for the MCP
+// tool fixture that replaces them, since the native executor ignores
+// Actions. The
 // flip side: tool mode stays on until a request carries a role "tool"
 // message, so a client that restarts with trimmed history would get the
 // tool call again and loop until its iteration cap.
@@ -65,6 +71,16 @@ func (f *fakeLLM) SetToolCall(name, argsJSON string) {
 	defer f.mu.Unlock()
 	f.toolName = name
 	f.toolArgs = argsJSON
+}
+
+// SetFailure makes every chat completion answer with the given HTTP status and
+// an OpenAI-style error body, which is what an unreachable or broken backend
+// looks like to the agent. Requests are still recorded so a spec can count
+// retries.
+func (f *fakeLLM) SetFailure(status int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.failStatus = status
 }
 
 func (f *fakeLLM) Requests() []fakeLLMRequest {
@@ -102,6 +118,7 @@ func (f *fakeLLM) handle(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	f.requests = append(f.requests, fakeLLMRequest{Model: req.Model, Stream: req.Stream, Messages: req.Messages, Tools: tools, ToolChoice: req.ToolChoice})
 	reply := f.reply
+	failStatus := f.failStatus
 	var toolCall map[string]any
 	if f.toolName != "" && !hasToolResult {
 		toolCall = map[string]any{
@@ -110,6 +127,15 @@ func (f *fakeLLM) handle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	f.mu.Unlock()
+
+	if failStatus != 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(failStatus)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"message": "fake backend failure", "type": "server_error", "code": failStatus},
+		})
+		return
+	}
 
 	message := map[string]any{"role": "assistant", "content": reply}
 	finish := "stop"
@@ -192,6 +218,11 @@ func newAgentConfig(name string) *state.AgentConfig {
 	}
 }
 
+// Engine-specific: awaitRunning and collectSSE reach into LocalAGI types
+// (agent.Agent via GetAgentForUser, types.NewJob, sse.Manager and
+// sse.NewClient). P1 must re-seat them when LocalAGI types leave the service
+// signatures; the specs that call them should not need to change.
+
 // awaitRunning blocks until the agent's Run loop is serving jobs. The pool
 // starts Run in a goroutine and LocalAGI's Scheduler.Start and Scheduler.Stop
 // are unsynchronized: a Stop (update, delete, svc.Stop) that lands while Start
@@ -223,6 +254,8 @@ type sseEvent struct {
 
 // collectSSE registers a listener on the agent's SSE manager and records every
 // event until stop is called. Subscribe before Chat so nothing is missed.
+// The manager replays its last 10 events on Register, so a spec that chats
+// twice with a fresh collector sees the first turn's completed status too.
 func collectSSE(svc *agentpool.AgentPoolService, userID, name string) (events func() []sseEvent, stop func()) {
 	mgr := svc.GetSSEManagerForUser(userID, name)
 	Expect(mgr).ToNot(BeNil())
@@ -249,6 +282,8 @@ func collectSSE(svc *agentpool.AgentPoolService, userID, name string) (events fu
 					case strings.HasPrefix(line, "event:"):
 						ev.Name = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
 					case strings.HasPrefix(line, "data:"):
+						// The parse error is ignored because the hud event's
+						// data is not JSON; those events keep only their name.
 						_ = json.Unmarshal([]byte(strings.TrimSpace(strings.TrimPrefix(line, "data:"))), &ev.Data)
 					}
 				}

@@ -42,10 +42,11 @@ var _ = Describe("standalone status and observables contract", func() {
 	}
 
 	// settleRun chats once with the named agent and returns its observables
-	// and SSE events after the job finalizers are done. Two finalizers each
-	// call observer.Update, and Update re-appends an observable whose id is
-	// gone, so clearing while one is still pending would bring the observable
-	// back. Each Update also sends an observable_update event, so the run is
+	// and SSE events after the job finalizers are done. Three observer.Update
+	// calls follow Finish (the Execute finalizer, the consumeJob finalizer and
+	// the deferred MakeLastProgressCompletion update, LocalAGI agent.go
+	// 1182-1187), and Update re-appends an observable whose id is gone, so
+	// clearing while one is still pending would bring the observable back. Each Update also sends an observable_update event, so the run is
 	// settled once the root observable carries a completion, the completed
 	// status went out, and no further observable_update arrives.
 	settleRun := func(name string) ([]map[string]any, []sseEvent) {
@@ -145,6 +146,11 @@ var _ = Describe("standalone status and observables contract", func() {
 		Expect(svc.GetAgentStatusForUser("alice", "ghost")).To(BeNil())
 	})
 
+	// Engine-specific: P2 rewrites these three specs because they depend on
+	// the LocalAGI counter action and the native executor ignores Actions;
+	// P2 swaps in an MCP tool fixture. The status spec also reads
+	// types.ActionState, a LocalAGI type that P1 must re-seat when LocalAGI
+	// types leave the service signatures.
 	Context("after a run that calls a tool", func() {
 		BeforeEach(func() {
 			cfg := newAgentConfig("tooled")
@@ -199,9 +205,12 @@ var _ = Describe("standalone status and observables contract", func() {
 			Expect(roots).To(HaveLen(1))
 			Expect(children).ToNot(BeEmpty())
 			for _, c := range children {
-				Expect(c["parent_id"]).To(BeAssignableToTypeOf(float64(0)))
+				// Compared as decoded JSON, whatever type the ids have: the id
+				// type is a LocalAGI detail, the parent link is the contract.
 				Expect(c["parent_id"]).To(Equal(roots[0]["id"]))
 			}
+			// "action" is the LocalAGI name, visible in AgentStatus.jsx; a
+			// native engine may name it differently, so flip deliberately.
 			Expect(children).To(ContainElement(And(
 				HaveKeyWithValue("name", "action"),
 				HaveKeyWithValue("completion", HaveKeyWithValue("action_result", ContainSubstring("Created counter"))),

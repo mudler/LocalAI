@@ -124,6 +124,9 @@ var _ = Describe("standalone agent service contract", func() {
 			Expect(svc.GetAgentConfigForUser("alice", "portable")).To(BeNil())
 		})
 
+		// Engine-specific: P2/P5 flips this because the native import drops
+		// unknown fields (connectors, actions) with a warning, so the export
+		// will no longer carry them.
 		// P5 strips connectors and actions and the P2 migration reads old configs,
 		// so record what a config that carries them looks like today. LocalAGI
 		// logs "Failed to create IRC client" for this fixture because the IRC

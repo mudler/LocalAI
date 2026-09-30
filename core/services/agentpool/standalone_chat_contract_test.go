@@ -1,6 +1,8 @@
 package agentpool_test
 
 import (
+	"net/http"
+
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,7 +44,11 @@ var _ = Describe("standalone chat contract", func() {
 				user = true
 			case e.Name == "json_message" && e.Data["sender"] == "agent":
 				Expect(e.Data["content"]).To(ContainSubstring("pong"))
-				Expect(e.Data).To(HaveKey("id"))
+				// Current standalone shape: the reply id is the id ChatForUser
+				// returned plus "-agent". The UI correlates on message_id
+				// (AgentChat.jsx), which the distributed dispatcher sends; a
+				// native engine may send either, so flip this deliberately.
+				Expect(e.Data).To(HaveKeyWithValue("id", msgID+"-agent"))
 				agent = true
 			case e.Name == "json_message_status" && e.Data["status"] == "processing":
 				processing = true
@@ -66,6 +72,40 @@ var _ = Describe("standalone chat contract", func() {
 			HaveKeyWithValue("role", "user"),
 			HaveKeyWithValue("content", "ping"),
 		)))
+	})
+
+	// The chat page clears its "processing" state only on an agent
+	// json_message or a json_error, so a failed turn must end in json_error
+	// followed by completed, never in silence. The fake fails every request;
+	// cogito retries the decision 5 times with a linear 1s..5s backoff, so the
+	// turn settles after about 15s, hence the 60s budget. The error text is
+	// cogito's wrapped chain and is not pinned.
+	It("reports a failing LLM as json_error then completed, with no agent reply", func() {
+		llm.SetFailure(http.StatusInternalServerError)
+		events, stop := collectSSE(svc, "alice", "chatty")
+		defer stop()
+
+		_, err := svc.ChatForUser("alice", "chatty", "ping")
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() []sseEvent { return statusEvents(events(), "completed") }, "60s", "100ms").
+			ShouldNot(BeEmpty(), "no completed status event")
+
+		errorAt, completedAt := -1, -1
+		for i, e := range events() {
+			switch {
+			case e.Name == "json_error" && errorAt < 0:
+				errorAt = i
+				Expect(e.Data).To(HaveKeyWithValue("error", And(BeAssignableToTypeOf(""), Not(BeEmpty()))))
+			case e.Name == "json_message_status" && e.Data["status"] == "completed" && completedAt < 0:
+				completedAt = i
+			case e.Name == "json_message" && e.Data["sender"] == "agent":
+				Fail("a failed turn must not produce an agent json_message")
+			}
+		}
+		Expect(errorAt).To(BeNumerically(">=", 0), "no json_error event")
+		Expect(errorAt).To(BeNumerically("<", completedAt), "json_error must precede completed")
+		Expect(llm.Requests()).ToNot(BeEmpty())
 	})
 
 	It("reports chat with an unknown agent as ErrAgentNotFound", func() {

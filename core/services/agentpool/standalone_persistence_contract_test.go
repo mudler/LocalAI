@@ -60,7 +60,7 @@ var _ = Describe("standalone persistence contract", func() {
 	// status field and no per-agent file records pause, so a restart brings
 	// the agent back active. Pinned as a known gap for the native-store migration to
 	// close on purpose rather than by accident.
-	It("does not keep a paused agent paused across a restart", func() {
+	It("known gap: does not keep a paused agent paused across a restart", func() {
 		svc := startStandalone(dir, llm.URL())
 		Expect(svc.CreateAgentForUser("alice", newAgentConfig("sleeper"))).To(Succeed())
 		awaitRunning(svc, "alice", "sleeper")
@@ -79,7 +79,7 @@ var _ = Describe("standalone persistence contract", func() {
 	// Known gap, not a contract: any caller who sends model "alice:mine" runs
 	// alice's agent (the interceptor has no user check), while alice's own
 	// request for "mine" falls through; a later fix must not read as a break.
-	It("resolves an agent by its raw key for the responses interceptor", func() {
+	It("known gap: resolves an agent by its raw key for the responses interceptor", func() {
 		svc := startStandalone(dir, llm.URL())
 		DeferCleanup(svc.Stop)
 		Expect(svc.CreateAgentForUser("", newAgentConfig("global-agent"))).To(Succeed())
@@ -89,7 +89,7 @@ var _ = Describe("standalone persistence contract", func() {
 
 		Expect(svc.GetAgent("global-agent")).ToNot(BeNil())
 		Expect(svc.GetAgent("alice:mine")).ToNot(BeNil())
-		Expect(svc.GetAgent("mine")).To(BeNil(), "a user's agent is not visible without its prefix")
+		Expect(svc.GetAgent("mine")).To(BeNil(), "current gap: a user's own agent is not found by its bare name, only by its pool key")
 		Expect(svc.GetAgent("nope")).To(BeNil())
 	})
 
