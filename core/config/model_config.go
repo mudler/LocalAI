@@ -2080,6 +2080,7 @@ const (
 	// optional PBR material, e.g. trellis2cpp).
 	FLAG_3D           ModelConfigUsecase = 0b100000000000000000000000
 	FLAG_3D_ANIMATION ModelConfigUsecase = 1 << 24
+	FLAG_MOTION       ModelConfigUsecase = 1 << 26
 
 	// Marks a model as a decision model: it answers typed choice / noul /
 	// score questions over a state (served by POST /v1/systemone).
@@ -2097,7 +2098,7 @@ const (
 // both text/language). A model is multimodal when its usecases span 2+ groups.
 var ModalityGroups = []ModelConfigUsecase{
 	FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT,                           // text/language
-	FLAG_VISION | FLAG_DETECTION,                                      // visual understanding
+	FLAG_VISION | FLAG_DETECTION | FLAG_MOTION,                        // visual understanding
 	FLAG_TRANSCRIPT | FLAG_REALTIME_AUDIO | FLAG_SOUND_CLASSIFICATION, // audio input — realtime_audio is any-to-any, so it counts here too
 	FLAG_TTS | FLAG_SOUND_GENERATION | FLAG_REALTIME_AUDIO,            // audio output — and here, so a lone realtime_audio flag still reads as multimodal
 	FLAG_AUDIO_TRANSFORM,                                              // audio in/out transforms
@@ -2151,6 +2152,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_3D":                   FLAG_3D,
 		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
 		"FLAG_DECISIONS":            FLAG_DECISIONS,
+		"FLAG_MOTION":               FLAG_MOTION,
 	}
 }
 
@@ -2202,6 +2204,9 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 // In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
+	if u&FLAG_MOTION != 0 && c.Backend != "gemxcpp" {
+		return false
+	}
 	// Backends that are clearly not text-generation
 	nonTextGenBackends := []string{
 		"whisper", "piper", "kokoro",

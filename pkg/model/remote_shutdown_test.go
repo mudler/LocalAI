@@ -3,6 +3,7 @@ package model_test
 import (
 	"context"
 	"errors"
+	"os/exec"
 
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -83,9 +84,11 @@ var _ = Describe("ShutdownModel in distributed mode", func() {
 			unloader.unloadErr = remoteErr
 			modelLoader.SetRemoteUnloader(unloader)
 
+			sleepPath, err := exec.LookPath("sleep")
+			Expect(err).NotTo(HaveOccurred())
 			localProcess := process.New(
 				process.WithTemporaryStateDir(),
-				process.WithName("/bin/sleep"),
+				process.WithName(sleepPath),
 				process.WithArgs("300"),
 			)
 			Expect(localProcess.Run()).To(Succeed())
@@ -95,7 +98,7 @@ var _ = Describe("ShutdownModel in distributed mode", func() {
 				}
 			})
 
-			_, err := modelLoader.LoadModel("mixed", "mixed", func(_, _, _ string) (*model.Model, error) {
+			_, err = modelLoader.LoadModel("mixed", "mixed", func(_, _, _ string) (*model.Model, error) {
 				return model.NewModel("mixed", "local", localProcess), nil
 			})
 			Expect(err).NotTo(HaveOccurred())

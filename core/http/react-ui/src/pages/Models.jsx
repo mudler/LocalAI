@@ -95,6 +95,7 @@ const FILTERS = [
   { key: 'video', labelKey: 'filters.video', icon: 'video' },
   { key: '3d', labelKey: 'filters.threed', icon: 'cube' },
   { key: '3d_animation', labelKey: 'filters.threedAnimation', icon: 'walk' },
+  { key: 'motion', labelKey: 'filters.motion', icon: 'walk' },
   { key: 'multimodal', labelKey: 'filters.multimodal', icon: 'shapes' },
   { key: 'vision', labelKey: 'filters.vision', icon: 'eye' },
   { key: 'tts', labelKey: 'filters.tts', icon: 'mic' },

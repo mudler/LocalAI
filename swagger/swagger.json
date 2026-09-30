@@ -1464,6 +1464,146 @@
                 }
             }
         },
+        "/api/motion/sessions": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Create a motion capture session",
+                "parameters": [
+                    {
+                        "description": "Model, output profile and source clock origin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionSessionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionSessionInfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions/{id}": {
+            "get": {
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Get motion session status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionSessionInfo"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Close a motion session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions/{id}/poses": {
+            "get": {
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Stream motion frames and poses over a duplex WebSocket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols"
+                    }
+                }
+            }
+        },
+        "/api/motion/sessions/{id}/tickets": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "motion"
+                ],
+                "summary": "Issue a motion WebSocket ticket (30 seconds, single use)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Browser origin",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.MotionTicketRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/auth.WebSocketTicketResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/nodes/models": {
             "get": {
                 "tags": [
@@ -4443,6 +4583,17 @@
         }
     },
     "definitions": {
+        "auth.WebSocketTicketResponse": {
+            "type": "object",
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "ticket": {
+                    "type": "string"
+                }
+            }
+        },
         "config.Gallery": {
             "type": "object",
             "properties": {
@@ -5227,6 +5378,57 @@
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "localai.MotionSessionInfo": {
+            "type": "object",
+            "properties": {
+                "frames": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "poses": {
+                    "type": "integer"
+                },
+                "profile": {
+                    "type": "string"
+                },
+                "time_origin": {
+                    "type": "string"
+                },
+                "upload_accepted": {
+                    "type": "integer"
+                },
+                "upload_dropped": {
+                    "type": "integer"
+                }
+            }
+        },
+        "localai.MotionSessionRequest": {
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string"
+                },
+                "profile": {
+                    "type": "string"
+                },
+                "time_origin": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.MotionTicketRequest": {
+            "type": "object",
+            "properties": {
+                "origin": {
+                    "type": "string"
                 }
             }
         },
