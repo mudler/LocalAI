@@ -57,6 +57,26 @@ var _ = Describe("Subject rules", func() {
 		Entry("length mismatch", "jobs.new", "jobs.new.extra", false),
 	)
 
+	It("lists the broadcast roots sorted", func() {
+		Expect(messaging.BroadcastRoots()).To(Equal([]string{
+			"agent", "cache", "finetune", "gallery", "jobs",
+			"prefixcache", "responses", "staging", "state",
+		}))
+	})
+
+	It("lists the control roots sorted", func() {
+		Expect(messaging.ControlRoots()).To(Equal([]string{"mcp", "nodes"}))
+	})
+
+	DescribeTable("takes the first token as the subject root",
+		func(subject, want string) {
+			Expect(messaging.SubjectRoot(subject)).To(Equal(want))
+		},
+		Entry("multi-token subject", "jobs.new", "jobs"),
+		Entry("bare root", "jobs", "jobs"),
+		Entry("empty subject", "", ""),
+	)
+
 	It("serves every subject the constructors in subjects.go build", func() {
 		const id = "11111111-2222-3333-4444-555555555555"
 		subjects := []string{
