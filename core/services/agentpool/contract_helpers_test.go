@@ -141,20 +141,26 @@ func (f *fakeLLM) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
-	chunk := func(delta map[string]any, finish any) {
+	// A write error means the client went away mid-stream; the handler just
+	// stops writing so a disconnect never blocks or fails the fake.
+	write := func(s string) bool {
+		_, err := io.WriteString(w, s)
+		return err == nil
+	}
+	chunk := func(delta map[string]any, finish any) bool {
 		b, _ := json.Marshal(map[string]any{
 			"id": "chatcmpl-fake", "object": "chat.completion.chunk", "model": req.Model,
 			"choices": []map[string]any{{"index": 0, "delta": delta, "finish_reason": finish}},
 		})
-		fmt.Fprintf(w, "data: %s\n\n", b)
+		return write(fmt.Sprintf("data: %s\n\n", b))
 	}
+	first := map[string]any{"role": "assistant", "content": reply}
 	if toolCall != nil {
-		chunk(map[string]any{"role": "assistant", "tool_calls": []map[string]any{toolCall}}, nil)
-	} else {
-		chunk(map[string]any{"role": "assistant", "content": reply}, nil)
+		first = map[string]any{"role": "assistant", "tool_calls": []map[string]any{toolCall}}
 	}
-	chunk(map[string]any{}, finish)
-	fmt.Fprint(w, "data: [DONE]\n\n")
+	if !chunk(first, nil) || !chunk(map[string]any{}, finish) || !write("data: [DONE]\n\n") {
+		return
+	}
 	if fl, ok := w.(http.Flusher); ok {
 		fl.Flush()
 	}
