@@ -91,6 +91,7 @@ CUDA), and the backend passes that error through unchanged.
 | `checkpoint_slots` | Number of retained conversation prefixes | MLX |
 | `spill_gib` | Write evicted conversation prefixes to disk, up to this many GiB; zero disables | MLX |
 | `snapshot_dir` | Directory for persistent prefix snapshots; `none` disables them | MLX |
+| `max_snapshots` | Number of system-block snapshots loaded at start | MLX |
 | `decode_share` | Share of each prefill chunk's time that running replies keep decoding | MLX |
 | `mlx_cache_gib` | Reusable freed-buffer cache | MLX |
 | `vision` | `true` to accept image input on compatible Qwen3.5/3.8 dense checkpoints | Both |

@@ -21,6 +21,10 @@ class ParseLoadConfigTest(unittest.TestCase):
         self.assertEqual(flag_value(cfg.argv, "--top-p"), "0.9")
         self.assertEqual(flag_value(cfg.argv, "--drafter"), "z-lab/Qwen3.8-27B-DFlash2")
 
+    def test_max_snapshots_maps_to_its_flag(self):
+        cfg = parse_load_config("m", 0, {"max_snapshots": 5})
+        self.assertEqual(flag_value(cfg.argv, "--max-snapshots"), "5")
+
     def test_context_size_becomes_context_flag_only_when_positive(self):
         self.assertNotIn("--context", parse_load_config("m", 0, {}).argv)
         self.assertEqual(flag_value(parse_load_config("m", 8192, {}).argv, "--context"), "8192")

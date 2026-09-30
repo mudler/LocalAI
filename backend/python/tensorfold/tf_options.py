@@ -28,6 +28,7 @@ FLAGS: dict[str, tuple[str, str]] = {
     "checkpoint_slots": ("--checkpoint-slots", "value"),
     "spill_gib": ("--spill-gib", "value"),
     "snapshot_dir": ("--snapshot-dir", "value"),
+    "max_snapshots": ("--max-snapshots", "value"),
     "decode_share": ("--decode-share", "value"),
     "mlx_cache_gib": ("--mlx-cache-gib", "value"),
     "no_drafts": ("--no-drafts", "switch"),
