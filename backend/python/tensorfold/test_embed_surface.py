@@ -23,6 +23,11 @@ class EmbedSurfaceTest(unittest.TestCase):
         for name in ("build_parser", "cmd_serve", "_config_dir", "_backend"):
             self.assertTrue(callable(getattr(cli, name)), name)
 
+    def test_families_detect_used_by_the_loader(self):
+        from tensorfold import families
+
+        self.assertTrue(callable(families.detect))
+
     def test_capture_points_exist(self):
         from tensorfold.server import http, stacks
 
