@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"os/exec"
 	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -37,7 +38,9 @@ func startModelStopBackend(backend *modelStopBackend) (string, int, func()) {
 }
 
 func startModelStopProcess() *process.Process {
-	proc := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sleep"), process.WithArgs("300"))
+	sleepPath, err := exec.LookPath("sleep")
+	Expect(err).NotTo(HaveOccurred())
+	proc := process.New(process.WithTemporaryStateDir(), process.WithName(sleepPath), process.WithArgs("300"))
 	Expect(proc.Run()).To(Succeed())
 	return proc
 }

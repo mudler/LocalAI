@@ -80,6 +80,7 @@
     "video": "Video generation",
     "3d": "3D mesh generation",
     "3d_animation": "3D animation",
+    "motion": "Motion capture",
     "embeddings": "Embeddings",
     "reranker": "Rerankers",
     "detection": "Object detection",

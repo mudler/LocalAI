@@ -7,6 +7,7 @@ option java_outer_classname = "LocalAIBackend";
 
 package backend;
 
+
 service Backend {
   rpc Health(HealthMessage) returns (Reply) {}
   rpc Free(HealthMessage) returns (Result) {}
@@ -18,6 +19,7 @@ service Backend {
   rpc UpscaleImage(UpscaleImageRequest) returns (Result) {}
   rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc Generate3D(Generate3DRequest) returns (Result) {}
+  rpc MotionStream(stream MotionRequest) returns (stream MotionResponse) {}
   rpc Animate3D(Animate3DRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc AudioTranscriptionStream(TranscriptRequest) returns (stream TranscriptStreamResponse) {}
@@ -1549,4 +1551,16 @@ message ForwardReply {
   int32 status = 1;
   repeated ForwardHeader headers = 2;
   bytes body_chunk = 3;
+}
+
+// Configuration is first; later messages contain input only.
+message MotionRequest {
+  string model_identity = 1;
+  string profile = 2;
+  bytes input = 3; // Serialized public localai.motion.v1.Input.
+}
+message MotionResponse {
+  bytes output = 1; // Serialized public localai.motion.v1.Output.
+  // Backend-only bounded stage timings; not part of the public wire protocol.
+  map<string, double> stage_ms = 2;
 }

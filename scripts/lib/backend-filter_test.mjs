@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 
 import {
   filterMatrix,
+  SHARED_BUILD_INPUTS,
   inferBackendPath,
   inferBackendPathDarwin,
 } from "./backend-filter.mjs";
@@ -17,6 +18,11 @@ import {
 test("kimodocpp maps to its native Go wrapper on Linux and Darwin", () => {
   assert.equal(inferBackendPath({ backend: "kimodocpp", dockerfile: "./backend/Dockerfile.golang" }), "backend/go/kimodocpp/");
   assert.equal(inferBackendPathDarwin({ backend: "kimodocpp", lang: "go" }), "backend/go/kimodocpp/");
+});
+
+test("gemxcpp maps to its native Go wrapper on Linux and Darwin", () => {
+  assert.equal(inferBackendPath({ backend: "gemxcpp", dockerfile: "./backend/Dockerfile.golang" }), "backend/go/gemxcpp/");
+  assert.equal(inferBackendPathDarwin({ backend: "gemxcpp", lang: "go" }), "backend/go/gemxcpp/");
 });
 
 test("trellis2cpp maps to its Go backend source directory", () => {
@@ -595,4 +601,14 @@ test("unresolvable proto revisions conservatively rebuild everything", () => {
 
   assert.equal(filtered.length, includes.length);
   assert.equal(filteredDarwin.length, includesDarwin.length);
+});
+
+
+test("public motion schema and validation changes rebuild GEM-X on both OSes", () => {
+  for (const file of ["pkg/motion/proto/motion.proto", "pkg/motion/validation.go"]) {
+    const rules = SHARED_BUILD_INPUTS.filter(rule => rule.matches(file));
+    assert.ok(rules.some(rule => rule.linux({ backend: "gemxcpp", dockerfile: "./backend/Dockerfile.golang" })));
+    assert.ok(rules.some(rule => rule.darwin({ backend: "gemxcpp", lang: "go" })));
+    assert.ok(!rules.some(rule => rule.linux({ backend: "kimodocpp", dockerfile: "./backend/Dockerfile.golang" })));
+  }
 });

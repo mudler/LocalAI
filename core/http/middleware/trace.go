@@ -215,13 +215,14 @@ func (w *bodyWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 // land in the in-memory trace buffer. Keys are canonical — http.Header
 // stores them that way, so range yields canonical keys directly.
 var sensitiveTraceHeaders = map[string]struct{}{
-	"Authorization":       {},
-	"Proxy-Authorization": {},
-	"Cookie":              {},
-	"Set-Cookie":          {},
-	"X-Api-Key":           {},
-	"Xi-Api-Key":          {},
-	"X-Auth-Token":        {},
+	"Authorization":          {},
+	"Proxy-Authorization":    {},
+	"Cookie":                 {},
+	"Set-Cookie":             {},
+	"X-Api-Key":              {},
+	"Xi-Api-Key":             {},
+	"X-Auth-Token":           {},
+	"Sec-Websocket-Protocol": {},
 }
 
 func redactSensitiveHeaders(h http.Header) http.Header {

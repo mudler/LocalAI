@@ -134,3 +134,8 @@ formal-verification/out/
 # root, which is what a contributor testing a build does. Nothing under here is
 # source: it is the instance's own models, outputs, traces and identity.
 /data/
+
+/backend/go/gemxcpp/sources/
+/backend/go/gemxcpp/build-*/
+/backend/go/gemxcpp/package/
+/backend/go/gemxcpp/gemxcpp

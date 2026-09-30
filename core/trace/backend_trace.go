@@ -31,6 +31,7 @@ const (
 	BackendTrace3DGeneration    BackendTraceType = "3d_generation"
 	BackendTrace3DRemesh        BackendTraceType = "3d_remesh"
 	BackendTrace3DAnimation     BackendTraceType = "3d_animation"
+	BackendTraceMotion          BackendTraceType = "motion"
 	BackendTraceTTS             BackendTraceType = "tts"
 	BackendTraceSoundGeneration BackendTraceType = "sound_generation"
 	BackendTraceRerank          BackendTraceType = "rerank"

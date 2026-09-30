@@ -591,6 +591,7 @@ protogen-go: protoc install-go-tools
 	# shell-profile change.
 	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
+	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc -Ipkg/motion/proto --go_out=pkg/motion/proto --go_opt=paths=source_relative pkg/motion/proto/motion.proto
 
 core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
 	$(GOCMD) generate ./core/config/...
@@ -604,7 +605,7 @@ generate-force: ## Re-fetch inference defaults from unsloth (always)
 
 .PHONY: protogen-go-clean
 protogen-go-clean:
-	$(RM) pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go
+	$(RM) pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go pkg/motion/proto/motion.pb.go
 	$(RM) bin/*
 
 prepare-test-extra: protogen-python
@@ -641,6 +642,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/go/locate-anything-cpp
 	$(MAKE) -C backend/go/trellis2cpp
 	$(MAKE) -C backend/go/kimodocpp
+	$(MAKE) -C backend/go/gemxcpp
 	$(MAKE) -C backend/go/valkey-store
 
 test-extra: prepare-test-extra
@@ -680,6 +682,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/go/nemo-speech-cpp test
 	$(MAKE) -C backend/go/trellis2cpp test
 	$(MAKE) -C backend/go/kimodocpp test
+	$(MAKE) -C backend/go/gemxcpp test
 	$(MAKE) -C backend/go/valkey-store test
 
 ##
@@ -1336,6 +1339,7 @@ BACKEND_HUGGINGFACE = huggingface|golang|.|false|true
 BACKEND_SILERO_VAD = silero-vad|golang|.|false|true
 BACKEND_STABLEDIFFUSION_GGML = stablediffusion-ggml|golang|.|--progress=plain|true
 BACKEND_TRELLIS2CPP = trellis2cpp|golang|.|--progress=plain|true
+BACKEND_GEMXCPP = gemxcpp|golang|.|--progress=plain|true
 BACKEND_KIMODOCPP = kimodocpp|golang|.|--progress=plain|true
 BACKEND_WHISPER = whisper|golang|.|false|true
 BACKEND_CRISPASR = crispasr|golang|.|false|true
@@ -1444,12 +1448,20 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SILERO_VAD)))
 $(eval $(call generate-docker-build-target,$(BACKEND_STABLEDIFFUSION_GGML)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TRELLIS2CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_KIMODOCPP)))
+$(eval $(call generate-docker-build-target,$(BACKEND_GEMXCPP)))
 .NOTPARALLEL: backends/kimodocpp backends/kimodocpp-darwin
 docker-build-backends: docker-build-kimodocpp
 
 backends/kimodocpp-darwin:
 	BACKEND=kimodocpp BUILD_TYPE=cpu $(MAKE) build-darwin-go-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/kimodocpp.tar)"
+
+.NOTPARALLEL: backends/gemxcpp backends/gemxcpp-darwin
+docker-build-backends: docker-build-gemxcpp
+
+backends/gemxcpp-darwin:
+	BACKEND=gemxcpp BUILD_TYPE=cpu $(MAKE) build-darwin-go-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/gemxcpp.tar)"
 
 $(eval $(call generate-docker-build-target,$(BACKEND_WHISPER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CRISPASR)))

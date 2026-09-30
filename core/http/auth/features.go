@@ -10,6 +10,11 @@ type RouteFeature struct {
 // RouteFeatureRegistry is the single source of truth for endpoint -> feature mappings.
 // To gate a new endpoint, add an entry here -- no other file changes needed.
 var RouteFeatureRegistry = []RouteFeature{
+	{"POST", "/api/motion/sessions", FeatureMotion},
+	{"GET", "/api/motion/sessions/:id", FeatureMotion},
+	{"DELETE", "/api/motion/sessions/:id", FeatureMotion},
+	{"GET", "/api/motion/sessions/:id/poses", FeatureMotion},
+	{"POST", "/api/motion/sessions/:id/tickets", FeatureMotion},
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},
@@ -202,6 +207,7 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureDetection, "Detection", true},
 		{FeatureVideo, "Video Generation", true},
 		{Feature3D, "3D Generation", true},
+		{FeatureMotion, "Motion Capture", true},
 		{FeatureEmbeddings, "Embeddings", true},
 		{FeatureSound, "Sound Generation", true},
 		{FeatureRealtime, "Realtime", true},

@@ -89,6 +89,7 @@ function truncateValue(value, maxLen) {
 }
 
 const TYPE_COLORS = {
+  motion: { bg: 'var(--color-accent-light)', color: 'var(--color-data-7)' },
   llm: { bg: 'var(--color-primary-light)', color: 'var(--color-data-1)' },
   embedding: { bg: 'var(--color-accent-light)', color: 'var(--color-data-3)' },
   transcription: { bg: 'var(--color-warning-light)', color: 'var(--color-data-4)' },

@@ -346,6 +346,12 @@ export function protoChangeIsAdditive(previousText, currentText) {
 // scripts/build/ catch-all at the bottom.
 export const SHARED_BUILD_INPUTS = [
   {
+    // GEM-X links the public motion protocol and shared frame validation.
+    matches: file => file.startsWith("pkg/motion/") && !file.endsWith("_test.go"),
+    linux: item => item.backend === "gemxcpp",
+    darwin: item => item.backend === "gemxcpp",
+  },
+  {
     // Every language consumes backend.proto: Dockerfile.python COPYs it, Go
     // backends regenerate their stubs from it via `make protogen-go`, the C++
     // CMakeLists compile backend.pb.cc from it, and the Rust crate Makefile
