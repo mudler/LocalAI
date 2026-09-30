@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -56,10 +57,10 @@ func (s *backendSupervisor) runningModels() []workerctl.RunningModelInfo {
 	return running
 }
 
-// handleModelsRunning answers a models.running request with this worker's live
+// modelsRunning answers a models.running request with this worker's live
 // process set.
-func (s *backendSupervisor) handleModelsRunning(_ []byte, reply func([]byte)) {
+func (s *backendSupervisor) modelsRunning(_ context.Context, _ workerctl.ModelsRunningRequest) workerctl.ModelsRunningReply {
 	running := s.runningModels()
 	xlog.Debug("Answering models.running", "nodeID", s.nodeID, "count", len(running))
-	replyJSON(reply, workerctl.ModelsRunningReply{Models: running})
+	return workerctl.ModelsRunningReply{Models: running}
 }

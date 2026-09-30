@@ -45,11 +45,10 @@ func startModelStopProcess() *process.Process {
 func requestModelStop(s *backendSupervisor, req workerctl.ModelStopRequest) workerctl.ModelStopReply {
 	data, err := json.Marshal(req)
 	Expect(err).NotTo(HaveOccurred())
-	var response []byte
-	s.handleModelStop(data, func(data []byte) { response = append([]byte(nil), data...) })
-	var reply workerctl.ModelStopReply
-	Expect(json.Unmarshal(response, &reply)).To(Succeed())
-	return reply
+	reply, undecodable := unary(decodeJSON[workerctl.ModelStopRequest], refuseModelStop, s.stopModelExactCtx)(context.Background(), data)
+	Expect(undecodable).NotTo(HaveOccurred())
+	Expect(reply).To(BeAssignableToTypeOf(workerctl.ModelStopReply{}))
+	return reply.(workerctl.ModelStopReply)
 }
 
 var _ = Describe("Acknowledged exact model stop", func() {

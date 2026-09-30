@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/signal"
+	ossignal "os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -215,7 +215,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	basePort := cfg.effectiveBasePort()
 	// Buffered so NATS stop handler can send without blocking
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	ossignal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 	// Set the registration token once before any backends are started
 	if cfg.RegistrationToken != "" {
@@ -258,7 +258,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		}),
 	))
 
-	if err := supervisor.subscribeLifecycleEvents(); err != nil {
+	if err := supervisor.registerLifecycleVerbs(newNATSControlServer(natsClient, nodeID)); err != nil {
 		nodes.ShutdownFileTransferServer(httpServer)
 		return fmt.Errorf("subscribing to worker lifecycle events: %w", err)
 	}
