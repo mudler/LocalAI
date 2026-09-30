@@ -6,7 +6,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/nats-io/nats.go"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
@@ -38,7 +37,7 @@ var _ = Describe("Node liveness probe subject", func() {
 		mc.scriptReply(messaging.SubjectNodeBackendList(nodeID), messaging.BackendListReply{})
 		mc.scriptNoResponders(messaging.SubjectNodeModelsRunning(nodeID))
 
-		Expect(errors.Is(adapter.PingNode(nodeID), nats.ErrNoResponders)).To(BeFalse(),
+		Expect(errors.Is(adapter.PingNode(nodeID), ErrNoRoute)).To(BeFalse(),
 			"a worker answering backend.list is alive regardless of newer subjects")
 	})
 
@@ -46,6 +45,6 @@ var _ = Describe("Node liveness probe subject", func() {
 		mc.scriptNoResponders(messaging.SubjectNodeBackendList(nodeID))
 		mc.scriptNoResponders(messaging.SubjectNodeModelsRunning(nodeID))
 
-		Expect(errors.Is(adapter.PingNode(nodeID), nats.ErrNoResponders)).To(BeTrue())
+		Expect(errors.Is(adapter.PingNode(nodeID), ErrNoRoute)).To(BeTrue())
 	})
 })

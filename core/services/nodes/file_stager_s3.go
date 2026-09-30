@@ -94,7 +94,7 @@ func (s *S3NATSFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, 
 
 	// Send NATS request-reply to backend
 	subject := messaging.SubjectNodeFilesEnsure(nodeID)
-	reply, err := messaging.RequestJSON[fileEnsureRequest, fileEnsureReply](s.nats, subject, fileEnsureRequest{Key: key}, 10*time.Minute)
+	reply, err := controlRequestJSON[fileEnsureRequest, fileEnsureReply](s.nats, subject, fileEnsureRequest{Key: key}, 10*time.Minute)
 	if err != nil {
 		return "", err
 	}
@@ -124,7 +124,7 @@ func (s *S3NATSFileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, lo
 
 func (s *S3NATSFileStager) fetchRemoteWithKey(ctx context.Context, nodeID, remotePath, key, localDst string, cleanup bool) error {
 	subject := messaging.SubjectNodeFilesStage(nodeID)
-	reply, err := messaging.RequestJSON[fileStageRequest, fileStageReply](s.nats, subject, fileStageRequest{LocalPath: remotePath, Key: key}, 10*time.Minute)
+	reply, err := controlRequestJSON[fileStageRequest, fileStageReply](s.nats, subject, fileStageRequest{LocalPath: remotePath, Key: key}, 10*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func (s *S3NATSFileStager) fetchRemoteWithKey(ctx context.Context, nodeID, remot
 // AllocRemoteTemp asks the backend to allocate a temp file via NATS request-reply.
 func (s *S3NATSFileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (string, error) {
 	subject := messaging.SubjectNodeFilesTemp(nodeID)
-	reply, err := messaging.RequestJSON[fileTempRequest, fileTempReply](s.nats, subject, fileTempRequest{}, 30*time.Second)
+	reply, err := controlRequestJSON[fileTempRequest, fileTempReply](s.nats, subject, fileTempRequest{}, 30*time.Second)
 	if err != nil {
 		return "", err
 	}
@@ -167,7 +167,7 @@ func (s *S3NATSFileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (
 
 func (s *S3NATSFileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix string) ([]string, error) {
 	subject := messaging.SubjectNodeFilesListDir(nodeID)
-	reply, err := messaging.RequestJSON[fileListDirRequest, fileListDirReply](s.nats, subject, fileListDirRequest{KeyPrefix: keyPrefix}, 30*time.Second)
+	reply, err := controlRequestJSON[fileListDirRequest, fileListDirReply](s.nats, subject, fileListDirRequest{KeyPrefix: keyPrefix}, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (s *S3NATSFileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix 
 // StageRemoteToStore tells the backend to upload a local file to S3.
 func (s *S3NATSFileStager) StageRemoteToStore(ctx context.Context, nodeID, remotePath, key string) error {
 	subject := messaging.SubjectNodeFilesStage(nodeID)
-	reply, err := messaging.RequestJSON[fileStageRequest, fileStageReply](s.nats, subject, fileStageRequest{LocalPath: remotePath, Key: key}, 10*time.Minute)
+	reply, err := controlRequestJSON[fileStageRequest, fileStageReply](s.nats, subject, fileStageRequest{LocalPath: remotePath, Key: key}, 10*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -247,7 +247,7 @@ func (s *S3NATSFileStager) releaseWorkerKeys(ctx context.Context, nodeID string,
 		}
 		timeout = min(timeout, remaining)
 	}
-	reply, err := messaging.RequestJSON[fileReleaseRequest, fileReleaseReply](
+	reply, err := controlRequestJSON[fileReleaseRequest, fileReleaseReply](
 		s.nats,
 		messaging.SubjectNodeFilesRelease(nodeID),
 		request,

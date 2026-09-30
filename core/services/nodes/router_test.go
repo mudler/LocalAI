@@ -18,7 +18,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/distributedhdr"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
-	"github.com/nats-io/nats.go"
 	ggrpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
@@ -582,7 +581,7 @@ func (f *fakeUnloader) PingNode(nodeID string) error {
 	dead := f.deadNodes[nodeID]
 	f.mu.Unlock()
 	if dead {
-		return nats.ErrNoResponders
+		return ErrNoRoute
 	}
 	return f.pingErr
 }

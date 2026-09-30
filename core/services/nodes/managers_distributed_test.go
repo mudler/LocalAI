@@ -915,12 +915,12 @@ var _ = Describe("DistributedBackendManager", func() {
 		})
 
 		// Rolling-update fallback: pre-2026-05-08 workers don't subscribe to
-		// backend.upgrade, so the manager catches nats.ErrNoResponders and
+		// backend.upgrade, so the adapter reports ErrNoRoute and the manager
 		// re-fires the legacy backend.install Force=true on the same node.
 		// Drop these specs once the fallback path itself is removed (see
 		// managers_distributed.go UpgradeBackend godoc for the deprecation).
 		Context("rolling-update fallback", func() {
-			It("falls back to backend.install Force=true when upgrade returns ErrNoResponders", func() {
+			It("falls back to backend.install Force=true when upgrade returns ErrNoRoute", func() {
 				n := registerHealthyBackend("worker-old", "10.0.0.1:50051")
 				scriptInstalled("vllm-development", n.ID)
 
@@ -934,7 +934,7 @@ var _ = Describe("DistributedBackendManager", func() {
 				Expect(mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)).To(Succeed())
 			})
 
-			It("returns the upgrade error when it is not ErrNoResponders", func() {
+			It("returns the upgrade error when it is not ErrNoRoute", func() {
 				n := registerHealthyBackend("worker-bad", "10.0.0.1:50051")
 				scriptInstalled("vllm-development", n.ID)
 

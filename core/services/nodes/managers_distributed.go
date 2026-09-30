@@ -14,7 +14,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
-	"github.com/nats-io/nats.go"
 )
 
 // DistributedModelManager wraps a local ModelManager and adds NATS fan-out
@@ -213,8 +212,8 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			continue
 		}
 
-		// Record failure for backoff. If it's an ErrNoResponders, the node's
-		// gone AWOL - mark unhealthy so the router stops picking it too.
+		// Record failure for backoff. If there is no route to the node, mark it
+		// unhealthy so the router stops picking it too.
 		errMsg := applyErr.Error()
 
 		// Worker-still-installing is a "soft" failure: the worker is most
@@ -234,8 +233,8 @@ func (d *DistributedBackendManager) enqueueAndDrainBackendOp(ctx context.Context
 			continue
 		}
 
-		if errors.Is(applyErr, nats.ErrNoResponders) {
-			xlog.Warn("No NATS responders for node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
+		if errors.Is(applyErr, ErrNoRoute) {
+			xlog.Warn("No route to node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
 			d.registry.MarkUnhealthy(ctx, node.ID)
 		}
 		if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
@@ -333,7 +332,7 @@ func (d *DistributedBackendManager) DeleteBackendDetailed(ctx context.Context, n
 // Pending/offline/draining nodes are skipped because they aren't expected to
 // answer NATS requests, and so are non-backend workers, which do not subscribe
 // to backend.list at all; unhealthy backend nodes are still queried —
-// ErrNoResponders then marks them unhealthy and the loop continues.
+// ErrNoRoute then marks them unhealthy and the loop continues.
 func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, error) {
 	result := make(gallery.SystemBackends)
 	allNodes, err := d.registry.List(context.Background())
@@ -346,7 +345,7 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 			continue
 		}
 		// Only backend workers subscribe to backend.list. Asking an agent
-		// worker can only answer "no responders", which the error handling
+		// worker can only answer "no route", which the error handling
 		// below reads as a node that has gone away, so every poll of this view
 		// marked every agent node unhealthy and its next heartbeat marked it
 		// healthy again. The backend-op fan-out skips them for the same reason.
@@ -355,8 +354,8 @@ func (d *DistributedBackendManager) ListBackends() (gallery.SystemBackends, erro
 		}
 		reply, err := d.adapter.ListBackends(node.ID)
 		if err != nil {
-			if errors.Is(err, nats.ErrNoResponders) {
-				xlog.Warn("No NATS responders for node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
+			if errors.Is(err, ErrNoRoute) {
+				xlog.Warn("No route to node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
 				d.registry.MarkUnhealthy(context.Background(), node.ID)
 				continue
 			}
@@ -538,7 +537,7 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 // worker has no platform variant for a linux-only backend) and leaves a
 // forever-retrying pending_backend_ops row.
 //
-// Rolling-update fallback: when a worker returns nats.ErrNoResponders on
+// Rolling-update fallback: when a worker returns ErrNoRoute on
 // backend.upgrade, we try the legacy backend.install Force=true path so a
 // new master + old worker still converges. Drop the fallback once every
 // worker in the fleet is on 2026-05-08 or newer.
@@ -601,7 +600,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 		if err != nil {
 			// Rolling-update fallback: an older worker doesn't know
 			// backend.upgrade. Try the legacy install-with-force path.
-			if errors.Is(err, nats.ErrNoResponders) {
+			if errors.Is(err, ErrNoRoute) {
 				instReply, instErr := d.adapter.installWithForceFallback(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
 				if instErr != nil {
 					return instErr

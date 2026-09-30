@@ -470,7 +470,7 @@ var _ = Describe("RemoteUnloaderAdapter NATS timeout handling", func() {
 		_, err := adapter.InstallBackend("n1", "vllm", "", "[]", "", "", "", 0, "", nil)
 		Expect(err).To(HaveOccurred())
 		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeFalse())
-		Expect(errors.Is(err, nats.ErrNoResponders)).To(BeTrue())
+		Expect(errors.Is(err, ErrNoRoute)).To(BeTrue())
 	})
 })
 

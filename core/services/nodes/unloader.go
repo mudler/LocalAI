@@ -5,10 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
-
-	"github.com/nats-io/nats.go"
 
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -26,9 +23,12 @@ import (
 // UpgradeBackend is the destructive force-reinstall path: the worker stops
 // every live process for the backend, re-pulls the gallery artifact, and
 // replies. Caller (DistributedBackendManager.UpgradeBackend) handles
-// rolling-update fallback to the legacy install Force=true path on
-// nats.ErrNoResponders for old workers that don't subscribe to the new
-// backend.upgrade subject.
+// rolling-update fallback to the legacy install Force=true path.
+//
+// PingNode returns ErrNoRoute when nothing answers for the node, which is the
+// only condition callers may read as "this node cannot be given work".
+// UpgradeBackend returns ErrNoRoute on an old worker that does not serve
+// backend.upgrade, and the caller falls back to the legacy install.
 type NodeCommandSender interface {
 	InstallBackend(nodeID, backendType, modelID, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(messaging.BackendInstallProgressEvent)) (*messaging.BackendInstallReply, error)
 	UpgradeBackend(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(messaging.BackendInstallProgressEvent)) (*messaging.BackendUpgradeReply, error)
@@ -37,8 +37,7 @@ type NodeCommandSender interface {
 	StopBackend(nodeID, backend string) error
 	UnloadModelOnNode(nodeID, modelName string) error
 	// PingNode reports whether the node is still subscribed on the bus. It
-	// returns nats.ErrNoResponders when nothing answers for the node, which is
-	// the only condition callers may read as "this node cannot be given work".
+	// returns ErrNoRoute when nothing answers for the node.
 	PingNode(nodeID string) error
 }
 
@@ -106,7 +105,7 @@ func (a *RemoteUnloaderAdapter) StopModelReplica(ctx context.Context, nodeID str
 	}
 	done := make(chan result, 1)
 	go func() {
-		reply, err := messaging.RequestJSON[messaging.ModelStopRequest, messaging.ModelStopReply](a.nats, messaging.SubjectNodeModelStop(nodeID), messaging.ModelStopRequest{
+		reply, err := controlRequestJSON[messaging.ModelStopRequest, messaging.ModelStopReply](a.nats, messaging.SubjectNodeModelStop(nodeID), messaging.ModelStopRequest{
 			ModelName:       replica.ModelName,
 			ProcessKey:      model.BackendProcessKey(replica.ModelName, replica.ReplicaIndex),
 			ExpectedAddress: replica.Address,
@@ -222,7 +221,7 @@ func (a *RemoteUnloaderAdapter) InstallBackend(
 	// request so we don't miss early events.
 	sub := a.subscribeProgress(nodeID, opID, onProgress)
 
-	reply, err := messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
+	reply, err := controlRequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
 		ModelID:          modelID,
 		BackendGalleries: galleriesJSON,
@@ -299,7 +298,7 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 
 	sub := a.subscribeProgress(nodeID, opID, onProgress)
 
-	reply, err := messaging.RequestJSON[messaging.BackendUpgradeRequest, messaging.BackendUpgradeReply](a.nats, subject, messaging.BackendUpgradeRequest{
+	reply, err := controlRequestJSON[messaging.BackendUpgradeRequest, messaging.BackendUpgradeReply](a.nats, subject, messaging.BackendUpgradeRequest{
 		Backend:          backendType,
 		BackendGalleries: galleriesJSON,
 		URI:              uri,
@@ -327,7 +326,7 @@ func (a *RemoteUnloaderAdapter) UpgradeBackend(nodeID, backendType, galleriesJSO
 
 // installWithForceFallback is the rolling-update fallback used by
 // DistributedBackendManager.UpgradeBackend when backend.upgrade returns
-// nats.ErrNoResponders (the worker is on a pre-2026-05-08 build that
+// ErrNoRoute (the worker is on a pre-2026-05-08 build that
 // doesn't subscribe to the new subject). It re-fires the legacy
 // backend.install with Force=true. Drop this once every worker is on
 // 2026-05-08 or newer.
@@ -337,7 +336,7 @@ func (a *RemoteUnloaderAdapter) installWithForceFallback(nodeID, backendType, ga
 
 	sub := a.subscribeProgress(nodeID, opID, onProgress)
 
-	reply, err := messaging.RequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
+	reply, err := controlRequestJSON[messaging.BackendInstallRequest, messaging.BackendInstallReply](a.nats, subject, messaging.BackendInstallRequest{
 		Backend:          backendType,
 		BackendGalleries: galleriesJSON,
 		URI:              uri,
@@ -366,7 +365,7 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 	subject := messaging.SubjectNodeBackendList(nodeID)
 	xlog.Debug("Sending NATS backend.list", "nodeID", nodeID)
 
-	return messaging.RequestJSON[messaging.BackendListRequest, messaging.BackendListReply](a.nats, subject, messaging.BackendListRequest{}, 30*time.Second)
+	return controlRequestJSON[messaging.BackendListRequest, messaging.BackendListReply](a.nats, subject, messaging.BackendListRequest{}, 30*time.Second)
 }
 
 // PingNode checks that a worker still has a live subscription on the bus.
@@ -385,7 +384,7 @@ func (a *RemoteUnloaderAdapter) ListBackends(nodeID string) (*messaging.BackendL
 // it is the safer question to ask.
 //
 // A worker that answers anything is alive. Only when every subject reports no
-// responders is the node treated as absent, so adding a newer subject here can
+// route is the node treated as absent, so adding a newer subject here can
 // never condemn an older worker.
 func (a *RemoteUnloaderAdapter) PingNode(nodeID string) error {
 	subjects := []string{
@@ -394,12 +393,12 @@ func (a *RemoteUnloaderAdapter) PingNode(nodeID string) error {
 	}
 	var lastErr error
 	for _, subject := range subjects {
-		_, err := messaging.RequestJSON[messaging.BackendListRequest, messaging.BackendListReply](
+		_, err := controlRequestJSON[messaging.BackendListRequest, messaging.BackendListReply](
 			a.nats, subject, messaging.BackendListRequest{}, 5*time.Second)
 		if err == nil {
 			return nil
 		}
-		if !errors.Is(err, nats.ErrNoResponders) {
+		if !errors.Is(err, ErrNoRoute) {
 			// Reached someone, or failed for a reason that is not absence.
 			// Either way the node is not proven gone.
 			return nil
@@ -418,7 +417,7 @@ func (a *RemoteUnloaderAdapter) PingNode(nodeID string) error {
 // "nothing running".
 func (a *RemoteUnloaderAdapter) ListRunningModels(nodeID string) (*messaging.ModelsRunningReply, error) {
 	subject := messaging.SubjectNodeModelsRunning(nodeID)
-	return messaging.RequestJSON[messaging.ModelsRunningRequest, messaging.ModelsRunningReply](
+	return controlRequestJSON[messaging.ModelsRunningRequest, messaging.ModelsRunningReply](
 		a.nats, subject, messaging.ModelsRunningRequest{}, 10*time.Second)
 }
 
@@ -461,10 +460,10 @@ func (a *RemoteUnloaderAdapter) stopBackend(nodeID, backend string, force bool) 
 	subject := messaging.SubjectNodeBackendStop(nodeID)
 	req := messaging.BackendStopRequest{Backend: backend, Force: force}
 
-	reply, err := messaging.RequestJSON[messaging.BackendStopRequest, messaging.BackendStopReply](
+	reply, err := controlRequestJSON[messaging.BackendStopRequest, messaging.BackendStopReply](
 		a.nats, subject, req, backendStopAckTimeout)
 	if err != nil {
-		if errors.Is(err, nats.ErrTimeout) {
+		if isStrictRequestTimeout(err) {
 			xlog.Warn("Worker did not acknowledge backend.stop; assuming an older worker delivered it",
 				"nodeID", nodeID, "backend", backend, "force", force)
 			return nil
@@ -494,7 +493,7 @@ func (a *RemoteUnloaderAdapter) DeleteBackend(nodeID, backendName string) (*mess
 	subject := messaging.SubjectNodeBackendDelete(nodeID)
 	xlog.Info("Sending NATS backend.delete", "nodeID", nodeID, "backend", backendName)
 
-	reply, err := messaging.RequestJSON[messaging.BackendDeleteRequest, messaging.BackendDeleteReply](a.nats, subject, messaging.BackendDeleteRequest{Backend: backendName}, 2*time.Minute)
+	reply, err := controlRequestJSON[messaging.BackendDeleteRequest, messaging.BackendDeleteReply](a.nats, subject, messaging.BackendDeleteRequest{Backend: backendName}, 2*time.Minute)
 	if err != nil {
 		return reply, err
 	}
@@ -551,7 +550,7 @@ func (a *RemoteUnloaderAdapter) UnloadModelOnNode(nodeID, modelName string) erro
 	subject := messaging.SubjectNodeModelUnload(nodeID)
 	xlog.Info("Sending NATS model.unload", "nodeID", nodeID, "model", modelName)
 
-	reply, err := messaging.RequestJSON[messaging.ModelUnloadRequest, messaging.ModelUnloadReply](a.nats, subject, messaging.ModelUnloadRequest{ModelName: modelName}, 30*time.Second)
+	reply, err := controlRequestJSON[messaging.ModelUnloadRequest, messaging.ModelUnloadReply](a.nats, subject, messaging.ModelUnloadRequest{ModelName: modelName}, 30*time.Second)
 	if err != nil {
 		return err
 	}
@@ -574,7 +573,7 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 		subject := messaging.SubjectNodeModelDelete(node.ID)
 		xlog.Info("Sending NATS model.delete", "nodeID", node.ID, "model", modelName)
 
-		reply, err := messaging.RequestJSON[messaging.ModelDeleteRequest, messaging.ModelDeleteReply](a.nats, subject, messaging.ModelDeleteRequest{ModelName: modelName}, 30*time.Second)
+		reply, err := controlRequestJSON[messaging.ModelDeleteRequest, messaging.ModelDeleteReply](a.nats, subject, messaging.ModelDeleteRequest{ModelName: modelName}, 30*time.Second)
 		if err != nil {
 			xlog.Warn("model.delete failed on node", "node", node.Name, "error", err)
 			continue
@@ -590,15 +589,4 @@ func (a *RemoteUnloaderAdapter) DeleteModelFiles(modelName string) error {
 func (a *RemoteUnloaderAdapter) StopNode(nodeID string) error {
 	subject := messaging.SubjectNodeStop(nodeID)
 	return a.nats.Publish(subject, nil)
-}
-
-// isNATSTimeout returns true if err looks like a NATS request-reply timeout.
-// nats.ErrTimeout is the canonical sentinel; context.DeadlineExceeded can
-// also surface depending on the client's path; we accept both, plus a
-// string-match fallback for clients that return a bare error.
-func isNATSTimeout(err error) bool {
-	if errors.Is(err, nats.ErrTimeout) || errors.Is(err, context.DeadlineExceeded) {
-		return true
-	}
-	return err != nil && strings.Contains(err.Error(), "nats: timeout")
 }
