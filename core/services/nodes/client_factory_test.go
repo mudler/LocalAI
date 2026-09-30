@@ -14,14 +14,16 @@ import (
 // recordingFactory records the node id and address of every client it builds,
 // so a spec can assert that each consumer passes the node it is dialing.
 type recordingFactory struct {
-	mu   sync.Mutex
-	seen []string
-	next func() grpc.Backend
+	mu       sync.Mutex
+	seen     []string
+	parallel []bool
+	next     func() grpc.Backend
 }
 
-func (f *recordingFactory) NewClient(nodeID, address string, _ bool) grpc.Backend {
+func (f *recordingFactory) NewClient(nodeID, address string, parallel bool) grpc.Backend {
 	f.mu.Lock()
 	f.seen = append(f.seen, nodeID+"@"+address)
+	f.parallel = append(f.parallel, parallel)
 	f.mu.Unlock()
 	if f.next != nil {
 		return f.next()
@@ -33,6 +35,14 @@ func (f *recordingFactory) calls() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]string(nil), f.seen...)
+}
+
+// parallelFlags returns the parallel argument of every build, in call order,
+// so a spec can pin whether a consumer asks for a serialised client.
+func (f *recordingFactory) parallelFlags() []bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]bool(nil), f.parallel...)
 }
 
 var _ = Describe("Backend client construction carries the node id", func() {

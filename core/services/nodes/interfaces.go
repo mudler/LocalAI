@@ -148,10 +148,7 @@ type NodeManager interface {
 
 // BackendClientFactory creates gRPC backend clients. It takes the node id
 // because a dialer that must know WHICH node it is reaching, as a tunnel does,
-// cannot recover it from the address; a direct dialer ignores it. It is not yet
-// every dial: grpcModelProber in reconciler.go still dials the backend address
-// directly, and must be routed through the factory before a non-direct dialer
-// is added.
+// cannot recover it from the address; a direct dialer ignores it.
 type BackendClientFactory interface {
 	NewClient(nodeID, address string, parallel bool) grpc.Backend
 }

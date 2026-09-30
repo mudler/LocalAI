@@ -183,12 +183,14 @@ var _ = Describe("revision eligibility consumers", func() {
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{Registry: registry, DB: db, Prober: prober, ProbeStaleAfter: time.Minute})
 			rc.probeLoadedModels(ctx)
 			Expect(prober.addresses).To(ConsistOf("current"))
+			Expect(prober.nodeIDs).To(ConsistOf(nodes["current"].ID))
 		}),
 		Entry("sweepLeakedInFlight", func(prober *recordingEligibilityProber, _ *recordingEligibilityLister) {
 			Expect(db.Model(&NodeModel{}).Where("model_name = ?", modelName).Updates(map[string]any{"in_flight": 1, "last_used": time.Now().Add(-2 * inFlightLeakIdleAfter)}).Error).To(Succeed())
 			rc := NewReplicaReconciler(ReplicaReconcilerOptions{Registry: registry, DB: db, Prober: prober})
 			rc.sweepLeakedInFlight(ctx)
 			Expect(prober.addresses).To(ConsistOf("current"))
+			Expect(prober.nodeIDs).To(ConsistOf(nodes["current"].ID))
 		}),
 		Entry("reconcileNodeProcesses", func(_ *recordingEligibilityProber, lister *recordingEligibilityLister) {
 			lister.running = map[string][]messaging.RunningModelInfo{nodes["current"].ID: {{ModelID: modelName, ReplicaIndex: 0}}}
@@ -262,10 +264,11 @@ var _ = Describe("revision eligibility consumers", func() {
 	})
 })
 
-type recordingEligibilityProber struct{ addresses []string }
+type recordingEligibilityProber struct{ addresses, nodeIDs []string }
 
-func (p *recordingEligibilityProber) Probe(_ context.Context, address string) ProbeOutcome {
+func (p *recordingEligibilityProber) Probe(_ context.Context, nodeID, address string) ProbeOutcome {
 	p.addresses = append(p.addresses, address)
+	p.nodeIDs = append(p.nodeIDs, nodeID)
 	return ProbeAlive
 }
 

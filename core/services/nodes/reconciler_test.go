@@ -734,14 +734,17 @@ var _ = Describe("ReplicaReconciler", func() {
 })
 
 // fakeProber lets tests control how a model's gRPC address "responds".
-// Addresses with no entry default to ProbeUnreachable.
+// Addresses with no entry default to ProbeUnreachable. It records the node id
+// of every probe so specs can check the reconciler names the node it dials.
 type fakeProber struct {
 	outcomes map[string]ProbeOutcome
 	calls    int
+	nodeIDs  []string
 }
 
-func (f *fakeProber) Probe(_ context.Context, address string) ProbeOutcome {
+func (f *fakeProber) Probe(_ context.Context, nodeID, address string) ProbeOutcome {
 	f.calls++
+	f.nodeIDs = append(f.nodeIDs, nodeID)
 	if f.outcomes == nil {
 		return ProbeUnreachable
 	}
@@ -837,6 +840,31 @@ var _ = Describe("ReplicaReconciler — state reconciliation", func() {
 			var after NodeModel
 			Expect(db.First(&after, "id = ?", "stale-2").Error).To(Succeed())
 			Expect(after.UpdatedAt).To(BeTemporally("~", time.Now(), time.Second))
+		})
+
+		It("probes each replica under the node id of its row", func() {
+			node := &BackendNode{Name: "n1", NodeType: NodeTypeBackend, Address: "10.0.0.1:50051"}
+			Expect(registry.Register(context.Background(), node, true)).To(Succeed())
+			Expect(db.Create(&NodeModel{
+				ID:        "stale-3",
+				NodeID:    node.ID,
+				ModelName: "probed-model",
+				Address:   "10.0.0.1:12345",
+				State:     "loaded",
+				UpdatedAt: time.Now().Add(-5 * time.Minute),
+			}).Error).To(Succeed())
+
+			prober := &fakeProber{outcomes: map[string]ProbeOutcome{"10.0.0.1:12345": ProbeAlive}}
+			rc := NewReplicaReconciler(ReplicaReconcilerOptions{
+				Registry:        registry,
+				DB:              db,
+				Prober:          prober,
+				ProbeStaleAfter: 2 * time.Minute,
+			})
+
+			rc.probeLoadedModels(context.Background())
+
+			Expect(prober.nodeIDs).To(Equal([]string{node.ID}))
 		})
 	})
 

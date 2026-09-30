@@ -12,7 +12,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
-	grpcclient "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -40,7 +39,7 @@ const (
 // Defaulted to a gRPC health probe but overridable for tests so we don't
 // need to stand up a real server.
 type ModelProber interface {
-	Probe(ctx context.Context, address string) ProbeOutcome
+	Probe(ctx context.Context, nodeID, address string) ProbeOutcome
 }
 
 // NodeProcessLister asks a worker which model backend processes it currently
@@ -61,10 +60,10 @@ type NodeProcessLister interface {
 const probeTimeout = 1 * time.Second
 
 // grpcModelProber does a short HealthCheck on the model's stored gRPC address.
-type grpcModelProber struct{ token string }
+type grpcModelProber struct{ clients BackendClientFactory }
 
-func (g grpcModelProber) Probe(ctx context.Context, address string) ProbeOutcome {
-	client := grpcclient.NewClientWithToken(address, false, nil, false, g.token)
+func (g grpcModelProber) Probe(ctx context.Context, nodeID, address string) ProbeOutcome {
+	client := g.clients.NewClient(nodeID, address, false)
 	probeCtx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 	ok, err := client.HealthCheck(probeCtx)
@@ -219,7 +218,7 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 	}
 	prober := opts.Prober
 	if prober == nil {
-		prober = grpcModelProber{token: opts.RegistrationToken}
+		prober = grpcModelProber{clients: &tokenClientFactory{token: opts.RegistrationToken}}
 	}
 	pressureThreshold := opts.PressureThreshold
 	if pressureThreshold == 0 {
@@ -479,7 +478,7 @@ func (rc *ReplicaReconciler) probeLoadedModels(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		switch rc.prober.Probe(ctx, m.Address) {
+		switch rc.prober.Probe(ctx, m.NodeID, m.Address) {
 		case ProbeAlive:
 			rc.clearProbeFailures(m.ID)
 			// Bump updated_at so we don't probe this row again immediately.
@@ -562,7 +561,7 @@ func (rc *ReplicaReconciler) sweepLeakedInFlight(ctx context.Context) {
 			return
 		}
 		seen[m.ID] = struct{}{}
-		if rc.prober.Probe(ctx, m.Address) != ProbeAlive {
+		if rc.prober.Probe(ctx, m.NodeID, m.Address) != ProbeAlive {
 			// Busy or unreachable. Busy means the counter may well be real;
 			// unreachable is the reaper's business, not the sweeper's.
 			rc.clearInFlightIdle(m.ID)
