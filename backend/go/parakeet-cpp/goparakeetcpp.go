@@ -104,6 +104,21 @@ var (
 	CppSceneStreamFeedJSON        func(s uintptr, pcm *float32, n int32, isLast int32) uintptr
 	CppSceneStreamLastError       func(s uintptr) string
 	CppSceneStreamFree            func(s uintptr)
+
+	// Speaker identification. CppSpeakerDim, the registry, CppSceneStreamBeginSpeaker and
+	// CppTranscribeAndDiarizeNamedJSON are ABI v9; CppSpeakerRegistryAddEmbedding and
+	// CppDiarizeNamedPCMJSON are ABI v10. All are nil on an older libparakeet.so, and
+	// Load refuses speaker_model: unless the v10 ones are present.
+	CppSpeakerDim                  func(ctx uintptr) int32
+	CppSpeakerRegistryNew          func() uintptr
+	CppSpeakerRegistryFree         func(reg uintptr)
+	CppSpeakerRegistryAddEmbedding func(reg uintptr, name string, emb *float32, dim int32) int32
+	CppSpeakerRegistryLastError    func(reg uintptr) string
+	CppSceneStreamBeginSpeaker     func(asr, diar, tagger, speaker, reg uintptr, o *cSceneOpts) uintptr
+	// CppDiarizeNamedPCMJSON takes two float32 arguments (acceptThreshold, margin), which
+	// purego passes in floating-point registers. Not exercised without the real library.
+	CppDiarizeNamedPCMJSON           func(diar, speaker, reg uintptr, samples *float32, n, sampleRate int32, acceptThreshold, margin float32) uintptr
+	CppTranscribeAndDiarizeNamedJSON func(asr, diar, speaker, reg uintptr, samples *float32, n, sampleRate int32) uintptr
 )
 
 // cSoundOpts and cSceneOpts mirror parakeet_sound_opts / parakeet_scene_opts
@@ -121,6 +136,14 @@ type cSceneOpts struct {
 	DiarLatency int32
 	Sound       cSoundOpts
 	Flags       int32
+	// Speaker identification (parakeet_scene_opts, ABI v9). The C side reads
+	// these only when Size covers them, so a Go struct built against a v9
+	// library and run against a v8 one is still valid.
+	SpeakerAcceptThreshold float32
+	SpeakerMargin          float32
+	SpeakerMinVoiceSec     float32
+	SpeakerRefreshSec      float32
+	SpeakerMaxVoiceSec     float32
 }
 
 // streamChunkSamples is how much 16 kHz mono PCM we hand to stream_feed per
@@ -193,6 +216,12 @@ type ParakeetCpp struct {
 	// companion. See roles.go.
 	diarCtx uintptr
 	tagCtx  uintptr
+	// spkCtx is the speaker encoder context (speaker_model: companion); 0 when speaker
+	// naming is off. speakerAccept is the cosine acceptance threshold and speakerMargin
+	// the runner-up margin, both from the model options.
+	spkCtx        uintptr
+	speakerAccept float32
+	speakerMargin float32
 	// diarLatency is the PARAKEET_DIAR_LATENCY_* mode for diarization
 	// streaming (diarization_latency: option, default "low"). Unused until
 	// the diarization/scene streaming paths land.
@@ -953,7 +982,7 @@ func (p *ParakeetCpp) Free() error {
 	// re-checks ctxPtr under the lock) can never feed into a freed ctx.
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
-	for _, ctxField := range [...]*uintptr{&p.ctxPtr, &p.diarCtx, &p.tagCtx} {
+	for _, ctxField := range [...]*uintptr{&p.ctxPtr, &p.diarCtx, &p.tagCtx, &p.spkCtx} {
 		if *ctxField != 0 {
 			CppFree(*ctxField)
 			*ctxField = 0
