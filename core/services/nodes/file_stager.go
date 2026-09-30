@@ -16,8 +16,9 @@ import (
 //  2. HTTPFileStager (fallback): Frontend pushes/pulls files directly over
 //     HTTP to a small file transfer server on the backend node (no S3 needed).
 //
-// Methods return ErrNoRoute when the node cannot be reached; see ErrNoRoute for
-// what a caller may do with it.
+// S3NATSFileStager returns ErrNoRoute when nothing is listening for the node;
+// HTTPFileStager reports connection failures as ordinary errors. See ErrNoRoute
+// for what a caller may do with it.
 type FileStager interface {
 	// EnsureRemote ensures a local file is available on the remote node.
 	// Returns the remote-local path.
