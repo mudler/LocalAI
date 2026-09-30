@@ -19,9 +19,11 @@ import (
 )
 
 type fakeLLMRequest struct {
-	Model    string
-	Stream   bool
-	Messages []map[string]any
+	Model      string
+	Stream     bool
+	Messages   []map[string]any
+	Tools      []string
+	ToolChoice any
 }
 
 // fakeLLM is an OpenAI-compatible chat endpoint. The standalone pool reaches its
@@ -32,6 +34,8 @@ type fakeLLM struct {
 	mu       sync.Mutex
 	reply    string
 	requests []fakeLLMRequest
+	toolName string
+	toolArgs string
 }
 
 func newFakeLLM(reply string) *fakeLLM {
@@ -49,6 +53,17 @@ func (f *fakeLLM) SetReply(r string) {
 	f.reply = r
 }
 
+// SetToolCall makes the fake answer with one call to the named function until
+// the conversation carries a tool result, then with the plain reply. Keying on
+// the tool message rather than a request counter keeps the fake independent of
+// how many planning requests the agent makes before it runs the tool.
+func (f *fakeLLM) SetToolCall(name, argsJSON string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.toolName = name
+	f.toolArgs = argsJSON
+}
+
 func (f *fakeLLM) Requests() []fakeLLMRequest {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -61,13 +76,44 @@ func (f *fakeLLM) handle(w http.ResponseWriter, r *http.Request) {
 		Model    string           `json:"model"`
 		Stream   bool             `json:"stream"`
 		Messages []map[string]any `json:"messages"`
+		Tools    []struct {
+			Function struct {
+				Name string `json:"name"`
+			} `json:"function"`
+		} `json:"tools"`
+		ToolChoice any `json:"tool_choice"`
 	}
 	_ = json.Unmarshal(body, &req)
 
+	var tools []string
+	for _, t := range req.Tools {
+		tools = append(tools, t.Function.Name)
+	}
+	hasToolResult := false
+	for _, m := range req.Messages {
+		if m["role"] == "tool" {
+			hasToolResult = true
+		}
+	}
+
 	f.mu.Lock()
-	f.requests = append(f.requests, fakeLLMRequest{Model: req.Model, Stream: req.Stream, Messages: req.Messages})
+	f.requests = append(f.requests, fakeLLMRequest{Model: req.Model, Stream: req.Stream, Messages: req.Messages, Tools: tools, ToolChoice: req.ToolChoice})
 	reply := f.reply
+	var toolCall map[string]any
+	if f.toolName != "" && !hasToolResult {
+		toolCall = map[string]any{
+			"index": 0, "id": "call_fake", "type": "function",
+			"function": map[string]any{"name": f.toolName, "arguments": f.toolArgs},
+		}
+	}
 	f.mu.Unlock()
+
+	message := map[string]any{"role": "assistant", "content": reply}
+	finish := "stop"
+	if toolCall != nil {
+		message = map[string]any{"role": "assistant", "content": "", "tool_calls": []map[string]any{toolCall}}
+		finish = "tool_calls"
+	}
 
 	if !req.Stream {
 		w.Header().Set("Content-Type", "application/json")
@@ -75,8 +121,8 @@ func (f *fakeLLM) handle(w http.ResponseWriter, r *http.Request) {
 			"id": "chatcmpl-fake", "object": "chat.completion", "model": req.Model,
 			"choices": []map[string]any{{
 				"index":         0,
-				"message":       map[string]any{"role": "assistant", "content": reply},
-				"finish_reason": "stop",
+				"message":       message,
+				"finish_reason": finish,
 			}},
 			"usage": map[string]any{"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
 		})
@@ -91,8 +137,12 @@ func (f *fakeLLM) handle(w http.ResponseWriter, r *http.Request) {
 		})
 		fmt.Fprintf(w, "data: %s\n\n", b)
 	}
-	chunk(map[string]any{"role": "assistant", "content": reply}, nil)
-	chunk(map[string]any{}, "stop")
+	if toolCall != nil {
+		chunk(map[string]any{"role": "assistant", "tool_calls": []map[string]any{toolCall}}, nil)
+	} else {
+		chunk(map[string]any{"role": "assistant", "content": reply}, nil)
+	}
+	chunk(map[string]any{}, finish)
 	fmt.Fprint(w, "data: [DONE]\n\n")
 	if fl, ok := w.(http.Flusher); ok {
 		fl.Flush()
