@@ -50,6 +50,7 @@ func newConfigOverlay(modelDir, overrides string) (dir string, err error) {
 		return "", fmt.Errorf("vllm-cpp: hf_overrides: %w", err)
 	}
 
+	// #nosec G304 -- absDir is the model directory from the operator's own model config, never a request-supplied path
 	raw, err := os.ReadFile(filepath.Join(absDir, "config.json"))
 	if err != nil {
 		return "", fmt.Errorf("vllm-cpp: hf_overrides needs %s: %w", filepath.Join(absDir, "config.json"), err)
