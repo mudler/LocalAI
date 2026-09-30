@@ -105,13 +105,22 @@ Install one from the gallery and filter on the `decisions` tag:
 |---|---|---|
 | `laya-vllm-cpp` | Laya | ModernBERT-large, non-autoregressive, about 800 MB |
 | `gliner25-decide-vllm-cpp` | GLiNER2.5-Decide | DeBERTa-v3-large with a classification head, about 2 GB |
+| `tev1-4b-vllm-cpp` | Tev1 4B | Autoregressive Qwen3.5-4B fine-tune that answers with an option letter, about 9.3 GB |
+| `tev1-0.8b-vllm-cpp` | Tev1 0.8B | Autoregressive Qwen3.5-0.8B fine-tune that answers with an option letter, about 1.8 GB |
 
 The engine, [vllm.cpp]({{% relref "features/vllm-cpp" %}}), also supports the
 kev, CLM and xor decision models. Those checkpoints need a conversion step, so
 they are not gallery entries yet.
 
-Tev1 is an autoregressive decision model. It answers through chat completions
-and does not serve `/v1/systemone` yet.
+Tev1 is an autoregressive decision model. The engine answers each question by
+scoring the option letters, so its `confidence` is the entropy measure Ollama
+uses. A Tev1 `choice` or `score` question accepts at most 24 options (Ollama
+allows 26), because the model is trained on the letters A to X, and every
+option needs a nonempty description. The published checkpoints name another
+architecture in `config.json`, so the Tev1 gallery entries set
+`engine_args.hf_overrides` to load them as `Tev1Model` (see
+[Overriding config.json keys]({{% relref "features/vllm-cpp" %}}#overriding-configjson-keys-hf_overrides)).
+The same model also answers `/v1/chat/completions` requests.
 
 ## Request limits
 
@@ -127,8 +136,8 @@ A request is refused with `400` (or `413` for the body size) when:
 
 A `noul` question may carry `criteria` with a description for each outcome, for
 example `{"false": "No refund is requested", "true": "The customer requests a refund"}`.
-Some models cap the number of options for a `choice` or `score` question (models
-that answer with a letter accept at most 26). The engine refuses more options than
+Some models cap the number of options for a `choice` or `score` question. Models
+that answer with a letter accept at most 26, and Tev1 accepts at most 24. The engine refuses more options than
 the model supports and the error names the limit.
 
 ## Compatibility with Ollama

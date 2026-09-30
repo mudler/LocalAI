@@ -133,6 +133,39 @@ engine_args:
   tool_parser: qwen3_coder
 ```
 
+## Overriding config.json keys (`hf_overrides`)
+
+`engine_args.hf_overrides` is a JSON object of top-level `config.json` keys that
+the backend merges over the model directory's own `config.json` before the
+engine loads it, like vLLM's `--hf-overrides`. The main use is to opt a published
+checkpoint into an engine adapter that its config does not name. For example,
+the Tev1 repositories declare `Qwen3_5ForConditionalGeneration`, and vllm.cpp
+serves them as decision models only when the architecture is `Tev1Model`:
+
+```yaml
+engine_args:
+  hf_overrides:
+    architectures: ["Tev1Model"]
+```
+
+The downloaded model files do not change. At load the backend creates a private
+temporary directory. It writes the merged `config.json` there and adds a
+symlink for each other entry of the model directory (weights, tokenizer files,
+a `tokenizer/` subdirectory). Then it gives that directory to the engine. When
+the model unloads, the backend removes the directory.
+
+Rules:
+
+- The merge is top-level only. An override key replaces the whole value of that
+  key, including a nested object such as `text_config`.
+- The model must be a directory that contains a `config.json`. A `.gguf` file
+  or a directory without `config.json` fails the load.
+- A value that is not a JSON object (an array, a scalar, or JSON that does not
+  parse) fails the load. The backend does not ignore it, because loading the
+  unchanged config would serve a different architecture than the one you
+  configured.
+- An empty object (`{}`) does nothing.
+
 ## Named entity recognition (GLiNER2.5)
 
 The `vllm-cpp` backend serves [GLiNER2.5](https://huggingface.co/fastino/gliner2.5-multi-v1),
