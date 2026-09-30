@@ -107,10 +107,12 @@ Install one from the gallery and filter on the `decisions` tag:
 | `gliner25-decide-vllm-cpp` | GLiNER2.5-Decide | DeBERTa-v3-large with a classification head, about 2 GB |
 | `tev1-4b-vllm-cpp` | Tev1 4B | Autoregressive Qwen3.5-4B fine-tune that answers with an option letter, about 9.3 GB |
 | `tev1-0.8b-vllm-cpp` | Tev1 0.8B | Autoregressive Qwen3.5-0.8B fine-tune that answers with an option letter, about 1.8 GB |
+| `kev-0.8b-vllm-cpp` | kev 0.8B | Qwen3.5-0.8B-Base with a merged LoRA and a PointerHead readout, converted for vllm.cpp only, about 1.53 GB |
 
 The engine, [vllm.cpp]({{% relref "features/vllm-cpp" %}}), also supports the
-kev, CLM and xor decision models. Those checkpoints need a conversion step, so
-they are not gallery entries yet.
+CLM and xor decision models. Those checkpoints need a conversion step, so
+they are not gallery entries yet. The kev entry installs a checkpoint that was
+already converted with the vllm.cpp `convert-kev.py` script.
 
 Tev1 is an autoregressive decision model. The engine answers each question by
 scoring the option letters, so its `confidence` is the entropy measure Ollama
