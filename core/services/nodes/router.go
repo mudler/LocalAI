@@ -1394,7 +1394,7 @@ func (r *SmartRouter) installBackendOnNode(ctx context.Context, node *BackendNod
 }
 
 func (r *SmartRouter) buildClientForAddr(node *BackendNode, addr string, parallel bool) grpc.Backend {
-	client := newBackendClient(r.clientFactory, node.ID, addr, parallel)
+	client := r.clientFactory.NewClient(node.ID, addr, parallel)
 
 	// Wrap with file staging if configured
 	if r.fileStager != nil {

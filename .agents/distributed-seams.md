@@ -7,19 +7,17 @@ them must not name NATS, and any new transport is an implementation of them.
 |---|---|---|---|
 | Fan-out | `messaging.Broadcaster` | `core/services/messaging` | NATS client |
 | Control verbs | `nodes.NodeCommandSender`, `nodes.FileStager` | `core/services/nodes` | NATS request/reply (`RemoteUnloaderAdapter`, `S3NATSFileStager`), or HTTP for files (`HTTPFileStager`) |
-| Worker gRPC dial | `nodes.BackendClientFactory`, optional `nodes.NodeBackendClientFactory` | `core/services/nodes` | direct dial, with one exception (below) |
+| Worker gRPC dial | `nodes.BackendClientFactory` (the factory takes the node id) | `core/services/nodes` | direct dial, with one exception (below) |
 
 ## Caveats in the current tree
 
-- The dial seam does not cover every dial yet. Every `BackendClientFactory`
-  call goes through `newBackendClient` in `core/services/nodes/interfaces.go`,
-  but `grpcModelProber.Probe` in `core/services/nodes/reconciler.go` dials the
-  backend address directly and bypasses the factory. Before a non-direct
+- The dial seam does not cover every dial yet. The factory takes the node id,
+  so a dialer can tell which node it is reaching, but `grpcModelProber.Probe`
+  in `core/services/nodes/reconciler.go` dials the backend address directly
+  and bypasses the factory. Before a non-direct
   dialer (for example a tunnel) is added, `ModelProber.Probe` needs a node id
   and must be routed through the factory, or the reconciler's liveness probe
   will try to reach an address that is not routable from the frontend.
-- When a factory implements both `NewClient` and `NewNodeClient`,
-  `NewNodeClient` wins. A wrapper around a factory must override both.
 - `FileStager` implementations do not report absence the same way.
   `S3NATSFileStager` returns `nodes.ErrNoRoute` when nothing is listening for
   the node. `HTTPFileStager` reports connection failures as ordinary errors.

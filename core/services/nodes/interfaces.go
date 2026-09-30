@@ -146,30 +146,14 @@ type NodeManager interface {
 	RemoveAllNodeModelReplicas(ctx context.Context, nodeID, modelName string) error
 }
 
-// BackendClientFactory creates gRPC backend clients.
+// BackendClientFactory creates gRPC backend clients. It takes the node id
+// because a dialer that must know WHICH node it is reaching, as a tunnel does,
+// cannot recover it from the address; a direct dialer ignores it. It is not yet
+// every dial: grpcModelProber in reconciler.go still dials the backend address
+// directly, and must be routed through the factory before a non-direct dialer
+// is added.
 type BackendClientFactory interface {
 	NewClient(nodeID, address string, parallel bool) grpc.Backend
-}
-
-// NodeBackendClientFactory is the optional node-aware form of
-// BackendClientFactory. A dialer that has to know WHICH node it is reaching, as
-// a tunnel does, implements it; a factory that dials the address it is handed
-// implements only NewClient and keeps working. When a factory has both
-// methods, NewNodeClient wins, so a wrapper around one must override both.
-type NodeBackendClientFactory interface {
-	NewNodeClient(nodeID, address string, parallel bool) grpc.Backend
-}
-
-// newBackendClient is where every BackendClientFactory call goes, so a
-// node-aware dialer needs one seam and not one per call site. It is not yet
-// every dial: grpcModelProber in reconciler.go still dials the backend address
-// directly, and must be routed through here before a non-direct dialer is
-// added.
-func newBackendClient(f BackendClientFactory, nodeID, address string, parallel bool) grpc.Backend {
-	if nf, ok := f.(NodeBackendClientFactory); ok {
-		return nf.NewNodeClient(nodeID, address, parallel)
-	}
-	return f.NewClient(nodeID, address, parallel)
 }
 
 // tokenClientFactory is the default BackendClientFactory that creates gRPC
@@ -183,10 +167,4 @@ func (f *tokenClientFactory) NewClient(_, address string, parallel bool) grpc.Ba
 		return grpc.NewClientWithToken(address, parallel, nil, false, f.token)
 	}
 	return grpc.NewClient(address, parallel, nil, false)
-}
-
-// NewNodeClient ignores the node id: this factory dials the address directly,
-// so the address alone already names the target.
-func (f *tokenClientFactory) NewNodeClient(nodeID, address string, parallel bool) grpc.Backend {
-	return f.NewClient(nodeID, address, parallel)
 }

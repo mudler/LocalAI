@@ -189,7 +189,7 @@ func (hm *HealthMonitor) doCheckAll(ctx context.Context) {
 				if m.Address == "" || m.Address == node.Address {
 					continue
 				}
-				mClient := newBackendClient(hm.clientFactory, node.ID, m.Address, false)
+				mClient := hm.clientFactory.NewClient(node.ID, m.Address, false)
 				mCheckCtx, mCancel := context.WithTimeout(ctx, 5*time.Second)
 				ok, _ := mClient.HealthCheck(mCheckCtx)
 				mCancel()
