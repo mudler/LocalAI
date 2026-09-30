@@ -35,4 +35,4 @@ protogen-clean:
 
 .PHONY: clean
 clean: protogen-clean
-	rm -rf __pycache__ sources venv
+	rm -rf __pycache__ sources venv torch_extensions
