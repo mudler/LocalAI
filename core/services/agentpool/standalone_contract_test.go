@@ -136,4 +136,25 @@ var _ = Describe("standalone agent service contract", func() {
 			Expect(out["actions"]).To(HaveLen(1))
 		})
 	})
+
+	Context("pause and resume", func() {
+		It("toggles the active flag reported by the list", func() {
+			svc := startStandalone(dir, llm.URL())
+			DeferCleanup(svc.Stop)
+			Expect(svc.CreateAgentForUser("alice", newAgentConfig("napper"))).To(Succeed())
+			Expect(svc.ListAgentsForUser("alice")).To(HaveKeyWithValue("napper", true))
+
+			Expect(svc.PauseAgentForUser("alice", "napper")).To(Succeed())
+			Expect(svc.ListAgentsForUser("alice")).To(HaveKeyWithValue("napper", false))
+
+			Expect(svc.ResumeAgentForUser("alice", "napper")).To(Succeed())
+			Expect(svc.ListAgentsForUser("alice")).To(HaveKeyWithValue("napper", true))
+		})
+
+		It("reports pausing a missing agent as ErrAgentNotFound", func() {
+			svc := startStandalone(dir, llm.URL())
+			DeferCleanup(svc.Stop)
+			Expect(svc.PauseAgentForUser("alice", "ghost")).To(MatchError(agentpool.ErrAgentNotFound))
+		})
+	})
 })
