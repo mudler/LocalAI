@@ -1,9 +1,13 @@
 package openai
 
 import (
+	"context"
+	"errors"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,5 +51,57 @@ var _ = Describe("renderRTTM", func() {
 		}
 		out := renderRTTM(r, "")
 		Expect(out).To(HavePrefix("SPEAKER audio 1 "))
+	})
+})
+
+type fakeVoiceRegistry struct {
+	voicerecognition.Registry
+	entries []voicerecognition.Entry
+	err     error
+}
+
+func (f fakeVoiceRegistry) List(context.Context) ([]voicerecognition.Entry, error) {
+	return f.entries, f.err
+}
+
+var _ = Describe("attachKnownVoices", func() {
+	ada := voicerecognition.Entry{
+		Metadata:  voicerecognition.Metadata{Name: "Ada", Model: "enc.gguf"},
+		Embedding: []float32{1, 0},
+	}
+
+	It("sends the voices made by the speaker model's encoder", func() {
+		req := backend.DiarizationRequest{}
+		attachKnownVoices(context.Background(), &req, []string{"speaker_model:/models/enc.gguf"},
+			fakeVoiceRegistry{entries: []voicerecognition.Entry{ada}})
+		Expect(req.KnownVoices).To(HaveLen(1))
+		Expect(req.KnownVoices[0].Name).To(Equal("Ada"))
+	})
+
+	It("leaves the request alone without a speaker_model option", func() {
+		req := backend.DiarizationRequest{}
+		attachKnownVoices(context.Background(), &req, []string{"other:x"},
+			fakeVoiceRegistry{entries: []voicerecognition.Entry{ada}})
+		Expect(req.KnownVoices).To(BeEmpty())
+	})
+
+	It("leaves the request alone without a registry", func() {
+		req := backend.DiarizationRequest{}
+		attachKnownVoices(context.Background(), &req, []string{"speaker_model:enc.gguf"}, nil)
+		Expect(req.KnownVoices).To(BeEmpty())
+	})
+
+	It("leaves the request unnamed when the registry cannot be read", func() {
+		req := backend.DiarizationRequest{}
+		attachKnownVoices(context.Background(), &req, []string{"speaker_model:enc.gguf"},
+			fakeVoiceRegistry{err: errors.New("boom")})
+		Expect(req.KnownVoices).To(BeEmpty())
+	})
+
+	It("skips voices made by another encoder", func() {
+		req := backend.DiarizationRequest{}
+		attachKnownVoices(context.Background(), &req, []string{"speaker_model:other.gguf"},
+			fakeVoiceRegistry{entries: []voicerecognition.Entry{ada}})
+		Expect(req.KnownVoices).To(BeEmpty())
 	})
 })

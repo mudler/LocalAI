@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	model "github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/xlog"
@@ -47,7 +49,7 @@ import (
 // @Param response_format formData string false "json (default), verbose_json, or rttm"
 // @Success 200 {object} schema.DiarizationResult
 // @Router /v1/audio/diarization [post]
-func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, registry voicerecognition.Registry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
@@ -69,6 +71,7 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		req.ClusteringThreshold = float32(parseFormFloat(c, "clustering_threshold", 0))
 		req.MinDurationOn = float32(parseFormFloat(c, "min_duration_on", 0))
 		req.MinDurationOff = float32(parseFormFloat(c, "min_duration_off", 0))
+		attachKnownVoices(c.Request().Context(), &req, modelConfig.Options, registry)
 
 		responseFormat := schema.DiarizationResponseFormatType(strings.ToLower(c.FormValue("response_format")))
 		if responseFormat == "" {
@@ -134,6 +137,27 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		default:
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format (expected: json, verbose_json, rttm)")
 		}
+	}
+}
+
+// attachKnownVoices names the speakers from the voice registry when the model
+// has a speaker model. Only voices made by that model's encoder are sent. A
+// missing registry or speaker model, or a registry read error, leaves the
+// request unnamed.
+func attachKnownVoices(ctx context.Context, req *backend.DiarizationRequest, options []string, registry voicerecognition.Registry) {
+	sm := voicerecognition.SpeakerModelFromOptions(options)
+	if sm == "" || registry == nil {
+		return
+	}
+	sel, err := voicerecognition.KnownVoicesFor(ctx, registry, sm)
+	if err != nil {
+		xlog.Warn("diarization: could not read the voice registry; speakers stay unnamed", "error", err)
+		return
+	}
+	req.KnownVoices = sel.Voices
+	if len(sel.Voices) == 0 && sel.OtherEncoder > 0 {
+		xlog.Warn("diarization: registered voices were made with a different encoder than this model's speaker_model; speakers stay unnamed",
+			"speaker_model", sm, "voices_from_other_encoder", sel.OtherEncoder)
 	}
 }
 
