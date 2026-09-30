@@ -9,6 +9,7 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/functions"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -47,7 +48,7 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 			// Frontend side: pass NATS client and call remote
 			result, err := mcpTools.ExecuteMCPToolCallRemote(
 				infra.Ctx,
-				infra.NC,
+				nodes.NewNATSAgentControl(infra.NC),
 				"test-model",
 				config.MCPGenericConfig[config.MCPRemoteServers]{},
 				config.MCPGenericConfig[config.MCPSTDIOServers]{},
@@ -72,7 +73,7 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 
 			_, err = mcpTools.ExecuteMCPToolCallRemote(
 				infra.Ctx,
-				infra.NC,
+				nodes.NewNATSAgentControl(infra.NC),
 				"test-model",
 				config.MCPGenericConfig[config.MCPRemoteServers]{},
 				config.MCPGenericConfig[config.MCPSTDIOServers]{},
@@ -111,7 +112,7 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 
 			result, err := mcpTools.DiscoverMCPToolsRemote(
 				infra.Ctx,
-				infra.NC,
+				nodes.NewNATSAgentControl(infra.NC),
 				"discovery-model",
 				config.MCPGenericConfig[config.MCPRemoteServers]{},
 				config.MCPGenericConfig[config.MCPSTDIOServers]{},

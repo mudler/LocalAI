@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/agents"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/jobs"
@@ -29,6 +30,7 @@ import (
 type DistributedServices struct {
 	Nats         *messaging.Client
 	WorkQueue    messaging.WorkQueue
+	AgentControl mcpTools.AgentControl
 	Store        storage.ObjectStore
 	Registry     *nodes.NodeRegistry
 	Router       *nodes.SmartRouter
@@ -483,6 +485,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	return &DistributedServices{
 		Nats:         natsClient,
 		WorkQueue:    workQueue,
+		AgentControl: nodes.NewNATSAgentControl(natsClient),
 		Store:        store,
 		Registry:     registry,
 		Router:       router,
