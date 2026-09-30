@@ -32,14 +32,22 @@ def _sniff_mime(raw: bytes) -> str:
 
 
 def _image_url(value: str) -> str:
-    if value.startswith(("data:", "http://", "https://")):
+    # Core sends images as base64 or data URLs. Nothing else is accepted: a
+    # file path is never read (the backend must not open arbitrary paths on a
+    # client's behalf), and TensorFold refuses remote URLs unless vision_urls
+    # is set, which this backend does not expose.
+    if value.startswith("data:"):
         return value
-    if os.path.isfile(value):
-        with open(value, "rb") as handle:
-            raw = handle.read()
-        return f"data:{_sniff_mime(raw)};base64,{base64.b64encode(raw).decode()}"
-    raw = base64.b64decode(value, validate=False)
-    return f"data:{_sniff_mime(raw)};base64,{value}"
+    if value.startswith(("http://", "https://")):
+        raise ValueError("image URLs are not supported; send the image as base64 or a data: URL")
+    # Line-wrapped base64 is still valid; strict validation only rejects
+    # characters outside the alphabet, such as the dots of a file name.
+    encoded = "".join(value.split())
+    try:
+        raw = base64.b64decode(encoded, validate=True)
+    except ValueError as err:
+        raise ValueError("image is not valid base64 or a data: URL") from err
+    return f"data:{_sniff_mime(raw)};base64,{encoded}"
 
 
 def _attach_images(messages: list[dict[str, Any]], images: list[str]) -> list[dict[str, Any]]:

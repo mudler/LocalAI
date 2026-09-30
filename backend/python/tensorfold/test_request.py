@@ -95,14 +95,24 @@ class BuildBodyTest(unittest.TestCase):
         self.assertEqual(content[1]["type"], "image_url")
         self.assertEqual(content[1]["image_url"]["url"], "data:image/png;base64," + encoded)
 
-    def test_image_file_path_is_read_and_encoded(self):
+    def test_data_url_image_passes_through(self):
+        url = "data:image/png;base64," + base64.b64encode(PNG).decode()
+        body = build_body(chat_request(Images=[url])).body
+        self.assertEqual(body["messages"][-1]["content"][1]["image_url"]["url"], url)
+
+    def test_image_file_path_is_not_read(self):
         import tempfile
 
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as handle:
             handle.write(PNG)
         try:
-            body = build_body(chat_request(Images=[handle.name])).body
+            with self.assertRaises(ValueError) as caught:
+                build_body(chat_request(Images=[handle.name]))
         finally:
             os.unlink(handle.name)
-        url = body["messages"][-1]["content"][1]["image_url"]["url"]
-        self.assertTrue(url.startswith("data:image/png;base64,"))
+        self.assertIn("base64", str(caught.exception))
+
+    def test_http_image_url_is_rejected(self):
+        with self.assertRaises(ValueError) as caught:
+            build_body(chat_request(Images=["https://example.com/cat.png"]))
+        self.assertIn("URL", str(caught.exception))
