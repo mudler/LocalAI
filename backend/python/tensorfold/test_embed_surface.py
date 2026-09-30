@@ -7,7 +7,6 @@ unit-test environment); it runs in `make test`, where install.sh has run.
 """
 import importlib.util
 import inspect
-import sys
 import unittest
 
 from tf_options import FLAGS
@@ -35,7 +34,6 @@ class EmbedSurfaceTest(unittest.TestCase):
         self.assertTrue(callable(stacks.start))
         self.assertTrue(callable(stacks.arm))
 
-    @unittest.skipIf(sys.platform == "darwin", "the CUDA server module needs torch")
     def test_cuda_capture_point(self):
         from tensorfold.cuda import server
 

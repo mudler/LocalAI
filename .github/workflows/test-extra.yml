@@ -52,6 +52,7 @@ jobs:
       whisper: ${{ steps.detect.outputs.whisper }}
       parakeet-cpp: ${{ steps.detect.outputs.parakeet-cpp }}
       nemo-speech-cpp: ${{ steps.detect.outputs.nemo-speech-cpp }}
+      tensorfold: ${{ steps.detect.outputs.tensorfold }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -328,6 +329,29 @@ jobs:
         run: |
           make --jobs=5 --output-sync=target -C backend/python/moonshine
           make --jobs=5 --output-sync=target -C backend/python/moonshine test
+  # CPU-only: the suite fakes both engines, and test_embed_surface pins the
+  # upstream internals the backend embeds, which import without torch or MLX.
+  tests-tensorfold:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.tensorfold == 'true' || needs.detect-changes.outputs.run-all == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+          sudo apt-get install -y ca-certificates cmake curl git patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test tensorfold
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/tensorfold
+          make --jobs=5 --output-sync=target -C backend/python/tensorfold test
   tests-pocket-tts:
     needs: detect-changes
     if: needs.detect-changes.outputs.pocket-tts == 'true' || needs.detect-changes.outputs.run-all == 'true'
