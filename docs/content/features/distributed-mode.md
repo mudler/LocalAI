@@ -852,6 +852,8 @@ Agent workers:
 - Handle MCP tool discovery and execution requests from the frontend
 - Get auto-provisioned API keys during registration for calling the inference API
 
+`LOCALAI_AGENT_SUBJECT` (default `agent.execute`) must be a subject that LocalAI serves. Use the `agent` root, for example `agent.execute`. The worker refuses to start with a subject whose root LocalAI does not serve (for example `tenant-a.agent.execute`) or with a `>` wildcard, because no message is carried on those subjects.
+
 In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
 
 ```yaml

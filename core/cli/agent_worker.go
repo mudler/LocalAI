@@ -50,7 +50,7 @@ type AgentWorkerCMD struct {
 	APIToken string `env:"LOCALAI_API_TOKEN" help:"API token for LocalAI inference (auto-provisioned during registration if not set)" group:"api"`
 
 	// NATS subjects
-	Subject string `env:"LOCALAI_AGENT_SUBJECT" default:"agent.execute" help:"NATS subject for agent execution" group:"distributed"`
+	Subject string `env:"LOCALAI_AGENT_SUBJECT" default:"agent.execute" help:"NATS subject for agent execution. Must be a served subject (use the agent root, for example agent.execute); an unserved root is refused at startup" group:"distributed"`
 	Queue   string `env:"LOCALAI_AGENT_QUEUE" default:"agent-workers" help:"NATS queue group name" group:"distributed"`
 
 	NatsJWT         string `env:"LOCALAI_NATS_JWT" help:"NATS user JWT override (defaults to nats_jwt from registration)" group:"distributed"`
@@ -75,7 +75,22 @@ func (cmd *AgentWorkerCMD) natsAuthRequired() bool {
 	return cmd.NatsRequireAuth || cmd.DistributedRequireAuth
 }
 
+// validateAgentSubject refuses a subject no carrier serves before the worker
+// registers or connects. The messaging client refuses it anyway at subscribe
+// time, but by then the worker has registered and the error does not name the
+// setting the operator has to change.
+func validateAgentSubject(subject string) error {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return fmt.Errorf("LOCALAI_AGENT_SUBJECT %q must be a served subject (use the agent root, for example %s): %w",
+			subject, messaging.SubjectAgentExecute, err)
+	}
+	return nil
+}
+
 func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
+	if err := validateAgentSubject(cmd.Subject); err != nil {
+		return err
+	}
 	xlog.Info("Starting agent worker", "nats", sanitize.URL(cmd.NatsURL), "register_to", cmd.RegisterTo)
 
 	// Resolve API URL
