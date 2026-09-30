@@ -63666,12 +63666,12 @@
       - decisions
     parameters:
       model: convaiinnovations/laya
-  artifacts:
-    - name: model
-      target: model
-      source:
-        type: huggingface
-        repo: convaiinnovations/laya
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: convaiinnovations/laya
 - name: gliner25-decide-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -63703,13 +63703,13 @@
       - decisions
     parameters:
       model: fastino/GLiNER2.5-Decide
-  artifacts:
-    - name: model
-      target: model
-      source:
-        type: huggingface
-        repo: fastino/GLiNER2.5-Decide
-        revision: 5a7adf72a23b4d311abae6ce050d7f0012bb3416
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: fastino/GLiNER2.5-Decide
+          revision: 5a7adf72a23b4d311abae6ce050d7f0012bb3416
 - name: qwen3-vl-4b-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -63749,13 +63749,13 @@
       max_num_seqs: 4
     parameters:
       model: Qwen/Qwen3-VL-4B-Instruct
-  artifacts:
-    - name: model
-      target: model
-      source:
-        type: huggingface
-        repo: Qwen/Qwen3-VL-4B-Instruct
-        revision: ebb281ec70b05090aa6165b016eac8ec08e71b17
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-VL-4B-Instruct
+          revision: ebb281ec70b05090aa6165b016eac8ec08e71b17
 - name: cua-s1-forms-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -63784,12 +63784,12 @@
       - score
     parameters:
       model: cua-ai/cua-s1-forms
-  artifacts:
-    - name: model
-      target: model
-      source:
-        type: huggingface
-        repo: cua-ai/cua-s1-forms
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: cua-ai/cua-s1-forms
 - name: gliner2.5-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -63821,12 +63821,12 @@
       - token_classify
     parameters:
       model: fastino/gliner2.5-multi-v1
-  artifacts:
-    - name: model
-      target: model
-      source:
-        type: huggingface
-        repo: fastino/gliner2.5-multi-v1
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: fastino/gliner2.5-multi-v1
 - name: nemo-speech-cpp-sortformer-diarization-v2
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
