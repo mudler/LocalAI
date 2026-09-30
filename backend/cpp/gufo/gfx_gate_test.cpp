@@ -38,6 +38,15 @@ int main() {
   CHECK(ParseGfxTargetVersion("gfx_target_version 99999999999999999999999\n") == 0);
   CHECK(ParseGfxTargetVersion("gfx_target_version 4294967295\n") == 4294967295u);
 
+  // Only "1" or "true" skip the gate; "0" or an empty value must not.
+  CHECK(SkipGfxCheck("1"));
+  CHECK(SkipGfxCheck("true"));
+  CHECK(!SkipGfxCheck(nullptr));
+  CHECK(!SkipGfxCheck(""));
+  CHECK(!SkipGfxCheck("0"));
+  CHECK(!SkipGfxCheck("false"));
+  CHECK(!SkipGfxCheck("yes"));
+
   // First match wins; KFD never repeats a key, so this only pins the behavior.
   CHECK(ParseGfxTargetVersion("gfx_target_version 110000\ngfx_target_version 110501\n") == 110000);
   return failures == 0 ? 0 : 1;

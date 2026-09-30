@@ -64,7 +64,7 @@ inline bool ParseBool(const std::string& text, bool* out) {
 
 }  // namespace detail
 
-inline ParseResult ParseOptions(const std::vector<std::string>& raw) {
+inline ParseResult ParseOptions(const std::vector<std::string>& raw, bool external_draft_model = false) {
   ParseResult result;
   Options& o = result.options;
   bool per_client_set = false;
@@ -144,8 +144,9 @@ inline ParseResult ParseOptions(const std::vector<std::string>& raw) {
     o.max_pending_per_client = o.max_pending;
   }
   // Every gufo speculative mode reads its drafter from a separate GGUF (the MTP
-  // head included), so none of them can start without draft_model.
-  if (!o.speculative.empty() && o.speculative != "off" && o.draft_model.empty())
+  // head included), so none of them can start without draft_model. The drafter
+  // can also come from LocalAI's own draft_model field (external_draft_model).
+  if (!o.speculative.empty() && o.speculative != "off" && o.draft_model.empty() && !external_draft_model)
     return fail("speculative:" + o.speculative + " needs draft_model");
   return result;
 }

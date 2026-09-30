@@ -71,6 +71,13 @@ int main() {
     CHECK(r.options.draft_model == "x.gguf");
   }
   {
+    // LocalAI's own draft_model field (ModelOptions.DraftModel) also names a drafter.
+    auto r = ParseOptions({"speculative:dflash2"}, /*external_draft_model=*/true);
+    CHECK(r.ok());
+    CHECK(r.options.draft_model.empty());
+    CHECK(!ParseOptions({"speculative:dflash2"}, /*external_draft_model=*/false).ok());
+  }
+  {
     CHECK(ParseOptions({"speculative:off"}).ok());
     CHECK(!ParseOptions({"speculative:dflash2"}).ok());
   }

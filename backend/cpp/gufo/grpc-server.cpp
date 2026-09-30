@@ -13,6 +13,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -27,10 +28,12 @@
 
 #include "backend.grpc.pb.h"
 #include "backend.pb.h"
+#include "draft_path.h"
 #include "gfx_gate.h"
 #include "gufo_engine.h"
 #include "gufo_options.h"
 #include "message_map.h"
+#include "reasoning_map.h"
 
 #if defined(ENGINE_ENABLE_HIP)
 #include "src/core/diagnostics/gpu_queues.h"
@@ -111,8 +114,6 @@ std::string ResolveBeside(const std::string& model_file, const std::string& path
   return (std::filesystem::path(model_file).parent_path() / path).string();
 }
 
-bool Truthy(const std::string& v) { return v == "true" || v == "1"; }
-
 // LocalAI json.Marshal's the OpenAI tool_choice, so a mode arrives quoted
 // ("\"required\"") and a function choice as an object; other callers send the
 // bare mode. The engine expects the bare mode or the object text.
@@ -129,6 +130,8 @@ std::string NormalizeToolChoice(const std::string& raw) {
 GStatus BuildRequest(const backend::PredictOptions* request, gb::GenRequest* out) {
   if (!request->grammar().empty())
     return GStatus(StatusCode::INVALID_ARGUMENT, "gufo: grammar and response_format are not supported yet");
+  if (request->videos_size() > 0 || request->audios_size() > 0)
+    return GStatus(StatusCode::INVALID_ARGUMENT, "gufo: video and audio inputs are not supported yet");
   if (request->images_size() > gb::kMaxImages)
     return GStatus(StatusCode::INVALID_ARGUMENT,
                    "gufo: at most " + std::to_string(gb::kMaxImages) + " images per request");
@@ -185,8 +188,12 @@ GStatus BuildRequest(const backend::PredictOptions* request, gb::GenRequest* out
   s.seed = request->seed();
 
   const auto& md = request->metadata();
-  if (auto it = md.find("enable_thinking"); it != md.end()) out->thinking = Truthy(it->second);
-  if (auto it = md.find("reasoning_effort"); it != md.end()) out->reasoning_effort = it->second;
+  std::optional<std::string> enable_thinking, effort;
+  if (auto it = md.find("enable_thinking"); it != md.end()) enable_thinking = it->second;
+  if (auto it = md.find("reasoning_effort"); it != md.end()) effort = it->second;
+  auto reasoning = gb::ResolveReasoning(enable_thinking, effort);
+  out->thinking = reasoning.thinking;
+  out->reasoning_effort = std::move(reasoning.effort);
   if (!request->correlationid().empty()) out->client_id = request->correlationid();
   return GStatus::OK;
 }
@@ -320,11 +327,11 @@ class GufoBackend final : public backend::Backend::Service {
  private:
   template <typename Fail>
   GStatus Load(const backend::ModelOptions* request, backend::Result* result, Fail& fail) {
-    if (!std::getenv("GUFO_SKIP_GFX_CHECK") && !gb::AnyNodeIs(ReadKfdNodes(), gb::kGfx1151))
+    if (!gb::SkipGfxCheck(std::getenv("GUFO_SKIP_GFX_CHECK")) && !gb::AnyNodeIs(ReadKfdNodes(), gb::kGfx1151))
       return fail(gb::GateMessage());
 
     const std::vector<std::string> raw(request->options().begin(), request->options().end());
-    const auto parsed = gb::ParseOptions(raw);
+    const auto parsed = gb::ParseOptions(raw, /*external_draft_model=*/!request->draftmodel().empty());
     if (!parsed.ok()) return fail(parsed.error);
 
     gb::LoadArgs args;
@@ -334,7 +341,10 @@ class GufoBackend final : public backend::Backend::Service {
     args.mmproj_path = ResolveBeside(args.model_path, request->mmproj());
     args.max_context = request->contextsize() > 0 ? static_cast<std::uint32_t>(request->contextsize()) : 0;
     args.options = parsed.options;
-    args.options.draft_model = ResolveBeside(args.model_path, args.options.draft_model);
+    std::string draft_error;
+    if (!gb::ResolveDraftModel(parsed.options.draft_model, request->draftmodel(), args.model_path,
+                               &args.options.draft_model, &draft_error))
+      return fail(draft_error);
     args.options.cache_disk = ResolveBeside(args.model_path, args.options.cache_disk);
 
     // gufo keeps a GGUF sha256 cache under $XDG_CACHE_HOME or $HOME; the backend user often has neither.

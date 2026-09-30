@@ -13,11 +13,20 @@ Flash-Next and DeepSeek V4 Flash.
 
 gufo is developed by the gufo-org project, not by the LocalAI project.
 
+{{% notice warning %}}
+**Status: experimental.** The backend is built from gufo v0.3.0 with patches
+that LocalAI carries on top. The LocalAI project has not yet verified it on
+`gfx1151` hardware: the first published image is the first real HIP build.
+Only chat is supported.
+{{% /notice %}}
+
 ## Hardware
 
 gufo builds and runs **only on Linux x86-64 with a `gfx1151` GPU**. The backend
 checks the GPU when it loads a model and refuses the load on any other GPU, with
-a message that names the problem. There is no CPU, CUDA, Metal or arm64 build.
+a message that names the problem. To bypass the check on an unusual setup, set
+`GUFO_SKIP_GFX_CHECK=1` (or `true`) for the backend; any other value keeps the
+check on. There is no CPU, CUDA, Metal or arm64 build.
 Because LocalAI cannot yet tell a `gfx1151` from other AMD GPUs, it never
 selects `gufo` automatically: install it and set `backend: gufo` yourself, or
 install one of the gallery models below.
@@ -138,8 +147,15 @@ options:
 - `parameters.model` is the GGUF file. For a split GGUF, point it at the first
   shard; gufo finds the other shards in the same directory.
 - `mmproj` is resolved relative to the models directory, as for other backends.
-- `draft_model` and `cache_disk` are resolved relative to the directory of the
-  model file when they are not absolute.
+- The `draft_model` option must be a relative path without `..`. It is
+  resolved beside the model file; any other value fails the load. When the
+  option is not set, LocalAI's own `draft_model` field (at the top level of the
+  model YAML, resolved under the models directory) is used instead.
+- `cache_disk` is resolved relative to the directory of the model file when it
+  is not absolute.
+- LocalAI always sends a context size of at least 4096 tokens: a model YAML
+  without `context_size` runs with 4096, not with the model's native context.
+  Set `context_size` explicitly.
 - gufo's chat templates are compiled into the engine. Keep
   `use_tokenizer_template: true` so LocalAI sends structured messages; a plain
   prompt without messages goes through gufo's raw completion path.
@@ -152,10 +168,10 @@ the key, so a typing error does not silently fall back to a default.
 
 | Option | Default | Description |
 |---|---|---|
-| `speculative` | not set (autoregressive) | `off`, `dflash2`, `mtp` or `dspark`. Every mode except `off` needs `draft_model`. The mode must match the model: gufo refuses a mismatch. |
-| `draft_model` | not set | The drafter GGUF: the DFlash2 drafter, the MTP predictor or the DSpark support model. |
-| `draft_tokens` | `7` | Maximum proposals for each speculative step, 1 to 64. |
-| `min_draft_tokens` | `1` | Minimum proposals for each speculative step, 1 to 64. Must not be more than `draft_tokens`. |
+| `speculative` | not set (autoregressive) | `off`, `dflash2`, `mtp` or `dspark`. Every mode except `off` needs a drafter: the `draft_model` option or LocalAI's `draft_model` field. The mode must match the model: gufo refuses a mismatch. |
+| `draft_model` | not set | The drafter GGUF: the DFlash2 drafter, the MTP predictor or the DSpark support model. A relative path without `..`, resolved beside the model file. |
+| `draft_tokens` | `7` | Maximum proposals for each speculative step, 1 to 64 (MTP: gufo caps it at 7). |
+| `min_draft_tokens` | `1` | Minimum proposals for each speculative step, 1 to 64. Must not be more than `draft_tokens` (MTP: gufo caps it at 7). |
 | `sessions` | `1` | Number of requests that generate at the same time, 1 to 64. Each session reserves its own context state. |
 | `max_pending` | `16` | Maximum number of requests that are active or waiting, in total. |
 | `max_pending_per_client` | `4` | Maximum number of requests that are active or waiting for one client. Must not be more than `max_pending`; when it is not set and `max_pending` is smaller than 4, it follows `max_pending`. |
@@ -175,9 +191,18 @@ request fail with an output backpressure error.
 
 ### Concurrency
 
-LocalAI sends no client identity to the backend, so gufo counts every request
-as coming from the same client. Concurrency is therefore bounded by
-`max_pending_per_client` (4 by default), even when `sessions` and `max_pending`
+LocalAI does not serialize the requests to the gufo backend: it opens every
+backend client in parallel mode, so all requests reach gufo, and gufo limits
+them. Three options together bound concurrency:
+
+- `sessions`: the number of requests that generate at the same time.
+- `max_pending`: the number of requests that are active or waiting, in total.
+- `max_pending_per_client`: the number of requests that are active or waiting
+  for one client.
+
+LocalAI sends no correlation id to the backend, so gufo counts every request
+as coming from the same client. For this reason `max_pending_per_client`
+defaults to 4, and it bounds concurrency even when `sessions` and `max_pending`
 are larger. To serve more requests at the same time, raise the three options
 together, and make sure the memory is sufficient for the extra sessions:
 
@@ -198,6 +223,10 @@ To turn thinking off for a model, set the `think:false` option, or set
 `reasoning.disable: true` in the model YAML. For one request, send
 `"reasoning_effort": "none"` (or a level to change the effort).
 
+When the model YAML turns thinking off with `reasoning.disable: true`, that
+setting wins: a request `reasoning_effort` level is ignored and the request
+runs without thinking.
+
 ## Limits in this release
 
 - **Chat only.** gufo also runs speech recognition, speech synthesis, image
@@ -206,6 +235,10 @@ To turn thinking off for a model, set the `think:false` option, or set
   including one that LocalAI derives from `response_format`, is refused with
   `gufo: grammar and response_format are not supported yet`. Tool calls work:
   gufo parses them with its own parsers.
+- **A named `tool_choice` is treated as `required`.** When `tool_choice` names
+  one function, the model must call a tool, but it can call any declared tool.
+- **No video or audio input.** A request that carries videos or audio is
+  refused with `gufo: video and audio inputs are not supported yet`.
 - **At most 16 images** for each request. Images attach to the last user turn.
   DeepSeek V4 Flash is text only.
 - **One DeepSeek model for each `/tmp`.** gufo's DeepSeek runtime takes an
