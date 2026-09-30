@@ -160,22 +160,23 @@ forward, which is the required contract for pooling models in vllm.cpp. A
 device-resident forward is tracked as a performance optimization, not a
 correctness gap.
 
-### SystemOne structured-extraction API
+### SystemOne decision API
 
-The `vllm-cpp` backend also exposes kev-compatible SystemOne endpoints that
-turn zero-shot NER into structured question answering. These mirror the API
-from the [kev](https://github.com/jaredpalmer/kev) project:
+The `vllm-cpp` backend serves the kev-compatible SystemOne endpoints: typed
+`choice`, `noul` and `score` questions over a state text, answered by a
+non-generative decision model in one pass. A decision model declares
+`known_usecases: [systemone]`. See [SystemOne decisions]({{% relref "features/systemone" %}})
+for the request shape, the models you can install and the access rules.
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/v1/systemone` | POST | Answer all questions in one NER pass |
+| `/v1/systemone` | POST | Answer all questions in one pass |
 | `/v1/systemone/permute` | POST | Re-run one choice question under n_perm option orders |
-| `/v1/systemone/separate` | POST | Answer each question in its own NER pass (N passes) |
+| `/v1/systemone/separate` | POST | Answer each question in its own pass (N passes) |
 
-Each question has a `type` of `noul` (binary entity presence), `choice` (pick
-one option), or `score` (pick one level). The `model` field in the request body
-selects the NER model. Labels are derived from the question definition, so no
-`ner_labels` configuration is needed for these endpoints.
+The GLiNER2.5 zero-shot NER model (`token_classify`) also serves these
+endpoints. It derives its NER labels from the question definitions, so no
+`ner_labels` configuration is needed.
 
 ## Beyond text generation
 

@@ -1066,7 +1066,9 @@ known_usecases:
   - embeddings
 ```
 
-Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `llm` (combination of CHAT, COMPLETION, EDIT).
+Available flags: `chat`, `completion`, `edit`, `embeddings`, `rerank`, `image`, `transcript`, `tts`, `sound_generation`, `tokenize`, `vad`, `video`, `detection`, `score`, `token_classify`, `systemone`, `llm` (combination of CHAT, COMPLETION, EDIT).
+
+`systemone` marks a model as a decision model for the [SystemOne API]({{% relref "features/systemone" %}}) (`POST /v1/systemone`). It is never guessed, and a model that declares it is not listed as a chat, completion or embeddings model.
 
 `token_classify` marks a model as a token-classification (NER) provider for the PII filter (e.g. an `openai-privacy-filter` GGUF). Declare it explicitly together with `embeddings: true` (the classifier loads via TOKEN_CLS pooling). It runs on the dedicated `privacy-filter` backend (`backend/cpp/privacy-filter`), a standalone GGML engine for the `openai-privacy-filter` family - separate from `llama-cpp`, which no longer carries the token-classification path.
 
