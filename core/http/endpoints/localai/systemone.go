@@ -2,6 +2,7 @@ package localai
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -449,6 +450,113 @@ func checkSystemOneNERModel(app *application.Application, modelName string) erro
 	return systemOneNERAllowed(cfg)
 }
 
+// systemOneMaxBody and systemOneMaxQuestions bound one request. They keep a
+// single call from pinning a decision model on an unbounded prompt, and match
+// the limits Ollama documents for the same wire contract, so a client written
+// for one server behaves the same on the other. The engine enforces any
+// per-model option cap (letter-answer models refuse more than 26 options).
+const (
+	systemOneMaxBody      = 64 << 10
+	systemOneMaxQuestions = 64
+)
+
+// systemOneBind binds the JSON body with a size cap. Bind reads the whole body
+// first, so the cap has to be on the reader.
+func systemOneBind(c echo.Context, v any) error {
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, systemOneMaxBody)
+	return c.Bind(v)
+}
+
+// systemOneBindStatus maps a bind failure to its status: 413 when the body
+// exceeded the cap, 400 for anything else.
+func systemOneBindStatus(err error) int {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		return http.StatusRequestEntityTooLarge
+	}
+	return http.StatusBadRequest
+}
+
+func systemOneBindMessage(err error) string {
+	if systemOneBindStatus(err) == http.StatusRequestEntityTooLarge {
+		return fmt.Sprintf("request body exceeds %d KiB", systemOneMaxBody>>10)
+	}
+	return "invalid request body"
+}
+
+// validateSystemOneRequest checks the structure every path needs, before the
+// request is forwarded to a decision model or run through the NER path. The
+// forwarded path never sees parseSystemOneRequest, so without this a malformed
+// question would surface as a backend error instead of a 400.
+func validateSystemOneRequest(req *schema.SystemOneRequest) error {
+	if len(req.State) == 0 || string(req.State) == "null" {
+		return fmt.Errorf("state is required")
+	}
+	var state any
+	if err := json.Unmarshal(req.State, &state); err != nil {
+		return fmt.Errorf("state is not valid JSON: %w", err)
+	}
+	if s, ok := state.(string); ok && strings.TrimSpace(s) == "" {
+		return fmt.Errorf("state is required")
+	}
+	if len(req.Questions) == 0 {
+		return fmt.Errorf("questions is required and must contain at least one question")
+	}
+	if len(req.Questions) > systemOneMaxQuestions {
+		return fmt.Errorf("questions must contain at most %d questions", systemOneMaxQuestions)
+	}
+	qids := make([]string, 0, len(req.Questions))
+	for id := range req.Questions {
+		qids = append(qids, id)
+	}
+	sort.Strings(qids)
+	for _, id := range qids {
+		if strings.TrimSpace(id) == "" {
+			return fmt.Errorf("question ids must not be blank")
+		}
+		q := req.Questions[id]
+		switch q.Type {
+		case "choice":
+			var criteria map[string]json.RawMessage
+			if err := json.Unmarshal(q.Criteria, &criteria); err != nil {
+				return fmt.Errorf("question %q (choice) requires a criteria object", id)
+			}
+			if len(criteria) < 2 {
+				return fmt.Errorf("question %q (choice) requires at least 2 options", id)
+			}
+			for k := range criteria {
+				if strings.TrimSpace(k) == "" {
+					return fmt.Errorf("question %q (choice) has a blank option key", id)
+				}
+			}
+		case "score":
+			var criteria []json.RawMessage
+			if err := json.Unmarshal(q.Criteria, &criteria); err != nil {
+				return fmt.Errorf("question %q (score) requires a criteria array", id)
+			}
+			if len(criteria) < 2 {
+				return fmt.Errorf("question %q (score) requires at least 2 levels", id)
+			}
+		case "noul":
+			if len(q.Criteria) == 0 || string(q.Criteria) == "null" {
+				continue
+			}
+			var criteria map[string]json.RawMessage
+			if err := json.Unmarshal(q.Criteria, &criteria); err != nil {
+				return fmt.Errorf("question %q (noul) criteria must be an object with \"false\" and \"true\" descriptions", id)
+			}
+			for k := range criteria {
+				if k != "false" && k != "true" {
+					return fmt.Errorf("question %q (noul) criteria may only have \"false\" and \"true\" keys", id)
+				}
+			}
+		default:
+			return fmt.Errorf("question %q has unknown type: %s", id, q.Type)
+		}
+	}
+	return nil
+}
+
 // backendSupportsScore reports whether the named backend implements the
 // Score gRPC RPC. vllm-cpp does (kev/laya decision pipeline and cua-s1-forms
 // scoring via the unified vllm_decide C ABI); other backends fall through to
@@ -480,13 +588,16 @@ func backendSupportsScore(backendName string) bool {
 func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req schema.SystemOneRequest
-		if err := c.Bind(&req); err != nil {
-			return systemOneError(c, http.StatusBadRequest, "invalid request body")
+		if err := systemOneBind(c, &req); err != nil {
+			return systemOneError(c, systemOneBindStatus(err), systemOneBindMessage(err))
 		}
 		if req.Model == "" {
 			return systemOneError(c, http.StatusBadRequest, "model is required")
 		}
 		if err := checkSystemOneModel(app, req.Model); err != nil {
+			return systemOneError(c, http.StatusBadRequest, err.Error())
+		}
+		if err := validateSystemOneRequest(&req); err != nil {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		// vllm-cpp models (kev/laya) implement the decision pipeline natively
@@ -549,8 +660,8 @@ func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req schema.SystemOnePermuteRequest
-		if err := c.Bind(&req); err != nil {
-			return systemOneError(c, http.StatusBadRequest, "invalid request body")
+		if err := systemOneBind(c, &req); err != nil {
+			return systemOneError(c, systemOneBindStatus(err), systemOneBindMessage(err))
 		}
 		if req.Request.Model == "" {
 			return systemOneError(c, http.StatusBadRequest, "model is required")
@@ -559,6 +670,9 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		if err := checkSystemOneNERModel(app, req.Request.Model); err != nil {
+			return systemOneError(c, http.StatusBadRequest, err.Error())
+		}
+		if err := validateSystemOneRequest(&req.Request); err != nil {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		if req.Question == "" {
@@ -691,8 +805,8 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 func SystemOneSeparateEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req schema.SystemOneRequest
-		if err := c.Bind(&req); err != nil {
-			return systemOneError(c, http.StatusBadRequest, "invalid request body")
+		if err := systemOneBind(c, &req); err != nil {
+			return systemOneError(c, systemOneBindStatus(err), systemOneBindMessage(err))
 		}
 		if req.Model == "" {
 			return systemOneError(c, http.StatusBadRequest, "model is required")
@@ -701,6 +815,9 @@ func SystemOneSeparateEndpoint(app *application.Application) echo.HandlerFunc {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		if err := checkSystemOneNERModel(app, req.Model); err != nil {
+			return systemOneError(c, http.StatusBadRequest, err.Error())
+		}
+		if err := validateSystemOneRequest(&req); err != nil {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		parsed, err := parseSystemOneRequest(&req)

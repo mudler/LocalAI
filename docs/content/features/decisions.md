@@ -11,9 +11,15 @@ with a value and a confidence, in one pass. The model does not generate text, so
 there is nothing to parse and no free-form output to validate.
 
 LocalAI serves it on the `/v1/systemone` routes. The request and response shapes
-follow the [kev](https://github.com/jaredpalmer/kev) project and match the
-`/v1/systemone` endpoint that Ollama added in 0.35. The wire contract is called
-SystemOne; the capability a model declares is called `decisions`.
+follow the [kev](https://github.com/jaredpalmer/kev) project, and the field names
+and question types are the same ones Ollama serves on its `/v1/systemone`
+endpoint (Ollama 0.35 and later). The wire contract is called SystemOne; the
+capability a model declares is called `decisions`. See
+[Compatibility with Ollama](#compatibility-with-ollama) for what differs.
+
+OpenAI announced its own Decisions API in limited preview on 2026-09-29. It has no
+public request or response schema yet, so LocalAI does not serve a `/v1/decisions`
+route.
 
 ## Endpoints
 
@@ -106,6 +112,39 @@ they are not gallery entries yet.
 
 Tev1 is an autoregressive decision model. It answers through chat completions
 and does not serve `/v1/systemone` yet.
+
+## Request limits
+
+A request is refused with `400` (or `413` for the body size) when:
+
+- the body is larger than 64 KiB,
+- `state` is missing or blank,
+- there are no questions, or more than 64,
+- a question id is blank,
+- a `choice` question has fewer than 2 options or a blank option key,
+- a `score` question has fewer than 2 levels,
+- a `noul` question has `criteria` with keys other than `"false"` and `"true"`.
+
+A `noul` question may carry `criteria` with a description for each outcome, for
+example `{"false": "No refund is requested", "true": "The customer requests a refund"}`.
+Some models cap the number of options for a `choice` or `score` question (models
+that answer with a letter accept at most 26). The engine refuses more options than
+the model supports and the error names the limit.
+
+## Compatibility with Ollama
+
+The field names, question types and answer fields are the same as Ollama's
+`/v1/systemone`, so a client written for one works against the other for the
+common case. These behaviors differ:
+
+| | Ollama | LocalAI |
+|---|---|---|
+| `confidence` | `1 - H(p) / ln(N)`, an entropy measure | Computed by the model's pipeline. For kev and Laya it is a normalized margin, so the same probabilities give a different value |
+| Errors | `{"error": "message"}` | `{"error": {"message": "...", "type": "invalid_request"}}` |
+| `keep_alive` | Sets how long the model stays loaded | Accepted and ignored. Model lifetime follows the LocalAI idle and watchdog settings |
+| `state` given as an object | Serialized as JSON text | Rendered as labeled lines, the way kev does it |
+| `noul` answer on the NER path | `{type, noul}` | Also carries `entities` |
+| Token `usage` | Full prompt lengths across all questions | Whatever the backend reports; the NER path reports 0 |
 
 ## Access control
 
