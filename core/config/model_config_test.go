@@ -722,6 +722,17 @@ concurrency_groups:
 			Expect(cfg.TopK).To(BeNil())
 		})
 
+		// gufo samples with its own defaults; a silent top_k=40 would change
+		// output for every client that omits top_k.
+		It("leaves TopK nil for the gufo backend", func() {
+			cfg := &ModelConfig{}
+			cfg.Backend = "gufo"
+
+			cfg.SetDefaults()
+
+			Expect(cfg.TopK).To(BeNil())
+		})
+
 		It("respects an explicit top_k even for the mlx backend", func() {
 			explicit := 7
 			cfg := &ModelConfig{}
