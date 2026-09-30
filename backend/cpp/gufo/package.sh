@@ -14,6 +14,24 @@ mkdir -p "$PACKAGE_DIR/lib"
 cp -avf "$CURDIR/grpc-server" "$PACKAGE_DIR/"
 cp -fv  "$CURDIR/run.sh"      "$PACKAGE_DIR/"
 
+# gufo's license, NOTICE and the third-party notices of the code it vendors
+# must ship with the binary.
+GUFO_SRC="$CURDIR/gufo"
+if [ ! -f "$GUFO_SRC/LICENSE" ]; then
+    echo "package.sh: $GUFO_SRC/LICENSE is missing; the gufo checkout is incomplete" >&2
+    exit 1
+fi
+mkdir -p "$PACKAGE_DIR/licenses/gufo"
+cp -fv "$GUFO_SRC/LICENSE" "$PACKAGE_DIR/licenses/gufo/"
+for notice in NOTICE THIRD_PARTY_NOTICES.md; do
+    if [ -f "$GUFO_SRC/$notice" ]; then
+        cp -fv "$GUFO_SRC/$notice" "$PACKAGE_DIR/licenses/gufo/"
+    fi
+done
+if [ -d "$GUFO_SRC/licenses" ]; then
+    cp -rfv "$GUFO_SRC/licenses" "$PACKAGE_DIR/licenses/gufo/"
+fi
+
 # Loader and C/C++ runtime into lib/, where run.sh execs lib/ld.so from.
 # shellcheck source=/dev/null
 source "$REPO_ROOT/scripts/build/package-system-libs.sh" "$PACKAGE_DIR/lib" ""
