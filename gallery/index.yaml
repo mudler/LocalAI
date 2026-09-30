@@ -2402,6 +2402,227 @@
     parameters:
       max_tokens: 4096
       model: danish-foundation-models/DFM-Mimir
+- &qwen3-8-27b-gufo
+  name: "qwen3.8-27b:gufo"
+  url: "github:mudler/LocalAI/gallery/gufo.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/unsloth/Qwen3.8-27B-GGUF
+    - https://github.com/gufo-org/gufo
+  description: |
+    Qwen3.8-27B, the dense Qwen3.8 text and image model, served by the gufo
+    backend. gufo runs only on Linux x86-64 with an AMD Strix Halo GPU
+    (Ryzen AI MAX+ 395 with Radeon 8060S, gfx1151); it refuses to load on any
+    other GPU. This entry downloads Unsloth's UD-Q4_K_XL GGUF (17.6 GB) and the
+    BF16 vision projector (0.93 GB). gufo reports 16.35 GiB of weights and a
+    peak of about 38 GiB at its 262144-token benchmark capacity; this entry
+    sets a 32768-token context. Thinking is on by default. Sampling follows
+    the Qwen thinking preset (temperature 1.0, top_p 0.95, top_k 20).
+  license: apache-2.0
+  icon: https://qianwen-res.oss-accelerate.aliyuncs.com/Qwen3.5/demo/CI_Demo/mathv-1327.jpg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - rocm
+    - gufo
+    - qwen
+    - qwen3.8
+    - reasoning
+    - tools
+    - vision
+    - multimodal
+  last_checked: "2026-09-30"
+  overrides:
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: gufo/models/qwen3.8-27b/mmproj-BF16.gguf
+    parameters:
+      model: gufo/models/qwen3.8-27b/Qwen3.8-27B-UD-Q4_K_XL.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: gufo/models/qwen3.8-27b/Qwen3.8-27B-UD-Q4_K_XL.gguf
+      uri: huggingface://unsloth/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_XL.gguf
+      sha256: 3f227079003add2511437e5b1e94812e363385225bf6a9b47b0054a72bc8b01e
+    - filename: gufo/models/qwen3.8-27b/mmproj-BF16.gguf
+      uri: huggingface://unsloth/Qwen3.8-27B-GGUF/mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+- !!merge <<: *qwen3-8-27b-gufo
+  name: "qwen3.8-27b-dflash2:gufo"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/unsloth/Qwen3.8-27B-GGUF
+    - https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF
+    - https://github.com/gufo-org/gufo
+  description: |
+    Qwen3.8-27B with DFlash2 speculative decoding, served by the gufo backend.
+    gufo runs only on Linux x86-64 with an AMD Strix Halo GPU (Ryzen AI MAX+
+    395 with Radeon 8060S, gfx1151); it refuses to load on any other GPU. This
+    entry downloads Unsloth's UD-Q4_K_XL GGUF (17.6 GB), the BF16 vision
+    projector (0.93 GB) and z-lab's DFlash2 Q4_K_M drafter (1.14 GB). The
+    drafter needs memory on top of the 16.35 GiB of target weights; this entry
+    sets a 32768-token context. Thinking is on by default. Sampling follows
+    the Qwen thinking preset (temperature 1.0, top_p 0.95, top_k 20).
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - rocm
+    - gufo
+    - qwen
+    - qwen3.8
+    - reasoning
+    - tools
+    - vision
+    - multimodal
+    - dflash
+  overrides:
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: gufo/models/qwen3.8-27b/mmproj-BF16.gguf
+    options:
+      - speculative:dflash2
+      - draft_model:Qwen3.8-27B-DFlash2-Q4_K_M.gguf
+    parameters:
+      model: gufo/models/qwen3.8-27b/Qwen3.8-27B-UD-Q4_K_XL.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: gufo/models/qwen3.8-27b/Qwen3.8-27B-UD-Q4_K_XL.gguf
+      uri: huggingface://unsloth/Qwen3.8-27B-GGUF/Qwen3.8-27B-UD-Q4_K_XL.gguf
+      sha256: 3f227079003add2511437e5b1e94812e363385225bf6a9b47b0054a72bc8b01e
+    - filename: gufo/models/qwen3.8-27b/mmproj-BF16.gguf
+      uri: huggingface://unsloth/Qwen3.8-27B-GGUF/mmproj-BF16.gguf
+      sha256: 83ee4f4f205fa514161778c41df1ea14144faa0f713510893b63c2395f5c2d53
+    - filename: gufo/models/qwen3.8-27b/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
+      uri: huggingface://z-lab/Qwen3.8-27B-DFlash2-GGUF/Qwen3.8-27B-DFlash2-Q4_K_M.gguf
+      sha256: 1a25c56858e1ebe93f2718ac1d49d1151f9323325c1bbfd6209370f4db131ebd
+- name: "qwen3.8-flash-next-mtp:gufo"
+  url: "github:mudler/LocalAI/gallery/gufo.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://github.com/gufo-org/gufo
+  description: |
+    Qwen3.8-Flash-Next, the hybrid mixture-of-experts Qwen3.8 text and image
+    model, with MTP speculative decoding, served by the gufo backend. gufo runs
+    only on Linux x86-64 with an AMD Strix Halo GPU (Ryzen AI MAX+ 395 with
+    Radeon 8060S, gfx1151); it refuses to load on any other GPU.
+
+    This entry downloads about 115 GB: the four Unsloth UD-Q4_K_XL shards
+    (111.3 GB), the shared Q8_0 MTP predictor (2.79 GB) and the BF16 vision
+    projector (0.91 GB). Use a 128 GiB Strix Halo system; gufo reports a peak
+    of about 86 GiB for this target at a 133121-token capacity. This entry
+    sets a 32768-token context. Thinking is on by default with xhigh effort.
+    Sampling follows the Qwen thinking preset (temperature 1.0, top_p 0.95,
+    top_k 20). The weights use the Qwen Community License 1.0.
+  license: qwen-community-1.0
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - rocm
+    - gufo
+    - qwen
+    - qwen3.8
+    - moe
+    - reasoning
+    - tools
+    - vision
+    - multimodal
+    - mtp
+  last_checked: "2026-09-30"
+  overrides:
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: gufo/models/qwen3.8-flash-next/mmproj-BF16.gguf
+    options:
+      - speculative:mtp
+      - draft_model:mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
+    parameters:
+      model: gufo/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      temperature: 1.0
+      top_p: 0.95
+      top_k: 20
+  files:
+    - filename: gufo/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00001-of-00004.gguf
+      sha256: 4448186216b3af4cc558bbce2c3213f01608f8f8b2e5267a9767971dd3ec8082
+    - filename: gufo/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00002-of-00004.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00002-of-00004.gguf
+      sha256: 3f342f1c1580473f1ee94ddd5b28206e8c07a70fa1a366f59d1d6c922919a6c9
+    - filename: gufo/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00003-of-00004.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00003-of-00004.gguf
+      sha256: 56758f40269cad5cd9b0d3d6fbae0f40f6d5be6de49e4ab392dbe83157d9cbd3
+    - filename: gufo/models/qwen3.8-flash-next/Qwen3.8-Flash-Next-UD-Q4_K_XL-00004-of-00004.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/UD-Q4_K_XL/Qwen3.8-Flash-Next-UD-Q4_K_XL-00004-of-00004.gguf
+      sha256: 753bda48b98ba4f1636134a90a967de1b2d3908a236c026e464777342e53510a
+    - filename: gufo/models/qwen3.8-flash-next/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/MTP/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
+      sha256: 5ff54097406a905cf3a724c709124ceb0e3e10235ee862298969e91c96fa96e6
+    - filename: gufo/models/qwen3.8-flash-next/mmproj-BF16.gguf
+      uri: huggingface://unsloth/Qwen3.8-Flash-Next-GGUF/mmproj-BF16.gguf
+      sha256: 2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355
+- name: "deepseek-v4-flash-dspark:gufo"
+  url: "github:mudler/LocalAI/gallery/gufo.yaml@master"
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731
+    - https://huggingface.co/antirez/deepseek-v4-gguf
+    - https://github.com/gufo-org/gufo
+  description: |
+    DeepSeek-V4-Flash 0731 (text only) with DSpark speculative decoding,
+    served by the gufo backend. gufo runs only on Linux x86-64 with an AMD
+    Strix Halo GPU (Ryzen AI MAX+ 395 with Radeon 8060S, gfx1151); it refuses
+    to load on any other GPU.
+
+    This entry downloads antirez's mixed IQ2/Q2/Q8 GGUF (86.7 GB) and the
+    DSpark support model (5.99 GB). gufo reports 80.76 GiB of target weights
+    and recommends a 128 GiB system. This entry sets a 32768-token context.
+    gufo takes a host-wide lock (/tmp/ds4.lock) for DeepSeek, so only one
+    DeepSeek model can run per host at a time. Thinking is on by default with
+    high effort. Sampling follows DeepSeek's recommendation (temperature 1.0,
+    top_p 0.95).
+  license: mit
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - rocm
+    - gufo
+    - deepseek
+    - moe
+    - reasoning
+    - tools
+  last_checked: "2026-09-30"
+  overrides:
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - speculative:dspark
+      - draft_model:DeepSeek-V4-Flash-DSpark-support-0731.gguf
+    parameters:
+      model: gufo/models/deepseek-v4-flash/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
+      temperature: 1.0
+      top_p: 0.95
+  files:
+    - filename: gufo/models/deepseek-v4-flash/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
+      uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
+      sha256: ca22ae2f838e14077c22bc1c1417b71b45b5e5a3687bd96c2ac6e17fdb6261c0
+    - filename: gufo/models/deepseek-v4-flash/DeepSeek-V4-Flash-DSpark-support-0731.gguf
+      uri: huggingface://antirez/deepseek-v4-gguf/DeepSeek-V4-Flash-DSpark-support-0731.gguf
+      sha256: 7e319924541db3f7a163ed7e11d7532a70d48228ab59d36cb81e1d4511885360
 - &ling-3-0-tiny
   name: "ling-3.0-tiny-q4"
   variants:
