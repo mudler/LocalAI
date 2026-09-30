@@ -97,6 +97,10 @@ CUDA), and the backend passes that error through unchanged.
 | `vision` | `true` to accept image input on compatible Qwen3.5/3.8 dense checkpoints | Both |
 | `memory_limit_gb` | Process memory budget in GiB, exported as `TENSORFOLD_MEMORY_LIMIT_GB` | MLX |
 
+LocalAI forwards requests to the backend concurrently, and the backend serves up to
+`PYTHON_GRPC_MAX_WORKERS` calls at once (default 10, which leaves room for health checks
+beside eight replies). Raise it together with `parallel` above 8.
+
 Example:
 
 ```yaml

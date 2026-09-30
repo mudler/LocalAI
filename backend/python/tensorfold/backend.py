@@ -27,9 +27,10 @@ from tf_options import parse_load_config  # noqa: E402
 from tf_reply import final_reply, stream_reply  # noqa: E402
 from tf_request import build_body  # noqa: E402
 
-# Requests are handled by TensorFold's own scheduler, so more workers than the
-# largest --parallel lane count only queue in there. Eight matches its "auto".
-MAX_WORKERS = int(os.environ.get("PYTHON_GRPC_MAX_WORKERS", "8"))
+# TensorFold's own scheduler admits up to eight requests on MLX "auto", and each
+# streaming call holds a worker for its whole reply. Two spare workers keep
+# Health and Free from queueing behind eight streams.
+MAX_WORKERS = int(os.environ.get("PYTHON_GRPC_MAX_WORKERS", "10"))
 
 _DONE = object()
 
@@ -45,10 +46,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def LoadModel(self, request, context):
         try:
-            if request.ModelPath:
-                # Keep Hugging Face downloads (targets and drafters) in LocalAI's
-                # models directory rather than the user's home.
-                os.environ.setdefault("HF_HOME", os.path.join(request.ModelPath, "huggingface"))
             cfg = parse_load_config(request.Model, request.ContextSize, parse_options(request.Options))
             engine = self._loader(cfg)
         except (ValueError, LoadError) as err:
