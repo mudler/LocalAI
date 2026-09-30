@@ -1,0 +1,1726 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c67ed05..b921918 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -206,6 +206,22 @@ add_library(gufo_http STATIC
+ )
+ target_link_libraries(gufo_http PUBLIC gufo_logging gufo_core gufo_qwen3_tts gufo_qwen3_asr gufo_qwen_image_21)
+ 
++# Embeddable text-LLM runtime: InferenceBackend + scheduler + caches, and the
++# reasoning/tool output parsing header, without the HTTP transport.
++add_library(gufo_runtime STATIC
++  src/cli/serve/continuation_cache.cpp
++  src/cli/serve/continuation_disk_store.cpp
++  src/cli/serve/text_model_runner.cpp
++  src/cli/serve/text_generation_scheduler.cpp
++  src/cli/serve/inference_backend.cpp
++)
++target_include_directories(gufo_runtime PUBLIC ${PROJECT_SOURCE_DIR})
++target_link_libraries(gufo_runtime PUBLIC gufo_logging gufo_core
++  gufo_qwen38_flash_next)
++if (ENGINE_ENABLE_HIP)
++  target_link_libraries(gufo_runtime PUBLIC gufo_deepseek_v4_flash)
++endif()
++
+ add_executable(gufo
+   src/cli/main.cpp
+   src/cli/banner.cpp
+diff --git a/src/cli/serve/chat_output.hpp b/src/cli/serve/chat_output.hpp
+new file mode 100644
+index 0000000..37f803b
+--- /dev/null
++++ b/src/cli/serve/chat_output.hpp
+@@ -0,0 +1,840 @@
++#ifndef GUFO_SERVER_CHAT_OUTPUT_HPP_
++#define GUFO_SERVER_CHAT_OUTPUT_HPP_
++
++#include <algorithm>
++#include <array>
++#include <cctype>
++#include <cmath>
++#include <cstddef>
++#include <cstdint>
++#include <functional>
++#include <optional>
++#include <random>
++#include <ranges>
++#include <span>
++#include <string>
++#include <string_view>
++#include <utility>
++#include <vector>
++
++#include "src/cli/serve/text_generation_backend.hpp"
++#include "src/core/json.hpp"
++#include "src/core/utf8.hpp"
++
++// Reasoning/tool-call output parsing shared by the OpenAI adapters and
++// embedders that drive TextGenerationBackend without the HTTP layer.
++namespace gufo::server::chat_output {
++
++struct ParsedToolCall {
++  std::string id;
++  std::string name;
++  std::vector<tokenization::ChatMessage::ToolArgument> arguments;
++};
++
++struct ParsedGeneration {
++  std::string text;
++  std::string reasoning_content;
++  std::vector<ParsedToolCall> tool_calls;
++  bool hide_tool_markup{false};
++};
++
++inline constexpr std::array<std::string_view, 7> kToolMarkers{
++    "<tool_call>",          "<｜DSML｜tool_calls｜>", "<｜DSML｜tool_calls>",
++    "<DSML｜tool_calls｜>", "<DSML｜tool_calls>",     "<tool_calls｜>",
++    "<tool_calls>",
++};
++
++inline std::string RandomId(std::string_view prefix) {
++  static constexpr std::string_view kCharacters =
++      "abcdefghijklmnopqrstuvwxyz0123456789";
++  static thread_local std::mt19937 generator(std::random_device{}());
++  std::uniform_int_distribution<std::size_t> distribution{
++      0, kCharacters.size() - 1};
++
++  std::string result(prefix);
++  result.reserve(prefix.size() + 20);
++  for (int index = 0; index < 20; ++index) {
++    result.push_back(kCharacters[distribution(generator)]);
++  }
++  return result;
++}
++
++inline std::string_view Trim(std::string_view value) {
++  while (!value.empty() &&
++         std::isspace(static_cast<unsigned char>(value.front())) != 0) {
++    value.remove_prefix(1);
++  }
++  while (!value.empty() &&
++         std::isspace(static_cast<unsigned char>(value.back())) != 0) {
++    value.remove_suffix(1);
++  }
++  return value;
++}
++
++// Qwen writes a parameter as "<parameter=name>\nVALUE\n</parameter>": one
++// newline on each side is framing, everything else (a file's final newline,
++// indentation, blank lines) belongs to the value.
++inline std::string_view StripFramingNewlines(std::string_view value) {
++  if (value.starts_with("\r\n"))
++    value.remove_prefix(2);
++  else if (value.starts_with('\n'))
++    value.remove_prefix(1);
++  if (value.ends_with("\r\n"))
++    value.remove_suffix(2);
++  else if (value.ends_with('\n'))
++    value.remove_suffix(1);
++  return value;
++}
++
++// Qwen's XML-like calls look like Python keyword arguments, and the models
++// sometimes write Python's True, False and None where the schema asks for a
++// JSON boolean or null. Rewrites those words outside JSON string literals.
++inline std::string PythonLiteralsToJson(std::string_view value) {
++  std::string out;
++  out.reserve(value.size());
++  bool in_string = false;
++  for (std::size_t i = 0; i < value.size();) {
++    const char c = value[i];
++    if (in_string) {
++      const std::size_t length = c == '\\' && i + 1 < value.size() ? 2 : 1;
++      out += value.substr(i, length);
++      in_string = c != '"';
++      i += length;
++      continue;
++    }
++    if (std::isalpha(static_cast<unsigned char>(c)) == 0) {
++      out += c;
++      in_string = c == '"';
++      ++i;
++      continue;
++    }
++    std::size_t word_end = i;
++    while (word_end < value.size() &&
++           (std::isalnum(static_cast<unsigned char>(value[word_end])) != 0 ||
++            value[word_end] == '_')) {
++      ++word_end;
++    }
++    const auto word = value.substr(i, word_end - i);
++    out += word == "True"    ? std::string_view{"true"}
++           : word == "False" ? std::string_view{"false"}
++           : word == "None"  ? std::string_view{"null"}
++                             : word;
++    i = word_end;
++  }
++  return out;
++}
++
++inline std::optional<json::Value> TryParseJson(std::string_view value) noexcept {
++  try {
++    return json::parse(value);
++  } catch (...) {
++    return std::nullopt;
++  }
++}
++
++inline std::size_t EarliestMarker(std::string_view text,
++                           std::string_view* marker = nullptr) {
++  std::size_t earliest = std::string_view::npos;
++  for (const auto candidate : kToolMarkers) {
++    const std::size_t position = text.find(candidate);
++    if (position < earliest) {
++      earliest = position;
++      if (marker != nullptr) {
++        *marker = candidate;
++      }
++    }
++  }
++  return earliest;
++}
++
++inline std::size_t HeldMarkerPrefix(std::string_view text) {
++  std::size_t maximum_marker = 0;
++  for (const auto marker : kToolMarkers) {
++    maximum_marker = std::max(maximum_marker, marker.size());
++  }
++  const std::size_t maximum =
++      std::min(text.size(), maximum_marker > 0 ? maximum_marker - 1 : 0);
++  for (std::size_t length = maximum; length > 0; --length) {
++    const std::string_view suffix = text.substr(text.size() - length);
++    if (std::ranges::any_of(kToolMarkers, [&](std::string_view marker) {
++          return marker.starts_with(suffix);
++        })) {
++      return length;
++    }
++  }
++  return 0;
++}
++
++inline std::string ArgumentsJson(
++    std::span<const tokenization::ChatMessage::ToolArgument> arguments) {
++  json::Value object = json::Value::object();
++  for (const auto& argument : arguments) {
++    if (argument.is_string) {
++      object[argument.name] = argument.value;
++      continue;
++    }
++    try {
++      object[argument.name] = json::parse(argument.value);
++    } catch (...) {
++      object[argument.name] = argument.value;
++    }
++  }
++  return object.dump();
++}
++
++// Qwen's XML-like arguments carry no type marker. The advertised schema is
++// needed to distinguish a string such as 42 from the JSON number 42.
++inline bool SchemaAccepts(const json::Value& schema, const json::Value& value) {
++  const auto matches = [&](std::string_view type) {
++    return (type == "string" && value.is_string()) ||
++           (type == "number" && value.is_number()) ||
++           (type == "integer" && value.is_number() &&
++            std::floor(value.as_double()) == value.as_double()) ||
++           (type == "boolean" && value.is_bool()) ||
++           (type == "null" && value.is_null()) ||
++           (type == "array" && value.is_array()) ||
++           (type == "object" && value.is_object());
++  };
++  if (const auto* type = schema.find("type")) {
++    if (type->is_string())
++      return matches(type->get_str());
++    if (type->is_array())
++      return std::ranges::any_of(type->items(), [&](const auto& item) {
++        return item.is_string() && matches(item.get_str());
++      });
++    return false;
++  }
++  for (const auto* name : {"anyOf", "oneOf"}) {
++    if (const auto* choices = schema.find(name); choices && choices->is_array())
++      return std::ranges::any_of(choices->items(), [&](const auto& item) {
++        return SchemaAccepts(item, value);
++      });
++  }
++  return true;
++}
++
++inline void ParseQwenCalls(
++    std::string_view text, std::span<const tokenization::ChatTool> tools,
++    std::vector<ParsedToolCall>* calls,
++    std::vector<std::pair<std::size_t, std::size_t>>* spans = nullptr) {
++  constexpr std::string_view start = "<tool_call>";
++  constexpr std::string_view end = "</tool_call>";
++  std::size_t cursor = 0;
++  while ((cursor = text.find(start, cursor)) != std::string_view::npos) {
++    const auto marker_begin = cursor;
++    const auto begin = cursor + start.size();
++    cursor = begin;  // A malformed call may be followed by a valid call.
++    auto body = text.substr(begin);
++    const auto consume = [&](std::string_view tag) {
++      body = Trim(body);
++      if (!body.starts_with(tag))
++        return false;
++      body.remove_prefix(tag.size());
++      return true;
++    };
++    body = Trim(body);
++    ParsedToolCall call;
++    bool complete = false;
++    if (consume("<function=")) {
++      const auto name_end = body.find('>');
++      if (name_end == std::string_view::npos)
++        continue;
++      call.name = std::string(Trim(body.substr(0, name_end)));
++      body.remove_prefix(name_end + 1);
++      std::optional<json::Value> schema;
++      for (const auto& tool : tools) {
++        if (tool.name == call.name) {
++          schema = TryParseJson(tool.parameters_json);
++          break;
++        }
++      }
++      if (call.name.empty() || (!tools.empty() && !schema))
++        continue;
++      bool valid = true;
++      while (consume("<parameter=")) {
++        const auto name_end = body.find('>');
++        if (name_end == std::string_view::npos) {
++          valid = false;
++          break;
++        }
++        const std::string name(Trim(body.substr(0, name_end)));
++        body.remove_prefix(name_end + 1);
++        // Outer closing tags inside a parameter are data, not structure.
++        const auto close = body.find("</parameter>");
++        if (close == std::string_view::npos || body.find(start) < close ||
++            name.empty()) {
++          valid = false;
++          break;
++        }
++        const auto value = StripFramingNewlines(body.substr(0, close));
++        const auto* properties = schema ? schema->find("properties") : nullptr;
++        const auto* property = properties ? properties->find(name) : nullptr;
++        const bool string_allowed =
++            !property ||
++            SchemaAccepts(*property, json::Value(std::string(value)));
++        // Prefer text if the schema permits it; parsing ambiguous scalars
++        // as JSON would silently change a caller's declared string type.
++        const bool is_string = string_allowed;
++        std::string raw(is_string ? value : Trim(value));
++        if (!is_string) {
++          auto parsed = TryParseJson(raw);
++          if (!parsed || !SchemaAccepts(*property, *parsed)) {
++            raw = PythonLiteralsToJson(raw);
++            parsed = TryParseJson(raw);
++          }
++          if (!parsed || !SchemaAccepts(*property, *parsed)) {
++            valid = false;
++            break;
++          }
++        }
++        // Models sometimes repeat a parameter. An identical copy is harmless;
++        // conflicting copies leave no safe choice.
++        const auto previous = std::ranges::find(
++            call.arguments, name, [](const auto& arg) { return arg.name; });
++        if (previous == call.arguments.end()) {
++          call.arguments.push_back(
++              {.name = name, .value = std::move(raw), .is_string = is_string});
++        } else if (previous->value != raw || previous->is_string != is_string) {
++          valid = false;
++          break;
++        }
++        body.remove_prefix(close + std::string_view{"</parameter>"}.size());
++      }
++      complete = valid && consume("</function>") && consume(end);
++    } else {
++      // JSON calls already encode their argument types. Try closing markers
++      // until the preceding payload is complete JSON (a marker in a quoted
++      // string cannot terminate the call).
++      std::size_t close = 0;
++      while ((close = body.find(end, close)) != std::string_view::npos) {
++        const auto parsed = TryParseJson(Trim(body.substr(0, close)));
++        if (parsed && parsed->is_object()) {
++          call.name = parsed->member_str("name");
++          const auto* arguments = parsed->find("arguments");
++          if (!call.name.empty() && arguments && arguments->is_object()) {
++            for (const auto& [name, value] : arguments->members())
++              call.arguments.push_back(
++                  {.name = name,
++                   .value = value.is_string() ? value.get_str() : value.dump(),
++                   .is_string = value.is_string()});
++            complete = true;
++            body.remove_prefix(close + end.size());
++          }
++          break;
++        }
++        close += end.size();
++      }
++    }
++    if (complete && !tools.empty() &&
++        std::ranges::none_of(
++            tools, [&](const auto& tool) { return tool.name == call.name; }))
++      complete = false;
++    if (complete) {
++      call.id = RandomId("call_");
++      calls->push_back(std::move(call));
++      cursor = text.size() - body.size();
++      if (spans)
++        spans->emplace_back(marker_begin, cursor);
++    }
++  }
++}
++
++inline std::optional<std::string> Attribute(std::string_view tag,
++                                     std::string_view name) {
++  const std::string prefix = std::string(name) + "=\"";
++  const std::size_t start = tag.find(prefix);
++  if (start == std::string_view::npos) {
++    return std::nullopt;
++  }
++  const std::size_t value_start = start + prefix.size();
++  const std::size_t end = tag.find('"', value_start);
++  if (end == std::string_view::npos) {
++    return std::nullopt;
++  }
++  return std::string(tag.substr(value_start, end - value_start));
++}
++
++inline void ParseDsmlCalls(std::string_view text, std::vector<ParsedToolCall>* calls) {
++  constexpr std::array<std::string_view, 4> kInvokeStarts{
++      "<｜DSML｜invoke",
++      "<DSML｜invoke",
++      "<｜DS｜invoke",
++      "<DS｜invoke",
++  };
++  constexpr std::array<std::string_view, 4> kInvokeEnds{
++      "</｜DSML｜invoke>",
++      "</DSML｜invoke>",
++      "</｜DS｜invoke>",
++      "</DS｜invoke>",
++  };
++  constexpr std::array<std::string_view, 4> kParameterStarts{
++      "<｜DSML｜parameter",
++      "<DSML｜parameter",
++      "<｜DS｜parameter",
++      "<DS｜parameter",
++  };
++  constexpr std::array<std::string_view, 4> kParameterEnds{
++      "</｜DSML｜parameter>",
++      "</DSML｜parameter>",
++      "</｜DS｜parameter>",
++      "</DS｜parameter>",
++  };
++
++  std::size_t cursor = 0;
++  while (cursor < text.size()) {
++    std::size_t invoke_start = std::string_view::npos;
++    std::size_t syntax = 0;
++    for (std::size_t index = 0; index < kInvokeStarts.size(); ++index) {
++      const std::size_t position = text.find(kInvokeStarts[index], cursor);
++      if (position < invoke_start) {
++        invoke_start = position;
++        syntax = index;
++      }
++    }
++    if (invoke_start == std::string_view::npos) {
++      break;
++    }
++    const std::size_t tag_end = text.find('>', invoke_start);
++    const std::size_t invoke_end = text.find(kInvokeEnds[syntax], tag_end);
++    if (tag_end == std::string_view::npos ||
++        invoke_end == std::string_view::npos) {
++      break;
++    }
++    ParsedToolCall call;
++    call.id = RandomId("call_");
++    const auto name = Attribute(
++        text.substr(invoke_start, tag_end - invoke_start + 1), "name");
++    call.name = name.value_or("");
++
++    bool valid = true;
++    std::size_t parameter_cursor = tag_end + 1;
++    while (parameter_cursor < invoke_end) {
++      const std::size_t parameter_start =
++          text.find(kParameterStarts[syntax], parameter_cursor);
++      if (parameter_start == std::string_view::npos ||
++          parameter_start >= invoke_end) {
++        break;
++      }
++      const std::size_t parameter_tag_end = text.find('>', parameter_start);
++      const std::size_t parameter_end =
++          text.find(kParameterEnds[syntax], parameter_tag_end);
++      if (parameter_tag_end == std::string_view::npos ||
++          parameter_end == std::string_view::npos ||
++          parameter_end > invoke_end) {
++        break;
++      }
++      const std::string_view tag =
++          text.substr(parameter_start, parameter_tag_end - parameter_start + 1);
++      const auto parameter_name = Attribute(tag, "name");
++      const auto string_value = Attribute(tag, "string");
++      if (parameter_name.has_value()) {
++        tokenization::ChatMessage::ToolArgument argument{
++            .name = *parameter_name,
++            .value = std::string(Trim(text.substr(
++                parameter_tag_end + 1, parameter_end - parameter_tag_end - 1))),
++            .is_string = string_value.value_or("true") != "false",
++        };
++        // As for Qwen calls: drop an identical repeat and reject a
++        // conflicting one instead of letting the last value win.
++        const auto previous =
++            std::ranges::find(call.arguments, argument.name,
++                              [](const auto& arg) { return arg.name; });
++        if (previous == call.arguments.end()) {
++          call.arguments.push_back(std::move(argument));
++        } else if (previous->value != argument.value ||
++                   previous->is_string != argument.is_string) {
++          valid = false;
++          break;
++        }
++      }
++      parameter_cursor = parameter_end + kParameterEnds[syntax].size();
++    }
++    if (valid && !call.name.empty()) {
++      calls->push_back(std::move(call));
++    }
++    cursor = invoke_end + kInvokeEnds[syntax].size();
++  }
++}
++
++inline ParsedGeneration ParseGeneration(
++    std::string_view raw,
++    TextGenerationBackend::InitialOutputState initial_output_state,
++    std::span<const tokenization::ChatTool> tools,
++    ChatRequest::ToolChoice choice, bool enforce_required) {
++  ParsedGeneration parsed;
++  std::string_view content = raw;
++
++  constexpr std::string_view kThinkStart = "<think>";
++  constexpr std::string_view kThinkEnd = "</think>";
++  if (initial_output_state ==
++      TextGenerationBackend::InitialOutputState::kReasoning) {
++    if (content.starts_with(kThinkStart)) {
++      content.remove_prefix(kThinkStart.size());
++    }
++    std::size_t think_end = content.find(kThinkEnd);
++    if (EarliestMarker(content) < think_end)
++      think_end = std::string_view::npos;
++    if (think_end == std::string_view::npos) {
++      const auto marker = EarliestMarker(content);
++      parsed.reasoning_content = std::string(Trim(content.substr(0, marker)));
++      if (marker == std::string_view::npos) {
++        if (enforce_required && choice == ChatRequest::ToolChoice::kRequired)
++          throw TextGenerationError(
++              TextGenerationErrorCode::kToolChoiceUnsatisfied,
++              "model did not produce a declared tool call");
++        return parsed;
++      }
++      parsed.text = std::string(content.substr(marker));
++    } else {
++      parsed.reasoning_content =
++          std::string(Trim(content.substr(0, think_end)));
++      content.remove_prefix(think_end + kThinkEnd.size());
++      while (!content.empty() &&
++             (content.front() == '\n' || content.front() == '\r')) {
++        content.remove_prefix(1);
++      }
++      parsed.text = std::string(content);
++    }
++  } else {
++    const std::size_t think_start = content.find(kThinkStart);
++    if (think_start != std::string_view::npos) {
++      const std::size_t think_content_start = think_start + kThinkStart.size();
++      std::size_t think_end = content.find(kThinkEnd, think_content_start);
++      const auto marker = EarliestMarker(content.substr(think_content_start));
++      if (marker != std::string_view::npos &&
++          think_content_start + marker < think_end)
++        think_end = std::string_view::npos;
++      if (think_end != std::string_view::npos) {
++        parsed.reasoning_content = std::string(Trim(content.substr(
++            think_content_start, think_end - think_content_start)));
++        std::string_view remaining =
++            content.substr(think_end + kThinkEnd.size());
++        if (remaining.starts_with("\n")) {
++          remaining.remove_prefix(1);
++        }
++        if (think_start > 0) {
++          parsed.text = std::string(content.substr(0, think_start)) +
++                        std::string(remaining);
++        } else {
++          parsed.text = std::string(remaining);
++        }
++      } else {
++        const auto remaining = content.substr(think_content_start);
++        const auto marker = EarliestMarker(remaining);
++        parsed.reasoning_content =
++            std::string(Trim(remaining.substr(0, marker)));
++        parsed.text = std::string(content.substr(0, think_start));
++        if (marker != std::string_view::npos)
++          parsed.text += remaining.substr(marker);
++      }
++    } else {
++      parsed.text = std::string(content);
++    }
++  }
++
++  const std::size_t marker = EarliestMarker(parsed.text);
++  if (choice != ChatRequest::ToolChoice::kNone && !tools.empty() &&
++      marker != std::string_view::npos) {
++    const std::string text_before_tools = parsed.text.substr(0, marker);
++    const std::string text_from_tools = parsed.text.substr(marker);
++    ParseQwenCalls(text_from_tools, tools, &parsed.tool_calls);
++    ParseDsmlCalls(text_from_tools, &parsed.tool_calls);
++    std::erase_if(parsed.tool_calls, [&](const auto& call) {
++      return std::ranges::none_of(
++          tools, [&](const auto& tool) { return tool.name == call.name; });
++    });
++    // An explicit stop can interrupt a call before its closing tags. Keep
++    // complete calls, but do not expose an unfinished call as ordinary text.
++    if (!parsed.tool_calls.empty() || !enforce_required) {
++      parsed.text = text_before_tools;
++      parsed.hide_tool_markup = true;
++    }
++  }
++  if (enforce_required && choice == ChatRequest::ToolChoice::kRequired &&
++      parsed.tool_calls.empty())
++    throw TextGenerationError(TextGenerationErrorCode::kToolChoiceUnsatisfied,
++                              "model did not produce a declared tool call");
++  return parsed;
++}
++
++inline ParsedGeneration ParseStructuredGeneration(
++    std::string_view raw, TextGenerationBackend::InitialOutputState initial,
++    std::span<const tokenization::ChatTool> tools = {},
++    ChatRequest::ToolChoice choice = ChatRequest::ToolChoice::kNone,
++    bool enforce_required = false, bool tool_only = false) {
++  ParsedGeneration parsed;
++  if (initial == TextGenerationBackend::InitialOutputState::kReasoning) {
++    if (raw.starts_with("<think>"))
++      raw.remove_prefix(7);
++    const auto end = raw.find("</think>");
++    parsed.reasoning_content = std::string(raw.substr(0, end));
++    if (end == std::string_view::npos)
++      return parsed;
++    raw.remove_prefix(end + 8);
++  }
++  const auto content = tool_only ? raw : Trim(raw);
++  constexpr std::string_view tool_start = "<tool_call>";
++  auto marker = tool_only ? content.find(tool_start) : 0;
++  if (tool_only && choice == ChatRequest::ToolChoice::kRequired &&
++      marker == std::string_view::npos) {
++    for (std::size_t held = std::min(content.size(), tool_start.size() - 1);
++         held > 0; --held) {
++      if (tool_start.starts_with(content.substr(content.size() - held))) {
++        marker = content.size() - held;
++        break;
++      }
++    }
++  }
++  if (!tools.empty() && choice != ChatRequest::ToolChoice::kNone &&
++      !content.empty() && marker != std::string_view::npos &&
++      (tool_only || content.starts_with(tool_start) ||
++       tool_start.starts_with(content))) {
++    ParsedGeneration call;
++    std::vector<std::pair<std::size_t, std::size_t>> spans;
++    ParseQwenCalls(content, tools, &call.tool_calls,
++                   tool_only ? &spans : nullptr);
++    if (tool_only) {
++      std::size_t cursor = 0;
++      for (const auto& [begin, end] : spans) {
++        call.text += content.substr(cursor, begin - cursor);
++        cursor = end;
++      }
++      const auto tail = content.substr(cursor);
++      const auto unfinished = tail.find(tool_start);
++      call.text += tail.substr(0, spans.empty() ? marker : unfinished);
++    }
++    call.hide_tool_markup = true;
++    if (call.tool_calls.empty() && enforce_required &&
++        choice == ChatRequest::ToolChoice::kRequired)
++      throw TextGenerationError(TextGenerationErrorCode::kToolChoiceUnsatisfied,
++                                "model did not complete a declared tool call");
++    call.reasoning_content = std::move(parsed.reasoning_content);
++    return call;
++  }
++  // Markers in JSON strings are data. Only the initial reasoning phase has
++  // markup semantics; ordinary tool/reasoning parsing must not run here.
++  parsed.text = std::string(raw);
++  return parsed;
++}
++
++class StreamingTextFilter {
++public:
++  using EmitCallback =
++      std::function<bool(std::string_view piece, bool is_reasoning)>;
++
++  StreamingTextFilter(
++      TextGenerationBackend::InitialOutputState initial_output_state,
++      EmitCallback emit_piece, bool structured = false, bool tool_only = false)
++      : emit_piece_(std::move(emit_piece)),
++        raw_content_(structured || tool_only),
++        tool_only_(tool_only) {
++    if (initial_output_state ==
++        TextGenerationBackend::InitialOutputState::kReasoning) {
++      state_ = State::kThinking;
++    } else if (initial_output_state ==
++               TextGenerationBackend::InitialOutputState::kContent) {
++      state_ = State::kContent;
++    }
++  }
++
++  bool Push(std::string_view bytes, bool final = false) {
++    const auto piece = decoder_.Push(bytes, final);
++    raw_.append(piece);
++    if (tool_mode_) {
++      hidden_.append(piece);
++      return true;
++    }
++    pending_.append(piece);
++    if (raw_content_ && state_ != State::kThinking)
++      return StructuredContent();
++
++    if (state_ == State::kInitial) {
++      constexpr std::string_view kThinkStart = "<think>";
++      std::string_view view = pending_;
++      while (!view.empty() &&
++             std::isspace(static_cast<unsigned char>(view.front())) != 0) {
++        view.remove_prefix(1);
++      }
++      if (view.empty()) {
++        return true;
++      }
++      if (kThinkStart.starts_with(view)) {
++        if (view == kThinkStart) {
++          state_ = State::kThinking;
++          pending_.clear();
++        }
++        return true;
++      }
++      state_ = State::kContent;
++    }
++
++    if (state_ == State::kThinking) {
++      constexpr std::string_view kThinkEnd = "</think>";
++      const std::size_t end_pos = pending_.find(kThinkEnd);
++      const auto marker =
++          raw_content_ ? std::string::npos : EarliestMarker(pending_);
++      if (marker < end_pos) {
++        if (marker > 0 && !emit_piece_(pending_.substr(0, marker), true))
++          return false;
++        hidden_ = pending_.substr(marker);
++        pending_.clear();
++        tool_mode_ = true;
++        return true;
++      }
++      if (end_pos != std::string::npos) {
++        if (end_pos > 0 && !emit_piece_(pending_.substr(0, end_pos), true)) {
++          return false;
++        }
++        std::string_view remaining = pending_;
++        remaining.remove_prefix(end_pos + kThinkEnd.size());
++        pending_ = std::string(remaining);
++        state_ = State::kContent;
++        trim_reasoning_separator_ = true;
++      } else {
++        std::size_t held = raw_content_ ? 0 : HeldMarkerPrefix(pending_);
++        for (std::size_t len = std::min(pending_.size(), kThinkEnd.size() - 1);
++             len > 0; --len) {
++          if (kThinkEnd.starts_with(pending_.substr(pending_.size() - len))) {
++            held = std::max(held, len);
++            break;
++          }
++        }
++        const std::size_t ready = pending_.size() - held;
++        if (ready > 0 && !emit_piece_(pending_.substr(0, ready), true)) {
++          return false;
++        }
++        pending_.erase(0, ready);
++        return true;
++      }
++    }
++
++    if (state_ == State::kContent) {
++      if (raw_content_) {
++        return StructuredContent();
++      }
++      if (trim_reasoning_separator_) {
++        const auto first = pending_.find_first_not_of("\r\n");
++        if (first == std::string::npos) {
++          pending_.clear();
++          return true;
++        }
++        pending_.erase(0, first);
++        trim_reasoning_separator_ = false;
++      }
++      const std::size_t marker = EarliestMarker(pending_);
++      if (marker != std::string::npos) {
++        if (marker > 0 && !emit_piece_(pending_.substr(0, marker), false)) {
++          return false;
++        }
++        hidden_ = pending_.substr(marker);
++        pending_.clear();
++        tool_mode_ = true;
++        return true;
++      }
++
++      const std::size_t held = HeldMarkerPrefix(pending_);
++      const std::size_t ready = pending_.size() - held;
++      if (ready > 0 && !emit_piece_(pending_.substr(0, ready), false)) {
++        return false;
++      }
++      pending_.erase(0, ready);
++      return true;
++    }
++
++    return true;
++  }
++
++  bool Finish(bool hide_tool_markup, std::string_view content = {}) {
++    if (tool_only_ && tool_mode_ && hide_tool_markup) {
++      // The prefix was streamed before the first call. Preserve prose between
++      // or after complete calls without exposing their markup or partial calls.
++      const auto tail = content.substr(emitted_content_bytes_);
++      return tail.empty() || emit_piece_(tail, false);
++    }
++    if (raw_content_ && !structured_started_ && hide_tool_markup) {
++      pending_.clear();
++      return true;
++    }
++    if (!tool_mode_) {
++      if (!pending_.empty()) {
++        const bool is_reasoning = (state_ == State::kThinking);
++        const bool emitted = emit_piece_(pending_, is_reasoning);
++        pending_.clear();
++        return emitted;
++      }
++      return true;
++    }
++    if (!hide_tool_markup && !hidden_.empty()) {
++      return emit_piece_(hidden_, false);
++    }
++    return true;
++  }
++
++  [[nodiscard]] std::string_view raw() const noexcept { return raw_; }
++
++private:
++  bool StructuredContent() {
++    if (tool_only_) {
++      constexpr std::string_view marker = "<tool_call>";
++      const auto start = pending_.find(marker);
++      if (start != std::string::npos) {
++        if (start &&
++            !emit_piece_(std::string_view(pending_).substr(0, start), false))
++          return false;
++        emitted_content_bytes_ += start;
++        hidden_ = pending_.substr(start);
++        pending_.clear();
++        tool_mode_ = true;
++        return true;
++      }
++      std::size_t held = std::min(pending_.size(), marker.size() - 1);
++      while (held && !marker.starts_with(std::string_view(pending_).substr(
++                         pending_.size() - held)))
++        --held;
++      const auto ready = pending_.size() - held;
++      if (ready &&
++          !emit_piece_(std::string_view(pending_).substr(0, ready), false))
++        return false;
++      emitted_content_bytes_ += ready;
++      pending_.erase(0, ready);
++      return true;
++    }
++    if (!structured_started_) {
++      constexpr std::string_view start = "<tool_call>";
++      const auto content = Trim(pending_);
++      if (content.empty() ||
++          (content.size() < start.size() && start.starts_with(content)))
++        return true;
++      structured_started_ = true;
++      if (content.starts_with(start)) {
++        tool_mode_ = true;
++        hidden_ = std::exchange(pending_, {});
++        return true;
++      }
++    }
++    auto text = std::exchange(pending_, {});
++    return text.empty() || emit_piece_(text, false);
++  }
++  enum class State : std::uint8_t {
++    kInitial,
++    kThinking,
++    kContent,
++  };
++
++  EmitCallback emit_piece_;
++  bool structured_started_{false};
++  core::Utf8Decoder decoder_;
++  std::string raw_;
++  std::string pending_;
++  std::string hidden_;
++  State state_{State::kInitial};
++  bool tool_mode_{false};
++  bool raw_content_{false};
++  bool tool_only_{false};
++  std::size_t emitted_content_bytes_{0};
++  bool trim_reasoning_separator_{false};
++};
++
++}  // namespace gufo::server::chat_output
++
++#endif  // GUFO_SERVER_CHAT_OUTPUT_HPP_
+diff --git a/src/cli/serve/openai_chat.cpp b/src/cli/serve/openai_chat.cpp
+index 8a454dc..00a1656 100644
+--- a/src/cli/serve/openai_chat.cpp
++++ b/src/cli/serve/openai_chat.cpp
+@@ -21,6 +21,7 @@
+ #include <utility>
+ #include <vector>
+ 
++#include "src/cli/serve/chat_output.hpp"
+ #include "src/cli/serve/response_format.hpp"
+ #include "src/cli/serve/sampling_request.hpp"
+ #include "src/cli/serve/stop_sequences.hpp"
+@@ -31,6 +32,8 @@
+ namespace gufo::server {
+ namespace {
+ 
++using namespace chat_output;
++
+ struct ParsedChatRequest {
+   ChatRequest chat;
+   std::string model;
+@@ -40,43 +43,11 @@ struct ParsedChatRequest {
+   bool include_usage{false};
+ };
+ 
+-struct ParsedToolCall {
+-  std::string id;
+-  std::string name;
+-  std::vector<tokenization::ChatMessage::ToolArgument> arguments;
+-};
+-
+-struct ParsedGeneration {
+-  std::string text;
+-  std::string reasoning_content;
+-  std::vector<ParsedToolCall> tool_calls;
+-  bool hide_tool_markup{false};
+-};
+-
+-constexpr std::array<std::string_view, 7> kToolMarkers{
+-    "<tool_call>",          "<｜DSML｜tool_calls｜>", "<｜DSML｜tool_calls>",
+-    "<DSML｜tool_calls｜>", "<DSML｜tool_calls>",     "<tool_calls｜>",
+-    "<tool_calls>",
+-};
+ 
+ long long Now() {
+   return static_cast<long long>(std::time(nullptr));
+ }
+ 
+-std::string RandomId(std::string_view prefix) {
+-  static constexpr std::string_view kCharacters =
+-      "abcdefghijklmnopqrstuvwxyz0123456789";
+-  static thread_local std::mt19937 generator(std::random_device{}());
+-  std::uniform_int_distribution<std::size_t> distribution{
+-      0, kCharacters.size() - 1};
+-
+-  std::string result(prefix);
+-  result.reserve(prefix.size() + 20);
+-  for (int index = 0; index < 20; ++index) {
+-    result.push_back(kCharacters[distribution(generator)]);
+-  }
+-  return result;
+-}
+ 
+ HttpResponse Error(int status, const char* reason, std::string message,
+                    const char* code) {
+@@ -819,563 +790,6 @@ std::optional<HttpResponse> ParseRequest(const HttpRequest& request,
+   return std::nullopt;
+ }
+ 
+-std::string_view Trim(std::string_view value) {
+-  while (!value.empty() &&
+-         std::isspace(static_cast<unsigned char>(value.front())) != 0) {
+-    value.remove_prefix(1);
+-  }
+-  while (!value.empty() &&
+-         std::isspace(static_cast<unsigned char>(value.back())) != 0) {
+-    value.remove_suffix(1);
+-  }
+-  return value;
+-}
+-
+-// Qwen writes a parameter as "<parameter=name>\nVALUE\n</parameter>": one
+-// newline on each side is framing, everything else (a file's final newline,
+-// indentation, blank lines) belongs to the value.
+-std::string_view StripFramingNewlines(std::string_view value) {
+-  if (value.starts_with("\r\n"))
+-    value.remove_prefix(2);
+-  else if (value.starts_with('\n'))
+-    value.remove_prefix(1);
+-  if (value.ends_with("\r\n"))
+-    value.remove_suffix(2);
+-  else if (value.ends_with('\n'))
+-    value.remove_suffix(1);
+-  return value;
+-}
+-
+-// Qwen's XML-like calls look like Python keyword arguments, and the models
+-// sometimes write Python's True, False and None where the schema asks for a
+-// JSON boolean or null. Rewrites those words outside JSON string literals.
+-std::string PythonLiteralsToJson(std::string_view value) {
+-  std::string out;
+-  out.reserve(value.size());
+-  bool in_string = false;
+-  for (std::size_t i = 0; i < value.size();) {
+-    const char c = value[i];
+-    if (in_string) {
+-      const std::size_t length = c == '\\' && i + 1 < value.size() ? 2 : 1;
+-      out += value.substr(i, length);
+-      in_string = c != '"';
+-      i += length;
+-      continue;
+-    }
+-    if (std::isalpha(static_cast<unsigned char>(c)) == 0) {
+-      out += c;
+-      in_string = c == '"';
+-      ++i;
+-      continue;
+-    }
+-    std::size_t word_end = i;
+-    while (word_end < value.size() &&
+-           (std::isalnum(static_cast<unsigned char>(value[word_end])) != 0 ||
+-            value[word_end] == '_')) {
+-      ++word_end;
+-    }
+-    const auto word = value.substr(i, word_end - i);
+-    out += word == "True"    ? std::string_view{"true"}
+-           : word == "False" ? std::string_view{"false"}
+-           : word == "None"  ? std::string_view{"null"}
+-                             : word;
+-    i = word_end;
+-  }
+-  return out;
+-}
+-
+-std::optional<json::Value> TryParseJson(std::string_view value) noexcept {
+-  try {
+-    return json::parse(value);
+-  } catch (...) {
+-    return std::nullopt;
+-  }
+-}
+-
+-std::size_t EarliestMarker(std::string_view text,
+-                           std::string_view* marker = nullptr) {
+-  std::size_t earliest = std::string_view::npos;
+-  for (const auto candidate : kToolMarkers) {
+-    const std::size_t position = text.find(candidate);
+-    if (position < earliest) {
+-      earliest = position;
+-      if (marker != nullptr) {
+-        *marker = candidate;
+-      }
+-    }
+-  }
+-  return earliest;
+-}
+-
+-std::size_t HeldMarkerPrefix(std::string_view text) {
+-  std::size_t maximum_marker = 0;
+-  for (const auto marker : kToolMarkers) {
+-    maximum_marker = std::max(maximum_marker, marker.size());
+-  }
+-  const std::size_t maximum =
+-      std::min(text.size(), maximum_marker > 0 ? maximum_marker - 1 : 0);
+-  for (std::size_t length = maximum; length > 0; --length) {
+-    const std::string_view suffix = text.substr(text.size() - length);
+-    if (std::ranges::any_of(kToolMarkers, [&](std::string_view marker) {
+-          return marker.starts_with(suffix);
+-        })) {
+-      return length;
+-    }
+-  }
+-  return 0;
+-}
+-
+-std::string ArgumentsJson(
+-    std::span<const tokenization::ChatMessage::ToolArgument> arguments) {
+-  json::Value object = json::Value::object();
+-  for (const auto& argument : arguments) {
+-    if (argument.is_string) {
+-      object[argument.name] = argument.value;
+-      continue;
+-    }
+-    try {
+-      object[argument.name] = json::parse(argument.value);
+-    } catch (...) {
+-      object[argument.name] = argument.value;
+-    }
+-  }
+-  return object.dump();
+-}
+-
+-// Qwen's XML-like arguments carry no type marker. The advertised schema is
+-// needed to distinguish a string such as 42 from the JSON number 42.
+-bool SchemaAccepts(const json::Value& schema, const json::Value& value) {
+-  const auto matches = [&](std::string_view type) {
+-    return (type == "string" && value.is_string()) ||
+-           (type == "number" && value.is_number()) ||
+-           (type == "integer" && value.is_number() &&
+-            std::floor(value.as_double()) == value.as_double()) ||
+-           (type == "boolean" && value.is_bool()) ||
+-           (type == "null" && value.is_null()) ||
+-           (type == "array" && value.is_array()) ||
+-           (type == "object" && value.is_object());
+-  };
+-  if (const auto* type = schema.find("type")) {
+-    if (type->is_string())
+-      return matches(type->get_str());
+-    if (type->is_array())
+-      return std::ranges::any_of(type->items(), [&](const auto& item) {
+-        return item.is_string() && matches(item.get_str());
+-      });
+-    return false;
+-  }
+-  for (const auto* name : {"anyOf", "oneOf"}) {
+-    if (const auto* choices = schema.find(name); choices && choices->is_array())
+-      return std::ranges::any_of(choices->items(), [&](const auto& item) {
+-        return SchemaAccepts(item, value);
+-      });
+-  }
+-  return true;
+-}
+-
+-void ParseQwenCalls(
+-    std::string_view text, std::span<const tokenization::ChatTool> tools,
+-    std::vector<ParsedToolCall>* calls,
+-    std::vector<std::pair<std::size_t, std::size_t>>* spans = nullptr) {
+-  constexpr std::string_view start = "<tool_call>";
+-  constexpr std::string_view end = "</tool_call>";
+-  std::size_t cursor = 0;
+-  while ((cursor = text.find(start, cursor)) != std::string_view::npos) {
+-    const auto marker_begin = cursor;
+-    const auto begin = cursor + start.size();
+-    cursor = begin;  // A malformed call may be followed by a valid call.
+-    auto body = text.substr(begin);
+-    const auto consume = [&](std::string_view tag) {
+-      body = Trim(body);
+-      if (!body.starts_with(tag))
+-        return false;
+-      body.remove_prefix(tag.size());
+-      return true;
+-    };
+-    body = Trim(body);
+-    ParsedToolCall call;
+-    bool complete = false;
+-    if (consume("<function=")) {
+-      const auto name_end = body.find('>');
+-      if (name_end == std::string_view::npos)
+-        continue;
+-      call.name = std::string(Trim(body.substr(0, name_end)));
+-      body.remove_prefix(name_end + 1);
+-      std::optional<json::Value> schema;
+-      for (const auto& tool : tools) {
+-        if (tool.name == call.name) {
+-          schema = TryParseJson(tool.parameters_json);
+-          break;
+-        }
+-      }
+-      if (call.name.empty() || (!tools.empty() && !schema))
+-        continue;
+-      bool valid = true;
+-      while (consume("<parameter=")) {
+-        const auto name_end = body.find('>');
+-        if (name_end == std::string_view::npos) {
+-          valid = false;
+-          break;
+-        }
+-        const std::string name(Trim(body.substr(0, name_end)));
+-        body.remove_prefix(name_end + 1);
+-        // Outer closing tags inside a parameter are data, not structure.
+-        const auto close = body.find("</parameter>");
+-        if (close == std::string_view::npos || body.find(start) < close ||
+-            name.empty()) {
+-          valid = false;
+-          break;
+-        }
+-        const auto value = StripFramingNewlines(body.substr(0, close));
+-        const auto* properties = schema ? schema->find("properties") : nullptr;
+-        const auto* property = properties ? properties->find(name) : nullptr;
+-        const bool string_allowed =
+-            !property ||
+-            SchemaAccepts(*property, json::Value(std::string(value)));
+-        // Prefer text if the schema permits it; parsing ambiguous scalars
+-        // as JSON would silently change a caller's declared string type.
+-        const bool is_string = string_allowed;
+-        std::string raw(is_string ? value : Trim(value));
+-        if (!is_string) {
+-          auto parsed = TryParseJson(raw);
+-          if (!parsed || !SchemaAccepts(*property, *parsed)) {
+-            raw = PythonLiteralsToJson(raw);
+-            parsed = TryParseJson(raw);
+-          }
+-          if (!parsed || !SchemaAccepts(*property, *parsed)) {
+-            valid = false;
+-            break;
+-          }
+-        }
+-        // Models sometimes repeat a parameter. An identical copy is harmless;
+-        // conflicting copies leave no safe choice.
+-        const auto previous = std::ranges::find(
+-            call.arguments, name, [](const auto& arg) { return arg.name; });
+-        if (previous == call.arguments.end()) {
+-          call.arguments.push_back(
+-              {.name = name, .value = std::move(raw), .is_string = is_string});
+-        } else if (previous->value != raw || previous->is_string != is_string) {
+-          valid = false;
+-          break;
+-        }
+-        body.remove_prefix(close + std::string_view{"</parameter>"}.size());
+-      }
+-      complete = valid && consume("</function>") && consume(end);
+-    } else {
+-      // JSON calls already encode their argument types. Try closing markers
+-      // until the preceding payload is complete JSON (a marker in a quoted
+-      // string cannot terminate the call).
+-      std::size_t close = 0;
+-      while ((close = body.find(end, close)) != std::string_view::npos) {
+-        const auto parsed = TryParseJson(Trim(body.substr(0, close)));
+-        if (parsed && parsed->is_object()) {
+-          call.name = parsed->member_str("name");
+-          const auto* arguments = parsed->find("arguments");
+-          if (!call.name.empty() && arguments && arguments->is_object()) {
+-            for (const auto& [name, value] : arguments->members())
+-              call.arguments.push_back(
+-                  {.name = name,
+-                   .value = value.is_string() ? value.get_str() : value.dump(),
+-                   .is_string = value.is_string()});
+-            complete = true;
+-            body.remove_prefix(close + end.size());
+-          }
+-          break;
+-        }
+-        close += end.size();
+-      }
+-    }
+-    if (complete && !tools.empty() &&
+-        std::ranges::none_of(
+-            tools, [&](const auto& tool) { return tool.name == call.name; }))
+-      complete = false;
+-    if (complete) {
+-      call.id = RandomId("call_");
+-      calls->push_back(std::move(call));
+-      cursor = text.size() - body.size();
+-      if (spans)
+-        spans->emplace_back(marker_begin, cursor);
+-    }
+-  }
+-}
+-
+-std::optional<std::string> Attribute(std::string_view tag,
+-                                     std::string_view name) {
+-  const std::string prefix = std::string(name) + "=\"";
+-  const std::size_t start = tag.find(prefix);
+-  if (start == std::string_view::npos) {
+-    return std::nullopt;
+-  }
+-  const std::size_t value_start = start + prefix.size();
+-  const std::size_t end = tag.find('"', value_start);
+-  if (end == std::string_view::npos) {
+-    return std::nullopt;
+-  }
+-  return std::string(tag.substr(value_start, end - value_start));
+-}
+-
+-void ParseDsmlCalls(std::string_view text, std::vector<ParsedToolCall>* calls) {
+-  constexpr std::array<std::string_view, 4> kInvokeStarts{
+-      "<｜DSML｜invoke",
+-      "<DSML｜invoke",
+-      "<｜DS｜invoke",
+-      "<DS｜invoke",
+-  };
+-  constexpr std::array<std::string_view, 4> kInvokeEnds{
+-      "</｜DSML｜invoke>",
+-      "</DSML｜invoke>",
+-      "</｜DS｜invoke>",
+-      "</DS｜invoke>",
+-  };
+-  constexpr std::array<std::string_view, 4> kParameterStarts{
+-      "<｜DSML｜parameter",
+-      "<DSML｜parameter",
+-      "<｜DS｜parameter",
+-      "<DS｜parameter",
+-  };
+-  constexpr std::array<std::string_view, 4> kParameterEnds{
+-      "</｜DSML｜parameter>",
+-      "</DSML｜parameter>",
+-      "</｜DS｜parameter>",
+-      "</DS｜parameter>",
+-  };
+-
+-  std::size_t cursor = 0;
+-  while (cursor < text.size()) {
+-    std::size_t invoke_start = std::string_view::npos;
+-    std::size_t syntax = 0;
+-    for (std::size_t index = 0; index < kInvokeStarts.size(); ++index) {
+-      const std::size_t position = text.find(kInvokeStarts[index], cursor);
+-      if (position < invoke_start) {
+-        invoke_start = position;
+-        syntax = index;
+-      }
+-    }
+-    if (invoke_start == std::string_view::npos) {
+-      break;
+-    }
+-    const std::size_t tag_end = text.find('>', invoke_start);
+-    const std::size_t invoke_end = text.find(kInvokeEnds[syntax], tag_end);
+-    if (tag_end == std::string_view::npos ||
+-        invoke_end == std::string_view::npos) {
+-      break;
+-    }
+-    ParsedToolCall call;
+-    call.id = RandomId("call_");
+-    const auto name = Attribute(
+-        text.substr(invoke_start, tag_end - invoke_start + 1), "name");
+-    call.name = name.value_or("");
+-
+-    bool valid = true;
+-    std::size_t parameter_cursor = tag_end + 1;
+-    while (parameter_cursor < invoke_end) {
+-      const std::size_t parameter_start =
+-          text.find(kParameterStarts[syntax], parameter_cursor);
+-      if (parameter_start == std::string_view::npos ||
+-          parameter_start >= invoke_end) {
+-        break;
+-      }
+-      const std::size_t parameter_tag_end = text.find('>', parameter_start);
+-      const std::size_t parameter_end =
+-          text.find(kParameterEnds[syntax], parameter_tag_end);
+-      if (parameter_tag_end == std::string_view::npos ||
+-          parameter_end == std::string_view::npos ||
+-          parameter_end > invoke_end) {
+-        break;
+-      }
+-      const std::string_view tag =
+-          text.substr(parameter_start, parameter_tag_end - parameter_start + 1);
+-      const auto parameter_name = Attribute(tag, "name");
+-      const auto string_value = Attribute(tag, "string");
+-      if (parameter_name.has_value()) {
+-        tokenization::ChatMessage::ToolArgument argument{
+-            .name = *parameter_name,
+-            .value = std::string(Trim(text.substr(
+-                parameter_tag_end + 1, parameter_end - parameter_tag_end - 1))),
+-            .is_string = string_value.value_or("true") != "false",
+-        };
+-        // As for Qwen calls: drop an identical repeat and reject a
+-        // conflicting one instead of letting the last value win.
+-        const auto previous =
+-            std::ranges::find(call.arguments, argument.name,
+-                              [](const auto& arg) { return arg.name; });
+-        if (previous == call.arguments.end()) {
+-          call.arguments.push_back(std::move(argument));
+-        } else if (previous->value != argument.value ||
+-                   previous->is_string != argument.is_string) {
+-          valid = false;
+-          break;
+-        }
+-      }
+-      parameter_cursor = parameter_end + kParameterEnds[syntax].size();
+-    }
+-    if (valid && !call.name.empty()) {
+-      calls->push_back(std::move(call));
+-    }
+-    cursor = invoke_end + kInvokeEnds[syntax].size();
+-  }
+-}
+-
+-ParsedGeneration ParseGeneration(
+-    std::string_view raw,
+-    TextGenerationBackend::InitialOutputState initial_output_state,
+-    std::span<const tokenization::ChatTool> tools,
+-    ChatRequest::ToolChoice choice, bool enforce_required) {
+-  ParsedGeneration parsed;
+-  std::string_view content = raw;
+-
+-  constexpr std::string_view kThinkStart = "<think>";
+-  constexpr std::string_view kThinkEnd = "</think>";
+-  if (initial_output_state ==
+-      TextGenerationBackend::InitialOutputState::kReasoning) {
+-    if (content.starts_with(kThinkStart)) {
+-      content.remove_prefix(kThinkStart.size());
+-    }
+-    std::size_t think_end = content.find(kThinkEnd);
+-    if (EarliestMarker(content) < think_end)
+-      think_end = std::string_view::npos;
+-    if (think_end == std::string_view::npos) {
+-      const auto marker = EarliestMarker(content);
+-      parsed.reasoning_content = std::string(Trim(content.substr(0, marker)));
+-      if (marker == std::string_view::npos) {
+-        if (enforce_required && choice == ChatRequest::ToolChoice::kRequired)
+-          throw TextGenerationError(
+-              TextGenerationErrorCode::kToolChoiceUnsatisfied,
+-              "model did not produce a declared tool call");
+-        return parsed;
+-      }
+-      parsed.text = std::string(content.substr(marker));
+-    } else {
+-      parsed.reasoning_content =
+-          std::string(Trim(content.substr(0, think_end)));
+-      content.remove_prefix(think_end + kThinkEnd.size());
+-      while (!content.empty() &&
+-             (content.front() == '\n' || content.front() == '\r')) {
+-        content.remove_prefix(1);
+-      }
+-      parsed.text = std::string(content);
+-    }
+-  } else {
+-    const std::size_t think_start = content.find(kThinkStart);
+-    if (think_start != std::string_view::npos) {
+-      const std::size_t think_content_start = think_start + kThinkStart.size();
+-      std::size_t think_end = content.find(kThinkEnd, think_content_start);
+-      const auto marker = EarliestMarker(content.substr(think_content_start));
+-      if (marker != std::string_view::npos &&
+-          think_content_start + marker < think_end)
+-        think_end = std::string_view::npos;
+-      if (think_end != std::string_view::npos) {
+-        parsed.reasoning_content = std::string(Trim(content.substr(
+-            think_content_start, think_end - think_content_start)));
+-        std::string_view remaining =
+-            content.substr(think_end + kThinkEnd.size());
+-        if (remaining.starts_with("\n")) {
+-          remaining.remove_prefix(1);
+-        }
+-        if (think_start > 0) {
+-          parsed.text = std::string(content.substr(0, think_start)) +
+-                        std::string(remaining);
+-        } else {
+-          parsed.text = std::string(remaining);
+-        }
+-      } else {
+-        const auto remaining = content.substr(think_content_start);
+-        const auto marker = EarliestMarker(remaining);
+-        parsed.reasoning_content =
+-            std::string(Trim(remaining.substr(0, marker)));
+-        parsed.text = std::string(content.substr(0, think_start));
+-        if (marker != std::string_view::npos)
+-          parsed.text += remaining.substr(marker);
+-      }
+-    } else {
+-      parsed.text = std::string(content);
+-    }
+-  }
+-
+-  const std::size_t marker = EarliestMarker(parsed.text);
+-  if (choice != ChatRequest::ToolChoice::kNone && !tools.empty() &&
+-      marker != std::string_view::npos) {
+-    const std::string text_before_tools = parsed.text.substr(0, marker);
+-    const std::string text_from_tools = parsed.text.substr(marker);
+-    ParseQwenCalls(text_from_tools, tools, &parsed.tool_calls);
+-    ParseDsmlCalls(text_from_tools, &parsed.tool_calls);
+-    std::erase_if(parsed.tool_calls, [&](const auto& call) {
+-      return std::ranges::none_of(
+-          tools, [&](const auto& tool) { return tool.name == call.name; });
+-    });
+-    // An explicit stop can interrupt a call before its closing tags. Keep
+-    // complete calls, but do not expose an unfinished call as ordinary text.
+-    if (!parsed.tool_calls.empty() || !enforce_required) {
+-      parsed.text = text_before_tools;
+-      parsed.hide_tool_markup = true;
+-    }
+-  }
+-  if (enforce_required && choice == ChatRequest::ToolChoice::kRequired &&
+-      parsed.tool_calls.empty())
+-    throw TextGenerationError(TextGenerationErrorCode::kToolChoiceUnsatisfied,
+-                              "model did not produce a declared tool call");
+-  return parsed;
+-}
+-
+-ParsedGeneration ParseStructuredGeneration(
+-    std::string_view raw, TextGenerationBackend::InitialOutputState initial,
+-    std::span<const tokenization::ChatTool> tools = {},
+-    ChatRequest::ToolChoice choice = ChatRequest::ToolChoice::kNone,
+-    bool enforce_required = false, bool tool_only = false) {
+-  ParsedGeneration parsed;
+-  if (initial == TextGenerationBackend::InitialOutputState::kReasoning) {
+-    if (raw.starts_with("<think>"))
+-      raw.remove_prefix(7);
+-    const auto end = raw.find("</think>");
+-    parsed.reasoning_content = std::string(raw.substr(0, end));
+-    if (end == std::string_view::npos)
+-      return parsed;
+-    raw.remove_prefix(end + 8);
+-  }
+-  const auto content = tool_only ? raw : Trim(raw);
+-  constexpr std::string_view tool_start = "<tool_call>";
+-  auto marker = tool_only ? content.find(tool_start) : 0;
+-  if (tool_only && choice == ChatRequest::ToolChoice::kRequired &&
+-      marker == std::string_view::npos) {
+-    for (std::size_t held = std::min(content.size(), tool_start.size() - 1);
+-         held > 0; --held) {
+-      if (tool_start.starts_with(content.substr(content.size() - held))) {
+-        marker = content.size() - held;
+-        break;
+-      }
+-    }
+-  }
+-  if (!tools.empty() && choice != ChatRequest::ToolChoice::kNone &&
+-      !content.empty() && marker != std::string_view::npos &&
+-      (tool_only || content.starts_with(tool_start) ||
+-       tool_start.starts_with(content))) {
+-    ParsedGeneration call;
+-    std::vector<std::pair<std::size_t, std::size_t>> spans;
+-    ParseQwenCalls(content, tools, &call.tool_calls,
+-                   tool_only ? &spans : nullptr);
+-    if (tool_only) {
+-      std::size_t cursor = 0;
+-      for (const auto& [begin, end] : spans) {
+-        call.text += content.substr(cursor, begin - cursor);
+-        cursor = end;
+-      }
+-      const auto tail = content.substr(cursor);
+-      const auto unfinished = tail.find(tool_start);
+-      call.text += tail.substr(0, spans.empty() ? marker : unfinished);
+-    }
+-    call.hide_tool_markup = true;
+-    if (call.tool_calls.empty() && enforce_required &&
+-        choice == ChatRequest::ToolChoice::kRequired)
+-      throw TextGenerationError(TextGenerationErrorCode::kToolChoiceUnsatisfied,
+-                                "model did not complete a declared tool call");
+-    call.reasoning_content = std::move(parsed.reasoning_content);
+-    return call;
+-  }
+-  // Markers in JSON strings are data. Only the initial reasoning phase has
+-  // markup semantics; ordinary tool/reasoning parsing must not run here.
+-  parsed.text = std::string(raw);
+-  return parsed;
+-}
+ 
+ const char* FinishReason(const TextGenerationBackend::Result& result,
+                          bool has_tool_calls) {
+@@ -1501,223 +915,6 @@ json::Value ChoiceChunk(std::string_view id, long long created,
+   return chunk;
+ }
+ 
+-class StreamingTextFilter {
+-public:
+-  using EmitCallback =
+-      std::function<bool(std::string_view piece, bool is_reasoning)>;
+-
+-  StreamingTextFilter(
+-      TextGenerationBackend::InitialOutputState initial_output_state,
+-      EmitCallback emit_piece, bool structured = false, bool tool_only = false)
+-      : emit_piece_(std::move(emit_piece)),
+-        raw_content_(structured || tool_only),
+-        tool_only_(tool_only) {
+-    if (initial_output_state ==
+-        TextGenerationBackend::InitialOutputState::kReasoning) {
+-      state_ = State::kThinking;
+-    } else if (initial_output_state ==
+-               TextGenerationBackend::InitialOutputState::kContent) {
+-      state_ = State::kContent;
+-    }
+-  }
+-
+-  bool Push(std::string_view bytes, bool final = false) {
+-    const auto piece = decoder_.Push(bytes, final);
+-    raw_.append(piece);
+-    if (tool_mode_) {
+-      hidden_.append(piece);
+-      return true;
+-    }
+-    pending_.append(piece);
+-    if (raw_content_ && state_ != State::kThinking)
+-      return StructuredContent();
+-
+-    if (state_ == State::kInitial) {
+-      constexpr std::string_view kThinkStart = "<think>";
+-      std::string_view view = pending_;
+-      while (!view.empty() &&
+-             std::isspace(static_cast<unsigned char>(view.front())) != 0) {
+-        view.remove_prefix(1);
+-      }
+-      if (view.empty()) {
+-        return true;
+-      }
+-      if (kThinkStart.starts_with(view)) {
+-        if (view == kThinkStart) {
+-          state_ = State::kThinking;
+-          pending_.clear();
+-        }
+-        return true;
+-      }
+-      state_ = State::kContent;
+-    }
+-
+-    if (state_ == State::kThinking) {
+-      constexpr std::string_view kThinkEnd = "</think>";
+-      const std::size_t end_pos = pending_.find(kThinkEnd);
+-      const auto marker =
+-          raw_content_ ? std::string::npos : EarliestMarker(pending_);
+-      if (marker < end_pos) {
+-        if (marker > 0 && !emit_piece_(pending_.substr(0, marker), true))
+-          return false;
+-        hidden_ = pending_.substr(marker);
+-        pending_.clear();
+-        tool_mode_ = true;
+-        return true;
+-      }
+-      if (end_pos != std::string::npos) {
+-        if (end_pos > 0 && !emit_piece_(pending_.substr(0, end_pos), true)) {
+-          return false;
+-        }
+-        std::string_view remaining = pending_;
+-        remaining.remove_prefix(end_pos + kThinkEnd.size());
+-        pending_ = std::string(remaining);
+-        state_ = State::kContent;
+-        trim_reasoning_separator_ = true;
+-      } else {
+-        std::size_t held = raw_content_ ? 0 : HeldMarkerPrefix(pending_);
+-        for (std::size_t len = std::min(pending_.size(), kThinkEnd.size() - 1);
+-             len > 0; --len) {
+-          if (kThinkEnd.starts_with(pending_.substr(pending_.size() - len))) {
+-            held = std::max(held, len);
+-            break;
+-          }
+-        }
+-        const std::size_t ready = pending_.size() - held;
+-        if (ready > 0 && !emit_piece_(pending_.substr(0, ready), true)) {
+-          return false;
+-        }
+-        pending_.erase(0, ready);
+-        return true;
+-      }
+-    }
+-
+-    if (state_ == State::kContent) {
+-      if (raw_content_) {
+-        return StructuredContent();
+-      }
+-      if (trim_reasoning_separator_) {
+-        const auto first = pending_.find_first_not_of("\r\n");
+-        if (first == std::string::npos) {
+-          pending_.clear();
+-          return true;
+-        }
+-        pending_.erase(0, first);
+-        trim_reasoning_separator_ = false;
+-      }
+-      const std::size_t marker = EarliestMarker(pending_);
+-      if (marker != std::string::npos) {
+-        if (marker > 0 && !emit_piece_(pending_.substr(0, marker), false)) {
+-          return false;
+-        }
+-        hidden_ = pending_.substr(marker);
+-        pending_.clear();
+-        tool_mode_ = true;
+-        return true;
+-      }
+-
+-      const std::size_t held = HeldMarkerPrefix(pending_);
+-      const std::size_t ready = pending_.size() - held;
+-      if (ready > 0 && !emit_piece_(pending_.substr(0, ready), false)) {
+-        return false;
+-      }
+-      pending_.erase(0, ready);
+-      return true;
+-    }
+-
+-    return true;
+-  }
+-
+-  bool Finish(bool hide_tool_markup, std::string_view content = {}) {
+-    if (tool_only_ && tool_mode_ && hide_tool_markup) {
+-      // The prefix was streamed before the first call. Preserve prose between
+-      // or after complete calls without exposing their markup or partial calls.
+-      const auto tail = content.substr(emitted_content_bytes_);
+-      return tail.empty() || emit_piece_(tail, false);
+-    }
+-    if (raw_content_ && !structured_started_ && hide_tool_markup) {
+-      pending_.clear();
+-      return true;
+-    }
+-    if (!tool_mode_) {
+-      if (!pending_.empty()) {
+-        const bool is_reasoning = (state_ == State::kThinking);
+-        const bool emitted = emit_piece_(pending_, is_reasoning);
+-        pending_.clear();
+-        return emitted;
+-      }
+-      return true;
+-    }
+-    if (!hide_tool_markup && !hidden_.empty()) {
+-      return emit_piece_(hidden_, false);
+-    }
+-    return true;
+-  }
+-
+-  [[nodiscard]] std::string_view raw() const noexcept { return raw_; }
+-
+-private:
+-  bool StructuredContent() {
+-    if (tool_only_) {
+-      constexpr std::string_view marker = "<tool_call>";
+-      const auto start = pending_.find(marker);
+-      if (start != std::string::npos) {
+-        if (start &&
+-            !emit_piece_(std::string_view(pending_).substr(0, start), false))
+-          return false;
+-        emitted_content_bytes_ += start;
+-        hidden_ = pending_.substr(start);
+-        pending_.clear();
+-        tool_mode_ = true;
+-        return true;
+-      }
+-      std::size_t held = std::min(pending_.size(), marker.size() - 1);
+-      while (held && !marker.starts_with(std::string_view(pending_).substr(
+-                         pending_.size() - held)))
+-        --held;
+-      const auto ready = pending_.size() - held;
+-      if (ready &&
+-          !emit_piece_(std::string_view(pending_).substr(0, ready), false))
+-        return false;
+-      emitted_content_bytes_ += ready;
+-      pending_.erase(0, ready);
+-      return true;
+-    }
+-    if (!structured_started_) {
+-      constexpr std::string_view start = "<tool_call>";
+-      const auto content = Trim(pending_);
+-      if (content.empty() ||
+-          (content.size() < start.size() && start.starts_with(content)))
+-        return true;
+-      structured_started_ = true;
+-      if (content.starts_with(start)) {
+-        tool_mode_ = true;
+-        hidden_ = std::exchange(pending_, {});
+-        return true;
+-      }
+-    }
+-    auto text = std::exchange(pending_, {});
+-    return text.empty() || emit_piece_(text, false);
+-  }
+-  enum class State : std::uint8_t {
+-    kInitial,
+-    kThinking,
+-    kContent,
+-  };
+-
+-  EmitCallback emit_piece_;
+-  bool structured_started_{false};
+-  core::Utf8Decoder decoder_;
+-  std::string raw_;
+-  std::string pending_;
+-  std::string hidden_;
+-  State state_{State::kInitial};
+-  bool tool_mode_{false};
+-  bool raw_content_{false};
+-  bool tool_only_{false};
+-  std::size_t emitted_content_bytes_{0};
+-  bool trim_reasoning_separator_{false};
+-};
+ 
+ // Responses uses semantic SSE events, rather than Chat Completions chunks.
+ // Build the same output items for streaming and buffered responses.
