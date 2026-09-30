@@ -51,7 +51,7 @@ func (b *deadlineBackend) budget() time.Duration {
 
 type deadlineClientFactory struct{ client *deadlineBackend }
 
-func (f *deadlineClientFactory) NewClient(_ string, _ bool) grpc.Backend { return f.client }
+func (f *deadlineClientFactory) NewClient(_, _ string, _ bool) grpc.Backend { return f.client }
 
 var _ = Describe("remote LoadModel deadline", func() {
 	var (

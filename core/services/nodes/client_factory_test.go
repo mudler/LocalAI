@@ -9,7 +9,7 @@ import (
 
 type legacyFactory struct{ addrs []string }
 
-func (f *legacyFactory) NewClient(address string, _ bool) grpc.Backend {
+func (f *legacyFactory) NewClient(_, address string, _ bool) grpc.Backend {
 	f.addrs = append(f.addrs, address)
 	return nil
 }

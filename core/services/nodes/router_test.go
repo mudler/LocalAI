@@ -475,7 +475,7 @@ type stubClientFactory struct {
 	client *stubBackend
 }
 
-func (f *stubClientFactory) NewClient(_ string, _ bool) grpc.Backend {
+func (f *stubClientFactory) NewClient(_, _ string, _ bool) grpc.Backend {
 	return f.client
 }
 

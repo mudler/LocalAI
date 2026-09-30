@@ -84,7 +84,7 @@ func (b *holdBackend) ctxErrAtEnd() error {
 
 type holdClientFactory struct{ client *holdBackend }
 
-func (f *holdClientFactory) NewClient(_ string, _ bool) grpc.Backend { return f.client }
+func (f *holdClientFactory) NewClient(_, _ string, _ bool) grpc.Backend { return f.client }
 
 var _ = Describe("size-derived remote LoadModel budget", func() {
 	// Production, on an NVIDIA Jetson Thor worker: a 70 GB video checkpoint

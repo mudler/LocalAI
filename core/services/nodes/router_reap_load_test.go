@@ -43,7 +43,7 @@ func (b *failingLoadBackend) LoadModel(_ context.Context, _ *pb.ModelOptions, _ 
 
 type failingClientFactory struct{ client *failingLoadBackend }
 
-func (f *failingClientFactory) NewClient(_ string, _ bool) grpc.Backend { return f.client }
+func (f *failingClientFactory) NewClient(_, _ string, _ bool) grpc.Backend { return f.client }
 
 // replicaSlotRouter pins the replica slot scheduleAndLoad allocates so a spec
 // can assert the reaped process key carries the real index, not a hardcoded 0.

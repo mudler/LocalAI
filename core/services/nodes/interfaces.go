@@ -148,7 +148,7 @@ type NodeManager interface {
 
 // BackendClientFactory creates gRPC backend clients.
 type BackendClientFactory interface {
-	NewClient(address string, parallel bool) grpc.Backend
+	NewClient(nodeID, address string, parallel bool) grpc.Backend
 }
 
 // NodeBackendClientFactory is the optional node-aware form of
@@ -169,7 +169,7 @@ func newBackendClient(f BackendClientFactory, nodeID, address string, parallel b
 	if nf, ok := f.(NodeBackendClientFactory); ok {
 		return nf.NewNodeClient(nodeID, address, parallel)
 	}
-	return f.NewClient(address, parallel)
+	return f.NewClient(nodeID, address, parallel)
 }
 
 // tokenClientFactory is the default BackendClientFactory that creates gRPC
@@ -178,7 +178,7 @@ type tokenClientFactory struct {
 	token string
 }
 
-func (f *tokenClientFactory) NewClient(address string, parallel bool) grpc.Backend {
+func (f *tokenClientFactory) NewClient(_, address string, parallel bool) grpc.Backend {
 	if f.token != "" {
 		return grpc.NewClientWithToken(address, parallel, nil, false, f.token)
 	}
@@ -187,6 +187,6 @@ func (f *tokenClientFactory) NewClient(address string, parallel bool) grpc.Backe
 
 // NewNodeClient ignores the node id: this factory dials the address directly,
 // so the address alone already names the target.
-func (f *tokenClientFactory) NewNodeClient(_, address string, parallel bool) grpc.Backend {
-	return f.NewClient(address, parallel)
+func (f *tokenClientFactory) NewNodeClient(nodeID, address string, parallel bool) grpc.Backend {
+	return f.NewClient(nodeID, address, parallel)
 }
