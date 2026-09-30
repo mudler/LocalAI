@@ -371,6 +371,35 @@ func systemOneError(c echo.Context, status int, msg string) error {
 	})
 }
 
+// systemOneModelAllowed keeps chat and embedding models out of the decision
+// API with an actionable error instead of a backend failure. A config that
+// declares no usecases predates the flag and stays allowed, and a
+// token_classify model is allowed because the NER path serves it.
+func systemOneModelAllowed(cfg config.ModelConfig) error {
+	if cfg.KnownUsecases == nil {
+		return nil
+	}
+	if *cfg.KnownUsecases&(config.FLAG_SYSTEMONE|config.FLAG_TOKEN_CLASSIFY) != 0 {
+		return nil
+	}
+	return fmt.Errorf("model %q does not declare the systemone usecase (known_usecases: [systemone])", cfg.Name)
+}
+
+// checkSystemOneModel applies systemOneModelAllowed to a model looked up by
+// name. An unknown model passes here so the existing not-found handling
+// downstream keeps its status code.
+func checkSystemOneModel(app *application.Application, modelName string) error {
+	cl := app.ModelConfigLoader()
+	if cl == nil {
+		return nil
+	}
+	cfg, ok := cl.GetModelConfig(modelName)
+	if !ok {
+		return nil
+	}
+	return systemOneModelAllowed(cfg)
+}
+
 // backendSupportsScore reports whether the named backend implements the
 // Score gRPC RPC. vllm-cpp does (kev/laya decision pipeline and cua-s1-forms
 // scoring via the unified vllm_decide C ABI); other backends fall through to
@@ -407,6 +436,9 @@ func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 		if req.Model == "" {
 			return systemOneError(c, http.StatusBadRequest, "model is required")
+		}
+		if err := checkSystemOneModel(app, req.Model); err != nil {
+			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		// vllm-cpp models (kev/laya) implement the decision pipeline natively
 		// via the vllm_decide C ABI. Forward the raw request JSON through the
@@ -473,6 +505,9 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 		if req.Request.Model == "" {
 			return systemOneError(c, http.StatusBadRequest, "model is required")
+		}
+		if err := checkSystemOneModel(app, req.Request.Model); err != nil {
+			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		if req.Question == "" {
 			return systemOneError(c, http.StatusBadRequest, "question is required")
@@ -609,6 +644,9 @@ func SystemOneSeparateEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 		if req.Model == "" {
 			return systemOneError(c, http.StatusBadRequest, "model is required")
+		}
+		if err := checkSystemOneModel(app, req.Model); err != nil {
+			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		parsed, err := parseSystemOneRequest(&req)
 		if err != nil {
