@@ -488,6 +488,92 @@
     - filename: llama-cpp/mmproj/Qwopus3.8-27B-Flash-MTP-Q4_K_M/mmproj-F32.gguf
       uri: https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-GGUF/resolve/e146d61e88782677805b3b68ad3adf8674dde80d/mmproj-F32.gguf
       sha256: 52e6818e4d18eea010c50e5245eaa10a8cc3dcc30efea4ff60cbad8abf5669e1
+- name: lensvlm-9b
+  variants:
+    - model: lensvlm-9b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/apple/LensVLM-9B
+    - https://huggingface.co/bartowski/LensVLM-9B-GGUF
+  description: |
+    LensVLM-9B is Apple's 9B Qwen3.5-based vision-language model for reading compressed images of text.
+    This Q4_K_M GGUF build uses llama.cpp with the embedded chat template and includes the F16 vision projector.
+    Selective page expansion requires an external client that implements the model's document tools.
+  license: apple-amlr
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-LensVLM-9B-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: LensVLM-9B-Q4_K_M.gguf
+  files:
+    - filename: LensVLM-9B-Q4_K_M.gguf
+      sha256: d91641c3068520b77b11d3eb37901db9e7f21e035a7a1fe216f399c79b957053
+      uri: https://huggingface.co/bartowski/LensVLM-9B-GGUF/resolve/64a86841598e9512beb38051162c8bcd4dd1fe7d/LensVLM-9B-Q4_K_M.gguf
+    - filename: mmproj-LensVLM-9B-f16.gguf
+      sha256: ec1421fd586267113c5ea141476ef41e68702c7a0d5e54ea098213f4b3aa93a6
+      uri: https://huggingface.co/bartowski/LensVLM-9B-GGUF/resolve/64a86841598e9512beb38051162c8bcd4dd1fe7d/mmproj-LensVLM-9B-f16.gguf
+- name: lensvlm-9b-q8
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/apple/LensVLM-9B
+    - https://huggingface.co/bartowski/LensVLM-9B-GGUF
+  description: |
+    LensVLM-9B is Apple's 9B Qwen3.5-based vision-language model for reading compressed images of text.
+    This Q8_0 GGUF build uses llama.cpp with the embedded chat template and includes the F16 vision projector.
+    Selective page expansion requires an external client that implements the model's document tools.
+  license: apple-amlr
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: mmproj-LensVLM-9B-f16.gguf
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: LensVLM-9B-Q8_0.gguf
+  files:
+    - filename: LensVLM-9B-Q8_0.gguf
+      sha256: 5ac5cf22875eddf7acbbc5412f9b01009a19f8e7b5a5a2064aa1191774f0cc49
+      uri: https://huggingface.co/bartowski/LensVLM-9B-GGUF/resolve/64a86841598e9512beb38051162c8bcd4dd1fe7d/LensVLM-9B-Q8_0.gguf
+    - filename: mmproj-LensVLM-9B-f16.gguf
+      sha256: ec1421fd586267113c5ea141476ef41e68702c7a0d5e54ea098213f4b3aa93a6
+      uri: https://huggingface.co/bartowski/LensVLM-9B-GGUF/resolve/64a86841598e9512beb38051162c8bcd4dd1fe7d/mmproj-LensVLM-9B-f16.gguf
 - name: mimo-v2.6-distill-qwen-9b
   variants:
     - model: mimo-v2.6-distill-qwen-9b-q8
