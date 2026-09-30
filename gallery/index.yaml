@@ -2410,6 +2410,7 @@
     - https://huggingface.co/unsloth/Qwen3.8-27B-GGUF
     - https://github.com/gufo-org/gufo
   description: |
+    Experimental: not yet verified on gfx1151 hardware.
     Qwen3.8-27B, the dense Qwen3.8 text and image model, served by the gufo
     backend. gufo runs only on Linux x86-64 with an AMD Strix Halo GPU
     (Ryzen AI MAX+ 395 with Radeon 8060S, gfx1151); it refuses to load on any
@@ -2459,6 +2460,7 @@
     - https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF
     - https://github.com/gufo-org/gufo
   description: |
+    Experimental: not yet verified on gfx1151 hardware.
     Qwen3.8-27B with DFlash2 speculative decoding, served by the gufo backend.
     gufo runs only on Linux x86-64 with an AMD Strix Halo GPU (Ryzen AI MAX+
     395 with Radeon 8060S, gfx1151); it refuses to load on any other GPU. This
@@ -2511,6 +2513,7 @@
     - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
     - https://github.com/gufo-org/gufo
   description: |
+    Experimental: not yet verified on gfx1151 hardware.
     Qwen3.8-Flash-Next, the hybrid mixture-of-experts Qwen3.8 text and image
     model, with MTP speculative decoding, served by the gufo backend. gufo runs
     only on Linux x86-64 with an AMD Strix Halo GPU (Ryzen AI MAX+ 395 with
@@ -2580,6 +2583,7 @@
     - https://huggingface.co/antirez/deepseek-v4-gguf
     - https://github.com/gufo-org/gufo
   description: |
+    Experimental: not yet verified on gfx1151 hardware.
     DeepSeek-V4-Flash 0731 (text only) with DSpark speculative decoding,
     served by the gufo backend. gufo runs only on Linux x86-64 with an AMD
     Strix Halo GPU (Ryzen AI MAX+ 395 with Radeon 8060S, gfx1151); it refuses

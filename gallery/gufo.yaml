@@ -4,8 +4,6 @@ name: "gufo"
 config_file: |
     backend: gufo
     context_size: 8192
-    parameters:
-      max_tokens: 4096
     function:
       disable_no_action: true
       grammar:
