@@ -147,6 +147,9 @@ func (c *Client) runReconnectCallbacks() {
 
 // Publish marshals data as JSON and publishes it to the given subject.
 func (c *Client) Publish(subject string, data any) error {
+	if err := ValidateSubject(subject); err != nil {
+		return err
+	}
 	payload, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshalling message for %s: %w", subject, err)
@@ -184,6 +187,9 @@ func (c *Client) QueueSubscribe(subject, queue string, handler func([]byte)) (Su
 // lacks a subject gets a non-nil subscription that never receives a message,
 // turning a permission misconfiguration into a silent failure.
 func (c *Client) confirmSubscription(subject string, mk func(*nats.Conn) (*nats.Subscription, error)) (Subscription, error) {
+	if err := ValidateSubject(subject); err != nil {
+		return nil, err
+	}
 	c.mu.RLock()
 	conn := c.conn
 	c.mu.RUnlock()
@@ -222,6 +228,9 @@ func (c *Client) confirmSubscription(subject string, mk func(*nats.Conn) (*nats.
 // Request sends a request and waits for a reply (request-reply pattern).
 // Returns the raw reply data.
 func (c *Client) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	if err := ValidateSubject(subject); err != nil {
+		return nil, err
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	msg, err := c.conn.Request(subject, data, timeout)

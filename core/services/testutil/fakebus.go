@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"encoding/json"
-	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +22,9 @@ import (
 type FakeBus struct {
 	mu   sync.Mutex
 	subs []fakeBusSub
+	// nextID gives every subscription an identity of its own, so Unsubscribe
+	// removes that subscription and not another one on the same subject.
+	nextID uint64
 	// publishCounts records how many messages were published per subject, so a
 	// spec can assert the echo-loop guard (an applied delta must not re-publish).
 	publishCounts map[string]int
@@ -34,6 +36,7 @@ type FakeBus struct {
 }
 
 type fakeBusSub struct {
+	id      uint64
 	subject string
 	handler func([]byte)
 }
@@ -43,31 +46,12 @@ func NewFakeBus() *FakeBus {
 	return &FakeBus{publishCounts: map[string]int{}}
 }
 
-// subjectMatches reports whether a subscription filter matches a concrete
-// subject, honoring the single-token `*` wildcard used by NATS.
-func subjectMatches(filter, subject string) bool {
-	if filter == subject {
-		return true
-	}
-	fp := strings.Split(filter, ".")
-	sp := strings.Split(subject, ".")
-	if len(fp) != len(sp) {
-		return false
-	}
-	for i := range fp {
-		if fp[i] == "*" {
-			continue
-		}
-		if fp[i] != sp[i] {
-			return false
-		}
-	}
-	return true
-}
-
 // Publish marshals data as JSON and delivers it synchronously to every matching
 // subscriber.
 func (b *FakeBus) Publish(subject string, data any) error {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return err
+	}
 	payload, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -77,7 +61,7 @@ func (b *FakeBus) Publish(subject string, data any) error {
 	subs := append([]fakeBusSub(nil), b.subs...)
 	b.mu.Unlock()
 	for _, s := range subs {
-		if subjectMatches(s.subject, subject) {
+		if messaging.MatchSubject(s.subject, subject) {
 			s.handler(payload)
 		}
 	}
@@ -100,7 +84,7 @@ func (s *fakeBusSubscription) Unsubscribe() error {
 	s.bus.mu.Lock()
 	defer s.bus.mu.Unlock()
 	for i, candidate := range s.bus.subs {
-		if candidate.subject == s.subRef.subject {
+		if candidate.id == s.subRef.id {
 			s.bus.subs = append(s.bus.subs[:i], s.bus.subs[i+1:]...)
 			return nil
 		}
@@ -109,8 +93,12 @@ func (s *fakeBusSubscription) Unsubscribe() error {
 }
 
 func (b *FakeBus) Subscribe(subject string, handler func([]byte)) (messaging.Subscription, error) {
-	sub := fakeBusSub{subject: subject, handler: handler}
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return nil, err
+	}
 	b.mu.Lock()
+	b.nextID++
+	sub := fakeBusSub{id: b.nextID, subject: subject, handler: handler}
 	b.subs = append(b.subs, sub)
 	b.mu.Unlock()
 	return &fakeBusSubscription{bus: b, subRef: sub}, nil

@@ -128,7 +128,7 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 	Context("QueueSubscribeReply", func() {
 		It("should support queue subscribe with request-reply round-trip", func() {
 			// Subscribe with queue group
-			sub, err := infra.NC.QueueSubscribeReply("test.echo", "echo-workers", func(data []byte, reply func([]byte)) {
+			sub, err := infra.NC.QueueSubscribeReply(messaging.SubjectNodeBackendList("e2e-echo"), "echo-workers", func(data []byte, reply func([]byte)) {
 				// Echo back the request data with a prefix
 				reply(append([]byte("echo:"), data...))
 			})
@@ -138,7 +138,7 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 			FlushNATS(infra.NC)
 
 			// Send request and wait for reply
-			replyData, err := infra.NC.Request("test.echo", []byte("hello"), 5*time.Second)
+			replyData, err := infra.NC.Request(messaging.SubjectNodeBackendList("e2e-echo"), []byte("hello"), 5*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(replyData)).To(Equal("echo:hello"))
 		})
@@ -146,13 +146,13 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 		It("should load-balance requests across queue subscribers", func() {
 			var worker1Count, worker2Count atomic.Int32
 
-			sub1, _ := infra.NC.QueueSubscribeReply("test.lb", "lb-workers", func(data []byte, reply func([]byte)) {
+			sub1, _ := infra.NC.QueueSubscribeReply(messaging.SubjectNodeBackendList("e2e-lb"), "lb-workers", func(data []byte, reply func([]byte)) {
 				worker1Count.Add(1)
 				reply([]byte("w1"))
 			})
 			defer sub1.Unsubscribe()
 
-			sub2, _ := infra.NC.QueueSubscribeReply("test.lb", "lb-workers", func(data []byte, reply func([]byte)) {
+			sub2, _ := infra.NC.QueueSubscribeReply(messaging.SubjectNodeBackendList("e2e-lb"), "lb-workers", func(data []byte, reply func([]byte)) {
 				worker2Count.Add(1)
 				reply([]byte("w2"))
 			})
@@ -162,7 +162,7 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 
 			// Send multiple requests
 			for range 10 {
-				_, err := infra.NC.Request("test.lb", []byte("req"), 5*time.Second)
+				_, err := infra.NC.Request(messaging.SubjectNodeBackendList("e2e-lb"), []byte("req"), 5*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
