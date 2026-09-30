@@ -50,7 +50,9 @@ class MlxEngine:
                  on_delta: Callable[[Delta], None] | None,
                  is_cancelled: Callable[[], bool]) -> Result:
         h, app = self._h, self._app
-        cancellation = h.Cancellation()
+        # Cancellation polls is_cancelled lazily on every read, so ChatApp sees a
+        # client leave while queued or mid-prefill, not only when a delta arrives.
+        cancellation = h.Cancellation(is_cancelled)
         try:
             body = h.parse_numbers(body)
             h.validate_modalities(body)

@@ -14,11 +14,20 @@ class RequestCancelled(Exception):
 
 
 class FakeCancellation:
-    def __init__(self):
-        self.cancelled = False
+    # Mirrors upstream server/cancellation.py: `disconnected` is polled lazily
+    # on every read, which is how ChatApp sees a client leave before any delta.
+    def __init__(self, disconnected=None):
+        self._cancelled = False
+        self._disconnected = disconnected
 
     def cancel(self):
-        self.cancelled = True
+        self._cancelled = True
+
+    @property
+    def cancelled(self):
+        if not self._cancelled and self._disconnected is not None and self._disconnected():
+            self._cancelled = True
+        return self._cancelled
 
 
 class FakePolicy:
@@ -175,6 +184,36 @@ class MlxEngineTest(unittest.TestCase):
         engine = MlxEngine(LeavingApp(), make_helpers())
         with self.assertRaises(GenerationCancelled):
             engine.generate({"messages": MSG}, True, lambda d: None, lambda: state["gone"])
+
+    def test_client_gone_before_any_delta_cancels_the_upstream_request(self):
+        class QueuedApp(FakeApp):
+            def chat(self, messages, **kw):
+                # ChatApp reads the flag while queued and between prefill chunks
+                if kw["cancellation"].cancelled:
+                    raise RequestCancelled("client left during prefill")
+                return dict(self.reply)
+
+        engine = MlxEngine(QueuedApp(), make_helpers())
+        with self.assertRaises(GenerationCancelled):
+            engine.generate({"messages": MSG}, True, lambda d: None, lambda: True)
+
+    def test_client_gone_while_policy_swallows_tool_deltas_cancels(self):
+        class Swallow(FakePolicy):
+            def delta(self, d):
+                return ""
+
+        class ToolApp(FakeApp):
+            def chat(self, messages, **kw):
+                for piece in ("<tool_call>", "{}", "</tool_call>"):
+                    kw["on_delta"](piece)
+                if kw["cancellation"].cancelled:
+                    raise RequestCancelled("client left during tool call")
+                return dict(self.reply)
+
+        tools = [{"type": "function", "function": {"name": "f"}}]
+        engine = MlxEngine(ToolApp(), make_helpers(ToolCallPolicy=Swallow))
+        with self.assertRaises(GenerationCancelled):
+            engine.generate({"messages": MSG, "tools": tools}, True, lambda d: None, lambda: True)
 
     def test_tokenize_uses_the_app_tokenizer(self):
         app = FakeApp()
