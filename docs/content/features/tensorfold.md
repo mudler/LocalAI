@@ -8,8 +8,8 @@ url = "/features/tensorfold/"
 [TensorFold](https://github.com/ashhart/TensorFold) is an MIT-licensed engine that
 serves language models on Apple Silicon and NVIDIA GPUs. Each model family supplies
 its own kernels and draft verification. LocalAI exposes it through the `tensorfold`
-backend, which runs TensorFold in the backend process: MLX on Apple Silicon, CUDA on
-NVIDIA.
+backend, which runs TensorFold in the backend process. LocalAI ships the Apple Silicon
+(MLX) image today; the NVIDIA (CUDA 13) images follow.
 
 TensorFold is developed by its own authors, not by the LocalAI project.
 
@@ -25,12 +25,13 @@ different quantizations, or between different tensor-parallel rank counts.
 | Platform | Supported |
 |---|---|
 | Apple Silicon (MLX) | Yes |
-| NVIDIA, compute capability 9.0 or newer (sm_90, sm_100, sm_120, sm_121), CUDA 13, including DGX Spark | Yes |
+| NVIDIA, compute capability 9.0 or newer (sm_90, sm_100, sm_120, sm_121), CUDA 13, including DGX Spark | Image follows; not installable yet |
 | NVIDIA Ampere and Ada | No, refused at load time with an explicit message |
 | AMD, Intel, Vulkan, CPU | No |
 
-CUDA 13 support ships in a follow-up image build. Until that image is published, the
-backend is available on Apple Silicon only.
+LocalAI does not publish a CUDA 13 image for this backend yet, so today it installs on
+Apple Silicon only. The CUDA notes on this page describe how the backend behaves once
+that image ships.
 
 ## Installing
 
@@ -106,6 +107,8 @@ options:
 
 ## Limits
 
+The CUDA items apply once the CUDA 13 image ships.
+
 - On CUDA, Nemotron serves one request at a time, and `parallel:auto` also means one
   request at a time for every family.
 - The first load on CUDA compiles TensorFold's kernels for the GPU that is present.
@@ -120,9 +123,9 @@ own licenses:
 | Entry | License |
 |---|---|
 | `qwen3.8-27b:tensorfold` | apache-2.0 |
-| `qwen3.8-27b-nvfp4:tensorfold` | apache-2.0 (NVIDIA only) |
 | `nemotron-3.5-lightning-30b-a3b:tensorfold` | openmdw-1.1 |
 | `gemma-4-26b-a4b:tensorfold` | apache-2.0 (Apple Silicon only) |
 | `qwen3.8-flash-next:tensorfold` | qwen-community-1.0; read it before commercial use |
 
-The DFlash drafters from z-lab are apache-2.0.
+The DFlash drafters from z-lab are apache-2.0. All entries use MLX weights and run on
+Apple Silicon. NVIDIA entries are added with the CUDA 13 image.

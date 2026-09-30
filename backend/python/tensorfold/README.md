@@ -8,6 +8,8 @@ TensorFold in process: MLX on Apple Silicon, CUDA on NVIDIA.
 - Apple Silicon (MLX).
 - NVIDIA GPUs with compute capability 9.0 or newer (sm_90, sm_100, sm_120,
   sm_121). Ampere and Ada are refused at load time with an explicit message.
+  The code path is here, but LocalAI publishes the CUDA 13 image in a
+  follow-up; until then only the Apple Silicon image exists.
 
 ## One process per model
 

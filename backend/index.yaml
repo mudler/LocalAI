@@ -1087,12 +1087,11 @@
     - https://github.com/ashhart/TensorFold
   license: MIT
   description: |
-    TensorFold serves Qwen3.8, Nemotron 3.5, Gemma 4 and DeepSeek-V4-Flash with exact speculative decoding on Apple Silicon (MLX) and on NVIDIA GPUs with compute capability 9.0 or newer (CUDA). One request at a time on CUDA unless a family supports shared rounds.
+    TensorFold serves Qwen3.8, Nemotron 3.5, Gemma 4 and DeepSeek-V4-Flash with exact speculative decoding. Apple Silicon (MLX) today; NVIDIA (CUDA 13) images follow.
   tags:
     - text-to-text
     - LLM
     - MLX
-    - CUDA
   capabilities:
     metal: "metal-tensorfold"
 - &mlx-video

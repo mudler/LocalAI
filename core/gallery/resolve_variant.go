@@ -81,7 +81,8 @@ type ResolveEnv struct {
 	BackendCompatible func(backend string) bool
 	// EnginePreference lists the ENGINE NAMES this host prefers, best first, as
 	// SystemState.EnginePreferenceTokens reports them (e.g. a CUDA 13 NVIDIA host gives
-	// ["vllm", "sglang", "tensorfold", "llama-cpp"], metal gives
+	// ["vllm", "sglang", "tensorfold", "llama-cpp"], where the tensorfold token
+	// is in place ahead of its CUDA 13 image, which ships in a follow-up; metal gives
 	// ["mlx", "tensorfold", "llama-cpp"]). A token is matched as a substring
 	// of a variant's backend name.
 	//
