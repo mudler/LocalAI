@@ -174,9 +174,11 @@ for the request shape, the models you can install and the access rules.
 | `/v1/systemone/permute` | POST | Re-run one choice question under n_perm option orders |
 | `/v1/systemone/separate` | POST | Answer each question in its own pass (N passes) |
 
-The GLiNER2.5 zero-shot NER model (`token_classify`) also serves these
-endpoints. It derives its NER labels from the question definitions, so no
-`ner_labels` configuration is needed.
+The GLiNER2.5 zero-shot NER model (`token_classify`) also serves
+`/v1/systemone`, through the NER path, and it is the model to use for
+`/v1/systemone/permute` and `/v1/systemone/separate`, which decision models
+refuse with a `400`. It derives its NER labels from the question definitions, so
+no `ner_labels` configuration is needed.
 
 ## Beyond text generation
 

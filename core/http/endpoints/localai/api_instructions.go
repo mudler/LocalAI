@@ -109,7 +109,7 @@ var instructionDefs = []instructionDef{
 		Name:        "systemone",
 		Description: "Typed decisions (choice, noul, score) over a state text with calibrated confidence",
 		Tags:        []string{"systemone"},
-		Intro:       "POST /v1/systemone answers every question in one pass; /v1/systemone/permute re-runs one choice question under n_perm option orders; /v1/systemone/separate answers each question in its own pass. Request: { model, state, questions: { <id>: { type: choice|noul|score, instructions, criteria } } }. The model must declare known_usecases: [systemone] (or token_classify for the zero-shot NER path); a config that declares no usecases keeps working. Responses carry per-question answers with confidence and probabilities plus token usage. The wire shape matches Ollama's /v1/systemone.",
+		Intro:       "POST /v1/systemone answers every question in one pass; /v1/systemone/permute re-runs one choice question under n_perm option orders; /v1/systemone/separate answers each question in its own pass. Request: { model, state, questions: { <id>: { type: choice|noul|score, instructions, criteria } } }. A decision model declares known_usecases: [systemone] and serves only /v1/systemone; a zero-shot NER model declares token_classify and serves all three routes (through the NER path); /permute and /separate return 400 for decision models. A vllm-cpp config that declares no usecases is treated as a decision model. Responses carry per-question answers with confidence and probabilities plus token usage. The wire shape matches Ollama's /v1/systemone.",
 	},
 	{
 		Name:        "branding",

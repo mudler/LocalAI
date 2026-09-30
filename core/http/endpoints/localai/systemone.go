@@ -400,6 +400,55 @@ func checkSystemOneModel(app *application.Application, modelName string) error {
 	return systemOneModelAllowed(cfg)
 }
 
+// systemOneUsesDecisionPipeline reports whether /v1/systemone forwards the
+// request to the backend's Score RPC (the decision pipeline) for this model.
+// A model that declares token_classify without systemone is a zero-shot NER
+// model: the backend's decision entry point refuses those architectures, so it
+// goes to the NER path instead. A config that declares nothing keeps the
+// decision pipeline, which is what setups that predate the systemone usecase
+// relied on.
+func systemOneUsesDecisionPipeline(cfg config.ModelConfig) bool {
+	if !backendSupportsScore(cfg.Backend) {
+		return false
+	}
+	if cfg.KnownUsecases == nil {
+		return true
+	}
+	declared := *cfg.KnownUsecases
+	if declared&config.FLAG_SYSTEMONE != 0 {
+		return true
+	}
+	return declared&config.FLAG_TOKEN_CLASSIFY == 0
+}
+
+// systemOneNERAllowed guards /permute and /separate, which always run the NER
+// path. A decision model cannot serve them: the backend's NER entry point
+// refuses its architecture, and the caller would see a backend error.
+func systemOneNERAllowed(cfg config.ModelConfig) error {
+	if cfg.KnownUsecases == nil {
+		return nil
+	}
+	declared := *cfg.KnownUsecases
+	if declared&config.FLAG_SYSTEMONE != 0 && declared&config.FLAG_TOKEN_CLASSIFY == 0 {
+		return fmt.Errorf("model %q is a decision model: /permute and /separate use the NER path, use POST /v1/systemone instead", cfg.Name)
+	}
+	return nil
+}
+
+// checkSystemOneNERModel applies systemOneNERAllowed to a model looked up by
+// name; an unknown model passes so the not-found handling keeps its status.
+func checkSystemOneNERModel(app *application.Application, modelName string) error {
+	cl := app.ModelConfigLoader()
+	if cl == nil {
+		return nil
+	}
+	cfg, ok := cl.GetModelConfig(modelName)
+	if !ok {
+		return nil
+	}
+	return systemOneNERAllowed(cfg)
+}
+
 // backendSupportsScore reports whether the named backend implements the
 // Score gRPC RPC. vllm-cpp does (kev/laya decision pipeline and cua-s1-forms
 // scoring via the unified vllm_decide C ABI); other backends fall through to
@@ -445,7 +494,7 @@ func SystemOneEndpoint(app *application.Application) echo.HandlerFunc {
 		// Score RPC and return the backend's response as-is.
 		cl := app.ModelConfigLoader()
 		if cl != nil {
-			if cfg, ok := cl.GetModelConfig(req.Model); ok && backendSupportsScore(cfg.Backend) {
+			if cfg, ok := cl.GetModelConfig(req.Model); ok && systemOneUsesDecisionPipeline(cfg) {
 				reqJSON, err := json.Marshal(req)
 				if err != nil {
 					return systemOneError(c, http.StatusInternalServerError, "failed to marshal request: "+err.Error())
@@ -507,6 +556,9 @@ func SystemOnePermuteEndpoint(app *application.Application) echo.HandlerFunc {
 			return systemOneError(c, http.StatusBadRequest, "model is required")
 		}
 		if err := checkSystemOneModel(app, req.Request.Model); err != nil {
+			return systemOneError(c, http.StatusBadRequest, err.Error())
+		}
+		if err := checkSystemOneNERModel(app, req.Request.Model); err != nil {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		if req.Question == "" {
@@ -646,6 +698,9 @@ func SystemOneSeparateEndpoint(app *application.Application) echo.HandlerFunc {
 			return systemOneError(c, http.StatusBadRequest, "model is required")
 		}
 		if err := checkSystemOneModel(app, req.Model); err != nil {
+			return systemOneError(c, http.StatusBadRequest, err.Error())
+		}
+		if err := checkSystemOneNERModel(app, req.Model); err != nil {
 			return systemOneError(c, http.StatusBadRequest, err.Error())
 		}
 		parsed, err := parseSystemOneRequest(&req)

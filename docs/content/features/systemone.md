@@ -21,6 +21,13 @@ project and match the `/v1/systemone` endpoint that Ollama added in 0.35.
 | `/v1/systemone/permute` | POST | Re-run one choice question under `n_perm` option orders |
 | `/v1/systemone/separate` | POST | Answer each question in its own pass |
 
+Which route a model can serve depends on its kind:
+
+| Model kind | `/v1/systemone` | `/permute` and `/separate` |
+|---|---|---|
+| Decision model (`systemone`), such as Laya or GLiNER2.5-Decide | Yes | No, returns `400` |
+| Zero-shot NER model (`token_classify`), such as GLiNER2.5 | Yes, through the NER path | Yes |
+
 ## Question types
 
 | Type | Answer | Fields in the answer |
@@ -58,8 +65,8 @@ curl http://localhost:8080/v1/systemone -H "Content-Type: application/json" -d '
 }'
 ```
 
-Every answer carries a `confidence` value, and the response reports token usage
-and `latency_ms`.
+Answers from a decision model carry a `confidence` value, and the response
+reports token usage and `latency_ms`. The NER path does not report token usage.
 
 ## Choosing a model
 
@@ -78,9 +85,11 @@ parameters:
 `systemone` is never guessed, and a model that declares it is not listed as a
 chat, completion or embeddings model. A model that declares usecases without
 `systemone` or `token_classify` gets a `400` from these endpoints that names the
-missing usecase. A config that declares no usecases at all keeps working, so
-setups that predate the flag are not broken. Models that declare `token_classify`
-are served by the zero-shot NER path.
+missing usecase. A model that declares `token_classify` and not `systemone` is
+served by the zero-shot NER path. A vllm-cpp config that declares no usecases is
+treated as a decision model, so setups that predate the flag keep working, but a
+config that declares only `chat` (as an older `laya` gallery entry did) now gets
+the `400` and needs `known_usecases: [systemone]`.
 
 Install one from the gallery and filter on the `systemone` tag:
 
