@@ -25,3 +25,17 @@ const (
 type WorkQueue interface {
 	Enqueue(ctx context.Context, kind WorkKind, payload any) error
 }
+
+// WorkHandler runs one unit of work to its conclusion and returns only then.
+// events is where the work publishes its progress, results and agent events. A
+// nil return means this worker ran the work (success or failure is reported on
+// events); a non-nil return means it could not serve it. Delivery count is
+// carrier-defined: a handler must tolerate a repeat.
+type WorkHandler func(ctx context.Context, payload []byte, events Publisher) error
+
+// WorkConsumer is the worker side. ctx is the parent of every handler call.
+// maxInFlight bounds concurrent handler calls: 0 is unbounded, 1 is serial.
+// Unsubscribe stops delivery and waits for in-flight handlers to return.
+type WorkConsumer interface {
+	Consume(ctx context.Context, kind WorkKind, maxInFlight int, h WorkHandler) (Subscription, error)
+}
