@@ -1316,7 +1316,10 @@ func DeleteSchedulingEndpoint(registry *nodes.NodeRegistry) echo.HandlerFunc {
 // alone does not say how this frontend reaches that worker.
 func proxyHTTPToWorker(ctx context.Context, dialFor nodes.WorkerNetDialerFor, nodeID, httpAddress, path, token string) (*http.Response, error) {
 	reqURL := fmt.Sprintf("http://%s%s", httpAddress, path)
-	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	// WithoutCancel keeps the request bounded only by the 15s client timeout,
+	// as before the dialer change; cancelling on admin disconnect would be a
+	// separate, deliberate behaviour change.
+	req, err := http.NewRequestWithContext(context.WithoutCancel(ctx), "GET", reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
