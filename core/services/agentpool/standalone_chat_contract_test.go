@@ -20,6 +20,7 @@ var _ = Describe("standalone chat contract", func() {
 		svc = startStandalone(GinkgoT().TempDir(), llm.URL())
 		DeferCleanup(svc.Stop)
 		Expect(svc.CreateAgentForUser("alice", newAgentConfig("chatty"))).To(Succeed())
+		awaitRunning(svc, "alice", "chatty")
 	})
 
 	It("streams the user message, processing, agent reply and completed status over SSE", func() {
@@ -77,6 +78,7 @@ var _ = Describe("standalone chat contract", func() {
 
 	It("does not deliver one user's chat events to another user's agent of the same name", func() {
 		Expect(svc.CreateAgentForUser("bob", newAgentConfig("chatty"))).To(Succeed())
+		awaitRunning(svc, "bob", "chatty")
 		aliceEvents, stopAlice := collectSSE(svc, "alice", "chatty")
 		defer stopAlice()
 		bobEvents, stopBob := collectSSE(svc, "bob", "chatty")

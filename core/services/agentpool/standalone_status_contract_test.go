@@ -21,6 +21,7 @@ var _ = Describe("standalone status and observables contract", func() {
 		svc = startStandalone(GinkgoT().TempDir(), llm.URL())
 		DeferCleanup(svc.Stop)
 		Expect(svc.CreateAgentForUser("alice", newAgentConfig("observed"))).To(Succeed())
+		awaitRunning(svc, "alice", "observed")
 	})
 
 	// runOnce chats once and waits for the completed status. ChatForUser sends

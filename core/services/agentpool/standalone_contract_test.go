@@ -38,6 +38,7 @@ var _ = Describe("standalone agent service contract", func() {
 
 		It("creates, reads back, updates and deletes an agent", func() {
 			Expect(svc.CreateAgentForUser("alice", newAgentConfig("helper"))).To(Succeed())
+			awaitRunning(svc, "alice", "helper")
 
 			got := svc.GetAgentConfigForUser("alice", "helper")
 			Expect(got).ToNot(BeNil())
@@ -49,6 +50,8 @@ var _ = Describe("standalone agent service contract", func() {
 			updated := newAgentConfig("helper")
 			updated.Description = "changed"
 			Expect(svc.UpdateAgentForUser("alice", "helper", updated)).To(Succeed())
+			// Update restarts the agent, so the new instance needs the same wait.
+			awaitRunning(svc, "alice", "helper")
 			Expect(svc.GetAgentConfigForUser("alice", "helper").Description).To(Equal("changed"))
 
 			Expect(svc.DeleteAgentForUser("alice", "helper")).To(Succeed())
@@ -68,6 +71,8 @@ var _ = Describe("standalone agent service contract", func() {
 			b.Description = "bob's"
 			Expect(svc.CreateAgentForUser("alice", a)).To(Succeed())
 			Expect(svc.CreateAgentForUser("bob", b)).To(Succeed())
+			awaitRunning(svc, "alice", "shared-name")
+			awaitRunning(svc, "bob", "shared-name")
 
 			Expect(svc.GetAgentConfigForUser("alice", "shared-name").Description).To(Equal("alice's"))
 			Expect(svc.GetAgentConfigForUser("bob", "shared-name").Description).To(Equal("bob's"))
@@ -85,12 +90,14 @@ var _ = Describe("standalone agent service contract", func() {
 			cfg := newAgentConfig("portable")
 			cfg.Description = "carry me"
 			Expect(svc.CreateAgentForUser("", cfg)).To(Succeed())
+			awaitRunning(svc, "", "portable")
 
 			data, err := svc.ExportAgentForUser("", "portable")
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(svc.DeleteAgentForUser("", "portable")).To(Succeed())
 			Expect(svc.ImportAgentForUser("", data)).To(Succeed())
+			awaitRunning(svc, "", "portable")
 
 			got := svc.GetAgentConfigForUser("", "portable")
 			Expect(got).ToNot(BeNil())
@@ -104,6 +111,7 @@ var _ = Describe("standalone agent service contract", func() {
 			cfg := newAgentConfig("portable")
 			cfg.Description = "carry me"
 			Expect(svc.CreateAgentForUser("alice", cfg)).To(Succeed())
+			awaitRunning(svc, "alice", "portable")
 
 			data, err := svc.ExportAgentForUser("alice", "portable")
 			Expect(err).ToNot(HaveOccurred())
@@ -127,6 +135,7 @@ var _ = Describe("standalone agent service contract", func() {
 				"actions": [{"name": "search", "config": "{}"}]
 			}`)
 			Expect(svc.ImportAgentForUser("alice", raw)).To(Succeed())
+			awaitRunning(svc, "alice", "legacy")
 
 			data, err := svc.ExportAgentForUser("alice", "legacy")
 			Expect(err).ToNot(HaveOccurred())
@@ -142,6 +151,7 @@ var _ = Describe("standalone agent service contract", func() {
 			svc := startStandalone(dir, llm.URL())
 			DeferCleanup(svc.Stop)
 			Expect(svc.CreateAgentForUser("alice", newAgentConfig("napper"))).To(Succeed())
+			awaitRunning(svc, "alice", "napper")
 			Expect(svc.ListAgentsForUser("alice")).To(HaveKeyWithValue("napper", true))
 
 			Expect(svc.PauseAgentForUser("alice", "napper")).To(Succeed())

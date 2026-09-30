@@ -12,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAGI/core/sse"
 	"github.com/mudler/LocalAGI/core/state"
+	"github.com/mudler/LocalAGI/core/types"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/agentpool"
 	. "github.com/onsi/gomega"
@@ -122,6 +123,22 @@ func newAgentConfig(name string) *state.AgentConfig {
 		Description:  "contract test agent",
 		SystemPrompt: "You are a test agent.",
 	}
+}
+
+// awaitRunning blocks until the agent's Run loop is serving jobs. The pool
+// starts Run in a goroutine and LocalAGI's Scheduler.Start and Scheduler.Stop
+// are unsynchronized: a Stop (update, delete, svc.Stop) that lands while Start
+// is still running can nil the scheduler context under the poll goroutine and
+// crash the test binary. Run starts its workers only after Scheduler.Start has
+// returned, and jobQueue is unbuffered, so Execute returning proves Start is
+// done. The job's context is already cancelled, so the worker finishes it as
+// expired without calling the LLM or recording an observable.
+func awaitRunning(svc *agentpool.AgentPoolService, userID, name string) {
+	a := svc.GetAgentForUser(userID, name)
+	Expect(a).ToNot(BeNil())
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	a.Execute(types.NewJob(types.WithContext(ctx)))
 }
 
 type sseEvent struct {
