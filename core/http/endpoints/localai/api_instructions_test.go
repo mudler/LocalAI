@@ -39,7 +39,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 
 			instructions, ok := resp["instructions"].([]any)
 			Expect(ok).To(BeTrue())
-			Expect(instructions).To(HaveLen(20))
+			Expect(instructions).To(HaveLen(21))
 
 			// Verify each instruction has required fields and correct URL format
 			for _, s := range instructions {
@@ -82,6 +82,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 				"voice-library",
 				"3d",
 				"failover",
+				"systemone",
 			))
 		})
 	})
@@ -134,6 +135,17 @@ var _ = Describe("API Instructions Endpoints", func() {
 			body, _ := io.ReadAll(rec.Body)
 			Expect(string(body)).To(ContainSubstring("POST /3d/generations"))
 			Expect(string(body)).NotTo(ContainSubstring("/v1/3d/generations"))
+		})
+
+		It("should advertise the SystemOne decisions API", func() {
+			req := httptest.NewRequest(http.MethodGet, "/api/instructions/systemone", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			body, _ := io.ReadAll(rec.Body)
+			Expect(string(body)).To(ContainSubstring("POST /v1/systemone"))
+			Expect(string(body)).To(ContainSubstring("known_usecases: [systemone]"))
 		})
 
 		It("should return JSON fragment when format=json", func() {
