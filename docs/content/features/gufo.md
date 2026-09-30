@@ -208,9 +208,14 @@ To turn thinking off for a model, set the `think:false` option, or set
   gufo parses them with its own parsers.
 - **At most 16 images** for each request. Images attach to the last user turn.
   DeepSeek V4 Flash is text only.
-- **One DeepSeek instance for each host.** gufo's DeepSeek runtime takes an
-  exclusive lock on `/tmp/ds4.lock` (the `DS4_LOCK_FILE` environment variable
-  moves it). A second DeepSeek model that shares that `/tmp` fails to load.
+- **One DeepSeek model for each `/tmp`.** gufo's DeepSeek runtime takes an
+  exclusive lock on `/tmp/ds4.lock`, so the lock is scoped to one `/tmp` (one
+  container), not to the host. DeepSeek models served by LocalAI's `ds4`
+  backend take the same lock file, so the `gufo` and `ds4` backends cannot hold
+  a DeepSeek model at the same time in one container: the second load fails
+  with `DeepSeek instance lock unavailable`. Both engines read the
+  `DS4_LOCK_FILE` environment variable; set it to a different path for one of
+  the two backend processes to separate them.
 - Temperature is applied exactly as sent, so `temperature: 0` gives greedy
   output.
 

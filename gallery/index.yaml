@@ -2588,8 +2588,13 @@
     This entry downloads antirez's mixed IQ2/Q2/Q8 GGUF (86.7 GB) and the
     DSpark support model (5.99 GB). gufo reports 80.76 GiB of target weights
     and recommends a 128 GiB system. This entry sets a 32768-token context.
-    gufo takes a host-wide lock (/tmp/ds4.lock) for DeepSeek, so only one
-    DeepSeek model can run per host at a time. Thinking is on by default with
+    gufo takes an exclusive lock on /tmp/ds4.lock for DeepSeek, so the lock
+    is scoped to one /tmp (one container), not to the host. DeepSeek models
+    served by LocalAI's ds4 backend take the same lock file, so the gufo and
+    ds4 backends cannot hold a DeepSeek model at the same time in one
+    container. Both engines read the DS4_LOCK_FILE environment variable; set
+    it to a different path for one of the two backend processes to separate
+    them. Thinking is on by default with
     high effort. Sampling follows DeepSeek's recommendation (temperature 1.0,
     top_p 0.95).
   license: mit
