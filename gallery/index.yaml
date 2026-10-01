@@ -91,6 +91,82 @@
     - filename: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
       sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
       uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/mmproj-Swift-Qwen3.8-27B-F16.gguf
+- name: cyber-ornith-1.5-9b-obliterated
+  variants:
+    - model: cyber-ornith-1.5-9b-obliterated-q6
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED
+    - https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF
+  description: |
+    Cyber-Ornith 1.5 is a 9B Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
+    This importance-matrix Q4_K_M GGUF build uses llama.cpp with the embedded chat template for text chat.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q4_K_M.gguf
+      temperature: 0.6
+      top_p: 0.9
+  files:
+    - filename: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q4_K_M.gguf
+      sha256: 5b7bdec6919db868e517e9ab9a05ce8be096f6f139798a7b94a3aa3d2d1eab28
+      uri: https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF/resolve/5936e88f1885b856b54520c372f2cd41e71819fd/Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q4_K_M.gguf
+- name: cyber-ornith-1.5-9b-obliterated-q6
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED
+    - https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF
+  description: |
+    Cyber-Ornith 1.5 is a 9B Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
+    This importance-matrix Q6_K GGUF build uses llama.cpp with the embedded chat template for text chat.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q6_K.gguf
+      temperature: 0.6
+      top_p: 0.9
+  files:
+    - filename: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q6_K.gguf
+      sha256: 0a43704d7b18c2eb62fdc6d67b4cf32d5fd4d7a147e1bf0b00d3dc75d88822fd
+      uri: https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF/resolve/5936e88f1885b856b54520c372f2cd41e71819fd/Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q6_K.gguf
 - name: "ornith-1.5-9b-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
@@ -297,7 +373,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: 9c46395af7320ec1d68afe81ec7fa1c7060a07117dceabfd977f12a95fa30cdf
+      sha256: d09aaa0d77c8c61f91474ac8ca740e9ed92d54ad57e0a96687a797d2410b6154
 - name: "qwopus3.8-27b-flash-v2"
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
@@ -6420,7 +6496,6 @@
     - filename: Sharp-Spark-X2.5-4B-Q4_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF/resolve/e797ddf6a57d9ecfddf68394438d2667ecb42dad/Sharp-Spark-X2.5-4B-Q4_K_XL.gguf
       sha256: 8e5601dbd18fbc2b731cf674a040dd32f3ec2d09a312f4e0f3c4d7bc92998837
-
 - name: sharp-spark-x2.5-4b-q5
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6457,7 +6532,6 @@
     - filename: Sharp-Spark-X2.5-4B-Q5_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF/resolve/e797ddf6a57d9ecfddf68394438d2667ecb42dad/Sharp-Spark-X2.5-4B-Q5_K_XL.gguf
       sha256: f445f1a57e58b70ea85078e1edcd29763843f71f154bac2efc57eea1b8333a26
-
 - name: sharp-spark-x2.5-4b-q6
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -6494,7 +6568,6 @@
     - filename: Sharp-Spark-X2.5-4B-Q6_K_XL.gguf
       uri: https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF/resolve/e797ddf6a57d9ecfddf68394438d2667ecb42dad/Sharp-Spark-X2.5-4B-Q6_K_XL.gguf
       sha256: 793e673f34d2dde9674d24d277c25dbf03b89290333835aa31b7ee1d62e20dfc
-
 - &spark-x2-5-4b
   name: "spark-x2.5-4b-q4"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
@@ -9309,7 +9382,7 @@
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-APEX.gguf
-      sha256: 35026b978de6ee6ff63870d3d68be90ab0797a9a6cd5c83332e1f9c510c6a695
+      sha256: 97602082e8639b1e6660b36de0193861742e035711b865faf76abf54a5a2be09
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
@@ -9399,7 +9472,7 @@
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX.gguf
-      sha256: 612561952f0698539a133a479e1cf18ffce85bb6b4311a5d05e50d6160970c75
+      sha256: 3efbc83f38ffa48251ff4c072fbbefce63c995df3cba20fd6bf0d8d7ab965cd9
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
@@ -9451,7 +9524,7 @@
   files:
     - filename: llama-cpp/models/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/Hermes3.6-35B-A3B-Uncensored-Genesis-Final-MTP-APEX-Compact.gguf
-      sha256: 7a17aaff5ec81ba34e33d3a8b032a699abf4231d6cbe9930d1c9a159db3e87dc
+      sha256: 27a2edec6f66e585fbf02eabe397f694378474786711362d9f78cd129a0e8313
     - filename: llama-cpp/mmproj/Hermes3.6-35B-A3B-Uncensored-Genesis-Final/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
       sha256: 5129bb5eb19e4346c0f2071f1ce8e1b0a076e0ab08d57a77d6033ce01235252c
       uri: https://huggingface.co/LuffyTheFox/Qwen3.6-35B-A3B-Uncensored-Genesis-Hermes-Final-GGUF/resolve/d0cf3294f07f2c422f0cf793a75fa48f61d48931/mmproj-Hermes3.6-35B-A3B-Uncensored-Genesis-Final-F16.gguf
@@ -19363,6 +19436,7 @@
     - qwen3.6
     - nvfp4
     - vllm-cpp
+    - vision
     - tool-calling
     - reasoning
     - gpu
@@ -19375,6 +19449,7 @@
     known_usecases:
       - chat
       - completion
+      - vision
     # Tool calls and the <think> split are parsed by the engine's own streaming
     # parsers, so LocalAI's Go-side grammar path stays out of the way.
     function:
@@ -19432,6 +19507,7 @@
     - qwen3.6
     - nvfp4
     - vllm-cpp
+    - vision
     - speculative-decoding
     - mtp
     - tool-calling
@@ -19445,6 +19521,7 @@
     known_usecases:
       - chat
       - completion
+      - vision
     function:
       grammar:
         disable: true
@@ -19500,6 +19577,7 @@
     - qwen3.6
     - nvfp4
     - vllm-cpp
+    - vision
     - speculative-decoding
     - dflash
     - tool-calling
@@ -19513,6 +19591,7 @@
     known_usecases:
       - chat
       - completion
+      - vision
     function:
       grammar:
         disable: true
@@ -19560,6 +19639,9 @@
     with roughly 3B parameters active per token, so it reads like a much larger
     model while costing about as much per token as a small one.
 
+    Image input is implemented in the engine but is not token-gated against
+    vLLM yet, so the vision usecase on this entry is experimental.
+
     This is the engine's gated MoE checkpoint: token-for-token identical to vLLM
     over the 315-prompt battery on both the synchronous and asynchronous paths,
     at 0.92x to 0.97x vLLM's throughput from concurrency 1 to 32.
@@ -19578,6 +19660,8 @@
     - moe
     - nvfp4
     - vllm-cpp
+    - vision
+    - experimental
     - tool-calling
     - reasoning
     - gpu
@@ -19590,6 +19674,7 @@
     known_usecases:
       - chat
       - completion
+      - vision
     function:
       grammar:
         disable: true
@@ -19618,6 +19703,9 @@
   description: |
     Qwen3.6-35B-A3B NVFP4 on vllm.cpp with MTP speculative decoding enabled.
 
+    Image input is implemented in the engine but is not token-gated against
+    vLLM yet, so the vision usecase on this entry is experimental.
+
     The draft head ships inside the checkpoint's own mtp.* tensors, so there is
     no second model to download. On this model the speculative path is
     token-exact against speculation-off on both the synchronous and asynchronous
@@ -19635,6 +19723,8 @@
     - moe
     - nvfp4
     - vllm-cpp
+    - vision
+    - experimental
     - speculative-decoding
     - mtp
     - tool-calling
@@ -19648,6 +19738,7 @@
     known_usecases:
       - chat
       - completion
+      - vision
     function:
       grammar:
         disable: true
@@ -53743,6 +53834,550 @@
     - filename: parakeet-cpp/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
       uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3.5-asr-streaming-0.6b-q8_0.gguf
       sha256: ba2f13eccd4a5245be728f77e6149bd6a4fdcdd133ff2e08ac6005bcef7a99f1
+- name: parakeet-cpp-nemotron-3-diarization
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Nemotron-3-Diarization (Sortformer), Q8_0 GGUF for the parakeet-cpp backend
+    (C++/ggml port of NVIDIA NeMo). Speaker diarization only: served through
+    /v1/audio/diarization, returns per-segment start, end and speaker label
+    ("0", "1", ...). It does not transcribe; pair it with an ASR model and set
+    asr_model to get speaker-attributed text from the same call. num_speakers,
+    min_speakers, max_speakers and clustering_threshold are not supported by
+    Sortformer and are ignored.
+  license: openmdw-1.1
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - diarization
+    - speaker-diarization
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - diarization
+    name: parakeet-cpp-nemotron-3-diarization
+    parameters:
+      model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+- name: parakeet-cpp-nemotron-3-diarization-asr
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/nvidia/parakeet-tdt_ctc-110m
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Nemotron-3-Diarization (Sortformer) paired with the Parakeet TDT+CTC 110M
+    ASR model through the asr_model option, both Q8_0/F16 GGUF for the
+    parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). Served through
+    /v1/audio/diarization with include_text: each speaker segment comes back
+    with its transcribed text in one call. Diarization model is
+    OpenMDW-1.1, ASR model is CC-BY-4.0.
+  license: openmdw-1.1
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - asr
+    - diarization
+    - speaker-diarization
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - diarization
+    name: parakeet-cpp-nemotron-3-diarization-asr
+    options:
+      - asr_model:parakeet-cpp/tdt_ctc-110m-f16.gguf
+    parameters:
+      model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/tdt_ctc-110m-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt_ctc-110m-f16.gguf
+      sha256: 7f9a6376edde6a74592ace48b2ebdc27a1ac972d0be9dfcc29e668d99381faf1
+- name: parakeet-cpp-nemotron-3-diarization-speakers
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/voice-detect-gguf
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Nemotron-3-Diarization (Sortformer) with WeSpeaker ResNet34 speaker
+    identification, for the parakeet-cpp backend. Speakers you register with
+    /v1/voice/register (using the voice-detect-wespeaker-resnet34 model) come back
+    by name in /v1/audio/diarization, next to the SPEAKER_NN label. Speakers that
+    are not registered keep only their SPEAKER_NN label. The diarization model is
+    OpenMDW-1.1, the speaker model is CC-BY-4.0. Naming was measured on one
+    two-voice fixture only; check the threshold on your own audio.
+  license: openmdw-1.1
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - diarization
+    - speaker-diarization
+    - speaker-recognition
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - diarization
+    name: parakeet-cpp-nemotron-3-diarization-speakers
+    options:
+      - speaker_model:voice-detect-wespeaker-resnet34.gguf
+    parameters:
+      model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: voice-detect-wespeaker-resnet34.gguf
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/wespeaker-resnet34-voxceleb.gguf
+      sha256: 72040372494eafec299836bc1977cfc13c603cb486674ed59b0f4c03758d29da
+- name: parakeet-cpp-nemotron-3-diarization-asr-speakers
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/voice-detect-gguf
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/nvidia/parakeet-tdt_ctc-110m
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Nemotron-3-Diarization (Sortformer) paired with the Parakeet TDT+CTC 110M
+    ASR model through the asr_model option, both Q8_0/F16 GGUF for the
+    parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). Served through
+    /v1/audio/diarization with include_text: each speaker segment comes back
+    with its transcribed text in one call. Diarization model is
+    OpenMDW-1.1, ASR model is CC-BY-4.0. Also loads WeSpeaker ResNet34
+    (CC-BY-4.0) through the speaker_model option: speakers registered with
+    /v1/voice/register (voice-detect-wespeaker-resnet34 model) come back by
+    name, next to the SPEAKER_NN label.
+  license: openmdw-1.1
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - asr
+    - diarization
+    - speaker-diarization
+    - speech-recognition
+    - stt
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - diarization
+    name: parakeet-cpp-nemotron-3-diarization-asr-speakers
+    options:
+      - asr_model:parakeet-cpp/tdt_ctc-110m-f16.gguf
+      - speaker_model:voice-detect-wespeaker-resnet34.gguf
+    parameters:
+      model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/tdt_ctc-110m-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt_ctc-110m-f16.gguf
+      sha256: 7f9a6376edde6a74592ace48b2ebdc27a1ac972d0be9dfcc29e668d99381faf1
+    - filename: voice-detect-wespeaker-resnet34.gguf
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/wespeaker-resnet34-voxceleb.gguf
+      sha256: 72040372494eafec299836bc1977cfc13c603cb486674ed59b0f4c03758d29da
+- name: parakeet-cpp-realtime-scene-speakers
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mudler/voice-detect-gguf
+    - https://huggingface.co/nvidia/parakeet_realtime_eou_120m-v1
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/mispeech/ced-tiny
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Cache-aware streaming RNNT FastConformer with end-of-utterance (EOU)
+    detection, 120M, paired with Nemotron-3-Diarization and CED-Tiny through
+    the diarization_model and sound_model options. F16/Q8_0 GGUF for the
+    parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). Use with streaming
+    transcription: while a turn is live, closed speaker segments and sound
+    events are surfaced alongside the ASR text (realtime
+    conversation.item.input_audio_transcription.segment and
+    conversation.item.sound_detection events). Live speaker/sound events only
+    fire during speech turns under semantic_vad; sounds between turns are not
+    seen by this path. License per model: transcription model NVIDIA Open
+    Model License, diarization model OpenMDW-1.1, CED-Tiny Apache-2.0,
+    WeSpeaker ResNet34 CC-BY-4.0. Also loads WeSpeaker ResNet34 through the
+    speaker_model option, so live speaker segments carry the name of a voice
+    registered with /v1/voice/register (voice-detect-wespeaker-resnet34 model)
+    once the speaker is identified.
+  license: nvidia-open-model-license
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - ced
+    - asr
+    - speech-recognition
+    - diarization
+    - sound-classification
+    - streaming
+    - realtime
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-realtime-scene-speakers
+    options:
+      - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      - sound_model:parakeet-cpp/ced-tiny-q8_0.gguf
+      - speaker_model:voice-detect-wespeaker-resnet34.gguf
+    parameters:
+      model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+  files:
+    - filename: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/realtime_eou_120m-v1-f16.gguf
+      sha256: d1a2b12f12b8a096a57499c9111ed13b442a2b786e17a292c168be45088f0edc
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/ced-tiny-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-tiny-q8_0.gguf
+      sha256: 48bee4e2fc3cc85d7806e03471db24e77fda6c2a2e81ffe9ef67caebaf2bd674
+    - filename: voice-detect-wespeaker-resnet34.gguf
+      uri: https://huggingface.co/mudler/voice-detect-gguf/resolve/main/wespeaker-resnet34-voxceleb.gguf
+      sha256: 72040372494eafec299836bc1977cfc13c603cb486674ed59b0f4c03758d29da
+- name: parakeet-cpp-ced-tiny
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-tiny
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    CED-Tiny sound event tagger, Q8_0 GGUF for the parakeet-cpp backend
+    (C++/ggml, loaded through third_party/ced.cpp). Served through
+    /v1/audio/classification: 10 s windows are scored and averaged over the
+    clip, then sorted by score with threshold and top_k applied. Smallest and
+    fastest of the CED sizes; use ced-base for higher accuracy.
+  license: apache-2.0
+  tags:
+    - parakeet-cpp
+    - ced
+    - sound-classification
+    - audio-tagging
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - sound_classification
+    name: parakeet-cpp-ced-tiny
+    parameters:
+      model: parakeet-cpp/ced-tiny-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/ced-tiny-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-tiny-q8_0.gguf
+      sha256: 48bee4e2fc3cc85d7806e03471db24e77fda6c2a2e81ffe9ef67caebaf2bd674
+- name: parakeet-cpp-ced-base
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/mispeech/ced-base
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    CED-Base sound event tagger, Q8_0 GGUF for the parakeet-cpp backend
+    (C++/ggml, loaded through third_party/ced.cpp). Served through
+    /v1/audio/classification: 10 s windows are scored and averaged over the
+    clip, then sorted by score with threshold and top_k applied. Larger and
+    more accurate than ced-tiny, still CPU-friendly.
+  license: apache-2.0
+  tags:
+    - parakeet-cpp
+    - ced
+    - sound-classification
+    - audio-tagging
+    - gguf
+    - ggml
+    - quantized
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - sound_classification
+    name: parakeet-cpp-ced-base
+    parameters:
+      model: parakeet-cpp/ced-base-q8_0.gguf
+  files:
+    - filename: parakeet-cpp/ced-base-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-base-q8_0.gguf
+      sha256: bd34a7710169f0047fea17267965d211f967828ab25ba6fb9d3768481393f6e2
+- name: parakeet-cpp-realtime-scene
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/nvidia/parakeet_realtime_eou_120m-v1
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/mispeech/ced-tiny
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Cache-aware streaming RNNT FastConformer with end-of-utterance (EOU)
+    detection, 120M, paired with Nemotron-3-Diarization and CED-Tiny through
+    the diarization_model and sound_model options. F16/Q8_0 GGUF for the
+    parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). Use with streaming
+    transcription: while a turn is live, closed speaker segments and sound
+    events are surfaced alongside the ASR text (realtime
+    conversation.item.input_audio_transcription.segment and
+    conversation.item.sound_detection events). Live speaker/sound events only
+    fire during speech turns under semantic_vad; sounds between turns are not
+    seen by this path. License per model: transcription model NVIDIA Open
+    Model License, diarization model OpenMDW-1.1, CED-Tiny Apache-2.0.
+  license: nvidia-open-model-license
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - ced
+    - asr
+    - speech-recognition
+    - diarization
+    - sound-classification
+    - streaming
+    - realtime
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-realtime-scene
+    options:
+      - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      - sound_model:parakeet-cpp/ced-tiny-q8_0.gguf
+    parameters:
+      model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+  files:
+    - filename: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/realtime_eou_120m-v1-f16.gguf
+      sha256: d1a2b12f12b8a096a57499c9111ed13b442a2b786e17a292c168be45088f0edc
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/ced-tiny-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-tiny-q8_0.gguf
+      sha256: 48bee4e2fc3cc85d7806e03471db24e77fda6c2a2e81ffe9ef67caebaf2bd674
+- name: parakeet-cpp-realtime-scene-tdt
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/mispeech/ced-tiny
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Parakeet TDT 0.6B v3 (multilingual, 25 European languages) paired with
+    Nemotron-3-Diarization and CED-Tiny through the diarization_model and
+    sound_model options: one parakeet-cpp backend transcribes, labels speakers
+    and tags sound events. GGUF for the parakeet-cpp backend (C++/ggml port of
+    NVIDIA NeMo). TDT is not a streaming model, so in a realtime pipeline use
+    it with server_vad: set it as both transcription and sound_detection and
+    turn on pipeline.diarization, and each committed turn gets speaker segments
+    (conversation.item.input_audio_transcription.segment, with text) and
+    sound tags (conversation.item.sound_detection). Also labels speakers on
+    /v1/audio/transcriptions. Speaker labels are per turn. License per model:
+    transcription model CC-BY-4.0, diarization model OpenMDW-1.1, CED-Tiny
+    Apache-2.0.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - ced
+    - asr
+    - speech-recognition
+    - diarization
+    - sound-classification
+    - multilingual
+    - realtime
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+      - diarization
+      - sound_classification
+    name: parakeet-cpp-realtime-scene-tdt
+    options:
+      - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      - sound_model:parakeet-cpp/ced-tiny-q8_0.gguf
+    parameters:
+      model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt-0.6b-v3-f16.gguf
+      sha256: 8ba47343e1e919895aca90e099150a01ed203ee0942d8ed31e27295efc5abb22
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/ced-tiny-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-tiny-q8_0.gguf
+      sha256: 48bee4e2fc3cc85d7806e03471db24e77fda6c2a2e81ffe9ef67caebaf2bd674
+- name: parakeet-cpp-realtime-scene-base
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/nvidia/parakeet_realtime_eou_120m-v1
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/mispeech/ced-base
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Cache-aware streaming RNNT FastConformer with end-of-utterance (EOU)
+    detection, 120M, paired with Nemotron-3-Diarization and CED-Base (86M, the largest CED;
+    more confident sound tags than CED-Tiny at a small extra cost: on CPU the
+    live diarization + sound stream runs at 0.125 of real time against 0.103
+    with CED-Tiny) through
+    the diarization_model and sound_model options. F16/Q8_0 GGUF for the
+    parakeet-cpp backend (C++/ggml port of NVIDIA NeMo). Use with streaming
+    transcription: while a turn is live, closed speaker segments and sound
+    events are surfaced alongside the ASR text (realtime
+    conversation.item.input_audio_transcription.segment and
+    conversation.item.sound_detection events). Live speaker/sound events only
+    fire during speech turns under semantic_vad; sounds between turns are not
+    seen by this path. License per model: transcription model NVIDIA Open
+    Model License, diarization model OpenMDW-1.1, CED-Base Apache-2.0.
+  license: nvidia-open-model-license
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - ced
+    - asr
+    - speech-recognition
+    - diarization
+    - sound-classification
+    - streaming
+    - realtime
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+    name: parakeet-cpp-realtime-scene-base
+    options:
+      - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      - sound_model:parakeet-cpp/ced-base-q8_0.gguf
+    parameters:
+      model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+  files:
+    - filename: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/realtime_eou_120m-v1-f16.gguf
+      sha256: d1a2b12f12b8a096a57499c9111ed13b442a2b786e17a292c168be45088f0edc
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/ced-base-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-base-q8_0.gguf
+      sha256: bd34a7710169f0047fea17267965d211f967828ab25ba6fb9d3768481393f6e2
+- name: parakeet-cpp-realtime-scene-tdt-base
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/parakeet-cpp-gguf
+    - https://huggingface.co/mudler/ced-gguf
+    - https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+    - https://huggingface.co/nvidia/Nemotron-3-Diarization
+    - https://huggingface.co/mispeech/ced-base
+    - https://github.com/mudler/parakeet.cpp
+  description: |
+    Parakeet TDT 0.6B v3 (multilingual, 25 European languages) paired with
+    Nemotron-3-Diarization and CED-Base (86M, the largest CED; about 0.03 s of
+    CPU per second of audio per committed turn, against 0.005 for CED-Tiny)
+    through the diarization_model and
+    sound_model options: one parakeet-cpp backend transcribes, labels speakers
+    and tags sound events. GGUF for the parakeet-cpp backend (C++/ggml port of
+    NVIDIA NeMo). TDT is not a streaming model, so in a realtime pipeline use
+    it with server_vad: set it as both transcription and sound_detection and
+    turn on pipeline.diarization, and each committed turn gets speaker segments
+    (conversation.item.input_audio_transcription.segment, with text) and
+    sound tags (conversation.item.sound_detection). Also labels speakers on
+    /v1/audio/transcriptions. Speaker labels are per turn. License per model:
+    transcription model CC-BY-4.0, diarization model OpenMDW-1.1, CED-Tiny
+    Apache-2.0.
+  license: cc-by-4.0
+  tags:
+    - parakeet
+    - parakeet-cpp
+    - nemotron
+    - sortformer
+    - ced
+    - asr
+    - speech-recognition
+    - diarization
+    - sound-classification
+    - multilingual
+    - realtime
+    - stt
+    - gguf
+    - ggml
+  overrides:
+    backend: parakeet-cpp
+    known_usecases:
+      - transcript
+      - diarization
+      - sound_classification
+    name: parakeet-cpp-realtime-scene-tdt-base
+    options:
+      - diarization_model:parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      - sound_model:parakeet-cpp/ced-base-q8_0.gguf
+    parameters:
+      model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  files:
+    - filename: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/tdt-0.6b-v3-f16.gguf
+      sha256: 8ba47343e1e919895aca90e099150a01ed203ee0942d8ed31e27295efc5abb22
+    - filename: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+      uri: huggingface://mudler/parakeet-cpp-gguf/nemotron-3-diarization-q8_0.gguf
+      sha256: 76c5bb1fb20d82706142ad32769b7ab496d2458489473a000fd7074c52ceec22
+    - filename: parakeet-cpp/ced-base-q8_0.gguf
+      uri: huggingface://mudler/ced-gguf/ced-base-q8_0.gguf
+      sha256: bd34a7710169f0047fea17267965d211f967828ab25ba6fb9d3768481393f6e2
 - name: moss-transcribe-cpp-0.9b
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -54210,7 +54845,7 @@
   files:
     - filename: cohere-transcribe-q4_k.gguf
       uri: huggingface://cstr/cohere-transcribe-03-2026-GGUF/cohere-transcribe-q4_k.gguf
-      sha256: 237261c543dc9124a3f08f95b48c9c672896ef0d79dc8cadce3fb4ddc09a2ef8
+      sha256: 116f4c4f7ff1b03997100d3a097e13fecd84350555b9979867b241cd6803e4f5
 - name: wav2vec2-crispasr
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -63325,7 +63960,7 @@
     512-token context. F16 weights, ~804 MB.
   license: apache-2.0
   tags:
-    - decision
+    - decisions
     - systemone
     - vllm-cpp
     - cpu
@@ -63335,15 +63970,264 @@
   overrides:
     backend: vllm-cpp
     known_usecases:
-      - chat
+      - decisions
     parameters:
       model: convaiinnovations/laya
-  artifacts:
-    - name: model
-      target: model
-      source:
-        type: huggingface
-        repo: convaiinnovations/laya
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: convaiinnovations/laya
+- name: gliner25-decide-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/fastino/GLiNER2.5-Decide
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    GLiNER2.5-Decide is a DeBERTa-v3-large encoder with a classification head
+    that answers typed decision questions over a state text in one forward
+    pass. It never generates text, so there is nothing to parse.
+
+    In LocalAI, serve it via POST /v1/systemone. The vllm.cpp engine runs the
+    decision pipeline (choice, noul and score question types) through the
+    vllm_decide C ABI. This is the decision model, not the zero-shot NER model:
+    use the gliner2.5 entry for entity extraction. F32 weights, about 2 GB.
+    The weights are pinned to a revision so the entry keeps serving the
+    checkpoint it was checked against.
+  license: apache-2.0
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 2GB
+  last_checked: "2026-09-30"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    parameters:
+      model: fastino/GLiNER2.5-Decide
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: fastino/GLiNER2.5-Decide
+          revision: 5a7adf72a23b4d311abae6ce050d7f0012bb3416
+- name: tev1-4b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/togethercomputer/Tev1-4B-experimental
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Tev1-4B-experimental is an experimental decision model from Together
+    AI: a supervised fine-tune of Qwen3.5-4B that picks one option letter
+    for a state, a question and 2 to 24 labeled options. It keeps the standard
+    next-token head, so it is autoregressive, unlike Laya or GLiNER2.5-Decide.
+
+    In LocalAI, serve it via POST /v1/systemone. The vllm.cpp engine scores the
+    answer letters of each choice, noul and score question through the
+    vllm_decide C ABI and returns probabilities with an entropy confidence, as
+    Ollama does for tev1. A choice or score question accepts at most 24 options
+    (Ollama allows 26) and every option needs a nonempty description. The
+    published config.json names Qwen3_5ForConditionalGeneration, so this entry
+    sets hf_overrides to load it as Tev1Model without editing the download.
+
+    Checked against transformers BF16 on CPU over seven
+    questions: 7/7 answers equal, largest probability difference 0.0004. The decision route is verified on CPU only; GPU serving has not
+    been measured. BF16 weights, about 9.3GB, pinned to a revision. The
+    fine-tune license is still being finalized by Together AI (base model
+    Apache-2.0).
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 9.3GB
+  last_checked: "2026-09-30"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    template:
+      use_tokenizer_template: true
+    context_size: 2048
+    engine_args:
+      hf_overrides:
+        architectures:
+          - Tev1Model
+      block_size: 32
+      num_blocks: 256
+      max_num_seqs: 4
+    parameters:
+      model: togethercomputer/Tev1-4B-experimental
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: togethercomputer/Tev1-4B-experimental
+          revision: 0b7becf017daa0e5eb222f8ce7483c8c8259c52f
+- name: tev1-0.8b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/togethercomputer/Tev1-0.8B-experimental
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Tev1-0.8B-experimental is an experimental decision model from Together
+    AI: a supervised fine-tune of Qwen3.5-0.8B that picks one option letter
+    for a state, a question and 2 to 24 labeled options. It keeps the standard
+    next-token head, so it is autoregressive, unlike Laya or GLiNER2.5-Decide.
+
+    In LocalAI, serve it via POST /v1/systemone. The vllm.cpp engine scores the
+    answer letters of each choice, noul and score question through the
+    vllm_decide C ABI and returns probabilities with an entropy confidence, as
+    Ollama does for tev1. A choice or score question accepts at most 24 options
+    (Ollama allows 26) and every option needs a nonempty description. The
+    published config.json names Qwen3_5ForConditionalGeneration, so this entry
+    sets hf_overrides to load it as Tev1Model without editing the download.
+
+    Checked against transformers BF16 on CPU over seven
+    questions: 6/7 answers equal, the miss a near tie (0.453 against 0.514
+    in transformers, 0.4845 each here), largest probability difference 0.031. The decision route is verified on CPU only; GPU serving has not
+    been measured. BF16 weights, about 1.8GB, pinned to a revision. The
+    fine-tune license is still being finalized by Together AI (base model
+    Apache-2.0).
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 1.8GB
+  last_checked: "2026-09-30"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    template:
+      use_tokenizer_template: true
+    context_size: 2048
+    engine_args:
+      hf_overrides:
+        architectures:
+          - Tev1Model
+      block_size: 32
+      num_blocks: 256
+      max_num_seqs: 4
+    parameters:
+      model: togethercomputer/Tev1-0.8B-experimental
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: togethercomputer/Tev1-0.8B-experimental
+          revision: 6bb2dff14b38fea90ddb14d870166ccaf77374e9
+- name: kev-0.8b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/kev-0.8b-vllm-cpp
+    - https://huggingface.co/jaredpalmer/kev-0.8b
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    kev is a System 1 decision model by Jared Palmer. It answers typed choice,
+    noul and score questions about a text state with one scoring pass per
+    question. It does not generate text. The model is a frozen
+    Qwen3.5-0.8B-Base backbone, a rank-16 LoRA adapter and a PointerHead
+    readout.
+
+    This entry installs a converted redistribution of jaredpalmer/kev-0.8b:
+    the LoRA is merged into the BF16 backbone, the head is stored as
+    head.safetensors, and config.json names the KevModel architecture. The
+    checkpoint only works with vllm.cpp (the vllm-cpp backend); transformers,
+    vLLM and llama.cpp cannot load it.
+
+    In LocalAI, serve it via POST /v1/systemone. The vllm.cpp project records
+    PointerHead golden-vector tests (25 cases) and a 5-case end-to-end
+    comparison against the kev reference server as equal. The upload itself
+    was smoke-tested with one request on CPU; there is no accuracy benchmark
+    and no GPU run. The entry sets a 2048-token context and an explicit KV
+    pool, because the default 4096-token context does not fit the default
+    CPU KV pool and the load fails. BF16 weights, about 1.53 GB, pinned to a
+    revision.
+  license: apache-2.0
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 1.53GB
+  last_checked: "2026-09-30"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    context_size: 2048
+    engine_args:
+      block_size: 32
+      num_blocks: 256
+      max_num_seqs: 4
+    parameters:
+      model: mudler/kev-0.8b-vllm-cpp
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: mudler/kev-0.8b-vllm-cpp
+          revision: c17e73666ded1e9d284470eae7e0de9a27294e77
+- name: qwen3-vl-4b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    Qwen3-VL-4B-Instruct on vllm.cpp, in bf16: a small vision-language model
+    that takes images alongside text. In the engine's correctness battery the
+    image path matches vLLM token for token, and video input is a near tie.
+
+    Roughly 9 GB of weights plus KV cache at the context configured here. It
+    runs where the flagship NVFP4 checkpoints cannot, including plain CPU.
+  license: apache-2.0
+  tags:
+    - llm
+    - vision
+    - multimodal
+    - qwen
+    - qwen3-vl
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 9GB
+  last_checked: "2026-09-30"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - chat
+      - completion
+      - vision
+    template:
+      use_tokenizer_template: true
+    context_size: 8192
+    engine_args:
+      block_size: 32
+      num_blocks: 512
+      max_num_seqs: 4
+    parameters:
+      model: Qwen/Qwen3-VL-4B-Instruct
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: Qwen/Qwen3-VL-4B-Instruct
+          revision: ebb281ec70b05090aa6165b016eac8ec08e71b17
 - name: cua-s1-forms-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -63372,12 +64256,12 @@
       - score
     parameters:
       model: cua-ai/cua-s1-forms
-  artifacts:
-    - name: model
-      target: model
-      source:
-        type: huggingface
-        repo: cua-ai/cua-s1-forms
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: cua-ai/cua-s1-forms
 - name: gliner2.5-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -63409,12 +64293,12 @@
       - token_classify
     parameters:
       model: fastino/gliner2.5-multi-v1
-  artifacts:
-    - name: model
-      target: model
-      source:
-        type: huggingface
-        repo: fastino/gliner2.5-multi-v1
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: fastino/gliner2.5-multi-v1
 - name: nemo-speech-cpp-sortformer-diarization-v2
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:

@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/piipattern"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
 	"github.com/mudler/LocalAI/pkg/reasoning"
 	"github.com/mudler/cogito"
@@ -74,6 +75,10 @@ type ModelConfig struct {
 	// The target must be an existing, non-alias model (enforced at load and
 	// at create/swap time). See docs/content for Model Aliases.
 	Alias string `yaml:"alias,omitempty" json:"alias,omitempty"`
+
+	// Failover makes this config a failover chain over other models. Like an
+	// alias it has no backend of its own.
+	Failover *FailoverConfig `yaml:"failover,omitempty" json:"failover,omitempty"`
 
 	F16                 *bool               `yaml:"f16,omitempty" json:"f16,omitempty"`
 	Threads             *int                `yaml:"threads,omitempty" json:"threads,omitempty"`
@@ -298,12 +303,37 @@ const (
 	ProxyProviderAnthropic = "anthropic"
 )
 
+// ResolveAPIKey returns the upstream key from api_key_env or api_key_file, or
+// "" when neither is set. Mirrored (not imported, to keep backends independent
+// of core's package layout) by resolveAPIKey in backend/go/cloud-proxy/proxy.go
+// — keep the two in sync, empty-value handling included.
+func (p ProxyConfig) ResolveAPIKey(envLookup func(string) string) (string, error) {
+	switch {
+	case p.APIKeyEnv != "":
+		var v string
+		if envLookup != nil {
+			v = envLookup(p.APIKeyEnv)
+		}
+		if v == "" {
+			return "", fmt.Errorf("proxy api_key_env %q is unset", p.APIKeyEnv)
+		}
+		return v, nil
+	case p.APIKeyFile != "":
+		b, err := os.ReadFile(p.APIKeyFile)
+		if err != nil {
+			return "", fmt.Errorf("proxy api_key_file %q: %w", p.APIKeyFile, err)
+		}
+		return strings.TrimSpace(string(b)), nil
+	}
+	return "", nil
+}
+
 // IsCloudProxyBackendPassthrough reports whether this model uses the
 // cloud-proxy gRPC backend in passthrough mode. Empty Mode counts as
 // passthrough (SetDefaults normalises it, but Validate accepts empty
 // too — handlers should not rely on a particular call order).
 func (c *ModelConfig) IsCloudProxyBackendPassthrough() bool {
-	if c.Backend != "cloud-proxy" {
+	if c.Backend != model.CloudProxyBackend {
 		return false
 	}
 	return c.Proxy.Mode == "" || c.Proxy.Mode == ProxyModePassthrough
@@ -641,7 +671,7 @@ func (c *ModelConfig) PIIIsEnabled() bool {
 	if c.PII.Enabled != nil {
 		return *c.PII.Enabled
 	}
-	return c.Backend == "cloud-proxy"
+	return c.Backend == model.CloudProxyBackend
 }
 
 // PIIDetectors returns the names of the token-classification models that
@@ -672,7 +702,7 @@ var piiCoverableUsecases = []ModelConfigUsecase{FLAG_CHAT, FLAG_COMPLETION, FLAG
 // false naturally: HasUsecases short-circuits to false for any usecase a
 // declared score/token_classify model did not itself declare.
 func (c *ModelConfig) PIIFilterApplies() bool {
-	if c.Backend == "cloud-proxy" {
+	if c.Backend == model.CloudProxyBackend {
 		return true
 	}
 	return slices.ContainsFunc(piiCoverableUsecases, c.HasUsecases)
@@ -770,6 +800,18 @@ type MCPSTDIOServer struct {
 	Command string            `json:"command,omitempty"`
 }
 
+// Pipeline stage names. They match the Pipeline yaml keys and are the stage
+// identifiers the realtime endpoint routes by (failover chains per stage,
+// model_failover events, preload roles), so every user shares one spelling.
+const (
+	PipelineStageVAD              = "vad"
+	PipelineStageTranscription    = "transcription"
+	PipelineStageLLM              = "llm"
+	PipelineStageTTS              = "tts"
+	PipelineStageSoundDetection   = "sound_detection"
+	PipelineStageVoiceRecognition = "voice_recognition"
+)
+
 // @Description Pipeline defines other models to use for audio-to-audio
 type Pipeline struct {
 	TTS           string `yaml:"tts,omitempty" json:"tts,omitempty"`
@@ -790,6 +832,14 @@ type Pipeline struct {
 	// client commits windows via input_audio_buffer.commit).
 	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
 	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
+
+	// Diarization asks the transcription model for speaker labels on each
+	// VAD-committed utterance and emits every labelled segment as a
+	// conversation.item.input_audio_transcription.segment event. It needs a
+	// transcription model that diarizes (e.g. parakeet-cpp with a
+	// diarization_model companion); off by default because some backends fail
+	// a diarize request they cannot serve. Speaker labels are per turn.
+	Diarization bool `yaml:"diarization,omitempty" json:"diarization,omitempty"`
 
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
@@ -1644,6 +1694,13 @@ func (c *ModelConfig) Validate() (bool, error) {
 		return false, fmt.Errorf("a config with artifacts must declare exactly one %q target, found %d", modelartifacts.TargetModel, primaries)
 	}
 
+	if c.IsFailover() {
+		if err := c.validateFailover(); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
 	// An alias is a pure redirect: validate only its own shape here. Target
 	// existence and the no-chain rule need the full config set, so the loader
 	// (load-time) and the create/swap endpoints enforce those.
@@ -1999,6 +2056,13 @@ const (
 	FLAG_3D           ModelConfigUsecase = 0b100000000000000000000000
 	FLAG_3D_ANIMATION ModelConfigUsecase = 1 << 24
 
+	// Marks a model as a decision model: it answers typed choice / noul /
+	// score questions over a state (served by POST /v1/systemone).
+	// Explicit only, like FLAG_SCORE: a decision model never generates
+	// text, so guessing chat or embeddings for it would surface it in
+	// pickers it cannot serve.
+	FLAG_DECISIONS ModelConfigUsecase = 1 << 25
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -2061,6 +2125,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 		"FLAG_3D":                   FLAG_3D,
 		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
+		"FLAG_DECISIONS":            FLAG_DECISIONS,
 	}
 }
 
@@ -2089,9 +2154,9 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 //
 // Declared known_usecases are normally additive — the guessing heuristic
 // still adds whatever it can infer from backend/templates. The exceptions
-// are FLAG_SCORE and FLAG_TOKEN_CLASSIFY: when the operator declared
-// either, they reserved the model for an internal direct-decode primitive
-// (the router classifier, or the PII NER tier). Letting GuessUsecases
+// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY and FLAG_DECISIONS: when the operator
+// declared any of them, they reserved the model for a direct-decode primitive
+// (the router classifier, the PII NER tier, or a decision head). Letting GuessUsecases
 // paint chat/completion/embeddings on top would surface it in pickers it
 // was deliberately kept out of. So a declared score or token_classify
 // list is authoritative; declare the generation usecases explicitly
@@ -2101,7 +2166,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY)) != 0 {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_DECISIONS)) != 0 {
 			return false
 		}
 	}
@@ -2321,6 +2386,14 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// on llama-cpp, and the model's TOKEN_CLS head isn't useful as
 		// general embeddings), so HasUsecases(FLAG_TOKEN_CLASSIFY) is true
 		// only when KnownUsecases declares it explicitly.
+		return false
+	}
+
+	if (u & FLAG_DECISIONS) == FLAG_DECISIONS {
+		// No heuristic: decisions intent is a deliberate operator choice
+		// (the model is a non-generative decision head), so
+		// HasUsecases(FLAG_DECISIONS) is true only when KnownUsecases
+		// declares it explicitly.
 		return false
 	}
 

@@ -39,6 +39,7 @@ var (
 	apiURL            string
 	mockBackendPath   string
 	cloudProxyPath    string
+	localAIProxyPath  string
 	mcpServerURL      string
 	mcpServerShutdown func()
 	localAIApp        *localaiapp.Application
@@ -117,6 +118,29 @@ var _ = BeforeSuite(func() {
 	configYAML, err := yaml.Marshal(modelConfig)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(configPath, configYAML, 0644)).To(Succeed())
+
+	// Failover chains, one per endpoint family: target 0 is a mock model whose
+	// load always fails (the mock rejects models named fail-load*), so every
+	// request exercises the retry onto mock-model.
+	for _, family := range []string{"chat", "completion", "embeddings", "transcription", "tts", "image", "rerank", "vad"} {
+		for _, cfg := range []map[string]any{
+			{
+				"name":       "fail-" + family,
+				"backend":    "mock-backend",
+				"parameters": map[string]any{"model": "fail-load-" + family},
+			},
+			{
+				"name": "chain-" + family,
+				"failover": map[string]any{
+					"targets": []map[string]any{{"model": "fail-" + family}, {"model": "mock-model"}},
+				},
+			},
+		} {
+			data, err := yaml.Marshal(cfg)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())
+		}
+	}
 
 	// Create model config for autoparser tests (NoGrammar so tool calls
 	// are driven entirely by the backend's ChatDeltas, not grammar enforcement)
@@ -249,6 +273,44 @@ var _ = BeforeSuite(func() {
 	pipelineData, err := yaml.Marshal(pipelineCfg)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(os.WriteFile(filepath.Join(modelsPath, "realtime-pipeline.yaml"), pipelineData, 0644)).To(Succeed())
+
+	// Realtime pipelines whose LLM is a failover chain: target 0 always fails
+	// to load, target 1 is mock-llm. rt-failover skips the warm-up so the
+	// switch happens on the first turn, mid-session; rt-failover-warm keeps it
+	// so the switch happens while the session starts. Each has its own chain
+	// because chain state is shared across sessions.
+	for _, rt := range []struct {
+		name, suffix  string
+		disableWarmup bool
+	}{{"rt-failover", "rt", true}, {"rt-failover-warm", "rt-warm", false}} {
+		for _, cfg := range []map[string]any{
+			{
+				"name":       "fail-" + rt.suffix,
+				"backend":    "mock-backend",
+				"parameters": map[string]any{"model": "fail-load-" + rt.suffix},
+			},
+			{
+				"name": "chain-" + rt.suffix,
+				"failover": map[string]any{
+					"targets": []map[string]any{{"model": "fail-" + rt.suffix}, {"model": "mock-llm"}},
+				},
+			},
+			{
+				"name": rt.name,
+				"pipeline": map[string]any{
+					"vad":            "mock-vad",
+					"transcription":  "mock-stt",
+					"llm":            "chain-" + rt.suffix,
+					"tts":            "mock-tts",
+					"disable_warmup": rt.disableWarmup,
+				},
+			},
+		} {
+			data, err := yaml.Marshal(cfg)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())
+		}
+	}
 
 	// Classifier-mode pipeline (LocalAI extension): responses are
 	// prefill-scored against the option list via the mock backend's
@@ -585,6 +647,23 @@ var _ = BeforeSuite(func() {
 		}
 	}
 
+	// localai-proxy backend: its models point back at this server, whose URL
+	// exists only once it listens, so the specs register them at runtime.
+	// Like cloud-proxy, a missing binary makes those specs Skip.
+	for _, p := range []string{
+		filepath.Join("..", "e2e", "mock-backend", "localai-proxy"),
+		filepath.Join("tests", "e2e", "mock-backend", "localai-proxy"),
+		filepath.Join("..", "..", "tests", "e2e", "mock-backend", "localai-proxy"),
+	} {
+		if _, err := os.Stat(p); err == nil {
+			localAIProxyPath = p
+			break
+		}
+	}
+	if localAIProxyPath != "" {
+		Expect(os.Chmod(localAIProxyPath, 0755)).To(Succeed())
+	}
+
 	// Live PII NER tier. When PII_NER_MODEL_GGUF points at a downloaded
 	// privacy-filter GGUF, register two detector models that drive the real
 	// gRPC TokenClassify path on the privacy-filter backend (discovered via
@@ -633,6 +712,11 @@ var _ = BeforeSuite(func() {
 		config.WithSystemState(systemState),
 		config.WithDebug(true),
 		config.WithGeneratedContentDir(generatedDir),
+		// Mirrors the CLI boundary (core/cli/run.go): the failover prober
+		// resolves api_key_env upstream credentials through this lookup.
+		// Without it, remote failover targets configured with api_key_env
+		// (e.g. the cloud-proxy chain-remote spec) never pass liveness.
+		config.WithProxyAPIKeyEnvLookup(os.Getenv),
 	)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -641,6 +725,9 @@ var _ = BeforeSuite(func() {
 	localAIApp.ModelLoader().SetExternalBackend("opus", mockBackendPath)
 	if cloudProxyPath != "" {
 		localAIApp.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
+	}
+	if localAIProxyPath != "" {
+		localAIApp.ModelLoader().SetExternalBackend("localai-proxy", localAIProxyPath)
 	}
 
 	// Create HTTP app

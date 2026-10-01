@@ -139,6 +139,12 @@ export const API_CONFIG = {
     system: '/system',
     corsProxy: '/api/cors-proxy',
 
+    // Failover chains
+    failoverChains: '/api/failover',
+    failoverChain: (name) => `/api/failover/${encodeURIComponent(name)}`,
+    failoverEvents: '/api/failover/events',
+    failoverPin: (name) => `/api/failover/${encodeURIComponent(name)}/pin`,
+
     // Nodes (distributed)
     nodes: '/api/nodes',
     node: (id) => `/api/nodes/${id}`,

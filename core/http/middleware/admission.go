@@ -20,7 +20,7 @@ import (
 // SERVED model — a router fanout that lands on a saturated downstream
 // model gets rejected even though the requested router-model has slack.
 //
-// On reject: HTTP 503, Retry-After header, error JSON. An audit row
+// On reject: HTTP 429, Retry-After header, error JSON. An audit row
 // goes into the shared event store under KindAdmission so admins see
 // rejection rates alongside PII and proxy events.
 //
@@ -38,10 +38,12 @@ func AdmissionControl(limiter *admission.Limiter, events pii.EventStore) echo.Mi
 			if !ok {
 				retryAfter := admission.RetryAfter(cfg.Limits.RetryAfterSeconds)
 				recordAdmissionRejection(events, cfg.Name, retryAfter)
+				c.Set(ContextKeyAdmissionRejected, true)
 				c.Response().Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())))
-				return c.JSON(http.StatusServiceUnavailable, map[string]any{
+				return c.JSON(http.StatusTooManyRequests, map[string]any{
 					"error": map[string]any{
-						"type":    "admission_rejected",
+						"type":    "rate_limit_error",
+						"code":    "admission_rejected",
 						"message": fmt.Sprintf("model %q is at capacity (max_concurrent=%d); retry after %s", cfg.Name, max, retryAfter),
 					},
 				})
@@ -61,7 +63,7 @@ func recordAdmissionRejection(events pii.EventStore, modelName string, retryAfte
 	if events == nil {
 		return
 	}
-	statusCode := http.StatusServiceUnavailable
+	statusCode := http.StatusTooManyRequests
 	durMS := retryAfter.Milliseconds()
 	id := fmt.Sprintf("adm_%d_%s", admissionEventSeq.Add(1), randHex(4))
 	_ = events.Record(context.Background(), pii.PIIEvent{

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 
 	grpcPkg "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -28,10 +29,17 @@ type DiarizationRequest struct {
 	MinDurationOn       float32
 	MinDurationOff      float32
 	IncludeText         bool
+	// KnownVoices are registered voices a speaker-identifying backend may use
+	// to name the speakers. Empty for every other backend and model.
+	KnownVoices []voicerecognition.KnownVoice
 }
 
 // modelIdentity: see the note on TranscriptionRequest.toProto.
 func (r *DiarizationRequest) toProto(threads uint32, modelIdentity string) *proto.DiarizeRequest {
+	known := make([]*proto.KnownVoice, 0, len(r.KnownVoices))
+	for _, v := range r.KnownVoices {
+		known = append(known, &proto.KnownVoice{Name: v.Name, Embedding: v.Embedding, Model: v.Model})
+	}
 	return &proto.DiarizeRequest{
 		ModelIdentity:       modelIdentity,
 		Dst:                 r.Audio,
@@ -44,6 +52,7 @@ func (r *DiarizationRequest) toProto(threads uint32, modelIdentity string) *prot
 		MinDurationOn:       r.MinDurationOn,
 		MinDurationOff:      r.MinDurationOff,
 		IncludeText:         r.IncludeText,
+		KnownVoices:         known,
 	}
 }
 
@@ -103,6 +112,7 @@ func diarizationResultFromProto(r *proto.DiarizeResponse) *schema.DiarizationRes
 		idx      int
 		duration float64
 		segments int
+		name     string
 	}
 	stats := map[string]*speakerStats{}
 	order := []string{}
@@ -126,14 +136,19 @@ func diarizationResultFromProto(r *proto.DiarizeResponse) *schema.DiarizationRes
 			st.duration += dur
 		}
 		st.segments++
+		if st.name == "" {
+			st.name = s.Name
+		}
 
 		out.Segments = append(out.Segments, schema.DiarizationSegment{
-			Id:      i,
-			Speaker: fmt.Sprintf("SPEAKER_%02d", st.idx),
-			Label:   raw,
-			Start:   float64(s.Start),
-			End:     float64(s.End),
-			Text:    s.Text,
+			Id:        i,
+			Speaker:   fmt.Sprintf("SPEAKER_%02d", st.idx),
+			Label:     raw,
+			Start:     float64(s.Start),
+			End:       float64(s.End),
+			Text:      s.Text,
+			Name:      s.Name,
+			NameScore: s.NameScore,
 		})
 	}
 
@@ -148,6 +163,7 @@ func diarizationResultFromProto(r *proto.DiarizeResponse) *schema.DiarizationRes
 		out.Speakers = append(out.Speakers, schema.DiarizationSpeaker{
 			Id:                  fmt.Sprintf("SPEAKER_%02d", st.idx),
 			Label:               raw,
+			Name:                st.name,
 			TotalSpeechDuration: st.duration,
 			SegmentCount:        st.segments,
 		})

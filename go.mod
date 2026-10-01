@@ -36,11 +36,11 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.5.0
-	github.com/mudler/cogito v0.11.1-0.20260721122412-6eece18a6bb6
+	github.com/mudler/cogito v0.11.1-0.20260928072733-b40513ef5d1a
 	github.com/mudler/edgevpn v0.34.0
 	github.com/mudler/go-processmanager v0.1.2-0.20260823202314-dfa0ed852db6
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
-	github.com/mudler/nib v0.6.0
+	github.com/mudler/nib v0.12.1
 	github.com/mudler/xlog v0.0.6
 	github.com/nats-io/jwt/v2 v2.7.4
 	github.com/nats-io/nats.go v1.52.0
@@ -83,11 +83,9 @@ require (
 )
 
 require (
-	cyphar.com/go-pathrs v0.2.1 // indirect
 	filippo.io/bigmod v0.1.1-0.20260103110540-f8a47775ebe5 // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
 	filippo.io/keygen v0.0.0-20260114151900-8e2790ea4c5b // indirect
-	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 // indirect
-	github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20230306123547-8075edf89bb0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.9 // indirect
@@ -110,19 +108,12 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/charmbracelet/bubbles v0.21.0 // indirect
 	github.com/charmbracelet/bubbletea v1.3.10 // indirect
-	github.com/chasefleming/elem-go v0.30.0 // indirect
 	github.com/chromedp/cdproto v0.0.0-20260321001828-e3e3800016bc // indirect
 	github.com/chromedp/chromedp v0.15.1 // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
-	github.com/containerd/containerd/api v1.8.0 // indirect
-	github.com/containerd/fifo v1.1.0 // indirect
-	github.com/containerd/ttrpc v1.2.7 // indirect
-	github.com/containerd/typeurl/v2 v2.2.0 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 // indirect
-	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2 // indirect
 	github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352 // indirect
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7 // indirect
-	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/dunglas/httpsfv v1.1.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/filecoin-project/go-clock v0.1.0 // indirect
@@ -149,32 +140,42 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
-	github.com/gofiber/template v1.8.3 // indirect
-	github.com/gofiber/template/html/v2 v2.1.3 // indirect
-	github.com/gofiber/utils v1.1.0 // indirect
 	github.com/google/certificate-transparency-go v1.3.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/in-toto/attestation v1.1.2 // indirect
 	github.com/in-toto/in-toto-golang v0.9.0 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jolestar/go-commons-pool/v2 v2.1.2 // indirect
 	github.com/klippa-app/go-pdfium v1.19.2 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
-	github.com/mattn/go-sqlite3 v1.14.28 // indirect
-	github.com/moby/locker v1.0.1 // indirect
+	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/moby/moby/api v1.54.2 // indirect
 	github.com/moby/moby/client v0.4.1 // indirect
-	github.com/moby/sys/mountinfo v0.7.2 // indirect
-	github.com/moby/sys/signal v0.7.0 // indirect
+	github.com/msuozzo/bonsai v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-bash v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-c v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-dockerfile v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-go v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-gotemplate v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-groovy v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-java v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-javascript v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-kotlin v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-markdown v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-markdown-inline v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-python v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-ruby v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-rust v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-terraform v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-tsx v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-typescript v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-yaml v0.4.0 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
-	github.com/opencontainers/runtime-spec v1.2.0 // indirect
-	github.com/opencontainers/selinux v1.13.1 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/sigstore/protobuf-specs v0.5.1 // indirect
@@ -182,8 +183,6 @@ require (
 	github.com/sigstore/rekor-tiles/v2 v2.0.1 // indirect
 	github.com/sigstore/sigstore v1.10.0 // indirect
 	github.com/sigstore/timestamp-authority/v2 v2.0.3 // indirect
-	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.0-20260508151727-1282bb917829 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/sv-tools/openapi v0.2.1 // indirect
@@ -195,7 +194,6 @@ require (
 	github.com/transparency-dev/merkle v0.0.2 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go.mongodb.org/mongo-driver v1.17.6 // indirect
-	google.golang.org/genproto v0.0.0-20250922171735-9219d122eba9 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
@@ -259,7 +257,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
-	github.com/mudler/LocalAGI v0.0.0-20260912140006-8253de99163e
+	github.com/mudler/LocalAGI v0.0.0-20260927202351-7e0947d7ebca
 	github.com/mudler/localrecall v0.6.5 // indirect
 	github.com/mudler/skillserver v0.0.7-0.20260520220837-a7317cbf9145
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
@@ -267,7 +265,7 @@ require (
 	github.com/philippgille/chromem-go v0.7.0 // indirect
 	github.com/pion/transport/v4 v4.0.1 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
-	github.com/rs/zerolog v1.31.0 // indirect
+	github.com/rs/zerolog v1.34.0 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
@@ -287,14 +285,13 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	go.etcd.io/bbolt v1.4.3 // indirect
-	go.mau.fi/util v0.3.0 // indirect
+	go.mau.fi/util v0.9.2 // indirect
 	go.starlark.net v0.0.0-20250417143717-f57e51f710eb // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	jaytaylor.com/html2text v0.0.0-20230321000545-74c2419ad056 // indirect
-	maunium.net/go/maulogger/v2 v2.4.1 // indirect
-	maunium.net/go/mautrix v0.17.0 // indirect
+	maunium.net/go/mautrix v0.25.2 // indirect
 	mvdan.cc/xurls/v2 v2.6.0 // indirect
 )
 

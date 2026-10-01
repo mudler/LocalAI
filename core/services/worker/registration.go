@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
@@ -173,6 +174,8 @@ func (cfg *Config) registrationBody() map[string]any {
 		"gpu_compute_capability": gpuComputeCap,
 		"capability":             capability,
 		"max_replicas_per_model": maxReplicas,
+		"version":                internal.Version,
+		"commit":                 internal.Commit,
 	}
 
 	// Report free space on the filesystem that backs the MODELS directory.

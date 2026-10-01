@@ -35,7 +35,8 @@
     "enterToSend": "Enter to send",
     "selectModelFirst": "Select a model first",
     "sendMessage": "Send message",
-    "selectModelToast": "Please select a model first"
+    "selectModelToast": "Please select a model first",
+    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged."
   },
   "quickLinks": {
     "manageByChat": "Manage by chat",

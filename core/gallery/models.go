@@ -808,8 +808,11 @@ func GetLocalModelConfiguration(basePath string, name string) (*ModelConfig, err
 
 func listModelFiles(systemState *system.SystemState, name string) ([]string, error) {
 
+	// VerifyPath joins its argument onto the models path itself, so every
+	// check below passes the relative name: an already-joined absolute path
+	// always lands inside the base and the check would pass anything.
 	configFile := filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", name))
-	if err := utils.VerifyPath(configFile, systemState.Model.ModelsPath); err != nil {
+	if err := utils.VerifyPath(fmt.Sprintf("%s.yaml", name), systemState.Model.ModelsPath); err != nil {
 		return nil, fmt.Errorf("failed to verify path %s: %w", configFile, err)
 	}
 
@@ -817,7 +820,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
 	galleryFile := filepath.Join(systemState.Model.ModelsPath, galleryFileName(name))
-	if err := utils.VerifyPath(galleryFile, systemState.Model.ModelsPath); err != nil {
+	if err := utils.VerifyPath(galleryFileName(name), systemState.Model.ModelsPath); err != nil {
 		return nil, fmt.Errorf("failed to verify path %s: %w", galleryFile, err)
 	}
 
@@ -847,7 +850,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 	if err == nil && galleryconfig != nil {
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(systemState.Model.ModelsPath, f.Filename)
-			if err := utils.VerifyPath(fullPath, systemState.Model.ModelsPath); err != nil {
+			if err := utils.VerifyPath(f.Filename, systemState.Model.ModelsPath); err != nil {
 				return allFiles, fmt.Errorf("failed to verify path %s: %w", fullPath, err)
 			}
 			allFiles = append(allFiles, fullPath)
@@ -858,7 +861,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 
 	for _, f := range additionalFiles {
 		fullPath := filepath.Join(filepath.Join(systemState.Model.ModelsPath, f))
-		if err := utils.VerifyPath(fullPath, systemState.Model.ModelsPath); err != nil {
+		if err := utils.VerifyPath(f, systemState.Model.ModelsPath); err != nil {
 			return allFiles, fmt.Errorf("failed to verify path %s: %w", fullPath, err)
 		}
 		allFiles = append(allFiles, fullPath)

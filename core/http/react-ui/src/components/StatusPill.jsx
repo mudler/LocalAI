@@ -9,6 +9,13 @@ const STATUS = {
   unhealthy: 'error',
   loading: 'info',
   idle: 'muted',
+  // Failover chain and target states.
+  primary: 'success',
+  fallback: 'warning',
+  recovering: 'warning',
+  degraded: 'error',
+  down: 'error',
+  missing: 'muted',
 }
 export default function StatusPill({ status, label, className = '' }) {
   const tone = STATUS[status] || 'muted'
