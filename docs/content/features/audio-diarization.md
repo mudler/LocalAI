@@ -255,3 +255,62 @@ Legacy transport clients without IDs retain name-keyed behavior. The native
 registry's aggregation defaults are unchanged. LocalAI's recognition registry
 remains global and in-memory; this adds neither persistence nor automatic
 registration and is unrelated to persistent TTS voice cloning.
+
+## Portable speaker enrollment
+
+Profile-capable parakeet models can export one biometric embedding per discovered
+speaker, including when the recognition registry is empty. Export is opt-in:
+
+```bash
+curl http://localhost:8080/v1/audio/diarization \
+  -F model=parakeet-diarization -F file=@conversation.wav \
+  -F include_speaker_profiles=true -F include_text=true \
+  -F response_format=verbose_json
+```
+
+The `/audio/diarization` alias has the same protection. With user authentication,
+export additionally requires the **voice-recognition** permission. Existing model
+access controls still apply. Without opt-in, `speaker_profiles` is omitted.
+Both `json` and `verbose_json` support profiles; `rttm` with profiles returns 400.
+`include_text=true` retains supported transcripts in either JSON format.
+Unsupported profile backends return 501 rather than silently omitting profiles.
+
+Alternatively send `Content-Type: application/json`:
+
+```json
+{
+  "model": "parakeet-diarization",
+  "file": "<raw base64 audio bytes>",
+  "include_speaker_profiles": true,
+  "include_text": true,
+  "response_format": "verbose_json"
+}
+```
+
+The `speaker_profiles` response object contains `version: 1`,
+`encoder: {"identity": "sha256:<64 lowercase hex digits>", "dimension": N}`,
+and `speakers`. Each speaker contains:
+
+- `speaker`: the raw numeric speaker slot;
+- `clean_duration`: retained clean speech in seconds;
+- `intervals`: `{start, end}` ranges in seconds in the original recording;
+- `unavailable_reason`: null for usable profiles, otherwise a reason string;
+- `embedding`: one vector for a usable speaker, omitted when unavailable.
+
+**UI association:** convert each profile's numeric `speaker` to a decimal string
+and match segment/summary `label`. Do not use `SPEAKER_NN`, array position, or
+human name. Slots may be sparse and out of order; display names may repeat.
+Preview `intervals` against the original audio, not separated audio. Disable
+saving unavailable profiles. Enrollment is explicit, never automatic; only
+relabel after a successful registration response. See
+[portable voice registration](/features/voice-recognition/#portable-profile-registration).
+
+Profiles are sensitive, unsigned biometric data, not proof of identity or consent.
+Do not log their vectors. Obtain the speaker's consent before enrollment.
+
+API tracing excludes the entire exchange for `/v1/audio/diarization`, its
+`/audio/diarization` alias, and `/v1/voice/register` before capturing bodies.
+This also protects JSON base64 audio when profile export is off. These routes
+produce no in-memory or persisted API trace; other routes keep their existing
+tracing behavior. External proxies and client logs must apply the same privacy
+policy. Existing trace files from older versions are not retroactively scrubbed.

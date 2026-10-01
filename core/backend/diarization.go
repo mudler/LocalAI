@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -91,6 +92,7 @@ func ModelDiarization(ctx context.Context, req DiarizationRequest, ml *model.Mod
 		threads = uint32(*modelConfig.Threads)
 	}
 
+	req.KnownVoices = compatiblePortableVoices(ctx, m, req.KnownVoices)
 	r, err := m.Diarize(ctx, req.toProto(threads, modelConfig.Model))
 	if err != nil {
 		return nil, err
@@ -112,7 +114,7 @@ func ModelDiarization(ctx context.Context, req DiarizationRequest, ml *model.Mod
 
 // diarizationResultFromProto normalizes backend speaker labels to
 // "SPEAKER_NN" — the convention pyannote/RTTM tooling expects — while
-// keeping the original label available via the Speaker field. Each
+// keeping the original label available via the Label field. Each
 // distinct backend label gets its own normalized id, in first-seen order.
 func diarizationResultFromProto(r *proto.DiarizeResponse) *schema.DiarizationResult {
 	if r == nil {
@@ -226,4 +228,25 @@ func decodeSpeakerProfiles(raw string, trusted schema.SpeakerEncoder) (*schema.S
 		return nil, err
 	}
 	return &profiles, nil
+}
+
+// Portable registrations require exact loaded identity and dimension. Legacy
+// candidates use the trusted dimension when available; older backends without
+// metadata retain their native dimension check. No registry entry sets it.
+func compatiblePortableVoices(ctx context.Context, m grpcPkg.Backend, voices []voicerecognition.KnownVoice) []voicerecognition.KnownVoice {
+	if len(voices) == 0 {
+		return voices
+	}
+	trusted, err := speakerEncoderFromBackend(ctx, m)
+	out := make([]voicerecognition.KnownVoice, 0, len(voices))
+	for _, v := range voices {
+		if err == nil && len(v.Embedding) != trusted.Dimension {
+			continue
+		}
+		if strings.HasPrefix(v.Model, "sha256:") && (err != nil || v.Model != trusted.Identity || len(v.Embedding) != trusted.Dimension) {
+			continue
+		}
+		out = append(out, v)
+	}
+	return out
 }

@@ -56,15 +56,16 @@ var _ = Describe("SelectKnownVoices", func() {
 		Expect(sel.Voices).To(BeEmpty())
 		Expect(sel.OtherEncoder).To(Equal(1))
 	})
-	It("includes an untagged voice only when its size matches the tagged voices", func() {
+	It("defers untagged dimensions to the loaded backend, not registry tags", func() {
 		sel := voicerecognition.SelectKnownVoices([]voicerecognition.Entry{
 			entry("ada", wespeaker, 1, 0),
 			entry("old_same", "", 0, 1),
 			entry("old_other", "", 0, 1, 0),
 		}, wespeaker)
-		Expect(sel.Voices).To(HaveLen(2))
-		Expect(sel.Voices[1].Name).To(Equal("old_same"))
-		Expect(sel.Untagged).To(Equal(1))
+		Expect(sel.Voices).To(HaveLen(3))
+		Expect(sel.Voices[1].Name).To(Equal("old_other"))
+		Expect(sel.Voices[2].Name).To(Equal("old_same"))
+		Expect(sel.Untagged).To(Equal(2))
 	})
 	It("puts tagged voices first even when an untagged one was registered earlier", func() {
 		sel := voicerecognition.SelectKnownVoices([]voicerecognition.Entry{

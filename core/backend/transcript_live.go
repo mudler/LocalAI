@@ -269,6 +269,7 @@ func ModelTranscriptionLive(ctx context.Context, language string,
 	if err != nil {
 		return nil, err
 	}
+	lo.knownVoices = compatiblePortableVoices(ctx, transcriptionModel, lo.knownVoices)
 	release, err := AcquireGlobalBackendSlot()
 	if err != nil {
 		return nil, err
