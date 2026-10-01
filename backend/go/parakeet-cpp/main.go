@@ -90,6 +90,48 @@ func main() {
 		purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
 	}
 
+	// Model roles + diarization/sound (ABI v7-v8): parakeet_capi_model_kind is
+	// what lets Load tell an ASR/diarization/sound context apart, so it gates
+	// every other new symbol below (an older libparakeet.so gets none of
+	// them, and companion model options are rejected in roles.go). Diarization
+	// itself (diarize_pcm, transcribe_and_diarize_json) predates model_kind
+	// (ABI v7), so it is probed on its own.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_pcm"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppDiarizePCM, lib, "parakeet_capi_diarize_pcm")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_and_diarize_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppTranscribeAndDiarizeJSON, lib, "parakeet_capi_transcribe_and_diarize_json")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_model_kind"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppModelKind, lib, "parakeet_capi_model_kind")
+		purego.RegisterLibFunc(&CppNumClasses, lib, "parakeet_capi_num_classes")
+		purego.RegisterLibFunc(&CppSoundOptsDefault, lib, "parakeet_capi_sound_opts_default")
+		purego.RegisterLibFunc(&CppSoundStreamBegin, lib, "parakeet_capi_sound_stream_begin")
+		purego.RegisterLibFunc(&CppSoundStreamFeed, lib, "parakeet_capi_sound_stream_feed")
+		purego.RegisterLibFunc(&CppSoundStreamDrainScoresJSON, lib, "parakeet_capi_sound_stream_drain_scores_json")
+		purego.RegisterLibFunc(&CppFreeSoundSegments, lib, "parakeet_capi_free_sound_segments")
+		purego.RegisterLibFunc(&CppSoundStreamFree, lib, "parakeet_capi_sound_stream_free")
+		purego.RegisterLibFunc(&CppSceneOptsDefault, lib, "parakeet_capi_scene_opts_default")
+		purego.RegisterLibFunc(&CppSceneStreamBegin, lib, "parakeet_capi_scene_stream_begin")
+		purego.RegisterLibFunc(&CppSceneStreamFeedJSON, lib, "parakeet_capi_scene_stream_feed_json")
+		purego.RegisterLibFunc(&CppSceneStreamLastError, lib, "parakeet_capi_scene_stream_last_error")
+		purego.RegisterLibFunc(&CppSceneStreamFree, lib, "parakeet_capi_scene_stream_free")
+	}
+	// Speaker identification (ABI v9 and v10). Probed separately from model_kind so an older
+	// libparakeet.so still loads; speaker_model: is refused in roles.go unless the v10 symbols exist.
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_scene_stream_begin_speaker"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppSpeakerDim, lib, "parakeet_capi_speaker_dim")
+		purego.RegisterLibFunc(&CppSpeakerRegistryNew, lib, "parakeet_capi_speaker_registry_new")
+		purego.RegisterLibFunc(&CppSpeakerRegistryFree, lib, "parakeet_capi_speaker_registry_free")
+		purego.RegisterLibFunc(&CppSpeakerRegistryLastError, lib, "parakeet_capi_speaker_registry_last_error")
+		purego.RegisterLibFunc(&CppSceneStreamBeginSpeaker, lib, "parakeet_capi_scene_stream_begin_speaker")
+		purego.RegisterLibFunc(&CppTranscribeAndDiarizeNamedJSON, lib, "parakeet_capi_transcribe_and_diarize_named_json")
+	}
+	if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_named_pcm_json"); err == nil && sym != 0 {
+		purego.RegisterLibFunc(&CppSpeakerRegistryAddEmbedding, lib, "parakeet_capi_speaker_registry_add_embedding")
+		purego.RegisterLibFunc(&CppDiarizeNamedPCMJSON, lib, "parakeet_capi_diarize_named_pcm_json")
+	}
+
 	fmt.Fprintf(os.Stderr, "[parakeet-cpp] ABI=%d\n", CppAbiVersion())
 
 	flag.Parse()

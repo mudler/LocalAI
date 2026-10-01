@@ -1,6 +1,6 @@
 package main
 
-// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v27).
+// purego bindings for the vllm.cpp stable C ABI (include/vllm.h, ABI v30).
 //
 // The structs below are hand-mirrored PODs of the C declarations, with
 // explicit padding so the Go layout matches the C layout on linux/darwin
@@ -21,7 +21,12 @@ import (
 // the header of the VLLM_CPP_VERSION pinned in the Makefile: the build checks
 // the two against each other, because a mismatch is only caught at runtime by
 // registerLib, where it takes the backend down on every load (issue #11379).
-const abiVersion = 29
+//
+// v30 only ADDED the diarization and speaker-attributed-ASR entry points; every
+// struct mirrored here is byte-identical to v29. They are not bound because the
+// Makefile builds libvllm with VLLM_CPP_WITH_DIARIZATION=OFF, where they are
+// stubs that refuse every call.
+const abiVersion = 30
 
 // The ABI's tri-state toggles (enable_prefix_caching ABI v7,
 // enable_jump_forward ABI v10) share one encoding: 0 is NOT "off", it is

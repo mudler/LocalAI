@@ -22,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -86,6 +87,9 @@ type wrappedModel struct {
 	routerSessionID string
 	routerUserID    string
 
+	// voiceRegistry names live speakers from registered voices; nil disables it.
+	voiceRegistry voicerecognition.Registry
+
 	stageRouter
 	// tuneLLM applies the pipeline's LLM overrides (reasoning effort,
 	// disable_thinking) to a chain target loaded per call.
@@ -112,6 +116,9 @@ type transcriptOnlyModel struct {
 	appConfig   *config.ApplicationConfig
 	modelLoader *model.ModelLoader
 	confLoader  *config.ModelConfigLoader
+
+	// voiceRegistry names live speakers from registered voices; nil disables it.
+	voiceRegistry voicerecognition.Registry
 
 	stageRouter
 }
@@ -187,7 +194,7 @@ func (m *transcriptOnlyModel) TranscribeLive(ctx context.Context, language strin
 	// Only opening the live session can move to the next target.
 	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
-		live, err = backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *cfg, m.appConfig, onEvent)
+		live, err = backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *cfg, m.appConfig, onEvent, liveVoiceOptions(ctx, m.voiceRegistry, cfg)...)
 		return err
 	})
 	return live, err
@@ -579,7 +586,7 @@ func (m *wrappedModel) TranscribeLive(ctx context.Context, language string, onEv
 	// open, events flow to the client for the rest of the utterance.
 	err := m.stageCall(ctx, config.PipelineStageTranscription, m.TranscriptionConfig, func(cfg *config.ModelConfig, _ func()) error {
 		var err error
-		live, err = backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *cfg, m.appConfig, onEvent)
+		live, err = backend.ModelTranscriptionLive(ctx, language, m.modelLoader, *cfg, m.appConfig, onEvent, liveVoiceOptions(ctx, m.voiceRegistry, cfg)...)
 		return err
 	})
 	return live, err
@@ -1018,6 +1025,8 @@ type RealtimeRoutingContext struct {
 	UserID    string
 	// Failover resolves pipeline stages that name a failover chain.
 	Failover *failover.Manager
+	// VoiceRegistry holds the voices registered through /v1/voice/register.
+	VoiceRegistry voicerecognition.Registry
 }
 
 // buildRealtimeRoutingContext assembles the routing dependencies the
@@ -1040,6 +1049,8 @@ func buildRealtimeRoutingContext(a *application.Application, sessionID string) *
 		SessionID: sessionID,
 		UserID:    userID,
 		Failover:  a.FailoverManager(),
+
+		VoiceRegistry: a.VoiceRegistry(),
 	}
 }
 
@@ -1203,6 +1214,17 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		wm.routerStore = routing.Store
 		wm.routerSessionID = routing.SessionID
 		wm.routerUserID = routing.UserID
+		wm.voiceRegistry = routing.VoiceRegistry
 	}
 	return wm, nil
+}
+
+// liveVoiceOptions selects the registered voices a live session may name speakers
+// with. It stays empty without a speaker_model or a voice registry.
+func liveVoiceOptions(ctx context.Context, registry voicerecognition.Registry, cfg *config.ModelConfig) []backend.LiveOption {
+	voices := selectKnownVoices(ctx, "live transcription", cfg.Options, registry)
+	if len(voices) == 0 {
+		return nil
+	}
+	return []backend.LiveOption{backend.WithKnownVoices(voices)}
 }
