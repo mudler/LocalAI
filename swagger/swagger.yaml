@@ -1076,6 +1076,14 @@ definitions:
         type: integer
       label:
         type: string
+      name:
+        description: |-
+          Name is the registered speaker this segment was matched to, and NameScore
+          the cosine similarity of the match. Both are omitted when the backend did
+          not identify the speaker. Speaker stays the normalized SPEAKER_NN label.
+        type: string
+      name_score:
+        type: number
       speaker:
         type: string
       start:
@@ -1088,6 +1096,8 @@ definitions:
       id:
         type: string
       label:
+        type: string
+      name:
         type: string
       segment_count:
         type: integer

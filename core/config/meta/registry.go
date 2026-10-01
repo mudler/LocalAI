@@ -509,6 +509,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Min:         f64(0),
 			Order:       66,
 		},
+		"pipeline.diarization": {
+			Section:     "pipeline",
+			Label:       "Speaker Diarization",
+			Description: "Label speakers on each committed utterance and emit every labelled segment as a conversation.item.input_audio_transcription.segment event. Needs a transcription model that diarizes (e.g. parakeet-cpp with a diarization_model companion). Speaker labels are per turn.",
+			Component:   "toggle",
+			Order:       67,
+		},
 		"pipeline.reasoning_effort": {
 			Section:     "pipeline",
 			Label:       "Reasoning Effort",
