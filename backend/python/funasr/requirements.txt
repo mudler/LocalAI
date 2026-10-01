@@ -3,3 +3,4 @@ protobuf
 certifi
 packaging==24.1
 setuptools
+transformers>=4.32.0,<5
