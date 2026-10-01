@@ -185,6 +185,131 @@ var _ = Describe("model roles (stubbed C API)", func() {
 		Expect(f.freed).To(HaveLen(freedBeforeFree), "Free after a failed Load must not free anything again")
 	})
 
+	Describe("speaker_model", func() {
+		var savedAdd func(uintptr, string, *float32, int32) int32
+		var savedDim func(uintptr) int32
+		var savedBegin func(asr, diar, tagger, speaker, reg uintptr, o *cSceneOpts) uintptr
+		var setNew func(on bool)
+		setNew = func(on bool) {
+			if on {
+				CppSpeakerRegistryAddEmbedding = func(uintptr, string, *float32, int32) int32 { return 0 }
+				CppSpeakerDim = func(uintptr) int32 { return 3 }
+				CppSceneStreamBeginSpeaker = func(_, _, _, _, _ uintptr, _ *cSceneOpts) uintptr { return 0 }
+			} else {
+				CppSpeakerRegistryAddEmbedding, CppSpeakerDim, CppSceneStreamBeginSpeaker = nil, nil, nil
+			}
+		}
+		BeforeEach(func() {
+			savedAdd, savedDim, savedBegin = CppSpeakerRegistryAddEmbedding, CppSpeakerDim, CppSceneStreamBeginSpeaker
+			setNew(true)
+		})
+		AfterEach(func() {
+			CppSpeakerRegistryAddEmbedding, CppSpeakerDim, CppSceneStreamBeginSpeaker = savedAdd, savedDim, savedBegin
+		})
+
+		It("loads a kind-4 companion into spkCtx and Free releases it once", func() {
+			f := newFakeLib().
+				withModel("diar.gguf", modelKindDiarization).
+				withModel("/models/spk.gguf", modelKindSpeaker)
+			restore = f.install()
+
+			p := &ParakeetCpp{}
+			err := p.Load(&pb.ModelOptions{
+				ModelFile: "diar.gguf",
+				ModelPath: "/models",
+				Options:   []string{"speaker_model:spk.gguf", "speaker_threshold:0.3", "speaker_margin:0.1"},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(p.spkCtx).ToNot(BeZero())
+			Expect(p.speakerAccept).To(BeNumerically("~", 0.7, 1e-6))
+			Expect(p.speakerMargin).To(BeNumerically("~", 0.1, 1e-6))
+
+			diar, spk := p.diarCtx, p.spkCtx
+			Expect(p.Free()).To(Succeed())
+			Expect(f.freed).To(ConsistOf(diar, spk))
+			Expect(p.spkCtx).To(BeZero())
+			Expect(p.Free()).To(Succeed())
+			Expect(f.freed).To(HaveLen(2), "a second Free frees nothing")
+		})
+
+		It("is rejected when the library lacks ABI 10, and nothing is loaded", func() {
+			setNew(false)
+			f := newFakeLib().withModel("diar.gguf", modelKindDiarization)
+			restore = f.install()
+
+			p := &ParakeetCpp{}
+			err := p.Load(&pb.ModelOptions{ModelFile: "diar.gguf", Options: []string{"speaker_model:spk.gguf"}})
+			Expect(err).To(MatchError(ContainSubstring("ABI 10")))
+			Expect(f.loadedPaths).To(BeEmpty())
+		})
+
+		It("is rejected without a diarization model and frees every context", func() {
+			f := newFakeLib().
+				withModel("asr.gguf", modelKindASR).
+				withModel("spk.gguf", modelKindSpeaker)
+			restore = f.install()
+
+			p := &ParakeetCpp{}
+			err := p.Load(&pb.ModelOptions{ModelFile: "asr.gguf", Options: []string{"speaker_model:spk.gguf"}})
+			Expect(err).To(MatchError(ContainSubstring("diarization")))
+			Expect(f.freed).To(HaveLen(2))
+			Expect(p.ctxPtr).To(BeZero())
+			Expect(p.spkCtx).To(BeZero())
+			Expect(p.Free()).To(Succeed())
+			Expect(f.freed).To(HaveLen(2))
+		})
+
+		It("rejects a companion of the wrong kind", func() {
+			f := newFakeLib().
+				withModel("diar.gguf", modelKindDiarization).
+				withModel("wrong.gguf", modelKindSound)
+			restore = f.install()
+
+			p := &ParakeetCpp{}
+			err := p.Load(&pb.ModelOptions{ModelFile: "diar.gguf", Options: []string{"speaker_model:wrong.gguf"}})
+			Expect(err).To(MatchError(ContainSubstring("is a sound model, expected a speaker model")))
+			Expect(f.freed).To(HaveLen(2))
+			Expect(p.spkCtx).To(BeZero())
+		})
+
+		It("fails Load on an invalid speaker_threshold or speaker_margin", func() {
+			for _, bad := range []string{"speaker_threshold:abc", "speaker_threshold:2", "speaker_margin:1", "speaker_margin:-1"} {
+				f := newFakeLib().withModel("diar.gguf", modelKindDiarization)
+				r := f.install()
+				p := &ParakeetCpp{}
+				Expect(p.Load(&pb.ModelOptions{ModelFile: "diar.gguf", Options: []string{bad}})).ToNot(Succeed(), bad)
+				r()
+			}
+		})
+
+		It("rejects the speaker kind as the primary model and frees it", func() {
+			f := newFakeLib().withModel("spk.gguf", modelKindSpeaker)
+			restore = f.install()
+
+			p := &ParakeetCpp{}
+			err := p.Load(&pb.ModelOptions{ModelFile: "spk.gguf"})
+			Expect(err).To(MatchError(ContainSubstring("cannot be the primary model")))
+			Expect(f.freed).To(HaveLen(1))
+			Expect(p.spkCtx).To(BeZero())
+			Expect(p.ctxPtr).To(BeZero())
+		})
+
+		It("loads exactly as before without speaker_model on a library with none of the new symbols", func() {
+			setNew(false)
+			f := newFakeLib().
+				withModel("asr.gguf", modelKindASR).
+				withModel("diar.gguf", modelKindDiarization)
+			restore = f.install()
+
+			p := &ParakeetCpp{}
+			Expect(p.Load(&pb.ModelOptions{ModelFile: "asr.gguf", Options: []string{"diarization_model:diar.gguf"}})).To(Succeed())
+			Expect(p.spkCtx).To(BeZero())
+			Expect(p.ctxPtr).ToNot(BeZero())
+			Expect(p.diarCtx).ToNot(BeZero())
+			Expect(p.speakerAccept).To(BeNumerically("~", 0.5, 1e-6))
+		})
+	})
+
 	It("rejects an asr_model companion on an already-ASR primary and frees everything it opened", func() {
 		f := newFakeLib().
 			withModel("asr.gguf", modelKindASR).
