@@ -730,6 +730,8 @@ A worker started without `LOCALAI_STORAGE_URL` does not serve the four staging v
 
 When S3 is not configured, model files are transferred directly from the frontend to workers via **HTTP** - no shared filesystem needed. Each worker runs a small HTTP file transfer server alongside the gRPC backend process. This is the default and works out of the box.
 
+HTTP transfers cache SHA-256 hashes in adjacent metadata files. LocalAI ignores symbolic links when reading this metadata and replaces it atomically when writing. New metadata files are readable and writable only by the LocalAI process owner (mode `0600`).
+
 For high-throughput or very large model files, S3 can be more efficient since it avoids streaming through the frontend.
 
 ### Shared models directory

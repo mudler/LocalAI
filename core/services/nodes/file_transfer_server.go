@@ -566,7 +566,7 @@ func handleHead(w http.ResponseWriter, r *http.Request, stagingDir, modelsDir, d
 	// X-Target-SHA256 and skip emitting X-Content-SHA256 (which would otherwise
 	// be the hash of just the bytes received so far — misleading for clients
 	// trying to decide whether the file is "the right one").
-	if target, err := os.ReadFile(filePath + targetSidecarSuffix); err == nil {
+	if target, err := readHashSidecar(filePath + targetSidecarSuffix); err == nil {
 		t := strings.TrimSpace(string(target))
 		if len(t) == 64 {
 			w.Header().Set(HeaderTargetSHA256, t)
@@ -869,7 +869,7 @@ func handleFullUpload(w http.ResponseWriter, r *http.Request, dstPath, key, expe
 		return
 	}
 
-	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(hashHex), 0640); err != nil {
+	if err := writeHashSidecar(dstPath+hashSidecarSuffix, hashHex); err != nil {
 		xlog.Warn("Failed to write hash sidecar", "path", dstPath+hashSidecarSuffix, "error", err)
 	}
 
@@ -910,11 +910,11 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 		if expectedFinalHash != "" {
 			// Compare the client's declared target hash against either an
 			// in-progress target sidecar OR the completed-file sidecar.
-			if t, err := os.ReadFile(targetSidecar); err == nil {
+			if t, err := readHashSidecar(targetSidecar); err == nil {
 				if strings.EqualFold(strings.TrimSpace(string(t)), expectedFinalHash) {
 					sameFile = true
 				}
-			} else if h, err := os.ReadFile(dstPath + hashSidecarSuffix); err == nil {
+			} else if h, err := readHashSidecar(dstPath + hashSidecarSuffix); err == nil {
 				if strings.EqualFold(strings.TrimSpace(string(h)), expectedFinalHash) {
 					sameFile = true
 				}
@@ -941,7 +941,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	// Cross-attempt consistency: if there's an in-progress target sidecar with
 	// a different hash than what's now being claimed, force a restart.
 	if expectedFinalHash != "" && cr.start > 0 {
-		prev, _ := os.ReadFile(targetSidecar)
+		prev, _ := readHashSidecar(targetSidecar)
 		prevHash := strings.TrimSpace(string(prev))
 		if prevHash != "" && !strings.EqualFold(prevHash, expectedFinalHash) {
 			_ = os.Remove(dstPath)
@@ -985,7 +985,7 @@ func handleRangeUpload(w http.ResponseWriter, r *http.Request, dstPath, key stri
 	// Persist the declared expected hash so subsequent chunks can be
 	// cross-checked.
 	if expectedFinalHash != "" {
-		if err := os.WriteFile(targetSidecar, []byte(expectedFinalHash), 0640); err != nil {
+		if err := writeHashSidecar(targetSidecar, expectedFinalHash); err != nil {
 			xlog.Warn("Failed to write target hash sidecar", "path", targetSidecar, "error", err)
 		}
 	}
@@ -1045,7 +1045,7 @@ func finalizeRangeUpload(w http.ResponseWriter, dstPath, key string, size int64,
 		return
 	}
 
-	if err := os.WriteFile(dstPath+hashSidecarSuffix, []byte(finalHash), 0640); err != nil {
+	if err := writeHashSidecar(dstPath+hashSidecarSuffix, finalHash); err != nil {
 		xlog.Warn("Failed to write hash sidecar", "path", dstPath+hashSidecarSuffix, "error", err)
 	}
 	// Clear the in-progress sidecar — upload is committed.
@@ -1071,7 +1071,7 @@ func computeAndCacheHash(filePath string) (string, error) {
 	}
 
 	if sidecarStat, err := os.Stat(sidecar); err == nil && !sidecarStat.ModTime().Before(fileStat.ModTime()) {
-		if data, err := os.ReadFile(sidecar); err == nil {
+		if data, err := readHashSidecar(sidecar); err == nil {
 			h := strings.TrimSpace(string(data))
 			if len(h) == 64 { // valid hex-encoded SHA-256
 				return h, nil
@@ -1084,7 +1084,7 @@ func computeAndCacheHash(filePath string) (string, error) {
 		return "", err
 	}
 
-	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil {
+	if err := writeHashSidecar(sidecar, hashHex); err != nil {
 		xlog.Warn("Failed to write hash sidecar", "path", sidecar, "error", err)
 	}
 	return hashHex, nil

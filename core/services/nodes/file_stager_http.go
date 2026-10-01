@@ -753,7 +753,7 @@ func hashLocalCached(ctx context.Context, path string) (string, error) {
 		return "", err
 	}
 	if sidecarStat, err := os.Stat(sidecar); err == nil && !sidecarStat.ModTime().Before(fileStat.ModTime()) {
-		if data, err := os.ReadFile(sidecar); err == nil {
+		if data, err := readHashSidecar(sidecar); err == nil {
 			cached := strings.TrimSpace(string(data))
 			if len(cached) == 64 {
 				return cached, nil
@@ -765,7 +765,7 @@ func hashLocalCached(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil {
+	if err := writeHashSidecar(sidecar, hashHex); err != nil {
 		xlog.Warn("Failed to write hash sidecar", "path", sidecar, "error", err)
 	}
 	return hashHex, nil
