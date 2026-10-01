@@ -39,6 +39,27 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Cyber-Ornith 1.5 9B
+
+Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
+The gallery includes Q4_K_M and Q6_K GGUF builds for text chat with llama.cpp.
+Both use the embedded chat template and a 32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install cyber-ornith-1.5-9b-obliterated
+```
+
+To select Q6_K explicitly:
+
+```bash
+local-ai models install cyber-ornith-1.5-9b-obliterated --variant cyber-ornith-1.5-9b-obliterated-q6
+```
+
+See the [model card](https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED)
+and [GGUF downloads](https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF).
+
 ## LensVLM-9B
 
 Install `lensvlm-9b` for text and image chat with llama.cpp. The gallery groups

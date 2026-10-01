@@ -1,6 +1,6 @@
 # ced sound-classification backend Makefile.
 #
-# Upstream pin lives below as CED_VERSION?=b10237678d1c3b30c77d19f2e63f6c198c7f8d09
+# Upstream pin lives below as CED_VERSION?=61dec2ab0106f2047ee40062a7075dbf08c523d0
 # and update it (matches the parakeet-cpp / whisper.cpp convention).
 #
 # Local dev shortcut: symlink an out-of-tree ced.cpp shared build + header and
@@ -9,7 +9,7 @@
 #   ln -sf /path/to/ced.cpp/include/ced_capi.h .
 #   go build -o ced-grpc .
 
-CED_VERSION?=b10237678d1c3b30c77d19f2e63f6c198c7f8d09
+CED_VERSION?=61dec2ab0106f2047ee40062a7075dbf08c523d0
 CED_REPO?=https://github.com/localai-org/ced.cpp
 
 GOCMD?=go

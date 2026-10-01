@@ -12,6 +12,11 @@ type DiarizationSegment struct {
 	Start   float64 `json:"start"`
 	End     float64 `json:"end"`
 	Text    string  `json:"text,omitempty"`
+	// Name is the registered speaker this segment was matched to, and NameScore
+	// the cosine similarity of the match. Both are omitted when the backend did
+	// not identify the speaker. Speaker stays the normalized SPEAKER_NN label.
+	Name      string  `json:"name,omitempty"`
+	NameScore float32 `json:"name_score,omitempty"`
 }
 
 // DiarizationSpeaker summarizes one speaker across the whole audio so
@@ -20,6 +25,7 @@ type DiarizationSegment struct {
 type DiarizationSpeaker struct {
 	Id                  string  `json:"id"`
 	Label               string  `json:"label,omitempty"`
+	Name                string  `json:"name,omitempty"`
 	TotalSpeechDuration float64 `json:"total_speech_duration"`
 	SegmentCount        int     `json:"segment_count"`
 }
