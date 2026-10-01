@@ -213,9 +213,10 @@ func transcriptResultFromProto(r *proto.TranscriptResult) *schema.TranscriptionR
 		var words []schema.TranscriptionWord
 		for _, w := range s.Words {
 			var word = schema.TranscriptionWord{
-				Start: time.Duration(w.Start),
-				End:   time.Duration(w.End),
-				Text:  w.Text,
+				Start:   time.Duration(w.Start),
+				End:     time.Duration(w.End),
+				Text:    w.Text,
+				Speaker: w.Speaker,
 			}
 			words = append(words, word)
 			tr.Words = append(tr.Words, word)

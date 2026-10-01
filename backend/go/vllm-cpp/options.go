@@ -74,6 +74,10 @@ type loadOptions struct {
 	nerThreshold float32
 	// nerMaxWidth is the maximum span width in tokens (0 = engine default 12).
 	nerMaxWidth int32
+	// hf_overrides (vLLM parity): a JSON object of config.json keys merged
+	// over the model directory's config.json through a private overlay dir,
+	// see newConfigOverlay. Empty = load the directory as is.
+	hfOverrides string
 }
 
 // videoOptions is the MiniMax-H3 checkpoint SET plus its generation defaults.
@@ -208,6 +212,8 @@ func applyOptionsList(lo *loadOptions, options []string) {
 			lo.kvTransferConfig = strings.TrimSpace(v)
 		case "tokenizer_config", "tokenizer_config_path":
 			lo.tokenizerConfigPath = strings.TrimSpace(v)
+		case "hf_overrides":
+			lo.hfOverrides = strings.TrimSpace(v)
 		case "enable_prefix_caching", "enable_radix_attention":
 			if b, err := strconv.ParseBool(strings.TrimSpace(v)); err == nil {
 				lo.enablePrefixCaching = boolTriState(b)
@@ -343,6 +349,10 @@ func applyEngineArgs(lo *loadOptions, engineArgs string) {
 			lo.speculativeConfig = jsonDocument(v, lo.speculativeConfig, k)
 		case "kv_transfer_config":
 			lo.kvTransferConfig = jsonDocument(v, lo.kvTransferConfig, k)
+		case "hf_overrides":
+			// Kept verbatim even when it is not an object: Load refuses a
+			// malformed value instead of loading the unmodified config.
+			lo.hfOverrides = jsonDocument(v, lo.hfOverrides, k)
 		case "enable_prefix_caching", "enable_radix_attention":
 			if b, ok := v.(bool); ok {
 				lo.enablePrefixCaching = boolTriState(b)

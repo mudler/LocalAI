@@ -291,6 +291,67 @@ var _ = Describe("liveTurnState", func() {
 			Expect(ftr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionFailed)).To(Equal(0))
 		})
 	})
+
+	Describe("scene events (speakers and sounds)", func() {
+		It("emits a segment event per speaker with empty text under the turn's item id", func() {
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
+			turnID := lts.itemID
+
+			m.liveSession.onEvent(backend.LiveTranscriptionEvent{
+				Speakers: []backend.LiveSpeakerSegment{{Speaker: "1", Start: 1.2, End: 3.4}},
+			})
+			lts.drainEvents(3.4)
+
+			var got []types.ConversationItemInputAudioTranscriptionSegmentEvent
+			for _, e := range ftr.events() {
+				if seg, ok := e.(types.ConversationItemInputAudioTranscriptionSegmentEvent); ok {
+					got = append(got, seg)
+				}
+			}
+			Expect(got).To(HaveLen(1))
+			Expect(got[0].ItemID).To(Equal(turnID))
+			Expect(got[0].Speaker).To(Equal("1"))
+			Expect(got[0].Start).To(BeNumerically("~", 1.2, 1e-9))
+			Expect(got[0].End).To(BeNumerically("~", 3.4, 1e-9))
+			Expect(got[0].Text).To(BeEmpty())
+		})
+
+		It("emits a sound_detection event per sound with one tag and start/end", func() {
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
+			turnID := lts.itemID
+
+			m.liveSession.onEvent(backend.LiveTranscriptionEvent{
+				Sounds: []backend.LiveSoundEvent{{Label: "Dog bark", Index: 5, Peak: 0.8, Start: 0.5, End: 0.9}},
+			})
+			lts.drainEvents(1.0)
+
+			var got []types.ConversationItemSoundDetectionEvent
+			for _, e := range ftr.events() {
+				if sd, ok := e.(types.ConversationItemSoundDetectionEvent); ok {
+					got = append(got, sd)
+				}
+			}
+			Expect(got).To(HaveLen(1))
+			Expect(got[0].ItemID).To(Equal(turnID))
+			Expect(got[0].Detections).To(HaveLen(1))
+			Expect(got[0].Detections[0].Label).To(Equal("Dog bark"))
+			Expect(got[0].Detections[0].Score).To(BeNumerically("~", 0.8, 1e-6))
+			Expect(got[0].Detections[0].Index).To(Equal(5))
+			Expect(got[0].Start).NotTo(BeNil())
+			Expect(*got[0].Start).To(BeNumerically("~", 0.5, 1e-9))
+			Expect(got[0].End).NotTo(BeNil())
+			Expect(*got[0].End).To(BeNumerically("~", 0.9, 1e-9))
+		})
+
+		It("sends neither event when a live event carries no speakers or sounds", func() {
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
+			m.liveSession.onEvent(backend.LiveTranscriptionEvent{Delta: "hi"})
+			lts.drainEvents(1.0)
+
+			Expect(ftr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionSegment)).To(Equal(0))
+			Expect(ftr.countEvents(types.ServerEventTypeConversationItemSoundDetection)).To(Equal(0))
+		})
+	})
 })
 
 // commitUtteranceWithTranscript routes the three transcript sources: the

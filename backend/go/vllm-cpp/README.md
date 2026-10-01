@@ -9,7 +9,7 @@ It serves two things: text generation, and MiniMax-H3 joint video+audio
 generation.
 
 The backend dlopens the engine's stable C ABI (`libvllm`, `include/vllm.h`,
-ABI v20) through purego:
+ABI v30) through purego:
 
 - `Load` -> `vllm_engine_load`: accepts a `.gguf` file or a HF-style model
   directory (`config.json` + safetensors). `context_size` maps to
@@ -44,6 +44,14 @@ the Makefile therefore means updating `abiVersion` plus the mirrors (and their
 offsets in `vllmcpp_test.go`) in the same change; `make abi-check` compares the
 pinned header against the bindings and the library build runs it first.
 
+The Makefile builds libvllm with `-DVLLM_CPP_WITH_DIARIZATION=OFF`. vllm.cpp
+turns that option ON by default since ABI v30, and ON fetches a pinned
+parakeet.cpp (with its own ggml) at configure time. This backend does not bind
+the diarization entry points, so OFF adds no dependency and changes nothing it
+serves: those calls exist in libvllm but refuse with "not compiled in". If a
+future change binds them, pin the parakeet.cpp source with
+`-DVLLM_CPP_PARAKEET_CPP_DIR` and make `package.sh` bundle what it links.
+
 Model config example:
 
 ```yaml
@@ -54,6 +62,25 @@ parameters:
   model: Qwen3-4B   # model dir (safetensors) or .gguf file
 options:
 - max_num_seqs:16
+```
+
+## hf_overrides
+
+`engine_args.hf_overrides` (vLLM parity) is a JSON object of top-level
+`config.json` keys merged over the model directory's `config.json`. The C ABI
+has no override input and the engine reads `config.json` from the directory it
+is given, so `Load` builds an overlay (`hfoverrides.go`): a temp dir with the
+merged `config.json` plus a symlink to every other entry of the model dir, and
+passes the overlay as `model_path`. `validModelPath` and the DFlash draft
+resolution still run against the real model dir. `Free` (and a failed load, or
+the next `Load`) removes the overlay. A value that is not an object, a `.gguf`
+model, or a dir without `config.json` fails the load instead of being ignored,
+because loading the unmodified config would serve another architecture.
+
+```yaml
+engine_args:
+  hf_overrides:
+    architectures: ["Tev1Model"]   # opt a Qwen3.5-declared Tev1 snapshot into the Tev1 adapter
 ```
 
 ## MiniMax-H3 video+audio generation

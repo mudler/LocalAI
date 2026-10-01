@@ -12,6 +12,7 @@ import HomeConnect from '../components/HomeConnect'
 import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
 import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
+import { readAttachmentText } from '../utils/pdf'
 import { API_CONFIG } from '../utils/config'
 import { greetingKey } from '../utils/greeting'
 import StatusPill from '../components/StatusPill'
@@ -158,12 +159,17 @@ export default function Home() {
       const base64 = await fileToBase64(file)
       const entry = { name: file.name, type: file.type, base64 }
       if (!file.type.startsWith('image/') && !file.type.startsWith('audio/')) {
-        entry.textContent = await file.text().catch(() => '')
+        try {
+          entry.textContent = await readAttachmentText(file)
+        } catch {
+          addToast(t('input.pdfReadFailed', { name: file.name }), 'error')
+          continue
+        }
       }
       newFiles.push(entry)
     }
     setter(prev => [...prev, ...newFiles])
-  }, [])
+  }, [addToast, t])
 
   const removeFile = useCallback((file) => {
     const removeFn = (prev) => prev.filter(f => f !== file)

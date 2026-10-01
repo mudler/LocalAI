@@ -117,7 +117,8 @@
     "copied": "Copied to clipboard",
     "copyFailed": "Could not copy to clipboard",
     "chatCopied": "Chat copied to clipboard",
-    "forked": "Created a new chat"
+    "forked": "Created a new chat",
+    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged."
   },
   "menu": {
     "trigger": "Chats",

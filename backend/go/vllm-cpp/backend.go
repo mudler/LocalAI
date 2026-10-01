@@ -37,6 +37,10 @@ type VllmCpp struct {
 	// other's checkpoints. Exactly one of the two is ever non-zero.
 	videoEngine uintptr
 	opts        loadOptions
+	// overlayDir is the hf_overrides overlay handed to the engine in place of
+	// the model directory. It must outlive the engine handle (the engine may
+	// reopen files through it), so it is removed in Free, not after Load.
+	overlayDir string
 }
 
 // Stream registry: the per-request bridge between the C token callback and
@@ -141,6 +145,23 @@ func (v *VllmCpp) Load(opts *pb.ModelOptions) error {
 	}
 	v.opts.speculativeConfig = resolvedSpec
 
+	// A reload reuses this struct: drop any overlay from the previous model
+	// before building a new one so it is not leaked.
+	if err := removeConfigOverlay(v.overlayDir); err != nil {
+		xlog.Warn("[vllm-cpp] stale overlay", "error", err)
+	}
+	v.overlayDir = ""
+	enginePath := model
+	if hasHFOverrides(v.opts.hfOverrides) {
+		overlay, err := newConfigOverlay(model, v.opts.hfOverrides)
+		if err != nil {
+			return err
+		}
+		v.overlayDir = overlay
+		enginePath = overlay
+		xlog.Info("[vllm-cpp] hf_overrides applied through overlay", "model", model, "overlay", overlay, "overrides", v.opts.hfOverrides)
+	}
+
 	mp := defaultModelParams()
 	if v.opts.blockSize > 0 {
 		mp.BlockSize = v.opts.blockSize
@@ -173,7 +194,7 @@ func (v *VllmCpp) Load(opts *pb.ModelOptions) error {
 	// Every string below is borrowed by C for the duration of the load call
 	// only (the library copies what it keeps), so the backing slices just have
 	// to outlive vllmEngineLoad - hence the single KeepAlive after it.
-	modelC := cString(model)
+	modelC := cString(enginePath)
 	mp.ModelPath = uintptr(unsafe.Pointer(&modelC[0])) // #nosec G103 -- borrowed by C for the load call only
 	keep := [][]byte{modelC}
 	setStr := func(dst *uintptr, s string) {
@@ -205,7 +226,12 @@ func (v *VllmCpp) Load(opts *pb.ModelOptions) error {
 	rc := vllmEngineLoad(unsafe.Pointer(&mp), unsafe.Pointer(&engine)) // #nosec G103 -- POD out-params
 	runtime.KeepAlive(keep)
 	if rc != vllmOK {
-		return fmt.Errorf("vllm-cpp: engine load failed: %s", vllmLastError())
+		loadErr := fmt.Errorf("vllm-cpp: engine load failed: %s", vllmLastError())
+		if err := removeConfigOverlay(v.overlayDir); err != nil {
+			xlog.Warn("[vllm-cpp] overlay cleanup after failed load", "error", err)
+		}
+		v.overlayDir = ""
+		return loadErr
 	}
 	v.engine = engine
 	return nil
@@ -220,7 +246,10 @@ func (v *VllmCpp) Free() error {
 		vllmVideoEngineFree(v.videoEngine)
 		v.videoEngine = 0
 	}
-	return nil
+	// After the engine is gone, so nothing still reads through the links.
+	err := removeConfigOverlay(v.overlayDir)
+	v.overlayDir = ""
+	return err
 }
 
 // samplingFromPredict lowers PredictOptions into the C sampling POD plus the

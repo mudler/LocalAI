@@ -209,6 +209,35 @@ func (l *liveTurnState) drainEvents(audioSec float64) {
 			if ev.Final != nil && strings.TrimSpace(ev.Final.Text) != "" {
 				l.finalText = ev.Final.Text
 			}
+			// Speaker and sound events from a companion diarization/scene
+			// stream: forward each as its own event under the turn's item
+			// id, same as caption deltas. Text is empty — the event exists
+			// to carry the speaker/segment boundary, not transcript text.
+			if l.transport != nil && l.itemID != "" {
+				for _, seg := range ev.Speakers {
+					sendEvent(l.transport, types.ConversationItemInputAudioTranscriptionSegmentEvent{
+						ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
+						ItemID:          l.itemID,
+						ContentIndex:    0,
+						Speaker:         seg.Speaker,
+						Start:           seg.Start,
+						End:             seg.End,
+					})
+				}
+				for _, sound := range ev.Sounds {
+					start, end := sound.Start, sound.End
+					sendEvent(l.transport, types.ConversationItemSoundDetectionEvent{
+						ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
+						ItemID:          l.itemID,
+						ContentIndex:    0,
+						Detections: []types.SoundDetectionTag{
+							{Label: sound.Label, Score: sound.Peak, Index: sound.Index},
+						},
+						Start: &start,
+						End:   &end,
+					})
+				}
+			}
 		default:
 			return
 		}

@@ -93,18 +93,20 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 		}
 		for _, word := range(tr.Words) {
 			trs.Words = append(trs.Words, schema.TranscriptionWordSeconds{
-				Start: word.Start.Seconds(),
-				End:   word.End.Seconds(),
-				Text:  word.Text,
+				Start:   word.Start.Seconds(),
+				End:     word.End.Seconds(),
+				Text:    word.Text,
+				Speaker: word.Speaker,
 			})
 		}
 		for _, seg := range(tr.Segments) {
 			segWords := []schema.TranscriptionWordSeconds{}
 			for _, word := range(seg.Words) {
 				segWords = append(segWords, schema.TranscriptionWordSeconds{
-					Start: word.Start.Seconds(),
-					End:   word.End.Seconds(),
-					Text:  word.Text,
+					Start:   word.Start.Seconds(),
+					End:     word.End.Seconds(),
+					Text:    word.Text,
+					Speaker: word.Speaker,
 				})
 			}
 			trs.Segments = append(trs.Segments, schema.TranscriptionSegmentSeconds{

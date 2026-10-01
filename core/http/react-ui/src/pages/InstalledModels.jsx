@@ -22,7 +22,7 @@ import {
   CAP_CHAT, CAP_COMPLETION, CAP_IMAGE, CAP_VIDEO, CAP_TTS,
   CAP_TRANSCRIPT, CAP_SOUND_GENERATION, CAP_FACE_RECOGNITION,
   CAP_SPEAKER_RECOGNITION, CAP_EMBEDDINGS, CAP_RERANK,
-  CAP_VAD, CAP_SCORE,
+  CAP_VAD, CAP_SCORE, CAP_DECISIONS,
 } from '../utils/capabilities'
 
 const USE_CASES = [
@@ -39,6 +39,7 @@ const USE_CASES = [
   { cap: CAP_RERANK, labelKey: 'rerank' },
   { cap: CAP_VAD, labelKey: 'vad' },
   { cap: CAP_SCORE, labelKey: 'score' },
+  { cap: CAP_DECISIONS, labelKey: 'decisions' },
 ]
 
 export function modelUseCases(model) {
