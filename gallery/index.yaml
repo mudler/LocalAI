@@ -64171,6 +64171,66 @@
           type: huggingface
           repo: mudler/Bespoke-Nimble-9B-vllm-cpp
           revision: 52eead25b6723710ec16378942c9ae914d179b6f
+- name: clm-v0.1-8b-vllm-cpp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/mudler/CLM-v0.1-8B-vllm-cpp
+    - https://huggingface.co/Contrastive-LM/CLM-v0.1-8B
+    - https://github.com/mudler/vllm.cpp
+  description: |
+    CLM is a bi-encoder decision model from Contrastive-LM. A frozen Qwen3-8B
+    backbone encodes the state and each candidate answer separately, two MLP
+    heads project them into a 512-dimensional space, and the answer
+    distribution is a softmax over the cosine similarities at scale 100. It
+    answers typed choice, noul and score questions and does not generate
+    text.
+
+    This entry installs a converted redistribution: the CLM-v0.1-8B heads as
+    head.safetensors next to the unchanged Qwen3-8B backbone and tokenizer,
+    with config.json naming the ClmModel architecture. The checkpoint only
+    works with vllm.cpp (the vllm-cpp backend); transformers, vLLM and
+    llama.cpp cannot load it.
+
+    In LocalAI, serve it via POST /v1/systemone. Put the question in
+    instructions: the state head reads the state followed by the
+    instructions. The vllm.cpp project compared this checkpoint on CPU with the
+    reference code over eight questions: 8 of 8 answers agree, largest
+    probability difference 0.029 against the reference in bf16 (transformers
+    stood in for the reference's GPU encoder). This entry was installed and
+    served through LocalAI on CPU and gave the model card's example answer
+    (person, 0.950). There is no accuracy benchmark and no GPU run.
+
+    The entry sets a 4096-token context and a KV pool that holds four such
+    sequences. BF16 backbone with F32 heads, about 16.5 GB, pinned to a
+    revision. On CPU the model needs about 19 GB of free RAM (measured peak
+    17.9 GB resident).
+  license: apache-2.0
+  tags:
+    - decisions
+    - systemone
+    - vllm-cpp
+    - cpu
+    - gpu
+  size: 16.47GB
+  last_checked: "2026-10-01"
+  overrides:
+    backend: vllm-cpp
+    known_usecases:
+      - decisions
+    context_size: 4096
+    engine_args:
+      block_size: 32
+      num_blocks: 512
+      max_num_seqs: 4
+    parameters:
+      model: mudler/CLM-v0.1-8B-vllm-cpp
+    artifacts:
+      - name: model
+        target: model
+        source:
+          type: huggingface
+          repo: mudler/CLM-v0.1-8B-vllm-cpp
+          revision: 0d1903b14024c721594e1794aa48818f20f6bdb3
 - name: qwen3-vl-4b-vllm-cpp
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
