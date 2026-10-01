@@ -11,8 +11,9 @@ import (
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 )
 
-// recordingFactory records the node id and address of every client it builds,
-// so a spec can assert that each consumer passes the node it is dialing.
+// recordingFactory records the node id, address and parallel flag of every
+// client it builds, so a spec can assert that each consumer passes the node it
+// is dialing and asks for the client it needs.
 type recordingFactory struct {
 	mu       sync.Mutex
 	seen     []string

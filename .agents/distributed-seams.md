@@ -32,9 +32,14 @@ payload, not that a consumer exists. The NATS carrier ignores the ctx of
 `Consume(ctx, kind, maxInFlight, h)` keeps two concurrency models on purpose.
 With `maxInFlight` 1 the handler runs inline on the NATS delivery goroutine and
 a panic is not recovered. Any other value spawns a recovered goroutine per
-delivery; when bounded, the slot is taken on the delivery goroutine. 0 is
-unbounded. `Unsubscribe` stops delivery, then waits for running handlers.
+delivery; when bounded, the slot is taken on the delivery goroutine. 0 and
+negative values are unbounded. `Unsubscribe` stops delivery, then waits for
+running handlers, so a handler must not call it. The agent worker asks for
+MCP CI with 1 (`startMCPCIConsumer`) and for agent runs with the dispatcher's
+`maxConcurrent` (0 from the CLI); specs pin both.
 `WithAgentRunRoute` lets an agent worker move the agent-run subject and group.
+An empty subject keeps `agent.execute`; an empty queue is kept and makes a
+plain subscription, as an explicitly empty `LOCALAI_AGENT_QUEUE` always did.
 
 ## Control verbs
 
@@ -47,7 +52,11 @@ Worker half: each verb is a `controlVerb`. A handler is typed with `unary`,
 `withProgress` or `noReply` and registered with `handle` (one request of the
 verb at a time on NATS, panic not recovered) or `handleWithProgress` (a
 goroutine per request, progress published on the install-progress subject).
-An undecodable body is still answered with the verb's typed refusal.
+An undecodable body is still answered with the verb's typed refusal. The
+`undecodable` error a `controlHandler` returns is read only by tests today: the
+NATS server drops it. It is a recorded exception to the no-dead-code rule, kept
+as the hook a carrier that signals a malformed request out of band (HTTP 400)
+needs.
 
 ## Agent RPC
 
@@ -134,5 +143,27 @@ other seams against a real server, also through Docker.
   path.
 - The agent worker still uses NATS directly for its connection and for agent
   events (`agents.NewEventBridge`).
+- `ReplicaReconcilerOptions` has no `ClientFactory` field. Without a
+  `Prober`, `NewReplicaReconciler` builds its own `tokenClientFactory`, so a
+  carrier that dials through another factory must add the field.
+- The backend-logs proxy (`proxyHTTPToWorker`) starts from
+  `httpclient.HardenedTransport()`, which keeps
+  `Proxy: http.ProxyFromEnvironment`. With `HTTP_PROXY` set, a dialer that
+  routes by node would be handed the proxy address. Clear `Proxy` when the
+  dialer is not the direct one.
+- `natsControlServer.subject` refuses a verb it has no subject for, so
+  registration fails. A verb that only one carrier serves needs a per-carrier
+  opt-out where the verbs are registered.
+- `WorkHandler` returns only an error. A carrier whose stream handler must send
+  a terminal reply derives it from the `jobs.<id>.result` event the handler
+  publishes on `events` (`handleMCPCIJob` does this).
+- Not additive: the agent-run consumer (`NATSDispatcher.runDelivery`) ignores
+  the per-delivery `events` publisher and publishes through the process-wide
+  `EventBridge`, which is built on the NATS client. A second carrier must
+  change `NATSDispatcher` and `EventBridge`, for example by binding
+  `handleJob`'s publishes to `events` through a bridge view that shares the
+  cancel registry.
+- `controlHandler`'s `undecodable` return is the recorded exception described
+  under Control verbs.
 - Agent cancel has no production sender (`EventBridge.CancelExecution` has no
   caller), so it is not part of the agent RPC seam.

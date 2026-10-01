@@ -38,6 +38,7 @@ type progressSink func(workerctl.BackendInstallProgressEvent)
 // as the verb's request; reply then holds the verb's typed refusal. The NATS
 // server sends reply either way, which is today's behaviour. A carrier that can
 // signal a malformed request out of band (HTTP 400) may send that instead.
+// Only tests read undecodable today; it is kept as the hook for such a carrier.
 type controlHandler func(ctx context.Context, body []byte) (reply any, undecodable error)
 
 // progressControlHandler is controlHandler for a verb that may run for minutes
