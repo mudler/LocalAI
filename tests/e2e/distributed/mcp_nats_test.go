@@ -1,7 +1,9 @@
 package distributed_test
 
 import (
+	"context"
 	"encoding/json"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -123,6 +125,62 @@ var _ = Describe("MCP NATS Routing", Label("Distributed"), func() {
 			Expect(result.Servers[0].Tools).To(ConsistOf("get_weather", "get_forecast"))
 			Expect(result.Tools).To(HaveLen(3))
 			Expect(result.Tools[2].ToolName).To(Equal("query_db"))
+		})
+	})
+
+	Context("Agent RPC server", func() {
+		It("round trips tool and discovery requests through the agent RPC server", func() {
+			toolReqs := make(chan mcpRemote.MCPToolRequest, 2)
+			discoveryReqs := make(chan mcpRemote.MCPDiscoveryRequest, 1)
+
+			srv := nodes.NewNATSAgentRPCServer(infra.NC, "e2e-agent-node")
+			Expect(srv.ServeMCPTool(func(_ context.Context, req mcpRemote.MCPToolRequest) mcpRemote.MCPToolResponse {
+				toolReqs <- req
+				return mcpRemote.MCPToolResponse{Result: "ran " + req.ToolName}
+			})).To(Succeed())
+			Expect(srv.ServeMCPDiscovery(func(_ context.Context, req mcpRemote.MCPDiscoveryRequest) mcpRemote.MCPDiscoveryResponse {
+				discoveryReqs <- req
+				return mcpRemote.MCPDiscoveryResponse{
+					Servers: []mcpRemote.MCPServerInfo{{Name: "weather-server", Type: "remote", Tools: []string{"get_weather"}}},
+				}
+			})).To(Succeed())
+			FlushNATS(infra.NC)
+
+			control := nodes.NewNATSAgentControl(infra.NC)
+
+			toolResp, err := control.ExecuteMCPTool(infra.Ctx, mcpRemote.MCPToolRequest{
+				ModelName: "rpc-model",
+				ToolName:  "get_weather",
+				Arguments: map[string]any{"city": "Rome"},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(toolResp.Result).To(Equal("ran get_weather"))
+			Expect(toolResp.Error).To(BeEmpty())
+			var gotTool mcpRemote.MCPToolRequest
+			Eventually(toolReqs).Should(Receive(&gotTool))
+			Expect(gotTool.ModelName).To(Equal("rpc-model"))
+			Expect(gotTool.ToolName).To(Equal("get_weather"))
+			Expect(gotTool.Arguments).To(HaveKeyWithValue("city", "Rome"))
+
+			discoveryResp, err := control.DiscoverMCPTools(infra.Ctx, mcpRemote.MCPDiscoveryRequest{ModelName: "rpc-model"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(discoveryResp.Servers).To(HaveLen(1))
+			Expect(discoveryResp.Servers[0].Name).To(Equal("weather-server"))
+			Expect(discoveryResp.Servers[0].Tools).To(ConsistOf("get_weather"))
+			var gotDiscovery mcpRemote.MCPDiscoveryRequest
+			Eventually(discoveryReqs).Should(Receive(&gotDiscovery))
+			Expect(gotDiscovery.ModelName).To(Equal("rpc-model"))
+
+			// AgentControl only sends valid JSON, so the undecodable body goes
+			// on the wire directly: the server must still answer, or the
+			// requester would wait out its whole budget.
+			raw, err := infra.NC.Request(messaging.SubjectMCPToolExecute, []byte("{not json"), 5*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			var refused mcpRemote.MCPToolResponse
+			Expect(json.Unmarshal(raw, &refused)).To(Succeed())
+			Expect(strings.HasPrefix(refused.Error, "unmarshal error: ")).To(BeTrue(), "got %q", refused.Error)
+			Expect(refused.Result).To(BeEmpty())
+			Consistently(toolReqs, 200*time.Millisecond).ShouldNot(Receive())
 		})
 	})
 
