@@ -614,6 +614,32 @@ func (ml *ModelLoader) ShutdownModelForce(modelName string) error {
 	return ml.shutdownModel(ctx, modelName, true)
 }
 
+// ShutdownModelAtAddress ignores stale watchdog evictions after a reload.
+// Address validation and teardown share the same lifecycle lock as loading.
+func (ml *ModelLoader) ShutdownModelAtAddress(modelName, address string, force bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+	defer cancel()
+	release, err := ml.operations.acquireContext(ctx, modelName, true)
+	if err != nil {
+		return fmt.Errorf("waiting to shut down model %q: %w", modelName, err)
+	}
+	defer release()
+	ml.mu.Lock()
+	store := ml.store
+	ml.mu.Unlock()
+	m, ok := store.Get(modelName)
+	if !ok || m.address != address {
+		return nil
+	}
+	err = ml.deleteProcess(ctx, modelName, force)
+	if errors.Is(err, ErrModelBusy) && !force && forceBackendShutdown {
+		forceCtx, forceCancel := context.WithTimeout(context.Background(), forcedShutdownTimeout)
+		defer forceCancel()
+		return ml.deleteProcess(forceCtx, modelName, true)
+	}
+	return err
+}
+
 // ShutdownModelContext is the cancellation-aware lifecycle primitive used by
 // both graceful and forced shutdown wrappers.
 func (ml *ModelLoader) ShutdownModelContext(ctx context.Context, modelName string, force bool) error {

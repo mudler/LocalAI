@@ -1,7 +1,7 @@
 package openai
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,12 +10,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	model "github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/xlog"
@@ -48,7 +50,7 @@ import (
 // @Param response_format formData string false "json (default), verbose_json, or rttm"
 // @Success 200 {object} schema.DiarizationResult
 // @Router /v1/audio/diarization [post]
-func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, registry voicerecognition.Registry) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
@@ -70,13 +72,21 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		req.ClusteringThreshold = float32(parseFormFloat(c, "clustering_threshold", 0))
 		req.MinDurationOn = float32(parseFormFloat(c, "min_duration_on", 0))
 		req.MinDurationOff = float32(parseFormFloat(c, "min_duration_off", 0))
+		attachKnownVoices(c.Request().Context(), &req, modelConfig.Options, registry)
 
 		responseFormat := schema.DiarizationResponseFormatType(strings.ToLower(c.FormValue("response_format")))
 		if responseFormat == "" {
 			responseFormat = schema.DiarizationResponseFormatJson
 		}
+		switch responseFormat {
+		case schema.DiarizationResponseFormatJson, schema.DiarizationResponseFormatJsonVerbose, schema.DiarizationResponseFormatRTTM:
+		default:
+			// Checked before the backend runs, for the same reason as in
+			// TranscriptEndpoint.
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format (expected: json, verbose_json, rttm)")
+		}
 
-		file, err := c.FormFile("file")
+		file, err := uploadedFile(c, "file")
 		if err != nil {
 			return err
 		}
@@ -126,9 +136,51 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		case schema.DiarizationResponseFormatJsonVerbose:
 			return c.JSON(http.StatusOK, result)
 		default:
-			return errors.New("invalid response_format (expected: json, verbose_json, rttm)")
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format (expected: json, verbose_json, rttm)")
 		}
 	}
+}
+
+// attachKnownVoices names the speakers from the voice registry when the model
+// has a speaker model. Only voices made by that model's encoder are sent. A
+// missing registry or speaker model, or a registry read error, leaves the
+// request unnamed.
+func attachKnownVoices(ctx context.Context, req *backend.DiarizationRequest, options []string, registry voicerecognition.Registry) {
+	req.KnownVoices = selectKnownVoices(ctx, "diarization", options, registry)
+}
+
+// warned remembers the (feature, speaker model) pairs already warned about.
+var warned sync.Map
+
+// warnOnce reports true the first time it sees key, false afterwards.
+func warnOnce(key string) bool {
+	_, loaded := warned.LoadOrStore(key, struct{}{})
+	return !loaded
+}
+
+// selectKnownVoices returns the registered voices a backend may use to name
+// speakers, or nil when the model has no speaker_model, there is no registry,
+// or the registry cannot be read. It never fails the caller: unnamed speakers
+// are the fallback. feature only prefixes the log messages.
+func selectKnownVoices(ctx context.Context, feature string, options []string, registry voicerecognition.Registry) []voicerecognition.KnownVoice {
+	sm := voicerecognition.SpeakerModelFromOptions(options)
+	if sm == "" || registry == nil {
+		return nil
+	}
+	sel, err := voicerecognition.KnownVoicesFor(ctx, registry, sm)
+	if err != nil {
+		xlog.Warn(feature+": could not read the voice registry; speakers stay unnamed", "error", err)
+		return nil
+	}
+	if len(sel.Voices) == 0 && sel.OtherEncoder > 0 {
+		msg := feature + ": registered voices were made with a different encoder than this model's speaker_model; speakers stay unnamed"
+		if warnOnce(feature + "|" + sm) {
+			xlog.Warn(msg, "speaker_model", sm, "voices_from_other_encoder", sel.OtherEncoder)
+		} else {
+			xlog.Debug(msg, "speaker_model", sm, "voices_from_other_encoder", sel.OtherEncoder)
+		}
+	}
+	return sel.Voices
 }
 
 // renderRTTM emits NIST RTTM rows. Each row:

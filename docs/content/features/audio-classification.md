@@ -9,6 +9,8 @@ Sound-event classification (audio tagging) answers the question **"what am I hea
 
 LocalAI exposes this through the `/v1/audio/classification` endpoint, modelled after `/v1/audio/transcriptions`. The reference backend is **[ced.cpp](https://github.com/localai-org/ced.cpp)** (CED, a 527-class AudioSet tagger), a small ViT over a log-mel spectrogram ported to ggml with full PyTorch parity. Apache-2.0 weights are redistributable as GGUF.
 
+**[parakeet.cpp](https://github.com/mudler/parakeet.cpp)** can also load a CED model (through `third_party/ced.cpp`) and serve `/v1/audio/classification` from the same backend used for ASR and diarization. It scores the clip in 10 s windows and averages each class's score across the windows before sorting and applying `top_k`/`threshold` - CED's own method for clips longer than one window. Install `parakeet-cpp-ced-tiny` or `parakeet-cpp-ced-base` from the gallery, or point `parameters.model` at a CED GGUF under `backend: parakeet-cpp`. A parakeet-cpp ASR model can also point `sound_model` at a CED GGUF to add live sound events during realtime transcription - see [Realtime API]({{% relref "openai-realtime" %}}).
+
 Because classification is exposed as a regular OpenAI-style endpoint, any HTTP client works - there is no Python dependency on the consumer side.
 
 In distributed mode, LocalAI stages uploaded audio and realtime sound-detection
@@ -56,6 +58,25 @@ curl http://localhost:8080/v1/audio/classification \
   -H "Content-Type: multipart/form-data" \
   -F file="@/path/to/clip.wav" \
   -F model="ced-base-f16" \
+  -F top_k=10
+```
+
+The same request works unchanged against a parakeet-cpp CED model:
+
+```yaml
+name: parakeet-ced-tiny
+backend: parakeet-cpp
+parameters:
+  model: ced-tiny-q8_0.gguf
+known_usecases:
+  - sound_classification
+```
+
+```bash
+curl http://localhost:8080/v1/audio/classification \
+  -H "Content-Type: multipart/form-data" \
+  -F file="@/path/to/clip.wav" \
+  -F model="parakeet-ced-tiny" \
   -F top_k=10
 ```
 

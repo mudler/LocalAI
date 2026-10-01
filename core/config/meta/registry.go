@@ -419,6 +419,39 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Order:       0,
 		},
 
+		// --- Failover ---
+		"failover.targets": {
+			Section:     "failover",
+			Label:       "Failover targets",
+			Description: "Ordered list of models that serve this chain. The first healthy target serves each request; later targets take over when it fails. Mark a local target warm to keep it loaded.",
+			Component:   "failover-targets",
+			Order:       0,
+		},
+		"failover.probe.interval": {
+			Section: "failover", Label: "Probe interval", Component: "input", Order: 1, Advanced: true,
+			Description: "How often an idle target is checked, as a duration (default 15s).", Placeholder: "15s",
+		},
+		"failover.probe.timeout": {
+			Section: "failover", Label: "Probe timeout", Component: "input", Order: 2, Advanced: true,
+			Description: "How long one probe may take (default 5s).", Placeholder: "5s",
+		},
+		"failover.trip.errors": {
+			Section: "failover", Label: "Errors to trip", Component: "number", Order: 3, Advanced: true,
+			Description: "Failures within the trip window that mark a target down (default 1).",
+		},
+		"failover.trip.window": {
+			Section: "failover", Label: "Trip window", Component: "input", Order: 4, Advanced: true,
+			Description: "Window in which failures are counted (default 30s).", Placeholder: "30s",
+		},
+		"failover.recovery.probes": {
+			Section: "failover", Label: "Recovery probes", Component: "number", Order: 5, Advanced: true,
+			Description: "Consecutive real test requests a target must pass before it is used again (default 3).",
+		},
+		"failover.recovery.min_dwell": {
+			Section: "failover", Label: "Minimum time on fallback", Component: "input", Order: 6, Advanced: true,
+			Description: "Minimum time on a lower target before traffic moves back to a recovered higher one (default 60s).", Placeholder: "60s",
+		},
+
 		// --- Pipeline ---
 		"pipeline.llm": {
 			Section:              "pipeline",
@@ -475,6 +508,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "number",
 			Min:         f64(0),
 			Order:       66,
+		},
+		"pipeline.diarization": {
+			Section:     "pipeline",
+			Label:       "Speaker Diarization",
+			Description: "Label speakers on each committed utterance and emit every labelled segment as a conversation.item.input_audio_transcription.segment event. Needs a transcription model that diarizes (e.g. parakeet-cpp with a diarization_model companion). Speaker labels are per turn.",
+			Component:   "toggle",
+			Order:       67,
 		},
 		"pipeline.reasoning_effort": {
 			Section:     "pipeline",

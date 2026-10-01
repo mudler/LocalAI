@@ -224,6 +224,19 @@ Set `LOCALAI_DISTRIBUTED_SHARED_MODELS=true` (or `--distributed-shared-models`) 
 
 This flag is a contract you assert: all nodes must mount identical paths. Leave it off (the default) when workers have independent models directories - the frontend stages files to them over HTTP (or S3) as described above.
 
+### Which files are staged
+
+The frontend stages the files that the model config names (`parameters.model`, `mmproj`, draft model, LoRA adapters and similar fields). It also stages every other file that the model declares:
+
+- The `files:` of the gallery entry or `/import-model` import that installed the model. LocalAI records these in `._gallery_<name>.yaml` next to the model config.
+- The `download_files:` of the model config.
+
+A backend can read files that the config does not name. For example, llama.cpp opens all shards of a split GGUF (`<name>-00002-of-00004.gguf` and the rest) from the directory of the first shard. The worker cannot see the frontend's models directory, so it gets only the files that the frontend stages.
+
+If you write a model config by hand and the model has files like these, list them under `download_files:`. If you do not, the worker gets only the first shard and the load fails with `failed to load GGUF split`.
+
+The file sizes used for the load deadline and for the disk headroom check include all of these files.
+
 ### Model artifact staging
 
 For managed Hugging Face artifacts, the controller resolves the repository and
@@ -417,8 +430,12 @@ usage is reported back to the frontend:
   NVML library (and therefore `nvidia-smi`) is not available inside the
   container. CUDA compute still works, but the worker cannot query free VRAM
   and the Nodes page will show the node as fully used. Set
-  `NVIDIA_DRIVER_CAPABILITIES=compute,utility` (or, with the NVIDIA CDI
-  runtime, list `capabilities: [gpu, utility]` on the device reservation).
+  `NVIDIA_DRIVER_CAPABILITIES=compute,utility` when using the NVIDIA runtime.
+  For Docker Compose with `driver: nvidia`, use
+  `capabilities: [gpu, compute, utility]` on the device reservation.
+  Docker derives driver capabilities from this reservation, so include `compute`
+  for CUDA libraries such as `libcuda.so.1`. The `utility` capability alone
+  enables monitoring but does not provide CUDA libraries.
 
 - **Run the container with `init: true` (or `docker run --init`).** The
   worker process becomes PID 1 in the container and cannot reap zombies on

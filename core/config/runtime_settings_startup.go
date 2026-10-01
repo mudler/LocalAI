@@ -17,8 +17,8 @@ import (
 // a caching mirror of the files below. The GitHub URI stays as a mirror so an
 // install still resolves its gallery unchanged whenever the primary is
 // unreachable - see the fallback chain in core/gallery/gallery_mirrors.go.
-const DefaultGalleriesJSON = `[{"name":"localai", "url":"https://index.localai.io/models", "mirrors":["github:mudler/LocalAI/gallery/index.yaml@master"]}]`
-const DefaultBackendGalleriesJSON = `[{"name":"localai", "url":"https://index.localai.io/backends", "mirrors":["github:mudler/LocalAI/backend/index.yaml@master"]}]`
+const DefaultGalleriesJSON = `[{"name":"localai","url":"https://index.localai.io/models","mirrors":["github:mudler/LocalAI/gallery/index.yaml@master","oci://quay.io/go-skynet/local-ai-backends:gallery-models"],"artifact_verification":{"issuer":"https://token.actions.githubusercontent.com","identity":"https://github.com/mudler/LocalAI/.github/workflows/gallery_publish.yml@refs/heads/master"}}]`
+const DefaultBackendGalleriesJSON = `[{"name":"localai","url":"https://index.localai.io/backends","mirrors":["github:mudler/LocalAI/backend/index.yaml@master","oci://quay.io/go-skynet/local-ai-backends:gallery-backends"],"artifact_verification":{"issuer":"https://token.actions.githubusercontent.com","identity":"https://github.com/mudler/LocalAI/.github/workflows/gallery_publish.yml@refs/heads/master"}}]`
 
 func mustGalleries(jsonList string) []Gallery {
 	var g []Gallery

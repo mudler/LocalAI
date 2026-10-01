@@ -59,6 +59,41 @@ func ensureLibLoaded() {
 			purego.RegisterLibFunc(&CppStreamFeedJSON, lib, "parakeet_capi_stream_feed_json")
 			purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
 		}
+		// Diarization and model roles, probed like main.go (speakers_test.go).
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_pcm"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppDiarizePCM, lib, "parakeet_capi_diarize_pcm")
+		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_transcribe_and_diarize_json"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppTranscribeAndDiarizeJSON, lib, "parakeet_capi_transcribe_and_diarize_json")
+		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_model_kind"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppModelKind, lib, "parakeet_capi_model_kind")
+			purego.RegisterLibFunc(&CppNumClasses, lib, "parakeet_capi_num_classes")
+			purego.RegisterLibFunc(&CppSoundOptsDefault, lib, "parakeet_capi_sound_opts_default")
+			purego.RegisterLibFunc(&CppSoundStreamBegin, lib, "parakeet_capi_sound_stream_begin")
+			purego.RegisterLibFunc(&CppSoundStreamFeed, lib, "parakeet_capi_sound_stream_feed")
+			purego.RegisterLibFunc(&CppSoundStreamDrainScoresJSON, lib, "parakeet_capi_sound_stream_drain_scores_json")
+			purego.RegisterLibFunc(&CppFreeSoundSegments, lib, "parakeet_capi_free_sound_segments")
+			purego.RegisterLibFunc(&CppSoundStreamFree, lib, "parakeet_capi_sound_stream_free")
+			purego.RegisterLibFunc(&CppSceneOptsDefault, lib, "parakeet_capi_scene_opts_default")
+			purego.RegisterLibFunc(&CppSceneStreamBegin, lib, "parakeet_capi_scene_stream_begin")
+			purego.RegisterLibFunc(&CppSceneStreamFeedJSON, lib, "parakeet_capi_scene_stream_feed_json")
+			purego.RegisterLibFunc(&CppSceneStreamLastError, lib, "parakeet_capi_scene_stream_last_error")
+			purego.RegisterLibFunc(&CppSceneStreamFree, lib, "parakeet_capi_scene_stream_free")
+		}
+		// Speaker identification (ABI v9 and v10), registered exactly as main.go does.
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_scene_stream_begin_speaker"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppSpeakerDim, lib, "parakeet_capi_speaker_dim")
+			purego.RegisterLibFunc(&CppSpeakerRegistryNew, lib, "parakeet_capi_speaker_registry_new")
+			purego.RegisterLibFunc(&CppSpeakerRegistryFree, lib, "parakeet_capi_speaker_registry_free")
+			purego.RegisterLibFunc(&CppSpeakerRegistryLastError, lib, "parakeet_capi_speaker_registry_last_error")
+			purego.RegisterLibFunc(&CppSceneStreamBeginSpeaker, lib, "parakeet_capi_scene_stream_begin_speaker")
+			purego.RegisterLibFunc(&CppTranscribeAndDiarizeNamedJSON, lib, "parakeet_capi_transcribe_and_diarize_named_json")
+		}
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_diarize_named_pcm_json"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppSpeakerRegistryAddEmbedding, lib, "parakeet_capi_speaker_registry_add_embedding")
+			purego.RegisterLibFunc(&CppDiarizeNamedPCMJSON, lib, "parakeet_capi_diarize_named_pcm_json")
+		}
 		purego.RegisterLibFunc(&CppFreeString, lib, "parakeet_capi_free_string")
 		purego.RegisterLibFunc(&CppLastError, lib, "parakeet_capi_last_error")
 	})
@@ -203,6 +238,24 @@ var _ = Describe("ParakeetCpp", func() {
 	})
 
 	Context("AudioTranscriptionStream", func() {
+		It("names the loaded role instead of a generic model-not-loaded error for a diarization primary", func() {
+			// CppStreamBegin/CppStreamBeginLang are left nil (zero value): if
+			// AudioTranscriptionStream tried to call either, this would panic
+			// instead of returning cleanly, so a clean typed error here also
+			// proves no C call was made.
+			p := &ParakeetCpp{diarCtx: 1}
+			results := make(chan *pb.TranscriptStreamResponse, 8)
+			err := p.AudioTranscriptionStream(context.Background(),
+				&pb.TranscriptRequest{Dst: "ignored.wav"}, results)
+			Expect(err).To(MatchError(ContainSubstring("diarization model")))
+
+			var emitted []*pb.TranscriptStreamResponse
+			for r := range results {
+				emitted = append(emitted, r)
+			}
+			Expect(emitted).To(BeEmpty())
+		})
+
 		It("returns the typed Unimplemented signal for non-streaming models (no offline fallback)", func() {
 			// stream_begin == 0 means the loaded model is not a cache-aware
 			// streaming model. The backend must surface that, not silently

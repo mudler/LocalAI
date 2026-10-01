@@ -24,6 +24,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `get_router_decisions` — Inspect recent router decisions and classifier signals.
 - `get_router_corpus_stats` — Inspect a KNN router corpus by count and label only; exemplar texts are never returned.
 - `list_aliases` — List configured model aliases and their targets.
+- `list_failover_chains` — List failover chains, their active target and target health.
 
 ## Mutating (require user confirmation per safety rule 1)
 
@@ -46,3 +47,5 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `set_node_vram_budget` — Set or clear a federated node's VRAM budget override.
 - `set_scheduling` — Create or update a distributed per-model scheduling config.
 - `delete_scheduling` — Remove a distributed per-model scheduling config.
+- `pin_failover_target` — Force a failover chain to one target.
+- `unpin_failover_target` — Remove a failover pin.

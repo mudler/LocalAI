@@ -187,6 +187,12 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, gs *galleryop.GalleryServ
 			return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: err.Error()})
 		}
 
+		// Reject failover chains whose targets are missing or are themselves
+		// chains, for the same reason.
+		if err := cl.ValidateFailoverTargets(&modelConfig); err != nil {
+			return c.JSON(http.StatusBadRequest, ModelResponse{Success: false, Error: err.Error()})
+		}
+
 		// Create the configuration file
 		configPath := filepath.Join(appConfig.SystemState.Model.ModelsPath, modelConfig.Name+".yaml")
 		if err := utils.VerifyPath(modelConfig.Name+".yaml", appConfig.SystemState.Model.ModelsPath); err != nil {

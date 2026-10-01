@@ -340,6 +340,15 @@ curl http://localhost:8080/v1/responses \
   }'
 ```
 
+#### Streaming responses
+
+Set `"stream": true` to receive Server-Sent Events. Each `response.output_item.added` event assigns an `output_index` to an item.
+Use that index and the item ID to associate later deltas and completion events with the same item.
+
+If a request without explicit tools produces reasoning, the stream uses separate items for reasoning and answer text.
+Each item keeps its original index throughout the stream.
+The `response.completed` event includes both items in the same index order, followed by any automatically parsed tool calls.
+
 #### Background Processing
 
 Run requests in the background for long-running tasks:
@@ -433,6 +442,11 @@ curl http://localhost:8080/v1/responses \
     "max_output_tokens": 1024
   }'
 ```
+
+For streaming requests with JSON tool output, LocalAI waits for the complete JSON
+object before emitting a completed `function_call` item. Arguments can span
+multiple tokens. Read the arguments from the `response.output_item.done` event
+before executing the tool.
 
 #### Reasoning Configuration
 
@@ -572,7 +586,7 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 |--------|------|-------------|---------|
 | `use_jinja` or `jinja` | boolean | Enable Jinja2 template processing for chat templates. When enabled, the backend uses Jinja2-based chat templates from the model for formatting messages. | `use_jinja:true` |
 | `context_shift` | boolean | Enable context shifting, which allows the model to dynamically adjust context window usage. | `context_shift:true` |
-| `cache_ram` | integer | Size budget in MiB for the **server-side prompt cache** (a host-RAM store of idle slot KV states that's reloaded on a prompt-prefix hit, see [upstream PR #16391](https://github.com/ggml-org/llama.cpp/pull/16391)). Default: `-1` (no limit). `0` disables the prompt cache entirely. Together with `kv_unified` and `cache_idle_slots` this is what makes a repeated system prompt skip prefill on subsequent calls. | `cache_ram:4096` |
+| `cache_ram` | integer | Size budget in MiB for the **server-side prompt cache** (a host-RAM store of idle slot KV states that's reloaded on a prompt-prefix hit, see [upstream PR #16391](https://github.com/ggml-org/llama.cpp/pull/16391)). Default: `8192` MiB (llama.cpp default). `-1` removes the limit. `0` disables the prompt cache entirely. Together with `kv_unified` and `cache_idle_slots` this is what makes a repeated system prompt skip prefill on subsequent calls. | `cache_ram:4096` |
 | `parallel` or `n_parallel` | integer | Enable parallel request processing. When set to a value greater than 1, enables continuous batching for handling multiple requests concurrently. | `parallel:4` |
 | `grpc_servers` or `rpc_servers` | string | Comma-separated list of gRPC server addresses for distributed inference. Allows distributing workload across multiple llama.cpp workers. | `grpc_servers:localhost:50051,localhost:50052` |
 | `fit_params` or `fit` | boolean | Enable auto-adjustment of model/context parameters to fit available device memory. Default: `true`. | `fit_params:true` |
@@ -628,7 +642,7 @@ Agents, coding assistants, and Anthropic/OpenAI-compatible CLIs typically resend
 
 | Setting | Default | Role |
 |---|---|---|
-| `cache_ram:N` | `-1` (no limit) | Allocates the host-side prompt cache. `0` disables it. |
+| `cache_ram:N` | `8192` (llama.cpp default) | Allocates the host-side prompt cache. `0` disables it. |
 | `kv_unified:true` | `true` | Single unified KV buffer (**prerequisite** for idle-slot saving). |
 | `cache_idle_slots:true` | `true` | Persists the idle slot's KV into the prompt cache on task switch. |
 
@@ -642,6 +656,8 @@ options:
 ```
 
 Set `cache_ram:0` to opt out of the prompt cache entirely (saves host RAM at the cost of re-prefilling repeated prompts).
+
+`cache_ram:-1` removes the limit. With idle-slot saving on, every distinct prompt then leaves its slot state in host RAM, so a workload with many different prompts (classification, ingestion) grows the backend by roughly the KV size of each prompt until the host runs out of memory.
 
 #### Reference
 
@@ -973,6 +989,41 @@ options:
 The full list of registered parsers lives in `sglang.srt.function_call`
 and `sglang.srt.parser.reasoning_parser`.
 
+#### Reasoning defaults and token budgets
+
+Set SGLang reasoning options in the model's `options:` list:
+
+```yaml
+options:
+  - reasoning_parser:qwen3
+  - thinking_budget:512
+  - reasoning_default:on
+engine_args:
+  enable_strict_thinking: true
+```
+
+`thinking_budget` sets a positive integer token budget for reasoning on each request.
+Invalid, zero, and negative values produce a warning and leave the budget unset.
+SGLang requires `engine_args.enable_strict_thinking: true` to enforce the budget.
+LocalAI warns if you configure a budget without that engine option.
+Keep the budget well below the `max_tokens` of your requests: if `max_tokens` is reached first,
+the budget never triggers and the whole reply can be spent on reasoning, leaving the answer empty.
+
+`reasoning_default:on` or `reasoning_default:off` sets the default for LocalAI's tokenizer chat template.
+Request metadata `enable_thinking` set to `"true"` or `"false"` overrides this default.
+An explicit prompt bypasses tokenizer template rendering.
+When no default or request override is set, the template keeps its own behavior.
+
+LocalAI signals required reasoning when the rendered prompt ends with the configured parser's opening reasoning token.
+An explicit output grammar disables this detection.
+Configure a reasoning parser that matches your model.
+
+The backend reads these options when it loads the model.
+`POST /models/reload` rereads model configuration files but does not update options in an already loaded backend.
+Restarting only the backend does not reread configuration files.
+Restart LocalAI after changing these options to reload both the configuration and the backend.
+
+
 ### vllm.cpp
 
 [vllm.cpp](https://github.com/mudler/vllm.cpp) is the LocalAI team's C++ port of
@@ -1042,6 +1093,7 @@ engine_args:
 | `tokenizer_config` | Override the `tokenizer_config.json` the chat template is read from | `<model_dir>/tokenizer_config.json` |
 | `speculative_config` | Speculative decoding (see below) | disabled |
 | `kv_transfer_config` | External KV connector / LMCache (see below) | none |
+| `hf_overrides` | JSON object of `config.json` keys merged over the model directory's own, as vLLM's `--hf-overrides` (see the [vllm.cpp backend page]({{% relref "features/vllm-cpp" %}}#overriding-configjson-keys-hf_overrides)) | none |
 
 Raising `max_num_batched_tokens` lets more prefill land in a single step, at the
 cost of decode latency for requests queued behind it. The default deliberately

@@ -61,6 +61,12 @@ const (
 	LocalStoreBackend   = "local-store"
 	ValkeyStoreBackend  = "valkey-store"
 	QdrantStoreBackend  = "qdrant-store"
+
+	// Proxy backends serve a model by forwarding to another server instead
+	// of loading weights. Core special-cases both (credentials, failover
+	// kind, PII defaults), so every check goes through these names.
+	CloudProxyBackend   = "cloud-proxy"
+	LocalAIProxyBackend = "localai-proxy"
 )
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
@@ -475,7 +481,9 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		// Wrap remote models so connection errors during inference trigger eviction
 		if m.Process() == nil {
 			client = newConnectionEvictingClient(client, o.modelID, func() {
-				ml.ShutdownModel(o.modelID)
+				if err := ml.ShutdownModel(o.modelID); err != nil {
+					xlog.Debug("evicting a model after its connection failed", "model", o.modelID, "error", err)
+				}
 			})
 		}
 		return client, nil
@@ -499,7 +507,9 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		// Wrap remote models so connection errors during inference trigger eviction
 		if m := ml.CheckIsLoaded(o.modelID); m != nil && m.Process() == nil {
 			client = newConnectionEvictingClient(client, o.modelID, func() {
-				ml.ShutdownModel(o.modelID)
+				if err := ml.ShutdownModel(o.modelID); err != nil {
+					xlog.Debug("evicting a model after its connection failed", "model", o.modelID, "error", err)
+				}
 			})
 		}
 		return client, nil
@@ -540,7 +550,9 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 			// Wrap remote models so connection errors during inference trigger eviction
 			if m := ml.CheckIsLoaded(o.modelID); m != nil && m.Process() == nil {
 				model = newConnectionEvictingClient(model, o.modelID, func() {
-					ml.ShutdownModel(o.modelID)
+					if err := ml.ShutdownModel(o.modelID); err != nil {
+						xlog.Debug("evicting a model after its connection failed", "model", o.modelID, "error", err)
+					}
 				})
 			}
 			return model, nil

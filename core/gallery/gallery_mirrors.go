@@ -144,7 +144,7 @@ func indexCachePolicy(g config.Gallery) *config.GalleryVerification {
 	if !looksLikeOCIGallery(g.URL) {
 		return nil
 	}
-	return g.Verification
+	return galleryArtifactPolicy(g)
 }
 
 // verifiableCandidates drops the candidates that cannot answer for a signed
@@ -156,7 +156,7 @@ func indexCachePolicy(g config.Gallery) *config.GalleryVerification {
 // at, and after a refusal it would turn "this artifact is not trusted" into
 // "use this other, unchecked copy instead".
 func verifiableCandidates(g config.Gallery, candidates []string, requireIntegrity bool) []string {
-	if !looksLikeOCIGallery(g.URL) || (g.Verification == nil && !requireIntegrity) {
+	if !looksLikeOCIGallery(g.URL) || (galleryArtifactPolicy(g) == nil && !requireIntegrity) {
 		return candidates
 	}
 	out := make([]string, 0, len(candidates))

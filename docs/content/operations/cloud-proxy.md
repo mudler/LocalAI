@@ -29,6 +29,9 @@ egress remains subject to the same redaction rules a local model would apply.
 - Use the intelligent router to send small or simple prompts to a local model
   and complex ones to Claude or GPT-4o.
 
+To fall back to a local model when the upstream is down, list the proxy model
+in a [failover chain]({{%relref "features/model-failover" %}}).
+
 ## How it works
 
 1. Request hits LocalAI on `/v1/chat/completions` (OpenAI-shaped) or
@@ -60,9 +63,9 @@ against - and two modes:
 `proxy.provider` selects the auth scheme and (in translate mode) the wire
 format. Supported values: `openai`, `anthropic`.
 
-API keys are loaded from either an environment variable (`api_key_env`) or a
-file (`api_key_file`). The key never appears in the config file or the admin
-UI; pick whichever fits your secret-management setup.
+If the upstream requires an API key, configure either an environment variable
+(`api_key_env`) or a file (`api_key_file`). The key never appears in the config
+file or the admin UI. If the upstream requires no API key, omit both fields.
 
 ### OpenAI passthrough
 
@@ -126,7 +129,7 @@ Anthropic clients hit `http://localhost:8080/v1/messages` with
 
 Most third-party providers (Together, Groq, DeepInfra, OpenRouter, …) speak
 the OpenAI chat-completions wire format. Use `provider: openai` with the
-provider's URL and API key:
+provider's URL and, if required, its API key:
 
 ```yaml
 name: llama-3-70b-via-together
@@ -139,6 +142,37 @@ proxy:
   api_key_env: TOGETHER_API_KEY
   upstream_model: meta-llama/Llama-3-70b-chat-hf
 ```
+
+### Upstreams without an API key
+
+For an OpenAI-compatible upstream that accepts requests without authentication,
+omit both `api_key_env` and `api_key_file`:
+
+```yaml
+name: internal-chat-proxy
+backend: cloud-proxy
+
+proxy:
+  mode: passthrough
+  provider: openai
+  upstream_url: http://inference.internal:8000/v1/chat/completions
+  upstream_model: my-model
+```
+
+Replace the example URL and model name with your upstream's values. LocalAI
+loads this configuration without resolving a key and adds no upstream
+`Authorization` header. This also applies to OpenAI-compatible upstreams in
+translate mode.
+
+Omitting both fields differs from setting `api_key_env` to an empty or unset
+environment variable: the latter causes a backend load error.
+
+LocalAI's client authentication is separate. Clients must still authenticate
+to LocalAI when its authentication is enabled. LocalAI does not forward their
+`Authorization` header to the upstream.
+
+An upstream without API keys can still require another authentication or
+payment protocol. Omitting these fields does not implement that protocol.
 
 ### Translate mode
 
@@ -238,6 +272,113 @@ ACLs, and the cloud-proxy fork all run against the resolved target.
 
 See [Middleware: PII filtering and intelligent routing]({{< relref "middleware.md" >}})
 for the full router and PII-filter reference.
+
+## Proxying to another LocalAI (`localai-proxy`)
+
+`cloud-proxy` forwards chat and Messages requests only. To serve a model from
+another LocalAI instance for every API it has, use `backend: localai-proxy`.
+The backend receives the request from the local pipeline like any other
+backend and sends it to the REST API of the upstream LocalAI. Because it is a
+normal backend, a `localai-proxy` model can be a stage of a realtime pipeline
+or a target of a [failover chain]({{% relref "features/model-failover" %}}).
+
+```yaml
+name: remote-llm
+backend: localai-proxy
+known_usecases: [chat]
+proxy:
+  # Base URL of the upstream LocalAI. Do not add /v1 or an endpoint path:
+  # the backend adds the path for each API.
+  upstream_url: https://argus.lan:8080
+  # The model name on the upstream. When empty, the name of this config.
+  upstream_model: gemma-3-12b
+  # Optional. The upstream API key, from an environment variable
+  # (or api_key_file). Sent as "Authorization: Bearer <key>".
+  api_key_env: ARGUS_API_KEY
+  # Optional. Time limit for each non-streaming request. Streams have no limit.
+  request_timeout_seconds: 120
+```
+
+A model that does live transcription in a realtime pipeline also names a
+realtime pipeline on the upstream. The backend opens a transcription session
+on the upstream `/v1/realtime` endpoint with that pipeline:
+
+```yaml
+name: remote-stt
+backend: localai-proxy
+known_usecases: [transcript]
+options:
+  - realtime_pipeline:asr-pipeline
+proxy:
+  upstream_url: https://argus.lan:8080
+  upstream_model: parakeet
+```
+
+Set `known_usecases` on every `localai-proxy` model. Failover uses it to match
+targets, and LocalAI cannot guess the usecases of a remote model. For a chat
+model, `known_usecases: [chat]` has one more effect: LocalAI sends the chat
+messages to the upstream `/v1/chat/completions` endpoint, and the upstream
+applies its own chat template, tool parsing and reasoning parsing. Without
+`chat`, or when the config has its own templates, LocalAI renders the prompt
+locally and sends it to `/v1/completions`. `proxy.mode` and `proxy.provider`
+have no effect on this backend.
+
+Supported APIs:
+
+- Text: chat and completions (also streamed), embeddings, rerank, tokenize,
+  detokenize, score.
+- Audio: TTS (also streamed), sound generation, transcription (also streamed),
+  live transcription (with `realtime_pipeline`), diarization, VAD, sound
+  classification, audio transformations.
+- Image, video and 3D: image generation, upscaling, video generation, 3D
+  generation and animation. The backend downloads the files that the upstream
+  generates.
+- Vision: object detection, depth, face verification and analysis, voice
+  verification, analysis and embeddings.
+- Stores: set, get, delete, find.
+
+Methods that have no REST API on the upstream return the gRPC error
+`Unimplemented` ("localai-proxy: <method> has no upstream counterpart"). The
+upstream returning `501 Not Implemented` maps to the same code. Both mean a
+capability gap, not a broken target: audio encoding and decoding,
+audio-to-audio streams, token classification (PII NER), model metadata,
+fine-tuning, quantization and model export fall in this bucket. A failover
+chain skips a target that returns `Unimplemented` and tries the next target,
+but does not mark the target down. This applies to every API, also to the APIs
+that report `Unimplemented` to the client as HTTP `501` (images, video, 3D,
+detection, depth, face and voice).
+
+Errors from the upstream: a 5xx response (other than 501) or a connection
+failure becomes `Unavailable`, and a failover chain marks the target down. A
+4xx response becomes `InvalidArgument`, and LocalAI returns it to the client
+without a retry or a trip — except `429 Too Many Requests`, which becomes
+`ResourceExhausted`: the request itself is fine, the upstream is just out of
+capacity, so a failover chain retries it on the next target and trips the
+rate-limited one, moving traffic off it until it recovers.
+
+Known limits:
+
+- Voice-profile paths pass through unresolved. When LocalAI resolves a TTS
+  voice to a local file (for example a voice clone reference), the backend
+  sends that path to the upstream, where it does not exist. Use voices that
+  the upstream knows by name.
+- Depth exports are not supported. The upstream writes them to its own disk,
+  so a depth request with exports or a destination file returns
+  `Unimplemented`. Depth maps and points without exports work.
+- The REST transcription API has no end-of-utterance (`eou`) flag, so
+  transcriptions through the proxy never set it. Live transcription through
+  `realtime_pipeline` sets `eou` at the end of each utterance.
+- Sound generation from a source audio file is not supported.
+- Chat and completions do not forward grammars, so JSON mode and other
+  grammar-constrained output are not enforced by the upstream. Images, audio
+  and video attached to messages are not forwarded either. The backend logs a
+  warning for each request that loses one of these fields.
+- Streamed TTS cannot detect an upstream synthesis failure that ends the
+  stream cleanly. The client receives the audio produced so far as a complete
+  response, and a failover chain does not retry it. A stream that is cut off
+  is reported as an error.
+- `upstream_url` is the root of the upstream server. If it has a `/v1` path,
+  the backend removes `/v1` and everything after it, and logs a warning.
 
 ## Limitations
 

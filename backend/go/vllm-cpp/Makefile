@@ -11,7 +11,7 @@ JOBS?=$(shell nproc --ignore=1 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || e
 
 # vllm.cpp version
 VLLM_CPP_REPO?=https://github.com/mudler/vllm.cpp
-VLLM_CPP_VERSION?=e28ec46c6fe2d35f2b234270915421a49c72bbcb
+VLLM_CPP_VERSION?=96788348627b6a079fcc3ef7fc6676a970965d7b
 
 # MLX GEMM provider (darwin/metal only; see the metal branch below for why).
 # Consumed as the prebuilt pip wheel: building MLX from source needs `xcrun
@@ -40,6 +40,14 @@ MLX_ROOT=$(shell echo $(MLX_VENV)/lib/python*/site-packages/mlx)
 # server, examples and tests of the engine are never built here.
 CMAKE_ARGS+=-DVLLM_CPP_SERVER=OFF -DVLLM_CPP_BUILD_TESTS=OFF -DVLLM_CPP_BUILD_EXAMPLES=OFF
 CMAKE_ARGS+=-DCMAKE_BUILD_TYPE=Release
+# Diarization (ABI v30) is ON upstream and FetchContents parakeet.cpp at
+# configure time, building a second (static) ggml into libvllm. The pinned
+# engine now pins that fetch to a commit, so ON configures, but it still adds a
+# network fetch and a second ggml to every build for calls this backend never
+# makes: it binds none of the vllm_diariz*/vllm_transcribe_and_* entry points,
+# and with the option OFF they compile as stubs that refuse by name, so the ABI
+# stays v30-complete without the extra dependency.
+CMAKE_ARGS+=-DVLLM_CPP_WITH_DIARIZATION=OFF
 
 # vllm.cpp sets no global -march: SIMD tiers are per-file with runtime dispatch,
 # so ONE portable library serves every CPU of the target arch (unlike the

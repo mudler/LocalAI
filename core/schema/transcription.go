@@ -13,9 +13,10 @@ type TranscriptionSegment struct {
 }
 
 type TranscriptionWord struct {
-	Start time.Duration `json:"start"`
-	End   time.Duration `json:"end"`
-	Text  string        `json:"text"`
+	Start   time.Duration `json:"start"`
+	End     time.Duration `json:"end"`
+	Text    string        `json:"text"`
+	Speaker string        `json:"speaker,omitempty"`
 }
 
 type TranscriptionResult struct {
@@ -42,9 +43,10 @@ type TranscriptionSegmentSeconds struct {
 }
 
 type TranscriptionWordSeconds struct {
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Text  string  `json:"text"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	Text    string  `json:"text"`
+	Speaker string  `json:"speaker,omitempty"`
 }
 
 type TranscriptionResultSeconds struct {

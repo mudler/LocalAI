@@ -13,19 +13,33 @@ func ExistsInPath(path string, s string) bool {
 }
 
 func InTrustedRoot(path string, trustedRoot string) error {
-	for path != "/" {
-		path = filepath.Dir(path)
+	for {
+		parent := filepath.Dir(path)
+		// Dir stops changing at "/" for an absolute path and at "." for a
+		// relative one; waiting for "/" alone spins forever on the latter.
+		if parent == path {
+			return fmt.Errorf("path is outside of trusted root")
+		}
+		path = parent
 		if path == trustedRoot {
 			return nil
 		}
 	}
-	return fmt.Errorf("path is outside of trusted root")
 }
 
-// VerifyPath verifies that path is based in basePath.
+// VerifyPath verifies that path, taken relative to basePath, is based in
+// basePath. It joins path onto basePath first, so an absolute path is read as
+// relative to the base as well: give it the untrusted relative name, never a
+// path that has already been joined. For a full path use VerifyResolvedPath.
 func VerifyPath(path, basePath string) error {
 	c := filepath.Clean(filepath.Join(basePath, path))
 	return InTrustedRoot(c, filepath.Clean(basePath))
+}
+
+// VerifyResolvedPath verifies that path, a full path rather than one relative
+// to basePath, is based in basePath.
+func VerifyResolvedPath(path, basePath string) error {
+	return InTrustedRoot(filepath.Clean(path), filepath.Clean(basePath))
 }
 
 // SanitizeFileName sanitizes the given filename

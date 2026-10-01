@@ -45,7 +45,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [moonshine](https://github.com/moonshine-ai/moonshine) | Ultra-fast transcription for low-end devices (ONNX) | CPU, CUDA 12/13, Metal |
 | [parakeet.cpp](https://github.com/mudler/parakeet.cpp) | C++/GGML port of NVIDIA NeMo Parakeet (tdt/ctc/rnnt/hybrid), with cache-aware streaming | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [CrispASR](https://github.com/CrispStrobe/CrispASR) | Unified speech engine (whisper.cpp fork) supporting Parakeet, Canary, and many ASR architectures, plus TTS | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
-| [voxtral](https://github.com/mudler/voxtral.c) | Voxtral Realtime 4B speech-to-text in pure C | CPU, Metal |
+| [voxtral](https://github.com/antirez/voxtral.c) | Voxtral Realtime 4B speech-to-text in pure C | CPU, Metal |
 | [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) | Qwen3 automatic speech recognition | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [NeMo](https://github.com/NVIDIA/NeMo) | NVIDIA NeMo ASR toolkit | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal |
 | [sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/) | Sherpa-ONNX ASR (Whisper, Paraformer, SenseVoice) and TTS | CPU, CUDA 12, Metal |
@@ -70,10 +70,10 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [OmniVoice](https://github.com/ServeurpersoCom/omnivoice.cpp) | Native C++/GGML TTS with voice cloning, voice design, and streaming | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [fish-speech](https://github.com/fishaudio/fish-speech) | High-quality TTS with voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
 | [Pocket TTS](https://github.com/kyutai-labs/pocket-tts) | Lightweight CPU-efficient TTS with voice cloning | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal, Jetson L4T |
-| [OuteTTS](https://github.com/OuteAI/outetts) | TTS with custom speaker voices | CPU, CUDA 12 |
+| [OuteTTS](https://github.com/edwko/OuteTTS) | TTS with custom speaker voices | CPU, CUDA 12 |
 | [faster-qwen3-tts](https://github.com/andimarafioti/faster-qwen3-tts) | Real-time Qwen3-TTS with CUDA graph capture | CPU, CUDA 12/13, Jetson L4T |
 | [NeuTTS Air](https://github.com/neuphonic/neutts-air) | Instant voice cloning, on-device TTS | CPU, CUDA 12, ROCm |
-| [VoxCPM](https://github.com/ModelBest/VoxCPM) | Expressive end-to-end TTS | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal |
+| [VoxCPM](https://github.com/OpenBMB/VoxCPM) | Expressive end-to-end TTS | CPU, CUDA 12/13, ROCm, Intel SYCL, Metal |
 | [Kitten TTS](https://github.com/KittenML/KittenTTS) | Kitten TTS model | CPU, Metal |
 | [Supertonic](https://github.com/supertone-inc/supertonic) | Lightning-fast on-device multilingual TTS via ONNX | CPU |
 | [MLX-Audio](https://github.com/Blaizzy/mlx-audio) | Audio models on Apple Silicon | CPU, CUDA 12/13, Metal, Jetson L4T |

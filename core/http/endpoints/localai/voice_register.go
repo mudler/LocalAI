@@ -45,10 +45,7 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			return mapBackendError(err)
 		}
 
-		stored, err := registry.Register(c.Request().Context(), res.GetEmbedding(), voicerecognition.Metadata{
-			Name:   input.Name,
-			Labels: input.Labels,
-		})
+		stored, err := registry.Register(c.Request().Context(), res.GetEmbedding(), voiceMetadata(input.Name, input.Labels, res.GetModel()))
 		if err != nil {
 			return err
 		}
@@ -58,4 +55,11 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			RegisteredAt: stored.RegisteredAt,
 		})
 	}
+}
+
+// voiceMetadata is what a registration stores next to the embedding. Model is
+// the speaker encoder that produced it, so a consumer with a different encoder
+// can tell the vectors are not comparable.
+func voiceMetadata(name string, labels map[string]string, embedderModel string) voicerecognition.Metadata {
+	return voicerecognition.Metadata{Name: name, Labels: labels, Model: embedderModel}
 }
