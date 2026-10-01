@@ -215,3 +215,43 @@ Sortformer clusters on voice-like characteristics, not on "is this a human". A l
 ## See also
 
 - [Sound Classification]({{% relref "audio-classification" %}}) - tag non-speech sound events (alarms, glass breaking, baby cry) in a clip.
+
+### Backend profile transport
+
+The parakeet backend supports opt-in speaker profile export through the internal
+`DiarizeRequest.include_speaker_profiles` field. This transport is not yet an
+HTTP enrollment API. It requires a configured `speaker_model` and a library
+with `parakeet_capi_diarize_profiles_pcm_json`; an empty recognition registry
+is supported. Export does not register anyone. With `include_text` and a loaded
+ASR companion, one profile-capable diarization supplies all speaker slots,
+profiles, names, and intervals. Timestamped ASR words are assigned to those
+same slots; the backend does not run a second diarization. Either inference
+failure fails the request. If no ASR companion is loaded, the existing fallback
+applies: the response includes profiles and diarization segments without text.
+A loaded ASR companion without the timestamped PCM API returns an explicit error.
+
+`DiarizeResponse.speaker_profiles_json` carries the native version-1
+`speaker_profiles` object, including original clean preview intervals and one
+embedding per usable speaker. Normal requests retain their existing output.
+Profile `speaker` values are raw native slot IDs. Match their decimal string to
+segment `label` or speaker-summary `label`, not to normalized `SPEAKER_NN`,
+array position, or display name. Slots can be sparse, and profile order can
+differ from transcript order. Profiles retain their original clean intervals
+even when transcript segments use word boundaries or duration filters.
+These vectors are sensitive biometric data: callers must authorize export and
+explicit enrollment separately.
+
+The internal backend Status response supplies `speaker_encoder`, derived from
+the loaded encoder's SHA-256 identity and dimension. Enrollment code must use
+`backend.ModelSpeakerEncoder` with server-selected model configuration and
+validate profiles against that result, never against caller-provided metadata.
+Unavailable metadata or unsupported export fails closed. Renaming a GGUF does
+not change its identity; modifying or quantizing its bytes does.
+
+Recognition replay carries registration IDs separately from display names.
+Distinct IDs with the same display name remain independent native entries,
+and both offline and realtime matches are translated back to display names.
+Legacy transport clients without IDs retain name-keyed behavior. The native
+registry's aggregation defaults are unchanged. LocalAI's recognition registry
+remains global and in-memory; this adds neither persistence nor automatic
+registration and is unrelated to persistent TTS voice cloning.

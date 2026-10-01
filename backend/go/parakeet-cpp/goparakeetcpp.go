@@ -109,6 +109,8 @@ var (
 	// CppTranscribeAndDiarizeNamedJSON are ABI v9; CppSpeakerRegistryAddEmbedding and
 	// CppDiarizeNamedPCMJSON are ABI v10. All are nil on an older libparakeet.so, and
 	// Load refuses speaker_model: unless the v10 ones are present.
+	CppSpeakerIdentity             func(ctx uintptr) uintptr
+	CppDiarizeProfilesPCMJSON      func(diar, speaker, reg uintptr, samples *float32, n, sampleRate int32, acceptThreshold, margin float32) uintptr
 	CppSpeakerDim                  func(ctx uintptr) int32
 	CppSpeakerRegistryNew          func() uintptr
 	CppSpeakerRegistryFree         func(reg uintptr)

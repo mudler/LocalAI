@@ -68,6 +68,24 @@ var _ = Describe("scene stream with speaker names", func() {
 	})
 	AfterEach(func() { restore() })
 
+	It("replays duplicate display names independently and translates realtime matches", func() {
+		vectors := map[string]float32{}
+		CppSpeakerRegistryAddEmbedding = func(_ uintptr, key string, emb *float32, _ int32) int32 { vectors[key] = *emb; return 0 }
+		CppSceneStreamBeginSpeaker = func(_, _, _, _, _ uintptr, _ *cSceneOpts) uintptr { return 55 }
+		CppSceneStreamFeedJSON = func(uintptr, *float32, int32, int32) uintptr {
+			return pool.cstr(`{"speakers":[{"speaker":0,"start":0,"end":2},{"speaker":1,"start":2,"end":4}],"names":{"0":{"name":"a","score":0.9},"1":{"name":"b","score":0.8}}}`)
+		}
+		p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
+		h := p.sceneBegin([]*pb.KnownVoice{{Id: "a", Name: "Ada", Embedding: []float32{1, 0}}, {Id: "b", Name: "Ada", Embedding: []float32{0, 1}}})
+		doc, err := p.sceneFeed(h, nil, true)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vectors).To(Equal(map[string]float32{"a": 1, "b": 0}))
+		out := liveSpeakersToProto(doc.Speakers, doc.Names)
+		Expect(out[0].Name).To(Equal("Ada"))
+		Expect(out[1].Name).To(Equal("Ada"))
+		Expect(out[0].Speaker).NotTo(Equal(out[1].Speaker))
+	})
+
 	It("begins a speaker scene stream with the threshold and margin when voices are given", func() {
 		var gotOpts cSceneOpts
 		var gotReg, gotSpk uintptr

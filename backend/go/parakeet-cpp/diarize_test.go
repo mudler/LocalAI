@@ -259,7 +259,7 @@ var _ = Describe("ParakeetCpp.Diarize", func() {
 		// Simulate a Free() racing between Diarize's own diarCtx==0 check and
 		// diarizeCall's lock, exactly as it zeroes diarCtx under engineMu.
 		p.diarCtx = 0
-		_, err := p.diarizeCall(make([]float32, 10), false, 0)
+		_, err := p.diarizeCall(make([]float32, 10), false, 0, false)
 		Expect(grpcerrors.IsModelNotLoaded(err)).To(BeTrue())
 		Expect(called).To(BeFalse(), "no C call once diarCtx was cleared")
 	})
@@ -309,6 +309,24 @@ var _ = Describe("ParakeetCpp.Diarize", func() {
 				return pool.cstr(`{"speakers":8,"segments":[{"speaker":0,"start":0.5,"end":2.0},{"speaker":1,"start":2.5,"end":4.0}],` +
 					`"names":{"0":{"name":"Ada","score":0.93},"1":{"name":"","score":0.2}}}`)
 			}
+		})
+
+		It("replays distinct IDs and translates duplicate display names offline", func() {
+			vectors := map[string]float32{}
+			CppSpeakerRegistryAddEmbedding = func(_ uintptr, key string, emb *float32, _ int32) int32 { vectors[key] = *emb; return 0 }
+			CppDiarizeNamedPCMJSON = func(_, _, _ uintptr, _ *float32, _, _ int32, _, _ float32) uintptr {
+				return pool.cstr(`{"segments":[{"speaker":0,"start":0,"end":2},{"speaker":1,"start":2,"end":4}],"names":{"0":{"name":"a","score":0.9},"1":{"name":"b","score":0.8}}}`)
+			}
+			p := &ParakeetCpp{diarCtx: 1, spkCtx: 2}
+			res, err := p.Diarize(&pb.DiarizeRequest{Dst: diarizeWav(5), KnownVoices: []*pb.KnownVoice{
+				{Id: "a", Name: "Ada", Embedding: []float32{1, 0}}, {Id: "b", Name: "Ada", Embedding: []float32{0, 1}},
+			}})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vectors).To(Equal(map[string]float32{"a": 1, "b": 0}))
+			Expect(res.Segments[0].Name).To(Equal("Ada"))
+			Expect(res.Segments[1].Name).To(Equal("Ada"))
+			Expect(res.Segments[0].Speaker).NotTo(Equal(res.Segments[1].Speaker))
+			Expect(res.SpeakerProfilesJson).To(BeEmpty())
 		})
 
 		It("puts the registered names on the segments and frees the registry", func() {

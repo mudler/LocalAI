@@ -10,6 +10,7 @@ import (
 // KnownVoice is one registered voice as it is sent to a backend that matches
 // speakers itself.
 type KnownVoice struct {
+	ID        string
 	Name      string
 	Embedding []float32
 	Model     string
@@ -63,7 +64,7 @@ func SelectKnownVoices(entries []Entry, speakerModelPath string) KnownVoiceSelec
 			if matchedDim == 0 {
 				matchedDim = len(e.Embedding)
 			}
-			sel.Voices = append(sel.Voices, KnownVoice{Name: e.Metadata.Name, Embedding: e.Embedding, Model: e.Metadata.Model})
+			sel.Voices = append(sel.Voices, KnownVoice{ID: e.Metadata.ID, Name: e.Metadata.Name, Embedding: e.Embedding, Model: e.Metadata.Model})
 		default:
 			sel.OtherEncoder++
 		}
@@ -75,7 +76,7 @@ func SelectKnownVoices(entries []Entry, speakerModelPath string) KnownVoiceSelec
 			continue
 		}
 		sel.Untagged++
-		sel.Voices = append(sel.Voices, KnownVoice{Name: e.Metadata.Name, Embedding: e.Embedding})
+		sel.Voices = append(sel.Voices, KnownVoice{ID: e.Metadata.ID, Name: e.Metadata.Name, Embedding: e.Embedding})
 	}
 	return sel
 }
