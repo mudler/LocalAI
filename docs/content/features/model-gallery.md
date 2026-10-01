@@ -138,6 +138,30 @@ Weights and projector downloads are pinned to a Hugging Face revision and verifi
 This Apache-2.0 release is a further post-training of Qwopus3.8 Flash for reasoning and agent tasks.
 See the [publisher's model card](https://huggingface.co/Jackrong/Qwopus3.8-27B-Flash-V2-GGUF) for evaluation details and limitations.
 
+## Qwen3.8-27B-pi
+
+Qwen3.8-27B-pi is a coding and tool-use fine-tune for the Pi agent harness.
+The gallery offers Q4_K_M and Q8_0 GGUF builds with llama.cpp and a BF16 vision projector.
+Both support text and image chat with a 32,768-token context by default.
+A third variant pairs Q4_K_M with a separate Q4_0 head for MTP speculative decoding.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-pi
+```
+
+Select a specific build:
+
+```bash
+local-ai models install qwen3.8-27b-pi --variant qwen3.8-27b-pi-q8
+local-ai models install qwen3.8-27b-pi --variant qwen3.8-27b-pi-q4-mtp
+```
+
+Automatic selection prefers the MTP variant when it fits available memory.
+To use Q4_K_M without MTP, select `--variant qwen3.8-27b-pi`.
+The weights use Apache 2.0. See the [model card](https://huggingface.co/bytkim/Qwen3.8-27B-pi-GGUF).
+
 ## ThinkingCap Qwen3.8-27B
 
 Install `thinkingcap-qwen3.8-27b` for a 27B reasoning model with text and image input.
