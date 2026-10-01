@@ -91,6 +91,82 @@
     - filename: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
       sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
       uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/mmproj-Swift-Qwen3.8-27B-F16.gguf
+- name: cyber-ornith-1.5-9b-obliterated
+  variants:
+    - model: cyber-ornith-1.5-9b-obliterated-q6
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED
+    - https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF
+  description: |
+    Cyber-Ornith 1.5 is a 9B Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
+    This importance-matrix Q4_K_M GGUF build uses llama.cpp with the embedded chat template for text chat.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q4_K_M.gguf
+      temperature: 0.6
+      top_p: 0.9
+  files:
+    - filename: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q4_K_M.gguf
+      sha256: 5b7bdec6919db868e517e9ab9a05ce8be096f6f139798a7b94a3aa3d2d1eab28
+      uri: https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF/resolve/5936e88f1885b856b54520c372f2cd41e71819fd/Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q4_K_M.gguf
+- name: cyber-ornith-1.5-9b-obliterated-q6
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED
+    - https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF
+  description: |
+    Cyber-Ornith 1.5 is a 9B Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
+    This importance-matrix Q6_K GGUF build uses llama.cpp with the embedded chat template for text chat.
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - coding
+  last_checked: "2026-09-30"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q6_K.gguf
+      temperature: 0.6
+      top_p: 0.9
+  files:
+    - filename: Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q6_K.gguf
+      sha256: 0a43704d7b18c2eb62fdc6d67b4cf32d5fd4d7a147e1bf0b00d3dc75d88822fd
+      uri: https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF/resolve/5936e88f1885b856b54520c372f2cd41e71819fd/Cyber-Ornith-1.5-9B-OBLITERATED.i1-Q6_K.gguf
 - name: "ornith-1.5-9b-uncensored"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
