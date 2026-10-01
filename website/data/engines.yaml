@@ -267,7 +267,7 @@ engines:
       - Ships in-tree and is the default, so embeddings work on a fresh install
       - Exact cosine similarity, zero configuration
       - Backs RAG, the face and voice registries and the semantic router cache
-      - Swap in valkey-store per request when you need durability
+      - Swap in valkey-store or qdrant-store per request when you need durability
 
   - name: apex-quant
     tagline: Fit a 35B mixture-of-experts model on a card you already own, and watch it run faster than the full-size build.

@@ -2055,6 +2055,25 @@
   capabilities:
     default: "cpu-valkey-store"
     metal: "metal-valkey-store"
+- &qdrant-store
+  name: "qdrant-store"
+  urls:
+    - https://github.com/mudler/LocalAI
+    - https://github.com/qdrant/qdrant
+  description: |
+    Qdrant Store is a Qdrant-backed vector store for LocalAI. It persists
+    vectors across restarts in HNSW-indexed collections and works with
+    self-hosted Qdrant (single node or cluster) and Qdrant Cloud. Requires a
+    reachable Qdrant server (gRPC port, 6334 by default).
+  tags:
+    - vector-database
+    - qdrant
+    - open-source
+    - CPU
+  license: MIT
+  capabilities:
+    default: "cpu-qdrant-store"
+    metal: "metal-qdrant-store"
 - &kitten-tts
   name: "kitten-tts"
   urls:
@@ -2652,6 +2671,35 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-valkey-store"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-valkey-store
+- !!merge <<: *qdrant-store
+  name: "cpu-qdrant-store"
+  alias: "qdrant-store"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-qdrant-store"
+  mirrors:
+    - localai/localai-backends:latest-cpu-qdrant-store
+- !!merge <<: *qdrant-store
+  name: "cpu-qdrant-store-development"
+  alias: "qdrant-store"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-qdrant-store"
+  mirrors:
+    - localai/localai-backends:master-cpu-qdrant-store
+- !!merge <<: *qdrant-store
+  name: "qdrant-store-development"
+  alias: "qdrant-store"
+  capabilities:
+    default: "cpu-qdrant-store-development"
+    metal: "metal-qdrant-store-development"
+- !!merge <<: *qdrant-store
+  name: "metal-qdrant-store"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-qdrant-store"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-qdrant-store
+- !!merge <<: *qdrant-store
+  name: "metal-qdrant-store-development"
+  alias: "qdrant-store"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-qdrant-store"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-qdrant-store
 - !!merge <<: *opus
   name: "cpu-opus"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-opus"

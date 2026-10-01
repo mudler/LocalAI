@@ -31,6 +31,7 @@ LocalAI
 /cloud-proxy
 /local-store
 /valkey-store
+/qdrant-store
 # prevent above rules from omitting the helm chart
 !charts/*
 # prevent above rules from omitting the api/localai folder
