@@ -2,3 +2,4 @@
 torch
 torchaudio
 funasr
+transformers>=4.32.0,<5
