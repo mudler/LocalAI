@@ -33,6 +33,8 @@ Available additional parameters: `top_p`, `top_k`, `max_tokens`
 
 Reasoning models return their thinking in the `reasoning` field. When a model reasons and calls a tool in the same turn, see [Interleaved Thinking with Tool Calls]({{%relref "features/interleaved-thinking" %}}).
 
+When `stream: true` is set and the llama.cpp backend fails before the first chunk, for example because the prompt exceeds the context size, the request fails with an HTTP error. The error message is not streamed as assistant content. An error after streaming has started is reported inside the stream.
+
 ### Edit completions
 
 https://platform.openai.com/docs/api-reference/edits

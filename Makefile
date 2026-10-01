@@ -747,7 +747,7 @@ test-extra-backend: protogen-go
 ## Convenience wrappers: build the image, then exercise it.
 test-extra-backend-llama-cpp: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
-	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias \
+	BACKEND_TEST_CAPS=health,load,predict,stream,logprobs,logit_bias,context_overflow \
 	$(MAKE) test-extra-backend
 
 ## Raw llama.cpp embeddings are required by Go-side pooling. This exercises the

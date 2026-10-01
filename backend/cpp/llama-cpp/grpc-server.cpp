@@ -2182,10 +2182,10 @@ public:
             // connection is closed
             return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
         } else if (first_result->is_error()) {
+            // Return the error only as the status. Writing it as a Reply first
+            // made it the first content chunk: LocalAI streamed the error text
+            // as assistant output on an HTTP 200 instead of failing the request.
             json error_json = first_result->to_json();
-            backend::Reply reply;
-            reply.set_message(error_json.value("message", ""));
-            writer->Write(reply);
             return grpc::Status(grpc::StatusCode::INTERNAL, error_json.value("message", "Error occurred"));
         }
 
