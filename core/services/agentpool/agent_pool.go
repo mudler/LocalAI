@@ -450,10 +450,18 @@ func (s *AgentPoolService) Chat(name, message string) (string, error) {
 	})
 	manager.Send(sse.NewMessage(string(statusMsg)).WithEvent("json_message_status"))
 
+	// Carry the web chat's history the same way the connectors do (Telegram,
+	// Slack): earlier turns from the agent's conversation tracker plus this
+	// message. Without it every chat message is a fresh job, so a follow-up such
+	// as "now add two days to item 3" cannot see the answer it refers to.
+	tracker := ag.SharedState().ConversationTracker
+	opts := chatJobOptions(tracker, message)
+
 	// Process asynchronously
 	go func() {
 		started := time.Now()
-		response := ag.Ask(coreTypes.WithText(message))
+		response := ag.Ask(opts...)
+		rememberChatReply(tracker, response)
 		outcome := "completed"
 		if response == nil {
 			outcome = "cancelled"
