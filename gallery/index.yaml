@@ -41,6 +41,92 @@
     - filename: llama-cpp/mmproj/Ternary-Bonsai-2-27B-PTQ1_0/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
       sha256: 6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903
       uri: https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/main/Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf
+- name: swift-1.5-qwen3.8-27b-uncensored-mtp
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  variants:
+    - model: swift-1.5-qwen3.8-27b-uncensored-mtp-q8
+  urls:
+    - https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-MTP
+    - https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-GGUF
+  license: swift-open-license-1.0
+  description: |
+    Ajgazin's abliterated Swift 1.5 Qwen3.8 27B reasoning model for text and image chat.
+    This UD-Q4_K_XL GGUF build includes a BF16 vision projector and enables MTP speculative decoding.
+    The weights use Swift Open License v1.0.
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/swift-1.5-qwen3.8-27b-uncensored-mtp/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+    parameters:
+      model: llama-cpp/swift-1.5-qwen3.8-27b-uncensored-mtp/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-UD-Q4_K_XL.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/swift-1.5-qwen3.8-27b-uncensored-mtp/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-UD-Q4_K_XL.gguf
+      uri: https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-GGUF/resolve/fd9a46745cb8b4eb5bbc562f743818d8930aefbe/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-UD-Q4_K_XL.gguf
+      sha256: 74599e5a244e8ac604342fe74161cb453ce4799f3e23958072700a3915257cab
+    - filename: llama-cpp/swift-1.5-qwen3.8-27b-uncensored-mtp/mmproj-BF16.gguf
+      uri: https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-GGUF/resolve/fd9a46745cb8b4eb5bbc562f743818d8930aefbe/mmproj-BF16.gguf
+      sha256: 19acd7fcf4ee504328566eddf0f8e603ef853a205b4830209d2a4908213abdea
+- name: swift-1.5-qwen3.8-27b-uncensored-mtp-q8
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-MTP
+    - https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-GGUF
+  license: swift-open-license-1.0
+  description: |
+    Ajgazin's abliterated Swift 1.5 Qwen3.8 27B reasoning model for text and image chat.
+    This UD-Q8_K_XL GGUF build includes a BF16 vision projector and enables MTP speculative decoding.
+    The weights use Swift Open License v1.0.
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - vision
+    - multimodal
+    - mtp
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/swift-1.5-qwen3.8-27b-uncensored-mtp/mmproj-BF16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-mtp
+    parameters:
+      model: llama-cpp/swift-1.5-qwen3.8-27b-uncensored-mtp/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-UD-Q8_K_XL.gguf
+      temperature: 1
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/swift-1.5-qwen3.8-27b-uncensored-mtp/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-UD-Q8_K_XL.gguf
+      uri: https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-GGUF/resolve/fd9a46745cb8b4eb5bbc562f743818d8930aefbe/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-UD-Q8_K_XL.gguf
+      sha256: 9076f99a2b1c0d232d5c169bb117e919ca21bafbe092be8fc8d9c4d645ed09c9
+    - filename: llama-cpp/swift-1.5-qwen3.8-27b-uncensored-mtp/mmproj-BF16.gguf
+      uri: https://huggingface.co/ajgazin/Swift-1.5-Qwen3.8-27B-Uncensored-Dynamic-MTP-GGUF/resolve/fd9a46745cb8b4eb5bbc562f743818d8930aefbe/mmproj-BF16.gguf
+      sha256: 19acd7fcf4ee504328566eddf0f8e603ef853a205b4830209d2a4908213abdea
 - name: "swift-qwen3.8-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
