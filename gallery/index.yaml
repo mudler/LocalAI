@@ -1,4 +1,106 @@
 ---
+- name: mitsuba-comfyui-27b
+  variants:
+    - model: mitsuba-comfyui-27b-ptq1
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/isichan-ai/Mitsuba-ComfyUI-27B-GGUF
+  description: |
+    Mitsuba-ComfyUI is a 27B Qwen3.8 derivative tuned for image descriptions
+    and image/video prompt writing in Japanese and English. This PQ2_0 ternary
+    build uses the bonsai backend with a Q8_0 vision projector and a 32K-token
+    default context. Thinking is disabled as required by the publisher.
+    The publisher does not recommend this model for coding.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - bonsai
+    - vision
+    - multimodal
+    - prompt-generation
+  last_checked: "2026-10-01"
+  overrides:
+    backend: bonsai
+    context_size: 32768
+    reasoning_effort: none
+    chat_template_kwargs:
+      enable_thinking: false
+    known_usecases:
+      - chat
+      - vision
+    mmproj: bonsai/mmproj/Mitsuba-ComfyUI-27B-v1.18/mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+      - reasoning_budget:0
+      - mmproj_use_gpu:false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: bonsai/models/Mitsuba-ComfyUI-27B-v1.18/Mitsuba-ComfyUI-27B-v1.18-PQ2_0.gguf
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+  files:
+    - filename: bonsai/models/Mitsuba-ComfyUI-27B-v1.18/Mitsuba-ComfyUI-27B-v1.18-PQ2_0.gguf
+      uri: https://huggingface.co/isichan-ai/Mitsuba-ComfyUI-27B-GGUF/resolve/c3f7194d835d170db2a10ffde0647f74c062f915/Mitsuba-ComfyUI-27B-v1.18-PQ2_0.gguf
+      sha256: cc45a52123860da817b704e3b35495e90c9a67c74ae697a6314775a4c7318791
+    - filename: bonsai/mmproj/Mitsuba-ComfyUI-27B-v1.18/mmproj-Q8_0.gguf
+      uri: https://huggingface.co/isichan-ai/Mitsuba-ComfyUI-27B-GGUF/resolve/c3f7194d835d170db2a10ffde0647f74c062f915/mmproj-Q8_0.gguf
+      sha256: 6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903
+- name: mitsuba-comfyui-27b-ptq1
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+    - https://huggingface.co/isichan-ai/Mitsuba-ComfyUI-27B-GGUF
+  description: |
+    Mitsuba-ComfyUI is a 27B Qwen3.8 derivative tuned for image descriptions
+    and image/video prompt writing in Japanese and English. This PTQ1_0 ternary
+    build uses the bonsai backend with a Q8_0 vision projector and a 32K-token
+    default context. Thinking is disabled as required by the publisher.
+    The publisher does not recommend this model for coding.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - bonsai
+    - vision
+    - multimodal
+    - prompt-generation
+  last_checked: "2026-10-01"
+  overrides:
+    backend: bonsai
+    context_size: 32768
+    reasoning_effort: none
+    chat_template_kwargs:
+      enable_thinking: false
+    known_usecases:
+      - chat
+      - vision
+    mmproj: bonsai/mmproj/Mitsuba-ComfyUI-27B-v1.18/mmproj-Q8_0.gguf
+    options:
+      - use_jinja:true
+      - reasoning_budget:0
+      - mmproj_use_gpu:false
+    template:
+      use_tokenizer_template: true
+    parameters:
+      model: bonsai/models/Mitsuba-ComfyUI-27B-v1.18/Mitsuba-ComfyUI-27B-v1.18-PTQ1_0.gguf
+      temperature: 0.6
+      top_k: 20
+      top_p: 0.95
+  files:
+    - filename: bonsai/models/Mitsuba-ComfyUI-27B-v1.18/Mitsuba-ComfyUI-27B-v1.18-PTQ1_0.gguf
+      uri: https://huggingface.co/isichan-ai/Mitsuba-ComfyUI-27B-GGUF/resolve/c3f7194d835d170db2a10ffde0647f74c062f915/Mitsuba-ComfyUI-27B-v1.18-PTQ1_0.gguf
+      sha256: b69c8e7cf3ff883d640479b88f7585348e8aaf3fd130a1e4217eec2f65bed934
+    - filename: bonsai/mmproj/Mitsuba-ComfyUI-27B-v1.18/mmproj-Q8_0.gguf
+      uri: https://huggingface.co/isichan-ai/Mitsuba-ComfyUI-27B-GGUF/resolve/c3f7194d835d170db2a10ffde0647f74c062f915/mmproj-Q8_0.gguf
+      sha256: 6807ede61d570bb86ba34b756a0fa109edc33668604de867c6ea6d8f1d631903
 - name: "ternary-bonsai-2-27b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:

@@ -39,6 +39,31 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Mitsuba-ComfyUI-27B
+
+Mitsuba-ComfyUI-27B generates image/video prompts and describes images in Japanese and English.
+The gallery offers PQ2_0 and PTQ1_0 ternary builds with a shared Q8_0 vision projector.
+Both use the `bonsai` backend, which supports these PrismML quantization formats.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install mitsuba-comfyui-27b
+```
+
+To select the smaller PTQ1_0 build explicitly:
+
+```bash
+local-ai models install mitsuba-comfyui-27b --variant mitsuba-comfyui-27b-ptq1
+```
+
+Both entries use a 32,768-token default context and disable thinking.
+Keep thinking disabled: the publisher reports repeated reasoning and empty answers when it is enabled.
+The entries use temperature 0.6, top-k 20, and top-p 0.95, with the vision projector on the CPU.
+
+The [publisher's model card](https://huggingface.co/isichan-ai/Mitsuba-ComfyUI-27B-GGUF) recommends PQ2_0 for vision and does not recommend this model for coding.
+Review generated prompts against your requirements before using them.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
