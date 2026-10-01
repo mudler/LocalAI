@@ -101,7 +101,6 @@ const (
 
 // Wildcard subjects for NATS subscriptions that match all IDs.
 const (
-	SubjectJobCancelWildcard       = "jobs.*.cancel"
 	SubjectJobResultWildcard       = "jobs.*.result"
 	SubjectJobProgressWildcard     = "jobs.*.progress"
 	SubjectAgentCancelWildcard     = "agent.*.cancel"

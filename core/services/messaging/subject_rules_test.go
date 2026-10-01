@@ -71,7 +71,7 @@ var _ = Describe("Subject rules", func() {
 			messaging.SubjectCacheInvalidateBackends,
 			messaging.SubjectPrefixCacheObserve, messaging.SubjectPrefixCacheInvalidate,
 			messaging.SubjectPrefixCachePressure, messaging.SubjectPrefixCacheResidency,
-			messaging.SubjectJobCancelWildcard, messaging.SubjectJobResultWildcard,
+			messaging.SubjectJobResultWildcard,
 			messaging.SubjectJobProgressWildcard, messaging.SubjectAgentCancelWildcard,
 			messaging.SubjectGalleryCancelWildcard, messaging.SubjectGalleryProgressWildcard,
 			messaging.SubjectResponseCancelWildcard,

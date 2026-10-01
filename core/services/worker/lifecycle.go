@@ -207,8 +207,8 @@ func (s *backendSupervisor) downloadProgress(opID, backend string, progress prog
 // matched nothing or failed. Callers that publish without a reply subject (an
 // older controller) still work: SubscribeReply drops the response.
 func (s *backendSupervisor) stopBackends(_ context.Context, req workerctl.BackendStopRequest) workerctl.BackendStopReply {
-	// decodeBackendStopRequest reports stop-all exactly when Backend is empty
-	// (an empty body decodes to that too), so it is derived here, not carried.
+	// Stop-all is exactly an empty Backend (an empty body decodes to that too),
+	// so it is derived here, not carried by the decoder.
 	if req.Backend == "" {
 		xlog.Info("Received NATS backend.stop event (all)", "force", req.Force)
 		stopped := s.stopAllBackends(req.Force)
@@ -247,20 +247,18 @@ func (s *backendSupervisor) stopBackends(_ context.Context, req workerctl.Backen
 	return res
 }
 
+// decodeBackendStop accepts an empty body because older controllers publish
+// backend.stop with no payload to mean stop all; it decodes to an empty
+// Backend, which is how stopBackends recognises stop-all.
 func decodeBackendStop(data []byte) (workerctl.BackendStopRequest, error) {
-	req, _, err := decodeBackendStopRequest(data)
-	return req, err
-}
-
-func decodeBackendStopRequest(data []byte) (workerctl.BackendStopRequest, bool, error) {
 	if len(data) == 0 {
-		return workerctl.BackendStopRequest{}, true, nil
+		return workerctl.BackendStopRequest{}, nil
 	}
 	var req workerctl.BackendStopRequest
 	if err := json.Unmarshal(data, &req); err != nil {
-		return workerctl.BackendStopRequest{}, false, fmt.Errorf("decoding backend stop request: %w", err)
+		return workerctl.BackendStopRequest{}, fmt.Errorf("decoding backend stop request: %w", err)
 	}
-	return req, req.Backend == "", nil
+	return req, nil
 }
 
 // deleteBackend answers backend.delete: stop the backend process if running,

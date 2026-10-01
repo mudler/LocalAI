@@ -267,7 +267,7 @@ var _ = Describe("RemoteUnloaderAdapter", func() {
 			Expect(mc.requestCalls[0].Subject).To(Equal(messaging.SubjectNodeBackendStop("node-1")))
 
 			// An empty Backend is the wire signal for "stop all"; the worker's
-			// decodeBackendStopRequest reads it the same way it read the bare
+			// decodeBackendStop reads it the same way it read the bare
 			// nil payload this replaced.
 			var payload workerctl.BackendStopRequest
 			Expect(json.Unmarshal(mc.requestCalls[0].Data, &payload)).To(Succeed())
