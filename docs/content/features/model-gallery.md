@@ -39,6 +39,26 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Huihui GLM-5.3-Flash
+
+The gallery includes Huihui's abliterated GLM-5.3-Flash in UD-Q4_K_XL and UD-IQ4_XS formats for llama.cpp.
+Both builds include the BF16 vision projector, use the embedded chat template, and default to 32,768 context tokens.
+The publisher describes this model's refusal removal as a proof of concept.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install huihui-glm-5.3-flash-abliterated
+```
+
+To select the smaller UD-IQ4_XS build explicitly:
+
+```bash
+local-ai models install huihui-glm-5.3-flash-abliterated --variant huihui-glm-5.3-flash-abliterated-iq4-xs
+```
+
+See the [model card and GGUF downloads](https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF).
+
 ## Cyber-Ornith 1.5 9B
 
 Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.

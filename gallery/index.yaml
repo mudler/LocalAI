@@ -1308,6 +1308,139 @@
     - filename: llama-cpp/mmproj/apodex-1.1-mini/mmproj-F16.gguf
       uri: huggingface://abenzerps/Apodex-1.1-mini-GGUF/mmproj-Apodex-1.1-mini-F16.gguf
       sha256: d0ccf814138020651bcab603d9ce5c080a0ada46f482c116f0aca0fbb84e091e
+- name: huihui-glm-5.3-flash-abliterated
+  variants:
+    - model: huihui-glm-5.3-flash-abliterated-iq4-xs
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+    - https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF
+  description: |
+    Huihui's abliterated GLM-5.3-Flash is a multimodal mixture-of-experts model
+    with 320B total parameters and 18B active parameters. This UD-Q4_K_XL GGUF build
+    includes the BF16 vision projector and uses the embedded chat template.
+    The publisher describes the refusal removal as a proof of concept.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - multimodal
+    - vision
+    - reasoning
+    - moe
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    known_input_modalities:
+      - text
+      - image
+    mmproj: llama-cpp/models/huihui-glm-5.3-flash-abliterated/mmproj-model-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0.01
+      repeat_penalty: 1
+      model: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00001-of-00006.gguf
+      sha256: b59c030090f012b38213bc8c4f78ce10767f2693d730d0dbcd3dc16a5f69e2bc
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-Q4_K_XL-00002-of-00006.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00002-of-00006.gguf
+      sha256: 8731c940c7b7a980cb7e4cce89f6e218f544c17ea076ebb47aeeea885b2d905f
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-Q4_K_XL-00003-of-00006.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00003-of-00006.gguf
+      sha256: 7ec9740148702149d67455a104dadec29b1fb94731a6995a40e19a99b39584df
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-Q4_K_XL-00004-of-00006.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00004-of-00006.gguf
+      sha256: 3cf71f88ce285885c884a4caff7e63459eb049688fa41f1a115c762e35cd4621
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-Q4_K_XL-00005-of-00006.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00005-of-00006.gguf
+      sha256: 9e55e6be21b068ebec48129fe7a3b307c6005d451bcf2540c3110808c9389763
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-Q4_K_XL/GLM-5.3-Flash-UD-Q4_K_XL-00006-of-00006.gguf
+      sha256: cbce8cca70019bef74b2ec6f225e807ad37f941bb33152091c4a5d6c44463f1e
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/mmproj-model-bf16.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/mmproj-model-bf16.gguf
+      sha256: 82b7adb44411dbb298b1c689567804e5ed0790d80f308ed8b5b6b8ac0527d2ac
+- name: huihui-glm-5.3-flash-abliterated-iq4-xs
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+    - https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF
+  description: |
+    Huihui's abliterated GLM-5.3-Flash is a multimodal mixture-of-experts model
+    with 320B total parameters and 18B active parameters. This UD-IQ4_XS GGUF build
+    includes the BF16 vision projector and uses the embedded chat template.
+    The publisher describes the refusal removal as a proof of concept.
+  license: mit
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - multimodal
+    - vision
+    - reasoning
+    - moe
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    known_input_modalities:
+      - text
+      - image
+    mmproj: llama-cpp/models/huihui-glm-5.3-flash-abliterated/mmproj-model-bf16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      temperature: 1
+      top_p: 0.95
+      top_k: -1
+      min_p: 0.01
+      repeat_penalty: 1
+      model: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-IQ4_XS-00001-of-00005.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-IQ4_XS-00001-of-00005.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-IQ4_XS/GLM-5.3-Flash-UD-IQ4_XS-00001-of-00005.gguf
+      sha256: c2f3b6ab98d3df844f322ea376059202d2eaeedcee1f0eff455345b86a137dbd
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-IQ4_XS-00002-of-00005.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-IQ4_XS/GLM-5.3-Flash-UD-IQ4_XS-00002-of-00005.gguf
+      sha256: b2b6d0f519f25e1f6adfb6ce81375d58666bdb99731ba402fc361e81e2c02a9d
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-IQ4_XS-00003-of-00005.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-IQ4_XS/GLM-5.3-Flash-UD-IQ4_XS-00003-of-00005.gguf
+      sha256: f4eceffc465d44ea81c243f1332c6e3b2f4ae59ac70bb77890bb3befe87377d5
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-IQ4_XS-00004-of-00005.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-IQ4_XS/GLM-5.3-Flash-UD-IQ4_XS-00004-of-00005.gguf
+      sha256: ff6a85441a5e8d7805d81f162dd37eec16a6b29bf9df0b000a8df365d2d67bb1
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/GLM-5.3-Flash-UD-IQ4_XS-00005-of-00005.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/UD-IQ4_XS/GLM-5.3-Flash-UD-IQ4_XS-00005-of-00005.gguf
+      sha256: d7e1e587c756bac31cd74b7456e18b36bbe4be7ec3ffffd090053e3acea52d9f
+    - filename: llama-cpp/models/huihui-glm-5.3-flash-abliterated/mmproj-model-bf16.gguf
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-5.3-Flash-abliterated-GGUF/resolve/06f66b01ee15bc22b326f733fcc1518ec472e373/mmproj-model-bf16.gguf
+      sha256: 82b7adb44411dbb298b1c689567804e5ed0790d80f308ed8b5b6b8ac0527d2ac
 - &glm-5-3-flash-q4
   name: "glm-5.3-flash-q4"
   variants:
