@@ -1,49 +1,40 @@
 ---
-title: "Know who said what in your recordings"
+title: "Remember speakers from your recordings in LocalAI"
 date: 2026-10-01
 author: "Ettore Di Giacinto"
 category: "Engineering"
 tags: ["diarization", "transcription", "voice-recognition"]
-summary: "Follow speakers in a conversation and let LocalAI remember their names from the recording you already have."
+summary: "Name speakers from an existing conversation and recognize them in later recordings."
 extracss: ["blog.css"]
 ---
 
-If you're going back through an interview, finding the right words is only part of the job. You also need to know who said them. In a meeting recording, a short reply can be hard to place when you've forgotten whose voice it was.
+LocalAI is adding a way to remember speakers directly from a conversation, alongside speaker turns and transcription. You can upload a recording, read who said what, and name voices for recognition in later recordings without collecting separate samples from each person.
 
-LocalAI's diarization feature marks when each person speaks. You can add a transcript to those turns, then give people names and ask LocalAI to remember their voices for later recordings. You can do that from a group conversation you already have, without collecting separate voice samples from everyone first.
+For an interview, a transcript with speakers lets you follow the questions and answers and return to the audio to check a quote. In a recurring meeting, remembered voices can put names on returning participants' contributions. A podcast editor can use speaker turns to locate a host or guest's speech before listening back and choosing a cut.
 
-Availability: you'll need a LocalAI build and updated audio backend that support the workflow in [PR #12414](https://github.com/mudler/LocalAI/pull/12414).
+To try this workflow, use a build containing [PR #12414](https://github.com/mudler/LocalAI/pull/12414) and its updated audio backend.
 
-## Choose what you need from the recording
+## Three ways to use a recording
 
-There are three ways to use this, depending on how much you want from the audio.
+**Speaker turns only** marks when each person speaks, without transcribing the words. It distinguishes people within the recording without knowing their names.
 
-**Speaker turns only** gives you the times when each person talks, without transcribing their words. For a podcast editor, that can help locate a guest's turns before listening back and deciding where to make a cut. The people are distinguished within that recording, but LocalAI doesn't know their names yet.
+**A transcript with speakers** adds the words to those turns, so you can read the conversation with each contribution attributed to a speaker.
 
-**A transcript with speakers** adds the words to those turns. When reviewing an interview, you can read the questions and answers with their speakers attached, then return to the audio to check a quote. In a meeting, it helps you follow who raised a question and who responded.
-
-**Remembered names** lets you name someone after listening to them and save their voice for future matching. This is useful for recordings with returning participants, such as a podcast with regular hosts or a recurring team discussion. LocalAI can then attach a saved name when it recognizes that person in another recording.
+**Remembered names** matches voices against people you have explicitly named and saved. LocalAI can attach a saved name when it recognizes someone in another recording. You choose whom to remember; preparing a recording does not save everyone automatically.
 
 Recognition can mistake one person for another, especially when people talk over each other. Check the audio before relying on an attribution or quoting someone.
 
-## Remember someone from the conversation
+## Get started
 
-You don't need to arrange another recording session or ask each participant to read a prepared sentence. Upload the conversation, listen to a preview of a person's speech, and decide who to remember. Ask their permission before preparing or saving their voice.
+Ask participants for permission before preparing their voices or naming and remembering them. For the named-transcript workflow in the web interface:
 
-Here's how to try the naming workflow in the web interface:
-
-1. Open the **Models** gallery and install the diarization option that includes transcription and speaker recognition. The [setup guide](/docs/features/audio-diarization/) lists the exact model names for all three modes and covers developer API use. Wait for installation to finish.
+1. Open **Models → Explore** and install the option with diarization, transcription, and speaker recognition. The [setup guide](/docs/features/audio-diarization/) lists the model choices and installation requirements. Wait for installation to finish.
 2. Go to **Studio → Diarization**, select that model, and upload your recording.
-3. Enable **Prepare speakers to remember**, then select **Diarize**. This prepares the speakers for naming and includes transcript text.
-4. In **Speakers**, use an available **Preview** to listen to the person you want to name. Listen first (I wouldn't trust my memory of who spoke first either).
-5. Choose **Name and remember**, enter their name, and select **Remember**. Once saved, the name appears on that person's turns.
+3. Enable **Prepare speakers to remember**, then select **Diarize**. This includes transcript text and prepares speakers for naming.
+4. In **Speakers**, listen to an available **Preview** for the person you want to name. Choose **Name and remember**, enter their name, and select **Remember**. Once saved, the name appears on that person's turns.
 
-Preparing speakers doesn't save everyone automatically. You choose which people to remember. If a person doesn't have enough clear speech, saving may be unavailable; try a recording where they speak for longer without interruptions.
+If someone has too little clear speech, remembering them may be unavailable. Try a recording where they speak for longer without interruptions.
 
-On a later recording, use the same recognition-capable model to match saved voices. You can leave preparation off when you only want named turns; the current Studio workflow includes transcript text when preparation is on.
+On a later recording, use the same recognition-capable model to match saved voices. Keep preparation enabled if you want transcript text in Studio; with it off, the current UI returns speaker turns without text.
 
-For now, saved voices are lost when the LocalAI server restarts. They're also shared across users of the same instance, so treat remembering someone as a shared choice, not a private contact entry.
-
-Try it with a recording whose participants have agreed, and listen through the previews before adding names. If you run into a confusing speaker assignment, feel free to share what happened without posting anyone's private audio or saved voice data.
-
-Cheers!
+Saved voices are currently lost when the LocalAI server restarts and are shared across users of the same instance. Agree on whose voices to remember before using this on a shared server.
