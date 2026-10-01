@@ -180,7 +180,19 @@ curl http://localhost:8080/v1/audio/diarization \
 
 ## Backend setup - parakeet-cpp (Nemotron-3-Diarization)
 
-Nemotron-3-Diarization is Sortformer, served standalone or paired with a Parakeet ASR model. Install `parakeet-cpp-nemotron-3-diarization` from the gallery for diarization only, or `parakeet-cpp-nemotron-3-diarization-asr` for the same model paired with `parakeet-cpp-tdt_ctc-110m` through the `asr_model` option:
+Choose an existing gallery entry for the output you need:
+
+| Output | Gallery entry | Request options |
+|---|---|---|
+| Speaker turns only | `parakeet-cpp-nemotron-3-diarization` | Default options |
+| Speaker turns and transcript | `parakeet-cpp-nemotron-3-diarization-asr` | `include_text=true`, `response_format=verbose_json` |
+| Speaker turns, transcript, and identification | `parakeet-cpp-nemotron-3-diarization-asr-speakers` | Same transcript options; explicitly enroll voices for names |
+
+The complete `-asr-speakers` entry downloads Nemotron-3-Diarization, Parakeet TDT+CTC 110M ASR, and the WeSpeaker ResNet34 speaker encoder.
+It configures both `asr_model` and `speaker_model`; no custom gallery configuration is needed.
+See [Remember speakers in the Web UI](#remember-speakers-in-the-web-ui) for installation and enrollment.
+
+For manual configuration, this example pairs Sortformer with ASR:
 
 ```yaml
 name: parakeet-diarize
@@ -319,11 +331,16 @@ policy. Existing trace files from older versions are not retroactively scrubbed.
 
 ## Remember speakers in the Web UI
 
-Open **Studio → Diarization** (or `/app/diarization`). Select an installed
-model with the diarization capability, then upload your recording. Select
-**Diarize** to show speaker turns without exporting speaker profiles.
+Use a LocalAI build with portable enrollment support and a profile-capable `parakeet-cpp` backend.
+The backend needs the profile APIs from merged upstream commit
+[`bee7c14`](https://github.com/mudler/parakeet.cpp/commit/bee7c14dfcc23613df58176c59a40459e7b47095) or a compatible later build.
+Installing the model weights alone does not update an older backend.
 
-To remember a speaker from that recording:
+1. Open **Models → Explore** and search for `parakeet-cpp-nemotron-3-diarization-asr-speakers`.
+2. Select **Install** and wait for installation to complete. Check **Operate → Activity** for progress or errors.
+3. Open **Studio → Diarization** (or `/app/diarization`). Select that model and upload your recording.
+
+Obtain the speaker's consent before enrollment. To remember a speaker from that recording:
 
 1. Select **Prepare speakers to remember**, then select **Diarize**. This
    requests profiles, transcript text, and speaker summaries. Use a
@@ -337,14 +354,20 @@ To remember a speaker from that recording:
 4. After the server confirms registration, the name appears on all turns for
    that speaker. A failed save keeps the entered name so you can retry.
 
-Known speakers show their names. Speakers without a usable profile cannot be
+Upload another recording and select **Diarize** to match remembered voices.
+You can turn off **Prepare speakers to remember**; recognition does not require another profile export.
+Matches show their names; unmatched speakers keep their speaker labels.
+With preparation off, the UI requests speaker turns without transcript text.
+Use the API example below to request text without exporting profiles.
+
+Speakers without a usable profile cannot be
 remembered; try longer speech without overlapping speakers. Duplicate names
 are allowed: each save creates a separate registration, not a merged voice.
 Changing the model or recording clears the current results and save dialog.
 A save already sent to the server can still complete, but cannot rename turns
 in a different recording.
 
-The page requires the **Audio Diarization** permission. Preparing profiles and
+The page requires the **Audio Diarization** permission and access to the selected model. Preparing profiles and
 remembering speakers additionally require **Voice Recognition**. Users without
 that permission can still run normal diarization. If the backend does not
 support profiles, the page reports an error: choose a compatible model or
@@ -362,3 +385,83 @@ browser and is not a durable server registry.
 Use **Manage remembered voices**, then the **Enrollment** tab, to see or
 remove registrations saved in this browser. Clean-clip voice enrollment stays
 available there and does not require diarization.
+
+### API example: install, export, and remember
+
+This example uses the same complete gallery entry and requires `curl` and `jq`.
+The commands assume a local server without authentication.
+If authentication is enabled, add `-H "Authorization: Bearer <key>"` to every request using your authorized key.
+Keep keys out of shared scripts, logs, and shell history; see [Authentication]({{% relref "authentication" %}}).
+Installation requires model-management access; inference and enrollment require the permissions described above.
+
+Install the model if it is not already installed:
+
+```bash
+LOCALAI=http://localhost:8080
+MODEL=parakeet-cpp-nemotron-3-diarization-asr-speakers
+curl --fail-with-body "$LOCALAI/models/apply" \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"localai@parakeet-cpp-nemotron-3-diarization-asr-speakers"}'
+```
+
+Installation is asynchronous. Wait for successful completion in **Operate → Activity** before continuing.
+API clients can query the returned job `status` URL; see the [model gallery API]({{% relref "model-gallery" %}}).
+
+{{% notice warning %}}
+Exported profiles contain biometric vectors. Obtain consent before enrollment.
+Keep the recording, response, and registration files private. Do not log or share their contents.
+Use a new private directory so existing files cannot retain broader permissions. Delete these files when no longer needed.
+{{% /notice %}}
+
+Export profiles and transcript text from your recording, keeping the complete JSON response:
+
+```bash
+umask 077
+WORK=$(mktemp -d)
+curl --fail-with-body "$LOCALAI/v1/audio/diarization" \
+  -F "model=$MODEL" -F file=@conversation.wav \
+  -F include_text=true -F include_speaker_profiles=true \
+  -F response_format=verbose_json > "$WORK/diarization.json"
+
+# Inspect raw slots, clean intervals, and transcript labels without printing vectors.
+jq '.speaker_profiles.speakers[] | {speaker, clean_duration, intervals, unavailable_reason}' \
+  "$WORK/diarization.json"
+jq '.segments[] | {label, start, end, text}' "$WORK/diarization.json"
+```
+
+Choose a usable raw `speaker` slot whose decimal string matches the intended segment `label`.
+Listen to its `intervals` in the original recording before assigning a name.
+Do not select by array position, normalized `SPEAKER_NN`, or display name.
+If `unavailable_reason` indicates insufficient speech, try a longer recording without overlapping speakers.
+
+Replace `0` below with your chosen raw slot. Zero is valid, but does not mean “the first array element.”
+Keep the complete `speaker_profiles` object unchanged:
+
+```bash
+SLOT=0
+NAME=Ada
+jq --arg model "$MODEL" --arg name "$NAME" --argjson slot "$SLOT" \
+  '{model: $model, name: $name, speaker_slot: $slot, speaker_profiles: .speaker_profiles}' \
+  "$WORK/diarization.json" > "$WORK/register.json"
+curl --fail-with-body "$LOCALAI/v1/voice/register" \
+  -H 'Content-Type: application/json' \
+  --data-binary @"$WORK/register.json"
+```
+
+After successful registration, submit another recording with the same model:
+
+```bash
+curl --fail-with-body "$LOCALAI/v1/audio/diarization" \
+  -F "model=$MODEL" -F file=@next-conversation.wav \
+  -F include_text=true -F response_format=verbose_json > "$WORK/next.json"
+jq '.segments[] | {label, name, start, end, text}' "$WORK/next.json"
+
+# Remove private example outputs when no longer needed.
+rm -f "$WORK/diarization.json" "$WORK/register.json" "$WORK/next.json"
+rmdir "$WORK"
+```
+
+Matching speakers can now carry `name`, even though this request omits `include_speaker_profiles`.
+Keep `include_text=true` and `verbose_json` when you want transcript text.
+Recognition is not proof of identity. Registrations remain global and disappear on server restart.
+See [portable profile registration](/features/voice-recognition/#portable-profile-registration) for encoder compatibility and validation rules.
