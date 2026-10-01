@@ -94,6 +94,27 @@ All builds use a 32,768-token default context and the embedded Sharp-Spark chat 
 That template adds a terseness instruction to the system prompt.
 See the [publisher's model card](https://huggingface.co/peculiar-ragdoll/Sharp-Spark-X2.5-4B-GGUF) for quantization and template details.
 
+## Qwen3.5-9B lukey03 derivative
+
+The gallery includes [lukey03's Qwen3.5-9B derivative](https://huggingface.co/lukey03/Qwen3.5-9B-abliterated-GGUF)
+in Q4_K_M and F16 formats. Both entries use `llama-cpp`, the embedded chat
+template, and a 32,768-token default context. These builds accept text input;
+the publisher's combined vision file is not included.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.5-9b-lukey03-abliterated
+```
+
+To select the smaller Q4_K_M build explicitly:
+
+```bash
+local-ai models install qwen3.5-9b-lukey03-abliterated --variant qwen3.5-9b-lukey03-abliterated
+```
+
+The F16 variant is named `qwen3.5-9b-lukey03-abliterated-f16`.
+
 ## MiMo-V2.6-Distill-Qwen-9B
 
 Install `mimo-v2.6-distill-qwen-9b` for text and image chat with llama.cpp.
