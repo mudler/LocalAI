@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/jobs"
 	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/cogito"
@@ -217,19 +218,17 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		return fmt.Errorf("starting dispatcher: %w", err)
 	}
 
-	// Subscribe to MCP tool execution requests (load-balanced across workers).
-	// The frontend routes model-level MCP tool calls here via NATS request-reply.
-	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
-		handleMCPToolRequest(data, reply)
-	}); err != nil {
-		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPToolExecute, err)
+	var rpc agentRPCServer = nodes.NewNATSAgentRPCServer(natsClient, nodeID)
+
+	// Serve MCP tool execution requests (load-balanced across workers).
+	// The frontend routes model-level MCP tool calls here.
+	if err := rpc.ServeMCPTool(handleMCPToolRequest); err != nil {
+		return err
 	}
 
-	// Subscribe to MCP discovery requests (load-balanced across workers).
-	if _, err := natsClient.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
-		handleMCPDiscoveryRequest(data, reply)
-	}); err != nil {
-		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectMCPDiscovery, err)
+	// Serve MCP discovery requests (load-balanced across workers).
+	if err := rpc.ServeMCPDiscovery(handleMCPDiscoveryRequest); err != nil {
+		return err
 	}
 
 	// Subscribe to MCP CI job execution (load-balanced across agent workers).
@@ -249,18 +248,15 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	// Subscribe to backend stop events to clean up cached MCP sessions.
+	// Listen for backend stop events to clean up cached MCP sessions.
 	// In the main application this is done via ml.OnModelUnload, but the agent
-	// worker has no model loader — we listen for the NATS stop event instead.
-	if _, err := natsClient.Subscribe(messaging.SubjectNodeBackendStop(nodeID), func(data []byte) {
-		var req struct {
-			Backend string `json:"backend"`
-		}
-		if json.Unmarshal(data, &req) == nil && req.Backend != "" {
-			mcpTools.CloseMCPSessions(req.Backend)
+	// worker has no model loader, so it listens for the stop event instead.
+	if err := rpc.ServeBackendStop(func(backend string) {
+		if backend != "" {
+			mcpTools.CloseMCPSessions(backend)
 		}
 	}); err != nil {
-		return fmt.Errorf("subscribing to %s: %w", messaging.SubjectNodeBackendStop(nodeID), err)
+		return err
 	}
 
 	xlog.Info("Agent worker ready, waiting for jobs", "subject", cmd.Subject, "queue", cmd.Queue)
@@ -286,72 +282,57 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	return runErr
 }
 
-// handleMCPToolRequest handles a NATS request-reply for MCP tool execution.
-// The worker creates/caches MCP sessions from the serialized config and executes the tool.
-func handleMCPToolRequest(data []byte, reply func([]byte)) {
-	var req mcpRemote.MCPToolRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		sendMCPToolReply(reply, "", fmt.Sprintf("unmarshal error: %v", err))
-		return
-	}
+// agentRPCServer is how the agent worker serves the frontend's MCP requests
+// and hears the node's backend stop events.
+type agentRPCServer interface {
+	ServeMCPTool(h mcpRemote.ToolHandler) error
+	ServeMCPDiscovery(h mcpRemote.DiscoveryHandler) error
+	ServeBackendStop(h func(backend string)) error
+}
 
-	ctx, cancel := context.WithTimeout(context.Background(), config.DefaultMCPToolTimeout)
+// handleMCPToolRequest executes one MCP tool call. The worker creates/caches
+// MCP sessions from the serialized config and executes the tool.
+func handleMCPToolRequest(parent context.Context, req mcpRemote.MCPToolRequest) mcpRemote.MCPToolResponse {
+	ctx, cancel := context.WithTimeout(parent, config.DefaultMCPToolTimeout)
 	defer cancel()
 
 	// Create/cache named MCP sessions from the provided config
 	namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(req.ModelName, req.RemoteServers, req.StdioServers, nil)
 	if err != nil {
-		sendMCPToolReply(reply, "", fmt.Sprintf("session error: %v", err))
-		return
+		return mcpRemote.MCPToolResponse{Error: fmt.Sprintf("session error: %v", err)}
 	}
 
 	// Discover tools to find the right session
 	tools, err := mcpTools.DiscoverMCPTools(ctx, namedSessions)
 	if err != nil {
-		sendMCPToolReply(reply, "", fmt.Sprintf("discovery error: %v", err))
-		return
+		return mcpRemote.MCPToolResponse{Error: fmt.Sprintf("discovery error: %v", err)}
 	}
 
 	// Execute the tool
 	argsJSON, _ := json.Marshal(req.Arguments)
 	result, err := mcpTools.ExecuteMCPToolCall(ctx, tools, req.ToolName, string(argsJSON))
 	if err != nil {
-		sendMCPToolReply(reply, "", err.Error())
-		return
+		return mcpRemote.MCPToolResponse{Error: err.Error()}
 	}
 
-	sendMCPToolReply(reply, result, "")
+	return mcpRemote.MCPToolResponse{Result: result}
 }
 
-func sendMCPToolReply(reply func([]byte), result, errMsg string) {
-	resp := mcpRemote.MCPToolResponse{Result: result, Error: errMsg}
-	data, _ := json.Marshal(resp)
-	reply(data)
-}
-
-// handleMCPDiscoveryRequest handles a NATS request-reply for MCP tool/prompt/resource discovery.
-func handleMCPDiscoveryRequest(data []byte, reply func([]byte)) {
-	var req mcpRemote.MCPDiscoveryRequest
-	if err := json.Unmarshal(data, &req); err != nil {
-		sendMCPDiscoveryReply(reply, nil, nil, fmt.Sprintf("unmarshal error: %v", err))
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), config.DefaultMCPDiscoveryTimeout)
+// handleMCPDiscoveryRequest lists a model's MCP tools, prompts and resources.
+func handleMCPDiscoveryRequest(parent context.Context, req mcpRemote.MCPDiscoveryRequest) mcpRemote.MCPDiscoveryResponse {
+	ctx, cancel := context.WithTimeout(parent, config.DefaultMCPDiscoveryTimeout)
 	defer cancel()
 
 	// Create/cache named MCP sessions
 	namedSessions, err := mcpTools.NamedSessionsFromMCPConfig(req.ModelName, req.RemoteServers, req.StdioServers, nil)
 	if err != nil {
-		sendMCPDiscoveryReply(reply, nil, nil, fmt.Sprintf("session error: %v", err))
-		return
+		return mcpRemote.MCPDiscoveryResponse{Error: fmt.Sprintf("session error: %v", err)}
 	}
 
 	// List servers with their tools/prompts/resources
 	serverInfos, err := mcpTools.ListMCPServers(ctx, namedSessions)
 	if err != nil {
-		sendMCPDiscoveryReply(reply, nil, nil, fmt.Sprintf("list error: %v", err))
-		return
+		return mcpRemote.MCPDiscoveryResponse{Error: fmt.Sprintf("list error: %v", err)}
 	}
 
 	// Also get tool function schemas for the frontend
@@ -378,13 +359,7 @@ func handleMCPDiscoveryRequest(data []byte, reply func([]byte)) {
 		})
 	}
 
-	sendMCPDiscoveryReply(reply, servers, toolDefs, "")
-}
-
-func sendMCPDiscoveryReply(reply func([]byte), servers []mcpRemote.MCPServerInfo, tools []mcpRemote.MCPToolDef, errMsg string) {
-	resp := mcpRemote.MCPDiscoveryResponse{Servers: servers, Tools: tools, Error: errMsg}
-	data, _ := json.Marshal(resp)
-	reply(data)
+	return mcpRemote.MCPDiscoveryResponse{Servers: servers, Tools: toolDefs}
 }
 
 // handleMCPCIJob processes an MCP CI job on the agent worker.
