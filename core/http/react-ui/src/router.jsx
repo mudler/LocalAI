@@ -85,6 +85,7 @@ const VideoGen = page('video', () => import('./pages/VideoGen'))
 const ThreeDGen = page('3d', () => import('./pages/ThreeDGen'))
 const TTS = page('tts', () => import('./pages/TTS'))
 const Sound = page('sound', () => import('./pages/Sound'))
+const Diarization = page('diarization', () => import('./pages/Diarization'))
 const AudioTransform = page('transform', () => import('./pages/AudioTransform'))
 const Talk = page('talk', () => import('./pages/Talk'))
 // Referenced only from JSX below — same blind spot as Activity further down.
@@ -165,6 +166,8 @@ const appChildren = [
   { path: 'tts/:model', element: <TTS /> },
   { path: 'sound', element: <Sound /> },
   { path: 'sound/:model', element: <Sound /> },
+  { path: 'diarization', element: <Feature feature="audio_diarization"><Diarization /></Feature> },
+  { path: 'diarization/:model', element: <Feature feature="audio_diarization"><Diarization /></Feature> },
   { path: 'transform', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
   { path: 'transform/:model', element: <Feature feature="audio_transform"><AudioTransform /></Feature> },
   { path: 'studio', element: <Studio /> },

@@ -314,3 +314,49 @@ This also protects JSON base64 audio when profile export is off. These routes
 produce no in-memory or persisted API trace; other routes keep their existing
 tracing behavior. External proxies and client logs must apply the same privacy
 policy. Existing trace files from older versions are not retroactively scrubbed.
+
+## Remember speakers in the Web UI
+
+Open **Studio → Diarization** (or `/app/diarization`). Select an installed
+model with the diarization capability, then upload your recording. Select
+**Diarize** to show speaker turns without exporting speaker profiles.
+
+To remember a speaker from that recording:
+
+1. Select **Prepare speakers to remember**, then select **Diarize**. This
+   requests profiles, transcript text, and speaker summaries. Use a
+   profile-capable parakeet-cpp model configured with a speaker encoder.
+2. In **Speakers**, select **Preview 1**, **Preview 2**, or another available
+   interval to listen to clean speech from the original recording. Playback
+   stops at the end of that interval. **Stop preview** stops it earlier.
+   Your browser must support the recording's audio format.
+3. For an unknown speaker, select **Name and remember**. Enter a name and
+   select **Remember**. No second recording or audio upload is needed.
+4. After the server confirms registration, the name appears on all turns for
+   that speaker. A failed save keeps the entered name so you can retry.
+
+Known speakers show their names. Speakers without a usable profile cannot be
+remembered; try longer speech without overlapping speakers. Duplicate names
+are allowed: each save creates a separate registration, not a merged voice.
+Changing the model or recording clears the current results and save dialog.
+A save already sent to the server can still complete, but cannot rename turns
+in a different recording.
+
+The page requires the **Audio Diarization** permission. Preparing profiles and
+remembering speakers additionally require **Voice Recognition**. Users without
+that permission can still run normal diarization. If the backend does not
+support profiles, the page reports an error: choose a compatible model or
+turn off **Prepare speakers to remember**. It does not silently retry without
+profiles.
+
+{{% notice warning %}}
+Remembered voices are shared globally on this server and are lost when it
+restarts. Nothing is enrolled automatically. The browser stores only the new
+registration's ID, name, and registration time for the existing voice
+management list, not its embedding or recording. That list is local to the
+browser and is not a durable server registry.
+{{% /notice %}}
+
+Use **Manage remembered voices**, then the **Enrollment** tab, to see or
+remove registrations saved in this browser. Clean-clip voice enrollment stays
+available there and does not require diarization.
