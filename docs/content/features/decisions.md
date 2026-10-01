@@ -108,11 +108,15 @@ Install one from the gallery and filter on the `decisions` tag:
 | `tev1-4b-vllm-cpp` | Tev1 4B | Autoregressive Qwen3.5-4B fine-tune that answers with an option letter, about 9.3 GB |
 | `tev1-0.8b-vllm-cpp` | Tev1 0.8B | Autoregressive Qwen3.5-0.8B fine-tune that answers with an option letter, about 1.8 GB |
 | `kev-0.8b-vllm-cpp` | kev 0.8B | Qwen3.5-0.8B-Base with a merged LoRA and a PointerHead readout, converted for vllm.cpp only, about 1.53 GB |
+| `nimble-9b-vllm-cpp` | Bespoke Nimble 9B | Qwen3.5-9B with the Nimble LoRA merged, reads the answer-letter logits, converted for vllm.cpp only, about 19.3 GB |
 
 The engine, [vllm.cpp]({{% relref "features/vllm-cpp" %}}), also supports the
-CLM and xor decision models. Those checkpoints need a conversion step, so
-they are not gallery entries yet. The kev entry installs a checkpoint that was
-already converted with the vllm.cpp `convert-kev.py` script.
+CLM and xor decision models. They are not gallery entries yet. The kev and
+Nimble entries install checkpoints that were already converted with the
+vllm.cpp `convert-kev.py` and `convert-nimble.py` scripts.
+
+Nimble refuses a question with more than 26 choices (the upstream release
+allows 255). On CPU it needs about 20 GB of free RAM.
 
 Tev1 is an autoregressive decision model. The engine answers each question by
 scoring the option letters, so its `confidence` is the entropy measure Ollama
