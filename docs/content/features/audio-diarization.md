@@ -219,8 +219,10 @@ Sortformer clusters on voice-like characteristics, not on "is this a human". A l
 ### Backend profile transport
 
 The parakeet backend supports opt-in speaker profile export through the internal
-`DiarizeRequest.include_speaker_profiles` field. This transport is not yet an
-HTTP enrollment API. It requires a configured `speaker_model` and a library
+`DiarizeRequest.include_speaker_profiles` field. This native transport underpins
+HTTP profile export and explicit enrollment through `POST /v1/voice/register`,
+as described in [Portable speaker enrollment](#portable-speaker-enrollment) below.
+It requires a configured `speaker_model` and a library
 with `parakeet_capi_diarize_profiles_pcm_json`; an empty recognition registry
 is supported. Export does not register anyone. With `include_text` and a loaded
 ASR companion, one profile-capable diarization supplies all speaker slots,
