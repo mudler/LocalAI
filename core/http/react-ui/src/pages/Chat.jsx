@@ -9,6 +9,7 @@ import { extractCodeArtifacts, renderMarkdownWithArtifacts } from '../utils/arti
 import CanvasPanel from '../components/CanvasPanel'
 import Toggle from '../components/Toggle'
 import { fileToBase64, modelsApi, mcpApi } from '../utils/api'
+import { readAttachmentText } from '../utils/pdf'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useMCPClient } from '../hooks/useMCPClient'
 import MCPAppFrame from '../components/MCPAppFrame'
@@ -842,13 +843,18 @@ export default function Chat() {
       const base64 = await fileToBase64(file)
       const entry = { name: file.name, type: file.type, base64 }
       if (!file.type.startsWith('image/') && !file.type.startsWith('audio/') && !file.type.startsWith('video/')) {
-        entry.textContent = await file.text().catch(() => '')
+        try {
+          entry.textContent = await readAttachmentText(file)
+        } catch {
+          addToast(t('toasts.pdfReadFailed', { name: file.name }), 'error')
+          continue
+        }
       }
       newFiles.push(entry)
     }
     setFiles(prev => [...prev, ...newFiles])
     e.target.value = ''
-  }, [])
+  }, [addToast, t])
 
   const handlePaste = useCallback(async (e) => {
     const items = e.clipboardData?.items

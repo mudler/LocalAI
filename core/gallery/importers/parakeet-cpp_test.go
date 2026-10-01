@@ -50,6 +50,11 @@ var _ = Describe("ParakeetCppImporter", func() {
 			Expect(imp.Match(d)).To(BeTrue())
 		})
 
+		It("matches a direct URL to the diarization GGUF", func() {
+			d := parakeetDetails("https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/nemotron-3-diarization-q8_0.gguf", `{}`)
+			Expect(imp.Match(d)).To(BeTrue())
+		})
+
 		It("does NOT claim a generic llama-style GGUF", func() {
 			d := parakeetDetails("huggingface://someorg/some-llm-gguf", `{}`,
 				hfapi.ModelFile{Path: "llama-3-8b-instruct-q4_k_m.gguf"},
@@ -66,6 +71,43 @@ var _ = Describe("ParakeetCppImporter", func() {
 	})
 
 	Context("import (Import)", func() {
+		It("imports the diarization GGUF as a diarization model", func() {
+			d := parakeetDetails("https://huggingface.co/mudler/parakeet-cpp-gguf/resolve/main/nemotron-3-diarization-q8_0.gguf",
+				`{"name":"nemotron-diarization"}`)
+			cfg, err := imp.Import(d)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.ConfigFile).To(ContainSubstring("backend: parakeet-cpp"))
+			Expect(cfg.ConfigFile).To(ContainSubstring("diarization"))
+			Expect(cfg.ConfigFile).ToNot(ContainSubstring("transcript"))
+			Expect(cfg.Files).To(HaveLen(1))
+			Expect(cfg.Files[0].Filename).To(HaveSuffix("nemotron-3-diarization-q8_0.gguf"))
+		})
+
+		It("keeps picking ASR weights from a repo that also ships the diarization model", func() {
+			d := parakeetDetails("huggingface://mudler/parakeet-cpp-gguf", `{"name":"parakeet-110m"}`,
+				hfapi.ModelFile{Path: "nemotron-3-diarization-f16.gguf", URL: "https://hf/diar-f16", SHA256: "ddd"},
+				hfapi.ModelFile{Path: "tdt_ctc-110m-f16.gguf", URL: "https://hf/f16", SHA256: "aaa"},
+				hfapi.ModelFile{Path: "nemotron-3-diarization-q8_0.gguf", URL: "https://hf/diar-q8", SHA256: "eee"},
+			)
+			cfg, err := imp.Import(d)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.Files).To(HaveLen(1))
+			Expect(cfg.Files[0].URI).To(Equal("https://hf/f16"))
+			Expect(cfg.ConfigFile).To(ContainSubstring("transcript"))
+		})
+
+		It("imports a diarization-only repo as a diarization model", func() {
+			d := parakeetDetails("huggingface://someone/diar-gguf", `{"name":"diar"}`,
+				hfapi.ModelFile{Path: "nemotron-3-diarization-f16.gguf", URL: "https://hf/diar-f16", SHA256: "ddd"},
+				hfapi.ModelFile{Path: "nemotron-3-diarization-q8_0.gguf", URL: "https://hf/diar-q8", SHA256: "eee"},
+			)
+			cfg, err := imp.Import(d)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cfg.Files).To(HaveLen(1))
+			Expect(cfg.Files[0].URI).To(Equal("https://hf/diar-q8"), "default quant ladder picks q8_0 before f16")
+			Expect(cfg.ConfigFile).To(ContainSubstring("diarization"))
+		})
+
 		It("picks the default quant (q4_k) from a multi-quant HF repo", func() {
 			d := parakeetDetails("huggingface://mudler/parakeet-cpp-gguf", `{"name":"parakeet-110m"}`,
 				hfapi.ModelFile{Path: "tdt_ctc-110m-f16.gguf", URL: "https://hf/f16", SHA256: "aaa"},

@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/trace"
 	grpcPkg "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -26,11 +27,36 @@ import (
 // backchannel ("uh-huh") ended — callers must NOT treat Eob as a turn
 // boundary.
 type LiveTranscriptionEvent struct {
-	Delta string
-	Eou   bool
-	Eob   bool
-	Words []schema.TranscriptionWord
-	Final *schema.TranscriptionResult
+	Delta    string
+	Eou      bool
+	Eob      bool
+	Words    []schema.TranscriptionWord
+	Speakers []LiveSpeakerSegment
+	Sounds   []LiveSoundEvent
+	Final    *schema.TranscriptionResult
+}
+
+// LiveSpeakerSegment is one closed speaker segment from a companion
+// diarization/scene stream running alongside live transcription. Start/End
+// are stream-relative seconds (mapped from the backend's nanoseconds).
+type LiveSpeakerSegment struct {
+	Speaker string
+	// Name is the registered speaker name the backend matched, empty when the
+	// speaker is unknown.
+	Name  string
+	Start float64
+	End   float64
+}
+
+// LiveSoundEvent is one closed sound event from a companion sound/scene
+// stream running alongside live transcription. Start/End are stream-relative
+// seconds (mapped from the backend's nanoseconds).
+type LiveSoundEvent struct {
+	Label string
+	Index int
+	Peak  float32
+	Start float64
+	End   float64
 }
 
 // LiveTranscriptionSession is a handle on an open live transcription stream.
@@ -200,6 +226,28 @@ func (ts *liveTraceState) record(closeErr error) {
 	trace.RecordBackendTrace(bt)
 }
 
+// LiveOption tunes a live transcription session.
+type LiveOption func(*liveOptions)
+
+type liveOptions struct {
+	knownVoices []voicerecognition.KnownVoice
+}
+
+// WithKnownVoices gives the backend the registered voices it may use to name
+// the speakers it detects. Backends without speaker identification ignore them.
+func WithKnownVoices(v []voicerecognition.KnownVoice) LiveOption {
+	return func(o *liveOptions) { o.knownVoices = v }
+}
+
+// liveConfigProto builds the first message of a live session.
+func liveConfigProto(language string, o liveOptions) *proto.TranscriptLiveConfig {
+	cfg := &proto.TranscriptLiveConfig{Language: language, SampleRate: liveSampleRate}
+	for _, v := range o.knownVoices {
+		cfg.KnownVoices = append(cfg.KnownVoices, &proto.KnownVoice{Name: v.Name, Embedding: v.Embedding, Model: v.Model})
+	}
+	return cfg
+}
+
 // ModelTranscriptionLive loads the transcription backend, opens the
 // bidirectional AudioTranscriptionLive RPC, sends the session config, and
 // BLOCKS until the backend's ready ack. A grpcerrors.
@@ -210,7 +258,12 @@ func (ts *liveTraceState) record(closeErr error) {
 // the backend streams, ending with the Final event triggered by Close.
 func ModelTranscriptionLive(ctx context.Context, language string,
 	ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig,
-	onEvent func(LiveTranscriptionEvent)) (LiveTranscriptionSession, error) {
+	onEvent func(LiveTranscriptionEvent), opts ...LiveOption) (LiveTranscriptionSession, error) {
+
+	lo := liveOptions{}
+	for _, f := range opts {
+		f(&lo)
+	}
 
 	transcriptionModel, err := loadTranscriptionModel(ctx, ml, modelConfig, appConfig)
 	if err != nil {
@@ -240,10 +293,7 @@ func ModelTranscriptionLive(ctx context.Context, language string,
 	}
 
 	if err := stream.Send(&proto.TranscriptLiveRequest{
-		Payload: &proto.TranscriptLiveRequest_Config{Config: &proto.TranscriptLiveConfig{
-			Language:   language,
-			SampleRate: liveSampleRate,
-		}},
+		Payload: &proto.TranscriptLiveRequest_Config{Config: liveConfigProto(language, lo)},
 	}); err != nil {
 		return fail(err)
 	}
@@ -298,9 +348,27 @@ func liveEventFromProto(r *proto.TranscriptLiveResponse) LiveTranscriptionEvent 
 	}
 	for _, w := range r.GetWords() {
 		ev.Words = append(ev.Words, schema.TranscriptionWord{
-			Start: time.Duration(w.Start),
-			End:   time.Duration(w.End),
-			Text:  w.Text,
+			Start:   time.Duration(w.Start),
+			End:     time.Duration(w.End),
+			Text:    w.Text,
+			Speaker: w.Speaker,
+		})
+	}
+	for _, s := range r.GetSpeakers() {
+		ev.Speakers = append(ev.Speakers, LiveSpeakerSegment{
+			Speaker: s.GetSpeaker(),
+			Name:    s.GetName(),
+			Start:   time.Duration(s.GetStart()).Seconds(),
+			End:     time.Duration(s.GetEnd()).Seconds(),
+		})
+	}
+	for _, s := range r.GetSounds() {
+		ev.Sounds = append(ev.Sounds, LiveSoundEvent{
+			Label: s.GetLabel(),
+			Index: int(s.GetIndex()),
+			Peak:  s.GetPeak(),
+			Start: time.Duration(s.GetStart()).Seconds(),
+			End:   time.Duration(s.GetEnd()).Seconds(),
 		})
 	}
 	if r.GetFinalResult() != nil {

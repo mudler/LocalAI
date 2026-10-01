@@ -106,6 +106,12 @@ var instructionDefs = []instructionDef{
 		Intro:       "Voice (speaker) recognition — the audio analog to /v1/face/*. Use /v1/voice/verify for 1:1 speaker comparison, /v1/voice/identify for 1:N match against the registered store, /v1/voice/{register,forget} to manage that store, /v1/voice/embed for a raw speaker-encoder vector, and /v1/voice/analyze for age / gender / emotion inferred from speech. Registrations are in-memory by default and lost on restart. Audio inputs accept URL, base64, or data-URI; /v1/embeddings remains text-only.",
 	},
 	{
+		Name:        "decisions",
+		Description: "Typed decisions (choice, noul, score) over a state text with calibrated confidence",
+		Tags:        []string{"systemone"},
+		Intro:       "POST /v1/systemone answers every question in one pass; /v1/systemone/permute re-runs one choice question under n_perm option orders; /v1/systemone/separate answers each question in its own pass. Request: { model, state, questions: { <id>: { type: choice|noul|score, instructions, criteria } } }. A decision model declares known_usecases: [decisions] and serves only /v1/systemone; a zero-shot NER model declares token_classify and serves all three routes (through the NER path); /permute and /separate return 400 for decision models. A vllm-cpp config that declares no usecases is treated as a decision model. Responses carry per-question answers with confidence and probabilities plus token usage. Field names and question types follow Ollama's /v1/systemone, with differences in confidence, error shape and keep_alive (see the Decisions API docs). A request over 64 KiB, with more than 64 questions, or with a malformed question is refused.",
+	},
+	{
 		Name:        "branding",
 		Description: "Whitelabel the instance: configure name, tagline, logo, and favicon",
 		Tags:        []string{"branding"},

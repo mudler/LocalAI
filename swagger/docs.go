@@ -5851,6 +5851,13 @@ const docTemplate = `{
                 "label": {
                     "type": "string"
                 },
+                "name": {
+                    "description": "Name is the registered speaker this segment was matched to, and NameScore\nthe cosine similarity of the match. Both are omitted when the backend did\nnot identify the speaker. Speaker stays the normalized SPEAKER_NN label.",
+                    "type": "string"
+                },
+                "name_score": {
+                    "type": "number"
+                },
                 "speaker": {
                     "type": "string"
                 },
@@ -5869,6 +5876,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "label": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "segment_count": {
