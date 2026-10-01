@@ -65,7 +65,7 @@ var _ = Describe("emitTranscription", func() {
 
 		segmentEvents := func(t *fakeTransport) []types.ConversationItemInputAudioTranscriptionSegmentEvent {
 			var out []types.ConversationItemInputAudioTranscriptionSegmentEvent
-			for _, e := range t.sent {
+			for _, e := range t.recordedEvents() {
 				if seg, ok := e.(types.ConversationItemInputAudioTranscriptionSegmentEvent); ok {
 					out = append(out, seg)
 				}
