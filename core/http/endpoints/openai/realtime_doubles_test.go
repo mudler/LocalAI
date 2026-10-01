@@ -17,8 +17,10 @@ import (
 // so streaming behaviour can be asserted without a real WebSocket/WebRTC peer.
 // It is not a *WebRTCTransport, so handler code takes the WebSocket path.
 type fakeTransport struct {
-	events []types.ServerEvent
-	audio  []fakeAudioChunk
+	// mu guards sent: some specs send from a background goroutine.
+	mu    sync.Mutex
+	sent  []types.ServerEvent
+	audio []fakeAudioChunk
 }
 
 type fakeAudioChunk struct {
@@ -27,8 +29,17 @@ type fakeAudioChunk struct {
 }
 
 func (f *fakeTransport) SendEvent(e types.ServerEvent) error {
-	f.events = append(f.events, e)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sent = append(f.sent, e)
 	return nil
+}
+
+// events returns a copy of the server events sent so far.
+func (f *fakeTransport) events() []types.ServerEvent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]types.ServerEvent(nil), f.sent...)
 }
 
 func (f *fakeTransport) ReadEvent() ([]byte, error) { return nil, nil }
@@ -43,7 +54,7 @@ func (f *fakeTransport) Close() error { return nil }
 // countEvents returns how many recorded events have the given type.
 func (f *fakeTransport) countEvents(et types.ServerEventType) int {
 	n := 0
-	for _, e := range f.events {
+	for _, e := range f.events() {
 		if e.ServerEventType() == et {
 			n++
 		}
@@ -55,7 +66,7 @@ func (f *fakeTransport) countEvents(et types.ServerEventType) int {
 // delta event — i.e. the text streamed to the client as it is generated.
 func (f *fakeTransport) transcriptDeltaText() string {
 	var b strings.Builder
-	for _, e := range f.events {
+	for _, e := range f.events() {
 		if d, ok := e.(types.ResponseOutputAudioTranscriptDeltaEvent); ok {
 			b.WriteString(d.Delta)
 		}
@@ -77,6 +88,7 @@ type fakeModel struct {
 	transcribeDeltas []string
 	transcribeFinal  *schema.TranscriptionResult
 	transcribeErr    error
+	lastDiarize      bool // diarize flag of the last Transcribe/TranscribeStream call
 
 	// TranscribeLive scripting: liveErr makes the open fail (degrade path);
 	// liveEvents are delivered to onEvent synchronously at open;
@@ -178,7 +190,8 @@ func (m *fakeModel) VAD(_ context.Context, req *schema.VADRequest) (*schema.VADR
 	return &schema.VADResponse{Segments: m.vadSegments}, nil
 }
 
-func (m *fakeModel) Transcribe(context.Context, string, string, bool, bool, string) (*schema.TranscriptionResult, error) {
+func (m *fakeModel) Transcribe(_ context.Context, _, _ string, _, diarize bool, _ string) (*schema.TranscriptionResult, error) {
+	m.lastDiarize = diarize
 	return m.transcribeFinal, m.transcribeErr
 }
 
@@ -225,7 +238,8 @@ func (m *fakeModel) TTSStream(_ context.Context, _, _, _ string, onAudio func(pc
 	return nil
 }
 
-func (m *fakeModel) TranscribeStream(_ context.Context, _, _ string, _, _ bool, _ string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+func (m *fakeModel) TranscribeStream(_ context.Context, _, _ string, _, diarize bool, _ string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+	m.lastDiarize = diarize
 	for _, d := range m.transcribeDeltas {
 		onDelta(d)
 	}

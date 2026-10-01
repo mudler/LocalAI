@@ -542,7 +542,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		Tokenizer: c.Tokenizer,
 	}
 
-	if c.Backend == "cloud-proxy" {
+	if c.IsRemoteProxy() {
 		opts.Proxy = &pb.ProxyOptions{
 			UpstreamUrl:           c.Proxy.UpstreamURL,
 			Mode:                  c.Proxy.Mode,
@@ -552,6 +552,14 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 			UpstreamModel:         c.Proxy.UpstreamModel,
 			RequestTimeoutSeconds: int32(c.Proxy.RequestTimeoutSeconds),
 			CachePrompt:           c.Proxy.CachePrompt,
+		}
+		// localai-proxy calls a LocalAI that knows the model by name, so an
+		// unset upstream_model means this config's name, the same derivation
+		// failover.UpstreamModel uses. Not for cloud-proxy: its translate mode
+		// falls back to parameters.model and passthrough keeps the client's
+		// model when upstream_model is empty.
+		if c.Backend == model.LocalAIProxyBackend && opts.Proxy.UpstreamModel == "" {
+			opts.Proxy.UpstreamModel = c.Name
 		}
 	}
 

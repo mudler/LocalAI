@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/jobs"
 	"github.com/mudler/LocalAI/core/services/messaging"
@@ -250,6 +251,20 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// the embedding-cache stats endpoint sees a single source of truth.
 	application.routerRegistry = router.NewRegistry()
 
+	// Failover chains: probe targets and track which one is active per
+	// chain. WithOnWarmChanged pins and preloads warm local targets so a
+	// switch to them does not wait for a cold load.
+	application.failoverManager = failover.New(application.ModelConfigLoader(),
+		failover.WithProber(failover.NewProber(failoverLoadedBackend(application.ModelLoader()), options.ProxyAPIKeyEnvLookup)),
+		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
+	)
+	// The assistant client was built in start() (above), before this
+	// manager existed; wire it now so list_failover_chains /
+	// pin_failover_target / unpin_failover_target see real chains.
+	if application.assistantClient != nil {
+		application.assistantClient.Failover = application.failoverManager
+	}
+
 	// Subsystem 5: admission control. Limiter is always wired so a
 	// model that gains a limits: block via gallery install or YAML
 	// edit takes effect on the next restart without conditional plumbing.
@@ -271,12 +286,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// the model configs are loaded, so it is declared out here.
 	var revisionStore modeladmin.RevisionStore
 
-	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader())
+	distSvc, err := initDistributed(options, application.authDB, application.ModelConfigLoader(),
+		&failoverPinnedResolver{base: application.ModelConfigLoader(), fm: application.failoverManager})
 	if err != nil {
 		return nil, fmt.Errorf("distributed mode initialization failed: %w", err)
 	}
 	if distSvc != nil {
 		application.distributed = distSvc
+		// Before failoverManager.Run starts below: the gate and sync must be
+		// in place for its first tick.
+		application.startFailoverDistributed(options.Context)
 		// Wire remote model unloader so ShutdownModel works for remote nodes
 		// Uses NATS to tell serve-backend nodes to Free + kill their backend process
 		application.modelLoader.SetRemoteUnloader(distSvc.Unloader)
@@ -547,6 +566,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 			}
 		}
 	}
+
+	// Start the failover scheduler: it syncs chains from config, runs
+	// liveness/recovery probes and dwell-based fail-back. Run is the only
+	// caller of Sync in production so onWarm callbacks stay ordered.
+	failover.RegisterMetrics(application.failoverManager)
+	go application.failoverManager.Run(options.Context)
 
 	// Watch the configuration directory
 	startWatcher(options)

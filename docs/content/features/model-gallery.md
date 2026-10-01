@@ -39,6 +39,27 @@ Both views use the same model selection and store the view, search, filter, and
 selection in the URL. Installing from Explore does not move you away from the
 catalog; the entry updates in place when the operation finishes.
 
+## Cyber-Ornith 1.5 9B
+
+Cyber-Ornith 1.5 is a Qwen3.5 fine-tune for security auditing, terminal tasks, and tool use.
+The gallery includes Q4_K_M and Q6_K GGUF builds for text chat with llama.cpp.
+Both use the embedded chat template and a 32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install cyber-ornith-1.5-9b-obliterated
+```
+
+To select Q6_K explicitly:
+
+```bash
+local-ai models install cyber-ornith-1.5-9b-obliterated --variant cyber-ornith-1.5-9b-obliterated-q6
+```
+
+See the [model card](https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED)
+and [GGUF downloads](https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF).
+
 ## LFM2.5-2.6B Turbo Brilliance
 
 DavidAU's Turbo Brilliance edition uses the LFM2.5-2.6B text model with a custom chat template.
@@ -398,7 +419,7 @@ curl $LOCALAI/models/apply -H "Content-Type: application/json" -d '{
 where:
 - `localai` is the repository. It is optional and can be omitted. If the repository is omitted LocalAI will search the model by name in all the repositories. In the case the same model name is present in both galleries the first match wins.
 - `bert-embeddings` is the model name in the gallery
-  (read its [config here](https://github.com/mudler/LocalAI/tree/master/gallery/blob/main/bert-embeddings.yaml)).
+  (read its [config here](https://github.com/mudler/LocalAI/blob/master/gallery/index.yaml)).
 
 ### Model variants
 

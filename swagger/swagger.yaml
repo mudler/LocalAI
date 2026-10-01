@@ -2,13 +2,19 @@ basePath: /
 definitions:
   config.Gallery:
     properties:
+      artifact_verification:
+        allOf:
+        - $ref: '#/definitions/config.GalleryVerification'
+        description: |-
+          ArtifactVerification overrides Verification only for the gallery OCI artifact.
+          Backend images keep their separate Verification policy.
       mirrors:
         description: |-
           Mirrors are tried in order when URL cannot be fetched. They are a
           fallback for availability, not a load-balancing pool: the primary is
           always preferred, and a mirror is only consulted after the one before
           it fails. Any URI the gallery loader understands works here
-          (https://, github:, file://).
+          (https://, github:, file://, oci://).
         items:
           type: string
         type: array
@@ -32,6 +38,11 @@ definitions:
       not_before:
         description: NotBefore is an RFC3339 timestamp. Empty disables the time check.
         type: string
+      source_repository:
+        description: |-
+          SourceRepository is an https URL compared exactly against the
+          certificate's source-repository extension. Empty skips the check.
+        type: string
     type: object
   config.TTSVoice:
     properties:
@@ -41,6 +52,70 @@ definitions:
         type: string
       name:
         type: string
+    type: object
+  failover.ChainState:
+    enum:
+    - primary
+    - fallback
+    - degraded
+    type: string
+    x-enum-varnames:
+    - ChainPrimary
+    - ChainFallback
+    - ChainDegraded
+  failover.ChainStatus:
+    properties:
+      active:
+        type: string
+      active_since:
+        type: string
+      name:
+        type: string
+      pinned:
+        type: string
+      state:
+        $ref: '#/definitions/failover.ChainState'
+      targets:
+        items:
+          $ref: '#/definitions/failover.TargetStatus'
+        type: array
+    type: object
+  failover.Kind:
+    enum:
+    - local
+    - remote
+    type: string
+    x-enum-varnames:
+    - KindLocal
+    - KindRemote
+  failover.TargetState:
+    enum:
+    - healthy
+    - down
+    - recovering
+    - missing
+    type: string
+    x-enum-varnames:
+    - StateHealthy
+    - StateDown
+    - StateRecovering
+    - StateMissing
+  failover.TargetStatus:
+    properties:
+      consecutive_ok:
+        type: integer
+      kind:
+        $ref: '#/definitions/failover.Kind'
+      last_error:
+        type: string
+      last_probe:
+        type: string
+      model:
+        type: string
+      state:
+        $ref: '#/definitions/failover.TargetState'
+      warm:
+        type: boolean
     type: object
   functions.Function:
     properties:
@@ -331,6 +406,18 @@ definitions:
       logo_horizontal_url:
         type: string
       logo_url:
+        type: string
+    type: object
+  localai.FailoverChainsResponse:
+    properties:
+      chains:
+        items:
+          $ref: '#/definitions/failover.ChainStatus'
+        type: array
+    type: object
+  localai.FailoverPinRequest:
+    properties:
+      target:
         type: string
     type: object
   localai.GalleryBackend:
@@ -989,6 +1076,14 @@ definitions:
         type: integer
       label:
         type: string
+      name:
+        description: |-
+          Name is the registered speaker this segment was matched to, and NameScore
+          the cosine similarity of the match. Both are omitted when the backend did
+          not identify the speaker. Speaker stays the normalized SPEAKER_NN label.
+        type: string
+      name_score:
+        type: number
       speaker:
         type: string
       start:
@@ -1001,6 +1096,8 @@ definitions:
       id:
         type: string
       label:
+        type: string
+      name:
         type: string
       segment_count:
         type: integer
@@ -2654,11 +2751,37 @@ definitions:
         type: string
       id:
         type: string
+      process:
+        allOf:
+        - $ref: '#/definitions/schema.SysInfoProcess'
+        description: |-
+          Process is the backend process serving the model on this host. Absent
+          when the model has no local process (a distributed worker holds it) or
+          the process could not be read.
       size_vram:
         description: |-
           SizeVRAM is DRM-accounted resident device memory in bytes. Nil means
           the backend process tree has no complete supported reading.
         type: integer
+    type: object
+  schema.SysInfoProcess:
+    properties:
+      cpu_percent:
+        description: |-
+          CPUPercent is the share of the whole host's CPU used since the previous
+          reading, 0-100. Absent on the first reading of a process.
+        type: number
+      memory_percent:
+        type: number
+      pid:
+        type: integer
+      rss_bytes:
+        description: |-
+          RSSBytes is resident host memory. Weights offloaded to a GPU are not
+          in it.
+        type: integer
+      started_at:
+        type: string
     type: object
   schema.SystemInformationResponse:
     properties:
@@ -2672,6 +2795,106 @@ definitions:
         items:
           $ref: '#/definitions/schema.SysInfoModel'
         type: array
+    type: object
+  schema.SystemOneAnswer:
+    properties:
+      choice:
+        type: string
+      confidence:
+        type: number
+      entities:
+        items:
+          $ref: '#/definitions/schema.SystemOneEntity'
+        type: array
+      legend:
+        additionalProperties:
+          type: string
+        type: object
+      noul:
+        type: number
+      probabilities:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+      score:
+        type: number
+      type:
+        type: string
+    type: object
+  schema.SystemOneEntity:
+    properties:
+      confidence:
+        type: number
+      end:
+        type: integer
+      start:
+        type: integer
+      text:
+        type: string
+    type: object
+  schema.SystemOnePermuteRequest:
+    properties:
+      n_perm:
+        type: integer
+      question:
+        type: string
+      request:
+        $ref: '#/definitions/schema.SystemOneRequest'
+      seed:
+        type: integer
+    type: object
+  schema.SystemOnePermuteResponse:
+    properties:
+      argmax_stable:
+        type: boolean
+      runs:
+        items:
+          $ref: '#/definitions/schema.SystemOnePermuteRun'
+        type: array
+      spread:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+    type: object
+  schema.SystemOnePermuteRun:
+    properties:
+      choice:
+        type: string
+      latency_ms:
+        type: number
+      order:
+        items:
+          type: string
+        type: array
+      probabilities:
+        additionalProperties:
+          format: float64
+          type: number
+        type: object
+    type: object
+  schema.SystemOneRequest:
+    type: object
+  schema.SystemOneResponse:
+    properties:
+      answers:
+        additionalProperties:
+          $ref: '#/definitions/schema.SystemOneAnswer'
+        type: object
+      latency_ms:
+        type: number
+      model:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.SystemOneUsage'
+    type: object
+  schema.SystemOneUsage:
+    properties:
+      input_tokens:
+        type: integer
+      output_tokens:
+        type: integer
     type: object
   schema.TTSRequest:
     description: TTS request body
@@ -3729,6 +3952,107 @@ paths:
       summary: Upload a branding asset
       tags:
       - branding
+  /api/failover:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.FailoverChainsResponse'
+      summary: List failover chains and the health of their targets
+      tags:
+      - failover
+  /api/failover/{chain}:
+    get:
+      parameters:
+      - description: Chain name
+        in: path
+        name: chain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/failover.ChainStatus'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get one failover chain
+      tags:
+      - failover
+  /api/failover/{chain}/pin:
+    delete:
+      parameters:
+      - description: Chain name
+        in: path
+        name: chain
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/failover.ChainStatus'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Remove the pin from a failover chain
+      tags:
+      - failover
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Chain name
+        in: path
+        name: chain
+        required: true
+        type: string
+      - description: Target to pin
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.FailoverPinRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/failover.ChainStatus'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Pin a failover chain to one target
+      tags:
+      - failover
+  /api/failover/events:
+    get:
+      description: The first event is "snapshot" with the full state, then "chain.switched"
+        and "target.state" events.
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+      summary: Stream failover events (server-sent events)
+      tags:
+      - failover
   /api/instructions:
     get:
       description: Returns a compact list of instruction areas with descriptions and
@@ -5672,6 +5996,64 @@ paths:
       summary: Generates audio from the input text.
       tags:
       - audio
+  /v1/systemone:
+    post:
+      description: 'Runs zero-shot NER over the supplied state and answers each question.
+        Question types: noul (binary entity presence), choice (pick one option), score
+        (pick one level).'
+      parameters:
+      - description: state + questions
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SystemOneRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SystemOneResponse'
+      summary: Answer structured-extraction questions over state text.
+      tags:
+      - systemone
+  /v1/systemone/permute:
+    post:
+      description: Re-runs one choice question under n_perm option orders. Reports
+        per-order probabilities, argmax stability, and spread.
+      parameters:
+      - description: request + question + n_perm + seed
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SystemOnePermuteRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SystemOnePermuteResponse'
+      summary: Re-run a choice question under multiple option orders.
+      tags:
+      - systemone
+  /v1/systemone/separate:
+    post:
+      description: Runs N independent NER passes, one per question, against the same
+        state. Response shape matches /v1/systemone.
+      parameters:
+      - description: state + questions
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SystemOneRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.SystemOneResponse'
+      summary: Answer each question in a separate NER pass.
+      tags:
+      - systemone
   /v1/text-to-speech/{voice-id}:
     post:
       parameters:

@@ -77,7 +77,9 @@ func (ds *DistributedServices) Shutdown() {
 // Returns nil if distributed mode is not enabled.
 // configLoader is used by the SmartRouter to compute concurrency-group
 // anti-affinity at placement time (#9659); it may be nil in tests.
-func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader) (*DistributedServices, error) {
+// pinned, when set, replaces configLoader as the source of models the router
+// and reconciler must keep loaded (it adds warm failover targets).
+func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoader *config.ModelConfigLoader, pinned nodes.PinnedModelResolver) (*DistributedServices, error) {
 	if !cfg.Distributed.Enabled {
 		return nil, nil
 	}
@@ -379,9 +381,16 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 	// All dependencies ready — build SmartRouter with all options at once
 	var conflictResolver nodes.ConcurrencyConflictResolver
 	var pinnedResolver nodes.PinnedModelResolver
+	var modelFiles func(string) []string
 	if configLoader != nil {
 		conflictResolver = configLoader
 		pinnedResolver = configLoader
+		if cfg.SystemState != nil {
+			modelFiles = declaredModelFiles(configLoader, cfg.SystemState.Model.ModelsPath)
+		}
+	}
+	if pinned != nil {
+		pinnedResolver = pinned
 	}
 	modelCleanup := nodes.NewModelCleanupService(registry, remoteUnloader)
 	router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{
@@ -393,6 +402,7 @@ func initDistributed(cfg *config.ApplicationConfig, authDB *gorm.DB, configLoade
 		DB:               authDB,
 		ConflictResolver: conflictResolver,
 		PinnedResolver:   pinnedResolver,
+		ModelFiles:       modelFiles,
 		PrefixProvider:   prefixProvider,
 		PrefixConfig:     prefixCfg,
 		Pressure:         pressure,

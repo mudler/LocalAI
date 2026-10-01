@@ -40,12 +40,13 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
       "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
-      "rerank": "Rerank", "vad": "VAD", "score": "Score"
+      "rerank": "Rerank", "vad": "VAD", "score": "Score", "decisions": "Decisions"
     },
     "empty": {
       "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
@@ -224,5 +225,67 @@
     "pickVision": "Leer imágenes y documentos",
     "pickAudio": "Voz de entrada y de salida",
     "pickVisual": "Generar imágenes y vídeo"
+  },
+  "failover": {
+    "title": "Cadena de failover",
+    "servedBy": "Servido por",
+    "changed": "cambió {{time}}",
+    "pinnedTo": "Fijado en {{target}}",
+    "warm": "Precargado",
+    "never": "Nunca",
+    "states": {
+      "primary": "Primario",
+      "fallback": "Respaldo",
+      "degraded": "Degradado",
+      "healthy": "Correcto",
+      "down": "Caído",
+      "recovering": "Recuperándose",
+      "missing": "Ausente"
+    },
+    "kinds": {
+      "local": "Local",
+      "remote": "Remoto"
+    },
+    "columns": {
+      "target": "Destino",
+      "kind": "Tipo",
+      "warm": "Precargado",
+      "health": "Estado",
+      "lastProbe": "Última comprobación",
+      "lastError": "Último error",
+      "actions": "Acciones"
+    },
+    "actions": {
+      "pin": "Fijar",
+      "pinning": "Fijando…",
+      "unpin": "Liberar",
+      "unpinning": "Liberando…"
+    },
+    "confirm": {
+      "pinTitle": "¿Fijar {{target}}?",
+      "pinMessage": "Solo {{target}} atiende {{chain}} hasta que lo liberes. El failover automático se detiene para esta cadena.",
+      "unpinTitle": "¿Liberar {{chain}}?",
+      "unpinMessage": "{{chain}} vuelve al failover automático."
+    },
+    "errors": {
+      "pin": "No se pudo fijar: {{error}}",
+      "unpin": "No se pudo liberar: {{error}}"
+    },
+    "overview": {
+      "title": "Cadenas de failover",
+      "subtitle": "Estado en vivo y destino activo de cada cadena de failover.",
+      "columns": {
+        "chain": "Cadena",
+        "state": "Estado",
+        "active": "Destino activo",
+        "targets": "Destinos",
+        "changed": "Cambiado"
+      },
+      "empty": {
+        "title": "Aún no hay cadenas de failover",
+        "text": "Agrega una cadena de failover para evitar automáticamente los destinos en mal estado.",
+        "cta": "Crear una cadena de failover"
+      }
+    }
   }
 }

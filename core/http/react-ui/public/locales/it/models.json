@@ -40,12 +40,13 @@
       "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
       "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
       "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}"
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
     },
     "open": {
       "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
       "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
-      "rerank": "Rerank", "vad": "VAD", "score": "Score"
+      "rerank": "Rerank", "vad": "VAD", "score": "Score", "decisions": "Decisions"
     },
     "empty": {
       "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
@@ -224,5 +225,67 @@
     "pickVision": "Leggere immagini e documenti",
     "pickAudio": "Voce in ingresso e in uscita",
     "pickVisual": "Generare immagini e video"
+  },
+  "failover": {
+    "title": "Catena di failover",
+    "servedBy": "Servito da",
+    "changed": "cambiato {{time}}",
+    "pinnedTo": "Fissato su {{target}}",
+    "warm": "Pronto",
+    "never": "Mai",
+    "states": {
+      "primary": "Primario",
+      "fallback": "Fallback",
+      "degraded": "Degradato",
+      "healthy": "Integro",
+      "down": "Non disponibile",
+      "recovering": "In ripristino",
+      "missing": "Mancante"
+    },
+    "kinds": {
+      "local": "Locale",
+      "remote": "Remoto"
+    },
+    "columns": {
+      "target": "Destinazione",
+      "kind": "Tipo",
+      "warm": "Pronto",
+      "health": "Stato",
+      "lastProbe": "Ultimo controllo",
+      "lastError": "Ultimo errore",
+      "actions": "Azioni"
+    },
+    "actions": {
+      "pin": "Fissa",
+      "pinning": "Fissaggio…",
+      "unpin": "Sblocca",
+      "unpinning": "Sblocco…"
+    },
+    "confirm": {
+      "pinTitle": "Fissare {{target}}?",
+      "pinMessage": "Solo {{target}} serve {{chain}} finché non lo sblocchi. Il failover automatico si ferma per questa catena.",
+      "unpinTitle": "Sbloccare {{chain}}?",
+      "unpinMessage": "{{chain}} torna al failover automatico."
+    },
+    "errors": {
+      "pin": "Fissaggio non riuscito: {{error}}",
+      "unpin": "Sblocco non riuscito: {{error}}"
+    },
+    "overview": {
+      "title": "Catene di failover",
+      "subtitle": "Stato in tempo reale e destinazione attiva per ogni catena di failover.",
+      "columns": {
+        "chain": "Catena",
+        "state": "Stato",
+        "active": "Destinazione attiva",
+        "targets": "Destinazioni",
+        "changed": "Cambiato"
+      },
+      "empty": {
+        "title": "Nessuna catena di failover",
+        "text": "Aggiungi una catena di failover per aggirare automaticamente le destinazioni non integre.",
+        "cta": "Crea una catena di failover"
+      }
+    }
   }
 }
