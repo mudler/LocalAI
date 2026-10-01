@@ -3,7 +3,6 @@ package messaging
 import (
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -35,28 +34,6 @@ var ErrUnservedSubject = errors.New("messaging: subject root is not served")
 // not, because not every carrier can honour it.
 var ErrUnsupportedWildcard = errors.New("messaging: unsupported wildcard in subject")
 
-func sortedKeys(m map[string]struct{}) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
-	}
-	sort.Strings(out)
-	return out
-}
-
-// BroadcastRoots returns the fan-out and queue roots, sorted. Exported so a spec
-// can assert over the whole set instead of a sample it re-spells.
-func BroadcastRoots() []string { return sortedKeys(broadcastRoots) }
-
-// ControlRoots returns the request/reply roots, sorted.
-func ControlRoots() []string { return sortedKeys(controlRoots) }
-
-// SubjectRoot returns the first token of a subject.
-func SubjectRoot(subject string) string {
-	root, _, _ := strings.Cut(subject, ".")
-	return root
-}
-
 // ValidateSubject reports whether a subject, or a subscription filter, is one
 // every carrier serves.
 func ValidateSubject(subject string) error {
@@ -84,28 +61,4 @@ func ValidateSubject(subject string) error {
 		return nil
 	}
 	return fmt.Errorf("%w: %q", ErrUnservedSubject, subject)
-}
-
-// MatchSubject reports whether a subscription filter matches a concrete subject,
-// honouring the single-token `*` wildcard. It is the one spelling of the
-// matching rule: a carrier that delivers on its own reading of it would make the
-// same subscription behave differently per mode.
-func MatchSubject(filter, subject string) bool {
-	if filter == subject {
-		return true
-	}
-	fp := strings.Split(filter, ".")
-	sp := strings.Split(subject, ".")
-	if len(fp) != len(sp) {
-		return false
-	}
-	for i := range fp {
-		if fp[i] == "*" {
-			continue
-		}
-		if fp[i] != sp[i] {
-			return false
-		}
-	}
-	return true
 }

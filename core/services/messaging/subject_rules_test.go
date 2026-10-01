@@ -46,36 +46,19 @@ var _ = Describe("Subject rules", func() {
 		Entry("wildcard root", "*.new"),
 	)
 
-	DescribeTable("matches like a NATS single-token wildcard",
-		func(filter, subject string, want bool) {
-			Expect(messaging.MatchSubject(filter, subject)).To(Equal(want))
+	DescribeTable("serves every root",
+		func(root string) {
+			Expect(messaging.ValidateSubject(root + ".x")).To(Succeed())
 		},
-		Entry("exact", "jobs.new", "jobs.new", true),
-		Entry("wildcard hit", "jobs.*.cancel", "jobs.abc.cancel", true),
-		Entry("wildcard wrong tail", "jobs.*.cancel", "jobs.abc.result", false),
-		Entry("wildcard does not span tokens", "jobs.*", "jobs.a.b", false),
-		Entry("length mismatch", "jobs.new", "jobs.new.extra", false),
+		Entry("jobs", "jobs"), Entry("agent", "agent"), Entry("gallery", "gallery"),
+		Entry("cache", "cache"), Entry("staging", "staging"), Entry("prefixcache", "prefixcache"),
+		Entry("responses", "responses"), Entry("state", "state"), Entry("finetune", "finetune"),
+		Entry("nodes", "nodes"), Entry("mcp", "mcp"),
 	)
 
-	It("lists the broadcast roots sorted", func() {
-		Expect(messaging.BroadcastRoots()).To(Equal([]string{
-			"agent", "cache", "finetune", "gallery", "jobs",
-			"prefixcache", "responses", "staging", "state",
-		}))
+	It("refuses an unknown root", func() {
+		Expect(errors.Is(messaging.ValidateSubject("bogus.x"), messaging.ErrUnservedSubject)).To(BeTrue())
 	})
-
-	It("lists the control roots sorted", func() {
-		Expect(messaging.ControlRoots()).To(Equal([]string{"mcp", "nodes"}))
-	})
-
-	DescribeTable("takes the first token as the subject root",
-		func(subject, want string) {
-			Expect(messaging.SubjectRoot(subject)).To(Equal(want))
-		},
-		Entry("multi-token subject", "jobs.new", "jobs"),
-		Entry("bare root", "jobs", "jobs"),
-		Entry("empty subject", "", ""),
-	)
 
 	It("serves every subject the constructors in subjects.go build", func() {
 		const id = "11111111-2222-3333-4444-555555555555"

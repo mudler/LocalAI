@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -52,16 +51,16 @@ func agentRequestTimeout(ctx context.Context, fallback time.Duration) (time.Dura
 }
 
 // NATSAgentRPCServer is the agent worker's end of NATSAgentControl, plus the
-// node's backend stop listener. It keeps the subscriptions it makes because
-// they live as long as the process and nobody unsubscribes them.
+// node's backend stop listener. It holds no subscription handles: they live as
+// long as the process and nothing unsubscribes them.
 type NATSAgentRPCServer struct {
 	bus    messaging.MessagingClient
 	nodeID string
-
-	mu   sync.Mutex
-	subs []messaging.Subscription
 }
 
+// NewNATSAgentRPCServer serves on bus for the agent worker registered as
+// nodeID. The node id scopes only the backend stop subject: the MCP requests
+// are shared by the agent-workers queue group, so any worker may answer them.
 func NewNATSAgentRPCServer(bus messaging.MessagingClient, nodeID string) *NATSAgentRPCServer {
 	return &NATSAgentRPCServer{bus: bus, nodeID: nodeID}
 }
@@ -71,7 +70,7 @@ func NewNATSAgentRPCServer(bus messaging.MessagingClient, nodeID string) *NATSAg
 // call at a time, and on context.Background because the handler sets its own
 // budget: a call in flight when the worker is told to stop runs to that budget.
 func (s *NATSAgentRPCServer) ServeMCPTool(h mcpremote.ToolHandler) error {
-	sub, err := s.bus.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
+	_, err := s.bus.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
 		var req mcpremote.MCPToolRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			sendAgentReply(reply, mcpremote.MCPToolResponse{Error: fmt.Sprintf("unmarshal error: %v", err)})
@@ -82,14 +81,13 @@ func (s *NATSAgentRPCServer) ServeMCPTool(h mcpremote.ToolHandler) error {
 	if err != nil {
 		return fmt.Errorf("serving mcp tool on %s: %w", messaging.SubjectMCPToolExecute, err)
 	}
-	s.keep(sub)
 	return nil
 }
 
 // ServeMCPDiscovery answers discovery requests like ServeMCPTool answers tool
 // requests. Its own subscription lets a discovery overlap a tool call.
 func (s *NATSAgentRPCServer) ServeMCPDiscovery(h mcpremote.DiscoveryHandler) error {
-	sub, err := s.bus.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
+	_, err := s.bus.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
 		var req mcpremote.MCPDiscoveryRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			sendAgentReply(reply, mcpremote.MCPDiscoveryResponse{Error: fmt.Sprintf("unmarshal error: %v", err)})
@@ -100,7 +98,6 @@ func (s *NATSAgentRPCServer) ServeMCPDiscovery(h mcpremote.DiscoveryHandler) err
 	if err != nil {
 		return fmt.Errorf("serving mcp discovery on %s: %w", messaging.SubjectMCPDiscovery, err)
 	}
-	s.keep(sub)
 	return nil
 }
 
@@ -110,7 +107,7 @@ func (s *NATSAgentRPCServer) ServeMCPDiscovery(h mcpremote.DiscoveryHandler) err
 // it cannot decode is dropped, as nothing waits for an answer.
 func (s *NATSAgentRPCServer) ServeBackendStop(h func(backend string)) error {
 	subject := messaging.SubjectNodeBackendStop(s.nodeID)
-	sub, err := s.bus.Subscribe(subject, func(data []byte) {
+	_, err := s.bus.Subscribe(subject, func(data []byte) {
 		// Only the backend name is read, so a change to the other fields of
 		// the stop request cannot make this listener drop it.
 		var req struct {
@@ -124,14 +121,7 @@ func (s *NATSAgentRPCServer) ServeBackendStop(h func(backend string)) error {
 	if err != nil {
 		return fmt.Errorf("serving backend stop on %s: %w", subject, err)
 	}
-	s.keep(sub)
 	return nil
-}
-
-func (s *NATSAgentRPCServer) keep(sub messaging.Subscription) {
-	s.mu.Lock()
-	s.subs = append(s.subs, sub)
-	s.mu.Unlock()
 }
 
 // sendAgentReply ignores the encoding error, as the agent worker always has:
