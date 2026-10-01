@@ -63,6 +63,10 @@ cp -r tts_request_options_test.cpp llama.cpp/tools/grpc-server/
 # Thread-count default normalization and its standalone regression test.
 cp -r thread_params.h llama.cpp/tools/grpc-server/
 cp -r thread_params_test.cpp llama.cpp/tools/grpc-server/
+# Slot-count resolution (option over LLAMACPP_PARALLEL) and its standalone
+# regression test.
+cp -r parallel_params.h llama.cpp/tools/grpc-server/
+cp -r parallel_params_test.cpp llama.cpp/tools/grpc-server/
 # Parent-death watcher (included by grpc-server.cpp) and its standalone unit
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
 cp -r parent_watch.h llama.cpp/tools/grpc-server/
