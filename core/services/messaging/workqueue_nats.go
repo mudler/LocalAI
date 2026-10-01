@@ -47,17 +47,25 @@ func (q *natsWorkQueue) Enqueue(_ context.Context, kind WorkKind, payload any) e
 
 type natsWorkRoutes struct {
 	agentSubject, agentQueue string
+	// agentQueueSet tells an explicitly empty queue from no override, because
+	// the two subscribe differently.
+	agentQueueSet bool
 }
 
 // WorkRouteOption changes where a NATS WorkConsumer listens.
 type WorkRouteOption func(*natsWorkRoutes)
 
 // WithAgentRunRoute moves the agent-run subject and queue group, which workers
-// let operators set (LOCALAI_AGENT_SUBJECT, LOCALAI_AGENT_QUEUE). An empty
-// value keeps the default. The other kinds have no such setting.
+// let operators set (LOCALAI_AGENT_SUBJECT, LOCALAI_AGENT_QUEUE). The other
+// kinds have no such setting.
+//
+// An empty subject keeps the default subject. An empty queue is kept as given:
+// it means no queue group, a plain subscription where every agent worker runs
+// every agent run. That is what an explicitly empty LOCALAI_AGENT_QUEUE has
+// always done, so it stays the operator's choice.
 func WithAgentRunRoute(subject, queue string) WorkRouteOption {
 	return func(r *natsWorkRoutes) {
-		r.agentSubject, r.agentQueue = subject, queue
+		r.agentSubject, r.agentQueue, r.agentQueueSet = subject, queue, true
 	}
 }
 
@@ -84,7 +92,7 @@ func (w *natsWorkConsumer) route(kind WorkKind) (subject, queue string, err erro
 	if w.routes.agentSubject != "" {
 		subject = w.routes.agentSubject
 	}
-	if w.routes.agentQueue != "" {
+	if w.routes.agentQueueSet {
 		queue = w.routes.agentQueue
 	}
 	return subject, queue, nil

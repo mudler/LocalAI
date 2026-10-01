@@ -256,6 +256,25 @@ var _ = Describe("NATS work consumer", func() {
 		Entry("agent run moves", messaging.WorkAgentRun, "agent.tenant.x", "q2"),
 	)
 
+	// LOCALAI_AGENT_QUEUE="" used to reach QueueSubscribe as given, which is a
+	// plain subscription where every agent worker runs every run. An empty
+	// subject has no such meaning, so it falls back to the default.
+	It("keeps an explicitly empty agent-run queue as a plain subscription", func() {
+		wc := messaging.NewNATSWorkConsumer(bus, messaging.WithAgentRunRoute("agent.tenant.x", ""))
+		sub, err := wc.Consume(context.Background(), messaging.WorkAgentRun, 0, func(context.Context, []byte, messaging.Publisher) error { return nil })
+		Expect(err).ToNot(HaveOccurred())
+		Expect(bus.QueueGroups()).To(Equal(map[string]string{"agent.tenant.x": ""}))
+		Expect(sub.Unsubscribe()).To(Succeed())
+	})
+
+	It("falls back to the default agent-run subject when the subject is empty", func() {
+		wc := messaging.NewNATSWorkConsumer(bus, messaging.WithAgentRunRoute("", "q2"))
+		sub, err := wc.Consume(context.Background(), messaging.WorkAgentRun, 0, func(context.Context, []byte, messaging.Publisher) error { return nil })
+		Expect(err).ToNot(HaveOccurred())
+		Expect(bus.QueueGroups()).To(Equal(map[string]string{"agent.execute": "q2"}))
+		Expect(sub.Unsubscribe()).To(Succeed())
+	})
+
 	It("refuses an agent-run override on an unserved subject", func() {
 		wc := messaging.NewNATSWorkConsumer(bus, messaging.WithAgentRunRoute("bogus.x", "q"))
 		_, err := wc.Consume(context.Background(), messaging.WorkAgentRun, 0, func(context.Context, []byte, messaging.Publisher) error { return nil })
