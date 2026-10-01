@@ -220,6 +220,7 @@ func (l *liveTurnState) drainEvents(audioSec float64) {
 						ItemID:          l.itemID,
 						ContentIndex:    0,
 						Speaker:         seg.Speaker,
+						SpeakerName:     seg.Name,
 						Start:           seg.Start,
 						End:             seg.End,
 					})

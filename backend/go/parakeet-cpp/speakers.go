@@ -42,7 +42,7 @@ func (p *ParakeetCpp) diarizeSegmentsPCM(pcm []float32) ([]diarizeSegmentJSON, e
 	if len(pcm) == 0 {
 		return nil, nil
 	}
-	raw, err := p.diarizeCall(pcm, false)
+	raw, err := p.diarizeCall(pcm, false, 0)
 	if err != nil {
 		return nil, err
 	}
