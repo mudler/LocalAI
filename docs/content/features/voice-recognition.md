@@ -185,6 +185,85 @@ recognition - the voice-recognition HTTP API is designed to swap the
 backing store without changing the wire format.
 {{% /notice %}}
 
+## Naming speakers in diarization and live transcription
+
+The parakeet-cpp backend can put the names of registered voices on
+diarization results and on live transcription speaker segments. Without
+this, speakers only carry labels such as `SPEAKER_00`.
+
+1. Register each voice with the WeSpeaker encoder. Install the model with
+   `local-ai models install voice-detect-wespeaker-resnet34`, then call
+   `/v1/voice/register` with `"model": "voice-detect-wespeaker-resnet34"`
+   (see the [1:N workflow](#1n-identification-workflow-register--identify--forget)).
+2. Install one of the gallery models that loads the same encoder:
+   `parakeet-cpp-nemotron-3-diarization-speakers` (diarization),
+   `parakeet-cpp-nemotron-3-diarization-asr-speakers` (diarization with
+   `include_text`) or `parakeet-cpp-realtime-scene-speakers` (live
+   transcription). Each one adds
+   `speaker_model:voice-detect-wespeaker-resnet34.gguf` to a
+   parakeet-cpp model config.
+3. Call `/v1/audio/diarization` with that model. Matched segments gain a
+   `name` and a `name_score`, and the matching entry in `speakers` gains a
+   `name`. `speaker` stays `SPEAKER_NN`, and RTTM output is unchanged. See
+   [Speaker Diarization]({{% relref "audio-diarization" %}}) for the
+   response.
+
+### Which voices are used
+
+LocalAI sends the backend only the registered voices made by the same
+encoder as the model's `speaker_model:` file. Each registered voice is
+tagged with the name of the voice-detect model that made it, which by
+default is the GGUF file name (`voice-detect-wespeaker-resnet34.gguf` for the
+gallery entry). The tag must equal the base name of the `speaker_model:`
+file. Voices made with another encoder are ignored, and LocalAI logs a
+warning when that leaves no usable voice. Voices registered before the tag
+existed have no tag: they are used when their embedding size matches the
+tagged ones (or all of them, when no voice carries a matching tag). The
+backend skips a voice whose embedding size does not match the speaker model's,
+with a warning in the LocalAI log. Naming then falls back to the remaining
+voices, or to no names.
+
+{{% notice warning %}}
+Do not set a `model_name:` option on the voice-detect model config. It
+replaces the default name, the voices are then tagged with it, and they no
+longer match the `speaker_model:` file. Keep the default name.
+{{% /notice %}}
+
+### Options
+
+These go in the `options:` list of the parakeet-cpp model config (see
+[Audio to Text]({{% relref "audio-to-text" %}}) for the other parakeet-cpp
+options).
+
+| Option | Default | Meaning |
+|---|---|---|
+| `speaker_model:<path>` | none | speaker encoder GGUF; needs a diarization model (the primary one, or `diarization_model:`) |
+| `speaker_threshold:<float>` | `0.5` | largest distance (1 minus cosine similarity, the unit `/v1/voice/identify` reports) at which a speaker is named; must be in (0, 2) |
+| `speaker_margin:<float>` | `0.05` | the best match must beat the runner-up by this much, otherwise the speaker stays unnamed; must be in [0, 1) |
+
+parakeet.cpp's measured starting values for `speaker_threshold` are 0.5 for
+WeSpeaker ResNet34 and CAM++, and 0.3 for ECAPA. A lower value names fewer
+speakers and makes fewer mistakes.
+
+### Limits
+
+- The voice registry is in memory and global. Registered names disappear when
+  LocalAI restarts, and every user of the instance shares them.
+- Anyone who is allowed to call a model with `speaker_model:` can learn which
+  registered names match their audio, and their audio is matched against voices
+  registered by any user, because the voice registry is global. Restrict such
+  models with the per-user model allowlist.
+- With `include_text=true` the names use the default threshold and margin:
+  `speaker_threshold` and `speaker_margin` only apply to diarization without
+  text.
+- In live transcription, a speaker segment that closes before its speaker
+  is identified has no name. Later segments of that speaker do.
+- Overlapping speech is not resolved.
+- Accuracy was measured on one fixture (two read-speech voices). Check the
+  threshold on your own audio.
+- The backend needs a libparakeet with C-API v10. With an older library a
+  model config that sets `speaker_model:` fails to load.
+
 ## API reference
 
 ### `POST /v1/voice/verify` (1:1)

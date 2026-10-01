@@ -17,6 +17,7 @@ const (
 	modelKindASR         = 1
 	modelKindDiarization = 2
 	modelKindSound       = 3
+	modelKindSpeaker     = 4
 )
 
 // Diarization streaming latency modes (mirrors PARAKEET_DIAR_LATENCY_* in
@@ -38,6 +39,8 @@ func modelKindName(kind int32) string {
 		return "diarization"
 	case modelKindSound:
 		return "sound"
+	case modelKindSpeaker:
+		return "speaker"
 	default:
 		return "unknown"
 	}
@@ -129,12 +132,28 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 	diarModelOpt := optString(opts, "diarization_model")
 	asrModelOpt := optString(opts, "asr_model")
 	soundModelOpt := optString(opts, "sound_model")
-	hasCompanionOpts := diarModelOpt != "" || asrModelOpt != "" || soundModelOpt != ""
+	speakerModelOpt := optString(opts, "speaker_model")
+	hasCompanionOpts := diarModelOpt != "" || asrModelOpt != "" || soundModelOpt != "" || speakerModelOpt != ""
 
 	if hasCompanionOpts && CppModelKind == nil {
-		return errors.New("parakeet-cpp: asr_model/diarization_model/sound_model options need " +
+		return errors.New("parakeet-cpp: asr_model/diarization_model/sound_model/speaker_model options need " +
 			"parakeet_capi_model_kind (ABI v8) to verify what they load; the loaded libparakeet.so " +
 			"is too old to report companion model roles")
+	}
+
+	if speakerModelOpt != "" {
+		if CppSpeakerRegistryAddEmbedding == nil || CppSpeakerDim == nil || CppSceneStreamBeginSpeaker == nil {
+			return errors.New("parakeet-cpp: speaker_model needs libparakeet.so ABI 10 " +
+				"(parakeet_capi_speaker_registry_add_embedding); the loaded library is older")
+		}
+	}
+	accept, err := parseSpeakerThreshold(optString(opts, "speaker_threshold"))
+	if err != nil {
+		return err
+	}
+	margin, err := parseSpeakerMargin(optString(opts, "speaker_margin"))
+	if err != nil {
+		return err
 	}
 
 	latency, err := parseDiarLatency(optString(opts, "diarization_latency"))
@@ -160,7 +179,7 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		for _, c := range loaded {
 			CppFree(c)
 		}
-		p.ctxPtr, p.diarCtx, p.tagCtx = 0, 0, 0
+		p.ctxPtr, p.diarCtx, p.tagCtx, p.spkCtx = 0, 0, 0, 0
 		p.companions = nil
 	}
 
@@ -177,6 +196,10 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		p.diarCtx = primary
 	case modelKindSound:
 		p.tagCtx = primary
+	case modelKindSpeaker:
+		freeLoaded()
+		return errors.New("parakeet-cpp: a speaker model cannot be the primary model; " +
+			"use it as speaker_model: next to a diarization model")
 	default:
 		p.ctxPtr = primary
 	}
@@ -191,6 +214,9 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		{"sound_model", soundModelOpt, modelKindSound,
 			func(pp *ParakeetCpp, c uintptr) { pp.tagCtx = c },
 			func(pp *ParakeetCpp) uintptr { return pp.tagCtx }},
+		{"speaker_model", speakerModelOpt, modelKindSpeaker,
+			func(pp *ParakeetCpp, c uintptr) { pp.spkCtx = c },
+			func(pp *ParakeetCpp) uintptr { return pp.spkCtx }},
 	}
 	for _, spec := range specs {
 		if spec.value == "" {
@@ -198,7 +224,7 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		}
 		// A companion whose role the primary already occupies (e.g. asr_model:
 		// on an already-ASR primary) would overwrite that role field below,
-		// leaking the primary ctx: Free() only walks ctxPtr/diarCtx/tagCtx, so
+		// leaking the primary ctx: Free() walks ctxPtr/diarCtx/tagCtx/spkCtx, so
 		// the overwritten pointer is never freed. Reject it before loading.
 		if spec.current(p) != 0 {
 			freeLoaded()
@@ -221,6 +247,11 @@ func (p *ParakeetCpp) loadRoles(opts *pb.ModelOptions) error {
 		p.companions = append(p.companions, cctx)
 	}
 
+	if p.spkCtx != 0 && p.diarCtx == 0 {
+		freeLoaded()
+		return errors.New("parakeet-cpp: speaker_model needs a diarization model (the primary or diarization_model:)")
+	}
+	p.speakerAccept, p.speakerMargin = accept, margin
 	p.diarLatency = latency
 	return nil
 }
