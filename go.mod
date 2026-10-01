@@ -38,11 +38,11 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.5.0
-	github.com/mudler/cogito v0.11.1-0.20260721122412-6eece18a6bb6
+	github.com/mudler/cogito v0.11.1-0.20260928072733-b40513ef5d1a
 	github.com/mudler/edgevpn v0.34.0
 	github.com/mudler/go-processmanager v0.1.2-0.20260823202314-dfa0ed852db6
 	github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8
-	github.com/mudler/nib v0.6.0
+	github.com/mudler/nib v0.12.1
 	github.com/mudler/xlog v0.0.6
 	github.com/ollama/ollama v0.20.4
 	github.com/onsi/ginkgo/v2 v2.29.0
@@ -152,6 +152,25 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/moby/moby/api v1.54.2 // indirect
 	github.com/moby/moby/client v0.4.1 // indirect
+	github.com/msuozzo/bonsai v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-bash v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-c v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-dockerfile v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-go v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-gotemplate v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-groovy v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-java v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-javascript v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-kotlin v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-markdown v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-markdown-inline v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-python v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-ruby v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-rust v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-terraform v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-tsx v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-typescript v0.4.0 // indirect
+	github.com/msuozzo/bonsai/bonsai-yaml v0.4.0 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect

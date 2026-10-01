@@ -833,6 +833,14 @@ type Pipeline struct {
 	SoundDetectionWindowMs int `yaml:"sound_detection_window_ms,omitempty" json:"sound_detection_window_ms,omitempty"`
 	SoundDetectionHopMs    int `yaml:"sound_detection_hop_ms,omitempty" json:"sound_detection_hop_ms,omitempty"`
 
+	// Diarization asks the transcription model for speaker labels on each
+	// VAD-committed utterance and emits every labelled segment as a
+	// conversation.item.input_audio_transcription.segment event. It needs a
+	// transcription model that diarizes (e.g. parakeet-cpp with a
+	// diarization_model companion); off by default because some backends fail
+	// a diarize request they cannot serve. Speaker labels are per turn.
+	Diarization bool `yaml:"diarization,omitempty" json:"diarization,omitempty"`
+
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
 	// own reasoning_effort. Unset leaves the LLM model config in charge.
@@ -2048,6 +2056,13 @@ const (
 	FLAG_3D           ModelConfigUsecase = 0b100000000000000000000000
 	FLAG_3D_ANIMATION ModelConfigUsecase = 1 << 24
 
+	// Marks a model as a decision model: it answers typed choice / noul /
+	// score questions over a state (served by POST /v1/systemone).
+	// Explicit only, like FLAG_SCORE: a decision model never generates
+	// text, so guessing chat or embeddings for it would surface it in
+	// pickers it cannot serve.
+	FLAG_DECISIONS ModelConfigUsecase = 1 << 25
+
 	// Common Subsets
 	FLAG_LLM ModelConfigUsecase = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
@@ -2110,6 +2125,7 @@ func GetAllModelConfigUsecases() map[string]ModelConfigUsecase {
 		"FLAG_TOKEN_CLASSIFY":       FLAG_TOKEN_CLASSIFY,
 		"FLAG_3D":                   FLAG_3D,
 		"FLAG_3D_ANIMATION":         FLAG_3D_ANIMATION,
+		"FLAG_DECISIONS":            FLAG_DECISIONS,
 	}
 }
 
@@ -2138,9 +2154,9 @@ func GetUsecasesFromYAML(input []string) *ModelConfigUsecase {
 //
 // Declared known_usecases are normally additive — the guessing heuristic
 // still adds whatever it can infer from backend/templates. The exceptions
-// are FLAG_SCORE and FLAG_TOKEN_CLASSIFY: when the operator declared
-// either, they reserved the model for an internal direct-decode primitive
-// (the router classifier, or the PII NER tier). Letting GuessUsecases
+// are FLAG_SCORE, FLAG_TOKEN_CLASSIFY and FLAG_DECISIONS: when the operator
+// declared any of them, they reserved the model for a direct-decode primitive
+// (the router classifier, the PII NER tier, or a decision head). Letting GuessUsecases
 // paint chat/completion/embeddings on top would surface it in pickers it
 // was deliberately kept out of. So a declared score or token_classify
 // list is authoritative; declare the generation usecases explicitly
@@ -2150,7 +2166,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecase) bool {
 		if (u & *c.KnownUsecases) == u {
 			return true
 		}
-		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY)) != 0 {
+		if (*c.KnownUsecases & (FLAG_SCORE | FLAG_TOKEN_CLASSIFY | FLAG_DECISIONS)) != 0 {
 			return false
 		}
 	}
@@ -2370,6 +2386,14 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 		// on llama-cpp, and the model's TOKEN_CLS head isn't useful as
 		// general embeddings), so HasUsecases(FLAG_TOKEN_CLASSIFY) is true
 		// only when KnownUsecases declares it explicitly.
+		return false
+	}
+
+	if (u & FLAG_DECISIONS) == FLAG_DECISIONS {
+		// No heuristic: decisions intent is a deliberate operator choice
+		// (the model is a non-generative decision head), so
+		// HasUsecases(FLAG_DECISIONS) is true only when KnownUsecases
+		// declares it explicitly.
 		return false
 	}
 

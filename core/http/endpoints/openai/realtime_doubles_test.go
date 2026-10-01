@@ -99,6 +99,7 @@ type fakeModel struct {
 	transcribeDeltas []string
 	transcribeFinal  *schema.TranscriptionResult
 	transcribeErr    error
+	lastDiarize      bool // diarize flag of the last Transcribe/TranscribeStream call
 
 	// TranscribeLive scripting: liveErr makes the open fail (degrade path);
 	// liveEvents are delivered to onEvent synchronously at open;
@@ -200,7 +201,8 @@ func (m *fakeModel) VAD(_ context.Context, req *schema.VADRequest) (*schema.VADR
 	return &schema.VADResponse{Segments: m.vadSegments}, nil
 }
 
-func (m *fakeModel) Transcribe(context.Context, string, string, bool, bool, string) (*schema.TranscriptionResult, error) {
+func (m *fakeModel) Transcribe(_ context.Context, _, _ string, _, diarize bool, _ string) (*schema.TranscriptionResult, error) {
+	m.lastDiarize = diarize
 	return m.transcribeFinal, m.transcribeErr
 }
 
@@ -247,7 +249,8 @@ func (m *fakeModel) TTSStream(_ context.Context, _, _, _ string, onAudio func(pc
 	return nil
 }
 
-func (m *fakeModel) TranscribeStream(_ context.Context, _, _ string, _, _ bool, _ string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+func (m *fakeModel) TranscribeStream(_ context.Context, _, _ string, _, diarize bool, _ string, onDelta func(text string)) (*schema.TranscriptionResult, error) {
+	m.lastDiarize = diarize
 	for _, d := range m.transcribeDeltas {
 		onDelta(d)
 	}
