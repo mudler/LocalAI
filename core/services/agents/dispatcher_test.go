@@ -2,6 +2,7 @@ package agents
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -119,4 +120,40 @@ var _ = Describe("NATSDispatcher consuming agent runs", func() {
 		Expect(events[0].EventType).To(Equal("json_message_status"))
 		Expect(events[0].Metadata).To(ContainSubstring("error: agent config not found"))
 	})
+})
+
+// recordingWorkConsumer records what each Consume call asked for, so a spec
+// can pin the limit the production caller chooses rather than what the
+// carrier does with it.
+type recordingWorkConsumer struct {
+	kinds []messaging.WorkKind
+	max   []int
+}
+
+func (c *recordingWorkConsumer) Consume(_ context.Context, kind messaging.WorkKind, maxInFlight int, _ messaging.WorkHandler) (messaging.Subscription, error) {
+	c.kinds = append(c.kinds, kind)
+	c.max = append(c.max, maxInFlight)
+	return noopSubscription{}, nil
+}
+
+type noopSubscription struct{}
+
+func (noopSubscription) Unsubscribe() error { return nil }
+
+var _ = Describe("NATSDispatcher.Start", func() {
+	// The CLI agent worker passes 0, so agent runs are unbounded per worker;
+	// a dispatcher that dropped or replaced its limit would change that.
+	DescribeTable("asks for agent runs with its own concurrency limit",
+		func(maxConcurrent int) {
+			consumer := &recordingWorkConsumer{}
+			d := NewNATSDispatcher(consumer, nil, nil, "", "", maxConcurrent)
+			Expect(d.Start(GinkgoT().Context())).To(Succeed())
+
+			Expect(consumer.kinds).To(Equal([]messaging.WorkKind{messaging.WorkAgentRun}))
+			Expect(consumer.max).To(Equal([]int{maxConcurrent}))
+		},
+		Entry("unbounded", 0),
+		Entry("serial", 1),
+		Entry("bounded", 4),
+	)
 })

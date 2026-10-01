@@ -240,11 +240,7 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	}
 	mcpCIJobTimeout = cmp.Or(mcpCIJobTimeout, config.DefaultMCPCIJobTimeout)
 
-	// maxInFlight 1 keeps MCP CI jobs one at a time per worker, run inline on
-	// the delivery, as they always were.
-	if _, err := work.Consume(shutdownCtx, messaging.WorkMCPCI, 1, func(ctx context.Context, data []byte, events messaging.Publisher) error {
-		return handleMCPCIJob(ctx, data, apiURL, cmd.APIToken, events, mcpCIJobTimeout)
-	}); err != nil {
+	if _, err := startMCPCIConsumer(shutdownCtx, work, apiURL, cmd.APIToken, mcpCIJobTimeout); err != nil {
 		return err
 	}
 
@@ -280,6 +276,14 @@ func (cmd *AgentWorkerCMD) Run(ctx *cliContext.Context) error {
 	mcpTools.CloseAllMCPSessions()
 	regClient.GracefulDeregister(nodeID)
 	return runErr
+}
+
+// startMCPCIConsumer serves MCP CI jobs with maxInFlight 1, which keeps them
+// one at a time per worker, run inline on the delivery, as they always were.
+func startMCPCIConsumer(ctx context.Context, consumer messaging.WorkConsumer, apiURL, apiToken string, jobTimeout time.Duration) (messaging.Subscription, error) {
+	return consumer.Consume(ctx, messaging.WorkMCPCI, 1, func(ctx context.Context, data []byte, events messaging.Publisher) error {
+		return handleMCPCIJob(ctx, data, apiURL, apiToken, events, jobTimeout)
+	})
 }
 
 // agentRPCServer is how the agent worker serves the frontend's MCP requests
