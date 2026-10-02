@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"encoding/json"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
@@ -61,6 +63,22 @@ var _ = Describe("router_factories lazy config resolution", func() {
 		app.backendLoader.RemoveModelConfig(name)
 		Expect(os.Remove(filepath.Join(tmpDir, name+".yaml"))).To(Succeed())
 	}
+
+	Context("DecisionRunner", func() {
+		It("constructs lazily and observes subsequent model removal", func() {
+			runner := app.DecisionRunner("dec-test")
+			Expect(runner).NotTo(BeNil())
+			req := &schema.SystemOneRequest{State: json.RawMessage(`"text"`), Questions: map[string]schema.SystemOneQuestion{"q": {Type: "noul"}}}
+			_, err := runner.Decide(context.Background(), req)
+			Expect(err).To(MatchError(ContainSubstring("no longer available")))
+			writeCfg("dec-test", "vllm-cpp")
+			_, err = runner.Decide(context.Background(), req)
+			Expect(err).To(MatchError(ContainSubstring("explicitly declare")))
+			removeCfg("dec-test")
+			_, err = runner.Decide(context.Background(), req)
+			Expect(err).To(MatchError(ContainSubstring("no longer available")))
+		})
+	})
 
 	Context("Embedder", func() {
 		It("returns nil at construction for an unknown model", func() {
