@@ -23,6 +23,26 @@ GPT and text generation models might have a license which is not permissive for 
 
 ![output](https://github.com/mudler/LocalAI/assets/2420543/7b16676e-d5b1-4c97-89bd-9fa5065c21ad)
 
+## TwIL-LM3-Pro
+
+The gallery includes Q4_K_M and Q8_0 GGUF builds of
+[TwIL-LM3-Pro](https://huggingface.co/webAI-Official/TwIL-LM3-Pro), a 3.66B
+Granite 4.2 fine-tune for formal logic, entailment, semantic parsing, and Lean formalization.
+Both use llama.cpp, the embedded reasoning template, greedy sampling, and a
+32,768-token context by default.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install twil-lm3-pro-q4
+```
+
+To select a specific build, add `--variant twil-lm3-pro-q4` or
+`--variant twil-lm3-pro-q8` to the command.
+Allow at least 2,048 output tokens for reasoning, as recommended by the publisher.
+The [model license](https://huggingface.co/webAI-Official/TwIL-LM3-Pro/blob/4214aaa4020cd51ac418dc6c7243c076665a811d/LICENSE.md)
+permits noncommercial research and educational use only.
+
 ## How it works
 
 Open **Models** in the WebUI. It is the canonical page for a model's complete
