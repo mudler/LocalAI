@@ -466,7 +466,7 @@ func systemOneBindMessage(err error) string {
 // forwarded path never sees parseSystemOneRequest, so without this a malformed
 // question would surface as a backend error instead of a 400.
 func validateSystemOneRequest(req *schema.SystemOneRequest) error {
-	return systemone.ValidateRequest(req)
+	return systemone.ValidateRequestStructure(req)
 }
 
 // backendSupportsScore reports whether the named backend implements the

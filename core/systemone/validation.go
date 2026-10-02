@@ -5,11 +5,12 @@ package systemone
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/schema"
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
 )
 
 const (
@@ -33,12 +34,25 @@ type ValidationError struct {
 
 func (e *ValidationError) Error() string { return e.Err.Error() }
 func (e *ValidationError) Unwrap() error { return e.Err }
-func ValidateRequest(req *schema.SystemOneRequest) error {
+
+// ValidateRequestStructure checks request semantics without re-encoding its
+// fields. HTTP callers bound the original wire bytes before binding; escaping
+// during serialization must not impose a second, different HTTP size limit.
+func ValidateRequestStructure(req *schema.SystemOneRequest) error {
 	if req == nil {
 		return &ValidationError{InvalidRequest, fmt.Errorf("request is required")}
 	}
 	if err := validateRequest(req); err != nil {
 		return &ValidationError{InvalidRequest, err}
+	}
+	return nil
+}
+
+// ValidateRequest additionally bounds the serialized internal transport body.
+// Internal callers have no HTTP reader on which to enforce the wire limit.
+func ValidateRequest(req *schema.SystemOneRequest) error {
+	if err := ValidateRequestStructure(req); err != nil {
+		return err
 	}
 	body, err := json.Marshal(req)
 	if err != nil {
