@@ -198,6 +198,8 @@ image blocks, and per-request usage tokens are dropped through the
 internal `Predict()` signature. Use passthrough mode when your clients need
 the upstream's full feature set.
 
+In translate mode, an Anthropic response with `stop_reason: "refusal"` is returned to the client as an error instead of an empty successful reply, for both non-streaming and streaming requests. A streamed response may already have delivered partial content when the refusal arrives. Responses that end normally (`end_turn`) are unaffected, even when their content is empty.
+
 #### Anthropic prompt caching
 
 `proxy.cache_prompt: true` makes the translator add Anthropic
