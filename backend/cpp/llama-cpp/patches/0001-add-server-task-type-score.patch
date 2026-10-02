@@ -97,7 +97,7 @@ index 3b5f6a1..d0e18e6 100644
          json_schema = json();
 
          task_prev = std::move(task);
-@@ -2271,6 +2302,229 @@ private:
+@@ -2271,6 +2302,227 @@ private:
          queue_results.send(std::move(res));
      }
 
@@ -121,7 +121,7 @@ index 3b5f6a1..d0e18e6 100644
 +    // region can straddle ubatch boundaries for long prompts, so this
 +    // accumulates view by view instead of reading everything when the
 +    // prompt completes.
-+    void collect_score_logprobs(server_slot & slot, const llama_batch & batch) {
++    void collect_score_logprobs(server_slot & slot, const common_batch & batch) {
 +        const int32_t n_prompt = slot.task->n_score_prompt;
 +        const int32_t n_total  = slot.task->n_tokens();
 +        const auto &  suffixes = slot.task->score_suffixes;
@@ -140,14 +140,14 @@ index 3b5f6a1..d0e18e6 100644
 +
 +        const int32_t n_vocab = llama_vocab_n_tokens(vocab);
 +
-+        for (int32_t i = 0; i < batch.n_tokens; ++i) {
-+            if (!batch.logits[i] || batch.seq_id[i][0] != slot.id) {
++        for (int32_t i = 0; i < batch.size(); ++i) {
++            if (!batch.tokens[i].output || batch.tokens[i].seq_id != slot.id) {
 +                continue;
 +            }
 +
 +            // the output at position p predicts the task token at index p + 1;
 +            // score tasks are text-only, so positions equal token indices
-+            const int32_t target = batch.pos[i] + 1;
++            const int32_t target = batch.tokens[i].pos[0] + 1;
 +            if (target < n_prompt || target > n_total) {
 +                continue;
 +            }
@@ -249,7 +249,7 @@ index 3b5f6a1..d0e18e6 100644
 +                next++;
 +            }
 +
-+            llama_batch fb = llama_batch_init(n_tok, 0, 1);
++            common_batch fb(ctx_tgt);
 +
 +            for (size_t k = 0; k < chunk.size(); ++k) {
 +                const llama_seq_id seq = seq_base + (llama_seq_id) k;
@@ -259,11 +259,11 @@ index 3b5f6a1..d0e18e6 100644
 +                llama_memory_seq_cp(mem, slot.id, seq, -1, -1);
 +
 +                for (size_t j = 0; j < sfx.size(); ++j) {
-+                    common_batch_add(fb, sfx[j], pos0 + (llama_pos) j, { seq }, j + 1 < sfx.size());
++                    fb.add(sfx[j], pos0 + (llama_pos) j, seq, j + 1 < sfx.size());
 +                }
 +            }
 +
-+            const int ret = llama_decode(ctx_tgt, fb);
++            const int ret = llama_process(ctx_tgt, LLAMA_PROCESS_TYPE_DECODE, fb.get());
 +
 +            if (ret == 0) {
 +                int32_t i = 0;
@@ -289,8 +289,6 @@ index 3b5f6a1..d0e18e6 100644
 +            for (size_t k = 0; k < chunk.size(); ++k) {
 +                llama_memory_seq_rm(mem, seq_base + (llama_seq_id) k, -1, -1);
 +            }
-+
-+            llama_batch_free(fb);
 +
 +            if (ret != 0) {
 +                SLT_ERR(slot, "score suffix decode failed, ret = %d\n", ret);
@@ -476,7 +474,7 @@ index 3b5f6a1..d0e18e6 100644
 +            // their outputs, not just the one holding the final token
 +            if (slot.task && slot.task->type == SERVER_TASK_TYPE_SCORE &&
 +                (slot.state == SLOT_STATE_PROCESSING_PROMPT || slot.state == SLOT_STATE_DONE_PROMPT)) {
-+                collect_score_logprobs(slot, batch_view);
++                collect_score_logprobs(slot, batch.view);
 +            }
 +
              if (!is_inside_view(slot.i_batch)) {

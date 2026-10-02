@@ -27,7 +27,7 @@ var _ = Describe("audio upload endpoints reject bad uploads as client errors", f
 			return TranscriptEndpoint(nil, nil, config.NewApplicationConfig())
 		}},
 		"diarization": {"/v1/audio/diarization", func() echo.HandlerFunc {
-			return DiarizationEndpoint(nil, nil, config.NewApplicationConfig())
+			return DiarizationEndpoint(nil, nil, config.NewApplicationConfig(), nil)
 		}},
 		"sound classification": {"/v1/audio/classifications", func() echo.HandlerFunc {
 			return SoundClassificationEndpoint(nil, nil, config.NewApplicationConfig())

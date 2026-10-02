@@ -164,6 +164,9 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 		// at a known-unreachable worker, while the distributed registry remains
 		// the source of truth for anything that is still running remotely.
 		store.Delete(s)
+		if wd != nil {
+			wd.Untrack(model.address)
+		}
 		return unloadErr
 	}
 
@@ -310,6 +313,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 
 	if err := grpcControlProcess.Run(); err != nil {
+		ml.untrackProcess(grpcControlProcess)
 		runtime.cleanup()
 		return grpcControlProcess, err
 	}
@@ -366,6 +370,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	// whether the child is alive.
 	go func() {
 		<-grpcControlProcess.Done()
+		ml.untrackProcess(grpcControlProcess)
 		// LoadAndDelete both reads the intentional-stop marker and frees the
 		// map entry so it doesn't accumulate across the process's lifetime.
 		_, intentional := ml.stoppingProcs.LoadAndDelete(grpcControlProcess)
@@ -403,6 +408,7 @@ func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {
 	if process == nil {
 		return
 	}
+	ml.untrackProcess(process)
 	value, ok := ml.processRuntimes.LoadAndDelete(process)
 	if !ok {
 		return
@@ -412,6 +418,18 @@ func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {
 		<-runtime.diagnosticsDone
 		runtime.cleanup()
 	}()
+}
+
+// Use the current watchdog because settings updates can replace it while a
+// backend is running. Match the process identity so a late exit notification
+// cannot remove a replacement that happens to reuse the same address.
+func (ml *ModelLoader) untrackProcess(p *process.Process) {
+	ml.mu.Lock()
+	wd := ml.wd
+	ml.mu.Unlock()
+	if wd != nil {
+		wd.untrackProcess(p)
+	}
 }
 
 // CleanupProcessRuntime releases state and scratch owned by a process started

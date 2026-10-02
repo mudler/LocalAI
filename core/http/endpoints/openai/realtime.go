@@ -35,6 +35,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -841,6 +842,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					application.ModelLoader(),
 					application.ApplicationConfig(),
 					application.FailoverManager(),
+					application.VoiceRegistry(),
 				); err != nil {
 					xlog.Error("failed to update session", "error", err)
 					// The cause is validation feedback on the client's own
@@ -1158,7 +1160,7 @@ func sendTestTone(t Transport) {
 	}
 }
 
-func updateTransSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, fm *failover.Manager) error {
+func updateTransSession(session *Session, update *types.SessionUnion, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, fm *failover.Manager, voices voicerecognition.Registry) error {
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
 
@@ -1186,6 +1188,9 @@ func updateTransSession(session *Session, update *types.SessionUnion, cl *config
 			return err
 		}
 
+		if tm, ok := m.(*transcriptOnlyModel); ok {
+			tm.voiceRegistry = voices
+		}
 		session.ModelInterface = m
 		session.ModelConfig = cfg
 		session.SoundDetectionEnabled = cfg.Pipeline.SoundDetection != ""

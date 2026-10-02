@@ -166,11 +166,14 @@ Each closed speaker segment emits a `conversation.item.input_audio_transcription
   "item_id": "item_abc",
   "content_index": 0,
   "speaker": "0",
+  "speaker_name": "Alice",
   "start": 1.92,
   "end": 4.10,
   "text": ""
 }
 ```
+
+`speaker_name` is the name of a voice registered through `/v1/voice/register`, and is present only when the model has a `speaker_model:` and the speaker was identified. A segment that closes before its speaker is identified has none, and later segments of the same speaker do. See [Voice Recognition]({{% relref "voice-recognition" %}}#naming-speakers-in-diarization-and-live-transcription). The segments of the offline path below carry no `speaker_name`.
 
 Each sound event emits a `conversation.item.sound_detection` event with one tag and the detection window's `start`/`end`:
 

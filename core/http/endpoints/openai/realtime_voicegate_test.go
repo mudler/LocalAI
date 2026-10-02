@@ -116,6 +116,9 @@ func (f *fakeRegistry) Identify(ctx context.Context, probe []float32, topK int) 
 	return f.matches, f.err
 }
 func (f *fakeRegistry) Forget(ctx context.Context, id string) error { return nil }
+func (f *fakeRegistry) List(ctx context.Context) ([]voicerecognition.Entry, error) {
+	return nil, nil
+}
 
 var _ = Describe("voiceGate identify mode", func() {
 	stubEmbed := func(emb []float32, err error) func(context.Context, string) ([]float32, error) {

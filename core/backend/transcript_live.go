@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/trace"
 	grpcPkg "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -40,8 +41,11 @@ type LiveTranscriptionEvent struct {
 // are stream-relative seconds (mapped from the backend's nanoseconds).
 type LiveSpeakerSegment struct {
 	Speaker string
-	Start   float64
-	End     float64
+	// Name is the registered speaker name the backend matched, empty when the
+	// speaker is unknown.
+	Name  string
+	Start float64
+	End   float64
 }
 
 // LiveSoundEvent is one closed sound event from a companion sound/scene
@@ -222,6 +226,28 @@ func (ts *liveTraceState) record(closeErr error) {
 	trace.RecordBackendTrace(bt)
 }
 
+// LiveOption tunes a live transcription session.
+type LiveOption func(*liveOptions)
+
+type liveOptions struct {
+	knownVoices []voicerecognition.KnownVoice
+}
+
+// WithKnownVoices gives the backend the registered voices it may use to name
+// the speakers it detects. Backends without speaker identification ignore them.
+func WithKnownVoices(v []voicerecognition.KnownVoice) LiveOption {
+	return func(o *liveOptions) { o.knownVoices = v }
+}
+
+// liveConfigProto builds the first message of a live session.
+func liveConfigProto(language string, o liveOptions) *proto.TranscriptLiveConfig {
+	cfg := &proto.TranscriptLiveConfig{Language: language, SampleRate: liveSampleRate}
+	for _, v := range o.knownVoices {
+		cfg.KnownVoices = append(cfg.KnownVoices, &proto.KnownVoice{Id: v.ID, Name: v.Name, Embedding: v.Embedding, Model: v.Model})
+	}
+	return cfg
+}
+
 // ModelTranscriptionLive loads the transcription backend, opens the
 // bidirectional AudioTranscriptionLive RPC, sends the session config, and
 // BLOCKS until the backend's ready ack. A grpcerrors.
@@ -232,12 +258,18 @@ func (ts *liveTraceState) record(closeErr error) {
 // the backend streams, ending with the Final event triggered by Close.
 func ModelTranscriptionLive(ctx context.Context, language string,
 	ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig,
-	onEvent func(LiveTranscriptionEvent)) (LiveTranscriptionSession, error) {
+	onEvent func(LiveTranscriptionEvent), opts ...LiveOption) (LiveTranscriptionSession, error) {
+
+	lo := liveOptions{}
+	for _, f := range opts {
+		f(&lo)
+	}
 
 	transcriptionModel, err := loadTranscriptionModel(ctx, ml, modelConfig, appConfig)
 	if err != nil {
 		return nil, err
 	}
+	lo.knownVoices = compatiblePortableVoices(ctx, transcriptionModel, lo.knownVoices)
 	release, err := AcquireGlobalBackendSlot()
 	if err != nil {
 		return nil, err
@@ -262,10 +294,7 @@ func ModelTranscriptionLive(ctx context.Context, language string,
 	}
 
 	if err := stream.Send(&proto.TranscriptLiveRequest{
-		Payload: &proto.TranscriptLiveRequest_Config{Config: &proto.TranscriptLiveConfig{
-			Language:   language,
-			SampleRate: liveSampleRate,
-		}},
+		Payload: &proto.TranscriptLiveRequest_Config{Config: liveConfigProto(language, lo)},
 	}); err != nil {
 		return fail(err)
 	}
@@ -329,6 +358,7 @@ func liveEventFromProto(r *proto.TranscriptLiveResponse) LiveTranscriptionEvent 
 	for _, s := range r.GetSpeakers() {
 		ev.Speakers = append(ev.Speakers, LiveSpeakerSegment{
 			Speaker: s.GetSpeaker(),
+			Name:    s.GetName(),
 			Start:   time.Duration(s.GetStart()).Seconds(),
 			End:     time.Duration(s.GetEnd()).Seconds(),
 		})

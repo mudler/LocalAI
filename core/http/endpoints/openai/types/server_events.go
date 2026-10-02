@@ -595,6 +595,10 @@ type ConversationItemInputAudioTranscriptionSegmentEvent struct {
 	// The speaker label for the segment, if available.
 	Speaker string `json:"speaker,omitempty"`
 
+	// The registered name of the speaker, when the backend recognised a
+	// voice registered through /v1/voice/register.
+	SpeakerName string `json:"speaker_name,omitempty"`
+
 	// The start time of the segment in seconds. Always present (not
 	// omitempty: a segment starting at 0.0s must still carry "start").
 	Start float64 `json:"start"`

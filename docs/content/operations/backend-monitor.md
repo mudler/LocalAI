@@ -123,6 +123,8 @@ curl -X POST http://localhost:8080/backend/shutdown \
 
 Returns `200 OK` with the shutdown confirmation message on success.
 
+Stopping a backend removes its watchdog timers and eviction state. A timeout from a stopped backend does not shut down a replacement at a different address.
+
 ## Error Responses
 
 | Status Code | Description                                    |

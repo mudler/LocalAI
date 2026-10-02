@@ -47,7 +47,13 @@ func liveStubs() (restore func()) {
 	savedSceneFeedJSON := CppSceneStreamFeedJSON
 	savedSceneLastError := CppSceneStreamLastError
 	savedSceneFree := CppSceneStreamFree
+	savedSceneBeginSpk := CppSceneStreamBeginSpeaker
+	savedRegNew, savedRegFree := CppSpeakerRegistryNew, CppSpeakerRegistryFree
+	savedRegAdd, savedSpkDim := CppSpeakerRegistryAddEmbedding, CppSpeakerDim
 	return func() {
+		CppSceneStreamBeginSpeaker = savedSceneBeginSpk
+		CppSpeakerRegistryNew, CppSpeakerRegistryFree = savedRegNew, savedRegFree
+		CppSpeakerRegistryAddEmbedding, CppSpeakerDim = savedRegAdd, savedSpkDim
 		CppStreamBegin, CppStreamBeginLang = savedBegin, savedBeginLang
 		CppStreamFeed, CppStreamFeedJSON = savedFeed, savedFeedJSON
 		CppStreamFinalize, CppStreamFinalizeJSON = savedFinalize, savedFinalizeJSON
@@ -600,7 +606,7 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 			return pool.cstr(`{"speakers":[],"sounds":[]}`)
 		}
 
-		h := p.sceneBegin()
+		h := p.sceneBegin(nil)
 		Expect(h.s).NotTo(BeZero())
 
 		// Simulate a Free() racing in between the begin and the next feed: it
@@ -669,6 +675,142 @@ var _ = Describe("AudioTranscriptionLive scene events (stubbed C API)", func() {
 		got := collectLive(out)
 		Expect(got).To(HaveLen(2)) // ready, final only: no scene events, no ASR delta this stub sends
 		Expect(sceneFeedCalled).To(BeFalse(), "no feed call once begin failed")
+	})
+})
+
+var _ = Describe("AudioTranscriptionLive named speakers (stubbed C API)", func() {
+	var (
+		pool    *liveCstrPool
+		restore func()
+		p       *ParakeetCpp
+		regs    []uintptr
+		plain   int
+		spkBeg  int
+		gotReg  uintptr
+		order   []string
+	)
+
+	liveVoicesConfig := func(voices ...*pb.KnownVoice) *pb.TranscriptLiveRequest {
+		return &pb.TranscriptLiveRequest{
+			Payload: &pb.TranscriptLiveRequest_Config{Config: &pb.TranscriptLiveConfig{KnownVoices: voices}},
+		}
+	}
+	ada := &pb.KnownVoice{Name: "Ada", Embedding: []float32{1, 0}}
+
+	BeforeEach(func() {
+		pool = &liveCstrPool{}
+		restore = liveStubs()
+		p = &ParakeetCpp{ctxPtr: 1, diarCtx: 2, spkCtx: 3, speakerAccept: 0.7, speakerMargin: 0.05}
+		regs, plain, spkBeg, gotReg, order = nil, 0, 0, 0, nil
+
+		CppStreamBeginLang = nil
+		CppStreamBegin = func(ctx uintptr) uintptr { return 7 }
+		CppStreamFree = func(s uintptr) {}
+		CppFreeString = func(s uintptr) {}
+		CppLastError = func(ctx uintptr) string { return "stub error" }
+		CppStreamFeed = nil
+		CppStreamFeedJSON = func(s uintptr, pcm []float32, n int32) uintptr {
+			return pool.cstr(`{"text":"","eou":0,"frame_sec":0.08,"words":[]}`)
+		}
+		CppStreamFinalize = nil
+		CppStreamFinalizeJSON = func(s uintptr) uintptr {
+			return pool.cstr(`{"text":"","eou":0,"frame_sec":0.08,"words":[]}`)
+		}
+
+		CppSceneOptsDefault = func(o *cSceneOpts) { *o = cSceneOpts{} }
+		CppSceneStreamBegin = func(asr, diar, tagger uintptr, o *cSceneOpts) uintptr { plain++; return 100 }
+		CppSceneStreamBeginSpeaker = func(asr, diar, tag, spk, reg uintptr, o *cSceneOpts) uintptr {
+			spkBeg++
+			gotReg = reg
+			return 200
+		}
+		CppSceneStreamFeedJSON = func(s uintptr, pcm *float32, n int32, isLast int32) uintptr {
+			return pool.cstr(`{"speakers":[{"speaker":0,"start":0.1,"end":0.6}],"sounds":[],` +
+				`"names":{"0":{"name":"Ada","score":0.9}}}`)
+		}
+		CppSceneStreamLastError = func(s uintptr) string { return "" }
+		CppSceneStreamFree = func(s uintptr) { order = append(order, "stream") }
+		CppSpeakerDim = func(uintptr) int32 { return 2 }
+		CppSpeakerRegistryNew = func() uintptr { return 9 }
+		CppSpeakerRegistryAddEmbedding = func(uintptr, string, *float32, int32) int32 { return 0 }
+		CppSpeakerRegistryFree = func(r uintptr) { regs = append(regs, r); order = append(order, "registry") }
+	})
+
+	AfterEach(func() { restore() })
+
+	It("begins a speaker scene stream and emits the slot name on the closed segment", func() {
+		in, out, errCh := runLive(p)
+		in <- liveVoicesConfig(ada)
+		in <- liveAudio(make([]float32, 10))
+		close(in)
+		Expect(<-errCh).NotTo(HaveOccurred())
+
+		got := collectLive(out)
+		Expect(spkBeg).To(Equal(1))
+		Expect(plain).To(Equal(0))
+		Expect(gotReg).To(Equal(uintptr(9)))
+		var named *pb.LiveSpeakerSegment
+		for _, r := range got {
+			if len(r.Speakers) > 0 {
+				named = r.Speakers[0]
+			}
+		}
+		Expect(named).NotTo(BeNil())
+		Expect(named.Speaker).To(Equal("0"))
+		Expect(named.Name).To(Equal("Ada"))
+		Expect(regs).To(Equal([]uintptr{9}), "the registry is freed once when the session ends")
+		Expect(order).To(Equal([]string{"stream", "registry"}))
+	})
+
+	It("uses the plain scene begin and emits empty names without known voices", func() {
+		CppSceneStreamFeedJSON = func(s uintptr, pcm *float32, n int32, isLast int32) uintptr {
+			return pool.cstr(`{"speakers":[{"speaker":0,"start":0.1,"end":0.6}],"sounds":[]}`)
+		}
+		in, out, errCh := runLive(p)
+		in <- liveConfig("")
+		in <- liveAudio(make([]float32, 10))
+		close(in)
+		Expect(<-errCh).NotTo(HaveOccurred())
+
+		got := collectLive(out)
+		Expect(plain).To(Equal(1))
+		Expect(spkBeg).To(Equal(0))
+		Expect(regs).To(BeEmpty())
+		found := false
+		for _, r := range got {
+			for _, s := range r.Speakers {
+				found = true
+				Expect(s.Name).To(BeEmpty())
+			}
+		}
+		Expect(found).To(BeTrue())
+	})
+
+	It("names the restarted scene stream after a config reset and frees every registry once", func() {
+		in, out, errCh := runLive(p)
+		in <- liveVoicesConfig(ada)
+		in <- liveAudio(make([]float32, 10))
+		in <- liveVoicesConfig(ada) // reset
+		in <- liveAudio(make([]float32, 10))
+		close(in)
+		Expect(<-errCh).NotTo(HaveOccurred())
+		collectLive(out)
+
+		Expect(spkBeg).To(Equal(2))
+		Expect(regs).To(HaveLen(2), "one registry per scene stream, each freed exactly once")
+	})
+
+	It("frees the registry once when a feed failure disables the scene stream", func() {
+		CppSceneStreamFeedJSON = func(s uintptr, pcm *float32, n int32, isLast int32) uintptr { return 0 }
+		in, out, errCh := runLive(p)
+		in <- liveVoicesConfig(ada)
+		in <- liveAudio(make([]float32, 10))
+		in <- liveAudio(make([]float32, 10))
+		close(in)
+		Expect(<-errCh).NotTo(HaveOccurred())
+		collectLive(out)
+
+		Expect(regs).To(Equal([]uintptr{9}))
 	})
 })
 

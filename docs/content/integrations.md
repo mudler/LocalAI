@@ -74,9 +74,9 @@ availability may lag upstream releases.
 
 ### Chat Bots
 
-- [Discord bot](https://github.com/mudler/LocalAGI/tree/main/examples/discord)
-- [Slack bot](https://github.com/mudler/LocalAGI/tree/main/examples/slack)
-- [Telegram bot](https://github.com/mudler/LocalAI/tree/master/examples/telegram-bot)
+- [Discord bot](https://github.com/mudler/LocalAI-examples/tree/main/discord-bot)
+- [Slack bot](https://github.com/mudler/LocalAI-examples/tree/main/slack-bot)
+- [Telegram bot](https://github.com/mudler/LocalAI-examples/tree/main/telegram-bot)
 - [Hellper (Telegram)](https://github.com/JackBekket/Hellper)
 
 ### Home Automation

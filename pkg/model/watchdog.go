@@ -468,6 +468,7 @@ type modelUsageInfo struct {
 // opted into forceEvictionWhenBusy — either way, waiting for the graceful
 // deadline would defeat prompt eviction.
 type evictionTarget struct {
+	address string
 	model   string
 	wasBusy bool
 }
@@ -575,7 +576,7 @@ func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvi
 			continue
 		}
 		xlog.Info("[WatchDog] evicting model", "model", m.model, "busy", isBusy)
-		evicted = append(evicted, evictionTarget{model: m.model, wasBusy: isBusy})
+		evicted = append(evicted, evictionTarget{address: m.address, model: m.model, wasBusy: isBusy})
 		wd.untrack(m.address)
 	}
 	return evicted, skippedBusy
@@ -586,17 +587,27 @@ func (wd *WatchDog) collectEvictionsLocked(candidates []modelUsageInfo, maxToEvi
 // the graceful shutdown deadline.
 func (wd *WatchDog) shutdownEvicted(targets []evictionTarget, label string) {
 	for _, t := range targets {
-		var err error
-		if t.wasBusy {
-			err = wd.pm.ShutdownModelForce(t.model)
-		} else {
-			err = wd.pm.ShutdownModel(t.model)
-		}
+		err := wd.shutdownTarget(t)
 		if err != nil {
 			xlog.Error("[WatchDog] error shutting down model during "+label, "error", err, "model", t.model, "busy", t.wasBusy)
 		}
 		xlog.Debug("[WatchDog] "+label+" complete", "model", t.model, "busy", t.wasBusy)
 	}
+}
+
+// shutdownTarget retains the address selected under the watchdog lock. The
+// loader checks it under its per-model lifecycle lock so a queued eviction
+// cannot stop a backend loaded after the original target exited.
+func (wd *WatchDog) shutdownTarget(t evictionTarget) error {
+	if pm, ok := wd.pm.(interface {
+		ShutdownModelAtAddress(string, string, bool) error
+	}); ok {
+		return pm.ShutdownModelAtAddress(t.model, t.address, t.wasBusy)
+	}
+	if t.wasBusy {
+		return wd.pm.ShutdownModelForce(t.model)
+	}
+	return wd.pm.ShutdownModel(t.model)
 }
 
 // EnforceGroupExclusivity evicts every loaded model that shares at least one
@@ -713,7 +724,7 @@ func (wd *WatchDog) checkIdle() {
 	xlog.Debug("[WatchDog] Watchdog checks for idle connections")
 
 	// Collect models to shutdown while holding the lock
-	var modelsToShutdown []string
+	var modelsToShutdown []evictionTarget
 	for address, t := range wd.idleTime {
 		xlog.Debug("[WatchDog] idle connection", "address", address)
 		if time.Since(t) > wd.idletimeout {
@@ -723,8 +734,8 @@ func (wd *WatchDog) checkIdle() {
 					xlog.Debug("[WatchDog] Skipping idle eviction for pinned model", "model", model)
 					continue
 				}
-				xlog.Warn("[WatchDog] Address is idle for too long, killing it", "address", address)
-				modelsToShutdown = append(modelsToShutdown, model)
+				xlog.Warn("[WatchDog] Address is idle for too long, killing it", "address", address, "model", model)
+				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address})
 			} else {
 				xlog.Warn("[WatchDog] Address unresolvable", "address", address)
 			}
@@ -733,13 +744,7 @@ func (wd *WatchDog) checkIdle() {
 	}
 	wd.Unlock()
 
-	// Now shutdown models without holding the watchdog lock to prevent deadlock
-	for _, model := range modelsToShutdown {
-		if err := wd.pm.ShutdownModel(model); err != nil {
-			xlog.Error("[watchdog] error shutting down model", "error", err, "model", model)
-		}
-		xlog.Debug("[WatchDog] model shut down", "model", model)
-	}
+	wd.shutdownEvicted(modelsToShutdown, "idle timeout")
 }
 
 func (wd *WatchDog) checkBusy() {
@@ -747,7 +752,7 @@ func (wd *WatchDog) checkBusy() {
 	xlog.Debug("[WatchDog] Watchdog checks for busy connections")
 
 	// Collect models to shutdown while holding the lock
-	var modelsToShutdown []string
+	var modelsToShutdown []evictionTarget
 	for address, t := range wd.busyTime {
 		xlog.Debug("[WatchDog] active connection", "address", address)
 
@@ -755,7 +760,7 @@ func (wd *WatchDog) checkBusy() {
 			model, ok := wd.addressModelMap[address]
 			if ok {
 				xlog.Warn("[WatchDog] Model is busy for too long, killing it", "model", model)
-				modelsToShutdown = append(modelsToShutdown, model)
+				modelsToShutdown = append(modelsToShutdown, evictionTarget{model: model, address: address, wasBusy: true})
 			} else {
 				xlog.Warn("[WatchDog] Address unresolvable", "address", address)
 			}
@@ -764,16 +769,7 @@ func (wd *WatchDog) checkBusy() {
 	}
 	wd.Unlock()
 
-	// The busy-killer targets backends whose in-flight gRPC call has been
-	// stuck past the busy timeout. Use the force path so the loader stops
-	// the process FIRST (dropping the stuck call's gRPC connection) instead
-	// of waiting for the graceful shutdown deadline.
-	for _, model := range modelsToShutdown {
-		if err := wd.pm.ShutdownModelForce(model); err != nil {
-			xlog.Error("[watchdog] error shutting down model", "error", err, "model", model)
-		}
-		xlog.Debug("[WatchDog] busy model shut down", "model", model)
-	}
+	wd.shutdownEvicted(modelsToShutdown, "busy timeout")
 }
 
 // checkMemory monitors memory usage (GPU VRAM if available, otherwise RAM) and evicts backends when usage exceeds threshold
@@ -896,11 +892,7 @@ func (wd *WatchDog) evictLRUModel() {
 	wd.Unlock()
 
 	// Shutdown the model
-	shutdown := wd.pm.ShutdownModel
-	if wasBusy {
-		shutdown = wd.pm.ShutdownModelForce
-	}
-	if err := shutdown(lruModel.model); err != nil && !errors.Is(err, ErrModelNotFound) {
+	if err := wd.shutdownTarget(evictionTarget{model: lruModel.model, address: lruModel.address, wasBusy: wasBusy}); err != nil && !errors.Is(err, ErrModelNotFound) {
 		xlog.Error("[WatchDog] error shutting down model during memory reclamation", "error", err, "model", lruModel.model)
 	} else {
 		// Untrack the model
@@ -913,7 +905,18 @@ func (wd *WatchDog) evictLRUModel() {
 
 func (wd *WatchDog) untrack(address string) {
 	if modelID, ok := wd.addressModelMap[address]; ok {
-		delete(wd.modelSizes, modelID)
+		// A stale address can coexist with the replacement's registration.
+		// Its cleanup must not erase the replacement's size estimate.
+		otherAddress := false
+		for addr, name := range wd.addressModelMap {
+			if addr != address && name == modelID {
+				otherAddress = true
+				break
+			}
+		}
+		if !otherAddress {
+			delete(wd.modelSizes, modelID)
+		}
 	}
 	delete(wd.busyTime, address)
 	delete(wd.inFlight, address)
@@ -923,4 +926,21 @@ func (wd *WatchDog) untrack(address string) {
 	delete(wd.lastUsed, address)
 	delete(wd.addressModelMap, address)
 	delete(wd.addressMap, address)
+}
+
+// Untrack removes request and eviction state after a backend is removed.
+func (wd *WatchDog) Untrack(address string) {
+	wd.Lock()
+	defer wd.Unlock()
+	wd.untrack(address)
+}
+
+func (wd *WatchDog) untrackProcess(p *process.Process) {
+	wd.Lock()
+	defer wd.Unlock()
+	for address, tracked := range wd.addressMap {
+		if tracked == p {
+			wd.untrack(address)
+		}
+	}
 }

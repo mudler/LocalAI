@@ -39,6 +39,11 @@ type sceneSoundJSON struct {
 type sceneFeedJSON struct {
 	Speakers []sceneSpeakerJSON `json:"speakers"`
 	Sounds   []sceneSoundJSON   `json:"sounds"`
+	// Names is the CURRENT name of each speaker slot (keyed by the slot
+	// index as a string) at the time of this feed. Each closed segment takes
+	// its slot's current name, so a segment that closes before its slot is
+	// identified carries an empty name. Absent without a speaker model.
+	Names map[string]speakerNameJSON `json:"names"`
 }
 
 // sceneWanted reports whether AudioTranscriptionLive should run a companion
@@ -62,10 +67,17 @@ func (p *ParakeetCpp) sceneWanted() bool {
 // caught instead of handed to the C side — mirroring streamFeedDoc's re-check
 // of p.ctxPtr (see the "Per-C-call engine serialization" comment in
 // goparakeetcpp.go). The zero value (s == 0) means "no scene stream".
+//
+// spk and reg are the speaker model and the known-voice registry of a
+// speaker-named stream (0 for a plain one). The stream borrows both: sceneFree
+// frees the stream first and then the registry, which this handle owns.
 type sceneStreamHandle struct {
-	s    uintptr
-	diar uintptr
-	tag  uintptr
+	names map[string]string
+	s     uintptr
+	diar  uintptr
+	tag   uintptr
+	spk   uintptr
+	reg   uintptr
 }
 
 // sceneBegin opens a no-ASR scene stream (diarization and/or sound events
@@ -74,7 +86,7 @@ type sceneStreamHandle struct {
 // contexts 0 (defensive: sceneWanted() already guards this). A zero handle
 // means the C call itself failed; the caller logs a warning and continues
 // the live session without speaker/sound events.
-func (p *ParakeetCpp) sceneBegin() sceneStreamHandle {
+func (p *ParakeetCpp) sceneBegin(voices []*pb.KnownVoice) sceneStreamHandle {
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
 	diar, tag := p.diarCtx, p.tagCtx
@@ -90,6 +102,29 @@ func (p *ParakeetCpp) sceneBegin() sceneStreamHandle {
 	// whole lifetime. 0 disables per-class score retention; sound EVENTS
 	// (onset/offset, what the live path actually consumes) are unaffected.
 	opts.Sound.TopK = 0
+
+	// With a speaker model and at least one usable known voice the stream
+	// names speakers through a registry it borrows. engineMu is already
+	// held, so use the Locked builder. Any failure keeps the plain stream.
+	var reg uintptr
+	if diar != 0 && p.spkCtx != 0 && CppSceneStreamBeginSpeaker != nil {
+		r, err := p.buildSpeakerRegistryLocked(voices)
+		if err != nil {
+			xlog.Warn("parakeet-cpp: could not build the speaker registry for a live session; speakers stay unnamed", "err", err)
+		} else {
+			reg = r
+		}
+	}
+	if reg != 0 {
+		opts.SpeakerAcceptThreshold = p.speakerAccept
+		opts.SpeakerMargin = p.speakerMargin
+		s := CppSceneStreamBeginSpeaker(0, diar, tag, p.spkCtx, reg, &opts)
+		if s == 0 {
+			p.freeSpeakerRegistry(reg)
+			return sceneStreamHandle{}
+		}
+		return sceneStreamHandle{s: s, diar: diar, tag: tag, spk: p.spkCtx, reg: reg, names: voiceNames(voices)}
+	}
 	s := CppSceneStreamBegin(0, diar, tag, &opts)
 	if s == 0 {
 		return sceneStreamHandle{}
@@ -111,6 +146,8 @@ func (p *ParakeetCpp) sceneFree(h sceneStreamHandle) {
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
 	CppSceneStreamFree(h.s)
+	// The stream borrowed the registry: free it only after the stream.
+	p.freeSpeakerRegistry(h.reg)
 }
 
 // sceneFeed runs one scene-stream feed (or the is_last flush) under
@@ -126,7 +163,9 @@ func (p *ParakeetCpp) sceneFeed(h sceneStreamHandle, pcm []float32, isLast bool)
 	p.engineMu.Lock()
 	defer p.engineMu.Unlock()
 
-	if p.diarCtx != h.diar || p.tagCtx != h.tag {
+	if p.diarCtx != h.diar || p.tagCtx != h.tag || (h.spk != 0 && p.spkCtx != h.spk) {
+		// A plain stream (h.spk == 0) never borrows the speaker model, so a
+		// speaker model loaded or freed meanwhile does not concern it.
 		return sceneFeedJSON{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
 	}
 
@@ -155,6 +194,7 @@ func (p *ParakeetCpp) sceneFeed(h sceneStreamHandle, pcm []float32, isLast bool)
 	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
 		return sceneFeedJSON{}, fmt.Errorf("parakeet-cpp: decode scene json: %w", err)
 	}
+	translateNames(doc.Names, h.names)
 	return doc, nil
 }
 
@@ -223,14 +263,19 @@ func (p *ParakeetCpp) feedSlicesScene(ctx context.Context, stream uintptr, scene
 // TranscriptLiveResponse.speakers (stream-relative nanoseconds). Reuses
 // diarize.go's speakerLabel so the live path renders speaker indices the
 // same way the offline Diarize RPC does.
-func liveSpeakersToProto(speakers []sceneSpeakerJSON) []*pb.LiveSpeakerSegment {
+//
+// names is the feed document's "names" map; each segment takes its slot's
+// current name, empty if the slot was not yet identified when it closed.
+func liveSpeakersToProto(speakers []sceneSpeakerJSON, names map[string]speakerNameJSON) []*pb.LiveSpeakerSegment {
 	if len(speakers) == 0 {
 		return nil
 	}
 	out := make([]*pb.LiveSpeakerSegment, len(speakers))
 	for i, s := range speakers {
+		name, _ := nameFor(names, s.Speaker)
 		out[i] = &pb.LiveSpeakerSegment{
 			Speaker: speakerLabel(s.Speaker),
+			Name:    name,
 			Start:   secondsToNanos(s.Start),
 			End:     secondsToNanos(s.End),
 		}

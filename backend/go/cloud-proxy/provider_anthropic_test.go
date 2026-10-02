@@ -387,3 +387,72 @@ func TestPredict_Anthropic_PromptCache(t *testing.T) {
 	g.Expect(off).NotTo(ContainSubstring("cache_control"))
 	g.Expect(off).To(ContainSubstring(`"system":"be brief"`))
 }
+
+// A refusal must not look like an empty, successful completion.
+func TestPredict_Anthropic_RefusalIsAnError(t *testing.T) {
+	g := NewWithT(t)
+	srv, _ := fakeAnthropicUpstream(t, func(_ anthropicRequest) (int, string, string) {
+		return 200, `{"type":"message","role":"assistant","content":[],"stop_reason":"refusal","usage":{"input_tokens":9,"output_tokens":0}}`, "application/json"
+	})
+	defer srv.Close()
+	cp := newAnthropicTranslateCloudProxy(t, srv.URL)
+
+	_, err := cp.Predict(&pb.PredictOptions{Messages: []*pb.Message{{Role: "user", Content: "x"}}, Tokens: 16})
+	g.Expect(err).To(MatchError(errAnthropicRefusal))
+}
+
+// Counter-check: an empty end_turn reply stays a normal, successful reply.
+func TestPredict_Anthropic_EmptyEndTurnIsNotAnError(t *testing.T) {
+	g := NewWithT(t)
+	srv, _ := fakeAnthropicUpstream(t, func(_ anthropicRequest) (int, string, string) {
+		return 200, `{"type":"message","role":"assistant","content":[],"stop_reason":"end_turn"}`, "application/json"
+	})
+	defer srv.Close()
+	cp := newAnthropicTranslateCloudProxy(t, srv.URL)
+
+	got, err := cp.Predict(&pb.PredictOptions{Messages: []*pb.Message{{Role: "user", Content: "x"}}, Tokens: 16})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(got).To(Equal(""))
+}
+
+func streamAnthropic(t *testing.T, frames []string) ([]string, error) {
+	t.Helper()
+	srv, _ := fakeAnthropicUpstream(t, func(_ anthropicRequest) (int, string, string) {
+		return 200, strings.Join(frames, ""), "text/event-stream"
+	})
+	defer srv.Close()
+	cp := newAnthropicTranslateCloudProxy(t, srv.URL)
+	results := make(chan string, 8)
+	done := make(chan error, 1)
+	go func() {
+		done <- cp.PredictStream(&pb.PredictOptions{Messages: []*pb.Message{{Role: "user", Content: "hi"}}, Tokens: 16}, results)
+	}()
+	var got []string
+	for s := range results {
+		got = append(got, s)
+	}
+	return got, <-done
+}
+
+func TestPredictStream_Anthropic_RefusalIsAnError(t *testing.T) {
+	g := NewWithT(t)
+	_, err := streamAnthropic(t, []string{
+		"event: message_start\ndata: {\"type\":\"message_start\"}\n\n",
+		"event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"refusal\"},\"usage\":{\"output_tokens\":0}}\n\n",
+		"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+	})
+	g.Expect(err).To(MatchError(errAnthropicRefusal))
+}
+
+// Counter-check: a regular stream ending with stop_reason end_turn succeeds.
+func TestPredictStream_Anthropic_EndTurnIsNotAnError(t *testing.T) {
+	g := NewWithT(t)
+	got, err := streamAnthropic(t, []string{
+		"event: message_start\ndata: {\"type\":\"message_start\"}\n\n",
+		"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\n\n",
+		"event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\n",
+		"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+	})
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(strings.Join(got, "")).To(Equal("ok"))
+}

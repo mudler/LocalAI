@@ -41,11 +41,11 @@ type storeRegistry struct {
 	dim       int
 
 	// TODO(postgres): the local-store gRPC surface keys by embedding
-	// vector and exposes no "list all" method, so we cannot delete by
-	// ID without remembering the embedding. This in-memory index is
-	// rebuilt on every Register and lost on restart — acceptable while
-	// the only implementation is itself in-memory.
-	idIndex sync.Map // map[string][]float32
+	// vector and exposes no "list all" method, so we cannot delete by ID
+	// or list voices without remembering them. This in-memory index holds
+	// every registration with its metadata. It is rebuilt on every Register
+	// and lost on restart, which matches the lifetime of the in-memory store.
+	idIndex sync.Map // map[string]Entry
 }
 
 func (r *storeRegistry) Register(ctx context.Context, embedding []float32, meta Metadata) (Metadata, error) {
@@ -76,7 +76,7 @@ func (r *storeRegistry) Register(ctx context.Context, embedding []float32, meta 
 	}
 
 	embCopy := append([]float32(nil), embedding...)
-	r.idIndex.Store(meta.ID, embCopy)
+	r.idIndex.Store(meta.ID, Entry{Metadata: meta, Embedding: embCopy})
 	return meta, nil
 }
 
@@ -124,7 +124,7 @@ func (r *storeRegistry) Forget(ctx context.Context, id string) error {
 	if !ok {
 		return ErrNotFound
 	}
-	embedding := raw.([]float32)
+	embedding := raw.(Entry).Embedding
 
 	backend, err := r.resolve(ctx, r.storeName)
 	if err != nil {
@@ -135,4 +135,21 @@ func (r *storeRegistry) Forget(ctx context.Context, id string) error {
 	}
 	r.idIndex.Delete(id)
 	return nil
+}
+
+func (r *storeRegistry) List(ctx context.Context) ([]Entry, error) {
+	var out []Entry
+	r.idIndex.Range(func(_, v any) bool {
+		e := v.(Entry)
+		e.Embedding = append([]float32(nil), e.Embedding...)
+		out = append(out, e)
+		return true
+	})
+	sort.SliceStable(out, func(i, j int) bool {
+		if !out[i].Metadata.RegisteredAt.Equal(out[j].Metadata.RegisteredAt) {
+			return out[i].Metadata.RegisteredAt.Before(out[j].Metadata.RegisteredAt)
+		}
+		return out[i].Metadata.ID < out[j].Metadata.ID
+	})
+	return out, nil
 }
