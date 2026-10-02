@@ -126,6 +126,11 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_compile_features(thread_params_test PRIVATE cxx_std_17)
     add_test(NAME thread_params_test COMMAND thread_params_test)
 
+    add_executable(parallel_params_test parallel_params_test.cpp parallel_params.h)
+    target_include_directories(parallel_params_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(parallel_params_test PRIVATE cxx_std_17)
+    add_test(NAME parallel_params_test COMMAND parallel_params_test)
+
     add_executable(model_load_error_test model_load_error_test.cpp model_load_error.h)
     target_include_directories(model_load_error_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(model_load_error_test PRIVATE cxx_std_17)
