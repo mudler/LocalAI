@@ -89,8 +89,8 @@
       sha256: ad5811e291431bd0de1cec0c4004a5eac98daee9850882edac69a823209e88ab
       uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/Swift-Qwen3.8-27B-Q4_K_M.gguf
     - filename: llama-cpp/mmproj/Swift-Qwen3.8-27B-Q4_K_M/mmproj-Swift-Qwen3.8-27B-F16.gguf
-      sha256: daa1116c9422fa390cc8688495da0e91781f92841dfc3b31a378ff252571745a
       uri: https://huggingface.co/ukisai/Swift-Qwen3.8-27B-GGUF/resolve/main/mmproj-Swift-Qwen3.8-27B-F16.gguf
+      sha256: 9f3a5e81486b0c0270eff405b9a22911bf388aa7b58f3788eed9b0774904283b
 - name: cyber-ornith-1.5-9b-obliterated
   variants:
     - model: cyber-ornith-1.5-9b-obliterated-q6
@@ -373,7 +373,7 @@
   files:
     - filename: ds4flash.gguf
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-      sha256: d09aaa0d77c8c61f91474ac8ca740e9ed92d54ad57e0a96687a797d2410b6154
+      sha256: 69bd869c7924086f5d8a3a86ca9663a1f331b7bd231121262e1989c59ee2179f
 - name: "qwopus3.8-27b-flash-v2"
   variants:
     - model: qwopus3.8-27b-flash-v2-q8
