@@ -68,6 +68,30 @@ To select Q8 explicitly, run `local-ai models install cyber-tiel-coder-35b-a3b-q
 Both configurations use the embedded chat template and default to 32,768 context tokens.
 The [model card](https://huggingface.co/peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-GGUF-MTP) describes its abliterated Ornith-1.5 base and MIT license.
 
+## Qwen3.8-27B Velocity 1.0
+
+The gallery includes Velocity 1.0 by joycx for reasoning and coding with llama.cpp.
+V5 and V6 use mixed-precision GGUF quantization at Q5_K_M and Q6_K sizes.
+Both configurations provide text chat with the embedded Qwen template and a
+32,768-token context. They use temperature 1.0, top-p 0.95, and top-k 20.
+
+Install with automatic variant selection:
+
+```bash
+local-ai models install qwen3.8-27b-velocity-v5
+```
+
+To select V6 explicitly:
+
+```bash
+local-ai models install qwen3.8-27b-velocity-v5 --variant qwen3.8-27b-velocity-v6
+```
+
+These entries do not include a vision projector or enable MTP speculative decoding.
+The weights use **CC BY-NC-SA 4.0**, which permits noncommercial use only.
+See the [Velocity model card](https://huggingface.co/joycx/Qwen3.8-27B-Velocity)
+and [GGUF files and license](https://huggingface.co/joycx/Qwen3.8-27B-Velocity-GGUF).
+
 ## Qwen3.8-27B Agention Precision
 
 The gallery includes Agention Precision IQ4_XS and Q4_K_M GGUF builds of
