@@ -86,6 +86,23 @@ The files use standard llama.cpp quantization types and the Apache-2.0 license.
 See the [publisher's model card](https://huggingface.co/agentionai/Qwen3.8-27B-AP-GGUF)
 for quantization details. These entries do not enable MTP speculative decoding.
 
+## Qwen3.8 Flash Next GSQ-RCO Coder
+
+Install the experimental coder model with:
+
+```bash
+local-ai models install qwen3.8-flash-next-gsq-rco-coder-iq1-m
+```
+
+This entry downloads both GGUF shards and the BF16 vision projector for llama.cpp.
+It uses the embedded chat template and a 32,768-token default context.
+Allow about 60 GB of disk space for the model files.
+
+The [publisher](https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF)
+removes half of the routed experts to focus on coding and agentic tool use.
+General-purpose capabilities can degrade. The model uses the Apache 2.0 license.
+It has a separate gallery entry because its pruned weights differ from the unpruned Flash Next model.
+
 ## Swift 1.5 Qwen3.8-27B GSQ-RCO
 
 Install `swift-1.5-qwen3.8-27b-gsq-rco` for text chat with llama.cpp.

@@ -1991,6 +1991,56 @@
       uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/2c4721899b4382bd07dfb61ae4fbad90c09caf7d/mmproj-Qwen3.8-Flash-Next-BF16.gguf
       sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
 - !!merge <<: *qwen3-8-flash-next
+  name: "qwen3.8-flash-next-gsq-rco-coder-iq1-m"
+  license: apache-2.0
+  variants: []
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF
+  description: |
+    ISTA DASLab's experimental Qwen3.8 Flash Next GSQ-RCO Coder removes
+    half of the routed experts to target coding and agentic tool use.
+    This mixed-precision IQ1_M build includes both GGUF shards and the
+    BF16 vision projector. Uses llama.cpp with the embedded chat template
+    and a 32K context. General-purpose capabilities can degrade after pruning.
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    mmap: true
+    mlock: false
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/qwen3.8-flash-next-gsq-rco-coder/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - use_jinja:true
+      - fit:false
+    parameters:
+      model: llama-cpp/models/qwen3.8-flash-next-gsq-rco-coder/Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00001-of-00002.gguf
+      min_p: 0
+      presence_penalty: 0
+      repeat_penalty: 1
+      temperature: 1
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/qwen3.8-flash-next-gsq-rco-coder/Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00001-of-00002.gguf
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF/resolve/04d8b36b50cc0479fda9214a378336f89b356d67/IQ1_M/Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00001-of-00002.gguf
+      sha256: e11083ba855e7666b48ea3f2db6a9c3a20c18751a012cc24f948de91b7087fad
+    - filename: llama-cpp/models/qwen3.8-flash-next-gsq-rco-coder/Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00002-of-00002.gguf
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF/resolve/04d8b36b50cc0479fda9214a378336f89b356d67/IQ1_M/Qwen3.8-Flash-Next-GSQ-RCO-IQ1_M-00002-of-00002.gguf
+      sha256: 316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113
+    - filename: llama-cpp/mmproj/qwen3.8-flash-next-gsq-rco-coder/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-Coder-GGUF/resolve/04d8b36b50cc0479fda9214a378336f89b356d67/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+- !!merge <<: *qwen3-8-flash-next
   name: "qwen3.8-flash-next-gsq-rco-iq2-xs"
   variants: []
   urls:
