@@ -60,6 +60,20 @@ local-ai models install cyber-ornith-1.5-9b-obliterated --variant cyber-ornith-1
 See the [model card](https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED)
 and [GGUF downloads](https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF).
 
+## Bonsai 2 27B Ternary CRACK
+
+Install the PQ2_0 build with:
+
+```bash
+local-ai models install bonsai-2-27b-ternary-crack-pq2
+```
+
+This entry uses the Bonsai backend and includes the Q8_0 vision projector for image input.
+It uses the embedded chat template with an 8,192-token context by default.
+The publisher provides one weight build, so this entry has no alternative variants.
+The [model card](https://huggingface.co/dealignai/Bonsai-2-27B-Ternary-CRACK-GGUF)
+describes the abliterated Ternary Bonsai 2 base and Apache 2.0 license.
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
