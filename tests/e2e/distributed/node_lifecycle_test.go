@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,11 +47,11 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 
 			// Simulate worker subscribing to backend.install and replying success
 			infra.NC.SubscribeReply(messaging.SubjectNodeBackendInstall(node.ID), func(data []byte, reply func([]byte)) {
-				var req messaging.BackendInstallRequest
+				var req workerctl.BackendInstallRequest
 				json.Unmarshal(data, &req)
 				Expect(req.Backend).To(Equal("llama-cpp"))
 
-				resp := messaging.BackendInstallReply{Success: true}
+				resp := workerctl.BackendInstallReply{Success: true}
 				respData, _ := json.Marshal(resp)
 				reply(respData)
 			})
@@ -71,7 +72,7 @@ var _ = Describe("Node Backend Lifecycle (NATS-driven)", Label("Distributed"), f
 
 			// Simulate worker replying with error
 			infra.NC.SubscribeReply(messaging.SubjectNodeBackendInstall(node.ID), func(data []byte, reply func([]byte)) {
-				resp := messaging.BackendInstallReply{Success: false, Error: "backend not found"}
+				resp := workerctl.BackendInstallReply{Success: false, Error: "backend not found"}
 				respData, _ := json.Marshal(resp)
 				reply(respData)
 			})

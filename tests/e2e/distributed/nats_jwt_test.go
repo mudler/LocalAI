@@ -26,8 +26,9 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 	})
 
 	It("allows backend subscribe on the node prefix", func() {
-		wild := nodeSubjectPrefix(infra.NodeID) + ".>"
-		sub, err := infra.NC.Subscribe(wild, func(_ []byte) {})
+		// The client refuses a `>` filter, so probe the prefix grant with a
+		// concrete subject under it rather than the wildcard itself.
+		sub, err := infra.NC.Subscribe(messaging.SubjectNodeBackendInstall(infra.NodeID), func(_ []byte) {})
 		Expect(err).ToNot(HaveOccurred())
 		defer func() { _ = sub.Unsubscribe() }()
 		Expect(infra.NC.Conn().FlushTimeout(2 * time.Second)).To(Succeed())

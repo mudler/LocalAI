@@ -97,7 +97,6 @@ type DistributedConfig struct {
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
 
 	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
-	JobWorkerConcurrency   int `yaml:"job_worker_concurrency" json:"job_worker_concurrency" env:"LOCALAI_JOB_WORKER_CONCURRENCY"`
 
 	// DiskHeadroomDisabled turns off the scheduler's free-disk admission check,
 	// restoring the pre-#11054 behaviour where node selection ignores whether a

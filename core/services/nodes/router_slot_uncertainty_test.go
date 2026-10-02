@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"gorm.io/gorm"
 )
@@ -37,7 +37,7 @@ var _ = Describe("replica slot lookup under database latency", func() {
 		backend = &stubBackend{loadResult: &pb.Result{Success: true}}
 		factory = &stubClientFactory{client: backend}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.10:9001"},
+			installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.10:9001"},
 		}
 	})
 
@@ -90,7 +90,7 @@ var _ = Describe("node selection under database latency", func() {
 		reg = &fakeModelRouter{findAndLockErr: errors.New("not found")}
 		factory = &stubClientFactory{client: &stubBackend{loadResult: &pb.Result{Success: true}}}
 		unloader = &fakeUnloader{
-			installReply: &messaging.BackendInstallReply{Success: true, Address: "10.0.0.10:9001"},
+			installReply: &workerctl.BackendInstallReply{Success: true, Address: "10.0.0.10:9001"},
 		}
 	})
 

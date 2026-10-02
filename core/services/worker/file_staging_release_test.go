@@ -113,7 +113,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 
 		localPath := filepath.Join(canonicalWorkerTempDir(), "input.wav")
 		Expect(os.WriteFile(localPath, content, 0o600)).To(Succeed())
-		stager := nodes.NewHTTPFileStager(func(string) (string, error) { return addr, nil }, "secret")
+		stager := nodes.NewHTTPFileStager(func(string) (string, error) { return addr, nil }, "secret", nodes.DirectWorkerNetDialer())
 		for range 2 {
 			path, ensureErr := stager.EnsureRemote(context.Background(), "worker", localPath, key)
 			Expect(ensureErr).NotTo(HaveOccurred())
@@ -344,7 +344,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 		Expect(err).NotTo(HaveOccurred())
 		client := &releaseMessagingClient{}
 
-		Expect(subscribeFileRelease(client, "node.one", fm, cacheDir)).To(Succeed())
+		Expect(registerFileReleaseVerb(newNATSControlServer(client, "node.one"), fm, cacheDir, nil)).To(Succeed())
 		Expect(client.subject).To(Equal(messaging.SubjectNodeFilesRelease("node.one")))
 		request, err := json.Marshal(map[string]string{"key": "ephemeral/request-id/audio/input.wav"})
 		Expect(err).NotTo(HaveOccurred())
@@ -371,7 +371,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 		fm, err := storage.NewFileManager(nil, cacheDir)
 		Expect(err).NotTo(HaveOccurred())
 		client := &releaseMessagingClient{}
-		Expect(subscribeFileRelease(client, "node.one", fm, cacheDir)).To(Succeed())
+		Expect(registerFileReleaseVerb(newNATSControlServer(client, "node.one"), fm, cacheDir, nil)).To(Succeed())
 		request, err := json.Marshal(map[string]any{"request_id": "request-id"})
 		Expect(err).NotTo(HaveOccurred())
 		var response []byte
@@ -391,7 +391,7 @@ var _ = Describe("Worker exact-key staging release", func() {
 		fm, err := storage.NewFileManager(nil, cacheDir)
 		Expect(err).NotTo(HaveOccurred())
 		client := &releaseMessagingClient{}
-		Expect(subscribeFileRelease(client, "node-1", fm, cacheDir)).To(Succeed())
+		Expect(registerFileReleaseVerb(newNATSControlServer(client, "node-1"), fm, cacheDir, nil)).To(Succeed())
 
 		request, err := json.Marshal(map[string]string{"key": "models/model.gguf"})
 		Expect(err).NotTo(HaveOccurred())

@@ -47,7 +47,7 @@ type prefixStubClientFactory struct {
 	client *prefixStubBackend
 }
 
-func (f *prefixStubClientFactory) NewClient(_ string, _ bool) grpcPkg.Backend {
+func (f *prefixStubClientFactory) NewClient(_, _ string, _ bool) grpcPkg.Backend {
 	return f.client
 }
 

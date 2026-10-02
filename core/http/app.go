@@ -561,15 +561,17 @@ func API(application *application.Application) (*echo.Echo, error) {
 	distCfg := application.ApplicationConfig().Distributed
 	var registry *nodes.NodeRegistry
 	var remoteUnloader nodes.NodeCommandSender
+	var workerHTTPDial nodes.WorkerNetDialerFor
 	if d := application.Distributed(); d != nil {
 		registry = d.Registry
+		workerHTTPDial = d.WorkerHTTPDial
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}
 	}
 	natsCfg := distCfg.NatsAuthConfig()
 	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial)
 
 	// Distributed SSE routes (job progress + agent events via NATS)
 	if d := application.Distributed(); d != nil {

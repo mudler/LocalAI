@@ -651,14 +651,10 @@ func (a *Application) start() error {
 	return nil
 }
 
-// StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
-// This must be called after the HTTP server is listening, because backends like
-// PostgreSQL need to call the embeddings API during collection initialization.
-func (a *Application) StartAgentPool() {
-	if !a.applicationConfig.AgentPool.Enabled {
-		return
-	}
-	// Build options struct from available dependencies
+// agentPoolOptions builds the agent pool's dependencies. WorkQueue stays a nil
+// interface without distributed services, because the pool reads a non-nil
+// WorkQueue as distributed mode.
+func (a *Application) agentPoolOptions() agentpool.AgentPoolOptions {
 	opts := agentpool.AgentPoolOptions{
 		AuthDB: a.authDB,
 	}
@@ -666,12 +662,21 @@ func (a *Application) StartAgentPool() {
 		if d.DistStores != nil && d.DistStores.Skills != nil {
 			opts.SkillStore = d.DistStores.Skills
 		}
-		opts.NATSClient = d.Nats
+		opts.WorkQueue = d.WorkQueue
 		opts.EventBridge = d.AgentBridge
 		opts.AgentStore = d.AgentStore
 	}
+	return opts
+}
 
-	aps, err := agentpool.NewAgentPoolService(a.applicationConfig, opts)
+// StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
+// This must be called after the HTTP server is listening, because backends like
+// PostgreSQL need to call the embeddings API during collection initialization.
+func (a *Application) StartAgentPool() {
+	if !a.applicationConfig.AgentPool.Enabled {
+		return
+	}
+	aps, err := agentpool.NewAgentPoolService(a.applicationConfig, a.agentPoolOptions())
 	if err != nil {
 		xlog.Error("Failed to create agent pool service", "error", err)
 		return

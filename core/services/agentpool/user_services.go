@@ -31,7 +31,7 @@ type UserServicesManager struct {
 	jobDBStore    *jobs.JobStore
 	// jobNats keeps per-user agent tasks consistent across replicas (nil in
 	// standalone). Inherited by each per-user AgentJobService.
-	jobNats messaging.MessagingClient
+	jobNats messaging.Broadcaster
 }
 
 // NewUserServicesManager creates a new UserServicesManager.
@@ -199,7 +199,7 @@ func (m *UserServicesManager) SetJobDBStore(s *jobs.JobStore) {
 
 // SetJobSyncNATS sets the NATS client used to keep per-user agent tasks consistent
 // across replicas.
-func (m *UserServicesManager) SetJobSyncNATS(nats messaging.MessagingClient) {
+func (m *UserServicesManager) SetJobSyncNATS(nats messaging.Broadcaster) {
 	m.jobNats = nats
 }
 

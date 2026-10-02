@@ -34,7 +34,7 @@ func (s *soundStagingFailure) ReleaseRemote(context.Context, string, string) err
 
 type soundRouteFactory struct{ client grpc.Backend }
 
-func (f *soundRouteFactory) NewClient(string, bool) grpc.Backend { return f.client }
+func (f *soundRouteFactory) NewClient(string, string, bool) grpc.Backend { return f.client }
 
 var _ = Describe("FileStagingClient sound detection", func() {
 	It("stages sound audio through the client returned by SmartRouter.Route", func(ctx SpecContext) {

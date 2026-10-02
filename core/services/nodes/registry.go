@@ -1298,7 +1298,7 @@ func (r *NodeRegistry) GetByName(ctx context.Context, name string) (*BackendNode
 }
 
 // MarkUnhealthy sets a node status to unhealthy. Deliberately status-only:
-// callers fire this on transient triggers (a single nats.ErrNoResponders from
+// callers fire this on transient triggers (a single ErrNoRoute from
 // managers_distributed / reconciler) where the next heartbeat is expected to
 // flip the node back to healthy, and cascade-deleting node_models here would
 // force a full model reload on every brief NATS hiccup. Stale rows are reaped
@@ -2767,8 +2767,8 @@ func (r *NodeRegistry) DeleteStalePendingBackendOps(ctx context.Context, grace t
 	cutoff := time.Now().Add(-grace)
 	// Draining nodes are cleared immediately (admin action; model rows already
 	// purged). Offline AND unhealthy nodes are cleared only once their heartbeat
-	// is older than the grace window: a node marked unhealthy on a NATS
-	// ErrNoResponders never transitions to offline (health.go skips re-marking
+	// is older than the grace window: a node marked unhealthy on an
+	// ErrNoRoute never transitions to offline (health.go skips re-marking
 	// it), so without including unhealthy here its ops would leak exactly like
 	// the offline case. A node with a fresh heartbeat (last_heartbeat > cutoff)
 	// is recovering and keeps its op for retry.

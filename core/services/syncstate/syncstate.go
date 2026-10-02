@@ -38,7 +38,7 @@ type Store[K comparable, V any] interface {
 type Config[K comparable, V any] struct {
 	Name      string                                 // subject namespace, e.g. "finetune.jobs"
 	Key       func(V) K                              // extract the key from a value
-	Nats      messaging.MessagingClient              // nil => standalone: in-memory only, no broadcast/subscribe
+	Nats      messaging.Broadcaster                  // nil => standalone: in-memory only, no broadcast/subscribe
 	Store     Store[K, V]                            // optional read-through persistence
 	Loader    func(ctx context.Context) ([]V, error) // source when there is no Store (e.g. disk reload)
 	OnApply   func(op string, k K, v V)              // optional hook after an applied change (e.g. ShutdownModel)
@@ -111,7 +111,7 @@ func (m *SyncedMap[K, V]) Start(ctx context.Context) error {
 		// nats.go transparently resubscribes on reconnect, but it cannot know we
 		// kept derived in-memory state that may have drifted while the link was
 		// down, so re-hydrate from the durable source. Detected via an optional
-		// interface so MessagingClient itself stays minimal; standalone/test
+		// interface so Broadcaster itself stays minimal; standalone/test
 		// clients without the method simply fall back to the reconcile ticker.
 		if r, ok := m.cfg.Nats.(interface{ OnReconnect(func()) }); ok {
 			r.OnReconnect(func() {

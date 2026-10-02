@@ -41,7 +41,7 @@ type Sync struct {
 
 // New builds and starts the three maps, then attaches the result to m via
 // SetStateSync so any already-durable pins hydrate onto m immediately.
-func New(ctx context.Context, nats messaging.MessagingClient, pins syncstate.Store[string, PinRecord], m *failover.Manager) (*Sync, error) {
+func New(ctx context.Context, nats messaging.Broadcaster, pins syncstate.Store[string, PinRecord], m *failover.Manager) (*Sync, error) {
 	s := &Sync{}
 
 	// pins is already typed as the Store interface (the brief fixes this
