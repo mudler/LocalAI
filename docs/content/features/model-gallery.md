@@ -902,3 +902,17 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+## Qwen3.8 Distill APEX MiniPlus V2.1
+
+The gallery includes [IsValorum's abliterated APEX-I-MiniPlus V2.1 build](https://huggingface.co/IsValorum/Qwen3.8-35B-A3B-Distill-MTP-APEX-I-MiniPlus-V2.1-Abliterated-GGUF) of Qwen3.8-35B-A3B-Distill under Apache-2.0. Both llama.cpp variants use mixed-precision GGUF weights, the included Q8_0 vision projector, the embedded chat template, and a 32,768-token default context.
+
+Install the plain build explicitly:
+
+```bash
+local-ai models install qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated --variant qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated
+```
+
+Select `qwen3.8-35b-a3b-distill-apex-miniplus-v2.1-abliterated-mtp` as the variant to enable MTP speculative decoding with the additional Q8_0 draft head. Automatic selection can prefer the MTP variant when it fits.
+
+The publisher reports repetition during very long responses in the upstream Distill checkpoint. The gallery uses the recommended sampling settings: temperature 0.6, top-p 0.95, top-k 20, min-p 0.05, and repeat penalty 1.
