@@ -43,6 +43,10 @@
 #if __has_include("server-stream.cpp")
 #include "server-stream.cpp"
 #endif
+#if __has_include("server-decision.cpp")
+#define LOCALAI_HAS_NATIVE_DECISIONS 1
+#include "server-decision.cpp"
+#endif
 #include "server-context.cpp"
 
 // LocalAI
@@ -3301,6 +3305,95 @@ public:
     // together in one batch, so a warm scoring call costs roughly one
     // forward pass over the new prompt tokens plus one batched pass over
     // the candidate tails.
+#ifdef LOCALAI_HAS_NATIVE_DECISIONS
+    grpc::Status SystemOne(ServerContext* context, const backend::ScoreRequest* request,
+                           backend::ScoreResponse* response) {
+        const auto & decision = ctx_server.impl->decision;
+        if (decision.type == COMMON_DECISION_TYPE_NONE) {
+            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "This model is not a decision model");
+        }
+        try {
+            const json body = json::parse(request->prompt());
+            const auto questions = decision.parse_questions(body);
+            std::vector<raw_buffer> files;
+            const json state = decision.parse_state(body, files);
+            // This bridge currently validates text-only decisions. Do not discard
+            // images or implicitly enable an unvalidated projector path.
+            if (!files.empty()) {
+                return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+                    "Image input for native decisions is not supported by this backend");
+            }
+            if (context->IsCancelled()) {
+                return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+            }
+            auto rd = ctx_server.get_response_reader(); // destructor cancels outstanding tasks
+            std::vector<server_task> tasks;
+            size_t expected_results = 0;
+            for (const auto & question : questions) {
+                for (size_t variant = 0; variant < decision.n_variants(question); ++variant) {
+                    server_task task(SERVER_TASK_TYPE_DECISION);
+                    task.id = rd.get_new_id();
+                    decision.fill_task(state, question, variant, files,
+                        ctx_server.impl->mctx, ctx_server.impl->init_opt, task);
+                    tasks.push_back(std::move(task));
+                    ++expected_results;
+                }
+            }
+            if (decision.can_share_prompt()) {
+                tasks = server_decision_group_tasks(std::move(tasks), params_base.n_parallel);
+            }
+            rd.post_tasks(std::move(tasks));
+            auto results = rd.wait_for_all([&context]() { return context->IsCancelled(); });
+            if (results.is_terminated) {
+                return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+            }
+            if (results.error) {
+                auto code = grpc::StatusCode::INTERNAL;
+                const auto * error = dynamic_cast<server_task_result_error *>(results.error.get());
+                if (!error) {
+                    return grpc::Status(grpc::StatusCode::INTERNAL, "Unexpected decision error type");
+                }
+                switch (error->err_type) {
+                    case ERROR_TYPE_INVALID_REQUEST:
+                    case ERROR_TYPE_EXCEED_CONTEXT_SIZE: code = grpc::StatusCode::INVALID_ARGUMENT; break;
+                    case ERROR_TYPE_NOT_SUPPORTED: code = grpc::StatusCode::UNIMPLEMENTED; break;
+                    default: break;
+                }
+                return grpc::Status(code, error->err_msg);
+            }
+            if (results.results.size() != expected_results) {
+                return grpc::Status(grpc::StatusCode::INTERNAL, "Unexpected decision result count");
+            }
+            json answers = json::object();
+            int64_t n_tokens = 0;
+            size_t index = 0;
+            for (const auto & question : questions) {
+                std::vector<std::vector<float>> scores;
+                for (size_t variant = 0; variant < decision.n_variants(question); ++variant) {
+                    auto * result = dynamic_cast<server_task_result_decision *>(results.results[index++].get());
+                    if (!result) {
+                        return grpc::Status(grpc::StatusCode::INTERNAL, "Unexpected decision result type");
+                    }
+                    scores.push_back(result->scores);
+                    n_tokens += result->n_tokens;
+                }
+                answers[question.id] = decision.format_answer(question, scores);
+            }
+            response->set_response_json(json{
+                {"model", body.value("model", std::string())}, {"answers", answers},
+                {"usage", {{"input_tokens", n_tokens}, {"output_tokens", 0}}}
+            }.dump());
+            return grpc::Status::OK;
+        } catch (const common_json_error & err) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, err.what());
+        } catch (const std::invalid_argument & err) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, err.what());
+        } catch (const std::exception & err) {
+            return grpc::Status(grpc::StatusCode::INTERNAL, err.what());
+        }
+    }
+#endif
+
     grpc::Status Score(ServerContext* context, const backend::ScoreRequest* request, backend::ScoreResponse* response) override {
         auto auth = checkAuth(context);
         if (!auth.ok()) return auth;
@@ -3308,6 +3401,14 @@ public:
         if (!identity.ok()) return identity;
         if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        if (request->question_type() == "systemone") {
+#ifdef LOCALAI_HAS_NATIVE_DECISIONS
+            return SystemOne(context, request, response);
+#else
+            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+                "Native decisions are unavailable in this llama.cpp fork backend");
+#endif
         }
 #ifdef LOCALAI_LLAMA_CPP_NO_SCORE_TASK
         (void) request;

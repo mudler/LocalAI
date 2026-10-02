@@ -1,5 +1,5 @@
 diff --git a/tools/mtmd/mtmd-helper-gen.cpp b/tools/mtmd/mtmd-helper-gen.cpp
-index 1c58d3ae1..196cbd433 100644
+index 5fb7ea9..b554bf2 100644
 --- a/tools/mtmd/mtmd-helper-gen.cpp
 +++ b/tools/mtmd/mtmd-helper-gen.cpp
 @@ -50,29 +50,38 @@ static llama_token find_special_token(const llama_vocab * vocab, const std::stri
@@ -86,7 +86,7 @@ index 1c58d3ae1..196cbd433 100644
 
          // the prompt above holds the whole text stream up to tts_eos, so every generated
          // frame adds tts_pad on top of the codes embedding
-@@ -302,31 +317,60 @@ public:
+@@ -301,31 +316,60 @@ public:
      }
 
      int32_t get_output(int32_t * out_sample_rate, const char ** out_data, size_t * out_data_len, int64_t * out_n_samples) override {
@@ -156,7 +156,7 @@ index 1c58d3ae1..196cbd433 100644
  private:
      bool ensure_cache() {
          if (specials_ok) {
-@@ -370,7 +414,7 @@ private:
+@@ -369,7 +413,7 @@ private:
              LOG_ERR("mtmd_helper_gen_audio: mmproj has no speaker/audio encoder\n");
              return false;
          }
@@ -165,7 +165,7 @@ index 1c58d3ae1..196cbd433 100644
          mtmd_input_text     text{ marker.c_str(), marker.size(), false, true };
          mtmd_input_chunks * chunks = mtmd_input_chunks_init();
          const mtmd_bitmap * bptr = bitmap;
-@@ -456,6 +500,9 @@ private:
+@@ -455,6 +499,9 @@ private:
      std::vector<float> h_state_buf;
      mtmd_helper_gen_audio_outtype out_type = MTMD_HELPER_GEN_AUDIO_OUTTYPE_WAV;
      std::vector<char> out_buf;
@@ -175,7 +175,7 @@ index 1c58d3ae1..196cbd433 100644
  };
 
  // settings that only live in the reference's per-pack yaml, not in the checkpoint
-@@ -1024,6 +1071,14 @@ void mtmd_helper_gen_audio_reset(mtmd_helper_gen_audio * ctx) {
+@@ -1022,6 +1069,14 @@ void mtmd_helper_gen_audio_reset(mtmd_helper_gen_audio * ctx) {
      }
  }
 
@@ -190,7 +190,7 @@ index 1c58d3ae1..196cbd433 100644
  int32_t mtmd_helper_gen_audio_set_input(mtmd_helper_gen_audio * ctx, const mtmd_helper_gen_audio_inp * inp) {
      if (!ctx->pipeline) {
          LOG_ERR("mtmd_helper_gen_audio: unsupported or missing gen-audio pipeline\n");
-@@ -1060,3 +1115,10 @@ int32_t mtmd_helper_gen_audio_get_output(mtmd_helper_gen_audio * ctx, int32_t *
+@@ -1058,3 +1113,10 @@ int32_t mtmd_helper_gen_audio_get_output(mtmd_helper_gen_audio * ctx, int32_t *
      }
      return ctx->pipeline->get_output(out_sample_rate, out_data, out_data_len, out_n_samples);
  }
@@ -202,10 +202,10 @@ index 1c58d3ae1..196cbd433 100644
 +    return ctx->pipeline->flush();
 +}
 diff --git a/tools/mtmd/mtmd-helper.h b/tools/mtmd/mtmd-helper.h
-index 832f7171a..3eaa01aab 100644
+index 7436230..acbfefc 100644
 --- a/tools/mtmd/mtmd-helper.h
 +++ b/tools/mtmd/mtmd-helper.h
-@@ -175,6 +175,7 @@ enum mtmd_helper_gen_audio_outtype {
+@@ -204,6 +204,7 @@ enum mtmd_helper_gen_audio_outtype {
      MTMD_HELPER_GEN_AUDIO_OUTTYPE_WAV, // WAV PCM 16-bit LE, mono
  };
  struct mtmd_helper_gen_audio_inp {
@@ -213,7 +213,7 @@ index 832f7171a..3eaa01aab 100644
      llama_seq_id seq_id;
 
      const char * prompt;
-@@ -190,6 +191,8 @@ struct mtmd_helper_gen_audio_inp {
+@@ -219,6 +220,8 @@ struct mtmd_helper_gen_audio_inp {
      enum mtmd_helper_gen_audio_outtype out_type;
  };
 
@@ -222,7 +222,7 @@ index 832f7171a..3eaa01aab 100644
  MTMD_API mtmd_helper_gen_audio * mtmd_helper_gen_audio_init(
                                      struct llama_context * lctx,
                                      struct mtmd_context * mctx);
-@@ -221,6 +224,8 @@ MTMD_API int32_t mtmd_helper_gen_audio_step_gen(
+@@ -250,6 +253,8 @@ MTMD_API int32_t mtmd_helper_gen_audio_step_gen(
 
  // out_data valid until next get_output() or reset() call
  // out_n_samples (optional, can be NULL) receives the number of generated PCM samples
@@ -231,7 +231,7 @@ index 832f7171a..3eaa01aab 100644
  MTMD_API int32_t mtmd_helper_gen_audio_get_output(
                          mtmd_helper_gen_audio * ctx,
                          int32_t * out_sample_rate,
-@@ -228,6 +233,10 @@ MTMD_API int32_t mtmd_helper_gen_audio_get_output(
+@@ -257,6 +262,10 @@ MTMD_API int32_t mtmd_helper_gen_audio_get_output(
                          size_t * out_data_len,
                          int64_t * out_n_samples);
 
@@ -242,7 +242,7 @@ index 832f7171a..3eaa01aab 100644
  #ifdef __cplusplus
  } // extern "C"
  #endif
-@@ -254,8 +263,41 @@ struct mtmd_helper_gen_audio_deleter {
+@@ -283,8 +292,41 @@ struct mtmd_helper_gen_audio_deleter {
  };
  using gen_audio_ptr = std::unique_ptr<mtmd_helper_gen_audio, mtmd_helper_gen_audio_deleter>;
  struct gen_audio {
@@ -285,7 +285,7 @@ index 832f7171a..3eaa01aab 100644
      void reset() {
          mtmd_helper_gen_audio_reset(ctx.get());
      }
-@@ -271,6 +313,9 @@ struct gen_audio {
+@@ -300,6 +342,9 @@ struct gen_audio {
      int32_t get_output(int32_t * out_sample_rate, const char ** out_data, size_t * out_data_len, int64_t * out_n_samples = nullptr) {
          return mtmd_helper_gen_audio_get_output(ctx.get(), out_sample_rate, out_data, out_data_len, out_n_samples);
      }
@@ -296,10 +296,10 @@ index 832f7171a..3eaa01aab 100644
 
  } // namespace mtmd_helper
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 9069463fe..b7fa1e534 100644
+index 9c88feb..064bb51 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -16,6 +16,7 @@
+@@ -17,6 +17,7 @@
  #include "speculative.h"
  #include "mtmd.h"
  #include "mtmd-helper.h"
@@ -319,7 +319,7 @@ index 9069463fe..b7fa1e534 100644
      }
 
      auto result = common_speculative_get_output_limits(
-@@ -212,6 +214,30 @@ struct server_slot {
+@@ -215,6 +217,30 @@ struct server_slot {
      mtmd_context * mctx = nullptr;
      mtmd::batch_ptr mbatch = nullptr;
 
@@ -350,7 +350,7 @@ index 9069463fe..b7fa1e534 100644
      // speculative decoding
      common_speculative * spec;
 
-@@ -391,6 +417,8 @@ struct server_slot {
+@@ -395,6 +421,8 @@ struct server_slot {
 
          // clear multimodal state
          mbatch.reset();
@@ -359,9 +359,9 @@ index 9069463fe..b7fa1e534 100644
      }
 
      void init_sampler() const {
-@@ -829,6 +857,14 @@ public:
-     mtmd_context * mctx = nullptr;
-     const llama_vocab * vocab = nullptr;
+@@ -871,6 +899,14 @@ public:
+
+     server_decision_context decision;
 
 +    bool has_cap_tts() const {
 +        return mctx != nullptr && mtmd_gen_audio_get_info(mctx).type != MTMD_GEN_AUDIO_TYPE_NONE;
@@ -374,7 +374,7 @@ index 9069463fe..b7fa1e534 100644
      server_queue    queue_tasks;
      server_response queue_results;
 
-@@ -1288,6 +1324,10 @@ private:
+@@ -1350,6 +1386,10 @@ private:
              slot.mctx                   = mctx;
              slot.prompt.tokens.has_mtmd = mctx != nullptr;
 
@@ -385,7 +385,7 @@ index 9069463fe..b7fa1e534 100644
              SLT_TRC(slot, "new slot, n_ctx = %d\n", slot.n_ctx);
 
              slot.callback_on_release = [this](int id_slot) {
-@@ -1748,6 +1788,28 @@ private:
+@@ -1830,6 +1870,28 @@ private:
 
          SLT_DBG(slot, "launching slot : %s\n", safe_json_to_str(slot.to_json()).c_str());
 
@@ -414,7 +414,7 @@ index 9069463fe..b7fa1e534 100644
          // initialize samplers
          if (task.need_sampling()) {
              try {
-@@ -1765,6 +1827,9 @@ private:
+@@ -1847,6 +1909,9 @@ private:
              // TODO: getting pre sampling logits is not yet supported with backend sampling
              use_backend_sampling &= !need_pre_sample_logits;
 
@@ -424,7 +424,7 @@ index 9069463fe..b7fa1e534 100644
              // TODO: tmp until backend sampling is fully implemented
              if (use_backend_sampling) {
                  llama_set_sampler(ctx_tgt, slot.id, common_sampler_get(slot.smpl.get()));
-@@ -1783,9 +1848,13 @@ private:
+@@ -1872,9 +1937,13 @@ private:
 
          slot.task = std::make_unique<const server_task>(std::move(task));
 
@@ -441,7 +441,7 @@ index 9069463fe..b7fa1e534 100644
 
          // reset server kill-switch counter
          n_empty_consecutive = 0;
-@@ -2050,6 +2119,18 @@ private:
+@@ -2139,6 +2208,18 @@ private:
          queue_results.send(std::move(res));
      }
 
@@ -460,15 +460,18 @@ index 9069463fe..b7fa1e534 100644
      void send_final_response(server_slot & slot) {
          auto res = std::make_unique<server_task_result_cmpl_final>();
 
-@@ -2556,6 +2637,7 @@ private:
-             case SERVER_TASK_TYPE_EMBEDDING:
+@@ -2721,6 +2802,7 @@ private:
              case SERVER_TASK_TYPE_RERANK:
+             case SERVER_TASK_TYPE_DECISION:
              case SERVER_TASK_TYPE_SCORE:
 +            case SERVER_TASK_TYPE_TTS:
                  {
                      // special case: if input is provided via CLI, tokenize it first
                      // otherwise, no need to tokenize as it's already done inside the HTTP thread
-@@ -3007,1 +3089,9 @@ private:
+@@ -3179,6 +3261,14 @@ private:
+             return;
+         }
+
 +        // note: TTS slots bypass the shared batch entirely
 +        try {
 +            process_tts_slots();
@@ -478,7 +481,9 @@ index 9069463fe..b7fa1e534 100644
 +        }
 +
          GGML_ASSERT(batch.slot_batched || batch.size() == 0);
-@@ -3074,10 +3164,77 @@ private:
+
+         if (batch.slot_batched) {
+@@ -3248,10 +3338,77 @@ private:
          }
      }
 
@@ -556,7 +561,7 @@ index 9069463fe..b7fa1e534 100644
              if (slot.state == SLOT_STATE_GENERATING && slot.prompt.n_tokens() + 1 >= slot.n_ctx) {
                  if (!params_base.ctx_shift) {
                      // this check is redundant (for good)
-@@ -3150,7 +3307,7 @@ private:
+@@ -3324,7 +3481,7 @@ private:
 
          // determine which slots are generating and drafting
          iterate(slots, [&](server_slot & slot) {
@@ -565,7 +570,7 @@ index 9069463fe..b7fa1e534 100644
                  return;
              }
 
-@@ -3284,7 +3441,7 @@ private:
+@@ -3458,7 +3615,7 @@ private:
                      return; // batch is full, skip remaining slots
                  }
 
@@ -574,16 +579,16 @@ index 9069463fe..b7fa1e534 100644
                      return;
                  }
 
-@@ -4433,6 +4590,8 @@ server_context_meta server_context::get_meta() const {
+@@ -4678,6 +4835,8 @@ server_context_meta server_context::get_meta() const {
          /* has_inp_image          */ impl->chat_params.allow_image,
          /* has_inp_audio          */ impl->chat_params.allow_audio,
          /* has_inp_video          */ impl->chat_params.allow_video,
 +        /* has_cap_chat           */ impl->has_cap_chat(),
 +        /* has_cap_tts            */ impl->has_cap_tts(),
          /* json_ui_settings       */ impl->json_ui_settings,
-         /* slot_n_ctx             */ impl->get_slot_n_ctx(),
+         /* slot_n_ctx             */ impl->n_ctx_slot(),
          /* pooling_type           */ llama_pooling_type(impl->ctx_tgt),
-@@ -4512,6 +4671,11 @@ std::unique_ptr<server_res_generator> server_routes::handle_completions_impl(
+@@ -4751,6 +4910,11 @@ std::unique_ptr<server_res_generator> server_routes::handle_completions_impl(
 
      res->set_req(&req); // will also set spipe if needed
 
@@ -595,7 +600,7 @@ index 9069463fe..b7fa1e534 100644
      int32_t sse_ping_interval = params.sse_ping_interval;
 
      try {
-@@ -5399,6 +5563,150 @@ void server_routes::init_routes() {
+@@ -5776,6 +5940,150 @@ void server_routes::init_routes() {
          return res;
      };
 
@@ -747,10 +752,10 @@ index 9069463fe..b7fa1e534 100644
          auto res = create_response();
 
 diff --git a/tools/server/server-context.h b/tools/server/server-context.h
-index f9ab1132b..610512678 100644
+index c554bb9..f025792 100644
 --- a/tools/server/server-context.h
 +++ b/tools/server/server-context.h
-@@ -22,6 +22,8 @@ struct server_context_meta {
+@@ -23,6 +23,8 @@ struct server_context_meta {
      bool has_inp_image;
      bool has_inp_audio;
      bool has_inp_video;
@@ -759,19 +764,19 @@ index f9ab1132b..610512678 100644
      json json_ui_settings;
      int slot_n_ctx;
      enum llama_pooling_type pooling_type;
-@@ -151,6 +153,7 @@ struct server_routes {
+@@ -152,6 +154,7 @@ struct server_routes {
      server_http_context::handler_t post_embeddings;
      server_http_context::handler_t post_embeddings_oai;
      server_http_context::handler_t post_rerank;
 +    server_http_context::handler_t post_tts;
+     server_http_context::handler_t post_systemone;
      server_http_context::handler_t get_lora_adapters;
      server_http_context::handler_t post_lora_adapters;
-
 diff --git a/tools/server/server-task.cpp b/tools/server/server-task.cpp
-index 1ee677553..939630b8b 100644
+index a5c33c0..7e59745 100644
 --- a/tools/server/server-task.cpp
 +++ b/tools/server/server-task.cpp
-@@ -1497,6 +1497,17 @@ json server_task_result_rerank::to_json() {
+@@ -1506,6 +1506,17 @@ json server_task_result_decision::to_json() {
      };
  }
 
@@ -790,7 +795,7 @@ index 1ee677553..939630b8b 100644
  // server_task_result_error
  //
 diff --git a/tools/server/server-task.h b/tools/server/server-task.h
-index 5bedf1987..e6ca67a65 100644
+index 4b38805..d79ea4f 100644
 --- a/tools/server/server-task.h
 +++ b/tools/server/server-task.h
 @@ -10,6 +10,7 @@
@@ -799,9 +804,9 @@ index 5bedf1987..e6ca67a65 100644
  #include "server-common.h"
 +#include "mtmd-helper.h"
 
- using json = nlohmann::ordered_json;
 
-@@ -42,6 +43,7 @@ enum server_task_type {
+ // SERVER_TASK_TYPE_SCORE emits one logits output per candidate token (plus
+@@ -43,6 +44,7 @@ enum server_task_type {
      SERVER_TASK_TYPE_SLOT_ERASE,
      SERVER_TASK_TYPE_GET_LORA,
      SERVER_TASK_TYPE_SET_LORA,
@@ -809,7 +814,7 @@ index 5bedf1987..e6ca67a65 100644
  };
 
  // TODO: change this to more generic "response_format" to replace the "format_response_*" in server-common
-@@ -202,6 +204,9 @@ struct server_task {
+@@ -225,6 +227,9 @@ struct server_task {
      // used by SERVER_TASK_TYPE_SET_LORA
      std::map<int, float> set_lora; // mapping adapter ID -> scale
 
@@ -819,15 +824,15 @@ index 5bedf1987..e6ca67a65 100644
      server_task() = default;
 
      server_task(server_task_type type) : type(type) {}
-@@ -235,6 +240,7 @@ struct server_task {
+@@ -249,6 +254,7 @@ struct server_task {
          switch (type) {
              case SERVER_TASK_TYPE_COMPLETION:
              case SERVER_TASK_TYPE_INFILL:
 +            case SERVER_TASK_TYPE_TTS:
                  return true;
-             default:
-                 return false;
-@@ -494,5 +500,15 @@ struct server_task_result_embd : server_task_result {
+             case SERVER_TASK_TYPE_DECISION:
+                 return !decision.labels.empty();
+@@ -521,5 +527,15 @@ struct server_task_result_embd : server_task_result {
      json to_json_oaicompat();
  };
 
