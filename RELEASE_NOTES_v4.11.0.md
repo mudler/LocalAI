@@ -90,7 +90,7 @@ The voice registry now participates in diarization. Configure `speaker_model:<pa
 
 Profiles are unsigned biometric data, not proof of identity or consent. The registry remains global, process-local, ephemeral, and unsynchronized across frontends. Browser storage does not retain vectors or recordings, and profile bodies are excluded from API traces.
 
-![Speaker diarization profiles in Studio](https://github.com/mudler/LocalAI/releases/download/untagged-c01989192b8f3902c845/ui-diarization-speakers.png)
+![Speaker diarization profiles in Studio](https://raw.githubusercontent.com/mudler/LocalAI/release/v4.11-notes/release-screenshots-v4.11.0/ui-diarization-speakers.png)
 
 > 🔗 PRs: #12382, #12414, #12420
 
@@ -123,7 +123,7 @@ Responses identify the actual target with `X-LocalAI-Served-Model`; fallback res
 
 `localai-proxy` forwards supported LocalAI APIs to another LocalAI instance. Configure `proxy.upstream_url`, `upstream_model`, credentials and request timeout. Set `known_usecases` explicitly because remote capabilities cannot be inferred.
 
-![Failover chain health and active targets](https://github.com/mudler/LocalAI/releases/download/untagged-c01989192b8f3902c845/ui-failover.png)
+![Failover chain health and active targets](https://raw.githubusercontent.com/mudler/LocalAI/release/v4.11-notes/release-screenshots-v4.11.0/ui-failover.png)
 
 > 🔗 PRs: #12285
 
@@ -175,7 +175,7 @@ Operators can open model logs and stop a model through the existing shutdown API
 
 Linux DRM backends can also report `loaded_models[].size_vram`. The value is a point-in-time resident-device-memory reading, not a scheduler reservation and not safe to sum as exclusive physical VRAM usage.
 
-![Single-machine resource and running model dashboard](https://github.com/mudler/LocalAI/releases/download/untagged-c01989192b8f3902c845/ui-this-machine.png)
+![Single-machine resource and running model dashboard](https://raw.githubusercontent.com/mudler/LocalAI/release/v4.11-notes/release-screenshots-v4.11.0/ui-this-machine.png)
 
 > 🔗 PRs: #12189, #12026
 
