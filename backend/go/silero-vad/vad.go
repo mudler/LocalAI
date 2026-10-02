@@ -4,6 +4,7 @@ package main
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -52,7 +53,7 @@ func detectorConfigFromOptions(opts *pb.ModelOptions) speech.DetectorConfig {
 
 		switch strings.ToLower(strings.TrimSpace(key)) {
 		case "threshold":
-			if v, err := strconv.ParseFloat(strings.TrimSpace(value), 32); err == nil {
+			if v, err := strconv.ParseFloat(strings.TrimSpace(value), 32); err == nil && !math.IsNaN(v) {
 				cfg.Threshold = float32(v)
 			}
 		case "min_silence_duration_ms":

@@ -4,47 +4,64 @@ import (
 	"testing"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestDetectorConfigFromOptionsDefaults(t *testing.T) {
-	cfg := detectorConfigFromOptions(&pb.ModelOptions{ModelFile: "silero_vad.onnx"})
-
-	if cfg.ModelPath != "silero_vad.onnx" {
-		t.Fatalf("ModelPath = %q, want silero_vad.onnx", cfg.ModelPath)
-	}
-	if cfg.SampleRate != 16000 {
-		t.Fatalf("SampleRate = %d, want 16000", cfg.SampleRate)
-	}
-	if cfg.Threshold != defaultThreshold {
-		t.Fatalf("Threshold = %v, want %v", cfg.Threshold, defaultThreshold)
-	}
-	if cfg.MinSilenceDurationMs != defaultMinSilenceDurationMs {
-		t.Fatalf("MinSilenceDurationMs = %d, want %d", cfg.MinSilenceDurationMs, defaultMinSilenceDurationMs)
-	}
-	if cfg.SpeechPadMs != defaultSpeechPadMs {
-		t.Fatalf("SpeechPadMs = %d, want %d", cfg.SpeechPadMs, defaultSpeechPadMs)
-	}
+func TestVADOptions(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Silero VAD Options")
 }
 
-func TestDetectorConfigFromOptionsOverrides(t *testing.T) {
-	cfg := detectorConfigFromOptions(&pb.ModelOptions{
-		ModelFile: "silero_vad.onnx",
-		Options: []string{
-			"threshold:0.55",
-			"min_silence_duration_ms:50",
-			"speech_pad_ms:450",
-			"ignored",
-			"bad_threshold:abc",
-		},
+var _ = Describe("Detector configuration", func() {
+	It("preserves the model path and defaults", func() {
+		cfg := detectorConfigFromOptions(&pb.ModelOptions{ModelFile: "silero_vad.onnx"})
+		Expect(cfg.ModelPath).To(Equal("silero_vad.onnx"))
+		Expect(cfg.SampleRate).To(Equal(16000))
+		Expect(cfg.Threshold).To(Equal(float32(0.5)))
+		Expect(cfg.MinSilenceDurationMs).To(Equal(100))
+		Expect(cfg.SpeechPadMs).To(Equal(30))
 	})
 
-	if cfg.Threshold != 0.55 {
-		t.Fatalf("Threshold = %v, want 0.55", cfg.Threshold)
-	}
-	if cfg.MinSilenceDurationMs != 50 {
-		t.Fatalf("MinSilenceDurationMs = %d, want 50", cfg.MinSilenceDurationMs)
-	}
-	if cfg.SpeechPadMs != 450 {
-		t.Fatalf("SpeechPadMs = %d, want 450", cfg.SpeechPadMs)
-	}
-}
+	It("applies model options", func() {
+		cfg := detectorConfigFromOptions(&pb.ModelOptions{
+			ModelFile: "silero_vad.onnx",
+			Options: []string{
+				"threshold:0.55",
+				"min_silence_duration_ms:50",
+				"speech_pad_ms:450",
+				"ignored",
+				"bad_threshold:abc",
+			},
+		})
+		Expect(cfg.Threshold).To(Equal(float32(0.55)))
+		Expect(cfg.MinSilenceDurationMs).To(Equal(50))
+		Expect(cfg.SpeechPadMs).To(Equal(450))
+	})
+
+	It("ignores NaN and malformed values without replacing valid options", func() {
+		cfg := detectorConfigFromOptions(&pb.ModelOptions{
+			ModelFile: "silero_vad.onnx",
+			Options: []string{
+				"threshold:0.55",
+				"threshold:NaN",
+				"threshold:abc",
+				"min_silence_duration_ms:-1",
+				"speech_pad_ms:abc",
+			},
+		})
+		Expect(cfg.Threshold).To(Equal(float32(0.55)))
+		Expect(cfg.MinSilenceDurationMs).To(Equal(100))
+		Expect(cfg.SpeechPadMs).To(Equal(30))
+		Expect(cfg.IsValid()).To(Succeed())
+	})
+
+	It("uses the default threshold when the only override is NaN", func() {
+		cfg := detectorConfigFromOptions(&pb.ModelOptions{
+			ModelFile: "silero_vad.onnx",
+			Options:   []string{"threshold:NaN"},
+		})
+		Expect(cfg.Threshold).To(Equal(float32(0.5)))
+		Expect(cfg.IsValid()).To(Succeed())
+	})
+})
