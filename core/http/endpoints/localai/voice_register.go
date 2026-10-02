@@ -10,11 +10,11 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/xlog"
 )
 
 // VoiceRegisterEndpoint enrolls a speaker into the 1:N identification store.
 // @Summary Register a speaker for 1:N identification.
+// @Description Supply either audio or speaker_profiles plus an explicit numeric speaker_slot. The selected model must expose matching trusted encoder metadata for portable enrollment. Registrations are global and ephemeral, with a fresh ID for each request.
 // @Tags voice-recognition
 // @Param request body schema.VoiceRegisterRequest true "query params"
 // @Success 200 {object} schema.VoiceRegisterResponse "Response"
@@ -33,19 +33,37 @@ func VoiceRegisterEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			return echo.NewHTTPError(http.StatusBadRequest, "name is required")
 		}
 
-		audio, cleanup, err := decodeAudioInput(input.Audio)
-		if err != nil {
-			return err
+		var embedding []float32
+		var encoder string
+		if input.SpeakerProfiles != nil {
+			if input.Audio != "" || input.SpeakerSlot == nil {
+				return echo.NewHTTPError(http.StatusBadRequest, "speaker_profiles requires speaker_slot and excludes audio")
+			}
+			trusted, err := backend.ModelSpeakerEncoder(c.Request().Context(), ml, *cfg, appConfig)
+			if err != nil {
+				return mapBackendError(err)
+			}
+			selected, err := input.SpeakerProfiles.Select(*input.SpeakerSlot, trusted)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			}
+			embedding, encoder = selected.Embedding, trusted.Identity
+		} else {
+			if input.SpeakerSlot != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, "speaker_slot requires speaker_profiles")
+			}
+			audio, cleanup, err := decodeAudioInput(input.Audio)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+			res, err := backend.VoiceEmbed(c.Request().Context(), audio, ml, appConfig, *cfg)
+			if err != nil {
+				return mapBackendError(err)
+			}
+			embedding, encoder = res.GetEmbedding(), res.GetModel()
 		}
-		defer cleanup()
-
-		xlog.Debug("VoiceRegister", "model", cfg.Name, "name", input.Name)
-		res, err := backend.VoiceEmbed(c.Request().Context(), audio, ml, appConfig, *cfg)
-		if err != nil {
-			return mapBackendError(err)
-		}
-
-		stored, err := registry.Register(c.Request().Context(), res.GetEmbedding(), voiceMetadata(input.Name, input.Labels, res.GetModel()))
+		stored, err := registry.Register(c.Request().Context(), embedding, voiceMetadata(input.Name, input.Labels, encoder))
 		if err != nil {
 			return err
 		}

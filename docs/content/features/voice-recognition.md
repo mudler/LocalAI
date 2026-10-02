@@ -402,3 +402,68 @@ default only applies when omitted.
   both the face and voice 1:N recognition pipelines.
 - [Embeddings](/features/embeddings/) - text-only OpenAI-compatible
   embedding endpoint; for audio embeddings use `/v1/voice/embed`.
+
+## Portable profile registration
+
+`POST /v1/voice/register` also accepts a JSON alternative to `audio`:
+
+```javascript
+// result is the parsed diarization response; slot is a selected raw speaker slot.
+const request = {
+  model: "parakeet-diarization",
+  name: "Ada",
+  labels: {team: "research"},
+  speaker_slot: slot,
+  speaker_profiles: result.speaker_profiles
+};
+// POST JSON.stringify(request) with Content-Type: application/json.
+```
+
+Copy the complete `speaker_profiles` object returned by diarization unchanged.
+Select `speaker_slot` explicitly, including for slot zero. It is the raw numeric
+slot whose decimal string matches the diarization `label`, not a normalized
+`SPEAKER_NN`, array index, or display name. `audio` and `speaker_profiles` are
+mutually exclusive. `speaker_slot` without profiles is also invalid. Audio-only
+registration keeps its existing JSON shape and behavior.
+
+The server loads the requested, authorized model and obtains encoder identity and
+dimension from backend metadata. It validates the complete profile export and
+selects the requested usable slot. Missing slots, unavailable speech, unsupported
+versions, non-finite/zero/wrong-size vectors and encoder mismatch return 400.
+A backend without trusted encoder metadata returns 501. Success returns the
+existing `{id, name, registered_at}` response.
+
+Portable registrations store the **server-derived SHA-256 identity**, not a
+caller-provided filename tag. Offline/live recognition admits these registrations
+only when the loaded encoder has the same identity and dimension. Legacy audio
+registrations retain their filename-tag compatibility rules. `/v1/voice/identify`
+filters incompatible matches; a backend unable to report trusted identity cannot
+match portable registrations, even when vector dimensions agree. Filtering can
+return fewer than `top_k` results. The parakeet diarization model need not support
+the separate audio-only VoiceEmbed RPC used by `/v1/voice/identify`.
+
+Each successful enrollment inserts a new registration with its own ID and vector.
+Duplicate display names do not merge embeddings or update an earlier enrollment.
+There is no automatic enrollment or sample aggregation.
+
+The recognition registry is **global, in-memory and per LocalAI instance**;
+registrations are lost on restart and are not synchronized across frontends.
+This is not durable “remembering” and not a per-user private address book. The
+persistent `/api/voice-profiles` TTS-cloning feature is unrelated. Export and
+registration use the existing voice-recognition permission, with existing model
+access restrictions; permission does not establish biometric consent.
+
+API tracing excludes the entire exchange for `/v1/audio/diarization`, its
+`/audio/diarization` alias, and `/v1/voice/register` before capturing bodies.
+This also protects JSON base64 audio when profile export is off. These routes
+produce no in-memory or persisted API trace; other routes keep their existing
+tracing behavior. External proxies and client logs must apply the same privacy
+policy. Existing trace files from older versions are not retroactively scrubbed.
+
+For offline and live diarization replay, registry tags never determine the
+encoder dimension. LocalAI orders candidates by registration ID (tagged first),
+then uses loaded encoder metadata to filter dimensions. Portable registrations
+require an exact SHA-256 identity match as well. Older backends without trusted
+metadata reject portable candidates and retain their native legacy dimension
+checks. Identification filters compatibility after the store's `top_k` query;
+incompatible results can crowd out compatible candidates within that window.

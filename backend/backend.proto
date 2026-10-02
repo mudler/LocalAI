@@ -830,6 +830,7 @@ message DiarizeRequest {
   // Registered voices the backend may use to name speakers. Only backends that
   // identify speakers themselves read this; others ignore it.
   repeated KnownVoice known_voices = 12;
+  bool include_speaker_profiles = 13; // opt-in sensitive embeddings; unsupported backends must reject
 }
 
 message DiarizeSegment {
@@ -846,12 +847,14 @@ message DiarizeSegment {
 // names the encoder that produced it, so a backend with a different encoder can
 // refuse vectors that are not comparable.
 message KnownVoice {
+  string id = 4; // registration ID; native keys must not aggregate duplicate display names
   string name = 1;
   repeated float embedding = 2;
   string model = 3;
 }
 
 message DiarizeResponse {
+  string speaker_profiles_json = 5; // versioned speaker_profiles object only; absent by default
   repeated DiarizeSegment segments = 1;
   int32  num_speakers = 2;             // count of distinct speaker labels in `segments`
   float  duration = 3;                 // total audio duration in seconds (0 if unknown)
@@ -907,6 +910,11 @@ message MemoryUsageData {
   map<string, uint64> breakdown = 2;
 }
 
+message SpeakerEncoder {
+  string identity = 1; // sha256 of loaded GGUF bytes
+  int32 dimension = 2;
+}
+
 message StatusResponse {
   enum State {
     UNINITIALIZED = 0;
@@ -916,6 +924,7 @@ message StatusResponse {
   }
   State state = 1;
   MemoryUsageData memory = 2;
+  SpeakerEncoder speaker_encoder = 3; // trusted metadata from the loaded server encoder, never request data
 }
 
 message Message {

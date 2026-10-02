@@ -7,7 +7,8 @@
       "sound": "Sound",
       "transform": "Transform",
       "threed": "3D",
-      "overview": "Overview"
+      "overview": "Overview",
+      "diarization": "Diarization"
     },
     "overview": {
       "eyebrow": "{{ready}} of {{total}} modalities ready",
@@ -26,7 +27,8 @@
         "threed": "Mesh generation and animation",
         "tts": "Text to speech using your voice library",
         "sound": "Music and sound effects from a prompt",
-        "transform": "Separation, enhancement and voice conversion"
+        "transform": "Separation, enhancement and voice conversion",
+        "diarization": "Find speaker turns and remember voices from a recording."
       }
     },
     "groups": {
@@ -477,5 +479,30 @@
     "heading": "Request",
     "copyCurl": "Copy as curl",
     "copied": "Copied"
+  },
+  "diarization": {
+    "title": "Speaker diarization",
+    "subtitle": "Upload a recording to see who spoke when. Preview clean speech before remembering a voice.",
+    "model": "Model",
+    "recording": "Recording",
+    "optIn": "Prepare speakers to remember",
+    "warning": "Remembered voices are shared globally on this server and are lost when it restarts. Nothing is remembered automatically.",
+    "manage": "Manage remembered voices",
+    "running": "Diarizing…",
+    "run": "Diarize",
+    "unsupported": "Choose a profile-capable model with a speaker encoder, or turn off “Prepare speakers to remember” to run normal diarization.",
+    "previewError": "Could not play this recording. Check that your browser supports its audio format.",
+    "speakers": "Speakers",
+    "segments": "Segments",
+    "duration": "Clean speech: {{seconds}} seconds",
+    "preview": "Preview {{number}}",
+    "insufficient": "Not enough clean speech or no usable profile. Try a recording with longer, non-overlapping speech.",
+    "nameAndRemember": "Name and remember",
+    "name": "Name",
+    "saving": "Saving…",
+    "remember": "Remember",
+    "cancel": "Cancel",
+    "stop": "Stop preview",
+    "missingProfiles": "The backend did not return the requested speaker profiles."
   }
 }

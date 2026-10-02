@@ -34,12 +34,13 @@ type DiarizationSpeaker struct {
 // Speakers and segment text are omitted when empty so the default `json`
 // response stays minimal; verbose_json keeps both populated.
 type DiarizationResult struct {
-	Task        string               `json:"task"`
-	Duration    float64              `json:"duration,omitempty"`
-	Language    string               `json:"language,omitempty"`
-	NumSpeakers int                  `json:"num_speakers"`
-	Segments    []DiarizationSegment `json:"segments"`
-	Speakers    []DiarizationSpeaker `json:"speakers,omitempty"`
+	SpeakerProfiles *SpeakerProfiles     `json:"speaker_profiles,omitempty"`
+	Task            string               `json:"task"`
+	Duration        float64              `json:"duration,omitempty"`
+	Language        string               `json:"language,omitempty"`
+	NumSpeakers     int                  `json:"num_speakers"`
+	Segments        []DiarizationSegment `json:"segments"`
+	Speakers        []DiarizationSpeaker `json:"speakers,omitempty"`
 }
 
 // DiarizationResponseFormatType mirrors transcription's response_format

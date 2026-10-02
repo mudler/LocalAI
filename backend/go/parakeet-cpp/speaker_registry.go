@@ -87,7 +87,7 @@ func (p *ParakeetCpp) buildSpeakerRegistryLocked(voices []*pb.KnownVoice) (uintp
 			skipped++
 			continue
 		}
-		if rc := CppSpeakerRegistryAddEmbedding(reg, v.GetName(), &emb[0], int32(len(emb))); rc != 0 {
+		if rc := CppSpeakerRegistryAddEmbedding(reg, voiceKey(v), &emb[0], int32(len(emb))); rc != 0 {
 			xlog.Warn("parakeet-cpp: skipped a registered voice the speaker registry refused", "error", CppSpeakerRegistryLastError(reg))
 			skipped++
 			continue
@@ -117,4 +117,27 @@ func (p *ParakeetCpp) freeSpeakerRegistry(reg uintptr) {
 		return
 	}
 	CppSpeakerRegistryFree(reg)
+}
+
+// Old transport clients have no IDs; retain their name-keyed semantics.
+func voiceKey(v *pb.KnownVoice) string {
+	if v.GetId() != "" {
+		return v.GetId()
+	}
+	return v.GetName()
+}
+func voiceNames(voices []*pb.KnownVoice) map[string]string {
+	names := make(map[string]string, len(voices))
+	for _, v := range voices {
+		names[voiceKey(v)] = v.GetName()
+	}
+	return names
+}
+func translateNames(names map[string]speakerNameJSON, display map[string]string) {
+	for slot, match := range names {
+		if name, ok := display[match.Name]; ok {
+			match.Name = name
+			names[slot] = match
+		}
+	}
 }

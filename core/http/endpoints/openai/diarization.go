@@ -1,7 +1,9 @@
 package openai
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,10 +17,14 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 
 	"github.com/mudler/xlog"
 )
@@ -35,8 +41,9 @@ import (
 // (NIST RTTM, the standard interchange format used by pyannote/dscore).
 //
 // @Summary Identify speakers in audio (who spoke when).
+// @Description JSON accepts model, file (raw base64 audio), include_text, include_speaker_profiles and response_format. Profiles require voice-recognition permission and json or verbose_json; unsupported backends return 501.
 // @Tags audio
-// @accept multipart/form-data
+// @accept multipart/form-data,json
 // @Param model formData string true "model"
 // @Param file formData file true "audio file"
 // @Param num_speakers formData int false "exact speaker count (>0 forces; 0 = auto)"
@@ -46,11 +53,12 @@ import (
 // @Param min_duration_on formData number false "discard segments shorter than this (seconds)"
 // @Param min_duration_off formData number false "merge gaps shorter than this (seconds)"
 // @Param language formData string false "audio language hint (only meaningful for backends that bundle ASR)"
+// @Param include_speaker_profiles formData boolean false "export portable biometric profiles (voice-recognition permission; JSON formats only)"
 // @Param include_text formData boolean false "include per-segment transcript when the backend supports it"
 // @Param response_format formData string false "json (default), verbose_json, or rttm"
 // @Success 200 {object} schema.DiarizationResult
 // @Router /v1/audio/diarization [post]
-func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, registry voicerecognition.Registry) echo.HandlerFunc {
+func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, registry voicerecognition.Registry, authDB ...*gorm.DB) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
@@ -63,8 +71,20 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		}
 
 		req := backend.DiarizationRequest{
-			Language:    input.Language,
-			IncludeText: parseFormBool(c, "include_text", false),
+			Language:               input.Language,
+			IncludeText:            parseFormBool(c, "include_text", input.IncludeText),
+			IncludeSpeakerProfiles: parseFormBool(c, "include_speaker_profiles", input.IncludeSpeakerProfiles),
+		}
+		if req.IncludeSpeakerProfiles {
+			var db *gorm.DB
+			if len(authDB) > 0 {
+				db = authDB[0]
+			}
+			allowed := false
+			err := auth.RequireFeature(db, auth.FeatureVoiceRecognition)(func(c echo.Context) error { allowed = true; return nil })(c)
+			if err != nil || !allowed {
+				return err
+			}
 		}
 		req.NumSpeakers = int32(parseFormInt(c, "num_speakers", 0))
 		req.MinSpeakers = int32(parseFormInt(c, "min_speakers", 0))
@@ -76,6 +96,15 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 
 		responseFormat := schema.DiarizationResponseFormatType(strings.ToLower(c.FormValue("response_format")))
 		if responseFormat == "" {
+			if input.ResponseFormat != nil {
+				f, ok := input.ResponseFormat.(string)
+				if !ok {
+					return echo.NewHTTPError(http.StatusBadRequest, "response_format must be a string")
+				}
+				responseFormat = schema.DiarizationResponseFormatType(strings.ToLower(f))
+			}
+		}
+		if responseFormat == "" {
 			responseFormat = schema.DiarizationResponseFormatJson
 		}
 		switch responseFormat {
@@ -86,15 +115,30 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid response_format (expected: json, verbose_json, rttm)")
 		}
 
-		file, err := uploadedFile(c, "file")
-		if err != nil {
-			return err
+		if req.IncludeSpeakerProfiles && responseFormat == schema.DiarizationResponseFormatRTTM {
+			return echo.NewHTTPError(http.StatusBadRequest, "speaker_profiles requires json or verbose_json")
 		}
-		f, err := file.Open()
-		if err != nil {
-			return err
+		var sourceName = "audio.wav"
+		var reader io.ReadCloser
+		if strings.HasPrefix(c.Request().Header.Get(echo.HeaderContentType), echo.MIMEApplicationJSON) {
+			raw, err := base64.StdEncoding.DecodeString(input.File)
+			if err != nil || len(raw) == 0 {
+				return echo.NewHTTPError(http.StatusBadRequest, "file must be base64 audio")
+			}
+			reader = io.NopCloser(bytes.NewReader(raw))
+		} else {
+			file, err := uploadedFile(c, "file")
+			if err != nil {
+				return err
+			}
+			f, err := file.Open()
+			if err != nil {
+				return err
+			}
+			reader = f
+			sourceName = path.Base(file.Filename)
 		}
-		defer func() { _ = f.Close() }()
+		defer func() { _ = reader.Close() }()
 
 		dir, err := os.MkdirTemp("", "diarize")
 		if err != nil {
@@ -102,13 +146,13 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 		}
 		defer func() { _ = os.RemoveAll(dir) }()
 
-		dst := filepath.Join(dir, path.Base(file.Filename))
+		dst := filepath.Join(dir, sourceName)
 		dstFile, err := os.Create(dst)
 		if err != nil {
 			return err
 		}
-		if _, err := io.Copy(dstFile, f); err != nil {
-			xlog.Debug("Audio file copying error", "filename", file.Filename, "dst", dst, "error", err)
+		if _, err := io.Copy(dstFile, reader); err != nil {
+			xlog.Debug("Audio file copying error", "filename", sourceName, "dst", dst, "error", err)
 			_ = dstFile.Close()
 			return err
 		}
@@ -117,20 +161,28 @@ func DiarizationEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, ap
 
 		result, err := backend.ModelDiarization(c.Request().Context(), req, ml, *modelConfig, appConfig)
 		if err != nil {
+			if status.Code(err) == codes.Unimplemented {
+				return echo.NewHTTPError(http.StatusNotImplemented, status.Convert(err).Message())
+			}
 			return err
+		}
+		if !req.IncludeSpeakerProfiles {
+			result.SpeakerProfiles = nil
 		}
 
 		switch responseFormat {
 		case schema.DiarizationResponseFormatRTTM:
 			c.Response().Header().Set(echo.HeaderContentType, "text/plain; charset=utf-8")
-			return c.String(http.StatusOK, renderRTTM(result, file.Filename))
+			return c.String(http.StatusOK, renderRTTM(result, sourceName))
 		case schema.DiarizationResponseFormatJson:
 			// Default JSON: drop the heavy per-speaker summary and any
-			// optional per-segment text so simple consumers see a tight
+			// unrequested per-segment text so simple consumers see a tight
 			// payload. verbose_json keeps everything.
 			result.Speakers = nil
 			for i := range result.Segments {
-				result.Segments[i].Text = ""
+				if !req.IncludeText {
+					result.Segments[i].Text = ""
+				}
 			}
 			return c.JSON(http.StatusOK, result)
 		case schema.DiarizationResponseFormatJsonVerbose:

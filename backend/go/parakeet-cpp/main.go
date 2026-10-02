@@ -132,6 +132,15 @@ func main() {
 		purego.RegisterLibFunc(&CppDiarizeNamedPCMJSON, lib, "parakeet_capi_diarize_named_pcm_json")
 	}
 
+	for _, lf := range []LibFuncs{
+		{&CppSpeakerIdentity, "parakeet_capi_speaker_identity"},
+		{&CppSpeakerDim, "parakeet_capi_speaker_dim"},
+		{&CppDiarizeProfilesPCMJSON, "parakeet_capi_diarize_profiles_pcm_json"},
+	} {
+		if sym, err := purego.Dlsym(lib, lf.Name); err == nil && sym != 0 {
+			purego.RegisterLibFunc(lf.FuncPtr, lib, lf.Name)
+		}
+	}
 	fmt.Fprintf(os.Stderr, "[parakeet-cpp] ABI=%d\n", CppAbiVersion())
 
 	flag.Parse()

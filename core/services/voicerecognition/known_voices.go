@@ -4,12 +4,14 @@ import (
 	"context"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
 // KnownVoice is one registered voice as it is sent to a backend that matches
 // speakers itself.
 type KnownVoice struct {
+	ID        string
 	Name      string
 	Embedding []float32
 	Model     string
@@ -41,16 +43,14 @@ type KnownVoiceSelection struct {
 	Untagged     int // voices with no encoder tag that were included
 }
 
-// SelectKnownVoices picks, from everything registered, the voices that can be
-// compared with embeddings from the speaker model at speakerModelPath: those
-// with the same encoder tag, then the untagged voices whose size matches the
-// tagged ones (all untagged voices when none matched). Voices from another
-// encoder are counted and skipped, as are voices without a name or embedding.
-// The input is not modified.
+// SelectKnownVoices selects filename-matching, portable and untagged candidates.
+// Registry tags and vector lengths are not trusted encoder metadata: dimension
+// filtering belongs to the loaded backend. Tagged candidates precede untagged
+// ones, each ordered by registration ID so registry iteration order cannot
+// change replay order. The input is not modified.
 func SelectKnownVoices(entries []Entry, speakerModelPath string) KnownVoiceSelection {
 	tag := EncoderTag(speakerModelPath)
 	var sel KnownVoiceSelection
-	matchedDim := 0
 	var untagged []Entry
 	for _, e := range entries {
 		if e.Metadata.Name == "" || len(e.Embedding) == 0 {
@@ -59,23 +59,19 @@ func SelectKnownVoices(entries []Entry, speakerModelPath string) KnownVoiceSelec
 		switch {
 		case e.Metadata.Model == "":
 			untagged = append(untagged, e)
-		case EncoderTag(e.Metadata.Model) == tag:
-			if matchedDim == 0 {
-				matchedDim = len(e.Embedding)
-			}
-			sel.Voices = append(sel.Voices, KnownVoice{Name: e.Metadata.Name, Embedding: e.Embedding, Model: e.Metadata.Model})
+			// Hash-tagged portable registrations are checked against the loaded
+		// encoder by the backend, never against a filename or dimension alone.
+		case strings.HasPrefix(e.Metadata.Model, "sha256:"), EncoderTag(e.Metadata.Model) == tag:
+			sel.Voices = append(sel.Voices, KnownVoice{ID: e.Metadata.ID, Name: e.Metadata.Name, Embedding: e.Embedding, Model: e.Metadata.Model})
 		default:
 			sel.OtherEncoder++
 		}
 	}
-	// With no tagged match every untagged voice is included whatever its size; the
-	// backend skips the voices whose size differs from its speaker model's.
+	sort.Slice(sel.Voices, func(i, j int) bool { return sel.Voices[i].ID < sel.Voices[j].ID })
+	sort.Slice(untagged, func(i, j int) bool { return untagged[i].Metadata.ID < untagged[j].Metadata.ID })
 	for _, e := range untagged {
-		if matchedDim != 0 && len(e.Embedding) != matchedDim {
-			continue
-		}
 		sel.Untagged++
-		sel.Voices = append(sel.Voices, KnownVoice{Name: e.Metadata.Name, Embedding: e.Embedding})
+		sel.Voices = append(sel.Voices, KnownVoice{ID: e.Metadata.ID, Name: e.Metadata.Name, Embedding: e.Embedding})
 	}
 	return sel
 }

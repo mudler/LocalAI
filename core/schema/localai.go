@@ -478,6 +478,8 @@ type VoiceEmbedResponse struct {
 
 // VoiceRegisterRequest enrolls a speaker into the 1:N identification store.
 type VoiceRegisterRequest struct {
+	SpeakerProfiles *SpeakerProfiles `json:"speaker_profiles,omitempty"`
+	SpeakerSlot     *int             `json:"speaker_slot,omitempty"`
 	BasicModelRequest
 	Audio  string            `json:"audio"`
 	Name   string            `json:"name"`
