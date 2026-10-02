@@ -4,10 +4,18 @@ package main
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/streamer45/silero-vad-go/speech"
+)
+
+const (
+	defaultThreshold            = 0.5
+	defaultMinSilenceDurationMs = 100
+	defaultSpeechPadMs          = 30
 )
 
 type VAD struct {
@@ -16,20 +24,49 @@ type VAD struct {
 }
 
 func (vad *VAD) Load(opts *pb.ModelOptions) error {
-	v, err := speech.NewDetector(speech.DetectorConfig{
-		ModelPath:  opts.ModelFile,
-		SampleRate: 16000,
-		//WindowSize:           1024,
-		Threshold:            0.5,
-		MinSilenceDurationMs: 100,
-		SpeechPadMs:          30,
-	})
+	cfg := detectorConfigFromOptions(opts)
+
+	v, err := speech.NewDetector(cfg)
 	if err != nil {
 		return fmt.Errorf("create silero detector: %w", err)
 	}
 
 	vad.detector = v
-	return err
+	return nil
+}
+
+func detectorConfigFromOptions(opts *pb.ModelOptions) speech.DetectorConfig {
+	cfg := speech.DetectorConfig{
+		ModelPath:            opts.ModelFile,
+		SampleRate:           16000,
+		Threshold:            defaultThreshold,
+		MinSilenceDurationMs: defaultMinSilenceDurationMs,
+		SpeechPadMs:          defaultSpeechPadMs,
+	}
+
+	for _, opt := range opts.Options {
+		key, value, ok := strings.Cut(opt, ":")
+		if !ok || value == "" {
+			continue
+		}
+
+		switch strings.ToLower(strings.TrimSpace(key)) {
+		case "threshold":
+			if v, err := strconv.ParseFloat(strings.TrimSpace(value), 32); err == nil {
+				cfg.Threshold = float32(v)
+			}
+		case "min_silence_duration_ms":
+			if v, err := strconv.Atoi(strings.TrimSpace(value)); err == nil && v >= 0 {
+				cfg.MinSilenceDurationMs = v
+			}
+		case "speech_pad_ms":
+			if v, err := strconv.Atoi(strings.TrimSpace(value)); err == nil && v >= 0 {
+				cfg.SpeechPadMs = v
+			}
+		}
+	}
+
+	return cfg
 }
 
 func (vad *VAD) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
