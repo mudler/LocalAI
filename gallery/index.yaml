@@ -12856,6 +12856,84 @@
     - filename: llama-cpp/mmproj/kai-os_Grug-12B-Q8_0/mmproj-kai-os_Grug-12B-f16.gguf
       sha256: 0d59c7571a593b8d11c8104ed90250656efec0abbed9b4a737e7247eae149378
       uri: huggingface://bartowski/kai-os_Grug-12B-GGUF/mmproj-kai-os_Grug-12B-f16.gguf
+- name: "winnow-12b"
+  variants:
+    - model: winnow-12b-bf16
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/EldanRing/Winnow-12B
+    - https://huggingface.co/google/gemma-4-12B-it
+  license: "apache-2.0"
+  description: |
+    Winnow-12B is a Gemma 4 12B IT fine-tune for typed decisions, chat, and vision.
+    This Q8_0 GGUF build includes the shared F16 vision projector.
+    LocalAI serves chat and image inputs through llama.cpp; the publisher's
+    custom /v1/systemone decision API requires its separate inference server.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    mmproj: llama-cpp/mmproj/winnow-12b/mmproj-Winnow-12B.gguf
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/winnow-12b/Winnow-12B-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/winnow-12b/Winnow-12B-Q8_0.gguf
+      sha256: b710efc4c0d048ee61eed92c5fef5ce323a4d17e7c51f9f0533cc72ae50818ea
+      uri: https://huggingface.co/EldanRing/Winnow-12B/resolve/b6ac22b0d51b69b18200acacb3fbdd98073fffe8/gguf/Winnow-12B-Q8_0.gguf
+    - filename: llama-cpp/mmproj/winnow-12b/mmproj-Winnow-12B.gguf
+      sha256: 91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e
+      uri: https://huggingface.co/EldanRing/Winnow-12B/resolve/b6ac22b0d51b69b18200acacb3fbdd98073fffe8/gguf/mmproj-Winnow-12B.gguf
+- name: "winnow-12b-bf16"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/EldanRing/Winnow-12B
+    - https://huggingface.co/google/gemma-4-12B-it
+  license: "apache-2.0"
+  description: |
+    Winnow-12B is a Gemma 4 12B IT fine-tune for typed decisions, chat, and vision.
+    This BF16 GGUF build includes the shared F16 vision projector.
+    LocalAI serves chat and image inputs through llama.cpp; the publisher's
+    custom /v1/systemone decision API requires its separate inference server.
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - vision
+    - multimodal
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    mmproj: llama-cpp/mmproj/winnow-12b/mmproj-Winnow-12B.gguf
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/winnow-12b/Winnow-12B-BF16.gguf
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/winnow-12b/Winnow-12B-BF16.gguf
+      sha256: 10e6b41e00a3fc6668b53a92fb5d9c85179f47145e0786e7a3bc7b5b09ba8968
+      uri: https://huggingface.co/EldanRing/Winnow-12B/resolve/b6ac22b0d51b69b18200acacb3fbdd98073fffe8/gguf/Winnow-12B-BF16.gguf
+    - filename: llama-cpp/mmproj/winnow-12b/mmproj-Winnow-12B.gguf
+      sha256: 91f086971e56d7a7d8d39e271873fccdb49541bd259d6e02c401a4f1cb7a219e
+      uri: https://huggingface.co/EldanRing/Winnow-12B/resolve/b6ac22b0d51b69b18200acacb3fbdd98073fffe8/gguf/mmproj-Winnow-12B.gguf
 - &gemma-4-12b-qat-hauhaucs-balanced
   name: "gemma-4-12b-qat-hauhaucs-balanced"
   variants:

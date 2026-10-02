@@ -438,6 +438,21 @@ whole page has variants.
 curl http://localhost:8080/api/models | jq '.models[] | select(.has_variants) | .name'
 ```
 
+### Winnow-12B chat and vision
+
+[Winnow-12B](https://huggingface.co/EldanRing/Winnow-12B) is a Gemma 4 12B IT fine-tune.
+The gallery offers Q8_0 and BF16 builds for llama.cpp. Both include the same F16 vision projector.
+LocalAI selects a build according to available memory. To select Q8_0 explicitly:
+
+```bash
+local-ai models install winnow-12b --variant winnow-12b
+```
+
+To select BF16, use `--variant winnow-12b-bf16`.
+Both builds use the embedded chat template and a 32,768-token context.
+Use LocalAI's chat completions API for text and image inputs.
+The publisher's `/v1/systemone` decision API requires its separate inference server; these entries do not add that endpoint.
+
 ### Collapsing the listing to one row per model
 
 By default the listing returns every entry, including the individual builds a
