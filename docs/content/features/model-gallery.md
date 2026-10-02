@@ -60,6 +60,26 @@ local-ai models install cyber-ornith-1.5-9b-obliterated --variant cyber-ornith-1
 See the [model card](https://huggingface.co/DuoNeural/Cyber-Ornith-1.5-9B-OBLITERATED)
 and [GGUF downloads](https://huggingface.co/mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF).
 
+## LensVLM-9B
+
+Install `lensvlm-9b` for text and image chat with llama.cpp. The gallery groups
+Q4_K_M and Q8_0 GGUF builds. Both include the F16 vision projector, use the
+embedded chat template, and default to 32,768 context tokens.
+
+```bash
+local-ai models install lensvlm-9b
+```
+
+To select Q8_0 explicitly, run
+`local-ai models install lensvlm-9b --variant lensvlm-9b-q8`.
+
+The [model card](https://huggingface.co/apple/LensVLM-9B) describes Apple's
+Qwen3.5-based model and links to the Apple Machine Learning Research Model
+License. Its selective page-expansion workflow requires an external client
+that prepares document images and implements the model's document tools.
+Installing this gallery entry provides inference only; it does not install
+the [LensVLM document workflow](https://github.com/apple-aiml-research/ml-lensvlm).
+
 ## Cyber-Tiel-Coder
 
 Install `cyber-tiel-coder-35b-a3b-q4-mtp` for coding and image chat with llama.cpp.
