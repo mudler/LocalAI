@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/systemone"
 )
 
 // ---------------------------------------------------------------------------
@@ -377,13 +377,7 @@ func systemOneError(c echo.Context, status int, msg string) error {
 // declares no usecases predates the flag and stays allowed, and a
 // token_classify model is allowed because the NER path serves it.
 func systemOneModelAllowed(cfg config.ModelConfig) error {
-	if cfg.KnownUsecases == nil {
-		return nil
-	}
-	if *cfg.KnownUsecases&(config.FLAG_DECISIONS|config.FLAG_TOKEN_CLASSIFY) != 0 {
-		return nil
-	}
-	return fmt.Errorf("model %q does not declare the decisions usecase (known_usecases: [decisions])", cfg.Name)
+	return systemone.ModelAllowed(cfg)
 }
 
 // checkSystemOneModel applies systemOneModelAllowed to a model looked up by
@@ -409,31 +403,14 @@ func checkSystemOneModel(app *application.Application, modelName string) error {
 // decision pipeline, which is what setups that predate the decisions usecase
 // relied on.
 func systemOneUsesDecisionPipeline(cfg config.ModelConfig) bool {
-	if !backendSupportsScore(cfg.Backend) {
-		return false
-	}
-	if cfg.KnownUsecases == nil {
-		return true
-	}
-	declared := *cfg.KnownUsecases
-	if declared&config.FLAG_DECISIONS != 0 {
-		return true
-	}
-	return declared&config.FLAG_TOKEN_CLASSIFY == 0
+	return systemone.UsesDecisionPipeline(cfg)
 }
 
 // systemOneNERAllowed guards /permute and /separate, which always run the NER
 // path. A decision model cannot serve them: the backend's NER entry point
 // refuses its architecture, and the caller would see a backend error.
 func systemOneNERAllowed(cfg config.ModelConfig) error {
-	if cfg.KnownUsecases == nil {
-		return nil
-	}
-	declared := *cfg.KnownUsecases
-	if declared&config.FLAG_DECISIONS != 0 && declared&config.FLAG_TOKEN_CLASSIFY == 0 {
-		return fmt.Errorf("model %q is a decision model: /permute and /separate use the NER path, use POST /v1/systemone instead", cfg.Name)
-	}
-	return nil
+	return systemone.NERAllowed(cfg)
 }
 
 // checkSystemOneNERModel applies systemOneNERAllowed to a model looked up by
@@ -456,8 +433,8 @@ func checkSystemOneNERModel(app *application.Application, modelName string) erro
 // for one server behaves the same on the other. The engine enforces any
 // per-model option cap (letter-answer models refuse more than 26 options).
 const (
-	systemOneMaxBody      = 64 << 10
-	systemOneMaxQuestions = 64
+	systemOneMaxBody      = systemone.MaxBodyBytes
+	systemOneMaxQuestions = systemone.MaxQuestions
 )
 
 // systemOneBind binds the JSON body with a size cap. Bind reads the whole body
@@ -489,72 +466,7 @@ func systemOneBindMessage(err error) string {
 // forwarded path never sees parseSystemOneRequest, so without this a malformed
 // question would surface as a backend error instead of a 400.
 func validateSystemOneRequest(req *schema.SystemOneRequest) error {
-	if len(req.State) == 0 || string(req.State) == "null" {
-		return fmt.Errorf("state is required")
-	}
-	var state any
-	if err := json.Unmarshal(req.State, &state); err != nil {
-		return fmt.Errorf("state is not valid JSON: %w", err)
-	}
-	if s, ok := state.(string); ok && strings.TrimSpace(s) == "" {
-		return fmt.Errorf("state is required")
-	}
-	if len(req.Questions) == 0 {
-		return fmt.Errorf("questions is required and must contain at least one question")
-	}
-	if len(req.Questions) > systemOneMaxQuestions {
-		return fmt.Errorf("questions must contain at most %d questions", systemOneMaxQuestions)
-	}
-	qids := make([]string, 0, len(req.Questions))
-	for id := range req.Questions {
-		qids = append(qids, id)
-	}
-	sort.Strings(qids)
-	for _, id := range qids {
-		if strings.TrimSpace(id) == "" {
-			return fmt.Errorf("question ids must not be blank")
-		}
-		q := req.Questions[id]
-		switch q.Type {
-		case "choice":
-			var criteria map[string]json.RawMessage
-			if err := json.Unmarshal(q.Criteria, &criteria); err != nil {
-				return fmt.Errorf("question %q (choice) requires a criteria object", id)
-			}
-			if len(criteria) < 2 {
-				return fmt.Errorf("question %q (choice) requires at least 2 options", id)
-			}
-			for k := range criteria {
-				if strings.TrimSpace(k) == "" {
-					return fmt.Errorf("question %q (choice) has a blank option key", id)
-				}
-			}
-		case "score":
-			var criteria []json.RawMessage
-			if err := json.Unmarshal(q.Criteria, &criteria); err != nil {
-				return fmt.Errorf("question %q (score) requires a criteria array", id)
-			}
-			if len(criteria) < 2 {
-				return fmt.Errorf("question %q (score) requires at least 2 levels", id)
-			}
-		case "noul":
-			if len(q.Criteria) == 0 || string(q.Criteria) == "null" {
-				continue
-			}
-			var criteria map[string]json.RawMessage
-			if err := json.Unmarshal(q.Criteria, &criteria); err != nil {
-				return fmt.Errorf("question %q (noul) criteria must be an object with \"false\" and \"true\" descriptions", id)
-			}
-			for k := range criteria {
-				if k != "false" && k != "true" {
-					return fmt.Errorf("question %q (noul) criteria may only have \"false\" and \"true\" keys", id)
-				}
-			}
-		default:
-			return fmt.Errorf("question %q has unknown type: %s", id, q.Type)
-		}
-	}
-	return nil
+	return systemone.ValidateRequest(req)
 }
 
 // backendSupportsScore reports whether the named backend implements the
@@ -562,11 +474,7 @@ func validateSystemOneRequest(req *schema.SystemOneRequest) error {
 // scoring via the unified vllm_decide C ABI); other backends fall through to
 // the NER-based path.
 func backendSupportsScore(backendName string) bool {
-	cap := config.GetBackendCapability(backendName)
-	if cap == nil {
-		return false
-	}
-	return slices.Contains(cap.GRPCMethods, config.MethodScore)
+	return systemone.BackendSupportsScore(backendName)
 }
 
 // ---------------------------------------------------------------------------
