@@ -222,6 +222,10 @@ LocalAI supports **60+ backends** including llama.cpp, vLLM, SGLang, transformer
 
 See the full [Backend & Model Compatibility Table](https://localai.io/model-compatibility/) and [GPU Acceleration guide](https://localai.io/features/gpu-acceleration/).
 
+| Additional native backend | What it does |
+|---------------------------|--------------|
+| [pixal3d.cpp](https://github.com/raven38/pixal3d.cpp) (`pixal3dcpp`) | Four canonical RGBA views to a textured 3D GLB, with an explicit mesh scale. [Setup and API](https://localai.io/features/3d-generation/) |
+
 ### Backends built by us
 
 Most backends wrap a best-in-class upstream engine. A handful of them are native C/C++/GGML engines (no Python at inference) developed and maintained by the LocalAI project itself:

@@ -445,6 +445,12 @@ var BackendCapabilities = map[string]BackendCapability{
 		DefaultUsecases:  []string{Usecase3DAnimation},
 		Description:      "kimodo.cpp — text-to-motion on CPU/Vulkan, exported as animated skeleton GLB",
 	},
+	"pixal3dcpp": {
+		GRPCMethods:      []GRPCMethod{MethodGenerate3D},
+		PossibleUsecases: []string{Usecase3D},
+		DefaultUsecases:  []string{Usecase3D},
+		Description:      "Pixal3D — four pre-matted RGBA views to textured 3D mesh (GLB)",
+	},
 	"trellis2cpp": {
 		GRPCMethods:      []GRPCMethod{MethodGenerate3D},
 		PossibleUsecases: []string{Usecase3D},

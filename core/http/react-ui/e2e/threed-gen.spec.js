@@ -401,3 +401,33 @@ test.describe('3D generation', () => {
     })
   })
 })
+
+test('Pixal3D requires four ordered views and a positive mesh scale', async ({ page }) => {
+  await page.route('**/api/models/capabilities', route => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [{ id: 'pixal-test', capabilities: ['FLAG_3D'], three_d_operations: [{
+      id: 'generate_multiview', endpoint: '/3d/generations', output: 'mesh',
+      inputs: ['front', 'right', 'back', 'left'].map(name => ({ name, type: 'image', required: true })),
+      parameters: [{ name: 'mesh_scale', type: 'number' }],
+    }] }] }),
+  }))
+  let request
+  await mockGeneration(page, body => { request = body })
+  await mockGlbDownload(page)
+  await page.goto('/app/3d')
+  await expect(page.getByRole('button', { name: 'pixal-test' })).toBeVisible()
+  await expect(page.locator('#threed-image-file')).toHaveCount(0)
+  await expect(page.getByLabel('Mesh scale')).toBeVisible()
+  for (const name of ['front', 'right', 'back', 'left']) {
+    await page.locator(`#threed-${name}-image-file`).setInputFiles({ name: `${name}.png`, mimeType: 'image/png', buffer: TINY_PNG })
+  }
+  await page.getByLabel('Mesh scale').fill('0.8')
+  await page.locator('button[type="submit"]').click()
+  await expect(page.getByTestId('glb-download')).toBeVisible()
+  expect(request.images).toHaveLength(4)
+  expect(request.mesh_scale).toBe(0.8)
+  expect(request.quality).toBe('1024')
+  expect(request.image).toBeUndefined()
+  expect(request.background).toBeUndefined()
+  await expect(page.getByTestId('glb-remesh')).toHaveCount(0)
+})

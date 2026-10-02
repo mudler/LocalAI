@@ -296,6 +296,7 @@ test("every enumerated Go-backend pkg subtree triggers a Go rebuild", () => {
     "pkg/audio/convert.go",
     "pkg/grpc/client.go",
     "pkg/httpclient/client.go",
+    "pkg/pixal3d/inputs.go",
     "pkg/sound/sound.go",
     "pkg/store/client.go",
     "pkg/utils/path.go",
@@ -595,4 +596,9 @@ test("unresolvable proto revisions conservatively rebuild everything", () => {
 
   assert.equal(filtered.length, includes.length);
   assert.equal(filteredDarwin.length, includesDarwin.length);
+});
+
+test("pixal3dcpp maps to its Go wrapper on Linux and Darwin", () => {
+  assert.equal(inferBackendPath({ backend: "pixal3dcpp", dockerfile: "./backend/Dockerfile.golang" }), "backend/go/pixal3dcpp/");
+  assert.equal(inferBackendPathDarwin({ backend: "pixal3dcpp", lang: "go" }), "backend/go/pixal3dcpp/");
 });
