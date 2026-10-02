@@ -902,3 +902,7 @@ is still running is reported as queued until the installer picks it up:
 A job ID is queryable from the moment `/models/apply` returns it, so a `404`/`500`
 from this endpoint means the ID is genuinely unknown rather than merely waiting
 its turn.
+
+## Qwen3.8-27B MTP vision projector
+
+The `qwen3.8-27b-q4-mtp` entry uses the Q8_0 vision projector included in its download list. If an existing installation references `mmproj-Qwen3.8-27B-BF16.gguf`, edit its `mmproj` setting to `llama-cpp/mmproj/qwen3.8-27b/mmproj-Qwen3.8-27B-Q8_0.gguf`.
