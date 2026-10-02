@@ -12016,6 +12016,150 @@
     - filename: llama-cpp/mmproj/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/mmproj-F32.gguf
       sha256: 32f7ea0600c07272547da401d460f8abbd980f3a57b69d6df87be0e2505e0b9c
       uri: https://huggingface.co/Jackrong/Qwopus3.6-27B-Coder-Compat-MTP-GGUF/resolve/main/mmproj-F32.gguf
+- name: "qwen3.5-4b-hauhaucs-aggressive"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  variants:
+    - model: qwen3.5-4b-hauhaucs-aggressive-q6
+    - model: qwen3.5-4b-hauhaucs-aggressive-q8
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive
+  description: |
+    HauhauCS Aggressive is a refusal-removed version of Qwen3.5-4B, a
+    multilingual model with text and image input. This Q4_K_M GGUF build
+    includes the BF16 vision projector and uses a 32K-token default context.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - uncensored
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q4_K_M/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q4_K_M/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+      sha256: 79e28ecacf84e75b6056cf4059636d435aa9eb67795780f7b7dbc7d32a962741
+      uri: https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/resolve/c09cdbcdb1fefad6d335809d445621b5f5ba0c6e/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+      sha256: a1e32e86ea99aa7a56f3dcfe7e63c1d0be9439d31fd07087099f15bc0fda0f22
+      uri: https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/resolve/c09cdbcdb1fefad6d335809d445621b5f5ba0c6e/mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+- name: "qwen3.5-4b-hauhaucs-aggressive-q6"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive
+  description: |
+    HauhauCS Aggressive is a refusal-removed version of Qwen3.5-4B, a
+    multilingual model with text and image input. This Q6_K GGUF build
+    includes the BF16 vision projector and uses a 32K-token default context.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - uncensored
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q6_K/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q6_K.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q6_K/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q6_K.gguf
+      sha256: ba93c21300854075ab42655bc30dca82c7c6c958f511d1ec9ea2b3e750b4b75f
+      uri: https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/resolve/c09cdbcdb1fefad6d335809d445621b5f5ba0c6e/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q6_K.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+      sha256: a1e32e86ea99aa7a56f3dcfe7e63c1d0be9439d31fd07087099f15bc0fda0f22
+      uri: https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/resolve/c09cdbcdb1fefad6d335809d445621b5f5ba0c6e/mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+- name: "qwen3.5-4b-hauhaucs-aggressive-q8"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive
+  description: |
+    HauhauCS Aggressive is a refusal-removed version of Qwen3.5-4B, a
+    multilingual model with text and image input. This Q8_0 GGUF build
+    includes the BF16 vision projector and uses a 32K-token default context.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - uncensored
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/logo_qwen.jpg
+  last_checked: "2026-09-28"
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    mmproj: llama-cpp/mmproj/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q8_0/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q8_0.gguf
+      temperature: 0.6
+      top_p: 0.95
+      top_k: 20
+      min_p: 0
+    template:
+      use_tokenizer_template: true
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q8_0/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q8_0.gguf
+      sha256: 3aa21dfc185595bb9f3f8f98f08325fcecfdf446c510ce2b03fe19104e700c16
+      uri: https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/resolve/c09cdbcdb1fefad6d335809d445621b5f5ba0c6e/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-Q8_0.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
+      sha256: a1e32e86ea99aa7a56f3dcfe7e63c1d0be9439d31fd07087099f15bc0fda0f22
+      uri: https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive/resolve/c09cdbcdb1fefad6d335809d445621b5f5ba0c6e/mmproj-Qwen3.5-4B-Uncensored-HauhauCS-Aggressive-BF16.gguf
 - &qwen3-5-9b-hauhaucs-aggressive
   name: "qwen3.5-9b-hauhaucs-aggressive"
   variants:
